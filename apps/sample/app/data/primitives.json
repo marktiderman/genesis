@@ -14648,6 +14648,13 @@
               "description": ""
             },
             {
+              "name": "shell",
+              "type": "DeepPartial<{ navigation: string; openNavigation: string; closeNavigation: string; expandSidebar: string; collapseSidebar: string; primaryNavigation: string; more: string; moreDescription: string; moreCurrent: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "sortable",
               "type": "DeepPartial<{ item: string; reorder: string; move: string; moveUp: string; moveDown: string; moveToTop: string; moveToBottom: string; moved: string; moveFailed: string; pickedUp: string; dropped: string; cancelled: string; instructions: string; }>",
               "required": false,
@@ -14688,7 +14695,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 12 more ...; auth: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 13 more ...; shell: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
