@@ -1,0 +1,51 @@
+packages/ui/src/components/layout/__tests__/app-shell-print.test.tsx
+  s_318cb635985f4b::t_904a5f7de5abe6 1-29
+packages/ui/src/components/layout/AppShell.tsx
+  s_318cb635985f4b::t_baa6e3c2eda589 1751-1752,1755,1758,1819,1825,1857,1862,1943
+packages/ui/src/components/data/resource-view/ResourceCalendar.tsx
+  s_318cb635985f4b::t_115e1fef60983e 15,339
+  s_318cb635985f4b::t_4252907cec9b3b 19-20,71-76,145,340-353,355
+docs/component-reference.md
+  s_318cb635985f4b::t_1be65426fca819 10081
+  s_6a4659246591cd::t_98c811b8738495 7,10057,10070
+packages/ui/src/components/data/calendar/PrintableAgenda.tsx
+  s_318cb635985f4b::t_cec80ad7a4551d 92-94,128,167-179,190
+  s_318cb635985f4b::t_96806c508fbc5e 9,13,32-38,66,78-80,85-91,95,97,111,116,119,125,140,152-166,181-189,191,194,200-206,208
+packages/ui/src/components/data/calendar/index.ts
+  s_318cb635985f4b::t_cec80ad7a4551d 2
+docs/RESOURCE-VIEW.md
+  s_318cb635985f4b::t_115e1fef60983e 488-499
+packages/ui/src/components/data/__tests__/printable-agenda.test.tsx
+  s_318cb635985f4b::t_b1b1a6ac18dfa6 30-31,35,40-41,75-111
+packages/ui/src/components/data/__tests__/event-calendar.test.tsx
+  s_318cb635985f4b::t_b1b1a6ac18dfa6 1028-1036,1038-1041
+  s_318cb635985f4b::t_4853420389bcb3 1037
+.changeset/calendar-printable-agenda.md
+  s_6a4659246591cd::t_aff6bcface785a 5
+apps/sample/app/data/primitives.json
+  s_6a4659246591cd::t_5ed348c3a608ae 15372-15378,15394-15395,15397-15398,15467,16369-16375
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a380e4b41cc64bc7cf6be43f2982aa1fb4492008",
+  "prompts": {},
+  "sessions": {
+    "s_318cb635985f4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8270687-1465-46da-9cdc-8373bb9d738c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
