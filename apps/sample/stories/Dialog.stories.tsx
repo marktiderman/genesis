@@ -58,3 +58,26 @@ export const Destructive: Story = {
     </Dialog>
   ),
 };
+
+/** On a phone the dialog docks to the bottom edge; from `sm` up it is the centred box. Opt-in. */
+export const PhoneSheet: Story = {
+  render: () => (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button>Open as a sheet on a phone</Button>
+      </DialogTrigger>
+      <DialogContent mobileLayout="sheet">
+        <DialogHeader>
+          <DialogTitle>Edit profile</DialogTitle>
+          <DialogDescription>
+            On a phone this dialog is a bottom sheet. Wider screens see the centred box.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline">Cancel</Button>
+          <Button>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  ),
+};
