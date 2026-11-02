@@ -2,7 +2,7 @@
 // `status: { display: "badge" }` and never imports a component, so native and the extension can
 // draw the same view their own way. An app replaces any of them with DisplayRenderersProvider.
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { isSafeUrl, useRelationLabel, useViewer } from "@marktiderman/genesis-core";
 import { isTimeZone } from "@marktiderman/genesis-core/dates";
 import { useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
@@ -93,19 +93,41 @@ function formatInstant(value: unknown, timeZone: string | undefined): string {
 
 const MINUTE = 60_000;
 
+// One clock for every RelativeTime on the page: a single interval runs while any is mounted, and
+// every one of them redraws on its tick. `null` on the server and before the first subscriber.
+let clockNow: Date | null = null;
+let clockTimer: ReturnType<typeof setInterval> | undefined;
+const clockListeners = new Set<() => void>();
+function subscribeClock(listener: () => void): () => void {
+  clockListeners.add(listener);
+  if (clockTimer === undefined) {
+    clockNow = new Date();
+    clockTimer = setInterval(() => {
+      clockNow = new Date();
+      for (const l of clockListeners) l();
+    }, MINUTE);
+  }
+  return () => {
+    clockListeners.delete(listener);
+    if (clockListeners.size === 0 && clockTimer !== undefined) {
+      clearInterval(clockTimer);
+      clockTimer = undefined;
+      clockNow = null;
+    }
+  };
+}
+const clockSnapshot = () => clockNow;
+const serverClockSnapshot = () => null;
+
 /**
- * A time as `relativeTime` says it, with the exact time (in `timeZone`) on hover. The server and
- * the first paint show the exact time, so hydration matches; after mount it turns relative and
- * keeps itself current each minute.
+ * A time as `relativeTime` says it, in the messages' words and locale, with the exact time (in
+ * `timeZone`) on hover. The server and the first paint show the exact time, so hydration matches;
+ * after mount it turns relative and keeps itself current each minute, on one clock shared by
+ * every RelativeTime on the page.
  */
 export function RelativeTime({ value, timeZone, className }: { value: unknown; timeZone?: string | undefined; className?: string | undefined }) {
   const m = useUiMessages();
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => {
-    setNow(new Date());
-    const tick = setInterval(() => setNow(new Date()), MINUTE);
-    return () => clearInterval(tick);
-  }, []);
+  const now = useSyncExternalStore(subscribeClock, clockSnapshot, serverClockSnapshot);
   const at = value instanceof Date ? value : new Date(String(value));
   const exact = formatInstant(value, timeZone);
   return (

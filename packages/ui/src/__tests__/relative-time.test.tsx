@@ -5,9 +5,10 @@
  * - `relativeDatetimeRenderer` is the `datetime` renderer only under a DisplayRenderersProvider.
  */
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DateCell } from "../components/data/cell-formatters";
 import { RelativeTime, relativeDatetimeRenderer, relativeTime, webDisplayRenderers } from "../components/data/resource-view";
+import { uiMessages, UiMessagesProvider } from "../messages";
 import { formatRelativeTime } from "../utils";
 
 const NOW = new Date("2026-06-15T12:00:00Z");
@@ -39,9 +40,25 @@ describe("relativeTime", () => {
   });
 
   it("takes translated words, reads an unknown zone on the device's clock, and passes a non-date through", () => {
-    expect(relativeTime(ago(3 * MIN), NOW, { words: { justNow: "now", minutesAgo: "{n}m", inMinutes: "+{n}m" } })).toBe("3m");
+    expect(relativeTime(ago(3 * MIN), NOW, { words: { ...uiMessages.time, minutesAgo: "vor {n} Min." } })).toBe("vor 3 Min.");
     expect(relativeTime(ago(3 * MIN), NOW, { timeZone: "Not/AZone" })).toBe("3 min ago");
     expect(relativeTime("not a date", NOW)).toBe("not a date");
+  });
+
+  it("formats hours, days and dates in the messages' locale", () => {
+    const de = { ...uiMessages.time, locale: "de" };
+    expect(relativeTime(ago(DAY), NOW, { ...UTC, words: de })).toBe("gestern");
+    expect(relativeTime(new Date("2026-05-01T12:00:00Z"), NOW, { ...UTC, words: de })).toBe("1. Mai");
+  });
+
+  it("says it compactly for an inbox", () => {
+    const compact = { ...UTC, style: "compact" as const, locale: "en-GB" };
+    expect(relativeTime(ago(20_000), NOW, compact)).toBe("now");
+    expect(relativeTime(ago(5 * MIN), NOW, compact)).toBe("5m");
+    expect(relativeTime(ago(2 * HOUR), NOW, compact)).toBe("10:00");
+    expect(relativeTime(ago(DAY), NOW, compact)).toBe("Yesterday");
+    expect(relativeTime(ago(3 * DAY), NOW, compact)).toBe("Fri");
+    expect(relativeTime(new Date("2026-03-12T12:00:00Z"), NOW, compact)).toBe("12 Mar");
   });
 });
 
@@ -57,6 +74,13 @@ describe("formatRelativeTime and DateCell", () => {
     expect(formatRelativeTime(threeMin, { style: "short" })).toBe("3 min ago");
     expect(DateCell({ relative: "short" })(null, threeMin.toISOString())).toBe("3 min ago");
   });
+
+  it('take the screen\'s words for "short", so a translation applies', () => {
+    const words = { ...uiMessages.time, minutesAgo: "vor {n} Min." };
+    const threeMin = new Date(Date.now() - 3 * MIN);
+    expect(formatRelativeTime(threeMin, { style: "short", words })).toBe("vor 3 Min.");
+    expect(DateCell({ relative: "short", words })(null, threeMin.toISOString())).toBe("vor 3 Min.");
+  });
 });
 
 describe("relativeDatetimeRenderer", () => {
@@ -71,5 +95,29 @@ describe("relativeDatetimeRenderer", () => {
     expect(el.tagName).toBe("TIME");
     expect(el.getAttribute("dateTime")).toBe(at.toISOString());
     expect(el.getAttribute("title")).toBeTruthy();
+  });
+
+  it("shares one clock between every RelativeTime on the page", () => {
+    const setInterval = vi.spyOn(globalThis, "setInterval");
+    const at = new Date(Date.now() - 3 * MIN).toISOString();
+    const { unmount } = render(
+      <>
+        <RelativeTime value={at} />
+        <RelativeTime value={at} />
+        <RelativeTime value={at} />
+      </>,
+    );
+    expect(setInterval.mock.calls.filter(([, ms]) => ms === 60_000)).toHaveLength(1);
+    unmount();
+    setInterval.mockRestore();
+  });
+
+  it("reads the messages in effect", () => {
+    render(
+      <UiMessagesProvider messages={{ time: { minutesAgo: "vor {n} Min." } }}>
+        <RelativeTime value={new Date(Date.now() - 3 * MIN).toISOString()} />
+      </UiMessagesProvider>,
+    );
+    expect(screen.getByText("vor 3 Min.")).toBeTruthy();
   });
 });
