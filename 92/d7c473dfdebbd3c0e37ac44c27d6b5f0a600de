@@ -1,0 +1,19 @@
+apps/genesis-rn-starter/supabase/tests/database/genesis_notifications.test.sql
+  s_043bace7f7a64b::t_628877ed10bd83 206-207,209-211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "92d7c473dfdebbd3c0e37ac44c27d6b5f0a600de",
+  "prompts": {},
+  "sessions": {
+    "s_043bace7f7a64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "65a43399-1581-474d-81c3-adac2f512272",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
