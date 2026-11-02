@@ -5,6 +5,7 @@ import {
   type DraftState,
   type DraftValue,
 } from "./draft-controller";
+import { pageWindow } from "./page-window";
 
 export interface UseDraftReturn<V extends DraftValue, R> extends DraftState<V, R> {
   /** The editor's new value; saved a moment after the last change. */
@@ -53,7 +54,8 @@ export function useDraft<V extends DraftValue, R>(options: DraftOptions<V, R>): 
   }, [draft, options.enabled]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    // No page to leave (SSR, React Native): a pending draft still saves on unmount.
+    const page = pageWindow();
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (!draft.pending()) return;
       void draft.flush({ keepalive: true });
@@ -62,11 +64,11 @@ export function useDraft<V extends DraftValue, R>(options: DraftOptions<V, R>): 
     const pageHide = () => {
       if (draft.pending()) void draft.flush({ keepalive: true });
     };
-    window.addEventListener("beforeunload", beforeUnload);
-    window.addEventListener("pagehide", pageHide);
+    page?.addEventListener("beforeunload", beforeUnload);
+    page?.addEventListener("pagehide", pageHide);
     return () => {
-      window.removeEventListener("beforeunload", beforeUnload);
-      window.removeEventListener("pagehide", pageHide);
+      page?.removeEventListener("beforeunload", beforeUnload);
+      page?.removeEventListener("pagehide", pageHide);
       // Leaving the page within the app: save what's pending.
       if (draft.pending()) void draft.flush();
     };
