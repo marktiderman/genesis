@@ -1,0 +1,120 @@
+# The Genesis design library
+
+How Figma and the code stay one system: one Figma library whose variables are the design
+system's CSS variables and whose components are genesis-ui-native's exports, a Brand collection
+with one mode per consumer app, and Code Connect templates that show a designer the Genesis
+call for the component they selected. Feature: `figma-design-library` in `features.ts`.
+
+## One library file
+
+The library is a single Figma file, **Genesis**. It holds two kinds of things.
+
+**Foundations** are variable collections named after the CSS variables in
+`packages/design-system`, so a token has the same name in Figma, in the theme CSS and in
+Tailwind or NativeWind:
+
+| Collection | Variables | Code |
+| --- | --- | --- |
+| Colour roles | `background`, `foreground`, `card`, `primary`, `primary-foreground`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, `success`, `warning`, `info`, the `sidebar-*` set | the roles `renderThemeCss` writes as `--<name>` in `themes/*.css` |
+| Radius | `radius` (with the `sm`/`md`/`lg` steps) | `--radius` |
+| Spacing | the space scale | `--spacing-*` |
+| Typography | `font-sans`, `font-display`, `font-mono`, the size and weight steps | `--font-*`, `--text-*`, `--font-weight-*` |
+
+A role has a light and a dark mode in Figma, as it has in the CSS. A variable with no CSS
+counterpart does not go in the library: add the token to `packages/design-system` first, then
+mirror it.
+
+**Components** are named after genesis-ui-native exports: `NativeButton`, `NativeCard`,
+`SettingsPage`, `AuthScreen`. A component's React props are its Figma properties, with the same
+names and the same values (`variant`: `default`, `outline`, `ghost`; `size`: `sm`, `md`, `lg`).
+Sub-parts (`NativeCardHeader`, `NativeDialogTitle`) are layers inside the parent component, not
+components of their own. The list of components the library is expected to cover is what
+`pnpm check:code-connect` prints (below).
+
+## Brands: one mode per consumer app
+
+Every app on Genesis has a `CanonicalBrand` (`packages/design-system/src/schema/brand.ts`):
+neutral, surface, text and accent scales, status colours, typography, spacing, radius, shadows.
+The factories turn it into the app's theme (`tailwindFromBrand` for the web, `themeFromBrand`
+for NativeWind, `brandRoleVariables` for the role values a theme provider sets at runtime).
+
+The library has one **Brand** collection. Each mode is a consumer app, named after the app's
+brand (`Acme`, `Sample`), and its values are generated from that app's `CanonicalBrand` by the
+same mapping the factories use, so Figma shows the colour the app renders. The colour-role
+variables alias into the Brand collection where a role is brand-driven (`primary` is the
+accent's `DEFAULT`, `primary-foreground` its `foreground`), and stay literal where it is not.
+
+An app's Figma file **subscribes** to the Genesis library and sets its pages to its Brand mode.
+Nothing is copied: a change to a component or a token in the library reaches every app's file as
+a library update, and a brand change is a change to one mode. Designing a new app means a new
+mode generated from its brand, not a new library.
+
+When a brand changes in code, regenerate its mode from the brand file. The mode is derived; the
+brand file is the source, as it is for the theme CSS.
+
+## Code Connect
+
+Code Connect maps a Figma component to the code that renders it, so Dev Mode shows
+`<NativeAvatar fallback="MT" size={40} />` instead of generic React Native. Genesis uses the
+CLI v2 "parserless" templates: one file per component in `packages/ui-native/figma/`,
+`<Name>.figma.ts`, and `figma.config.json` at the repo root points the CLI at that folder.
+
+A template starts with three directives, then the mapping:
+
+```
+// url=https://www.figma.com/design/<file>/Genesis?node-id=<node>
+// source=packages/ui-native/src/components/avatar.tsx
+// component=NativeAvatar
+```
+
+`url` is the library node the template maps; `source` is the component's file from the repo
+root (it must exist); `component` is the export, and equals the file name. The body reads the
+selected instance's properties (`figma.selectedInstance`) and returns the example, its imports
+and an id. `packages/ui-native/figma/NativeAvatar.figma.ts` is the reference template.
+
+Publish from the repo root:
+
+```sh
+FIGMA_ACCESS_TOKEN=… npx @figma/code-connect connect publish
+```
+
+The token is a Figma personal access token with the scopes `file_content:read` and
+`file_code_connect:write`. It is never committed; put it in the shell for the publish, or in
+the CI secret the publish job reads. `npx @figma/code-connect connect unpublish` removes a
+mapping; `connect parse` checks the templates without publishing.
+
+The templates folder is not shipped: `packages/ui-native/package.json` `files` lists `dist`,
+`src` and `README.md`, so a template change needs no changeset.
+
+### The ratchet: `pnpm check:code-connect`
+
+`scripts/check-code-connect.mjs` lists every visual component genesis-ui-native exports (the
+`Native*` components and the page layouts, minus sub-parts, hooks, providers and constants) and
+reads `packages/ui-native/figma/code-connect.json`:
+
+```json
+{ "required": ["NativeAvatar"], "notYet": ["NativeButton", "NativeCard", "…"] }
+```
+
+- A **required** component must have a template with the three directives, a `source` that
+  exists and a `component` equal to the file name; otherwise the check fails.
+- A **notYet** component is listed in the output and does not fail. The library does not have
+  its node yet, so no template is written for it.
+- Every component is in exactly one list, and a name that is no longer exported fails: the
+  allowlist only shrinks towards `required`.
+
+To promote a component once its Figma node exists: write `packages/ui-native/figma/<Name>.figma.ts`
+with the three directives (the `url` is the node's link from Figma), publish it, run
+`pnpm check:code-connect` (a `notYet` component with a template fails until it is moved), and
+move the name from `notYet` to `required`. It runs in `pnpm lint:genesis` and in `ci.yml`.
+
+## Plan limits
+
+On Figma's Professional plan, Code Connect has one active library and one active framework
+(ours is "Code"; the templates are React Native, so one is enough), other connections being kept
+but deactivated, and a variable collection has 10 modes, so the Brand collection holds up to ten
+consumer apps. Organization raises modes to 20 and lifts the one-active-library limit (a second
+library would split foundations from components, which we do not need yet), and adds library
+analytics, branching with review and shared fonts; Enterprise has unlimited modes through
+extended collections. Nothing in this setup depends on Organization; move when the eleventh
+brand arrives. (Figma's Code Connect help page and pricing table, read 2026-11-02.)
