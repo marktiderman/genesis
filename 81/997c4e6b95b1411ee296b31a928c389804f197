@@ -1,0 +1,39 @@
+packages/core/src/hooks/use-resource-form.ts
+  s_1feb538f59bf88::t_662adc4c14651d 41-46,186,190,203,437-439,461,510-511
+.changeset/resourceview-gaps.md
+  s_1feb538f59bf88::t_203fd9eed766a0 9
+docs/RESOURCE-VIEW.md
+  s_1feb538f59bf88::t_2655599de7314b 258
+  s_1feb538f59bf88::t_fb9a3b4b8bf227 255-257
+packages/ui/src/components/data/resource-view/view-form.ts
+  s_1feb538f59bf88::t_662adc4c14651d 154-156
+packages/ui/src/components/data/__tests__/resource-form-view.test.tsx
+  s_1feb538f59bf88::t_1e5c7242b601f9 156-183
+packages/ui/src/components/data/__tests__/resource-calendar-options.test.tsx
+  s_1feb538f59bf88::t_1b0c88c5935874 188-189
+  s_1feb538f59bf88::t_cc373f0e434c7e 181-187,190-210
+packages/core/src/form-types.ts
+  s_1feb538f59bf88::t_662adc4c14651d 42-46
+  s_1feb538f59bf88::t_fd0cc3b37e9b1e 41
+packages/ui/src/components/data/ResourceForm.tsx
+  s_1feb538f59bf88::t_662adc4c14651d 457-458
+packages/ui/src/components/data/resource-view/ResourceCalendar.tsx
+  s_1feb538f59bf88::t_f1dc9a6bb09ea8 284-288,290
+  s_1feb538f59bf88::t_95de6bf95df9cd 116-137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "81997c4e6b95b1411ee296b31a928c389804f197",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
