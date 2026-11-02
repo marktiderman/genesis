@@ -1,0 +1,27 @@
+apps/genesis-rn-starter/package.json
+  s_1feb538f59bf88::t_5785169839186a 97
+apps/genesis-rn-starter/README.md
+  s_1feb538f59bf88::t_4f911892e35436 211-215
+apps/genesis-rn-starter/eslint.config.js
+  s_1feb538f59bf88::t_b2c15d4a256923 10-11
+  s_1feb538f59bf88::t_c17d0657a01497 4,6-9,12-29,31-40
+  s_1feb538f59bf88::t_dcde14ef8fe37b 30
+pnpm-lock.yaml
+  s_1feb538f59bf88::t_fde55e9e8c313f 34,270-272,633,712,736,775,805,838,890,914,969,1024,1069,1102,1154,1202,1297,1331,1395,1456,1505,1626,1689,1720,1742,1800,1821,1981,2087,8045-8050,16699,16754,16772,16774,16839,18225-18233,22643-22668
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "efc6f7ebb7b0a20ecd5f1d27c7c433a5ca5903a8",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
