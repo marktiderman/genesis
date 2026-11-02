@@ -1,0 +1,66 @@
+packages/native/README.md
+  s_1feb538f59bf88::t_222096d0bf5449 59-60
+packages/genesis-cli/src/upgrade/overlays.ts
+  s_1feb538f59bf88::t_67cd022326b513 16-18,35-36,465-467,475-476,479-502,504-508,511-531,534-539,541,546-551,556,569-596
+packages/genesis-cli/test/doctor-lock-files.test.ts
+  s_1feb538f59bf88::t_74457aa0ae9f19 8
+  s_1feb538f59bf88::t_a7469c5e9d78d6 96-109
+packages/genesis-cli/src/blocks/bun-lock.ts
+  s_1feb538f59bf88::t_89cb38f8dfa8de 162-163,168-170
+  s_1feb538f59bf88::t_7228795600090b 1-19,21-161,164-167,171-188,197-228,238,240,245-251,260-266
+  s_1feb538f59bf88::t_c4046d22478273 189-196
+  s_1feb538f59bf88::t_5898816597225b 20
+  s_1feb538f59bf88::t_01b99f4ab98651 229-237,239,241-244,252-259
+packages/ui/src/components/data/DataTable.tsx
+  s_1feb538f59bf88::t_0de6f04618fbba 1483-1484,1486
+packages/ui/src/components/data/ResourcePage.tsx
+  s_1feb538f59bf88::t_bb954761c9f854 1229
+  s_1feb538f59bf88::t_6ae6706e77ed72 1253
+packages/ui/src/components/data/__tests__/list-row-and-pager-chrome.test.tsx
+  s_1feb538f59bf88::t_1d6bf0dd99b3a8 52
+  s_1feb538f59bf88::t_73ab5b80c09e64 1-51,53-54
+.changeset/upgrade-prunes-bun-lock.md
+  s_1feb538f59bf88::t_23263e7ceeb64a 1-11
+packages/genesis-cli/test/upgrade-overlays.test.ts
+  s_1feb538f59bf88::t_79c469cce1c8ff 116-138
+  s_1feb538f59bf88::t_617dae2c95ca66 12
+.changeset/native-peer-ui-native-design-system.md
+  s_1feb538f59bf88::t_5ee720bbb394bb 1-5
+.changeset/list-row-padding-pager.md
+  s_1feb538f59bf88::t_11e4f7c88f1f8c 1-8
+packages/genesis-cli/README.md
+  s_1feb538f59bf88::t_0217ce5504d0bb 499-507
+  s_1feb538f59bf88::t_8df22ece153244 707
+packages/genesis-cli/src/doctor/lock-files.ts
+  s_1feb538f59bf88::t_19bb49eaad1701 16-22,34-35,38-63,65
+packages/genesis-cli/test/bun-lock.test.ts
+  s_1feb538f59bf88::t_42da9ba7ea12ff 5
+  s_1feb538f59bf88::t_6c98a9653b402d 1-4,6-53
+packages/genesis-cli/test/bun-lock-helpers.ts
+  s_1feb538f59bf88::t_42da9ba7ea12ff 1-32
+packages/genesis-cli/src/upgrade/index.ts
+  s_1feb538f59bf88::t_d4c6a059c99f07 16-18,44-45,101-119,358,365,374-390,395,404-414,416-421,423,571-576,582
+packages/genesis-cli/test/upgrade.test.ts
+  s_1feb538f59bf88::t_ddc86623a2bb4b 13
+  s_1feb538f59bf88::t_b181cf2c815511 431-461
+packages/native/package.json
+  s_1feb538f59bf88::t_e449a719396308 111,115-116,157-158
+pnpm-lock.yaml
+  s_1feb538f59bf88::t_1630d09e02157c 1345-1350
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e3e7e9ce5298a5d73f5b350a75eef220c1128a18",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
