@@ -10,7 +10,7 @@ import { NativeAvatar } from "../src/components/avatar";
 
 figma.connect(
   NativeAvatar,
-  "https://www.figma.com/design/iv9xTsgM7t2mBff8dniDk0/Growth90-Zones-v2-prototype?node-id=1-123",
+  "https://www.figma.com/design/iv9xTsgM7t2mBff8dniDk0/Genesis?node-id=1-123",
   {
     props: {
       fallback: figma.textContent("Initials"),
