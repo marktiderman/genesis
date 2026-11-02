@@ -1835,7 +1835,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`calendarProblems`](../packages/core/src/resource-view/define-view.ts) | function | Beta | What's wrong with a calendar block for these fields, one sentence each (empty when it's fine). `defineView` checks the view's own block with it; a renderer checks a screen's overrides merged over that block with it too, so neither can na... |
 | [`cascadeSelection`](../packages/core/src/resource-view/tree.ts) | function | — | The selection after toggling `id` with cascade: the node and every descendant take the node's new state. Without cascade, use a plain toggle; selection never cascades by default. |
 | [`defineRecordView`](../packages/core/src/resource-view/record-view.ts) | function | — | One record's screen from its view: |
-| [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | _(no summary)_ |
+| [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | Describe what a resource means to people. The result is frozen and platform-neutral: |
 | [`defineWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | — | _(no summary)_ |
 | [`deriveDisplay`](../packages/core/src/resource-view/define-view.ts) | function | — | The display a field gets when the view doesn't name one. |
 | [`initialExpanded`](../packages/core/src/resource-view/tree.ts) | function | — | The open ids a tree starts with: `true` opens every parent, a number opens parents shallower than that depth (`1` opens the roots), `false` or nothing opens none. |

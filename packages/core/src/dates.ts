@@ -20,12 +20,20 @@ export type Day = string;
 
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
+/**
+ * `Date.UTC` for any year 1 to 9999. `Date.UTC` reads years 0 to 99 as 1900 to 1999, so those are
+ * computed 400 years on (the Gregorian calendar repeats exactly every 146,097 days) and moved back.
+ */
+function utc(y: number, monthIndex: number, d = 1, h = 0, mi = 0, s = 0): number {
+  return y >= 100 ? Date.UTC(y, monthIndex, d, h, mi, s) : Date.UTC(y + 400, monthIndex, d, h, mi, s) - 146_097 * 86_400_000;
+}
+
 /** Whether `value` is a real `YYYY-MM-DD` day (not `2026-02-30`). @stability Beta */
 export function isDay(value: unknown): value is Day {
   if (typeof value !== "string") return false;
   const m = DAY.exec(value);
   if (!m) return false;
-  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  const d = new Date(utc(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
   return d.getUTCFullYear() === Number(m[1]) && d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[3]);
 }
 
@@ -151,7 +159,7 @@ export function personDay(person?: PersonClock | null, at: Date = new Date()): D
 export function addDays(day: Day, days: number): Day {
   const [y, m, d] = assertDay(day, "addDays");
   if (!Number.isInteger(days)) throw new RangeError(`addDays: ${days} is not a whole number of days`);
-  const t = new Date(Date.UTC(y, m - 1, d + days));
+  const t = new Date(utc(y, m - 1, d + days));
   return dayOf(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
 }
 
@@ -159,13 +167,13 @@ export function addDays(day: Day, days: number): Day {
 export function daysBetween(from: Day, to: Day): number {
   const [y1, m1, d1] = assertDay(from, "daysBetween");
   const [y2, m2, d2] = assertDay(to, "daysBetween");
-  return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 86_400_000);
+  return Math.round((utc(y2, m2 - 1, d2) - utc(y1, m1 - 1, d1)) / 86_400_000);
 }
 
 /** The weekday of a day, 0 for Sunday. @stability Beta */
 export function weekdayOf(day: Day): number {
   const [y, m, d] = assertDay(day, "weekdayOf");
-  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return new Date(utc(y, m - 1, d)).getUTCDay();
 }
 
 /** The first day of `day`'s week, with weeks starting on `weekStartsOn` (0 Sunday … 6 Saturday; default 1, Monday). @stability Beta */
@@ -183,13 +191,13 @@ export function startOfWeek(day: Day, weekStartsOn = 1): Day {
  */
 export function startOfDayIn(day: Day, zone: string): Date {
   const [y, m, d] = assertDay(day, "startOfDayIn");
-  const target = Date.UTC(y, m - 1, d);
+  const target = utc(y, m - 1, d);
   // Guess the instant as if the zone were UTC, then correct by the zone's offset there, twice
   // (the second pass settles a guess that landed across a transition).
   let at = target;
   for (let i = 0; i < 2; i++) {
     const c = wallClock(zone, new Date(at));
-    const shown = Date.UTC(c.year, c.month - 1, c.day, c.hour, c.minute, c.second);
+    const shown = utc(c.year, c.month - 1, c.day, c.hour, c.minute, c.second);
     at -= shown - target;
   }
   // Midnight skipped by a transition: step forward to the first instant on that day.
@@ -212,7 +220,7 @@ export interface DayRange {
 /** Days in `day`'s month (28 to 31). @stability Beta */
 export function daysInMonth(day: Day): number {
   const [y, m] = assertDay(day, "daysInMonth");
-  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return new Date(utc(y, m, 0)).getUTCDate();
 }
 
 /** The first day of `day`'s month. @stability Beta */
@@ -231,7 +239,7 @@ export function addMonths(day: Day, months: number): Day {
   const index = y * 12 + (m - 1) + months;
   const ny = Math.floor(index / 12);
   const nm = index - ny * 12 + 1;
-  const last = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
+  const last = new Date(utc(ny, nm, 0)).getUTCDate();
   return dayOf(ny, nm, Math.min(d, last));
 }
 
@@ -321,7 +329,7 @@ function parseWallTime(time: WallTime, where: string): [number, number, number] 
 /** How far `zone`'s clock is ahead of UTC at `at`, in milliseconds. */
 function offsetAt(zone: string, at: number): number {
   const c = wallClock(zone, new Date(at));
-  return Date.UTC(c.year, c.month - 1, c.day, c.hour, c.minute, c.second) - (at - (((at % 1000) + 1000) % 1000));
+  return utc(c.year, c.month - 1, c.day, c.hour, c.minute, c.second) - (at - (((at % 1000) + 1000) % 1000));
 }
 
 /**
@@ -335,7 +343,7 @@ export function instantIn(day: Day, time: WallTime, zone: string): Date {
   const [y, m, d] = assertDay(day, "instantIn");
   const [h, mi, s] = parseWallTime(time, "instantIn");
   if (!isTimeZone(zone)) throw new RangeError(`instantIn: unknown time zone "${zone}"`);
-  const target = Date.UTC(y, m - 1, d, h, mi, s);
+  const target = utc(y, m - 1, d, h, mi, s);
   // Transitions are weeks apart, so a day either side gives the offsets before and after one.
   const before = offsetAt(zone, target - 86_400_000);
   const after = offsetAt(zone, target + 86_400_000);
@@ -401,13 +409,11 @@ function ruleDate(value: string): NonNullable<RRule["until"]> {
   const day = `${m[1]}-${m[2]}-${m[3]}`;
   if (!isDay(day)) throw new RangeError(`parseRRule: UNTIL=${value} is not a date`);
   if (!m[4]) return day;
+  // A time out of range (99:00, 23:59:60) is refused, with a zone or without: never rolled over.
+  if (Number(m[4]) > 23 || Number(m[5]) > 59 || Number(m[6]) > 59) throw new RangeError(`parseRRule: UNTIL=${value} is not a date`);
   // No Z: a wall time on the series' own clock, read when the series' zone is known.
-  if (!m[7]) {
-    const time = `${m[4]}:${m[5]}:${m[6]}`;
-    if (!WALL_TIME.test(time) || Number(m[4]) > 23 || Number(m[5]) > 59 || Number(m[6]) > 59) throw new RangeError(`parseRRule: UNTIL=${value} is not a date`);
-    return { day, time };
-  }
-  return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6])));
+  if (!m[7]) return { day, time: `${m[4]}:${m[5]}:${m[6]}` };
+  return new Date(utc(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6])));
 }
 
 /**
@@ -486,7 +492,14 @@ function checkRule(rule: RRule, where: string): RRule {
   if (rule.count !== undefined && !intIn(rule.count, 1, 100_000)) throw new RangeError(`${where}: COUNT=${String(rule.count)} is out of range`);
   if (rule.count !== undefined && rule.until !== undefined) throw new RangeError(`${where}: COUNT and UNTIL can't both be set`);
   if (!intIn(rule.weekStart, 0, 6)) throw new RangeError(`${where}: WKST=${String(rule.weekStart)} isn't a weekday`);
+  for (const [key, part] of [["byDay", "BYDAY"], ["byMonthDay", "BYMONTHDAY"], ["byMonth", "BYMONTH"]] as const) {
+    const list = rule[key] as unknown;
+    if (list === undefined) continue;
+    if (!Array.isArray(list)) throw new RangeError(`${where}: ${part} isn't a list`);
+    if (list.length === 0) throw new RangeError(`${where}: ${part} is empty`);
+  }
   for (const b of rule.byDay ?? []) {
+    if (!b || typeof b !== "object") throw new RangeError(`${where}: BYDAY is out of range`);
     if (!intIn(b.weekday, 0, 6) || (b.nth !== undefined && (!intIn(Math.abs(b.nth), 1, 53) || b.nth === 0))) throw new RangeError(`${where}: BYDAY is out of range`);
     if (b.nth !== undefined && rule.freq !== "MONTHLY" && rule.freq !== "YEARLY") {
       throw new RangeError(`${where}: BYDAY with a position (${b.nth}${RULE_DAYS[b.weekday]}) needs FREQ=MONTHLY or YEARLY`);
@@ -495,6 +508,13 @@ function checkRule(rule: RRule, where: string): RRule {
   for (const d of rule.byMonthDay ?? []) if (!intIn(Math.abs(d), 1, 31)) throw new RangeError(`${where}: BYMONTHDAY=${d} is out of range`);
   if (rule.byMonthDay && rule.freq === "WEEKLY") throw new RangeError(`${where}: BYMONTHDAY can't be used with FREQ=WEEKLY`);
   for (const m of rule.byMonth ?? []) if (!intIn(m, 1, 12)) throw new RangeError(`${where}: BYMONTH=${m} is out of range`);
+  // A month and month days that never meet (BYMONTH=2;BYMONTHDAY=30) name no date: refused now,
+  // rather than searched for through four centuries.
+  if (rule.byMonth && rule.byMonthDay) {
+    const longest = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    const meets = rule.byMonth.some((m) => rule.byMonthDay!.some((d) => Math.abs(d) <= longest[m - 1]!));
+    if (!meets) throw new RangeError(`${where}: BYMONTH=${rule.byMonth.join(",")} and BYMONTHDAY=${rule.byMonthDay.join(",")} name no date`);
+  }
   const until = rule.until as unknown;
   if (until !== undefined) {
     const ok =
@@ -519,8 +539,9 @@ function checkRule(rule: RRule, where: string): RRule {
  * Where a series starts: a day (an all-day series), or a wall time on a zone's clock. Give the
  * zone the series was written in (the calendar's), so 09:00 stays 09:00 there across daylight
  * saving; an instant (`at`) is read on that zone's clock.
+ *
+ * @stability Beta
  */
-/** @stability Beta */
 export type RecurrenceStart =
   | Day
   | { day: Day; time: WallTime; timeZone: string }
@@ -567,7 +588,7 @@ function weekdayPositions(days: Day[], spec: RuleWeekday): Day[] {
 }
 
 function monthDays(y: number, m: number): Day[] {
-  const n = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const n = new Date(utc(y, m, 0)).getUTCDate();
   return Array.from({ length: n }, (_, i) => dayOf(y, m, i + 1));
 }
 
@@ -598,13 +619,20 @@ function periodCandidates(rule: RRule, period: Day, first: [number, number, numb
   const [py, pm] = assertDay(period, "expandRecurrence");
   let days: Day[];
   switch (rule.freq) {
-    case "DAILY":
-      days = [period];
-      if (rule.byMonthDay) days = days.filter((d) => byMonthDays(monthDays(py, pm), rule.byMonthDay!).includes(d));
-      if (rule.byDay) days = days.filter((d) => rule.byDay!.some((b) => b.weekday === weekdayOf(d)));
-      break;
+    case "DAILY": {
+      // Cheapest checks first, on numbers: the month, then the day of the month, then the weekday.
+      if (rule.byMonth && !rule.byMonth.includes(pm)) return [];
+      if (rule.byMonthDay) {
+        const day = Number(period.slice(8, 10));
+        const length = new Date(utc(py, pm, 0)).getUTCDate();
+        if (!rule.byMonthDay.some((n) => (n > 0 ? n === day : length + n + 1 === day))) return [];
+      }
+      if (rule.byDay && !rule.byDay.some((b) => b.weekday === weekdayOf(period))) return [];
+      return [period];
+    }
     case "WEEKLY": {
-      const week = Array.from({ length: 7 }, (_, i) => addDays(period, i));
+      // The last week before year 10000 runs past it: only real days.
+      const week = Array.from({ length: 7 }, (_, i) => addDays(period, i)).filter((d) => d.length === 10);
       days = rule.byDay ? week.filter((d) => rule.byDay!.some((b) => b.weekday === weekdayOf(d))) : week.filter((d) => weekdayOf(d) === weekdayOf(dayOf(...first)));
       break;
     }
@@ -661,6 +689,9 @@ function startOf(start: RecurrenceStart): { day: Day; time?: WallTime; zone?: st
     return { day: start };
   }
   if (!isTimeZone(start.timeZone)) throw new RangeError(`expandRecurrence: unknown time zone "${start.timeZone}"`);
+  if ("at" in start && !(start.at instanceof Date && !Number.isNaN(start.at.getTime()))) {
+    throw new RangeError("expandRecurrence: start.at isn't a valid date");
+  }
   if ("at" in start) return { ...wallTimeIn(start.timeZone, start.at), zone: start.timeZone };
   assertDay(start.day, "expandRecurrence");
   parseWallTime(start.time, "expandRecurrence");
@@ -712,8 +743,10 @@ export function expandRecurrence(options: RecurrenceOptions): RecurrenceResult {
   const exInstants = new Set<number>();
   for (const ex of options.exdates ?? []) {
     if (ex instanceof Date) {
+      if (Number.isNaN(ex.getTime())) throw new RangeError("expandRecurrence: an EXDATE isn't a valid date");
       if (!timed) throw new RangeError("expandRecurrence: an all-day series' EXDATE is a day, not an instant");
-      exInstants.add(ex.getTime());
+      // To the second: an ICS EXDATE has whole seconds, a start may carry milliseconds.
+      exInstants.add(Math.floor(ex.getTime() / 1000));
     } else {
       assertDay(ex, "expandRecurrence");
       exDays.add(ex);
@@ -748,7 +781,7 @@ export function expandRecurrence(options: RecurrenceOptions): RecurrenceResult {
     counted++;
     if (day >= window.start && day < window.end && !exDays.has(day)) {
       const start = at(day);
-      if (!(start && exInstants.has(start.getTime()))) {
+      if (!(start && exInstants.has(Math.floor(start.getTime() / 1000)))) {
         if (out.length >= limit) {
           truncated = true;
           return true;
@@ -769,18 +802,22 @@ export function expandRecurrence(options: RecurrenceOptions): RecurrenceResult {
     const behind = periodsTo(rule, firstPeriod, window.start) - 1;
     k = Math.max(0, Math.floor(behind / rule.interval) * rule.interval);
   }
-  // A rule that names no real day (BYMONTHDAY=30;BYMONTH=2) never ends on its own. Every real
-  // pattern repeats within the Gregorian calendar's 400-year cycle, so 400 years without a match
-  // means none will come, whatever the frequency.
-  let lastYear = first[0];
+  // A rule that names no real day never ends on its own. The Gregorian calendar repeats every
+  // 400 years (146,097 days, 20,871 weeks, 4,800 months), so stepping by INTERVAL revisits every
+  // period the rule can reach within cycle / gcd(cycle, interval) steps: that many empty periods in
+  // a row means none will come. Counted from wherever the loop starts, so a series that began
+  // centuries before the window is judged by its own periods, not its start year.
+  const cycle = { DAILY: 146_097, WEEKLY: 20_871, MONTHLY: 4_800, YEARLY: 400 }[rule.freq];
+  const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
+  const maxEmpty = cycle / gcd(cycle, rule.interval);
+  let empty = 0;
   for (; ; k += rule.interval) {
     const period = periodAt(rule, firstPeriod, k);
     // Past 9999 there are no YYYY-MM-DD days.
     if (period.length > 10 || period >= window.end) break;
-    const periodYear = Number(period.slice(0, 4));
-    if (periodYear - lastYear > 400) break;
     const days = periodCandidates(rule, period, first).filter((d) => d > firstDay);
-    if (days.length) lastYear = periodYear;
+    empty = days.length ? 0 : empty + 1;
+    if (empty > maxEmpty) break;
     for (const day of days) {
       if (pastUntil(day)) return done();
       if (day >= window.end && rule.count === undefined) return done();
@@ -794,36 +831,45 @@ export function expandRecurrence(options: RecurrenceOptions): RecurrenceResult {
 // Stored values
 // ---------------------------------------------------------------------------
 
-const STORED = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}(?::\d{2})?)(\.\d+)?)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$/;
+const STORED = /^(\d{4}-\d{2}-\d{2})(?:[ Tt](\d{2}:\d{2}(?::\d{2})?)(\.\d+)?)?\s*([Zz]|[+-]\d{2}(?::?\d{2}(?::?\d{2})?)?)?$/;
 
 /**
  * A stored date or timestamp as a calendar value: a day for a `date` column (`dateOnly`) or a
  * value with no time; an instant for a timestamp. A timestamp written without a zone (Postgres
  * `timestamp without time zone`, `2026-11-02 09:30:00`) is a wall time, read on `timeZone`'s
  * clock (default the device's). Postgres text (`2026-10-19 09:30:00.123456+00`), ISO strings and
- * `Date`s are all read. Null when it isn't a date.
+ * `Date`s are all read (an offset may carry seconds; `Z` or `z`). With `dateOnly`, a `Date` gives
+ * its day on `timeZone`'s clock. Null when it isn't a date; an unknown `timeZone` throws.
  *
  * @stability Beta
  */
 export function readEventTime(value: unknown, options: { dateOnly?: boolean; timeZone?: string } = {}): Day | Date | null {
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (options.timeZone !== undefined && !isTimeZone(options.timeZone)) {
+    throw new RangeError(`readEventTime: unknown time zone "${options.timeZone}"`);
+  }
+  const zone = options.timeZone ?? deviceTimeZone();
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    // A date column read as a Date: the day it is on the clock asked for.
+    return options.dateOnly ? dayIn(zone, value) : value;
+  }
   if (typeof value !== "string") return null;
   const m = STORED.exec(value.trim());
   if (!m || !isDay(m[1])) return null;
   if (options.dateOnly || !m[2]) return m[1];
   const time = m[2].length === 5 ? `${m[2]}:00` : m[2];
-  if (!m[4]) {
-    const zone = options.timeZone && isTimeZone(options.timeZone) ? options.timeZone : deviceTimeZone();
-    const [h, mi, sec] = time.split(":").map(Number) as [number, number, number];
-    // Out of range (25:00) is not a time: null, like the zoned branch's invalid Date.
-    if (!WALL_TIME.test(time) || h > 23 || mi > 59 || sec > 59) return null;
-    const at = instantIn(m[1], time, zone);
-    return m[3] ? new Date(at.getTime() + Math.round(Number(`0${m[3]}`) * 1000)) : at;
+  const [h, mi, sec] = time.split(":").map(Number) as [number, number, number];
+  // Out of range (25:00) is not a time: null.
+  if (!WALL_TIME.test(time) || h > 23 || mi > 59 || sec > 59) return null;
+  // Fractions of a second truncated to the millisecond, in both branches.
+  const ms = m[3] ? Number(m[3].slice(1, 4).padEnd(3, "0")) : 0;
+  if (!m[4]) return new Date(instantIn(m[1], time, zone).getTime() + ms);
+  // An offset, to the second (`+04:56:02`, historical zones), or Z.
+  let offset = 0;
+  if (!/^z$/i.test(m[4])) {
+    const digits = m[4].slice(1).replace(/:/g, "");
+    offset = (m[4][0] === "-" ? -1 : 1) * (Number(digits.slice(0, 2)) * 3600 + Number(digits.slice(2, 4) || 0) * 60 + Number(digits.slice(4, 6) || 0));
   }
-  let zone = m[4];
-  if (/^[+-]\d{2}$/.test(zone)) zone += ":00";
-  else if (/^[+-]\d{4}$/.test(zone)) zone = `${zone.slice(0, 3)}:${zone.slice(3)}`;
-  const ms = m[3] ? m[3].slice(0, 4).padEnd(4, "0") : "";
-  const date = new Date(`${m[1]}T${time}${ms}${zone}`);
-  return Number.isNaN(date.getTime()) ? null : date;
+  const [y, mo, d] = assertDay(m[1], "readEventTime");
+  return new Date(utc(y, mo - 1, d, h, mi, sec) - offset * 1000 + ms);
 }

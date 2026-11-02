@@ -682,6 +682,12 @@ describe("defineView: calendar", () => {
     expect(Object.isFrozen(view.definition.calendar)).toBe(true);
   });
 
+  it("refuses a calendar block that isn't one", () => {
+    expect(() => defineView(brands, { calendar: {} as never })).toThrow(/calendar\.field is required/);
+    expect(() => defineView(brands, { calendar: { field: "launched_on", colour: "red" } as never })).toThrow(/calendar\.colour isn't a calendar setting/);
+    expect(() => defineView(brands, { calendar: "launched_on" as never })).toThrow(/calendar isn't an object/);
+  });
+
   it("checks any calendar block with calendarProblems", () => {
     expect(calendarProblems(brands.fields, { field: "launched_on" })).toEqual([]);
     expect(calendarProblems(brands.fields, { endField: "nope" })).toEqual(['calendar.endField names "nope", which isn\'t a field']);

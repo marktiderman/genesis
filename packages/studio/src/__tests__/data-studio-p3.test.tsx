@@ -183,6 +183,27 @@ describe("DataStudio P3: calendar", () => {
     await waitFor(() => expect(JSON.parse(screen.getByTestId("location").textContent!).record).toBe("c3"));
   });
 
+  it("is busy while the next month loads, showing the last month meanwhile", async () => {
+    const { provider } = makeProvider();
+    const getList = provider.getList.bind(provider);
+    let hold: (() => void) | undefined;
+    provider.getList = (async (r: string, params: ListParams) => {
+      // Hold November's request until the test lets it go.
+      if (params.filters?.some((f) => f.operator === "gte" && "value" in f && String(f.value) >= "2026-10-26")) {
+        await new Promise<void>((resolve) => (hold = resolve));
+      }
+      return getList(r, params);
+    }) as typeof provider.getList;
+    render(<Harness provider={provider} initial={{ resource: "public.clients", view: "calendar", month: "2026-10" }} />);
+    const calendar = await screen.findByTestId("studio-calendar");
+    await within(calendar).findByText("Client 1");
+    expect(calendar.getAttribute("aria-busy")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Next month" }));
+    await waitFor(() => expect(screen.getByTestId("studio-calendar").getAttribute("aria-busy")).toBe("true"));
+    hold!();
+    await waitFor(() => expect(screen.getByTestId("studio-calendar").getAttribute("aria-busy")).toBeNull());
+  });
+
   it("reads Postgres timestamps onto the viewer's day", () => {
     expect(localDay("2026-10-19", true)).toBe("2026-10-19");
     const local = new Date("2026-10-19T12:00:00.123Z");
