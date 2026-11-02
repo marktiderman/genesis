@@ -274,10 +274,10 @@ export const uiMessages = {
     newPassword: "New password",
     confirmPassword: "Confirm new password",
     code: "Code",
-    /** Under the code boxes. `{email}`: where it went. */
-    codeSent: "We sent a {length}-digit code to {email}.",
+    /** Under the code boxes. `{email}`: where it went. `{length}`: its digits (worded so no article depends on the number). */
+    codeSent: "We sent a code to {email}. It has {length} digits.",
     /** `codeSent` without sign-up, when the form can't say whether the email has an account. */
-    codeSentIfAccount: "If {email} has an account, we sent it a {length}-digit code.",
+    codeSentIfAccount: "If {email} has an account, we sent it a code. It has {length} digits.",
     signIn: "Sign in",
     signUp: "Create account",
     sendMagicLink: "Email me a sign-in link",
@@ -312,6 +312,14 @@ export const uiMessages = {
     magicLinkSentIfAccount: "If {email} has an account, we sent it a sign-in link. Open it on this device to finish.",
     resetSent: "If {email} has an account, we sent it a link to choose a new password.",
     confirmSent: "We sent a link to {email}. Open it to confirm your account, then sign in.",
+    /** On "check your email", with `offerCodeOnConfirm`: the code in the same email, for when the link opens in another browser. */
+    enterCodeInstead: "Enter the code instead",
+    /** `AuthForm`'s `notice`, by kind: why the person is back on the form. */
+    notices: {
+      "reset-link-expired": "That reset link has expired or was already used. Ask for a new one.",
+      "provider-cancelled": "Sign-in was cancelled. Try again, or use another way to sign in.",
+      "account-deleted": "Your account is deleted.",
+    },
     passwordUpdated: "Your password is changed.",
     /** The minimum the new-password field asks for. `{min}`: characters. */
     passwordHint: "At least {min} characters.",

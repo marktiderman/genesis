@@ -215,6 +215,11 @@ sent to `reportError` when the form has no copy for the code.
 
 - **Codes need the template.** Supabase sends the Magic Link email for a link and for a code alike,
   and the default template has only the link: put `{{ .Token }}` in it to offer `"email-code"`.
+  With `offerCodeOnConfirm` the form also offers the code after sign-up, so put it in the Confirm
+  signup template too (`verifyOtp` with `type: "email"` confirms the account).
+- **The code's length is the project's.** The form's `codeLength` (default 6) must match the
+  project's `otp_length` (Auth settings, "Email OTP length"). `/auth/v1/settings` doesn't report
+  it, so nothing can check it for you: with a mismatch no code can be entered whole, and code sign-in fails.
 - **The redirects** (`redirectTo`, `resetRedirectTo`) must be in the project's redirect allow list.
   `createGenesisSupabase()` uses the PKCE flow (a plain `createClient` from supabase-js defaults to
   the implicit flow), and its callback page needs nothing more on the web (`detectSessionInUrl`).

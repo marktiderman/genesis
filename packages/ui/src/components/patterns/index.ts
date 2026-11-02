@@ -43,6 +43,8 @@ export {
   type AuthFormClient,
   type AuthFormError,
   type AuthFormMode,
+  type AuthFormNotice,
+  type AuthFormNoticeKind,
   type AuthFormProps,
   type AuthFormProvider,
   type AuthFormResult,
