@@ -20,8 +20,9 @@ import {
   validateSubmitInput,
   SUPPORT_BLOCK_ID,
   WIDGET_HEADERS,
+  type SupportClient,
 } from "../index";
-import { arg, fakeSupabase } from "./fake-supabase";
+import { arg, fakeSupabase, type Call } from "./fake-supabase";
 
 const ME = "00000000-0000-4000-8000-0000000000a1";
 const REPORT = "11111111-1111-4111-8111-111111111111";
@@ -107,6 +108,26 @@ describe("the support client", () => {
     expect(inserted).not.toHaveProperty("user_id");
     expect(fake.uploads).toEqual([{ bucket: "genesis-support", path: `${ME}/${REPORT}/shot-1.jpg`, body: new Uint8Array([104, 105]), options: { contentType: "image/jpeg", upsert: false } }]);
     expect(arg(fake.calls[1], "insert")).toEqual({ report_id: REPORT, path: `${ME}/${REPORT}/shot-1.jpg`, content_type: "image/jpeg", byte_size: 2, width: 390, height: 844 });
+  });
+
+  it("keeps a severity in the context, and in its column too when told migration 0003 added it", async () => {
+    const respond = (call: Call) => (call.table === "support_reports" ? { data: { id: REPORT }, error: null } : { data: null, error: null });
+    const plain = fakeSupabase({ respond });
+    await createSupportClient(plain.client).submit({ type: "bug", message: "Broken", severity: "high", context: { extra: { a: 1 } } });
+    const row = arg(plain.calls[0], "insert") as Record<string, unknown>;
+    expect(row).not.toHaveProperty("severity");
+    expect(row.context).toEqual({ a: 1, severity: "high" });
+
+    const column = fakeSupabase({ respond });
+    await createSupportClient(column.client, { severityColumn: true }).submit({ type: "bug", message: "Broken", severity: "high", context: { extra: { a: 1 } } });
+    const row2 = arg(column.calls[0], "insert") as Record<string, unknown>;
+    expect(row2.severity).toBe("high");
+    expect(row2.context).toEqual({ a: 1, severity: "high" });
+  });
+
+  it("leaves verify and handles optional for a client of the app's own", () => {
+    const own: Pick<SupportClient, "verify" | "handles"> = {};
+    expect(own.verify).toBeUndefined();
   });
 
   it("keeps the report when a screenshot fails, and says it was dropped", async () => {
@@ -211,7 +232,7 @@ describe("the block", () => {
     expect(block.requires).toEqual(["account"]);
   });
 
-  it("contributes Send feedback and Help to Settings, its routes and migration 0006", () => {
+  it("contributes Send feedback and Help to Settings, its routes and migrations 0006 and 0003", () => {
     const resolved = resolveBlocks([defineSupportBlock({ basePath: "/settings/support" })], [SUPPORT_BLOCK_ID, "account"]);
     expect(resolved.settings.map((r) => [r.id, r.section, r.title, r.href])).toEqual([
       ["support-send-feedback", "support", "Send feedback", "/settings/support/new"],
@@ -220,6 +241,12 @@ describe("the block", () => {
     expect(resolved.routes.map((r) => r.path)).toEqual(["/settings/support", "/settings/support/new", "/settings/support/[id]", "/settings/support/ideas", "/settings/support/shipped"]);
     expect(resolved.migrations).toEqual([
       { package: "@marktiderman/genesis-supabase", file: "migrations/0006_genesis_support.sql", test: "migrations/tests/0006_genesis_support.test.sql", feature: SUPPORT_BLOCK_ID },
+      {
+        package: "@marktiderman/genesis-support",
+        file: "migrations/0003_genesis_support_findings.sql",
+        test: "migrations/tests/0003_genesis_support_findings.test.sql",
+        feature: SUPPORT_BLOCK_ID,
+      },
     ]);
     expect(resolved.privacy[0]!.collects?.every((c) => c.tracking === false)).toBe(true);
   });
@@ -233,9 +260,13 @@ describe("the block", () => {
     expect(manifest.routes.map((r: { path: string }) => r.path)).toEqual(c.routes!.map((r) => r.path));
   });
 
-  it("names a migration and a test that the supabase package ships", () => {
-    const root = join(__dirname, "../../../supabase");
+  it("names migrations and tests that their packages ship", () => {
+    const roots: Record<string, string> = {
+      "@marktiderman/genesis-supabase": join(__dirname, "../../../supabase"),
+      "@marktiderman/genesis-support": join(__dirname, "../.."),
+    };
     for (const m of defineSupportBlock().contributes!.migrations!) {
+      const root = roots[m.package ?? "@marktiderman/genesis-support"]!;
       expect(() => readFileSync(join(root, m.file))).not.toThrow();
       expect(() => readFileSync(join(root, m.test!))).not.toThrow();
     }
