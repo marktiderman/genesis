@@ -1,10 +1,17 @@
 // @feat:init-native-template
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { appPnpmSettings, runInitNative } from "../src/blocks/init-native.js";
-import { readLock } from "../src/blocks/lock.js";
-import { snapshot, tempDir } from "./blocks-helpers.js";
+import { readLock, type GenesisLock } from "../src/blocks/lock.js";
+import { runDoctor } from "../src/doctor/index.js";
+import { blocksSwitchedOff, parseStarterFeatures, setStarterFeatures } from "../src/blocks/starter-features.js";
+import { PACKAGES, snapshot, tempDir } from "./blocks-helpers.js";
+
+/** Every file the lock names, and every migration copy it records, is on disk. */
+function lockedButMissing(target: string, lock: GenesisLock): string[] {
+  return [...Object.keys(lock.files), ...Object.values(lock.migrations ?? {})].filter((f) => !existsSync(path.join(target, f)));
+}
 
 async function init(extra: Partial<Parameters<typeof runInitNative>[0]> = {}) {
   const target = path.join(tempDir(), "trail-notes");
@@ -50,7 +57,9 @@ describe("genesis init --template native", () => {
     expect(files[".github/workflows/database.yml"]).toContain("supabase-ci.yml@GENESIS_SHA");
     expect(files[".github/workflows/genesis-upgrade.yml"]).toBeDefined();
     const lock = readLock(target);
+    // Every switch that carries a block ships on.
     expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "chat", "notifications", "push", "support-feedback"]);
+    expect(lockedButMissing(target, lock)).toEqual([]);
     expect(lock.files[".eas/workflows/e2e.yml"]?.source).toBe("@marktiderman/genesis-cli:templates/eas/workflows/e2e.yml");
     expect(lock.files["supabase/functions/genesis-push-send/index.ts"]?.source).toBe("@marktiderman/genesis-supabase:functions/genesis-push-send/index.ts");
     // 0005's test went with the notifications migration, which supersedes it.
@@ -65,6 +74,62 @@ describe("genesis init --template native", () => {
     expect(Object.keys(files).filter((f) => f.startsWith("supabase/migrations/")).every((f) => !files[f]!.startsWith("-- genesis-migration"))).toBe(true);
   });
 
+  it("--without leaves a switched-off block out whole: the lock lists only blocks that are on, and every file it names is there", async () => {
+    const { target, files, result } = await init({ without: ["chat", "support", "updates"] });
+    const lock = readLock(target);
+    // support-feedback's account stays: it's carried by no switch (and other blocks need it).
+    expect(Object.keys(lock.blocks).sort()).toEqual(["account", "notifications", "push"]);
+    expect(result.leftOut.sort()).toEqual(["app-updates", "chat", "support-feedback"]);
+    expect(lockedButMissing(target, lock)).toEqual([]);
+    expect(Object.keys(lock.migrations ?? {}).some((k) => /chat|support|release_policy/.test(k))).toBe(false);
+    // The switches are off in the app's config.
+    expect(files["starter.config.ts"]).toMatch(/\n\s*chat: false,/);
+    expect(files["starter.config.ts"]).toMatch(/\n\s*support: false,/);
+    expect(files["starter.config.ts"]).toMatch(/\n\s*updates: false,/);
+    expect(files["starter.config.ts"]).toMatch(/\n\s*push: true,/);
+    // None of their database: migrations, tests, the starter's chat_people, the schema the API served.
+    const supabase = Object.keys(files).filter((f) => f.startsWith("supabase/"));
+    expect(supabase.filter((f) => /chat|support|release_policy/.test(f))).toEqual([]);
+    expect(supabase.filter((f) => /genesis_push\.sql$|genesis-push-send\/index\.ts$|genesis_notifications\.sql$/.test(f))).toHaveLength(3);
+    expect(files["supabase/config.toml"]).toContain('schemas = ["public", "graphql_public"]');
+    expect(files["supabase/config.toml"]).not.toContain("genesis_chat");
+    expect(files["supabase/config.toml"]).toMatch(/\[functions\.genesis-push-send\]\s*\nverify_jwt = false/);
+    expect(JSON.parse(files["genesis.config.json"]!).doctor.supabase.exposedSchemas).toEqual(["public"]);
+  });
+
+  it("leaves out a switched-off block's Edge Function and its config.toml section", async () => {
+    const { target, files } = await init({ without: ["push"] });
+    expect(Object.keys(readLock(target).blocks)).not.toContain("push");
+    expect(Object.keys(files).filter((f) => f.includes("genesis-push-send") || f.endsWith("_genesis_push.sql"))).toEqual([]);
+    expect(files["supabase/config.toml"]).not.toContain("genesis-push-send");
+    expect(files["supabase/config.toml"]).toContain("[functions.genesis-apple-revoke]");
+    expect(lockedButMissing(target, readLock(target))).toEqual([]);
+  });
+
+  it("a fresh app passes genesis doctor, warning only about the store ids a person has to fill in, each saying what replaces it", async () => {
+    const { target, result } = await init({ without: ["chat", "support", "updates"] });
+    // The packages the app installs: the starter's, as the monorepo installed them.
+    symlinkSync(path.join(PACKAGES, "..", "apps", "genesis-rn-starter", "node_modules"), path.join(target, "node_modules"), "dir");
+    const doctor = await runDoctor({ root: target, contracts: false });
+    expect(doctor.errors).toBe(0);
+    expect(doctor.ok).toBe(true);
+    const warnings = doctor.findings.filter((f) => f.level !== "info");
+    expect(warnings.map((f) => `${f.rule} ${f.subject}`)).toEqual([
+      "eas-placeholder REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
+      "eas-placeholder REPLACE_WITH_APPLE_TEAM_ID",
+      "eas-placeholder REPLACE_WITH_PATH_TO_GOOGLE_SERVICE_ACCOUNT_JSON",
+    ]);
+    expect(doctor.findings.filter((f) => f.rule === "lock-files")).toEqual([]);
+    // init's summary lists the same placeholders, one step each, with what replaces it.
+    for (const w of warnings) expect(result.steps.some((s) => s.includes(w.subject!))).toBe(true);
+    expect(result.steps.find((s) => s.includes("REPLACE_WITH_APPLE_TEAM_ID"))).toMatch(/^eas\.json appleTeamId: replace REPLACE_WITH_APPLE_TEAM_ID with your Apple Developer Team ID/);
+  });
+
+  it("refuses a switch the starter doesn't have, and one that leaves no way to sign in", async () => {
+    await expect(runInitNative({ name: "ok-app", target: path.join(tempDir(), "a"), without: ["chats"] })).rejects.toThrow(/chats isn't a feature switch/);
+    await expect(runInitNative({ name: "ok-app", target: path.join(tempDir(), "b"), without: ["emailSignIn", "appleSignIn"] })).rejects.toThrow(/nobody could sign in/);
+  });
+
   it("refuses a folder that isn't empty, and bad names", async () => {
     const target = path.join(tempDir(), "taken");
     mkdirSync(target);
@@ -73,6 +138,22 @@ describe("genesis init --template native", () => {
     expect(existsSync(path.join(target, "package.json"))).toBe(false);
     await expect(runInitNative({ name: "Bad Name", target: path.join(tempDir(), "x") })).rejects.toThrow(/app slug/);
     await expect(runInitNative({ name: "ok-app", target: path.join(tempDir(), "y"), bundleId: "nodots" })).rejects.toThrow(/bundle id/);
+  });
+
+  it("reads and sets starter.config.ts switches as text, and keeps a switched-off block a block that's on requires", () => {
+    const config = "defineStarter({\n  app: { name: \"A\" },\n  features: {\n    // Off: a comment.\n    chat: true,\n    support: true, // trailing\n  },\n});\n";
+    expect(parseStarterFeatures(config)).toEqual({ chat: true, support: true });
+    expect(parseStarterFeatures(setStarterFeatures(config, { chat: false }))).toEqual({ chat: false, support: true });
+    expect(() => setStarterFeatures(config, { nope: false })).toThrow(/no features\.nope/);
+    const manifests = [
+      { id: "account", requires: [] },
+      { id: "support-feedback", requires: ["account"] },
+    ];
+    const map = { accountDeletion: ["account"], support: ["support-feedback"] };
+    expect([...blocksSwitchedOff({ accountDeletion: false, support: true }, map, manifests, ["account", "support-feedback"])]).toEqual([]);
+    expect([...blocksSwitchedOff({ accountDeletion: false, support: false }, map, manifests, ["account", "support-feedback"])].sort()).toEqual([["account", "accountDeletion"], ["support-feedback", "support"]]);
+    // A block the app doesn't have isn't reported, and doesn't keep anything.
+    expect([...blocksSwitchedOff({ accountDeletion: false }, map, manifests, ["account"])]).toEqual([["account", "accountDeletion"]]);
   });
 
   it("keeps pnpm settings and drops the workspace list", () => {

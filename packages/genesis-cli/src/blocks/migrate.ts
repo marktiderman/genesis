@@ -10,7 +10,8 @@
  * copy with a genesis-migration header is checked against its package too.
  */
 import * as path from "node:path";
-import { findBlock, packageDir } from "./discover.js";
+import { catalogBlocks, findBlock, packageDir } from "./discover.js";
+import { appBlocksSwitchedOff, switchedOffNote } from "./starter-features.js";
 import { localPackageNames } from "./local.js";
 import { readPackageFile } from "./files.js";
 import { readLock, writeLock } from "./lock.js";
@@ -36,6 +37,8 @@ export interface MigrateReport {
   plan: MigrationPlan;
   written: string[];
   warnings: string[];
+  /** Locked blocks left out because their starter.config.ts switch is off, with why. */
+  switchedOff: string[];
   /** True when something needs a person: an edited, changed or unreadable migration. */
   attention: boolean;
   /** The notification types migration created (or, in a dry run, that would be). */
@@ -46,7 +49,10 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
   const root = path.resolve(options.root);
   const lock = readLock(root);
   const warnings: string[] = [];
-  const ids = [...new Set([...Object.keys(lock.blocks), ...(options.blocks ?? [])])];
+  // A locked block whose starter.config.ts switch is off is left out (one asked for with --block isn't).
+  const off = appBlocksSwitchedOff(root, catalogBlocks(), Object.keys(lock.blocks));
+  const switchedOff = Object.keys(lock.blocks).filter((id) => off.has(id) && !options.blocks?.includes(id));
+  const ids = [...new Set([...Object.keys(lock.blocks).filter((id) => !switchedOff.includes(id)), ...(options.blocks ?? [])])];
   const sources: SourceMigration[] = [];
   const local = localPackageNames(root);
   for (const id of ids) {
@@ -92,7 +98,7 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
     : undefined;
   warnings.push(...(types?.warnings ?? []));
   const notificationTypes = types?.create ? { notificationTypes: types.create.path } : {};
-  if (options.dryRun) return { plan, written: [], warnings, attention, ...notificationTypes };
+  if (options.dryRun) return { plan, written: [], warnings, switchedOff: switchedOff.map((id) => switchedOffNote(id, off.get(id)!)), attention, ...notificationTypes };
   const written = applyMigrationPlan(root, plan);
   if (types?.create) {
     createApp(root, types.create.path, types.create.content);
@@ -101,5 +107,5 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
   for (const c of plan.creates) if (c.kind === "test" && c.source) recordOwned(lock, c.path, `${c.source.package}:${c.source.file}`, c.content, root, c.source.package);
   const remembered = rememberMigrationCopies(lock, plan);
   if (remembered || plan.creates.some((c) => c.kind === "test")) writeLock(root, lock);
-  return { plan, written, warnings, attention, ...notificationTypes };
+  return { plan, written, warnings, switchedOff: switchedOff.map((id) => switchedOffNote(id, off.get(id)!)), attention, ...notificationTypes };
 }

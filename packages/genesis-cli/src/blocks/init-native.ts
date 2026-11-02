@@ -10,9 +10,15 @@
  * - Rewrites `workspace:` dependencies to the published versions released
  *   with this CLI (or the installed umbrella's), and replaces the monorepo's
  *   Metro config with the plain one.
+ * - `--without <switches>` turns starter.config.ts feature switches off. A
+ *   block an off switch carries (genesis.config.json `starter.blocks`) is left
+ *   out whole: its migrations, pgTAP tests and Edge Functions, the starter's
+ *   own supabase files tagged only with it, its config.toml sections and the
+ *   API schemas its migrations create.
  * - Adds the templates (eas, maestro, ci), and records every Genesis-owned
- *   file, the blocks the starter carries and the renames in genesis.lock.json,
- *   so `genesis upgrade` can refresh them and `genesis migrate` knows the blocks.
+ *   file, the blocks the starter carries that are on, and the renames in
+ *   genesis.lock.json, so `genesis upgrade` can refresh them and `genesis
+ *   migrate` knows the blocks. Every file the lock names is written.
  * - Keeps the copied migrations byte for byte (genesis migrate knows them by name and text).
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -23,6 +29,8 @@ import { emptyLock, migrationKey, substitute, writeLock, type GenesisLock } from
 import type { BlockManifest } from "./manifest.js";
 import { stemOf, MIGRATIONS_DIR, TESTS_DIR } from "./migrations.js";
 import { pinnedVersion } from "./pm.js";
+import { blocksSwitchedOff, parseStarterBlocks, parseStarterFeatures, setStarterFeatures, STARTER_CONFIG } from "./starter-features.js";
+import { findPlaceholders, placeholderStep } from "../eas-placeholders.js";
 import { STARTER_EXCLUDE, starterDir, templateTarget, templatesDir, walk } from "./templates.js";
 import { PACKED_GITIGNORE } from "./walk.js";
 
@@ -36,6 +44,8 @@ export interface InitNativeOptions {
   scheme?: string;
   /** Versions for `workspace:` deps; default the CLI's release (or the umbrella's). */
   versionFor?: (name: string) => string | null;
+  /** Feature switches in starter.config.ts to turn off (`chat`, `support`…); the blocks they carry are left out. */
+  without?: string[];
   /** Blocks it may find in the starter (their migrations all copied) and record. */
   blocks: BlockManifest[];
 }
@@ -46,6 +56,8 @@ export interface InitNativeResult {
   dependencies: Record<string, string>;
   unpinned: string[];
   blocks: string[];
+  /** Blocks the starter carries that `without` switched off, so neither written nor recorded. */
+  leftOut: string[];
   steps: string[];
 }
 
@@ -127,7 +139,13 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
 
   const source = starterDir();
   const read = (rel: string) => readFileSync(path.join(source, rel), "utf8");
-  const was = starterIdentity(read("starter.config.ts"));
+  const was = starterIdentity(read(STARTER_CONFIG));
+  const switches = parseStarterFeatures(read(STARTER_CONFIG)) ?? {};
+  const without = [...new Set(options.without ?? [])];
+  const unknown = without.filter((w) => !(w in switches));
+  if (unknown.length) throw new Error(`--without: ${unknown.join(", ")} ${unknown.length > 1 ? "aren't" : "isn't"} a feature switch in ${STARTER_CONFIG} (${Object.keys(switches).join(", ")}).`);
+  const features = { ...switches, ...Object.fromEntries(without.map((w) => [w, false])) };
+  if (!features.emailSignIn && !features.appleSignIn && !features.googleSignIn) throw new Error("--without: emailSignIn, appleSignIn and googleSignIn would all be off, so nobody could sign in.");
   // The app is the new repository's root and keeps its code in src/, so pr-preview.yml's paths can
   // name it: nothing is left to replace (and `genesis upgrade` fills it the same way).
   const substitutions: Record<string, string> = {
@@ -172,6 +190,17 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
   const pnpmSettings = [path.join(source, "pnpm-workspace.yaml"), path.join(source, "..", "..", "pnpm-workspace.yaml")].find((f) => existsSync(f));
   if (pnpmSettings) files.set("pnpm-workspace.yaml", appPnpmSettings(readFileSync(pnpmSettings, "utf8")));
   files.set("README.md", readme(display, slug));
+  if (without.length) files.set(STARTER_CONFIG, setStarterFeatures(files.get(STARTER_CONFIG)!, Object.fromEntries(without.map((w) => [w, false]))));
+
+  // Blocks switched off: none of their files, so the lock can name only what is there.
+  const carried = options.blocks.filter((b) => carriedBy(files, b)).map((b) => b.id);
+  const switchedOff = blocksSwitchedOff(features, parseStarterBlocks(read("genesis.config.json")) ?? {}, options.blocks, carried);
+  const leftOut = options.blocks.filter((b) => switchedOff.has(b.id)).map((b) => b.id);
+  if (leftOut.length) leaveOut(files, options.blocks.filter((b) => switchedOff.has(b.id)));
+  // The copied migrations are the app's applied baseline: the doctor checks only later ones as new.
+  const since = sinceAfter(files);
+  const config = files.get("genesis.config.json");
+  if (since && config && !/"since"\s*:/.test(config)) files.set("genesis.config.json", config.replace(/("supabase"\s*:\s*\{[^}]*?)(\s*\})/, `$1, "since": "${since}"$2`));
 
   // The lock: renames, owned files and blocks.
   const lock: GenesisLock = { ...emptyLock(), substitutions };
@@ -190,6 +219,7 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
     const steps: string[] = [];
     const blocks: string[] = [];
     for (const block of options.blocks) {
+      if (switchedOff.has(block.id)) continue;
       const stems = block.migrations.map((m) => stemOf(m.file));
       const copies = stems.map((s) => migrations.find((f) => path.posix.basename(f).replace(/^\d+_/, "") === `${s}.sql`));
       if (!stems.length || copies.some((c) => !c)) continue;
@@ -222,9 +252,89 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
     steps.push(
       "Replace GENESIS_SHA in .github/workflows/*.yml with the commit of the Genesis release you run.",
       "Run eas init and put the project id in starter.config.ts app.easProjectId (builds, previews, updates).",
-      "Set links.hosts in genesis.config.json to your web domain, or delete the links block.",
+      "Set links.hosts in genesis.config.json to your web domain, or delete the links block (no app links then).",
+      // The store ids only the person has: the doctor's eas-placeholder warnings say the same.
+      ...[...files].flatMap(([rel, text]) => (rel === "eas.json" || rel.startsWith(".eas/") ? findPlaceholders(rel, text).map((p) => placeholderStep(rel, p.text, p.placeholder)) : [])),
     );
-    return { target, files: [...files.keys(), "genesis.lock.json"].sort(), dependencies, unpinned, blocks, steps };
+    return { target, files: [...files.keys(), "genesis.lock.json"].sort(), dependencies, unpinned, blocks, leftOut, steps };
+  }
+}
+
+/** True when the starter holds a copy of every migration the block ships (and it ships one). */
+function carriedBy(files: Map<string, string>, block: BlockManifest): boolean {
+  const names = [...files.keys()].filter((f) => f.startsWith(`${MIGRATIONS_DIR}/`) && f.endsWith(".sql")).map((f) => path.posix.basename(f).replace(/^\d+_/, ""));
+  return block.migrations.length > 0 && block.migrations.every((m) => names.includes(`${stemOf(m.file)}.sql`));
+}
+
+/**
+ * Where the doctor's supabase pack starts counting migrations as new (`doctor.supabase.since`):
+ * just after the newest the app was made with, so the starter's copies are its applied baseline
+ * even before the app has a git history to compare with.
+ */
+function sinceAfter(files: Map<string, string>): string | null {
+  const versions = [...files.keys()].filter((f) => f.startsWith(`${MIGRATIONS_DIR}/`) && f.endsWith(".sql")).map((f) => /^(\d{14})_/.exec(path.posix.basename(f))?.[1]).filter((v): v is string => Boolean(v)).sort();
+  const last = versions.at(-1);
+  return last ? String(BigInt(last) + 1n).padStart(14, "0") : null;
+}
+
+/** The `@feat:` ids on a file's first line. */
+function featTags(text: string): string[] {
+  return [...(text.split("\n", 1)[0] ?? "").matchAll(/@feat:([a-z0-9][a-z0-9-]*)/g)].map((m) => m[1]!);
+}
+
+/**
+ * Drop the blocks' files from what init writes: their migrations and pgTAP tests, their Edge
+ * Functions and config.toml sections, the starter's own supabase files tagged only with them
+ * (chat_people goes with chat), and the API schemas their migrations create (from config.toml's
+ * `[api] schemas` and the doctor's exposedSchemas).
+ */
+function leaveOut(files: Map<string, string>, blocks: BlockManifest[]): void {
+  const ids = new Set(blocks.map((b) => b.id));
+  const migrations = [...files.keys()].filter((f) => f.startsWith(`${MIGRATIONS_DIR}/`) && f.endsWith(".sql"));
+  const schemas = new Set<string>();
+  const functions = new Set<string>();
+  for (const block of blocks) {
+    for (const m of block.migrations) {
+      const stem = stemOf(m.file);
+      for (const copy of migrations.filter((f) => path.posix.basename(f).replace(/^\d+_/, "") === `${stem}.sql`)) {
+        for (const s of files.get(copy)!.matchAll(/\bcreate\s+schema\s+(?:if\s+not\s+exists\s+)?"?([a-z_][a-z0-9_]*)"?/gi)) schemas.add(s[1]!.toLowerCase());
+        files.delete(copy);
+      }
+      files.delete(`${TESTS_DIR}/${stem}.test.sql`);
+      if (m.test) files.delete(`${TESTS_DIR}/${path.posix.basename(m.test).replace(/^\d{4}_/, "")}`);
+    }
+    for (const fn of block.functions) {
+      const name = fn.dir.split("/").pop()!;
+      functions.add(name);
+      for (const f of [...files.keys()].filter((p) => p.startsWith(`supabase/functions/${name}/`))) files.delete(f);
+    }
+  }
+  for (const [rel, text] of [...files]) {
+    const tags = rel.startsWith("supabase/") ? featTags(text) : [];
+    if (tags.length && tags.every((t) => ids.has(t))) files.delete(rel);
+  }
+  const toml = files.get("supabase/config.toml");
+  if (toml !== undefined) {
+    // Sections are paragraphs (their comments above them): drop the functions' whole paragraphs.
+    const paragraphs = toml.split(/\n{2,}/).filter((p) => ![...functions].some((name) => p.split("\n").includes(`[functions.${name}]`)));
+    let out = paragraphs.join("\n\n");
+    if (!out.endsWith("\n")) out += "\n";
+    const served = /^schemas\s*=\s*\[([^\]]*)\]/m.exec(out)?.[1] ?? "";
+    for (const schema of [...schemas].filter((s) => served.includes(`"${s}"`))) {
+      out = out.replace(/^(schemas\s*=\s*\[)([^\]]*)\]/m, (_all, head: string, list: string) => `${head}${list.split(",").map((s) => s.trim()).filter((s) => s && s !== `"${schema}"`).join(", ")}]`);
+      // The comment that said the API serves it.
+      out = out.replace(new RegExp(`^#[^\n]*\\b${schema}\\b[^\n]*\n(?:#[^\n]*\n)*(?=\\[api\\])`, "m"), "");
+    }
+    files.set("supabase/config.toml", out);
+  }
+  const config = files.get("genesis.config.json");
+  if (config !== undefined && schemas.size) {
+    const json = JSON.parse(config) as { doctor?: { supabase?: { exposedSchemas?: string[] } } };
+    const exposed = json.doctor?.supabase?.exposedSchemas;
+    if (exposed?.some((s) => schemas.has(s))) {
+      const kept = exposed.filter((s) => !schemas.has(s));
+      files.set("genesis.config.json", config.replace(/("exposedSchemas"\s*:\s*)\[[^\]]*\]/, `$1${JSON.stringify(kept).replace(/","/g, '", "')}`));
+    }
   }
 }
 

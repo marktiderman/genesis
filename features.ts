@@ -2686,7 +2686,7 @@ export const features = defineFeatures({
     keywords: ["overlay", "local copy", "patch a package", "shadow package", "workspace override", "promote upstream"],
     platforms: { cli: "building" },
     requires: ["local-packages", "cli-doctor"],
-    contributes: ["package.json: genesis.overlay", "doctor rules: overlay-unmarked, overlay-invalid, overlay-age, overlay-version"],
+    contributes: ["package.json: genesis.overlay", "doctor rules: overlay-unmarked, overlay-invalid, overlay-age, overlay-version, overlay-behind", "genesis upgrade: overlays rebased onto the release, with a checklist"],
     owner: "mark",
     apps: ["cli"],
     audience: ["developer", "agent"],

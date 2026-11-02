@@ -17,6 +17,9 @@
  * - overlay-age: a marker older than 14 days is info (seen, never failing); older than 30 days it
  *   warns, which fails --strict. An overlay never blocks a release for its first month.
  * - overlay-version (warn): the version isn't the upstream version, `<upstream>+local.N` or `<upstream>-local.N`.
+ * - overlay-behind (warn, failing --strict): the marker's `upstream` is older than the version the
+ *   app now pins: the installed release's (the umbrella's versions.json), else the app's own
+ *   dependency on the package. `genesis upgrade` rebases the overlay and clears it.
  *
  * A marked overlay (a valid marker, private, in a package folder of its own) IS the package it
  * shadows, so the rules that flag copies of a Genesis primitive (shadowed-export,
@@ -30,6 +33,8 @@ import { overlayUpstream, readOverlayMarker, type OverlayMarker } from "@marktid
 import { inside } from "../blocks/files.js";
 import { localPackages, type LocalPackage } from "../blocks/local.js";
 import { DEFAULT_NATIVE_SRC, DEFAULT_SRC } from "./scan.js";
+import { compareVersions, parseVersion } from "./semver.js";
+import { readReleaseManifest } from "./versions.js";
 import type { DoctorConfig, DoctorContext, SourceFile } from "./types.js";
 
 export type { OverlayMarker } from "@marktiderman/genesis-features";
@@ -101,6 +106,37 @@ export function overlayAgeDays(since: string, now: Date = new Date()): number {
 // `^x.y.z` peer ranges exclude).
 const LOCAL_VERSION = /^(\d+\.\d+\.\d+(?:-(?!local\.)[0-9A-Za-z.-]+?)?)(?:[+-]local\.(?:0|[1-9]\d*))?$/;
 
+/**
+ * The version the app now pins for a package its overlay shadows: the installed release's, else the
+ * highest plain version (`1.2.3`, `^1.2.3`, `~1.2.3`) any of the app's package.json files depends on.
+ */
+export function pinnedVersion(root: string, name: string, manifests: readonly string[] = ["package.json"]): string | null {
+  let manifest = null;
+  try {
+    manifest = readReleaseManifest(root);
+  } catch {
+    // An unreadable versions.json is version-skew's to report.
+  }
+  const released = manifest?.packages[name];
+  if (released && parseVersion(released)) return released;
+  let best: string | null = null;
+  for (const file of manifests) {
+    let json: Record<string, Record<string, unknown> | undefined>;
+    try {
+      json = JSON.parse(readFileSync(path.join(root, file), "utf8")) as typeof json;
+    } catch {
+      continue;
+    }
+    for (const section of ["dependencies", "devDependencies", "optionalDependencies"]) {
+      const spec = json[section]?.[name];
+      const v = typeof spec === "string" ? /^[\^~=]?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(spec)?.[1] : undefined;
+      const parsed = v && parseVersion(v);
+      if (parsed && (!best || compareVersions(parsed, parseVersion(best)!) > 0)) best = v!;
+    }
+  }
+  return best;
+}
+
 /** The overlay rules, over every local package named like a Genesis package. */
 export function checkOverlays(ctx: DoctorContext, now: Date = new Date()): void {
   let packages: LocalPackage[];
@@ -158,6 +194,18 @@ export function checkOverlays(ctx: DoctorContext, now: Date = new Date()): void 
         file,
         subject: version || "(none)",
         message: `the overlay of ${marker.upstream} is version ${version || "(none)"}; use ${upstream}+local.N (or ${upstream} itself) so it reads as a local build of ${upstream} and still satisfies peer ranges`,
+      });
+    }
+    const pinned = pinnedVersion(ctx.root, pkg.name);
+    const from = parseVersion(upstream);
+    const to = pinned ? parseVersion(pinned) : null;
+    if (from && to && compareVersions(from, to) < 0) {
+      ctx.report({
+        rule: "overlay-behind",
+        level: "warn",
+        file,
+        subject: pkg.name,
+        message: `the overlay of ${marker.upstream} is behind ${pkg.name}@${pinned}, the version the app now pins; run genesis upgrade, which rebases the overlay onto it (dropping what Genesis now ships) and moves the marker's upstream, or rebase it by hand`,
       });
     }
   }

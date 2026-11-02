@@ -21,7 +21,8 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { agentsFragment, ownedWrites, pinGenesisImports, sourceMigrations } from "../blocks/add.js";
 import { mergeFragment } from "../blocks/agents.js";
-import { findBlock, packageDir, packageVersion } from "../blocks/discover.js";
+import { catalogBlocks, findBlock, packageDir, packageVersion } from "../blocks/discover.js";
+import { appBlocksSwitchedOff, blockOfSource, switchedOffNote } from "../blocks/starter-features.js";
 import { readApp, readPackageFile, replaceApp, sha256 } from "../blocks/files.js";
 import { starterIdentity } from "../blocks/init-native.js";
 import { LOCK_FILE, parseSource, readLock, substitute, writeLock } from "../blocks/lock.js";
@@ -32,6 +33,7 @@ import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run,
 import { starterDir, templatesDir } from "../blocks/templates.js";
 import { bumpPackageJson, bumpSummary, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
+import { applyOverlayPlans, gitUpstream, overlayChecklist, planOverlays, type OverlayPlan, type UpstreamSource } from "./overlays.js";
 
 export interface ReleaseLookup {
   /** The umbrella's version and versions.json for a version or dist-tag. */
@@ -61,6 +63,10 @@ export interface UpgradeOptions {
   pr?: boolean;
   lookup?: ReleaseLookup;
   codemods?: readonly Codemod[];
+  /** Where overlays' upstream source is read (default: the Genesis repository's release tags). */
+  upstream?: UpstreamSource;
+  /** The Genesis repository whose tags hold overlays' upstream source (default: the public one). */
+  genesisRepo?: string;
   /** The pnpm version the install ran (default: `pnpm --version` in the app); null when unknown. */
   pnpmVersion?: () => string | null;
   log?: (msg: string) => void;
@@ -74,11 +80,15 @@ export interface UpgradeReport {
   breaks: BumpChange[];
   refreshed: RefreshOutcome[];
   added: string[];
+  /** Locked blocks left out because their starter.config.ts switch is off, with why. */
+  switchedOff: string[];
   newMigrations: string[];
   doctor: "passed" | "failed" | "not run";
   files: string[];
   summary: string;
   pr?: string;
+  /** Each overlay rebased onto the release (overlays.ts), with its checklist. */
+  overlays: OverlayPlan[];
 }
 
 const EXACT_OR_TAG = /^[0-9A-Za-z][0-9A-Za-z.+-]*$/;
@@ -282,6 +292,28 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   const mods = codemodsFor(changes, options.codemods ?? CODEMODS);
   const breaks = uncoveredBreaks(changes, options.codemods ?? CODEMODS);
 
+  // Overlays: cleaned out and rebased onto the release, planned before anything is written, so a
+  // conflict stops the upgrade with nothing changed.
+  const upstream = options.upstream ?? gitUpstream(options.genesisRepo);
+  let overlays: OverlayPlan[];
+  try {
+    overlays = planOverlays(root, wanted, upstream, packageJsons(root));
+  } finally {
+    upstream.close?.();
+  }
+  const conflicted = overlays.filter((o) => o.conflicts.length);
+  if (conflicted.length && !options.dryRun) {
+    throw new Error(
+      [
+        `The rebase of ${conflicted.map((o) => `${o.name} onto ${o.to}`).join(", ")} conflicts; nothing was changed. Rebase these by hand (or drop what Genesis now ships), then run genesis upgrade again:`,
+        ...conflicted.flatMap((o) => o.conflicts.map((f) => `  ${o.rel}/${f}`)),
+        ...overlayChecklist(overlays),
+      ].join("\n"),
+    );
+  }
+  // A rebased overlay's package.json is the rebase's to write.
+  for (const o of overlays) if (!o.skipped) bumped.delete(`${o.rel}/package.json`);
+
 
   // Owned files' base text, from what is installed now (before the upgrade replaces it).
   const lock = readLock(root);
@@ -300,6 +332,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       replaceApp(root, file, text);
       files.add(file);
     }
+    for (const file of applyOverlayPlans(root, overlays)) files.add(file);
   }
   for (const mod of mods) {
     log(`codemod ${mod.id}: ${mod.description}`);
@@ -359,7 +392,23 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   const newMigrations: string[] = [];
   const warnings: string[] = [...excludeWarnings];
   const manifests = [];
+  // A block whose starter.config.ts switch is off is left out: no migrations planned, no files refreshed or added.
+  const catalog = catalogBlocks();
+  const off = appBlocksSwitchedOff(root, catalog, Object.keys(lock.blocks));
+  const switchedOff: string[] = [];
+  const offManifests = [];
   for (const [id, entry] of Object.entries(lock.blocks)) {
+    const feature = off.get(id);
+    if (feature) {
+      switchedOff.push(switchedOffNote(id, feature));
+      // Read only to know which owned files are its.
+      try {
+        offManifests.push((await findBlock(root, id, { package: entry.package })).manifest);
+      } catch {
+        offManifests.push(...catalog.filter((m) => m.id === id));
+      }
+      continue;
+    }
     try {
       const { manifest } = await findBlock(root, id, { package: entry.package, warnings });
       manifests.push(manifest);
@@ -373,6 +422,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   }
   const refreshed: RefreshOutcome[] = [];
   for (const [file, entry] of Object.entries(lock.files)) {
+    if (offManifests.length && blockOfSource(entry.source, offManifests)) continue;
     if (newMigrations.length && file.startsWith(`${TESTS_DIR}/`)) {
       refreshed.push({ path: file, outcome: "deferred", detail: "new package migrations are waiting: run genesis migrate, then genesis upgrade again" });
       continue;
@@ -434,13 +484,15 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   }
   if (next.size) lines.push("", "Review and delete these before merging (not committed by --pr):", "", ...[...next].map((n) => `- ${n}`));
   if (lock.substitutions && Object.keys(lock.substitutions).length) lines.push("", `Templates renamed with genesis.lock.json's substitutions: ${Object.entries(lock.substitutions).map(([a, b]) => `${a} → ${b}`).join(", ")}.`);
+  if (switchedOff.length) lines.push("", "Blocks switched off (left out):", "", ...switchedOff.map((s) => `- ${s}`));
   if (newMigrations.length) lines.push("", "New package migrations (run `genesis migrate` to copy them):", "", ...newMigrations.map((m) => `- ${m}`));
   if (tidiedExcludes) lines.push("", `pnpm pinned the new Genesis versions in \`${tidiedExcludes}\`'s \`minimumReleaseAgeExclude\` (they are younger than \`minimumReleaseAge\`). Each Genesis package now has one entry listing its exact versions in the lockfile (\`'name@1.0.0 || 1.1.0'\`), which \`pnpm install --frozen-lockfile\` honours; versions the lockfile no longer holds were dropped. Never a pattern, so a future Genesis release still waits out \`minimumReleaseAge\`. Other entries are as they were.`);
+  lines.push(...overlayChecklist(overlays));
   if (warnings.length) lines.push("", "Warnings:", "", ...warnings.map((w) => `- ${w}`));
   lines.push("", `\`genesis doctor\` ${doctor === "not run" ? "was not run" : doctor} after the upgrade.`);
   const summary = lines.join("\n");
 
-  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, newMigrations, doctor, files: [...files].sort(), summary };
+  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, switchedOff, newMigrations, doctor, files: [...files].sort(), summary, overlays };
   if (options.pr && !options.dryRun && files.size) report.pr = openPullRequest(root, release.version, report, prBase!);
   return report;
 }
@@ -499,6 +551,9 @@ function openPullRequest(root: string, version: string, report: UpgradeReport, b
   }
   const paths = [...report.files.filter((f) => existsSync(path.join(root, f))), ...lockfiles];
   git("add", "--", ...paths);
+  // What the overlay rebase deleted (a file gone upstream, or the whole overlay), staged as deletions.
+  const overlayDirs = report.overlays.filter((o) => !o.skipped && !o.conflicts.length && (o.remove || [...o.writes.values()].includes(null))).map((o) => o.rel);
+  if (overlayDirs.length) git("add", "-A", "--", ...overlayDirs);
   git("commit", "-q", "-m", `chore(deps): upgrade Genesis to ${version}`);
   git("push", "-u", "origin", branch);
   const body = path.join(mkdtempSync(path.join(tmpdir(), "genesis-pr-")), "body.md");
