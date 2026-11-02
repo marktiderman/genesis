@@ -1318,12 +1318,6 @@ describe("the connected account's identity", () => {
     }
   });
 
-  it("leaves a turned-down grant alone with revokeFailedGrants: false", async () => {
-    const t = setup({ revokeFailedGrants: false }, () =>
-      tokenOk({ scope: "openid" }),
-    );
-    expect((await roundTrip(t)).result).toBe("scope");
-    expect(revokes(t)).toHaveLength(0);
   it("leaves a turned-down grant alone by default, so a person's existing connection survives", async () => {
     for (const config of [{}, { revokeFailedGrants: false }]) {
       const t = setup(config, () => tokenOk({ scope: "openid" }));
