@@ -7,7 +7,10 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
 - Build before you test or typecheck: `pnpm build:packages`, then `pnpm test` and `pnpm typecheck`.
   `pnpm lint:genesis` runs the repo's own rules.
 - Every package change needs a changeset (`pnpm changeset`). Releases follow `docs/RELEASING.md`.
-- `docs/component-reference.md` is generated: `pnpm gen:component-reference`. Never edit it by hand.
+- `docs/component-reference.md` and `apps/sample/app/data/primitives.json` (with `story-ids.json`
+  beside it) are generated, and the version PR refreshes them (`pnpm version:packages`). A feature
+  PR doesn't regenerate or commit them; on a merge conflict in either, take main's version
+  (`git checkout --theirs <file>`).
 - Docs name only API the packages export: `pnpm check:docs-match-exports` (CI) type-checks every TS example and the prose under `<!-- api: … -->`; write anything not built yet as `**Planned**` with its features.ts id.
 - Merge, never rebase or force-push.
 - Genesis is public: never name an app or customer built on it, anywhere (code, tests, docs,

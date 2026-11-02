@@ -827,6 +827,33 @@ export function expandRecurrence(options: RecurrenceOptions): RecurrenceResult {
   return done();
 }
 
+/**
+ * One dated occurrence of an event, the shape every calendar reader and writer shares (a feed's
+ * events, a provider's, an app's own sessions). A recurring event is one per occurrence, each
+ * expanded with `expandRecurrence`.
+ *
+ * An all-day occurrence's `start` and `end` are days, `end` the day after its last day
+ * (exclusive, as RFC 5545 and calendar providers write it). A timed one's are instants, `end`
+ * exclusive. Where it came from (a source, its ids) is the reading package's to add.
+ *
+ * @stability Beta
+ */
+export interface EventOccurrence {
+  title: string;
+  location: string | null;
+  allDay: boolean;
+  start: Day | Date;
+  end: Day | Date;
+  /** The zone it was written in, when it names one (IANA). */
+  timeZone: string | null;
+  /** One occurrence of a repeating series. */
+  recurring: boolean;
+  /** `private`: others see it only as a busy block, without its title or place. */
+  visibility: "public" | "private";
+  /** A cancelled occurrence is removed, never kept with a status. */
+  status: "confirmed" | "tentative";
+}
+
 // ---------------------------------------------------------------------------
 // Stored values
 // ---------------------------------------------------------------------------

@@ -1,5 +1,71 @@
 # @marktiderman/genesis-ui
 
+## 2.28.0
+
+### Minor Changes
+
+- d2c47c2: `AppShell` on a phone. Two visible changes, so check your app's phone layout:
+  - **The bottom bar holds five slots at most.** The back item counts as one. An app with six or more bar items now shows the first four and a fifth slot, "More", which opens the rest in a bottom sheet. Before, every item was squeezed into the bar until labels clipped. More is highlighted when the current page is under it, and screen readers hear "More, includes the current page".
+  - **The drawer is wider:** 18rem (was 15rem), at most 85% of the screen. Its rows and buttons are at least 44px tall.
+
+  Also:
+  - **The drawer is genesis-ui's `Sheet` (`side="left"`), so Radix runs the modal.** Focus moves in and stays in, including away from toasts and other portals. Escape closes only the topmost layer: a dialog or popover opened from the drawer closes first, then the drawer. Scroll locking doesn't shift the layout and stacks with other dialogs. Closing hands focus back to the menu button, also after a drawer link navigates. The drawer still closes on a route change and when the screen widens past the phone breakpoint, and the shell's keyboard shortcuts still stand down while it's open. Closed, the drawer is no longer in the page at all, rather than kept off-screen and inert. When the screen widens with the drawer open, focus goes to the desktop sidebar's collapse toggle rather than the hidden menu button.
+  - **The drawer's content mounts each time it opens.** What you pass in the user slot and the footer is mounted when the drawer opens and unmounted when it closes, so effects in them re-run on every open.
+  - **The More sheet closes when the screen widens** past the phone breakpoint, and its scrim is hidden from that width up. Before, widening with it open left the page frozen under a scrim.
+  - **Safe areas.** The phone header, drawer, bottom bar and More sheet pad clear of the notch, the home indicator and the side insets, for apps that run edge to edge (`viewport-fit=cover`).
+  - **Reduced motion.** The drawer doesn't slide when reduced motion is asked for.
+  - **New copy in the UI message catalogue,** under `shell`: `navigation`, `openNavigation`, `closeNavigation`, `expandSidebar`, `collapseSidebar`, `primaryNavigation` (the bottom bar's name), `more`, `moreDescription` and `moreCurrent`. The sidebar toggle's "Expand sidebar" and "Collapse sidebar", and the bottom bar's "Primary", were hardcoded before. Reword or translate them with `UiMessagesProvider`.
+
+- cd02d94: Dialogs, alert dialogs, sheets and drawers fit a phone.
+
+  What changes by default, for every existing overlay:
+
+  - **Height caps in `dvh`.** `DialogContent` and `AlertDialogContent` are capped to the screen's height (`dvh`, inside the top and bottom safe areas on a phone) and scroll inside themselves, so the actions at the bottom can always be reached. Bottom and top `SheetContent` and `DrawerContent` are capped below the notch. `DetailPanel`'s dialog and `ResourceForm`'s fields use `dvh` where the browser has it (a phone's toolbar cuts `vh` off), and keep `85vh` and `60vh` where it doesn't. A caller's own `max-h-*`, padding, border or width on `DialogContent` still wins at every size.
+  - **Safe areas.** Side sheets pad clear of the notch and the home indicator; bottom sheets and drawers pad above the home indicator. A dialog on a phone keeps its side gutters and stays clear of both.
+  - **44px close buttons** on `DialogContent` and `SheetContent` (the icon is unchanged; its hit area grows).
+  - **Reduced motion.** Overlays and their backdrops don't animate when reduced motion is asked for.
+  - **`ResourceForm` on a phone pins Save and Cancel.** It already opens as a side sheet on a phone. The fields now scroll inside the sheet and the actions stay pinned at the bottom, above the home indicator, where before they sat after a `60vh` scrolling box inside a sheet that scrolled too, and scrolled out of reach. (iOS Safari's keyboard doesn't resize the viewport, so with the keyboard up the footer can still sit under it.) The sheet's header and footer gain a border line; its width is unchanged. This also applies to `layout="sheet"` on a desktop.
+
+  - **Small visual changes.** Bottom sheets get `rounded-t-xl` corners. Every sheet scrolls inside itself (`overflow-y-auto`). The close buttons of dialogs and sheets show their focus ring for keyboard focus only (`focus-visible`), drop the open-state background, and sit about 2px closer to the corner. `DetailPanel`'s sheet and the chat thread's search sheet pad clear of the notch and the home indicator themselves, since their `p-0` replaces the sheet's.
+
+  The dialog's position on a phone does not change: it is still the centred box.
+
+  Added:
+
+  - **`DialogContent mobileLayout`** (`"center" | "sheet" | "fullscreen"`, type `DialogMobileLayout`), opt-in per dialog. `center` is the default and today's layout. `sheet` docks the dialog to the bottom edge at full width on a phone, as tall as its content up to the top safe area. `fullscreen` fills the screen inside the safe areas, for long forms, editors and media. From `sm` up every layout is the same centred box.
+
+- 51a7b57: Lists and forms on a phone. The list layouts are opt-in; a few small defaults (keyboards, the list search, the default rows and cards) change existing screens, listed at the end.
+
+  - **Phone default for lists (opt-in).** `ResourceViewDefaultsProvider phoneMode="grid"` (or `"list"`) makes every full-page `ResourceView` (`layout="page"`) open in cards (or rows) on a phone and as a table on a desktop, unless its screen sets a mode. Embedded and compact lists are left alone: an embedded list has no view switch, so cards there would have no way back to the table. `phoneMode={null}` turns an outer provider's default off for a subtree. Without the provider nothing changes. `ResourceView`'s `mode` also takes `{ mobile, desktop }`. Calendar is never a phone default. The server renders the desktop default and a phone switches after hydration; a responsive default ignores a value saved under the older `genesis-view-<key>` key (see docs/RESOURCE-VIEW.md, "Phones").
+  - **Table cells that clip (opt-in).** `DataTable clipCells`, or `ResourceViewDefaultsProvider clipCells` for every `ResourceView`, clips a cell's content at its column's edge on one line with an ellipsis, so a long link or email doesn't run over the next column on a narrow table. Inline editors are never clipped. A screen's `slotProps.table.clipCells` wins.
+  - **Autofill is the field's call.** No input gets an `autocomplete` token from its type: unset, the attribute is left off, so the browser falls back to its own heuristics and may still offer to fill a field. A view field sets one with `autoComplete` (`fields: { email: { autoComplete: "email" } }`), or `"off"` on a form about someone else, so the browser is asked not to fill in the operator's own details. A view field's `inputMode` and `enterKeyHint` pass through the same way.
+  - **`tel` fields.** A new `tel` form type renders `type="tel"`. A `ResourceView` form field, and a `RecordView` settings field, is `tel` when its contract declares `widget: "tel"`; a column's name is never read as a type. `RecordView`'s settings inputs now take the same type, keyboard and autofill hints as a `ResourceForm` input.
+  - **Native.** The native form sheet gives a `widget: "tel"` field a `tel` kind and the phone keypad, and passes a view field's `autoComplete`, `inputMode` and `enterKeyHint` to the input.
+
+  Small default changes, on existing screens without a switch:
+
+  - **Keyboards.** Email, `tel` and url inputs ask for their keyboard (`inputMode`). A number asks for the decimal keypad only when its `min` is 0 or more, since that keypad has no minus key on an iPhone. A field's own `inputMode`, `autoComplete` and `enterKeyHint` always win.
+  - **List search.** The search box is named for screen readers, shows a search keyboard with a Search key, offers no autofill, and its clear button is a bigger target.
+  - **Default rows and cards.** `ResourcePage`'s default list row and card are titled by the page's title (`getTitle`, else `titleField`), not the first column's raw value, and leave that column out of the cells. Cells go through a column's `accessor` and `render`, so a computed column is no longer blank. A row is two lines: the title (up to two), then up to three other columns, wrapping.
+
+- 098f35e: Links can be edited in view forms, with a picker, when the view opts in.
+
+  **Before:** a `defineView` field with `references` was always read-only in a form: never sent, left out of a derived form, and filled hidden from the screen's `filter` or `defaults` when a new row needed it. **After:** the same, unless the view opts the link in, with `fields.<link>.link` (`{}` is enough) or a view-wide `editLinks: true`. An opted-in link is edited with a picker over the linked rows unless it's server-owned (generated, `@genesis readonly`, `permissions.update: false`) or the view marks it `readOnly`, and a derived form includes an opted-in link a new row can't do without (no default, never empty). Scope (tenant) links still never appear in a form, and a link the screen's `filter` pins to one value is filled hidden on create and never sent on edit; one the filter holds to a list (`in`) keeps its picker, offering only the list's rows. **The default flips in 3.0:** every link not marked `readOnly` will get a picker.
+
+  The client can't stop a cross-tenant link: the server must (an INSERT/UPDATE policy `WITH CHECK`, or a composite foreign key). Without `link.view` the picker lists under row-level security only: Genesis keeps no registry of views or tenant columns by resource.
+
+  - **genesis-core:** `fields.<link>.link` (`view`, `preset`, `filter`, `searchFields`) opts a link in and narrows the picker to the linked view's scope, its default preset's filter and the link's own filter (fixed or from the form's values); `editLinks` opts in every link. Each opted-in link's resolved form field carries `link` (`ResolvedLink`: `resource`, `field`, `labelField`, `searchFields`, `filters(scope, values)`). A `view` given as a function that doesn't fit throws in development; in production it's reported (`reportError`, `core:resource-view-link`) and the picker drops the view's filters, so the form still renders. `useLinkOptions(target, { filters, search, untitled })` lists the linked rows through the provider, searched and paged on the server, sorted by the naming field then the key; a row with no name shows `untitled` (default "Untitled"), never its key. `filterParams` and `relationNamingField` are exported; `ViewDefinitionError` moved to its own module (still exported from the same places). A `relation` form field accepts a number key and null, its `relation.labelField` is optional (the provider's `describe` names the rows), and `relation.keys: "row"` hands the form keys as the row holds them.
+  - **genesis-ui:** `RelationField` lists through `useLinkOptions`. Its props keep the old signature by default (`value: string`, `onChange(value: string)`, `""` for none); `keys: "row"` takes `value: unknown` and `onChange(string | number | null)`, which a view's links use. Behaviour change for a hand-written `type: "relation"` field too: it lists nothing until it opens, then 25 rows a page from the server, searched on the server (`search` across `relation.searchFields` or the naming field) with Show more, in place of the first 100 rows filtered in the browser; an optional one has None. The trigger is a button with `aria-haspopup="listbox"` (the search input is the only combobox), and the chosen row reads "selected". Copy from the UI catalogue (`link.*`, `common.untitled`). ResourceView maps each opted-in link in a view's form to it.
+  - **genesis-ui-native:** the form sheet draws an opted-in link as `NativeLinkPicker` (`kind: "link"`): the list opens in place with search, None and Show more; each choice is a radio with its checked state, and an error is read in the field's label and announced as an alert. `formFieldsFor(view, mode, { pinned, within })` keeps links the screen's filter pins read-only and holds a link to a list filter's rows. The messages catalogue gains an optional `link` block.
+
+  Features: resource-view-links
+
+### Patch Changes
+
+- Updated dependencies [51a7b57]
+- Updated dependencies [098f35e]
+  - @marktiderman/genesis-core@2.6.0
+
 ## 2.27.0
 
 ### Minor Changes
