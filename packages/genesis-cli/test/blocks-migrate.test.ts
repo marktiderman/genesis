@@ -57,6 +57,23 @@ describe("genesis migrate", () => {
     expect(read(root, forward.written[0]!)).toMatch(/^-- genesis-forward: [^\n]+\n-- Forward migration for @marktiderman\/genesis-fixture migrations\/0001_fixture_notes\.sql/);
   });
 
+  it("leaves out a locked block whose starter.config.ts switch is off, unless --block asks for it", async () => {
+    const root = await appWithBlock(true);
+    fixturePackage(root); // the package now also ships 0002
+    writeFileSync(path.join(root, "starter.config.ts"), "export default defineStarter({\n  features: {\n    notes: false,\n  },\n});\n");
+    writeFileSync(path.join(root, "genesis.config.json"), JSON.stringify({ starter: { blocks: { notes: ["fixture-notes"] } } }));
+    const report = await runMigrate({ root, dryRun: true });
+    expect(report.plan.creates).toEqual([]);
+    expect(report.switchedOff).toEqual(["fixture-notes: features.notes is off in starter.config.ts, so it's left out (turn it on to have it again)"]);
+    // Asked for by name, it's checked.
+    const asked = await runMigrate({ root, dryRun: true, blocks: ["fixture-notes"] });
+    expect(asked.switchedOff).toEqual([]);
+    expect(asked.plan.creates.map((c) => c.path)).toEqual([expect.stringMatching(/_fixture_notes_body\.sql$/)]);
+    // Switched on again: back to normal.
+    writeFileSync(path.join(root, "starter.config.ts"), "export default defineStarter({\n  features: {\n    notes: true,\n  },\n});\n");
+    expect((await runMigrate({ root, dryRun: true })).plan.creates).toHaveLength(1);
+  });
+
   it("reports a copy deleted in the app, and never copies it again", async () => {
     const root = await appWithBlock();
     const copy = "supabase/migrations/20261101120000_fixture_notes.sql";

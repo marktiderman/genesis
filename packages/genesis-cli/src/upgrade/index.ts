@@ -21,7 +21,8 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { agentsFragment, ownedWrites, pinGenesisImports, sourceMigrations } from "../blocks/add.js";
 import { mergeFragment } from "../blocks/agents.js";
-import { findBlock, packageDir, packageVersion } from "../blocks/discover.js";
+import { catalogBlocks, findBlock, packageDir, packageVersion } from "../blocks/discover.js";
+import { appBlocksSwitchedOff, blockOfSource, switchedOffNote } from "../blocks/starter-features.js";
 import { readApp, readPackageFile, replaceApp, sha256 } from "../blocks/files.js";
 import { starterIdentity } from "../blocks/init-native.js";
 import { LOCK_FILE, parseSource, readLock, substitute, writeLock } from "../blocks/lock.js";
@@ -72,6 +73,8 @@ export interface UpgradeReport {
   breaks: BumpChange[];
   refreshed: RefreshOutcome[];
   added: string[];
+  /** Locked blocks left out because their starter.config.ts switch is off, with why. */
+  switchedOff: string[];
   newMigrations: string[];
   doctor: "passed" | "failed" | "not run";
   files: string[];
@@ -260,7 +263,23 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   const newMigrations: string[] = [];
   const warnings: string[] = [];
   const manifests = [];
+  // A block whose starter.config.ts switch is off is left out: no migrations planned, no files refreshed or added.
+  const catalog = catalogBlocks();
+  const off = appBlocksSwitchedOff(root, catalog, Object.keys(lock.blocks));
+  const switchedOff: string[] = [];
+  const offManifests = [];
   for (const [id, entry] of Object.entries(lock.blocks)) {
+    const feature = off.get(id);
+    if (feature) {
+      switchedOff.push(switchedOffNote(id, feature));
+      // Read only to know which owned files are its.
+      try {
+        offManifests.push((await findBlock(root, id, { package: entry.package })).manifest);
+      } catch {
+        offManifests.push(...catalog.filter((m) => m.id === id));
+      }
+      continue;
+    }
     try {
       const { manifest } = await findBlock(root, id, { package: entry.package, warnings });
       manifests.push(manifest);
@@ -274,6 +293,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   }
   const refreshed: RefreshOutcome[] = [];
   for (const [file, entry] of Object.entries(lock.files)) {
+    if (offManifests.length && blockOfSource(entry.source, offManifests)) continue;
     if (newMigrations.length && file.startsWith(`${TESTS_DIR}/`)) {
       refreshed.push({ path: file, outcome: "deferred", detail: "new package migrations are waiting: run genesis migrate, then genesis upgrade again" });
       continue;
@@ -335,13 +355,14 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   }
   if (next.size) lines.push("", "Review and delete these before merging (not committed by --pr):", "", ...[...next].map((n) => `- ${n}`));
   if (lock.substitutions && Object.keys(lock.substitutions).length) lines.push("", `Templates renamed with genesis.lock.json's substitutions: ${Object.entries(lock.substitutions).map(([a, b]) => `${a} → ${b}`).join(", ")}.`);
+  if (switchedOff.length) lines.push("", "Blocks switched off (left out):", "", ...switchedOff.map((s) => `- ${s}`));
   if (newMigrations.length) lines.push("", "New package migrations (run `genesis migrate` to copy them):", "", ...newMigrations.map((m) => `- ${m}`));
   if (tidiedExcludes) lines.push("", `pnpm pinned the new Genesis versions in \`${tidiedExcludes}\`'s \`minimumReleaseAgeExclude\` (they are younger than \`minimumReleaseAge\`); those entries are now \`'${GENESIS_PATTERN}'\`, which \`pnpm install --frozen-lockfile\` honours. Other entries are as they were.`);
   if (warnings.length) lines.push("", "Warnings:", "", ...warnings.map((w) => `- ${w}`));
   lines.push("", `\`genesis doctor\` ${doctor === "not run" ? "was not run" : doctor} after the upgrade.`);
   const summary = lines.join("\n");
 
-  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, newMigrations, doctor, files: [...files].sort(), summary };
+  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, switchedOff, newMigrations, doctor, files: [...files].sort(), summary };
   if (options.pr && !options.dryRun && files.size) report.pr = openPullRequest(root, release.version, report, prBase!);
   return report;
 }
