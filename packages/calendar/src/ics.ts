@@ -8,6 +8,8 @@ import { isInWindow, toTimeValue, type CalendarEvent, type TimeWindow } from "./
 import { resolveZone } from "./zones";
 
 const DAY_MS = 86_400_000;
+/** The longest event read: ten years. */
+const MAX_LENGTH_MS = 3653 * DAY_MS;
 
 /** One content line: `NAME;PARAM=value:value`. @stability Beta */
 export interface IcsProperty {
@@ -186,6 +188,8 @@ function readEvent(c: IcsComponent, defaultZone: string, index: number): ReadEve
   } else {
     length = start.day ? DAY_MS : 0;
   }
+  // A length no calendar means (P99999999999999999999W, or an end centuries away) skips the event.
+  if (!Number.isFinite(length) || length > MAX_LENGTH_MS) return null;
   if (length < 0) length = 0;
   if (start.day && length < DAY_MS) length = DAY_MS;
 
@@ -278,6 +282,24 @@ function seriesStarts(e: ReadEvent, rrule: string, window: TimeWindow, limit: nu
   }
 }
 
+/** An occurrence, or null when its times can't be written (a guard: readEvent refuses those first). */
+function occurrenceOrNull(...args: Parameters<typeof occurrence>): CalendarEvent | null {
+  try {
+    return occurrence(...args);
+  } catch {
+    return null;
+  }
+}
+
+/** seriesStarts, with any unexpected failure read as an unexpanded rule. */
+function seriesStartsOrFirst(...args: Parameters<typeof seriesStarts>): ReturnType<typeof seriesStarts> {
+  try {
+    return seriesStarts(...args);
+  } catch {
+    return { starts: [args[0].start], truncated: false, unexpanded: true };
+  }
+}
+
 /** What `readIcs` takes. @stability Beta */
 export interface ReadIcsOptions {
   sourceId: string;
@@ -358,7 +380,14 @@ export function readIcs(text: string, options: ReadIcsOptions): ReadIcsResult {
         break;
       }
       readCount++;
-      const e = readEvent(c, zone, readCount);
+      // Never throw on a hostile feed: an event that can't be read is skipped (a guard behind
+      // the checks in readEvent, which should already have refused it).
+      let e: ReadEvent | null = null;
+      try {
+        e = readEvent(c, zone, readCount);
+      } catch {
+        e = null;
+      }
       if (e) events.push(e);
     }
 
@@ -380,12 +409,13 @@ export function readIcs(text: string, options: ReadIcsOptions): ReadIcsResult {
       const own = overrides.get(e.uid);
       if (!e.rrule && !e.rdates.length) {
         if (e.status === "cancelled") continue;
-        if (!push(occurrence(sourceId, e, e.start, null, false))) break feeds;
+        const ev = occurrenceOrNull(sourceId, e, e.start, null, false);
+        if (ev && !push(ev)) break feeds;
         continue;
       }
       let starts: IcsTime[] = [e.start];
       if (e.rrule) {
-        const expanded = seriesStarts(e, e.rrule, window, perSeries);
+        const expanded = seriesStartsOrFirst(e, e.rrule, window, perSeries);
         starts = expanded.starts;
         if (expanded.truncated) truncated = true;
         if (expanded.unexpanded) unexpanded.push(e.uid);
@@ -402,11 +432,14 @@ export function readIcs(text: string, options: ReadIcsOptions): ReadIcsResult {
         if (override) {
           own!.delete(key);
           if (override.status === "cancelled") continue;
-          if (!push(occurrence(sourceId, { ...override, uid: e.uid }, override.start, key, true))) break feeds;
+          // A moved occurrence of a private series stays private, whatever the override says.
+          const moved = occurrenceOrNull(sourceId, { ...override, uid: e.uid, private: override.private || e.private }, override.start, key, true);
+          if (moved && !push(moved)) break feeds;
           continue;
         }
         if (e.status === "cancelled") continue;
-        if (!push(occurrence(sourceId, e, start, key, true))) break feeds;
+        const ev = occurrenceOrNull(sourceId, e, start, key, true);
+        if (ev && !push(ev)) break feeds;
       }
     }
 
@@ -417,7 +450,8 @@ export function readIcs(text: string, options: ReadIcsOptions): ReadIcsResult {
       if (master && !master.rrule && !master.rdates.length) continue;
       for (const [key, override] of byMoment) {
         if (override.status === "cancelled") continue;
-        if (!push(occurrence(sourceId, override, override.start, key, true))) break feeds;
+        const ev = occurrenceOrNull(sourceId, { ...override, private: override.private || Boolean(master?.private) }, override.start, key, true);
+        if (ev && !push(ev)) break feeds;
       }
     }
   }

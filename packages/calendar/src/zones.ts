@@ -3,7 +3,8 @@
 import { isTimeZone } from "@marktiderman/genesis-core/dates";
 
 // Windows zone names, as Outlook and Exchange feeds write them, for the zones people mostly meet.
-const WINDOWS_ZONES: Record<string, string> = {
+// A Map, not a plain object: a TZID of "constructor" or "__proto__" must not find an inherited member.
+const WINDOWS_ZONES = new Map<string, string>(Object.entries({
   "Eastern Standard Time": "America/New_York",
   "Central Standard Time": "America/Chicago",
   "Mountain Standard Time": "America/Denver",
@@ -42,7 +43,7 @@ const WINDOWS_ZONES: Record<string, string> = {
   "W. Australia Standard Time": "Australia/Perth",
   "New Zealand Standard Time": "Pacific/Auckland",
   UTC: "UTC",
-};
+}));
 
 /**
  * An IANA zone for a TZID as feeds write it: IANA (`Europe/London`), a Windows name
@@ -56,7 +57,8 @@ export function resolveZone(tzid: string | null | undefined): string | null {
   const name = tzid.trim().replace(/^"|"$/g, "").replace(/^\/+/, "");
   if (!name || name.length > 200) return null;
   if (/^(utc|gmt|z|etc\/utc|etc\/gmt)$/i.test(name)) return "UTC";
-  if (WINDOWS_ZONES[name]) return WINDOWS_ZONES[name]!;
+  const windows = WINDOWS_ZONES.get(name);
+  if (windows !== undefined) return isTimeZone(windows) ? windows : null;
   if (isTimeZone(name)) return name;
   const tail = /([A-Za-z_]+\/[A-Za-z_]+(?:\/[A-Za-z_]+)?)$/.exec(name)?.[1];
   return tail && isTimeZone(tail) ? tail : null;

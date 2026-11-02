@@ -188,6 +188,88 @@ describe("readIcs", () => {
   });
 });
 
+describe("readIcs on hostile feeds", () => {
+  it("never throws on a TZID or X-WR-TIMEZONE naming an Object member", () => {
+    for (const name of ["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"]) {
+      expect(resolveZone(name)).toBeNull();
+      const text = [
+        "BEGIN:VCALENDAR",
+        `X-WR-TIMEZONE:${name}`,
+        "BEGIN:VEVENT",
+        "UID:z@x",
+        `DTSTART;TZID=${name}:20261105T090000`,
+        "RRULE:FREQ=DAILY;COUNT=2",
+        "END:VEVENT",
+        "BEGIN:VEVENT",
+        "UID:f@x",
+        "DTSTART:20261106T100000",
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join("\r\n");
+      // Read on the fallback zone (UTC), not thrown.
+      const out = readIcs(text, { sourceId: "s", window, defaultZone: name }).events;
+      expect(out.map((e) => iso(e.start))).toEqual(["2026-11-05T09:00:00.000Z", "2026-11-06T09:00:00.000Z", "2026-11-06T10:00:00.000Z"]);
+    }
+  });
+
+  it("skips an event with an absurd length rather than throwing", () => {
+    const out = read(
+      feed(
+        "BEGIN:VEVENT",
+        "UID:long@x",
+        "DTSTART:20261105T090000Z",
+        "DURATION:P99999999999999999999W",
+        "END:VEVENT",
+        "BEGIN:VEVENT",
+        "UID:far@x",
+        "DTSTART:20261105T090000Z",
+        "DTEND:99991231T000000Z",
+        "RRULE:FREQ=DAILY",
+        "END:VEVENT",
+        "BEGIN:VEVENT",
+        "UID:ok@x",
+        "DTSTART:20261105T090000Z",
+        "DURATION:PT1H",
+        "END:VEVENT",
+      ),
+    );
+    expect(out.map((e) => e.externalRef)).toEqual(["ok@x"]);
+  });
+
+  it("keeps a moved occurrence of a private series private", () => {
+    const out = read(
+      feed(
+        "BEGIN:VEVENT",
+        "UID:p@x",
+        "DTSTART:20261102T090000Z",
+        "RRULE:FREQ=DAILY;COUNT=3",
+        "CLASS:PRIVATE",
+        "SUMMARY:Appointment",
+        "END:VEVENT",
+        "BEGIN:VEVENT",
+        "UID:p@x",
+        "RECURRENCE-ID:20261103T090000Z",
+        "DTSTART:20261103T150000Z",
+        "SUMMARY:Appointment (moved)",
+        "END:VEVENT",
+        // An override whose original is outside the window still takes the master's class.
+        "BEGIN:VEVENT",
+        "UID:p@x",
+        "RECURRENCE-ID:20261001T090000Z",
+        "DTSTART:20261110T090000Z",
+        "SUMMARY:Appointment (moved in)",
+        "END:VEVENT",
+      ),
+    );
+    expect(out.map((e) => [e.title, e.visibility])).toEqual([
+      ["Appointment", "private"],
+      ["Appointment (moved)", "private"],
+      ["Appointment", "private"],
+      ["Appointment (moved in)", "private"],
+    ]);
+  });
+});
+
 describe("readIcs limits", () => {
   it("refuses a feed over the byte cap", () => {
     expect(() => readIcs(feed("X-PAD:" + "é".repeat(600)), { sourceId: "s", window, maxBytes: 1000 })).toThrow(RangeError);
