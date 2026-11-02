@@ -188,6 +188,24 @@ describe("AppShell phone drawer", () => {
     }
   });
 
+  it("hands focus to the desktop sidebar's toggle when the viewport widens with the drawer open", async () => {
+    const media = controllableMedia();
+    try {
+      render(
+        <AppShell appName="Acme" appLogo="A" navItems={three} options={{ ...chrome, showCollapse: true }} activePath="/">
+          <button type="button">Page action</button>
+        </AppShell>,
+      );
+      open();
+      media.widen();
+      expect(screen.queryByTestId("app-shell-mobile-nav")).toBeNull();
+      // Not the menu button: it sits in the phone header, hidden from md up.
+      await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId("app-shell-collapse")));
+    } finally {
+      media.restore();
+    }
+  });
+
   it("counts as an open dialog, so the shell's keyboard shortcuts stand down", () => {
     renderShell(three);
     open();

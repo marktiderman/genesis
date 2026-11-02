@@ -1219,6 +1219,9 @@ export function AppShell({
   // past it closes them. Left open, Radix would keep the page modal (body pointer-events off,
   // a scrim) behind a sheet nobody can see.
   const mobileOpenButtonRef = useRef<HTMLButtonElement>(null);
+  // The desktop sidebar's collapse toggle: where focus goes when the drawer closed because the
+  // screen widened, since the menu button sits in the phone header, which is hidden then.
+  const desktopToggleRef = useRef<HTMLButtonElement>(null);
   const phoneSheetOpen = mobileOpen || moreOpen;
   useEffect(() => {
     if (!phoneSheetOpen || typeof window.matchMedia !== "function") return;
@@ -1591,7 +1594,7 @@ export function AppShell({
       </Popover>
     ) : null;
 
-  const collapseLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  const collapseLabel = collapsed ? m.expandSidebar : m.collapseSidebar;
   // Same markup as before this feature (title + aria-pressed); only its
   // place changes on the collapsed rail (the foot instead of the header).
   const collapseToggle = showCollapseCtrl ? (
@@ -1599,6 +1602,7 @@ export function AppShell({
       variant="ghost"
       size="icon"
       className="h-8 w-8"
+      ref={desktopToggleRef}
       onClick={() => toggleCollapsed(true)}
       title={collapseShortcut ? `${collapseLabel} (${collapseShortcut})` : collapseLabel}
       aria-label={collapseLabel}
@@ -1792,8 +1796,12 @@ export function AppShell({
             // body in browsers where a tap doesn't focus a button (Safari). The menu button is
             // always the right place, including after a drawer link navigated: the link closed
             // the drawer, so its focus would otherwise be lost with it.
+            // Except when the screen widened past md, which closed the drawer: the menu button
+            // is in the hidden phone header then, and focusing it would drop focus on the body,
+            // so the desktop sidebar's collapse toggle takes it when there is one.
             event.preventDefault();
-            mobileOpenButtonRef.current?.focus();
+            const wide = typeof window.matchMedia === "function" && window.matchMedia(DESKTOP_QUERY).matches;
+            (wide && desktopToggleRef.current ? desktopToggleRef.current : mobileOpenButtonRef.current)?.focus();
           }}
         >
           <SheetTitle className="sr-only">{m.navigation}</SheetTitle>
@@ -1929,7 +1937,7 @@ export function AppShell({
           <nav
             // Padded above the home indicator and inside the side insets in landscape.
             className="fixed bottom-0 left-0 right-0 z-30 flex border-t bg-background pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] md:hidden"
-            aria-label="Primary"
+            aria-label={m.primaryNavigation}
             data-testid="app-shell-mobile-bottom-nav"
           >
             {backTarget ? (

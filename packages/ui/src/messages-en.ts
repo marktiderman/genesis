@@ -217,6 +217,11 @@ export const uiMessages = {
     navigation: "Navigation",
     openNavigation: "Open navigation",
     closeNavigation: "Close navigation",
+    /** The desktop sidebar's toggle, collapsed and expanded. */
+    expandSidebar: "Expand sidebar",
+    collapseSidebar: "Collapse sidebar",
+    /** The phone bottom bar's name. */
+    primaryNavigation: "Primary",
     /** The phone bottom bar's last slot when the items don't fit, and the sheet it opens. */
     more: "More",
     /** The More sheet's description, for screen readers. */
