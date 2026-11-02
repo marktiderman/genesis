@@ -11,6 +11,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { blocksOfInstalled } from "../src/blocks/discover.js";
+import { readPackageDir } from "../src/blocks/files.js";
 import type { BlockManifest } from "../src/blocks/manifest.js";
 import { PACKAGES } from "./blocks-helpers.js";
 
@@ -49,7 +50,14 @@ function shippedFiles(manifest: BlockManifest, folders: Map<string, string>): st
   return [
     ...manifest.migrations.flatMap((m) => [at(m.package, m.file), ...(m.test ? [at(m.package, m.test)] : [])]),
     ...manifest.functions.flatMap((f) => filesUnder(at(f.package, f.dir))),
-    ...manifest.skills.map((s) => at(s.package, s.path)),
+    // A skill in its own folder brings that folder's other files, read the way `genesis add` reads them.
+    ...manifest.skills.flatMap((s) => {
+      const skill = at(s.package, s.path);
+      const folder = s.path.split("/").slice(0, -1).join("/");
+      if (!folder) return [skill];
+      const companions = readPackageDir(folders.get(s.package)!, folder) ?? [];
+      return [skill, ...companions.filter((f) => f.name !== path.basename(skill)).map((f) => at(s.package, `${folder}/${f.name}`))];
+    }),
     ...(manifest.agents ? [at(manifest.agents.package, manifest.agents.path)] : []),
   ];
 }
@@ -67,6 +75,13 @@ async function everyBlock(): Promise<{ manifest: BlockManifest; files: string[] 
 
 const rel = (file: string) => path.relative(PACKAGES, file);
 
+/** The starter's own database files (apps/genesis-rn-starter/supabase), which init copies into every new app. */
+const STARTER = path.resolve(PACKAGES, "..", "apps", "genesis-rn-starter");
+function starterSupabase(): { files: string[]; blocks: Set<string> } {
+  const config = JSON.parse(readFileSync(path.join(STARTER, "genesis.config.json"), "utf8")) as { starter?: { blocks?: Record<string, string[]> } };
+  return { files: filesUnder(path.join(STARTER, "supabase")), blocks: new Set(Object.values(config.starter?.blocks ?? {}).flat()) };
+}
+
 describe("blocks pass the app's own checks", () => {
   it("finds the blocks and what they ship", async () => {
     const blocks = await everyBlock();
@@ -76,8 +91,12 @@ describe("blocks pass the app's own checks", () => {
 
   it("tags shipped files only with features the app registers when it adds the block", async () => {
     const problems: string[] = [];
-    for (const { manifest, files } of await everyBlock()) {
-      const registered = new Set([manifest.id, ...manifest.requires]);
+    const blocks = await everyBlock();
+    const blockIds = new Set(blocks.map((b) => b.manifest.id));
+    for (const { manifest, files } of blocks) {
+      // The block's own entry, and a required block's (genesis add writes one for each); a required
+      // app feature that is not a block isn't guaranteed to be registered.
+      const registered = new Set([manifest.id, ...manifest.requires.filter((r) => blockIds.has(r))]);
       for (const file of files) {
         for (const m of readFileSync(file, "utf8").matchAll(FEAT_TAG)) {
           if (!registered.has(m[1]!)) problems.push(`${manifest.id}: ${rel(file)} is tagged @feat:${m[1]}, which the app doesn't register (tag it @feat:${manifest.id})`);
@@ -85,6 +104,21 @@ describe("blocks pass the app's own checks", () => {
       }
     }
     expect(problems).toEqual([]);
+  });
+
+  it("tags the starter's database files only with the blocks it carries", () => {
+    const { files, blocks } = starterSupabase();
+    expect(files.length).toBeGreaterThan(0);
+    const problems: string[] = [];
+    for (const file of files) {
+      for (const m of readFileSync(file, "utf8").matchAll(FEAT_TAG)) if (!blocks.has(m[1]!)) problems.push(`${path.relative(STARTER, file)} is tagged @feat:${m[1]}, which isn't one of the starter's blocks`);
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it("ships no starter database file gitleaks reads as a private key", () => {
+    const problems = starterSupabase().files.filter((file) => GITLEAKS_PRIVATE_KEY.test(readFileSync(file, "utf8")));
+    expect(problems.map((f) => path.relative(STARTER, f))).toEqual([]);
   });
 
   it("ships nothing gitleaks reads as a private key", async () => {

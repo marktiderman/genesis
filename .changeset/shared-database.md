@@ -11,6 +11,8 @@ A block migration can declare the package migrations whose objects it provides o
 
 `genesis upgrade` no longer adds an Edge Function the lock never had (one init or add didn't write, or a superseded one): it lists it, for `genesis add`, which writes its config.toml section. New files in a function the app has are still added.
 
+Reading starter.config.ts's `features` finds the block's own closing brace (past nested objects, strings and comments), and a genesis.config.json `"starter": {}` carries no blocks instead of failing. init's `doctor.supabase.since` uses the migration timestamp helper.
+
 `genesis upgrade` accepts the `REPLACE_WITH_APP_FOLDER` substitution `init --template native` records, so it no longer refuses every app init made.
 
 Behaviour changes to note: `genesis add`, `migrate` and `upgrade` now read and validate genesis.config.json, so an invalid `supabase` setting (not `false` or `{ "app": "<relative folder>" }`), or an invalid `links` or `privacy` block, stops them with an error naming the file, as the doctor does. Top-level keys they don't know are still ignored. In an app made from an older starter, a block whose starter.config.ts switch is off no longer gets its migrations and functions from `migrate` and `upgrade`.
