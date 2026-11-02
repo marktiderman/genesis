@@ -1,6 +1,6 @@
 # ResourceView: one description per resource, one line per screen
 
-Design v0.4, 2026-10-26. Status: **approved by the maintainer; building**. v0.4 adds the reuse map from a survey of every Genesis package: most pieces already exist and are promoted or extended, not rebuilt. v0.3 adds what the first adopter's lists need (presets with filters, grouping, manual rank, footer totals).
+Design v0.4, 2026-10-26. Status: **approved by the maintainer; building**. This page describes what ships today; anything not built yet says **Planned** and names its `features.ts` entry, and `pnpm check:docs-match-exports` keeps the rest in line with the packages' types. v0.4 adds the reuse map from a survey of every Genesis package: most pieces already exist and are promoted or extended, not rebuilt. v0.3 adds what the first adopter's lists need (presets with filters, grouping, manual rank, footer totals).
 
 v0.2 folds in three adversarial reviews (security, speed and scale, API design) and reviews from
 the data, layout, native, extension and coordination owners. What changed from v0.1 is listed at
@@ -42,7 +42,7 @@ build only what's missing.
 | Need | Existing piece | Plan |
 | --- | --- | --- |
 | The web screen | `ResourcePage`, `useResourceTable`, `ResourcePageSlotMap` (genesis-ui) | **ResourceView maps a view onto ResourcePage props and slots.** It isn't a second list page |
-| The phone screen | `NativeResourcePage`, `NativeListItem` (title, subtitle, leading, trailing), `InboxPage` swipe actions, `SectionList` (genesis-ui-native) | `NativeResourceView` maps `native.row` onto these |
+| The phone screen | `NativeResourcePage`, `NativeListItem` (title, subtitle, leading, trailing), `InboxPage` swipe actions, `SectionList` (genesis-ui-native) | `NativeResourceView` maps the view's `summary` and `groupBy` onto these |
 | Resource facts | `ResourceSchema` (`label`, `labelField`, `access`, `actions`, `createFields`), `FieldSchema` (`widget`, `enumValues`, `references`, `generated`), Supabase resource config (`noun`, `nounPlural`, `searchFields`, `source`, `select`, `writeColumns`, `deleteMode`, `realtime`) | Reuse. `introspect` adds only `readonly` and `sensitive` (boolean comment values) |
 | Generated contracts | `emitContracts` → `contracts` (keyed `schema.table`), `GenesisRows` | Views import `contracts`. The name stays |
 | Form, sections, conditional fields, validation | `ResourceFormFieldDef` (`group`, `visible`, `disabled`, `maxLength`, `relation`), `useResourceForm` with zod `buildSchema`; studio's `formSchema` and `StudioFormConfig` (`sections`, `visibleWhen`) | **Promote studio's `formSchema` and `form-config` to core.** The view's `form` compiles to `ResourceFormFieldDef[]`, so conditional fields ship in phase 1 |
@@ -67,8 +67,8 @@ build only what's missing.
 | Doctor | `page-layout` (`…Page`, `…PageShell`), `native-screen-layout` (`…Page`, `…Screen`) | Both rules learn `ResourceView` and `NativeResourceView`. **Done:** the packages declare `ui/lists-use-resource-view`, `ui/records-use-record-view`, `ui-native/lists-use-native-resource-view` and `core/direct-data-access` (genesis-cli README, "Package rules") |
 
 Naming follows what exists:
-- Modes are the existing `ViewMode` (`table`, `grid`, `list`) plus `sheet`. "Cards" means `grid`,
-  and the stored choice key is unchanged.
+- Modes are the existing `ViewMode` (`table`, `grid`, `list`), plus `calendar` and, later,
+  `sheet`. "Cards" means `grid`, and the stored choice key is unchanged.
 - The permission hook keeps ResourcePage's name, `can`. It returns `true` or a reason, and it can
   only narrow what the server allows.
 
@@ -128,6 +128,8 @@ The provider config holds the data-side facts. These are owned by the data layer
 
 ### View: meaning, platform-neutral
 
+<!-- api: ViewDefinition<any>, ViewField -->
+
 ```ts
 // features/brands/brands.view.ts — no React, no DOM: native and the extension import it too
 import { defineView } from "@marktiderman/genesis-core/resource-view";
@@ -146,7 +148,6 @@ export const brandsView = defineView(contracts["public.brands"], {
   },
   columns: { default: ["name", "status", "created_at"], compact: ["name"] },
   form: ["name", { section: "advanced", fields: ["slug"] }],
-  validate: (s) => s.refine((r) => r.slug !== "admin", { path: ["slug"], message: "brands.slug.reserved" }),
   can: { delete: (row) => (row.is_default ? copy.brands.defaultKept : true) },
   summary: (row) => ({ title: row.name, chips: [{ label: brandsView.valueLabel("status", row.status), tone: "info" }] }),
 });
@@ -175,14 +176,23 @@ export const brandsView = defineView(contracts["public.brands"], {
   shows the field's `missingLabel` ("Someone you can't see"), else the catalogue's
   `common.hiddenLink`. Labels are cached for a minute and refresh when the linked resource is
   written. Native's read-only link in the form sheet shows the same words.
-- **Validation is derived** from the contract (nullability, enums, `max`) as a Standard Schema
-  (zod). `validate` only adds rules.
-- **Computed columns** (`columns: { full_name: { value: (r) => ... } }`) and **row actions**
-  (decorating the resource's `actions`) are part of the view.
-- **Presets carry filters as well as columns.** `presets: { short: { filter: { term: "short" }, columns: [...] } }` show as tabs (team or private, short- or long-term, this quarter).
-- **Grouping:** `groupBy: "owner_id"`, with group headers and counts.
-- **Manual order:** `orderBy: { field: "rank", manual: true }` turns on drag to reorder, plus keyboard pick-up and the Move menu, on SortableList's engine (one drag engine). The rank is written through the provider.
-- **Footer totals:** `totals: (rows) => ...` for a figure such as a week's completion %.
+- **Links are read-only in forms.** A view's form shows a link but never sends a typed id, and
+  links are left out of default columns and forms. A screen fills a link on create through
+  `filter` or `defaults`. A picker that searches the linked resource, and filtering a list by a
+  linked row from its header, are **Planned** ([`resource-view-links`](../features.ts)).
+- **Validation is derived** from the contract (nullability, enums, `max`): the form's fields get
+  `required`, `maxLength` and their choices. A view has no hook of its own for further rules; a
+  rule the server must hold goes in the database and comes back as a refusal.
+- **Computed columns** (an entry `{ key: "full_name", label: "Name", value: (r) => ... }` in a
+  column list) and **row actions** (`actions`, shaped like the resource's) are part of the view.
+- **Presets carry filters as well as columns.** `presets: { short: { filter: { term: "short" }, columns: "compact" } }` (a column preset by name) show as tabs (team or private, short- or long-term, this quarter).
+- **Grouping:** `groupBy: "owner_id"`. NativeResourceView shows the groups as sections, sorted on
+  the server. On the web, group headers with counts are **Planned** ([`resource-view-shaping`](../features.ts)).
+- **Order:** `orderBy: { field: "rank", direction: "asc" }` is the default sort. Drag to reorder
+  with `manual: true` (keyboard pick-up, the Move menu, the rank written through the provider) is
+  **Planned** ([`resource-view-shaping`](../features.ts)): today `manual` is accepted and ignored.
+- **Footer totals** (a figure such as a week's completion %), overall and per group for
+  assessment-style lists: **Planned** ([`resource-view-shaping`](../features.ts)).
 - **Dates are days or instants, never confused.** The `date` hint formats a calendar day
   (`YYYY-MM-DD`) from its parts, never `new Date(day)`. A timestamp renders on the viewer's clock
   with `genesis-core/dates` (`wallClock(personTimeZone(viewer), at)`). `timeZone: "scope"` renders it
@@ -197,17 +207,18 @@ export const brandsView = defineView(contracts["public.brands"], {
   anonymous author, a hidden name) and return `null` with a flag column. `fields.author.when:
   (row) => row.author_visible` shows the column or cell only when the server says so. The masking
   itself is the server's.
-- **Rollups:** `totals` can be per group as well as overall (an average and spread per team,
-  then a combined row), for assessment-style lists.
 - **`summary(row)`** gives a one-line title and chips for pickers, notifications, extension page
-  bars and other non-list surfaces. It defaults to `labelField` plus a few columns.
+  bars and other non-list surfaces. Without one, the title is the `labelField`'s value (else the
+  noun).
 
 ### Screen: one line, presentation only
+
+<!-- api: ResourceViewProps -->
 
 ```tsx
 <ResourceView view={brandsView} />
 <ResourceView view={brandsView} columns="compact" layout="embedded" filter={{ org_id }} />
-<ResourceView view={sessionsView} layout="embedded" filter={{ client_id: id }} mode="cards" />
+<ResourceView view={sessionsView} layout="embedded" filter={{ client_id: id }} mode="grid" />
 ```
 
 Screen settings:
@@ -223,13 +234,18 @@ Screen settings:
   filled hidden and sent on create, like `filter`. The filter wins a clash;
 - `onSaved(row, action)`: after the built-in form saves, e.g. to open a builder for a new row.
   A pessimistic save gives the server's row with its key;
-- `mode`: `table`, `grid` (cards), `list` or `sheet`;
-- `header`: parts on or off, or one part filled;
-- `slots`: `peekExtra`, `detail`, `card`, `toolbar`, `rowActions`, `header`;
-- `onTotal`: for a parent tab's badge;
+- `mode`: `table`, `grid` (cards), `list` or `calendar` ([Calendar](#calendar)); `sheet` is
+  **Planned** ([`resource-view-sheet`](../features.ts));
+- `header`: `page` (the full header) or `toolbar` (its actions without the title block);
+- `toolbar`: content beside the header's actions;
+- `cells`: draw some cells this screen's way, by column key;
+- `slots` and `slotProps`: replace or adjust ResourcePage's parts (`shell`, `filters`, `bulkBar`,
+  `grid`, `table`, `detail`, `form`, `deleteDialog`);
 - `tree`: nested rows from a flat list ([Tree mode](#tree-mode)).
 
-`useResourceView(view, options)` is the headless form, with the same state as `useResourceTable`.
+Every other ResourcePage prop passes through (`renderCard`, `renderDetail`, `live`, `pagination`).
+
+`useResourceView(props)` is the headless form: the same props, returning `useResourceTable`'s state.
 
 An input left empty is no value, when the contract says whether its column takes null (the view
 passes `nullable` and `hasDefault` to the form; a hand-written `ResourceFormFieldDef` can set
@@ -265,11 +281,11 @@ title ("Create My Goal").
 
 Use the smallest step that does the job:
 
-1. **A screen setting**, such as `columns="compact"`, `mode="cards"` or
-   `header={{ search: true }}`.
+1. **A screen setting**, such as `columns="compact"`, `mode="grid"` or `header="toolbar"`.
 2. **The view**, so every screen of that resource gets it: a label, a display hint, a column, a
    form section or a guard.
-3. **A slot** on one screen: `peekExtra`, `detail`, `toolbar`, `rowActions`, or the header.
+3. **A slot** on one screen: `cells`, `toolbar`, `renderDetail`, or one of ResourcePage's
+   `slots` (`detail`, `form`, the `shell` around it all).
 4. **Headless**: `useResourceView` with your own layout.
 
 A change to a view reaches every screen of that resource on every platform. A change to a
@@ -277,10 +293,12 @@ renderer reaches every app.
 
 ## Header and layout
 
-The header parts are `title`, `subtitle`, `count`, `search`, `filters`, `views`, `viewToggle`,
-`settings`, `create` and `actions`. They are today's PageHeader, DataFilters and DataPageShell
-pieces, re-exported, not a new namespace. `header={{...}}` switches or fills parts, and
-`slots.header` replaces the header.
+<!-- api: ResourceViewProps -->
+
+The header is ResourcePage's: DataPageShell's title, subtitle, count, view toggle, settings and
+create button, with DataFilters' search and filters. `header="toolbar"` keeps the actions and
+drops the title block, `toolbar` adds content beside them, and `slots.shell` replaces the shell
+(wrap the default rather than dropping it).
 
 There is one owner of the page header per route:
 
@@ -290,7 +308,7 @@ There is one owner of the page header per route:
   also goes into `AppShellPageHeader`.
 - **`layout="embedded"`:** a list inside a page or a record view tab. It never portals into the page
   header, never registers sub-navigation and never claims the title. It shows only its toolbar
-  parts (the `variant="embedded"` rules already in genesis-ui).
+  parts (ResourcePage's embedded variant).
 - **`layout="compact"`:** a narrow surface such as an extension side panel or popup. It's one
   column and the peek opens as a sheet.
 
@@ -301,7 +319,10 @@ On phones:
 - create stays the primary button;
 - the bottom bar belongs to the shell and is never touched.
 
-## Modes: table, cards, sheet
+## Sheet mode
+
+**Planned** ([`resource-view-sheet`](../features.ts)): none of this section is built. Today's modes are `table`, `grid`,
+`list` and `calendar`.
 
 `mode="sheet"` is the "studio" switch: a spreadsheet with inline editing for this one resource.
 
@@ -312,7 +333,8 @@ On phones:
 - **Editable cells are an allow-list.** Only fields the view's `form` names are editable. Tenant,
   owner and `readonly` columns never are. Without that rule, a provider with no `describe()` would
   offer every column.
-- **Multi-cell paste needs the provider's `bulkWrites`.** Otherwise it is off, and it is never a
+- **Multi-cell paste needs the provider's `bulkWrites` capability** (`updateMany` in one
+  transaction; the Supabase provider reports `false`). Otherwise it is off, and it is never a
   non-transactional loop. When it's on, the paste is one undoable unit and each row is still
   checked for refusal.
 - Version checks apply only where the provider supports them (`versionedWrites`). The Supabase
@@ -393,6 +415,8 @@ These apply to existing screens without a switch:
   two lines: the title (up to two lines), then up to three other columns, wrapping.
 
 ## Calendar
+
+<!-- api: ResourceViewProps, ViewCalendar, ResourceCalendarOptions<any> -->
 
 A view's `calendar` block says how its rows show on a calendar. It is part of the description, so
 ResourceView draws it on the web and NativeResourceView will on the phone, with no change to the
@@ -488,8 +512,8 @@ ResourceView adds **no authority**. The layers, in order:
 
 What's needed from the app's database:
 
-- **Hidden is not protected.** `columns`, `fields.x.hidden` and `select` are presentation and
-  bandwidth only. Any column some users must never read goes in a separate table, a
+- **Hidden is not protected.** `columns`, `when` and `select` are presentation and bandwidth
+  only. Any column some users must never read goes in a separate table, a
   `security_invoker` view over a base table whose SELECT is revoked, or a function. A field marked
   `sensitive` is refused at render time when the provider can't confirm the user may read it (fail
   closed).
@@ -501,8 +525,8 @@ What's needed from the app's database:
 
   `introspect` generates a `genesis-core/testing` stub per scoped resource, asserting that a
   cross-scope insert and update are refused.
-- **References fail closed.** When RLS hides a referenced row, show "—", never the raw id or a
-  title cached for someone else. `ViewerScope` resets the cache when the viewer changes.
+- **References fail closed.** When RLS hides a referenced row, the cell shows the field's
+  `missingLabel` (else `common.hiddenLink`), never the raw id or a title cached for someone else. `ViewerScope` resets the cache when the viewer changes.
 - **Live updates stream rows.** Every table in `supabase_realtime` needs RLS with SELECT policies.
   Tables with sensitive columns aren't published, or publish a column list, with the default
   replica identity. `live` on a `source` view streams the base table's events.
@@ -587,6 +611,8 @@ and adds no new top-level declarations.
 
 ## Tree mode
 
+<!-- api: ResourceViewProps, ResourceTree<any> -->
+
 `tree` on a screen nests rows under their parent, built from the flat list the screen already
 loads. It is a screen option, not a `mode`: it applies to the table and list views; grid and sheet
 ignore it for now.
@@ -656,10 +682,12 @@ The defaults are chosen for large data:
   - `ResourceView` warns in development when `live` is set but the table isn't published.
 - **Peek and form** fetch their row by id when they open, rather than widening the list's
   `select`. They load lazily on first open.
-- **References** become bounded PostgREST embeds (`brand:brands(name)`), with no N+1. A filtered
-  child count never goes through embeds: it comes from a `source` view.
-- **Big exports, imports and pastes run as jobs.** Above a threshold (about 500 rows, or past the
-  provider's `bulkWrites` limit), CSV export, import and multi-row paste go to
+- **References** are read in batches, with no N+1: `useRelationLabel` asks for every id a screen
+  shows in one `in` query per linked resource (see "Links have words"). A filtered child count
+  comes from a `source` view.
+- **Big exports, imports and pastes run as jobs** (**Planned** ([`resource-view-sheet`](../features.ts))). Above a
+  threshold (about 500 rows, or wherever the provider doesn't serve `bulkWrites`), CSV export,
+  import and multi-row paste go to
   `genesis-supabase/jobs` (`enqueueJob(admin, "resource.export", { resource, filters, viewer })`)
   through an app server function, with an idempotency key so a double click is one job. The
   browser watches the job instead of looping writes. Below the threshold they stay synchronous.
@@ -667,6 +695,8 @@ The defaults are chosen for large data:
   messages provider is given a stable object.
 
 ## RecordView
+
+<!-- api: RecordViewDefinition<any>, RecordViewProps<any>, RecordView<any> -->
 
 One record's screen from its view, defined once with no React and drawn on web and native:
 
@@ -708,18 +738,20 @@ export const brandRecordView = defineRecordView(brandsView, {
 
 ## Native
 
+<!-- api: NativeResourceViewProps<any>, ViewDefinition<any> -->
+
 `NativeResourceView` reads the same view and renders native patterns:
 
-- **Rows, not columns:** `native.row: { title, subtitle, leading, trailing }`, where `subtitle` can
-  join fields. `sectionBy` gives inset-grouped sections. The fallback is `labelField` plus two
-  columns.
+- **Rows, not columns:** each row is the view's `summary(row)` (title, subtitle, the first chip,
+  the picture) in a `NativeListItem`. Without a `summary`, the title is the `labelField`'s value
+  (else the noun). `groupBy` gives sections, sorted on the server and inset-grouped on iOS.
 - **Form sheet:** Cancel and Save in the nav bar, sections as grouped sections, native date and
   time pickers, choices as a segmented control or a pushed list, and the keyboard toolbar from
   FormFocus.
 - **Swipe actions:** guards drive the swipe Delete, and actions take icon names. Delete wording
   follows the provider's real capability (`bin.restorable`).
-- **The peek pushes a detail screen** when a view declares `native.detail` (a route), so deep
-  links and notification taps land in the same place.
+- **A row opens the peek**, the view's columns in a sheet. To push a detail screen instead (so
+  deep links and notification taps land in the same place), pass `onRowPress` and navigate.
 - **Paging and writes:** cursor paging with `onEndReached`. Search debounced at 300 ms. Zero-row
   refusals and optimistic updates with rollback.
 - **Doctor:** `native-screen-layout` counts `NativeResourceView` as a layout.
@@ -731,7 +763,7 @@ export const brandRecordView = defineRecordView(brandsView, {
 - The provider and session come from context, never a global browser client. A pluggable session
   store (`chrome.storage`, SecureStore) and a storage adapter for saved views and preferences
   replace direct `localStorage`.
-- Nothing assumes a router, SSR or a full page. `layout="compact"` and `paging="infinite"` cover
+- Nothing assumes a router, SSR or a full page. `layout="compact"` and `pagination="cursor"` cover
   narrow surfaces. A `detail` slot covers rich detail layouts (a player with a transcript).
 - `describe()` and the batched permissions check are cached per user, scope and resource, so a
   popup opened many times a session doesn't pay round trips each time.
@@ -776,7 +808,7 @@ already a working screen.
 | 1 | `genesis-core/resource-view`: `defineView`, view types, derived validation, `summary`, guards |
 | 1 | `ResourceView`, `useResourceView`, header parts, page/embedded/compact layouts, renderer registry with web renderers, URL allow-list |
 | 1 | Three pilot screens: one plain admin list, one list embedded in a record view tab, and one hard list (Tasks). Line counts measured before and after |
-| 2 | `mode="sheet"` on `SheetGrid` |
+| 2 | `mode="sheet"` on `SheetGrid` (planned) |
 | 2 | `NativeResourceView`: rows, form sheet, swipe actions, detail routes (about 3 days) |
 | 2 | Session-agnostic provider and storage adapter, batched permissions feeding guards, `summary` → page bar, compact and detail layouts |
 | 3 | Remaining app screens, then a doctor rule: new list screens use ResourceView |

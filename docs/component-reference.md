@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4083 other exports · 3250 standalone types across 190 entry points in 29 packages.
+**Totals:** 593 components · 4085 other exports · 3258 standalone types across 190 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1993,13 +1993,14 @@ DTCG design tokens, brand schema, theme generators. Brand-agnostic; consumer bra
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (73)
+### Other exports (74)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
+| [`brandContrastProblems`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | The brand's contrast problems: role pairs (per platform, when its `platformOverrides` make them differ) and extension colors. Empty when every pair reaches its minimum. Colors that aren't `#rgb` / `#rrggbb` are skipped. Assumes a brand o... |
 | [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
 | [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
 | [`classicDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Today's look, unchanged: it emits no tokens, so every component keeps the stylesheet's own sizes, spacing and colours. The default for a brand that names no design system. |
@@ -2069,19 +2070,22 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
 | [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
-| [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
+| [`validateBrand`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | {@link validateBrandShape | The brand shape check} plus {@link brandContrastProblems}: contrast pairs under their minimum come back as `warnings` (`ok` stays true); body text under 1.5:1 on its page is an error. The package entry exports... |
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (48)
+### Types (51)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BrandContrastFinding };
+export type { BrandContrastProblem };
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
 export type { BrandRoleVariables };
 export type { BrandRoleVariablesOptions };
+export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorRoles };
@@ -2140,7 +2144,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
 | [`fontFamily`](../packages/design-system/src/tokens/typography.ts) | const | — | Shared typography tokens for all Genesis projects. |
 | [`fontSize`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
 | [`fontWeight`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
@@ -2235,12 +2239,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isLength`](../packages/design-system/src/schema/brand.ts) | function | — | Whether a length passes LENGTH_REGEX, and, for a clamp, its min isn't above its max. |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
 
-### Types (8)
+### Types (10)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BrandContrastFinding };
 export type { BrandExtensions };
+export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorScale };
@@ -4809,13 +4815,14 @@ export type { WizardStep };
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (73)
+### Other exports (74)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
+| [`brandContrastProblems`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | The brand's contrast problems: role pairs (per platform, when its `platformOverrides` make them differ) and extension colors. Empty when every pair reaches its minimum. Colors that aren't `#rgb` / `#rrggbb` are skipped. Assumes a brand o... |
 | [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
 | [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
 | [`classicDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Today's look, unchanged: it emits no tokens, so every component keeps the stylesheet's own sizes, spacing and colours. The default for a brand that names no design system. |
@@ -4885,19 +4892,22 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
 | [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
-| [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
+| [`validateBrand`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | {@link validateBrandShape | The brand shape check} plus {@link brandContrastProblems}: contrast pairs under their minimum come back as `warnings` (`ok` stays true); body text under 1.5:1 on its page is an error. The package entry exports... |
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (48)
+### Types (51)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BrandContrastFinding };
+export type { BrandContrastProblem };
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
 export type { BrandRoleVariables };
 export type { BrandRoleVariablesOptions };
+export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorRoles };
@@ -4956,7 +4966,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
 | [`fontFamily`](../packages/design-system/src/tokens/typography.ts) | const | — | Shared typography tokens for all Genesis projects. |
 | [`fontSize`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
 | [`fontWeight`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
