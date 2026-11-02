@@ -36,13 +36,32 @@ import type { WizardStep } from "@marktiderman/genesis-core/hooks";
 import { titleCase } from "../../hooks/use-resource-page";
 import { fillMessage, useUiMessages } from "../../messages";
 import { AlertTriangle } from "lucide-react";
+import type { ResourceContract } from "@marktiderman/genesis-core";
+import type { ResourceView as View } from "@marktiderman/genesis-core/resource-view";
+import { useViewFormFields, type ViewFormOptions } from "./resource-view/view-form";
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
 export interface ResourceFormProps {
-  resource: string;
+  /** The resource it saves to. Default: the `view`'s. One of the two is required. */
+  resource?: string | undefined;
+  /**
+   * A `defineView` description: the form `<ResourceView>` would open for it, with no list around
+   * it (a form beside a sortable list, say). Its fields (only what a writer may send, links as
+   * pickers, the viewer's scope filled hidden on create), its noun and its `copy.form` words. The
+   * props below win: `fields` replaces the view's fields, and `title`, `submitLabel`,
+   * `description` and `noun` replace its words.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract and row
+  view?: View<ResourceContract<any>, any> | undefined;
+  /** With `view`: the list's filter, as ResourceView's `filter` (a new row starts in it). */
+  filter?: ViewFormOptions["filter"];
+  /** With `view`: values a new row starts with, as ResourceView's `defaults`. */
+  defaults?: ViewFormOptions["defaults"];
+  /** With `view`: whether a new row takes the viewer's scope (default true), as ResourceView's `scoped`. */
+  scoped?: boolean | undefined;
   action: "create" | "edit";
   item?: Record<string, unknown> | undefined;
   open: boolean;
@@ -361,17 +380,24 @@ function FormBody({
 // ---------------------------------------------------------------------------
 
 export function ResourceForm(props: ResourceFormProps) {
+  const { view, filter, defaults, scoped } = props;
+  // The same fields ResourceView's own form gets. Always called (a hook): with no view, none.
+  const viewFields = useViewFormFields(view, { filter, defaults, scoped });
+  const resource = props.resource ?? view?.resource;
+  if (!resource) throw new Error("ResourceForm needs a resource or a view");
+  const words = view?.definition.copy?.form;
   const {
-    resource,
     action,
     item,
     open,
     onOpenChange,
-    title: titleProp,
-    submitLabel,
-    description: descriptionProp,
-    noun,
-    fields: fieldsProp,
+  } = props;
+  const titleProp = props.title ?? (action === "create" ? words?.createTitle : words?.editTitle);
+  const submitLabel = props.submitLabel ?? (action === "create" ? words?.createSubmit : words?.editSubmit);
+  const descriptionProp = props.description ?? (action === "create" ? words?.createDescription : words?.editDescription);
+  const noun = props.noun ?? view?.noun;
+  const fieldsProp = props.fields ?? (view ? viewFields : undefined);
+  const {
     listData,
     renderForm,
     onSuccess,

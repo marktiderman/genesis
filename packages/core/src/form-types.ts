@@ -92,6 +92,11 @@ export interface ResourceFormFieldDef {
     /** The linked fields a search matches. Default: `labelField`. */
     searchFields?: string[];
     /**
+     * The order the picker lists rows in (a `position`), then the key. Default: by `labelField`,
+     * then the key. A view's link fills it from `link.orderBy` (or the linked view's, for `"view"`).
+     */
+    orderBy?: { field: string; direction?: "asc" | "desc" };
+    /**
      * Filters every list request carries (the linked view's scope and default filter), fixed or
      * from the form's values, for a picker that follows another field.
      */
