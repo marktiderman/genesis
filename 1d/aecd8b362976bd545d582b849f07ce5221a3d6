@@ -1,0 +1,163 @@
+.changeset/brand-contrast-check.md
+  s_6a4659246591cd::t_745830eb1e75dc 1-5
+.changeset/brand-radius-scale.md
+  s_6a4659246591cd::t_5f6c559e4b3c4b 1-11
+.changeset/core-field-input-hints.md
+  s_6a4659246591cd::t_c7509443d21e54 1-10
+.changeset/studio-server-tel-widget.md
+  s_6a4659246591cd::t_5413fac9af54a1 1-5
+.changeset/ui-appshell-phone-drawer.md
+  s_6a4659246591cd::t_40bbb954a787e3 1-15
+.changeset/ui-phone-lists-and-inputs.md
+  s_6a4659246591cd::t_518bbcd1404189 1-18
+.changeset/umbrella-readme-imports.md
+  s_6a4659246591cd::t_48e87c731a35dc 1-5
+.github/workflows/ci.yml
+  s_6a4659246591cd::t_8befbcf7d1b74e 143-148
+AGENTS.md
+  s_1feb538f59bf88::t_691f56b7c29b1c 11,105
+apps/sample/app/data/primitives.json
+  s_6a4659246591cd::t_1f64e4e7ec96db 10,12037-12043,12323-12359,14559-14565,14607,16560-16561,16563-16567,17870,17873,18590,18593,19310,19313
+apps/sample/app/root.tsx
+  s_6a4659246591cd::t_1ab2842d6fd239 10,65-69
+docs/AI.md
+  s_6a4659246591cd::t_e598efa300f3fb 223,225-226,243,245-255,262-263
+docs/FORMS.md
+  s_6a4659246591cd::t_e4b2c2aa1c2826 202,208,225-227,659-662
+docs/NOTIFICATIONS-V1.1.md
+  s_6a4659246591cd::t_7e4d3af77ff84c 4-5
+docs/RESOURCE-VIEW.md
+  s_6a4659246591cd::t_31704bd3ff8753 3,45,70-71,131-132,179-195,211-212,216-217,221,237-243,246-248,284,287-288,296-301,311,322-325,336-337,348-416,419-420,515-516,528-529,614-615,685-690,699-700,741-742,745-747,753-754,766,811
+docs/component-reference.md
+  s_6a4659246591cd::t_780493923f970e 7,1996,2002-2003,2073,2077,2082-2083,2088,2147,2242,2247,2249,4818,4824-4825,4895,4899,4904-4905,4910,4969,10076,10109,10120,10130,10172
+features.json
+  s_6a4659246591cd::t_c42452ae055aae 600-701
+features.ts
+  s_6a4659246591cd::t_6da8f67e8e4cf9 273-320
+package.json
+  s_6a4659246591cd::t_c35240536b8cbd 17
+packages/core/src/__tests__/resource-view.test.ts
+  s_6a4659246591cd::t_c9721842bdfabe 106-117
+packages/core/src/form-types.ts
+  s_6a4659246591cd::t_5d89e2b73f9ab4 9-10,53-68
+packages/core/src/hooks/use-resource-form.ts
+  s_6a4659246591cd::t_4c560b0164697d 346
+packages/core/src/resource-view/define-view.ts
+  s_6a4659246591cd::t_f2a49935ed4fed 425-427
+packages/core/src/resource-view/types.ts
+  s_6a4659246591cd::t_f74384501de979 60-71,300-305
+packages/design-system/README.md
+  s_6a4659246591cd::t_8a2d336f839cc8 17,39-72
+packages/design-system/schema/brand.schema.json
+  s_6a4659246591cd::t_96899af282f629 128-129
+packages/design-system/src/design-systems/__tests__/design-systems.test.ts
+  s_6a4659246591cd::t_70db9be9bed017 46,201-205
+packages/design-system/src/design-systems/tokens.ts
+  s_6a4659246591cd::t_f9775fc2dab809 13,239-240
+packages/design-system/src/factories/__tests__/brand-roles.test.ts
+  s_6a4659246591cd::t_cccdf936ccdd9c 127-144
+packages/design-system/src/factories/__tests__/from-brand.test.ts
+  s_6a4659246591cd::t_7b81db6a292be4 439,445
+packages/design-system/src/factories/brand-roles.ts
+  s_6a4659246591cd::t_5650804fb9e9ff 30-31,42,157,182-183,186-200
+packages/design-system/src/factories/from-brand.ts
+  s_6a4659246591cd::t_a28d510d83dc82 315
+packages/design-system/src/index.native.ts
+  s_6a4659246591cd::t_fe9629617ae427 41-42,46-47
+packages/design-system/src/index.ts
+  s_6a4659246591cd::t_a4d25d69ae2b4f 32-33,37-38
+packages/design-system/src/presets/__tests__/nativewind.test.ts
+  s_6a4659246591cd::t_04b37729432cb2 67-89
+packages/design-system/src/presets/nativewind.ts
+  s_6a4659246591cd::t_801230a396a9cb 24-31,44-45,88,93,107-123
+packages/design-system/src/schema/__tests__/brand-contrast.test.ts
+  s_6a4659246591cd::t_22a8cdb3c7fd49 1-144
+packages/design-system/src/schema/brand-contrast.ts
+  s_6a4659246591cd::t_8c3518a3dd4650 1-225
+packages/design-system/src/schema/brand.ts
+  s_6a4659246591cd::t_09d8796f50c459 105-110,451-474,801-806,812,814,816,939-949
+packages/design-system/src/tokens/__tests__/theme-css.test.ts
+  s_6a4659246591cd::t_89a2deeb0b271c 21,109,117-152
+packages/design-system/src/tokens/spacing.ts
+  s_6a4659246591cd::t_432d9f83ba1bef 5-32,34-37,39-41
+packages/design-system/src/tokens/theme-css.ts
+  s_6a4659246591cd::t_fd6c8912e7e7c3 17-18,258-261,294-299
+packages/genesis/README.md
+  s_6a4659246591cd::t_c1946cc8d69aaf 9-10
+packages/sites/src/__tests__/__snapshots__/design-systems.test.ts.snap
+  s_6a4659246591cd::t_331e4dcc99ae63 661,789,922,1050,1183,1311,1444,1572,1705,1833,1969,2100,2233,2361,2494,2622,2755,2883,3016,3144,3277,3405,3541,3672,3805,3933,4066,4194,4327,4455,4588,4716,4849,4977,5113,5244,5377,5505,5638,5766,5899,6027,6160,6288,6421,6549,6685,6816
+packages/studio-server/src/access.ts
+  s_6a4659246591cd::t_c2c2bbc0038158 508
+packages/ui-native/src/data/NativeResourceFormField.tsx
+  s_6a4659246591cd::t_30609663284ff7 4,34,37,45,251-253,262-266
+packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx
+  s_6a4659246591cd::t_37c70f296f5c1d 49,234-236
+packages/ui-native/src/data/resource-view/__tests__/native-tel-field.test.tsx
+  s_6a4659246591cd::t_4c5f9b91c1e10a 1-79
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_6a4659246591cd::t_09e106772ae213 7,183,206-211,226,228-230,273,280-282
+packages/ui-native/test-utils/rn-mock.tsx
+  s_6a4659246591cd::t_da7e8abf82521d 202-204,219-221
+packages/ui/src/components/data/DataFilters.tsx
+  s_6a4659246591cd::t_c771b1119073db 204-206,210-213,216,223
+packages/ui/src/components/data/DataTable.tsx
+  s_6a4659246591cd::t_256ddc101963e4 226-231,605,1052-1055
+packages/ui/src/components/data/ResourceFormField.tsx
+  s_6a4659246591cd::t_5d56873329b2e5 29-56,274,290,300
+packages/ui/src/components/data/ResourcePage.tsx
+  s_6a4659246591cd::t_60ce577f3cd0bd 1017-1034,1037-1040,1043,1045-1047,1059-1060,1062,1066-1073,1080-1083,1085-1086,1088-1102,1106,1109-1115,1118
+packages/ui/src/components/data/__tests__/record-view.test.tsx
+  s_6a4659246591cd::t_c23a7191112c43 327-367
+packages/ui/src/components/data/__tests__/resource-page-default-rows.test.tsx
+  s_6a4659246591cd::t_01abbbeea00cb9 1-98
+packages/ui/src/components/data/__tests__/resource-view-phone.test.tsx
+  s_6a4659246591cd::t_3f9888cd443366 1-246
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_6a4659246591cd::t_dcd833171b0bb9 38-39,373-386,396
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_6a4659246591cd::t_41065eb46c51f4 13-14,49-54,56,91-99,105,112-114,149,266-276,304-307
+packages/ui/src/components/data/resource-view/defaults.tsx
+  s_6a4659246591cd::t_cc537759e8d49f 1-59
+packages/ui/src/components/data/resource-view/index.ts
+  s_6a4659246591cd::t_e21f49fae54c30 18
+packages/ui/src/components/layout/AppShell.tsx
+  s_6a4659246591cd::t_a846ad84e03c32 25,38,51,288-289,1153-1154,1215,1218-1239,1475-1484,1597,1605,1645,1767-1810,1821-1822,1827,1831,1853,1938-1941,1954-1955,1993-2010,2013-2053
+packages/ui/src/components/layout/__tests__/app-shell-collapse.test.tsx
+  s_6a4659246591cd::t_19fd97c6b8ec42 467-468
+packages/ui/src/components/layout/__tests__/app-shell-mobile.test.tsx
+  s_6a4659246591cd::t_d1318c5dc03539 1-303
+packages/ui/src/components/layout/__tests__/chrome-options.test.tsx
+  s_6a4659246591cd::t_063bb67f448ea3 274-278
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_6a4659246591cd::t_7250296c62cae6 303-307
+packages/ui/src/messages-en.ts
+  s_6a4659246591cd::t_1b6a69f0f06cfe 215-231
+scripts/__tests__/check-docs-match-exports.test.mjs
+  s_6a4659246591cd::t_1f7c93d2040104 1-246
+scripts/check-docs-match-exports.mjs
+  s_6a4659246591cd::t_9fb1859a98cb05 1-715
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1daecd8b362976bd545d582b849f07ce5221a3d6",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
