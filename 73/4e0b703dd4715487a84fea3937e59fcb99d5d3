@@ -1,0 +1,49 @@
+.changeset/brand-contrast-check.md
+  s_1feb538f59bf88::t_e4291b1ed4628e 5
+.changeset/brand-radius-scale.md
+  s_1feb538f59bf88::t_ac60d9dcbfb43e 2,5-11
+docs/component-reference.md
+  s_1ad08d0c80c7fb::t_5190d24c2881eb 7,2073,2077,2082,2088,2231,2242,2247,2249,4895,4899,4904,4910
+packages/design-system/README.md
+  s_1feb538f59bf88::t_0806a421f67f45 39,42,46-50,53-55
+packages/design-system/src/factories/__tests__/brand-roles.test.ts
+  s_1feb538f59bf88::t_ee5b214dfeb743 128-130
+packages/design-system/src/factories/brand-roles.ts
+  s_1feb538f59bf88::t_0a0b277d968f98 30,189-190,195
+packages/design-system/src/index.native.ts
+  s_1feb538f59bf88::t_99d6f973e6ce51 41-42,46-47
+packages/design-system/src/index.ts
+  s_1feb538f59bf88::t_769f6fb737005e 32-33,37-38
+packages/design-system/src/presets/nativewind.ts
+  s_1feb538f59bf88::t_edc74e4049f5d3 26
+packages/design-system/src/schema/__tests__/brand-contrast.test.ts
+  s_1feb538f59bf88::t_35ea159f90b5ed 10-11,63,94-95,122-140
+packages/design-system/src/schema/brand-contrast.ts
+  s_1feb538f59bf88::t_93c7456cfc6219 13-20,26-33,60-65,100,106-107,214-225
+packages/design-system/src/schema/brand.ts
+  s_1feb538f59bf88::t_a9392d37e4130e 453-472,474,801-805,812,814,816,941,944
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "734e0b703dd4715487a84fea3937e59fcb99d5d3",
+  "prompts": {},
+  "sessions": {
+    "s_1ad08d0c80c7fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8317e46-f1f8-419e-a319-ae3730260685",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
