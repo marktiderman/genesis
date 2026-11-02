@@ -1,0 +1,33 @@
+packages/core/src/hooks/__tests__/no-page-window.test.tsx
+  s_1feb538f59bf88::t_8da201872cbccd 1-140
+  s_1feb538f59bf88::t_db5bd8f114205f 141-152
+packages/core/src/hooks/page-window.ts
+  s_1feb538f59bf88::t_f3f7266760cf37 1-20
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view-delete.test.tsx
+  s_1feb538f59bf88::t_cd6bff18382120 1-162,165-168
+  s_1feb538f59bf88::t_3564b753f1aa09 163-164,169-171
+.changeset/native-optimistic-delete.md
+  s_1feb538f59bf88::t_441c0d170c561e 1-5
+packages/core/src/hooks/mutation-mode.ts
+  s_1feb538f59bf88::t_a80f7467be9fd8 25,634-637,640-643,649-652
+packages/core/src/hooks/use-draft.ts
+  s_1feb538f59bf88::t_6d2d29fa643874 8,57-58,67-68,70-71
+packages/core/src/hooks/use-unsaved-changes-guard.ts
+  s_1feb538f59bf88::t_b0ea24a1d59709 2,50-52,58-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "708dd1e92a74ba8b2bdef7149ce47aa1b7992164",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
