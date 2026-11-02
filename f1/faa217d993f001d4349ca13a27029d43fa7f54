@@ -1,0 +1,107 @@
+.changeset/brand-contrast-check.md
+  s_1ad08d0c80c7fb::t_e11e94a2825133 1-5
+.changeset/brand-radius-scale.md
+  s_1ad08d0c80c7fb::t_7c9db9c3e682bf 1-11
+.changeset/umbrella-readme-imports.md
+  s_1ad08d0c80c7fb::t_0dce6d76d1ec19 1-5
+.changeset/upgrade-excludes-exact-versions.md
+  s_1ad08d0c80c7fb::t_4c2b7ade147bab 1-11
+.github/ci-fixture/pnpm-workspace.yaml
+  s_1ad08d0c80c7fb::t_77fd67876cda07 4-6,8-13
+.github/workflows/ci.yml
+  s_1ad08d0c80c7fb::t_72d330bc844308 143-148
+.github/workflows/genesis-upgrade.yml
+  s_1ad08d0c80c7fb::t_cfcd6d002bab68 34-49,194-225,227-228,230-232,242-301,311-315,320-321,325,328-329,331-368,374-376,381,385-395,411-414,416,421-422,425-431,580-586,589,649-651,654,741,755-762,776,792
+AGENTS.md
+  s_1ad08d0c80c7fb::t_08176190f413c7 11,105
+docs/AI.md
+  s_1ad08d0c80c7fb::t_006a95cc84c430 223,225-226,243,245-255,262-263
+docs/APP-CI.md
+  s_1ad08d0c80c7fb::t_93cabd1f4c6b7c 110-121,143-146
+docs/FORMS.md
+  s_1ad08d0c80c7fb::t_ad128e7f342518 202,208,225-227,659-662
+docs/NOTIFICATIONS-V1.1.md
+  s_1ad08d0c80c7fb::t_1ae922f3476921 4-5
+docs/RESOURCE-VIEW.md
+  s_1ad08d0c80c7fb::t_de5ea01413a107 3,45,70-71,131-132,179-195,211-212,216-217,221,237-243,246-248,284,287-288,296-301,311,322-325,336-337,350-351,446-447,459-460,545-546,616-621,630-631,672-673,676-678,684-685,697,742
+features.json
+  s_1ad08d0c80c7fb::t_3a1ee4ab312ab9 600-701
+features.ts
+  s_1ad08d0c80c7fb::t_7e9e675c08fdc5 273-320
+package.json
+  s_1ad08d0c80c7fb::t_988bee6f181da4 17
+packages/design-system/README.md
+  s_1ad08d0c80c7fb::t_9bc00907d77d1c 17,39-72
+packages/design-system/schema/brand.schema.json
+  s_1ad08d0c80c7fb::t_f0b47ca32eac62 128-129
+packages/design-system/src/design-systems/__tests__/design-systems.test.ts
+  s_1ad08d0c80c7fb::t_aaec36d265041d 46,201-205
+packages/design-system/src/design-systems/tokens.ts
+  s_1ad08d0c80c7fb::t_c15b53fd4292af 13,239-240
+packages/design-system/src/factories/__tests__/brand-roles.test.ts
+  s_1ad08d0c80c7fb::t_1d4b19a82173b0 127-144
+packages/design-system/src/factories/__tests__/from-brand.test.ts
+  s_1ad08d0c80c7fb::t_fb3c378f184b95 439,445
+packages/design-system/src/factories/brand-roles.ts
+  s_1ad08d0c80c7fb::t_6e96ca14d74cd3 30-31,42,157,182-183,186-200
+packages/design-system/src/factories/from-brand.ts
+  s_1ad08d0c80c7fb::t_71dbb7882de54a 315
+packages/design-system/src/index.native.ts
+  s_1ad08d0c80c7fb::t_d390c1aed35830 41-42,46-47
+packages/design-system/src/index.ts
+  s_1ad08d0c80c7fb::t_ecc4afe212faf9 32-33,37-38
+packages/design-system/src/presets/__tests__/nativewind.test.ts
+  s_1ad08d0c80c7fb::t_caeb0ac000d524 67-89
+packages/design-system/src/presets/nativewind.ts
+  s_1ad08d0c80c7fb::t_ccd32572fe21a8 24-31,44-45,88,93,107-123
+packages/design-system/src/schema/__tests__/brand-contrast.test.ts
+  s_1ad08d0c80c7fb::t_e7fc81944405fe 1-144
+packages/design-system/src/schema/brand-contrast.ts
+  s_1ad08d0c80c7fb::t_36cdcf3d06b411 1-225
+packages/design-system/src/schema/brand.ts
+  s_1ad08d0c80c7fb::t_9be52505f677bd 105-110,451-474,801-806,812,814,816,939-949
+packages/design-system/src/tokens/__tests__/theme-css.test.ts
+  s_1ad08d0c80c7fb::t_a18430d5d66102 21,109,117-152
+packages/design-system/src/tokens/spacing.ts
+  s_1ad08d0c80c7fb::t_20690f6b3d065d 5-32,34-37,39-41
+packages/design-system/src/tokens/theme-css.ts
+  s_1ad08d0c80c7fb::t_18ad56d3554eb8 17-18,258-261,294-299
+packages/genesis-cli/README.md
+  s_1ad08d0c80c7fb::t_82435e7ecdc1ef 356-375,377-383
+packages/genesis-cli/src/cli.ts
+  s_1ad08d0c80c7fb::t_41def61a5597d2 40-43
+packages/genesis-cli/src/upgrade/bump-core.d.mts
+  s_1ad08d0c80c7fb::t_68117472743213 28-42,47,49-50
+packages/genesis-cli/src/upgrade/bump-core.mjs
+  s_1ad08d0c80c7fb::t_782da74b3927de 70-83,85-101,103-104,106-108,118-177,187-191,196-197,201,204-233,235-244,250-252,257,261-271
+packages/genesis-cli/src/upgrade/index.ts
+  s_1ad08d0c80c7fb::t_6083d29d1a36a7 11-12,18-19,33,64-65,132-135,139-140,146-224,314,316-317,321-322,324-331,333,345-353,360,438
+packages/genesis-cli/test/upgrade.test.ts
+  s_1ad08d0c80c7fb::t_0d07996211ea9e 2-3,9,11,127-129,138,142,146-148,151-152,155-156,162-178,180-182,184-187,193-268,272-277,279,287-288,292-296,299-300,302-303,310-329,341,347-354,357-409
+packages/genesis/README.md
+  s_1ad08d0c80c7fb::t_f2e6547679791a 9-10
+packages/sites/src/__tests__/__snapshots__/design-systems.test.ts.snap
+  s_1ad08d0c80c7fb::t_0b8d146a0d979d 661,789,922,1050,1183,1311,1444,1572,1705,1833,1969,2100,2233,2361,2494,2622,2755,2883,3016,3144,3277,3405,3541,3672,3805,3933,4066,4194,4327,4455,4588,4716,4849,4977,5113,5244,5377,5505,5638,5766,5899,6027,6160,6288,6421,6549,6685,6816
+scripts/__tests__/check-docs-match-exports.test.mjs
+  s_1ad08d0c80c7fb::t_30f8a3b76e132d 1-246
+scripts/__tests__/genesis-bump-sync.test.mjs
+  s_1ad08d0c80c7fb::t_9c52165d8565f7 55-56,58,66-70,76,78,83-103
+scripts/check-docs-match-exports.mjs
+  s_1ad08d0c80c7fb::t_8bc92efea8292f 1-715
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f1faa217d993f001d4349ca13a27029d43fa7f54",
+  "prompts": {},
+  "sessions": {
+    "s_1ad08d0c80c7fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8317e46-f1f8-419e-a319-ae3730260685",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
