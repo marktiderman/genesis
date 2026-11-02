@@ -1,0 +1,31 @@
+packages/ui/src/messages-en.ts
+  s_1feb538f59bf88::t_4a67e52643fe5e 215-226
+.changeset/ui-appshell-phone-drawer.md
+  s_1feb538f59bf88::t_5d130e8232c685 2,5-12,14
+apps/sample/app/data/primitives.json
+  s_1feb538f59bf88::t_16686cedde7b1a 14508-14514,14556
+packages/ui/src/components/layout/AppShell.tsx
+  s_1feb538f59bf88::t_cca91b3c2aa3da 51,1154,1218-1220,1222,1224-1228,1230-1231,1233-1235,1641,1763-1802,1804,1823,1991-1992,2000,2007-2014
+packages/ui/src/components/layout/__tests__/app-shell-collapse.test.tsx
+  s_1feb538f59bf88::t_b4c9af8a790b0c 467-468
+packages/ui/src/components/layout/__tests__/app-shell-mobile.test.tsx
+  s_1feb538f59bf88::t_1599a36a03994e 5-6,10,39-68,70-75,78-80,84,88-155,158,160-169,171-176,179-191,194-196,199,202-205,208-209,251-284
+packages/ui/src/components/layout/__tests__/chrome-options.test.tsx
+  s_1feb538f59bf88::t_36d80bacfb58cf 274-278
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9fdc9e1f0dabbbe719a90544928e434f98df41f3",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
