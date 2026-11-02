@@ -12156,6 +12156,13 @@
               "description": "Keyboard use of rows when `onRowClick` is set. Each row's open column\n(see `openColumn`) is a button named by its content, and the table is\none tab stop: Tab reaches the current row's button, Enter or Space\nopens it, ↑/↓ (or j/k) and Home/End move between rows, and x toggles\nthe row's selection when `selectable`. Default true."
             },
             {
+              "name": "minWidth",
+              "type": "number | \"auto\"",
+              "required": false,
+              "defaultValue": null,
+              "description": "The narrowest the table may be before it scrolls sideways. `\"auto\"`: each column's pixel\nwidth (or its resized width), and 200px for each column without one, so fixed widths never\nsqueeze a flexible column to nothing. A number is that many pixels. Default: none."
+            },
+            {
               "name": "onRowClick",
               "type": "((item: T) => void)",
               "required": false,
@@ -12189,6 +12196,13 @@
               "required": false,
               "defaultValue": null,
               "description": "The column whose cell opens the row (as a button), by key. Default: the\nfirst visible column that isn't `editable`. A plain-text cell is wrapped\nby the button; an `editable` or `render` cell keeps its own content (a\nlink or input stays usable) with the open button beside it, shown when\nfocused. `null` makes no cell a button (mouse only)."
+            },
+            {
+              "name": "pagerJumps",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The pager with first and last page buttons, \"Page n of m\" (the catalogue's `page.pageOf`), and\n\"Previous page\" / \"Next page\" as the arrows' names. Default false: arrows and \"n / m\"."
             },
             {
               "name": "pageSize",
@@ -12399,12 +12413,12 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/resource-view/defaults.tsx",
       "stability": "beta",
-      "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`clipCells={false}` turns the outer one off below it.",
+      "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells sizeColumns pagerJumps>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`false` for the others turns the outer one off below it.",
       "primaryComponent": "ResourceViewDefaultsProvider",
       "components": [
         {
           "name": "ResourceViewDefaultsProvider",
-          "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`clipCells={false}` turns the outer one off below it.",
+          "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells sizeColumns pagerJumps>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`false` for the others turns the outer one off below it.",
           "props": [
             {
               "name": "clipCells",
@@ -12414,11 +12428,25 @@
               "description": "Clip each table cell's content at its column's edge (one line, with an ellipsis for text),\nso a long link or email doesn't run over the next column on a narrow table. Inline editors\nare never clipped. Unset, cells draw as before; `false` turns an outer provider's off."
             },
             {
+              "name": "pagerJumps",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Pagers with first and last page buttons, \"Page n of m\" in the table's own pager, and \"Previous\npage\" / \"Next page\" as the arrows' names (ResourcePage and DataTable `pagerJumps`). Unset,\npagers draw as before; `false` turns an outer provider's off."
+            },
+            {
               "name": "phoneMode",
               "type": "\"grid\" | \"list\" | null",
               "required": false,
               "defaultValue": null,
               "description": "How full-page lists (`layout=\"page\"`) open on a phone (below 768px) when the screen doesn't\nsay: `grid` (cards) or `list` (rows). Desktops keep the table. Embedded and compact lists\nare left alone. Unset, lists open as a table everywhere, as before; `null` turns an outer\nprovider's phone default off for this subtree."
+            },
+            {
+              "name": "sizeColumns",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Size each table column by what it shows: the record's name column takes the spare width, the\nothers a width for their display (a badge, a number, a date), and the table keeps room for\nevery column, scrolling sideways below that (DataTable `minWidth=\"auto\"`). Unset, columns\nshare the width equally, as before; `false` turns an outer provider's off."
             }
           ]
         },
@@ -14662,7 +14690,7 @@
             },
             {
               "name": "page",
-              "type": "DeepPartial<{ errorTitle: string; errorBody: string; retry: string; create: string; countOne: string; countOther: string; countFiltered: string; loadMore: string; allLoaded: string; loadedMore: string; ... 9 more ...; deleteFailed: string; }>",
+              "type": "DeepPartial<{ errorTitle: string; errorBody: string; retry: string; create: string; countOne: string; countOther: string; countFiltered: string; loadMore: string; allLoaded: string; loadedMore: string; ... 13 more ...; deleteFailed: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -17083,6 +17111,13 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
+              "name": "compactWhenShort",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
+            },
+            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -17452,6 +17487,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
+            },
+            {
+              "name": "pagerJumps",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",
@@ -17881,6 +17923,13 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
+              "name": "compactWhenShort",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
+            },
+            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -18278,6 +18327,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
+            },
+            {
+              "name": "pagerJumps",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",
@@ -18622,6 +18678,13 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
+              "name": "compactWhenShort",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
+            },
+            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -19019,6 +19082,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
+            },
+            {
+              "name": "pagerJumps",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",
@@ -19363,6 +19433,13 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
+              "name": "compactWhenShort",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
+            },
+            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -19760,6 +19837,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
+            },
+            {
+              "name": "pagerJumps",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",
@@ -22905,6 +22989,13 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
+              "name": "compactWhenShort",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
+            },
+            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -23274,6 +23365,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
+            },
+            {
+              "name": "pagerJumps",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",
@@ -23597,6 +23695,13 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
+              "name": "compactWhenShort",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
+            },
+            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -23966,6 +24071,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
+            },
+            {
+              "name": "pagerJumps",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",

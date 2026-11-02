@@ -64,6 +64,11 @@ export const uiMessages = {
     range: "Showing {from}-{to} of {total}",
     previous: "Previous",
     next: "Next",
+    /** A pager's buttons as their accessible names (`pagerJumps`). */
+    first: "First page",
+    last: "Last page",
+    previousPage: "Previous page",
+    nextPage: "Next page",
     /** `{page}` of `{pages}`. */
     pageOf: "Page {page} of {pages}",
     notFoundTitle: "Record not found",

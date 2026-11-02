@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -746,6 +748,19 @@ export interface ResourcePageProps<
    * filter row stays. No effect without `emptyCreate`.
    */
   emptyFiltered?: boolean | undefined;
+  /**
+   * Opt-in. An embedded list (`variant="embedded"`) with ten rows or fewer and nothing typed or
+   * chosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of
+   * its height (a record's child list). Past ten rows, or while anything filters it, they come
+   * back. Default false.
+   */
+  compactWhenShort?: boolean | undefined;
+  /**
+   * Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the
+   * table's says "Page n of m", and the arrows are named "Previous page" / "Next page"; on a phone
+   * this page's pager shows only the arrows. Default false: the pagers draw as before.
+   */
+  pagerJumps?: boolean | undefined;
   /** The empty state's icon. */
   emptyIcon?: LucideIcon;
   /** The empty state's title, e.g. "No tasks yet". Default "No results found". */
@@ -910,6 +925,8 @@ export function ResourcePage<
     emptyState,
     emptyCreate = false,
     emptyFiltered = false,
+    compactWhenShort = false,
+    pagerJumps = false,
     errorMessage,
     filters: filtersProp,
     formFields,
@@ -1058,6 +1075,15 @@ export function ResourcePage<
   const emptyUnfiltered = emptyCreate && isEmpty && !filtering;
   const createInEmpty = emptyUnfiltered && !emptyState && !!createButton;
   const headerCreate = createInEmpty ? null : createButton;
+  // `compactWhenShort`: a short list inside another page (a record's child list) carries no search,
+  // sort, Columns bar or pager. Past ten rows, or while anything filters it, they come back.
+  const shortEmbedded =
+    compactWhenShort &&
+    embedded &&
+    !isLoading &&
+    displayTotal <= 10 &&
+    !page.hasActiveFilters &&
+    !filtersProp?.some((f) => f.selected.length > 0);
 
   const createAction =
     toolbar || headerCreate ? (
@@ -1290,7 +1316,7 @@ export function ResourcePage<
         DataFilters,
         slots?.filters !== undefined
           ? slots.filters
-          : (embedded && !wantsFilters) || emptyUnfiltered
+          : (embedded && !wantsFilters) || emptyUnfiltered || shortEmbedded
             ? null
             : undefined,
         {
@@ -1384,7 +1410,7 @@ export function ResourcePage<
                 density: settings.density,
                 pageSize: effectivePageSize,
                 pageSizeOptions,
-                columnVisibility,
+                columnVisibility: shortEmbedded ? false : columnVisibility,
                 columnVisibilityKey,
                 resizableColumns,
                 resizeKey,
@@ -1393,7 +1419,9 @@ export function ResourcePage<
                 keyboardNavigation,
                 // The server already cut the page window; DataTable's own
                 // pagination would slice the slice.
-                pagination: isServerControlled || loadMore ? false : undefined,
+                // A short embedded list has one page: no pager under it either.
+                pagination: isServerControlled || loadMore || shortEmbedded ? false : undefined,
+                ...(pagerJumps ? { pagerJumps: true } : {}),
                 // Client mode: the header sort is the page's sort, so it
                 // reaches the URL and a link restores what the table shows.
                 ...(isServerControlled
@@ -1523,18 +1551,33 @@ export function ResourcePage<
               : fillMessage(m.page.range, { from: rangeFrom, to: rangeTo, total: displayTotal })}
           </span>
           <div className="flex items-center gap-2">
+            {pagerJumps ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage <= 1}
+                onClick={() => pagerOnPageChange(1)}
+                testID="resource-page-first"
+                aria-label={m.page.first}
+                title={m.page.first}
+              >
+                <ChevronsLeft className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               size="sm"
               disabled={currentPage <= 1}
               onClick={() => pagerOnPageChange(currentPage - 1)}
               testID="resource-page-prev"
+              {...(pagerJumps ? { "aria-label": m.page.previousPage } : {})}
             >
-              <ChevronLeft className="h-4 w-4 mr-1" aria-hidden="true" />
-              {m.page.previous}
+              <ChevronLeft className={cn("h-4 w-4", pagerJumps ? "sm:mr-1" : "mr-1")} aria-hidden="true" />
+              {/* With jumps, words from sm up: on a phone the arrows fit beside "Page n of m". */}
+              {pagerJumps ? <span className="hidden sm:inline">{m.page.previous}</span> : m.page.previous}
             </Button>
             <span
-              className="text-muted-foreground"
+              className={cn("text-muted-foreground", pagerJumps && "whitespace-nowrap")}
               data-testid="resource-page-indicator"
             >
               {fillMessage(m.page.pageOf, { page: currentPage, pages: totalPages })}
@@ -1545,10 +1588,24 @@ export function ResourcePage<
               disabled={currentPage >= totalPages}
               onClick={() => pagerOnPageChange(currentPage + 1)}
               testID="resource-page-next"
+              {...(pagerJumps ? { "aria-label": m.page.nextPage } : {})}
             >
-              {m.page.next}
-              <ChevronRight className="h-4 w-4 ml-1" aria-hidden="true" />
+              {pagerJumps ? <span className="hidden sm:inline">{m.page.next}</span> : m.page.next}
+              <ChevronRight className={cn("h-4 w-4", pagerJumps ? "sm:ml-1" : "ml-1")} aria-hidden="true" />
             </Button>
+            {pagerJumps ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => pagerOnPageChange(totalPages)}
+                testID="resource-page-last"
+                aria-label={m.page.last}
+                title={m.page.last}
+              >
+                <ChevronsRight className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            ) : null}
           </div>
         </nav>
       )}

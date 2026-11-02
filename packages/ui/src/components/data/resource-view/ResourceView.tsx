@@ -151,6 +151,34 @@ function singleValues(filter: Filter): Defaults {
   return Object.fromEntries(Object.entries(filter).filter(([, value]) => !Array.isArray(value))) as Defaults;
 }
 
+/** A column's width (px) by what it shows, for `sizeColumns`. */
+const COLUMN_WIDTH: Partial<Record<string, number>> = {
+  badge: 130,
+  number: 96,
+  currency: 110,
+  percent: 90,
+  boolean: 80,
+  date: 120,
+  datetime: 150,
+  url: 160,
+  email: 200,
+};
+
+/**
+ * `sizeColumns`: the record's name column (the view's labelField, else the first) takes the spare
+ * width; the others get a width for what they hold, so a title isn't cut short beside an equal
+ * share for an id or a badge. When the label field isn't a column, the text columns share the
+ * rest and only badges, numbers and dates are sized. Two columns or fewer are left alone.
+ */
+function columnWidth(c: { key: string; display: string }, index: number, all: readonly { key: string }[], labelField: string | undefined): number | undefined {
+  if (all.length < 3) return undefined;
+  const named = all.some((x) => x.key === labelField);
+  const grows = named ? c.key === labelField : labelField ? false : index === 0;
+  if (grows) return undefined;
+  const fixed = COLUMN_WIDTH[c.display];
+  return named || !labelField ? (fixed ?? 140) : fixed;
+}
+
 /**
  * The ResourcePage props a view and a screen's options make. `useResourceView` and
  * `<ResourceView>` both use it; call it yourself to hand the props to your own layout.
@@ -175,11 +203,13 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 
   const columns = useMemo(
     () =>
-      view.columns(presetName).map((c, index) => {
+      view.columns(presetName).map((c, index, all) => {
         const draw = (row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row));
+        const width = listDefaults.sizeColumns ? columnWidth(c, index, all, view.labelField) : undefined;
         return {
           key: c.key,
           header: c.label,
+          ...(width ? { width } : {}),
           // A computed column has no database column to sort by.
           ...(c.field ? {} : { sortable: false, accessor: (row: T) => c.value(row as T & DataRow) }),
           // The summary's picture sits beside the first column.
@@ -199,7 +229,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
               : draw,
         };
       }),
-    [view, presetName, cell, cells],
+    [view, presetName, cell, cells, listDefaults.sizeColumns],
   );
 
   // The peek shows the view's full column list, drawn like the cells (so `when` hides there too),
@@ -338,10 +368,21 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     ...(copy?.empty?.body ? { emptyDescription: copy.empty.body } : {}),
     ...(searchFields ? { searchFields } : {}),
     ...rest,
-    // The app's `clipCells` under the screen's own table props, which win.
-    ...(listDefaults.clipCells
-      ? { slotProps: { ...rest.slotProps, table: { clipCells: true, ...rest.slotProps?.table } } }
+    // The app's `clipCells` and `sizeColumns` under the screen's own table props, which win.
+    ...(listDefaults.clipCells || listDefaults.sizeColumns
+      ? {
+          slotProps: {
+            ...rest.slotProps,
+            table: {
+              ...(listDefaults.clipCells ? { clipCells: true } : {}),
+              ...(listDefaults.sizeColumns ? { minWidth: "auto" as const } : {}),
+              ...rest.slotProps?.table,
+            },
+          },
+        }
       : {}),
+    // The app's `pagerJumps`, under the screen's own.
+    ...(listDefaults.pagerJumps && rest.pagerJumps === undefined ? { pagerJumps: true } : {}),
     resourceOptions: {
       ...resourceOptions,
       ...(defaultFilters.length ? { defaultFilters } : {}),

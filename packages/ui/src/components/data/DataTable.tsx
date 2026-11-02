@@ -56,6 +56,8 @@ import {
   Columns3,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { TreeIndent } from "./TreeIndent";
 import { cn } from "../../utils";
@@ -229,6 +231,17 @@ export interface DataTableProps<T> {
    * editor keep their overflow, so the editor's popover and focus ring aren't cut. Default false.
    */
   clipCells?: boolean;
+  /**
+   * The narrowest the table may be before it scrolls sideways. `"auto"`: each column's pixel
+   * width (or its resized width), and 200px for each column without one, so fixed widths never
+   * squeeze a flexible column to nothing. A number is that many pixels. Default: none.
+   */
+  minWidth?: number | "auto" | undefined;
+  /**
+   * The pager with first and last page buttons, "Page n of m" (the catalogue's `page.pageOf`), and
+   * "Previous page" / "Next page" as the arrows' names. Default false: arrows and "n / m".
+   */
+  pagerJumps?: boolean | undefined;
 }
 
 /** {@link DataTableProps.tree}: each row's place in the tree, and how to open or close one. */
@@ -603,6 +616,8 @@ export function DataTable<T>({
   onSortChange,
   tree,
   clipCells = false,
+  minWidth,
+  pagerJumps = false,
 }: DataTableProps<T>) {
   const m = useUiMessages();
   const emptyMessage = emptyMessageProp ?? m.table.noRecords;
@@ -1049,6 +1064,10 @@ export function DataTable<T>({
                           col as DataTableColumn<unknown>,
                         ),
                         cellDensity,
+                        // The layout is fixed, so a cell's width is its column's: what a cell
+                        // draws stays inside it rather than printing over the next column.
+                        // Inline editors keep their overflow (popover, focus ring).
+                        !col.editable && "overflow-hidden",
                         // `clipCells`: the layout is fixed, so a cell's width is its
                         // column's; clip what a custom cell draws at that edge. Ellipsis
                         // needs one line, hence nowrap.
@@ -1184,6 +1203,15 @@ export function DataTable<T>({
   };
 
 
+  /** `minWidth="auto"`: each sized column's width, and 200px for each other one. */
+  const FLEX_MIN = 200;
+  const tableMinWidth =
+    minWidth === "auto"
+      ? activeColumns.reduce((sum, col) => sum + (colWidths[col.key] ?? (pinned[col.key] ? PINNED_WIDTH : FLEX_MIN)), 0) +
+        (selectable ? 40 : 0) +
+        (renderActions ? 40 : 0)
+      : minWidth;
+
   return (
     <div className="border rounded-lg animate-fade-in flex flex-col">
       {/* ── Toolbar ── */}
@@ -1231,7 +1259,7 @@ export function DataTable<T>({
         style={virtualizing ? { maxHeight: viewportHeight } : undefined}
       >
         <Table
-          style={{ tableLayout: "fixed" }}
+          style={{ tableLayout: "fixed", ...(tableMinWidth ? { minWidth: tableMinWidth } : {}) }}
           {...(tree ? { role: "treegrid" } : {})}
           // A virtualized body holds only some rows; say how many there are.
           aria-rowcount={virtualizing ? displayItems.length + 1 : undefined}
@@ -1480,29 +1508,55 @@ export function DataTable<T>({
               </Select>
             </div>
             <div className="flex items-center gap-1">
+              {pagerJumps ? (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={currentPage === 0}
+                  aria-label={m.page.first}
+                  title={m.page.first}
+                  onClick={() => setCurrentPage(0)}
+                >
+                  <ChevronsLeft className="h-3.5 w-3.5" />
+                </Button>
+              ) : null}
               <Button
                 variant="outline"
                 size="icon"
                 className="h-7 w-7"
                 disabled={currentPage === 0}
-                aria-label={m.page.previous}
+                aria-label={pagerJumps ? m.page.previousPage : m.page.previous}
                 onClick={() => setCurrentPage((p) => p - 1)}
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
-              <span className="px-2 tabular-nums">
-                {fillMessage(m.table.pageOf, { page: currentPage + 1, pages: totalPages })}
+              <span className="px-2 tabular-nums whitespace-nowrap">
+                {fillMessage(pagerJumps ? m.page.pageOf : m.table.pageOf, { page: currentPage + 1, pages: totalPages })}
               </span>
               <Button
                 variant="outline"
                 size="icon"
                 className="h-7 w-7"
                 disabled={currentPage >= totalPages - 1}
-                aria-label={m.page.next}
+                aria-label={pagerJumps ? m.page.nextPage : m.page.next}
                 onClick={() => setCurrentPage((p) => p + 1)}
               >
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
+              {pagerJumps ? (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  disabled={currentPage >= totalPages - 1}
+                  aria-label={m.page.last}
+                  title={m.page.last}
+                  onClick={() => setCurrentPage(totalPages - 1)}
+                >
+                  <ChevronsRight className="h-3.5 w-3.5" />
+                </Button>
+              ) : null}
             </div>
           </div>
         </div>
