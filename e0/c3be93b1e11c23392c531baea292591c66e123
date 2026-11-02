@@ -1,0 +1,40 @@
+packages/core/src/resource-view/link.ts
+  s_1feb538f59bf88::t_7ac1d6e15ddc5b 91-93
+  s_1feb538f59bf88::t_fbb716e2df68f9 8,80-87
+packages/core/src/hooks/__tests__/use-link-options.test.tsx
+  s_1feb538f59bf88::t_65634bd7b23b0b 1-93
+.changeset/view-form-links.md
+  s_1feb538f59bf88::t_57db83a8571f1e 7,9-15
+docs/RESOURCE-VIEW.md
+  s_1feb538f59bf88::t_a9e6bf32ffcbd8 179-180,259,261-262,266,271,276-281,288-296,298-300,311-320,521-523
+features.json
+  s_1feb538f59bf88::t_72ac54157c2ae2 640
+features.ts
+  s_1feb538f59bf88::t_ffbea4c21b4d1e 292
+packages/core/src/__tests__/resource-view.test.ts
+  s_1feb538f59bf88::t_0e87a402b3f4ee 8,339,352-353,359-376,735-758,760,776,786,791-793,824,833,837-855
+packages/core/src/form-types.ts
+  s_1feb538f59bf88::t_a61e263dcce4ca 83-88
+packages/core/src/hooks/use-link-options.ts
+  s_1feb538f59bf88::t_693cca7d2f6cdd 9,37-41,76-78,81,105-108,114,121,124,126-128,143-144,147
+packages/core/src/resource-view/define-view.ts
+  s_1feb538f59bf88::t_63fe189c26dc9c 255,339-344,346-347,352,359-361,402,449
+packages/core/src/resource-view/types.ts
+  s_1feb538f59bf88::t_2a98e731f335f8 61-64,302-306,357
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e0c3be93b1e11c23392c531baea292591c66e123",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
