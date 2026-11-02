@@ -1,0 +1,19 @@
+packages/ui/src/components/patterns/auth-form.tsx
+  s_1feb538f59bf88::t_7ccd4534e7a88c 332
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bcd7dbb449b3cb912450aa3470ce5b0a60ade69a",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
