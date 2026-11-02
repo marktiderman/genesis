@@ -1077,8 +1077,18 @@ describe("the connected account's identity", () => {
     email_verified: true,
     name: "Pat",
   };
-  const withToken = (claims: Record<string, unknown>) =>
-    setup({}, () => tokenOk({ id_token: idToken(claims) }));
+  const OPENID_SCOPES = [GOOGLE_SCOPES.openid, GOOGLE_SCOPES.driveFile];
+  const withOpenid = (extra: Record<string, unknown> = {}) =>
+    tokenOk({ scope: `openid ${GOOGLE_SCOPES.driveFile}`, ...extra });
+  const withToken = (
+    claims: Record<string, unknown>,
+    overrides: Partial<ConnectorConfig> = {},
+  ) =>
+    setup({ scopes: OPENID_SCOPES, ...overrides }, () =>
+      withOpenid({ id_token: idToken(claims) }),
+    );
+  const revokes = (t: ReturnType<typeof setup>) =>
+    t.http.calls.filter((c) => c.url === googleProvider.revokeUrl);
 
   it("reads who the account is from the ID token the token endpoint sent", async () => {
     const t = withToken(good);
@@ -1091,21 +1101,66 @@ describe("the connected account's identity", () => {
     });
   });
 
-  it("accepts several audiences only when azp is this client", async () => {
-    const ok = withToken({
+  it("rejects an audience this client doesn't trust, even with azp set to it", async () => {
+    const t = withToken({
       ...good,
       aud: ["other", "client-id"],
       azp: "client-id",
     });
+    const { result } = await roundTrip(t);
+    expect(result).toBe("connected");
+    expect(t.stored[0]!.identity).toBeUndefined();
+    expect(t.logs).toContainEqual({
+      step: "callback",
+      result: "connected",
+      detail: "no identity: untrusted audience",
+    });
+  });
+
+  it("accepts several audiences when the others are trusted and azp is this client", async () => {
+    const trusted = { trustedAudiences: ["other"] };
+    const ok = withToken(
+      { ...good, aud: ["other", "client-id"], azp: "client-id" },
+      trusted,
+    );
     await roundTrip(ok);
     expect(ok.stored[0]!.identity?.subject).toBe("1234");
-    const bad = withToken({
-      ...good,
-      aud: ["other", "client-id"],
-      azp: "other",
+    for (const azp of ["other", undefined]) {
+      const bad = withToken(
+        { ...good, aud: ["other", "client-id"], azp },
+        trusted,
+      );
+      await roundTrip(bad);
+      expect(bad.stored[0]!.identity).toBeUndefined();
+    }
+  });
+
+  it("accepts a one-element audience array naming this client", async () => {
+    const t = withToken({ ...good, aud: ["client-id"] });
+    await roundTrip(t);
+    expect(t.stored[0]!.identity?.subject).toBe("1234");
+  });
+
+  it("gives no identity for an audience that isn't a string", async () => {
+    for (const aud of [42, { client: "client-id" }, ["client-id", 7]]) {
+      const t = withToken({ ...good, aud, azp: "client-id" });
+      expect((await roundTrip(t)).result).toBe("connected");
+      expect(t.stored[0]!.identity).toBeUndefined();
+    }
+  });
+
+  it("rejects an azp that isn't this client, even with one audience", async () => {
+    const t = withToken({ ...good, azp: "someone-else" });
+    await roundTrip(t);
+    expect(t.stored[0]!.identity).toBeUndefined();
+    expect(t.logs).toContainEqual({
+      step: "callback",
+      result: "connected",
+      detail: "no identity: authorized party mismatch",
     });
-    await roundTrip(bad);
-    expect(bad.stored[0]!.identity).toBeUndefined();
+    const ok = withToken({ ...good, azp: "client-id" });
+    await roundTrip(ok);
+    expect(ok.stored[0]!.identity?.subject).toBe("1234");
   });
 
   it.each([
@@ -1130,10 +1185,9 @@ describe("the connected account's identity", () => {
   });
 
   it("gives no identity when the provider names no issuer", async () => {
-    const t = setup(
-      { provider: { ...googleProvider, issuer: undefined } },
-      () => tokenOk({ id_token: idToken(good) }),
-    );
+    const t = withToken(good, {
+      provider: { ...googleProvider, issuer: undefined },
+    });
     await roundTrip(t);
     expect(t.stored[0]!.identity).toBeUndefined();
   });
@@ -1156,9 +1210,9 @@ describe("the connected account's identity", () => {
 
   it("fails the connection without an identity when requireIdentity is set", async () => {
     const http = (claims: Record<string, unknown>) => () =>
-      tokenOk({ id_token: idToken(claims) });
+      withOpenid({ id_token: idToken(claims) });
     const strict = setup(
-      { requireIdentity: true },
+      { requireIdentity: true, scopes: OPENID_SCOPES },
       http({ ...good, exp: nowSec - 1 }),
     );
     const { result } = await roundTrip(strict);
@@ -1169,8 +1223,171 @@ describe("the connected account's identity", () => {
       result: "failed",
       detail: "no identity: expired",
     });
-    const ok = setup({ requireIdentity: true }, http(good));
+    const ok = setup(
+      { requireIdentity: true, scopes: OPENID_SCOPES },
+      http(good),
+    );
     expect((await roundTrip(ok)).result).toBe("connected");
+    expect(revokes(ok)).toHaveLength(0);
+  });
+
+  it("revokes the grant it turns down for no identity", async () => {
+    const strict = setup(
+      { requireIdentity: true, scopes: OPENID_SCOPES, revokeFailedGrants: true },
+      (call) =>
+        call.url === googleProvider.revokeUrl
+          ? new Response(null, { status: 200 })
+          : withOpenid({ id_token: idToken({ ...good, aud: "x" }) }),
+    );
+    expect((await roundTrip(strict)).result).toBe("failed");
+    const [revoke, ...more] = revokes(strict);
+    expect(more).toHaveLength(0);
+    expect(revoke!.body.get("token")).toBe(REFRESH);
+    expect(revoke!.body.get("token_type_hint")).toBe("refresh_token");
+    await vi.waitFor(() =>
+      expect(strict.logs).toContainEqual({ step: "revoke", result: "revoked" }),
+    );
+    expectNoSecrets(strict.logs);
+  });
+
+  it("revokes the grant it turns down for a missing scope, best effort", async () => {
+    const t = setup({ revokeFailedGrants: true }, (call) =>
+      call.url === googleProvider.revokeUrl
+        ? Promise.reject(new TypeError("offline"))
+        : tokenOk({ scope: "openid" }),
+    );
+    expect((await roundTrip(t)).result).toBe("scope");
+    expect(revokes(t)[0]!.body.get("token")).toBe(REFRESH);
+    await vi.waitFor(() =>
+      expect(t.logs).toContainEqual({ step: "revoke", result: "unavailable" }),
+    );
+    // Without a refresh token, the access token is revoked instead.
+    const noRefresh = setup({ requireRefreshToken: false, revokeFailedGrants: true }, (call) =>
+      call.url === googleProvider.revokeUrl
+        ? new Response(null, { status: 200 })
+        : tokenOk({ scope: "openid", refresh_token: undefined }),
+    );
+    expect((await roundTrip(noRefresh)).result).toBe("scope");
+    expect(revokes(noRefresh)[0]!.body.get("token_type_hint")).toBe(
+      "access_token",
+    );
+  });
+
+  it("redirects without waiting on the revoke, and bounds it", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    let signal: AbortSignal | undefined;
+    const t = setup({ revokeFailedGrants: true }, (call) => {
+      if (call.url !== googleProvider.revokeUrl)
+        return tokenOk({ scope: "openid" });
+      signal = call.init.signal ?? undefined;
+      // A provider that never answers: only the abort ends it.
+      return new Promise<Response>((_, reject) =>
+        signal!.addEventListener("abort", () => reject(signal!.reason)),
+      );
+    });
+    expect((await roundTrip(t)).result).toBe("scope");
+    expect(revokes(t)).toHaveLength(1);
+    expect(signal!.aborted).toBe(false);
+    expect(t.logs.some((e) => e.step === "revoke")).toBe(false);
+    expect(timeout).toHaveBeenCalledWith(3_000);
+    timeout.mockRestore();
+  });
+
+  it("swallows a log that throws during the background revoke", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const t = setup(
+        {
+          revokeFailedGrants: true,
+          log: (event) => {
+            if (event.step === "revoke") throw new Error("log broke");
+          },
+        },
+        (call) =>
+          call.url === googleProvider.revokeUrl
+            ? new Response(null, { status: 200 })
+            : tokenOk({ scope: "openid" }),
+      );
+      expect((await roundTrip(t)).result).toBe("scope");
+      expect(revokes(t)).toHaveLength(1);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
+  });
+
+  it("leaves a turned-down grant alone by default, so a person's existing connection survives", async () => {
+    for (const config of [{}, { revokeFailedGrants: false }]) {
+      const t = setup(config, () => tokenOk({ scope: "openid" }));
+      expect((await roundTrip(t)).result).toBe("scope");
+      expect(revokes(t)).toHaveLength(0);
+    }
+  });
+
+  it("checks requireIdentity's needs at boot", () => {
+    expect(() =>
+      setup({
+        requireIdentity: true,
+        scopes: OPENID_SCOPES,
+        provider: { ...googleProvider, issuer: undefined },
+      }),
+    ).toThrow(/issuer/);
+    for (const issuer of ["", "  ", [""], []] as const) {
+      expect(() =>
+        setup({
+          requireIdentity: true,
+          scopes: OPENID_SCOPES,
+          provider: { ...googleProvider, issuer: issuer as never },
+        }),
+      ).toThrow(/issuer/);
+    }
+    expect(() => setup({ requireIdentity: true })).toThrow(/openid/);
+    try {
+      setup({ requireIdentity: true });
+    } catch (error) {
+      expect(isConnectError(error) && error.code).toBe("config");
+    }
+  });
+
+  it("refuses a start without openid when requireIdentity is set", async () => {
+    const t = setup({ requireIdentity: true, scopes: OPENID_SCOPES });
+    await expect(
+      t.connector.start(new Request("https://app.example.com/start"), {
+        subject: "user-1",
+        returnTo: "/",
+        scopes: [GOOGLE_SCOPES.driveFile],
+      }),
+    ).rejects.toMatchObject({ code: "usage" });
+  });
+
+  it("reads no identity, and logs nothing about one, when openid wasn't asked for", async () => {
+    const t = setup({}, () => tokenOk({ id_token: idToken(good) }));
+    await roundTrip(t);
+    expect(t.stored[0]!.identity).toBeUndefined();
+    expect(t.logs).toEqual([{ step: "callback", result: "connected" }]);
+  });
+
+  it("refuses a token or revoke URL that isn't https, but allows localhost", () => {
+    for (const provider of [
+      { ...googleProvider, tokenUrl: "http://auth.acme.test/token" },
+      { ...googleProvider, revokeUrl: "http://auth.acme.test/revoke" },
+      { ...googleProvider, tokenUrl: "not a url" },
+      // Look like localhost but aren't: a subdomain of another host, and userinfo.
+      { ...googleProvider, tokenUrl: "http://localhost.evil.com/token" },
+      { ...googleProvider, tokenUrl: "http://localhost@evil.com/token" },
+    ]) {
+      expect(() => setup({ provider })).toThrow(/https|not a URL/);
+    }
+    for (const tokenUrl of [
+      "http://localhost:9000/token",
+      "http://127.0.0.1:9000/token",
+      "http://[::1]:9000/token",
+    ])
+      expect(() =>
+        setup({ provider: { ...googleProvider, tokenUrl } }),
+      ).not.toThrow();
   });
 
   it("names only read-only Calendar scopes as such", () => {
@@ -1183,10 +1400,17 @@ describe("the connected account's identity", () => {
   });
 
   it("has no identity without an ID token, or with one that isn't", async () => {
-    const plain = setup();
+    const plain = setup({ scopes: OPENID_SCOPES }, () => withOpenid());
     await roundTrip(plain);
     expect(plain.stored[0]!.identity).toBeUndefined();
-    const junk = setup({}, () => tokenOk({ id_token: "not-a-token" }));
+    expect(plain.logs).toContainEqual({
+      step: "callback",
+      result: "connected",
+      detail: "no identity: no ID token",
+    });
+    const junk = setup({ scopes: OPENID_SCOPES }, () =>
+      withOpenid({ id_token: "not-a-token" }),
+    );
     await roundTrip(junk);
     expect(junk.stored[0]!.identity).toBeUndefined();
   });
