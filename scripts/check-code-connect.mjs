@@ -129,7 +129,10 @@ export function templateProblems(root, name) {
     if (!value) problems.push(`${rel}:${i + 1}: \`// ${key}=\` is empty`);
     return value;
   };
-  directive(0, "url");
+  const url = directive(0, "url");
+  if (url && !/^https:\/\/(www\.)?figma\.com\/design\/[0-9A-Za-z]{22,128}\/[^?\s]*\?(.*&)?node-id=\d+[-:]\d+(&|$)/.test(url)) {
+    problems.push(`${rel}:1: \`// url=\` must be a figma.com/design file URL with a node-id, found ${url}`);
+  }
   const source = directive(1, "source");
   const component = directive(2, "component");
   if (source) {

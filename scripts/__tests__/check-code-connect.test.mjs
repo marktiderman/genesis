@@ -40,7 +40,7 @@ export { KEYBOARD_TOOLBAR_HEIGHT, KeyboardScrollProvider, useKeyboardScroll } fr
 export { AppleSignInButton, appleProvider } from "./apple-sign-in";
 `;
 
-const template = (name, { url = "https://www.figma.com/design/abc/Sample?node-id=1-2", source = `packages/ui-native/src/components/${name}.tsx`, component = name } = {}) =>
+const template = (name, { url = "https://www.figma.com/design/abcdefghijklmnopqrstuv/Sample?node-id=1-2", source = `packages/ui-native/src/components/${name}.tsx`, component = name } = {}) =>
   `// url=${url}\n// source=${source}\n// component=${component}\nimport figma from 'figma'\nexport default { example: figma.code\`<${name} />\` }\n`;
 
 /** A throwaway checkout with the two indexes, the allowlist, and the given templates. */
@@ -154,5 +154,18 @@ describe("check-code-connect", () => {
       `${FIGMA_DIR}/NativeCard.figma.ts:3: expected \`// component=…\`, found "// source=y"`,
     ]);
     expect(templateProblems(root, "NativeChip")).toBeNull();
+  });
+});
+
+describe("url directive", () => {
+  it("rejects a url that is not a Figma design node", () => {
+    const root = fixture({
+      required: ["NativeAvatar"],
+      templates: { NativeAvatar: template("NativeAvatar", { url: "https://example.com/not-figma" }) },
+      sources: ["packages/ui-native/src/components/NativeAvatar.tsx"],
+    });
+    expect(templateProblems(root, "NativeAvatar")).toEqual([
+      `${FIGMA_DIR}/NativeAvatar.figma.ts:1: \`// url=\` must be a figma.com/design file URL with a node-id, found https://example.com/not-figma`,
+    ]);
   });
 });
