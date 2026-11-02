@@ -32,6 +32,8 @@ export {
   isColorScale,
   validateBrand,
   clampBounds,
+  brandContrastProblems,
+  type BrandContrastProblem,
 } from "./schema/brand";
 
 // Design systems and the OKLCH colour engine. Also at "./design-systems".
