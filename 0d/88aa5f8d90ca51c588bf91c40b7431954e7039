@@ -1,0 +1,21 @@
+packages/ui/src/components/ui/__tests__/mobile-overlays.test.tsx
+  s_1feb538f59bf88::t_9fa3c00c30d2ed 12,28-29,71,74-89,116-122
+packages/ui/src/components/ui/dialog.tsx
+  s_1feb538f59bf88::t_0659da9d8bf8db 42-47,49-58,60,88-89,96-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0d88aa5f8d90ca51c588bf91c40b7431954e7039",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
