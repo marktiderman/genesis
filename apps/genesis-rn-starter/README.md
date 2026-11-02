@@ -208,6 +208,11 @@ sign-in, the tabs, Settings and account deletion. Supabase is the fake in
 native modules use jest-expo's mocks or their library's own. A test fails when the app reports an
 error (`[push]`, `[updates]`, `[observability]`) or React warns about act(); see `reports.ts`.
 Add a screen's test there; tests that only read files stay in vitest, outside that folder.
+In React Native Testing Library 14, `render`, `renderHook`, `fireEvent`, `act`, `rerender` and
+`unmount` return promises: always `await` them, or the test reads a stale screen and React logs
+"overlapping act() calls". `pnpm lint` catches a missed one in test files (testing-library's
+`await-async-events`, and a `no-restricted-syntax` rule in `eslint.config.js` for the render calls
+and `act`).
 
 Gestures and animations run in these tests as they are written, on Gesture Handler's mocks
 (`react-native-gesture-handler/jestSetup.js`, in `jest.config.js`) and Reanimated's test mode
