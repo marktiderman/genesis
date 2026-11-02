@@ -123,24 +123,6 @@ export function valueText(labels: Readonly<Record<string, string>> | undefined, 
 }
 
 /**
- * Describe what a resource means to people. The result is frozen and platform-neutral:
- *
- * ```ts
- * export const brandsView = defineView(contracts["public.brands"], {
- *   fields: { status: { display: "badge", tones: { active: "success" } } },
- *   columns: { default: ["name", "status", "created_at"], compact: ["name"] },
- *   can: {
- *     delete: (row) => (row.is_default ? "The default brand stays." : true),
- *     update: (row, viewer) => (row.owner_id === viewer.id ? true : "Only its owner edits a brand."),
- *   },
- *   actions: [{ name: "archive", label: "Archive", can: (row) => (row.is_default ? "The default brand stays." : true) }],
- * });
- * ```
- *
- * Throws {@link ViewDefinitionError} when it names something the contract doesn't have, so a
- * renamed column fails at start-up, not as a blank cell.
- */
-/**
  * What's wrong with a calendar block for these fields, one sentence each (empty when it's fine).
  * `defineView` checks the view's own block with it; a renderer checks a screen's overrides merged
  * over that block with it too, so neither can name a field that isn't there or isn't a date.
@@ -170,6 +152,24 @@ export function calendarProblems(fields: readonly Pick<FieldSchema, "name" | "ty
   return problems;
 }
 
+/**
+ * Describe what a resource means to people. The result is frozen and platform-neutral:
+ *
+ * ```ts
+ * export const brandsView = defineView(contracts["public.brands"], {
+ *   fields: { status: { display: "badge", tones: { active: "success" } } },
+ *   columns: { default: ["name", "status", "created_at"], compact: ["name"] },
+ *   can: {
+ *     delete: (row) => (row.is_default ? "The default brand stays." : true),
+ *     update: (row, viewer) => (row.owner_id === viewer.id ? true : "Only its owner edits a brand."),
+ *   },
+ *   actions: [{ name: "archive", label: "Archive", can: (row) => (row.is_default ? "The default brand stays." : true) }],
+ * });
+ * ```
+ *
+ * Throws {@link ViewDefinitionError} when it names something the contract doesn't have, so a
+ * renamed column fails at start-up, not as a blank cell.
+ */
 export function defineView<C extends ResourceContract, Row extends DataRow = RowOf<C>>(
   contract: C,
   definition: ViewDefinition<C, Row> = {},
@@ -282,8 +282,20 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   for (const name of scope) known(name, "scope");
   if (definition.groupBy) known(definition.groupBy, "groupBy");
   // A copy, frozen like the other blocks: changing the object passed in can't change the view.
-  const calendar = definition.calendar ? Object.freeze({ ...definition.calendar }) : undefined;
-  if (calendar) problems.push(...calendarProblems(fields, calendar));
+  // Checked as written first: a plain object with a field, and only keys a calendar has.
+  const rawCalendar = definition.calendar as unknown;
+  let calendar: Readonly<ViewCalendar> | undefined;
+  if (rawCalendar !== undefined) {
+    if (!rawCalendar || typeof rawCalendar !== "object" || Array.isArray(rawCalendar)) {
+      problems.push("calendar isn't an object");
+    } else {
+      const known = ["field", "endField", "allDayField", "laneBy", "layout", "weeks", "weekStartsOn"];
+      for (const key of Object.keys(rawCalendar)) if (!known.includes(key)) problems.push(`calendar.${key} isn't a calendar setting`);
+      if ((rawCalendar as { field?: unknown }).field === undefined) problems.push("calendar.field is required");
+      calendar = Object.freeze({ ...(rawCalendar as ViewCalendar) });
+      problems.push(...calendarProblems(fields, calendar));
+    }
+  }
   if (definition.orderBy) known(definition.orderBy.field, "orderBy");
   for (const [name, preset] of Object.entries(presets)) {
     if (preset.columns && preset.columns !== "default" && !own(columnLists, preset.columns)) {

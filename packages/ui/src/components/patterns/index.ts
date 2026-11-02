@@ -37,3 +37,15 @@ export { ToggleRow, type ToggleRowProps } from "./toggle-row";
 export { UserAvatar, userAvatarVariants, type UserAvatarProps } from "./user-avatar";
 export { ViewToggle, type ViewMode } from "./view-toggle";
 export { ViewSettings } from "./view-settings";
+export {
+  AuthForm,
+  AUTH_PROVIDER_NAMES,
+  type AuthFormClient,
+  type AuthFormError,
+  type AuthFormMode,
+  type AuthFormProps,
+  type AuthFormProvider,
+  type AuthFormResult,
+  type AuthFormSuccess,
+  type AuthSignInMethod,
+} from "./auth-form";

@@ -68,7 +68,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-core": "workspace:>=2.5.0 <3.0.0",
+    "@marktiderman/genesis-core": "workspace:>=2.7.0 <3.0.0",
     "@marktiderman/genesis-media": "workspace:>=0.2.0 <1.0.0"
   },
   "peerDependenciesMeta": {

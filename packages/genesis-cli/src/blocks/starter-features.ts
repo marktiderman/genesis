@@ -24,8 +24,26 @@ function featuresBody(text: string): { start: number; body: string } | null {
   const m = /\bfeatures:\s*\{/.exec(text);
   if (!m) return null;
   const start = m.index + m[0].length;
-  const end = text.indexOf("}", start);
-  return end < 0 ? null : { start, body: text.slice(start, end) };
+  // The matching brace: nested objects, strings and comments don't end the block.
+  let depth = 1;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i]!;
+    if (c === "/" && text[i + 1] === "/") {
+      const nl = text.indexOf("\n", i);
+      if (nl < 0) return null;
+      i = nl;
+    } else if (c === "/" && text[i + 1] === "*") {
+      const close = text.indexOf("*/", i + 2);
+      if (close < 0) return null;
+      i = close + 1;
+    } else if (c === '"' || c === "'" || c === "`") {
+      let j = i + 1;
+      while (j < text.length && text[j] !== c) j += text[j] === "\\" ? 2 : 1;
+      i = j;
+    } else if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) return { start, body: text.slice(start, i) };
+  }
+  return null;
 }
 
 /** The switches a starter.config.ts sets, by name (comment lines skipped); null when it has no `features`. */
@@ -64,6 +82,8 @@ export function parseStarterBlocks(json: string, source = GENESIS_CONFIG): Recor
   const starter = (raw as { starter?: unknown } | null)?.starter;
   if (starter === undefined) return null;
   const blocks = (starter as { blocks?: unknown } | null)?.blocks;
+  // A starter setting with no blocks (`"starter": {}`) carries none.
+  if (blocks === undefined && typeof starter === "object" && starter !== null && !Array.isArray(starter)) return null;
   if (typeof blocks !== "object" || blocks === null || Array.isArray(blocks)) throw new Error(`${source}: starter.blocks must map each feature switch to a list of block ids`);
   const out: Record<string, string[]> = {};
   for (const [name, ids] of Object.entries(blocks)) {

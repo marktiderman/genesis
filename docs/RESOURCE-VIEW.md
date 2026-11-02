@@ -515,6 +515,10 @@ export const eventsView = defineView(contracts["public.events"], {
   screen's `cells`, and an unknown `preset` throws, as in the list.
 - **Layouts.** `month` (the month's whole weeks), `weeks` (1 to 4 weeks from the anchor's week, 2
   by default), `agenda` (the same weeks day by day) and `lanes` (a row per lane, a column per day).
+- **The list's options apply.** `resourceOptions.enabled` holds the requests (a screen waiting on
+  its scope), `resourceOptions.select` goes with each request, and `live` refetches on changes,
+  as in the list. A `select` must fetch the calendar's `field`, `endField`, `allDayField` and
+  `laneBy`, or events can't be placed (development warns).
 - **Data** goes through the view's provider rules: the scope, the screen's `filter` and a preset's
   filter, plus the visible window. Without an `endField` that is one `getList` for rows starting in
   the window. With one, a second `getList` adds the rows that started before the window and run
@@ -547,8 +551,18 @@ export const eventsView = defineView(contracts["public.events"], {
   event's button. A day is read with its date, year and count: "Tuesday, November 3, 2026, 2
   events". A title across New Year names both years.
 - **Printing.** The agenda prints as a plain list: no controls, no fills, a day never split
-  across pages. For a printed week per person, filter the view to that person and use
-  `layout: "agenda", weeks: 1`.
+  across pages, and AppShell's navigation left off the page. For one printed sheet per person,
+  give the calendar `print`: it prints `PrintableAgenda` (a sheet per lane for the shown week,
+  each on its own page, the app's `sections` under each week) from the same rows, scope and
+  filters, so the screen never reads data itself. Put a `PrintButton` next to it.
+
+  ```tsx
+  <PrintButton />
+  <ResourceView view={eventsView} mode="calendar" calendar={{ layout: "lanes", weeks: 1, lanes: people, print: { sections } }} />
+  ```
+
+  `PrintableAgenda` (`/data`) is the same sheet for events that aren't one view's rows; it needs
+  `lanes` with their labels, since a lane's key is an id.
 - **Not a list mode.** Calendar is ResourceView's own `mode`, not one of the list's view modes:
   it isn't in the header's toggle, and it is never stored as the user's remembered view, so other
   lists of the resource don't open in it.
@@ -823,6 +837,48 @@ export const brandRecordView = defineRecordView(brandsView, {
 - **Paging and writes:** cursor paging with `onEndReached`. Search debounced at 300 ms. Zero-row
   refusals and optimistic updates with rollback.
 - **Doctor:** `native-screen-layout` counts `NativeResourceView` as a layout.
+
+### Cards and custom rows
+
+<!-- api: NativeResourceViewProps<any>, NativeResourceCardActions -->
+
+The same names as the web's `mode="grid"` and `renderCard`, all opt in. Without them the list is
+exactly as above.
+
+```tsx
+<NativeResourceView view={brandsView} mode="grid" numColumns={3} />
+
+<NativeResourceView
+  view={brandsView}
+  onRowPress={(b) => router.push(`/brands/${b.id}`)}
+  renderCard={(brand, index, card) => (
+    <Pressable {...card.pressableProps}>
+      <BrandTile brand={brand} title={card.item.title} />
+    </Pressable>
+  )}
+/>
+```
+
+- `mode="grid"`: cards in columns, each line one item of the same SectionList, so sections
+  (`groupBy`), cursor paging, pull to refresh, the empty and error states, the peek, long press,
+  accessibility actions and `swipeable` all stay. A card shows the row's picture, title, subtitle
+  and first chip. The last line keeps its columns' width. Lines are cut from each section's real
+  start, so when `maxPages` drops pages from the front (or they load back) every card stays on its
+  line and nothing remounts. Swipe actions are cramped behind a half-width card: in a grid, prefer
+  long press (always there) and pass `swipeable` only for one or two short actions.
+- `numColumns`: columns in grid mode, React Native's FlatList name (the web's `gridCols` takes
+  Tailwind classes instead). Default 2.
+- `renderCard`: draw a row (list) or a card (grid) yourself. It gets the row, its index in its
+  section, and `card` (`NativeResourceCardActions`):
+  - `pressableProps`: spread on a Pressable for the same press (`onRowPress`, else the peek),
+    long press (the row's actions), label and accessibility actions as a built-in row;
+  - `item`: the summary (title, subtitle, chips, picture);
+  - `actions`: edit and delete, each refusal with its reason;
+  - `open` and `showActions`, to wire them yourself;
+  - `first` and `last`: its place in its section.
+
+  It owns the whole row: no inset group cell or separator is drawn around it, and the screen still
+  wraps it in `swipeable` when it has actions. Pass a stable function (`useCallback`) for long lists.
 
 ## Other surfaces (extensions, popups, side panels)
 

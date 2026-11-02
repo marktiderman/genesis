@@ -33,6 +33,21 @@ export interface ManifestMigration {
   file: string;
   /** Package-relative pgTAP test. */
   test?: string;
+  /**
+   * Other package migrations whose objects this one provides or adopts (it creates them where
+   * they're missing, and takes them over where they're there). Once this migration is in the
+   * app, `genesis add` and `migrate` count those as satisfied and never copy them: copying one
+   * after this would fail on objects that already exist.
+   */
+  provides?: {
+    package: string;
+    file: string;
+    /**
+     * Function folders of that migration's package (`functions/genesis-push-send`) that call what
+     * only it creates. Where it's provided they are superseded: never copied or deployed.
+     */
+    functions?: string[];
+  }[];
 }
 
 export interface ManifestFunction {
@@ -163,6 +178,26 @@ export function parseManifest(home: string, id: string, raw: unknown, version?: 
     const file = pathOf(m["file"], `${where}.file`);
     if (file && !MIGRATION_FILE.test(file.split("/").pop()!)) problems.push(`${where}.file: "${file}" must be named NNNN_name.sql (lowercase letters, digits, _)`);
     const out: ManifestMigration = { package: pkgOf(m["package"], where), file };
+    if (m["provides"] !== undefined) {
+      if (!Array.isArray(m["provides"])) problems.push(`${where}.provides: must be a list of { package, file }`);
+      else {
+        out.provides = (m["provides"] as unknown[]).map((p, j) => {
+          const at2 = `${where}.provides[${j}]`;
+          if (!isObject(p)) {
+            problems.push(`${at2}: must be an object`);
+            return { package: home, file: "" };
+          }
+          const provided: { package: string; file: string; functions?: string[] } = { package: pkgOf(p["package"], at2), file: pathOf(p["file"], `${at2}.file`) };
+          if (p["functions"] !== undefined) {
+            if (!Array.isArray(p["functions"])) problems.push(`${at2}.functions: must be a list of function folders`);
+            else provided.functions = (p["functions"] as unknown[]).map((f, k) => pathOf(f, `${at2}.functions[${k}]`));
+          }
+          if (provided.file && !MIGRATION_FILE.test(provided.file.split("/").pop()!)) problems.push(`${at2}.file: "${provided.file}" must be named NNNN_name.sql`);
+          if (provided.package === out.package && provided.file === file) problems.push(`${at2}: a migration can't provide itself`);
+          return provided;
+        });
+      }
+    }
     if (m["test"] !== undefined) {
       out.test = pathOf(m["test"], `${where}.test`);
       if (out.test && !/^[a-z0-9_]+\.test\.sql$/.test(out.test.split("/").pop()!.replace(/^\d{4}_/, ""))) problems.push(`${where}.test: "${out.test}" must be named [NNNN_]name.test.sql`);

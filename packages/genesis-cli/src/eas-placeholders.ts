@@ -9,7 +9,7 @@ export const EAS_PLACEHOLDERS: Readonly<Record<string, string>> = {
     "the app's Apple ID from App Store Connect (create the app there, then App Information → General Information → Apple ID, a number)",
   REPLACE_WITH_APPLE_TEAM_ID: "your Apple Developer Team ID (developer.apple.com → Account → Membership details, 10 characters)",
   REPLACE_WITH_PATH_TO_GOOGLE_SERVICE_ACCOUNT_JSON:
-    "the path to your Google Play service account key, a JSON file kept out of git (Play Console → Setup → API access); or delete submit.production.android until you ship to Google Play",
+    "the Google Play service account key uploaded to EAS, not a local path (deploy-production.yml submits on EAS, where a local file isn't there): create a Google Cloud service account and its JSON key, invite it in Play Console → Users and permissions, upload the key with `eas credentials` (Android → Google Service Account), then remove only this serviceAccountKeyPath line (https://docs.expo.dev/submit/android/). Until you ship to Google Play, remove the submit_android job from deploy-production.yml instead, and keep submit.production.android as it is (the internal track, as a draft)",
   REPLACE_WITH_APP_FOLDER: "the app's code folder (src, or apps/<name> in a monorepo)",
 };
 

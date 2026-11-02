@@ -53,6 +53,15 @@ export interface SupportReport {
   /** The FeatureId staff linked it to. */
   featureId: string | null;
   route: string | null;
+  /** Whether the person pointed to a spot on the page (a pin in its context). */
+  pinned?: boolean;
+  /** What the page was about, as the panel showed it ("About: …"), when the person kept it. */
+  aboutLabel?: string | null;
+  /**
+   * Where it was sent from, for people: the about label with the route ("Billing
+   * (/teams/:id/billing)"), else the route. The route has its ids taken out (cleanRoute).
+   */
+  page?: string | null;
   appVersion: string | null;
   createdAt: string;
   updatedAt: string;
@@ -135,6 +144,16 @@ export interface SupportClient extends FeedbackSink {
   isStaff(): Promise<boolean>;
   /** Staff: the report's status, and the FeatureId it is about (null keeps it, "" clears it). */
   setStatus(reportId: string, status: FeedbackStatus, featureId?: string | null): Promise<void>;
+  /**
+   * The person's answer once a report is marked addressed: fixed (confirmed) or not (reopened).
+   * Needs migration 0003. Optional: a custom client may leave it out, so check before calling.
+   */
+  verify?(reportId: string, fixed: boolean, note?: string): Promise<void>;
+  /**
+   * Does the signed-in person handle this report (staff, or whom the app's hook names)? Needs
+   * migration 0003. Optional: a custom client may leave it out, so check before calling.
+   */
+  handles?(reportId: string): Promise<boolean>;
   /** Staff (support-chat block): who has the report, a staff member or null. */
   assign(reportId: string, userId: string | null): Promise<void>;
   /** Deletes the person's own report; its screenshots are queued for removal. */
@@ -161,10 +180,16 @@ export interface SupportClientOptions {
   signedUrlSeconds?: number;
   /** For the attachment file names. Default `crypto.randomUUID`. */
   randomId?: () => string;
+  /**
+   * Also write a report's severity to its own `severity` column (added by migration 0003).
+   * Default off. Either way it goes into the report's context as `severity`, as the intake
+   * function does, which works on every schema.
+   */
+  severityColumn?: boolean;
 }
 
 const REPORT_COLUMNS =
-  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at";
+  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, pin:context->pin, about_label:context->>about_label";
 const IDEA_COLUMNS = "id, title, body, status, feature_id, shipped_at, vote_count, created_at";
 
 type Row = Record<string, unknown>;
@@ -175,39 +200,75 @@ export function isUnread(row: { lastStaffReplyAt: string | null; userReadAt: str
   return !row.userReadAt || new Date(row.lastStaffReplyAt).getTime() > new Date(row.userReadAt).getTime();
 }
 
+/**
+ * An about label as it can be shown: the reporter's (so untrusted), on one line, at most 80
+ * characters, without control or direction-changing (bidi) characters. Null when nothing is left.
+ */
+export function cleanLabel(label: string | null | undefined): string | null {
+  if (typeof label !== "string") return null;
+  let out = "";
+  for (const ch of label) {
+    const c = ch.codePointAt(0)!;
+    const control = c < 0x20 || (c >= 0x7f && c < 0xa0);
+    const bidi = (c >= 0x202a && c <= 0x202e) || (c >= 0x2066 && c <= 0x2069) || c === 0x200e || c === 0x200f || c === 0x061c;
+    out += control ? " " : bidi ? "" : ch;
+  }
+  out = out.replace(/\s+/g, " ").trim();
+  if (!out) return null;
+  return out.length > 80 ? `${out.slice(0, 79).trimEnd()}…` : out;
+}
+
+/** A report's page for people: the about label with the route, else the route. */
+export function pageOf(aboutLabel: string | null, route: string | null): string | null {
+  const label = cleanLabel(aboutLabel);
+  if (label && route) return `${label} (${route})`;
+  return label || route;
+}
+
+/** A report's heading: its title, else its words (the first line, shortened), never just its kind. */
+export function reportHeading(report: { title: string | null; message: string }): string {
+  const title = report.title?.trim();
+  if (title) return title;
+  const line = report.message.trim().split("\n")[0] ?? "";
+  return line.length > 120 ? `${line.slice(0, 117)}…` : line;
+}
+
 function toReport(r: Row): SupportReport {
   const report: Omit<SupportReport, "unread"> = {
-    id: String(r.id),
-    type: r.type as FeedbackType,
-    title: (r.title as string | null) ?? null,
-    message: String(r.message ?? ""),
-    status: r.status as FeedbackStatus,
-    featureId: (r.feature_id as string | null) ?? null,
-    route: (r.route as string | null) ?? null,
-    appVersion: (r.app_version as string | null) ?? null,
-    createdAt: String(r.created_at),
-    updatedAt: String(r.updated_at),
-    lastStaffReplyAt: (r.last_staff_reply_at as string | null) ?? null,
-    lastUserReplyAt: (r.last_user_reply_at as string | null) ?? null,
-    userReadAt: (r.user_read_at as string | null) ?? null,
-    staffReadAt: (r.staff_read_at as string | null) ?? null,
-    userId: (r.user_id as string | null) ?? null,
+    id: String(r["id"]),
+    type: r["type"] as FeedbackType,
+    title: (r["title"] as string | null) ?? null,
+    message: String(r["message"] ?? ""),
+    status: r["status"] as FeedbackStatus,
+    featureId: (r["feature_id"] as string | null) ?? null,
+    route: (r["route"] as string | null) ?? null,
+    pinned: r["pin"] != null,
+    aboutLabel: cleanLabel(r["about_label"] as string | null),
+    page: pageOf((r["about_label"] as string | null) ?? null, (r["route"] as string | null) ?? null),
+    appVersion: (r["app_version"] as string | null) ?? null,
+    createdAt: String(r["created_at"]),
+    updatedAt: String(r["updated_at"]),
+    lastStaffReplyAt: (r["last_staff_reply_at"] as string | null) ?? null,
+    lastUserReplyAt: (r["last_user_reply_at"] as string | null) ?? null,
+    userReadAt: (r["user_read_at"] as string | null) ?? null,
+    staffReadAt: (r["staff_read_at"] as string | null) ?? null,
+    userId: (r["user_id"] as string | null) ?? null,
   };
   return { ...report, unread: isUnread(report) };
 }
 
 function toIdea(r: Row, mine: ReadonlySet<string>, voted: ReadonlySet<string>): SupportIdea {
   return {
-    id: String(r.id),
-    title: String(r.title ?? ""),
-    body: (r.body as string | null) ?? null,
-    status: r.status as IdeaStatus,
-    featureId: (r.feature_id as string | null) ?? null,
-    shippedAt: (r.shipped_at as string | null) ?? null,
-    voteCount: Number(r.vote_count ?? 0),
-    voted: voted.has(String(r.id)),
-    mine: mine.has(String(r.id)),
-    createdAt: String(r.created_at),
+    id: String(r["id"]),
+    title: String(r["title"] ?? ""),
+    body: (r["body"] as string | null) ?? null,
+    status: r["status"] as IdeaStatus,
+    featureId: (r["feature_id"] as string | null) ?? null,
+    shippedAt: (r["shipped_at"] as string | null) ?? null,
+    voteCount: Number(r["vote_count"] ?? 0),
+    voted: voted.has(String(r["id"])),
+    mine: mine.has(String(r["id"])),
+    createdAt: String(r["created_at"]),
   };
 }
 
@@ -302,12 +363,15 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
             app_version: context.appVersion ?? null,
             platform: context.platform ?? null,
             device: context.device ?? {},
-            context: context.extra ?? {},
+            // Severity, as the intake function keeps it: always in context, and also in its own
+            // column when the app says migration 0003 added it.
+            context: record.severity ? { ...(context.extra ?? {}), severity: record.severity } : (context.extra ?? {}),
+            ...(record.severity && options.severityColumn ? { severity: record.severity } : {}),
           })
           .select("id")
           .single(),
       );
-      const id = String(row.id);
+      const id = String(row["id"]);
       let dropped = 0;
       for (const attachment of (record.attachments ?? []).slice(0, 5)) {
         try {
@@ -363,12 +427,12 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
         await supabase.from("support_replies").select("id, report_id, body, from_staff, created_at").eq("report_id", reportId).order("created_at", { ascending: true }),
       );
       return rows.map((r) => ({
-        id: String(r.id),
-        reportId: String(r.report_id),
-        body: String(r.body ?? ""),
-        fromStaff: r.from_staff === true,
-        mine: r.from_staff !== true,
-        createdAt: String(r.created_at),
+        id: String(r["id"]),
+        reportId: String(r["report_id"]),
+        body: String(r["body"] ?? ""),
+        fromStaff: r["from_staff"] === true,
+        mine: r["from_staff"] !== true,
+        createdAt: String(r["created_at"]),
       }));
     },
 
@@ -390,7 +454,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
         "reply",
         await supabase.from("support_replies").insert({ report_id: reportId, body }).select("id, report_id, body, from_staff, created_at").single(),
       );
-      return { id: String(row.id), reportId: String(row.report_id), body: String(row.body), fromStaff: row.from_staff === true, mine: true, createdAt: String(row.created_at) };
+      return { id: String(row["id"]), reportId: String(row["report_id"]), body: String(row["body"]), fromStaff: row["from_staff"] === true, mine: true, createdAt: String(row["created_at"]) };
     },
 
     async markRead(reportId) {
@@ -429,6 +493,12 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       return must<boolean | null>("isStaff", await supabase.rpc("support_is_staff")) === true;
     },
 
+    async verify(reportId, fixed, note) {
+      must("verify", await supabase.rpc("support_verify_report", { report: reportId, fixed, note: note ?? null }));
+    },
+    async handles(reportId) {
+      return Boolean(must("handles", await supabase.rpc("support_handles", { report: reportId })));
+    },
     async setStatus(reportId, status, featureId = null) {
       must("setStatus", await supabase.rpc("support_set_report_status", { report: reportId, status, feature: featureId }));
     },
@@ -449,17 +519,17 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       );
       if (!rows.length) return [];
       const signed = await supabase.storage.from(bucket).createSignedUrls(
-        rows.map((r) => String(r.path)),
+        rows.map((r) => String(r["path"])),
         signedUrlSeconds,
       );
       const urls = new Map((signed.data ?? []).map((s) => [s.path, s.signedUrl] as const));
       return rows.map((r) => ({
-        id: String(r.id),
-        path: String(r.path),
-        contentType: String(r.content_type),
-        width: (r.width as number | null) ?? null,
-        height: (r.height as number | null) ?? null,
-        url: urls.get(String(r.path)) ?? null,
+        id: String(r["id"]),
+        path: String(r["path"]),
+        contentType: String(r["content_type"]),
+        width: (r["width"] as number | null) ?? null,
+        height: (r["height"] as number | null) ?? null,
+        url: urls.get(String(r["path"])) ?? null,
       }));
     },
 
@@ -469,7 +539,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       if (statuses?.length) query = query.in("status", statuses);
       const rows = must<Row[]>("ideas", await query.order("vote_count", { ascending: false }).order("created_at", { ascending: false }).limit(limit));
       const votes = userId ? must<Row[]>("ideas", await supabase.from("support_idea_votes").select("idea_id").eq("user_id", userId)) : [];
-      const voted = new Set(votes.map((v) => String(v.idea_id)));
+      const voted = new Set(votes.map((v) => String(v["idea_id"])));
       const mineIds = userId ? must<unknown[]>("ideas", await supabase.rpc("support_my_idea_ids")) : [];
       const mine = new Set((mineIds ?? []).map((v) => String(typeof v === "object" && v !== null ? Object.values(v)[0] : v)));
       return rows.map((r) => toIdea(r, mine, voted));
@@ -477,7 +547,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
 
     async suggestIdea({ title, body }) {
       const row = must<Row>("suggestIdea", await supabase.from("support_ideas").insert({ title: title.trim(), body: body?.trim() || null }).select(IDEA_COLUMNS).single());
-      return toIdea(row, new Set([String(row.id)]), new Set());
+      return toIdea(row, new Set([String(row["id"])]), new Set());
     },
 
     async vote(ideaId) {
@@ -494,7 +564,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
 
     async shippedForMe() {
       const rows = must<Row[]>("shippedForMe", await supabase.rpc("support_shipped_for_me", { max_rows: 50 }));
-      const ids = (pick: string) => new Set(rows.filter((r) => r[pick] === true).map((r) => String(r.id)));
+      const ids = (pick: string) => new Set(rows.filter((r) => r[pick] === true).map((r) => String(r["id"])));
       return rows.map((r) => toIdea(r, ids("mine"), ids("voted")));
     },
   };

@@ -33,6 +33,23 @@ describe("ResourceHeader", () => {
     expect(screen.getByTestId("resource-save-state").textContent).toBe("Changes saved");
   });
 
+  it("shows more chips after the status, and a subtitle under the title, only when given", () => {
+    const { unmount } = render(
+      <ResourceHeader
+        title="Intro to strength"
+        status={{ label: "Live", tone: "success" }}
+        chips={[{ label: "Course", tone: "muted" }, { label: "Featured", tone: "info" }]}
+        subtitle="C-8 · Strength"
+      />,
+    );
+    expect(screen.getAllByTestId("resource-chip").map((c) => c.textContent)).toEqual(["Course", "Featured"]);
+    expect(screen.getByText("C-8 · Strength").getAttribute("data-slot")).toBe("resource-header-subtitle");
+    unmount();
+    const { container } = render(<ResourceHeader title="Plain" />);
+    expect(screen.queryAllByTestId("resource-chip")).toHaveLength(0);
+    expect(container.querySelector('[data-slot="resource-header-subtitle"]')).toBeNull();
+  });
+
   it("shows only the actions it's given, and runs them", () => {
     const onUndo = vi.fn();
     const onShare = vi.fn();

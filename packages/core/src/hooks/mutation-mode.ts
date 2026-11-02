@@ -22,6 +22,7 @@ import type { BaseRecord, DataProvider, Identifier, ListResult } from "../provid
 import type { AuditEntry, ProviderCapabilities } from "../schema/types";
 import { capabilitiesQueryKey } from "./use-capabilities";
 import { resourceKeys } from "../query-keys";
+import { pageWindow, type PageWindow } from "./page-window";
 
 export type MutationMode = "pessimistic" | "optimistic" | "undoable";
 
@@ -630,19 +631,25 @@ function onPageHide(): void {
   flushForUnload();
 }
 
+// The window the listeners went on, so they come off the same one. React
+// Native has a `window` with no listener methods: there is no page to leave.
+let unloadTarget: PageWindow | undefined;
+
 function track(write: Tracked): void {
   allWrites.add(write);
-  if (allWrites.size === 1 && typeof window !== "undefined") {
-    window.addEventListener("beforeunload", onBeforeUnload);
-    window.addEventListener("pagehide", onPageHide);
+  if (allWrites.size === 1 && !unloadTarget) {
+    unloadTarget = pageWindow();
+    unloadTarget?.addEventListener("beforeunload", onBeforeUnload);
+    unloadTarget?.addEventListener("pagehide", onPageHide);
   }
 }
 
 function untrack(write: Tracked): void {
   if (!allWrites.delete(write)) return;
-  if (allWrites.size === 0 && typeof window !== "undefined") {
-    window.removeEventListener("beforeunload", onBeforeUnload);
-    window.removeEventListener("pagehide", onPageHide);
+  if (allWrites.size === 0 && unloadTarget) {
+    unloadTarget.removeEventListener("beforeunload", onBeforeUnload);
+    unloadTarget.removeEventListener("pagehide", onPageHide);
+    unloadTarget = undefined;
   }
 }
 

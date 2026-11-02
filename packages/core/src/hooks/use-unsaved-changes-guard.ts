@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { pageWindow } from "./page-window";
 
 export const DEFAULT_UNSAVED_CHANGES_MESSAGE =
   "You have unsaved changes. Leave without saving?";
@@ -46,14 +47,16 @@ export function useUnsavedChangesGuard(
   confirmRef.current = confirm;
 
   useEffect(() => {
-    if (!when || typeof window === "undefined") return;
+    // No page to leave (SSR, React Native): nothing to prompt on.
+    const page = pageWindow();
+    if (!when || !page) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       // Older browsers need returnValue set to show the prompt.
       event.returnValue = "";
     };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    page.addEventListener("beforeunload", onBeforeUnload);
+    return () => page.removeEventListener("beforeunload", onBeforeUnload);
   }, [when]);
 
   const confirmLeave = useCallback((): boolean => {

@@ -179,6 +179,60 @@ if (res.type === "success") {
   it. That's harmless because of PKCE: a code is useless without the verifier, which never leaves
   this device. The implicit flow would hand tokens to whoever owns the scheme.
 
+### On the web: `AuthForm`
+
+genesis-ui's `AuthForm` (inside `AuthPage`) is the web sign-in form; `createAuthFormClient` is its
+client on Supabase Auth. The form never calls `supabase.auth` itself, and `createAuthFormClient`
+makes no client of its own: pass it the app's, from `createGenesisSupabase()`.
+
+```ts
+import { createAuthFormClient } from "@marktiderman/genesis-supabase";
+
+const client = createAuthFormClient(supabase, {
+  url: SUPABASE_URL,
+  publishableKey: SUPABASE_PUBLISHABLE_KEY,
+  redirectTo: `${location.origin}/auth/callback`,
+  resetRedirectTo: `${location.origin}/auth/new-password`,
+});
+// <AuthForm client={client} methods={["password", "email-code"]} onSuccess={…} />
+```
+
+| The form's call | Supabase Auth |
+| --- | --- |
+| `signInWithPassword` | `signInWithPassword` |
+| `sendMagicLink`, `sendEmailCode` | `signInWithOtp` (`shouldCreateUser` follows the form's `allowSignUp`; without sign-up, an unknown email is answered as sent) |
+| `verifyEmailCode` | `verifyOtp({ email, token, type: "email" })` |
+| `signUp` | `signUp`; `confirmEmail` when no session came back |
+| `sendPasswordReset` | `resetPasswordForEmail` to `resetRedirectTo` |
+| `updatePassword` | `updateUser({ password })`, on the session the reset link opened (`session_not_found` without one) |
+| `signInWithProvider` | `signInWithOAuth` (leaves the page for the provider) |
+| `providers` | `fetchAuthSettings`: `GET /auth/v1/settings`, the OAuth providers turned on (asked once per client) |
+
+Every failure resolves as `{ error: { code, message } }` with Auth's code (`network` for a request
+that got no answer, `session_not_found` for `AuthSessionMissingError`), also on a client made with
+`throwOnError: true`. The form shows fixed copy for the code; Auth's `message` is never shown, only
+sent to `reportError` when the form has no copy for the code.
+
+- **Codes need the template.** Supabase sends the Magic Link email for a link and for a code alike,
+  and the default template has only the link: put `{{ .Token }}` in it to offer `"email-code"`.
+- **The redirects** (`redirectTo`, `resetRedirectTo`) must be in the project's redirect allow list.
+  `createGenesisSupabase()` uses the PKCE flow (a plain `createClient` from supabase-js defaults to
+  the implicit flow), and its callback page needs nothing more on the web (`detectSessionInUrl`).
+  A PKCE link only works in the browser that asked for it, where the code verifier is stored: a
+  link opened on another device or in another browser fails.
+- **The new-password page** shows `mode="new-password"` only after the `PASSWORD_RECOVERY` event
+  (`supabase.auth.onAuthStateChange`). Shown without the session the reset link opened, saving
+  fails with `session_not_found`.
+- **No account enumeration without sign-up.** With `allowSignUp={false}` a magic link or code for an
+  email with no account is answered as sent, and the form's copy is neutral ("If … has an account").
+- **Sign-up with auto-confirm does reveal accounts**: when the project confirms emails without a
+  link, signing up with an email that has an account answers `user_already_exists`. That is the
+  trade-off of auto-confirm; turn confirmation on if account existence must stay private.
+- `fetchAuthSettings({ url, publishableKey, signal })` also says whether sign-up is closed
+  (`signUpDisabled`): pass `allowSignUp={!settings.signUpDisabled}`. It gives up after 5 seconds,
+  refuses a secret key (`sb_secret_…`), and reports only the OAuth providers in
+  `SUPABASE_OAUTH_PROVIDERS` (no `web3_*`, `saml` or `phone`).
+
 ### Deleting the account
 
 The database half is a migration this package ships:
@@ -358,6 +412,8 @@ which isn't verified here).
   no real Sign in with Apple key has been through the exchange and revocation yet (setup step 7).
   That Apple answers `invalid_client` (not `invalid_grant`) to a live token with wrong secrets is
   expected, not observed.
+- **Branded auth emails.** The confirm, magic link (with the code) and reset templates are still
+  Supabase's own, set by hand in the dashboard.
 - **Sign in with Apple on the web** (Services ID and redirect) isn't wired: the function accepts a
   Services ID in `APPLE_CLIENT_IDS`, but exchanges codes without a `redirect_uri`, as a native
   sign-in needs.
@@ -513,6 +569,10 @@ Functions (templates; copy the folder into `supabase/functions/`):
 | `genesis-support-cleanup` | On a schedule: removes queued and orphaned screenshots through the Storage API                                                                       | `GENESIS_SUPPORT_CLEANUP_SECRET`                                                                                             |
 
 All three deploy with `verify_jwt = false` (each checks its caller or secret itself).
+
+The intake function keeps a report's severity in its `context`. With genesis-support's migration
+`0003_genesis_support_findings.sql` applied, set `GENESIS_SUPPORT_SEVERITY_COLUMN=true` and it also
+writes the `severity` column.
 
 ### Not covered yet
 

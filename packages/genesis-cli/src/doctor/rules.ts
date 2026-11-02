@@ -84,6 +84,8 @@ export const BUILTIN_RULES = [
   "contracts-stale",
   // genesis.lock.json against the files (lock-files.ts)
   "lock-files",
+  // an app whose database files live in another app (database.ts)
+  "database-elsewhere",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];

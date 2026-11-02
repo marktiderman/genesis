@@ -1,4 +1,5 @@
 export { EventCalendar, type EventCalendarProps } from "./EventCalendar";
+export { PrintableAgenda, PrintButton, type PrintableAgendaProps, type PrintableSection, type PrintButtonProps } from "./PrintableAgenda";
 export {
   calendarLanes,
   calendarWindow,

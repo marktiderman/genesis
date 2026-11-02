@@ -80,10 +80,10 @@ export function createIntakeClient(config: IntakeClientConfig): IntakeClient {
 
   const post = async <T,>(op: FeedbackOp, args: object, signal?: AbortSignal) =>
     // `op` last, so an `op` in args can never pick the operation.
-    send<T>({ method: "POST", headers: { ...(await headers()), "content-type": "application/json" }, body: JSON.stringify({ ...args, op }), signal });
+    send<T>({ method: "POST", headers: { ...(await headers()), "content-type": "application/json" }, body: JSON.stringify({ ...args, op }), ...(signal ? { signal } : {}) });
 
   return {
-    boot: async (signal) => send<BootConfig>({ method: "GET", headers: await headers(), signal }),
+    boot: async (signal) => send<BootConfig>({ method: "GET", headers: await headers(), ...(signal ? { signal } : {}) }),
     submit: (input, signal) => post<SubmitFeedbackResult>("submit", input, signal),
     list: (signal) => post<FeedbackReportSummary[]>("list", {}, signal),
   };
@@ -103,6 +103,7 @@ export function createIntakeSink(client: IntakeClient): FeedbackSink {
         route: record.context.route,
         appVersion: record.context.appVersion,
         envType: record.context.platform,
+        severity: record.severity,
         context: record.context.extra,
       });
       return { id: result.reportId, attachmentsDropped: record.attachments?.length ?? 0 };

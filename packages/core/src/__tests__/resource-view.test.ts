@@ -582,6 +582,15 @@ describe("rowPicture", () => {
     expect(initialsOf(undefined)).toBe("");
   });
 
+  it("gives a one-word name two letters when distinct, and leaves longer names alone", () => {
+    expect(initialsOf("Probe", { distinct: true })).toBe("Pr");
+    expect(initialsOf("Polish", { distinct: true })).toBe("Po");
+    expect(initialsOf("Ada Lovelace", { distinct: true })).toBe("AL");
+    expect(initialsOf("O'Neil", { distinct: true })).toBe("On");
+    expect(initialsOf("X", { distinct: true })).toBe("X");
+    expect(initialsOf("Probe")).toBe("P");
+  });
+
   it("gives no initials for a name with no letters", () => {
     for (const name of ["", "  ", "🎉🎉", "🎉 🎉", "42", "- —"]) {
       expect(initialsOf(name)).toBe("");
@@ -696,6 +705,12 @@ describe("defineView: calendar", () => {
     (block as { weeks: number }).weeks = 9;
     expect(view.definition.calendar).toEqual({ field: "launched_on", weeks: 2 });
     expect(Object.isFrozen(view.definition.calendar)).toBe(true);
+  });
+
+  it("refuses a calendar block that isn't one", () => {
+    expect(() => defineView(brands, { calendar: {} as never })).toThrow(/calendar\.field is required/);
+    expect(() => defineView(brands, { calendar: { field: "launched_on", colour: "red" } as never })).toThrow(/calendar\.colour isn't a calendar setting/);
+    expect(() => defineView(brands, { calendar: "launched_on" as never })).toThrow(/calendar isn't an object/);
   });
 
   it("checks any calendar block with calendarProblems", () => {

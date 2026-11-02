@@ -10,16 +10,20 @@
  *   edit, which upgrade three-way merges the next version into (or one waiting
  *   on its `.genesis-next`). And a locked block whose starter.config.ts switch
  *   is off: upgrade and migrate leave it out, and its files aren't checked.
+ *   And, in an app whose database files live elsewhere (genesis.config.json
+ *   `supabase`), files under supabase/ the lock still lists: upgrade leaves
+ *   them alone, so they aren't checked and the entries can go.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { catalogBlocks, findBlock } from "../blocks/discover.js";
 import type { BlockManifest } from "../blocks/manifest.js";
-import { readApp, sha256 } from "../blocks/files.js";
+import { appPath, sha256 } from "../blocks/files.js";
 import { LOCK_FILE, readLock, type GenesisLock } from "../blocks/lock.js";
 import { localPackageNames } from "../blocks/local.js";
 import { ownedKeyProblem } from "../blocks/owned.js";
 import { appBlocksSwitchedOff, blockOfSource, STARTER_CONFIG } from "../blocks/starter-features.js";
+import { databaseElsewhere, isSupabasePath } from "../blocks/database.js";
 import type { DoctorContext } from "./types.js";
 
 export async function checkLockFiles(ctx: DoctorContext): Promise<void> {
@@ -51,16 +55,47 @@ export async function checkLockFiles(ctx: DoctorContext): Promise<void> {
     });
   }
   const local = localPackageNames(ctx.root);
+  let home: ReturnType<typeof databaseElsewhere> = null;
+  try {
+    home = databaseElsewhere(ctx.root);
+  } catch {
+    // An invalid genesis.config.json is the config's own error.
+  }
+  const elsewhere = home ? Object.keys(lock.files).filter(isSupabasePath) : [];
+  if (home && elsewhere.length) {
+    ctx.report({
+      rule: "lock-files",
+      level: "info",
+      file: LOCK_FILE,
+      subject: "supabase/",
+      message: `lists ${elsewhere.length} file${elsewhere.length === 1 ? "" : "s"} under supabase/, but this app's database files live ${home.app ? `in ${home.app}` : "nowhere"} (genesis.config.json supabase): genesis upgrade leaves them alone, so delete those entries`,
+    });
+  }
   for (const [rel, entry] of Object.entries(lock.files)) {
+    if (home && isSupabasePath(rel)) continue;
     // An entry upgrade refuses is reported by upgrade; its path may not even be a plain one.
     if (ownedKeyProblem(rel, entry.source, local)) continue;
     // A switched-off block's files: reported once, above, for the block.
     if (offManifests.length && blockOfSource(entry.source, offManifests)) continue;
-    let text: string | null;
+    let file: string;
     try {
-      text = readApp(ctx.root, rel);
+      file = appPath(ctx.root, rel);
     } catch {
       // A path that leaves the app (a symlink out): upgrade refuses it too.
+      continue;
+    }
+    let text: string | null;
+    try {
+      text = existsSync(file) ? readFileSync(file, "utf8") : null;
+    } catch (err) {
+      // There but unreadable (a folder now, say): upgrade fails on it, so say so here.
+      ctx.report({
+        rule: "lock-files",
+        level: "warn",
+        file: rel,
+        subject: rel,
+        message: `is in ${LOCK_FILE} (from ${entry.source}) but can't be read (${err instanceof Error ? err.message : String(err)}), so genesis upgrade can't refresh it. Make it a file again, or remove its entry from ${LOCK_FILE}`,
+      });
       continue;
     }
     if (text === null) {

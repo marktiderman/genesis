@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 140
+      "count": 143
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -7967,6 +7967,134 @@
       ]
     },
     {
+      "slug": "auth-form",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/auth-form.tsx",
+      "stability": "beta",
+      "summary": "The web sign-in form. See the file's header.\n\n```tsx\nconst client = createAuthFormClient(supabase, { url, publishableKey, redirectTo: `${origin}/auth/callback` });\n<AuthPage branding={{ headline: messages.auth.titles[mode] }}>\n  <AuthForm client={client} mode={mode} onModeChange={setMode} methods={[\"password\", \"email-code\"]} onSuccess={() => navigate(\"/\")} />\n</AuthPage>\n```",
+      "primaryComponent": "AuthForm",
+      "components": [
+        {
+          "name": "AuthForm",
+          "summary": "The web sign-in form. See the file's header.\n\n```tsx\nconst client = createAuthFormClient(supabase, { url, publishableKey, redirectTo: `${origin}/auth/callback` });\n<AuthPage branding={{ headline: messages.auth.titles[mode] }}>\n  <AuthForm client={client} mode={mode} onModeChange={setMode} methods={[\"password\", \"email-code\"]} onSuccess={() => navigate(\"/\")} />\n</AuthPage>\n```",
+          "props": [
+            {
+              "name": "client",
+              "type": "AuthFormClient",
+              "required": true,
+              "defaultValue": null,
+              "description": "Every call goes through it."
+            },
+            {
+              "name": "allowPasswordReset",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Offer \"Forgot password?\" with the password method. Default true."
+            },
+            {
+              "name": "allowSignUp",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Offer \"Create one\", and let a magic link or code make an account. Default true."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "codeLength",
+              "type": "number",
+              "required": false,
+              "defaultValue": "6",
+              "description": "Digits in an emailed code. Default 6 (Supabase's default)."
+            },
+            {
+              "name": "defaultMode",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "sign-in",
+              "description": "The first mode, uncontrolled. Default `\"sign-in\"`."
+            },
+            {
+              "name": "initialEmail",
+              "type": "string",
+              "required": false,
+              "defaultValue": "",
+              "description": "Initial email (\"sign in as …\" links)."
+            },
+            {
+              "name": "methods",
+              "type": "readonly AuthSignInMethod[]",
+              "required": false,
+              "defaultValue": "[\"password\"]",
+              "description": "How to sign in, in order: the first is shown, the rest are links under the\nform. Default `[\"password\"]`."
+            },
+            {
+              "name": "minPasswordLength",
+              "type": "number",
+              "required": false,
+              "defaultValue": "8",
+              "description": "For a new password. Default 8. Supabase Auth still applies its own rules."
+            },
+            {
+              "name": "mode",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "The mode, controlled. Pair with `onModeChange` (a route per mode, say)."
+            },
+            {
+              "name": "onModeChange",
+              "type": "((mode: AuthFormMode) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's links (\"Create one\", \"Forgot password?\", \"Back to sign in\") ask for a mode."
+            },
+            {
+              "name": "onSuccess",
+              "type": "((result: AuthFormSuccess) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Signed in, signed up with a session, or a new password saved. Navigate from here."
+            },
+            {
+              "name": "providers",
+              "type": "false | readonly (string | AuthFormProvider)[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Provider buttons. Ids or objects; `false` for none. Left out, the form asks\n`client.providers()` (with Supabase: the providers turned on in the project)."
+            },
+            {
+              "name": "resendCooldown",
+              "type": "number",
+              "required": false,
+              "defaultValue": "60",
+              "description": "Seconds before a code can be sent again. Default 60 (Supabase's default rate limit)."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "auth-form",
+              "description": "Default `\"auth-form\"`; parts use `${testID}-email`, `-password`, `-submit`, `-error`, `-status`, `-code`, `-resend`, `-provider-<id>`."
+            }
+          ]
+        },
+        {
+          "name": "AUTH_PROVIDER_NAMES",
+          "summary": "Brand names for provider ids Supabase Auth knows. Not translated.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "auth-page",
       "aliases": [],
       "surface": "web",
@@ -13960,9 +14088,14 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/calendar/guard.ts",
       "stability": "stable",
-      "summary": "`value` when it's a layout; else `month`, saying so in development.",
-      "primaryComponent": "layoutOr",
+      "summary": "",
+      "primaryComponent": "warnOnce",
       "components": [
+        {
+          "name": "warnOnce",
+          "summary": "",
+          "props": []
+        },
         {
           "name": "layoutOr",
           "summary": "`value` when it's a layout; else `month`, saying so in development.",
@@ -14559,6 +14692,13 @@
           "summary": "The catalogue with overrides merged over the English.",
           "props": [
             {
+              "name": "auth",
+              "type": "DeepPartial<{ titles: { \"sign-in\": string; \"sign-up\": string; \"forgot-password\": string; \"new-password\": string; }; email: string; emailPlaceholder: string; password: string; newPassword: string; confirmPassword: string; ... 32 more ...; errors: { ...; }; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "bulk",
               "type": "DeepPartial<{ selected: string; }>",
               "required": false,
@@ -14567,7 +14707,7 @@
             },
             {
               "name": "calendar",
-              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; eventsOne: string; eventsOther: string; more: string; unassigned: string; ... 4 more ...; layouts: { ...; }; }>",
+              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; until: string; eventsOne: string; eventsOther: string; ... 9 more ...; weekOf: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14676,7 +14816,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 13 more ...; shell: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 14 more ...; shell: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -15420,6 +15560,128 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "printable-agenda",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/calendar/PrintableAgenda.tsx",
+      "stability": "beta",
+      "summary": "One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the\nsheets stack, so a page can show them before printing. Events that name no lane are left out:\na sheet is someone's.",
+      "primaryComponent": "PrintableAgenda",
+      "components": [
+        {
+          "name": "PrintableAgenda",
+          "summary": "One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the\nsheets stack, so a page can show them before printing. Events that name no lane are left out:\na sheet is someone's.",
+          "props": [
+            {
+              "name": "events",
+              "type": "readonly CalendarEvent<T>[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "lanes",
+              "type": "readonly CalendarLane[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The sheets, in order: exactly these lanes, each titled by its `label`. Required: a lane's key\nis an id, never a title for a printed page."
+            },
+            {
+              "name": "anchor",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A day in the week printed (default today)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "headingLevel",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "3",
+              "description": "The level of each sheet's heading (the lane's name); its days are one below. Default 3."
+            },
+            {
+              "name": "locale",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "BCP 47 locale for dates and times. Default the runtime's."
+            },
+            {
+              "name": "sections",
+              "type": "readonly PrintableSection[]",
+              "required": false,
+              "defaultValue": "[]",
+              "description": "Under each lane's week."
+            },
+            {
+              "name": "showEmptyDays",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "The sheets show days with nothing on them too. Default true: a printed week has every day."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "printable-agenda",
+              "description": ""
+            },
+            {
+              "name": "timeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The clock days are counted on. Default the device's."
+            },
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Over each sheet, before the lane's name."
+            },
+            {
+              "name": "weekStartsOn",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "1",
+              "description": "0 Sunday or 1 Monday (default)."
+            }
+          ]
+        },
+        {
+          "name": "PrintButton",
+          "summary": "Prints the page (the browser's print dialog). Hidden on the printed page itself.",
+          "props": [
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The button's words. Default the catalogue's `calendar.print`."
             }
           ]
         }
@@ -16238,6 +16500,13 @@
               "description": "A row's dot colours, when not its lanes'."
             },
             {
+              "name": "enabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "False while the screen waits (on its scope, say): nothing is fetched. Default true."
+            },
+            {
               "name": "endField",
               "type": "string",
               "required": false,
@@ -16301,6 +16570,13 @@
               "description": "Most rows one request loads. Default {@link CALENDAR_LIMIT}. With an `endField` the calendar\nmakes two (rows starting in the window, and rows that started before it and run into it),\neach capped."
             },
             {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Refetch when the provider reports a change, as a list's `live` does."
+            },
+            {
               "name": "onAnchorChange",
               "type": "((anchor: string) => void)",
               "required": false,
@@ -16320,6 +16596,20 @@
               "required": false,
               "defaultValue": null,
               "description": "A row was chosen. Default: the view's peek."
+            },
+            {
+              "name": "print",
+              "type": "{ sections?: readonly PrintableSection[]; title?: ReactNode; headingLevel?: 2 | 3 | 4 | 5; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "Print one sheet per lane (PrintableAgenda) for the week the calendar shows, instead of the\ncalendar itself: the same rows, scope and filters, with no screen code reading data. Lanes\ncome from `lanes`, else the linked rows' words (`laneBy` on a link), else the lane values."
+            },
+            {
+              "name": "select",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Supabase select syntax for joined columns (`resourceOptions.select`), sent with each request."
             },
             {
               "name": "showEmptyDays",
@@ -24005,6 +24295,76 @@
         {
           "name": "windowBounds",
           "summary": "A window as filter values for a column: days for a date column, ISO instants of `zone`'s\nmidnights for a timestamp, and wall-clock midnights (no zone) for a timestamp without one.\n`[from, to)`; `lead` widens the start by days.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "view-list",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/view-list.tsx",
+      "stability": "stable",
+      "summary": "",
+      "primaryComponent": "filterParams",
+      "components": [
+        {
+          "name": "filterParams",
+          "summary": "",
+          "props": []
+        },
+        {
+          "name": "useViewListParams",
+          "summary": "The filters, select, enabled and live a screen's options make for a view's list. The list path\n(`useResourceViewProps`) and the calendar path both use it.",
+          "props": [
+            {
+              "name": "view",
+              "type": "ResourceView<ResourceContract<any>, any>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "filter",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "preset",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "resourceOptions",
+              "type": "{ defaultFilters?: FilterParam[]; select?: string; enabled?: boolean | undefined; live?: boolean | LiveOptions | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "scoped",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "useViewDetailFields",
+          "summary": "The peek's fields: the view's full column list, drawn like the cells (so `when` hides there\ntoo, and the screen's `cells` apply), never every key of the row. Shared by the list and the calendar.",
           "props": []
         }
       ]

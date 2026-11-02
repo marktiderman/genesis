@@ -666,6 +666,23 @@ describe("ResourceView screen words merge with the view's", () => {
     expect(props({}).formTitles).toEqual({ create: "Set a goal", edit: "Change the goal" });
     expect(props({ countFormat: { other: "{count} in all" } }).countFormat).toEqual({ one: "{count} goal set", other: "{count} in all" });
   });
+
+  it("merges the form's submit words and descriptions from copy.form and the screen", () => {
+    const worded = defineView(goalsContract, {
+      form: ["title"],
+      copy: { form: { createSubmit: "Set it", createDescription: "One goal at a time.", editDescription: "Keep it short." } },
+    });
+    const of = (screen: Partial<Parameters<typeof useResourceViewProps>[0]>) =>
+      renderHook(() => useResourceViewProps({ view: worded, ...screen }), { wrapper: wrap(provider()) }).result.current;
+    expect(of({}).formTitles).toEqual({ createSubmit: "Set it", createDescription: "One goal at a time.", editDescription: "Keep it short." });
+    expect(of({ formTitles: { createSubmit: "Go", editSubmit: "Update" } }).formTitles).toEqual({
+      createSubmit: "Go",
+      editSubmit: "Update",
+      createDescription: "One goal at a time.",
+      editDescription: "Keep it short.",
+    });
+    expect(props({}).formTitles).not.toHaveProperty("createSubmit");
+  });
 });
 
 describe("ResourceView follows the viewer's scope", () => {

@@ -1748,12 +1748,14 @@ export function AppShell({
       className={cn(
         "flex",
         scrollWindow ? "min-h-screen" : "h-screen overflow-hidden",
+        // Printed, the page is its content: no fixed height or clipping, so it runs onto more pages.
+        "print:block print:h-auto print:min-h-0 print:overflow-visible",
       )}
     >
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar (not printed: navigation is chrome) */}
       <aside
         className={cn(
-          "hidden flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 motion-reduce:transition-none md:flex",
+          "hidden flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 motion-reduce:transition-none md:flex print:hidden",
           scrollWindow && "sticky top-0 h-screen",
           railClass,
         )}
@@ -1814,12 +1816,13 @@ export function AppShell({
         className={cn(
           "flex min-w-0 flex-1 flex-col",
           !scrollWindow && "overflow-hidden",
+          "print:overflow-visible",
         )}
       >
         <header
           className={cn(
             // Clears the notch and the side insets when the app runs edge to edge.
-            "flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-3 border-b pt-[env(safe-area-inset-top)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:hidden",
+            "flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-3 border-b pt-[env(safe-area-inset-top)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:hidden print:hidden",
             scrollWindow && "sticky top-0 z-20 bg-background",
           )}
         >
@@ -1851,11 +1854,12 @@ export function AppShell({
             "flex-1",
             !scrollWindow && "overflow-y-auto",
             showMobileBottom ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0" : "pb-0",
+            "print:overflow-visible print:pb-0",
           )}
         >
           {parentNavigation ? (
             <div
-              className="flex min-w-0 items-center px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8"
+              className="flex min-w-0 items-center px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8 print:hidden"
               data-testid="app-shell-parent-nav"
             >
               {/* -ml-3 lines the arrow up with the content's left edge. */}
@@ -1936,7 +1940,7 @@ export function AppShell({
         {showMobileBottom ? (
           <nav
             // Padded above the home indicator and inside the side insets in landscape.
-            className="fixed bottom-0 left-0 right-0 z-30 flex border-t bg-background pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] md:hidden"
+            className="fixed bottom-0 left-0 right-0 z-30 flex border-t bg-background pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] md:hidden print:hidden"
             aria-label={m.primaryNavigation}
             data-testid="app-shell-mobile-bottom-nav"
           >

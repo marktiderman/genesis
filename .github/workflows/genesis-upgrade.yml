@@ -16,6 +16,7 @@
 #       uses: marktiderman/genesis/.github/workflows/genesis-upgrade.yml@<commit sha> # @marktiderman/genesis@<version>
 #       with:
 #         package-manager: pnpm
+#         # base-branch: staging   # the branch the pull request targets; default: the default branch
 #
 # How versions are chosen: the umbrella @marktiderman/genesis publishes
 # dist/versions.json, the exact version of every package it was released with
@@ -79,8 +80,12 @@ on:
         description: "The @marktiderman/genesis release to move to: an exact version or an npm dist-tag"
         type: string
         default: latest
+      base-branch:
+        description: "Branch the upgrade starts from and its pull request targets. Empty: the repository's default branch"
+        type: string
+        default: ""
       branch:
-        description: "Branch the upgrade is pushed to. Empty: genesis-upgrade/<the branch the workflow runs on>"
+        description: "Branch the upgrade is pushed to. Empty: genesis-upgrade/<base-branch>"
         type: string
         default: ""
       doctor:
@@ -494,19 +499,39 @@ jobs:
       version: ${{ steps.bump.outputs.version }}
       changed: ${{ steps.bump.outputs.count != '0' }}
       doctor: ${{ steps.doctor.outcome }}
+      base: ${{ steps.base.outputs.branch }}
+      sha: ${{ steps.base.outputs.sha }}
+      doctor-artifact: ${{ steps.app.outputs.artifact }}
     steps:
       - name: Check the trigger
         env:
-          REF_TYPE: ${{ github.ref_type }}
           EVENT: ${{ github.event_name }}
         run: |
-          if [ "$EVENT" = "pull_request_target" ] || [ "$REF_TYPE" != "branch" ]; then
-            echo "::error title=genesis-upgrade::Run genesis-upgrade on a branch (schedule or workflow_dispatch); the pull request targets that branch."
+          if [ "$EVENT" = "pull_request_target" ]; then
+            echo "::error title=genesis-upgrade::Run genesis-upgrade from a schedule or workflow_dispatch, never pull_request_target."
             exit 1
           fi
 
+      # The branch the upgrade starts from and targets: base-branch, or the default branch.
+      # Both jobs build on the one commit resolved here, so they make the same change.
+      - name: Resolve the base branch
+        id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_INPUT: ${{ inputs.base-branch }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error title=genesis-upgrade::$1"; exit 1; }
+          base=${BASE_INPUT:-$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch)}
+          git check-ref-format --branch "$base" > /dev/null 2>&1 || fail "base-branch '$base' is not a valid branch name"
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$base" --jq .object.sha 2> /dev/null) || fail "base-branch '$base' does not exist"
+          echo "branch=$base" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Upgrading $base at $sha."
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ steps.base.outputs.sha }}
           persist-credentials: false
 
       - name: Find the app and its lockfile
@@ -539,6 +564,12 @@ jobs:
           [ -n "$lockfile" ] || fail "no $PM lockfile ($locks) in '$WD' or a folder above it"
           rel() { local p=${1#"$ws"}; p=${p#/}; echo "${p:-.}"; }
           echo "root=$(rel "$(dirname -- "$lockfile")")" >> "$GITHUB_OUTPUT"
+          # One doctor artifact per folder, so a caller that runs the upgrade for two folders
+          # (say app/ and mobile/) in one run doesn't collide: app/web -> genesis-upgrade-doctor-app-web.
+          slug=$(rel "$app")
+          [ "$slug" = "." ] && slug=root
+          slug=$(printf '%s' "$slug" | tr '/\\":<>|*?' '---------')
+          echo "artifact=genesis-upgrade-doctor-$slug" >> "$GITHUB_OUTPUT"
 
       - name: Set up pnpm
         if: inputs.package-manager == 'pnpm'
@@ -619,7 +650,7 @@ jobs:
         if: steps.doctor.outcome == 'success' || steps.doctor.outcome == 'failure'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: genesis-upgrade-doctor
+          name: ${{ steps.app.outputs.artifact }}
           path: ${{ runner.temp }}/genesis-upgrade/doctor.txt
           retention-days: 1
           if-no-files-found: error
@@ -642,7 +673,7 @@ jobs:
       pull-requests: write
     # Never two runs pushing the same branch at once; a running one finishes.
     concurrency:
-      group: genesis-upgrade-${{ github.repository }}-${{ github.ref_name }}-${{ inputs.branch }}
+      group: genesis-upgrade-${{ github.repository }}-${{ needs.bump.outputs.base }}-${{ inputs.branch }}
       cancel-in-progress: false
     steps:
       # This job holds a write token, so it runs no dependency code: the bump script,
@@ -651,6 +682,7 @@ jobs:
       # .git/config while pnpm runs: only the last step has it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.bump.outputs.sha }}
           persist-credentials: false
 
       - name: Find the lockfile
@@ -732,7 +764,7 @@ jobs:
         if: needs.bump.outputs.doctor == 'success' || needs.bump.outputs.doctor == 'failure'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: genesis-upgrade-doctor
+          name: ${{ needs.bump.outputs.doctor-artifact }}
           path: ${{ runner.temp }}/genesis-upgrade-doctor
 
       - name: Commit, push and open the pull request
@@ -740,7 +772,7 @@ jobs:
           GH_TOKEN: ${{ secrets.token || github.token }}
           PUSH_TOKEN: ${{ secrets.token || github.token }}
           BRANCH_INPUT: ${{ inputs.branch }}
-          BASE: ${{ github.ref_name }}
+          BASE: ${{ needs.bump.outputs.base }}
           VERSION: ${{ steps.bump.outputs.version }}
           COUNT: ${{ steps.bump.outputs.count }}
           LOCKFILE: ${{ steps.app.outputs.lockfile }}

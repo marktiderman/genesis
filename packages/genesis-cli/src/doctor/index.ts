@@ -40,6 +40,7 @@ import { checkContracts } from "./contracts.js";
 import { checkAgentGuide, primitivesSummary } from "./primitives.js";
 import { checkOverlays } from "./overlays.js";
 import { checkLockFiles } from "./lock-files.js";
+import { checkDatabaseHome } from "./database.js";
 import { existsSync } from "node:fs";
 import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
@@ -56,6 +57,7 @@ export {
   validateLinks,
   type GenesisConfigFile,
   type GenesisLinks,
+  type GenesisSupabase,
 } from "./config.js";
 export { loadGenesis, findPackageDir, parseExportNames, readPackageExports } from "./genesis.js";
 export { parseRulesMarkdown } from "./patterns.js";
@@ -242,6 +244,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "agent-guide", check: checkAgentGuide },
     { name: "overlays", check: (ctx: DoctorContext) => checkOverlays(ctx) },
     { name: "lock-files", check: checkLockFiles },
+    { name: "database-elsewhere", check: checkDatabaseHome },
     ...(config.packs ?? []).map((p) => packs[p]),
     ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),
   ];

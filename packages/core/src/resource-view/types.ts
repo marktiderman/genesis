@@ -262,8 +262,19 @@ export interface ViewCopy {
   empty?: { title?: string; body?: string };
   /** The create button. Default "New". */
   create?: string;
-  /** The form's title. Default "New {noun}" and "Edit {noun}" (the UI catalogue's `form`). */
-  form?: { createTitle?: string; editTitle?: string };
+  /**
+   * The form's words. Titles: default "New {noun}" and "Edit {noun}" (the UI catalogue's `form`).
+   * Submit buttons: default "Create" and "Save". Descriptions (read out with the title): default
+   * the UI catalogue's `form.createDescription` and `form.editDescription`.
+   */
+  form?: {
+    createTitle?: string;
+    editTitle?: string;
+    createSubmit?: string;
+    editSubmit?: string;
+    createDescription?: string;
+    editDescription?: string;
+  };
   /**
    * The count beside the title. Default "{count} {noun}" for one, "{count} {nouns}" for more, and
    * "{count} of {total}" when filtered (the UI catalogue's `page.count*`).

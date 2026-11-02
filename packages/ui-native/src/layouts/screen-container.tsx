@@ -7,6 +7,7 @@
  *   - Scroll vs static body
  *   - Tokens-aware background (`bg-background`)
  *   - A loading state (`loading`): a centred `NativeLoadingState` in place of the body
+ *   - Pull to refresh (`onRefresh` + `refreshing`): a theme-tinted `NativeRefreshControl`
  *
  * Header customization is delegated: pass `headerLeft`, `headerRight`,
  * `large`, `scrollEdgeBehavior`, `safeAreaEdges`, plus any direct
@@ -33,6 +34,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { cn } from "../utils";
 import { useThemeMode } from "../hooks/use-theme-mode";
 import { NativeLoadingState } from "../components/loading-state";
+import { NativeRefreshControl } from "../components/refresh-control";
 
 export type SafeAreaEdge = "top" | "bottom" | "left" | "right";
 
@@ -75,6 +77,16 @@ export interface ScreenContainerProps {
   loading?: boolean;
   /** Text under the spinner while `loading`, and what screen readers announce: pass translated text. */
   loadingLabel?: string;
+  /**
+   * Pull to refresh: a theme-tinted `NativeRefreshControl` on the body, as InboxPage and
+   * NotificationsPage have. Pulling needs a scroll view, so passing it makes the body scroll
+   * (as `scroll`). Off unless passed. Never with a list child (FlatList, SectionList,
+   * NativeResourceView, InboxPage): a list inside a ScrollView loses virtualization, and those
+   * lists have their own pull to refresh.
+   */
+  onRefresh?: () => void | Promise<void>;
+  /** The refresh spinner shows while `true`: pass your query's refetching state. Default `false`. */
+  refreshing?: boolean;
   /** Style on the root, e.g. a theme-role background color. */
   style?: ViewStyle;
   /** testID on the root container. */
@@ -183,6 +195,8 @@ export function ScreenContainer({
   keyboardShouldPersistTaps = "handled",
   loading = false,
   loadingLabel,
+  onRefresh,
+  refreshing = false,
   style,
   testID,
 }: ScreenContainerProps) {
@@ -194,9 +208,14 @@ export function ScreenContainer({
     <View testID={testID ? `${testID}-body` : undefined} className={cn("flex-1", contentClassName)}>
       <NativeLoadingState fullScreen={false} label={loadingLabel} testID={`${testID ?? "screen-container"}-loading`} />
     </View>
-  ) : scroll ? (
+  ) : scroll || onRefresh ? (
     <ScrollView
       testID={testID ? `${testID}-scroll` : undefined}
+      refreshControl={
+        onRefresh ? (
+          <NativeRefreshControl testID={`${testID ?? "screen-container"}-refresh`} refreshing={refreshing} onRefresh={() => void onRefresh()} />
+        ) : undefined
+      }
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
       contentInsetAdjustmentBehavior="automatic"
       contentContainerClassName={cn("flex-grow", contentClassName)}

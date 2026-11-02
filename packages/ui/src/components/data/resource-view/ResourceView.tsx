@@ -6,7 +6,7 @@
 import { useMemo, type ReactNode } from "react";
 import { useViewer, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
 import type { ResourceScope } from "@marktiderman/genesis-core/hooks";
-import { filterParams as toFilters, plural, rowPicture, scopeFilter, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
+import { plural, rowPicture, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
@@ -15,10 +15,10 @@ import { useResourceViewDefaults } from "./defaults";
 import type { ViewModeDefault } from "../../../hooks/use-view-preference";
 import { ResourceCalendar, type ResourceCalendarOptions } from "./ResourceCalendar";
 import { RowAvatar } from "./RowAvatar";
+import { useViewDetailFields, useViewListParams, type Filter } from "./view-list";
 
 type Row = Record<string, unknown>;
 type Scalar = string | number | boolean | null;
-type Filter = Readonly<Record<string, Scalar | readonly (string | number)[]>>;
 type Defaults = Readonly<Record<string, Scalar>>;
 
 /** What a screen sets. Anything else ResourcePage takes passes straight through. */
@@ -142,13 +142,37 @@ function formField(
   };
 }
 
-function filterParams(filter: Filter | undefined): FilterParam[] {
-  return toFilters(filter);
-}
-
 /** The single values of a filter: what a new row made from the list starts with. */
 function singleValues(filter: Filter): Defaults {
   return Object.fromEntries(Object.entries(filter).filter(([, value]) => !Array.isArray(value))) as Defaults;
+}
+
+/** A column's width (px) by what it shows, for `sizeColumns`. */
+const COLUMN_WIDTH: Partial<Record<string, number>> = {
+  badge: 130,
+  number: 96,
+  currency: 110,
+  percent: 90,
+  boolean: 80,
+  date: 120,
+  datetime: 150,
+  url: 160,
+  email: 200,
+};
+
+/**
+ * `sizeColumns`: the record's name column (the view's labelField, else the first) takes the spare
+ * width; the others get a width for what they hold, so a title isn't cut short beside an equal
+ * share for an id or a badge. When the label field isn't a column, the text columns share the
+ * rest and only badges, numbers and dates are sized. Two columns or fewer are left alone.
+ */
+function columnWidth(c: { key: string; display: string }, index: number, all: readonly { key: string }[], labelField: string | undefined): number | undefined {
+  if (all.length < 3) return undefined;
+  const named = all.some((x) => x.key === labelField);
+  const grows = named ? c.key === labelField : labelField ? false : index === 0;
+  if (grows) return undefined;
+  const fixed = COLUMN_WIDTH[c.display];
+  return named || !labelField ? (fixed ?? 140) : fixed;
 }
 
 /**
@@ -157,7 +181,8 @@ function singleValues(filter: Filter): Defaults {
  */
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
   const {
-    view, layout = "page", columns: columnPreset, preset, filter: screenFilter, scoped = true, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
+    // preset, filter and scoped are read by useViewListParams; taken out here so they aren't passed on.
+    view, layout = "page", columns: columnPreset, preset: _preset, filter: _filter, scoped: _scoped, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
     calendar: _calendar,
     noun: screenNoun, nounPlural: screenNounPlural, formTitles: screenFormTitles, countFormat: screenCountFormat,
     ...rest
@@ -165,21 +190,18 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
   const cell = useDisplayCell();
   const viewer = useViewer();
   const listDefaults = useResourceViewDefaults();
-  // The viewer's scope first (the workspace they're in), then the screen's own filter over it.
-  const filter: Filter | undefined = scoped ? { ...scopeFilter(view, viewer.scope), ...screenFilter } : screenFilter;
-  const tab = preset ? view.definition.presets?.[preset] : undefined;
-  if (preset && !tab) {
-    throw new Error(`ResourceView(${view.resource}): no preset "${preset}"`);
-  }
+  const { filter, filters: defaultFilters, tab } = useViewListParams(props);
   const presetName = columnPreset ?? tab?.columns ?? "default";
 
   const columns = useMemo(
     () =>
-      view.columns(presetName).map((c, index) => {
+      view.columns(presetName).map((c, index, all) => {
         const draw = (row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row));
+        const width = listDefaults.sizeColumns ? columnWidth(c, index, all, view.labelField) : undefined;
         return {
           key: c.key,
           header: c.label,
+          ...(width ? { width } : {}),
           // A computed column has no database column to sort by.
           ...(c.field ? {} : { sortable: false, accessor: (row: T) => c.value(row as T & DataRow) }),
           // The summary's picture sits beside the first column.
@@ -199,20 +221,11 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
               : draw,
         };
       }),
-    [view, presetName, cell, cells],
+    [view, presetName, cell, cells, listDefaults.sizeColumns],
   );
 
-  // The peek shows the view's full column list, drawn like the cells (so `when` hides there too),
-  // never every key of the row: sensitive values and columns the view leaves out stay out.
-  const detailFields = useMemo(
-    () =>
-      view.columns().map((c) => ({
-        key: c.key,
-        label: c.label,
-        render: (_value: unknown, row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row)),
-      })),
-    [view, cell, cells],
-  );
+  // The peek: sensitive values and columns the view leaves out stay out.
+  const detailFields = useViewDetailFields(view, cells);
 
   // By value, so an inline `filter={{ client_id }}` doesn't rebuild the form every render.
   const filterKey = JSON.stringify(filter ?? {});
@@ -255,12 +268,6 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     return [...shown, ...filled];
   }, [view, filterKey, defaultsKey, scopeKey]);
 
-  const defaultFilters = useMemo(
-    // By value too: an inline `filter={{ status: ["open", "done"] }}` is one list, not a new one per render.
-    () => [...filterParams(tab?.filter as Filter | undefined), ...filterParams(JSON.parse(filterKey) as Filter), ...(resourceOptions?.defaultFilters ?? [])],
-    [tab, filterKey, resourceOptions?.defaultFilters],
-  );
-
   // Guards only narrow: the view's rule AND the screen's own `can`. They read the viewer, so a
   // new viewer or new roles asks them again.
   const allows = useMemo(
@@ -275,10 +282,17 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 
   const orderBy = view.definition.orderBy;
   const copy = view.definition.copy;
-  const createTitle = screenFormTitles?.create ?? copy?.form?.createTitle;
-  const editTitle = screenFormTitles?.edit ?? copy?.form?.editTitle;
-  const formTitles =
-    createTitle || editTitle ? { ...(createTitle ? { create: createTitle } : {}), ...(editTitle ? { edit: editTitle } : {}) } : undefined;
+  // The form's words, each from the screen's `formTitles` over the view's `copy.form`.
+  const formWords = {
+    create: screenFormTitles?.create ?? copy?.form?.createTitle,
+    edit: screenFormTitles?.edit ?? copy?.form?.editTitle,
+    createSubmit: screenFormTitles?.createSubmit ?? copy?.form?.createSubmit,
+    editSubmit: screenFormTitles?.editSubmit ?? copy?.form?.editSubmit,
+    createDescription: screenFormTitles?.createDescription ?? copy?.form?.createDescription,
+    editDescription: screenFormTitles?.editDescription ?? copy?.form?.editDescription,
+  };
+  const givenWords = Object.fromEntries(Object.entries(formWords).filter(([, words]) => !!words));
+  const formTitles = Object.keys(givenWords).length ? (givenWords as NonNullable<ResourcePageProps<T>["formTitles"]>) : undefined;
   // Tree mode (`tree`) needs every row: a page of a tree would cut parents from their children,
   // and a server-side search would drop the ancestors that give a match its place.
   if (screenTree && rest.pagination !== undefined && rest.pagination !== "client") {
@@ -331,10 +345,21 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     ...(copy?.empty?.body ? { emptyDescription: copy.empty.body } : {}),
     ...(searchFields ? { searchFields } : {}),
     ...rest,
-    // The app's `clipCells` under the screen's own table props, which win.
-    ...(listDefaults.clipCells
-      ? { slotProps: { ...rest.slotProps, table: { clipCells: true, ...rest.slotProps?.table } } }
+    // The app's `clipCells` and `sizeColumns` under the screen's own table props, which win.
+    ...(listDefaults.clipCells || listDefaults.sizeColumns
+      ? {
+          slotProps: {
+            ...rest.slotProps,
+            table: {
+              ...(listDefaults.clipCells ? { clipCells: true } : {}),
+              ...(listDefaults.sizeColumns ? { minWidth: "auto" as const } : {}),
+              ...rest.slotProps?.table,
+            },
+          },
+        }
       : {}),
+    // The app's `pagerJumps`, under the screen's own.
+    ...(listDefaults.pagerJumps && rest.pagerJumps === undefined ? { pagerJumps: true } : {}),
     resourceOptions: {
       ...resourceOptions,
       ...(defaultFilters.length ? { defaultFilters } : {}),
@@ -369,21 +394,16 @@ function ResourceViewPage<T extends Row>(props: ResourceViewProps<T>) {
 
 /** `mode="calendar"`: the same view, scope and filters, placed by a date field. */
 function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
-  const { view, calendar, filter: screenFilter, scoped = true, preset, title, resourceOptions, className, cells } = props;
-  const viewer = useViewer();
-  const tab = preset ? view.definition.presets?.[preset] : undefined;
-  if (preset && !tab) throw new Error(`ResourceView(${view.resource}): no preset "${preset}"`);
-  const filter: Filter | undefined = scoped ? { ...scopeFilter(view, viewer.scope), ...screenFilter } : screenFilter;
-  const filters = [
-    ...filterParams(tab?.filter as Filter | undefined),
-    ...filterParams(filter),
-    ...(resourceOptions?.defaultFilters ?? []),
-  ];
+  const { view, calendar, title, className, cells } = props;
+  const { filters, select, enabled, live } = useViewListParams(props);
   return (
     <ResourceCalendar<T>
       {...(calendar ?? {})}
       view={view}
       filters={filters}
+      {...(select !== undefined ? { select } : {})}
+      enabled={enabled}
+      {...(live !== undefined ? { live } : {})}
       {...(cells ? { cells } : {})}
       title={title ?? view.title}
       {...(className ? { className } : {})}

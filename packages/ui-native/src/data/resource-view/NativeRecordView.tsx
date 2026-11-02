@@ -9,12 +9,12 @@
 //   - readiness → a summary chip, then the checks while any is unmet.
 // A section with neither list nor settings is the screen's own, through `slots[id]`.
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
 import { readinessChip, type ReadinessLabels } from "@marktiderman/genesis-core/resource";
-import type { Allowed, RecordView as RecordViewDef, RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
+import { sameFormValue, type Allowed, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
 import { NativeButton } from "../../components/button";
 import { NativeIcon } from "../../components/icon";
@@ -498,19 +498,29 @@ function SettingsGroup({
   // The view's update guard, for this viewer: when it refuses, the settings are read-only with its reason.
   const viewer = useViewer();
   const locked = recordView.settingsLocked(row, viewer);
-  const [draft, setDraft] = useState<Values>(() => Object.fromEntries(fields.map((f) => [f.key, row[f.key]])));
+  // Only the fields this person changed are theirs: the others show the row as it is now (a live
+  // refresh updates them) and are never sent, so a stale draft can't overwrite someone else's change.
+  const [edits, setEdits] = useState<Values>({});
+  const draft = useMemo<Values>(() => ({ ...Object.fromEntries(fields.map((f) => [f.key, row[f.key]])), ...edits }), [fields, row, edits]);
+  // An edit the row now holds (after a save, or someone else's same change) is no longer an edit.
+  useEffect(() => {
+    setEdits((current) => {
+      const left = Object.fromEntries(Object.entries(current).filter(([k, v]) => !sameFormValue(v, row[k])));
+      return Object.keys(left).length === Object.keys(current).length ? current : left;
+    });
+  }, [row]);
   const [invalid, setInvalid] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const shown = fields.filter((f) => !f.visible || f.visible(draft));
   const changed: Values = {};
-  for (const f of shown) if (draft[f.key] !== row[f.key]) changed[f.key] = draft[f.key];
+  for (const f of shown) if (f.key in edits && !sameFormValue(draft[f.key], row[f.key])) changed[f.key] = draft[f.key];
   const dirty = Object.keys(changed).length > 0 && !shown.some((f) => invalid[f.key]);
 
   const set = (key: string, value: unknown, error?: string) => {
     setRefusal(null);
     setInvalid(({ [key]: _old, ...rest }) => (error ? { ...rest, [key]: error } : rest));
-    setDraft((d) => ({ ...d, [key]: value }));
+    setEdits((d) => ({ ...d, [key]: value }));
   };
   const save = async () => {
     setSaving(true);

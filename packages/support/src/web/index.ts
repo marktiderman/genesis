@@ -5,7 +5,17 @@
  *
  * @stability Beta
  */
-export { FeedbackPanel, undoMark, webContextCollector, type FeedbackPanelProps, type Marks } from "./feedback-panel";
+export {
+  FeedbackPanel,
+  undoMark,
+  useFeedbackDraft,
+  webContextCollector,
+  type FeedbackDraft,
+  type FeedbackDraftStore,
+  type FeedbackPanelProps,
+  type Marks,
+} from "./feedback-panel";
 export { FeedbackLauncher, mountSupportWidget, type FeedbackLauncherProps, type LauncherPosition } from "./launcher";
 export { annotateScreenshot, canCaptureScreenshot, captureScreenshot, type Redaction, type Stroke, type WebCapture } from "./capture";
 export { createPinOverlay, pickPin, resolvePin, stableLocator, type FeedbackPin, type PinOverlay, type PinnedReport } from "./pin";
+export { FEEDBACK_SHORTCUT, matchesShortcut, useFeedbackShortcut, type FeedbackShortcut } from "./shortcut";

@@ -25,6 +25,21 @@ export const uiMessages = {
     loading: "Loading…",
     saving: "Saving",
   },
+  /**
+   * Relative times (`relativeTime`): `{n}` is a count. Hours, days and dates are Intl's words in
+   * `locale`; a translation sets its own.
+   */
+  time: {
+    /** The language Intl formats hours, days and dates in. */
+    locale: "en",
+    justNow: "just now",
+    minutesAgo: "{n} min ago",
+    inMinutes: "in {n} min",
+    /** The compact style (an inbox). */
+    now: "now",
+    minutesShort: "{n}m",
+    yesterday: "Yesterday",
+  },
   page: {
     errorTitle: "Something went wrong",
     /** `{entity}`: the page's record name, e.g. "task". */
@@ -49,6 +64,11 @@ export const uiMessages = {
     range: "Showing {from}-{to} of {total}",
     previous: "Previous",
     next: "Next",
+    /** A pager's buttons as their accessible names (`pagerJumps`). */
+    first: "First page",
+    last: "Last page",
+    previousPage: "Previous page",
+    nextPage: "Next page",
     /** `{page}` of `{pages}`. */
     pageOf: "Page {page} of {pages}",
     notFoundTitle: "Record not found",
@@ -75,6 +95,10 @@ export const uiMessages = {
     editTitle: "Edit {noun}",
     createDescription: "Fill in the details to create a new {noun}.",
     editDescription: "Update the {noun}.",
+    /** ResourcePage `createdToast`. `{name}`: the new record's title. */
+    created: "Created {name}",
+    /** `createdToast` for a record with no title. `{noun}`: the record's name. */
+    createdUnnamed: "Created the {noun}",
   },
   table: {
     noRecords: "No records found",
@@ -195,11 +219,15 @@ export const uiMessages = {
     /** A day with nothing on it (agenda and lanes). */
     nothing: "Nothing scheduled",
     allDay: "All day",
+    /** The last day of a timed event that began on an earlier day. `{time}`: when it ends. */
+    until: "until {time}",
     /** A day cell's count, read after its date: "Tuesday, November 3, 2 events". */
     eventsOne: "1 event",
     eventsOther: "{count} events",
     /** A day cell's button for the events it doesn't show yet. */
     more: "+{count} more",
+    /** The same button once a day's events are all shown. */
+    fewer: "Show fewer",
     /** The lanes layout's row for events that name no lane. */
     unassigned: "Unassigned",
     /** Before an event's lanes, for screen readers. `{names}`: "Ana, Ben". */
@@ -212,6 +240,10 @@ export const uiMessages = {
     capped: "+{more} more not shown. Narrow the calendar or filter it to see them.",
     /** The layout switch's buttons. */
     layouts: { month: "Month", weeks: "Weeks", agenda: "Agenda", lanes: "Lanes" },
+    /** PrintButton's label. */
+    print: "Print",
+    /** A printed sheet's week. `{date}`: "November 2 – November 8". */
+    weekOf: "Week of {date}",
   },
   workspace: {
     /** Settings section footer. */
@@ -227,6 +259,91 @@ export const uiMessages = {
     checkDone: "Done",
     checkTodo: "To do",
     notANumber: "Enter a number.",
+  },
+  auth: {
+    /** What each mode is for: a page headline to match (`AuthPage`'s `branding.headline`). */
+    titles: {
+      "sign-in": "Sign in",
+      "sign-up": "Create your account",
+      "forgot-password": "Reset your password",
+      "new-password": "Choose a new password",
+    },
+    email: "Email",
+    emailPlaceholder: "you@example.com",
+    password: "Password",
+    newPassword: "New password",
+    confirmPassword: "Confirm new password",
+    code: "Code",
+    /** Under the code boxes. `{email}`: where it went. */
+    codeSent: "We sent a {length}-digit code to {email}.",
+    /** `codeSent` without sign-up, when the form can't say whether the email has an account. */
+    codeSentIfAccount: "If {email} has an account, we sent it a {length}-digit code.",
+    signIn: "Sign in",
+    signUp: "Create account",
+    sendMagicLink: "Email me a sign-in link",
+    sendCode: "Email me a code",
+    verifyCode: "Verify",
+    sendReset: "Send reset link",
+    savePassword: "Save password",
+    resendCode: "Resend code",
+    /** The resend button while it waits. `{seconds}`: left. */
+    resendIn: "Resend code in {seconds}s",
+    codeResent: "We sent a new code.",
+    useDifferentEmail: "Use a different email",
+    /** The links that switch how to sign in. */
+    usePassword: "Sign in with a password",
+    useMagicLink: "Email me a link instead",
+    useCode: "Email me a code instead",
+    forgotPassword: "Forgot password?",
+    noAccount: "No account yet?",
+    createAccount: "Create one",
+    haveAccount: "Already have an account?",
+    backToSignIn: "Back to sign in",
+    /** Between the provider buttons and the email form. */
+    or: "or",
+    /** A provider button. `{provider}`: "Google". */
+    continueWith: "Continue with {provider}",
+    /** The provider buttons' group, for screen readers. */
+    providers: "Sign in with",
+    /** After a link went out. `{email}`: where. */
+    checkEmailTitle: "Check your email",
+    magicLinkSent: "We sent a sign-in link to {email}. Open it on this device to finish.",
+    /** `magicLinkSent` without sign-up, when the form can't say whether the email has an account. */
+    magicLinkSentIfAccount: "If {email} has an account, we sent it a sign-in link. Open it on this device to finish.",
+    resetSent: "If {email} has an account, we sent it a link to choose a new password.",
+    confirmSent: "We sent a link to {email}. Open it to confirm your account, then sign in.",
+    passwordUpdated: "Your password is changed.",
+    /** The minimum the new-password field asks for. `{min}`: characters. */
+    passwordHint: "At least {min} characters.",
+    errors: {
+      emailRequired: "Enter your email.",
+      emailInvalid: "Enter a valid email address.",
+      passwordRequired: "Enter your password.",
+      /** `{min}`: characters. */
+      passwordTooShort: "Use at least {min} characters.",
+      passwordMismatch: "The passwords don't match.",
+      codeRequired: "Enter the {length}-digit code.",
+      /**
+       * Supabase Auth error codes, in fixed copy. Anything unlisted gets `generic` (the server's own
+       * text goes to `reportError`, never on screen), unless the client marks its message displayable.
+       */
+      invalid_credentials: "That email and password don't match.",
+      email_not_confirmed: "Confirm your email first: open the link we sent you.",
+      user_already_exists: "That email already has an account. Sign in instead.",
+      email_exists: "That email already has an account. Sign in instead.",
+      weak_password: "Choose a stronger password.",
+      same_password: "Choose a password you haven't used here.",
+      signup_disabled: "New accounts can't be created here.",
+      otp_expired: "That code has expired or is wrong. Ask for a new one.",
+      otp_disabled: "Email codes aren't turned on for this app.",
+      over_email_send_rate_limit: "Too many emails. Wait a minute and try again.",
+      over_request_rate_limit: "Too many tries. Wait a minute and try again.",
+      provider_disabled: "That sign-in option isn't turned on.",
+      session_not_found: "Your reset link has expired. Ask for a new one.",
+      reauthentication_needed: "Sign in again, then change your password.",
+      network: "You seem to be offline. Check your connection and try again.",
+      generic: "That didn't work. Try again.",
+    },
   },
   shell: {
     /** The phone drawer's name, announced when it opens. */

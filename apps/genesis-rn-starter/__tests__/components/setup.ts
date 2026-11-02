@@ -8,6 +8,11 @@ import { expectedReports } from "./reports";
 process.env.EXPO_PUBLIC_SUPABASE_URL = "https://test.supabase.invalid";
 process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-publishable-key";
 
+// Reanimated's test mode (its Jest guide, with the resolver in resolver.js): animations run on
+// Jest's timers, and `toHaveAnimatedStyle` checks an animated style. Gesture Handler's mocks load
+// from jest.config.js (`setupFiles`); `__tests__/components/gestures.test.tsx` shows both.
+require("react-native-reanimated").setUpTests();
+
 // Native modules jest-expo has no mock for: each library's own Jest mock.
 jest.mock("@react-native-async-storage/async-storage", () => require("@react-native-async-storage/async-storage/jest/async-storage-mock"));
 jest.mock("@react-native-community/netinfo", () => require("@react-native-community/netinfo/jest/netinfo-mock.js"));
