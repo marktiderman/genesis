@@ -1,0 +1,5 @@
+{
+  "codeConnect": {
+    "include": ["packages/ui-native/figma/**/*.figma.ts"]
+  }
+}

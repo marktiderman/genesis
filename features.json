@@ -3301,6 +3301,58 @@
       "flags": []
     },
     {
+      "id": "figma-design-library",
+      "name": "Figma design library with Code Connect",
+      "summary": "One Figma library whose variable collections are named after the design system's CSS variables and whose components are genesis-ui-native's exports, a Brand collection with one mode per consumer app generated from its CanonicalBrand, and Code Connect templates (packages/ui-native/figma, published with the Code Connect CLI) that show the Genesis call in Dev Mode; check-code-connect.mjs ratchets which components must have one.",
+      "category": "Design system",
+      "status": "building",
+      "claimedBy": "claude/busy-cray-36m2s8",
+      "kind": "tool",
+      "keywords": [
+        "figma",
+        "code connect",
+        "design library",
+        "dev mode",
+        "variables",
+        "modes",
+        "brand mode",
+        "figma.config.json",
+        "check-code-connect"
+      ],
+      "platforms": {
+        "native": "building"
+      },
+      "requires": [
+        "design-tokens"
+      ],
+      "owner": "mark",
+      "apps": [
+        "native"
+      ],
+      "audience": [
+        "developer",
+        "designer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Every visual component genesis-ui-native exports is either required (a well-formed, published Code Connect template) or notYet in code-connect.json, and the check fails a required one without a template.",
+        "Selecting a mapped component in Figma Dev Mode shows the genesis-ui-native call with the instance's properties as props."
+      ],
+      "reviewedAt": "2026-11-02",
+      "links": {
+        "code": [
+          "packages/ui-native/figma",
+          "scripts/check-code-connect.mjs",
+          "figma.config.json"
+        ],
+        "docs": [
+          "docs/DESIGN-LIBRARY.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "native-app-shell",
       "name": "Native app shell",
       "summary": "One root component above an Expo app's screens: boot steps behind the splash, error boundary and fatal screen with retry, theme, a persisted query client, data provider, auth gate, held deep links and an update banner, each a slot and each exported on its own.",

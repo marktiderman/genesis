@@ -12,6 +12,10 @@
   export of every entry point of every published package. Regenerate with
   `pnpm gen:component-reference`. The same data drives the package pages at
   [genesisone.dev/packages](https://genesisone.dev/packages).
+- [`DESIGN-LIBRARY.md`](./DESIGN-LIBRARY.md): the Genesis Figma library (foundations named after
+  the design system's CSS variables, components named after genesis-ui-native exports), a Brand
+  mode per consumer app from its `CanonicalBrand`, Code Connect templates in
+  `packages/ui-native/figma` and the `pnpm check:code-connect` ratchet.
 - [`CHARTER.md`](./CHARTER.md): what Genesis is for, its scope and non-goals, and how decisions
   are made.
 - [`GLOSSARY.md`](./GLOSSARY.md): one word per concept, and the synonyms not to use (draft).
