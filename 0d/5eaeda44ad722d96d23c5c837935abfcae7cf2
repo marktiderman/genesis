@@ -1,0 +1,23 @@
+packages/genesis-cli/README.md
+  s_1feb538f59bf88::t_201010840f4987 395
+packages/genesis-cli/src/upgrade/index.ts
+  s_1feb538f59bf88::t_24dbd2d34ead0a 26,431
+packages/genesis-cli/test/upgrade.test.ts
+  s_1feb538f59bf88::t_05788f7474ff3e 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0d5eaeda44ad722d96d23c5c837935abfcae7cf2",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
