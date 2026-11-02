@@ -1,5 +1,33 @@
 # @marktiderman/genesis-cli
 
+## 1.18.0
+
+### Minor Changes
+
+- ac62e6f: `genesis init --template native --without <switches>` turns starter.config.ts feature switches off, and leaves the blocks they carry out whole (migrations, pgTAP tests, Edge Functions, the starter's supabase files tagged only with them, their config.toml sections and API schemas). The lock records only the blocks that are on, and every file it names is written. The starter says which switch carries which block in its genesis.config.json (`starter.blocks`).
+
+  `genesis upgrade` and `genesis migrate` leave out a locked block whose starter.config.ts switch is off: no migrations planned, its files neither refreshed nor added (`migrate --block <id>` still checks one asked for).
+
+  New doctor rule `lock-files`: a file genesis.lock.json owns that is missing on disk is a warning (upgrade never brings it back); mark a deletion on purpose with `"deleted": true` in its lock entry. A locked file edited in the app, or a locked block switched off, is info.
+
+  A new app's genesis.config.json sets `doctor.supabase.since` just after its newest copied migration, so a fresh app (before it has a git history) passes the doctor with warnings only for the store ids in eas.json. init's summary lists each of those with what replaces it.
+
+- 40c8d60: Every app upgrade cleans out its overlays and rebases them. `genesis upgrade` diffs each overlay against its upstream tag and the new version, prints a checklist that sorts each hunk as already shipped (dropped), promoted (link its Genesis PR in docs/genesis-upstream.md) or kept (say why), rebases what's left onto the new version by a three-way merge, and moves the marker's `upstream`. It deletes an overlay with nothing left and pins the release, and when a rebase conflicts it stops and lists the files without changing anything. The new doctor rule `overlay-behind` warns, failing `--strict`, when an overlay's `upstream` is older than the version the app pins.
+
+### Patch Changes
+
+- ac62e6f: The doctor's `eas-placeholder` warnings name the eas.json key and say exactly what replaces each store id (the App Store Connect Apple ID, the Apple Team ID, the Google Play service account key's path). The starter's `links.ts` no longer crashes when genesis.config.json has no `links` block: an app with no domain has no app links.
+- 5bc8b40: `genesis upgrade` (and the genesis-upgrade workflow) now keeps pnpm's `minimumReleaseAgeExclude` as exact versions, not a pattern. 1.17.3 collapsed every Genesis pin to `'@marktiderman/genesis-*'` (and the bare `'@marktiderman/genesis'`), which exempts every future Genesis release from the release-age wait, so a compromised publish would reach apps at once. The tidy now merges each Genesis package's pins into one entry listing its exact versions (`'@marktiderman/genesis-features@0.8.0 || 0.8.1'`, which pnpm 11.1.3's frozen install honours, unlike two entries for one package), drops versions the lockfile no longer holds, and replaces the two patterns 1.17.3 wrote with the lockfile's exact versions. Any other pattern the app wrote is left alone. Exact versions need pnpm 10.19 or later; the upgrade warns on an older pnpm. Also:
+
+  - A range the app wrote for a Genesis package takes the pins into its entry with `||`, with a warning (pnpm 11 rejects ranges there).
+  - With `minimumReleaseAge` set, pnpm's strict mode fails the install with `ERR_PNPM_NO_MATURE_MATCHING_VERSION`; the upgrade now says why and what to do (add the versions as exact excludes, or wait), and never loosens the setting.
+  - The pnpm-workspace.yaml search stops at the repository's top level, so a file outside the repository is never rewritten or committed by `--pr`.
+  - `genesis upgrade --version <v>` reaches the upgrade instead of printing the CLI's version.
+  - The workflow's pull request job checks out with `persist-credentials: false`; only its last step has the write token, for the push and `gh`.
+
+- Updated dependencies [6af1095]
+  - @marktiderman/genesis-studio-server@0.5.3
+
 ## 1.17.3
 
 ### Patch Changes
