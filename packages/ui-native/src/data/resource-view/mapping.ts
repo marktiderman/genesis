@@ -4,6 +4,7 @@
 
 import type { DataRow, FieldReference } from "@marktiderman/genesis-core";
 import type {
+  ResolvedFormField,
   Allowed,
   DisplayHint,
   ResourceView,
@@ -179,6 +180,7 @@ export function swipeActionsFor<T extends Row>(
 export type NativeFormFieldKind =
   | "text"
   | "email"
+  | "tel"
   | "url"
   | "number"
   | "textarea"
@@ -201,6 +203,12 @@ export interface NativeFormField {
   /** From the contract: the column has a default (or is generated). */
   hasDefault?: boolean;
   max?: number;
+  /** The view field's autofill token (`ViewField.autoComplete`); unset, none is passed. */
+  autoComplete?: string;
+  /** The keyboard (`ViewField.inputMode`), over the kind's own. */
+  inputMode?: ResolvedFormField["inputMode"];
+  /** The Return key's label (`ViewField.enterKeyHint`). */
+  enterKeyHint?: ResolvedFormField["enterKeyHint"];
   options?: { value: string; label: string }[];
   /** For a link: what it points at and the linked row's naming field, so it shows the row's words. */
   references?: FieldReference;
@@ -215,8 +223,11 @@ export interface NativeFormField {
 /** Choices that fit a segmented control; more go to a list. */
 const SEGMENTED_MAX = 4;
 
-function kindFor(display: DisplayHint, options: unknown[] | undefined): NativeFormFieldKind {
+function kindFor(display: DisplayHint, options: unknown[] | undefined, widget?: string): NativeFormFieldKind {
   if (options) return options.length <= SEGMENTED_MAX ? "segmented" : "select";
+  // A phone number shows as text, so only the contract's `widget: "tel"` makes it one (as on the
+  // web); a column's name is never read as a type.
+  if (widget === "tel" && display === "text") return "tel";
   switch (display) {
     case "boolean":
       return "switch";
@@ -259,13 +270,16 @@ export function formFieldsFor<T extends Row>(view: AnyResourceView<T>, mode: "cr
       return {
         key: f.field.name,
         label: f.label,
-        kind: kindFor(f.display, options),
+        kind: kindFor(f.display, options, f.field.widget),
         display: f.display,
         required: !readOnly && f.required,
         readOnly,
         ...(typeof f.field.nullable === "boolean" ? { nullable: f.field.nullable } : {}),
         ...(f.field.hasDefault || f.field.generated ? { hasDefault: true } : {}),
         ...(f.max !== undefined ? { max: f.max } : {}),
+        ...(f.autoComplete ? { autoComplete: f.autoComplete } : {}),
+        ...(f.inputMode ? { inputMode: f.inputMode } : {}),
+        ...(f.enterKeyHint ? { enterKeyHint: f.enterKeyHint } : {}),
         ...(options ? { options } : {}),
         ...(f.field.references ? { references: f.field.references } : {}),
         ...(f.labelField ? { labelField: f.labelField } : {}),

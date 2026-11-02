@@ -18,6 +18,7 @@ import {
   renderTailwind4Bridge,
   renderThemeCss,
 } from "../theme-css";
+import { RADIUS_SCALE, borderRadius, radiusStep } from "../spacing";
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const typography = JSON.parse(
@@ -105,12 +106,48 @@ describe("genesis-tailwind4.css bridge", () => {
   it("maps radius and the three font families", () => {
     const bridge = block(bridgeCss, "@theme inline");
     expect(bridge.get("--radius-lg")).toBe("var(--radius)");
-    for (const key of ["--radius-sm", "--radius-md", "--radius-xl"]) {
+    for (const key of ["--radius-xs", "--radius-sm", "--radius-md", "--radius-xl", "--radius-2xl", "--radius-3xl"]) {
       expect(bridge.has(key)).toBe(true);
     }
     for (const key of FONT_FAMILY_KEYS) {
       expect(bridge.get(`--font-${key}`)).toBe(`var(--font-${key})`);
     }
+  });
+
+  /** A bridge radius value in px, for `--radius` in px. */
+  function radiusPx(value: string, radius: number): number {
+    if (value === "var(--radius)") return radius;
+    const m = /^calc\(var\(--radius\) \* ([\d.]+)\)$/.exec(value);
+    expect(m, value).not.toBeNull();
+    return radius * Number(m![1]);
+  }
+  const radii = () => [...block(bridgeCss, "@theme inline")].filter(([key]) => key.startsWith("--radius-"));
+
+  it("scales every radius step from --radius, so 0 is square everywhere", () => {
+    expect(radii().length).toBeGreaterThanOrEqual(7);
+    for (const [key, value] of radii()) expect(radiusPx(value, 0), key).toBe(0);
+    // Bare `rounded` too, through a reference theme key (never declared, so --radius isn't redefined).
+    expect(block(bridgeCss, "@theme inline reference").get("--radius")).toBe("calc(var(--radius) * 0.4)");
+    expect(radiusPx(block(bridgeCss, "@theme inline reference").get("--radius")!, 0)).toBe(0);
+  });
+
+  it("gives the v3 / NativeWind preset the same scale", () => {
+    const { full, ...steps } = borderRadius;
+    expect(full).toBe("9999px");
+    expect(steps).toEqual(Object.fromEntries(Object.entries(RADIUS_SCALE).map(([step, f]) => [step, radiusStep(f)])));
+  });
+
+  it("keeps the Genesis sizes at the Genesis radius (10px)", () => {
+    const px = Object.fromEntries(radii().map(([key, value]) => [key, Math.round(radiusPx(value, 10) * 100) / 100]));
+    expect(px).toEqual({
+      "--radius-xs": 2,
+      "--radius-sm": 6,
+      "--radius-md": 8,
+      "--radius-lg": 10,
+      "--radius-xl": 14,
+      "--radius-2xl": 16,
+      "--radius-3xl": 24,
+    });
   });
 
   it("declares the class-based dark variant", () => {

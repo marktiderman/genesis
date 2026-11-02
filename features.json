@@ -598,6 +598,108 @@
       "flags": []
     },
     {
+      "id": "resource-view-sheet",
+      "name": "Sheet mode for lists",
+      "summary": "ResourceView's `mode=\"sheet\"`: a spreadsheet over one view on SheetGrid, editing only the view's form fields through the provider, multi-cell paste only where the provider serves bulk writes, and big pastes, imports and exports run as jobs.",
+      "category": "Data",
+      "status": "planned",
+      "horizon": "next",
+      "kind": "pattern",
+      "keywords": [
+        "sheet",
+        "spreadsheet",
+        "inline editing",
+        "paste",
+        "bulk edit",
+        "csv"
+      ],
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "reviewedAt": "2026-11-01",
+      "links": {
+        "docs": [
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "resource-view-links",
+      "name": "Link pickers and link filters",
+      "summary": "A view's link fields become editable through a picker that searches the linked resource on the server, on web and native, and a list can be filtered by a linked row from its header. Until then a link is read-only in a view's form.",
+      "category": "Data",
+      "status": "planned",
+      "horizon": "next",
+      "kind": "pattern",
+      "keywords": [
+        "relation picker",
+        "foreign key",
+        "link field",
+        "lookup",
+        "reference filter"
+      ],
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "reviewedAt": "2026-11-01",
+      "links": {
+        "docs": [
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "resource-view-shaping",
+      "name": "Grouping, manual order and totals for lists",
+      "summary": "A view's `groupBy` drawn as group headers with counts on the web (the phone already shows sections), `orderBy.manual` drag to reorder written through the provider, and footer totals, overall and per group.",
+      "category": "Data",
+      "status": "planned",
+      "horizon": "later",
+      "kind": "pattern",
+      "keywords": [
+        "group by",
+        "drag to reorder",
+        "rank",
+        "totals",
+        "rollup",
+        "footer"
+      ],
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "reviewedAt": "2026-11-01",
+      "links": {
+        "docs": [
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "data-provider",
       "name": "DataProvider and hooks",
       "summary": "The DataProvider contract, GenesisProvider, useResource / useOne / useResourceForm / useWizard, and a mock provider for tests.",
@@ -6051,7 +6153,8 @@
       ],
       "contributes": [
         "package.json: genesis.overlay",
-        "doctor rules: overlay-unmarked, overlay-invalid, overlay-age, overlay-version"
+        "doctor rules: overlay-unmarked, overlay-invalid, overlay-age, overlay-version, overlay-behind",
+        "genesis upgrade: overlays rebased onto the release, with a checklist"
       ],
       "owner": "mark",
       "apps": [

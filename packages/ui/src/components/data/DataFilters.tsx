@@ -201,19 +201,26 @@ export function DataFilters({
         {showSearch && (
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          {/* A search keyboard on phones (its Return key says Search), named for screen readers,
+              and no autofill suggestions over the results. Not type="search": WebKit would add a
+              second clear button beside ours. */}
           <Input
             ref={effectiveSearchRef}
             placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9"
+            className="pl-9 pr-10"
           />
           {search && (
             <button
               type="button"
               onClick={() => onSearchChange("")}
               aria-label={m.filters.clearSearch}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
+              className="absolute right-0 top-1/2 inline-flex size-10 -translate-y-1/2 items-center justify-center"
             >
               <X className="h-3.5 w-3.5 text-muted-foreground" />
             </button>

@@ -223,6 +223,12 @@ export interface DataTableProps<T> {
    * to its parent).
    */
   tree?: DataTableTree<T>;
+  /**
+   * Clip each cell's content at its column's edge, on one line with an ellipsis for text, so a
+   * long link or email doesn't run over the next column on a narrow table. Cells with an inline
+   * editor keep their overflow, so the editor's popover and focus ring aren't cut. Default false.
+   */
+  clipCells?: boolean;
 }
 
 /** {@link DataTableProps.tree}: each row's place in the tree, and how to open or close one. */
@@ -596,6 +602,7 @@ export function DataTable<T>({
   sort: sortProp,
   onSortChange,
   tree,
+  clipCells = false,
 }: DataTableProps<T>) {
   const m = useUiMessages();
   const emptyMessage = emptyMessageProp ?? m.table.noRecords;
@@ -1042,6 +1049,10 @@ export function DataTable<T>({
                           col as DataTableColumn<unknown>,
                         ),
                         cellDensity,
+                        // `clipCells`: the layout is fixed, so a cell's width is its
+                        // column's; clip what a custom cell draws at that edge. Ellipsis
+                        // needs one line, hence nowrap.
+                        clipCells && !col.editable && "overflow-hidden text-ellipsis whitespace-nowrap",
                         pin?.className,
                       )}
                       style={pin?.style}

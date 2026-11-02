@@ -6,8 +6,8 @@ package.
 
 ```ts
 import { Button } from "@marktiderman/genesis/ui";
-import { useSwitchboard } from "@marktiderman/genesis/switchboard";
-import { tokens } from "@marktiderman/genesis/design-system/tokens";
+import { Switchboard } from "@marktiderman/genesis/switchboard";
+import { semantic, spacing } from "@marktiderman/genesis/design-system/tokens";
 ```
 
 | Subpath                     | Re-exports                            |

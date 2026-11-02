@@ -29,6 +29,12 @@ export interface OwnedFile {
    * gone and the package still ships that version, it becomes the base.
    */
   pending?: string;
+  /**
+   * The app deleted this file on purpose (set by hand). `genesis upgrade` never brings a deleted
+   * owned file back either way; the marker tells the doctor's `lock-files` rule the deletion is
+   * meant, so it stops warning that a locked file is missing.
+   */
+  deleted?: true;
 }
 
 export interface GenesisLock {

@@ -231,6 +231,8 @@ describe("native pack", () => {
     ]);
     expect(levels(r.findings, "eas-placeholder")).toEqual(["warn", "warn"]);
     expect(r.findings.find((f) => f.subject === "REPLACE_WITH_APP_FOLDER")!.message).toContain("only config changes start a preview");
+    // Each says exactly what replaces it.
+    expect(r.findings.find((f) => f.subject === "REPLACE_WITH_APP_STORE_CONNECT_APP_ID")!.message).toMatch(/^ascAppId is the template placeholder REPLACE_WITH_APP_STORE_CONNECT_APP_ID; replace it with the app's Apple ID from App Store Connect/);
     const filled = await nativeApp({ ".eas/workflows/pr-preview.yml": 'on:\n  pull_request:\n    paths:\n      - "src/**"\n' });
     expect(brief(filled.findings, "eas-placeholder")).toEqual([]);
   });
