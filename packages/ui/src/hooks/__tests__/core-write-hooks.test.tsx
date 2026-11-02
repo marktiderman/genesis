@@ -300,6 +300,11 @@ describe("useResourceForm — an empty input is no value", () => {
     expect(blankValues({ title: "T", points: undefined }, fields, "create")).toEqual({ title: "T" });
   });
 
+  it("keeps an emptied phone number that can't be null as text, like any text field", () => {
+    const tel = [{ key: "phone", label: "Phone", type: "tel" as const, nullable: false }];
+    expect(blankValues({ phone: "" }, tel, "edit", new Set(["phone"]))).toEqual({ phone: "" });
+  });
+
   it("keeps every real value, falsy ones included", () => {
     const values = { title: "T", points: 0, notes: null, done: false, tags: [] };
     expect(blankValues(values, fields, "create")).toEqual(values);

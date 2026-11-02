@@ -1014,29 +1014,37 @@ export function ResourcePage<
     },
   });
 
+  /**
+   * A column's cell for the default card and row: the column's own `render` with the value its
+   * `accessor` computes (or the field), else that value as text. Same reading as the table, so
+   * a computed column isn't blank or raw here.
+   */
+  const cellValueOf = (item: T, col: (typeof page.columns)[number]): unknown =>
+    col.accessor ? col.accessor(item) : (item as Record<string, unknown>)[col.key];
+  const cellOf = (item: T, col: (typeof page.columns)[number]): ReactNode => {
+    const val = cellValueOf(item, col);
+    return col.render
+      ? col.render(item, val, actions)
+      : val != null && val !== ""
+        ? String(val)
+        : m.common.empty;
+  };
+  // The title is the page's (`getTitle`, else `titleField`), so its column isn't a cell too.
+  const bodyColumns = () => page.columns.filter((c) => c.key !== page.titleField);
+
   /** Default card renderer (grid view) — used unless `renderCard` is given. */
   const renderDefaultCard = (item: T): ReactNode => {
-    const cols = page.columns;
-    const titleCol = cols[0];
-    const titleVal = titleCol
-      ? String((item as Record<string, unknown>)[titleCol.key] ?? "")
-      : "";
-    // Second column is typically the status badge
-    const badgeCol = cols[1];
-    const badgeVal = badgeCol
-      ? (item as Record<string, unknown>)[badgeCol.key]
-      : null;
+    const cols = bodyColumns();
+    const titleVal = titleOf(item);
+    // The first other column is typically the status badge
+    const badgeCol = cols[0];
     // Find a numeric-looking column for the price position
     const priceCol = cols.find(
-      (c, i) => i > 1 && /price|cost|amount|total/i.test(c.key),
+      (c, i) => i > 0 && /price|cost|amount|total/i.test(c.key),
     );
-    const priceVal = priceCol
-      ? (item as Record<string, unknown>)[priceCol.key]
-      : null;
-    // Remaining metadata columns (skip title, badge, price)
-    const metaCols = cols.filter(
-      (c) => c !== titleCol && c !== badgeCol && c !== priceCol,
-    );
+    const priceVal = priceCol ? cellValueOf(item, priceCol) : null;
+    // Remaining metadata columns (skip badge, price)
+    const metaCols = cols.filter((c) => c !== badgeCol && c !== priceCol);
     return (
       <Card
         {...rowActivationProps(item, titleVal, "resource-card")}
@@ -1048,77 +1056,67 @@ export function ResourcePage<
         <CardContent>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              {badgeCol && (
-                <span>
-                  {badgeCol.render
-                    ? badgeCol.render(item, badgeVal, actions)
-                    : badgeVal != null
-                      ? String(badgeVal)
-                      : m.common.empty}
-                </span>
-              )}
-              {priceVal != null && (
+              {badgeCol && <span>{cellOf(item, badgeCol)}</span>}
+              {priceCol && priceVal != null && (
                 <span className="text-sm font-semibold">
-                  {String(priceVal)}
+                  {cellOf(item, priceCol)}
                 </span>
               )}
             </div>
-            {metaCols.map((col) => {
-              const val = (item as Record<string, unknown>)[col.key];
-              return (
-                <p
-                  key={col.key}
-                  className="text-xs text-muted-foreground truncate"
-                >
-                  {col.render
-                    ? col.render(item, val, actions)
-                    : val != null
-                      ? String(val)
-                      : m.common.empty}
-                </p>
-              );
-            })}
+            {metaCols.map((col) => (
+              <p
+                key={col.key}
+                className="text-xs text-muted-foreground truncate"
+              >
+                {cellOf(item, col)}
+              </p>
+            ))}
           </div>
         </CardContent>
       </Card>
     );
   };
 
-  /** Default list-row renderer (list view) — used unless `renderCard` is given. */
+  /**
+   * Default list-row renderer (list view) — used unless `renderCard` is given. Two lines, so it
+   * reads on a phone: the title (up to two lines), then up to three other columns, wrapping.
+   */
   const renderDefaultListItem = (item: T): ReactNode => {
-    const cols = page.columns;
-    const titleCol = cols[0];
-    const titleVal = titleCol
-      ? String((item as Record<string, unknown>)[titleCol.key] ?? "")
-      : "";
+    const cols = bodyColumns().slice(0, 3);
+    const titleVal = titleOf(item);
     const node = pageTree?.nodes.get(keyOf(item));
-    const title = <span className="font-medium text-sm truncate">{titleVal}</span>;
+    // Line one: the title, up to two lines. Line two: the other columns, wrapping.
+    const body = (
+      <div className="min-w-0 flex-1 space-y-1">
+        <span className="block font-medium text-sm line-clamp-2 break-words">{titleVal}</span>
+        {cols.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            {cols.map((col) => (
+              <span key={col.key} className="min-w-0 break-words" data-column={col.key}>
+                {cellOf(item, col)}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    );
     return (
       <div
         {...rowActivationProps(item, titleVal, "resource-list-row")}
-        className="flex items-center justify-between px-3 py-2 border-b cursor-pointer hover:bg-muted/50 motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="flex items-start px-3 py-2 border-b cursor-pointer hover:bg-muted/50 motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         {node ? (
-          <TreeIndent node={node} name={titleVal} onToggle={(open) => pageTree!.setExpanded(keyOf(item), open)}>
-            {title}
+          <TreeIndent
+            node={node}
+            name={titleVal}
+            onToggle={(open) => pageTree!.setExpanded(keyOf(item), open)}
+            className="flex-1"
+          >
+            {body}
           </TreeIndent>
         ) : (
-          title
+          body
         )}
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          {cols.slice(1, 4).map((col) => {
-            const val = (item as Record<string, unknown>)[col.key];
-            return (
-              <span key={col.key}>
-                {col.render
-                  ? col.render(item, val, actions)
-                  : val != null
-                    ? String(val)
-                    : m.common.empty}
-              </span>
-            );
-          })}
-        </div>
       </div>
     );
   };
