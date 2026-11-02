@@ -271,9 +271,11 @@ describe("AppShell options", () => {
       </AppShell>,
     );
 
-    const drawer = container.querySelector("#app-shell-mobile-nav")!;
-    expect(drawer.getAttribute("aria-hidden")).toBe("true");
-    expect(drawer.hasAttribute("inert")).toBe(true);
+    // Closed, the drawer (a Radix sheet) isn't rendered, so none of its links can be tabbed to.
+    expect(document.querySelector("#app-shell-mobile-nav")).toBeNull();
+    for (const link of container.querySelectorAll("a")) {
+      expect(link.closest('[data-testid="app-shell-sidebar"], [data-testid="app-shell-mobile-bottom-nav"]')).not.toBeNull();
+    }
   });
 
   it("hydrates persisted overrides and persists collapse under :collapsed", () => {

@@ -48,6 +48,7 @@ import {
 } from "./sub-nav";
 import { cn } from "../../utils";
 import { useIsMobile } from "../../hooks/use-mobile";
+import { useUiMessages } from "../../messages";
 import { readStoredOptions, writeStoredOptions } from "../../option-storage";
 import {
   DefaultLink,
@@ -1150,6 +1151,7 @@ export function AppShell({
 }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const m = useUiMessages().shell;
 
   // Hierarchical nav: resolve the tree against the current location once.
   const derived = useMemo(() => {
@@ -1213,46 +1215,24 @@ export function AppShell({
     setMoreOpen(false);
   }, [activePath]);
 
-  // The phone drawer is a modal: while it's open, Escape closes it, focus moves into it, the
-  // page behind can't be scrolled or reached, and closing hands focus back to the menu button.
-  // Widening past the phone breakpoint closes it too, since the drawer is hidden there.
-  const mobileNavRef = useRef<HTMLElement>(null);
+  // Both phone sheets (the drawer and More) are hidden from the md breakpoint up, so widening
+  // past it closes them. Left open, Radix would keep the page modal (body pointer-events off,
+  // a scrim) behind a sheet nobody can see.
   const mobileOpenButtonRef = useRef<HTMLButtonElement>(null);
+  const phoneSheetOpen = mobileOpen || moreOpen;
   useEffect(() => {
-    if (!mobileOpen) return;
-    const drawer = mobileNavRef.current;
-    const opener = mobileOpenButtonRef.current;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        setMobileOpen(false);
-      }
+    if (!phoneSheetOpen || typeof window.matchMedia !== "function") return;
+    const wide = window.matchMedia(DESKTOP_QUERY);
+    const close = () => {
+      setMobileOpen(false);
+      setMoreOpen(false);
     };
-    document.addEventListener("keydown", onKeyDown);
-    const wide = typeof window.matchMedia === "function"
-      ? window.matchMedia(DESKTOP_QUERY)
-      : undefined;
-    const onWide = (event: MediaQueryListEvent) => {
-      if (event.matches) setMobileOpen(false);
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) close();
     };
-    wide?.addEventListener?.("change", onWide);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    drawer
-      ?.querySelector<HTMLElement>('[data-testid="app-shell-mobile-close"]')
-      ?.focus();
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      wide?.removeEventListener?.("change", onWide);
-      document.body.style.overflow = previousOverflow;
-      // Only take focus back if it was still in the drawer: a link that navigated
-      // will have moved it on already.
-      const active = document.activeElement;
-      if (!active || active === document.body || drawer?.contains(active)) {
-        opener?.focus();
-      }
-    };
-  }, [mobileOpen]);
+    wide.addEventListener?.("change", onChange);
+    return () => wide.removeEventListener?.("change", onChange);
+  }, [phoneSheetOpen]);
 
   const hasSecondary = Boolean(secondaryNavItems && secondaryNavItems.length);
   const hasUser = userSlot != null;
@@ -1658,7 +1638,7 @@ export function AppShell({
             variant="ghost"
             size="icon"
             onClick={() => setMobileOpen(false)}
-            aria-label="Close navigation"
+            aria-label={m.closeNavigation}
             data-testid="app-shell-mobile-close"
             testID="app-shell-mobile-close"
           >
@@ -1768,7 +1748,6 @@ export function AppShell({
     >
       {/* Desktop sidebar */}
       <aside
-        inert={mobileOpen || undefined}
         className={cn(
           "hidden flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 motion-reduce:transition-none md:flex",
           scrollWindow && "sticky top-0 h-screen",
@@ -1781,38 +1760,49 @@ export function AppShell({
         {sidebarChrome({})}
       </aside>
 
-      {/* Mobile overlay */}
-      {mobileOpen ? (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden
-        />
-      ) : null}
+      {/* Phone drawer: genesis-ui's left Sheet, so Radix owns the modal (focus trap, Escape that
+          closes only the topmost layer, scroll lock, the page behind hidden from assistive tech).
+          Every row and button in it is at least 44px tall for a thumb. */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent
+          side="left"
+          showCloseButton={false}
+          id="app-shell-mobile-nav"
+          data-testid="app-shell-mobile-nav"
+          aria-describedby={undefined}
+          overlayClassName="md:hidden"
+          className={cn(
+            "flex w-72 max-w-[85vw] flex-col gap-0 overflow-y-auto overscroll-contain border-sidebar-border bg-sidebar p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] shadow-none sm:max-w-[85vw] md:hidden",
+            "motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none",
+            "[&_a]:min-h-11 [&_[role=link]]:min-h-11 [&_button]:min-h-11 [&_button]:min-w-11",
+          )}
+          onOpenAutoFocus={(event) => {
+            // Start on the close button rather than the first link, so opening doesn't
+            // look like a row was picked.
+            const close = (event.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>(
+              '[data-testid="app-shell-mobile-close"]',
+            );
+            if (close) {
+              event.preventDefault();
+              close.focus();
+            }
+          }}
+          onCloseAutoFocus={(event) => {
+            // Radix hands focus back to whatever had it when the drawer opened, which is the
+            // body in browsers where a tap doesn't focus a button (Safari). The menu button is
+            // always the right place, including after a drawer link navigated: the link closed
+            // the drawer, so its focus would otherwise be lost with it.
+            event.preventDefault();
+            mobileOpenButtonRef.current?.focus();
+          }}
+        >
+          <SheetTitle className="sr-only">{m.navigation}</SheetTitle>
+          {sidebarChrome({ mobile: true })}
+        </SheetContent>
+      </Sheet>
 
-      {/* Mobile sidebar: inert when closed so off-screen links leave tab order, a modal
-          dialog when open. Every row and button in it is at least 44px tall for a thumb. */}
-      <aside
-        ref={mobileNavRef}
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col overflow-y-auto overscroll-contain border-r border-sidebar-border bg-sidebar pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] transition-transform motion-reduce:transition-none md:hidden",
-          "[&_a]:min-h-11 [&_[role=link]]:min-h-11 [&_button]:min-h-11 [&_button]:min-w-11",
-          mobileOpen ? "translate-x-0" : "-translate-x-full pointer-events-none",
-        )}
-        id="app-shell-mobile-nav"
-        role={mobileOpen ? "dialog" : undefined}
-        aria-modal={mobileOpen || undefined}
-        aria-label={mobileOpen ? "Navigation" : undefined}
-        aria-hidden={!mobileOpen}
-        inert={!mobileOpen || undefined}
-        data-testid="app-shell-mobile-nav"
-      >
-        {sidebarChrome({ mobile: true })}
-      </aside>
-
-      {/* Main content: unreachable while the phone drawer is open over it. */}
+      {/* Main content */}
       <div
-        inert={mobileOpen || undefined}
         className={cn(
           "flex min-w-0 flex-1 flex-col",
           !scrollWindow && "overflow-hidden",
@@ -1830,7 +1820,7 @@ export function AppShell({
             variant="ghost"
             size="icon"
             onClick={() => setMobileOpen(true)}
-            aria-label="Open navigation"
+            aria-label={m.openNavigation}
             aria-expanded={mobileOpen}
             aria-controls="app-shell-mobile-nav"
             data-testid="app-shell-mobile-open"
@@ -1998,6 +1988,8 @@ export function AppShell({
                 onClick={() => setMoreOpen(true)}
                 aria-haspopup="dialog"
                 aria-expanded={moreOpen}
+                // The visible "More" can't show which page is current, so the name says so.
+                aria-label={moreActive && !bottomNotCurrent ? m.moreCurrent : undefined}
                 className={cn(
                   "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors",
                   moreActive ? "text-primary" : "text-muted-foreground",
@@ -2005,16 +1997,21 @@ export function AppShell({
                 data-testid="app-shell-mobile-more"
               >
                 <Ellipsis className="h-5 w-5" aria-hidden />
-                <span className="max-w-full truncate px-0.5">More</span>
+                <span className="max-w-full truncate px-0.5">{m.more}</span>
               </button>
             ) : null}
           </nav>
         ) : null}
         {bottomOverflows ? (
           <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-            <SheetContent side="bottom" className="md:hidden" data-testid="app-shell-mobile-more-sheet">
-              <SheetTitle>More</SheetTitle>
-              <SheetDescription className="sr-only">The rest of this section's pages</SheetDescription>
+            <SheetContent
+              side="bottom"
+              className="pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:hidden"
+              overlayClassName="md:hidden"
+              data-testid="app-shell-mobile-more-sheet"
+            >
+              <SheetTitle>{m.more}</SheetTitle>
+              <SheetDescription className="sr-only">{m.moreDescription}</SheetDescription>
               <ul className="-mx-2 space-y-0.5">
                 {bottomMore.map((item) => {
                   const active = bottomItemActive(item);
