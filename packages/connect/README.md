@@ -112,19 +112,27 @@ export const googleCalendar = createConnector({
 });
 ```
 
-`identity` is read from the ID token the token endpoint sent over TLS. Its signature isn't
-checked (OpenID Connect allows that only for a token taken straight from the token endpoint),
-but its claims are: the issuer is the provider's `issuer`, the audience is this client, and it
-hasn't expired. When any of those fail (or no ID token comes), `identity` is left out, the
-reason is logged (`callback` event), and the connection still succeeds unless
-`requireIdentity` is set, which fails it instead. `email` is there only when the provider says
+`identity` is read from the ID token the token endpoint sent over TLS (`createConnector`
+refuses a provider whose `tokenUrl` or `revokeUrl` isn't https, except on localhost). Its
+signature isn't checked (OpenID Connect allows that only for a token taken straight from the
+token endpoint), but its claims are: the issuer is the provider's `issuer`; the audience names
+this client and no other audience (unless it is in `trustedAudiences`); `azp`, when present, is
+this client, and is present when there are several audiences; and it hasn't expired. It is read
+only when the attempt asked for `openid` (or `requireIdentity` is set). When a check fails (or
+no ID token comes), `identity` is left out, the reason is logged (`callback` event), and the
+connection still succeeds unless `requireIdentity` is set, which fails it instead and revokes
+the new grant. `requireIdentity` needs the provider's `issuer` and `openid` in the connector's
+`scopes`, or `createConnector` throws `config`. `email` is there only when the provider says
 it's verified; never key an account on it, use `subject`. `name` and `picture` are whatever
 the person set: treat them as untrusted (escape the name, check the URL before loading it).
 `account.idToken` is the raw token with unchecked claims; read `identity` instead. The kit
 fetches no calendar data: with `accessToken(...)`, the app calls the Calendar API
 (`calendarList`, then `events` with `singleEvents=true` and a sync token) and keeps the rows.
-Calendar scopes are sensitive: until Google verifies the app, only its test users can connect,
-and their grants end after seven days.
+Calendar scopes are sensitive. While the app's OAuth consent screen is in the **Testing**
+publishing status, only the test users listed on it (up to 100) can connect, and their grants
+and refresh tokens expire seven days after consent. Once it is **In production**, anyone can
+connect, but until Google verifies the app it shows the unverified-app warning and caps how
+many people can sign in.
 
 ## Secrets and key rotation
 
@@ -164,13 +172,13 @@ if (secrets.needsRotation(row.sealed))
 
 `createConnector(config)` checks its config at boot and returns:
 
-| Call                                                                      | What it does                                                                                                                                                                                                                                                                                                  |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `start(request, { subject, intent?, returnTo, scopes?, data?, params? })` | The provider's sign-in URL and a `Set-Cookie`. `.redirect()` answers a 303; `.json()` answers `{ url }` for a page that navigates itself.                                                                                                                                                                     |
-| `callback(request)`                                                       | Checks the signed state (signature, age), that the cookie's nonce matches it, handles `error`, exchanges the code with the PKCE verifier, checks every scope asked for was granted, seals the refresh token and calls `store`. Always a 303 back to `returnTo` with `?connect=<result>`, clearing the cookie. |
-| `accessToken(sealed, aad)`                                                | A fresh access token, cached in memory until a minute before it expires.                                                                                                                                                                                                                                      |
-| `refresh(sealed, aad, { onRotate })`                                      | Uncached; when the provider rotates the refresh token, the new one comes back sealed.                                                                                                                                                                                                                         |
-| `revoke(sealed, aad)`                                                     | Revokes at the provider and forgets the cached token. True when it is gone. Google ends every token of the person's grant to your client, so only revoke the last connection that uses it.                                                                                                                    |
+| Call                                                                      | What it does                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `start(request, { subject, intent?, returnTo, scopes?, data?, params? })` | The provider's sign-in URL and a `Set-Cookie`. `.redirect()` answers a 303; `.json()` answers `{ url }` for a page that navigates itself.                                                                                                                                                                                                          |
+| `callback(request)`                                                       | Checks the signed state (signature, age), that the cookie's nonce matches it, handles `error`, exchanges the code with the PKCE verifier, checks every scope asked for was granted (revoking the grant when one wasn't), seals the refresh token and calls `store`. Always a 303 back to `returnTo` with `?connect=<result>`, clearing the cookie. |
+| `accessToken(sealed, aad)`                                                | A fresh access token, cached in memory until a minute before it expires.                                                                                                                                                                                                                                                                           |
+| `refresh(sealed, aad, { onRotate })`                                      | Uncached; when the provider rotates the refresh token, the new one comes back sealed.                                                                                                                                                                                                                                                              |
+| `revoke(sealed, aad)`                                                     | Revokes at the provider and forgets the cached token. True when it is gone. Google ends every token of the person's grant to your client, so only revoke the last connection that uses it.                                                                                                                                                         |
 
 `accessToken`, `refresh` and `revoke` throw a `ConnectError` (check with `isConnectError(e)`)
 with a `code`: `revoked` (the grant is gone, `invalid_grant`: connect again), `unavailable`
@@ -215,6 +223,15 @@ const token = await connector.accessToken(row.refresh_token, aad, {
   (`redirect: "error"`) and time out after 10 seconds. `log` gets safe lines only: a step, a
   result and a reason such as `token endpoint answered 400 (invalid_grant)`.
 - **`returnTo` is a path**, never a full URL, so the way back can't be pointed elsewhere.
+- **A turned-down grant can be revoked.** When the callback refuses a grant after trading the
+  code (a scope unticked, or no identity with `requireIdentity`), `revokeFailedGrants: true`
+  revokes it through `revokeUrl` (best effort) rather than leave it standing. It's off by
+  default: Google ends every token of the person's grant across the project on a revoke, so a
+  returning person who unticks a scope would also lose the connection they already have. Turn
+  it on only when each grant is isolated (one connection per client). The revoke runs in the background (at most
+  3 seconds), so it never delays the redirect.
+- **A `store` that throws keeps its grant.** The callback ends as `failed` but doesn't revoke
+  the refresh token, since `store` may have half-written the row; clean up in `store` itself.
 
 ### One callback origin for many addresses
 
@@ -279,5 +296,7 @@ const acme: OAuthProvider = {
 | `aad(id)`                                      | `<provider id>-grant:<id>`      | The associated data a grant's refresh token is sealed to.                                   |
 | `requireRefreshToken`                          | true                            | Fail when the provider sends none.                                                          |
 | `requireIdentity`                              | false                           | Fail when no checked `identity` can be read from the ID token (the reason is logged).       |
+| `trustedAudiences`                             | none                            | Other audiences an ID token's `aud` may name besides `clientId`.                            |
+| `revokeFailedGrants`                           | false                           | Revoke a grant the callback turns down (a missing scope, no identity). See below.           |
 | `isPublicSuffix(domain)`                       |                                 | A Public Suffix List lookup for the `sharedDomain` check.                                   |
 | `fetch`, `timeoutMs`, `now`, `randomId`, `log` |                                 | For tests and logging.                                                                      |
