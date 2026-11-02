@@ -202,11 +202,29 @@ const client = createAuthFormClient(supabase, {
 | `signInWithPassword` | `signInWithPassword` |
 | `sendMagicLink`, `sendEmailCode` | `signInWithOtp` (`shouldCreateUser` follows the form's `allowSignUp`; without sign-up, an unknown email is answered as sent) |
 | `verifyEmailCode` | `verifyOtp({ email, token, type: "email" })` |
-| `signUp` | `signUp`; `confirmEmail` when no session came back |
+| `signUp` | `signUp`, with the form's `signUpFields` as `options.data` (the user's metadata); `confirmEmail` when no session came back |
 | `sendPasswordReset` | `resetPasswordForEmail` to `resetRedirectTo` |
 | `updatePassword` | `updateUser({ password })`, on the session the reset link opened (`session_not_found` without one) |
-| `signInWithProvider` | `signInWithOAuth` (leaves the page for the provider) |
+| `signInWithProvider` | `signInWithOAuth` to `providerRedirectTo`, with `providerQueryParams` (leaves the page for the provider) |
+| `sendPhoneCode`, `verifyPhoneCode` | `signInWithOtp({ phone })`, then `verifyOtp({ phone, token, type: "sms" })`: the form's `"phone-code"` method |
+| `currentEmail` | `getSession()`: the signed-in email, which the new-password form gives the password manager (no request) |
 | `providers` | `fetchAuthSettings`: `GET /auth/v1/settings`, the OAuth providers turned on (asked once per client) |
+
+**Where each link comes back to.** `redirectTo` is the default for all of them. `emailRedirectTo`
+overrides it for the emailed links (a magic link, the sign-up confirmation), `resetRedirectTo` for
+the reset link (default `emailRedirectTo`), and `providerRedirectTo` for the providers: a string,
+or a function of the provider's id that returns `undefined` for the default. `providerQueryParams`
+adds parameters to the provider's authorize URL, for every provider or per provider:
+
+```ts
+const client = createAuthFormClient(supabase, {
+  redirectTo: `${location.origin}/auth/callback`,
+  providerRedirectTo: (provider) => (provider === "apple" ? `${location.origin}/auth/apple` : undefined),
+  providerQueryParams: (provider) => (provider === "google" ? { access_type: "offline", prompt: "consent" } : undefined),
+});
+```
+
+There's no need to override `signInWithProvider` for either.
 
 Every failure resolves as `{ error: { code, message } }` with Auth's code (`network` for a request
 that got no answer, `session_not_found` for `AuthSessionMissingError`), also on a client made with
@@ -220,7 +238,10 @@ sent to `reportError` when the form has no copy for the code.
 - **The code's length is the project's.** The form's `codeLength` (default 6) must match the
   project's `otp_length` (Auth settings, "Email OTP length"). `/auth/v1/settings` doesn't report
   it, so nothing can check it for you: with a mismatch no code can be entered whole, and code sign-in fails.
-- **The redirects** (`redirectTo`, `resetRedirectTo`) must be in the project's redirect allow list.
+- **A texted code** (`"phone-code"`) needs a phone provider (Twilio, MessageBird…) turned on in
+  the project's Auth settings; its code length is the project's SMS OTP length, and the form's
+  `codeLength` must match it as for email.
+- **The redirects** (`redirectTo`, `emailRedirectTo`, `resetRedirectTo`, `providerRedirectTo`) must be in the project's redirect allow list.
   `createGenesisSupabase()` uses the PKCE flow (a plain `createClient` from supabase-js defaults to
   the implicit flow), and its callback page needs nothing more on the web (`detectSessionInUrl`).
   A PKCE link only works in the browser that asked for it, where the code verifier is stored: a

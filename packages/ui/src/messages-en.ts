@@ -274,14 +274,25 @@ export const uiMessages = {
     newPassword: "New password",
     confirmPassword: "Confirm new password",
     code: "Code",
+    /** The `"phone-code"` method's field. */
+    phone: "Phone number",
+    phonePlaceholder: "+1 555 123 4567",
+    phoneHint: "With your country code. We'll text you a code.",
+    /** The `"full_name"` sign-up field. */
+    fullName: "Full name",
     /** Under the code boxes. `{email}`: where it went. `{length}`: its digits (worded so no article depends on the number). */
     codeSent: "We sent a code to {email}. It has {length} digits.",
     /** `codeSent` without sign-up, when the form can't say whether the email has an account. */
     codeSentIfAccount: "If {email} has an account, we sent it a code. It has {length} digits.",
+    /** Under the code boxes after a text. `{phone}`: where it went. `{length}`: its digits. */
+    phoneCodeSent: "We texted a code to {phone}. It has {length} digits.",
+    /** `phoneCodeSent` without sign-up, when the form can't say whether the number has an account. */
+    phoneCodeSentIfAccount: "If {phone} has an account, we texted it a code. It has {length} digits.",
     signIn: "Sign in",
     signUp: "Create account",
     sendMagicLink: "Email me a sign-in link",
     sendCode: "Email me a code",
+    sendPhoneCode: "Text me a code",
     verifyCode: "Verify",
     sendReset: "Send reset link",
     savePassword: "Save password",
@@ -290,10 +301,12 @@ export const uiMessages = {
     resendIn: "Resend code in {seconds}s",
     codeResent: "We sent a new code.",
     useDifferentEmail: "Use a different email",
+    useDifferentPhone: "Use a different number",
     /** The links that switch how to sign in. */
     usePassword: "Sign in with a password",
     useMagicLink: "Email me a link instead",
     useCode: "Email me a code instead",
+    usePhoneCode: "Text me a code instead",
     forgotPassword: "Forgot password?",
     noAccount: "No account yet?",
     createAccount: "Create one",
@@ -331,6 +344,10 @@ export const uiMessages = {
       passwordTooShort: "Use at least {min} characters.",
       passwordMismatch: "The passwords don't match.",
       codeRequired: "Enter the {length}-digit code.",
+      phoneRequired: "Enter your phone number.",
+      phoneInvalid: "Enter the number with its country code, like +1 555 123 4567.",
+      /** A required `signUpFields` field left empty. `{label}`: its label. */
+      fieldRequired: "{label} is required.",
       /**
        * Supabase Auth error codes, in fixed copy. Anything unlisted gets `generic` (the server's own
        * text goes to `reportError`, never on screen), unless the client marks its message displayable.
@@ -345,6 +362,9 @@ export const uiMessages = {
       otp_expired: "That code has expired or is wrong. Ask for a new one.",
       otp_disabled: "Email codes aren't turned on for this app.",
       over_email_send_rate_limit: "Too many emails. Wait a minute and try again.",
+      over_sms_send_rate_limit: "Too many texts. Wait a minute and try again.",
+      sms_send_failed: "We couldn't text that number. Check it and try again.",
+      phone_exists: "That number already has an account. Sign in instead.",
       over_request_rate_limit: "Too many tries. Wait a minute and try again.",
       provider_disabled: "That sign-in option isn't turned on.",
       session_not_found: "Your reset link has expired. Ask for a new one.",

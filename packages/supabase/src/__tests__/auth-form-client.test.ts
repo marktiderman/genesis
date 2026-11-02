@@ -50,6 +50,83 @@ describe("createAuthFormClient", () => {
     expect(supabase.auth.signInWithOAuth).toHaveBeenCalledWith({ provider: "google", options: { redirectTo: "https://acme.test/auth/callback" } });
   });
 
+  it("sends providers where providerRedirectTo says, with providerQueryParams, per provider", async () => {
+    const supabase = fakeSupabase();
+    const client = createAuthFormClient(supabase, {
+      redirectTo: "https://acme.test/auth/callback",
+      providerRedirectTo: (provider) => (provider === "apple" ? "https://acme.test/auth/apple" : undefined),
+      providerQueryParams: (provider) => (provider === "google" ? { access_type: "offline", prompt: "consent" } : undefined),
+    });
+    await client.signInWithProvider("google");
+    expect(supabase.auth.signInWithOAuth).toHaveBeenLastCalledWith({
+      provider: "google",
+      options: { redirectTo: "https://acme.test/auth/callback", queryParams: { access_type: "offline", prompt: "consent" } },
+    });
+    await client.signInWithProvider("apple");
+    expect(supabase.auth.signInWithOAuth).toHaveBeenLastCalledWith({ provider: "apple", options: { redirectTo: "https://acme.test/auth/apple" } });
+
+    const fixed = createAuthFormClient(supabase, { providerRedirectTo: "https://acme.test/oauth", providerQueryParams: { hd: "acme.test" } });
+    await fixed.signInWithProvider("google");
+    expect(supabase.auth.signInWithOAuth).toHaveBeenLastCalledWith({
+      provider: "google",
+      options: { redirectTo: "https://acme.test/oauth", queryParams: { hd: "acme.test" } },
+    });
+    // providerRedirectTo leaves the emailed links on redirectTo.
+    const both = createAuthFormClient(supabase, { redirectTo: "https://acme.test/auth/callback", providerRedirectTo: "https://acme.test/oauth" });
+    await both.sendMagicLink({ email: "a@acme.test", createUser: true });
+    expect(supabase.auth.signInWithOtp).toHaveBeenLastCalledWith({
+      email: "a@acme.test",
+      options: { shouldCreateUser: true, emailRedirectTo: "https://acme.test/auth/callback" },
+    });
+  });
+
+  it("sends the emailed links to emailRedirectTo, the reset link too unless resetRedirectTo says otherwise", async () => {
+    const supabase = fakeSupabase();
+    const client = createAuthFormClient(supabase, { redirectTo: "https://acme.test/auth/callback", emailRedirectTo: "https://acme.test/auth/confirm" });
+    await client.signUp({ email: "a@acme.test", password: "longenough" });
+    expect(supabase.auth.signUp).toHaveBeenLastCalledWith({
+      email: "a@acme.test",
+      password: "longenough",
+      options: { emailRedirectTo: "https://acme.test/auth/confirm" },
+    });
+    await client.sendPasswordReset({ email: "a@acme.test" });
+    expect(supabase.auth.resetPasswordForEmail).toHaveBeenLastCalledWith("a@acme.test", { redirectTo: "https://acme.test/auth/confirm" });
+    await client.signInWithProvider("google");
+    expect(supabase.auth.signInWithOAuth).toHaveBeenLastCalledWith({ provider: "google", options: { redirectTo: "https://acme.test/auth/callback" } });
+  });
+
+  it("passes sign-up's data as the user's metadata", async () => {
+    const supabase = fakeSupabase();
+    const client = createAuthFormClient(supabase, { redirectTo: "https://acme.test/auth/callback" });
+    await client.signUp({ email: "a@acme.test", password: "longenough", data: { full_name: "Sam Lee" } });
+    expect(supabase.auth.signUp).toHaveBeenLastCalledWith({
+      email: "a@acme.test",
+      password: "longenough",
+      options: { emailRedirectTo: "https://acme.test/auth/callback", data: { full_name: "Sam Lee" } },
+    });
+  });
+
+  it("sends and checks a code by text message", async () => {
+    const supabase = fakeSupabase();
+    const client = createAuthFormClient(supabase, { redirectTo: "https://acme.test/auth/callback" });
+    expect(await client.sendPhoneCode({ phone: "+15551234567", createUser: false })).toEqual({});
+    expect(supabase.auth.signInWithOtp).toHaveBeenLastCalledWith({ phone: "+15551234567", options: { shouldCreateUser: false } });
+    expect(await client.verifyPhoneCode({ phone: "+15551234567", code: "123456" })).toEqual({});
+    expect(supabase.auth.verifyOtp).toHaveBeenLastCalledWith({ phone: "+15551234567", token: "123456", type: "sms" });
+  });
+
+  it("reads the signed-in email from the session, when the client has getSession", async () => {
+    expect(createAuthFormClient(fakeSupabase()).currentEmail).toBeUndefined();
+    const withSession = fakeSupabase({
+      getSession: vi.fn(() => Promise.resolve({ data: { session: { user: { email: "a@acme.test" } } }, error: null })),
+    });
+    expect(await createAuthFormClient(withSession).currentEmail?.()).toBe("a@acme.test");
+    const noSession = fakeSupabase({ getSession: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })) });
+    expect(await createAuthFormClient(noSession).currentEmail?.()).toBeNull();
+    const throwing = fakeSupabase({ getSession: vi.fn(() => Promise.reject(new Error("storage"))) });
+    expect(await createAuthFormClient(throwing).currentEmail?.()).toBeNull();
+  });
+
   it("says when a sign-up waits for its email to be confirmed", async () => {
     const supabase = fakeSupabase({ signUp: vi.fn(() => Promise.resolve({ data: { user: { id: "u" }, session: null }, error: null })) });
     const client = createAuthFormClient(supabase);

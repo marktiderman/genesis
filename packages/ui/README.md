@@ -87,7 +87,23 @@ function SignInPage({ client }: { client: AuthFormClient }) {
 - **Modes**: `"sign-in"`, `"sign-up"`, `"forgot-password"`, `"new-password"`; controlled
   (`mode`, `onModeChange`: a route per mode) or not (`defaultMode`).
 - **`methods`**: how to sign in, the first shown and the rest offered as links
-  (`"password"`, `"magic-link"`, `"email-code"`).
+  (`"password"`, `"magic-link"`, `"email-code"`, `"phone-code"`).
+- **`"phone-code"`** (opt-in, through `methods`): a phone number field (`type="tel"`,
+  `autocomplete="tel"`) instead of the email, a code texted to it (`client.sendPhoneCode`), and
+  the same code step (`client.verifyPhoneCode`). The number must carry its country code; spaces,
+  dashes and brackets are dropped (`+1 (555) 123-4567` → `+15551234567`). A client without both
+  calls leaves the method out (in development it says so). Without sign-up, an unknown number is
+  answered as sent, as for email.
+- **`signUpFields`** (opt-in): more fields on the sign-up form, whose values go to
+  `client.signUp` as `data` (on Supabase, the user's metadata, which a signup trigger reads).
+  `["full_name"]` adds a required "Full name" (`autocomplete="name"`); your own are
+  `{ name, label, type?, autoComplete?, placeholder?, required? }`. A function is a slot:
+  `({ values, setValue, disabled }) => …` draws its own inputs. Empty optional values are left out.
+- **The email beside a new password**: in `mode="new-password"`, when the email is known
+  (`initialEmail`, else `client.currentEmail()`, which genesis-supabase reads from the session),
+  the form holds it in a hidden `autocomplete="username"` field, so a password manager saves the
+  new password with its account. Nothing changes on screen; `showAccountEmail` (opt-in) shows it
+  read-only instead.
 - **The code step** is `InputOTP` (`autocomplete="one-time-code"`): it verifies on the last digit,
   and resends after `resendCooldown` seconds (60).
 - **`codeLength` must match the project's `otp_length`** (Supabase Auth settings, "Email OTP

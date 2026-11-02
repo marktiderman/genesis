@@ -29,8 +29,12 @@ import { cn } from "../../utils";
 /** What the form is for. Each mode's headline is `useUiMessages().auth.titles[mode]`. */
 export type AuthFormMode = "sign-in" | "sign-up" | "forgot-password" | "new-password";
 
-/** How someone signs in with their email in `"sign-in"` mode. */
-export type AuthSignInMethod = "password" | "magic-link" | "email-code";
+/**
+ * How someone signs in in `"sign-in"` mode: with their email (a password, a link or a code), or
+ * with a code texted to their phone (`"phone-code"`, which needs the client's `sendPhoneCode` and
+ * `verifyPhoneCode`).
+ */
+export type AuthSignInMethod = "password" | "magic-link" | "email-code" | "phone-code";
 
 /**
  * Why a call failed. `code` is Supabase Auth's error code (`invalid_credentials`,
@@ -68,7 +72,8 @@ export interface AuthFormClient {
   sendMagicLink(input: { email: string; createUser: boolean }): Promise<AuthFormResult>;
   sendEmailCode(input: { email: string; createUser: boolean }): Promise<AuthFormResult>;
   verifyEmailCode(input: { email: string; code: string }): Promise<AuthFormResult>;
-  signUp(input: { email: string; password: string }): Promise<AuthFormResult>;
+  /** `data`: what `signUpFields` collected (the new user's metadata), present only when there are any. */
+  signUp(input: { email: string; password: string; data?: Record<string, string> }): Promise<AuthFormResult>;
   sendPasswordReset(input: { email: string }): Promise<AuthFormResult>;
   /**
    * Needs a session: the one a reset link opens. Show `mode="new-password"` only after the
@@ -79,7 +84,44 @@ export interface AuthFormClient {
   signInWithProvider(provider: string): Promise<AuthFormResult>;
   /** The provider ids turned on (`"google"`, `"apple"`…), when the form isn't given a list. */
   providers?(): Promise<string[]>;
+  /** For the `"phone-code"` method: text a code to `phone` (E.164, `+15551234567`). `createUser` as for `sendEmailCode`. */
+  sendPhoneCode?(input: { phone: string; createUser: boolean }): Promise<AuthFormResult>;
+  /** For the `"phone-code"` method: check the texted code. */
+  verifyPhoneCode?(input: { phone: string; code: string }): Promise<AuthFormResult>;
+  /**
+   * The signed-in person's email, for `mode="new-password"`: the form puts it beside the new
+   * password (`autocomplete="username"`) so a password manager saves the pair. Null when unknown.
+   */
+  currentEmail?(): Promise<string | null | undefined>;
 }
+
+/**
+ * A field on the sign-up form, beyond email and password. Its value goes to `signUp` as
+ * `data[name]` (with Supabase: the user's metadata, which a signup trigger reads).
+ */
+export interface AuthFormSignUpField {
+  /** The key in `data`: `"full_name"`, say. */
+  name: string;
+  label: string;
+  /** Default `"text"`. */
+  type?: "text" | "tel" | "url";
+  /** Default `"off"`; `"name"` for a full name, `"organization"`, `"tel"`… */
+  autoComplete?: string;
+  placeholder?: string;
+  /** The form asks for it before calling. Default false; an empty optional field is left out of `data`. */
+  required?: boolean;
+}
+
+/** What a `signUpFields` slot gets: the values that go to `signUp` as `data`, and a setter. */
+export interface AuthFormSignUpFieldsSlot {
+  values: Readonly<Record<string, string>>;
+  setValue: (name: string, value: string) => void;
+  /** True while a call is open. */
+  disabled: boolean;
+}
+
+/** Named sign-up fields: `"full_name"` (labelled `auth.fullName`, `autocomplete="name"`, required) or your own. */
+export type AuthFormSignUpFieldSpec = "full_name" | AuthFormSignUpField;
 
 /** A provider button. A plain id is enough for a known provider: the label is "Continue with Google". */
 export interface AuthFormProvider {
@@ -111,6 +153,8 @@ export interface AuthFormSuccess {
   /** In `"sign-in"` mode: how. */
   method?: AuthSignInMethod;
   email?: string;
+  /** With `"phone-code"`: the number signed in with. */
+  phone?: string;
 }
 
 export interface AuthFormProps {
@@ -138,7 +182,7 @@ export interface AuthFormProps {
   allowPasswordReset?: boolean;
   /** Signed in, signed up with a session, or a new password saved. Navigate from here. */
   onSuccess?: (result: AuthFormSuccess) => void;
-  /** Initial email ("sign in as …" links). */
+  /** Initial email ("sign in as …" links). In `mode="new-password"`, the account's email, when the client can't say (`currentEmail`). */
   initialEmail?: string;
   /**
    * Digits in an emailed code. Default 6 (Supabase's default). It must match the project's
@@ -165,8 +209,22 @@ export interface AuthFormProps {
    * Link and Confirm signup email templates. Default false.
    */
   offerCodeOnConfirm?: boolean;
+  /**
+   * Opt-in: more fields on the sign-up form, above the email, whose values go to `client.signUp`
+   * as `data` (with Supabase, `options.data`: the user's metadata, which an app's signup trigger
+   * reads as `full_name`, say). Named fields (`["full_name"]`, or your own), or a slot that draws
+   * its own inputs and sets the values. Default none, and `signUp` gets no `data`.
+   */
+  signUpFields?: ReadonlyArray<AuthFormSignUpFieldSpec> | ((slot: AuthFormSignUpFieldsSlot) => React.ReactNode);
+  /**
+   * Opt-in: in `mode="new-password"`, show the account's email read-only above the new password.
+   * Without it the email (when known, from `initialEmail` or `client.currentEmail()`) is still in
+   * the form, hidden, with `autocomplete="username"`, so a password manager saves the pair.
+   * Default false.
+   */
+  showAccountEmail?: boolean;
   className?: string;
-  /** Default `"auth-form"`; parts use `${testID}-email`, `-password`, `-submit`, `-error`, `-status`, `-notice`, `-code`, `-resend`, `-enter-code`, `-provider-<id>`. */
+  /** Default `"auth-form"`; parts use `${testID}-email`, `-phone`, `-password`, `-submit`, `-error`, `-status`, `-notice`, `-code`, `-resend`, `-enter-code`, `-provider-<id>`, `-field-<name>`, `-account-email`. */
   testID?: string;
 }
 
@@ -195,7 +253,7 @@ export const AUTH_PROVIDER_NAMES: Readonly<Record<string, string>> = {
 
 type Step = "form" | "code" | "sent";
 type Sent = "magic-link" | "reset" | "confirm";
-type Field = "email" | "password" | "confirm" | "code";
+type Field = "email" | "phone" | "password" | "confirm" | "code" | `field-${string}`;
 type AuthMessages = UiMessages["auth"];
 
 /**
@@ -210,6 +268,12 @@ function isPlausibleEmail(value: string): boolean {
   const domain = value.slice(at + 1);
   const dot = domain.indexOf(".");
   return dot > 0 && !domain.endsWith(".");
+}
+
+/** A number as Auth takes it (E.164): spaces, dots, dashes and brackets dropped; null when it isn't `+` and 7 to 15 digits. */
+function normalizedPhone(value: string): string | null {
+  const compact = value.replace(/[\s().-]/g, "");
+  return /^\+[1-9]\d{6,14}$/.test(compact) ? compact : null;
 }
 
 /** The catalogue's copy for a code, if it has one. */
@@ -227,6 +291,7 @@ function errorField(code: string | undefined): Field | undefined {
   if (!code) return undefined;
   if (code === "weak_password" || code === "same_password") return "password";
   if (code.startsWith("email_") || code === "user_already_exists") return "email";
+  if (code.startsWith("phone_") || code === "sms_send_failed") return "phone";
   if (code === "otp_expired") return "code";
   return undefined;
 }
@@ -248,7 +313,7 @@ export function AuthForm({
   mode: controlledMode,
   defaultMode = "sign-in",
   onModeChange,
-  methods = DEFAULT_METHODS,
+  methods: givenMethods = DEFAULT_METHODS,
   providers: givenProviders,
   allowSignUp = true,
   allowPasswordReset = true,
@@ -259,17 +324,32 @@ export function AuthForm({
   minPasswordLength = 8,
   notice,
   offerCodeOnConfirm = false,
+  signUpFields,
+  showAccountEmail = false,
   className,
   testID = "auth-form",
 }: AuthFormProps) {
   const m = useUiMessages().auth;
   const id = React.useId();
+  const phoneReady = typeof client.sendPhoneCode === "function" && typeof client.verifyPhoneCode === "function";
+  const methods = React.useMemo(
+    () => (phoneReady ? givenMethods : givenMethods.filter((x) => x !== "phone-code")),
+    [givenMethods, phoneReady],
+  );
+  const phoneMissing = !phoneReady && givenMethods.includes("phone-code");
+  React.useEffect(() => {
+    if (!phoneMissing || !isDevelopment()) return;
+    // genesis-allow-console: a development-only hint for the developer, never shown to the person.
+    console.warn('AuthForm: "phone-code" needs the client\'s sendPhoneCode and verifyPhoneCode; it is left out.');
+  }, [phoneMissing]);
   const [ownMode, setOwnMode] = React.useState<AuthFormMode>(defaultMode);
   const mode = controlledMode ?? ownMode;
   const [method, setMethod] = React.useState<AuthSignInMethod>(methods[0] ?? "password");
   const [step, setStep] = React.useState<Step>("form");
   const [sent, setSent] = React.useState<Sent>("magic-link");
   const [email, setEmail] = React.useState(initialEmail);
+  const [phone, setPhone] = React.useState("");
+  const [extra, setExtra] = React.useState<Record<string, string>>({});
   const [password, setPassword] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
   const [code, setCode] = React.useState("");
@@ -282,6 +362,10 @@ export function AuthForm({
   const cooldown = useCooldown();
   const hydrated = useHydrated();
   const codeOnConfirm = offerCodeOnConfirm && methods.includes("email-code");
+  const accountEmail = useAccountEmail(client, mode, initialEmail);
+  /** The code step is for a texted code: sign-in with `"phone-code"`. */
+  const byPhone = mode === "sign-in" && method === "phone-code";
+  const namedFields = Array.isArray(signUpFields) ? signUpFields.map((f) => signUpField(f, m)) : [];
 
   // A controlled mode change from outside (a route) starts that mode fresh.
   const shownMode = React.useRef(mode);
@@ -349,6 +433,26 @@ export function AuthForm({
     return problem ? null : value;
   };
 
+  /** The number in E.164, or null after showing why it won't do. */
+  const checkedPhone = (): string | null => {
+    const value = phone.trim();
+    const normal = value ? normalizedPhone(value) : null;
+    if (!normal) fail("phone", value ? m.errors.phoneInvalid : m.errors.phoneRequired);
+    return normal;
+  };
+
+  /** What `signUpFields` collected, trimmed, empty ones left out; null after showing which required one is empty. */
+  const signUpData = (): Record<string, string> | null => {
+    const data: Record<string, string> = {};
+    for (const [name, value] of Object.entries(extra)) if (value.trim()) data[name] = value.trim();
+    const missing = namedFields.find((f) => f.required && !data[f.name]);
+    if (missing) {
+      fail(`field-${missing.name}`, fillMessage(m.errors.fieldRequired, { label: missing.label }));
+      return null;
+    }
+    return data;
+  };
+
   const checkNewPassword = (): boolean => {
     const problem = !password
       ? m.errors.passwordRequired
@@ -371,14 +475,21 @@ export function AuthForm({
       // email is ever sent. Say so to the developer; never to the person signing in.
       // genesis-allow-console: a development-only hint for the developer, never shown to the person.
       console.warn(
-        "AuthForm: Auth answered otp_disabled, shown as sent. If no email arrives, check that email OTP is on in the project's Auth settings.",
+        "AuthForm: Auth answered otp_disabled, shown as sent. If nothing arrives, check that email OTP (or, for a texted code, a phone provider) is on in the project's Auth settings.",
       );
     }
     return {};
   };
 
+  /** Sends a code: texted, with `"phone-code"`, else emailed. */
   const sendCode = async (address: string) => {
-    const result = await run(() => sentEvenIfUnknown(client.sendEmailCode({ email: address, createUser: allowSignUp })));
+    const result = await run(() =>
+      sentEvenIfUnknown(
+        byPhone && client.sendPhoneCode
+          ? client.sendPhoneCode({ phone: address, createUser: allowSignUp })
+          : client.sendEmailCode({ email: address, createUser: allowSignUp }),
+      ),
+    );
     if (!result) return false;
     cooldown.start(resendCooldown);
     return true;
@@ -398,6 +509,18 @@ export function AuthForm({
       return;
     }
     if (step === "code") return verify(code);
+    if (byPhone) {
+      const number = checkedPhone();
+      if (!number) return;
+      setPhone(number);
+      if (await sendCode(number)) {
+        setCode("");
+        setStep("code");
+      }
+      return;
+    }
+    const data = mode === "sign-up" && signUpFields ? signUpData() : {};
+    if (!data) return;
     const address = checkedEmail();
     if (!address) return;
     if (mode === "forgot-password") {
@@ -409,7 +532,7 @@ export function AuthForm({
     }
     if (mode === "sign-up") {
       if (!checkNewPassword()) return;
-      const result = await run(() => client.signUp({ email: address, password }));
+      const result = await run(() => client.signUp({ email: address, password, ...(Object.keys(data).length ? { data } : {}) }));
       if (!result) return;
       if (result.confirmEmail) {
         if (codeOnConfirm) cooldown.start(resendCooldown);
@@ -444,12 +567,15 @@ export function AuthForm({
     if (value.length !== codeLength) return fail("code", fillMessage(m.errors.codeRequired, { length: codeLength }));
     let rejected = false;
     const result = await run(async () => {
-      const r = await client.verifyEmailCode({ email: email.trim(), code: value });
+      const r =
+        byPhone && client.verifyPhoneCode
+          ? await client.verifyPhoneCode({ phone, code: value })
+          : await client.verifyEmailCode({ email: email.trim(), code: value });
       rejected = r.error?.code === "otp_expired";
       return r;
     });
     if (result) {
-      onSuccess?.({ mode, method: "email-code", email: email.trim() });
+      onSuccess?.(byPhone ? { mode, method: "phone-code", phone } : { mode, method: "email-code", email: email.trim() });
       return;
     }
     setCode("");
@@ -472,7 +598,7 @@ export function AuthForm({
 
   const resend = async () => {
     if (cooldown.left > 0) return;
-    if (await sendCode(email.trim())) setStatus(m.codeResent);
+    if (await sendCode(byPhone ? phone : email.trim())) setStatus(m.codeResent);
   };
 
   const startOver = () => {
@@ -598,12 +724,89 @@ export function AuthForm({
                 </InputOTPGroup>
               </InputOTP>
               <p id={`${id}-code-hint`} className="text-center text-sm text-muted-foreground">
-                {fillMessage(allowSignUp ? m.codeSent : m.codeSentIfAccount, { length: codeLength, email: email.trim() })}
+                {byPhone
+                  ? fillMessage(allowSignUp ? m.phoneCodeSent : m.phoneCodeSentIfAccount, { length: codeLength, phone })
+                  : fillMessage(allowSignUp ? m.codeSent : m.codeSentIfAccount, { length: codeLength, email: email.trim() })}
               </p>
             </div>
           ) : (
             <>
-              {mode !== "new-password" ? (
+              {mode === "sign-up" && typeof signUpFields === "function"
+                ? signUpFields({ values: extra, setValue: (name, value) => setExtra((v) => ({ ...v, [name]: value })), disabled: busy })
+                : null}
+              {mode === "sign-up"
+                ? namedFields.map((f) => (
+                    <div key={f.name} className="flex flex-col gap-2">
+                      <Label htmlFor={`${id}-field-${f.name}`}>{f.label}</Label>
+                      <Input
+                        id={`${id}-field-${f.name}`}
+                        data-testid={`${testID}-field-${f.name}`}
+                        type={f.type ?? "text"}
+                        name={f.name}
+                        autoComplete={f.autoComplete ?? "off"}
+                        {...(f.placeholder ? { placeholder: f.placeholder } : {})}
+                        value={extra[f.name] ?? ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setExtra((v) => ({ ...v, [f.name]: value }));
+                        }}
+                        disabled={busy}
+                        required={f.required ?? false}
+                        {...fieldProps(`field-${f.name}`)}
+                      />
+                    </div>
+                  ))
+                : null}
+              {mode === "new-password" && accountEmail ? (
+                showAccountEmail ? (
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor={`${id}-account-email`}>{m.email}</Label>
+                    <Input
+                      id={`${id}-account-email`}
+                      data-testid={`${testID}-account-email`}
+                      type="email"
+                      name="email"
+                      autoComplete="username"
+                      value={accountEmail}
+                      readOnly
+                    />
+                  </div>
+                ) : (
+                  // Hidden, for the password manager: the account the new password belongs to.
+                  <input
+                    data-testid={`${testID}-account-email`}
+                    type="email"
+                    name="email"
+                    autoComplete="username"
+                    value={accountEmail}
+                    readOnly
+                    hidden
+                  />
+                )
+              ) : null}
+              {byPhone ? (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor={`${id}-phone`}>{m.phone}</Label>
+                  <Input
+                    id={`${id}-phone`}
+                    data-testid={`${testID}-phone`}
+                    type="tel"
+                    name="phone"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    placeholder={m.phonePlaceholder}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={busy}
+                    required
+                    {...fieldProps("phone", `${id}-phone-hint`)}
+                  />
+                  <p id={`${id}-phone-hint`} className="text-sm text-muted-foreground">
+                    {m.phoneHint}
+                  </p>
+                </div>
+              ) : null}
+              {mode !== "new-password" && !byPhone ? (
                 <div className="flex flex-col gap-2">
                   <Label htmlFor={`${id}-email`}>{m.email}</Label>
                   <Input
@@ -718,7 +921,7 @@ export function AuthForm({
                 {cooldown.left > 0 ? fillMessage(m.resendIn, { seconds: cooldown.left }) : m.resendCode}
               </Button>
               <Button type="button" variant="link" testID={`${testID}-start-over`} onClick={startOver}>
-                {m.useDifferentEmail}
+                {byPhone ? m.useDifferentPhone : m.useDifferentEmail}
               </Button>
             </div>
           ) : (
@@ -776,7 +979,7 @@ function submitLabel(mode: AuthFormMode, step: Step, method: AuthSignInMethod, m
   if (mode === "sign-up") return m.signUp;
   if (mode === "forgot-password") return m.sendReset;
   if (mode === "new-password") return m.savePassword;
-  return method === "magic-link" ? m.sendMagicLink : method === "email-code" ? m.sendCode : m.signIn;
+  return method === "magic-link" ? m.sendMagicLink : method === "email-code" ? m.sendCode : method === "phone-code" ? m.sendPhoneCode : m.signIn;
 }
 
 function FormLinks({
@@ -800,7 +1003,7 @@ function FormLinks({
 }) {
   if (mode === "new-password") return null;
   const others = mode === "sign-in" ? methods.filter((x) => x !== method) : [];
-  const methodLabel = { password: m.usePassword, "magic-link": m.useMagicLink, "email-code": m.useCode };
+  const methodLabel = { password: m.usePassword, "magic-link": m.useMagicLink, "email-code": m.useCode, "phone-code": m.usePhoneCode };
   return (
     <div className="flex flex-col items-center gap-1 text-sm">
       {others.map((x) => (
@@ -862,6 +1065,40 @@ function useProviders(client: AuthFormClient, given: AuthFormProps["providers"])
   if (given === false) return [];
   if (given) return given.map((p) => (typeof p === "string" ? { id: p } : p));
   return found;
+}
+
+/** A named sign-up field, the `"full_name"` preset filled in. */
+function signUpField(spec: AuthFormSignUpFieldSpec, m: AuthMessages): AuthFormSignUpField {
+  if (spec === "full_name") return { name: "full_name", label: m.fullName, autoComplete: "name", required: true };
+  return spec;
+}
+
+/**
+ * In `mode="new-password"`, the account's email: `initialEmail`, else `client.currentEmail()`,
+ * asked once per mount. Empty when neither knows it.
+ */
+function useAccountEmail(client: AuthFormClient, mode: AuthFormMode, given: string): string {
+  const [found, setFound] = React.useState("");
+  const clientRef = React.useRef(client);
+  React.useEffect(() => {
+    clientRef.current = client;
+  });
+  const ask = mode === "new-password" && !given.trim() && typeof client.currentEmail === "function";
+  React.useEffect(() => {
+    if (!ask) return;
+    let live = true;
+    const lookup = clientRef.current.currentEmail;
+    if (!lookup) return;
+    lookup.call(clientRef.current).then(
+      (value) => live && setFound(value?.trim() ?? ""),
+      (e: unknown) => reportError(e, { source: "ui:auth-form", tags: { step: "current-email" } }),
+    );
+    return () => {
+      live = false;
+    };
+  }, [ask]);
+  if (mode !== "new-password") return "";
+  return given.trim() || found;
 }
 
 /** Seconds left before the next send, ticking once a second while it counts. */
