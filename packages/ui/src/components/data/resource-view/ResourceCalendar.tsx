@@ -113,6 +113,28 @@ function durationOf(value: unknown): number | null {
   return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/** The latest instant a Date holds (ECMAScript's limit, about the year 275760). */
+const MAX_TIME = 8.64e15;
+
+/**
+ * A row's end from its start and a duration in ms: the last day (inclusive) for a date or an
+ * all-day row, the end instant for a timed one; null when it can't be represented.
+ */
+function durationEnd(start: Day | Date, startDay: Day, allDay: boolean, ms: number): Day | Date | null {
+  if (!Number.isFinite(ms)) return null;
+  if (typeof start === "string" || allDay) {
+    const days = Math.max(1, Math.ceil(ms / UNIT_MS.days));
+    if (!Number.isSafeInteger(days) || days * UNIT_MS.days > MAX_TIME) return null;
+    try {
+      return addDays(startDay, days - 1);
+    } catch {
+      return null;
+    }
+  }
+  const end = start.getTime() + ms;
+  return Number.isFinite(end) && Math.abs(end) <= MAX_TIME ? new Date(end) : null;
+}
+
 /** The clock a field's cells use (display.tsx): its own zone, the scope's, the viewer's, the device's. */
 function displayZone(own: string | undefined, viewer: string | undefined, scope: string | undefined): string {
   if (own && own !== "viewer" && own !== "scope" && isTimeZone(own)) return own;
@@ -259,16 +281,13 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
         const ownEnd = endField ? readEventTime(row[endField], { dateOnly: endStorage === "date", timeZone: zone }) : null;
         const allDay = allDayField ? Boolean(row[allDayField]) : typeof start === "string";
         const startDay = typeof start === "string" ? start : dayIn(zone, start);
-        // No end of its own: the start plus its duration. A timestamp ends that long after it
-        // starts (exclusive, like a stored end); a date runs that many days, so its last day is
-        // the one before (two days from the 3rd end on the 4th), and never before its first.
+        // No end of its own: the start plus its duration. A timed row ends that long after it
+        // starts (exclusive, like a stored end); a date or an all-day row runs that many days
+        // from its start day, so its last day is the one before (two days from the 3rd end on
+        // the 4th), and never before its first. An end that can't be represented (a typo of
+        // 1e308 days) leaves the row on its start alone, never breaking the calendar.
         const length = ownEnd === null && durationField ? durationOf(row[durationField]) : null;
-        const rowEnd =
-          length === null
-            ? ownEnd
-            : typeof start === "string"
-              ? addDays(start, Math.max(1, Math.ceil((length * UNIT_MS[durationUnit]) / UNIT_MS.days)) - 1)
-              : new Date(start.getTime() + length * UNIT_MS[durationUnit]);
+        const rowEnd = length === null ? ownEnd : durationEnd(start, startDay, allDay, length * UNIT_MS[durationUnit]);
         // An all-day row stored as instants runs to an exclusive end: its last day is the one
         // before the end instant, and never before its first.
         const lastDay = (v: Day | Date) => {

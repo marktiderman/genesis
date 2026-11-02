@@ -153,6 +153,34 @@ describe("ResourceForm from a view", () => {
     expect(own.find((f) => f.key === "status")).toMatchObject({ type: "select", defaultValue: "done" });
   });
 
+  it("never lets the page's URL replace a value the filter fixes; other fields still prefill", async () => {
+    const { Wrapper, provider } = setup();
+    window.history.replaceState({}, "", "/?status=done&title=From%20the%20URL");
+    try {
+      render(<ResourceForm view={tasksView} action="create" open onOpenChange={() => {}} filter={{ status: "open" }} />, { wrapper: Wrapper });
+      const form = await screen.findByRole("dialog");
+      expect((within(form).getByLabelText(/Title/) as HTMLInputElement).value).toBe("From the URL");
+      fireEvent.click(picker(form, "Stage"));
+      fireEvent.click(await within(await screen.findByRole("listbox")).findByText("Lead"));
+      await waitFor(() => expect(picker(form, "Stage").textContent).toContain("Lead"));
+      fireEvent.click(within(form).getByRole("button", { name: "Add task" }));
+      await waitFor(() => expect(provider.create).toHaveBeenCalled());
+      expect((provider.create as ReturnType<typeof vi.fn>).mock.calls[0]![1].data).toMatchObject({ title: "From the URL", status: "open" });
+    } finally {
+      window.history.replaceState({}, "", "/");
+    }
+  });
+
+  it("keeps a view's empty form empty, never one input per column of the row it edits", async () => {
+    const { Wrapper } = setup();
+    const nothing = defineView(tasks, { form: [] });
+    const item = { id: "t1", org_id: "o1", title: "Write", status: "open", stage_id: "s-lead", reviewer_id: null };
+    render(<ResourceForm view={nothing} action="edit" item={item} open onOpenChange={() => {}} />, { wrapper: Wrapper });
+    const form = await screen.findByRole("dialog");
+    expect(within(form).queryByRole("textbox")).toBeNull();
+    expect(within(form).queryByLabelText(/Title/)).toBeNull();
+  });
+
   it("needs a resource or a view", () => {
     const { Wrapper } = setup();
     vi.spyOn(console, "error").mockImplementation(() => {});

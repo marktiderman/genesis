@@ -39,6 +39,12 @@ export interface ResourceFormFieldDef {
   /** Shown read-only when editing, and never sent by an edit (a create still sends it). */
   readOnlyOnEdit?: boolean;
   /**
+   * `false`: a create form never starts this field from the page's URL (`?status=done`), even
+   * with `prefillFromUrl` on. A view's form sets it on a value the screen's `filter` fixes, so a
+   * new row stays in the list it was made from. Unset, the URL may prefill it, as before.
+   */
+  fromUrl?: boolean;
+  /**
    * The column takes null. A left-empty input is then sent as null on an edit and left out of
    * a create (so the column's default applies), text included. `false`: an empty text input keeps
    * sending "" (left out of a create when `hasDefault`), while an empty input of another type is

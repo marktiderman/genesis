@@ -178,6 +178,36 @@ describe("calendar mode: an end from a duration", () => {
     expect(screen.getAllByRole("button", { name: /Open/ })).toHaveLength(1);
   });
 
+  it("leaves a row whose end can't be represented on its start alone, and still draws the rest", async () => {
+    const view = defineView(sessions, { calendar: { field: "starts_at", durationField: "minutes", durationUnit: "days", layout: "weeks", weeks: 2, weekStartsOn: 0 } });
+    const rows: Session[] = [
+      { id: "x", title: "Typo", starts_at: "2026-11-05T17:00:00Z", minutes: 1e308, status: "on" },
+      { id: "y", title: "Fine", starts_at: "2026-11-05T17:00:00Z", minutes: 2, status: "on" },
+    ];
+    render(<ResourceView view={view} mode="calendar" calendar={base} />, { wrapper: wrap(provider(rows)) });
+    // 10am on the 5th for two days: to 10am on the 7th.
+    expect(await screen.findAllByRole("button", { name: /Fine/ })).toHaveLength(3);
+    expect(screen.getAllByRole("button", { name: /Typo/ })).toHaveLength(1);
+  });
+
+  it("runs an all-day row with a timestamp start its duration in days from its start day", async () => {
+    type AllDay = Session & { all_day: boolean };
+    const allDayRes = defineResource<AllDay>()({
+      name: "sessions",
+      key: "id",
+      labelField: "title",
+      fields: [...sessions.fields, { name: "all_day", type: "boolean" }],
+    });
+    const view = defineView(allDayRes, {
+      calendar: { field: "starts_at", durationField: "minutes", durationUnit: "days", allDayField: "all_day", layout: "weeks", weeks: 2, weekStartsOn: 0 },
+    });
+    // Noon in Denver on the 5th, all day, one day long: the 5th only, not into the 6th.
+    const rows = [{ id: "z", title: "Retreat", starts_at: "2026-11-05T19:00:00Z", minutes: 1, status: "on", all_day: true }] as unknown as Session[];
+    render(<ResourceView view={view} mode="calendar" calendar={base} />, { wrapper: wrap(provider(rows)) });
+    const days = (await screen.findAllByRole("button", { name: /Retreat/ })).map((b) => b.closest("[data-day]")!.getAttribute("data-day"));
+    expect(days).toEqual(["2026-11-05"]);
+  });
+
   it("refuses a screen's duration field that isn't a number", () => {
     const view = defineView(sessions, { calendar: { field: "starts_at" } });
     vi.spyOn(console, "error").mockImplementation(() => {});

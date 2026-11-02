@@ -454,6 +454,8 @@ export function ResourceForm(props: ResourceFormProps) {
     id: item ? String(item["id"] ?? "") : undefined,
     initialData: item ?? undefined,
     fields: fieldsProp,
+    // A view's fields are the whole form, even when it leaves none: never one per column of `item`.
+    inferFields: props.fields === undefined && view ? false : undefined,
     listData,
     onSuccess: (data) => {
       onOpenChange(false);

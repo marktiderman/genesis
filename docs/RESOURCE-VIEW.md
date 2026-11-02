@@ -252,7 +252,10 @@ atomic write, say. Both build their fields with `useViewFormFields(view, { filte
 so they can't drift: only what a writer may send, links as pickers, the viewer's scope (and a
 single-value `filter`) filled hidden on create, the view's noun and its `copy.form` words. The
 form's own props win: `fields` replaces the view's fields; `title`, `submitLabel`, `description`
-and `noun` replace its words. `resource` defaults to the view's.
+and `noun` replace its words. `resource` defaults to the view's. The view's fields are the whole
+form, even when it leaves none (the form never makes one input per column of the row it edits),
+and a value the `filter` fixes is never replaced from the page's URL (`?status=done`); other
+fields still prefill from it unless the form's `prefillFromUrl` is false.
 
 ```tsx
 <ResourceForm view={tasksView} action="edit" item={task} open={open} onOpenChange={setOpen} filter={{ project_id }} />

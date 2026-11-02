@@ -151,7 +151,9 @@ export function useViewFormFields(
       .filter((f) => !(f.link && Object.hasOwn(pinned, f.field.name)))
       .map((f) => {
         const def = formField(f, editable.has(f.field.name), scope, lists.get(f.field.name));
-        return Object.hasOwn(starts, def.key) ? { ...def, defaultValue: starts[def.key] } : def;
+        // A value the filter fixes is the list's: the page's URL never replaces it.
+        const fixed = Object.hasOwn(pinned, def.key) ? { fromUrl: false } : {};
+        return Object.hasOwn(starts, def.key) ? { ...def, ...fixed, defaultValue: starts[def.key] } : def;
       });
     // They fill the fields the form doesn't show too (the client a session belongs to): hidden,
     // and never sent on edit.

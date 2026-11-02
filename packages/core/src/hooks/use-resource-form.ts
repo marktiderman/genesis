@@ -38,6 +38,12 @@ export interface UseResourceFormOptions extends MutationModeOptions {
   id?: string;
   initialData?: Record<string, unknown>;
   fields?: ResourceFormFieldDef[];
+  /**
+   * Infer fields from the row's keys when `fields` is empty (or unset). Default true, as before.
+   * False: `fields` is the whole form even when empty, so a description that leaves nothing
+   * writable (a view) never turns into one input per column of the row being edited.
+   */
+  inferFields?: boolean;
   /** Full dataset used to auto-detect select fields from unique values. */
   listData?: Record<string, unknown>[];
   /**
@@ -177,10 +183,11 @@ function resolveFields(
   data: Record<string, unknown> | undefined,
   allData?: Record<string, unknown>[],
   autoPlaceholder = true,
+  infer = true,
 ): ResourceFormFieldDef[] {
   const placeholderFor = (key: string, type: FieldType): string | undefined =>
     autoPlaceholder ? defaultPlaceholder(key, type) : undefined;
-  if (fields && fields.length > 0) {
+  if ((fields && fields.length > 0) || (fields && !infer)) {
     return fields.map((f) => {
       const inferred = f.type ?? (data ? inferFieldType(data[f.key]) : "text");
       return {
@@ -193,7 +200,7 @@ function resolveFields(
     });
   }
 
-  if (!data) return [];
+  if (!data || !infer) return [];
 
   return Object.keys(data)
     .filter((key) => key !== "id" && key !== "created_at" && key !== "updated_at")
@@ -427,8 +434,9 @@ function buildDefaults(
   if (typeof window !== "undefined" && typeof window.location !== "undefined" && typeof window.location.search === "string" && action === "create" && prefillFromUrl !== false) {
     const params = new URLSearchParams(window.location.search);
     for (const field of fields) {
-      // A hidden field is the screen's (its filter or defaults), never the URL's.
-      if (field.hidden || field.type === "hidden") continue;
+      // A hidden field is the screen's (its filter or defaults), never the URL's; so is one
+      // that says so (a value the screen's filter fixes).
+      if (field.hidden || field.type === "hidden" || field.fromUrl === false) continue;
       const val = params.get(field.key);
       if (val != null) {
         defaults[field.key] = field.type === "number" ? Number(val) : val;
@@ -450,6 +458,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     id,
     initialData,
     fields: fieldsProp,
+    inferFields = true,
     listData,
     onSuccess,
     onError,
@@ -498,8 +507,8 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
 
   // Resolve fields
   const resolvedFields = useMemo(
-    () => resolveFields(fieldsProp, formSource, listData, autoPlaceholder),
-    [fieldsProp, formSource, listData, autoPlaceholder],
+    () => resolveFields(fieldsProp, formSource, listData, autoPlaceholder, inferFields),
+    [fieldsProp, formSource, listData, autoPlaceholder, inferFields],
   );
 
   // Build schema
