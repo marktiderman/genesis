@@ -14,6 +14,10 @@
  *    fragments, copy skills a block gained, and report new package migrations
  *    (`genesis migrate` copies them).
  * 4. The doctor, then a summary, or with `--pr` a branch, a commit and a pull request.
+ *
+ * An app whose database files live elsewhere (genesis.config.json `supabase`) plans no
+ * migrations and neither refreshes nor adds files under supabase/: the summary says where to
+ * run genesis upgrade for them. Lock entries under supabase/ are left as they are.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -24,9 +28,10 @@ import { mergeFragment } from "../blocks/agents.js";
 import { catalogBlocks, findBlock, packageDir, packageVersion } from "../blocks/discover.js";
 import { appBlocksSwitchedOff, blockOfSource, switchedOffNote } from "../blocks/starter-features.js";
 import { readApp, readPackageFile, replaceApp, sha256 } from "../blocks/files.js";
-import { starterIdentity } from "../blocks/init-native.js";
+import { APP_FOLDER_PLACEHOLDER, starterIdentity } from "../blocks/init-native.js";
 import { LOCK_FILE, parseSource, readLock, substitute, writeLock } from "../blocks/lock.js";
-import { planMigrations, TESTS_DIR } from "../blocks/migrations.js";
+import { planMigrations, providingMigrations, TESTS_DIR } from "../blocks/migrations.js";
+import { databaseElsewhere, elsewhereNote, isSupabasePath } from "../blocks/database.js";
 import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from "../blocks/owned.js";
 import { localPackageNames } from "../blocks/local.js";
 import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
@@ -203,6 +208,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
 
   // Owned files' base text, from what is installed now (before the upgrade replaces it).
   const lock = readLock(root);
+  const home = databaseElsewhere(root);
   checkSubstitutions(lock.substitutions);
   const bases = new Map<string, string>();
   for (const [file, entry] of Object.entries(lock.files)) {
@@ -283,8 +289,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     try {
       const { manifest } = await findBlock(root, id, { package: entry.package, warnings });
       manifests.push(manifest);
-      for (const row of planMigrations(root, sourceMigrations(root, manifest), { now: new Date(), tests: false, ...(lock.migrations ? { copied: lock.migrations } : {}) }).rows) {
-        if (row.state === "new") newMigrations.push(`${row.package} ${row.file}`);
+      if (!home) {
+        for (const row of planMigrations(root, sourceMigrations(root, manifest), { now: new Date(), tests: false, ...(lock.migrations ? { copied: lock.migrations } : {}), providers: providingMigrations(catalog) }).rows) {
+          if (row.state === "new") newMigrations.push(`${row.package} ${row.file}`);
+        }
       }
       if (manifest.version && manifest.version !== entry.version) lock.blocks[id] = { ...entry, version: manifest.version };
     } catch (err) {
@@ -292,7 +300,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     }
   }
   const refreshed: RefreshOutcome[] = [];
+  // The database's files are the other app's to refresh: entries under supabase/ are left alone.
+  const elsewhereEntries = home ? Object.keys(lock.files).filter(isSupabasePath) : [];
   for (const [file, entry] of Object.entries(lock.files)) {
+    if (home && isSupabasePath(file)) continue;
     if (offManifests.length && blockOfSource(entry.source, offManifests)) continue;
     if (newMigrations.length && file.startsWith(`${TESTS_DIR}/`)) {
       refreshed.push({ path: file, outcome: "deferred", detail: "new package migrations are waiting: run genesis migrate, then genesis upgrade again" });
@@ -309,7 +320,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   }
   for (const manifest of manifests) {
     for (const w of ownedWrites(root, manifest, warnings)) {
-      if (lock.files[w.path]) continue;
+      if (lock.files[w.path] || (home && isSupabasePath(w.path))) continue;
       const outcome = copyOwned(root, lock, { ...w, content: substitute(w.content, lock.substitutions) }, options.dryRun);
       if (outcome === "created") {
         added.push(w.path);
@@ -357,6 +368,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   if (lock.substitutions && Object.keys(lock.substitutions).length) lines.push("", `Templates renamed with genesis.lock.json's substitutions: ${Object.entries(lock.substitutions).map(([a, b]) => `${a} → ${b}`).join(", ")}.`);
   if (switchedOff.length) lines.push("", "Blocks switched off (left out):", "", ...switchedOff.map((s) => `- ${s}`));
   if (newMigrations.length) lines.push("", "New package migrations (run `genesis migrate` to copy them):", "", ...newMigrations.map((m) => `- ${m}`));
+  if (home) {
+    lines.push("", `Database files: ${elsewhereNote(home, "genesis upgrade (then genesis migrate)")}`);
+    if (elsewhereEntries.length) lines.push("", `genesis.lock.json still lists ${elsewhereEntries.length} file${elsewhereEntries.length === 1 ? "" : "s"} under supabase/; they're left alone and can be deleted from the lock (and the folder).`);
+  }
   if (tidiedExcludes) lines.push("", `pnpm pinned the new Genesis versions in \`${tidiedExcludes}\`'s \`minimumReleaseAgeExclude\` (they are younger than \`minimumReleaseAge\`); those entries are now \`'${GENESIS_PATTERN}'\`, which \`pnpm install --frozen-lockfile\` honours. Other entries are as they were.`);
   if (warnings.length) lines.push("", "Warnings:", "", ...warnings.map((w) => `- ${w}`));
   lines.push("", `\`genesis doctor\` ${doctor === "not run" ? "was not run" : doctor} after the upgrade.`);
@@ -371,14 +386,16 @@ const SUBSTITUTION_VALUE = /^[A-Za-z0-9][A-Za-z0-9 .+-]{0,59}$/;
 
 /**
  * The lock's substitutions rename templates, so only the starter's own values
- * (read from the starter this CLI ships) may be replaced, each with a plain name.
+ * (read from the starter this CLI ships) and the app-folder placeholder may be
+ * replaced, each with a plain name.
  */
 function checkSubstitutions(substitutions: Record<string, string> | undefined): void {
   if (!substitutions || !Object.keys(substitutions).length) return;
   let allowed: string[];
   try {
     const was = starterIdentity(readFileSync(path.join(starterDir(), "starter.config.ts"), "utf8"));
-    allowed = [was.name, was.slug, was.scheme, was.bundleId];
+    // And the EAS workflows' app-folder placeholder, which init fills with the app's code folder.
+    allowed = [was.name, was.slug, was.scheme, was.bundleId, APP_FOLDER_PLACEHOLDER];
   } catch {
     allowed = [];
   }

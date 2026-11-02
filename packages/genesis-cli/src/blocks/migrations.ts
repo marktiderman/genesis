@@ -18,7 +18,10 @@
  * and left alone; `--forward` writes one forward migration to carry the change
  * instead, and a later run counts that copy as handled. A copy the app
  * deleted (genesis.lock.json's `migrations` remembers where each one went) is
- * reported the same way and never copied again. Checksums and comparisons
+ * reported the same way and never copied again. A package migration another
+ * declares it provides (`provides` in its manifest: notifications 0001 adopts
+ * the push tables of supabase 0005) is satisfied once that one is in the app,
+ * or comes in the same run, and is never copied. Checksums and comparisons
  * ignore CRLF versus LF.
  */
 import * as path from "node:path";
@@ -89,6 +92,8 @@ export type MigrationState =
   | "differs"
   /** Copied once (genesis.lock.json remembers where), then deleted in the app. Never copied again. */
   | "deleted"
+  /** Not in the app, but another migration that is (or comes in this run) provides its objects. Never copied. */
+  | "provided"
   /** The package's file can't be read (not installed, or removed). */
   | "unavailable";
 
@@ -109,7 +114,7 @@ export interface MigrationRow {
 /** Does this row still need a person? */
 export function needsAttention(row: MigrationRow): boolean {
   // A deleted copy is reported, but deleting it was the app's choice: nothing is waiting on a person.
-  return row.state !== "current" && row.state !== "new" && row.state !== "deleted" && !row.forward;
+  return row.state !== "current" && row.state !== "new" && row.state !== "deleted" && row.state !== "provided" && !row.forward;
 }
 
 export interface SourceMigration extends ManifestMigration {
@@ -117,6 +122,20 @@ export interface SourceMigration extends ManifestMigration {
   /** The package's text, or null when it can't be read. */
   source: string | null;
   testSource?: string | null;
+}
+
+/** A package migration that provides others' objects (its manifest's `provides`). */
+export interface ProvidingMigration {
+  package: string;
+  file: string;
+  provides: { package: string; file: string }[];
+}
+
+/** The migrations among these blocks' that provide others. */
+export function providingMigrations(manifests: readonly { migrations: readonly ManifestMigration[] }[]): ProvidingMigration[] {
+  const out: ProvidingMigration[] = [];
+  for (const m of manifests) for (const mig of m.migrations) if (mig.provides?.length && !out.some((o) => o.package === mig.package && o.file === mig.file)) out.push({ package: mig.package, file: mig.file, provides: mig.provides });
+  return out;
 }
 
 /** `YYYYMMDDHHMMSS`, UTC. */
@@ -172,10 +191,22 @@ export interface MigrationPlan {
 export function planMigrations(
   root: string,
   sources: SourceMigration[],
-  options: { now: Date; forward?: boolean; tests?: boolean; copied?: Readonly<Record<string, string>> } = { now: new Date() },
+  options: { now: Date; forward?: boolean; tests?: boolean; copied?: Readonly<Record<string, string>>; providers?: readonly ProvidingMigration[] } = { now: new Date() },
 ): MigrationPlan {
   const app = readAppMigrations(root);
   const rows: MigrationRow[] = [];
+  // Who provides what: the sources' own declarations and the ones passed in (every known block's).
+  const providers = providingMigrations([{ migrations: sources }]);
+  for (const p of options.providers ?? []) if (!providers.some((o) => o.package === p.package && o.file === p.file)) providers.push(p);
+  /** Where a providing migration is: its copy in the app, where the lock says it went, or this run (a readable source). */
+  const providerAt = (p: ProvidingMigration): string | null => {
+    const stem = stemOrNull(p.file);
+    const copy = app.find((m) => !m.forward && ((m.tracked && m.tracked.package === p.package && m.tracked.file === p.file) || (stem !== null && m.name.replace(/^\d+_/, "") === `${stem}.sql`)));
+    if (copy) return copy.path;
+    const copied = options.copied?.[migrationKey(p.package, p.file)];
+    if (copied) return copied;
+    return sources.some((s) => s.package === p.package && s.file === p.file && s.source !== null) ? "this run" : null;
+  };
   const pending: { row: MigrationRow; src: SourceMigration; kind: "migration" | "forward"; copySha?: string }[] = [];
   const seen = new Set<string>();
   for (const src of sources) {
@@ -204,6 +235,12 @@ export function planMigrations(
       continue;
     }
     if (!copy) {
+      const by = providers.find((p) => p.provides.some((x) => x.package === src.package && x.file === src.file) && providerAt(p) !== null);
+      if (by) {
+        const at = providerAt(by)!;
+        rows.push({ ...base, state: "provided", detail: `${by.package} ${by.file} provides its objects (${at === "this run" ? "copied in this run" : at}); not copied` });
+        continue;
+      }
       const row: MigrationRow = { ...base, state: "new" };
       rows.push(row);
       pending.push({ row, src, kind: "migration" });
@@ -306,7 +343,7 @@ export function validHeaderFile(file: string): boolean {
 
 export function formatMigrationRows(rows: MigrationRow[]): string {
   if (!rows.length) return "No package migrations to compare.";
-  const mark: Record<MigrationState, string> = { current: "=", new: "+", edited: "!", "changed-upstream": "!", differs: "!", deleted: "!", unavailable: "?" };
+  const mark: Record<MigrationState, string> = { current: "=", new: "+", edited: "!", "changed-upstream": "!", differs: "!", deleted: "!", provided: "=", unavailable: "?" };
   return rows
     .map((r) => {
       const where = r.target ? ` → ${r.target}` : r.copy ? ` (${r.copy})` : "";
