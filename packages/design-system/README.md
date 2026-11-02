@@ -14,7 +14,7 @@ pnpm add @marktiderman/genesis-design-system
 | `.` | Everything below. |
 | `./design-systems` | `defineDesignSystem`, the neutral design systems, the registry, the colour engine. |
 | `./fonts` | `FONT_CHOICES`, `SELF_HOSTED_FONTS`, `fontForStack`. No imports, so a build script can bundle it alone. |
-| `./schema/brand`, `./schema/brand.schema.json` | `CanonicalBrand`, `validateBrand`, and the JSON Schema. |
+| `./schema/brand`, `./schema/brand.schema.json` | `CanonicalBrand`, `validateBrand`, `brandContrastProblems`, and the JSON Schema. |
 | `./themes/genesis.css`, `./themes/genesis-tailwind4.css` | The default theme and the Tailwind v4 bridge. |
 | `./tokens`, `./tokens/native`, `./presets/*`, `./theme`, `./providers/native` | Tokens, presets and the theme provider. |
 
@@ -35,6 +35,40 @@ Lengths (`spacing`, `radius`, `typography.fontSize`, `lineHeight`) are rem
 strings, `"0"`, or a fluid size: `clamp(<rem>, <rem> + <n>vw, <rem>)`, with
 nothing else in it and its minimum not above its maximum. Native reads a
 clamp's minimum.
+
+`radius.lg` (else `radius.DEFAULT`) is the brand's `--radius`, and every
+corner scales from it: `rounded-sm` is 0.6×, `md` 0.8×, `lg` 1×, `xl` 1.4×
+(and `xs`, bare `rounded`, `2xl`, `3xl` the same way), on web and in the
+NativeWind preset. `"0"` is square everywhere.
+
+### Contrast
+
+`validateBrand` (from the package entry) also checks contrast, against WCAG
+2.2 AA: the theme role pairs the brand changes (4.5:1 for text, 3:1 for fills,
+the focus ring and status marks; text on a fill only where genesis-ui draws
+`*-foreground` on it), and every `extensions` color against the text drawn on
+it. The Genesis brand reports nothing. A pair under its minimum is a **warning** (`warnings`;
+`ok` stays true), so an existing brand keeps building. Only body text under
+1.5:1 on the page is an error. `brandContrastProblems(brand)` returns the
+same findings as data (pair, colors, ratio, minimum). The
+`./schema/brand` entry's `validateBrand` is the shape check alone, so it stays
+light; pass `{ contrast: brandContrastProblems }` to add the check.
+
+An extension scale is checked against its `foreground` stop when it declares
+one, so say which color you draw on it:
+
+```ts
+extensions: { category: { DEFAULT: "#c2410c", strength: "#d97706", foreground: "#f5ebdc" } }
+```
+
+Without one, a color only warns when neither `text.DEFAULT` nor
+`surface.DEFAULT` reads on it.
+
+Extension colors are utility classes on both platforms, under kebab-case
+names: `tailwindFromBrand` emits `extensions.gameMode` as
+`--color-game-mode` (`bg-game-mode`, `bg-game-mode-solo`), and
+`createGenesisNativewindPreset({ brand })` adds the same classes for
+NativeWind.
 
 ## Design systems
 

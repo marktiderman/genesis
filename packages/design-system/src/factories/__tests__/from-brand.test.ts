@@ -436,13 +436,13 @@ describe("schema additivity", () => {
   it("color-only brand passes validateBrand (today's contract)", async () => {
     // Lazy import so the test stays unaffected by tree-shaking.
     const { validateBrand } = await import("../../schema/brand");
-    expect(validateBrand(arcadeColorOnly)).toEqual({ ok: true, errors: [] });
+    expect(validateBrand(arcadeColorOnly)).toMatchObject({ ok: true, errors: [] });
   });
 
   it("full divergence-axis brand also passes validateBrand", async () => {
     const { validateBrand } = await import("../../schema/brand");
     const result = validateBrand(arcadeFull);
-    expect(result).toEqual({ ok: true, errors: [] });
+    expect(result).toMatchObject({ ok: true, errors: [] });
   });
 
   it("debugBrandPreset surfaces platformOverrides flags", () => {
