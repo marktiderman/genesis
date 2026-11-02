@@ -1,0 +1,101 @@
+packages/calendar/src/window.ts
+  s_6a4659246591cd::t_78f22ab7fb7588 1-14
+packages/calendar/src/__fixtures__/google-410.json
+  s_6a4659246591cd::t_f1cf495bed630e 1-13
+packages/calendar/src/display.ts
+  s_6a4659246591cd::t_f21d89f0574b45 1-46
+packages/calendar/src/__fixtures__/google-full-page-2.json
+  s_6a4659246591cd::t_ce75ee4de059b9 1-22
+packages/calendar/src/zones.ts
+  s_6a4659246591cd::t_0bc190a180c5d5 1-63
+packages/calendar/tsup.config.ts
+  s_6a4659246591cd::t_0c7e5f58d86052 1-19
+packages/calendar/src/marks.ts
+  s_6a4659246591cd::t_e9c1450f4584e5 1-56
+packages/calendar/src/write.ts
+  s_6a4659246591cd::t_e0c0987af5d511 90
+  s_6a4659246591cd::t_e5130c542c31d8 1-3,5-55,70-76,79-89,91-104
+  s_6a4659246591cd::t_6577f02b83cc31 77-78
+  s_6a4659246591cd::t_0787c2bfdf571c 56-69
+  s_6a4659246591cd::t_00efcc8c8ab7f1 4
+packages/calendar/src/__fixtures__/outlook-windows-tz.ics
+  s_6a4659246591cd::t_3b1c627bf69ce0 1-46
+packages/calendar/src/merge.ts
+  s_6a4659246591cd::t_5bb572ca3801d1 1-97
+packages/calendar/src/__fixtures__/all-day.ics
+  s_6a4659246591cd::t_ea3937fcdaa0f4 1-26
+packages/calendar/src/__fixtures__/google-full-page-1.json
+  s_6a4659246591cd::t_77f74f99d8c172 1-37
+packages/calendar/src/fetch.ts
+  s_6a4659246591cd::t_4a18377eea77c1 1-95
+packages/calendar/src/__fixtures__/google-overrides.ics
+  s_6a4659246591cd::t_d58fe0c99d6971 1-63
+docs/adr/0014-calendar-read-layer.md
+  s_6a4659246591cd::t_8df60a5718cd39 1-130
+.changeset/calendar-read-layer.md
+  s_6a4659246591cd::t_e212f16d5ce9d0 1-5
+packages/calendar/src/fetch.test.ts
+  s_6a4659246591cd::t_92a3444673950b 1-74
+packages/calendar/src/__fixtures__/google-incremental.json
+  s_6a4659246591cd::t_db610281bf3002 1-59
+packages/calendar/src/write.test.ts
+  s_6a4659246591cd::t_0665331d20cc01 1-99
+packages/calendar/README.md
+  s_6a4659246591cd::t_1708d00f9207d5 1-126
+packages/calendar/src/merge.test.ts
+  s_6a4659246591cd::t_8fcf3c9459a341 1-138
+README.md
+  s_6a4659246591cd::t_56dde464a949b7 160
+docs/GLOSSARY.md
+  s_6a4659246591cd::t_f068b73c28519d 52-54
+packages/calendar/src/ics.ts
+  s_6a4659246591cd::t_5a9a41de43652e 1-426
+packages/calendar/src/index.ts
+  s_6a4659246591cd::t_47cc0e1e906aa0 1-38
+packages/calendar/src/google.test.ts
+  s_6a4659246591cd::t_a4d78001527256 1-118
+features.ts
+  s_6a4659246591cd::t_b749d93e102ee5 530-553
+packages/calendar/src/types.ts
+  s_6a4659246591cd::t_0e8230918c5f44 1-67
+packages/calendar/src/ics.test.ts
+  s_6a4659246591cd::t_9995380302c47c 1-262
+packages/calendar/src/__fixtures__/floating.ics
+  s_6a4659246591cd::t_9080d0f6d9464d 1-21
+packages/calendar/package.json
+  s_6a4659246591cd::t_8b4237656f4d8e 1-121
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_6a4659246591cd::t_df1dcee7fc5587 447-477
+packages/calendar/src/google.ts
+  s_6a4659246591cd::t_47edf52d14d3ac 1-199
+.github/CODEOWNERS
+  s_6a4659246591cd::t_686ef3c2abc55b 6
+AGENTS.md
+  s_6a4659246591cd::t_5b9f960a05fe9f 104
+features.json
+  s_6a4659246591cd::t_fd9464618f919e 1193-1250
+packages/calendar/LICENSE
+  s_6a4659246591cd::t_f34ec534b84814 1-21
+packages/calendar/tsconfig.json
+  s_6a4659246591cd::t_5fd22be6be28c6 1-18
+packages/calendar/vitest.config.ts
+  s_6a4659246591cd::t_240245b4394011 1-8
+pnpm-lock.yaml
+  s_6a4659246591cd::t_7d8a2e1a1af3d8 602-622
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f0643a9b5b6a8a8cf48fd07490e69dfad3ac16b6",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
