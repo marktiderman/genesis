@@ -1,0 +1,19 @@
+docs/component-reference.md
+  s_1feb538f59bf88::t_52588644df3e9d 8608,8611
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cd537115074fef914a6b48c3312e44ac7dfc5746",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
