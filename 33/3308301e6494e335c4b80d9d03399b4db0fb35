@@ -1,0 +1,14 @@
+docs/component-reference.md
+  h_9ec0a1ab20d979 8610,8613
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "333308301e6494e335c4b80d9d03399b4db0fb35",
+  "prompts": {},
+  "humans": {
+    "h_9ec0a1ab20d979": {
+      "author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
