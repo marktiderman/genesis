@@ -10,16 +10,22 @@
  *
  * Everything goes through a plan first, so `--dry-run` prints exactly what a
  * real run does, and a run without `--yes` asks before it writes.
+ *
+ * In an app whose database files live elsewhere (genesis.config.json
+ * `supabase`), the block's migrations, pgTAP tests, Edge Functions and
+ * config.toml sections are neither planned nor written: a step says to add the
+ * block in the app that holds the database, unless that app's lock has it.
  */
 import { localPackageNames } from "./local.js";
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { fragmentMarkers, mergeFragment, skillName } from "./agents.js";
-import { allBlocks, findBlock, packageDir, packageVersion, type FoundBlock } from "./discover.js";
+import { allBlocks, catalogBlocks, findBlock, packageDir, packageVersion, type FoundBlock } from "./discover.js";
 import { createApp, readApp, readPackageDir, readPackageFile, replaceApp, sha256 } from "./files.js";
 import { LOCK_FILE, readLock, substitute, writeLock, type GenesisLock } from "./lock.js";
 import type { BlockManifest } from "./manifest.js";
-import { applyMigrationPlan, formatMigrationRows, needsAttention, planMigrations, rememberMigrationCopies, type MigrationPlan, type SourceMigration } from "./migrations.js";
+import { applyMigrationPlan, formatMigrationRows, needsAttention, planMigrations, providingMigrations, rememberMigrationCopies, type MigrationPlan, type SourceMigration } from "./migrations.js";
+import { blocksMissingThere, databaseElsewhere, elsewhereNote, isSupabasePath } from "./database.js";
 import { copyOwned, type OwnedWrite } from "./owned.js";
 import { addCommand, detectPackageManager, pinnedVersion, run, shellLine } from "./pm.js";
 import { addFeatureEntry, featureKindField, featureSnippet } from "./registry-edit.js";
@@ -197,6 +203,7 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
   const install = options.install !== false;
   let found: FoundBlock = await findBlock(root, options.block, { ...(options.package ? { package: options.package } : {}), warnings });
   const lock = readLock(root);
+  const home = databaseElsewhere(root);
 
   // 1. Packages.
   const deps = appDependencies(root);
@@ -232,13 +239,18 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
   /** Everything the run will write, from what can be read now; printed before anything happens. */
   const makePlan = (manifest: BlockManifest, from: FoundBlock["from"]) => {
     const planWarnings: string[] = [];
-    const migrations = planMigrations(root, sourceMigrations(root, manifest), { now, ...(lock.migrations ? { copied: lock.migrations } : {}) });
+    // The database side lives in another app (or nowhere): nothing of it is planned here.
+    const migrations: MigrationPlan = home
+      ? { rows: [], creates: [] }
+      : planMigrations(root, sourceMigrations(root, manifest), { now, ...(lock.migrations ? { copied: lock.migrations } : {}), providers: providingMigrations([manifest, ...catalogBlocks()]) });
     // Owned files carry the app's renames, the same way upgrade refreshes them.
-    const owned = ownedWrites(root, manifest, planWarnings).map((w) => ({ ...w, content: substitute(w.content, lock.substitutions) }));
+    const owned = ownedWrites(root, manifest, planWarnings)
+      .filter((w) => !home || !isSupabasePath(w.path))
+      .map((w) => ({ ...w, content: substitute(w.content, lock.substitutions) }));
     const fragment = agentsFragment(root, manifest);
     if (manifest.agents && !fragment) planWarnings.push(`${manifest.agents.package} ${manifest.agents.path}: can't read it; AGENTS.md wasn't changed.`);
     const { routerRoot, stubs } = planRouteStubs(root, manifest.routes);
-    const toml = configTomlEdit(root, manifest, planWarnings);
+    const toml = home ? null : configTomlEdit(root, manifest, planWarnings);
     let snippet: string | undefined;
     let registryEdit: string | null = null;
     if (!ids?.has(manifest.id)) {
@@ -249,7 +261,7 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
     const print = (mark: string, p: string, note = "") => log.info(`  ${mark} ${p}${note ? ` ${note}` : ""}`);
     log.info(`${manifest.id}: from ${manifest.package}${manifest.version ? ` ${manifest.version}` : ""} (${from === "local" ? "local package" : from === "installed" ? "installed" : "not installed yet: files are read after the install"})`);
     if (command) log.info(`  install: ${shellLine(command)}${install ? "" : " (skipped: --no-install)"}`);
-    log.info(formatMigrationRows(migrations.rows).replace(/^/gm, "  "));
+    log.info(`  ${home ? elsewhereNote(home, `genesis add ${manifest.id}`) : formatMigrationRows(migrations.rows).replace(/^/gm, "  ").trimStart()}`);
     for (const c of migrations.creates) if (c.kind === "test") print("+", c.path, "(pgTAP test)");
     for (const w of owned) {
       const existing = readApp(root, w.path);
@@ -284,7 +296,14 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
     if (stub.existing) continue;
     if (!stub.file) steps.push(`Add a ${stub.route.path} screen to your router${stub.route.description ? ` (${stub.route.description})` : ""}${stub.route.signedIn ? ", for signed-in people only" : ""}.`);
   }
-  for (const fn of manifest.functions) {
+  const database = manifest.migrations.length > 0 || manifest.functions.length > 0;
+  if (home && database) {
+    const there = blocksMissingThere(home, [manifest.id]);
+    if (!home.app) steps.push(`${manifest.id} ships database files (migrations or Edge Functions); ${elsewhereNote(home)}`);
+    else if (there && !there.length) steps.push(`${manifest.id}'s database files: ${home.app} already has the block (its genesis.lock.json lists it), so nothing to add there.`);
+    else steps.push(`Add ${manifest.id}'s database files in ${home.app}, which holds this app's database: genesis add ${manifest.id} there (genesis.config.json supabase.app).`);
+  }
+  for (const fn of home ? [] : manifest.functions) {
     const name = fn.dir.split("/").pop()!;
     if (fn.verifyJwt === false && !readApp(root, "supabase/config.toml")) steps.push(`Deploy ${name} without the gateway's JWT check: supabase functions deploy ${name} --no-verify-jwt`);
     if (fn.secrets?.length) steps.push(`Set the ${name} function's secrets: supabase secrets set ${fn.secrets.map((s) => `${s}=…`).join(" ")}`);

@@ -132,6 +132,41 @@ by name and text. They are the app's applied baseline: its genesis.config.json g
 `doctor.supabase.since` just after the newest, so the supabase pack checks only later migrations as
 new, even before the app has a git history to compare with. `init --native` (the brand-package scaffold for an Expo app) is unchanged.
 
+### A phone app beside a web app
+
+A phone app often has no Supabase project of its own: it signs in to, and reads from, the web app's
+database, and the web app's `supabase/` is the only migrations folder. Make it with
+`--beside <web-app>`:
+
+```sh
+genesis init sample-app --template native --target mobile --beside app
+```
+
+When the web app has a `supabase/` folder, init writes none of the starter's `supabase/` files (or
+the database CI workflow), sets `"supabase": { "app": "../app" }` in the new app's
+`genesis.config.json` (the web app's folder, relative to the phone app) and drops the doctor's
+supabase pack there. The lock still records the blocks that are on, with no Supabase files, and the
+summary's first line says what to run in the web app for the ones its lock doesn't list, in the
+order to run them (a block's requirements first, `notifications` before `push`):
+
+```text
+In ../app (it holds this app's database), run: genesis add account && genesis add notifications && genesis add push
+```
+
+A web app with no `supabase/` folder gets a note instead, and the phone app keeps its own, as
+without `--beside`.
+
+The setting, on any app: `"supabase": { "app": "<folder>" }` says this app's database files live in
+that app's `supabase/`; `"supabase": false` says this app has none. With either, `genesis add`,
+`migrate` and `upgrade` never write or plan Supabase files here (migrations, pgTAP tests, Edge
+Functions, `config.toml` sections); they say where to run them instead, and which of this app's
+blocks the other app's lock doesn't list. They don't write into the other app: its lock, its
+installed package versions and its doctor are its own, so the commands run there. `upgrade` leaves
+lock entries under `supabase/` alone, so an app that moves to the setting can delete its
+`supabase/` folder and those entries. The doctor's supabase pack doesn't run, and
+`database-elsewhere` warns when the named app has no `supabase/`, or when a `supabase/` folder is
+still here (a second, unused copy).
+
 ## Blocks: add, migrate, upgrade
 
 A block is a feature an app adds whole (see `defineBlock` in `@marktiderman/genesis-features`).
@@ -312,6 +347,10 @@ It never overwrites a file the app has: one with other text is reported and left
 run creates and changes nothing. `--dry-run` prints the plan and writes nothing. `genesis add
 --list` lists the blocks the app can add. `genesis studio init` is unchanged.
 
+In an app whose database files live elsewhere ([A phone app beside a web app](#a-phone-app-beside-a-web-app)),
+`add` copies none of the block's migrations, pgTAP tests, Edge Functions or `config.toml`
+sections; a step says to run `genesis add <block>` in that app, unless its lock already lists it.
+
 ### genesis migrate
 
 Compares the migrations of the app's blocks (`genesis.lock.json`, less any whose
@@ -326,6 +365,7 @@ installed packages with the app's copies, and every copy that carries a header:
 | `changed-upstream` | the package now ships different text than the copy was made from | reported; never rewritten |
 | `differs` | a file with the migration's name, other text and no header | treated as the app's own; never rewritten |
 | `deleted` | the app deleted a copy `genesis.lock.json` records (its `migrations` map: where each package migration was copied) | reported; never copied again |
+| `provided` | not in the app, but a migration that is (or comes in the same run) provides its objects | never copied |
 
 Every file already in `supabase/migrations` counts as applied: none is ever written again, and a
 new file is created only if its name is free (otherwise it fails). A package migration is copied
@@ -338,6 +378,21 @@ copy, holding the package's current text commented out, for you to turn into the
 runs count that copy as handled. It exits 1 when something still needs you (a deleted copy was your
 choice, so it doesn't). `genesis add`, `genesis migrate` and `init --template native` record each
 copy in the lock; a run on an older lock records the copies it finds.
+
+A migration that creates or adopts another package migration's objects says so in its block
+manifest, `provides` on the migration entry (package.json `genesis.blocks`):
+
+```json
+{ "file": "migrations/0001_genesis_notifications.sql", "provides": [{ "package": "@marktiderman/genesis-supabase", "file": "migrations/0005_genesis_push.sql" }] }
+```
+
+Once the providing migration is in the app (a copy, or one the lock says was copied), or is copied
+in the same run, the provided one is `provided`, never `new`: notifications 0001 adopts the push
+tables of supabase 0005, and copying 0005 after it would fail on tables that already exist. The
+other way round needs nothing: 0001 adopts 0005's tables when they're there.
+
+In an app whose database files live elsewhere ([A phone app beside a web app](#a-phone-app-beside-a-web-app)),
+migrate plans nothing and says where to run it.
 
 With the notifications block and a named registry (`--notifications <file>`, or
 `"notifications": { "registry": "src/notifications.ts" }` in `genesis.config.json`; a relative
@@ -390,7 +445,9 @@ doesn't fit, is a warning.
    deleted stays deleted (mark its entry `"deleted": true` so the doctor's `lock-files` knows it's
    meant). A block whose `starter.config.ts` switch is off is left out: no migrations listed, no
    files refreshed or added. AGENTS.md fragments are replaced, skills a block gained are copied, and
-   new package migrations are listed (run `genesis migrate`).
+   new package migrations are listed (run `genesis migrate`). In an app whose database files live
+   elsewhere, nothing under `supabase/` is refreshed or added and no migrations are listed: the
+   summary says to run `genesis upgrade` in that app.
 4. Runs `genesis doctor` and prints a summary; `--pr` commits to `genesis-upgrade/<version>`,
    pushes and opens a pull request with `gh`. It checks first, before writing anything, that the
    tree is clean, a branch is checked out and the branch name is free; it commits the lockfile
@@ -573,7 +630,8 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `package-rules-invalid` | warn | An installed or local package's `genesis.doctor` declaration (or its plugin) that doesn't validate: its rules don't run; the rest of the doctor does. Read forward-compatibly, since a package can be newer than the CLI: an unknown key is ignored, and a `prefer` rule or primitive that doesn't validate is skipped on its own, each with this warning. An unknown key on a `prefer` rule itself or in its `unless` could narrow where it applies, so that rule is skipped whole rather than run wider; an unknown key in `forbid` is only dropped. It is never an error, so a package upgrade can't break an app's build. See [Package rules](#package-rules). |
 | `package-rule-override` | warn | `rules` changes a package rule's level without a reason; move it to `packageRules` with one. |
 | `agent-guide-stale` | warn | The agent guide `genesis agents` wrote (`.claude/skills/genesis/SKILL.md` and the `genesis-primitives` block in AGENTS.md) doesn't match the installed packages, one of the two is missing, or the block's markers are broken (one missing, repeated or out of order; `genesis agents` then writes nothing). An app with neither isn't checked. Line endings don't count. |
-| `lock-files` | warn / info | `genesis.lock.json` against the files on disk. **warn**: a file the lock owns is missing; `genesis upgrade` never brings a deleted owned file back, so a lock naming files that aren't there passes every upgrade silently. A file you deleted on purpose gets `"deleted": true` in its lock entry: the warning stops and upgrade still leaves it deleted. **info**: a locked file whose checksum differs from the lock's (an app edit, which upgrade three-way merges the next version into, or one waiting on its `.genesis-next`); a file marked deleted that is back; a locked block whose `starter.config.ts` switch is off (upgrade and migrate leave it out, and its files aren't checked). |
+| `database-elsewhere` | warn | An app whose `genesis.config.json` `supabase` setting puts its database files in another app (`{ "app": "../app" }`) or nowhere (`false`): **warn** when the named app has no `supabase/` folder, and when this app still has one (`add`, `migrate` and `upgrade` never plan it, so it's a second, unused copy). The supabase pack doesn't run in such an app. |
+| `lock-files` | warn / info | `genesis.lock.json` against the files on disk. **warn**: a file the lock owns is missing; `genesis upgrade` never brings a deleted owned file back, so a lock naming files that aren't there passes every upgrade silently. A file you deleted on purpose gets `"deleted": true` in its lock entry: the warning stops and upgrade still leaves it deleted. **info**: a locked file whose checksum differs from the lock's (an app edit, which upgrade three-way merges the next version into, or one waiting on its `.genesis-next`); a file marked deleted that is back; a locked block whose `starter.config.ts` switch is off (upgrade and migrate leave it out, and its files aren't checked); files under `supabase/` the lock still lists in an app whose database lives elsewhere (upgrade leaves them alone, so delete the entries). |
 | `ratchet-skipped` | warn / error | `--base` was given, but git couldn't compare (not a repository, or the ref isn't fetched). A warning when only the ratchet was skipped (every rule ran at its full level); an error when the config file holds `allow`, `rules` or `packageRules`, which then went uncompared. In CI, check out with `fetch-depth: 0`. |
 | `allow-grew` | error | Under `--base`: an `allow` entry (its rule, file and match) that the doctor settings at the merge base didn't have. The list only shrinks. Rewording a `reason` is fine. The base's settings are found as the doctor finds them (genesis.config.json's `doctor`, else package.json's `genesis.doctor`), so moving them between the two compares as usual; when the base had none (adopting the doctor), nothing is compared. |
 | `rules-weakened` | error | Under `--base`, comparing the app's settings with the base's only (never with a rule's own level, which a package upgrade may change): a rule the base's `rules` or `packageRules` set that this branch sets lower, a rule newly set to `off`, or an `exclude` glob a `packageRules` entry gained. A new entry at any other level isn't compared, so pinning a rule its package raised is fine; an entry renamed with its rule counts as new. `files` isn't compared. Not compared when the base had no doctor settings. |

@@ -1,5 +1,5 @@
 // @feat:native-starter @feat:app-updates @feat:push @feat:observability @feat:devtools-overlay @feat:support-feedback @feat:chat @feat:product-roadmap
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -21,6 +21,9 @@ const chatSql = (path: string) => readFileSync(join(chatPackage, "migrations", p
 // `genesis init --without <switch>` has none of that block's migrations, tests or functions, so
 // the checks of those files run only while it's on.
 const { updates, push, notifications, support, chat } = starter.features;
+// An app made with `genesis init --beside <web-app>` has no supabase/ folder: its database files
+// are the web app's, so the checks of them run only where the folder is.
+const database = existsSync(join(root, "supabase"));
 
 function filesUnder(dir: string): string[] {
   return readdirSync(join(root, dir)).flatMap((name) => {
@@ -37,7 +40,7 @@ describe("root layout", () => {
   });
 });
 
-describe("migrations", () => {
+describe.runIf(database)("migrations", () => {
   it("each has its own version, so a new app's database applies every one", () => {
     const versions = filesUnder("supabase/migrations").map((f) => f.split("/").pop()!.split("_")[0]!);
     expect(new Set(versions).size).toBe(versions.length);
@@ -223,7 +226,7 @@ describe("copy catalog", () => {
   });
 });
 
-describe("supabase/migrations", () => {
+describe.runIf(database)("supabase/migrations", () => {
   it("carries @marktiderman/genesis-supabase's account-deletion migration unchanged", () => {
     const shipped = shippedSql("0001_genesis_account_deletion.sql");
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_account_deletion.sql"));
@@ -292,7 +295,7 @@ describe("supabase/migrations", () => {
   });
 });
 
-describe("supabase/functions", () => {
+describe.runIf(database)("supabase/functions", () => {
   it("carries @marktiderman/genesis-supabase's genesis-apple-revoke function unchanged", () => {
     const shipped = join(supabasePackage, "functions", "genesis-apple-revoke");
     const names = readdirSync(shipped).sort();
@@ -357,7 +360,7 @@ describe("support", () => {
 });
 
 describe("chat", () => {
-  it.runIf(chat)("carries chat's migration and pgTAP test unchanged after the support one, and serves genesis_chat through the API", () => {
+  it.runIf(chat && database)("carries chat's migration and pgTAP test unchanged after the support one, and serves genesis_chat through the API", () => {
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_chat.sql"));
     expect(copies).toHaveLength(1);
     expect(read(copies[0]!)).toBe(chatSql("0001_genesis_chat.sql"));
@@ -378,7 +381,7 @@ describe("chat", () => {
     expect(JSON.parse(read("genesis.config.json")).doctor.supabase.exposedSchemas).toContain("genesis_chat");
   });
 
-  it.runIf(chat)("carries chat's 0002 migration (topics, scheduled send, availability, broadcast, search) and its pgTAP test unchanged, after 0001", () => {
+  it.runIf(chat && database)("carries chat's 0002 migration (topics, scheduled send, availability, broadcast, search) and its pgTAP test unchanged, after 0001", () => {
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_chat_coaching.sql"));
     expect(copies).toHaveLength(1);
     expect(read(copies[0]!)).toBe(chatSql("0002_genesis_chat_coaching.sql"));
@@ -423,7 +426,7 @@ describe("chat", () => {
     expect(read("src/lib/chat.tsx")).toContain("starter.features.chat && starter.features.push");
   });
 
-  it.runIf(chat)("names people from their auth metadata through chat_people, after the chat migration, with its pgTAP test", () => {
+  it.runIf(chat && database)("names people from their auth metadata through chat_people, after the chat migration, with its pgTAP test", () => {
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_chat_people.sql"));
     expect(copies).toHaveLength(1);
     const order = filesUnder("supabase/migrations").sort();

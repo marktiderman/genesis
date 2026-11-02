@@ -135,10 +135,23 @@ export async function blocksOfInstalled(dir: string, warnings: string[] = [], op
   for (const id of [...ids].sort()) {
     const fromJson = (raw[id] ?? {}) as Record<string, unknown>;
     // The declaration is the source of truth for what it says; package.json adds the rest.
-    const manifest = tryParse(() => parseManifest(pkg.name, id, { ...fromJson, ...declared[id] }, pkg.version, options), warnings);
+    const merged = { ...fromJson, ...declared[id] };
+    // `provides` is package.json's to say (a declaration can't): kept on the declaration's migrations.
+    if (declared[id]?.["migrations"] && Array.isArray(fromJson["migrations"])) merged["migrations"] = withProvides(declared[id]!["migrations"], fromJson["migrations"]);
+    const manifest = tryParse(() => parseManifest(pkg.name, id, merged, pkg.version, options), warnings);
     if (manifest) out.push(manifest);
   }
   return out;
+}
+
+/** A declaration's migrations, each with package.json's `provides` for the same file. */
+function withProvides(declared: unknown, json: unknown[]): unknown {
+  if (!Array.isArray(declared)) return declared;
+  const fileOf = (m: unknown) => (m && typeof m === "object" ? (m as Record<string, unknown>)["file"] : undefined);
+  return declared.map((m) => {
+    const same = json.find((j) => fileOf(j) === fileOf(m)) as Record<string, unknown> | undefined;
+    return same?.["provides"] !== undefined && m && typeof m === "object" && !("provides" in m) ? { ...(m as object), provides: same["provides"] } : m;
+  });
 }
 
 export interface FoundBlock {

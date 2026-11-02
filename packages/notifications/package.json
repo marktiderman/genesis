@@ -188,7 +188,13 @@
         "migrations": [
           {
             "file": "migrations/0001_genesis_notifications.sql",
-            "test": "migrations/tests/0001_genesis_notifications.test.sql"
+            "test": "migrations/tests/0001_genesis_notifications.test.sql",
+            "provides": [
+              {
+                "package": "@marktiderman/genesis-supabase",
+                "file": "migrations/0005_genesis_push.sql"
+              }
+            ]
           }
         ],
         "functions": [

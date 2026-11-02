@@ -11,7 +11,7 @@
  *   npx @marktiderman/genesis-cli primitives [--json]
  *   npx @marktiderman/genesis-cli agents [--check]
  *   npx @marktiderman/genesis-cli features build|check|find [--registry <file>] [--flags-file <file>]
- *   npx @marktiderman/genesis-cli init <app> --template native [--bundle-id <id>] [--scheme <s>] [--without <switches>]
+ *   npx @marktiderman/genesis-cli init <app> --template native [--bundle-id <id>] [--scheme <s>] [--without <switches>] [--beside <web-app>]
  *   npx @marktiderman/genesis-cli add <block> [--dry-run] [--yes] [--no-install]
  *   npx @marktiderman/genesis-cli migrate [--dry-run] [--forward]
  *   npx @marktiderman/genesis-cli upgrade [--version <v>] [--dry-run] [--pr]
@@ -54,6 +54,7 @@ program
   .option("--bundle-id <id>", "--template: iOS bundle id and Android package (default com.example.<slug>)")
   .option("--scheme <scheme>", "--template: the URL scheme (default: the slug)")
   .option("--without <switches>", "--template: starter.config.ts feature switches to turn off, comma-separated (e.g. chat,support); their blocks are left out")
+  .option("--beside <web-app>", "--template: a phone app that uses this web app's database: no supabase/ here when it has one, and genesis.config.json says where it is")
   .option(
     "--emit-conflicts",
     "Emit `.genesis-next` siblings for files that already exist (so you can diff)",
@@ -69,6 +70,7 @@ program
     bundleId?: string;
     scheme?: string;
     without?: string;
+    beside?: string;
   }) => {
     if (opts.template !== undefined) {
       if (opts.template !== "native") throw new Error(`--template must be native, not "${opts.template}".`);
@@ -80,10 +82,12 @@ program
         ...(opts.bundleId ? { bundleId: opts.bundleId } : {}),
         ...(opts.scheme ? { scheme: opts.scheme } : {}),
         ...(opts.without ? { without: opts.without.split(",").map((s) => s.trim()).filter(Boolean) } : {}),
+        ...(opts.beside ? { beside: opts.beside } : {}),
       });
       console.log(`✔ Wrote ${result.files.length} files to ${result.target}`);
       if (result.blocks.length) console.log(`  blocks: ${result.blocks.join(", ")}`);
       if (result.leftOut.length) console.log(`  left out (switched off): ${result.leftOut.join(", ")}`);
+      if (result.beside?.shared) console.log(`  database: ${result.beside.app}/supabase (no supabase/ here)`);
       console.log(`  Genesis packages: ${Object.entries(result.dependencies).map(([n, v]) => `${n}@${v}`).join(", ")}`);
       console.log("");
       console.log("Next steps:");
@@ -559,6 +563,10 @@ program
       forward: opts.forward,
     });
     for (const w of report.warnings) logger.warn(w);
+    if (report.elsewhere) {
+      console.log(report.elsewhere.note);
+      return;
+    }
     for (const s of report.switchedOff) console.log(`- skipped ${s}`);
     console.log(formatMigrationRows(report.plan.rows));
     for (const c of report.plan.creates) if (c.kind !== "migration") console.log(`+ ${c.path} (${c.kind === "test" ? "pgTAP test" : "forward migration: fill it in"})`);
