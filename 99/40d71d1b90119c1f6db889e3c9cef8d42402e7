@@ -1,0 +1,33 @@
+.changeset/shared-database.md
+  s_1feb538f59bf88::t_6535dec2b6efa1 14-15
+packages/genesis-cli/src/blocks/starter-features.ts
+  s_6a4659246591cd::t_c9cc160bb61401 27-46,85-86
+packages/genesis-cli/test/blocks-app-checks.test.ts
+  s_6a4659246591cd::t_de94242afd48a5 14,53-60,78-84,94-99,109-123
+packages/genesis-cli/test/init-native.test.ts
+  s_1feb538f59bf88::t_2663f5160ad133 8-9,143-162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9940d71d1b90119c1f6db889e3c9cef8d42402e7",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
