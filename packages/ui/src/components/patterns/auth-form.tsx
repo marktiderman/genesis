@@ -16,7 +16,7 @@
  * @stability Beta
  */
 import * as React from "react";
-import { reportError } from "@marktiderman/genesis-core/errors";
+import { isDevelopment, reportError } from "@marktiderman/genesis-core/errors";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "../ui/input-otp";
@@ -325,7 +325,15 @@ export function AuthForm({
    */
   const sentEvenIfUnknown = async (result: Promise<AuthFormResult>): Promise<AuthFormResult> => {
     const r = await result;
-    return !allowSignUp && r.error?.code === "otp_disabled" ? {} : r;
+    if (allowSignUp || r.error?.code !== "otp_disabled") return r;
+    if (isDevelopment()) {
+      // The same code also comes back when email codes are off for the whole project, and then no
+      // email is ever sent. Say so to the developer; never to the person signing in.
+      console.warn(
+        "AuthForm: Auth answered otp_disabled, shown as sent. If no email arrives, check that email OTP is on in the project's Auth settings.",
+      );
+    }
+    return {};
   };
 
   const sendCode = async (address: string) => {
@@ -704,8 +712,9 @@ function FormLinks({
 
 /**
  * The given providers, or the client's, asked once per mount: a parent that renders again, or
- * builds a new client object each render, doesn't ask again. A failed lookup shows none and is
- * reported.
+ * builds a new client object each render, doesn't ask again. To point the form at another
+ * project, remount it (a `key`). A failed lookup shows none and is reported; a lookup still out
+ * when the form unmounts is ignored.
  */
 function useProviders(client: AuthFormClient, given: AuthFormProps["providers"]): AuthFormProvider[] {
   const [found, setFound] = React.useState<AuthFormProvider[]>([]);

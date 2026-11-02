@@ -212,6 +212,8 @@ describe("AuthForm: sign-in", () => {
   });
 
   it("without sign-up, answers an email with no account (otp_disabled) as sent, for a link and a code", async () => {
+    // In development it tells the developer, since the same code means OTP is off for the project.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const refused = () => Promise.resolve({ error: { code: "otp_disabled", message: "Signups not allowed for otp" } });
     const link = setup({ methods: ["magic-link"], allowSignUp: false, client: mockClient({ sendMagicLink: vi.fn(refused) }) });
     type("auth-form-email", "nobody@acme.test");
@@ -226,6 +228,8 @@ describe("AuthForm: sign-in", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByText("If nobody@acme.test has an account, we sent it a 6-digit code.")).toBeTruthy();
     expect(screen.getByLabelText("Code")).toBeTruthy();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("otp_disabled, shown as sent"));
+    warn.mockRestore();
   });
 
   it("with sign-up on, otp_disabled is an error", async () => {

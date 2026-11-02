@@ -14572,7 +14572,7 @@
           "props": [
             {
               "name": "auth",
-              "type": "DeepPartial<{ titles: { \"sign-in\": string; \"sign-up\": string; \"forgot-password\": string; \"new-password\": string; }; email: string; emailPlaceholder: string; password: string; newPassword: string; confirmPassword: string; ... 30 more ...; errors: { ...; }; }>",
+              "type": "DeepPartial<{ titles: { \"sign-in\": string; \"sign-up\": string; \"forgot-password\": string; \"new-password\": string; }; email: string; emailPlaceholder: string; password: string; newPassword: string; confirmPassword: string; ... 32 more ...; errors: { ...; }; }>",
               "required": false,
               "defaultValue": null,
               "description": ""

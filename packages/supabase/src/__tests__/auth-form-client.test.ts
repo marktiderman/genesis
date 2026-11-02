@@ -92,12 +92,10 @@ describe("createAuthFormClient", () => {
     expect((await createAuthFormClient(thrown).updatePassword({ password: "x" })).error?.code).toBe("session_not_found");
   });
 
-  it("without sign-up, answers an unknown email as sent, so it doesn't say which emails have accounts", async () => {
+  it("passes otp_disabled on as it is (AuthForm decides what to show)", async () => {
     const refused = () => Promise.resolve({ data: {}, error: { code: "otp_disabled", message: "Signups not allowed for otp", status: 422 } });
     const client = createAuthFormClient(fakeSupabase({ signInWithOtp: vi.fn(refused) }));
-    expect(await client.sendMagicLink({ email: "nobody@acme.test", createUser: false })).toEqual({});
-    expect(await client.sendEmailCode({ email: "nobody@acme.test", createUser: false })).toEqual({});
-    // With sign-up on, otp_disabled means codes really are off.
+    expect((await client.sendMagicLink({ email: "nobody@acme.test", createUser: false })).error?.code).toBe("otp_disabled");
     expect((await client.sendEmailCode({ email: "nobody@acme.test", createUser: true })).error?.code).toBe("otp_disabled");
   });
 
@@ -172,17 +170,29 @@ describe("fetchAuthSettings", () => {
       }),
   );
 
-  it("gives up after 5 seconds", async () => {
-    // AbortSignal.timeout runs on the platform's clock, not the fake timers: stand in for it.
-    const timer = new AbortController();
-    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(timer.signal);
+  it("gives up after 5 seconds, on a plain timer (no AbortSignal.timeout or any)", async () => {
+    vi.useFakeTimers();
     try {
       const settings = fetchAuthSettings({ url: "https://p.supabase.co", publishableKey: "pk", fetch: hanging as unknown as typeof fetch });
-      expect(timeout).toHaveBeenCalledWith(5000);
-      timer.abort(new DOMException("The operation timed out.", "TimeoutError"));
-      await expect(settings).rejects.toMatchObject({ name: "TimeoutError" });
+      const failed = expect(settings).rejects.toMatchObject({ name: "TimeoutError" });
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(vi.getTimerCount()).toBe(1);
+      await vi.advanceTimersByTimeAsync(1);
+      await failed;
+      expect(vi.getTimerCount()).toBe(0);
     } finally {
-      timeout.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears its timer once the answer comes", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ external: {} }))));
+      await fetchAuthSettings({ url: "https://p.supabase.co", publishableKey: "pk", fetch: fetcher as unknown as typeof fetch });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
     }
   });
 

@@ -133,15 +133,13 @@ async function call(run: () => Promise<SupabaseAuthResult>): Promise<AuthCallRes
 export function createAuthFormClient(supabase: AuthFormSupabase, options: CreateAuthFormClientOptions = {}): AuthFormSupabaseClient {
   const { url, publishableKey, redirectTo, resetRedirectTo = redirectTo } = options;
   const auth = supabase.auth;
-  const otp = async (email: string, createUser: boolean): Promise<AuthCallResult> => {
-    const result = await call(() =>
+  // Without sign-up, Auth refuses an unknown email with otp_disabled ("Signups not allowed for otp").
+  // The client passes it on as it is; AuthForm answers it as sent, so it doesn't say which emails
+  // have accounts (one place, for every client).
+  const otp = (email: string, createUser: boolean): Promise<AuthCallResult> =>
+    call(() =>
       auth.signInWithOtp({ email, options: { shouldCreateUser: createUser, ...(redirectTo ? { emailRedirectTo: redirectTo } : {}) } }),
     );
-    // Without sign-up, Auth refuses an unknown email with otp_disabled ("Signups not allowed for otp").
-    // Answer it as sent, so the form doesn't say which emails have accounts.
-    if (!createUser && result.error?.code === "otp_disabled") return {};
-    return result;
-  };
   const client: AuthFormSupabaseClient = {
     signInWithPassword: ({ email, password }) => call(() => auth.signInWithPassword({ email, password })),
     sendMagicLink: ({ email, createUser }) => otp(email, createUser),
@@ -261,11 +259,27 @@ export async function fetchAuthSettings({
   if (publishableKey.startsWith("sb_secret_")) {
     throw new Error("fetchAuthSettings takes the publishable key, not a secret key (sb_secret_…)");
   }
-  const timeout = AbortSignal.timeout(SETTINGS_TIMEOUT_MS);
-  const response = await fetcher(`${withoutTrailingSlashes(url)}/auth/v1/settings`, {
-    headers: { apikey: publishableKey },
-    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-  });
+  // A controller and a timer rather than AbortSignal.timeout/any, which older Safari and React
+  // Native's Hermes lack.
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    const timedOut = new Error("Supabase Auth settings: timed out");
+    timedOut.name = "TimeoutError";
+    controller.abort(timedOut);
+  }, SETTINGS_TIMEOUT_MS);
+  const onAbort = () => controller.abort(signal?.reason);
+  if (signal?.aborted) onAbort();
+  else signal?.addEventListener("abort", onAbort, { once: true });
+  let response: Response;
+  try {
+    response = await fetcher(`${withoutTrailingSlashes(url)}/auth/v1/settings`, {
+      headers: { apikey: publishableKey },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  }
   if (!response.ok) throw new Error(`Supabase Auth settings: ${response.status}`);
   const body = (await response.json()) as {
     external?: Record<string, unknown>;
