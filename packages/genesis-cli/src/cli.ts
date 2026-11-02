@@ -595,7 +595,8 @@ program
   .option("--no-doctor", "Don't run genesis doctor after")
   .option("--keep-mine", "Never merge an owned file you changed; write the new text to .genesis-next", false)
   .option("--pr", "Commit to a genesis-upgrade/<version> branch, push it and open a pull request", false)
-  .action(async (opts: { dir: string; version: string; manifest?: string; dryRun: boolean; install: boolean; doctor: boolean; keepMine: boolean; pr: boolean }) => {
+  .option("--genesis-repo <url>", "The Genesis git repository whose <package>@<version> tags overlays are rebased from (default: the public one)")
+  .action(async (opts: { dir: string; version: string; manifest?: string; dryRun: boolean; install: boolean; doctor: boolean; keepMine: boolean; pr: boolean; genesisRepo?: string }) => {
     const { runUpgrade } = await import("./upgrade/index.js");
     const report = await runUpgrade({
       root: path.resolve(opts.dir),
@@ -606,6 +607,7 @@ program
       doctor: opts.doctor,
       keepMine: opts.keepMine,
       pr: opts.pr,
+      ...(opts.genesisRepo ? { genesisRepo: opts.genesisRepo } : {}),
       log: (m) => console.log(m),
     });
     console.log("");

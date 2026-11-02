@@ -70,6 +70,7 @@ export const BUILTIN_RULES = [
   "overlay-invalid",
   "overlay-age",
   "overlay-version",
+  "overlay-behind",
   // package rules (package-rules.ts): the rules themselves are namespaced, e.g. ui/lists-use-resource-view
   "package-rules-invalid",
   "package-rule-override",

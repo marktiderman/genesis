@@ -299,6 +299,7 @@ any local package. Then:
 | `overlay-invalid` | error | A marker that doesn't validate (each problem with `upstream`, `since`, `owner`, `reason`, or an unknown key), a `since` later than tomorrow, an overlay that isn't `private: true`, or an overlay folder that holds the app's scanned source (`src`, or the app root). Such an overlay doesn't count as the package below. |
 | `overlay-age` | info / warn | A marker older than 14 days is reported as info, which never fails a run; older than 30 days it warns, which fails `--strict`. An overlay never blocks a release in its first month, and must be promoted or dropped within it. |
 | `overlay-version` | warn | The version isn't the upstream version, `<upstream>+local.N` or `<upstream>-local.N`. |
+| `overlay-behind` | warn | The marker's `upstream` is older than the version the app now pins: the installed release's (`@marktiderman/genesis`'s `versions.json`), else the app's own dependency on the package. Fails `--strict`. `genesis upgrade` rebases the overlay and clears it. (`version-skew` then says nothing about that overlay; it still flags one copied from a release newer than the installed one.) |
 
 A marked overlay (valid marker, private, in a package folder of its own) **is** the package it
 shadows, so for files inside it `shadowed-export`, `raw-tag`, `local-genesis-copy` and
@@ -310,6 +311,33 @@ asks for no changeset or version bump. A block migration that names another pack
 (`{ "package": "@marktiderman/genesis-supabase", "file": "…", "test": "…" }`) has its test looked up
 in that package, not in the overlay; a name that isn't valid, or a package that isn't installed or
 local, is reported by `package-migration-test`.
+
+**On every upgrade.** `genesis upgrade` cleans out each overlay whose `upstream` is older than
+the release it moves to, before it writes anything:
+
+1. It reads the package's source at the upstream tag and at the new version from the Genesis
+   repository's `<package>@<version>` git tags, diffs the overlay against the upstream tag, and
+   sorts each hunk: **shipped** (the new version already has it: dropped), **promoted** (a
+   `promoted` entry in `docs/genesis-upstream.md` for the package lists the file: link its Genesis
+   PR there) or **kept** (the app's own change: say why in the pull request).
+2. It rebases what's left onto the new version: a three-way merge per file (the upstream tag the
+   base, the overlay and the new version the two sides; package.json merged as JSON). A file new
+   upstream comes in, one gone upstream goes (unless the app changed it), and one the overlay never
+   carried stays out. The marker's `upstream` becomes `<package>@<new version>` and the version
+   `<new version>+local.N`.
+3. An overlay with nothing of the app's own left, in its source or its package.json (past its
+   version, `private` and marker), is deleted, and each `workspace:`/`file:`/`link:` dependency on
+   it (resolved from that package.json's own folder) pins the release, its override dropped. If
+   pnpm-workspace.yaml, a tsconfig or a vite, vitest, metro or babel config still names its folder
+   (or pnpm-workspace.yaml overrides the package to a local copy), it stays, on the checklist.
+4. When a merge conflicts, it writes nothing at all: it stops and lists the files to rebase by hand
+   (`--dry-run` lists them without stopping). A file that isn't text is never merged: it takes the
+   new version's copy when the app's is the old one's, and is a conflict otherwise. An overlay whose
+   tags can't be read (the fetch never prompts and gives up after two minutes) is left as it is, and
+   the checklist says why. `--genesis-repo <url>` reads the tags from another clone or mirror.
+
+The checklist goes into the summary and the pull request: **an upgrade PR isn't done until that
+checklist is.**
 
 **Promotion: manual for now.**
 

@@ -185,7 +185,30 @@ describe("version-skew", () => {
 
   it("compares a listed overlay by the release it was copied from", async () => {
     expect(await skew(linked(overlayJson()))).toEqual([]);
-    expect(await skew(linked(overlayJson({ version: "0.2.5+local.1" }, marker(SUPPORT, "0.2.5"))))).toEqual([expect.stringMatching(/overlay of .* was copied from 0\.2\.5, but .* was released with 0\.2\.6/)]);
+    // Behind the release: overlay-behind reports it, not version-skew.
+    expect(await skew(linked(overlayJson({ version: "0.2.5+local.1" }, marker(SUPPORT, "0.2.5"))))).toEqual([]);
+    expect(await skew(linked(overlayJson({ version: "0.2.7+local.1" }, marker(SUPPORT, "0.2.7"))))).toEqual([expect.stringMatching(/overlay of .* was copied from 0\.2\.7, but .* was released with 0\.2\.6/)]);
+  });
+
+  it("overlay-behind: an overlay copied from a release older than the one the app pins warns, failing --strict", async () => {
+    const behind = (findings: Finding[]) => findings.filter((f) => f.rule === "overlay-behind").map((f) => `${f.level} ${f.subject}: ${f.message}`);
+    const old = linked(overlayJson({ version: "0.2.5+local.1" }, marker(SUPPORT, "0.2.5")));
+    const strict = await runDoctor({ root: old, config: {}, strict: true });
+    expect(behind(strict.findings)).toEqual([expect.stringMatching(new RegExp(`^warn ${SUPPORT}: the overlay of ${SUPPORT}@0\\.2\\.5 is behind ${SUPPORT}@0\\.2\\.6.*genesis upgrade`))]);
+    expect(strict.ok).toBe(false);
+    expect((await runDoctor({ root: old, config: {} })).findings.some((f) => f.rule === "overlay-behind" && f.level === "warn")).toBe(true);
+    // On the release, or ahead of it: quiet.
+    expect(behind((await runDoctor({ root: linked(overlayJson()), config: {}, strict: true })).findings)).toEqual([]);
+    expect(behind((await runDoctor({ root: linked(overlayJson({ version: "0.2.7+local.1" }, marker(SUPPORT, "0.2.7"))), config: {} })).findings)).toEqual([]);
+  });
+
+  it("overlay-behind: without the umbrella, compares with the app's own dependency on the package", async () => {
+    const app = (spec: string) =>
+      makeApp(null, { ...APP, "package.json": JSON.stringify({ name: "sample-app", dependencies: { [SUPPORT]: spec } }), "packages/support/package.json": overlayJson() });
+    const behind = async (spec: string) => (await runDoctor({ root: app(spec), config: {} })).findings.filter((f) => f.rule === "overlay-behind").map((f) => f.subject);
+    expect(await behind("^0.3.0")).toEqual([SUPPORT]);
+    expect(await behind("0.2.6")).toEqual([]);
+    expect(await behind("workspace:*")).toEqual([]);
   });
 
   it("doesn't skip a marked package in node_modules that the app doesn't list", async () => {
