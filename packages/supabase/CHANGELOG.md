@@ -1,5 +1,42 @@
 # @marktiderman/genesis-supabase
 
+## 0.12.0
+
+### Minor Changes
+
+- 208893f: Support reports become findings someone can fix and the person can verify, and the web feedback panel and report thread gain opt-in improvements. Existing apps keep working and look the same: the new database parts need migration 0003, and every new visible behaviour is behind an option, except the few listed at the end with why.
+
+  - New migration `migrations/0003_genesis_support_findings.sql` in the `support-feedback` block (after 0006, with its pgTAP test): a `severity` column; report handlers, named by an optional app hook `private.genesis_support_report_handler(report, person)`, who read a report and its screenshots, reply as support and set its status besides staff (`support_handles`); and a verify loop: `support_verify_report` lets the person confirm a fix or reopen the report (`verified_at`, `reopened_at`; addressed and wont_fix stamp `resolved_at`). The prompt that asks the person to check a fix in the thread is off unless the app's hook `private.genesis_support_verify_prompt_enabled()` returns true; it is marked as the system's (`support_replies.prompt`), posts at most once an hour per report, and when a reply rule or limit refuses it the status change still goes through. Its reply trigger keeps the support-email block's rules when that block is installed first.
+  - Severity: `FeedbackRecord.severity`, always kept in the report's `context.severity`. With migration 0003 applied, `severityColumn: true` on `createSupportClient` / `createSupabaseSink`, and `GENESIS_SUPPORT_SEVERITY_COLUMN=true` on the intake function, also write the `severity` column.
+  - Client: optional `verify` and `handles` on `SupportClient` (a client of the app's own keeps compiling; check for them before calling), and `pinned`, `aboutLabel` and `page` on `SupportReport`. New helpers `isSitePath`, `cleanLabel`, `pageOf` and `reportHeading`.
+  - Web panel, opt-in: `severity` (a severity choice for bugs), `thanksReplacesForm` (the thanks takes the form's place, with Send another and an optional `onOpenHelp` button), `about` (a suggestion the person can drop), `draft` with `useFeedbackDraft` (a draft the host holds, so stepping aside to capture or pin loses nothing), `captureOnOpen` and `captureRequest`. `FeedbackLauncher` holds the draft and gives each return from stepping aside a fresh Sheet, so its overlay no longer stays drawn over it.
+  - `useFeedbackShortcut` (`/web`): opens feedback with ⌘⇧. or Ctrl+Shift+., ignoring key repeat and rich-text editors.
+  - Web report thread (`/web-chat`), opt-in: `reportHeading` (the report's own words in a real `h2`, its message only when it adds something, and the page it was sent from, a link only when it's a path on this site), `focusHeading` (focuses that heading; turns `reportHeading` on) and `plainChatTitle` (the conversation titled "Report" instead of the report's title).
+  - Types accept `undefined` on optional fields for apps compiled with `exactOptionalPropertyTypes`; the wire contract's two copies stay identical.
+  - genesis-supabase: the intake function also writes the `severity` column when `GENESIS_SUPPORT_SEVERITY_COLUMN=true`; it always keeps severity in `context`.
+
+  On by default, and why:
+
+  - Layout only: the panel's tabs share the bar and truncate, and its choice rows wrap and start under their labels, so a long label or a narrow sheet no longer overflows. Nothing is added or removed.
+  - A placed pin shows as a row ("Pinned to a spot on this page.") with Remove. It shows only the pin the panel already holds, which the Pinned button already announced, and Remove undoes a pin that could not be undone before.
+  - When the browser refuses a screenshot the panel says so instead of showing nothing; it appears only after that failure, and the report can still be sent.
+  - The "Write a few words first." error goes as soon as the person types.
+
+  Features: support-feedback, support-chat
+
+- 224375f: Web sign-in: `AuthForm` in genesis-ui and its Supabase client in genesis-supabase.
+
+  - **genesis-ui**: `AuthForm` (root and `/patterns`), the form inside `AuthPage`. Modes `sign-in` (password, magic link or emailed code), `sign-up`, `forgot-password` and `new-password`, controlled or not. The code step is `InputOTP` (`one-time-code`), verifies on the last digit and resends after a cooldown. Provider buttons from a list or from `client.providers()`. Every call goes through the `AuthFormClient` it is given; failures show the catalogue's copy for the error code (the new `auth` part of the UI messages), else the generic line, never the server's text (that goes to `reportError`, as does a throw), announced and tied to the field the code is about. Without sign-up, an email with no account is answered as sent, in neutral copy. "Check your email" takes focus; the code field stays focusable while it verifies. Every field is labelled with the autocomplete password managers need.
+  - **genesis-supabase**: `createAuthFormClient(supabase, { url, publishableKey, redirectTo, resetRedirectTo })`, that client on the app's Supabase client (`signInWithPassword`, `signInWithOtp`, `verifyOtp`, `signUp`, `resetPasswordForEmail`, `updateUser`, `signInWithOAuth`), never throwing, also with `throwOnError: true`; a missing session is `session_not_found`, and without sign-up an unknown email is answered as sent. `fetchAuthSettings` reads `/auth/v1/settings` for the OAuth providers turned on (only those in `SUPABASE_OAUTH_PROVIDERS`) and whether sign-up is closed, with a 5-second timeout and an optional `signal`, and refuses a secret key.
+
+### Patch Changes
+
+- d2b8125: Blocks pass the app's own checks as soon as `genesis add` copies them in.
+
+  - genesis-supabase: the `genesis-apple-revoke` function writes the PEM armour as `-{5}BEGIN PRIVATE KEY-{5}`, so gitleaks' private-key rule no longer flags it in every app that installs the account block. It reads keys exactly as before. The pgTAP tests the `events` and `support-feedback` blocks copy are tagged with those blocks' ids (`@feat:events`, `@feat:support-feedback`), the features the app registers.
+  - genesis-sites: the pgTAP tests `genesis add sites` copies are tagged `@feat:sites`, the feature the block registers, not `sites-store` and `sites-blog`, which an app doesn't have. `pnpm features check` passes after the add.
+  - genesis-cli: a test reads every block in the workspace as `genesis add` ships it and fails on a `@feat:` tag the app wouldn't register (the block's own id, or a block it requires), or on a file gitleaks' private-key rule matches.
+
 ## 0.11.0
 
 ### Minor Changes

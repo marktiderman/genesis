@@ -1,5 +1,43 @@
 # @marktiderman/genesis-cli
 
+## 1.19.0
+
+### Minor Changes
+
+- 1d1c2b4: A phone app beside a web app shares its database. `genesis init --template native --beside <web-app>` writes no `supabase/` files (or the database CI workflow) when the web app has a `supabase/` folder, sets `"supabase": { "app": "../app" }` in genesis.config.json, drops the doctor's supabase pack, records the blocks that are on, and prints the line to run in the web app for the blocks whose database files it lacks (requirements first, notifications before push): `genesis add <block> --database-only`. The check compares each block's migrations with the web app's copies and lock `migrations` entries, so a newer migration of a block it already has counts, and an Edge Function with no folder there counts too. With that setting, or `"supabase": false`, `genesis add`, `migrate` and `upgrade` never write or plan Supabase files (migrations, pgTAP tests, Edge Functions, config.toml sections) in the app and say where to run them; `upgrade` still lists new package migrations, to apply in the web app, and leaves lock entries under `supabase/` alone. When the web app's lock can't be read, `migrate` lists every block and warns, as init and add do. `supabase.app` is resolved through symlinks and can't be the app itself. The doctor skips the supabase pack there, `lock-files` reports such entries as info, and a new `database-elsewhere` rule warns when the named app has no `supabase/` or a second copy is left in the app.
+
+  `genesis add --database-only`: only a block's migrations, pgTAP tests, Edge Functions and config.toml sections, and the packages they're read from. No other installs, routes, skills, AGENTS.md fragment, feature entry or block steps, and the block isn't recorded in the lock's `blocks` (its copies are tracked by header and lock entry).
+
+  A block migration can declare the package migrations whose objects it provides or adopts (`provides` on its `genesis.blocks` entry), and the Edge Functions of the provided migration's package that it supersedes (`functions`). Once the providing migration is in the app (its copy by header, or by name for a copy made before headers; or the file the lock says it went to, while that file exists), or is copied in the same run, the other is `provided`, never `new`, and its superseded functions are neither copied nor deployed. genesis-notifications' 0001 declares it provides genesis-supabase's 0005 (it adopts the push tables) and supersedes `functions/genesis-push-send` (0001 doesn't create the sender's RPCs), so `migrate` and `add push` no longer copy 0005 into an app that has notifications, where it failed with "relation already exists", and `add push` there no longer plans genesis-push-send, its deploy or its secrets: the steps point at the notifications runner.
+
+  `genesis upgrade` no longer adds an Edge Function the lock never had (one init or add didn't write, or a superseded one): it lists it, for `genesis add`, which writes its config.toml section. New files in a function the app has are still added.
+
+  Reading starter.config.ts's `features` finds the block's own closing brace (past nested objects, strings and comments), and a genesis.config.json `"starter": {}` carries no blocks instead of failing. init's `doctor.supabase.since` uses the migration timestamp helper.
+
+  `genesis upgrade` accepts the `REPLACE_WITH_APP_FOLDER` substitution `init --template native` records, so it no longer refuses every app init made.
+
+  Behaviour changes to note: `genesis add`, `migrate` and `upgrade` now read and validate genesis.config.json, so an invalid `supabase` setting (not `false` or `{ "app": "<relative folder>" }`), or an invalid `links` or `privacy` block, stops them with an error naming the file, as the doctor does. Top-level keys they don't know are still ignored. In an app made from an older starter, a block whose starter.config.ts switch is off no longer gets its migrations and functions from `migrate` and `upgrade`.
+
+### Patch Changes
+
+- d2b8125: Blocks pass the app's own checks as soon as `genesis add` copies them in.
+
+  - genesis-supabase: the `genesis-apple-revoke` function writes the PEM armour as `-{5}BEGIN PRIVATE KEY-{5}`, so gitleaks' private-key rule no longer flags it in every app that installs the account block. It reads keys exactly as before. The pgTAP tests the `events` and `support-feedback` blocks copy are tagged with those blocks' ids (`@feat:events`, `@feat:support-feedback`), the features the app registers.
+  - genesis-sites: the pgTAP tests `genesis add sites` copies are tagged `@feat:sites`, the feature the block registers, not `sites-store` and `sites-blog`, which an app doesn't have. `pnpm features check` passes after the add.
+  - genesis-cli: a test reads every block in the workspace as `genesis add` ships it and fails on a `@feat:` tag the app wouldn't register (the block's own id, or a block it requires), or on a file gitleaks' private-key rule matches.
+
+- The `eas-placeholder` step for the Google Play service account key says to upload the key to EAS (`eas credentials`) and remove only `serviceAccountKeyPath`, since the production workflow submits on EAS where a local file isn't there; until the app ships to Google Play, remove the `submit_android` job and keep `submit.production.android`. The doctor's `lock-files` rule warns on a locked file that can't be read. The starter's `linkHosts` takes a genesis.config.json with no `links` block without a type error.
+- caf90dd: `NativeResourceView` draws a view as cards with `mode="grid"` (`numColumns`, default 2) and an app's own row or card with `renderCard(row, index, card)`, the names the web's ResourceView uses. `card.pressableProps` gives a custom card the built-in press, long press, label and accessibility actions; `card.item`, `card.actions`, `card.open` and `card.showActions` are there to wire it by hand. Sections, cursor paging, pull to refresh, the empty and error states, the peek and swipe actions all stay. Grid lines are cut from each section's real start, so when `maxPages` drops pages from the front or loads them back, every card stays on its line and nothing remounts; `useNativeResourceView` returns `rowOffset`, the rows dropped above the loaded window. Both are opt in: the default list is unchanged.
+
+  `ScreenContainer` takes `onRefresh` and `refreshing` for pull to refresh on a screen that isn't a list, on the theme-tinted `NativeRefreshControl`, as InboxPage and NotificationsPage have it. `onRefresh` makes the body scroll, since pulling needs a scroll view, so never pass it around a list; without it nothing changes.
+
+  The native starter template's Jest suite runs gestures and animations as written: Gesture Handler's mocks (`jestSetup.js`) and Reanimated's test mode (`setUpTests()` and its resolver), with a test that drives a Pan gesture's shared value through `fireGestureHandler`. The template declares `react-native-gesture-handler` ~3.3.0 (Expo SDK 58's version) as a direct dependency.
+
+- 4602893: The `genesis-upgrade` caller template the CLI ships shows the reusable workflow's new `base-branch`
+  input (the branch the upgrade starts from and its pull request targets; default: the repository's
+  default branch). The workflow also names its doctor artifact per `working-directory`, so a caller
+  can run it for two folders in one run.
+
 ## 1.18.0
 
 ### Minor Changes
