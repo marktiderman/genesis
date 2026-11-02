@@ -149,4 +149,53 @@ describe("a link's picker in the native form sheet", () => {
     });
     expect((provider.update as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toEqual({ id: "t1", data: { title: "Changed" } });
   });
+
+  it("draws each choice as a radio, checked when it's the link's row", async () => {
+    const { Wrapper } = setup();
+    render(<NativeResourceView view={tasksView} />, { wrapper: Wrapper });
+    const row = await screen.findByTestId("native-resource-view-row-t1");
+    act(() => {
+      row.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "edit" }));
+    });
+    const form = await screen.findByTestId("native-resource-view-form");
+    fireEvent.click(await within(form).findByTestId(`${field("owner_id")}-trigger`));
+    const ada = await within(form).findByTestId(`${field("owner_id")}-option-ada`);
+    const grace = within(form).getByTestId(`${field("owner_id")}-option-grace`);
+    expect(ada.getAttribute("role")).toBe("radio");
+    expect(ada.getAttribute("aria-checked")).toBe("true");
+    expect(grace.getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("announces an error: in the trigger's label and as an alert", async () => {
+    const { Wrapper } = setup();
+    render(<NativeResourceView view={tasksView} />, { wrapper: Wrapper });
+    fireEvent.click(await screen.findByTestId("native-resource-view-create"));
+    const form = await screen.findByTestId("native-resource-view-form");
+    fireEvent.change(within(form).getByTestId(field("title")).querySelector("input")!, { target: { value: "Ship" } });
+    fireEvent.click(within(form).getByTestId("native-resource-view-form-save"));
+    const error = await within(form).findByTestId(`${field("owner_id")}-error`);
+    expect(error.getAttribute("role")).toBe("alert");
+    expect(within(form).getByTestId(`${field("owner_id")}-trigger`).getAttribute("aria-label")).toContain(error.textContent!);
+  });
+
+  it("offers only the rows of a list (in) filter on the link", () => {
+    const fields = formFieldsFor(tasksView, "edit", { within: { owner_id: ["ada", "gone"] } });
+    const owner = fields.find((f) => f.key === "owner_id")!;
+    expect(owner.link!.filters({ orgId: "o1" })).toEqual([
+      { field: "org_id", operator: "eq", value: "o1" },
+      { field: "active", operator: "eq", value: true },
+      { field: "id", operator: "in", value: ["ada", "gone"] },
+    ]);
+    expect(owner.link!.labelField).toBe("full_name");
+    // Other links are as they were.
+    expect(fields.find((f) => f.key === "reviewer_id")!.link!.filters({ orgId: "o1" })).toHaveLength(2);
+  });
+
+  it("holds the picker to a screen's list filter", async () => {
+    const { Wrapper } = setup();
+    const { result } = renderHook(() => useNativeResourceView(tasksView, { filter: { owner_id: ["ada", "grace"] } }), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.rows).toHaveLength(1));
+    const owner = result.current.formFields("create").find((f) => f.key === "owner_id")!;
+    expect(owner.link!.filters({ orgId: "o1" }).at(-1)).toEqual({ field: "id", operator: "in", value: ["ada", "grace"] });
+  });
 });

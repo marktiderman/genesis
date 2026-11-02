@@ -102,7 +102,7 @@ const openForm = async () => {
   return screen.findByRole("dialog");
 };
 
-const picker = (form: HTMLElement, label: string) => within(form).getByRole("combobox", { name: new RegExp(`^${label}`) });
+const picker = (form: HTMLElement, label: string) => within(form).getByRole("button", { name: new RegExp(`^${label}`) });
 const openPicker = async (form: HTMLElement, label: string) => {
   const trigger = picker(form, label);
   fireEvent.click(trigger);
@@ -203,5 +203,59 @@ describe("a link's picker in a ResourceView form", () => {
     const owner = result.current.formFields!.find((f) => f.key === "owner_id")!;
     expect(owner).toMatchObject({ type: "hidden", hidden: true, defaultValue: "p1", readOnlyOnEdit: true });
     expect(result.current.formFields!.find((f) => f.key === "reviewer_id")).toMatchObject({ type: "relation", required: false });
+  });
+
+  it("is a button that opens a listbox, so the search input is the only combobox, and reads the chosen row as selected", async () => {
+    localStorage.clear();
+    const { Wrapper } = setup();
+    const { result } = renderHook(() => useResourceViewProps({ view: tasksView }), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.formFields).toBeTruthy());
+    render(
+      <ResourceForm
+        resource="tasks"
+        action="edit"
+        open
+        onOpenChange={() => {}}
+        fields={result.current.formFields}
+        item={{ id: "t1", org_id: "o1", title: "Write", owner_id: "ada", reviewer_id: null }}
+      />,
+      { wrapper: Wrapper },
+    );
+    const form = await screen.findByRole("dialog");
+    const trigger = picker(form, "Owner");
+    expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
+    expect(trigger.getAttribute("role")).toBeNull();
+    expect(within(form).queryAllByRole("combobox")).toHaveLength(0);
+    const list = await openPicker(form, "Owner");
+    await waitFor(() => expect(within(list).getByText("Ada Lovelace")).toBeTruthy());
+    expect(screen.getAllByRole("combobox")).toHaveLength(1);
+    const chosen = within(list).getByText("Ada Lovelace").closest("[role=option]")!;
+    expect(chosen.textContent).toContain("selected");
+    expect(within(list).getByText("Person 01").closest("[role=option]")!.textContent).not.toContain("selected");
+  });
+
+  it("offers only the rows of a list (in) filter on the link, so a save never moves the row out of its list", async () => {
+    localStorage.clear();
+    const { Wrapper } = setup();
+    const { result } = renderHook(() => useResourceViewProps({ view: tasksView, filter: { owner_id: ["p1", "ada"] } }), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.formFields).toBeTruthy());
+    const owner = result.current.formFields!.find((f) => f.key === "owner_id")!;
+    expect(owner).toMatchObject({ type: "relation" });
+    const filters = owner.relation!.filters as (values: Record<string, unknown>) => FilterParam[];
+    expect(filters({})).toEqual([
+      { field: "org_id", operator: "eq", value: "o1" },
+      { field: "active", operator: "eq", value: true },
+      { field: "id", operator: "in", value: ["p1", "ada"] },
+    ]);
+    render(
+      <ResourceForm resource="tasks" action="create" open onOpenChange={() => {}} fields={result.current.formFields} />,
+      { wrapper: Wrapper },
+    );
+    const form = await screen.findByRole("dialog");
+    const list = await openPicker(form, "Owner");
+    await waitFor(() => expect(within(list).getByText("Ada Lovelace")).toBeTruthy());
+    expect(within(list).getByText("Person 01")).toBeTruthy();
+    expect(within(list).queryByText("Person 02")).toBeNull();
+    expect(within(list).getAllByRole("option")).toHaveLength(2);
   });
 });

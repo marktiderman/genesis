@@ -78,6 +78,8 @@ export interface NativeResourceViewMessages {
     noResults?: string;
     loadMore?: string;
     loadFailed?: string;
+    /** A row whose name is empty (never its raw id). */
+    untitled?: string;
   };
   refusal: {
     /** `{noun}`. A delete failed with no message of its own. */
@@ -136,6 +138,7 @@ export const defaultNativeResourceViewMessages: NativeResourceViewMessages = {
     noResults: "No matches",
     loadMore: "Show more",
     loadFailed: "Couldn't load the choices.",
+    untitled: "Untitled",
   },
   refusal: {
     deleteFailed: "This {noun} couldn't be deleted. Try again.",

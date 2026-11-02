@@ -245,6 +245,21 @@ function kindFor(display: DisplayHint, options: unknown[] | undefined): NativeFo
   }
 }
 
+/** A link's picker narrowed to `keys` (an `in` filter on the linked key), or the link as it is. */
+function heldTo(link: ResolvedLink, keys: readonly (string | number)[] | undefined): ResolvedLink {
+  if (!keys) return link;
+  const held = { field: link.field, operator: "in" as const, value: [...keys] };
+  return Object.freeze({
+    resource: link.resource,
+    field: link.field,
+    get labelField() {
+      return link.labelField;
+    },
+    ...(link.searchFields ? { searchFields: link.searchFields } : {}),
+    filters: (scope?: Parameters<ResolvedLink["filters"]>[0], values?: Parameters<ResolvedLink["filters"]>[1]) => [...link.filters(scope, values), held],
+  });
+}
+
 /**
  * The form sheet's fields: `view.form(mode)` (which already leaves out JSON, lists, scope,
  * sensitive and unreadable fields and server-filled keys), each marked read-only unless
@@ -260,9 +275,15 @@ export function formFieldsFor<T extends Row>(
      * record's (a client's sessions), and a picker would move the row out of it (as on the web).
      */
     pinned?: Iterable<string>;
+    /**
+     * Lists the screen's filter holds fields to (`{ owner_id: ["a", "b"] }`). A link among them
+     * picks only among those rows, so a save never moves the row out of the list.
+     */
+    within?: Readonly<Record<string, readonly (string | number)[]>>;
   } = {},
 ): NativeFormField[] {
   const pinned = new Set(options.pinned ?? []);
+  const within = options.within ?? {};
   const writable = new Set([...view.writable(mode)].filter((name) => !(pinned.has(name) && view.field(name)?.references)));
   return view
     .form(mode)
@@ -272,7 +293,7 @@ export function formFieldsFor<T extends Row>(
     .map((f) => {
       const options = f.options?.map((o) => ({ value: o.value, label: o.label }));
       const readOnly = !writable.has(f.field.name);
-      const link = !readOnly && !options && f.link ? f.link : undefined;
+      const link = !readOnly && !options && f.link ? heldTo(f.link, Object.hasOwn(within, f.field.name) ? within[f.field.name] : undefined) : undefined;
       return {
         key: f.field.name,
         label: f.label,

@@ -7179,6 +7179,11 @@
           "props": []
         },
         {
+          "name": "screenLists",
+          "summary": "The list (`in`) filters a screen holds fields to, the screen's over the tab's.",
+          "props": []
+        },
+        {
           "name": "serverSorts",
           "summary": "The server sorts: the `groupBy` field first, so every page arrives in section order and a later\npage never lands in the middle of an earlier section, then the view's `orderBy` within each\ngroup. A provider without `multiSort` applies only the first.",
           "props": [
@@ -14518,7 +14523,7 @@
             },
             {
               "name": "common",
-              "type": "DeepPartial<{ empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }>",
+              "type": "DeepPartial<{ empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14560,7 +14565,7 @@
             },
             {
               "name": "link",
-              "type": "DeepPartial<{ placeholder: string; search: string; none: string; noResults: string; loadMore: string; loadFailed: string; createNew: string; }>",
+              "type": "DeepPartial<{ placeholder: string; search: string; none: string; noResults: string; loadMore: string; loadFailed: string; createNew: string; selected: string; }>",
               "required": false,
               "defaultValue": null,
               "description": "A link's picker in a form (RelationField)."
@@ -14613,7 +14618,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 12 more ...; workspace: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 12 more ...; workspace: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -15820,7 +15825,7 @@
             },
             {
               "name": "onChange",
-              "type": "(value: string | number | null) => void",
+              "type": "((value: string) => void) | ((value: string | number | null) => void)",
               "required": true,
               "defaultValue": null,
               "description": "The picked row's key as the row holds it; `null` when None is chosen."
@@ -15866,6 +15871,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Id for the trigger, so a `<label htmlFor>` names it."
+            },
+            {
+              "name": "keys",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
             },
             {
               "name": "values",

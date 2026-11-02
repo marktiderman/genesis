@@ -9,6 +9,8 @@ export const uiMessages = {
     empty: "—",
     /** A link whose row this viewer can't see, or that's gone (never its raw id). */
     hiddenLink: "Not available",
+    /** A row whose name is empty, in a list or picker (never its raw id). */
+    untitled: "Untitled",
     yes: "Yes",
     no: "No",
     cancel: "Cancel",
@@ -64,6 +66,8 @@ export const uiMessages = {
     loadMore: "Show more",
     loadFailed: "Couldn't load the choices.",
     createNew: "Create new…",
+    /** Read after the chosen row in the open list, for a screen reader. */
+    selected: "selected",
   },
   form: {
     /** `{noun}`: the record's name, e.g. "goal". */

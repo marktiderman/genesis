@@ -176,8 +176,9 @@ export function ResourceFormFieldRenderer({
               </FormLabel>
               <RelationField
                 field={field}
-                value={f.value}
-                onChange={f.onChange}
+                {...(field.relation.keys === "row"
+                  ? { keys: "row" as const, value: f.value as unknown, onChange: f.onChange as (value: string | number | null) => void }
+                  : { value: f.value != null ? String(f.value) : "", onChange: f.onChange as (value: string) => void })}
                 disabled={isDisabled}
                 values={watchedValues}
                 {...ariaProps}

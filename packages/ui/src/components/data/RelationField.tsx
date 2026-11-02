@@ -37,12 +37,8 @@ import type { ResourceFormFieldDef } from "./ResourceFormField";
 // Props
 // ---------------------------------------------------------------------------
 
-export interface RelationFieldProps {
+interface RelationFieldBaseProps {
   field: ResourceFormFieldDef;
-  /** The linked row's key (text or a number), or empty. */
-  value: unknown;
-  /** The picked row's key as the row holds it; `null` when None is chosen. */
-  onChange: (value: string | number | null) => void;
   disabled?: boolean | undefined;
   /** The form's values, for a picker whose filters follow another field. */
   values?: Readonly<Record<string, unknown>> | undefined;
@@ -52,6 +48,24 @@ export interface RelationFieldProps {
   "aria-invalid"?: boolean | undefined;
   "aria-required"?: boolean | undefined;
 }
+
+/** Keys as text, as RelationField always gave them: the key as a string, `""` for none. */
+export interface RelationFieldTextKeyProps extends RelationFieldBaseProps {
+  value: string;
+  onChange: (value: string) => void;
+  keys?: "text" | undefined;
+}
+
+/** Keys as the row holds them (a number stays a number), `null` for None. What a view's link uses. */
+export interface RelationFieldRowKeyProps extends RelationFieldBaseProps {
+  /** The linked row's key (text or a number), or empty. */
+  value: unknown;
+  /** The picked row's key as the row holds it; `null` when None is chosen. */
+  onChange: (value: string | number | null) => void;
+  keys: "row";
+}
+
+export type RelationFieldProps = RelationFieldTextKeyProps | RelationFieldRowKeyProps;
 
 /** How long typing settles before the search goes to the server. */
 const SEARCH_DEBOUNCE_MS = 250;
@@ -65,17 +79,22 @@ const empty = (value: unknown) => value === null || value === undefined || value
 // Component
 // ---------------------------------------------------------------------------
 
-export function RelationField({
-  field,
-  value,
-  onChange,
-  disabled,
-  values,
-  id,
-  "aria-describedby": ariaDescribedBy,
-  "aria-invalid": ariaInvalid,
-  "aria-required": ariaRequired,
-}: RelationFieldProps) {
+export function RelationField(props: RelationFieldProps) {
+  const {
+    field,
+    value,
+    disabled,
+    values,
+    id,
+    "aria-describedby": ariaDescribedBy,
+    "aria-invalid": ariaInvalid,
+    "aria-required": ariaRequired,
+  } = props;
+  // A text-key caller gets what it always did: the key as a string, "" for none.
+  const onChange = (next: string | number | null) => {
+    if (props.keys === "row") props.onChange(next);
+    else props.onChange(next === null ? "" : String(next));
+  };
   const messages = useUiMessages();
   const listId = useId();
   const [open, setOpen] = useState(false);
@@ -110,7 +129,7 @@ export function RelationField({
       labelField: relation.labelField,
       searchFields: relation.searchFields,
     },
-    { filters: stableFilters, search, enabled: open },
+    { filters: stableFilters, search, enabled: open, untitled: messages.common.untitled },
   );
 
   const options = useMemo(() => {
@@ -172,9 +191,9 @@ export function RelationField({
         }}
       >
         <PopoverTrigger asChild>
+          {/* A button that opens a listbox: the search input inside is the only combobox. */}
           <Button
             variant="outline"
-            role="combobox"
             id={id}
             aria-expanded={open}
             aria-haspopup="listbox"
@@ -227,6 +246,7 @@ export function RelationField({
                   <CommandItem value={NONE} onSelect={() => pick(null)}>
                     <Check className={cn("mr-2 h-4 w-4", empty(value) ? "opacity-100" : "opacity-0")} aria-hidden="true" />
                     <span className="text-muted-foreground">{messages.link.none}</span>
+                    {empty(value) && <span className="sr-only">, {messages.link.selected}</span>}
                   </CommandItem>
                 )}
                 {options.map((opt) => {
@@ -235,12 +255,12 @@ export function RelationField({
                     <CommandItem
                       key={String(opt.value)}
                       value={`${typeof opt.value}:${String(opt.value)}`}
-                      aria-selected={selected}
                       data-checked={selected || undefined}
                       onSelect={() => pick(opt.value)}
                     >
                       <Check className={cn("mr-2 h-4 w-4", selected ? "opacity-100" : "opacity-0")} aria-hidden="true" />
                       {opt.label}
+                      {selected && <span className="sr-only">, {messages.link.selected}</span>}
                     </CommandItem>
                   );
                 })}

@@ -84,9 +84,16 @@ const FORM_TYPE: Partial<Record<DisplayHint, FieldType>> = {
   email: "email",
 };
 
-function formField(f: ResolvedFormField, editable: boolean, scope: ResourceScope | null | undefined): ResourceFormFieldDef {
+function formField(
+  f: ResolvedFormField,
+  editable: boolean,
+  scope: ResourceScope | null | undefined,
+  /** A list the screen's filter holds this link to (`{ owner_id: ["a", "b"] }`): the picker offers only those. */
+  within?: readonly (string | number)[],
+): ResourceFormFieldDef {
   const options = f.options?.map((o) => ({ value: o.value, label: o.label }));
   const link = f.link;
+  const held: FilterParam[] = link && within ? [{ field: link.field, operator: "in", value: [...within] }] : [];
   return {
     key: f.field.name,
     label: f.label,
@@ -100,7 +107,8 @@ function formField(f: ResolvedFormField, editable: boolean, scope: ResourceScope
             valueField: link.field,
             ...(link.labelField ? { labelField: link.labelField } : {}),
             ...(link.searchFields ? { searchFields: [...link.searchFields] } : {}),
-            filters: (values: Readonly<Record<string, unknown>>) => link.filters(scope, values),
+            keys: "row" as const,
+            filters: (values: Readonly<Record<string, unknown>>) => [...link.filters(scope, values), ...held],
             ...(f.missingLabel ? { missingLabel: f.missingLabel } : {}),
           },
         }
@@ -200,7 +208,13 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     const writable = new Set(view.writable("create"));
     // What a new row starts with: the defaults, then the filter over them, so a new row stays in
     // the list it was made from.
-    const pinned = singleValues(JSON.parse(filterKey) as Filter);
+    const screenFilter = JSON.parse(filterKey) as Filter;
+    const pinned = singleValues(screenFilter);
+    // A link the filter holds to a list (`in`) picks only among the list's rows, so a save never
+    // moves the row out of this list.
+    const lists = new Map(
+      Object.entries(screenFilter ?? {}).filter((e): e is [string, readonly (string | number)[]] => Array.isArray(e[1])),
+    );
     const starts: Defaults = { ...(JSON.parse(defaultsKey) as Defaults), ...pinned };
     const scope = JSON.parse(scopeKey) as ResourceScope | null;
     const shown = view
@@ -211,7 +225,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
       // own: filled hidden below, never a picker that would move the row out of this list.
       .filter((f) => !(f.link && Object.hasOwn(pinned, f.field.name)))
       .map((f) => {
-        const def = formField(f, editable.has(f.field.name), scope);
+        const def = formField(f, editable.has(f.field.name), scope, lists.get(f.field.name));
         return Object.hasOwn(starts, def.key) ? { ...def, defaultValue: starts[def.key] } : def;
       });
     // They fill the fields the form doesn't show too (the client a session belongs to): hidden,

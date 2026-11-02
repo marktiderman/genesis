@@ -48,7 +48,7 @@ export function NativeLinkPicker({ field, value, onChange, values, error, testID
   const labelField = field.labelField ?? link.labelField;
   const list = useLinkOptions(
     { resource: link.resource, field: link.field, labelField, searchFields: link.searchFields },
-    { filters, search, enabled: open },
+    { filters, search, enabled: open, untitled: words.untitled! },
   );
 
   const loaded = isEmptyValue(value) ? undefined : list.options.find((o) => String(o.value) === String(value));
@@ -76,7 +76,8 @@ export function NativeLinkPicker({ field, value, onChange, values, error, testID
       <Pressable
         testID={`${testID}-trigger`}
         accessibilityRole="button"
-        accessibilityLabel={`${field.label}, ${shown}`}
+        // The error is read with the field, not only shown under it.
+        accessibilityLabel={error ? `${field.label}, ${shown}, ${error}` : `${field.label}, ${shown}`}
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((was) => !was)}
         className="min-h-[44px] flex-row items-center justify-between rounded-md border border-input bg-background px-3"
@@ -89,7 +90,7 @@ export function NativeLinkPicker({ field, value, onChange, values, error, testID
         </Text>
       </Pressable>
       {open ? (
-        <View testID={`${testID}-list`} style={{ gap: 4 }}>
+        <View testID={`${testID}-list`} style={{ gap: 4 }} accessibilityRole="radiogroup" accessibilityLabel={field.label}>
           {list.searchable ? (
             <NativeSearchBar
               testID={`${testID}-search`}
@@ -145,9 +146,12 @@ export function NativeLinkPicker({ field, value, onChange, values, error, testID
         </View>
       ) : null}
       {error ? (
-        <NativeText preset="caption" className="text-destructive">
-          {error}
-        </NativeText>
+        // A live region on Android; the alert role on iOS and the web.
+        <View accessibilityLiveRegion="polite">
+          <NativeText preset="caption" className="text-destructive" testID={`${testID}-error`} accessibilityRole="alert">
+            {error}
+          </NativeText>
+        </View>
       ) : null}
     </View>
   );
@@ -169,9 +173,10 @@ function Option({
   return (
     <Pressable
       testID={testID}
-      accessibilityRole="button"
+      // One choice of several: a radio, checked when it's the link's row.
+      accessibilityRole="radio"
       accessibilityLabel={label}
-      accessibilityState={{ selected }}
+      accessibilityState={{ checked: selected }}
       onPress={onPress}
       className="min-h-[44px] flex-row items-center justify-between px-3"
     >
