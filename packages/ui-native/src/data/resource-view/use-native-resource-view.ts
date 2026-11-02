@@ -3,8 +3,8 @@
 // share its cache patching, rollback and refusal handling), and the view's rows, sections, swipe
 // actions and form fields resolved once.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { BaseRecord, DataRow, FilterParam } from "@marktiderman/genesis-core";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { encodeRecordKey, type BaseRecord, type DataRow, type FilterParam } from "@marktiderman/genesis-core";
 import { useCapabilities, useInfiniteResource, useResource, useViewer } from "@marktiderman/genesis-core/hooks";
 import { filterParams as toFilters, type Allowed } from "@marktiderman/genesis-core/resource-view";
 import { useNativeResourceViewMessages } from "./display";
@@ -28,6 +28,15 @@ import {
 import { fill } from "./messages";
 
 type Row = Record<string, unknown>;
+
+/** A row's key from the view's key fields (its id when they can't encode it): the list keys rows by it. */
+export const recordKey = (view: AnyResourceView<Row>, row: Row) => {
+  try {
+    return String(encodeRecordKey(view.contract, row as DataRow));
+  } catch {
+    return String((row as DataRow).id);
+  }
+};
 type Filter = Readonly<Record<string, string | number | boolean | null | readonly (string | number)[]>>;
 
 /** How long typing waits before the search goes to the server. */
@@ -82,6 +91,11 @@ export interface UseNativeResourceViewReturn<T extends Row = Row> {
   loadPrevious: () => void;
   loadingPrevious: boolean;
   hasPrevious: boolean;
+  /**
+   * How many rows sit above `rows[0]`: the rows `maxPages` dropped from the front, 0 at the top.
+   * A grid cuts its lines from here, so dropping or loading back a page never regroups them.
+   */
+  rowOffset: number;
   /** What the search box shows (the server sees it 300 ms after the last keystroke). */
   search: string;
   setSearch: (text: string) => void;
@@ -292,6 +306,29 @@ export function useNativeResourceView<T extends Row = Row>(
 
   const sections = useMemo(() => sectionsFor(view, pages.rows, messages), [view, pages.rows, messages]);
 
+  // The rows above the loaded window, followed across reads by the first row: still loaded lower
+  // down means pages came back in front; the new first row lower down in the last read means
+  // pages were dropped. At the top (no previous page) it's 0, whatever happened. Compared with
+  // the last committed read: the snapshot is written after commit, so a render React throws away
+  // never moves it.
+  const loaded = useRef<{ keys: string[]; offset: number }>({ keys: [], offset: 0 });
+  const hasPrevious = pages.hasPreviousPage;
+  const snapshot = useMemo(() => {
+    const keys = pages.rows.map((row) => recordKey(view as AnyResourceView<Row>, row as Row));
+    const last = loaded.current;
+    let offset = 0;
+    if (hasPrevious && keys.length > 0 && last.keys.length > 0) {
+      const back = keys.indexOf(last.keys[0]!);
+      const dropped = last.keys.indexOf(keys[0]!);
+      offset = back >= 0 ? last.offset - back : dropped >= 0 ? last.offset + dropped : last.offset;
+    }
+    return { keys, offset: Math.max(0, offset) };
+  }, [view, pages.rows, hasPrevious]);
+  useLayoutEffect(() => {
+    loaded.current = snapshot;
+  }, [snapshot]);
+  const rowOffset = snapshot.offset;
+
   const { query } = pages;
   const [refreshing, setRefreshing] = useState(false);
   const refresh = useCallback(async () => {
@@ -322,7 +359,8 @@ export function useNativeResourceView<T extends Row = Row>(
     hasMore: pages.hasNextPage,
     loadPrevious: pages.fetchPreviousPage,
     loadingPrevious: query.isFetchingPreviousPage,
-    hasPrevious: pages.hasPreviousPage,
+    hasPrevious,
+    rowOffset,
     search,
     setSearch,
     refusal,

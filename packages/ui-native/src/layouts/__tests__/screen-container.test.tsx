@@ -1,6 +1,6 @@
 // @feat:native-layouts
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import {
   ScreenContainer,
   composeHeaderOptions,
@@ -34,6 +34,55 @@ describe("ScreenContainer", () => {
     );
     expect(screen.queryByTestId("screen-scroll")).toBeNull();
     expect(screen.getByTestId("screen-body")).toBeTruthy();
+  });
+
+  it("has no pull to refresh unless onRefresh is passed", () => {
+    render(
+      <ScreenContainer testID="screen" scroll>
+        <span>Hello</span>
+      </ScreenContainer>,
+    );
+    expect(screen.queryByTestId("screen-refresh")).toBeNull();
+  });
+
+  it("pulls to refresh with onRefresh, and shows the spinner while refreshing", () => {
+    const onRefresh = vi.fn();
+    const { rerender } = render(
+      <ScreenContainer testID="screen" scroll onRefresh={onRefresh}>
+        <span>Hello</span>
+      </ScreenContainer>,
+    );
+    const control = screen.getByTestId("screen-refresh");
+    expect(control.dataset.refreshing).toBe("false");
+    fireEvent.click(control);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    rerender(
+      <ScreenContainer testID="screen" scroll onRefresh={onRefresh} refreshing>
+        <span>Hello</span>
+      </ScreenContainer>,
+    );
+    expect(screen.getByTestId("screen-refresh").dataset.refreshing).toBe("true");
+  });
+
+  it("makes the body scroll for onRefresh, since pulling needs a scroll view", () => {
+    render(
+      <ScreenContainer testID="screen" onRefresh={() => {}}>
+        <span>Hello</span>
+      </ScreenContainer>,
+    );
+    expect(screen.getByTestId("screen-scroll")).toBeTruthy();
+    expect(screen.queryByTestId("screen-body")).toBeNull();
+    expect(screen.getByTestId("screen-refresh")).toBeTruthy();
+  });
+
+  it("shows the loading state over a refreshable body", () => {
+    render(
+      <ScreenContainer testID="screen" onRefresh={() => {}} loading>
+        <span>Hello</span>
+      </ScreenContainer>,
+    );
+    expect(screen.getByTestId("screen-loading")).toBeTruthy();
+    expect(screen.queryByTestId("screen-refresh")).toBeNull();
   });
 });
 
