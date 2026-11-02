@@ -223,6 +223,7 @@ import { defineAi } from "@marktiderman/genesis-ai";
 import { otelSink, wrap } from "@marktiderman/genesis-ai/server";
 import { anthropic } from "@ai-sdk/anthropic";
 import { openAiModerator, deepgramTranscriber } from "@marktiderman/genesis-chat/server";
+import { trace } from "@opentelemetry/api";
 
 export const ai = defineAi({
   models: {
