@@ -659,3 +659,154 @@ describe("AuthForm: code length", () => {
     expect(byId("auth-form-error").textContent).toBe("That code has expired or is wrong. Ask for a new one.");
   });
 });
+
+describe("AuthForm: the email beside a new password", () => {
+  it("puts a known email in the form, hidden, for the password manager, and nothing without one", () => {
+    const { unmount } = setup({ defaultMode: "new-password", initialEmail: "sam@acme.test" });
+    const hidden = byId("auth-form-account-email") as HTMLInputElement;
+    expect(hidden.value).toBe("sam@acme.test");
+    expect(hidden.getAttribute("autocomplete")).toBe("username");
+    expect(hidden.hidden).toBe(true);
+    expect(hidden.readOnly).toBe(true);
+    expect(screen.queryByLabelText("Email")).toBeNull();
+    unmount();
+
+    setup({ defaultMode: "new-password" });
+    expect(screen.queryByTestId("auth-form-account-email")).toBeNull();
+  });
+
+  it("reads it from the client's session, once", async () => {
+    const currentEmail = vi.fn().mockResolvedValue("sam@acme.test");
+    const client = { ...mockClient(), currentEmail };
+    const { rerender } = setup({ client, defaultMode: "new-password" });
+    await waitFor(() => expect((byId("auth-form-account-email") as HTMLInputElement).value).toBe("sam@acme.test"));
+    rerender(<AuthForm client={{ ...client }} providers={false} defaultMode="new-password" />);
+    expect(currentEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("with showAccountEmail, shows it read-only and labelled", () => {
+    setup({ defaultMode: "new-password", initialEmail: "sam@acme.test", showAccountEmail: true });
+    const shown = screen.getByLabelText("Email") as HTMLInputElement;
+    expect(shown.value).toBe("sam@acme.test");
+    expect(shown.readOnly).toBe(true);
+    expect(shown.hidden).toBe(false);
+    expect(shown.getAttribute("autocomplete")).toBe("username");
+  });
+
+  it("doesn't add it in the other modes", () => {
+    setup({ initialEmail: "sam@acme.test" });
+    expect(screen.queryByTestId("auth-form-account-email")).toBeNull();
+  });
+});
+
+describe("AuthForm: sign-up fields", () => {
+  it("adds none by default, and signUp gets no data", async () => {
+    const { client } = setup({ defaultMode: "sign-up" });
+    expect(screen.queryByLabelText("Full name")).toBeNull();
+    type("auth-form-email", "new@acme.test");
+    type("auth-form-password", "long-enough");
+    await submit();
+    expect(client.signUp).toHaveBeenCalledWith({ email: "new@acme.test", password: "long-enough" });
+  });
+
+  it("asks for a full name and passes it as data, an empty optional field left out", async () => {
+    const { client } = setup({
+      defaultMode: "sign-up",
+      signUpFields: ["full_name", { name: "company", label: "Company", autoComplete: "organization" }],
+    });
+    const name = screen.getByLabelText("Full name");
+    expect(name.getAttribute("autocomplete")).toBe("name");
+    expect(screen.getByLabelText("Company").getAttribute("autocomplete")).toBe("organization");
+    type("auth-form-email", "new@acme.test");
+    type("auth-form-password", "long-enough");
+    await submit();
+    expect(byId("auth-form-error").textContent).toBe("Full name is required.");
+    expect(name.getAttribute("aria-invalid")).toBe("true");
+    expect(client.signUp).not.toHaveBeenCalled();
+    type("auth-form-field-full_name", "  Sam Lee ");
+    await submit();
+    expect(client.signUp).toHaveBeenCalledWith({ email: "new@acme.test", password: "long-enough", data: { full_name: "Sam Lee" } });
+  });
+
+  it("takes a slot that sets the values itself", async () => {
+    const { client } = setup({
+      defaultMode: "sign-up",
+      signUpFields: ({ values, setValue, disabled }) => (
+        <input aria-label="Team" data-testid="team" value={values.team ?? ""} disabled={disabled} onChange={(e) => setValue("team", e.target.value)} />
+      ),
+    });
+    type("team", "Blue");
+    type("auth-form-email", "new@acme.test");
+    type("auth-form-password", "long-enough");
+    await submit();
+    expect(client.signUp).toHaveBeenCalledWith({ email: "new@acme.test", password: "long-enough", data: { team: "Blue" } });
+  });
+
+  it("shows them only on sign-up", () => {
+    setup({ signUpFields: ["full_name"] });
+    expect(screen.queryByLabelText("Full name")).toBeNull();
+  });
+});
+
+describe("AuthForm: a code by text message", () => {
+  function phoneClient(overrides: Partial<AuthFormClient> = {}) {
+    return mockClient({ sendPhoneCode: vi.fn(() => Promise.resolve({})), verifyPhoneCode: vi.fn(() => Promise.resolve({})), ...overrides });
+  }
+
+  it("texts a code to the number and verifies it in the code step", async () => {
+    const client = phoneClient();
+    const { onSuccess } = setup({ client, methods: ["phone-code"] });
+    expect(screen.queryByLabelText("Email")).toBeNull();
+    const phone = screen.getByLabelText("Phone number");
+    expect(phone.getAttribute("type")).toBe("tel");
+    expect(phone.getAttribute("autocomplete")).toBe("tel");
+    expect(byId("auth-form-submit").textContent).toBe("Text me a code");
+    type("auth-form-phone", "+1 (555) 123-4567");
+    await submit();
+    expect(client.sendPhoneCode).toHaveBeenCalledWith({ phone: "+15551234567", createUser: true });
+    expect(client.sendEmailCode).not.toHaveBeenCalled();
+    expect(screen.getByText("We texted a code to +15551234567. It has 6 digits.")).toBeTruthy();
+    expect(byId("auth-form-start-over").textContent).toBe("Use a different number");
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Code"), { target: { value: "123456" } });
+    });
+    await waitFor(() => expect(client.verifyPhoneCode).toHaveBeenCalledWith({ phone: "+15551234567", code: "123456" }));
+    expect(client.verifyEmailCode).not.toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledWith({ mode: "sign-in", method: "phone-code", phone: "+15551234567" });
+  });
+
+  it("asks for a number with its country code before calling", async () => {
+    const client = phoneClient();
+    setup({ client, methods: ["phone-code"] });
+    await submit();
+    expect(byId("auth-form-error").textContent).toBe("Enter your phone number.");
+    type("auth-form-phone", "555 1234");
+    await submit();
+    expect(byId("auth-form-error").textContent).toBe("Enter the number with its country code, like +1 555 123 4567.");
+    expect(byId("auth-form-phone").getAttribute("aria-invalid")).toBe("true");
+    expect(client.sendPhoneCode).not.toHaveBeenCalled();
+  });
+
+  it("without sign-up, answers an unknown number as sent, in neutral copy", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = phoneClient({ sendPhoneCode: vi.fn().mockResolvedValue({ error: { code: "otp_disabled", message: "Signups not allowed for otp" } }) });
+    setup({ client, methods: ["phone-code"], allowSignUp: false });
+    type("auth-form-phone", "+15551234567");
+    await submit();
+    expect(client.sendPhoneCode).toHaveBeenCalledWith({ phone: "+15551234567", createUser: false });
+    expect(screen.getByText("If +15551234567 has an account, we texted it a code. It has 6 digits.")).toBeTruthy();
+  });
+
+  it("is a link beside the email methods, and is left out for a client that can't text", () => {
+    const { unmount } = setup({ client: phoneClient(), methods: ["password", "phone-code"] });
+    fireEvent.click(byId("auth-form-method-phone-code"));
+    expect(screen.getByLabelText("Phone number")).toBeTruthy();
+    fireEvent.click(byId("auth-form-method-password"));
+    expect(screen.getByLabelText("Email")).toBeTruthy();
+    unmount();
+
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    setup({ methods: ["password", "phone-code"] });
+    expect(screen.queryByTestId("auth-form-method-phone-code")).toBeNull();
+  });
+});

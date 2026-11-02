@@ -1,17 +1,21 @@
 /**
  * Web sign-in on Supabase Auth, for genesis-ui's `AuthForm`: the calls each
  * of its modes makes (password, magic link, emailed code, sign-up, reset, new
- * password, providers) and the provider list read from the project's
+ * password, providers, a texted code) and the provider list read from the project's
  * `/auth/v1/settings`. Platform-neutral; native sign-in is on `/native`.
  */
 import { isAuthError, type SupabaseClient } from "@supabase/supabase-js";
 
-/** The parts of a Supabase client {@link createAuthFormClient} uses. A `SupabaseClient` fits. */
+/**
+ * The parts of a Supabase client {@link createAuthFormClient} uses. A `SupabaseClient` fits.
+ * `getSession`, when there, gives the new-password form the signed-in email (`currentEmail`).
+ */
 export interface AuthFormSupabase {
   auth: Pick<
     SupabaseClient["auth"],
     "signInWithPassword" | "signInWithOtp" | "verifyOtp" | "signUp" | "resetPasswordForEmail" | "updateUser" | "signInWithOAuth"
-  >;
+  > &
+    Partial<Pick<SupabaseClient["auth"], "getSession">>;
 }
 
 /**
@@ -44,10 +48,17 @@ export interface AuthFormSupabaseClient {
   sendMagicLink(input: { email: string; createUser: boolean }): Promise<AuthCallResult>;
   sendEmailCode(input: { email: string; createUser: boolean }): Promise<AuthCallResult>;
   verifyEmailCode(input: { email: string; code: string }): Promise<AuthCallResult>;
-  signUp(input: { email: string; password: string }): Promise<AuthCallResult>;
+  /** `data`: the new user's metadata (`options.data`, `raw_user_meta_data`), such as `full_name`. */
+  signUp(input: { email: string; password: string; data?: Record<string, unknown> }): Promise<AuthCallResult>;
   sendPasswordReset(input: { email: string }): Promise<AuthCallResult>;
   updatePassword(input: { password: string }): Promise<AuthCallResult>;
   signInWithProvider(provider: string): Promise<AuthCallResult>;
+  /** A code by text message (`signInWithOtp({ phone })`). Needs a phone provider in the project's Auth settings. */
+  sendPhoneCode(input: { phone: string; createUser: boolean }): Promise<AuthCallResult>;
+  /** Checks a texted code (`verifyOtp({ phone, token, type: "sms" })`). */
+  verifyPhoneCode(input: { phone: string; code: string }): Promise<AuthCallResult>;
+  /** The signed-in user's email, from the session the client holds (no request); null without one. Present when the Supabase client has `getSession`. */
+  currentEmail?(): Promise<string | null>;
   /** Present when `url` and `publishableKey` were given. */
   providers?(): Promise<string[]>;
 }
@@ -64,8 +75,22 @@ export interface CreateAuthFormClientOptions {
    * project's redirect allow list. Left out: the project's Site URL.
    */
   redirectTo?: string;
-  /** Where the password-reset link opens: the page that shows `mode="new-password"`. Default `redirectTo`. */
+  /** Where the emailed links come back to (a magic link, the sign-up confirmation): overrides `redirectTo` for them. Default `redirectTo`. */
+  emailRedirectTo?: string;
+  /** Where the password-reset link opens: the page that shows `mode="new-password"`. Default `emailRedirectTo`, then `redirectTo`. */
   resetRedirectTo?: string;
+  /**
+   * Where a provider sends the person back to, for every provider or per provider (a function of
+   * its id, `undefined` for the default): overrides `redirectTo` for providers. It must be in the
+   * project's redirect allow list. Default `redirectTo`.
+   */
+  providerRedirectTo?: string | ((provider: string) => string | undefined);
+  /**
+   * Extra query parameters for the provider's authorize URL (`signInWithOAuth`'s
+   * `options.queryParams`): Google's `{ access_type: "offline", prompt: "consent" }`, say. One
+   * record for every provider, or a function of the provider's id. Default none.
+   */
+  providerQueryParams?: Record<string, string> | ((provider: string) => Record<string, string> | undefined);
   /** For the settings request. Default the global `fetch`. */
   fetch?: typeof fetch;
 }
@@ -99,7 +124,9 @@ async function call(run: () => Promise<SupabaseAuthResult>): Promise<AuthCallRes
  * link and emailed code (`signInWithOtp`, the code checked with `verifyOtp`),
  * sign-up (`confirmEmail` when the project confirms emails), the reset email,
  * the new password (`updateUser`, on the session the reset link opened), and
- * OAuth providers (`signInWithOAuth`, which leaves the page). Every failure is
+ * OAuth providers (`signInWithOAuth`, which leaves the page; `providerRedirectTo` and
+ * `providerQueryParams` shape where it goes), and a code by text message
+ * (`signInWithOtp({ phone })`, checked with `verifyOtp` type `"sms"`). Every failure is
  * `{ error: { code, message } }`, never a throw, also on a client made with
  * `throwOnError: true`.
  *
@@ -134,24 +161,25 @@ async function call(run: () => Promise<SupabaseAuthResult>): Promise<AuthCallRes
  * @stability Beta
  */
 export function createAuthFormClient(supabase: AuthFormSupabase, options: CreateAuthFormClientOptions = {}): AuthFormSupabaseClient {
-  const { url, publishableKey, redirectTo, resetRedirectTo = redirectTo } = options;
+  const { url, publishableKey, redirectTo, emailRedirectTo = redirectTo, resetRedirectTo = emailRedirectTo, providerRedirectTo, providerQueryParams } = options;
   const auth = supabase.auth;
   // Without sign-up, Auth refuses an unknown email with otp_disabled ("Signups not allowed for otp").
   // The client passes it on as it is; AuthForm answers it as sent, so it doesn't say which emails
   // have accounts (one place, for every client).
   const otp = (email: string, createUser: boolean): Promise<AuthCallResult> =>
     call(() =>
-      auth.signInWithOtp({ email, options: { shouldCreateUser: createUser, ...(redirectTo ? { emailRedirectTo: redirectTo } : {}) } }),
+      auth.signInWithOtp({ email, options: { shouldCreateUser: createUser, ...(emailRedirectTo ? { emailRedirectTo } : {}) } }),
     );
   const client: AuthFormSupabaseClient = {
     signInWithPassword: ({ email, password }) => call(() => auth.signInWithPassword({ email, password })),
     sendMagicLink: ({ email, createUser }) => otp(email, createUser),
     sendEmailCode: ({ email, createUser }) => otp(email, createUser),
     verifyEmailCode: ({ email, code }) => call(() => auth.verifyOtp({ email, token: code, type: "email" })),
-    signUp: async ({ email, password }) => {
+    signUp: async ({ email, password, data }) => {
       let confirmEmail = false;
+      const signUpOptions = { ...(emailRedirectTo ? { emailRedirectTo } : {}), ...(data ? { data } : {}) };
       const result = await call(async () => {
-        const r = await auth.signUp({ email, password, ...(redirectTo ? { options: { emailRedirectTo: redirectTo } } : {}) });
+        const r = await auth.signUp({ email, password, ...(Object.keys(signUpOptions).length ? { options: signUpOptions } : {}) });
         confirmEmail = !r.error && !r.data.session;
         return r;
       });
@@ -160,14 +188,30 @@ export function createAuthFormClient(supabase: AuthFormSupabase, options: Create
     sendPasswordReset: ({ email }) =>
       call(() => auth.resetPasswordForEmail(email, resetRedirectTo ? { redirectTo: resetRedirectTo } : undefined)),
     updatePassword: ({ password }) => call(() => auth.updateUser({ password })),
-    signInWithProvider: (provider) =>
-      call(() =>
+    signInWithProvider: (provider) => {
+      const back = (typeof providerRedirectTo === "function" ? providerRedirectTo(provider) : providerRedirectTo) ?? redirectTo;
+      const queryParams = typeof providerQueryParams === "function" ? providerQueryParams(provider) : providerQueryParams;
+      const oauthOptions = { ...(back ? { redirectTo: back } : {}), ...(queryParams && Object.keys(queryParams).length ? { queryParams } : {}) };
+      return call(() =>
         auth.signInWithOAuth({
           provider: provider as Parameters<typeof auth.signInWithOAuth>[0]["provider"],
-          ...(redirectTo ? { options: { redirectTo } } : {}),
+          ...(Object.keys(oauthOptions).length ? { options: oauthOptions } : {}),
         }),
-      ),
+      );
+    },
+    sendPhoneCode: ({ phone, createUser }) => call(() => auth.signInWithOtp({ phone, options: { shouldCreateUser: createUser } })),
+    verifyPhoneCode: ({ phone, code }) => call(() => auth.verifyOtp({ phone, token: code, type: "sms" })),
   };
+  const getSession = auth.getSession?.bind(auth);
+  if (getSession) {
+    client.currentEmail = async () => {
+      try {
+        return (await getSession()).data.session?.user.email ?? null;
+      } catch {
+        return null;
+      }
+    };
+  }
   if (url && publishableKey) {
     // Asked once per client: the form may mount many times, the project's providers don't change.
     let providers: Promise<string[]> | undefined;

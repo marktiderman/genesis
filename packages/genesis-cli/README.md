@@ -518,6 +518,23 @@ doesn't fit, is a warning.
    (found up to the repository's root), never `.genesis-next` files. `--dry-run` changes nothing,
    and shows the refresh against the packages installed now.
 
+`--version <v>` is upgrade's own option: `genesis upgrade --version 2.30.0` upgrades to 2.30.0
+(the CLI's own version is `genesis --version`, before any command). Since genesis-cli 1.18.0;
+1.17.3 printed its own version instead.
+
+**Upgrading the CLI itself.** The upgrade runs in the CLI that started it. It moves the app's
+`@marktiderman/genesis-cli` dependency with the rest, but it doesn't restart in the new CLI: the
+codemods, the owned-file refresh and the doctor of this run are the installed CLI's, so a
+codemod the new release added doesn't run. To upgrade with the release's own CLI, start it
+through npx:
+
+```bash
+npx @marktiderman/genesis-cli@latest upgrade --version <v>
+```
+
+The next `genesis upgrade` (and `genesis doctor`) in the app then runs the new CLI from its
+dependencies.
+
 `genesis.lock.json` is checked like a manifest, since anyone with commit access can edit it: each
 entry may only write where its kind of source goes (a template to `eas.json`, `.eas/`, `.maestro/`
 or `.github/workflows/`, a function file to `supabase/functions/<name>/`, a pgTAP test to
