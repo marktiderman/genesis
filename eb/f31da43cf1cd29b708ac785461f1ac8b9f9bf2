@@ -1,0 +1,56 @@
+packages/ui/src/components/patterns/__tests__/user-avatar.test.tsx
+  s_6a4659246591cd::t_795ea5bfb7b990 111-118
+  s_6a4659246591cd::t_016ee4a070d405 97-110
+.changeset/ui-record-display.md
+  s_6a4659246591cd::t_1619b1e6270194 1-17
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_6a4659246591cd::t_782d01c0f57ff3 156-157
+  s_6a4659246591cd::t_be34c8ef67ab67 411
+  s_6a4659246591cd::t_25e8d2ddc206e2 363-366
+  s_6a4659246591cd::t_b62ca2a248ed68 6
+  s_6a4659246591cd::t_05d37fb3b26c76 10,39,75-85,97,124-129,158,213,255,264,272-286,292,294,297,311-312,319,357-362,400-404,409-410,412-414
+packages/ui/src/components/data/cell-formatters.tsx
+  s_6a4659246591cd::t_56bc85bfc4ac12 21,23
+  s_6a4659246591cd::t_aa093d2da3bf94 7-8,11
+  s_6a4659246591cd::t_3cd51e101d42b5 3
+packages/ui/src/utils.ts
+  s_6a4659246591cd::t_78cc007c0dd7e9 4-6,16-24,27-74
+packages/ui/src/components/data/__tests__/record-view.test.tsx
+  s_6a4659246591cd::t_ef538a7cf40b4a 327-444
+packages/ui/src/components/ui/__tests__/textarea.test.tsx
+  s_6a4659246591cd::t_05eba56d06ca7f 1-12
+packages/ui/src/__tests__/relative-time.test.tsx
+  s_6a4659246591cd::t_da6ca4006cd411 1-75
+packages/ui/src/messages-en.ts
+  s_6a4659246591cd::t_c9c741e9463fb8 25-32
+packages/ui/src/components/resource/__tests__/components.test.tsx
+  s_6a4659246591cd::t_832bab2157394d 36-52
+docs/component-reference.md
+  s_6a4659246591cd::t_c89c3be7a06d6d 4696,4704-4714,10076,10091,10108-10110,10131,10161,10505,10513-10523
+packages/ui/src/components/data/resource-view/display.tsx
+  s_6a4659246591cd::t_cd6b2aa864c12e 5,11,94-127
+packages/ui/src/components/data/resource-view/index.ts
+  s_6a4659246591cd::t_1b951c42d8e02b 10-11,18
+packages/ui/src/components/patterns/user-avatar.tsx
+  s_6a4659246591cd::t_79e84c774ef15b 52,57-61,65-80,89-93,111,125
+packages/ui/src/components/resource/ResourceHeader.tsx
+  s_6a4659246591cd::t_0163c8d1dc2b0c 28-31,79-80,125-129,150-154
+packages/ui/src/components/ui/textarea.tsx
+  s_6a4659246591cd::t_6f81d6ddcb9306 9-11,15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ebf31da43cf1cd29b708ac785461f1ac8b9f9bf2",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
