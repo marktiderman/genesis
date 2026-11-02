@@ -1,0 +1,9 @@
+{
+  "codeConnect": {
+    "parser": "react",
+    "include": ["packages/ui-native/figma/**/*.figma.tsx"],
+    "importPaths": {
+      "packages/ui-native/src/components/*": "@marktiderman/genesis-ui-native"
+    }
+  }
+}
