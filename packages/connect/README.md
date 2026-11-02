@@ -227,7 +227,10 @@ const token = await connector.accessToken(row.refresh_token, aad, {
   (a scope unticked, or no identity with `requireIdentity`), it revokes it through `revokeUrl`
   (best effort) rather than leave it standing. Google ends every token of the person's grant to
   your client, so when one client backs several connections, set `revokeFailedGrants: false`
-  to keep a failed attempt from ending the others.
+  to keep a failed attempt from ending the others. The revoke runs in the background (at most
+  3 seconds), so it never delays the redirect.
+- **A `store` that throws keeps its grant.** The callback ends as `failed` but doesn't revoke
+  the refresh token, since `store` may have half-written the row; clean up in `store` itself.
 
 ### One callback origin for many addresses
 
