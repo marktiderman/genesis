@@ -36,22 +36,55 @@ describe("DialogContent on a phone", () => {
     return screen.getByTestId("content");
   }
 
-  it("docks to the bottom as a sheet by default, scrolling inside the safe areas", () => {
+  it("stays the centred box by default, with side gutters and today's square corners", () => {
     const el = renderDialog();
     const cls = classesOf(el);
-    expect(el.getAttribute("data-mobile-layout")).toBe("sheet");
-    expect(cls).toContain("overflow-y-auto");
-    expect(cls).toContain("bottom-0");
-    expect(cls.some((c) => c.startsWith("max-h-[") && c.includes("safe-area-inset-top"))).toBe(true);
-    expect(cls.some((c) => c.startsWith("pb-[") && c.includes("safe-area-inset-bottom"))).toBe(true);
+    expect(el.getAttribute("data-mobile-layout")).toBe("center");
+    expect(cls).toContain("left-[50%]");
+    expect(cls).toContain("top-[50%]");
+    expect(cls).toContain("max-w-[calc(100%-2rem)]");
+    expect(cls).toContain("data-[state=open]:slide-in-from-top-[48%]");
+    // Not a sheet unless asked for.
+    expect(cls).not.toContain("bottom-0");
+    expect(cls).not.toContain("inset-x-0");
+    expect(cls).not.toContain("rounded-t-xl");
+    expect(cls).not.toContain("rounded-lg");
+    expect(cls).toContain("sm:rounded-lg");
     expect(cls).toContain("motion-reduce:animate-none");
+  });
+
+  it("caps its height to the screen, clear of the safe areas, and scrolls inside", () => {
+    const cls = classesOf(renderDialog());
+    expect(cls).toContain("overflow-y-auto");
+    expect(cls).toContain("overscroll-contain");
+    expect(cls).toContain(
+      "max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]",
+    );
+    // No vh units, which a phone's toolbar cuts off.
+    expect(cls.some((c) => /\d+vh\b/.test(c))).toBe(false);
   });
 
   it("keeps the centred box from sm up", () => {
     const cls = classesOf(renderDialog());
     expect(cls).toContain("sm:left-[50%]");
     expect(cls).toContain("sm:max-w-lg");
-    expect(cls.some((c) => c.startsWith("sm:max-h-["))).toBe(true);
+    expect(cls).toContain("sm:max-h-[calc(100dvh-2rem)]");
+  });
+
+  it("docks to the bottom as a sheet when asked, scrolling inside the safe areas", () => {
+    const el = renderDialog({ mobileLayout: "sheet" });
+    const cls = classesOf(el);
+    expect(el.getAttribute("data-mobile-layout")).toBe("sheet");
+    expect(cls).toContain("overflow-y-auto");
+    expect(cls).toContain("inset-x-0");
+    expect(cls).toContain("bottom-0");
+    expect(cls).toContain("rounded-t-xl");
+    expect(cls).not.toContain("top-[50%]");
+    expect(cls.some((c) => c.startsWith("max-h-[") && c.includes("safe-area-inset-top"))).toBe(true);
+    expect(cls.some((c) => c.startsWith("pb-[") && c.includes("safe-area-inset-bottom"))).toBe(true);
+    // The same centred box from sm up.
+    expect(cls).toContain("sm:top-[50%]");
+    expect(cls).toContain("sm:rounded-lg");
   });
 
   it("can fill the screen instead", () => {
@@ -60,12 +93,6 @@ describe("DialogContent on a phone", () => {
     expect(cls).toContain("inset-0");
     expect(cls).toContain("h-[100dvh]");
     expect(cls.some((c) => c.startsWith("pt-[") && c.includes("safe-area-inset-top"))).toBe(true);
-  });
-
-  it("can stay centred with side gutters", () => {
-    const cls = classesOf(renderDialog({ mobileLayout: "center" }));
-    expect(cls).toContain("max-w-[calc(100%-2rem)]");
-    expect(cls).not.toContain("bottom-0");
   });
 
   it("gives the close button a 44px target", () => {
@@ -88,7 +115,7 @@ describe("AlertDialogContent on a phone", () => {
     const cls = classesOf(screen.getByTestId("alert"));
     expect(cls).toContain("max-w-[calc(100%-2rem)]");
     expect(cls).toContain("overflow-y-auto");
-    expect(cls).toContain("rounded-lg");
+    expect(cls).toContain("sm:rounded-lg");
     expect(cls).toContain("motion-reduce:animate-none");
   });
 });

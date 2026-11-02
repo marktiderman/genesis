@@ -460,9 +460,10 @@ export function ResourceForm(props: ResourceFormProps) {
   if (effectiveLayout === "sheet") {
     return (
       <Sheet open={open} onOpenChange={requestOpenChange}>
-        {/* Full width on a phone, a side panel from sm up. The sheet itself doesn't scroll:
-            the fields do, so Save and Cancel stay in reach above the keyboard. */}
-        <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[480px]">
+        {/* The sheet keeps its width (three quarters of a phone, 480px from sm up). It doesn't
+            scroll itself: the fields do, so Save and Cancel stay pinned in reach above the
+            keyboard and the home indicator, instead of scrolling away with a nested box. */}
+        <SheetContent side="right" className="flex flex-col gap-0 p-0 sm:max-w-[480px]">
           <SheetHeader className="border-b border-border px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-4 pr-14">
             <SheetTitle>{formTitle}</SheetTitle>
             <SheetDescription className="sr-only">

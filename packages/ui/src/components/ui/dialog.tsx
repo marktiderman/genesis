@@ -29,10 +29,13 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
  * How a dialog sits on a phone (below the `sm` breakpoint). From `sm` up every dialog is the same
  * centred box.
  *
- * - `sheet` (the default): docked to the bottom edge at full width, as tall as its content up to
- *   the top safe area, scrolling inside, and padded clear of the home indicator.
- * - `fullscreen`: fills the screen, inside the safe areas. For long forms, editors and media.
- * - `center`: the centred box, kept inside the screen with side gutters and scrolling inside.
+ * - `center` (the default): the centred box dialogs have always been, kept inside the screen
+ *   with side gutters, capped to the screen's height clear of the safe areas, scrolling inside.
+ * - `sheet` (opt-in): docked to the bottom edge at full width, as tall as its content up to the
+ *   top safe area, scrolling inside, and padded clear of the home indicator. Suits forms and
+ *   pickers a thumb reaches for.
+ * - `fullscreen` (opt-in): fills the screen, inside the safe areas. For long forms, editors and
+ *   media.
  */
 export type DialogMobileLayout = "sheet" | "fullscreen" | "center";
 
@@ -45,8 +48,9 @@ const DIALOG_MOBILE: Record<DialogMobileLayout, string> = {
     "inset-x-0 bottom-0 max-h-[calc(100dvh-env(safe-area-inset-top)-0.5rem)] rounded-t-xl border-t pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
   fullscreen:
     "inset-0 h-[100dvh] content-start pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
+  // Today's phone dialog (square corners, the same zoom and slide), plus the height cap.
   center:
-    "left-[50%] top-[50%] max-w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] translate-x-[-50%] translate-y-[-50%] rounded-lg border data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
+    "left-[50%] top-[50%] max-w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] translate-x-[-50%] translate-y-[-50%] border data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
 };
 
 const DialogContent = React.forwardRef<
@@ -59,10 +63,13 @@ const DialogContent = React.forwardRef<
      * `className` to match.
      */
     overlayClassName?: string;
-    /** How the dialog sits on a phone. Default `sheet`. See {@link DialogMobileLayout}. */
+    /**
+     * How the dialog sits on a phone. Default `center`, the centred box; `sheet` and `fullscreen`
+     * are opt-in. See {@link DialogMobileLayout}.
+     */
     mobileLayout?: DialogMobileLayout;
   }
->(({ className, overlayClassName, children, showCloseButton = true, mobileLayout = "sheet", ...props }, ref) => (
+>(({ className, overlayClassName, children, showCloseButton = true, mobileLayout = "center", ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
