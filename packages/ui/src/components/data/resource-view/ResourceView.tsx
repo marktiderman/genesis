@@ -4,8 +4,8 @@
 // prop still works as an escape hatch, and the screen's own props win over the view.
 
 import { useMemo, type ReactNode } from "react";
-import { useViewer, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
-import { plural, rowPicture, scopeFilter, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
+import { useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
+import { plural, rowPicture, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
@@ -101,7 +101,6 @@ function formField(f: ResolvedFormField, editable: boolean): ResourceFormFieldDe
   };
 }
 
-
 /** The single values of a filter: what a new row made from the list starts with. */
 function singleValues(filter: Filter): Defaults {
   return Object.fromEntries(Object.entries(filter).filter(([, value]) => !Array.isArray(value))) as Defaults;
@@ -184,7 +183,6 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
       .map(([key, value]): ResourceFormFieldDef => ({ key, type: "hidden", hidden: true, readOnlyOnEdit: true, defaultValue: value }));
     return [...shown, ...filled];
   }, [view, filterKey, defaultsKey]);
-
 
   // Guards only narrow: the view's rule AND the screen's own `can`. They read the viewer, so a
   // new viewer or new roles asks them again.

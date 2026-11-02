@@ -356,6 +356,10 @@ export const eventsView = defineView(contracts["public.events"], {
   screen's `cells`, and an unknown `preset` throws, as in the list.
 - **Layouts.** `month` (the month's whole weeks), `weeks` (1 to 4 weeks from the anchor's week, 2
   by default), `agenda` (the same weeks day by day) and `lanes` (a row per lane, a column per day).
+- **The list's options apply.** `resourceOptions.enabled` holds the requests (a screen waiting on
+  its scope), `resourceOptions.select` goes with each request, and `live` refetches on changes,
+  as in the list. A `select` must fetch the calendar's `field`, `endField`, `allDayField` and
+  `laneBy`, or events can't be placed (development warns).
 - **Data** goes through the view's provider rules: the scope, the screen's `filter` and a preset's
   filter, plus the visible window. Without an `endField` that is one `getList` for rows starting in
   the window. With one, a second `getList` adds the rows that started before the window and run

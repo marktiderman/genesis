@@ -902,4 +902,74 @@ describe("calendar patch: lanes from a link show the linked row's words", () => 
     await waitFor(() => expect(screen.getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["Ana", "Ben"]));
     expect(screen.queryByText("u-1")).toBeNull();
   });
+
+  it("labels numeric link ids under the same cache key a relation cell uses, and never says … while loading", async () => {
+    type Shift2 = { id: string; title: string; on: string; person_id: number };
+    const shifts2 = defineResource<Shift2>()({
+      name: "shifts2",
+      key: "id",
+      labelField: "title",
+      fields: [
+        { name: "id", type: "string", hasDefault: true },
+        { name: "title", type: "string" },
+        { name: "on", type: "datetime", dbType: "date" },
+        { name: "person_id", type: "number", references: { resource: "people", field: "id" } },
+      ],
+    });
+    const v = defineView(shifts2, { columns: { default: ["title"] }, fields: { person_id: { labelField: "name" } }, calendar: { field: "on", laneBy: "person_id", layout: "lanes", weeks: 1 } });
+    let release: (() => void) | undefined;
+    const getList = vi.fn(async (resource: string) => {
+      if (resource === "people") {
+        await new Promise<void>((r) => (release = r));
+        return { data: [{ id: 5, name: "Ana" }], total: 1 };
+      }
+      return { data: [{ id: "s1", title: "Open", on: "2026-11-03", person_id: 5 }], total: 1 };
+    });
+    const p = { getList, getOne: vi.fn(), getMany: vi.fn(async () => ({ data: [] })), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <ResourceView view={v} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />
+      </GenesisProvider>,
+    );
+    await waitFor(() => expect(screen.getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["Loading…"]));
+    expect(screen.getAllByRole("gridcell").some((c) => c.getAttribute("aria-label")?.includes("…") && !c.getAttribute("aria-label")?.includes("Loading…"))).toBe(false);
+    release!();
+    await waitFor(() => expect(screen.getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["Ana"]));
+    expect(queryClient.getQueryData(["people", "relation-label", { field: "id", labelField: "name", id: "number:5" }])).toBe("Ana");
+  });
+});
+
+describe("calendar patch: review of #611", () => {
+  it("warns in development when select leaves out the calendar's fields", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    render(
+      <ResourceView view={eventsView} mode="calendar" scoped={false} resourceOptions={{ select: "id, title, coach:people(name)" }} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />,
+      { wrapper: wrap(filtering(ROWS).p) },
+    );
+    await waitFor(() => expect(warn.mock.calls.some((c) => /leaves out starts_at, ends_at, who/.test(String(c[0])))).toBe(true));
+  });
+
+  it("keeps focus in the grid when new data removes the focused lane", async () => {
+    const withCy: Event[] = [...ROWS, { ...ROWS[0]!, id: "e3", title: "Cy's game", starts_at: "2026-11-03T15:00:00Z", ends_at: "2026-11-03T16:00:00Z", who: ["cy"] }];
+    let rows = withCy;
+    const getList = vi.fn(async (_r: string, params: { filters?: FilterParam[] }) => {
+      const { p } = filtering(rows);
+      return (p.getList as unknown as (r: string, x: unknown) => Promise<unknown>)("events", params);
+    });
+    const p = { getList, getOne: vi.fn(), getMany: vi.fn(async () => ({ data: [] })), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ layout: "lanes", weeks: 1, anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z, lanes: people }} />
+      </GenesisProvider>,
+    );
+    await screen.findByText("Cy's game");
+    const cy = screen.getAllByRole("gridcell").find((c) => c.getAttribute("aria-label")?.startsWith("cy, Monday, November 2"))!;
+    cy.focus();
+    rows = ROWS;
+    await queryClient.invalidateQueries({ queryKey: ["events"] });
+    await waitFor(() => expect(screen.queryByText("Cy's game")).toBeNull());
+    await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Ana, Monday, November 2, 2026"));
+  });
 });

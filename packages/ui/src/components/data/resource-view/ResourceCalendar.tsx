@@ -18,7 +18,7 @@ import { EventCalendar } from "../calendar/EventCalendar";
 import { calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout } from "../calendar/placement";
 import { timeStorage, windowBounds } from "../calendar/values";
 import { useFollowedState } from "../calendar/use-followed-state";
-import { anchorOr, layoutOr } from "../calendar/guard";
+import { anchorOr, layoutOr, warnOnce } from "../calendar/guard";
 import { useViewDetailFields } from "./view-list";
 
 type Row = Record<string, unknown>;
@@ -93,6 +93,25 @@ function displayZone(own: string | undefined, viewer: string | undefined, scope:
   return picked && isTimeZone(picked) ? picked : deviceTimeZone();
 }
 
+/** The fields a Supabase select string doesn't fetch (`*` fetches all; `alias:col` fetches col). */
+function selectMissing(select: string, fields: readonly (string | undefined)[]): string[] {
+  const top: string[] = [];
+  let depth = 0;
+  let token = "";
+  for (const ch of select) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      top.push(token);
+      token = "";
+    } else token += ch;
+  }
+  top.push(token);
+  const names = new Set(top.map((t) => t.trim().replace(/\(.*$/s, "").split(":").pop()!.split("::")[0]!.trim()));
+  if (names.has("*")) return [];
+  return fields.filter((f): f is string => Boolean(f) && !names.has(f!));
+}
+
 function withoutUndefined<O extends object>(o: O): Partial<O> {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<O>;
 }
@@ -149,6 +168,11 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   // - with an end field, rows that started before it and end inside or after it (a long event that
   //   began weeks ago; no guessing how far back to look). A timestamp end is exclusive, so one
   //   exactly at the window's first midnight is out (`gt`); a date end is the last day (`gte`).
+  // A select that leaves out the calendar's own fields makes every event vanish, silently: say so.
+  if (select) {
+    const missing = selectMissing(select, [fieldName, endField, allDayField, lanesOf ? undefined : laneBy]);
+    if (missing.length) warnOnce(`ResourceView(${view.resource}): calendar select "${select}" leaves out ${missing.join(", ")}; events need them`);
+  }
   const base = { pagination: { page: 1, perPage: limit }, sort: { field: fieldName, order: "asc" as const }, ...(select ? { select } : {}) };
   const starting: ListParams = {
     ...base,
@@ -230,14 +254,25 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const laneField = laneBy && !lanesOf ? view.field(laneBy) : undefined;
   const reference = laneField?.references;
   const linkLabelField = laneBy ? view.definition.fields?.[laneBy as never]?.labelField : undefined;
+  // Each lane's id as stored (a number stays a number), so its label shares the cache entry a
+  // relation cell for the same row uses.
   const linkedIds = useMemo(() => {
-    if (!reference) return [];
+    if (!reference || !laneBy) return [];
     const named = new Set((lanes ?? []).map((l) => l.key));
-    return [...new Set(events.flatMap((e) => e.lanes ?? []))].filter((id) => !named.has(id));
-  }, [reference, events, lanes]);
+    const raw = new Map<string, string | number>();
+    for (const row of rows) {
+      const value = row[laneBy];
+      for (const v of Array.isArray(value) ? value : [value]) {
+        if ((typeof v === "string" && v !== "") || (typeof v === "number" && Number.isFinite(v))) {
+          if (!named.has(String(v)) && !raw.has(String(v))) raw.set(String(v), v);
+        }
+      }
+    }
+    return [...raw.values()];
+  }, [reference, laneBy, rows, lanes]);
   const linkedLabels = useQueries({
     queries: linkedIds.map((id) => ({
-      queryKey: [reference?.resource, "relation-label", { field: reference?.field, labelField: linkLabelField ?? null, id: `string:${id}` }],
+      queryKey: [reference?.resource, "relation-label", { field: reference?.field, labelField: linkLabelField ?? null, id: `${typeof id}:${String(id)}` }],
       staleTime: 60_000,
       retry: false,
       queryFn: () => loadRelationLabel(provider, reference!, id, linkLabelField),
@@ -250,7 +285,9 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
             ...(lanes ?? []),
             ...linkedIds.map((id, i) => {
               const q = linkedLabels[i];
-              return { key: id, label: q?.data ?? (q?.isPending ? "…" : m.common.hiddenLink) };
+              // Words, never a raw id or a bare ellipsis: "Loading…" while they come, then the
+              // hidden-link words when there are none.
+              return { key: String(id), label: q?.data ?? (q?.isPending ? m.common.loading : m.common.hiddenLink) };
             }),
           ]
         : lanes,

@@ -350,12 +350,23 @@ function useGridFocus(
   const pending = useRef<string | null>(null);
   const refs = useRef(new Map<string, HTMLElement>());
   const active = focusKey && keys.includes(focusKey) ? focusKey : initial && keys.includes(initial) ? initial : keys[0];
+  // Whether focus is on one of this grid's cells: when that cell goes away (new data drops its
+  // lane), focus would fall to the page, so it moves to the fallback instead.
+  const holding = useRef(false);
   // After a page, focus the cell once it exists, or the fallback's when it never will.
   useEffect(() => {
+    if (!pending.current && holding.current && focusKey && !keys.includes(focusKey)) {
+      const active = typeof document !== "undefined" ? document.activeElement : null;
+      if (!active || active === document.body) pending.current = focusKey;
+    }
     const target = pending.current;
     if (!target) return;
     const cell = refs.current.get(target) ?? (keys.includes(target) ? undefined : refs.current.get(fallback?.(target) ?? ""));
-    if (!cell) return;
+    if (!cell) {
+      // Gone, with nowhere to fall back to: let go rather than jump there later.
+      if (!keys.includes(target)) pending.current = null;
+      return;
+    }
     pending.current = null;
     setFocusKey(cell.dataset["key"] ?? target);
     cell.focus();
@@ -406,7 +417,12 @@ function useGridFocus(
     },
     tabIndex: key === active ? 0 : -1,
     onFocus: (e: { target: EventTarget; currentTarget: EventTarget }) => {
+      holding.current = true;
       if (e.target === e.currentTarget) setFocusKey(key);
+    },
+    // Focus leaving for somewhere else lets go; a cell that's removed has nowhere it went.
+    onBlur: (e: { relatedTarget: EventTarget | null }) => {
+      if (e.relatedTarget) holding.current = false;
     },
     onKeyDown: (e: KeyboardEvent<HTMLElement>) => onKeyDown(e, key),
   });
@@ -576,7 +592,6 @@ function Lanes<T>({ days, placed, lanes: given, today, label, laneHeader, unassi
   );
   // Each event bucketed once per lane and day, and each cell's list built once per data: moving
   // focus re-renders the grid, not thousands of events.
-  const laneKeys = lanes.map((l) => l.key).join("\u0002");
   const cells = useMemo(() => {
     const out = new Map<string, { count: number; node: ReactNode }>();
     for (const [day, list] of placed) {
@@ -591,7 +606,7 @@ function Lanes<T>({ days, placed, lanes: given, today, label, laneHeader, unassi
       for (const [lane, bucket] of byLane) out.set(cellKey(lane, day), { count: bucket.length, node: <ul className="space-y-0.5">{bucket.map((p) => item(p))}</ul> });
     }
     return out;
-  }, [placed, item, laneKeys]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [placed, item]);
   if (!lanes.length) return nothing ? <p className="py-6 text-center text-sm text-muted-foreground">{nothing}</p> : null;
   return (
     <div className="overflow-x-auto print:overflow-visible">

@@ -13844,9 +13844,14 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/calendar/guard.ts",
       "stability": "stable",
-      "summary": "`value` when it's a layout; else `month`, saying so in development.",
-      "primaryComponent": "layoutOr",
+      "summary": "",
+      "primaryComponent": "warnOnce",
       "components": [
+        {
+          "name": "warnOnce",
+          "summary": "",
+          "props": []
+        },
         {
           "name": "layoutOr",
           "summary": "`value` when it's a layout; else `month`, saying so in development.",
