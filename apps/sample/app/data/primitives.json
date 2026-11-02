@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01",
+  "generatedAt": "2026-11-02",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -14486,7 +14486,7 @@
             },
             {
               "name": "form",
-              "type": "DeepPartial<{ createTitle: string; editTitle: string; createDescription: string; editDescription: string; }>",
+              "type": "DeepPartial<{ createTitle: string; editTitle: string; createDescription: string; editDescription: string; created: string; createdUnnamed: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -16370,6 +16370,13 @@
               "description": "Number of columns for the form layout. Default 1."
             },
             {
+              "name": "description",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's description, read out with its title (`aria-describedby`), over the UI catalogue's\n\"Fill in the details to create a new {noun}.\" / \"Update the {noun}.\"."
+            },
+            {
               "name": "fields",
               "type": "ResourceFormFieldDef[]",
               "required": false,
@@ -16466,6 +16473,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Wizard step definitions. Required when mode is \"wizard\"."
+            },
+            {
+              "name": "submitLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The submit button's words (\"Post\", \"Send\"), over \"Create\" / \"Save\"."
             },
             {
               "name": "title",
@@ -16809,6 +16823,13 @@
               "description": "The count's words; see PageHeader `countFormat`."
             },
             {
+              "name": "createdToast",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -16851,11 +16872,25 @@
               "description": ""
             },
             {
+              "name": "emptyCreate",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
+            },
+            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
+            },
+            {
+              "name": "emptyFiltered",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -16929,10 +16964,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; } | undefined",
+              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
             },
             {
               "name": "getKey",
@@ -17586,6 +17621,13 @@
               "description": "The count's words; see PageHeader `countFormat`."
             },
             {
+              "name": "createdToast",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -17635,11 +17677,25 @@
               "description": ""
             },
             {
+              "name": "emptyCreate",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
+            },
+            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
+            },
+            {
+              "name": "emptyFiltered",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -17720,10 +17776,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; } | undefined",
+              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
             },
             {
               "name": "getKey",
@@ -18306,6 +18362,13 @@
               "description": "The count's words; see PageHeader `countFormat`."
             },
             {
+              "name": "createdToast",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -18355,11 +18418,25 @@
               "description": ""
             },
             {
+              "name": "emptyCreate",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
+            },
+            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
+            },
+            {
+              "name": "emptyFiltered",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -18440,10 +18517,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; } | undefined",
+              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
             },
             {
               "name": "getKey",
@@ -19026,6 +19103,13 @@
               "description": "The count's words; see PageHeader `countFormat`."
             },
             {
+              "name": "createdToast",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -19075,11 +19159,25 @@
               "description": ""
             },
             {
+              "name": "emptyCreate",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
+            },
+            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
+            },
+            {
+              "name": "emptyFiltered",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -19160,10 +19258,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; } | undefined",
+              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
             },
             {
               "name": "getKey",
@@ -22547,6 +22645,13 @@
               "description": "The count's words; see PageHeader `countFormat`."
             },
             {
+              "name": "createdToast",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -22589,11 +22694,25 @@
               "description": ""
             },
             {
+              "name": "emptyCreate",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
+            },
+            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
+            },
+            {
+              "name": "emptyFiltered",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -22667,10 +22786,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; } | undefined",
+              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
             },
             {
               "name": "getKey",
@@ -23218,6 +23337,13 @@
               "description": "The count's words; see PageHeader `countFormat`."
             },
             {
+              "name": "createdToast",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -23260,11 +23386,25 @@
               "description": ""
             },
             {
+              "name": "emptyCreate",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
+            },
+            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
+            },
+            {
+              "name": "emptyFiltered",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -23338,10 +23478,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; } | undefined",
+              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
             },
             {
               "name": "getKey",

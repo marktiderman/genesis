@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useCallback, useEffect, useRef } from "react";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { UseFormReturn, FieldErrors } from "react-hook-form";
 import { useWatch } from "react-hook-form";
 import {
@@ -48,6 +48,13 @@ export interface ResourceFormProps {
   onOpenChange: (open: boolean) => void;
   /** The title, over everything else. */
   title?: string | undefined;
+  /** The submit button's words ("Post", "Send"), over "Create" / "Save". */
+  submitLabel?: string | undefined;
+  /**
+   * The form's description, read out with its title (`aria-describedby`), over the UI catalogue's
+   * "Fill in the details to create a new {noun}." / "Update the {noun}.".
+   */
+  description?: string | undefined;
   /**
    * What one record is called ("goal"): the title reads "New goal" / "Edit goal" (the UI
    * catalogue's `form`). Without it the title is built from `resource`, as before.
@@ -129,6 +136,7 @@ function FormBody({
   mode = "standard",
   steps,
   columns = 1,
+  submitLabel,
 }: {
   form: UseFormReturn<Record<string, unknown>>;
   resolvedFields: ResourceFormFieldDef[];
@@ -141,7 +149,22 @@ function FormBody({
   mode?: "standard" | "wizard" | undefined;
   steps?: WizardStep[] | undefined;
   columns?: 1 | 2 | undefined;
+  submitLabel?: string | undefined;
 }) {
+  // ResourceForm stays mounted while its dialog or sheet is closed, and with `shouldUnregister`
+  // the form's values start empty, so react-hook-form can count it dirty against its defaults. A
+  // field registering would then correct that while it renders, which React reports as "Cannot
+  // update a component while rendering a different component". Resetting to the defaults before
+  // the fields mount (nothing is registered yet, so nothing typed is lost) keeps registration
+  // quiet; a layout effect runs before paint, so the spinner below is never seen.
+  const [seeded, setSeeded] = useState(false);
+  useLayoutEffect(() => {
+    form.reset(form.formState.defaultValues as Record<string, unknown>, { keepDefaultValues: true });
+    setSeeded(true);
+    // Once, as the body mounts; later defaults are useResourceForm's job.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Only watch all values when conditional fields exist (performance optimization)
   const hasConditionalFields = resolvedFields.some((f: ResourceFormFieldDef) => f.visible || f.disabled);
   const watchedValues = useWatch({
@@ -169,7 +192,7 @@ function FormBody({
     if (firstErrorKey) form.setFocus(firstErrorKey);
   };
 
-  if (isLoading) {
+  if (isLoading || !seeded) {
     return (
       <div className="flex items-center justify-center py-8">
         <Spinner />
@@ -293,7 +316,7 @@ function FormBody({
         </Button>
         <Button type="submit" disabled={isSaving}>
           {isSaving && <Spinner size="sm" className="mr-2" />}
-          {action === "create" ? "Create" : "Save"}
+          {submitLabel ?? (action === "create" ? "Create" : "Save")}
         </Button>
       </div>
     </form>
@@ -312,6 +335,8 @@ export function ResourceForm(props: ResourceFormProps) {
     open,
     onOpenChange,
     title: titleProp,
+    submitLabel,
+    description: descriptionProp,
     noun,
     fields: fieldsProp,
     listData,
@@ -330,6 +355,15 @@ export function ResourceForm(props: ResourceFormProps) {
     undoDelayMs,
     onUndoable,
   } = props;
+  // What had focus as the form opened (the host's New or Edit button), to hand focus back on
+  // close. Read while rendering the open, before the first field takes focus: autoFocus runs
+  // before Radix's onOpenAutoFocus, so that callback can't be the place to read it.
+  const opener = useRef<HTMLElement | null>(null);
+  const wasOpen = useRef(false);
+  if (open && !wasOpen.current && typeof document !== "undefined") {
+    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
+  wasOpen.current = !!open;
 
   const isMobile = useIsMobile();
   const effectiveLayout = isMobile ? "sheet" : layoutProp;
@@ -345,9 +379,11 @@ export function ResourceForm(props: ResourceFormProps) {
       : action === "create"
         ? `Create ${resourceLabel}`
         : `Edit ${resourceLabel}`);
-  const formDescription = noun
-    ? fillMessage(action === "create" ? m.form.createDescription : m.form.editDescription, { noun })
-    : `${action === "create" ? "Fill in the details to create a new" : "Update the"} ${resourceLabel.toLowerCase()} record.`;
+  const formDescription =
+    descriptionProp ??
+    (noun
+      ? fillMessage(action === "create" ? m.form.createDescription : m.form.editDescription, { noun })
+      : `${action === "create" ? "Fill in the details to create a new" : "Update the"} ${resourceLabel.toLowerCase()} record.`);
 
   // `compact`: some settings are `undefined` here, which useResourceForm reads as absent. The type
   // argument keeps the literal checked against the hook's options, so a misspelled key is an error.
@@ -399,6 +435,7 @@ export function ResourceForm(props: ResourceFormProps) {
   );
 
   const bodyProps = {
+    submitLabel,
     form,
     resolvedFields,
     renderForm,
@@ -412,11 +449,24 @@ export function ResourceForm(props: ResourceFormProps) {
     columns,
   };
 
+  // Radix hands focus back to a DialogTrigger on close. This form opens from the host's own
+  // button, not a trigger, so focus fell to <body> and a keyboard user started again from the top
+  // of the page. Go back to what had focus when it opened, if it's still on the page.
+  const focusProps = {
+    onCloseAutoFocus: (event: Event) => {
+      const back = opener.current;
+      opener.current = null;
+      if (!back?.isConnected) return;
+      event.preventDefault();
+      back.focus();
+    },
+  };
+
   // ── Dialog layout ──
   if (effectiveLayout === "dialog") {
     return (
       <Dialog open={open} onOpenChange={requestOpenChange}>
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="sm:max-w-[560px]" {...focusProps}>
           <DialogHeader>
             <DialogTitle>{formTitle}</DialogTitle>
             <DialogDescription className="sr-only">
@@ -433,7 +483,7 @@ export function ResourceForm(props: ResourceFormProps) {
   if (effectiveLayout === "sheet") {
     return (
       <Sheet open={open} onOpenChange={requestOpenChange}>
-        <SheetContent side="right" className="sm:max-w-[480px] overflow-y-auto">
+        <SheetContent side="right" className="sm:max-w-[480px] overflow-y-auto" {...focusProps}>
           <SheetHeader>
             <SheetTitle>{formTitle}</SheetTitle>
             <SheetDescription className="sr-only">

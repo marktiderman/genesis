@@ -227,10 +227,17 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 
   const orderBy = view.definition.orderBy;
   const copy = view.definition.copy;
-  const createTitle = screenFormTitles?.create ?? copy?.form?.createTitle;
-  const editTitle = screenFormTitles?.edit ?? copy?.form?.editTitle;
-  const formTitles =
-    createTitle || editTitle ? { ...(createTitle ? { create: createTitle } : {}), ...(editTitle ? { edit: editTitle } : {}) } : undefined;
+  // The form's words, each from the screen's `formTitles` over the view's `copy.form`.
+  const formWords = {
+    create: screenFormTitles?.create ?? copy?.form?.createTitle,
+    edit: screenFormTitles?.edit ?? copy?.form?.editTitle,
+    createSubmit: screenFormTitles?.createSubmit ?? copy?.form?.createSubmit,
+    editSubmit: screenFormTitles?.editSubmit ?? copy?.form?.editSubmit,
+    createDescription: screenFormTitles?.createDescription ?? copy?.form?.createDescription,
+    editDescription: screenFormTitles?.editDescription ?? copy?.form?.editDescription,
+  };
+  const givenWords = Object.fromEntries(Object.entries(formWords).filter(([, words]) => !!words));
+  const formTitles = Object.keys(givenWords).length ? (givenWords as NonNullable<ResourcePageProps<T>["formTitles"]>) : undefined;
   // Tree mode (`tree`) needs every row: a page of a tree would cut parents from their children,
   // and a server-side search would drop the ancestors that give a match its place.
   if (screenTree && rest.pagination !== undefined && rest.pagination !== "client") {
