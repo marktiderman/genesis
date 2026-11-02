@@ -1,0 +1,36 @@
+packages/studio/src/__tests__/data-studio-p3.test.tsx
+  s_318cb635985f4b::t_6a6ab18fb353ae 186-206
+packages/core/src/resource-view/define-view.ts
+  s_318cb635985f4b::t_b2b592c337323f 160-177,288-301
+docs/component-reference.md
+  s_318cb635985f4b::t_747ff27244e6f3 1838
+packages/core/src/__tests__/resource-view.test.ts
+  s_318cb635985f4b::t_5ec0389d97fa04 685-690
+packages/core/src/__tests__/dates-recurrence.test.ts
+  s_318cb635985f4b::t_b1b14f57467710 4,7,12,22
+  s_318cb635985f4b::t_5ec0389d97fa04 662-741,759-760
+  s_318cb635985f4b::t_2449d9002a50dc 742-758
+  s_318cb635985f4b::t_08202610a88ac3 290-291
+packages/core/src/dates.ts
+  s_318cb635985f4b::t_230ce403b6c244 23-30,36,162,170,176,194,200,223,242,332,346,416,591,627,874
+  s_318cb635985f4b::t_b2b592c337323f 834,841-842,847-855,861-871,873
+  s_318cb635985f4b::t_195b28ffd73d2f 412-413,415,495-500,502,511-517,542-543,622-626,628-632,634-635,692-694,746,748-749,784,805-813,819-820
+.changeset/dates-review-2-5-0.md
+  s_318cb635985f4b::t_ea2f94de7141d3 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7cf7951756c440b2eca1c3a6300b475e953263a6",
+  "prompts": {},
+  "sessions": {
+    "s_318cb635985f4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8270687-1465-46da-9cdc-8373bb9d738c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
