@@ -14,6 +14,7 @@ const unawaited = (message, ...callees) =>
   callees.flatMap((callee) => [
     { selector: `ExpressionStatement > CallExpression${callee}`, message },
     { selector: `VariableDeclarator > CallExpression${callee}`, message },
+    { selector: `AssignmentExpression > CallExpression${callee}`, message },
   ]);
 
 module.exports = defineConfig([
@@ -33,6 +34,12 @@ module.exports = defineConfig([
         ...unawaited(
           "React Native Testing Library 14's rerender and unmount return promises: await them.",
           "[callee.property.name=/^(rerender|unmount)$/]",
+          "[callee.name=/^(rerender|unmount)$/]",
+        ),
+        // await-async-events only tracks a userEvent.setup() kept in a variable, not a chained one.
+        ...unawaited(
+          "userEvent's events return promises: await them.",
+          '[callee.object.type="CallExpression"][callee.object.callee.object.name="userEvent"][callee.object.callee.property.name="setup"]',
         ),
       ],
     },
