@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 594 components · 4089 other exports · 3259 standalone types across 190 entry points in 29 packages.
+**Totals:** 595 components · 4088 other exports · 3259 standalone types across 190 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -10054,7 +10054,7 @@ export type { UiMessagesOverrides };
 
 **Barrel:** [`packages/ui/src/components/data/index.ts`](../packages/ui/src/components/data/index.ts)
 
-### Components (18)
+### Components (19)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -10067,6 +10067,7 @@ export type { UiMessagesOverrides };
 | [`EventCalendar`](../packages/ui/src/components/data/calendar/EventCalendar.tsx) | `EventCalendarProps` | Beta | A calendar of events in one of four layouts: |
 | [`KanbanBoard`](../packages/ui/src/components/data/KanbanBoard.tsx) | `KanbanBoardProps` | — | Columns of cards, optionally movable between columns. |
 | [`PrintableAgenda`](../packages/ui/src/components/data/calendar/PrintableAgenda.tsx) | `PrintableAgendaProps` | Beta | One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the sheets stack, so a page can show them before printing. Events that name no lane are left out: a sheet is someone's. |
+| [`PrintButton`](../packages/ui/src/components/data/calendar/PrintableAgenda.tsx) | `PrintButtonProps` | Beta | Prints the page (the browser's print dialog). Hidden on the printed page itself. @stability Beta |
 | [`RecordView`](../packages/ui/src/components/data/resource-view/RecordView.tsx) | `RecordViewProps` | — | One record's screen, from its record view (defineRecordView): |
 | [`ResourceCalendar`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | `ResourceCalendarProps` | Beta | A view's rows on a calendar, as its `calendar` block describes them. Prefer `<ResourceView view={v} mode="calendar" />`, which passes the scope and the screen's filters. |
 | [`ResourceDetailPage`](../packages/ui/src/components/data/ResourceDetailPage.tsx) | `ResourceDetailPageProps` | Beta | ResourceDetailPage — `DetailPage` with a record bound to it: fetches one record by id through the mounted `DataProvider` and hands it to the title, the actions, the sidebar and the content. |
@@ -10077,7 +10078,7 @@ export type { UiMessagesOverrides };
 | [`StatCard`](../packages/ui/src/components/data/StatCard.tsx) | `StatCardProps` | — | _(no summary)_ |
 | [`TreeIndent`](../packages/ui/src/components/data/TreeIndent.tsx) | `TreeIndentProps` | — | The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content. |
 
-### Other exports (48)
+### Other exports (47)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10107,7 +10108,6 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NumberCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | NumberCell -- locale-aware number formatting. |
 | [`PageHeader`](../packages/ui/src/components/data/index.ts) | const | Deprecated | _(no summary)_ |
 | [`placeEvents`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | Each day of `range` with the events on it: an event that spans days is on each one, all-day events (and the middle days of a long timed one) come first, then timed ones by start, then by title. @stability Beta |
-| [`PrintButton`](../packages/ui/src/components/data/calendar/PrintableAgenda.tsx) | function | Beta | Prints the page (the browser's print dialog). Hidden on the printed page itself. @stability Beta |
 | [`readEventTime`](../packages/core/src/dates.ts) | function | Beta | A stored date or timestamp as a calendar value: a day for a `date` column (`dateOnly`) or a value with no time; an instant for a timestamp. A timestamp written without a zone (Postgres `timestamp without time zone`, `2026-11-02 09:30:00`... |
 | [`RelationField`](../packages/ui/src/components/data/RelationField.tsx) | function | — | _(no summary)_ |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |

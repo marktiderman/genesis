@@ -15370,6 +15370,13 @@
               "description": ""
             },
             {
+              "name": "lanes",
+              "type": "readonly CalendarLane[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The sheets, in order: exactly these lanes, each titled by its `label`. Required: a lane's key\nis an id, never a title for a printed page."
+            },
+            {
               "name": "anchor",
               "type": "string",
               "required": false,
@@ -15384,11 +15391,11 @@
               "description": ""
             },
             {
-              "name": "lanes",
-              "type": "readonly CalendarLane[]",
+              "name": "headingLevel",
+              "type": "enum",
               "required": false,
-              "defaultValue": null,
-              "description": "The sheets, in order: exactly these lanes. Default: every lane the events name."
+              "defaultValue": "3",
+              "description": "The level of each sheet's heading (the lane's name); its days are one below. Default 3."
             },
             {
               "name": "locale",
@@ -15457,7 +15464,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "The button's words. Default the catalogue's `calendar.print`."
             }
           ]
         }
@@ -16358,6 +16365,13 @@
               "required": false,
               "defaultValue": null,
               "description": "A row was chosen. Default: the view's peek."
+            },
+            {
+              "name": "print",
+              "type": "{ sections?: readonly PrintableSection[]; title?: ReactNode; headingLevel?: 2 | 3 | 4 | 5; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "Print one sheet per lane (PrintableAgenda) for the week the calendar shows, instead of the\ncalendar itself: the same rows, scope and filters, with no screen code reading data. Lanes\ncome from `lanes`, else the linked rows' words (`laneBy` on a link), else the lane values."
             },
             {
               "name": "select",

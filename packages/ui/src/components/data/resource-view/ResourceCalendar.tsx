@@ -12,10 +12,12 @@ import { dayIn, deviceTimeZone, isTimeZone, readEventTime, type Day } from "@mar
 import { loadRelationLabel, useLiveInvalidation, useOptionalViewerScope, type LiveOptions } from "@marktiderman/genesis-core/hooks";
 import { calendarProblems, type ResourceView as View, type ViewCalendar } from "@marktiderman/genesis-core/resource-view";
 import { Button } from "../../ui/button";
+import { cn } from "../../../utils";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { DetailPanel } from "../DetailPanel";
 import { EventCalendar } from "../calendar/EventCalendar";
-import { calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout } from "../calendar/placement";
+import { calendarLanes, calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout } from "../calendar/placement";
+import { PrintableAgenda, type PrintableSection } from "../calendar/PrintableAgenda";
 import { timeStorage, windowBounds } from "../calendar/values";
 import { useFollowedState } from "../calendar/use-followed-state";
 import { anchorOr, layoutOr, warnOnce } from "../calendar/guard";
@@ -66,6 +68,12 @@ export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<Vi
   showEmptyDays?: boolean;
   /** A row was chosen. Default: the view's peek. */
   onSelect?: (row: T) => void;
+  /**
+   * Print one sheet per lane (PrintableAgenda) for the week the calendar shows, instead of the
+   * calendar itself: the same rows, scope and filters, with no screen code reading data. Lanes
+   * come from `lanes`, else the linked rows' words (`laneBy` on a link), else the lane values.
+   */
+  print?: { sections?: readonly PrintableSection[]; title?: ReactNode; headingLevel?: 2 | 3 | 4 | 5 };
 }
 
 export interface ResourceCalendarProps<T extends Row = Row> extends ResourceCalendarOptions<T> {
@@ -134,7 +142,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const settings = { ...view.definition.calendar, ...withoutUndefined(props) } as ResourceCalendarOptions<T>;
   const {
     field: fieldName, endField, allDayField, layout: layoutProp, layouts, onLayoutChange, weeks = 2, weekStartsOn = 1, timeZone,
-    anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, limit = CALENDAR_LIMIT, showEmptyDays, onSelect,
+    anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, limit = CALENDAR_LIMIT, showEmptyDays, onSelect, print,
   } = settings;
   const m = useUiMessages();
   const provider = useDataProvider();
@@ -328,8 +336,23 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
 
   return (
     <div className={className}>
-      {title && <h2 className="mb-2 text-lg font-semibold">{title}</h2>}
+      {title && <h2 className={cn("mb-2 text-lg font-semibold", print && "print:hidden")}>{title}</h2>}
+      {print && (
+        <PrintableAgenda<T>
+          events={events}
+          lanes={shownLanes ?? calendarLanes(events)}
+          anchor={anchor}
+          weekStartsOn={weekStartsOn}
+          timeZone={zone}
+          {...(print.sections ? { sections: print.sections } : {})}
+          {...(print.title !== undefined ? { title: print.title } : {})}
+          {...(print.headingLevel ? { headingLevel: print.headingLevel } : {})}
+          className="hidden print:block"
+          testID={`${testID}-print`}
+        />
+      )}
       <EventCalendar<T>
+        {...(print ? { className: "print:hidden" } : {})}
         events={events}
         layout={layout}
         anchor={anchor}

@@ -1025,3 +1025,17 @@ describe("calendar patch: CodeRabbit findings from the 2.27.0 review", () => {
     await waitFor(() => expect(within(screen.getByRole("dialog")).getAllByText("Swim gala").length).toBeGreaterThan(0));
   });
 });
+
+describe("calendar print: sheets from the view's own rows", () => {
+  it("prints PrintableAgenda per lane from the calendar's rows, the calendar itself hidden in print", async () => {
+    render(
+      <ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ layout: "lanes", weeks: 1, weekStartsOn: 0, anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z, lanes: people, print: {} }} />,
+      { wrapper: wrap(filtering(ROWS).p) },
+    );
+    const sheets = await screen.findAllByTestId("resource-calendar-print-sheet");
+    expect(sheets.map((s) => s.getAttribute("data-lane"))).toEqual(["ana", "ben"]);
+    expect(await within(sheets[0]!).findByText("Swim meet")).toBeTruthy();
+    expect(screen.getByTestId("resource-calendar-print").className).toContain("hidden print:block");
+    expect(screen.getByTestId("resource-calendar").className).toContain("print:hidden");
+  });
+});

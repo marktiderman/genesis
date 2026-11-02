@@ -485,8 +485,18 @@ export const eventsView = defineView(contracts["public.events"], {
   event's button. A day is read with its date, year and count: "Tuesday, November 3, 2026, 2
   events". A title across New Year names both years.
 - **Printing.** The agenda prints as a plain list: no controls, no fills, a day never split
-  across pages. For a printed week per person, filter the view to that person and use
-  `layout: "agenda", weeks: 1`.
+  across pages, and AppShell's navigation left off the page. For one printed sheet per person,
+  give the calendar `print`: it prints `PrintableAgenda` (a sheet per lane for the shown week,
+  each on its own page, the app's `sections` under each week) from the same rows, scope and
+  filters, so the screen never reads data itself. Put a `PrintButton` next to it.
+
+  ```tsx
+  <PrintButton />
+  <ResourceView view={eventsView} mode="calendar" calendar={{ layout: "lanes", weeks: 1, lanes: people, print: { sections } }} />
+  ```
+
+  `PrintableAgenda` (`/data`) is the same sheet for events that aren't one view's rows; it needs
+  `lanes` with their labels, since a lane's key is an id.
 - **Not a list mode.** Calendar is ResourceView's own `mode`, not one of the list's view modes:
   it isn't in the header's toggle, and it is never stored as the user's remembered view, so other
   lists of the resource don't open in it.
