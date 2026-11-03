@@ -177,6 +177,30 @@ describe("ResourceView mode=board", () => {
     await waitFor(() => expect(within(column("Doing")).getByText("Write brief")).toBeTruthy());
   });
 
+  it("turns away a second move sent before the board re-renders", async () => {
+    let settle!: () => void;
+    const rows = ROWS.map((r) => ({ ...r }));
+    const update = vi.fn(
+      (_resource: string, { id, data }: { id: string; data: Partial<Task> }) =>
+        new Promise((resolve) => {
+          settle = () => resolve({ data: Object.assign(rows.find((r) => r.id === id)!, data) });
+        }),
+    );
+    const p = provider(rows, update as never);
+    render(<ResourceView view={view} mode="board" />, { wrapper: wrap(p) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    const handle = screen.getByRole("button", { name: "Pick up Write brief" });
+    // Both presses inside one act: no render between them.
+    act(() => {
+      fireEvent.keyDown(handle, { key: "ArrowRight", altKey: true });
+      fireEvent.keyDown(handle, { key: "ArrowRight", altKey: true });
+    });
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    await act(async () => settle());
+    await waitFor(() => expect(within(column("Doing")).getByText("Write brief")).toBeTruthy());
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
   it("filters a yes/no board by booleans, not strings", async () => {
     const byUrgent = defineView(tasks, { board: { field: "locked" } });
     const p = provider(ROWS.map((r) => ({ ...r })));

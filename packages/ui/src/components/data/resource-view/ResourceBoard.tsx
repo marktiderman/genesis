@@ -4,7 +4,7 @@
 // value of one field. Loaded by useBoardColumns and drawn by KanbanBoard, the same two pieces
 // studio's board uses. A move is the resource's own update, through the provider's write path.
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useDataProvider, useResource, useViewer, type BaseRecord, type DataRow, type FilterParam, type ResourceContract, type UseResourceOptions } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
 import { useLiveInvalidation, type LiveOptions } from "@marktiderman/genesis-core/hooks";
@@ -144,6 +144,10 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
   // Rows whose move is saving. A pessimistic move leaves the card in its old column until the
   // refetch, so a second move then would be sent from the wrong column (and, on a versioned
   // resource, refused as a conflict with the first): it is turned away until the first settles.
+  // The ref is the truth, read and written synchronously, so two moves inside one render can't
+  // both pass; the state mirrors it to dim the card. The handle stays while a move saves, so
+  // keyboard focus isn't dropped if the move fails and the card stays put.
+  const inFlight = useRef(new Set<string>());
   const [saving, setSaving] = useState<ReadonlySet<string>>(() => new Set());
 
   const titleOf = (row: T) => view.summary(row as T & DataRow).title;
@@ -169,10 +173,11 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
 
   const move = async (row: T, to: string) => {
     const key = keyOf(row);
-    if (saving.has(key)) throw new Error(fillMessage(m.board.stillSaving, { name: titleOf(row) }));
+    if (inFlight.current.has(key)) throw new Error(fillMessage(m.board.stillSaving, { name: titleOf(row) }));
+    inFlight.current.add(key);
     setRefusal(null);
     const verdict = allowed(row);
-    setSaving((s) => new Set(s).add(key));
+    setSaving(new Set(inFlight.current));
     try {
       if (verdict !== true) throw new Error(verdict);
       await update(key, { [fieldName]: stored(to) } as Partial<T & BaseRecord>);
@@ -181,11 +186,8 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
       else setRefusal(error instanceof Error && error.message ? error.message : fillMessage(m.kanban.moveFailed, { name: titleOf(row) }));
       throw error;
     } finally {
-      setSaving((s) => {
-        const next = new Set(s);
-        next.delete(key);
-        return next;
-      });
+      inFlight.current.delete(key);
+      setSaving(new Set(inFlight.current));
     }
   };
 
