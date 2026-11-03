@@ -392,6 +392,30 @@ export const features = defineFeatures({
     reviewedAt,
     links: { code: ["packages/core/src/index.ts", "packages/core/src/provider", "packages/core/src/hooks"] },
   },
+  "data-offline": {
+    name: "Offline-first data",
+    summary: "Data that works offline: an edit made on a stale copy is refused as a conflict instead of overwriting someone else's (versioned writes in the Supabase provider and the version-bump trigger); views that open from the device and writes that are never lost follow in later slices.",
+    category: "Data",
+    // Slice 0 (versioned writes) is the first part; the device cache and the write queue follow.
+    status: "building",
+    kind: "provider",
+    keywords: ["offline", "offline-first", "versioned writes", "optimistic concurrency", "conflict", "lost update", "cache", "sync"],
+    entry: { web: "@marktiderman/genesis-core", native: "@marktiderman/genesis-core" },
+    requires: ["data-provider"],
+    owner: "mark",
+    apps: ["web", "native"],
+    audience: ["developer"],
+    visibility: "public",
+    acceptance: [
+      "Two people edit the same record: the second save, made on the copy read before the first, comes back as a conflict with the record as it is now, and overwrites nothing.",
+      "A resource with no version rule behaves exactly as before.",
+    ],
+    reviewedAt,
+    links: {
+      code: ["packages/core/src/provider/supabase-provider.ts", "packages/core/src/hooks/mutation-mode.ts", "packages/supabase/migrations/0019_genesis_version_bump.sql"],
+      docs: ["packages/core/README.md", "packages/supabase/README.md"],
+    },
+  },
   "supabase-kit": {
     name: "Supabase kit",
     summary: "Supabase for web and React Native: a client with PKCE sign-in, Keychain session storage that survives interrupted writes, refresh only while the app is in front, a wipe of sessions left by a reinstall, and a result helper.",

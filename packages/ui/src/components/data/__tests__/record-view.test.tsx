@@ -9,7 +9,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { QueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineResource, GenesisProvider, ViewerScope, type DataProvider, type ListParams, type Viewer } from "@marktiderman/genesis-core";
+import { DataWriteError, defineResource, GenesisProvider, ViewerScope, type DataProvider, type ListParams, type Viewer } from "@marktiderman/genesis-core";
 import { defineView, defineRecordView } from "@marktiderman/genesis-core/resource-view";
 import { AppShell, type NavItem } from "../../layout/AppShell";
 import type { NavigationNode } from "../../../navigation";
@@ -166,6 +166,74 @@ describe("RecordView", () => {
     await waitFor(() => expect(p.update).toHaveBeenCalledTimes(1));
     expect(p.update).toHaveBeenCalledWith("brands", { id: "b1", data: { website: "https://northwind.example", public: true } });
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
+  });
+
+  it("a conflict opens the conflict sheet; keep mine saves again at the new version", async () => {
+    let calls = 0;
+    const update = vi.fn(async (_r: string, params: { data: unknown }) => {
+      calls += 1;
+      if (calls === 1) {
+        throw new DataWriteError("conflict", "Someone else changed this brand after you opened it.", {
+          current: { id: "b1", name: "Northwind", website: "https://theirs.example", public: false, is_default: true },
+          currentVersion: "7",
+        });
+      }
+      return { data: { id: "b1", ...(params.data as object) } };
+    });
+    const p = provider({ update: update as unknown as DataProvider["update"] });
+    renderRecordView("settings", p);
+    fireEvent.change(screen.getByTestId("resource-workspace-settings-website-input"), { target: { value: "https://mine.example" } });
+    fireEvent.click(screen.getByTestId("resource-workspace-settings-save"));
+    const sheet = await screen.findByTestId("resource-workspace-settings-conflict");
+    expect(within(sheet).getByTestId("resource-workspace-settings-conflict-field-website").textContent).toMatch(/theirs\.example.*mine\.example/);
+    fireEvent.click(within(sheet).getByTestId("resource-workspace-settings-conflict-keep-mine"));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+    expect(update.mock.calls[1]![1]).toMatchObject({ data: { website: "https://mine.example" }, expectedVersion: "7" });
+  });
+
+  it("take theirs drops the section's edits", async () => {
+    const update = vi.fn(async () => {
+      throw new DataWriteError("conflict", "x", { current: { id: "b1", website: "https://theirs.example" }, currentVersion: "7" });
+    });
+    renderRecordView("settings", provider({ update: update as unknown as DataProvider["update"] }));
+    fireEvent.change(screen.getByTestId("resource-workspace-settings-website-input"), { target: { value: "https://mine.example" } });
+    fireEvent.click(screen.getByTestId("resource-workspace-settings-save"));
+    fireEvent.click(await screen.findByTestId("resource-workspace-settings-conflict-take-theirs"));
+    await waitFor(() => expect(screen.queryByTestId("resource-workspace-settings-conflict")).toBeNull());
+    // Their value at once, before the record refetches.
+    expect((screen.getByTestId("resource-workspace-settings-website-input") as HTMLInputElement).value).toBe("https://theirs.example");
+    expect(screen.queryByTestId("resource-workspace-settings-error")).toBeNull();
+  });
+
+  it("checks a settings save against the row the edit started on, not one that refreshed meanwhile", async () => {
+    const versioned = (over: Partial<DataProvider> = {}) =>
+      provider({
+        capabilities: vi.fn(async () => ({
+          search: false,
+          sort: false,
+          filterOperators: [],
+          bulkWrites: false,
+          versionedWrites: true,
+          compositeKeys: false,
+          version: { field: "version", kind: "integer" as const },
+        })),
+        ...over,
+      });
+    const p = versioned();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const at = (row: Brand & { version: number }) => (
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <RecordView view={page as never} row={row} section="settings" sectionHref={(id) => `/brands/b1/${id}`} />
+      </GenesisProvider>
+    );
+    const { rerender } = render(at({ ...brand, is_default: false, version: 1 }));
+    await waitFor(() => expect(p.capabilities).toHaveBeenCalled());
+    fireEvent.change(screen.getByTestId("resource-workspace-settings-website-input"), { target: { value: "https://mine.example" } });
+    // Someone else saves; this tab's row refreshes to v2 while the edit stays on screen.
+    rerender(at({ ...brand, is_default: false, public: true, version: 2 }));
+    fireEvent.click(screen.getByTestId("resource-workspace-settings-save"));
+    await waitFor(() => expect(p.update).toHaveBeenCalledTimes(1));
+    expect((p.update as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toMatchObject({ expectedVersion: "1" });
   });
 
   it("shows a zero-row save as a refusal, inline", async () => {

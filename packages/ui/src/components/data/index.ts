@@ -55,6 +55,8 @@ export {
   ConfirmDeleteDialog,
   type ConfirmDeleteDialogProps,
 } from "./ConfirmDeleteDialog";
+// A save that met someone else's change: theirs beside yours, then keep mine or take theirs.
+export { ConflictSheet, type ConflictSheetProps } from "./ConflictSheet";
 // The generic slot contract, so an app typing a slot map from `/data` does
 // not have to reach into the package root for it.
 export type { Slots, SlotOverride, SlotPropsFor } from "../../slots";

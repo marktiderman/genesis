@@ -14,6 +14,7 @@ import { DataWriteError } from "../schema/write-outcome";
 import { DataReadError, readFailureMessage } from "../schema/read-outcome";
 import type { FilterOperator, ProviderCapabilities } from "../schema/types";
 import { readOutcomeFromCode, toDataWriteError } from "./postgrest-errors";
+import { reportError } from "../errors";
 
 // ---------------------------------------------------------------------------
 // Minimal Supabase client shape — no hard dependency on @supabase/supabase-js
@@ -130,6 +131,18 @@ export interface SupabaseWriteContext {
   id?: Identifier;
 }
 
+/** What an `update` override is told besides the row. */
+export interface SupabaseUpdateContext {
+  /**
+   * With a `version` rule and an `expectedVersion` from the caller: the
+   * version the row must still be at. The override must apply the change
+   * only at that version (e.g. `... where id = $1 and version = $2`) and
+   * return nothing when no row matched; the provider then tells a
+   * `conflict` from `forbidden` and `gone`.
+   */
+  expectedVersion?: string;
+}
+
 /** Per-resource rules for `createSupabaseProvider`. Every field is optional. */
 export interface SupabaseResourceConfig {
   /** Singular noun for failure messages, e.g. "project". Defaults to "record". */
@@ -185,7 +198,21 @@ export interface SupabaseResourceConfig {
   update?: (
     id: Identifier,
     row: Record<string, unknown>,
+    context?: SupabaseUpdateContext,
   ) => Promise<BaseRecord | Identifier | boolean | null | undefined | void>;
+  /**
+   * The column every update and delete of this resource is checked against,
+   * so an edit made on a stale copy is refused as a `conflict` instead of
+   * overwriting someone else's (`UpdateParams.expectedVersion`).
+   *
+   * The database must advance it on every update, or it detects nothing:
+   * `integer` with genesis-supabase's `genesis_version_bump` trigger
+   * (migration 0019), or `timestamp` with a trigger that sets it to `now()`
+   * on update (`moddatetime`). The provider never writes it: a submitted
+   * value is dropped. Writes without an `expectedVersion` are not checked,
+   * so turning this on changes nothing for callers that don't send one.
+   */
+  version?: { field: string; kind: "integer" | "timestamp" };
   /** Maps a stored row to edit-form values; see `DataProvider.toFormValues`. */
   toFormValues?: (record: Record<string, unknown>) => Record<string, unknown>;
   /**
@@ -513,6 +540,21 @@ function realtimeFilter(filters: FilterParam[] | undefined): string | undefined 
   return undefined;
 }
 const warnedRealtime = new Set<string>();
+const warnedUncheckedOverride = new Set<string>();
+
+/**
+ * A Postgres or ISO timestamp as microseconds since the epoch (a string, to keep every digit), or
+ * undefined when it doesn't read as one. Date.parse alone stops at milliseconds.
+ */
+function instant(text: string): string | undefined {
+  const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}(?::?\d{2})?)?$/.exec(text.trim());
+  if (!m) return undefined;
+  const [, date, time, fraction = "", zone = "Z"] = m;
+  const offset = zone === "Z" ? "Z" : zone.length === 3 ? `${zone}:00` : zone.includes(":") ? zone : `${zone.slice(0, 3)}:${zone.slice(3)}`;
+  const ms = Date.parse(`${date}T${time}${offset}`);
+  if (Number.isNaN(ms)) return undefined;
+  return `${ms / 1000}.${fraction.padEnd(6, "0").slice(0, 6)}`;
+}
 
 /**
  * The Supabase data provider. Reads and writes go through the client you
@@ -820,6 +862,75 @@ export function createSupabaseProvider(
     return goneError(resource);
   }
 
+  function versionFor(resource: string): { field: string; kind: "integer" | "timestamp" } | undefined {
+    return configFor(resource).version;
+  }
+
+  /** The version token a caller asked a write to be checked against, when the resource has one. */
+  function expectedFor(resource: string, expectedVersion: string | null | undefined): string | undefined {
+    return versionFor(resource) && expectedVersion != null ? String(expectedVersion) : undefined;
+  }
+
+  /**
+   * Whether two version tokens name the same version. A timestamp is compared
+   * as an instant to the microsecond, since a realtime payload and a PostgREST
+   * read format the same value differently ("2026-11-03 16:00:00.5+00" and
+   * "2026-11-03T16:00:00.500000+00:00").
+   */
+  function sameVersion(kind: "integer" | "timestamp", a: string | null, b: string): boolean {
+    if (a === b) return true;
+    if (a === null || kind !== "timestamp") return false;
+    const x = instant(a);
+    return x !== undefined && x === instant(b);
+  }
+
+  /**
+   * A version-checked write matched no rows: read the row back to say why.
+   * Not visible is `gone`; visible at another version is a `conflict` (with
+   * the row as it is now, read the way the resource reads); visible at the
+   * expected version means the change itself was refused (`forbidden`).
+   * Without an expected version, as `noRowsError`. `known` is the row
+   * already read back, when the caller has it.
+   */
+  async function staleOrNoRowsError(
+    resource: string,
+    id: Identifier,
+    verb: "change" | "delete",
+    expected: string | undefined,
+    known?: BaseRecord,
+  ): Promise<DataWriteError> {
+    if (expected === undefined) return noRowsError(resource, id, verb);
+    const { field, kind } = versionFor(resource)!;
+    let current: BaseRecord | undefined = known;
+    try {
+      current ??= await readBack(resource, id);
+    } catch (error) {
+      const cause = toDataWriteError(error);
+      return new DataWriteError(
+        cause.outcome === "unauthenticated" ? "unauthenticated" : "error",
+        `This ${nounFor(resource)} was not ${verb === "change" ? "changed" : "deleted"}, and reading it back failed (${cause.message}).`,
+        { code: cause.code, cause: error },
+      );
+    }
+    if (!current) return goneError(resource);
+    const currentVersion = current[field] == null ? null : String(current[field]);
+    if (sameVersion(kind, currentVersion, expected)) {
+      return new DataWriteError("forbidden", `You can't ${verb} this ${nounFor(resource)}.`);
+    }
+    // Their change, the way this resource is read (a view's joined columns too), so a screen can
+    // show it. The table's row stands in when that read fails or finds nothing.
+    const config = configFor(resource);
+    if (config.source !== undefined || config.select !== undefined) {
+      const viewed = await run(read(resource, undefined).eq("id", id)).then((rows) => rows[0] as BaseRecord | undefined, () => undefined);
+      if (viewed) current = viewed;
+    }
+    return new DataWriteError(
+      "conflict",
+      `Someone else changed this ${nounFor(resource)} after you opened it. Review their change, then make yours again.`,
+      { current, currentVersion },
+    );
+  }
+
   async function prepare(
     resource: string,
     values: Record<string, unknown>,
@@ -1089,7 +1200,8 @@ export function createSupabaseProvider(
         sort: true,
         filterOperators: SERVED_OPERATORS,
         bulkWrites: false,
-        versionedWrites: false,
+        versionedWrites: resource ? !!versionFor(resource) : false,
+        ...(resource && versionFor(resource) ? { version: { ...versionFor(resource)! } } : {}),
         compositeKeys: false,
         multiSort: true,
         create: true,
@@ -1254,22 +1366,39 @@ export function createSupabaseProvider(
 
     async update(resource, params) {
       const { id } = params;
-      const row = await tableValues(
-        resource,
-        await prepare(resource, params.data as Record<string, unknown>, { resource, action: "update", id }),
-        id,
-      );
+      // A copy: with no prepare step this is the caller's own object, and the version is taken out below.
+      const row = {
+        ...(await tableValues(
+          resource,
+          await prepare(resource, params.data as Record<string, unknown>, { resource, action: "update", id }),
+          id,
+        )),
+      };
+      const version = versionFor(resource);
+      const expected = expectedFor(resource, params.expectedVersion);
+      // The database advances the version; a submitted value is never written.
+      if (version) delete row[version.field];
       const override = configFor(resource).update;
       let record: BaseRecord;
+      if (override && version && override.length < 3 && !warnedUncheckedOverride.has(resource)) {
+        warnedUncheckedOverride.add(resource);
+        reportError(
+          new Error(
+            `[SupabaseProvider] "${resource}" has a version rule and an update rule that takes no third argument. ` +
+              `The update rule is given { expectedVersion }: apply it (match the row at that version, return nothing when none matches), or updates go unchecked.`,
+          ),
+          { source: "core:versioned-writes", tags: { resource } },
+        );
+      }
       if (override) {
         let returned: BaseRecord | Identifier | boolean | null | undefined | void;
         try {
-          returned = await override(id, row);
+          returned = expected === undefined ? await override(id, row) : await override(id, row, { expectedVersion: expected });
         } catch (error) {
           throw toDataWriteError(error);
         }
         const result: unknown = returned;
-        if (result == null || result === false) throw await noRowsError(resource, id, "change");
+        if (result == null || result === false) throw await staleOrNoRowsError(resource, id, "change", expected);
         if (isIdentifier(result) || result === true) {
           // The change committed; a failed read-back still reports it saved.
           const readId = result === true ? id : result;
@@ -1283,22 +1412,38 @@ export function createSupabaseProvider(
           );
         }
       } else {
-        const rows = await run(from(resource).update(row).eq("id", id).select("*"));
-        if (rows.length === 0) throw await noRowsError(resource, id, "change");
+        let query = from(resource).update(row).eq("id", id);
+        if (expected !== undefined) query = query.eq(version!.field, expected);
+        const rows = await run(query.select("*"));
+        if (rows.length === 0) throw await staleOrNoRowsError(resource, id, "change", expected);
         record = rows[0] as BaseRecord;
       }
       await committed({ resource, kind: "update", id, record });
-      return { data: record } as never;
+      const newVersion = version && record[version.field] != null ? String(record[version.field]) : undefined;
+      return { data: record, ...(newVersion !== undefined ? { version: newVersion } : {}) } as never;
     },
 
     async deleteOne(resource, params) {
       const { id } = params;
       let deletedId: Identifier = id;
+      const expected = expectedFor(resource, params.expectedVersion);
       if (isBinTable(resource)) {
         // A binned delete reports zero rows whether or not it worked, so the
-        // answer comes from visibility before and after.
-        if (!(await isVisible(resource, id))) throw goneError(resource);
-        await run(from(resource).delete().eq("id", id));
+        // answer comes from visibility before and after. With a version, the
+        // row is checked at it first (a binned delete can't carry the check).
+        if (expected !== undefined) {
+          const current = await readBack(resource, id);
+          if (!current) throw goneError(resource);
+          const { field, kind } = versionFor(resource)!;
+          if (!sameVersion(kind, current[field] == null ? null : String(current[field]), expected)) {
+            throw await staleOrNoRowsError(resource, id, "delete", expected, current);
+          }
+        } else if (!(await isVisible(resource, id))) throw goneError(resource);
+        // The version goes on the delete too, so a change landing after the check above isn't
+        // binned unseen: the row then stays, and the read-back says it's a conflict.
+        let binning = from(resource).delete().eq("id", id);
+        if (expected !== undefined) binning = binning.eq(versionFor(resource)!.field, expected);
+        await run(binning);
         let stillVisible: boolean;
         try {
           stillVisible = await isVisible(resource, id);
@@ -1311,11 +1456,14 @@ export function createSupabaseProvider(
           );
         }
         if (stillVisible) {
+          if (expected !== undefined) throw await staleOrNoRowsError(resource, id, "delete", expected);
           throw new DataWriteError("forbidden", `You can't delete this ${nounFor(resource)}.`);
         }
       } else {
-        const rows = await run(from(resource).delete().eq("id", id).select("id"));
-        if (rows.length === 0) throw await noRowsError(resource, id, "delete");
+        let query = from(resource).delete().eq("id", id);
+        if (expected !== undefined) query = query.eq(versionFor(resource)!.field, expected);
+        const rows = await run(query.select("id"));
+        if (rows.length === 0) throw await staleOrNoRowsError(resource, id, "delete", expected);
         const returnedId = (rows[0] as { id?: unknown }).id;
         if (isIdentifier(returnedId)) deletedId = returnedId;
       }

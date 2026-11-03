@@ -10,6 +10,7 @@ import { NativeButton } from "../components/button";
 import { NativeSeparator } from "../components/separator";
 import { NativeText } from "../components/text";
 import { NativeResourceFormFieldRenderer } from "./NativeResourceFormField";
+import { NativeConflictSheet } from "./NativeConflictSheet";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -59,7 +60,18 @@ function NativeResourceForm({
     validationMode: "onSubmit",
   };
 
-  const { form, resolvedFields, onSubmit, isSaving } = useResourceForm(options);
+  const { form, resolvedFields, onSubmit, isSaving, conflict, keepMine, takeTheirs, dismissConflict } = useResourceForm(options);
+  // A save that met someone else's change: theirs above yours, then keep mine or take theirs.
+  const conflictSheet = (
+    <NativeConflictSheet
+      conflict={conflict}
+      label={(field) => resolvedFields.find((f) => f.key === field)?.label ?? titleCase(field)}
+      onKeepMine={keepMine}
+      onTakeTheirs={takeTheirs}
+      onDismiss={dismissConflict}
+      testID="native-resource-form-conflict"
+    />
+  );
 
   const resolvedTitle =
     title ?? (action === "create" ? `Create ${titleCase(resource)}` : `Edit ${titleCase(resource)}`);
@@ -137,6 +149,7 @@ function NativeResourceForm({
       <View style={{ gap: 16 }}>
         <NativeText preset="h3">{resolvedTitle}</NativeText>
         {formContent}
+        {conflictSheet}
       </View>
     );
   }
@@ -150,6 +163,7 @@ function NativeResourceForm({
         <NativeText preset="h3">{resolvedTitle}</NativeText>
         {formContent}
       </ScrollView>
+      {conflictSheet}
     </SafeAreaView>
   );
 }

@@ -8,3 +8,5 @@ export { NativeResourceFormFieldRenderer, type NativeResourceFormFieldRendererPr
 export { NativeResourceForm, type NativeResourceFormProps } from "./NativeResourceForm";
 export { NativeResourcePage, type NativeResourcePageProps, type NativeCardFieldDef } from "./NativeResourcePage";
 export * from "./resource-view";
+// A save that met someone else's change: theirs above yours, then keep mine or take theirs.
+export { NativeConflictSheet, type NativeConflictSheetProps, type NativeConflictSheetMessages } from "./NativeConflictSheet";

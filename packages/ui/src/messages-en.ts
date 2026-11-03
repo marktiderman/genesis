@@ -270,6 +270,27 @@ export const uiMessages = {
     /** A printed sheet's week. `{date}`: "November 2 – November 8". */
     weekOf: "Week of {date}",
   },
+  /** ConflictSheet: a save met someone else's change. */
+  conflict: {
+    /** `{noun}`: the record's noun ("task"). */
+    title: "Someone else changed this {noun}",
+    description: "They saved a change after you opened it. Theirs is next to yours below: keep yours to save it over theirs, or take theirs and drop your changes.",
+    /** When their change already matches what you tried to save. */
+    same: "Their change already matches yours, so there's nothing to choose.",
+    field: "Field",
+    theirs: "Theirs",
+    mine: "Yours",
+    /** An empty value in the comparison. */
+    empty: "Empty",
+    /** Their value for a field their row as read here doesn't carry. */
+    unknown: "Not shown",
+    keepMine: "Keep my version",
+    takeTheirs: "Take their version",
+    /** When "keep mine" failed for another reason (offline, refused). */
+    failed: "Your version wasn't saved.",
+    /** The record's noun when the screen gave none. */
+    record: "record",
+  },
   workspace: {
     /** Settings section footer. */
     save: "Save changes",
