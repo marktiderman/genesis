@@ -115,11 +115,50 @@ export interface MigrationRow {
   detail?: string;
 }
 
-/** Does this SQL define the function `schema.name` (any arguments)? */
+/** The SQL without its comments (line comments from `--`, and block comments), for matching definitions. */
+export function stripSqlComments(sql: string): string {
+  return sql.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
+}
+
+/** Does this SQL define the function `schema.name` (any arguments)? A definition in a comment doesn't count. */
 export function definesFunction(sql: string, fn: string): boolean {
   const [schema, name] = fn.split(".");
   const quoted = (id: string) => `(?:${id}|"${id}")`;
+  sql = stripSqlComments(sql);
   return new RegExp(`create\\s+(?:or\\s+replace\\s+)?function\\s+${quoted(schema!)}\\s*\\.\\s*${quoted(name!)}\\s*\\(`, "i").test(sql);
+}
+
+/**
+ * The sources in copy order. A migration that `runsBefore` another of them is copied ahead of it,
+ * with the earlier migrations of its own package (a package's migrations keep their order);
+ * everything else keeps the order given. A cycle leaves the order as given.
+ */
+export function orderByRunsBefore<T extends Pick<ManifestMigration, "package" | "file" | "runsBefore">>(sources: readonly T[]): T[] {
+  if (!sources.some((m) => m.runsBefore?.length)) return sources.slice();
+  const key = (m: { package: string; file: string }) => `${m.package} ${m.file}`;
+  const index = new Map<string, number>();
+  sources.forEach((m, i) => { if (!index.has(key(m))) index.set(key(m), i); });
+  // Edges: each migration after the previous one of its package, and each runsBefore target after its source.
+  const after: Set<number>[] = sources.map(() => new Set<number>());
+  const last = new Map<string, number>();
+  sources.forEach((m, i) => {
+    const prev = last.get(m.package);
+    if (prev !== undefined) after[i]!.add(prev);
+    last.set(m.package, i);
+    for (const target of m.runsBefore ?? []) {
+      const t = index.get(key(target));
+      if (t !== undefined && t !== i) after[t]!.add(i);
+    }
+  });
+  const out: T[] = [];
+  const done = new Set<number>();
+  while (out.length < sources.length) {
+    const next = sources.findIndex((_, i) => !done.has(i) && [...after[i]!].every((d) => done.has(d)));
+    if (next === -1) return sources.slice();
+    done.add(next);
+    out.push(sources[next]!);
+  }
+  return out;
 }
 
 /** "needs private.x first: how" lines for a row, as add, migrate and upgrade print them. */
@@ -237,6 +276,7 @@ export function planMigrations(
 ): MigrationPlan {
   const app = readAppMigrations(root);
   const rows: MigrationRow[] = [];
+  sources = orderByRunsBefore(sources);
   // Who provides what: the sources' own declarations and the ones passed in (every known block's).
   const providers = providingMigrations([{ migrations: sources }]);
   for (const p of options.providers ?? []) if (!providers.some((o) => o.package === p.package && o.file === p.file)) providers.push(p);

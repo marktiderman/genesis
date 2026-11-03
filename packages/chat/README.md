@@ -226,7 +226,11 @@ nobody starts a conversation and nobody observes one.
   `ensure_conversation` and 0004's backfill find by that name.
 - **Observers.** A kind's observer check is asked only about people of the conversation's
   tenant, and never about anyone who is or was a member of it, so whoever opened a ticket never
-  reads its internal notes, even if they're staff too.
+  reads its internal notes, even if they're staff too. A kind whose check already decides by the
+  record's own tenant registers with `p_observer_tenant_gate => false`, or, if a migration
+  registered it before 0004, defines `private.genesis_chat_ungated_<kind>()` returning true
+  (genesis-support does). App-wide staff your tenancy hook doesn't list then keep reading; members
+  still never observe. Registering a kind again without the argument keeps its gate.
 
 **Upgrading.** Add the hook before applying 0004 (`genesis add`, `migrate` and `upgrade` warn
 when it's missing). 0004 fills in the tenant of every existing conversation: from your optional
@@ -234,6 +238,10 @@ when it's missing). 0004 fills in the tenant of every existing conversation: fro
 resolver named for its type, `private.genesis_chat_resolve_<subject_type>(subject_id text)
 returns uuid`, when one exists (a block that owns the type ships it); then the one tenant all its
 members share, then its creator's only tenant, then any one member's only tenant. If any conversation is left without a tenant, it stops and says how many.
+The last two fall back to one person's tenant, which not every member may share, so that tenant's
+erase or export then includes the others' messages: place those with the hook when that matters.
+Apply 0004 after a block's migration that ships a subject resolver (genesis-support's 0006):
+`genesis migrate` and `upgrade` order them that way from the block's `runsBefore`.
 Replace your copies of the 0001–0003 pgTAP tests with this release's (they now give their own
 people a tenant). If you use genesis-support's chat, apply its 0004 in the same release.
 

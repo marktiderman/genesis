@@ -39,7 +39,12 @@
 --
 -- 4. Observers. A kind's observer check is asked only about people of the conversation's tenant,
 --    and never about anyone who is or was a member of it: the person who opened a ticket never
---    reads its internal notes, even if they are also staff.
+--    reads its internal notes, even if they are also staff. A kind whose check already decides by
+--    the record's own tenant registers with `p_observer_tenant_gate => false`, or, when it was
+--    registered before this migration, defines `private.genesis_chat_ungated_<kind>()` returning
+--    true (genesis-support does): chat then leaves the tenant to that check, so app-wide staff
+--    your tenancy hook doesn't list keep reading, and still never a member. Registering a kind
+--    again without the argument keeps its gate.
 --
 -- Existing conversations get their tenant in this order: your optional hook
 -- `private.genesis_chat_conversation_tenant(conversation_id uuid) returns uuid`; for one about a
@@ -48,6 +53,13 @@
 -- this, since register_subject is new here); then the one tenant all its members share, then its
 -- creator's only tenant, then the only tenant of any one of its members. If one is still left without, this migration stops and says how many: add the
 -- hook (it runs only here), then apply it again.
+--
+-- Those last two fall back to one person's tenant, which not every member may share: like a
+-- cross-tenant conversation, that tenant's erase or export then includes the others' messages.
+-- Place such conversations yourself with the hook when that matters.
+--
+-- Apply this after the migration of any block that ships a subject resolver (genesis-support's
+-- 0006): `genesis migrate` and `upgrade` order them so, from the block's `runsBefore`.
 --
 -- Ship it together with genesis-support's 0004 if you use genesis-support's chat: support's 0001
 -- opens its conversations without a tenant, which this refuses.
@@ -101,6 +113,38 @@ comment on function genesis_chat.tenants_of(uuid) is
 -- ── Kinds that cross tenants ──────────────────────────────────────────────────
 
 alter table genesis_chat.kinds add column cross_tenant boolean not null default false;
+alter table genesis_chat.kinds add column observer_tenant_gate boolean not null default true;
+comment on column genesis_chat.kinds.observer_tenant_gate is
+  'Ask the observer check only about people of the conversation''s tenant (on by default). Off for a kind whose own check already decides by the record''s tenant (support''s, by the ticket''s), so app-wide staff the tenancy hook doesn''t list are not shut out.';
+
+-- A kind registered before this migration (a block's earlier migration, which can't pass the new
+-- argument yet) turns the gate off by convention: `private.genesis_chat_ungated_<kind>() returns
+-- boolean`, true. The name fits Postgres's 63-character limit for any kind name.
+create or replace function genesis_chat.conventional_observer_gate(p_kind text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  fn regprocedure;
+  ungated boolean;
+begin
+  if p_kind is null or p_kind !~ '^[a-z][a-z0-9_]{0,39}$' then return null; end if;
+  fn := to_regprocedure(format('private.%I()', 'genesis_chat_ungated_' || p_kind));
+  if fn is null or (select prorettype from pg_proc where oid = fn) <> 'boolean'::regtype then return null; end if;
+  execute format('select %s()', fn::regproc) into ungated;
+  return case when ungated then false end;
+end;
+$$;
+
+revoke execute on function genesis_chat.conventional_observer_gate(text) from public, anon, authenticated;
+grant execute on function genesis_chat.conventional_observer_gate(text) to service_role;
+
+update genesis_chat.kinds set observer_tenant_gate = false
+where genesis_chat.conventional_observer_gate(kind) is false;
+
 comment on column genesis_chat.kinds.cross_tenant is
   'People with no tenant in common may start one; it takes the starter''s tenant. Never with an observer check.';
 
@@ -117,7 +161,8 @@ create function genesis_chat.register_kind(
   p_observers_post boolean default false,
   p_start_check regprocedure default null,
   p_edit_window interval default null,
-  p_cross_tenant boolean default false
+  p_cross_tenant boolean default false,
+  p_observer_tenant_gate boolean default null
 )
 returns void
 language plpgsql
@@ -139,21 +184,23 @@ begin
     raise exception 'A kind that crosses tenants has no observers: no tenant''s staff may read it' using errcode = '22023';
   end if;
   insert into genesis_chat.kinds as k (kind, label, max_members, who_posts, membership, threads,
-                                       observer_check, observers_post, start_check, edit_window, cross_tenant)
+                                       observer_check, observers_post, start_check, edit_window, cross_tenant, observer_tenant_gate)
   values (p_kind, p_label, p_max_members, p_who_posts, p_membership, p_threads,
-          p_observer_check, p_observers_post, p_start_check, p_edit_window, coalesce(p_cross_tenant, false))
+          p_observer_check, p_observers_post, p_start_check, p_edit_window, coalesce(p_cross_tenant, false),
+          coalesce(p_observer_tenant_gate, genesis_chat.conventional_observer_gate(p_kind), true))
   on conflict (kind) do update set
     label = excluded.label, max_members = excluded.max_members, who_posts = excluded.who_posts,
     membership = excluded.membership, threads = excluded.threads, observer_check = excluded.observer_check,
     observers_post = excluded.observers_post, start_check = excluded.start_check,
-    edit_window = excluded.edit_window, cross_tenant = excluded.cross_tenant, updated_at = now();
+    edit_window = excluded.edit_window, cross_tenant = excluded.cross_tenant,
+    observer_tenant_gate = coalesce(p_observer_tenant_gate, k.observer_tenant_gate), updated_at = now();
 end;
 $$;
 
-revoke execute on function genesis_chat.register_kind(text, text, integer, text, text, boolean, regprocedure, boolean, regprocedure, interval, boolean) from public, anon, authenticated;
-grant execute on function genesis_chat.register_kind(text, text, integer, text, text, boolean, regprocedure, boolean, regprocedure, interval, boolean) to service_role;
+revoke execute on function genesis_chat.register_kind(text, text, integer, text, text, boolean, regprocedure, boolean, regprocedure, interval, boolean, boolean) from public, anon, authenticated;
+grant execute on function genesis_chat.register_kind(text, text, integer, text, text, boolean, regprocedure, boolean, regprocedure, interval, boolean, boolean) to service_role;
 
-comment on function genesis_chat.register_kind(text, text, integer, text, text, boolean, regprocedure, boolean, regprocedure, interval, boolean) is
+comment on function genesis_chat.register_kind(text, text, integer, text, text, boolean, regprocedure, boolean, regprocedure, interval, boolean, boolean) is
   'Adds or replaces a kind of conversation and its rules. Run from a migration or the service role. Genesis Chat.';
 
 -- ── Subjects ──────────────────────────────────────────────────────────────────
@@ -261,6 +308,34 @@ end;
 $$;
 
 revoke execute on function genesis_chat.subject_of(text, text), genesis_chat.subject_tenant(text, text, text) from public, anon, authenticated;
+
+-- The resolver a block ships for a subject type it hasn't registered (yet):
+-- private.genesis_chat_resolve_<subject_type>(subject_id text) returns uuid. Null when the type
+-- isn't a subject type name, there's no such function, or it doesn't return uuid.
+create or replace function genesis_chat.conventional_resolver(p_subject_type text)
+returns regprocedure
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  fn regprocedure;
+begin
+  if p_subject_type is null or p_subject_type !~ '^[a-z][a-z0-9_]{0,39}$' then
+    return null;
+  end if;
+  fn := to_regprocedure(format('private.%I(text)', 'genesis_chat_resolve_' || p_subject_type));
+  if fn is null or (select prorettype from pg_proc where oid = fn) <> 'uuid'::regtype then
+    return null;
+  end if;
+  return fn;
+end;
+$$;
+
+revoke execute on function genesis_chat.conventional_resolver(text) from public, anon, authenticated;
+grant execute on function genesis_chat.conventional_resolver(text) to service_role;
+
 grant execute on function genesis_chat.subject_of(text, text), genesis_chat.subject_tenant(text, text, text) to service_role;
 
 -- ── conversations.tenant_id, filled for what's there ─────────────────────────
@@ -278,11 +353,12 @@ begin
   end if;
 
   -- A record's tenant, from a resolver named for its subject type.
-  for r in select distinct c.subject_type from genesis_chat.conversations c
+  for r in select distinct c.subject_type, genesis_chat.conventional_resolver(c.subject_type) as fn
+             from genesis_chat.conversations c
             where c.tenant_id is null and c.subject_type is not null
-              and to_regprocedure(format('private.%I(text)', 'genesis_chat_resolve_' || c.subject_type)) is not null loop
-    execute format('update genesis_chat.conversations c set tenant_id = private.%I(c.subject_id)
-                     where c.tenant_id is null and c.subject_type = $1', 'genesis_chat_resolve_' || r.subject_type)
+              and genesis_chat.conventional_resolver(c.subject_type) is not null loop
+    execute format('update genesis_chat.conversations c set tenant_id = %s(c.subject_id)
+                     where c.tenant_id is null and c.subject_type = $1', r.fn::regproc)
       using r.subject_type;
   end loop;
 
@@ -341,13 +417,14 @@ set search_path = ''
 as $$
 declare
   check_fn regprocedure;
+  gate boolean;
   tenant uuid;
   result boolean;
 begin
   if p_user_id is null then
     return false;
   end if;
-  select k.observer_check, c.tenant_id into check_fn, tenant
+  select k.observer_check, k.observer_tenant_gate, c.tenant_id into check_fn, gate, tenant
   from genesis_chat.conversations c join genesis_chat.kinds k on k.kind = c.kind
   where c.id = p_conversation_id;
   if check_fn is null then
@@ -357,7 +434,8 @@ begin
               where m.conversation_id = p_conversation_id and m.user_id = p_user_id and m.role <> 'observer') then
     return false;
   end if;
-  if not exists (select 1 from genesis_chat.tenants_of(p_user_id) t where t = tenant) then
+  -- The kind's check decides by the record's own tenant when the kind says so (support's, by the ticket).
+  if gate and not exists (select 1 from genesis_chat.tenants_of(p_user_id) t where t = tenant) then
     return false;
   end if;
   execute format('select %s($1::uuid, $2::uuid)', check_fn::regproc) into result using p_conversation_id, p_user_id;
@@ -398,6 +476,7 @@ declare
   allowed boolean;
   key text;
   conv uuid;
+  fn regprocedure;
 begin
   if me is null then
     raise exception 'Sign in to start a conversation' using errcode = '42501';
@@ -418,12 +497,28 @@ begin
     raise exception 'You can''t start this kind of conversation' using errcode = '42501';
   end if;
 
-  everyone := others || me;
-  select coalesce(array_agg(t), '{}') into shared from genesis_chat.shared_tenants(everyone) t;
+  -- The kind's start check first, before anything about the subject or tenants is said: someone
+  -- it refuses learns nothing about which records exist (review finding 5).
   s := genesis_chat.subject_of(p_kind, p_subject_type);
   if s.kind is not null then
     stype := s.subject_type;
-    tenant := genesis_chat.subject_tenant(p_kind, stype, p_subject_id);
+  end if;
+  execute format('select %s($1::uuid[], $2::text, $3::text, $4::uuid)', k.start_check::regproc)
+    into allowed using others, stype, p_subject_id, me;
+  if not coalesce(allowed, false) then
+    raise exception 'You can''t start a conversation with these people' using errcode = '42501';
+  end if;
+
+  everyone := others || me;
+  select coalesce(array_agg(t), '{}') into shared from genesis_chat.shared_tenants(everyone) t;
+  -- An unregistered subject type with a resolver named for it is the record's tenant too.
+  fn := case when s.kind is null and p_subject_id is not null then genesis_chat.conventional_resolver(p_subject_type) end;
+  if s.kind is not null or fn is not null then
+    if s.kind is not null then
+      tenant := genesis_chat.subject_tenant(p_kind, stype, p_subject_id);
+    else
+      execute format('select %s($1)', fn::regproc) into tenant using p_subject_id;
+    end if;
     if tenant is null then
       raise exception 'No such %', replace(stype, '_', ' ') using errcode = '22023';
     end if;
@@ -458,11 +553,6 @@ begin
     raise exception 'You can''t start a conversation with these people' using errcode = '42501';
   end if;
 
-  execute format('select %s($1::uuid[], $2::text, $3::text, $4::uuid)', k.start_check::regproc)
-    into allowed using others, stype, p_subject_id, me;
-  if not coalesce(allowed, false) then
-    raise exception 'You can''t start a conversation with these people' using errcode = '42501';
-  end if;
 
   if k.max_members = 2 then
     key := p_kind || ':' || tenant::text || ':' || least(me, others[1])::text || ':' || greatest(me, others[1])::text;
@@ -512,6 +602,7 @@ declare
   stype text := p_subject_type;
   tenant uuid := p_tenant_id;
   conv uuid;
+  fn regprocedure;
 begin
   if p_subject_type is null or p_subject_id is null then
     raise exception 'A subject (type and id) is required' using errcode = '22023';
@@ -529,9 +620,13 @@ begin
     end if;
   else
     names := array[p_subject_type];
+    if p_subject_type !~ '^[a-z][a-z0-9_]{0,39}$' then
+      raise exception 'A subject type is lowercase letters, digits and _ (at most 40)' using errcode = '22023';
+    end if;
     -- Not registered: a resolver named for the type, when there is one (as the backfill uses).
-    if tenant is null and to_regprocedure(format('private.%I(text)', 'genesis_chat_resolve_' || p_subject_type)) is not null then
-      execute format('select private.%I($1)', 'genesis_chat_resolve_' || p_subject_type) into tenant using p_subject_id;
+    fn := genesis_chat.conventional_resolver(p_subject_type);
+    if tenant is null and fn is not null then
+      execute format('select %s($1)', fn::regproc) into tenant using p_subject_id;
       if tenant is null then
         raise exception 'No such %: %', replace(p_subject_type, '_', ' '), p_subject_id using errcode = '22023';
       end if;

@@ -6,7 +6,7 @@
 -- with the rollback).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(43);
+select plan(53);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c4' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat4-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -164,6 +164,24 @@ select is((select tenant_id from genesis_chat.conversations where id = pg_temp.v
           pg_temp.tenant('02'), 'or a resolver named for the type names it');
 select throws_ok($$ select genesis_chat.ensure_conversation('desk', 'order', 'O-404') $$, '22023', null,
   'and a record that resolver doesn''t know has no conversation');
+select throws_ok($$ select genesis_chat.ensure_conversation('desk', 'Bad Type!', 'x', p_tenant_id => pg_temp.tenant('01')) $$, '22023', null,
+  'an unregistered subject type must still be a type name');
+
+-- start_conversation uses the same resolver for an unregistered type, and checks first.
+create function public.genesis_chat4_test_never(member_ids uuid[], subject_type text, subject_id text, user_id uuid)
+returns boolean language sql stable set search_path = '' as $$ select false $$;
+select genesis_chat.register_kind('closed', 'Closed', p_start_check => 'public.genesis_chat4_test_never(uuid[], text, text, uuid)');
+select pg_temp.sign_in('a1');
+insert into t select 'og', genesis_chat.start_conversation('group', array[pg_temp.person('b2')], 'Order chat', 'order', 'O-1');
+reset role;
+select is((select tenant_id from genesis_chat.conversations where id = pg_temp.v('og')), pg_temp.tenant('02'),
+          'starting one about an unregistered type takes its resolver''s tenant');
+select pg_temp.sign_in('a1');
+select throws_ok($$ select genesis_chat.start_conversation('group', array[pg_temp.person('b2')], null, 'order', 'O-404') $$, '22023', null,
+  'and refuses a record that resolver doesn''t know');
+select throws_ok($$ select genesis_chat.start_conversation('closed', array[pg_temp.person('b2')], null, 'order', 'O-404') $$, '42501', null,
+  'a start check that says no is answered first, saying nothing about the record');
+reset role;
 
 -- ── Observers ─────────────────────────────────────────────────────────────────
 
@@ -185,6 +203,37 @@ select genesis_chat.send_message(pg_temp.v('tk3'), gen_random_uuid(), 'On it');
 select pg_temp.sign_in('a1');
 select is((select count(*)::integer from genesis_chat.messages where conversation_id = pg_temp.v('tk3')), 1,
           'the member reads the reply, not the internal note');
+
+-- A kind whose own check decides by the record's tenant turns chat's tenant gate off: staff the
+-- tenancy hook doesn't list for this tenant still observe, and a member still never does.
+reset role;
+select genesis_chat.register_kind('desk_app', 'App help desk', p_max_members => 2,
+  p_observer_check => 'public.genesis_chat4_test_staff(uuid, uuid)', p_observers_post => true,
+  p_observer_tenant_gate => false);
+insert into t select 'app1', genesis_chat.ensure_conversation('desk_app', 'invoice', 'I-50', p_tenant_id => pg_temp.tenant('01'));
+select genesis_chat.sync_members(pg_temp.v('app1'), array[pg_temp.person('e5')], 'member');
+insert into t select 'app2', genesis_chat.ensure_conversation('desk_app', 'invoice', 'I-51', p_tenant_id => pg_temp.tenant('01'));
+select ok(genesis_chat.observes(pg_temp.v('app2'), pg_temp.person('e5')),
+          'with the gate off, the kind''s check decides: staff of another tenant observe');
+select ok(not genesis_chat.observes(pg_temp.v('app1'), pg_temp.person('e5')),
+          'but a member is still never an observer');
+select ok(not genesis_chat.observes(pg_temp.v('app2'), pg_temp.person('a1')),
+          'and the kind''s check still says no to non-staff');
+
+-- Registering it again without the argument keeps the gate it has.
+select genesis_chat.register_kind('desk_app', 'App help desk', p_max_members => 2,
+  p_observer_check => 'public.genesis_chat4_test_staff(uuid, uuid)', p_observers_post => true);
+select is((select observer_tenant_gate from genesis_chat.kinds where kind = 'desk_app'), false,
+          'registering a kind again without the gate argument keeps its gate');
+
+-- A block that registered its kind before this migration turns the gate off by convention.
+create function private.genesis_chat_ungated_desk_conv() returns boolean language sql as $$ select true $$;
+select genesis_chat.register_kind('desk_conv', 'Convention desk', p_max_members => 2,
+  p_observer_check => 'public.genesis_chat4_test_staff(uuid, uuid)');
+select is((select observer_tenant_gate from genesis_chat.kinds where kind = 'desk_conv'), false,
+          'private.genesis_chat_ungated_<kind>() returning true turns the gate off');
+select is((select observer_tenant_gate from genesis_chat.kinds where kind = 'desk'), true,
+          'and a kind without one keeps the gate on');
 
 -- ── Without the hook ──────────────────────────────────────────────────────────
 
