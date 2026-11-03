@@ -149,6 +149,22 @@ describe("ChatPhotoViewer", () => {
     expect(screen.getByTestId("v-notice").textContent).toMatch(/Settings/);
   });
 
+  it("opens again without the last opening's notice", async () => {
+    const modules = { mediaLibrary: { requestPermissionsAsync: async () => ({ granted: true }), saveToLibraryAsync: vi.fn(async () => undefined) }, downloadFile: async () => "file:///x.jpg" };
+    const photos = [{ key: "a", uri: "https://x.test/a.jpg", alt: "Photo, a.jpg" }];
+    const ui = (p: typeof photos | null) => (
+      <ChatNativeProvider modules={modules}>
+        <ChatPhotoViewer photos={p} onClose={vi.fn()} testID="v" />
+      </ChatNativeProvider>
+    );
+    const { rerender } = render(ui(photos));
+    await act(async () => fireEvent.click(screen.getByTestId("v-save")));
+    expect(screen.getByTestId("v-notice")).toBeTruthy();
+    rerender(ui(null));
+    rerender(ui([...photos]));
+    expect(screen.queryByTestId("v-notice")).toBeNull();
+  });
+
   it("ChatMediaViewer, for one picture, is the same full-screen viewer", () => {
     render(
       <ChatNativeProvider>
