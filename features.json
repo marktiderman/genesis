@@ -4136,7 +4136,7 @@
     {
       "id": "inbox-thread",
       "name": "Inbox and thread",
-      "summary": "Conversations between people: an inbox with unread counts and a live thread with paging, optimistic send and read state, on web and native. Native layouts InboxPage (unread dot or count, time, preview, swipe actions also reachable as accessibility actions and on long press, pull to refresh, paging, empty state) and ThreadPage (messages, attachments, a read receipt, a composer kept above the keyboard through KeyboardScrollProvider) are in genesis-ui-native, in SettingsPage's iOS inset style. Web layouts and live (realtime) updates are not built.",
+      "summary": "Conversations between people: an inbox with unread counts and a live thread with paging, optimistic send and read state, on web and native. Native layouts InboxPage (unread dot or count, time, preview, swipe actions also reachable as accessibility actions and on long press, pull to refresh, paging, empty state) and ThreadPage (a bottom-anchored list that holds its place while earlier messages load, follows the newest only at the bottom, goes to a message and marks the first unread; events between messages; send states as data, including pending, paused and conflict; a refreshing line; a growing composer with modes such as an internal note, following the keyboard through GenesisModules.keyboardAvoidingView) are in genesis-ui-native, built from the atoms NativeThreadList and NativeComposerBar, in SettingsPage's iOS inset style. Web layouts and live (realtime) updates are not built.",
       "category": "Social",
       "status": "building",
       "claimedBy": "mark",
@@ -4171,17 +4171,22 @@
         "footer",
         "empty",
         "message",
+        "event",
         "attachment",
         "readReceipt",
+        "unreadDivider",
         "composer",
         "composerAccessory",
+        "headerRegion",
         "earlier"
       ],
       "reviewedAt": "2026-10-24",
       "links": {
         "code": [
           "packages/ui-native/src/layouts/inbox-page.tsx",
-          "packages/ui-native/src/layouts/thread-page.tsx"
+          "packages/ui-native/src/layouts/thread-page.tsx",
+          "packages/ui-native/src/components/thread-list.tsx",
+          "packages/ui-native/src/components/composer-bar.tsx"
         ],
         "docs": [
           "packages/ui-native/README.md"

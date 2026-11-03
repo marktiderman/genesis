@@ -5,7 +5,8 @@
  * surfaces on iOS 26, SF Symbols on iOS with lucide everywhere else, and the
  * @expo/ui (SwiftUI / Jetpack Compose) date picker, and React Navigation's
  * theming (GenesisNativeApp themes headers and tab bars in the brand's light
- * and dark colors). To fall back to plain
+ * and dark colors), and keyboard-controller's KeyboardAvoidingView for
+ * ThreadPage's composer. To fall back to plain
  * React Native for one, delete its line, its import below and its package.
  */
 import DateTimePicker from "@expo/ui/community/datetime-picker";
@@ -14,6 +15,7 @@ import * as GlassEffect from "expo-glass-effect";
 import { Image } from "expo-image";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
 import { SymbolView } from "expo-symbols";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import * as Reanimated from "react-native-reanimated";
 import type { GenesisModules } from "@marktiderman/genesis-ui-native";
 import { lucideIcons } from "@marktiderman/genesis-ui-native/icons/lucide";
@@ -28,4 +30,6 @@ export const nativeModules: GenesisModules = {
   icons: lucideIcons,
   datePicker: DateTimePicker as unknown as GenesisModules["datePicker"],
   navigation: { ThemeProvider, DefaultTheme, DarkTheme },
+  // ThreadPage's composer follows the keyboard frame by frame.
+  keyboardAvoidingView: KeyboardAvoidingView,
 };

@@ -195,7 +195,10 @@
             "renders": [
               "NativeResourceView",
               "NativeRecordView",
-              "NativeResourceWorkspace"
+              "NativeResourceWorkspace",
+              "ThreadPage",
+              "NativeThreadList",
+              "ChatThreadScreen"
             ]
           },
           "use": "the web screen's view (defineView) rendered by <NativeResourceView>",
@@ -237,6 +240,12 @@
           "use": "NativeRecordView",
           "import": "@marktiderman/genesis-ui-native/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordview"
+        },
+        {
+          "need": "a conversation on the phone: messages, a composer",
+          "use": "ThreadPage (slots, modes, events), or NativeThreadList and NativeComposerBar to build your own",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#inbox-and-thread-inboxpage-and-threadpage"
         }
       ]
     }

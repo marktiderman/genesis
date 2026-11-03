@@ -204,13 +204,34 @@ Two generic layouts for conversations (support tickets, direct messages, comment
   VoiceOver / TalkBack custom actions and on long press (a menu); for the swipe gesture itself,
   fill the `swipeable` slot with react-native-gesture-handler's `ReanimatedSwipeable`. Slots:
   `row`, `swipeable`, `header`, `footer`, `empty`.
-- **`ThreadPage`**: messages oldest first (mine trailing in the tint, theirs leading on
-  `surface`), attachments, a read receipt under my newest message the other side has read
-  (`readAt`), "load earlier", optimistic `sending` and `failed` messages with retry, and a
-  composer. With `KeyboardScrollProvider` (the native shell's `keyboardScroll`) the messages and
-  the composer scroll together above the keyboard; without it a `KeyboardAvoidingView` does.
-  `composer={null}` makes it read-only with a `closedNotice`. Slots: `message`, `attachment`,
-  `readReceipt`, `composer`, `composerAccessory`, `header`, `earlier`, `empty`.
+- **`ThreadPage`**: one conversation, built from the two atoms below.
+  - **The list:**
+    - messages oldest first (mine trailing in the tint, theirs leading on `surface`), and
+      `kind: "event"` rows as centred, muted lines;
+    - attachments, and a read receipt under my newest message the other side has read (`readAt`);
+    - holds its place while earlier messages load (by themselves near the top, and with the
+      "Load earlier" button, which VoiceOver needs);
+    - follows the newest only when you're at the bottom, with a "Jump to latest" pill when you
+      aren't;
+    - `firstUnreadId` (a "New messages" divider), and `jumpTo` with `onLoadUntil` (go to a
+      message, announced to VoiceOver);
+    - `refreshing` (a quiet "Updating…" line while fresher rows load).
+  - **Send states** are data: `sending`, `pending` (queued offline), `paused` (sign in to send),
+    `failed` and `conflict`, with `onRetry` and `onDiscard` (also VoiceOver actions). Keep each
+    message's `id` the same across refreshes (a cache, then the server), or the list jumps.
+  - **The composer** grows as you type, has a 44pt send button, and takes `modes` with a tone: an
+    `internal` mode ("Internal note") tints the bar and the note it sends.
+  - **Keyboard:** with `GenesisModules.keyboardAvoidingView` (react-native-keyboard-controller's)
+    the composer follows the keyboard frame by frame; without it, React Native's
+    `KeyboardAvoidingView`. Dragging the list dismisses the keyboard.
+  - **Read-only:** `composer={null}`, with a `closedNotice`.
+  - **Slots:** `message`, `event`, `attachment`, `readReceipt`, `unreadDivider`, `composer`,
+    `composerAccessory`, `headerRegion` (pinned above the list: a ticket's status and assignee),
+    `header` (scrolls with the messages), `earlier`, `empty`.
+- **`NativeThreadList`**: the list on its own, for a thread of your own. It renders the rows it's
+  given and never fetches. FlashList v2's chat mode when the app passed `list`, else FlatList.
+- **`NativeComposerBar`**: the composer on its own. It takes `leading`, `trailing` and `above`
+  slots, and `modes`.
 
 `getInboxPageStackOptions()` and `getThreadPageStackOptions()` compose the header.
 `@marktiderman/genesis-support/native` feeds both for a person's support reports.

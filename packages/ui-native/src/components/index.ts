@@ -296,3 +296,13 @@ export type { NativeImageProps } from "./image";
 
 export { NativeGlassSurface, useLiquidGlass, useReduceTransparency } from "./glass-surface";
 export type { NativeGlassSurfaceProps } from "./glass-surface";
+
+export {
+  NativeThreadList,
+  threadListMode,
+  threadNearBottom,
+  THREAD_AT_BOTTOM_POINTS,
+} from "./thread-list";
+export type { NativeThreadListProps, NativeThreadListHandle } from "./thread-list";
+export { NativeComposerBar } from "./composer-bar";
+export type { NativeComposerBarProps, ComposerMode, ComposerTone } from "./composer-bar";

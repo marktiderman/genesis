@@ -61,6 +61,8 @@
     "AuthForm",
     "SocialAuthRow",
     "AuthBranding",
-    "AppleSignInButton"
+    "AppleSignInButton",
+    "NativeThreadList",
+    "NativeComposerBar"
   ]
 }

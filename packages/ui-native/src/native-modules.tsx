@@ -31,6 +31,7 @@
  * | `symbol` (expo-symbols)        | NativeIcon on iOS                        | `icons` (lucide)              |
  * | `icons` (a lucide icon set)    | NativeIcon on Android, web, and as the SF Symbol fallback | a blank space of the icon's size |
  * | `datePicker` (@expo/ui)        | NativeDatePicker, NativeTimePicker       | @react-native-community/datetimepicker |
+ * | `keyboardAvoidingView` (react-native-keyboard-controller's `KeyboardAvoidingView`) | ThreadPage: the composer follows the keyboard frame by frame (`translate-with-padding`) | React Native `KeyboardAvoidingView` |
  * | `navigation` (React Navigation's theming: from `expo-router` in an Expo Router app, which bundles its own copy; `@react-navigation/native` otherwise) | GenesisNativeApp: headers and tab bars in the brand's light and dark colors | React Navigation's default (light) theme |
  *
  * The props below are written structurally (no import of the optional
@@ -180,6 +181,8 @@ export interface GenesisModules {
   icons?: GenesisIconSet;
   datePicker?: GenesisDatePickerComponent;
   navigation?: GenesisNavigationModule;
+  /** react-native-keyboard-controller's `KeyboardAvoidingView` (it takes `behavior: "translate-with-padding"`). */
+  keyboardAvoidingView?: ComponentType<any>;
 }
 
 const EMPTY: GenesisModules = Object.freeze({});

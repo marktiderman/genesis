@@ -1,39 +1,53 @@
 /**
  * ThreadPage — one conversation: messages oldest first, a composer at the
- * bottom that stays above the keyboard, attachments, a read receipt, and
- * "load earlier" paging.
+ * bottom that follows the keyboard, attachments, a read receipt, earlier
+ * pages, going to a message, and the first unread.
  *
- * Generic: a support ticket with staff replies, a direct message, a comment
- * thread. Mine are on the trailing side in the tint, theirs on the leading
- * side on `surface`, over the `groupedBackground` page (SettingsPage's iOS
- * palette).
+ * Generic: a support ticket with staff replies, a help desk thread with
+ * internal notes, a direct message, a comment thread. Mine are on the
+ * trailing side in the tint, theirs on the leading side on `surface`, over the
+ * `groupedBackground` page (SettingsPage's iOS palette). Events ("Sam was
+ * assigned") are centred, muted lines between them.
  *
- * Keyboard: with `KeyboardScrollProvider` (the native app shell's
- * `keyboardScroll`, react-native-keyboard-controller's
- * `KeyboardAwareScrollView`), the messages and the composer scroll together
- * and the composer is kept above the keyboard. Without it, a
- * `KeyboardAvoidingView` does the same on iOS. Either way the thread stays
- * scrolled to the newest message as it grows.
+ * Built from the messaging atoms, so an app can take this whole or build its
+ * own from the same parts: `NativeThreadList` (bottom-anchored, holds its
+ * place while earlier messages load, follows the newest only at the bottom)
+ * and `NativeComposerBar` (grows as you type, modes with a tone, 44pt send).
+ *
+ * Keyboard: the page sits in `GenesisModules.keyboardAvoidingView`
+ * (react-native-keyboard-controller's, `translate-with-padding`: the composer
+ * follows the keyboard frame by frame) when the app passed it, else React
+ * Native's `KeyboardAvoidingView`. Dragging the list down dismisses the
+ * keyboard interactively. (The app's `KeyboardScrollProvider` no longer
+ * applies here: a virtualized list can't live in a scroll view.)
+ *
+ * Data: rows arrive as props and the page never fetches. A row's send state
+ * is data (`sending`, `pending`, `paused`, `failed`, `conflict`) with
+ * `onRetry` / `onDiscard`, whatever feeds it (an outbox, an offline queue).
+ * Ids must stay the same across refreshes (a cache, then the server).
  *
  * Read-only: pass `composer={null}` (a closed ticket, a viewer) and an
  * optional `closedNotice`.
  *
- * Slots: `message`, `attachment`, `readReceipt`, `composer`,
- * `composerAccessory` (beside the input: attach a screenshot), `header`
- * (above the messages: what the thread is about), `earlier` and `empty`.
+ * Slots: `message`, `event`, `attachment`, `readReceipt`, `unreadDivider`,
+ * `composer`, `composerAccessory` (beside the input: attach a screenshot),
+ * `headerRegion` (pinned above the list: a ticket's status and assignee),
+ * `header` (scrolls above the first message: what the thread is about),
+ * `earlier` and `empty`.
  *
  * @stability Beta
  */
-import { createElement, useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeRoles } from "../hooks/use-theme-roles";
-import { NativeButton } from "../components/button";
+import { useGenesisModules } from "../native-modules";
 import { NativeEmptyState } from "../components/empty-state";
 import { NativeText } from "../components/text";
+import { NativeComposerBar, type ComposerMode, type ComposerTone } from "../components/composer-bar";
+import { NativeThreadList, type NativeThreadListHandle } from "../components/thread-list";
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
-import { useKeyboardScroll } from "./keyboard";
 
 export interface ThreadAttachment {
   id: string;
@@ -45,17 +59,29 @@ export interface ThreadAttachment {
   onPress?: () => void;
 }
 
+/**
+ * Where a message is on its way. `sending` (in flight), `sent`, `pending`
+ * (queued: offline), `paused` (the session expired: sign in to send),
+ * `failed` and `conflict` (changed elsewhere) with `onRetry` / `onDiscard`.
+ */
+export type ThreadMessageStatus = "sending" | "sent" | "pending" | "paused" | "failed" | "conflict";
+
 export interface ThreadMessage {
+  /** Stays the same across refreshes, or the list jumps. */
   id: string;
+  /** `event`: a centred line between messages ("Sam was assigned"); `body` is its text. Default `message`. */
+  kind?: "message" | "event";
   body: string;
   /** Sent by the person using the app: trailing side, tint. */
   mine: boolean;
   /** Shown over theirs ("Support"); never over mine. */
   authorName?: string;
   timestamp: string | Date;
-  /** An optimistic message: `sending`, then `sent`, or `failed` with `onRetry`. */
-  status?: "sending" | "sent" | "failed";
+  status?: ThreadMessageStatus;
   onRetry?: () => void;
+  onDiscard?: () => void;
+  /** `internal`: a staff-only note, tinted so it never reads like a reply. */
+  tone?: ComposerTone;
   attachments?: ThreadAttachment[];
 }
 
@@ -70,6 +96,12 @@ export interface ThreadComposer {
   /** Turns the send button off (besides an empty or blank value). */
   disabled?: boolean;
   maxLength?: number;
+  /** The input grows to this many lines, then scrolls. Default 6. */
+  maxLines?: number;
+  /** Ways to send ("Reply", "Internal note"); two or more show the picker. */
+  modes?: readonly ComposerMode[];
+  mode?: string;
+  onModeChange?: (id: string) => void;
 }
 
 /** What the default parts say. */
@@ -77,19 +109,51 @@ export interface ThreadLabels {
   /** Who "mine" is, to VoiceOver. */
   you: string;
   sending: string;
+  /** Queued while offline. */
+  pending: string;
+  /** The session expired. */
+  paused: string;
   notSent: string;
+  /** Changed somewhere else before it was sent. */
+  conflict: string;
   retryHint: string;
+  discard: string;
+  /** The first unread message's divider. */
+  newMessages: string;
+  /** The pill that goes back to the newest message. */
+  jumpToLatest: string;
+  /** While `refreshing`. */
+  updating: string;
+  /** Said when a `jumpTo` message can't be found. */
+  messageGone: string;
 }
 
-const DEFAULT_LABELS: ThreadLabels = { you: "You", sending: "Sending", notSent: "Not sent. Tap to retry.", retryHint: "Double tap to send again" };
+const DEFAULT_LABELS: ThreadLabels = {
+  you: "You",
+  sending: "Sending",
+  pending: "Waiting to send",
+  paused: "Sign in to send",
+  notSent: "Not sent. Tap to retry.",
+  conflict: "Not sent: changed elsewhere. Tap to retry.",
+  retryHint: "Double tap to send again",
+  discard: "Discard",
+  newMessages: "New messages",
+  jumpToLatest: "Jump to latest",
+  updating: "Updating…",
+  messageGone: "That message isn't available.",
+};
 
 export type ThreadPageSlotMap = {
   message: ThreadMessage & { testID: string; timeLabel: string; showReadReceipt: boolean; labels: ThreadLabels };
+  event: ThreadMessage & { testID: string; timeLabel: string };
   attachment: ThreadAttachment & { testID: string; mine: boolean };
   readReceipt: { label: string; testID: string };
+  unreadDivider: { label: string; testID: string };
   /** `accessory` is the `composerAccessory` slot, already rendered. */
   composer: ThreadComposer & { testID: string; accessory?: ReactNode };
   composerAccessory: { testID: string };
+  /** Pinned above the list: a ticket's status, assignee and priority, and "more". */
+  headerRegion: { testID: string };
   header: { testID: string };
   earlier: { loading: boolean; onPress: () => void; label: string; testID: string };
   empty: { title: string; body: string; testID: string };
@@ -102,7 +166,7 @@ export interface ThreadPageProps extends ScreenHeaderProps {
   composer: ThreadComposer | null;
   /** Shown instead of the composer when it is `null` ("This conversation is closed"). */
   closedNotice?: string;
-  /** Above the messages (what the thread is about). Prefer `slots.header` for a component. */
+  /** Above the first message, scrolling with them. Prefer `slots.header` for a component. */
   header?: ReactNode;
   /**
    * When the other side last read the thread. My newest message sent before
@@ -110,11 +174,23 @@ export interface ThreadPageProps extends ScreenHeaderProps {
    */
   readAt?: string | Date | null;
   readLabel?: string;
-  /** There are older messages: shows a "load earlier" button at the top. */
+  /** There are older messages: they load near the top, and a "load earlier" button shows. */
   hasEarlier?: boolean;
   onLoadEarlier?: () => void;
   loadingEarlier?: boolean;
   earlierLabel?: string;
+  /** The first message the reader hasn't seen: a "New messages" divider above it. */
+  firstUnreadId?: string | null;
+  /** Go to this message (a search result, a pinned one), loading with `onLoadUntil` until it's here. */
+  jumpTo?: string | null;
+  /** Load earlier pages until the message is held; resolve false when it can't be found. */
+  onLoadUntil?: (id: string) => Promise<boolean>;
+  /** A `jumpTo` message couldn't be found. Default: VoiceOver says `labels.messageGone`. */
+  onJumpFailed?: (id: string) => void;
+  /** Fresher rows are on their way (the cache showed first): a quiet "Updating…" line. */
+  refreshing?: boolean;
+  /** Where the page starts below the window's top, for the keyboard. Default 100 on iOS (a standard header). */
+  keyboardVerticalOffset?: number;
   emptyTitle?: string;
   emptyBody?: string;
   formatTime?: (date: Date) => string;
@@ -144,19 +220,18 @@ function defaultTime(date: Date): string {
   return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
+/** Sent and delivered: a read receipt can mark it. */
+const delivered = (m: ThreadMessage) => m.status === undefined || m.status === "sent";
+
 /** The newest of my messages the other side has read, or null. */
 export function readReceiptFor(messages: readonly ThreadMessage[], readAt: string | Date | null | undefined): string | null {
   if (!readAt) return null;
   const read = toDate(readAt).getTime();
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]!;
-    if (m.mine && m.status !== "sending" && m.status !== "failed" && toDate(m.timestamp).getTime() <= read) return m.id;
+    if (m.kind !== "event" && m.mine && delivered(m) && toDate(m.timestamp).getTime() <= read) return m.id;
   }
   return null;
-}
-
-interface ScrollLike {
-  scrollToEnd?: (options?: { animated?: boolean }) => void;
 }
 
 export function ThreadPage({
@@ -170,6 +245,12 @@ export function ThreadPage({
   onLoadEarlier,
   loadingEarlier = false,
   earlierLabel = "Load earlier messages",
+  firstUnreadId,
+  jumpTo,
+  onLoadUntil,
+  onJumpFailed,
+  refreshing = false,
+  keyboardVerticalOffset,
   emptyTitle,
   emptyBody,
   formatTime = defaultTime,
@@ -179,72 +260,68 @@ export function ThreadPage({
   testID = "thread-page",
 }: ThreadPageProps) {
   const colors = useThemeRoles();
-  const KeyboardScroll = useKeyboardScroll();
-  const scrollRef = useRef<ScrollLike | null>(null);
+  const genesis = useGenesisModules();
+  const listRef = useRef<NativeThreadListHandle | null>(null);
+  const [atBottom, setAtBottom] = useState(true);
   const receiptFor = readReceiptFor(messages, readAt);
   const labels: ThreadLabels = { ...DEFAULT_LABELS, ...labelOverrides };
-  const newest = messages[messages.length - 1]?.id;
 
-  // Keep the newest message in view when one arrives (or is sent).
-  useEffect(() => {
-    scrollRef.current?.scrollToEnd?.({ animated: true });
-  }, [newest]);
-
-  const body = (
-    <View style={{ flexGrow: 1 }}>
-      {header ?? renderSlot(Nothing, slots.header, { testID: `${testID}-header` }, slotProps.header)}
-      {hasEarlier && onLoadEarlier
-        ? renderSlot(
-            DefaultEarlier,
-            slots.earlier,
-            { loading: loadingEarlier, onPress: onLoadEarlier, label: earlierLabel, testID: `${testID}-earlier` },
-            slotProps.earlier,
-          )
-        : null}
-      <View testID={`${testID}-messages`} accessibilityRole="list" style={{ flexGrow: 1, justifyContent: "flex-end", paddingHorizontal: 12, paddingVertical: 8, gap: 6 }}>
-        {messages.length === 0
-          ? renderSlot(
-              DefaultEmpty,
-              slots.empty,
-              { title: emptyTitle ?? "No messages yet", body: emptyBody ?? "Write the first one below.", testID: `${testID}-empty` },
-              slotProps.empty,
-            )
-          : messages.map((message) => (
-              <View key={message.id}>
-                {renderSlot(
-                  DefaultMessage,
-                  slots.message,
-                  {
-                    ...message,
-                    testID: `${testID}-message-${message.id}`,
-                    timeLabel: formatTime(toDate(message.timestamp)),
-                    showReadReceipt: message.id === receiptFor,
-                    labels,
-                  },
-                  slotProps.message,
-                )}
-                {message.attachments?.length ? (
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: message.mine ? "flex-end" : "flex-start", marginTop: 4 }}>
-                    {message.attachments.map((attachment) => (
-                      <View key={attachment.id}>
-                        {renderSlot(
-                          DefaultAttachment,
-                          slots.attachment,
-                          { ...attachment, mine: message.mine, testID: `${testID}-attachment-${attachment.id}` },
-                          slotProps.attachment,
-                        )}
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-                {message.id === receiptFor
-                  ? renderSlot(DefaultReadReceipt, slots.readReceipt, { label: readLabel, testID: `${testID}-read-receipt` }, slotProps.readReceipt)
-                  : null}
-              </View>
-            ))}
-      </View>
-    </View>
+  const renderRow = useCallback(
+    (message: ThreadMessage) => {
+      const timeLabel = formatTime(toDate(message.timestamp));
+      const divider =
+        message.id === firstUnreadId
+          ? renderSlot(DefaultUnreadDivider, slots.unreadDivider, { label: labels.newMessages, testID: `${testID}-unread` }, slotProps.unreadDivider)
+          : null;
+      if (message.kind === "event") {
+        return (
+          <View style={{ paddingVertical: 3 }}>
+            {divider}
+            {renderSlot(DefaultEvent, slots.event, { ...message, testID: `${testID}-event-${message.id}`, timeLabel }, slotProps.event)}
+          </View>
+        );
+      }
+      return (
+        <View style={{ paddingVertical: 3 }}>
+          {divider}
+          {renderSlot(
+            DefaultMessage,
+            slots.message,
+            { ...message, testID: `${testID}-message-${message.id}`, timeLabel, showReadReceipt: message.id === receiptFor, labels },
+            slotProps.message,
+          )}
+          {message.attachments?.length ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: message.mine ? "flex-end" : "flex-start", marginTop: 4 }}>
+              {message.attachments.map((attachment) => (
+                <View key={attachment.id}>
+                  {renderSlot(
+                    DefaultAttachment,
+                    slots.attachment,
+                    { ...attachment, mine: message.mine, testID: `${testID}-attachment-${attachment.id}` },
+                    slotProps.attachment,
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : null}
+          {message.id === receiptFor
+            ? renderSlot(DefaultReadReceipt, slots.readReceipt, { label: readLabel, testID: `${testID}-read-receipt` }, slotProps.readReceipt)
+            : null}
+        </View>
+      );
+    },
+    // `labels` is rebuilt each render from labelOverrides; the row reads it as is.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [firstUnreadId, formatTime, receiptFor, readLabel, slots, slotProps, testID, labelOverrides],
   );
+
+  const send = composer
+    ? () => {
+        composer.onSend();
+        // What you send is what you look at next, wherever the list was.
+        listRef.current?.scrollToEnd({ animated: true });
+      }
+    : undefined;
 
   const footer = composer ? (
     renderSlot(
@@ -252,6 +329,7 @@ export function ThreadPage({
       slots.composer,
       {
         ...composer,
+        onSend: send!,
         testID: `${testID}-composer`,
         accessory: renderSlot(Nothing, slots.composerAccessory, { testID: `${testID}-composer-accessory` }, slotProps.composerAccessory),
       },
@@ -263,45 +341,69 @@ export function ThreadPage({
     </NativeText>
   ) : null;
 
-  const page = { flex: 1, backgroundColor: colors.groupedBackground };
-  const onContentSizeChange = () => scrollRef.current?.scrollToEnd?.({ animated: false });
+  const listHeader = (
+    <>
+      {header ?? renderSlot(Nothing, slots.header, { testID: `${testID}-header` }, slotProps.header)}
+      {refreshing ? (
+        <View testID={`${testID}-updating`} accessibilityLiveRegion="polite" accessible accessibilityLabel={labels.updating}>
+          <NativeText style={{ textAlign: "center", paddingVertical: 4, color: colors.tertiaryLabel, fontSize: 12, lineHeight: 16 }}>{labels.updating}</NativeText>
+        </View>
+      ) : null}
+    </>
+  );
 
-  if (KeyboardScroll) {
-    // The composer scrolls with the messages, so the keyboard-aware view keeps it (the focused input) above the keyboard.
-    return (
-      <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={page}>
-        {createElement(
-          KeyboardScroll as never,
-          {
-            ref: scrollRef,
-            testID: `${testID}-keyboard`,
-            keyboardShouldPersistTaps: "handled",
-            contentInsetAdjustmentBehavior: "automatic",
-            contentContainerStyle: { flexGrow: 1 },
-            bottomOffset: 8,
-            onContentSizeChange,
-          } as never,
-          body,
-          footer,
-        )}
-      </SafeAreaView>
-    );
-  }
+  const KeyboardAvoiding = (genesis.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
+  const offset = keyboardVerticalOffset ?? (Platform.OS === "ios" ? 100 : 0);
+  const keyboardProps = genesis.keyboardAvoidingView
+    ? { behavior: "translate-with-padding", keyboardVerticalOffset: offset }
+    : { behavior: Platform.OS === "ios" ? "padding" : undefined, keyboardVerticalOffset: offset };
+
   return (
-    <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={page}>
-      <KeyboardAvoidingView testID={`${testID}-kav`} style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}>
-        <ScrollView
-          ref={scrollRef as never}
-          testID={`${testID}-scroll`}
-          keyboardShouldPersistTaps="handled"
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ flexGrow: 1 }}
-          onContentSizeChange={onContentSizeChange}
-        >
-          {body}
-        </ScrollView>
+    <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+      <KeyboardAvoiding testID={`${testID}-keyboard`} style={{ flex: 1 }} {...keyboardProps}>
+        {renderSlot(Nothing, slots.headerRegion, { testID: `${testID}-header-region` }, slotProps.headerRegion)}
+        <View style={{ flex: 1 }}>
+          <NativeThreadList<ThreadMessage>
+            ref={listRef}
+            testID={`${testID}-messages`}
+            data={messages}
+            keyExtractor={(m) => m.id}
+            getItemType={(m) => (m.kind === "event" ? "event" : m.mine ? "mine" : "theirs")}
+            renderItem={renderRow}
+            hasEarlier={hasEarlier}
+            onLoadEarlier={onLoadEarlier}
+            loadingEarlier={loadingEarlier}
+            earlierLabel={earlierLabel}
+            renderEarlier={(p) => renderSlot(DefaultEarlierButton, slots.earlier, { ...p, testID: `${testID}-earlier` }, slotProps.earlier)}
+            jumpTo={jumpTo}
+            onLoadUntil={onLoadUntil}
+            jumpAnnouncement={(m) => [m.mine ? labels.you : m.authorName, m.body].filter(Boolean).join(", ")}
+            onJumpFailed={onJumpFailed}
+            onAtBottomChange={setAtBottom}
+            header={listHeader}
+            empty={renderSlot(
+              DefaultEmpty,
+              slots.empty,
+              { title: emptyTitle ?? "No messages yet", body: emptyBody ?? "Write the first one below.", testID: `${testID}-empty` },
+              slotProps.empty,
+            )}
+          />
+          {!atBottom && messages.length > 0 ? (
+            <Pressable
+              testID={`${testID}-jump-latest`}
+              accessibilityRole="button"
+              accessibilityLabel={labels.jumpToLatest}
+              onPress={() => listRef.current?.scrollToEnd({ animated: true })}
+              style={{ position: "absolute", bottom: 8, alignSelf: "center", minHeight: 44, justifyContent: "center", paddingHorizontal: 16, borderRadius: 22, backgroundColor: colors.surface }}
+            >
+              <NativeText preset="label" style={{ color: colors.tint }}>
+                {labels.jumpToLatest}
+              </NativeText>
+            </Pressable>
+          ) : null}
+        </View>
         {footer}
-      </KeyboardAvoidingView>
+      </KeyboardAvoiding>
     </SafeAreaView>
   );
 }
@@ -310,13 +412,14 @@ function Nothing(_props: { testID: string }) {
   return null;
 }
 
-function DefaultEarlier({ loading, onPress, label, testID }: ThreadPageSlotMap["earlier"]) {
+function DefaultEarlierButton({ loading, onPress, label, testID }: ThreadPageSlotMap["earlier"]) {
+  const colors = useThemeRoles();
   return (
-    <View style={{ alignItems: "center", paddingTop: 8 }}>
-      <NativeButton variant="ghost" size="sm" onPress={onPress} loading={loading} testID={testID}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ busy: loading }} onPress={onPress} disabled={loading} style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+      <NativeText preset="label" style={{ color: colors.tint }}>
         {label}
-      </NativeButton>
-    </View>
+      </NativeText>
+    </Pressable>
   );
 }
 
@@ -324,16 +427,60 @@ function DefaultEmpty({ title, body, testID }: ThreadPageSlotMap["empty"]) {
   return <NativeEmptyState variant="first-run" title={title} body={body} testID={testID} />;
 }
 
+function DefaultUnreadDivider({ label, testID }: ThreadPageSlotMap["unreadDivider"]) {
+  const colors = useThemeRoles();
+  return (
+    <View testID={testID} accessibilityRole="header" accessibilityLabel={label} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 }}>
+      <View style={{ flex: 1, height: 1, backgroundColor: colors.tint }} />
+      <NativeText style={{ color: colors.tint, fontSize: 12, lineHeight: 16 }}>{label}</NativeText>
+      <View style={{ flex: 1, height: 1, backgroundColor: colors.tint }} />
+    </View>
+  );
+}
+
+function DefaultEvent({ body, timeLabel, testID }: ThreadPageSlotMap["event"]) {
+  const colors = useThemeRoles();
+  return (
+    <View testID={testID} accessible accessibilityLabel={`${body}, ${timeLabel}`} style={{ alignSelf: "center", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, backgroundColor: colors.fill }}>
+      <NativeText style={{ color: colors.secondaryLabel, fontSize: 12, lineHeight: 16, textAlign: "center" }}>{body}</NativeText>
+    </View>
+  );
+}
+
 // No `color` key on mine: an undefined color in the style would override the class's.
 const MINE_TEXT = { fontSize: 17, lineHeight: 22 } as const;
 
+/** What a message's state says under it, or null when it's sent. */
+function stateLabel(message: ThreadPageSlotMap["message"]): string | null {
+  const { labels } = message;
+  switch (message.status) {
+    case "sending":
+      return labels.sending;
+    case "pending":
+      return labels.pending;
+    case "paused":
+      return labels.paused;
+    case "failed":
+      return labels.notSent;
+    case "conflict":
+      return labels.conflict;
+    default:
+      return null;
+  }
+}
+
 function DefaultMessage(message: ThreadPageSlotMap["message"]) {
   const colors = useThemeRoles();
-  const failed = message.status === "failed";
   const { labels } = message;
-  const label = [message.mine ? labels.you : (message.authorName ?? ""), message.body, message.timeLabel, failed ? labels.notSent : message.status === "sending" ? labels.sending : null]
-    .filter(Boolean)
-    .join(", ");
+  const broken = message.status === "failed" || message.status === "conflict";
+  const waiting = message.status === "sending" || message.status === "pending" || message.status === "paused";
+  const internal = message.tone === "internal";
+  const state = stateLabel(message);
+  const label = [message.mine ? labels.you : (message.authorName ?? ""), message.body, message.timeLabel, state].filter(Boolean).join(", ");
+  const actions = [
+    ...(broken && message.onRetry ? [{ name: "activate", label: labels.retryHint }] : []),
+    ...(message.onDiscard ? [{ name: "discard", label: labels.discard }] : []),
+  ];
   return (
     <View style={{ alignItems: message.mine ? "flex-end" : "flex-start" }}>
       {!message.mine && message.authorName ? (
@@ -343,27 +490,38 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
         testID={message.testID}
         accessible
         accessibilityLabel={label}
-        accessibilityHint={failed && message.onRetry ? labels.retryHint : undefined}
-        onPress={failed ? message.onRetry : undefined}
+        accessibilityHint={broken && message.onRetry ? labels.retryHint : undefined}
+        accessibilityActions={actions.length ? actions : undefined}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === "discard") message.onDiscard?.();
+          else if (e.nativeEvent.actionName === "activate" && broken) message.onRetry?.();
+        }}
+        onPress={broken ? message.onRetry : undefined}
         style={{
           maxWidth: "80%",
           paddingHorizontal: 14,
           paddingVertical: 8,
           borderRadius: 18,
-          backgroundColor: message.mine ? colors.tint : colors.surface,
-          opacity: message.status === "sending" ? 0.6 : 1,
+          backgroundColor: internal ? colors.surface : message.mine ? colors.tint : colors.surface,
+          borderWidth: internal ? 1 : 0,
+          borderColor: colors.warning,
+          opacity: waiting ? 0.6 : 1,
         }}
       >
-        <NativeText className={message.mine ? "text-primary-foreground" : undefined} style={message.mine ? MINE_TEXT : { ...MINE_TEXT, color: colors.label }}>
+        <NativeText className={message.mine && !internal ? "text-primary-foreground" : undefined} style={message.mine && !internal ? MINE_TEXT : { ...MINE_TEXT, color: colors.label }}>
           {message.body}
         </NativeText>
       </Pressable>
-      <NativeText
-        testID={`${message.testID}-time`}
-        style={{ marginTop: 2, marginHorizontal: 12, color: failed ? colors.destructive : colors.tertiaryLabel, fontSize: 11, lineHeight: 14 }}
-      >
-        {failed ? labels.notSent : message.timeLabel}
-      </NativeText>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2, marginHorizontal: 12 }}>
+        <NativeText testID={`${message.testID}-time`} style={{ color: broken ? colors.destructive : colors.tertiaryLabel, fontSize: 11, lineHeight: 14 }}>
+          {state ?? message.timeLabel}
+        </NativeText>
+        {message.onDiscard && (broken || waiting) ? (
+          <Pressable testID={`${message.testID}-discard`} accessibilityRole="button" accessibilityLabel={labels.discard} onPress={message.onDiscard} hitSlop={12}>
+            <NativeText style={{ color: colors.secondaryLabel, fontSize: 11, lineHeight: 14 }}>{labels.discard}</NativeText>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -387,58 +545,6 @@ function DefaultReadReceipt({ label, testID }: ThreadPageSlotMap["readReceipt"])
   );
 }
 
-function DefaultComposer({
-  value,
-  onChangeText,
-  onSend,
-  sending = false,
-  placeholder = "Message",
-  sendLabel = "Send",
-  disabled = false,
-  maxLength,
-  testID,
-  accessory,
-}: ThreadPageSlotMap["composer"]) {
-  const colors = useThemeRoles();
-  const blank = !value.trim();
-  return (
-    <View
-      testID={testID}
-      style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, backgroundColor: colors.groupedBackground }}
-    >
-      {accessory}
-      <TextInput
-        testID={`${testID}-input`}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.tertiaryLabel as string}
-        accessibilityLabel={placeholder}
-        multiline
-        maxLength={maxLength}
-        editable={!sending}
-        style={{
-          flex: 1,
-          minHeight: 36,
-          maxHeight: 120,
-          paddingHorizontal: 14,
-          paddingTop: 8,
-          paddingBottom: 8,
-          borderRadius: 18,
-          fontSize: 17,
-          color: colors.label as string,
-          backgroundColor: colors.surface,
-        }}
-      />
-      {sending ? (
-        <View style={{ height: 36, justifyContent: "center", paddingHorizontal: 8 }}>
-          <ActivityIndicator testID={`${testID}-sending`} accessibilityLabel="Sending" />
-        </View>
-      ) : (
-        <NativeButton size="sm" onPress={onSend} disabled={disabled || blank} testID={`${testID}-send`}>
-          {sendLabel}
-        </NativeButton>
-      )}
-    </View>
-  );
+function DefaultComposer({ accessory, testID, ...composer }: ThreadPageSlotMap["composer"]) {
+  return <NativeComposerBar {...composer} leading={accessory} testID={testID} />;
 }
