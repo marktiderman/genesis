@@ -275,9 +275,63 @@ its version keeps the email rules when that block is already installed. Adding s
 it, handlers can't reply (their status changes still work, without the prompt) until 0003's
 `genesis_support_new_reply` is applied again.
 
+## Tickets and tenants (migration 0004)
+
+`migrations/0004_genesis_support_tickets.sql` (applied after 0006 and 0003; ADR 0015) turns
+reports into **tickets** that each belong to a **tenant**, so every business on your app can run
+its own help desk and your app runs its own support the same way. With the support-chat block add
+`0005_genesis_support_chat_on_tickets.sql` and `0006_genesis_support_chat_tenants.sql`, and with support-email `0007_genesis_support_email_on_tickets.sql` and `0008_genesis_support_email_tenants.sql`.
+
+- `support_reports` is now `tickets` and `support_attachments` `ticket_attachments`. For one
+  minor the old names are views over the new tables (they run as the caller, so row security
+  applies), so older clients and your SQL keep working. Compare a conversation's subject against
+  `TICKET_SUBJECT`, never the literal.
+- **The tenant** is whatever your `private.genesis_viewer_people` hook returns (genesis-supabase
+  0016): in a single-tenant app one fixed id, in a multi-tenant app one per organization. Add your
+  own tenant before applying 0004 (it stops without it):
+
+  ```sql
+  create function private.genesis_support_default_tenant() returns uuid
+  language sql stable set search_path = '' as $$ select '…your tenant id…'::uuid $$;
+  revoke execute on function private.genesis_support_default_tenant() from public, anon, authenticated;
+  ```
+
+  A new ticket goes to the tenant it is sent with (`createSupportClient(supabase, { tenantId })`,
+  usually the viewer's current workspace; refused if the sender isn't in it or its help desk is
+  off), else yours. Nothing is guessed from which tenants the sender belongs to. Existing reports go to yours, or where your optional
+  `private.genesis_support_tenant_for(report uuid) returns uuid` puts them.
+- **Agents**: `ticket_agents` (tenant, person, `agent` or `admin`), set with
+  `support_set_agent(tenant, person, role)` (`client.setAgent`) by a tenant admin (genesis-supabase
+  0004's `genesis_tenant_admin` hook) or an agent admin. A tenant's agents and admins read and
+  handle its tickets and nobody else's. Your staff hook now means "an agent of your own tenant".
+  With genesis-chat 0004, support chats keep their ticket's tenant (0005 and 0006 move any that
+  chat placed by their members), and support turns chat's own tenant gate off for its kind, since
+  its observer check already reads the ticket's tenant: your staff read your tickets' chats without
+  being listed as people of your tenant.
+- **Reading and handling stay apart**: the requester reads their ticket and never handles it; your
+  report-handler hook only answers for your own tenant's tickets.
+- **Opt-in per tenant**: a tenant takes tickets only once `support-helpdesk` is enabled for it in
+  genesis-supabase 0004's `tenant_features` (`set_tenant_feature`); without that table, only your
+  own tenant does. Your own tenant always takes tickets.
+- **Screenshots** keep their `<user>/<ticket>/<file>` paths; who may open one comes from its
+  ticket row (tenant and handlers), not the path.
+- **Old names**: `support_reports` and `support_attachments` stay as views until every phone
+  build you support sends to the new names; they are dropped in a later minor, announced in its
+  changeset. `genesis doctor` warns about app SQL (`support-old-names-in-sql`) and code
+  (`tickets-through-support-client`) that still name them.
+- **Chat subject**: support conversations keep the stored subject `support_report`; compare with
+  `TICKET_SUBJECT`, which replaces `SUPPORT_CHAT_SUBJECT`, never the literal. With genesis-chat's
+  subject registry installed, 0006 registers the subject's tenant resolver; without it, nothing
+  changes.
+- **Email** (0008): route inbound mail with an optional
+  `private.genesis_support_email_tenant(recipients text[]) returns uuid`; a ticket's emails are
+  read by its handlers.
+- **Ideas** get a tenant too: your own board is open to everyone signed in, a tenant's board to
+  its members.
+
 ## Not yet
 
-- No staff inbox (operator queue) screen. With the support-chat block, `SupportStaffThread` is one
+- No agent inbox (operator queue) screen yet; it comes on genesis-chat's inbox. With the support-chat block, `SupportStaffThread` is one
   report for staff on the web; list reports with `genesis_chat.observed('support')` or a tool of
   yours. Without it, staff work through the database functions.
 - Without the support-chat block there are no live updates: the thread re-reads every 30 seconds

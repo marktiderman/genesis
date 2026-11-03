@@ -75,6 +75,12 @@ export interface SupportReport {
   userId?: string | null;
 }
 
+/** A ticket: a request from someone outside the team, owed a reply (ADR 0015). The new name for {@link SupportReport}. */
+export type Ticket = SupportReport;
+
+/** An agent's role in a tenant: `admin` also manages the tenant's agents. */
+export type TicketAgentRole = "agent" | "admin";
+
 export interface SupportReply {
   id: string;
   reportId: string;
@@ -126,6 +132,12 @@ export interface SupportIdea {
 export interface SupportClient extends FeedbackSink {
   /** The signed-in person's reports, newest first. */
   myReports(options?: { limit?: number }): Promise<SupportReport[]>;
+  /** The signed-in person's tickets, newest first (the new name for `myReports`). Needs migration 0004. */
+  myTickets?(options?: { limit?: number }): Promise<Ticket[]>;
+  /** Does the signed-in person handle tickets in this tenant (an agent, a tenant admin)? Needs migration 0004. */
+  isAgent?(tenantId: string): Promise<boolean>;
+  /** Tenant admins: make a tenant's person an agent or agent admin, or remove them (`null`). Needs migration 0004. */
+  setAgent?(tenantId: string, personId: string, role: TicketAgentRole | null): Promise<void>;
   report(id: string): Promise<SupportReport | null>;
   replies(reportId: string): Promise<SupportReply[]>;
   /** `internal`: a staff-only note (support-chat block, staff only). */
@@ -140,7 +152,10 @@ export interface SupportClient extends FeedbackSink {
   conversationId(reportId: string): Promise<string | null>;
   /** Live updates for the thread (chat only): `onChange` runs on each hint and each (re)join. Returns the stop. */
   subscribe(reportId: string, onChange: () => void): () => void;
-  /** Whether the signed-in person is support staff. */
+  /**
+   * Whether the signed-in person handles the app's own tickets (an agent of its default tenant).
+   * For a business's tickets use `isAgent(tenantId)` or `handles(reportId)` (migration 0004).
+   */
   isStaff(): Promise<boolean>;
   /** Staff: the report's status, and the FeatureId it is about (null keeps it, "" clears it). */
   setStatus(reportId: string, status: FeedbackStatus, featureId?: string | null): Promise<void>;
@@ -186,6 +201,12 @@ export interface SupportClientOptions {
    * function does, which works on every schema.
    */
   severityColumn?: boolean;
+  /**
+   * The tenant a new ticket goes to (migration 0004): usually the viewer's current workspace.
+   * Left out, the ticket goes to the app's own (default) tenant; nothing is guessed. A tenant
+   * the sender isn't in, or whose help desk is off, is refused.
+   */
+  tenantId?: string | null | (() => string | null | Promise<string | null>);
 }
 
 const REPORT_COLUMNS =
@@ -316,7 +337,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       if (isMissingFunction(result.error)) {
         chatInstalled = false;
         warn(
-          "genesis-support: a chat client was given, but the support-chat block's migration (0001_genesis_support_chat.sql) isn't applied. Report threads use support_replies.",
+          "genesis-support: a chat client was given, but the support-chat block's migrations (0005_genesis_support_chat_on_tickets.sql and 0006_genesis_support_chat_tenants.sql) aren't applied. Report threads use support_replies.",
         );
         return { mode: "replies", conversationId: null };
       }
@@ -351,11 +372,13 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       const userId = await me();
       if (!userId) throw new SupportError("Sign in to send feedback.", "42501", "submit");
       const context = sanitizeContext(record.context);
+      const tenantId = typeof options.tenantId === "function" ? await options.tenantId() : options.tenantId;
       const row = must<Row>(
         "submit",
         await supabase
           .from("support_reports")
           .insert({
+            ...(tenantId ? { tenant_id: tenantId } : {}),
             type: record.type,
             title: record.title?.trim() ? record.title.trim().slice(0, 300) : null,
             message: record.message,
@@ -491,6 +514,16 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
 
     async isStaff() {
       return must<boolean | null>("isStaff", await supabase.rpc("support_is_staff")) === true;
+    },
+
+    async myTickets(opts) {
+      return client.myReports(opts);
+    },
+    async isAgent(tenantId) {
+      return must<boolean | null>("isAgent", await supabase.rpc("support_is_agent", { tenant: tenantId })) === true;
+    },
+    async setAgent(tenantId, personId, role) {
+      must("setAgent", await supabase.rpc("support_set_agent", { tenant: tenantId, person: personId, role }));
     },
 
     async verify(reportId, fixed, note) {

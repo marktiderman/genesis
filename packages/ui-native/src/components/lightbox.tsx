@@ -10,8 +10,8 @@
  * it goes; a tap shows or hides the top bar and caption. Pages from
  * `renderMedia` are left to their own gestures. With VoiceOver or TalkBack the
  * pager is adjustable: swipe up or down for the next or previous item, and it
- * reads "3 of 12". The gestures come from genesis-chat's viewer, moved here so
- * there is one viewer (see `lightbox-zoom`).
+ * reads "3 of 12". The gestures are built from genesis-chat's photo viewer
+ * (see `lightbox-zoom`), which moves onto this one next, so there is one viewer.
  *
  * Built on `NativeFullScreenModal`. The pictures are a horizontal paging
  * `FlatList`, one per screen width, a few pages mounted at a time; a swipe
@@ -188,10 +188,18 @@ function LightboxBody({
     const { width: w, height: h } = e.nativeEvent.layout;
     if (w > 0 && (w !== size.width || h !== size.height)) setSize({ width: w, height: h, scale: 1, fontScale: 1 } as typeof size);
   };
+  // The index is the parent's: a swipe asks for a page, and if the parent keeps the old one, the
+  // pager scrolls back to it, so what's shown never drifts from `index`.
+  const currentRef = useRef(current);
+  currentRef.current = current;
   const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const page = Math.round(e.nativeEvent.contentOffset.x / Math.max(1, width));
     const clamped = Math.min(Math.max(0, page), items.length - 1);
-    if (clamped !== current) onIndexChange(clamped);
+    if (clamped === current) return;
+    onIndexChange(clamped);
+    setTimeout(() => {
+      if (currentRef.current !== clamped) listRef.current?.scrollToIndex({ index: currentRef.current, animated: !reducedMotion });
+    }, 0);
   };
   const goTo = (i: number) => {
     if (i >= 0 && i < items.length && i !== current) onIndexChange(i);
@@ -201,24 +209,27 @@ function LightboxBody({
   const toggleChrome = useCallback(() => setChrome((c) => !c), []);
   const caption = item ? (renderCaption ? renderCaption(item, current) : item.caption) : null;
   const position = items.length > 0 ? labels.position(current + 1, items.length) : "";
+  const pagerA11y = {
+    testID: `${testID}-pager-a11y`,
+    accessible: true,
+    accessibilityRole: "adjustable" as const,
+    accessibilityLabel: item ? (item.alt ?? labels.photo(current + 1, items.length)) : title,
+    accessibilityValue: many ? { text: position } : undefined,
+    accessibilityHint: many ? labels.pagerHint : undefined,
+    accessibilityActions: many ? [{ name: "increment" }, { name: "decrement" }] : [],
+    onAccessibilityAction: (e: { nativeEvent: { actionName: string } }) => {
+      if (e.nativeEvent.actionName === "increment") goTo(current + 1);
+      if (e.nativeEvent.actionName === "decrement") goTo(current - 1);
+    },
+  };
 
   return (
     <View testID={`${testID}-content`} accessibilityLabel={title} onLayout={onLayout} style={{ flex: 1 }}>
       <Animated.View pointerEvents="none" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: FULL_SCREEN_DARK, opacity: backdrop }} />
-      <View
-        style={{ flex: 1 }}
-        testID={`${testID}-pager-a11y`}
-        accessible
-        accessibilityRole="adjustable"
-        accessibilityLabel={item ? (item.alt ?? labels.photo(current + 1, items.length)) : title}
-        accessibilityValue={many ? { text: position } : undefined}
-        accessibilityHint={many ? labels.pagerHint : undefined}
-        accessibilityActions={many ? [{ name: "increment" }, { name: "decrement" }] : []}
-        onAccessibilityAction={(e) => {
-          if (e.nativeEvent.actionName === "increment") goTo(current + 1);
-          if (e.nativeEvent.actionName === "decrement") goTo(current - 1);
-        }}
-      >
+      {/* Built-in photo pages: the page itself is the adjustable pager. A renderMedia page keeps its
+          own controls reachable (an accessible wrapper would group them away from VoiceOver), so the
+          pager is the counter in the top bar instead. */}
+      <View style={{ flex: 1 }} testID={`${testID}-pages`} {...(renderMedia ? {} : pagerA11y)}>
         <FlatList
           ref={listRef}
           testID={`${testID}-pager`}
@@ -246,7 +257,8 @@ function LightboxBody({
                   width={width}
                   height={size.height}
                   active={i === current}
-                  onZoomChange={zoomable ? setZoomed : () => undefined}
+                  zoomable={zoomable}
+                  onZoomChange={setZoomed}
                   onPull={swipeToDismiss ? onPull : null}
                   onDismiss={onClose}
                   onTap={toggleChrome}
@@ -294,10 +306,19 @@ function LightboxBody({
                 <View testID={`${testID}-description`}>{description}</View>
               )
             ) : null}
-            {/* The pager reads the position to screen readers; the counter is for the eye. */}
-            <Text testID={`${testID}-counter`} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden className="text-xs font-medium text-white/70">
-              {items.length > 0 ? `${current + 1} / ${items.length}` : ""}
-            </Text>
+            {/* With photo pages the page reads the position and the counter is for the eye; with
+                renderMedia pages the counter is the pager. */}
+            {renderMedia ? (
+              <View {...pagerA11y}>
+                <Text testID={`${testID}-counter`} className="text-xs font-medium text-white/70">
+                  {items.length > 0 ? `${current + 1} / ${items.length}` : ""}
+                </Text>
+              </View>
+            ) : (
+              <Text testID={`${testID}-counter`} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden className="text-xs font-medium text-white/70">
+                {items.length > 0 ? `${current + 1} / ${items.length}` : ""}
+              </Text>
+            )}
           </View>
           <View testID={`${testID}-actions`} className="min-w-11 flex-row items-center justify-end gap-1">
             {item && renderActions ? renderActions(item, current) : null}

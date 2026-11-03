@@ -8,10 +8,10 @@ replies, threads, reactions, read state, live updates and push.
 |---|---|
 | `@marktiderman/genesis-chat` | The headless core: types, `createChatClient`, the send outbox, thread logic, media rules. No React. |
 | `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useConversation`, `useMessageActions`, and for 0002 `useTopics`, `useScheduled`, `useAvailability`, `useBroadcast`, `useSearch`, `useLinkPreviews`. |
-| `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast. |
+| `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast, and the chat dock. |
 | `/native` | Beta: screens and parts on genesis-ui-native (inbox, thread, search, availability), voice notes, photos and video, and the push block's glue. See "On native" below. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
-| `migrations/0001_genesis_chat.sql`, `0002_genesis_chat_coaching.sql`, `0003_genesis_chat_search_threads.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`. |
+| `migrations/0001_genesis_chat.sql` … `0004_genesis_chat_tenants.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`; 0004 puts every conversation in a tenant (see Tenants). |
 
 ## On the web
 
@@ -37,6 +37,61 @@ for your own attachment kinds, `composerAccessory`). Mount a Genesis `<Toaster /
 (a file too big, a send not allowed). Tailwind must scan the package
 (`@source "../node_modules/@marktiderman/genesis-chat/dist"`). `createMemoryChatClient` runs it
 all with no backend, for demos, stories and tests.
+
+## The chat dock
+
+Conversations that stay open while people move around the app. On a wide screen there are up to
+three windows bottom-right, each a full thread and composer, minimized to a bar (with its unread
+count) or closed; a fourth replaces the one used longest ago, and where fewer fit side by side the
+rest wait behind a "+N" menu. On a narrow screen the open ones share one side sheet with a
+switcher, and closing it leaves a bubble with the unread count. "Expand" sends the conversation to
+your Messages page and takes it out of the dock.
+
+```tsx
+import { AppShell } from "@marktiderman/genesis-ui/layout";
+import { ChatDock, ChatDockProvider, useChatDock } from "@marktiderman/genesis-chat/web";
+
+<ChatProvider client={chat} userId={user.id}>
+  <ChatDockProvider onExpand={(item) => item.type === "conversation" && navigate(`/messages/${item.conversationId}`)} storageKey="acme-chat-dock">
+    <AppShell appName="Acme" navItems={nav} dock={<ChatDock resolveUser={resolveUser} />}>
+      {children}
+    </AppShell>
+  </ChatDockProvider>
+</ChatProvider>
+
+// Anywhere below: a "Message" button on someone's profile.
+const dock = useChatDock();
+<Button onClick={() => dock.open(conversationId)}>Message</Button>
+```
+
+| Part | What it is |
+|---|---|
+| `ChatDockProvider` | The dock's state: `max` (3), `onExpand(item)` (no expand button for conversations without it), `storageKey` (keep the open conversations across reloads, per signed-in person; they come back as bars after hydration, and ones that no longer exist are dropped). |
+| `useChatDock()` | `open(conversationId, { title, minimized })`, `openPanel({ id, title, render, icon, unread, onExpand })`, `updatePanel(id, { unread, title })` (in place, for a live unread count), `close`, `closeAll`, `minimize`, `restore`, `activate` (the sheet's tab), `bringToFront` (one behind "+N"), `expand`, `items`. `useOptionalChatDock()` is null without a provider, for a button that docks when the app has a dock and navigates when it doesn't. |
+| `ChatDock` | The windows, or the sheet and bubble. Render it once, in AppShell's `dock` slot (fixed bottom-right, clear of the phone's bottom bar). `threadProps` go to every docked thread; `labels` change its words. |
+| `forgetChatDock(storageKey, userId)` | Clears what the dock kept for someone: call it on sign-out on a shared browser. |
+| `chatDockReducer`, `chatDockWindowsThatFit` | The state machine and the width rule, pure, for your own dock. |
+
+**What it keeps.** A minimized window, and a sheet tab out of view, keep their thread mounted but
+hidden (ChatThread's `markRead={false}`): what someone was typing, a reply and attachments wait for
+them, and nothing is marked read while it's out of sight. The window's title bar shows the thread's
+own title, avatar and "typing…". Opening or restoring a window focuses its composer; Escape
+minimizes the window it's pressed in (not while an input method is composing) and leaves focus on
+its bar. The unread total is announced politely to screen readers.
+
+**Your own panel.** Anything else that should live in the dock (a help desk messenger) opens with
+`openPanel`: the dock draws the window and its title bar, `render()` draws the body. Opening the
+same `id` again brings that window back. A panel's own `onExpand` wins over the provider's.
+Panels aren't kept across reloads (they hold functions). Keep its unread count live with an effect;
+an update that changes nothing changes nothing, so this settles:
+
+```tsx
+const dock = useChatDock();
+useEffect(() => dock.updatePanel("help", { unread }), [dock, unread]);
+```
+
+**Toasts.** The dock sits where Genesis's `Toaster` puts toasts by default (bottom-right). With a
+dock mounted, move them: `<Toaster position="top-right" />`.
 
 ## On native
 
@@ -172,6 +227,78 @@ select genesis_chat.register_kind('direct', 'Direct message', p_max_members => 2
 A conversation tied to one of your records (a group, a ticket) is made by your server with
 `genesis_chat.ensure_conversation(kind, subject_type, subject_id, title)`, and its members set with
 `genesis_chat.sync_members(conversation, user_ids, role)`.
+
+## Tenants (migration 0004)
+
+Every conversation belongs to a tenant (`conversations.tenant_id`, `ChatConversation.tenantId`).
+Who belongs to which tenant is your app's answer, through the hook genesis-supabase's viewer
+people use (0016), which you define once:
+
+```sql
+create function private.genesis_viewer_people(viewer uuid)
+returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
+  select m.team_id, m.person_id from public.team_members m where m.user_id = viewer
+$$;
+revoke execute on function private.genesis_viewer_people(uuid) from public, anon, authenticated;
+```
+
+A single-tenant app returns its one tenant id for everyone, and each login can be its own person
+record (the RN starter does this):
+
+```sql
+create function private.genesis_viewer_people(viewer uuid)
+returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
+  select '00000000-0000-4000-8000-00000000a771'::uuid, viewer where viewer is not null
+$$;
+```
+
+An app with personal records as well as organizations returns the personal one too; its tenant
+can be the record's own id (genesis-supabase 0016). Without the hook nobody is in a tenant, so
+nobody starts a conversation and nobody observes one.
+
+- **Starting one.** Everyone in it shares the tenant: the subject's when it has one, else the one
+  they share. People who share several pass `tenantId` (`startConversation(kind, ids, { tenantId })`,
+  `useStartConversation`); people who share none can't start one. `add_members` adds only people
+  of the conversation's tenant, and a direct conversation is one per pair per tenant.
+- **Across tenants.** A kind registered with `p_cross_tenant => true` lets people with no tenant
+  in common talk (a marketplace's buyer and seller, say). The conversation takes its starter's
+  tenant (`tenantId` chooses among the starter's own), and its members may come from anywhere.
+  The trade-off: it lives in that one tenant, so that tenant's erase or export includes it,
+  everyone's messages in it too. Such a kind has no observer check (`register_kind` refuses one),
+  so no tenant's staff read it.
+- **Subjects.** Register the record types a kind's conversations are about, with a resolver
+  that names the record's tenant (null when there's no such record):
+
+  ```sql
+  select genesis_chat.register_subject('support', 'ticket', 'private.ticket_tenant(text)',
+                                       p_aliases => array['support_report']);
+  ```
+
+  `ensure_conversation` and `start_conversation` then take the tenant from it and refuse a
+  record it doesn't know. An alias is an older name: calls using it reach the same conversations.
+  An unregistered subject passes `p_tenant_id` to `ensure_conversation`, or ships a resolver named
+  for its type, `private.genesis_chat_resolve_<subject_type>(subject_id text) returns uuid`, which
+  `ensure_conversation` and 0004's backfill find by that name.
+- **Observers.** A kind's observer check is asked only about people of the conversation's
+  tenant, and never about anyone who is or was a member of it, so whoever opened a ticket never
+  reads its internal notes, even if they're staff too. A kind whose check already decides by the
+  record's own tenant registers with `p_observer_tenant_gate => false`, or, if a migration
+  registered it before 0004, defines `private.genesis_chat_ungated_<kind>()` returning true
+  (genesis-support does). App-wide staff your tenancy hook doesn't list then keep reading; members
+  still never observe. Registering a kind again without the argument keeps its gate.
+
+**Upgrading.** Add the hook before applying 0004 (`genesis add`, `migrate` and `upgrade` warn
+when it's missing). 0004 fills in the tenant of every existing conversation: from your optional
+`private.genesis_chat_conversation_tenant(conversation_id uuid)` hook; for one about a record, a
+resolver named for its type, `private.genesis_chat_resolve_<subject_type>(subject_id text)
+returns uuid`, when one exists (a block that owns the type ships it); then the one tenant all its
+members share, then its creator's only tenant, then any one member's only tenant. If any conversation is left without a tenant, it stops and says how many.
+The last two fall back to one person's tenant, which not every member may share, so that tenant's
+erase or export then includes the others' messages: place those with the hook when that matters.
+Apply 0004 after a block's migration that ships a subject resolver (genesis-support's 0006):
+`genesis migrate` and `upgrade` order them that way from the block's `runsBefore`.
+Replace your copies of the 0001–0003 pgTAP tests with this release's (they now give their own
+people a tenant). If you use genesis-support's chat, apply its 0004 in the same release.
 
 ## Access
 

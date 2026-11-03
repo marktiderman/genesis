@@ -20,6 +20,7 @@
  *
  * @stability Beta
  */
+import { MOTION_DURATIONS, MOTION_EASINGS } from "@marktiderman/genesis-design-system/tokens/motion";
 import {
   createContext,
   useCallback,
@@ -32,7 +33,7 @@ import {
 import { Animated, Pressable, Text } from "react-native";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { cn } from "../utils";
-import { useReducedMotion } from "../hooks/use-reduced-motion";
+import { useMotion } from "../hooks/use-motion";
 import { useThemeMode } from "../hooks/use-theme-mode";
 import { useGenesisModules, type GenesisReanimatedModule } from "../native-modules";
 import { useLiquidGlass } from "./glass-surface";
@@ -79,7 +80,7 @@ export function NativeToastProvider({
   disableAnimation = false,
 }: NativeToastProviderProps) {
   const [queue, setQueue] = useState<ToastInstance[]>([]);
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = useMotion().reduced;
 
   const dismiss = useCallback((id?: number) => {
     setQueue((q) => (id == null ? q.slice(1) : q.filter((t) => t.id !== id)));
@@ -125,7 +126,8 @@ interface ToastFrameProps extends ToastViewProps {
   glass: GlassComponent | null;
 }
 
-const ENTER_MS = 180;
+// The shared motion tokens: small things appear at `fast`.
+const ENTER_MS = MOTION_DURATIONS.fast;
 
 // Reanimated 4 when the app passed it, else React Native's Animated. Two
 // components rather than one with a branch, so each keeps a fixed hook order.
@@ -195,7 +197,8 @@ function ReanimatedToastView({
   useAutoDismiss(toast, onDismiss);
   useEffect(() => {
     if (!animate) return;
-    const easing = R.Easing.out(R.Easing.cubic);
+    // The `decelerate` token (a cubic ease-out); a module without `bezier` gets the same curve by name.
+    const easing = R.Easing.bezier ? R.Easing.bezier(...MOTION_EASINGS.decelerate) : R.Easing.out(R.Easing.cubic);
     if (fade) opacity.value = R.withTiming(1, { duration: ENTER_MS, easing });
     offset.value = R.withTiming(0, { duration: ENTER_MS, easing });
     // Once per toast: each toast mounts under its own key.

@@ -10,7 +10,10 @@
  * from `onLayout`; until it is measured nothing is drawn. The rows are a
  * virtualized `FlatList` (the grid scrolls itself; `header` and `footer` go
  * above and below), so a long gallery mounts only what's near the screen and
- * `onNearEnd` fires when scrolling nears the end, for "load more". Tiles are
+ * `onNearEnd` fires when scrolling nears the end, for "load more". Don't put
+ * it inside a ScrollView: it fills its parent (`flex-1`), and nested it would
+ * draw every row and fire `onNearEnd` at once. Put what goes above or below
+ * it in `header` and `footer`. Tiles are
  * `NativeImage` over a `bg-muted` placeholder sized from the item's ratio (so
  * rows don't reflow while the picture loads), tappable when `onItemPress` is
  * given (or when selecting); `renderItem` replaces the tile's content and
