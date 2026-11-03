@@ -176,6 +176,32 @@ describe("ChatThread", () => {
     await waitFor(() => expect(document.querySelector("#genesis-chat-msg-m3 .ring-2")).not.toBeNull());
   });
 
+  it("scrolls only its own scroller to a message, never the panes or page around it", async () => {
+    const client = createMemoryChatClient({
+      me: ME,
+      conversations: [group({ messages: [...group().messages!, { id: "m6", senderId: SAM, body: "Yes!", replyToId: "m3", createdAt: at(7) }] })],
+    });
+    const intoView = vi.fn();
+    const original = HTMLElement.prototype.scrollIntoView;
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+    HTMLElement.prototype.scrollIntoView = intoView;
+    try {
+      mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
+      const scroller = await screen.findByTestId("genesis-chat-scroller");
+      const scrollTo = vi.fn();
+      scroller.scrollTo = scrollTo as unknown as typeof scroller.scrollTo;
+      fireEvent.click(await screen.findByTestId("genesis-chat-reply-quote"));
+      await waitFor(() => expect(document.querySelector("#genesis-chat-msg-m3 .ring-2")).not.toBeNull());
+      // The thread's own scroller moves (smoothly: no reduced-motion preference here), and nothing else does.
+      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: expect.any(Number), behavior: "smooth" }));
+      expect(intoView).not.toHaveBeenCalled();
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
   it("says why you can't post when only admins can", async () => {
     const client = createMemoryChatClient({ me: ME, conversations: [group({ canPost: false, settings: { who_posts: "admins" } })] });
     mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
