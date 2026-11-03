@@ -25,6 +25,15 @@ export { ViewToggle, type ViewMode } from "../patterns/view-toggle";
 export { ViewSettings } from "../patterns/view-settings";
 export { StatCard, type StatCardProps, type StatCardColor } from "./StatCard";
 export { KanbanBoard, type KanbanColumn, type KanbanBoardProps, type ColumnStatus } from "./KanbanBoard";
+export {
+  BOARD_NONE,
+  BOARD_PAGE,
+  boardColumnFilter,
+  useBoardColumns,
+  type BoardColumnData,
+  type UseBoardColumnsOptions,
+  type UseBoardColumnsReturn,
+} from "./board/use-board-columns";
 export { DataList, type DataListProps } from "./DataList";
 export { DetailPanel, type DetailPanelProps } from "./DetailPanel";
 export {
@@ -46,6 +55,8 @@ export {
   ConfirmDeleteDialog,
   type ConfirmDeleteDialogProps,
 } from "./ConfirmDeleteDialog";
+// A save that met someone else's change: theirs beside yours, then keep mine or take theirs.
+export { ConflictSheet, type ConflictSheetProps } from "./ConflictSheet";
 // The generic slot contract, so an app typing a slot map from `/data` does
 // not have to reach into the package root for it.
 export type { Slots, SlotOverride, SlotPropsFor } from "../../slots";

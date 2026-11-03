@@ -308,6 +308,36 @@
           "web",
           "native"
         ]
+      },
+      "versioned-writes": {
+        "feature": {
+          "name": "Versioned writes",
+          "summary": "A trigger that advances a row's version on every update, so the Supabase data provider refuses an edit made on a stale copy as a conflict instead of overwriting someone else's.",
+          "keywords": [
+            "optimistic concurrency",
+            "version",
+            "conflict",
+            "lost update",
+            "offline"
+          ],
+          "audience": [
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0019_genesis_version_bump.sql",
+            "test": "migrations/tests/0019_genesis_version_bump.test.sql"
+          }
+        ],
+        "steps": [
+          "For each table to check: add `version bigint not null default 1` and `create trigger <table>_version_bump before update on <table> for each row execute function public.genesis_version_bump('version')`.",
+          "Give the resource a version rule in createSupabaseProvider: `resources: { tasks: { version: { field: \"version\", kind: \"integer\" } } }`. The Genesis write hooks then send the version they read, and a stale edit comes back as a conflict."
+        ]
       }
     },
     "doctor": {

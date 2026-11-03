@@ -552,6 +552,57 @@
       "flags": []
     },
     {
+      "id": "resource-view-board",
+      "name": "Board mode for lists",
+      "summary": "A view's `board` block (defineView: the field, the column order from its choices, card fields, work-in-progress limits) and ResourceView's `mode=\"board\"` show a view's rows as cards in a column per value, each column paged on its own, with a move written as the resource's own update through the provider (a versioned resource's check applies). KanbanBoard draws it and useBoardColumns loads it; Studio's board uses the same two. Order within a column follows the view's orderBy; reordering within a column is planned with resource-view-shaping.",
+      "status": "building",
+      "claimedBy": "mark",
+      "kind": "pattern",
+      "keywords": [
+        "board",
+        "kanban",
+        "columns",
+        "cards",
+        "wip limit",
+        "status board",
+        "drag between columns"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A ResourceView with mode=\"board\" shows a column per value of the board's field, in the contract's order, each loaded inside the viewer's scope.",
+        "Moving a card writes only the board's field through the resource's update; a refused move leaves the card where it was and says why.",
+        "A column over its limit says so in words as well as colour."
+      ],
+      "reviewedAt": "2026-11-03",
+      "links": {
+        "code": [
+          "packages/ui/src/components/data/resource-view/ResourceBoard.tsx",
+          "packages/ui/src/components/data/board/use-board-columns.ts",
+          "packages/ui/src/components/data/KanbanBoard.tsx"
+        ],
+        "docs": [
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "resource-tree",
       "name": "Tree mode for lists",
       "summary": "ResourceView and ResourcePage's `tree` option nests rows under their parent from a flat list: depth and an expand arrow in the first cell, sort within siblings, filters that keep a match's ancestors, controlled or uncontrolled open state and opt-in cascade selection, with the logic in genesis-core/resource-view.",
@@ -806,6 +857,58 @@
           "packages/core/src/index.ts",
           "packages/core/src/provider",
           "packages/core/src/hooks"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "data-offline",
+      "name": "Offline-first data",
+      "summary": "Data that works offline: an edit made on a stale copy is refused as a conflict instead of overwriting someone else's (versioned writes in the Supabase provider and the version-bump trigger); views that open from the device and writes that are never lost follow in later slices.",
+      "category": "Data",
+      "status": "building",
+      "kind": "provider",
+      "keywords": [
+        "offline",
+        "offline-first",
+        "versioned writes",
+        "optimistic concurrency",
+        "conflict",
+        "lost update",
+        "cache",
+        "sync"
+      ],
+      "entry": {
+        "web": "@marktiderman/genesis-core",
+        "native": "@marktiderman/genesis-core"
+      },
+      "requires": [
+        "data-provider"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "Two people edit the same record: the second save, made on the copy read before the first, comes back as a conflict with the record as it is now, and overwrites nothing.",
+        "A resource with no version rule behaves exactly as before."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/provider/supabase-provider.ts",
+          "packages/core/src/hooks/mutation-mode.ts",
+          "packages/supabase/migrations/0019_genesis_version_bump.sql"
+        ],
+        "docs": [
+          "packages/core/README.md",
+          "packages/supabase/README.md"
         ]
       },
       "access": "all",

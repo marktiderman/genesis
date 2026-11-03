@@ -13,12 +13,16 @@ on:
     paths:
       - "figma.config.json"
       - "packages/ui-native/figma/**"
+      - "packages/ui/figma/**"
+      - "scripts/check-code-connect.mjs"
       - ".github/workflows/code-connect.yml"
   pull_request:
     branches: [main, "staging/**", "prestage/**"]
     paths:
       - "figma.config.json"
       - "packages/ui-native/figma/**"
+      - "packages/ui/figma/**"
+      - "scripts/check-code-connect.mjs"
       - ".github/workflows/code-connect.yml"
   workflow_dispatch:
 
