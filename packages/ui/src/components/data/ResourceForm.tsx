@@ -418,6 +418,11 @@ export function ResourceForm(props: ResourceFormProps) {
   // What had focus as the form opened (the host's New or Edit button), to hand focus back on
   // close. Read while rendering the open, before the first field takes focus: autoFocus runs
   // before Radix's onOpenAutoFocus, so that callback can't be the place to read it.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const opener = useRef<HTMLElement | null>(null);
   const wasOpen = useRef(false);
   if (open && !wasOpen.current && typeof document !== "undefined") {
@@ -465,7 +470,14 @@ export function ResourceForm(props: ResourceFormProps) {
     // The form is closed by the time an optimistic or undoable save fails,
     // so the error has to reach the user some other way.
     // A conflict opens ConflictSheet below instead, so it isn't toasted twice.
-    onError: onError ?? (mutationMode === "pessimistic" ? undefined : (error) => { if (!(isDataWriteError(error) && error.outcome === "conflict")) showWriteErrorToast(error); }),
+    // The conflict sheet shows a conflict only while this form is mounted; one that comes back
+    // after the form closed (a route change during the undo delay) is toasted instead.
+    onError: onError ?? (mutationMode === "pessimistic"
+      ? undefined
+      : (error) => {
+          if (mounted.current && isDataWriteError(error) && error.outcome === "conflict") return;
+          showWriteErrorToast(error);
+        }),
     prefillFromUrl,
     autoPlaceholder,
     warnWhenUnsaved,

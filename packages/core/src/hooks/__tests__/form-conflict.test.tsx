@@ -161,6 +161,16 @@ describe("useResourceForm on a conflict", () => {
     expect(update.mock.calls[1]![1].expectedVersion).toBe("5");
   });
 
+  it("a form that stays open after a save checks its next save against the version that save left", async () => {
+    const { hook, update } = setup(undefined, 0);
+    await saveMine(hook);
+    await act(async () => {
+      await hook.result.current.handleSave({ title: "Again", notes: "same" });
+    });
+    expect(update.mock.calls[0]![1].expectedVersion).toBe("3");
+    expect(update.mock.calls[1]![1].expectedVersion).toBe("6");
+  });
+
   it("keep mine that meets another change shows the new conflict; the sheet isn't closed first", async () => {
     const { hook, update } = setup(undefined, 2);
     await saveMine(hook);
