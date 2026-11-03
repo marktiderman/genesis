@@ -265,6 +265,24 @@
           "use": "ThreadPage (slots, modes, events), or NativeThreadList and NativeComposerBar to build your own",
           "import": "@marktiderman/genesis-ui-native",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#inbox-and-thread-inboxpage-and-threadpage"
+        },
+        {
+          "need": "a photo gallery on the phone",
+          "use": "NativeGalleryGrid, with NativeGalleryCard for media-first cards",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "a full-screen photo viewer on the phone (zoom, swipe down to close)",
+          "use": "NativeLightbox",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "a star rating on the phone",
+          "use": "NativeRating",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
         }
       ]
     }

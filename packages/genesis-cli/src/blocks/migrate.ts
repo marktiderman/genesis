@@ -107,6 +107,8 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
   if (!ids.length && !sources.length) warnings.push("No blocks in genesis.lock.json and no copied package migrations: nothing to compare. Add a block (genesis add <block>), or pass --block.");
 
   const plan = planMigrations(root, sources, { now: options.now ?? new Date(), ...(options.forward ? { forward: true } : {}), ...(lock.migrations ? { copied: lock.migrations } : {}), providers: providingMigrations([...manifests, ...catalog]) });
+  // A new migration that calls a hook no migration defines yet fails when applied: say so now.
+  for (const r of plan.rows) for (const u of r.unmet ?? []) warnings.push(`${r.package} ${r.file} ${u}`);
   // An edited or changed copy that a forward migration already carries is handled.
   const attention = plan.rows.some(needsAttention);
   // The notifications block: mirror the registry's types in a migration of their own, after this run's.
