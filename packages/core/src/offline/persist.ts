@@ -220,6 +220,14 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
       people.add(scope.slice(2, scope.indexOf("|")));
       // What each read was when it came back: saved later, but never what the client changed since.
       const pending = new Map<string, { query: Query; queryKey: readonly unknown[]; data: unknown; fetchedAt: number }>();
+      // `refresh`: no kept read already made or on its way is trusted to be this scope's. The ones in
+      // flight are called off (so they never come back as a success), and the kept queries are
+      // fetched again below, once this subscription is listening.
+      if (options.refresh) {
+        for (const query of queryClient.getQueryCache().getAll()) {
+          if (keptQuery(query) && query.state.fetchStatus === "fetching") void query.cancel({ revert: true });
+        }
+      }
       // Reads already on their way when this started belong to the scope before: never saved here,
       // unless they're this scope's (`adopt`).
       const before = options.adopt
@@ -281,6 +289,10 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
         pending.set(event.query.queryHash, { query: event.query, queryKey: event.query.queryKey, data, fetchedAt: dataUpdatedAt });
         timer ??= setTimeout(flush, throttleMs);
       });
+      if (options.refresh) {
+        // Fetched again under this scope: the screens on show read now, the rest when they show.
+        void queryClient.invalidateQueries({ predicate: keptQuery }).catch(() => undefined);
+      }
       if (options.adopt) {
         // The reads this scope made before saving started: each query's last fetched result, as it
         // came back. A value the client set or changed since (setQueryData) is never adopted.

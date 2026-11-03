@@ -467,4 +467,26 @@ describe("persistOffline, adopting the reads a scope made before saving started"
     stop();
     expect(await cache.readRows(ANA, "tasks", ["1"])).toEqual([]);
   });
+
+});
+
+describe("persistOffline, refresh: nothing read before the scope is trusted", () => {
+  it("calls off a kept read still on its way, saves nothing already in the client, and saves what's fetched again", async () => {
+    const { client, persistence, cache } = setup();
+    // Already in the client (another session's, maybe), and one read still on its way.
+    await client.fetchQuery({ queryKey: detail, queryFn: async () => ({ id: 1, title: "Before" }) });
+    let answer: (v: unknown) => void = () => {};
+    const observer = client.getQueryCache().build(client, { queryKey: list, queryFn: () => new Promise((r) => (answer = r)) });
+    const inFlight = observer.fetch().catch(() => "called off");
+    const stop = persistence.subscribe(ANA, { refresh: true });
+    answer({ data: [{ id: 1, title: "Read with the old session" }], total: 1 });
+    expect(await inFlight).toBe("called off");
+    await settle();
+    expect(await cache.readRows(ANA, "tasks", ["1"])).toEqual([]);
+    // A screen reads again under this scope: saved.
+    await client.fetchQuery({ queryKey: list, queryFn: async () => ({ data: [{ id: 1, title: "Read as Ana" }], total: 1 }) });
+    await settle();
+    stop();
+    expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "Read as Ana" });
+  });
 });

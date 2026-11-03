@@ -104,12 +104,19 @@ export interface QueryPersistence {
 /** Options for `QueryPersistence.subscribe`. */
 export interface SubscribeOptions {
   /**
-   * The reads already in the client, or on their way, belong to this scope: save them too. For
-   * the scope a session turns out to have once it has loaded (the screens read before it was
-   * known) and on the phone (its client is emptied whenever the person changes). Left off when
-   * the scope changes from another person or workspace, whose reads are never saved here.
+   * The reads already made are this scope's: save what each kept query last fetched (never a
+   * value the client set since), and the reads still on their way. Only where the client can
+   * hold nothing of anyone else's: `GenesisNativeApp`, which empties it whenever the person
+   * changes and starts saving only once the session is known.
    */
   adopt?: boolean;
+  /**
+   * Nothing already in the client, or on its way, is trusted to be this scope's (the session was
+   * still loading, or the client outlived another person's session): every kept read in flight is
+   * called off, and the kept queries are fetched again, so everything saved was read once the
+   * scope was known. What `GenesisProvider` does when a scope arrives after `undefined`.
+   */
+  refresh?: boolean;
 }
 
 /** The scope prefix every bucket of `user` starts with. */

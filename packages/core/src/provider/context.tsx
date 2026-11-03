@@ -212,17 +212,14 @@ function useRestoredReads(
   // Whose reads this provider last restored or saved, and the clear of them still running.
   const person = useRef<string | null>(null);
   const clearing = useRef<Promise<void>>(Promise.resolve());
-  // The scope the last run of the effect saw, and the last one that was known (not undefined):
-  // from "not known yet" to a scope, the reads the screens made meanwhile are this session's, so
-  // saving adopts them, but only if no other scope was known before (a session that loaded again
-  // after someone else's, another workspace's, or a sign-out never carries their reads over).
+  // The scope the last run of the effect saw ("not known yet" at mount). A scope that arrives from
+  // there is saved only from reads fetched once it's known: whatever the client already holds or
+  // is reading may be another session's (the session was loading, or the client outlived this
+  // provider and someone else's session), so it's fetched again (`refresh`), never adopted.
   const previous = useRef<string | null | undefined>(undefined);
-  const lastKnown = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     const from = previous.current;
-    const known = lastKnown.current;
     previous.current = scope;
-    if (scope !== undefined) lastKnown.current = scope;
     if (!persistence || scope === undefined) {
       // Not known yet who's signed in: nothing is restored, saved or deleted.
       setReady(true);
@@ -243,8 +240,7 @@ function useRestoredReads(
     const abort = new AbortController();
     // Saving starts with the scope. A read made before it is saved only when the scope before was
     // "not known yet" (the same session, loading); from another person or workspace, never.
-    const adopt = from === undefined && (known === undefined || known === scope);
-    const stop = persistence.subscribe(scope, { adopt });
+    const stop = persistence.subscribe(scope, { refresh: from === undefined });
     const open = () => {
       if (!abort.signal.aborted) setReady(true);
     };
