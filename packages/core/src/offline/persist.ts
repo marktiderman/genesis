@@ -261,6 +261,9 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
         // A fetch that came back; never a change made in the client (an optimistic patch, a live
         // hint's merge, a restore), which the next fetch confirms or undoes.
         if (action.type !== "success" || action.manual) return;
+        // A query no longer in the client (cleared when the person changed) finishing its fetch
+        // belongs to whoever was signed in before: never saved.
+        if (queryClient.getQueryCache().get(event.query.queryHash) !== event.query) return;
         if (before.delete(event.query.queryHash)) return;
         if (!keptQuery(event.query)) return;
         const { data, dataUpdatedAt } = event.query.state;

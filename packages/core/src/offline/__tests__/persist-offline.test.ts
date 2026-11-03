@@ -428,4 +428,20 @@ describe("persistOffline, adopting the reads a scope made before saving started"
     stop();
     expect(await cache.readRows(ANA, "tasks", ["1"])).toEqual([]);
   });
+
+  // TanStack doesn't report a removed query's fetch to the cache's listeners today; persist checks
+  // anyway, so a change there can't save one person's read under the next.
+  it("never saves a read that finishes after the client let go of it (the person changed)", async () => {
+    const { client, persistence, cache } = setup();
+    let answer: (v: unknown) => void = () => {};
+    const inFlight = client.fetchQuery({ queryKey: list, queryFn: () => new Promise((r) => (answer = r)) }).catch(() => undefined);
+    // The person changes: the client is emptied, and saving starts for the next one, adopting.
+    client.clear();
+    const stop = persistence.subscribe(cacheScope("ben"), { adopt: true });
+    answer({ data: rows, total: 2 });
+    await inFlight;
+    await settle();
+    stop();
+    expect(await cache.readRows(cacheScope("ben"), "tasks", ["1"])).toEqual([]);
+  });
 });

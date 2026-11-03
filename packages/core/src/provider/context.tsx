@@ -212,12 +212,17 @@ function useRestoredReads(
   // Whose reads this provider last restored or saved, and the clear of them still running.
   const person = useRef<string | null>(null);
   const clearing = useRef<Promise<void>>(Promise.resolve());
-  // The scope the last run of the effect saw: from "not known yet" to a scope, the reads the screens
-  // made meanwhile are this session's, so saving adopts them.
+  // The scope the last run of the effect saw, and the last one that was known (not undefined):
+  // from "not known yet" to a scope, the reads the screens made meanwhile are this session's, so
+  // saving adopts them, but only if no other scope was known before (a session that loaded again
+  // after someone else's, another workspace's, or a sign-out never carries their reads over).
   const previous = useRef<string | null | undefined>(undefined);
+  const lastKnown = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     const from = previous.current;
+    const known = lastKnown.current;
     previous.current = scope;
+    if (scope !== undefined) lastKnown.current = scope;
     if (!persistence || scope === undefined) {
       // Not known yet who's signed in: nothing is restored, saved or deleted.
       setReady(true);
@@ -238,7 +243,8 @@ function useRestoredReads(
     const abort = new AbortController();
     // Saving starts with the scope. A read made before it is saved only when the scope before was
     // "not known yet" (the same session, loading); from another person or workspace, never.
-    const stop = persistence.subscribe(scope, { adopt: from === undefined });
+    const adopt = from === undefined && (known === undefined || known === scope);
+    const stop = persistence.subscribe(scope, { adopt });
     const open = () => {
       if (!abort.signal.aborted) setReady(true);
     };

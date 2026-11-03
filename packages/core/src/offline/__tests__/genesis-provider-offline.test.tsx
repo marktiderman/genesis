@@ -168,4 +168,23 @@ describe("GenesisProvider with persist", () => {
     app(cache, never);
     expect(await screen.findByText("First load")).toBeTruthy();
   });
+
+  it("never carries one session's reads into the next person's, through a loading session in between", async () => {
+    const cache = memoryLocalCache();
+    const provider = { getList: vi.fn(async () => ({ data: [{ id: 1, title: "Ana's task" }], total: 1 })), getOne: vi.fn(), getMany: vi.fn(), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const persist = persistOffline({ cache, resources: ["tasks"], buster: "v1", throttleMs: 0 });
+    const tree = (scope: string | null | undefined) => (
+      <GenesisProvider provider={provider} queryClient={client} persist={persist} persistScope={scope}>
+        <Titles />
+      </GenesisProvider>
+    );
+    const view = render(tree(cacheScope("ana")));
+    expect(await screen.findByText("Ana's task")).toBeTruthy();
+    // The session reloads, and turns out to be Ben's; the app hasn't emptied the client.
+    view.rerender(tree(undefined));
+    view.rerender(tree(cacheScope("ben")));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(await cache.readRows(cacheScope("ben"), "tasks", ["1"])).toEqual([]);
+  });
 });
