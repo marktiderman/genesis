@@ -254,6 +254,16 @@ describe("deleteOne with a version rule", () => {
     expect(res.data).toEqual({ id: "t1" });
   });
 
+  it("on a recycle-bin table, the delete carries the version, so a change after the check is a conflict", async () => {
+    const options: SupabaseProviderOptions = { binTables: ["tasks"], ...versioned };
+    // At the version when checked; someone saves before the delete; the row stays, now at v4.
+    queue.push(ok([{ id: "t1", version: 3 }]), ok(null), ok([{ id: "t1" }]), ok([{ id: "t1", version: 4 }]));
+    const err = await failure(provider(options).deleteOne("tasks", { id: "t1", expectedVersion: "3" }));
+    expect(err.outcome).toBe("conflict");
+    const at = calls.findIndex((c) => c.method === "delete");
+    expect(calls.slice(at)).toContainEqual({ method: "eq", args: ["version", "3"] });
+  });
+
   it("on a recycle-bin table, a row already out of view is gone", async () => {
     const options: SupabaseProviderOptions = { binTables: ["tasks"], ...versioned };
     queue.push(ok([]));

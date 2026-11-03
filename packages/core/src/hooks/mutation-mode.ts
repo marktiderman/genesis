@@ -810,6 +810,11 @@ function recordNewVersion(
   return String(value);
 }
 
+/** Forget a record's chained version once nothing on it is unsettled. */
+function releaseRow(reg: Registry, rowKey: string): void {
+  if (!reg.rowTails.has(rowKey) && !reg.writes.some((w) => w.rowKey === rowKey)) reg.rowVersions.delete(rowKey);
+}
+
 /** A later write that built on one that was taken back. */
 export const DROPPED_WRITE_MESSAGE =
   "This change was not saved: it was made on top of an earlier change that was undone or failed. Please make it again.";
@@ -867,15 +872,36 @@ export async function executeWrite<R extends BaseRecord | void>(
     const result = await args.send(expectedVersion === undefined ? context : { ...context, expectedVersion });
     if (field && kind === "update") {
       const next = recordNewVersion(queryClient, resource, id!, field, result.record);
-      if (next !== undefined && reg.writes.some((w) => w.rowKey === rowKey && w.state !== "done")) {
-        reg.rowVersions.set(rowKey!, next);
-      }
+      // Kept while more writes on the row are unsettled (releaseRow clears it).
+      if (next !== undefined) reg.rowVersions.set(rowKey!, next);
+      // The saved row didn't say its new version (an update rule that returned only an id):
+      // read it again, so the next edit isn't checked against the old one.
+      else void invalidateResource(queryClient, resource);
     }
     return result;
   };
 
   if (mode === "pessimistic") {
-    const { record } = await send({ data: args.data, keepalive: false });
+    // Writes on one record go one after another here too, so a second save made while the first
+    // is on its way is checked against the version the first leaves, not the one before it.
+    const run = () => send({ data: args.data, keepalive: false });
+    let sending: Promise<{ record: R; audit?: AuditEntry }>;
+    if (rowKey) {
+      const previous = reg.rowTails.get(rowKey);
+      sending = previous ? previous.then(run, run) : run();
+      const tail = sending.then(
+        () => {},
+        () => {},
+      );
+      reg.rowTails.set(rowKey, tail);
+      void tail.finally(() => {
+        if (reg.rowTails.get(rowKey) === tail) reg.rowTails.delete(rowKey);
+        releaseRow(reg, rowKey);
+      });
+    } else {
+      sending = run();
+    }
+    const { record } = await sending;
     await committed(record);
     return { status: "committed", record };
   }
@@ -927,7 +953,7 @@ export async function executeWrite<R extends BaseRecord | void>(
     if (at >= 0) reg.writes.splice(at, 1);
     untrack(write);
     endPending(reg, resource);
-    if (rowKey && !reg.writes.some((w) => w.rowKey === rowKey)) reg.rowVersions.delete(rowKey);
+    if (rowKey) releaseRow(reg, rowKey);
   };
 
   const sendNow = async (keepalive: boolean): Promise<void> => {
@@ -969,6 +995,7 @@ export async function executeWrite<R extends BaseRecord | void>(
     reg.rowTails.set(key, next);
     void next.finally(() => {
       if (reg.rowTails.get(key) === next) reg.rowTails.delete(key);
+      releaseRow(reg, key);
     });
   };
 

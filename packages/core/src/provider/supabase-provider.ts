@@ -1439,7 +1439,11 @@ export function createSupabaseProvider(
             throw await staleOrNoRowsError(resource, id, "delete", expected, current);
           }
         } else if (!(await isVisible(resource, id))) throw goneError(resource);
-        await run(from(resource).delete().eq("id", id));
+        // The version goes on the delete too, so a change landing after the check above isn't
+        // binned unseen: the row then stays, and the read-back says it's a conflict.
+        let binning = from(resource).delete().eq("id", id);
+        if (expected !== undefined) binning = binning.eq(versionFor(resource)!.field, expected);
+        await run(binning);
         let stillVisible: boolean;
         try {
           stillVisible = await isVisible(resource, id);
@@ -1452,6 +1456,7 @@ export function createSupabaseProvider(
           );
         }
         if (stillVisible) {
+          if (expected !== undefined) throw await staleOrNoRowsError(resource, id, "delete", expected);
           throw new DataWriteError("forbidden", `You can't delete this ${nounFor(resource)}.`);
         }
       } else {

@@ -7,7 +7,7 @@
 //   - readiness → ReadinessChip (readinessChip's words) in the tab row's end slot.
 // A section with neither list nor settings is the screen's own, through `slots[id]`.
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, useWrite, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
 import { sameFormValue, type Allowed, type ResolvedFormField, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
@@ -277,6 +277,12 @@ function SettingsForm({
   // Only the fields this person changed are theirs: the others show the row as it is now (a live
   // refresh updates them) and are never sent, so a stale draft can't overwrite someone else's change.
   const [edits, setEdits] = useState<Values>({});
+  // The row the person started editing: their save is checked against its version, not against a
+  // row that refreshed meanwhile (someone else's save would otherwise be overwritten).
+  const editBase = useRef<DataRow | undefined>(undefined);
+  useEffect(() => {
+    if (Object.keys(edits).length === 0) editBase.current = undefined;
+  }, [edits]);
   const draft = useMemo<Values>(
     () => ({ ...Object.fromEntries(fields.map((f) => [f.field.name, row[f.field.name]])), ...edits }),
     [fields, row, edits],
@@ -305,7 +311,7 @@ function SettingsForm({
     async (values: Values) => {
       // Only the section's listed keys, never anything else the row or draft holds.
       const data = recordView.settingsPatch(sectionId, values);
-      const version = versionField ? row[versionField] : undefined;
+      const version = versionField ? (editBase.current ?? row)[versionField] : undefined;
       const result = await provider.update(view.resource, {
         id: recordView.recordId(row),
         data,
@@ -319,10 +325,17 @@ function SettingsForm({
     },
     // The edits stay until the row shows them (the effect below), so a saved value doesn't flash
     // back to the old one while the record refetches.
-    { onSuccess: (saved) => onSaved(saved) },
+    {
+      onSuccess: (saved) => {
+        // The next edit builds on this save's version, even before the record refetches.
+        if (versionField && saved[versionField] != null) editBase.current = { ...(editBase.current ?? row), [versionField]: saved[versionField] };
+        onSaved(saved);
+      },
+    },
   );
 
   const set = (name: string, value: unknown, error?: string) => {
+    if (Object.keys(edits).length === 0 && editBase.current === undefined) editBase.current = row;
     save.reset();
     setInvalid(({ [name]: _old, ...rest }) => (error ? { ...rest, [name]: error } : rest));
     setEdits((d) => ({ ...d, [name]: value }));
