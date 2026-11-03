@@ -29,8 +29,8 @@
  *
  * @stability Beta
  */
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, type ComponentType, type ReactElement, type ReactNode } from "react";
-import { AccessibilityInfo, FlatList, Pressable, View } from "react-native";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ComponentType, type ReactElement, type ReactNode } from "react";
+import { AccessibilityInfo, FlatList, Platform, Pressable, View } from "react-native";
 import { useGenesisModules } from "../native-modules";
 import { useReducedMotion } from "../hooks/use-reduced-motion";
 import { useThemeRoles } from "../hooks/use-theme-roles";
@@ -59,16 +59,22 @@ export function threadNearBottom(m: ScrollMetrics, slack = THREAD_AT_BOTTOM_POIN
 }
 
 /**
- * How the list is set up. FlashList follows by itself (within a fifth of a
- * screen of the bottom); FlatList keeps its place on prepend, anchored on the
- * first row past the header (index 1: the header is child 0), and the list
- * follows the bottom by hand.
+ * How the list is set up. FlashList follows by itself, within
+ * `THREAD_AT_BOTTOM_POINTS` of the bottom (its threshold is a fraction of the
+ * viewport: a fifth until the viewport's height is known); FlatList keeps its
+ * place on prepend, anchored on the first row past the header (index 1: the
+ * header is child 0), and the list follows the bottom by hand.
  */
-export function threadListMode(flash: boolean, reducedMotion: boolean): { followsByHand: boolean; maintainVisibleContentPosition: Record<string, unknown> } {
+export function threadListMode(
+  flash: boolean,
+  reducedMotion: boolean,
+  viewportHeight = 0,
+): { followsByHand: boolean; maintainVisibleContentPosition: Record<string, unknown> } {
   if (flash) {
+    const threshold = viewportHeight > 0 ? Math.min(1, THREAD_AT_BOTTOM_POINTS / viewportHeight) : 0.2;
     return {
       followsByHand: false,
-      maintainVisibleContentPosition: { startRenderingFromBottom: true, autoscrollToBottomThreshold: 0.2, animateAutoScrollToBottom: !reducedMotion },
+      maintainVisibleContentPosition: { startRenderingFromBottom: true, autoscrollToBottomThreshold: threshold, animateAutoScrollToBottom: !reducedMotion },
     };
   }
   return { followsByHand: true, maintainVisibleContentPosition: { minIndexForVisible: 1 } };
@@ -181,7 +187,14 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   const genesis = useGenesisModules();
   const reducedMotion = useReducedMotion();
   const List = (genesis.list ?? FlatList) as unknown as ComponentType<ThreadListComponentProps>;
-  const mode = threadListMode(Boolean(genesis.list), reducedMotion);
+  const [viewport, setViewport] = useState(0);
+  const mode = threadListMode(Boolean(genesis.list), reducedMotion, viewport);
+  // The last position the list reported, to re-check "at the bottom" after it moves itself.
+  const metrics = useRef<ScrollMetrics | null>(null);
+  const recheck = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (recheck.current) clearTimeout(recheck.current);
+  }, []);
   const listRef = useRef<ListRef | null>(null);
   // At the bottom (or not yet scrolled): new rows and a shorter list keep it there.
   const atBottom = useRef(true);
@@ -267,6 +280,11 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
       placed.current = true;
     },
     onLanded: (id) => {
+      // A jump to a row already at the bottom moves nothing, so no scroll event says so: look once it settles.
+      if (recheck.current) clearTimeout(recheck.current);
+      recheck.current = setTimeout(() => {
+        if (metrics.current && threadNearBottom(metrics.current)) setAtBottom(true);
+      }, SETTLING_MS + 50);
       const at = indexOf(id);
       const said = at >= 0 ? latest.current.jumpAnnouncement?.(latest.current.data[at]!) : undefined;
       if (said) announce(said);
@@ -299,6 +317,9 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   const listItemType = useMemo(() => (getItemType ? (row: unknown) => getItemType(row as T) : undefined), [getItemType]);
   const onScroll = useCallback(
     (e: { nativeEvent: ScrollMetrics }) => {
+      metrics.current = { contentOffset: { y: e.nativeEvent.contentOffset.y }, contentSize: { height: e.nativeEvent.contentSize.height }, layoutMeasurement: { height: e.nativeEvent.layoutMeasurement.height } };
+      const height = e.nativeEvent.layoutMeasurement.height;
+      setViewport((v) => (Math.abs(v - height) < 1 ? v : height));
       const near = threadNearBottom(e.nativeEvent);
       // The list's own scroll (to the newest, to a row) passes through "not at the bottom": ignore that.
       if (!near && Date.now() < settlingUntil.current) return;
@@ -354,7 +375,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
       onStartReached={loadEarlier}
       onStartReachedThreshold={0.5}
       keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="interactive"
+      keyboardDismissMode={Platform.select({ ios: "interactive" as const, default: "on-drag" as const })}
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={{ paddingVertical: 8, paddingHorizontal: 12 }}
       maintainVisibleContentPosition={mode.maintainVisibleContentPosition}

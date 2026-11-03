@@ -62,4 +62,27 @@ describe("useThreadJump", () => {
     rerender({ target: "b", ids: ["a", "b"] });
     expect(scrollTo).toHaveBeenCalledTimes(2);
   });
+
+  it("cancels a jump in progress when the target becomes null", async () => {
+    let resolve: (v: boolean) => void = () => {};
+    const loadUntil = vi.fn(() => new Promise<boolean>((r) => (resolve = r)));
+    const { result, rerender, onGone } = setup({ target: "old", ids: ["a"], loadUntil });
+    expect(result.current.jumping).toBe(true);
+    rerender({ target: null, ids: ["a"], loadUntil });
+    expect(result.current.jumping).toBe(false);
+    await act(async () => resolve(false));
+    act(() => vi.advanceTimersByTime(JUMP_SETTLE_MS * 2));
+    expect(onGone).not.toHaveBeenCalled();
+  });
+
+  it("gives up on time in a busy thread, whatever rows keep arriving", async () => {
+    const loadUntil = vi.fn(async () => false);
+    const { rerender, onGone } = setup({ target: "old", ids: ["a"], loadUntil });
+    await act(async () => {});
+    for (let i = 0; i < 5; i++) {
+      act(() => vi.advanceTimersByTime(JUMP_SETTLE_MS / 4));
+      rerender({ target: "old", ids: ["a", `n${i}`], loadUntil });
+    }
+    expect(onGone).toHaveBeenCalledWith("old");
+  });
 });

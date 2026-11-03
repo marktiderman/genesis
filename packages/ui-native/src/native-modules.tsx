@@ -172,6 +172,15 @@ export interface GenesisNavigationModule {
 }
 
 /** Every optional native module Genesis components can use. Each is optional on its own. */
+/** react-native-keyboard-controller's `KeyboardAvoidingView`, written structurally (the same shape as genesis-chat's). */
+export type KeyboardAvoidingLike = ComponentType<{
+  behavior?: "height" | "padding" | "position" | "translate-with-padding";
+  keyboardVerticalOffset?: number;
+  automaticOffset?: boolean;
+  children?: ReactNode;
+  testID?: string;
+}>;
+
 export interface GenesisModules {
   list?: GenesisListComponent;
   image?: GenesisImageComponent;
@@ -182,7 +191,7 @@ export interface GenesisModules {
   datePicker?: GenesisDatePickerComponent;
   navigation?: GenesisNavigationModule;
   /** react-native-keyboard-controller's `KeyboardAvoidingView` (it takes `behavior: "translate-with-padding"`). */
-  keyboardAvoidingView?: ComponentType<any>;
+  keyboardAvoidingView?: KeyboardAvoidingLike;
 }
 
 const EMPTY: GenesisModules = Object.freeze({});

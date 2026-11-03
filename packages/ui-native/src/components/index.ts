@@ -284,6 +284,7 @@ export type {
   GenesisDatePickerProps,
   GenesisNavigationModule,
   GenesisNavigationTheme,
+  KeyboardAvoidingLike,
 } from "../native-modules";
 
 export { NativeIcon } from "./icon";

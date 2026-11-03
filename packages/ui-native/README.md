@@ -231,8 +231,10 @@ Two generic layouts for conversations (support tickets, direct messages, comment
   - **Keyboard:** with `GenesisModules.keyboardAvoidingView` (react-native-keyboard-controller's,
     1.21 or later) the composer follows the keyboard frame by frame and the page finds its own
     offset (`automaticOffset`); without it, React Native's `KeyboardAvoidingView` with
-    `keyboardVerticalOffset` (100 on iOS by default). Dragging the list dismisses the keyboard on
-    iOS. The header region stays put.
+    `keyboardVerticalOffset` (100 on iOS by default; `height` on Android). Dragging the list
+    dismisses the keyboard. The header region stays put. **Upgrading:** an app that already sets
+    up keyboard-controller for forms (`keyboardScroll`) passes its `KeyboardAvoidingView` as
+    `keyboardAvoidingView` too; a development warning says when it's missing.
   - **Read-only:** `composer={null}`, with a `closedNotice`.
   - **Slots:** `message`, `event`, `attachment`, `readReceipt`, `unreadDivider`, `composer`,
     `composerAccessory`, `headerRegion` (pinned above the list: a ticket's status and assignee),

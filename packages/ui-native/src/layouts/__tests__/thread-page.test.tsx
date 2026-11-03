@@ -182,6 +182,30 @@ describe("ThreadPage", () => {
     expect(screen.queryByTestId("t-message-s-discard")).toBeNull();
   });
 
+  it("doesn't offer Discard while a message is sending (it may already be on the server)", () => {
+    const onDiscard = vi.fn();
+    const rows: ThreadMessage[] = [
+      { id: "a", body: "a", mine: true, timestamp: "2026-10-24T09:00:00Z", status: "sending", onDiscard },
+      { id: "b", body: "b", mine: true, timestamp: "2026-10-24T09:01:00Z", status: "pending", onDiscard },
+    ];
+    render(<ThreadPage testID="t" messages={rows} composer={composer()} />);
+    expect(screen.queryByTestId("t-message-a-discard")).toBeNull();
+    expect(screen.getByTestId("t-message-b-discard")).toBeTruthy();
+  });
+
+  it("warns in development when keyboard-controller is set up but not passed as keyboardAvoidingView", async () => {
+    const { KeyboardScrollProvider } = await import("../keyboard");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const Scroll = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
+    render(
+      <KeyboardScrollProvider component={Scroll}>
+        <ThreadPage testID="t" messages={messages} composer={composer()} />
+      </KeyboardScrollProvider>,
+    );
+    expect(warn.mock.calls.some(([m]) => String(m).includes("keyboardAvoidingView"))).toBe(true);
+    warn.mockRestore();
+  });
+
   it("shows a skeleton, not the empty state, while the first page loads", () => {
     render(<ThreadPage testID="t" messages={[]} composer={composer()} loading />);
     expect(screen.getByTestId("t-messages-loading")).toBeTruthy();

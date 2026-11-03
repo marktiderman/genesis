@@ -42,14 +42,22 @@ export const JUMP_SETTLE_MS = 400;
 export function useThreadJump({ target, has, loading = false, loadUntil, scrollTo, onStart, onLanded, onGone }: UseThreadJumpOptions) {
   const [pending, setPending] = useState<Pending | null>(target ? { id: target, phase: "new" } : null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const armed = useRef<Pending | null>(null);
+  const goneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (target) setPending({ id: target, phase: "new" });
+    else {
+      // null cancels a jump in progress.
+      if (goneTimerRef.current) clearTimeout(goneTimerRef.current);
+      armed.current = null;
+      setPending(null);
+    }
   }, [target]);
 
   const latest = useRef({ scrollTo, onStart, onLanded, onGone, loadUntil });
   latest.current = { scrollTo, onStart, onLanded, onGone, loadUntil };
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const goneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const goneTimer = goneTimerRef;
   useEffect(
     () => () => {
       if (highlightTimer.current) clearTimeout(highlightTimer.current);
@@ -78,7 +86,10 @@ export function useThreadJump({ target, has, loading = false, loadUntil, scrollT
     }
     if (phase === "loading") return;
     if (phase === "loaded" || !latest.current.loadUntil) {
-      // The rows may reach the list a render or two after the load resolved: give them a moment.
+      // The rows may reach the list a render or two after the load resolved: give them a moment,
+      // once per pending jump (new rows arriving in a busy thread don't restart it).
+      if (armed.current === pending) return;
+      armed.current = pending;
       if (goneTimer.current) clearTimeout(goneTimer.current);
       goneTimer.current = setTimeout(
         () => {

@@ -26,8 +26,10 @@ ThreadPage adds:
 
 `GenesisModules` takes `keyboardAvoidingView` (react-native-keyboard-controller's), which ThreadPage uses with `automaticOffset`, so the composer follows the keyboard frame by frame wherever the page sits. The starter passes it. The optional peer react-native-keyboard-controller is now `>=1.21.0` (for `automaticOffset`).
 
+**Upgrading an existing ThreadPage screen:** if your app sets up react-native-keyboard-controller (the native shell's `keyboardProvider` and `keyboardScroll`), also pass its `KeyboardAvoidingView` as `keyboardAvoidingView` in your Genesis modules, as the starter does (`apps/genesis-rn-starter/src/lib/native-modules.ts`). Without it the composer falls back to React Native's `KeyboardAvoidingView`, and a development warning says so. genesis-chat's `ChatThreadScreen` uses the same module when chat's own `keyboardAvoidingView` isn't passed, so you pass it once.
+
 **Behaviour changes for existing ThreadPage screens:**
-- ThreadPage no longer uses the app's `KeyboardScrollProvider` (a virtualized list can't sit inside a scroll view). It sits in the keyboard module (with `automaticOffset`; `keyboardVerticalOffset` is extra space there), or React Native's `KeyboardAvoidingView` (`keyboardVerticalOffset` defaults to 100 on iOS, as before), under the testID `<testID>-keyboard`. The `-scroll` and `-kav` testIDs are gone.
+- ThreadPage no longer uses the app's `KeyboardScrollProvider` (a virtualized list can't sit inside a scroll view). It sits in the keyboard module (with `automaticOffset`; `keyboardVerticalOffset` is extra space there), or React Native's `KeyboardAvoidingView` (`keyboardVerticalOffset` defaults to 100 on iOS, as before; on Android its `behavior` is now `height`, so the composer clears the keyboard under edge-to-edge), under the testID `<testID>-keyboard`. The `-scroll` and `-kav` testIDs are gone.
 - A new message scrolls into view only when you're at the bottom; up the thread, a "Jump to latest" pill shows instead (it used to always scroll to the newest).
 - `header` now renders above the "Load earlier" button, in the list.
 - `ThreadMessage.status` takes three more values (`pending`, `paused`, `conflict`): a custom `slots.message` with an exhaustive `switch` on it needs the new cases.
@@ -36,6 +38,11 @@ ThreadPage adds:
 - With FlashList, rows are recycled, so state inside a custom `slots.message` component must be keyed by the message.
 - The default send button is now a 44pt round button (it was a small "Send" button).
 - Read receipts skip messages that are pending, paused or in conflict.
+- Discard is offered for a pending, paused, failed or conflicted message, not one that's sending.
+- Dragging the list dismisses the keyboard interactively on iOS and on drag on Android.
+- `jumpTo={null}` cancels a jump in progress.
+
+genesis-chat's own `threadListMode`, `nearBottom`, `AT_BOTTOM_POINTS` and `useJumpToMessage` are deprecated in favour of these; ChatThreadScreen moves onto NativeThreadList next, and the copies go then.
 
 A new doctor rule, `threads-use-thread-list` (warn, native, newOnly), flags a hand-built inverted or bottom-started FlatList/FlashList in a screen that doesn't render ThreadPage, NativeThreadList or ChatThreadScreen.
 
