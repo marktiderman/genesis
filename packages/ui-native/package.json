@@ -203,6 +203,24 @@
           "import": "@marktiderman/genesis-ui-native/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#native",
           "why": "The phone list comes from the same view as the web list: one description, two surfaces, no second set of helpers."
+        },
+        {
+          "id": "motion-uses-tokens",
+          "need": "an animation on the phone",
+          "level": "warn",
+          "platform": "native",
+          "newOnly": true,
+          "files": [
+            "**/*.tsx",
+            "**/*.ts"
+          ],
+          "forbid": {
+            "pattern": "(?:\\bwith(?:Timing|Spring)\\(\\s*[^,()]+,\\s*\\{[^}]*\\b(?:duration|damping|stiffness)\\s*:\\s*(?:0?\\.\\d*[1-9]|[1-9])|\\bAnimated\\.(?:timing|spring)\\(\\s*[^,()]+,\\s*\\{[^}]*\\b(?:duration|bounciness|speed|damping|stiffness)\\s*:\\s*(?:0?\\.\\d*[1-9]|[1-9])|\\b(?:FadeIn|FadeOut|Slide|Zoom|Bounce|Flip|Stretch|Roll|Rotate|Pinwheel|LightSpeed|Layout|LinearTransition|SequencedTransition|FadingTransition|JumpingTransition|CurvedTransition|EntryExitTransition)\\w*(?:\\.\\w+\\([^()]*\\))*\\.(?:duration|damping|stiffness)\\(\\s*(?:0?\\.\\d*[1-9]|[1-9]))"
+          },
+          "use": "useMotion() with animateMotion on the JS thread, or motionSpring / motionTiming inside a worklet: the shared motion tokens",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#motion",
+          "why": "Motion is defined once, and Reduce Motion is honoured in one place; a duration or spring written as a number drifts from the rest of the app."
         }
       ],
       "primitives": [
@@ -217,6 +235,24 @@
           "use": "NativeRecordView",
           "import": "@marktiderman/genesis-ui-native/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordview"
+        },
+        {
+          "need": "a photo gallery on the phone",
+          "use": "NativeGalleryGrid, with NativeGalleryCard for media-first cards",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "a full-screen photo viewer on the phone (zoom, swipe down to close)",
+          "use": "NativeLightbox",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "a star rating on the phone",
+          "use": "NativeRating",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
         }
       ]
     }

@@ -83,6 +83,8 @@ export interface ChatConversation {
   title: string | null;
   subjectType: string | null;
   subjectId: string | null;
+  /** The tenant it belongs to (migration 0004). Absent from clients that don't know tenants (the memory client). */
+  tenantId?: string | null;
   settings: { who_posts?: "members" | "admins" } & Record<string, unknown>;
   status: "open" | "pending" | "solved" | "closed" | null;
   assigneeId: string | null;
@@ -90,6 +92,20 @@ export interface ChatConversation {
   lastMessageAt: string | null;
   createdAt: string;
   archivedAt: string | null;
+}
+
+/** How a conversation starts (`startConversation`, `useStartConversation`). */
+export interface StartConversationOptions {
+  title?: string;
+  /** One of your records it's about; a registered subject type also names its tenant. */
+  subjectType?: string;
+  subjectId?: string;
+  /**
+   * The tenant it's in, for people who share more than one (migration 0004). Without it, the
+   * subject's tenant or the one tenant everyone shares; "Choose the workspace this conversation
+   * is in" when they share several.
+   */
+  tenantId?: string;
 }
 
 export interface ChatMember {

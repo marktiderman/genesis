@@ -90,9 +90,11 @@ export interface GenesisReanimatedModule {
   useSharedValue: <V>(initial: V) => { value: V };
   useAnimatedStyle: (updater: () => Record<string, unknown>, deps?: unknown[]) => Record<string, unknown>;
   withTiming: (toValue: number, config?: { duration?: number; easing?: unknown; reduceMotion?: unknown }, callback?: (finished?: boolean) => void) => number;
+  /** Optional so older injected modules and test fakes still fit; `animateMotion` falls back to `withTiming`. */
+  withSpring?: (toValue: number, config?: { damping?: number; stiffness?: number; mass?: number; velocity?: number; reduceMotion?: unknown }, callback?: (finished?: boolean) => void) => number;
   withRepeat: (animation: number, numberOfReps?: number, reverse?: boolean, callback?: unknown, reduceMotion?: unknown) => number;
   cancelAnimation: (value: { value: unknown }) => void;
-  Easing: { inOut: (easing: unknown) => unknown; ease: unknown; out: (easing: unknown) => unknown; cubic: unknown };
+  Easing: { inOut: (easing: unknown) => unknown; ease: unknown; out: (easing: unknown) => unknown; cubic: unknown; bezier?: (x1: number, y1: number, x2: number, y2: number) => unknown };
   ReduceMotion?: { System: unknown; Always: unknown; Never: unknown };
 }
 
@@ -130,7 +132,7 @@ export interface GenesisSymbolProps {
 export type GenesisSymbolComponent = ComponentType<GenesisSymbolProps>;
 
 /** A lucide-style icon component: `size`, `color`, `strokeWidth`. */
-export type GenesisIconComponent = ComponentType<{ size?: number; color?: ColorValue; strokeWidth?: number; testID?: string }>;
+export type GenesisIconComponent = ComponentType<{ size?: number; color?: ColorValue; fill?: ColorValue; strokeWidth?: number; testID?: string }>;
 
 /** Icon components by semantic name (`lucideIcons` from `/icons/lucide` is one). Missing names draw nothing. */
 export type GenesisIconSet = Partial<Record<NativeIconName, GenesisIconComponent>>;

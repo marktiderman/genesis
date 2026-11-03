@@ -31,6 +31,30 @@ declare module "react-native" {
     text?: string;
   }
 
+  export interface LayoutRectangle {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }
+  export interface NativeSyntheticEvent<T> {
+    nativeEvent: T;
+  }
+  export type LayoutChangeEvent = NativeSyntheticEvent<{ layout: LayoutRectangle }>;
+  export interface NativeScrollEvent {
+    contentOffset: { x: number; y: number };
+    contentSize: { width: number; height: number };
+    layoutMeasurement: { width: number; height: number };
+    /** iOS, a zooming ScrollView. */
+    zoomScale?: number;
+    /** On a drag's end, in points per millisecond. */
+    velocity?: { x: number; y: number };
+  }
+
+  export interface GestureResponderEvent {
+    nativeEvent: { locationX: number; locationY: number; pageX: number; pageY: number; touches: { pageX: number; pageY: number }[] };
+  }
+
   export interface ViewProps {
     style?: ViewStyle | ViewStyle[];
     className?: string;
@@ -46,8 +70,10 @@ declare module "react-native" {
     accessibilityViewIsModal?: boolean;
     importantForAccessibility?: "auto" | "yes" | "no" | "no-hide-descendants";
     onAccessibilityEscape?: () => void;
+    accessibilityActions?: ReadonlyArray<{ name: string; label?: string }>;
+    onAccessibilityAction?: (event: { nativeEvent: { actionName: string } }) => void;
     pointerEvents?: "none" | "auto" | "box-none" | "box-only";
-    onLayout?: (e: any) => void;
+    onLayout?: (e: LayoutChangeEvent) => void;
     collapsable?: boolean;
     testID?: string;
     ref?: React.Ref<any>;
@@ -63,6 +89,7 @@ declare module "react-native" {
     accessibilityLabel?: string;
     accessibilityHint?: string;
     accessibilityState?: AccessibilityState;
+    accessibilityLiveRegion?: "none" | "polite" | "assertive";
     accessibilityElementsHidden?: boolean;
     importantForAccessibility?: "auto" | "yes" | "no" | "no-hide-descendants";
     /** iOS: the Dynamic Type text style this text scales with. */
@@ -156,7 +183,7 @@ declare module "react-native" {
   export interface PressableProps {
     style?: ViewStyle | ViewStyle[] | ((state: { pressed: boolean }) => ViewStyle | ViewStyle[]);
     className?: string;
-    onPress?: () => void;
+    onPress?: (e: GestureResponderEvent) => void;
     onLongPress?: () => void;
     disabled?: boolean;
     children?: React.ReactNode | ((state: { pressed: boolean }) => React.ReactNode);
@@ -243,6 +270,16 @@ declare module "react-native" {
     scrollEnabled?: boolean;
     refreshControl?: React.ReactElement | undefined;
     onContentSizeChange?: (width: number, height: number) => void;
+    onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+    onScrollEndDrag?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+    scrollEventThrottle?: number;
+    /** iOS: a zooming scroll view. */
+    maximumZoomScale?: number;
+    minimumZoomScale?: number;
+    bouncesZoom?: boolean;
+    centerContent?: boolean;
+    alwaysBounceVertical?: boolean;
+    ref?: React.Ref<unknown>;
   }
 
   export interface SectionListProps<
@@ -326,9 +363,25 @@ declare module "react-native" {
     ListEmptyComponent?: React.ReactNode | ComponentType;
     ItemSeparatorComponent?: ComponentType;
     horizontal?: boolean;
+    pagingEnabled?: boolean;
+    showsHorizontalScrollIndicator?: boolean;
+    showsVerticalScrollIndicator?: boolean;
+    initialScrollIndex?: number;
+    getItemLayout?: (data: ArrayLike<T> | null | undefined, index: number) => { length: number; offset: number; index: number };
+    onMomentumScrollEnd?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+    onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+    scrollEventThrottle?: number;
+    ref?: React.Ref<FlatList<T>>;
     numColumns?: number;
     onEndReached?: () => void;
     onEndReachedThreshold?: number;
+    /** How many items render before the first scroll. */
+    initialNumToRender?: number;
+    /** How many screens' worth of items stay mounted around the visible ones. */
+    windowSize?: number;
+    scrollEnabled?: boolean;
+    extraData?: unknown;
+    accessible?: boolean;
     refreshing?: boolean;
     onRefresh?: () => void;
     refreshControl?: React.ReactElement | undefined;
@@ -391,7 +444,10 @@ declare module "react-native" {
     showActionSheetWithOptions(options: ActionSheetIOSOptions, callback: (buttonIndex: number) => void): void;
   };
 
-  export class FlatList<T> extends React.Component<FlatListProps<T>> {}
+  export class FlatList<T> extends React.Component<FlatListProps<T>> {
+    scrollToIndex(params: { index: number; animated?: boolean; viewPosition?: number }): void;
+    scrollToOffset(params: { offset: number; animated?: boolean }): void;
+  }
   export class SectionList<
     T,
     SectionT extends { data: ReadonlyArray<T> } = { data: ReadonlyArray<T> },
@@ -537,4 +593,11 @@ declare module "lucide-react-native" {
   export const Video: ComponentType<IconProps>;
   export const Volume2: ComponentType<IconProps>;
   export const VolumeX: ComponentType<IconProps>;
+  // Gallery and media primitives.
+  export const Aperture: ComponentType<IconProps>;
+  export const Clapperboard: ComponentType<IconProps>;
+  export const FolderPlus: ComponentType<IconProps>;
+  export const Maximize: ComponentType<IconProps>;
+  export const Radio: ComponentType<IconProps>;
+  export const Settings2: ComponentType<IconProps>;
 }

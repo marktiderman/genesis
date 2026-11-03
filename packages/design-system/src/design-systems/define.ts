@@ -39,7 +39,7 @@ export type Density = (typeof DENSITIES)[number];
 export const CORNERS = ["square", "crisp", "soft", "round", "friendly"] as const;
 export type Corners = (typeof CORNERS)[number];
 
-/** How much things move. CSS only; reduced motion always means `none`. */
+/** How much things move, on web and native (`resolveMotion`); reduced motion always means `none`. */
 export const MOTION_LEVELS = ["none", "calm", "lively", "bold"] as const;
 export type MotionLevel = (typeof MOTION_LEVELS)[number];
 
