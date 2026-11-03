@@ -38,19 +38,33 @@ neutral, surface, text and accent scales, status colours, typography, spacing, r
 The factories turn it into the app's theme (`tailwindFromBrand` for the web, `themeFromBrand`
 for NativeWind, `brandRoleVariables` for the role values a theme provider sets at runtime).
 
-The library has one **Brand** collection. Each mode is a consumer app, named after the app's
-brand (`Acme`, `Sample`), and its values are generated from that app's `CanonicalBrand` by the
-same mapping the factories use, so Figma shows the colour the app renders. The colour-role
-variables alias into the Brand collection where a role is brand-driven (`primary` is the
-accent's `DEFAULT`, `primary-foreground` its `foreground`), and stay literal where it is not.
+The library has one **Brand** collection with one mode per consumer app, named after the app's
+brand. It holds only the roles a brand drives (`brand/primary`, `brand/primary-foreground`,
+`brand/signal`, `brand/link`, the chat bubble roles, `brand/font-sans`, `brand/font-display`),
+each aliased to a primitive in the **Primitives** collection (`<brand>/<colour>`). The **Color**
+collection's roles alias into Brand where a role is brand-driven (`primary` → `brand/primary`)
+and stay on the Genesis neutrals where it is not, so a mode switch recolours every component
+without a second set of role variables. Light and dark are modes of Color; brand is a mode of
+Brand; a page sets both.
+
+A mode's values come from the brand file, by the same mapping the factories use:
+
+```sh
+npx tsx scripts/figma-brand-modes.mts path/to/brand.ts > brand-modes.json
+```
+
+prints, per brand, the role values `brandRoleVariables` works out (as hex, light and dark), the
+base radius in px and the font families. Add the primitives and the mode in Figma from that
+output; when a brand changes in code, regenerate and update the mode. The mode is derived; the
+brand file is the source, as it is for the theme CSS.
 
 An app's Figma file **subscribes** to the Genesis library and sets its pages to its Brand mode.
 Nothing is copied: a change to a component or a token in the library reaches every app's file as
 a library update, and a brand change is a change to one mode. Designing a new app means a new
 mode generated from its brand, not a new library.
 
-When a brand changes in code, regenerate its mode from the brand file. The mode is derived; the
-brand file is the source, as it is for the theme CSS.
+The Professional plan allows four modes per collection (see Plan limits), so four brands at a
+time; a fifth needs Organization or a decision about which four the library carries.
 
 ## Code Connect
 
@@ -117,10 +131,10 @@ On Figma's Professional plan, Code Connect has one active library and one active
 framework is enough). The framework is the label on the published docs, so the publish passes
 `--label React`. A plan admin sets both in Figma's Admin → Settings → Code Connect; the CLI only
 sets them when the slot is empty, and reports which library or framework is active when it
-refuses. Other connections are kept but deactivated. A variable collection has 10 modes, so the
-Brand collection holds up to ten consumer apps. Organization raises modes to 20 and lifts the
+refuses. Other connections are kept but deactivated. A variable collection has 4 modes, so the
+Brand collection holds up to four consumer apps. Organization raises modes to 40 and lifts the
 one-active-library limit (a second library would split foundations from components, which we do
 not need yet), and adds library analytics, branching with review and shared fonts; Enterprise
 has unlimited modes through extended collections. Nothing in this setup depends on
-Organization; move when the eleventh brand arrives. (Figma's Code Connect help page and pricing
+Organization; move when the fifth brand arrives. (Figma's Code Connect help page and pricing
 table, read 2026-11-02.)
