@@ -19,6 +19,7 @@ import type {
   ResourceView,
   RowOf,
   RowSummary,
+  ViewBoard,
   ViewCalendar,
   ViewDefinition,
   ViewField,
@@ -166,6 +167,59 @@ export function calendarProblems(fields: readonly Pick<FieldSchema, "name" | "ty
   return problems;
 }
 
+/** A board block's keys: anything else in one is a mistake `defineView` names. */
+const BOARD_KEYS: readonly string[] = ["field", "columns", "cardFields", "limits"];
+
+/**
+ * The values a board's field can hold, in the contract's order: an enum's choices, or `true`
+ * and `false` for a yes/no field. Undefined when the field has no fixed set of values.
+ *
+ * @stability Beta
+ */
+export function boardChoices(field: Pick<FieldSchema, "type" | "array" | "enumValues"> | undefined): readonly string[] | undefined {
+  if (!field || field.array) return undefined;
+  if (field.enumValues?.length) return field.enumValues;
+  if (field.type === "boolean") return ["true", "false"];
+  return undefined;
+}
+
+/**
+ * What's wrong with a board block for these fields, one sentence each (empty when it's fine).
+ *
+ * @stability Beta
+ */
+export function boardProblems(
+  fields: readonly Pick<FieldSchema, "name" | "type" | "array" | "enumValues">[],
+  board: Partial<ViewBoard>,
+): string[] {
+  const problems: string[] = [];
+  const byName = new Map(fields.map((f) => [f.name, f]));
+  const field = board.field === undefined ? undefined : byName.get(board.field);
+  if (board.field !== undefined && !field) problems.push(`board.field names "${board.field}", which isn't a field`);
+  const choices = boardChoices(field);
+  if (field && !choices) problems.push(`board.field "${board.field}" has no fixed values: use an enum or a yes/no field`);
+  if (board.columns !== undefined) {
+    if (!Array.isArray(board.columns) || board.columns.length === 0) problems.push("board.columns isn't a list of values");
+    else {
+      const seen = new Set<string>();
+      for (const value of board.columns) {
+        if (choices && !choices.includes(value)) problems.push(`board.columns lists "${String(value)}", which isn't a value of ${board.field}`);
+        if (seen.has(value)) problems.push(`board.columns lists "${String(value)}" twice`);
+        seen.add(value);
+      }
+    }
+  }
+  for (const name of board.cardFields ?? []) {
+    if (!byName.has(name)) problems.push(`board.cardFields names "${name}", which isn't a field`);
+  }
+  for (const [value, limit] of Object.entries(board.limits ?? {})) {
+    const columns = board.columns ?? choices;
+    if (columns && !columns.includes(value)) problems.push(`board.limits has "${value}", which isn't one of the board's columns`);
+    if (!Number.isInteger(limit) || limit < 1) problems.push(`board.limits.${value} is a whole number of cards, 1 or more, not ${String(limit)}`);
+  }
+  return problems;
+}
+
 /**
  * Describe what a resource means to people. The result is frozen and platform-neutral:
  *
@@ -309,6 +363,24 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       problems.push(...calendarProblems(fields, calendar));
     }
   }
+  const rawBoard = definition.board as unknown;
+  let board: Readonly<ViewBoard> | undefined;
+  if (rawBoard !== undefined) {
+    if (!rawBoard || typeof rawBoard !== "object" || Array.isArray(rawBoard)) {
+      problems.push("board isn't an object");
+    } else {
+      for (const key of Object.keys(rawBoard)) if (!BOARD_KEYS.includes(key)) problems.push(`board.${key} isn't a board setting`);
+      if ((rawBoard as { field?: unknown }).field === undefined) problems.push("board.field is required");
+      const given = rawBoard as ViewBoard;
+      board = Object.freeze({
+        ...given,
+        ...(given.columns ? { columns: Object.freeze([...given.columns]) } : {}),
+        ...(given.cardFields ? { cardFields: Object.freeze([...given.cardFields]) } : {}),
+        ...(given.limits ? { limits: Object.freeze({ ...given.limits }) } : {}),
+      });
+      problems.push(...boardProblems(fields, board));
+    }
+  }
   if (definition.orderBy) known(definition.orderBy.field, "orderBy");
   for (const [name, preset] of Object.entries(presets)) {
     if (preset.columns && preset.columns !== "default" && !own(columnLists, preset.columns)) {
@@ -389,6 +461,28 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   const defaultColumns: readonly (string | ComputedColumn<Row>)[] =
     own(columnLists, "default") ?? fields.filter((f) => !quiet(f)).map((f) => f.name);
   const presetNames = Object.freeze(["default", ...Object.keys(columnLists).filter((p) => p !== "default")]);
+  // One field as a column: its words, hint, tones and guards. Cached, so every list and card shares it.
+  const fieldColumns = new Map<string, ResolvedColumn<Row>>();
+  const fieldColumn = (column: string): ResolvedColumn<Row> => {
+    const cached = fieldColumns.get(column);
+    if (cached) return cached;
+    const v = own(viewFields, column);
+    const resolved: ResolvedColumn<Row> = Object.freeze({
+      key: column,
+      label: label(column),
+      display: display(column),
+      field: byName.get(column)!,
+      value: (row: Row) => row[column],
+      ...(v?.tones ? { tones: v.tones } : {}),
+      ...(v?.labels ? { labels: v.labels } : {}),
+      ...(v?.labelField ? { labelField: v.labelField } : {}),
+      ...(v?.missingLabel ? { missingLabel: v.missingLabel } : {}),
+      ...(v?.when ? { when: (row: Row, viewer: Viewer = NO_VIEWER) => v.when!(row, viewer) } : {}),
+      ...(v?.timeZone ? { timeZone: v.timeZone } : {}),
+    });
+    fieldColumns.set(column, resolved);
+    return resolved;
+  };
   const resolvedColumns = new Map<string, readonly ResolvedColumn<Row>[]>();
   const columns = (preset = "default"): readonly ResolvedColumn<Row>[] => {
     const cached = resolvedColumns.get(preset);
@@ -400,20 +494,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
         if (typeof column !== "string") {
           return Object.freeze({ key: column.key, label: column.label, display: column.display ?? "text", value: column.value });
         }
-        const v = own(viewFields, column);
-        return Object.freeze({
-          key: column,
-          label: label(column),
-          display: display(column),
-          field: byName.get(column)!,
-          value: (row: Row) => row[column],
-          ...(v?.tones ? { tones: v.tones } : {}),
-          ...(v?.labels ? { labels: v.labels } : {}),
-          ...(v?.labelField ? { labelField: v.labelField } : {}),
-          ...(v?.missingLabel ? { missingLabel: v.missingLabel } : {}),
-          ...(v?.when ? { when: (row: Row, viewer: Viewer = NO_VIEWER) => v.when!(row, viewer) } : {}),
-          ...(v?.timeZone ? { timeZone: v.timeZone } : {}),
-        });
+        return fieldColumn(column);
       }),
     );
     resolvedColumns.set(preset, out);
@@ -532,6 +613,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       ...(definition.scope ? { scope: Object.freeze([...definition.scope]) } : {}),
       ...(definition.actions ? { actions: actionList } : {}),
       ...(calendar ? { calendar } : {}),
+      ...(board ? { board } : {}),
     }) as Readonly<ViewDefinition<C, Row>>,
     resource: contract.name,
     noun,
@@ -540,6 +622,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     labelField,
     presets: presetNames,
     field: (name: string) => byName.get(name),
+    column: (name: string) => (byName.has(name) && readable(name) ? fieldColumn(name) : undefined),
     label,
     display,
     valueLabel,

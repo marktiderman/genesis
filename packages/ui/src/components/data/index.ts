@@ -25,6 +25,15 @@ export { ViewToggle, type ViewMode } from "../patterns/view-toggle";
 export { ViewSettings } from "../patterns/view-settings";
 export { StatCard, type StatCardProps, type StatCardColor } from "./StatCard";
 export { KanbanBoard, type KanbanColumn, type KanbanBoardProps, type ColumnStatus } from "./KanbanBoard";
+export {
+  BOARD_NONE,
+  BOARD_PAGE,
+  boardColumnFilter,
+  useBoardColumns,
+  type BoardColumnData,
+  type UseBoardColumnsOptions,
+  type UseBoardColumnsReturn,
+} from "./board/use-board-columns";
 export { DataList, type DataListProps } from "./DataList";
 export { DetailPanel, type DetailPanelProps } from "./DetailPanel";
 export {

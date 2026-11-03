@@ -12,6 +12,7 @@ import { useDisplayCell } from "./display";
 import { useResourceViewDefaults } from "./defaults";
 import type { ViewModeDefault } from "../../../hooks/use-view-preference";
 import { ResourceCalendar, type ResourceCalendarOptions } from "./ResourceCalendar";
+import { ResourceBoard, type ResourceBoardOptions } from "./ResourceBoard";
 import { RowAvatar } from "./RowAvatar";
 import { useViewDetailFields, useViewListParams, type Filter } from "./view-list";
 import { useViewFormFields } from "./view-form";
@@ -51,9 +52,11 @@ export interface ResourceViewOptions {
    * `ResourceViewDefaultsProvider phoneMode` does the same for every `layout="page"` list. `calendar` places the
    * rows by the view's `calendar` block instead: one request per visible window, a click opens the
    * peek. Calendar is never stored as the user's pick, so other lists of the resource don't open
-   * in it, and no phone default turns into it.
+   * in it, and no phone default turns into it. `board` shows a card per row in a column per value
+   * of the view's `board` field, and moving a card writes that field; like calendar, it is never
+   * stored as the user's pick.
    */
-  mode?: ViewModeDefault | "calendar" | undefined;
+  mode?: ViewModeDefault | "calendar" | "board" | undefined;
   title?: string | undefined;
   subtitle?: string | undefined;
 }
@@ -70,6 +73,11 @@ export type ResourceViewProps<T extends Row = Row> = ResourceViewOptions &
      * adds what it can't hold (dot colours, `onSelect`, lanes' labels).
      */
     calendar?: ResourceCalendarOptions<T>;
+    /**
+     * With `mode="board"`: overrides the view's `board` block (its field, columns, card fields,
+     * limits) and adds what it can't hold (`onSelect`, `renderCard`, `onMoveError`).
+     */
+    board?: ResourceBoardOptions<T>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
     view: View<ResourceContract<any>, T & DataRow>;
   };
@@ -113,7 +121,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
   const {
     // preset, filter and scoped are read by useViewListParams; taken out here so they aren't passed on.
     view, layout = "page", columns: columnPreset, preset: _preset, filter: _filter, scoped: _scoped, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
-    calendar: _calendar,
+    calendar: _calendar, board: _board,
     noun: screenNoun, nounPlural: screenNounPlural, formTitles: screenFormTitles, countFormat: screenCountFormat,
     ...rest
   } = props;
@@ -203,7 +211,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     // screen's own `defaultView` (in `rest`) still overrides all three. The phone default is a
     // full page's only: an embedded list hides the view switch, so cards there would have no
     // way back to the table.
-    ...(mode && mode !== "calendar"
+    ...(mode && mode !== "calendar" && mode !== "board"
       ? { defaultView: mode }
       : layout === "compact"
         ? { defaultView: "list" as const }
@@ -277,6 +285,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 export function ResourceView<T extends Row = Row>(props: ResourceViewProps<T>) {
   // Two components, so switching `mode` to and from calendar swaps children rather than hooks.
   if (props.mode === "calendar") return <ResourceViewCalendar<T> {...props} />;
+  if (props.mode === "board") return <ResourceViewBoard<T> {...props} />;
   return <ResourceViewPage<T> {...props} />;
 }
 
@@ -305,10 +314,32 @@ function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
   );
 }
 
+/** `mode="board"`: the same view, scope and filters, a column per value of the board's field. */
+function ResourceViewBoard<T extends Row>(props: ResourceViewProps<T>) {
+  const { view, board, title, subtitle, className, cells } = props;
+  const words = subtitle ?? view.definition.copy?.subtitle;
+  const { filters, select, enabled, live } = useViewListParams(props);
+  return (
+    <ResourceBoard<T>
+      {...(board ?? {})}
+      view={view}
+      filters={filters}
+      {...(select !== undefined ? { select } : {})}
+      enabled={enabled}
+      {...(live !== undefined ? { live } : {})}
+      {...(cells ? { cells } : {})}
+      title={title ?? view.title}
+      {...(words ? { subtitle: words } : {})}
+      {...(className ? { className } : {})}
+    />
+  );
+}
+
 /** The headless form: the same state as `useResourceTable`, from a view. */
 export function useResourceView<T extends Row = Row>(props: ResourceViewProps<T>): ResourceTableState<T> {
-  if (props.mode === "calendar") {
-    throw new Error(`useResourceView(${props.view.resource}): calendar mode has no table state; render <ResourceView mode="calendar"> or <ResourceCalendar>`);
+  if (props.mode === "calendar" || props.mode === "board") {
+    const part = props.mode === "calendar" ? "ResourceCalendar" : "ResourceBoard";
+    throw new Error(`useResourceView(${props.view.resource}): ${props.mode} mode has no table state; render <ResourceView mode="${props.mode}"> or <${part}>`);
   }
   return useResourceTable<T>(useResourceViewProps(props));
 }
