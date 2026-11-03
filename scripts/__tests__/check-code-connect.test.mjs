@@ -8,10 +8,12 @@ import {
   COMPONENTS_INDEX,
   FIGMA_DIR,
   LAYOUTS_INDEX,
+  PACKAGES,
   checkCodeConnect,
   componentsFromIndex,
   layoutsFromIndex,
   templateProblems,
+  webComponentsFromIndexes,
 } from "../check-code-connect.mjs";
 
 const componentsIndex = `
@@ -167,5 +169,60 @@ describe("url directive", () => {
     expect(templateProblems(root, "NativeAvatar")).toEqual([
       `${FIGMA_DIR}/NativeAvatar.figma.ts:1: \`// url=\` must be a figma.com/design file URL with a node-id, found https://example.com/not-figma`,
     ]);
+  });
+});
+
+const webIndex = `
+export { Card, CardHeader, CardTitle, CardContent } from "./card";
+export { Dialog, DialogTrigger, DialogClose, DialogContent } from "./dialog";
+export { AlertDialog, AlertDialogAction } from "./alert-dialog";
+export { Alert, AlertTitle } from "./alert";
+export { Select, SelectGroup, SelectValue } from "./select";
+export { Toggle, ToggleGroup, ToggleGroupItem } from "./toggle";
+export { Table, TableRow, TableCell } from "./table";
+export { H1, H2, Lead, Muted } from "./typography";
+export { Stack, Grid, Split, Container } from "./layout";
+export { DataTable, DateCell, CurrencyCell, formatCell, useDataTable, DATA_LIMIT } from "./data";
+export { Form, FormLabel, CalendarDayButton, Calendar, CommandDialog, Command } from "./misc";
+export { ThemeProvider, Button } from "./button";
+`;
+const webIndex2 = `
+export { Button, AppShell } from "./again";
+export { AppShell, PageHeader } from "./layout";
+`;
+
+describe("web sub-part rule", () => {
+  it("keeps parents, drops suffix and explicit sub-parts, typography, layout primitives and cell factories", () => {
+    expect(webComponentsFromIndexes([webIndex])).toEqual([
+      "Card", "Dialog", "AlertDialog", "Alert", "Select", "Toggle", "ToggleGroup", "Table",
+      "DataTable", "Form", "Calendar", "Command", "Button",
+    ]);
+  });
+
+  it("counts a component re-exported from two indexes once", () => {
+    expect(webComponentsFromIndexes([webIndex2])).toEqual(["Button", "AppShell", "PageHeader"]);
+  });
+});
+
+describe("two-package layout", () => {
+  it("checks each package against its own allowlist and names the package", () => {
+    const [native, web] = PACKAGES;
+    expect(PACKAGES.map((p) => p.name)).toEqual(["ui-native", "ui"]);
+    expect(web.figmaDir).toBe("packages/ui/figma");
+    const root = make({ notYet: ALL, sources: [] });
+    const write = (rel, text) => {
+      fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+      fs.writeFileSync(path.join(root, rel), text);
+    };
+    for (const { file } of web.indexes) write(file, "");
+    write(web.indexes[0].file, webIndex);
+    write(`${web.figmaDir}/code-connect.json`, JSON.stringify({ required: [], notYet: ["Card", "Button", "Gone"] }));
+    expect(checkCodeConnect(root, native).failures).toEqual([]);
+    const { failures, components } = checkCodeConnect(root, web);
+    expect(components).toContain("Card");
+    expect(failures).toContain("packages/ui/figma/code-connect.json: Gone is not a visual component exported from ui; remove it");
+    expect(failures).toContain(
+      'Dialog: exported from ui but in neither list of packages/ui/figma/code-connect.json; add it to "notYet" (or "required" with its template)',
+    );
   });
 });
