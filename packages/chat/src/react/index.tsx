@@ -33,6 +33,7 @@ import type {
   ScheduleInput,
   ScheduledMessage,
   SendInput,
+  StartConversationOptions,
   TopicInput,
 } from "../core/types";
 
@@ -668,7 +669,7 @@ export function useStartConversation() {
   const { client } = useChat();
   const queryClient = useQueryClient();
   return useCallback(
-    async (kind: string, memberIds: string[], opts?: { title?: string; subjectType?: string; subjectId?: string }) => {
+    async (kind: string, memberIds: string[], opts?: StartConversationOptions) => {
       const id = await client.startConversation(kind, memberIds, opts);
       void queryClient.invalidateQueries({ queryKey: ["genesis-chat", "inbox"] });
       return id;

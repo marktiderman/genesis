@@ -470,7 +470,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       manifests.push(manifest);
       if (!home) {
         for (const row of planMigrations(root, sourceMigrations(root, manifest), { now: new Date(), tests: false, ...(lock.migrations ? { copied: lock.migrations } : {}), providers: providingMigrations(catalog) }).rows) {
-          if (row.state === "new") newMigrations.push(`${row.package} ${row.file}`);
+          if (row.state === "new") newMigrations.push(`${row.package} ${row.file}${row.unmet?.length ? ` (${row.unmet.join("; ")})` : ""}`);
         }
       }
       if (manifest.version && manifest.version !== entry.version) lock.blocks[id] = { ...entry, version: manifest.version };

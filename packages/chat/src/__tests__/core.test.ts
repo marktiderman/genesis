@@ -89,3 +89,15 @@ describe("inbox kinds", () => {
     expect(calls[2]![1]).not.toHaveProperty("p_exclude_kinds");
   });
 });
+
+describe("starting a conversation in a tenant (migration 0004)", () => {
+  it("sends the tenant only when one is given, so the same call reaches a database before 0004", async () => {
+    const calls: [string, Record<string, unknown>][] = [];
+    const supabase = { schema: () => ({ rpc: async (fn: string, args: Record<string, unknown>) => (calls.push([fn, args]), { data: "c1", error: null }) }) } as never;
+    const chat = createChatClient(supabase);
+    await chat.startConversation("direct", ["u2"], { tenantId: "t1" });
+    await chat.startConversation("direct", ["u2"]);
+    expect(calls[0]).toEqual(["start_conversation", { p_kind: "direct", p_member_ids: ["u2"], p_title: null, p_subject_type: null, p_subject_id: null, p_tenant_id: "t1" }]);
+    expect(calls[1]![1]).not.toHaveProperty("p_tenant_id");
+  });
+});
