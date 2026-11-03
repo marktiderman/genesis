@@ -1,5 +1,28 @@
 # @marktiderman/genesis-cli
 
+## 1.20.0
+
+### Minor Changes
+
+- e570916: Genesis's lint rules now ship from the CLI, as `@marktiderman/genesis-cli/eslint` (for `require` and `import`), so `genesis upgrade` brings new and changed rules to apps. Until now an app's `eslint.config.js` was copied once at `genesis init` and never updated.
+
+  - `genesis("native" | "web")` returns every Genesis piece for the platform; `testing()` is React Native Testing Library 14's await rules for test files (testing-library's `await-async-events` for fireEvent and userEvent, and `no-restricted-syntax` for unawaited render calls, `act`, `rerender`, `unmount` and a chained `userEvent.setup()`). `"web"` has no rules yet. `eslint-plugin-testing-library` is a new optional peer dependency, loaded only when `testing` is built.
+  - The native starter's `eslint.config.js` spreads `genesis("native")` instead of inlining the rules.
+  - The `genesis-cli-eslint-config` codemod runs when an app's CLI moves to 1.20.0: it adds the import and the spread to the app's flat config, and `eslint-plugin-testing-library` to a native app's devDependencies when it's missing. A config it can't edit safely is left as it is, with the lines to add printed. This changes the app's lint in the upgrade's pull request; unawaited RNTL calls in its tests become lint errors there.
+  - The doctor's new `genesis-eslint-config` rule (warn, ratcheted under `--base`) reports a native app whose config doesn't load the export, or loads it without the plugin installed.
+
+- e3e7e9c: `genesis upgrade` and `genesis doctor` handle what a Bun lockfile keeps after an upgrade.
+
+  - **Stale nested copies.** Bun keeps a Genesis package nested under another one (`<parent>/@marktiderman/genesis-…` in `bun.lock`) across installs, even once the root's version satisfies the parent's range, so the app runs two copies. `genesis upgrade` drops those entries from `bun.lock` before the install (judged against the versions the release moves the root to), drops any the install leaves and installs once more, and lists what went in the summary; when it didn't install, the summary says to run `bun install`. A copy nested on purpose (the parent's range excludes the root's version) stays. Bun has no dedupe, so this is its counterpart of the `pnpm dedupe` the upgrade already runs.
+  - **Deleted overlays.** When the upgrade deletes an overlay (a vendored package now installed from npm), its workspace also leaves `bun.lock` and a root `package.json` `workspaces` entry naming its folder, so `bun install` no longer stops with "Workspace dependency not found". A removed overlay's pins are now applied to each `package.json` as it is after the bump, so they no longer undo the bump or another overlay's pin in the same file.
+  - **`genesis doctor`**: `lock-files` warns on a stale nested Genesis copy in `bun.lock` (at or above the app, with or without `genesis.lock.json`) and names the exact fix: delete that entry, then reinstall.
+
+  The binary `bun.lockb` and `pnpm-lock.yaml` aren't edited; with pnpm, `pnpm dedupe` and `duplicate-genesis-package` still cover duplicate copies.
+
+### Patch Changes
+
+- 3678bbb: README: `genesis upgrade --version <v>` is upgrade's own option (fixed in 1.18.0; 1.17.3 printed the CLI's version), and how to upgrade with the release's own CLI. An upgrade runs in the CLI that started it and moves the app's genesis-cli dependency, but doesn't restart in the new one, so its codemods and doctor are the installed CLI's: run `npx @marktiderman/genesis-cli@latest upgrade --version <v>` to use the new one.
+
 ## 1.19.0
 
 ### Minor Changes

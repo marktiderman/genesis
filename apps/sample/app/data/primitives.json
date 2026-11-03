@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02",
+  "generatedAt": "2026-11-03",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 144
+      "count": 146
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -8058,7 +8058,7 @@
               "type": "number",
               "required": false,
               "defaultValue": "6",
-              "description": "Digits in an emailed code. Default 6 (Supabase's default)."
+              "description": "Digits in an emailed code. Default 6 (Supabase's default). It must match the project's\n`otp_length` (Auth settings, \"Email OTP length\"): the code field takes exactly this many\ndigits, so with a mismatch no code can ever be entered whole and code sign-in fails with\nnothing to say why. `/auth/v1/settings` doesn't report `otp_length`, so the form can't check it."
             },
             {
               "name": "defaultMode",
@@ -8072,7 +8072,7 @@
               "type": "string",
               "required": false,
               "defaultValue": "",
-              "description": "Initial email (\"sign in as …\" links)."
+              "description": "Initial email (\"sign in as …\" links). In `mode=\"new-password\"`, the account's email, when the client can't say (`currentEmail`)."
             },
             {
               "name": "methods",
@@ -8094,6 +8094,20 @@
               "required": false,
               "defaultValue": null,
               "description": "The mode, controlled. Pair with `onModeChange` (a route per mode, say)."
+            },
+            {
+              "name": "notice",
+              "type": "string | AuthFormNotice | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "A notice above the form, on its first step: why the person is here again (\"your reset link\nhas expired\", \"sign-in was cancelled\", \"your account is deleted\"). A string is a message on\nits own. Read it from the URL the callback sent them to, say."
+            },
+            {
+              "name": "offerCodeOnConfirm",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Opt-in: on the \"check your email\" screens after a magic link and after sign-up, offer \"Enter\nthe code instead\", which opens the code step for the same email. For someone signing in from\nan embedded browser (an in-app web view), where the link opens in another browser and they\nwould be stuck. Needs `\"email-code\"` in `methods` and `{{ .Token }}` in the project's Magic\nLink and Confirm signup email templates. Default false."
             },
             {
               "name": "onModeChange",
@@ -8124,11 +8138,25 @@
               "description": "Seconds before a code can be sent again. Default 60 (Supabase's default rate limit)."
             },
             {
+              "name": "showAccountEmail",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Opt-in: in `mode=\"new-password\"`, show the account's email read-only above the new password.\nWithout it the email (when known, from `initialEmail` or `client.currentEmail()`) is still in\nthe form, hidden, with `autocomplete=\"username\"`, so a password manager saves the pair.\nDefault false."
+            },
+            {
+              "name": "signUpFields",
+              "type": "readonly AuthFormSignUpFieldSpec[] | ((slot: AuthFormSignUpFieldsSlot) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opt-in: more fields on the sign-up form, above the email, whose values go to `client.signUp`\nas `data` (with Supabase, `options.data`: the user's metadata, which an app's signup trigger\nreads as `full_name`, say). Named fields (`[\"full_name\"]`, or your own), or a slot that draws\nits own inputs and sets the values. Default none, and `signUp` gets no `data`."
+            },
+            {
               "name": "testID",
               "type": "string",
               "required": false,
               "defaultValue": "auth-form",
-              "description": "Default `\"auth-form\"`; parts use `${testID}-email`, `-password`, `-submit`, `-error`, `-status`, `-code`, `-resend`, `-provider-<id>`."
+              "description": "Default `\"auth-form\"`; parts use `${testID}-email`, `-phone`, `-password`, `-submit`, `-error`, `-status`, `-notice`, `-code`, `-resend`, `-enter-code`, `-provider-<id>`, `-field-<name>`, `-account-email`."
             }
           ]
         },
@@ -13701,6 +13729,13 @@
               "description": ""
             },
             {
+              "name": "colorLanes",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Give each lane with no `color` of its own `laneColor(i)` by its place in the lanes: the chart\ncolours first, then distinct ones past five, so every person has a dot. Default false (a lane\nwith no colour has no dot)."
+            },
+            {
               "name": "hideNavigation",
               "type": "boolean",
               "required": false,
@@ -14586,6 +14621,23 @@
       ]
     },
     {
+      "slug": "lane-color",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/calendar/lane-color.ts",
+      "stability": "beta",
+      "summary": "A distinct CSS colour for lane `index` (0-based), from the theme, in light and dark:\n\n- 0–4: the chart tokens, `hsl(var(--chart-1))` to `--chart-5`;\n- 5–9: the same five deepened toward `--foreground` (35%): darker on a light theme, lighter on\n  a dark one, so they gain contrast against the background rather than lose it;\n- 10–49: each chart token blended with another (60/40, in OKLCH), plain then deepened, through\n  all four partners;\n- 50 on: the same fifty, a step further toward the foreground each round (never reaching it).\n\nThe same index always gives the same colour, and no two indexes give the same one. Past a\nhandful, colours alone stop telling lanes apart, which is why a calendar names every lane too.\n\n```tsx\nconst lanes = people.map((p, i) => ({ key: p.id, label: p.name, color: laneColor(i) }));\n```",
+      "primaryComponent": "laneColor",
+      "components": [
+        {
+          "name": "laneColor",
+          "summary": "A distinct CSS colour for lane `index` (0-based), from the theme, in light and dark:\n\n- 0–4: the chart tokens, `hsl(var(--chart-1))` to `--chart-5`;\n- 5–9: the same five deepened toward `--foreground` (35%): darker on a light theme, lighter on\n  a dark one, so they gain contrast against the background rather than lose it;\n- 10–49: each chart token blended with another (60/40, in OKLCH), plain then deepened, through\n  all four partners;\n- 50 on: the same fifty, a step further toward the foreground each round (never reaching it).\n\nThe same index always gives the same colour, and no two indexes give the same one. Past a\nhandful, colours alone stop telling lanes apart, which is why a calendar names every lane too.\n\n```tsx\nconst lanes = people.map((p, i) => ({ key: p.id, label: p.name, color: laneColor(i) }));\n```",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "menubar",
       "aliases": [],
       "surface": "web",
@@ -14805,7 +14857,7 @@
           "props": [
             {
               "name": "auth",
-              "type": "DeepPartial<{ titles: { \"sign-in\": string; \"sign-up\": string; \"forgot-password\": string; \"new-password\": string; }; email: string; emailPlaceholder: string; password: string; newPassword: string; confirmPassword: string; ... 32 more ...; errors: { ...; }; }>",
+              "type": "DeepPartial<{ titles: { \"sign-in\": string; \"sign-up\": string; \"forgot-password\": string; \"new-password\": string; }; email: string; emailPlaceholder: string; password: string; newPassword: string; confirmPassword: string; ... 43 more ...; errors: { ...; }; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14819,7 +14871,7 @@
             },
             {
               "name": "calendar",
-              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; until: string; eventsOne: string; eventsOther: string; ... 9 more ...; weekOf: string; }>",
+              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; until: string; eventsOne: string; eventsOther: string; ... 12 more ...; weekOf: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -16667,11 +16719,39 @@
               "description": ""
             },
             {
+              "name": "classNameOf",
+              "type": "((row: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for a row's event (`(row) => row.status === \"cancelled\" ? \"line-through opacity-60\" : undefined`):\na cancelled event struck through rather than dropped. Give `statusOf` too, so the look isn't\nthe only cue."
+            },
+            {
+              "name": "colorLanes",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Give lanes with no colour of their own `laneColor(i)` (EventCalendar's `colorLanes`). Default false."
+            },
+            {
               "name": "colorsOf",
               "type": "((row: T) => readonly string[])",
               "required": false,
               "defaultValue": null,
               "description": "A row's dot colours, when not its lanes'."
+            },
+            {
+              "name": "durationField",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A number field holding how long a row runs, for a row with no end column: its end is the\nstart plus this many `durationUnit`s. A row whose `endField` has a value keeps that end."
+            },
+            {
+              "name": "durationUnit",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "What `durationField` counts. Default `minutes`."
             },
             {
               "name": "enabled",
@@ -16772,6 +16852,20 @@
               "description": "A row was chosen. Default: the view's peek."
             },
             {
+              "name": "onWeeksChange",
+              "type": "((weeks: CalendarWeeks) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "phoneLayout",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "The layout on a phone (below 768px), until the person picks one from the layout switch:\n`\"agenda\"` turns a month grid too narrow to read into a day-by-day list. Unset, a phone shows\n`layout`, as before."
+            },
+            {
               "name": "print",
               "type": "{ sections?: readonly PrintableSection[]; title?: ReactNode; headingLevel?: 2 | 3 | 4 | 5; } | undefined",
               "required": false,
@@ -16791,6 +16885,20 @@
               "required": false,
               "defaultValue": null,
               "description": "The agenda shows empty days too."
+            },
+            {
+              "name": "statusOf",
+              "type": "((row: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Words read out after a row's title (\"Cancelled\"), for what `classNameOf` shows."
+            },
+            {
+              "name": "subtitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A line under the title (ResourceView's `subtitle`, else the view's `copy.subtitle`)."
             },
             {
               "name": "testID",
@@ -16814,11 +16922,25 @@
               "description": ""
             },
             {
+              "name": "toolbar",
+              "type": "ReactNode | ((state: ResourceCalendarToolbarState) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Beside the layout and weeks switches: a Print button, a mode switch. A function gets what the\ncalendar shows now."
+            },
+            {
               "name": "weeks",
               "type": "enum",
               "required": false,
               "defaultValue": null,
               "description": "For `weeks`, `agenda` and `lanes`: 1 to 4. Default 2."
+            },
+            {
+              "name": "weeksOptions",
+              "type": "readonly CalendarWeeks[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Week counts the toolbar offers beside `layouts` (`[1, 2, 4]`), for the `weeks`, `agenda` and\n`lanes` layouts. Without two or more, no switch. The pick is kept as the layout's is: with\n`onWeeksChange` the screen owns it (`weeks`, in the URL), else the calendar does."
             },
             {
               "name": "weekStartsOn",
@@ -16967,13 +17089,6 @@
               "description": ""
             },
             {
-              "name": "resource",
-              "type": "string",
-              "required": true,
-              "defaultValue": null,
-              "description": ""
-            },
-            {
               "name": "autoPlaceholder",
               "type": "boolean",
               "required": false,
@@ -16988,6 +17103,13 @@
               "description": "Number of columns for the form layout. Default 1."
             },
             {
+              "name": "defaults",
+              "type": "Readonly<Record<string, Scalar>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `view`: values a new row starts with, as ResourceView's `defaults`."
+            },
+            {
               "name": "description",
               "type": "string",
               "required": false,
@@ -17000,6 +17122,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "filter",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `view`: the list's filter, as ResourceView's `filter` (a new row starts in it)."
             },
             {
               "name": "item",
@@ -17086,6 +17215,20 @@
               "description": ""
             },
             {
+              "name": "resource",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The resource it saves to. Default: the `view`'s. One of the two is required."
+            },
+            {
+              "name": "scoped",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `view`: whether a new row takes the viewer's scope (default true), as ResourceView's `scoped`."
+            },
+            {
               "name": "steps",
               "type": "WizardStep[]",
               "required": false,
@@ -17112,6 +17255,13 @@
               "required": false,
               "defaultValue": null,
               "description": "How long an `undoable` save waits for an undo, in ms. Default 5000."
+            },
+            {
+              "name": "view",
+              "type": "ResourceView<ResourceContract<any>, any>",
+              "required": false,
+              "defaultValue": null,
+              "description": "A `defineView` description: the form `<ResourceView>` would open for it, with no list around\nit (a form beside a sortable list, say). Its fields (only what a writer may send, links as\npickers, the viewer's scope filled hidden on create), its noun and its `copy.form` words. The\nprops below win: `fields` replaces the view's fields, and `title`, `submitLabel`,\n`description` and `noun` replace its words."
             },
             {
               "name": "warnWhenUnsaved",
@@ -24719,6 +24869,28 @@
         {
           "name": "windowBounds",
           "summary": "A window as filter values for a column: days for a date column, ISO instants of `zone`'s\nmidnights for a timestamp, and wall-clock midnights (no zone) for a timestamp without one.\n`[from, to)`; `lead` widens the start by days.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "view-form",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/view-form.ts",
+      "stability": "beta",
+      "summary": "The single values of a filter: what a new row made from the list starts with.",
+      "primaryComponent": "singleValues",
+      "components": [
+        {
+          "name": "singleValues",
+          "summary": "The single values of a filter: what a new row made from the list starts with.",
+          "props": []
+        },
+        {
+          "name": "useViewFormFields",
+          "summary": "The fields of a view's form, as ResourceForm takes them: what `<ResourceView>` builds its own\nform from. The viewer's scope narrows link pickers. Call it for a form of your own layout, or\npass the view to `<ResourceForm view={…}>`, which calls it. Without a view, no fields.",
           "props": []
         }
       ]
