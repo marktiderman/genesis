@@ -1,6 +1,7 @@
 // What a resource means to people (docs/RESOURCE-VIEW.md, "View"). Types only: no React, no
 // DOM, so web, native and the extension all import the same view.
 
+import type { GalleryItem } from "../gallery";
 import type { ChipTone } from "../resource/status";
 import type { DataRow, FieldSchema, ResourceContract, RowAction, RowOf } from "../schema/types";
 import type { Viewer } from "../viewer";
@@ -362,6 +363,25 @@ export interface ViewBoard<Name extends string = string> {
   limits?: Readonly<Record<string, number>>;
 }
 
+/**
+ * How the view's rows show as a gallery: ResourceView's `mode="grid"` draws a photo per row in
+ * justified rows (the layout `GalleryGrid` uses, from `@marktiderman/genesis-core/gallery`) in
+ * place of cards. Plain field names only, so every platform reads the same block.
+ */
+export interface ViewGallery<Name extends string = string> {
+  /** The field holding the image's URL. */
+  image: Name;
+  /** The image's width and height in pixels, when the rows store them: rows pack by their ratio, 4:3 without. */
+  width?: Name;
+  height?: Name;
+  /** A short line under the photo in the viewer. Default none. */
+  caption?: Name;
+  /** The photo's text alternative. Default the row's label (the view's `labelField`). */
+  alt?: Name;
+  /** The target row height, px on the web and points on a phone. Default 180, as `GalleryGrid`. */
+  rowHeight?: number;
+}
+
 /** What `defineView` accepts. */
 export interface ViewDefinition<C extends ResourceContract, Row extends DataRow = RowOf<C>> {
   copy?: ViewCopy;
@@ -392,6 +412,8 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   calendar?: ViewCalendar<FieldNameOf<C>>;
   /** How the rows show as a board (`mode="board"`). */
   board?: ViewBoard<FieldNameOf<C>>;
+  /** How the rows show as a gallery of photos (`mode="grid"`), in place of cards. */
+  gallery?: ViewGallery<FieldNameOf<C>>;
   /** Group rows under headers by this field. */
   groupBy?: FieldNameOf<C>;
   /** Default order; `manual: true` turns on drag to reorder, writing this field. */
@@ -489,4 +511,11 @@ export interface ResourceView<C extends ResourceContract = ResourceContract, Row
    */
   canAction(name: string, row: Row, viewer?: Viewer): Allowed;
   summary(row: Row): RowSummary;
+  /**
+   * The row as a gallery photo, by the view's `gallery` block and any `override` a screen passes
+   * (ResourceView's `gallery`): undefined without a gallery block. Its `id` is the row's key, its
+   * `alt` the row's label unless the block names a field; a row without an image has an empty `src`,
+   * which GalleryGrid and NativeGalleryGrid draw as a placeholder tile.
+   */
+  galleryItem(row: Row, override?: Partial<ViewGallery>): GalleryItem | undefined;
 }

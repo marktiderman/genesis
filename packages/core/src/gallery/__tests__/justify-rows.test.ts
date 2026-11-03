@@ -1,7 +1,8 @@
+// @feat:media-gallery
 /** justifyRows: pure row packing for the justified gallery. */
 import { describe, expect, it } from "vitest";
-import { DEFAULT_GALLERY_RATIO, galleryItemRatio, justifyRows } from "../gallery-layout";
-import type { GalleryItem } from "../gallery-types";
+import { DEFAULT_GALLERY_RATIO, galleryItemRatio, justifyRows } from "..";
+import type { GalleryItem } from "..";
 
 const item = (id: string, width?: number, height?: number): GalleryItem => ({ id, src: `https://example.test/${id}.jpg`, width, height });
 
