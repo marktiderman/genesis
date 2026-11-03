@@ -2,7 +2,7 @@
 // See docs/RESOURCE-VIEW.md. genesis-ui's ResourceView and genesis-ui-native's
 // NativeResourceView draw it.
 
-export { boardChoices, boardProblems, calendarProblems, defineView, deriveDisplay, plural, singular, valueText, ViewDefinitionError } from "./define-view";
+export { boardChoices, boardProblems, calendarProblems, defineView, galleryProblems, deriveDisplay, plural, singular, valueText, ViewDefinitionError } from "./define-view";
 export { initialsOf, rowPicture } from "./picture";
 export { scopeFilter, scopeValues } from "./scope";
 export { filterParams } from "./link";
@@ -30,6 +30,7 @@ export type {
   ViewCopy,
   ViewAction,
   ViewBoard,
+  ViewGallery,
   ViewCalendar,
   ViewCalendarLayout,
   ViewDefinition,

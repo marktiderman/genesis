@@ -1435,7 +1435,8 @@ export function ResourcePage<
             )
           )
           ,
-          ...(openOnCardClick && renderCardProp && detail !== "none"
+          // A replaced grid (ResourceView's gallery, say) draws its own items, so it opens them too.
+          ...(((openOnCardClick && renderCardProp) || slots?.grid) && detail !== "none"
             ? {
                 onItemClick: handleRowClick,
                 getItemLabel: (item: T) => fillMessage(m.common.openItem, { name: titleOf(item) }).trim(),

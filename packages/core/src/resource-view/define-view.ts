@@ -3,7 +3,8 @@
 // the extension draw the same labels, columns and form.
 
 import { NO_VIEWER, type Viewer } from "../viewer";
-import { keyFields } from "../schema/keys";
+import { encodeRecordKey, keyFields } from "../schema/keys";
+import type { GalleryItem } from "../gallery";
 import type { DataRow, FieldSchema, ResourceContract } from "../schema/types";
 import { titleCase } from "../utils";
 import { isTimeZone } from "../dates";
@@ -23,6 +24,7 @@ import type {
   ViewCalendar,
   ViewDefinition,
   ViewField,
+  ViewGallery,
 } from "./types";
 
 // Facts a contract may carry from `@genesis` comments. Read loosely so a contract emitted before
@@ -181,6 +183,35 @@ export function boardChoices(field: Pick<FieldSchema, "type" | "array" | "enumVa
   if (field.enumValues?.length) return field.enumValues;
   if (field.type === "boolean") return ["true", "false"];
   return undefined;
+}
+
+/** A gallery block's keys: anything else in one is a mistake `defineView` names. */
+const GALLERY_KEYS: readonly string[] = ["image", "width", "height", "caption", "alt", "rowHeight"];
+
+/**
+ * What's wrong with a gallery block for these fields, one sentence each (empty when it's fine).
+ *
+ * @stability Beta
+ */
+export function galleryProblems(fields: readonly Pick<FieldSchema, "name" | "type" | "array">[], gallery: Partial<ViewGallery>): string[] {
+  const problems: string[] = [];
+  const byName = new Map(fields.map((f) => [f.name, f]));
+  const named = (key: "image" | "width" | "height" | "caption" | "alt", type?: "string" | "number") => {
+    const name = gallery[key];
+    if (name === undefined) return;
+    const field = byName.get(name);
+    if (!field) problems.push(`gallery.${key} names "${name}", which isn't a field`);
+    else if (type && (field.type !== type || field.array)) problems.push(`gallery.${key} "${name}" is a ${field.array ? "list" : field.type}, not a ${type === "string" ? "text" : "number"} field`);
+  };
+  named("image", "string");
+  named("width", "number");
+  named("height", "number");
+  named("caption");
+  named("alt");
+  if ((gallery.width === undefined) !== (gallery.height === undefined)) problems.push("gallery.width and gallery.height go together: a ratio needs both");
+  const { rowHeight } = gallery;
+  if (rowHeight !== undefined && !(typeof rowHeight === "number" && Number.isFinite(rowHeight) && rowHeight > 0)) problems.push(`gallery.rowHeight is a height above 0, not ${String(rowHeight)}`);
+  return problems;
 }
 
 /**
@@ -379,6 +410,18 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
         ...(given.limits ? { limits: Object.freeze({ ...given.limits }) } : {}),
       });
       problems.push(...boardProblems(fields, board));
+    }
+  }
+  const rawGallery = definition.gallery as unknown;
+  let gallery: Readonly<ViewGallery> | undefined;
+  if (rawGallery !== undefined) {
+    if (!rawGallery || typeof rawGallery !== "object" || Array.isArray(rawGallery)) {
+      problems.push("gallery isn't an object");
+    } else {
+      for (const key of Object.keys(rawGallery)) if (!GALLERY_KEYS.includes(key)) problems.push(`gallery.${key} isn't a gallery setting`);
+      if ((rawGallery as { image?: unknown }).image === undefined) problems.push("gallery.image is required");
+      gallery = Object.freeze({ ...(rawGallery as ViewGallery) });
+      problems.push(...galleryProblems(fields, gallery));
     }
   }
   if (definition.orderBy) known(definition.orderBy.field, "orderBy");
@@ -602,6 +645,32 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     return { title: value === null || value === undefined || value === "" ? titleCase(noun) : String(value) };
   };
 
+  const galleryItem = (row: Row, override?: Partial<ViewGallery>): GalleryItem | undefined => {
+    const block = { ...gallery, ...override };
+    if (!block.image) return undefined;
+    const src = row[block.image];
+    if (typeof src !== "string" || !src) return undefined;
+    const number = (name: string | undefined) => {
+      const value = name ? Number(row[name]) : NaN;
+      return Number.isFinite(value) && value > 0 ? value : undefined;
+    };
+    const text = (name: string | undefined) => {
+      const value = name ? row[name] : undefined;
+      return value === null || value === undefined || value === "" ? undefined : String(value);
+    };
+    const width = number(block.width);
+    const height = number(block.height);
+    const caption = text(block.caption);
+    const alt = text(block.alt) ?? summary(row).title;
+    return {
+      id: String(encodeRecordKey(contract, row as DataRow)),
+      src,
+      alt,
+      ...(width !== undefined && height !== undefined ? { width, height } : {}),
+      ...(caption !== undefined ? { caption } : {}),
+    };
+  };
+
   return Object.freeze({
     contract,
     definition: Object.freeze({
@@ -614,6 +683,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       ...(definition.actions ? { actions: actionList } : {}),
       ...(calendar ? { calendar } : {}),
       ...(board ? { board } : {}),
+      ...(gallery ? { gallery } : {}),
     }) as Readonly<ViewDefinition<C, Row>>,
     resource: contract.name,
     noun,
@@ -633,5 +703,6 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     actions: () => resolvedActions,
     canAction,
     summary,
+    galleryItem,
   });
 }

@@ -631,6 +631,12 @@
           "use": "Rating",
           "import": "@marktiderman/genesis-ui",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md"
+        },
+        {
+          "need": "a photo gallery over a list (a photo per record, in justified rows)",
+          "use": "the view's gallery block (defineView) rendered by <ResourceView mode=\"grid\">; GalleryGrid for photos that aren't records (attachments, uploads)",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#gallery"
         }
       ]
     }
