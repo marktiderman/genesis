@@ -513,8 +513,9 @@ export interface ResourceView<C extends ResourceContract = ResourceContract, Row
   summary(row: Row): RowSummary;
   /**
    * The row as a gallery photo, by the view's `gallery` block and any `override` a screen passes
-   * (ResourceView's `gallery`): undefined without an image. Its `id` is the row's key, its `alt` the
-   * row's label unless the block names a field.
+   * (ResourceView's `gallery`): undefined without a gallery block. Its `id` is the row's key, its
+   * `alt` the row's label unless the block names a field; a row without an image has an empty `src`,
+   * which GalleryGrid and NativeGalleryGrid draw as a placeholder tile.
    */
   galleryItem(row: Row, override?: Partial<ViewGallery>): GalleryItem | undefined;
 }

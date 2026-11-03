@@ -648,8 +648,9 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   const galleryItem = (row: Row, override?: Partial<ViewGallery>): GalleryItem | undefined => {
     const block = { ...gallery, ...override };
     if (!block.image) return undefined;
-    const src = row[block.image];
-    if (typeof src !== "string" || !src) return undefined;
+    // A row without an image is still a photo: an empty `src`, which the grids draw as a placeholder.
+    const image = row[block.image];
+    const src = typeof image === "string" ? image : "";
     const number = (name: string | undefined) => {
       const value = name ? Number(row[name]) : NaN;
       return Number.isFinite(value) && value > 0 ? value : undefined;

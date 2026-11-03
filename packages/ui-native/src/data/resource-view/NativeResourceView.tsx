@@ -126,7 +126,7 @@ export interface NativeResourceViewProps<T extends Row = Row> extends NativeReso
   /**
    * With `mode="grid"`: overrides the view's `gallery` block, or adds one. With a gallery, grid mode
    * draws a photo per row in justified rows (NativeGalleryGrid, the web's layout) in place of
-   * cards; a row without an image isn't drawn, and a press opens the row as a card's does.
+   * cards; a row without an image is a placeholder tile, and a press opens the row as a card's does.
    */
   gallery?: Partial<ViewGallery>;
   /**
@@ -701,7 +701,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
   const { formFields } = state;
   const createFields = useMemo(() => formFields("create"), [formFields]);
   const editFields = useMemo(() => formFields("edit"), [formFields]);
-  // A gallery block draws grid mode as photos: every loaded row with an image, in order.
+  // A gallery block draws grid mode as photos: every loaded row, in order (no image: a placeholder).
   const galleryKey = JSON.stringify(screenGallery ?? null);
   const photos = useMemo(() => {
     if (!grid || !(view.definition.gallery || screenGallery?.image)) return null;

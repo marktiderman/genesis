@@ -17,8 +17,8 @@ type GridProps<T> = ComponentProps<typeof DataGrid<T>>;
 
 /**
  * A ResourcePage grid slot that draws the grid view as a gallery: the table and list views pass
- * through to DataGrid untouched. A row without an image isn't drawn in the gallery (the table and
- * list still show it). Clicking a photo opens the row, as clicking a card does.
+ * through to DataGrid untouched. A row without an image is a placeholder tile (an empty `src`), so
+ * the gallery draws every row the count says. Clicking a photo opens the row, as clicking a card does.
  */
 export function galleryGridSlot<T extends Row>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here

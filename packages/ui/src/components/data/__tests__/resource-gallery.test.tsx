@@ -2,7 +2,7 @@
 /**
  * ResourceView `mode="grid"` over a view's `gallery` block: a photo per row in GalleryGrid's
  * justified rows, in place of cards.
- * - rows become photos through `view.galleryItem` (a row without an image isn't drawn);
+ * - rows become photos through `view.galleryItem` (a row without an image is a placeholder);
  * - clicking a photo opens the row's peek, as clicking a card does;
  * - the table view is untouched, and a screen's own grid slot still wins;
  * - a screen's `gallery` overrides the view's block, or adds one.
@@ -62,12 +62,12 @@ function wrap(p: DataProvider) {
 const tiles = () => Array.from(document.querySelectorAll<HTMLElement>('[data-slot="gallery-tile"]'));
 
 describe("ResourceView gallery", () => {
-  it("draws a photo per row with an image, in justified rows, in place of cards", async () => {
+  it("draws a photo per row, in justified rows, in place of cards; a row without an image is still a tile", async () => {
     localStorage.clear();
     render(<ResourceView view={view} mode="grid" />, { wrapper: wrap(provider()) });
-    await waitFor(() => expect(tiles()).toHaveLength(2));
+    await waitFor(() => expect(tiles()).toHaveLength(3));
     expect(screen.getByTestId("resource-gallery").querySelector('[data-layout="justified"]')).not.toBeNull();
-    expect(tiles().map((t) => t.getAttribute("aria-label"))).toEqual(["Harbour", "Ridge"]);
+    expect(tiles().map((t) => t.getAttribute("aria-label"))).toEqual(["Harbour", "Ridge", "Not shot yet"]);
     expect(document.querySelector("img")?.getAttribute("src")).toBe("https://example.test/p1.jpg");
     expect(screen.queryByTestId("resource-card")).toBeNull();
   });
@@ -75,7 +75,7 @@ describe("ResourceView gallery", () => {
   it("opens the row's peek when a photo is clicked", async () => {
     localStorage.clear();
     render(<ResourceView view={view} mode="grid" />, { wrapper: wrap(provider()) });
-    await waitFor(() => expect(tiles()).toHaveLength(2));
+    await waitFor(() => expect(tiles()).toHaveLength(3));
     fireEvent.click(tiles()[1]!);
     expect(await screen.findByText("Hills")).toBeTruthy();
   });
@@ -99,7 +99,7 @@ describe("ResourceView gallery", () => {
     localStorage.clear();
     const plain = defineView(photos, { columns: { default: ["title"] } });
     render(<ResourceView view={plain} mode="grid" gallery={{ image: "url", alt: "place" }} />, { wrapper: wrap(provider()) });
-    await waitFor(() => expect(tiles()).toHaveLength(2));
-    expect(tiles().map((t) => t.getAttribute("aria-label"))).toEqual(["Bay", "Hills"]);
+    await waitFor(() => expect(tiles()).toHaveLength(3));
+    expect(tiles().map((t) => t.getAttribute("aria-label"))).toEqual(["Bay", "Hills", "Town"]);
   });
 });

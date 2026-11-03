@@ -2,7 +2,7 @@
 /**
  * NativeResourceView `mode="grid"` over a view's `gallery` block: a photo per row in
  * NativeGalleryGrid's justified rows (the web's layout, from genesis-core), in place of cards.
- * - a row without an image isn't drawn; a press opens the row (onRowPress, else the peek);
+ * - a row without an image is still a tile; a press opens the row (onRowPress, else the peek);
  * - list mode and a view without a gallery keep their cards and rows;
  * - a screen's `gallery` overrides the view's block, or adds one.
  */
@@ -74,7 +74,7 @@ describe("NativeResourceView gallery", () => {
     await measured();
     await waitFor(() => expect(tile("p1")).not.toBeNull());
     expect(tile("p2")).not.toBeNull();
-    expect(tile("p3")).toBeNull();
+    expect(tile("p3")).not.toBeNull();
     expect(screen.queryByTestId("native-resource-view-list")).toBeNull();
   });
 
@@ -107,6 +107,6 @@ describe("NativeResourceView gallery", () => {
     render(<NativeResourceView view={plain} mode="grid" gallery={{ image: "url" }} />, { wrapper: wrap(provider()) });
     await measured();
     await waitFor(() => expect(tile("p1")).not.toBeNull());
-    expect(tile("p3")).toBeNull();
+    expect(tile("p3")).not.toBeNull();
   });
 });

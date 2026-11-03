@@ -55,9 +55,9 @@ describe("view.galleryItem", () => {
     expect(view.galleryItem(row())).toEqual({ id: "p1", src: "https://example.test/p1.jpg", alt: "Harbour", width: 1600, height: 900, caption: "At dawn" });
   });
 
-  it("is undefined without an image, or without a gallery block", () => {
-    expect(view.galleryItem(row({ url: null }))).toBeUndefined();
-    expect(view.galleryItem(row({ url: "" }))).toBeUndefined();
+  it("keeps a row without an image, with an empty src (a placeholder tile); undefined without a block", () => {
+    expect(view.galleryItem(row({ url: null }))).toMatchObject({ id: "p1", src: "", alt: "Harbour", caption: "At dawn" });
+    expect(view.galleryItem(row({ url: "" }))).toMatchObject({ src: "" });
     expect(defineView(photos).galleryItem(row())).toBeUndefined();
   });
 

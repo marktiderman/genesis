@@ -738,7 +738,8 @@ export const photosView = defineView(contracts["public.photos"], {
 - **What stays the list's:** paging, search, filters, the peek and the table and list views. Only
   the grid view changes, through ResourcePage's grid slot, so a screen's own `slots.grid` still
   wins. Pressing a photo opens the row as pressing a card does (the peek, or `onRowPress`).
-- **A row without an image** isn't drawn in the gallery; the table and list views still show it.
+- **A row without an image** is a placeholder tile (its `GalleryItem` has an empty `src`) showing
+  its label and caption, so the gallery draws every row the count says.
 - `view.galleryItem(row)` is the row as a `GalleryItem` (its key as `id`), for a screen that hands
   the same photos to a `Lightbox`.
 - **Not yet:** selecting photos, and a pull to refresh on the phone's gallery. GalleryGrid stays
