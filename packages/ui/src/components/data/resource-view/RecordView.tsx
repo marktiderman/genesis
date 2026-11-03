@@ -96,6 +96,9 @@ export interface RecordViewProps<T extends Row = Row> {
  * <RecordView view={brandRecordView} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />
  * ```
  */
+
+/** The settings save shows its own failures (inline, or in the conflict sheet), so useResource doesn't log them too. */
+const alreadyShown = () => {};
 export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
   const { view: recordView, row, section, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, sectionIcons, settingsLocked, testID = "resource-workspace" } = props;
   const record = row as T & DataRow;
@@ -314,7 +317,7 @@ function SettingsForm({
 
   const queryClient = useQueryClient();
   // The resource's own update; the list and record reads are the page's, so this one reads nothing.
-  const { update } = useResource<DataRow & BaseRecord>(view.resource, { enabled: false });
+  const { update } = useResource<DataRow & BaseRecord>(view.resource, { enabled: false, onError: alreadyShown });
   // A save that met someone else's change, and the values it tried to save.
   const [conflict, setConflict] = useState<{ conflict: WriteConflict; values: Values; row: DataRow } | null>(null);
   const save = useWrite(

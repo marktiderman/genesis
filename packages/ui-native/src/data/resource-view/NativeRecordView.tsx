@@ -160,6 +160,9 @@ const A11Y_PREFIX = "action:";
  * (ActionSheetIOS, destructive ones in red); elsewhere a sheet of rows, since Android's alert
  * shows at most three buttons. A refused action stays listed and explains why when pressed.
  */
+
+/** The settings save shows its own failures (inline, or in the conflict sheet), so useResource doesn't log them too. */
+const alreadyShown = () => {};
 export function NativeRecordViewMenu<T extends Row = Row>(props: NativeRecordViewHeaderProps<T> & { testID?: string }) {
   const { testID = "native-resource-workspace-menu" } = props;
   const { actions, press, pending, words } = useHeaderActions(props);
@@ -540,7 +543,7 @@ function SettingsGroup({
   };
   const queryClient = useQueryClient();
   // The resource's own update; the record's reads are the screen's, so this one reads nothing.
-  const { update } = useResource<DataRow & BaseRecord>(view.resource, { enabled: false });
+  const { update } = useResource<DataRow & BaseRecord>(view.resource, { enabled: false, onError: alreadyShown });
   // A save that met someone else's change, and the values it tried to save.
   const [conflict, setConflict] = useState<{ conflict: WriteConflict; values: Values; row: DataRow; message: string } | null>(null);
   const lastFailure = useRef<string | null>(null);
