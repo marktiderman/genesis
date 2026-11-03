@@ -10,19 +10,25 @@
 --      app SQL keep working. Foreign-key columns keep `report_id` for now.
 --   2. tickets.tenant_id and support_ideas.tenant_id: the tenant is whatever the app's
 --      private.genesis_viewer_people hook returns (0016): one fixed id in a single-tenant app,
---      one per organization in a multi-tenant one. New rows get it from the value sent (checked),
---      else the viewer's only tenant, else the app's default tenant. Existing rows are filled in
+--      one per organization in a multi-tenant one. A new row takes the tenant the client sends
+--      (checked: the sender is in it and its help desk is on), else the app's default tenant;
+--      nothing is guessed from the sender's memberships. Existing rows are filled in
 --      from the app's optional private.genesis_support_tenant_for(report) hook, else the default.
 --   3. Agents: public.ticket_agents (tenant, person). An agent of a tenant, a tenant admin, or,
 --      in the default tenant only, whoever the app's staff hook names, handles that tenant's
 --      tickets. Platform staff therefore see the app's own tickets and no one else's.
 --   4. Reading and handling stay two checks: a ticket's requester reads it but never handles it.
+--      The app's report-handler hook (0003) answers only for the app's own tickets.
+--   5. The help desk is opt-in per tenant: a business takes tickets once `support-helpdesk` is
+--      enabled for it in genesis-supabase 0004's tenant_features. The default tenant always is.
+--   6. Screenshots: who may read one is decided by its ticket row (its tenant and handlers), never
+--      by the storage path, so paths keep their `<user>/<ticket>/<file>` shape.
 --
 -- Your app answers through these hooks (Genesis never defines them):
 --
 --   private.genesis_support_default_tenant() returns uuid                   (required, before 0004)
 --     The app's own tenant: where its own support lives, and where a ticket goes when the
---     sender's tenant isn't known. A single-tenant app returns its one tenant id.
+--     client names none. A single-tenant app returns its one tenant id.
 --   private.genesis_support_tenant_for(report uuid) returns uuid           (optional)
 --     For existing rows only: which tenant an old report belongs to.
 --   private.genesis_viewer_people(viewer uuid) returns table (tenant_id uuid, person_id uuid)
@@ -378,12 +384,15 @@ set search_path = ''
 as $$
 declare
   tenant uuid;
+  requester uuid;
 begin
   if person is null or report is null then
     return false;
   end if;
-  select t.tenant_id into tenant from public.tickets t where t.id = report;
-  if tenant is null then
+  select t.tenant_id, t.user_id into tenant, requester from public.tickets t where t.id = report;
+  -- The requester never handles their own ticket, even when they are an agent of its tenant:
+  -- another agent answers it.
+  if tenant is null or person = requester then
     return false;
   end if;
   if private.genesis_support_agent(tenant, person) then

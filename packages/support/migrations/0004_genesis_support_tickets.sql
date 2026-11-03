@@ -384,12 +384,15 @@ set search_path = ''
 as $$
 declare
   tenant uuid;
+  requester uuid;
 begin
   if person is null or report is null then
     return false;
   end if;
-  select t.tenant_id into tenant from public.tickets t where t.id = report;
-  if tenant is null then
+  select t.tenant_id, t.user_id into tenant, requester from public.tickets t where t.id = report;
+  -- The requester never handles their own ticket, even when they are an agent of its tenant:
+  -- another agent answers it.
+  if tenant is null or person = requester then
     return false;
   end if;
   if private.genesis_support_agent(tenant, person) then

@@ -11,7 +11,7 @@
 -- f6 the app's staff; d7 a client of both ta and tb; c9 the admin of ta.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(53);
+select plan(57);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -294,6 +294,34 @@ select is((select tenant_id from public.tickets where title = 'Off'), pg_temp.te
 select is((select tenant_id from public.support_ideas where title = 'An idea from b2'), pg_temp.tenant('d'),
           'an idea goes to the app''s own board unless a business is named');
 select is(public.support_default_tenant(), pg_temp.tenant('d'), 'clients can ask for the app''s own tenant');
+
+-- An agent who files a ticket doesn't handle it -------------------------------------------------
+create or replace function private.genesis_viewer_people(viewer uuid)
+returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
+  select '00000000-0000-4000-8000-0000000000b0'::uuid, replace(viewer::text, '-0000000004', '-0000000005')::uuid
+   where viewer in ('00000000-0000-4000-8000-0000000004e5'::uuid, '00000000-0000-4000-8000-0000000004b2'::uuid) $$;
+update public.tenant_features set enabled = true where tenant_id = pg_temp.tenant('tb') and feature_id = 'support-helpdesk';
+select pg_temp.sign_in('e5');
+set local role authenticated;
+insert into public.tickets (type, title, message, tenant_id) values ('bug', 'E5 files one', 'Broken', pg_temp.tenant('tb'));
+select ok(not public.support_handles((select id from public.tickets where title = 'E5 files one')),
+          'an agent who files a ticket in their own business does not handle it');
+select throws_ok($$ select public.support_set_report_status((select id from public.tickets where title = 'E5 files one'), 'addressed') $$,
+                 '42501', null, '... nor sets its status');
+reset role;
+
+-- A solo user with only a personal tenant -------------------------------------------------------
+create or replace function private.genesis_viewer_people(viewer uuid)
+returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
+  select '00000000-0000-4000-8000-0000000000c0'::uuid, viewer where viewer = '00000000-0000-4000-8000-0000000004d7'::uuid $$;
+select pg_temp.sign_in('d7');
+set local role authenticated;
+insert into public.tickets (type, title, message) values ('question', 'Solo asks', 'Hello');
+select throws_ok($$ insert into public.tickets (type, title, message, tenant_id) values ('question', 'Solo to self', 'x', '00000000-0000-4000-8000-0000000000c0') $$,
+                 '42501', 'support: the help desk is off here', 'a personal tenant has no help desk, so it takes no tickets');
+reset role;
+select is((select tenant_id from public.tickets where title = 'Solo asks'), pg_temp.tenant('d'),
+          'a solo user''s ticket goes to the app''s own support, never their personal tenant');
 
 select * from finish();
 rollback;
