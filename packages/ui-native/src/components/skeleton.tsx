@@ -7,6 +7,7 @@
  *
  * @stability Stable
  */
+import { MOTION_DURATIONS } from "@marktiderman/genesis-design-system/tokens/motion";
 import { useEffect, useRef } from "react";
 import { Animated, Easing } from "react-native";
 import { cn } from "../utils";
@@ -27,7 +28,8 @@ export interface NativeSkeletonProps {
   testID?: string;
 }
 
-const PULSE_MS = 1000;
+// The shared motion tokens: one pulse cycle.
+const PULSE_MS = MOTION_DURATIONS.pulse;
 const LOW = 0.3;
 const HIGH = 1;
 // Held still under Reduce Motion (visual-regression flow

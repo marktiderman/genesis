@@ -19,6 +19,7 @@ export default defineConfig({
     "src/index.native.ts",
     "src/tokens/index.ts",
     "src/tokens/native.ts",
+    "src/tokens/motion.ts",
     "src/providers/native.ts",
     "src/presets/tailwind.ts",
     "src/presets/nativewind.ts",
