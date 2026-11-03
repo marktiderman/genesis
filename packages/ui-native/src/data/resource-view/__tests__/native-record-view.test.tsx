@@ -12,7 +12,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { ActionSheetIOS, Alert, Platform } from "react-native";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineResource, GenesisProvider, ViewerScope, type DataProvider, type ListParams, type Viewer } from "@marktiderman/genesis-core";
+import { DataWriteError, defineResource, GenesisProvider, ViewerScope, type DataProvider, type ListParams, type Viewer } from "@marktiderman/genesis-core";
 import { defineView, defineRecordView } from "@marktiderman/genesis-core/resource-view";
 import { getNativeRecordViewStackOptions, NativeRecordView, NativeRecordViewMenu, parseSettingNumber } from "..";
 
@@ -280,6 +280,45 @@ describe("NativeRecordView", () => {
     );
     expect(screen.queryByTestId("native-resource-workspace-scroll")).toBeNull();
     expect(within(screen.getByTestId("own-list")).getByTestId("native-resource-workspace-sections")).toBeTruthy();
+  });
+
+  it("a conflict opens the conflict sheet: theirs above mine, then keep mine at the new version", async () => {
+    let calls = 0;
+    const update = vi.fn(async (_r: string, params: { id: unknown; data: unknown; expectedVersion?: string }) => {
+      calls += 1;
+      if (calls === 1) {
+        throw new DataWriteError("conflict", "Someone else changed this brand after you opened it.", {
+          current: { ...brand, website: "https://theirs.example" },
+          currentVersion: "7",
+        });
+      }
+      return { data: { ...brand, ...(params.data as object) } };
+    });
+    const p = provider({ update: update as unknown as DataProvider["update"] });
+    render(<NativeRecordView view={page} row={brand} section="settings" />, { wrapper: wrap(p) });
+    fireEvent.change(screen.getByTestId("native-resource-workspace-settings-website-input"), { target: { value: "https://mine.example" } });
+    fireEvent.click(screen.getByTestId("native-resource-workspace-settings-save"));
+    const field = await screen.findByTestId("native-resource-workspace-settings-conflict-field-website");
+    expect(field.textContent).toMatch(/Theirs.*theirs\.example.*Yours.*mine\.example/);
+    expect(screen.queryByTestId("native-resource-workspace-settings-refusal")).toBeNull();
+    fireEvent.click(screen.getByTestId("native-resource-workspace-settings-conflict-keep-mine"));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+    expect(update.mock.calls[1]![1]).toMatchObject({ data: { website: "https://mine.example" }, expectedVersion: "7" });
+  });
+
+  it("take theirs drops the section's edits", async () => {
+    const update = vi.fn(async () => {
+      throw new DataWriteError("conflict", "x", { current: { ...brand, website: "https://theirs.example" }, currentVersion: "7" });
+    });
+    const p = provider({ update: update as unknown as DataProvider["update"] });
+    render(<NativeRecordView view={page} row={brand} section="settings" />, { wrapper: wrap(p) });
+    const input = screen.getByTestId("native-resource-workspace-settings-website-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "https://mine.example" } });
+    fireEvent.click(screen.getByTestId("native-resource-workspace-settings-save"));
+    fireEvent.click(await screen.findByTestId("native-resource-workspace-settings-conflict-take-theirs"));
+    await waitFor(() => expect(screen.queryByTestId("native-resource-workspace-settings-conflict-field-website")).toBeNull());
+    expect((screen.getByTestId("native-resource-workspace-settings-website-input") as HTMLInputElement).value).toBe("");
+    expect(update).toHaveBeenCalledTimes(1);
   });
 
   it("shows a zero-row save as a refusal, inline", async () => {

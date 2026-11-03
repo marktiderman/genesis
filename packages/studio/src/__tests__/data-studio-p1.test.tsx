@@ -213,8 +213,32 @@ describe("DataStudio P1", () => {
     await act(async () => {
       fireEvent.click(within(panel).getByTestId("studio-edit-submit"));
     });
-    expect((await within(panel).findByTestId("studio-record-conflict")).textContent).toMatch(/someone else changed this row/);
+    // Theirs beside mine, theirs first; the form keeps what was typed until a choice is made.
+    const sheet = await screen.findByTestId("studio-record-conflict-sheet");
+    const row = within(sheet).getByTestId("studio-record-conflict-sheet-field-name");
+    expect(row.textContent).toMatch(/Changed elsewhere.*Mine/);
+    expect((within(panel).getByLabelText(/^name/) as HTMLInputElement).value).toBe("Mine");
+    fireEvent.click(within(sheet).getByTestId("studio-record-conflict-sheet-take-theirs"));
     await waitFor(() => expect((within(panel).getByLabelText(/^name/) as HTMLInputElement).value).toBe("Changed elsewhere"));
+  });
+
+  it("keeps mine after a conflict: saves again at the version the conflict reported", async () => {
+    const { provider, db, calls } = makeProvider();
+    await openClients(provider, { record: "c2" });
+    const panel = await screen.findByTestId("studio-record-panel");
+    const name = await within(panel).findByLabelText(/^name/);
+    Object.assign(db["public.clients"]![1]!, { name: "Changed elsewhere", updated_at: "v9" });
+    fireEvent.change(name, { target: { value: "Mine" } });
+    await act(async () => {
+      fireEvent.click(within(panel).getByTestId("studio-edit-submit"));
+    });
+    const sheet = await screen.findByTestId("studio-record-conflict-sheet");
+    await act(async () => {
+      fireEvent.click(within(sheet).getByTestId("studio-record-conflict-sheet-keep-mine"));
+    });
+    await waitFor(() => expect(db["public.clients"]![1]!.name).toBe("Mine"));
+    const updates = calls.filter((c) => c.op === "update");
+    expect((updates.at(-1)!.args as { expectedVersion?: string }).expectedVersion).toBe("v9");
   });
 
   it("lists related records and follows a link to one", async () => {

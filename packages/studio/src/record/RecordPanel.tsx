@@ -5,13 +5,16 @@ import type { BaseRecord, DataProvider } from "@marktiderman/genesis-core/provid
 import {
   encodeRecordKey,
   isDataWriteError,
+  writeConflict,
   type AuditEntry,
+  type WriteConflict,
   type ResourceRelation,
   type ResourceSchema,
   type RowAction,
 } from "@marktiderman/genesis-core/schema";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@marktiderman/genesis-ui/alert";
+import { ConflictSheet } from "@marktiderman/genesis-ui/data";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,28 +74,40 @@ export function RecordPanel(props: RecordPanelProps) {
     queryFn: async () => (await provider.getOne<BaseRecord>(schema.name, { id })).data as Record<string, unknown>,
   });
   const [conflict, setConflict] = useState<string | null>(null);
+  // An edit that met someone else's change: theirs beside it, until the person chooses.
+  const [editConflict, setEditConflict] = useState<{ conflict: WriteConflict; values: Record<string, unknown> } | null>(null);
   const [copied, setCopied] = useState(false);
   const row = record.data;
   const title = row ? (displayText(row[schema.labelField ?? ""]) ?? id) : id;
   const editable = useMemo(() => new Set(schema.fields.filter((f) => f.permissions?.update).map((f) => f.name)), [schema]);
   const relations = schema.relations ?? [];
 
-  async function save(values: Record<string, unknown>) {
+  /** Show their row in the form, at its new version. */
+  function showTheirs(current: Record<string, unknown>, currentVersion: string | null | undefined) {
+    queryClient.setQueryData(recordKey, {
+      ...row,
+      ...current,
+      ...(schema.version ? { [schema.version.field]: currentVersion ?? null } : {}),
+    });
+  }
+
+  async function save(values: Record<string, unknown>, expectedVersion?: string | null) {
     setConflict(null);
+    setEditConflict(null);
     try {
-      const result = await provider.update<BaseRecord>(schema.name, { id, data: values as never, expectedVersion: versionOf(schema, row) });
+      const result = await provider.update<BaseRecord>(schema.name, {
+        id,
+        data: values as never,
+        expectedVersion: expectedVersion !== undefined ? expectedVersion : versionOf(schema, row),
+      });
       queryClient.setQueryData(recordKey, result.data);
       props.onSaved(result.data as Record<string, unknown>, result.audit);
     } catch (error) {
       if (isDataWriteError(error) && error.outcome === "conflict") {
-        setConflict(error.message);
-        if (error.current) {
-          queryClient.setQueryData(recordKey, {
-            ...row,
-            ...error.current,
-            ...(schema.version ? { [schema.version.field]: error.currentVersion ?? null } : {}),
-          });
-        } else {
+        const found = writeConflict(error, values);
+        if (found) setEditConflict({ conflict: found, values });
+        else {
+          setConflict(error.message);
           void record.refetch();
         }
       }
@@ -243,6 +258,22 @@ export function RecordPanel(props: RecordPanelProps) {
             <AlertDescription>{conflict} The form now shows the row as it is.</AlertDescription>
           </Alert>
         )}
+        <ConflictSheet
+          conflict={editConflict?.conflict ?? null}
+          noun={schema.label?.toLowerCase() ?? "record"}
+          label={(name) => schema.fields.find((f) => f.name === name)?.label ?? name}
+          onKeepMine={async () => {
+            if (!editConflict) return;
+            await save(editConflict.values, editConflict.conflict.currentVersion).catch(() => undefined);
+          }}
+          onTakeTheirs={() => {
+            if (!editConflict) return;
+            showTheirs(editConflict.conflict.theirs, editConflict.conflict.currentVersion);
+            setEditConflict(null);
+          }}
+          onDismiss={() => setEditConflict(null)}
+          testID="studio-record-conflict-sheet"
+        />
 
         {record.isError ? (
           <Alert variant="destructive" className="mt-4">

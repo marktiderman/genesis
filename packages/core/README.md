@@ -213,6 +213,30 @@ createSupabaseProvider(supabase, {
 - A recycle-bin table checks the version before the delete (a binned delete can't carry the
   check), so a change landing between that check and the delete isn't caught.
 
+#### Showing a conflict
+
+A conflict is a choice for the person, not just an error. `writeConflict(error, mine)` turns a
+`conflict` into a `WriteConflict`: `theirs` (the row as it is now), `mine` (what the save tried),
+`fields` (the ones that differ) and `currentVersion`. `useResourceForm` keeps one as `conflict`,
+with `keepMine()` (the same values again, at `currentVersion`), `takeTheirs()` and
+`dismissConflict()`. `ConflictSheet` (genesis-ui) and `NativeConflictSheet` (genesis-ui-native)
+show it, theirs first; `ResourceForm`, `RecordView`'s settings sections and Data Studio's record
+panel open it themselves.
+
+```ts
+import { DataWriteError, writeConflict } from "@marktiderman/genesis-core";
+
+const error = new DataWriteError("conflict", "Someone else changed this task.", {
+  current: { id: "t1", title: "Theirs", version: 5 },
+  currentVersion: "5",
+});
+const conflict = writeConflict(error, { title: "Mine" });
+// conflict?.fields is ["title"]; send "keep mine" with expectedVersion: conflict.currentVersion.
+```
+
+`WriteState` (`pending`, `sending`, `paused`, `failed`, `conflict`) is the one shape for showing
+where a write stands, on a row or a form.
+
 ### Races, and what the read-back can't tell you
 
 - A read-back runs after the write, so it reports what is true then. If

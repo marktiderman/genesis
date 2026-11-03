@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
+import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, writeConflict, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
 import { readinessChip, type ReadinessLabels } from "@marktiderman/genesis-core/resource";
 import { sameFormValue, type Allowed, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
@@ -23,6 +23,7 @@ import { NativeInput } from "../../components/input";
 import { NativeListItem } from "../../components/list-item";
 import { NativeSegmentedControl } from "../../components/segmented-control";
 import { NativeSheet } from "../../components/sheet";
+import { NativeConflictSheet } from "../NativeConflictSheet";
 import { NativeSelect, NativeSelectContent, NativeSelectItem, NativeSelectTrigger } from "../../components/select";
 import { NativeSwitch } from "../../components/switch";
 import { NativeText } from "../../components/text";
@@ -524,25 +525,43 @@ function SettingsGroup({
     setInvalid(({ [key]: _old, ...rest }) => (error ? { ...rest, [key]: error } : rest));
     setEdits((d) => ({ ...d, [key]: value }));
   };
-  const save = async () => {
+  const queryClient = useQueryClient();
+  // A save that met someone else's change, and the values it tried to save.
+  const [conflict, setConflict] = useState<{ conflict: WriteConflict; values: Values } | null>(null);
+  const save = async (values: Values = changed, expectedVersion?: string) => {
     setSaving(true);
     setRefusal(null);
+    // Only the section's listed keys, never anything else the row or draft holds.
+    const data = recordView.settingsPatch(sectionId, values);
     try {
-      // Only the section's listed keys, never anything else the row or draft holds.
-      const version = versionField ? row[versionField] : undefined;
+      const version = expectedVersion ?? (versionField ? row[versionField] : undefined);
       const result = await provider.update(view.resource, {
         id: recordView.recordId(row),
-        data: recordView.settingsPatch(sectionId, changed),
+        data,
         ...(version != null ? { expectedVersion: String(version) } : {}),
       });
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) setRefusal(fill(words.notChanged, { noun: view.noun }));
       else onSaved(result.data as DataRow);
     } catch (error) {
-      setRefusal(refusalMessage(error, words.failed));
+      const found = writeConflict(error, data);
+      if (found) setConflict({ conflict: found, values });
+      else setRefusal(refusalMessage(error, words.failed));
     } finally {
       setSaving(false);
     }
+  };
+  const keepMine = async () => {
+    if (!conflict) return;
+    const { values, conflict: c } = conflict;
+    setConflict(null);
+    await save(values, c.currentVersion ?? undefined);
+  };
+  const takeTheirs = () => {
+    setConflict(null);
+    setEdits({});
+    // The record refetches, so the fields show their change.
+    void queryClient.invalidateQueries({ queryKey: [...resourceKeys(view.resource).all] });
   };
 
   return (
@@ -570,6 +589,15 @@ function SettingsGroup({
           {words.save}
         </NativeButton>
       ) : null}
+      <NativeConflictSheet
+        conflict={conflict?.conflict ?? null}
+        noun={view.noun}
+        label={(key) => fields.find((f) => f.key === key)?.label ?? key}
+        onKeepMine={keepMine}
+        onTakeTheirs={takeTheirs}
+        onDismiss={() => setConflict(null)}
+        testID={`${testID}-conflict`}
+      />
     </View>
   );
 }

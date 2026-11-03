@@ -10,6 +10,8 @@ import type { ResourceFormFieldDef, FieldType } from "../form-types";
 import type { BaseRecord, InvalidationKey } from "../provider/types";
 import { relatedKeys } from "./related-keys";
 import { isDataWriteError } from "../schema/write-outcome";
+import { writeConflict, type WriteConflict } from "../schema/write-state";
+import { patchCachedRow } from "./live-cache";
 import {
   cachedRecord,
   executeWrite,
@@ -124,6 +126,18 @@ export interface UseResourceFormReturn {
    * `window.confirm` otherwise.
    */
   confirmLeave: () => boolean;
+  /**
+   * Set when a save met someone else's change (a versioned resource's
+   * `conflict`): their row beside what this form tried to save. Show it with
+   * ConflictSheet; null otherwise.
+   */
+  conflict: WriteConflict | null;
+  /** Save this form's values over theirs, at the version the conflict reported. */
+  keepMine: () => Promise<void>;
+  /** Drop this form's changes and show their row. */
+  takeTheirs: () => void;
+  /** Close the conflict without choosing: the form keeps its unsaved values. */
+  dismissConflict: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -695,8 +709,12 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
   );
 
   // Submit handler
-  const handleSubmit = useCallback(
-    async (submitted: Record<string, unknown>) => {
+  // A save that met someone else's change, and the values it tried to save.
+  const [conflictState, setConflictState] = useState<{ conflict: WriteConflict; submitted: Record<string, unknown> } | null>(null);
+
+  const save = useCallback(
+    async (submitted: Record<string, unknown>, expectedVersion?: string) => {
+      setConflictState(null);
       // What the form shows as this save goes out (raw input values, before
       // any resolver coercion), to tell later whether it still does.
       const shown = structuredCloneSafe(form.getValues());
@@ -755,6 +773,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
           // The record the form shows: its version is the one this edit is checked against, even
           // when the cache has since refetched a newer one.
           ...(action === "edit" && effectiveData ? { base: effectiveData as BaseRecord } : {}),
+          ...(expectedVersion !== undefined ? { expectedVersion } : {}),
           mode: mutationMode,
           undoDelayMs,
           onUndoable,
@@ -795,7 +814,11 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
             );
             await Promise.all(related.map((queryKey) => queryClient.invalidateQueries({ queryKey: [...queryKey] })));
           },
-          failedLater: (error) => reportError(error, shown),
+          failedLater: (error) => {
+            const conflict = mountedRef.current ? writeConflict(error, formData) : null;
+            if (conflict) setConflictState({ conflict, submitted });
+            reportError(error, shown);
+          },
         });
         markSaved();
         if (outcome.status === "committed") {
@@ -808,11 +831,44 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
           );
         }
       } catch (err) {
+        const conflict = writeConflict(err, formData);
+        if (conflict) setConflictState({ conflict, submitted });
         reportError(err instanceof Error ? err : new Error(String(err)));
       }
     },
     [form, action, provider, resource, id, effectiveData, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, reportError, markSaved, updates, defaultValues, resolvedFields],
   );
+
+  const handleSubmit = useCallback((submitted: Record<string, unknown>) => save(submitted), [save]);
+
+  const keepMine = useCallback(async () => {
+    if (!conflictState) return;
+    const { conflict, submitted } = conflictState;
+    form.clearErrors("root");
+    await save(submitted, conflict.currentVersion ?? undefined);
+  }, [conflictState, form, save]);
+
+  const dismissConflict = useCallback(() => setConflictState(null), []);
+
+  const takeTheirs = useCallback(() => {
+    if (!conflictState) return;
+    const { theirs } = conflictState.conflict;
+    setConflictState(null);
+    form.clearErrors();
+    const recordId = id ?? (effectiveData as Record<string, unknown> | undefined)?.id;
+    if (recordId != null && recordId !== "") {
+      // Every cached copy shows their row now; the refetch confirms it.
+      patchCachedRow(queryClient, resource, { ...theirs, id: recordId as string | number });
+      void invalidateResource(queryClient, resource);
+    }
+    const shown = action === "edit" && provider.toFormValues ? provider.toFormValues(resource, theirs as BaseRecord) : theirs;
+    // Every field the form shows, from their row; anything else the form holds stays.
+    const next = { ...form.getValues() };
+    for (const key of new Set([...resolvedFields.map((f) => f.key), ...Object.keys(next)])) {
+      if (key in shown) next[key] = (shown as Record<string, unknown>)[key];
+    }
+    form.reset(next);
+  }, [conflictState, form, id, effectiveData, queryClient, resource, action, provider, resolvedFields]);
 
   const onSubmit = useCallback(
     (e?: { preventDefault?: () => void }) => form.handleSubmit(handleSubmit)(e as React.BaseSyntheticEvent),
@@ -830,5 +886,9 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     isLoading,
     isDirty,
     confirmLeave,
+    conflict: conflictState?.conflict ?? null,
+    keepMine,
+    takeTheirs,
+    dismissConflict,
   };
 }

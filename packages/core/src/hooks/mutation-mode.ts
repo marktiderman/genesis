@@ -718,6 +718,12 @@ export interface ExecuteWriteArgs<R extends BaseRecord | void> {
    * Defaults to the cached row at the moment `executeWrite` is called.
    */
   base?: BaseRecord;
+  /**
+   * The version to check this write against, overriding `base` and the
+   * cache: "keep mine" after a conflict sends at the version the conflict
+   * reported (`WriteConflict.currentVersion`).
+   */
+  expectedVersion?: string;
   mode: MutationMode;
   undoDelayMs?: number;
   onUndoable?: (write: UndoableWrite) => void;
@@ -850,8 +856,9 @@ export async function executeWrite<R extends BaseRecord | void>(
       }
       field = cachedVersionField(queryClient, provider, resource);
     }
-    let expectedVersion: string | undefined;
-    if (field) {
+    // A version the caller names ("keep mine" after a conflict, which proves the row has one) goes as is.
+    let expectedVersion: string | undefined = args.expectedVersion;
+    if (field && expectedVersion === undefined) {
       expectedVersion = (behind ? reg.rowVersions.get(rowKey!) : undefined) ?? versionToken(seen, field);
       if (seen && !(field in seen) && !warnedNoVersion.has(resource)) {
         warnedNoVersion.add(resource);

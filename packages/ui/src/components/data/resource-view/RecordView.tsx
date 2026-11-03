@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, useWrite, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
+import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, useWrite, writeConflict, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
 import { sameFormValue, type Allowed, type ResolvedFormField, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../../layout/sub-nav";
@@ -21,6 +21,7 @@ import { ResourceHeader } from "../../resource/ResourceHeader";
 import { SettingsSection } from "../../resource/ResourceSettingsPage";
 import type { ReadinessLabels } from "@marktiderman/genesis-core/resource";
 import { Alert, AlertDescription } from "../../ui/alert";
+import { ConflictSheet } from "../ConflictSheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -301,16 +302,26 @@ function SettingsForm({
   }, [fields, draft, row, edits]);
   const dirty = Object.keys(changed).length > 0 && Object.keys(invalid).length === 0;
 
+  const queryClient = useQueryClient();
+  // A save that met someone else's change, and the values it tried to save.
+  const [conflict, setConflict] = useState<{ conflict: WriteConflict; values: Values } | null>(null);
   const save = useWrite(
-    async (values: Values) => {
+    async ({ values, expectedVersion }: { values: Values; expectedVersion?: string }) => {
       // Only the section's listed keys, never anything else the row or draft holds.
       const data = recordView.settingsPatch(sectionId, values);
-      const version = versionField ? row[versionField] : undefined;
-      const result = await provider.update(view.resource, {
-        id: recordView.recordId(row),
-        data,
-        ...(version != null ? { expectedVersion: String(version) } : {}),
-      });
+      const version = expectedVersion ?? (versionField ? row[versionField] : undefined);
+      let result: Awaited<ReturnType<typeof provider.update>>;
+      try {
+        result = await provider.update(view.resource, {
+          id: recordView.recordId(row),
+          data,
+          ...(version != null ? { expectedVersion: String(version) } : {}),
+        });
+      } catch (error) {
+        const found = writeConflict(error, data);
+        if (found) setConflict({ conflict: found, values });
+        throw error;
+      }
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) {
         throw new DataWriteError("forbidden", fillMessage(m.workspace.notChanged, { noun: view.noun }));
@@ -321,6 +332,21 @@ function SettingsForm({
     // back to the old one while the record refetches.
     { onSuccess: (saved) => onSaved(saved) },
   );
+
+  const keepMine = async () => {
+    if (!conflict) return;
+    const { values, conflict: c } = conflict;
+    setConflict(null);
+    await save.run({ values, ...(c.currentVersion != null ? { expectedVersion: c.currentVersion } : {}) }).catch(() => undefined);
+  };
+  const takeTheirs = () => {
+    if (!conflict) return;
+    setConflict(null);
+    save.reset();
+    setEdits({});
+    // The record refetches, so the fields show their change.
+    void queryClient.invalidateQueries({ queryKey: [...resourceKeys(view.resource).all] });
+  };
 
   const set = (name: string, value: unknown, error?: string) => {
     save.reset();
@@ -354,11 +380,20 @@ function SettingsForm({
             <AlertDescription>{save.error}</AlertDescription>
           </Alert>
         ) : null}
-        <Button disabled={!dirty || save.pending} loading={save.pending} onClick={() => void save.fire(changed)} data-testid={`${testID}-save`}>
+        <Button disabled={!dirty || save.pending} loading={save.pending} onClick={() => void save.fire({ values: changed })} data-testid={`${testID}-save`}>
           {m.workspace.save}
         </Button>
       </div>
       )}
+      <ConflictSheet
+        conflict={conflict?.conflict ?? null}
+        noun={view.noun}
+        label={(name) => fields.find((f) => f.field.name === name)?.label ?? name}
+        onKeepMine={keepMine}
+        onTakeTheirs={takeTheirs}
+        onDismiss={() => setConflict(null)}
+        testID={`${testID}-conflict`}
+      />
     </SettingsSection>
   );
 }
