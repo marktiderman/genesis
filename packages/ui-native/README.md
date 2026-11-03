@@ -163,6 +163,39 @@ import { AuthScreen, appleProvider } from "@marktiderman/genesis-ui-native/layou
 asks with `Alert.alert` (a destructive button) and then calls `deleteMyAccount(supabase)` from
 `@marktiderman/genesis-supabase`. The example and the SQL it needs are in that package's README.
 
+## Motion
+
+Motion is defined once, in `@marktiderman/genesis-design-system`'s motion tokens (`resolveMotion`):
+durations (`press`, `fast`, `base`, `ui`, `pulse`, …), easings (`out`, `swift`, `inOut`, `decelerate`)
+and springs (`snappy`, `smooth`, `bouncy`). Web reads them as the design system's `--ds-dur-*` and
+`--ds-ease-*` variables; on the phone, `useMotion()` gives the same tokens with the OS's Reduce
+Motion applied, and `animateMotion` turns them into a Reanimated animation on the JS thread. Under
+Reduce Motion it returns the final value, so nothing moves. Inside a worklet (a gesture's `onEnd`),
+or when you need a completion callback (a worklet), build the config with `motionSpring` or
+`motionTiming(motion, duration, Easing)` and call Reanimated yourself. Under Reduce Motion the
+springs are stiff and critically damped, so they settle in a few frames. Pass the
+brand's level (`useMotion({ level })`) until a provider carries it; without it, `calm`. A repeating
+animation checks `motion.reduced` first. Drawer, Toast and Skeleton read their durations from the
+tokens.
+
+```tsx
+import { animateMotion, useGenesisModules, useMotion } from "@marktiderman/genesis-ui-native";
+
+function useSnapBack(offset: { value: number }) {
+  const { reanimated } = useGenesisModules();
+  const motion = useMotion();
+  return (velocity: number) => {
+    if (!reanimated) return;
+    offset.value = animateMotion(reanimated, motion, 0, { spring: "snappy", velocity });
+  };
+}
+```
+
+The doctor's `motion-uses-tokens` rule warns on new code that writes a non-zero duration or spring as
+a number literal in the config of `withTiming`, `withSpring`, `Animated.timing` or `Animated.spring`,
+or in a Reanimated layout animation's `.duration()` / `.damping()` / `.stiffness()`. A named
+constant, a config held in a variable, and a first argument containing parentheses aren't caught.
+
 ## Inbox and thread: `InboxPage` and `ThreadPage`
 
 Two generic layouts for conversations (support tickets, direct messages, comment threads), in
