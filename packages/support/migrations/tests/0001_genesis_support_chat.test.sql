@@ -18,6 +18,17 @@ do $hook$ begin
     revoke execute on function private.genesis_support_default_tenant() from public, anon, authenticated;
   end if;
 end $hook$;
+-- Since genesis-chat 0004 every conversation has a tenant and only that tenant's people observe
+-- it: here every login is a person of the app's own tenant (a single-tenant app), inside this
+-- transaction only. The app's staff must be people of its own tenant to read support chats.
+do $hook$ begin
+  if to_regprocedure('private.genesis_support_default_tenant()') is not null then
+    execute $f$create or replace function private.genesis_viewer_people(viewer uuid)
+      returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = ''
+      as 'select private.genesis_support_default_tenant(), viewer where viewer is not null'$f$;
+    revoke execute on function private.genesis_viewer_people(uuid) from public, anon, authenticated;
+  end if;
+end $hook$;
 select plan(68);
 
 insert into auth.users (id, aud, role, email, instance_id)
