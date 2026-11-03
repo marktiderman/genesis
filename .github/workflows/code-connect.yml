@@ -42,7 +42,7 @@ jobs:
       - name: Every visual component is mapped or listed
         run: node scripts/check-code-connect.mjs
       - name: Templates parse
-        run: npx --yes @figma/code-connect@2 connect parse --label React
+        run: npx --yes @figma/code-connect@2.1.0 connect parse --label React
 
   publish:
     name: Publish to Figma
@@ -50,18 +50,19 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # A step's own `env` is not visible to its `if`, so the secret is tested at job level.
+    env:
+      HAS_FIGMA_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN != '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
       - name: Publish
-        if: env.FIGMA_ACCESS_TOKEN != ''
+        if: env.HAS_FIGMA_TOKEN == 'true'
         env:
           FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
-        run: npx --yes @figma/code-connect@2 connect publish --label React
+        run: npx --yes @figma/code-connect@2.1.0 connect publish --label React
       - name: No token
-        if: env.FIGMA_ACCESS_TOKEN == ''
-        env:
-          FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
+        if: env.HAS_FIGMA_TOKEN != 'true'
         run: echo "FIGMA_ACCESS_TOKEN is not set as a repository secret; publish skipped."
