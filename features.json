@@ -865,6 +865,9 @@
     {
       "id": "data-offline",
       "name": "Offline-first data",
+      "aliases": [
+        "offline-sync"
+      ],
       "summary": "Data that works offline: an edit made on a stale copy is refused as a conflict instead of overwriting someone else's (versioned writes in the Supabase provider and the version-bump trigger); views that open from the device and writes that are never lost follow in later slices.",
       "category": "Data",
       "status": "building",
@@ -6184,31 +6187,6 @@
         "web",
         "native",
         "server"
-      ],
-      "audience": [
-        "developer"
-      ],
-      "visibility": "internal",
-      "access": "all",
-      "flags": []
-    },
-    {
-      "id": "offline-sync",
-      "name": "Offline sync",
-      "summary": "A local store on device with a write queue that syncs when the connection returns.",
-      "category": "Data",
-      "status": "idea",
-      "kind": "provider",
-      "keywords": [
-        "offline",
-        "sqlite",
-        "sync",
-        "queue",
-        "local first"
-      ],
-      "owner": "mark",
-      "apps": [
-        "native"
       ],
       "audience": [
         "developer"

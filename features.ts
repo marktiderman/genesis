@@ -394,6 +394,7 @@ export const features = defineFeatures({
   },
   "data-offline": {
     name: "Offline-first data",
+    aliases: ["offline-sync"],
     summary: "Data that works offline: an edit made on a stale copy is refused as a conflict instead of overwriting someone else's (versioned writes in the Supabase provider and the version-bump trigger); views that open from the device and writes that are never lost follow in later slices.",
     category: "Data",
     // Slice 0 (versioned writes) is the first part; the device cache and the write queue follow.
@@ -2715,18 +2716,7 @@ export const features = defineFeatures({
     audience: ["developer"],
     visibility: "internal",
   },
-  "offline-sync": {
-    name: "Offline sync",
-    summary: "A local store on device with a write queue that syncs when the connection returns.",
-    category: "Data",
-    status: "idea",
-    kind: "provider",
-    keywords: ["offline", "sqlite", "sync", "queue", "local first"],
-    owner: "mark",
-    apps: ["native"],
-    audience: ["developer"],
-    visibility: "internal",
-  },
+
   "motion-kit": {
     name: "Motion and feel",
     summary: "Motion defined once for web and native: shared durations, easings and springs (genesis-design-system's resolveMotion), read as the design system's CSS variables on web and through useMotion, animateMotion and the worklet-safe motionSpring and motionTiming (Reanimated) on native, where Reduce Motion holds everything still.",

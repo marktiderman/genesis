@@ -38,7 +38,7 @@ export interface StarterFeatures {
   accountDeletion: boolean;
   /** The Notifications tab (`NotificationsPage`). */
   notifications: boolean;
-  /** Save the listed queries to the phone for 24 hours, per user (`persistQueries`). */
+  /** Keep the listed resources' reads on the phone, per user, so they open at once (`persistOffline` + `sqliteLocalCache`). */
   queryPersistence: boolean;
   /** Refetch when the app comes to the front and follow the network (`lifecycle`: AppState + NetInfo). */
   queryLifecycle: boolean;

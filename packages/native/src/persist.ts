@@ -13,7 +13,7 @@
  * @stability Beta
  */
 import { defaultShouldDehydrateQuery, type QueryClient } from "@tanstack/react-query";
-import { persistQueryClientRestore, persistQueryClientSubscribe } from "@tanstack/query-persist-client-core";
+import { persistQueryClientRestore, persistQueryClientSave, persistQueryClientSubscribe } from "@tanstack/query-persist-client-core";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { DAY_MS, type AsyncStorageLike, type QueryPersistence } from "./query";
 
@@ -39,7 +39,11 @@ export interface QueryPersistenceOptions extends PersistQueriesOptions {
   queryClient: QueryClient;
 }
 
-/** Save the allowlisted queries to async storage and restore them, with a max age, an app-version buster and a user scope. */
+/**
+ * Save the allowlisted queries to async storage and restore them, with a max age, an app-version buster and a user scope.
+ *
+ * @deprecated Use `persistOffline` with `sqliteLocalCache` from `@marktiderman/genesis-native/offline`: it keeps each record once, per person and workspace (docs/MIGRATION.md). Removed in the next major.
+ */
 export function createQueryPersistence({
   queryClient,
   storage,
@@ -68,14 +72,22 @@ export function createQueryPersistence({
         // An unreadable cache has already been deleted; start without it rather than fail the boot.
       }
     },
-    subscribe: (scope) => persistQueryClientSubscribe({ queryClient, persister, buster: scoped(scope), dehydrateOptions }),
+    subscribe: (scope, options) => {
+      // Adopting: what's already in the client is saved now, not only at its next change.
+      if (options?.adopt && scope) void persistQueryClientSave({ queryClient, persister, buster: scoped(scope), dehydrateOptions }).catch(() => undefined);
+      return persistQueryClientSubscribe({ queryClient, persister, buster: scoped(scope), dehydrateOptions });
+    },
     clear: async () => {
       await persister.removeClient();
     },
   };
 }
 
-/** `createQueryPersistence` for `GenesisNativeApp`'s `persist` prop, which supplies the client. */
+/**
+ * `createQueryPersistence` for `GenesisNativeApp`'s `persist` prop, which supplies the client.
+ *
+ * @deprecated Use `persistOffline({ cache: sqliteLocalCache({ db }), resources, buster })` from `@marktiderman/genesis-native/offline` (docs/MIGRATION.md). Removed in the next major.
+ */
 export function persistQueries(options: PersistQueriesOptions): (queryClient: QueryClient) => QueryPersistence {
   return (queryClient) => createQueryPersistence({ ...options, queryClient });
 }

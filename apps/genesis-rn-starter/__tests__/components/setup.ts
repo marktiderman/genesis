@@ -50,6 +50,17 @@ jest.mock("expo-notifications", () => {
   };
 });
 // jest-expo's expo-updates mock answers `checkForUpdateAsync` with nothing; the server has no update.
+// expo-sqlite's native module isn't in Jest: an empty database for the device cache, which
+// starts every test with nothing kept (as a fresh install does).
+jest.mock("expo-sqlite", () => {
+  const db = {
+    execAsync: async () => undefined,
+    runAsync: async () => ({ changes: 0, lastInsertRowId: 0 }),
+    getAllAsync: async () => [],
+    withExclusiveTransactionAsync: async (task: (txn: unknown) => Promise<void>) => task(db),
+  };
+  return { openDatabaseSync: () => db };
+});
 jest.mock("expo-updates", () => ({
   ...jest.requireActual<object>("expo-updates"),
   checkForUpdateAsync: async () => ({ isAvailable: false, isRollBackToEmbedded: false }),
