@@ -4,7 +4,8 @@
  *
  * No gesture library. On iOS each page is the system's zooming `ScrollView` (its own pinch, and
  * the pull down is its overscroll); on Android a `PanResponder` pinches, pans and drags down.
- * Moved here from genesis-chat's photo viewer, so there is one viewer (G4/G5); the pure helpers
+ * Built from genesis-chat's photo viewer, which moves onto NativeLightbox next so there is one
+ * viewer (G4/G5); until then chat keeps its own copy. The pure helpers
  * are exported for tests and for anyone building a viewer of their own.
  *
  * @stability Beta

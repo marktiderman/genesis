@@ -10,8 +10,8 @@
  * it goes; a tap shows or hides the top bar and caption. Pages from
  * `renderMedia` are left to their own gestures. With VoiceOver or TalkBack the
  * pager is adjustable: swipe up or down for the next or previous item, and it
- * reads "3 of 12". The gestures come from genesis-chat's viewer, moved here so
- * there is one viewer (see `lightbox-zoom`).
+ * reads "3 of 12". The gestures are built from genesis-chat's photo viewer
+ * (see `lightbox-zoom`), which moves onto this one next, so there is one viewer.
  *
  * Built on `NativeFullScreenModal`. The pictures are a horizontal paging
  * `FlatList`, one per screen width, a few pages mounted at a time; a swipe

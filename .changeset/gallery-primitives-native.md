@@ -11,7 +11,7 @@ The gallery primitives on the phone, with the web's props and defaults:
   - Tap to show or hide the top bar and caption.
   - An adjustable pager for VoiceOver and TalkBack.
   - `renderMedia` for videos, and `labels`.
-  - The gestures move here from genesis-chat's viewer (`NativeZoomablePhoto` and the `lightbox*` helpers).
+  - The gestures are built from genesis-chat's photo viewer (`NativeZoomablePhoto` and the `lightbox*` helpers). genesis-chat still has its own viewer for now; it moves onto this one in a follow-up, which removes chat's copy.
 - **`NativeGalleryCard`, `NativeLiveIndicator`, `NativeRating`.**
 - **Icon names:** clapperboard, folder-plus, maximize, settings-2, aperture, radio and star.
 
