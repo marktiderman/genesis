@@ -171,7 +171,9 @@ and springs (`snappy`, `smooth`, `bouncy`). Web reads them as the design system'
 `--ds-ease-*` variables; on the phone, `useMotion()` gives the same tokens with the OS's Reduce
 Motion applied, and `animateMotion` turns them into a Reanimated animation on the JS thread. Under
 Reduce Motion it returns the final value, so nothing moves. Inside a worklet (a gesture's `onEnd`),
-build the config with `motionSpring` or `motionTiming` and call Reanimated yourself. Pass the
+or when you need a completion callback (a worklet), build the config with `motionSpring` or
+`motionTiming(motion, duration, Easing)` and call Reanimated yourself. Under Reduce Motion the
+springs are stiff and critically damped, so they settle in a few frames. Pass the
 brand's level (`useMotion({ level })`) until a provider carries it; without it, `calm`. A repeating
 animation checks `motion.reduced` first. Drawer, Toast and Skeleton read their durations from the
 tokens.
@@ -189,9 +191,10 @@ function useSnapBack(offset: { value: number }) {
 }
 ```
 
-The doctor's `motion-uses-tokens` rule warns on new code that writes a duration or spring as a number
-literal in `withTiming`, `withSpring`, `Animated.timing`, `Animated.spring` or a layout animation's
-`.duration()` / `.damping()` / `.stiffness()`. A named constant isn't caught.
+The doctor's `motion-uses-tokens` rule warns on new code that writes a non-zero duration or spring as
+a number literal in the config of `withTiming`, `withSpring`, `Animated.timing` or `Animated.spring`,
+or in a Reanimated layout animation's `.duration()` / `.damping()` / `.stiffness()`. A named
+constant, a config held in a variable, and a first argument containing parentheses aren't caught.
 
 ## Inbox and thread: `InboxPage` and `ThreadPage`
 

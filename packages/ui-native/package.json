@@ -217,10 +217,10 @@
             "**/*.ts"
           ],
           "forbid": {
-            "pattern": "(?:\\bwith(?:Timing|Spring)\\([\\s\\S]{0,200}?\\{[^}]*\\b(?:duration|damping|stiffness)\\s*:\\s*\\.?\\d|\\bAnimated\\.(?:timing|spring)\\([\\s\\S]{0,200}?\\{[^}]*\\b(?:duration|bounciness|speed|damping|stiffness)\\s*:\\s*\\.?\\d|\\.(?:duration|damping|stiffness)\\(\\s*\\.?\\d)"
+            "pattern": "(?:\\bwith(?:Timing|Spring)\\(\\s*[^,()]+,\\s*\\{[^}]*\\b(?:duration|damping|stiffness)\\s*:\\s*(?:0?\\.\\d*[1-9]|[1-9])|\\bAnimated\\.(?:timing|spring)\\(\\s*[^,()]+,\\s*\\{[^}]*\\b(?:duration|bounciness|speed|damping|stiffness)\\s*:\\s*(?:0?\\.\\d*[1-9]|[1-9])|\\b(?:FadeIn|FadeOut|Slide|Zoom|Bounce|Flip|Stretch|Roll|Rotate|Pinwheel|LightSpeed|Layout|LinearTransition|SequencedTransition|FadingTransition|JumpingTransition|CurvedTransition|EntryExitTransition)\\w*(?:\\.\\w+\\([^()]*\\))*\\.(?:duration|damping|stiffness)\\(\\s*(?:0?\\.\\d*[1-9]|[1-9]))"
           },
           "unless": {
-            "pattern": "\\b(?:useMotion|animateMotion)\\b"
+            "pattern": "\\b(?:useMotion|animateMotion|motionSpring|motionTiming)\\b"
           },
           "use": "useMotion() with animateMotion on the JS thread, or motionSpring / motionTiming inside a worklet: the shared motion tokens",
           "import": "@marktiderman/genesis-ui-native",
