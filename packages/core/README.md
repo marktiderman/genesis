@@ -245,7 +245,8 @@ Outside a form, send "keep mine" with `useResource`'s `update(id, data, { expect
 write of the row, its committed version put into every cached copy, the screen's `onError` and
 invalidations applied. So the next change of that row is checked against it. Calling
 `provider.update` directly skips all of that, and a change made right after it would conflict with
-the save it just made. `ResourceView`'s board sends its "keep mine" this way.
+the save it just made. `ResourceView`'s board sends its "keep mine" this way, and `RecordView`'s
+settings sections (web and native) send every save this way, at the version the edit started on.
 
 `WriteState` (`pending`, `sending`, `paused`, `failed`, `conflict`) is the one shape for showing
 where a write stands, on a row or a form.
