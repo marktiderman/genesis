@@ -319,6 +319,26 @@ describe("NativeRecordView", () => {
     await waitFor(() => expect(screen.queryByTestId("native-resource-workspace-settings-conflict-field-website")).toBeNull());
     expect((screen.getByTestId("native-resource-workspace-settings-website-input") as HTMLInputElement).value).toBe("");
     expect(update).toHaveBeenCalledTimes(1);
+  it("checks a settings save against the row the edit started on, not one that refreshed meanwhile", async () => {
+    const p = provider({
+      capabilities: vi.fn(async () => ({
+        search: false,
+        sort: false,
+        filterOperators: [],
+        bulkWrites: false,
+        versionedWrites: true,
+        compositeKeys: false,
+        version: { field: "version", kind: "integer" as const },
+      })),
+    });
+    const start = { ...brand, is_default: false, version: 1 };
+    const { rerender } = render(<NativeRecordView view={page} row={start} section="settings" />, { wrapper: wrap(p) });
+    await waitFor(() => expect(p.capabilities).toHaveBeenCalled());
+    fireEvent.change(screen.getByTestId("native-resource-workspace-settings-website-input"), { target: { value: "https://mine.example" } });
+    rerender(<NativeRecordView view={page} row={{ ...start, public: true, version: 2 }} section="settings" />);
+    fireEvent.click(screen.getByTestId("native-resource-workspace-settings-save"));
+    await waitFor(() => expect(p.update).toHaveBeenCalledTimes(1));
+    expect((p.update as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toMatchObject({ expectedVersion: "1" });
   });
 
   it("shows a zero-row save as a refusal, inline", async () => {

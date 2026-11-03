@@ -180,4 +180,43 @@ describe("versioned writes in the write hooks", () => {
     expect(warn.mock.calls.filter((c) => String(c[1]).includes("don't carry it"))).toHaveLength(1);
     warn.mockRestore();
   });
+
+  it("two pessimistic saves on one row in flight: the second is sent at the version the first left", async () => {
+    const { client, provider } = setup();
+    const sent: (string | undefined)[] = [];
+    let release: () => void = () => {};
+    const first = new Promise<void>((r) => (release = r));
+    const send = vi.fn(async (ctx: SendContext) => {
+      sent.push(ctx.expectedVersion);
+      if (sent.length === 1) await first;
+      return { record: { id: "t1", title: "New", version: Number(ctx.expectedVersion) + 1 } };
+    });
+    const a = update(client, provider, send);
+    const b = update(client, provider, send);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    release();
+    const results = await Promise.allSettled([a, b]);
+    expect(results.map((r) => r.status)).toEqual(["fulfilled", "fulfilled"]);
+    expect(sent).toEqual(["3", "4"]);
+  });
+
+  it("a pessimistic save behind one that failed is sent at the version the row still has", async () => {
+    const { client, provider } = setup();
+    const sent: (string | undefined)[] = [];
+    const send = vi.fn(async (ctx: SendContext) => {
+      sent.push(ctx.expectedVersion);
+      if (sent.length === 1) throw new Error("offline");
+      return { record: { id: "t1", version: 4 } };
+    });
+    const results = await Promise.allSettled([update(client, provider, send), update(client, provider, send)]);
+    expect(results.map((r) => r.status)).toEqual(["rejected", "fulfilled"]);
+    expect(sent).toEqual(["3", "3"]);
+  });
+
+  it("a saved row without its new version is read again, so the next edit isn't checked against the old one", async () => {
+    const { client, provider } = setup();
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    await update(client, provider, vi.fn(async (_ctx: SendContext) => ({ record: { id: "t1", title: "New" } })));
+    expect(invalidate).toHaveBeenCalled();
+  });
 });

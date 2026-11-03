@@ -40,7 +40,12 @@ begin
     raise exception 'genesis_version_bump: % has no column "%"', tg_table_name, col
       using errcode = '42703';
   end if;
-  if jsonb_typeof(to_jsonb(old) -> col) not in ('number', 'null') then
+  -- The column's declared type, not its value: a null text or a numeric column is refused too.
+  if not exists (
+    select 1 from pg_catalog.pg_attribute a
+    where a.attrelid = tg_relid and a.attname = col and not a.attisdropped
+      and a.atttypid in ('pg_catalog.int2'::pg_catalog.regtype, 'pg_catalog.int4'::pg_catalog.regtype, 'pg_catalog.int8'::pg_catalog.regtype)
+  ) then
     raise exception 'genesis_version_bump: %.% is not an integer column', tg_table_name, col
       using errcode = '42804';
   end if;

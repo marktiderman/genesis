@@ -4,7 +4,7 @@
 -- It creates only its own temporary tables and rolls everything back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(13);
 
 select ok(not has_function_privilege('anon', 'public.genesis_version_bump()', 'execute'), 'anon cannot call it');
 select ok(not has_function_privilege('authenticated', 'public.genesis_version_bump()', 'execute'), 'authenticated cannot call it');
@@ -55,6 +55,12 @@ create trigger vb_text_bump before update on vb_text
   for each row execute function public.genesis_version_bump('version');
 insert into vb_text values (1);
 select throws_ok($$ update vb_text set id = 1 $$, '42804', null, 'a column that isn''t an integer is an error');
+
+create temp table vb_numeric (id int primary key, version numeric not null default 1);
+create trigger vb_numeric_bump before update on vb_numeric
+  for each row execute function public.genesis_version_bump('version');
+insert into vb_numeric values (1);
+select throws_ok($$ update vb_numeric set id = 1 $$, '42804', null, 'a numeric column is refused by its type, not its value');
 
 select * from finish();
 rollback;
