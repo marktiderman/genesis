@@ -58,9 +58,7 @@
     "ToggleGroup",
     "ToggleRow",
     "Tooltip",
-    "WizardForm"
-  ],
-  "notYet": [
+    "WizardForm",
     "ScrollArea",
     "Collapsible",
     "Command",
@@ -118,7 +116,9 @@
     "KanbanBoard",
     "DataList",
     "ResourcePage",
-    "ResourceDetailPage",
+    "ResourceDetailPage"
+  ],
+  "notYet": [
     "FieldArrayRenderer"
   ]
 }
