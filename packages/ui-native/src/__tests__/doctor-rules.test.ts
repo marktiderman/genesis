@@ -43,3 +43,13 @@ describe("motion-uses-tokens", () => {
     expect(unless).toBeUndefined();
   });
 });
+
+describe("threads-use-thread-list", () => {
+  const { re } = rule("threads-use-thread-list");
+
+  it.each([["<FlatList inverted data={m} />"], ["<FlashList data={m} maintainVisibleContentPosition={{ startRenderingFromBottom: true }} />"]])(
+    "flags %s",
+    (code) => expect(re.test(code)).toBe(true),
+  );
+  it("leaves an ordinary list alone", () => expect(re.test("<FlatList data={rows} />")).toBe(false));
+});
