@@ -63,6 +63,7 @@ export function KanbanView({
     ...(search ? { search: { query: search, fields: [] } } : {}),
     perPage: KANBAN_PAGE,
     retry: false,
+    getKey: (row) => String(encodeRecordKey(schema, row)),
     queryKey: (request, column) => ["genesis-studio", sessionKey, "list", schema.name, "kanban", field.name, column.value, column.page, request],
   });
 

@@ -38,6 +38,16 @@ export interface UseBoardColumnsOptions {
   queryKey?: (request: ListParams, column: { value: string; page: number }) => QueryKey;
   /** Retry failed reads (TanStack's `retry`). Default TanStack's. */
   retry?: boolean;
+  /**
+   * A column's value as the field stores it, for its filter: `"true"` → `true` for a yes/no field.
+   * Default: the value as given.
+   */
+  toValue?: (value: string) => unknown;
+  /**
+   * A stable key per row. With it, a row that shows on two loaded pages of a column (it moved
+   * between page reads) is drawn once.
+   */
+  getKey?: (row: BaseRecord) => string;
 }
 
 /** One column's rows so far. @stability Beta */
@@ -65,8 +75,8 @@ export interface UseBoardColumnsReturn<T> {
 }
 
 /** One column's own filter: its value, or "is empty". */
-export function boardColumnFilter(field: string, value: string): FilterParam {
-  return value === BOARD_NONE ? { field, operator: "is_null" } : { field, operator: "eq", value };
+export function boardColumnFilter(field: string, value: string, toValue?: (value: string) => unknown): FilterParam {
+  return value === BOARD_NONE ? { field, operator: "is_null" } : { field, operator: "eq", value: toValue ? toValue(value) : value } as FilterParam;
 }
 
 /**
@@ -77,7 +87,7 @@ export function boardColumnFilter(field: string, value: string): FilterParam {
  * @stability Beta
  */
 export function useBoardColumns<T extends BaseRecord = BaseRecord>(options: UseBoardColumnsOptions): UseBoardColumnsReturn<T> {
-  const { provider, resource, field, values, filters = [], sorts = [], search, select, perPage = BOARD_PAGE, enabled = true, queryKey, retry } = options;
+  const { provider, resource, field, values, filters = [], sorts = [], search, select, perPage = BOARD_PAGE, enabled = true, queryKey, retry, toValue, getKey } = options;
   const shared = useMemo(() => filters.filter((f) => f.field !== field), [filters, field]);
   const resetKey = JSON.stringify([resource, field, shared, sorts, search ?? null, select ?? null, perPage]);
   const [pages, setPages] = useState<{ key: string; byValue: Record<string, number> }>({ key: resetKey, byValue: {} });
@@ -87,7 +97,7 @@ export function useBoardColumns<T extends BaseRecord = BaseRecord>(options: UseB
   const requests = specs.map(({ value, page }): ListParams => ({
     pagination: { page, perPage },
     ...(sorts[0] ? { sort: sorts[0], sorts: [...sorts] } : {}),
-    filters: [...shared, boardColumnFilter(field, value)],
+    filters: [...shared, boardColumnFilter(field, value, toValue)],
     ...(search?.query ? { search } : {}),
     ...(select !== undefined ? { select } : {}),
   }));
@@ -102,12 +112,21 @@ export function useBoardColumns<T extends BaseRecord = BaseRecord>(options: UseB
 
   const columns = values.map((value): BoardColumnData<T> => {
     const mine = specs.flatMap((s, i) => (s.value === value ? [results[i]!] : []));
-    const items = mine.flatMap((r) => r.data?.data ?? []);
+    const all = mine.flatMap((r) => r.data?.data ?? []);
+    const seen = new Set<string>();
+    const items = getKey
+      ? all.filter((row) => {
+          const key = getKey(row);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+      : all;
     const first = mine[0]?.data;
     const last = mine[mine.length - 1];
     // A total of -1 is uncounted: then a full last page means there may be more.
     const total = first && first.total >= 0 ? first.total : undefined;
-    const hasMore = total !== undefined ? total > items.length : (last?.data?.data.length ?? 0) >= perPage;
+    const hasMore = total !== undefined ? total > all.length : (last?.data?.data.length ?? 0) >= perPage;
     return { value, items, ...(total !== undefined ? { total } : {}), hasMore, loading: mine.some((r) => r.isLoading) };
   });
 

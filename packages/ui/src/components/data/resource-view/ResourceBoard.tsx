@@ -5,7 +5,7 @@
 // studio's board uses. A move is the resource's own update, through the provider's write path.
 
 import { useState, type ReactNode } from "react";
-import { useDataProvider, useResource, useViewer, type BaseRecord, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
+import { useDataProvider, useResource, useViewer, type BaseRecord, type DataRow, type FilterParam, type ResourceContract, type UseResourceOptions } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
 import { useLiveInvalidation, type LiveOptions } from "@marktiderman/genesis-core/hooks";
 import { boardChoices, boardProblems, type ResourceView as View, type ViewBoard, type ViewTone } from "@marktiderman/genesis-core/resource-view";
@@ -15,6 +15,8 @@ import { fillMessage, useUiMessages } from "../../../messages";
 import { DetailPanel } from "../DetailPanel";
 import { KanbanBoard, type ColumnStatus, type KanbanColumn } from "../KanbanBoard";
 import { BOARD_NONE, useBoardColumns } from "../board/use-board-columns";
+import { warnOnce } from "../calendar/guard";
+import type { ResourceAction } from "../ResourcePage";
 import { useDisplayCell } from "./display";
 import { useViewDetailFields } from "./view-list";
 
@@ -47,6 +49,16 @@ export interface ResourceBoardProps<T extends Row = Row> extends ResourceBoardOp
   cells?: Partial<Record<string, (row: T) => ReactNode>>;
   /** Server filters (the view's scope and the screen's), already as params. */
   filters?: readonly FilterParam[];
+  /**
+   * The screen's own guard (ResourceView's `can`): it only narrows the view's. A card moves only
+   * when both allow `edit` for its row.
+   */
+  can?: (action: ResourceAction, item?: T) => boolean;
+  /**
+   * The list's write options (ResourceView's `resourceOptions`): `invalidates`, `onError` and
+   * `onUpdateSuccess` apply to a move. A move is always pessimistic, so `mutationMode` is ignored.
+   */
+  resourceOptions?: Pick<UseResourceOptions<T & BaseRecord>, "invalidates" | "onError" | "onUpdateSuccess">;
   select?: string;
   /** False while the screen waits (on its scope, say): nothing is fetched. Default true. */
   enabled?: boolean;
@@ -76,20 +88,34 @@ function withoutUndefined<O extends object>(o: O): Partial<O> {
  * @stability Beta
  */
 export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>) {
-  const { view, filters = [], select, enabled = true, live, title, subtitle, className, cells, testID = "resource-board" } = props;
-  const settings = { ...view.definition.board, ...withoutUndefined(props) } as ResourceBoardOptions<T>;
-  const { field: fieldName, columns: columnValues, cardFields = [], limits, onSelect, renderCard, onMoveError, perPage } = settings;
+  const { view, filters = [], select, enabled = true, live, title, subtitle, className, cells, can, resourceOptions, testID = "resource-board" } = props;
+  const where = `ResourceView(${view.resource})`;
+  const own = view.definition.board;
+  const screen = withoutUndefined({ field: props.field, columns: props.columns, cardFields: props.cardFields, limits: props.limits });
+  // The screen's block over the view's. A bad override (a hand-edited URL, a renamed value) warns
+  // and falls back to the view's own block, which defineView already checked.
+  let block: Partial<ViewBoard> = { ...own, ...screen };
+  let problems = block.field ? boardProblems(view.contract.fields, block) : [];
+  if (problems.length && own && Object.keys(screen).length) {
+    warnOnce(`${where}: board ${problems.join("; ")}; showing the view's board`);
+    block = own;
+    problems = [];
+  }
+  if (!block.field) throw new Error(`${where}: mode="board" needs a board field: the view's board.field, or board={{ field }}`);
+  if (problems.length) throw new Error(`${where}: ${problems.join("; ")}`);
+  const { field: fieldName, columns: columnValues, cardFields = [], limits } = block;
+  const { onSelect, renderCard, onMoveError, perPage } = props;
   const m = useUiMessages();
   const provider = useDataProvider();
   const viewer = useViewer();
   const cell = useDisplayCell();
   const detailFields = useViewDetailFields(view, cells);
-  if (!fieldName) throw new Error(`ResourceView(${view.resource}): mode="board" needs a board field: the view's board.field, or board={{ field }}`);
-  const problems = boardProblems(view.contract.fields, { field: fieldName, ...(columnValues ? { columns: columnValues } : {}), cardFields, ...(limits ? { limits } : {}) });
-  if (problems.length) throw new Error(`ResourceView(${view.resource}): ${problems.join("; ")}`);
   const field = view.field(fieldName)!;
   const values = columnValues ?? [...boardChoices(field)!, ...(field.nullable ? [BOARD_NONE] : [])];
+  // A column's value as the field stores it: a yes/no board's "true" is `true`.
+  const stored = (value: string): unknown => (value === BOARD_NONE ? null : field.type === "boolean" ? value === "true" : value);
   const orderBy = view.definition.orderBy;
+  const keyOf = (row: T) => String(encodeRecordKey(view.contract, row as DataRow));
 
   const board = useBoardColumns<T & BaseRecord>({
     provider,
@@ -101,17 +127,32 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
     ...(select !== undefined ? { select } : {}),
     ...(perPage !== undefined ? { perPage } : {}),
     enabled,
+    toValue: stored,
+    getKey: (row) => keyOf(row as unknown as T),
   });
   useLiveInvalidation(view.resource, live, enabled, { filters: [...filters] }, [view.resource]);
   // The resource's own update: core's write path, so the provider's rules (and a versioned
   // resource's version check) apply. Pessimistic: a card moves once the server has it.
-  const { update } = useResource<T & BaseRecord>(view.resource, { enabled: false });
+  const { update } = useResource<T & BaseRecord>(view.resource, {
+    enabled: false,
+    ...(resourceOptions?.invalidates ? { invalidates: resourceOptions.invalidates } : {}),
+    ...(resourceOptions?.onError ? { onError: resourceOptions.onError } : {}),
+    ...(resourceOptions?.onUpdateSuccess ? { onUpdateSuccess: resourceOptions.onUpdateSuccess } : {}),
+  });
   const [refusal, setRefusal] = useState<string | null>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
+  // Rows whose move is saving. A pessimistic move leaves the card in its old column until the
+  // refetch, so a second move then would be sent from the wrong column (and, on a versioned
+  // resource, refused as a conflict with the first): it is turned away until the first settles.
+  const [saving, setSaving] = useState<ReadonlySet<string>>(() => new Set());
 
-  const keyOf = (row: T) => String(encodeRecordKey(view.contract, row as DataRow));
   const titleOf = (row: T) => view.summary(row as T & DataRow).title;
   const movable = view.writable("edit").includes(fieldName);
+  // Guards only narrow: the view's rule AND the screen's own `can`.
+  const allowed = (row: T): true | string => {
+    if (can && !can("edit", row)) return m.board.notAllowed;
+    return view.can("update", row as T & DataRow, viewer);
+  };
   const tones = view.definition.fields?.[fieldName as never]?.tones as Readonly<Record<string, ViewTone>> | undefined;
 
   const columns: KanbanColumn<T>[] = board.columns.map((c) => {
@@ -127,16 +168,24 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
   });
 
   const move = async (row: T, to: string) => {
+    const key = keyOf(row);
+    if (saving.has(key)) throw new Error(fillMessage(m.board.stillSaving, { name: titleOf(row) }));
     setRefusal(null);
-    const allowed = view.can("update", row as T & DataRow, viewer);
+    const verdict = allowed(row);
+    setSaving((s) => new Set(s).add(key));
     try {
-      if (allowed !== true) throw new Error(allowed);
-      const value = to === BOARD_NONE ? null : field.type === "boolean" ? to === "true" : to;
-      await update(keyOf(row), { [fieldName]: value } as Partial<T & BaseRecord>);
+      if (verdict !== true) throw new Error(verdict);
+      await update(key, { [fieldName]: stored(to) } as Partial<T & BaseRecord>);
     } catch (error) {
       if (onMoveError) onMoveError(error, row);
       else setRefusal(error instanceof Error && error.message ? error.message : fillMessage(m.kanban.moveFailed, { name: titleOf(row) }));
       throw error;
+    } finally {
+      setSaving((s) => {
+        const next = new Set(s);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
@@ -147,10 +196,12 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
       <button
         type="button"
         onClick={() => (onSelect ? onSelect(row) : setOpenKey(keyOf(row)))}
+        aria-busy={saving.has(keyOf(row)) || undefined}
         className={cn(
           "w-full rounded-lg border bg-card p-3 text-left text-sm shadow-sm hover:border-primary/50",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           movable && "pr-16",
+          saving.has(keyOf(row)) && "opacity-60",
         )}
         data-testid={`${testID}-card`}
       >
@@ -191,7 +242,7 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
         columns={columns}
         getKey={keyOf}
         getItemLabel={titleOf}
-        {...(movable ? { onMoveItem: move } : {})}
+        {...(movable ? { onMoveItem: move, canMoveItem: (row: T) => allowed(row) === true } : {})}
         emptyMessage={m.kanban.noItems}
         renderCard={shownCard}
         renderColumnFooter={(column) => {

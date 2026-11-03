@@ -51,6 +51,10 @@ export const uiMessages = {
     countOther: "{count} {nouns}",
     /** When a filter or search is on. `{count}`: rows that match; `{total}`: all rows. */
     countFiltered: "{count} of {total}",
+    /** A card the screen's own guard won't let this viewer move. */
+    notAllowed: "You can't move this card.",
+    /** `{name}`: a card whose last move is still saving. */
+    stillSaving: "{name} is still moving. Try again in a moment.",
     loadMore: "Load more",
     /** `{loaded}`: rows loaded so far. */
     allLoaded: "All {loaded} loaded",
@@ -171,6 +175,10 @@ export const uiMessages = {
     noValue: "No value",
     /** `{field}`: a filter on the board's own field, which each column replaces with its value. */
     ownFilterSetAside: "Your filter on {field} is set aside here: each column shows one of its values.",
+    /** A card the screen's own guard won't let this viewer move. */
+    notAllowed: "You can't move this card.",
+    /** `{name}`: a card whose last move is still saving. */
+    stillSaving: "{name} is still moving. Try again in a moment.",
     loadMore: "Load more",
     /** `{count}`: cards in the column not loaded yet. */
     loadMoreLeft: "Load more ({count} left)",

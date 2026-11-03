@@ -12,7 +12,7 @@ import { useDisplayCell } from "./display";
 import { useResourceViewDefaults } from "./defaults";
 import type { ViewModeDefault } from "../../../hooks/use-view-preference";
 import { ResourceCalendar, type ResourceCalendarOptions } from "./ResourceCalendar";
-import { ResourceBoard, type ResourceBoardOptions } from "./ResourceBoard";
+import { ResourceBoard, type ResourceBoardOptions, type ResourceBoardProps } from "./ResourceBoard";
 import { RowAvatar } from "./RowAvatar";
 import { useViewDetailFields, useViewListParams, type Filter } from "./view-list";
 import { useViewFormFields } from "./view-form";
@@ -316,7 +316,7 @@ function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
 
 /** `mode="board"`: the same view, scope and filters, a column per value of the board's field. */
 function ResourceViewBoard<T extends Row>(props: ResourceViewProps<T>) {
-  const { view, board, title, subtitle, className, cells } = props;
+  const { view, board, title, subtitle, className, cells, can, resourceOptions } = props;
   const words = subtitle ?? view.definition.copy?.subtitle;
   const { filters, select, enabled, live } = useViewListParams(props);
   return (
@@ -324,6 +324,8 @@ function ResourceViewBoard<T extends Row>(props: ResourceViewProps<T>) {
       {...(board ?? {})}
       view={view}
       filters={filters}
+      {...(can ? { can } : {})}
+      {...(resourceOptions ? { resourceOptions: resourceOptions as NonNullable<ResourceBoardProps<T>["resourceOptions"]> } : {})}
       {...(select !== undefined ? { select } : {})}
       enabled={enabled}
       {...(live !== undefined ? { live } : {})}
