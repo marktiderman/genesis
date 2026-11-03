@@ -179,3 +179,20 @@ export const eventsBlock = defineBlock({
     },
   },
 });
+
+/**
+ * The versioned-writes block: `genesis_version_bump`, the trigger that advances a row's version on
+ * every update, so the Supabase data provider's `version` rule can refuse an edit made on a stale
+ * copy as a `conflict`.
+ *
+ * @stability Beta
+ */
+export const versionedWritesBlock = defineBlock({
+  id: "versioned-writes",
+  platforms: ["web", "native"],
+  contributes: {
+    migrations: [
+      { package: PACKAGE, file: "migrations/0019_genesis_version_bump.sql", test: "migrations/tests/0019_genesis_version_bump.test.sql" },
+    ],
+  },
+});
