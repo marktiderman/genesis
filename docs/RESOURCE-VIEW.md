@@ -707,6 +707,44 @@ const board = useBoardColumns({ provider, resource: "tasks", field: "stage", val
 
 On the phone, a board on `NativeResourceView` is **Planned** ([`resource-view-board`](../features.ts)).
 
+## Gallery
+
+<!-- api: ResourceViewProps, NativeResourceViewProps<any>, ViewGallery, ResourceView<any> -->
+
+A view's `gallery` block says how its rows show as photos: `mode="grid"` then draws a photo per
+row in justified rows, in place of cards, on the web (GalleryGrid) and on a phone
+(NativeGalleryGrid). The rows pack the same on both, because the layout is one function in
+genesis-core (`justifyRows` from `@marktiderman/genesis-core/gallery`).
+
+```ts
+export const photosView = defineView(contracts["public.photos"], {
+  scope: ["album_id"],
+  gallery: { image: "url", width: "width", height: "height", caption: "taken_at", rowHeight: 200 },
+});
+```
+
+```tsx
+<ResourceView view={photosView} mode="grid" />
+<NativeResourceView view={photosView} mode="grid" onRowPress={(p) => router.push(`/photos/${p.id}`)} />
+<ResourceView view={assetsView} mode="grid" gallery={{ image: "thumbnail_url" }} />
+```
+
+- **The block** (`ViewGallery`, field names only): `image` (a text field holding the image's URL),
+  `width` and `height` (number fields with its size in pixels, both or neither; without them a
+  photo packs as 4:3), `caption`, `alt` (default the row's label), and `rowHeight` (the target row
+  height, default 180). `defineView` checks every name and type, and names every mistake at once.
+- **A screen's `gallery`** overrides the block's settings, or turns grid mode into a gallery for a
+  view without one.
+- **What stays the list's:** paging, search, filters, the peek and the table and list views. Only
+  the grid view changes, through ResourcePage's grid slot, so a screen's own `slots.grid` still
+  wins. Pressing a photo opens the row as pressing a card does (the peek, or `onRowPress`).
+- **A row without an image** is a placeholder tile (its `GalleryItem` has an empty `src`) showing
+  its label and caption, so the gallery draws every row the count says.
+- `view.galleryItem(row)` is the row as a `GalleryItem` (its key as `id`), for a screen that hands
+  the same photos to a `Lightbox`.
+- **Not yet:** selecting photos, and a pull to refresh on the phone's gallery. GalleryGrid stays
+  the component for photos that aren't records (a message's attachments, a form's uploads).
+
 ## Security model
 
 ResourceView adds **no authority**. The layers, in order:
