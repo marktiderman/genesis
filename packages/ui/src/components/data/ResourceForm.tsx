@@ -475,7 +475,8 @@ export function ResourceForm(props: ResourceFormProps) {
     onError: onError ?? (mutationMode === "pessimistic"
       ? undefined
       : (error) => {
-          if (mounted.current && isDataWriteError(error) && error.outcome === "conflict") return;
+          // ...and only a conflict that carries their row: one without it has nothing to show there.
+          if (mounted.current && isDataWriteError(error) && error.outcome === "conflict" && error.current) return;
           showWriteErrorToast(error);
         }),
     prefillFromUrl,

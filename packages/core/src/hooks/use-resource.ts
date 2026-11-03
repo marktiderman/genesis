@@ -293,7 +293,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
   const defaultOnError = useCallback(
     (error: Error) => {
       // A conflict is an outcome the caller shows (a conflict sheet), not a failure to log.
-      if (isDataWriteError(error) && error.outcome === "conflict") return;
+      if (isDataWriteError(error) && error.outcome === "conflict" && error.current) return;
       console.error(`[useResource] ${resource} mutation failed:`, error.message);
     },
     [resource],

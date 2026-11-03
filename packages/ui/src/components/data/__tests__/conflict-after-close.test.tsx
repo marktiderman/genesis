@@ -39,8 +39,14 @@ function renderEdit() {
       />
     </GenesisProvider>,
   );
-  const conflict = () =>
-    fail(new DataWriteError("conflict", "Someone else changed this task after you opened it.", { current: { id: "t1", title: "Theirs", version: 5 }, currentVersion: "5" }));
+  const conflict = (withRow = true) =>
+    fail(
+      new DataWriteError(
+        "conflict",
+        "Someone else changed this task after you opened it.",
+        withRow ? { current: { id: "t1", title: "Theirs", version: 5 }, currentVersion: "5" } : {},
+      ),
+    );
   return { view, update, conflict };
 }
 
@@ -65,5 +71,16 @@ describe("ResourceForm, a conflict after it closed", () => {
     await act(async () => conflict());
     expect(await screen.findByTestId("resource-form-conflict")).toBeTruthy();
     expect(toasts.error).not.toHaveBeenCalled();
+  });
+
+  it("toasts a conflict that brings no row to show, even while the form is open", async () => {
+    toasts.error.mockClear();
+    const { update, conflict } = renderEdit();
+    fireEvent.change(await screen.findByLabelText(/Title/), { target: { value: "Mine" } });
+    fireEvent.click(screen.getByRole("button", { name: /Save|Update/ }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    await act(async () => conflict(false));
+    await waitFor(() => expect(toasts.error).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId("resource-form-conflict")).toBeNull();
   });
 });
