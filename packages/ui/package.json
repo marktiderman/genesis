@@ -613,6 +613,12 @@
           "need": "showing formatted text",
           "use": "RichText",
           "import": "@marktiderman/genesis-ui/rich-text"
+        },
+        {
+          "need": "a conversation or an inbox on the web",
+          "use": "ThreadPage and InboxPage (InboxLayout for three panes), or ThreadList and ComposerBar to build your own",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md#messaging-threadpage-inboxpage-and-inboxlayout"
         }
       ]
     }

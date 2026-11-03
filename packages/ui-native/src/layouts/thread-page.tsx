@@ -50,115 +50,22 @@ import { NativeEmptyState } from "../components/empty-state";
 import { NativeText } from "../components/text";
 import { NativeComposerBar, type ComposerMode } from "../components/composer-bar";
 import { NativeThreadList, type NativeThreadListHandle, type ThreadRowInfo } from "../components/thread-list";
+import {
+  DEFAULT_THREAD_LABELS,
+  formatMessageTime,
+  readReceiptFor,
+  type ThreadAttachment,
+  type ThreadComposer,
+  type ThreadLabels,
+  type ThreadMessage,
+} from "@marktiderman/genesis-core/conversation";
 
 const announce = (text: string) => (AccessibilityInfo as { announceForAccessibility?: (t: string) => void }).announceForAccessibility?.(text);
-
-/** How a message reads: `default`, or `internal` (a staff-only note, never mistaken for a reply). */
-export type MessageTone = "default" | "internal";
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
 
-export interface ThreadAttachment {
-  id: string;
-  /** An image URI (a signed URL, a file:// path). */
-  uri: string;
-  width?: number;
-  height?: number;
-  accessibilityLabel?: string;
-  onPress?: () => void;
-}
-
-/**
- * Where a message is on its way. `sending` (in flight), `sent`, `pending`
- * (queued: offline), `paused` (the session expired: sign in to send),
- * `failed` and `conflict` (changed elsewhere) with `onRetry` / `onDiscard`.
- */
-export type ThreadMessageStatus = "sending" | "sent" | "pending" | "paused" | "failed" | "conflict";
-
-export interface ThreadMessage {
-  /** Stays the same across refreshes, or the list jumps. */
-  id: string;
-  /** `event`: a centred line between messages ("Sam was assigned"); `body` is its text. Default `message`. */
-  kind?: "message" | "event";
-  body: string;
-  /** Sent by the person using the app: trailing side, tint. */
-  mine: boolean;
-  /** Shown over theirs ("Support"); never over mine. */
-  authorName?: string;
-  timestamp: string | Date;
-  status?: ThreadMessageStatus;
-  onRetry?: () => void;
-  onDiscard?: () => void;
-  /** `internal`: a staff-only note, tinted so it never reads like a reply. */
-  tone?: MessageTone;
-  attachments?: ThreadAttachment[];
-}
-
-export interface ThreadComposer {
-  value: string;
-  onChangeText: (text: string) => void;
-  onSend: () => void;
-  /** A send is in flight: the button spins and won't send twice. */
-  sending?: boolean;
-  placeholder?: string;
-  sendLabel?: string;
-  /** Turns the send button off (besides an empty or blank value). */
-  disabled?: boolean;
-  maxLength?: number;
-  /** Said while sending. Default `labels.sending`. */
-  sendingLabel?: string;
-  /** Above the input: a reply preview, attachments waiting to send. */
-  above?: ReactNode;
-  /** Beside send: a mic. */
-  trailing?: ReactNode;
-  /** The input grows to this many lines, then scrolls. Default 6. */
-  maxLines?: number;
-  /** Ways to send ("Reply", "Internal note"); two or more show the picker. */
-  modes?: readonly ComposerMode[];
-  mode?: string;
-  onModeChange?: (id: string) => void;
-}
-
-/** What the default parts say. */
-export interface ThreadLabels {
-  /** Who "mine" is, to VoiceOver. */
-  you: string;
-  sending: string;
-  /** Queued while offline. */
-  pending: string;
-  /** The session expired. */
-  paused: string;
-  notSent: string;
-  /** Changed somewhere else before it was sent. */
-  conflict: string;
-  retryHint: string;
-  discard: string;
-  /** The first unread message's divider. */
-  newMessages: string;
-  /** The pill that goes back to the newest message. */
-  jumpToLatest: string;
-  /** While `updating`. */
-  updating: string;
-  /** Said with an internal note, so VoiceOver never reads it as a reply. */
-  internal: string;
-  /** Said when a `jumpTo` message can't be found. */
-  messageGone: string;
-}
-
-const DEFAULT_LABELS: ThreadLabels = {
-  you: "You",
-  sending: "Sending",
-  pending: "Waiting to send",
-  paused: "Sign in to send",
-  notSent: "Not sent. Tap to retry.",
-  conflict: "Not sent: changed elsewhere. Tap to retry.",
-  retryHint: "Double tap to send again",
-  discard: "Discard",
-  newMessages: "New messages",
-  jumpToLatest: "Jump to latest",
-  updating: "Updating…",
-  internal: "Internal note",
-  messageGone: "That message isn't available.",
-};
+// The conversation contract is genesis-core's, shared with genesis-ui's ThreadPage.
+export type { MessageTone, ThreadAttachment, ThreadComposer, ThreadLabels, ThreadMessage, ThreadMessageStatus } from "@marktiderman/genesis-core/conversation";
+export { readReceiptFor } from "@marktiderman/genesis-core/conversation";
 
 export type ThreadPageSlotMap = {
   message: ThreadMessage & { testID: string; timeLabel: string; showReadReceipt: boolean; labels: ThreadLabels; /** A jump just landed here (two seconds). */ highlighted: boolean };
@@ -239,23 +146,7 @@ export function getThreadPageStackOptions(props: ScreenHeaderProps & { headerTit
 
 const toDate = (value: string | Date) => (typeof value === "string" ? new Date(value) : value);
 
-function defaultTime(date: Date): string {
-  return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-}
 
-/** Sent and delivered: a read receipt can mark it. */
-const delivered = (m: ThreadMessage) => m.status === undefined || m.status === "sent";
-
-/** The newest of my messages the other side has read, or null. */
-export function readReceiptFor(messages: readonly ThreadMessage[], readAt: string | Date | null | undefined): string | null {
-  if (!readAt) return null;
-  const read = toDate(readAt).getTime();
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]!;
-    if (m.kind !== "event" && m.mine && delivered(m) && toDate(m.timestamp).getTime() <= read) return m.id;
-  }
-  return null;
-}
 
 export function ThreadPage({
   messages,
@@ -277,7 +168,7 @@ export function ThreadPage({
   keyboardVerticalOffset,
   emptyTitle,
   emptyBody,
-  formatTime = defaultTime,
+  formatTime = formatMessageTime,
   labels: labelOverrides,
   slots = {},
   slotProps = {},
@@ -288,7 +179,7 @@ export function ThreadPage({
   const listRef = useRef<NativeThreadListHandle | null>(null);
   const [atBottom, setAtBottom] = useState(true);
   const receiptFor = readReceiptFor(messages, readAt);
-  const labels: ThreadLabels = { ...DEFAULT_LABELS, ...labelOverrides };
+  const labels: ThreadLabels = { ...DEFAULT_THREAD_LABELS, ...labelOverrides };
 
   // "Updating…" on iOS too (a live region is Android-only).
   useEffect(() => {

@@ -1,7 +1,8 @@
+// @vitest-environment happy-dom
 // @feat:inbox-thread
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { JUMP_SETTLE_MS, useThreadJump } from "../use-thread-jump";
+import { JUMP_SETTLE_MS, useThreadJump } from "../conversation/use-thread-jump";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());

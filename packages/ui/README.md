@@ -152,6 +152,52 @@ function SignInPage({ client }: { client: AuthFormClient }) {
 - Native's `AuthForm` (genesis-ui-native) is a different component: it takes `onSubmit` and
   `errorMessage`, and its `mode` is `password` or `magic-link`.
 
+## Messaging: `ThreadPage`, `InboxPage` and `InboxLayout`
+
+The web twins of genesis-ui-native's messaging layouts, with the same props and slots, on the
+shared conversation contract in `@marktiderman/genesis-core/conversation`. The same
+`ThreadMessage[]` and `InboxItem[]` render on the web and the phone.
+
+- **`ThreadPage`:** one conversation. It fills its container.
+  - Messages oldest first in a `role="log"` region, events as centred lines, attachments and a read receipt.
+  - Earlier pages load near the top, with a "Load earlier" button too, and the list keeps its place while they arrive.
+  - It follows the newest message only while you're at the bottom; otherwise a "Jump to latest" pill shows.
+  - `firstUnreadId` adds a divider, and `jumpTo` with `onLoadUntil` goes to a message and highlights it.
+  - `loading` and `updating`, and send states as data (`pending`, `paused`, `failed`, `conflict`, with `onRetry` and `onDiscard`).
+  - Internal notes (`tone: "internal"`) are edged in `warning` and say so to a screen reader.
+- **`ComposerBar`:** an input that grows as you type, with `modes` and a tone.
+  - Enter sends; Shift+Enter adds a line. With `sendOn="mod-enter"`, Cmd/Ctrl+Enter sends instead.
+  - Slots: `leading`, `trailing`, `above`.
+- **`ThreadList`:** the list on its own.
+- **`InboxPage`:** conversation rows: unread dot or count, a short time, a preview, a status line.
+  - Each row's `swipeActions` become a "More" menu.
+  - Arrow keys or j/k move between rows; `selected` marks the open one.
+  - Paging, loading, error and empty states.
+- **`InboxLayout`:** the three-pane inbox, with views, list, thread and an optional context sidebar. On narrow screens it shows one pane at a time, with Back.
+
+```tsx
+import { InboxLayout, InboxPage, ThreadPage, type InboxItem, type ThreadMessage } from "@marktiderman/genesis-ui";
+
+function Inbox({ items, messages, draft, setDraft, send, openId, close }: {
+  items: InboxItem[];
+  messages: ThreadMessage[];
+  draft: string;
+  setDraft: (text: string) => void;
+  send: () => void;
+  openId: string | null;
+  close: () => void;
+}) {
+  return (
+    <InboxLayout
+      list={<InboxPage items={items} />}
+      thread={openId ? <ThreadPage messages={messages} composer={{ value: draft, onChangeText: setDraft, onSend: send }} /> : null}
+      threadOpen={Boolean(openId)}
+      onBack={close}
+    />
+  );
+}
+```
+
 ## Read next
 
 - [SKILL.md](./SKILL.md): the reuse ladder (pattern, slots, elements, hooks) and which export

@@ -84,6 +84,10 @@
       "types": "./dist/resource-view/index.d.ts",
       "import": "./dist/resource-view/index.js"
     },
+    "./conversation": {
+      "types": "./dist/conversation/index.d.ts",
+      "import": "./dist/conversation/index.js"
+    },
     "./urls": {
       "types": "./dist/urls.d.ts",
       "import": "./dist/urls.js"

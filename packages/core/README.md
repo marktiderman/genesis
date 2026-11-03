@@ -661,6 +661,21 @@ readinessChip(readinessOf(findings, { emptyCode: "no-lessons" }), { empty: "Add 
 // → { label: "Add a lesson", tone: "muted" }
 ```
 
+## Conversations (`/conversation`)
+
+The contract web and native messaging layouts share: `ThreadMessage` (with `kind`, `status`, `tone`),
+`ThreadComposer` and `ComposerMode`, `ThreadLabels` with `DEFAULT_THREAD_LABELS`, `InboxItem`, and
+`readReceiptFor`, `formatInboxTime` and `formatMessageTime`. genesis-ui's and genesis-ui-native's
+`ThreadPage` and `InboxPage` render the same data. `useThreadJump` is the jump to one row: it
+waits for the first page, loads until the row is held, highlights it and says when it can't be found.
+
+```ts
+import { readReceiptFor, type ThreadMessage } from "@marktiderman/genesis-core/conversation";
+
+const rows: ThreadMessage[] = [{ id: "m1", body: "Hi", mine: true, timestamp: "2026-11-03T09:00:00Z" }];
+const receiptOn = readReceiptFor(rows, "2026-11-03T09:05:00Z"); // "m1"
+```
+
 ## Days and time zones (`/dates`)
 
 A day is a `YYYY-MM-DD` string: the date on one time zone's clock. `new Date().toISOString().slice(0, 10)`
