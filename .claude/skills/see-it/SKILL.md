@@ -44,6 +44,10 @@ These are notes, not steps. Try things, and add what you learn here.
   starter has it, from `apps/sample/app/app.css`), Tailwind 4 draws every border black.
 - **Show the change.** A Before/After switch on the page (the chat dock's height fix had one)
   makes a fix obvious at a glance.
+- **Time it when speed is the change.** A slow mock provider (`createMockProvider(data, { delay })`)
+  and an on-page timer ("first rows in 25 ms" beside "1516 ms") made the instant-lists preview
+  (#689) clear at a glance. A Restart button that remounts with a fresh QueryClient stood in for
+  relaunching the app.
 - **Keep it out of the repo.** Build from a scratch folder and move it out when you've published.
   Only this skill is committed.
 
@@ -60,6 +64,10 @@ from #670: an `index.html`, a `styles.css` that pulls in the Genesis theme and T
 4. Publish `apps/sample/see-it-<name>-dist` with the Artifact tool:
    - write a small page holding a `<title>`, a body background, the built `<link>` and `<script>`;
    - pass `root` set to that folder and `files` mapping `assets/*`.
+   - The tool refuses `edits` together with `files`. To change the wrapper page, edit the file
+     first, then publish it with `root` and `files` in one call.
+   - Copy the page and `assets/` to your scratchpad before publishing. Then step 5 can delete the
+     repo copies, and a later republish still finds its files.
 5. Delete the copied config, the demo folder and the dist folder.
 
 Better tooling is welcome: a script, a gallery of previews, a page that shows a PR's previews
