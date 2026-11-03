@@ -66,9 +66,10 @@ export interface KanbanBoardProps<T> {
    */
   onMoveItem?: (item: T, toColumn: string) => void | Promise<void>;
   /**
-   * Whether this item can be moved now (a row the viewer can't change, or one whose last move is
-   * still saving). Without it, every item can be. A card that can't has no handle or menu and
-   * can't be dragged.
+   * Whether this item can be moved at all (not, say, a row the viewer can't change). Without it,
+   * every item can be. A card that can't has no handle or menu and can't be dragged. A move that
+   * should wait (one still saving) is better refused from `onMoveItem`: hiding the handle under
+   * keyboard focus would drop the focus.
    */
   canMoveItem?: (item: T) => boolean;
   /** A name for an item, for its handle, menu and announcements ("Move Ana Ruiz"). */
