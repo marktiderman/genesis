@@ -22,7 +22,8 @@ export interface StoredRow {
   readonly id: string;
   /**
    * The row as last read whole (a list or a record read without `select`). A
-   * newer read replaces it, so a field the server stops returning is gone.
+   * newer read replaces it, so a field the server stops returning is gone; an
+   * older one never does.
    */
   readonly row: Readonly<Record<string, unknown>>;
   readonly fetchedAt: number;
@@ -45,11 +46,15 @@ export interface StoredQuery {
 export type CacheOp =
   | { readonly kind: "row"; readonly row: StoredRow }
   | { readonly kind: "query"; readonly query: StoredQuery }
-  | { readonly kind: "forget"; readonly key: string }
+  /** Deletes a stored read; with `before`, only if it was fetched before then (a newer save stays). */
+  | { readonly kind: "forget"; readonly key: string; readonly before?: number }
   /** Deletes one stored row (the record came back empty: deleted, or no longer readable). */
   | { readonly kind: "drop"; readonly resource: string; readonly id: string }
-  /** Deletes every stored row of `resource` that isn't in `keep`: the rows no kept read refers to. */
-  | { readonly kind: "prune"; readonly resource: string; readonly keep: readonly string[] };
+  /**
+   * Deletes every stored row of `resource` that isn't in `keep` and was fetched before `before`:
+   * the rows no kept read refers to, never one saved since the sweep started.
+   */
+  | { readonly kind: "prune"; readonly resource: string; readonly keep: readonly string[]; readonly before: number };
 
 /**
  * The device cache. `memoryLocalCache` (tests), `indexedDbLocalCache` (the
@@ -63,10 +68,16 @@ export interface LocalCache {
   readQueries(scope: CacheScope): Promise<StoredQuery[]>;
   /** The stored rows of `resource` with these ids; missing ones are left out. */
   readRows(scope: CacheScope, resource: string, ids: readonly string[]): Promise<StoredRow[]>;
-  /** Applies `ops` in order, in one transaction. A row op replaces the stored row. */
+  /**
+   * Applies `ops` in order, in one transaction. A row op replaces the stored row unless the
+   * stored one was fetched later (an older read never overwrites a newer one).
+   */
   write(scope: CacheScope, ops: readonly CacheOp[]): Promise<void>;
-  /** Deletes one scope's bucket, every bucket of one person, or everything. */
-  clear(target?: { readonly scope: CacheScope } | { readonly user: string }): Promise<void>;
+  /**
+   * Deletes one scope's bucket, every bucket of one person, every bucket except one person's
+   * (`except`: a device is one person's), or everything.
+   */
+  clear(target?: { readonly scope: CacheScope } | { readonly user: string } | { readonly except: string }): Promise<void>;
 }
 
 /**
@@ -81,7 +92,10 @@ export interface QueryPersistence {
    * person signed out, or the scope changed), nothing more is loaded.
    */
   restore(scope: string, signal?: AbortSignal): Promise<void>;
-  /** Save settled reads for `scope` as they arrive; returns the unsubscribe. */
+  /**
+   * Saves settled reads for `scope` as they arrive; returns the unsubscribe.
+   * `restore("")` (nobody signed in) deletes every saved read on the device.
+   */
   subscribe(scope: string): () => void;
   /** Delete the saved reads of every person this persistence restored or saved for (else everything). */
   clear(): Promise<void>;

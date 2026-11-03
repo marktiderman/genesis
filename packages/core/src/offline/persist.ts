@@ -1,5 +1,5 @@
 import type { Query, QueryCacheNotifyEvent, QueryClient } from "@tanstack/react-query";
-import { userPrefix, type CacheOp, type CacheScope, type LocalCache, type QueryPersistence, type StoredQuery } from "./types";
+import { userPrefix, type CacheOp, type CacheScope, type LocalCache, type QueryPersistence, type StoredQuery, type StoredRow } from "./types";
 
 /** Options for {@link persistOffline}. */
 export interface PersistOfflineOptions {
@@ -17,6 +17,8 @@ export interface PersistOfflineOptions {
   maxAge?: number;
   /** Save at most this often. Default 500 ms. */
   throttleMs?: number;
+  /** The most reads kept per person and workspace; the least recently fetched go first. Default 200. */
+  maxReads?: number;
 }
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -109,13 +111,16 @@ function join(value: unknown, rows: Map<string, Row>): unknown {
  * - A newer read replaces a stored row, so a field the server stops returning
  *   goes; a record that comes back empty is deleted from the device. Each start
  *   deletes reads older than `maxAge` and the rows no kept read refers to.
+ * - A device is one person's: restoring someone deletes every other person's
+ *   reads first, and `restore("")` (nobody signed in) deletes them all, so a
+ *   session that ended outside the app leaves nothing behind.
  * - A sign-out, a change of person or workspace, or `clear()` stops every save
  *   and restore still in flight from landing in the new bucket.
  *
  * @stability Beta
  */
 export function persistOffline(options: PersistOfflineOptions): (queryClient: QueryClient) => QueryPersistence {
-  const { cache, buster, maxAge = 7 * DAY, throttleMs = 500 } = options;
+  const { cache, buster, maxAge = 7 * DAY, throttleMs = 500, maxReads = 200 } = options;
   const kept = new Set(options.resources);
 
   return (queryClient) => {
@@ -134,12 +139,26 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
     };
 
     const restore = async (raw: string, signal?: AbortSignal) => {
+      if (raw === "") {
+        // Nobody is signed in: nothing of anyone's stays on the device.
+        restores += 1;
+        saves += 1;
+        people.clear();
+        await cache.clear().catch(() => undefined);
+        return;
+      }
       const scope = toScope(raw);
       if (!scope) return;
       const mine = ++restores;
-      people.add(scope.slice(2, scope.indexOf("|")));
+      const user = scope.slice(2, scope.indexOf("|"));
+      people.add(user);
       const stale = () => mine !== restores || signal?.aborted === true;
+      // Reads saved from here on are newer than this restore: the sweep below never deletes them.
+      const startedAt = Date.now();
       try {
+        // A device is one person's: whoever used it before (a session that ended outside the app,
+        // by expiry or a sign-out elsewhere) leaves nothing here for this person to sit beside.
+        await cache.clear({ except: user });
         const stored = await cache.readQueries(scope);
         if (stale()) return;
         const found = stored.find((q) => q.key === META);
@@ -150,7 +169,10 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
           return;
         }
         const reads = stored.filter((q) => q.key !== META);
-        const fresh = reads.filter((q) => Date.now() - q.fetchedAt <= maxAge && kept.has(q.resource));
+        const fresh = reads
+          .filter((q) => Date.now() - q.fetchedAt <= maxAge && kept.has(q.resource))
+          .sort((a, b) => b.fetchedAt - a.fetchedAt)
+          .slice(0, maxReads);
         // The rows each resource's reads refer to, read once per resource.
         const wanted = new Map<string, Set<string>>();
         for (const q of reads) if (!wanted.has(q.resource)) wanted.set(q.resource, new Set());
@@ -169,13 +191,16 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
           if (existing?.data !== undefined && existing.dataUpdatedAt >= q.fetchedAt) continue;
           queryClient.setQueryData(q.queryKey, data, { updatedAt: q.fetchedAt });
         }
-        // Keep the device to what can still be restored: expired reads, reads of resources no
-        // longer kept, and rows nothing refers to are deleted.
-        const sweep: CacheOp[] = reads.filter((q) => !fresh.includes(q)).map((q) => ({ kind: "forget", key: q.key }));
-        for (const [resource, ids] of wanted) sweep.push({ kind: "prune", resource, keep: [...ids] });
+        // Keep the device to what can still be restored: expired reads, reads past `maxReads`,
+        // reads of resources no longer kept, and rows nothing refers to are deleted, unless saved
+        // since this restore started.
+        const sweep: CacheOp[] = reads.filter((q) => !fresh.includes(q)).map((q) => ({ kind: "forget", key: q.key, before: startedAt }));
+        for (const [resource, ids] of wanted) sweep.push({ kind: "prune", resource, keep: [...ids], before: startedAt });
         if (sweep.length) await cache.write(scope, sweep);
       } catch {
-        // An unreadable cache is no reason to fail the start: the screens read from the server.
+        // An unreadable bucket is no reason to fail the start: the screens read from the server.
+        // Dropped, so it doesn't fail every start after this one.
+        await cache.clear({ scope }).catch(() => undefined);
       }
     };
 
@@ -196,6 +221,7 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
         if (mine !== saves || pending.size === 0) return;
         // The bucket's app version, so the next start keeps what this saves.
         const ops: CacheOp[] = first ? [meta()] : [];
+        const newest = new Map<string, StoredRow>();
         first = false;
         for (const read of pending.values()) {
           const [resource, kind, params, detailSelect] = read.queryKey;
@@ -212,10 +238,17 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
           const rows: Row[] = [];
           const data = split(kind as string, select, read.data, rows);
           if (data === null) continue;
-          for (const row of rows) ops.push({ kind: "row", row: { resource: resource as string, id: String(row.id), row, fetchedAt: read.fetchedAt } });
+          for (const row of rows) {
+            // One row per record per save, the most recently fetched (a list, then the record,
+            // then the list again leave the newest copy, whatever order they're saved in).
+            const k = `${resource as string}\u0000${String(row.id)}`;
+            const seen = newest.get(k);
+            if (!seen || seen.fetchedAt <= read.fetchedAt) newest.set(k, { resource: resource as string, id: String(row.id), row, fetchedAt: read.fetchedAt });
+          }
           ops.push({ kind: "query", query: { key, queryKey: read.queryKey, resource: resource as string, data, fetchedAt: read.fetchedAt } satisfies StoredQuery });
         }
         pending.clear();
+        for (const row of newest.values()) ops.push({ kind: "row", row });
         if (ops.length) void cache.write(scope, ops).catch(() => undefined);
       };
 

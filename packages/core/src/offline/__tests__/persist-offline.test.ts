@@ -267,10 +267,20 @@ describe("persistOffline, what the device keeps", () => {
     const cache = memoryLocalCache();
     await roundTrip(fetchAll, cache);
     let release: () => void = () => {};
-    const slow: LocalCache = { ...cache, readQueries: async (scope) => { await new Promise<void>((r) => (release = r)); return cache.readQueries(scope); } };
+    let reading!: () => void;
+    const started = new Promise<void>((r) => (reading = r));
+    const slow: LocalCache = {
+      ...cache,
+      readQueries: async (scope) => {
+        reading();
+        await new Promise<void>((r) => (release = r));
+        return cache.readQueries(scope);
+      },
+    };
     const { client, persistence } = setup(slow);
     const abort = new AbortController();
     const restoring = persistence.restore(ANA, abort.signal);
+    await started;
     abort.abort();
     client.clear();
     release();
@@ -303,5 +313,93 @@ describe("persistOffline, what the device keeps", () => {
     const next = setup(cache);
     await next.persistence.restore(ben);
     expect(next.client.getQueryData(list)).toBeDefined();
+  });
+});
+
+describe("persistOffline, a device is one person's", () => {
+  async function saveFor(cache: LocalCache, scope: string) {
+    const first = setup(cache);
+    await first.persistence.restore(scope);
+    const stop = first.persistence.subscribe(scope);
+    await fetchAll(first.client);
+    await settle();
+    stop();
+  }
+
+  it("deletes the last person's reads when someone else starts (their session ended outside the app)", async () => {
+    const cache = memoryLocalCache();
+    await saveFor(cache, ANA);
+    // Ana's session expired while the app was closed; Ben signs in on the next start.
+    const ben = setup(cache);
+    await ben.persistence.restore(cacheScope("ben", "org:acme"));
+    expect(await cache.readQueries(ANA)).toEqual([]);
+    expect(await cache.readRows(ANA, "tasks", ["1", "2"])).toEqual([]);
+  });
+
+  it("deletes everyone's reads on a start with nobody signed in", async () => {
+    const cache = memoryLocalCache();
+    await saveFor(cache, ANA);
+    await setup(cache).persistence.restore("");
+    expect(await cache.readQueries(ANA)).toEqual([]);
+    expect(await cache.readRows(ANA, "tasks", ["1"])).toEqual([]);
+  });
+
+  it("keeps the same person's reads, in every workspace", async () => {
+    const cache = memoryLocalCache();
+    await saveFor(cache, ANA);
+    await setup(cache).persistence.restore(cacheScope("ana", "org:other"));
+    expect(await cache.readRows(ANA, "tasks", ["1"])).toHaveLength(1);
+  });
+});
+
+describe("persistOffline, bounds", () => {
+  it("keeps at most maxReads reads, the most recently fetched", async () => {
+    const cache = memoryLocalCache();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    const persistence = persistOffline({ cache, resources: ["tasks"], buster: "v1", throttleMs: 0, maxReads: 2 })(client);
+    await persistence.restore(ANA);
+    const stop = persistence.subscribe(ANA);
+    for (const page of [1, 2, 3]) {
+      await client.fetchQuery({ queryKey: resourceKeys("tasks").list({ pagination: { page, perPage: 1 } }), queryFn: async () => ({ data: [{ id: page, title: `T${page}` }], total: 3 }) });
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    await settle();
+    stop();
+    const next = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    await persistOffline({ cache, resources: ["tasks"], buster: "v1", throttleMs: 0, maxReads: 2 })(next).restore(ANA);
+    expect(next.getQueryData(resourceKeys("tasks").list({ pagination: { page: 1, perPage: 1 } }))).toBeUndefined();
+    expect(next.getQueryData(resourceKeys("tasks").list({ pagination: { page: 3, perPage: 1 } }))).toBeDefined();
+    expect(await cache.readRows(ANA, "tasks", ["1"])).toEqual([]);
+  });
+
+  it("drops a bucket it can't read, so the next start isn't stuck on it", async () => {
+    const cache = memoryLocalCache();
+    const first = setup(cache);
+    await first.persistence.restore(ANA);
+    const stop = first.persistence.subscribe(ANA);
+    await fetchAll(first.client);
+    await settle();
+    stop();
+    const broken: LocalCache = { ...cache, readRows: async () => { throw new Error("corrupt"); } };
+    await setup(broken).persistence.restore(ANA);
+    expect(await cache.readQueries(ANA)).toEqual([]);
+  });
+
+  it("keeps the most recently fetched copy of a row, whatever order the reads are saved in", async () => {
+    const { client, persistence, cache } = setup();
+    await persistence.restore(ANA);
+    const stop = persistence.subscribe(ANA);
+    // The list, then the record, then the list again, all inside one throttled save.
+    const slow = persistOffline({ cache, resources: ["tasks"], buster: "v1", throttleMs: 50 })(client);
+    stop();
+    const stopSlow = slow.subscribe(ANA);
+    await client.fetchQuery({ queryKey: list, queryFn: async () => ({ data: [{ id: 1, title: "List v1" }], total: 1 }) });
+    await new Promise((r) => setTimeout(r, 2));
+    await client.fetchQuery({ queryKey: detail, queryFn: async () => ({ id: 1, title: "Record v2" }) });
+    await new Promise((r) => setTimeout(r, 2));
+    await client.fetchQuery({ queryKey: list, queryFn: async () => ({ data: [{ id: 1, title: "List v3" }], total: 1 }), staleTime: 0 });
+    await new Promise((r) => setTimeout(r, 80));
+    stopSlow();
+    expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "List v3" });
   });
 });

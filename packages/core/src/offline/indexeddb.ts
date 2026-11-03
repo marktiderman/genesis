@@ -8,8 +8,9 @@ export interface IndexedDbLocalCacheOptions {
   indexedDB?: IDBFactory;
   /**
    * Ask the browser to keep this origin's storage (`navigator.storage.persist()`).
-   * Default true. Refused, the browser may evict the cache under pressure;
-   * it's rebuilt from the server.
+   * Default false: some browsers ask the person, and kept storage outlives a
+   * shared machine's session longer. Without it the browser may evict the
+   * cache under pressure; it's rebuilt from the server.
    */
   persist?: boolean;
 }
@@ -48,7 +49,7 @@ export function indexedDbLocalCache(options: IndexedDbLocalCacheOptions = {}): L
   const open = (): Promise<IDBDatabase> => {
     if (opening) return opening;
     if (!factory) return Promise.reject(new Error("[genesis offline] IndexedDB isn't available here."));
-    if (options.persist !== false) {
+    if (options.persist === true) {
       const storage = (globalThis as { navigator?: { storage?: { persist?: () => Promise<boolean> } } }).navigator?.storage;
       void storage?.persist?.().catch(() => false);
     }
@@ -105,19 +106,45 @@ export function indexedDbLocalCache(options: IndexedDbLocalCacheOptions = {}): L
       const tx = db.transaction(["rows", "queries"], "readwrite");
       const rows = tx.objectStore("rows");
       const queries = tx.objectStore("queries");
-      // Requests in one transaction run in the order they're made, so the ops apply in order.
+      // Requests in one transaction run in the order they're made, so the ops apply in order. A row
+      // is written only if the stored one isn't newer: read first, then put (one row op per key, the
+      // newest, so two reads of one row in one write can't race).
+      const newest = new Map<string, StoredRow>();
       for (const op of ops) {
-        if (op.kind === "row") rows.put({ ...op.row, scope } satisfies RowRecord);
-        else if (op.kind === "query") queries.put({ ...op.query, scope } satisfies QueryRecord);
-        else if (op.kind === "forget") queries.delete([scope, op.key]);
-        else if (op.kind === "drop") rows.delete([scope, op.resource, op.id]);
+        if (op.kind !== "row") continue;
+        const k = JSON.stringify([op.row.resource, op.row.id]);
+        const seen = newest.get(k);
+        if (!seen || seen.fetchedAt <= op.row.fetchedAt) newest.set(k, op.row);
+      }
+      const olderThan = (store: IDBObjectStore, key: IDBValidKey, before: number, then: () => void) => {
+        const get = store.get(key);
+        get.onsuccess = () => {
+          const stored = get.result as { fetchedAt: number } | undefined;
+          if (stored && stored.fetchedAt < before) then();
+        };
+      };
+      for (const op of ops) {
+        if (op.kind === "row") {
+          const row = newest.get(JSON.stringify([op.row.resource, op.row.id]));
+          if (row !== op.row) continue;
+          const get = rows.get([scope, row.resource, row.id]);
+          get.onsuccess = () => {
+            const stored = get.result as RowRecord | undefined;
+            if (!stored || stored.fetchedAt <= row.fetchedAt) rows.put({ ...row, scope } satisfies RowRecord);
+          };
+        } else if (op.kind === "query") queries.put({ ...op.query, scope } satisfies QueryRecord);
+        else if (op.kind === "forget") {
+          if (op.before === undefined) queries.delete([scope, op.key]);
+          else olderThan(queries, [scope, op.key], op.before, () => queries.delete([scope, op.key]));
+        } else if (op.kind === "drop") rows.delete([scope, op.resource, op.id]);
         else {
           const keep = new Set(op.keep);
-          const cursor = rows.openKeyCursor(IDBKeyRange.bound([scope, op.resource], [scope, op.resource, []]));
+          const cursor = rows.openCursor(IDBKeyRange.bound([scope, op.resource], [scope, op.resource, []]));
           cursor.onsuccess = () => {
             const c = cursor.result;
             if (!c) return;
-            if (!keep.has(String((c.primaryKey as unknown[])[2]))) rows.delete(c.primaryKey);
+            const stored = c.value as RowRecord;
+            if (!keep.has(stored.id) && stored.fetchedAt < op.before) c.delete();
             c.continue();
           };
         }
@@ -129,7 +156,13 @@ export function indexedDbLocalCache(options: IndexedDbLocalCacheOptions = {}): L
       const tx = db.transaction(["rows", "queries"], "readwrite");
       for (const store of [tx.objectStore("rows"), tx.objectStore("queries")]) {
         if (!target) store.clear();
-        else store.delete("scope" in target ? scopeRange(target.scope) : personRange(target.user));
+        else if ("scope" in target) store.delete(scopeRange(target.scope));
+        else if ("user" in target) store.delete(personRange(target.user));
+        else {
+          // Everyone else: the keys below this person's range, and those above it.
+          store.delete(IDBKeyRange.upperBound([userPrefix(target.except)], true));
+          store.delete(IDBKeyRange.lowerBound([`${userPrefix(target.except)}\uffff`]));
+        }
       }
       await finished(tx);
     },

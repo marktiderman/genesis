@@ -86,12 +86,16 @@ export type GenesisProviderProps =
        */
       persist?: (client: QueryClient) => QueryPersistence;
       /**
-       * Whose cache this is: `cacheScope(user.id, workspaceKey)`, or null while nobody is signed in
-       * (nothing is restored or saved). A change restores the new scope's reads; when the person
-       * changes or signs out, their kept reads are deleted from the device. Clear the QueryClient
-       * yourself when the person changes, as a sign-out already does. Restoring is client-only:
-       * in a server-rendered app, give it after hydration (null on the server and the first
-       * client render), and the screens restore in the background.
+       * Whose cache this is: `cacheScope(user.id, workspaceKey)` once someone is signed in,
+       * `null` once nobody is, and `undefined` while that isn't known yet (the session loading).
+       * A device is one person's: restoring someone deletes everyone else's kept reads, and
+       * `null` deletes them all, so a session that ended outside the app (it expired, or was
+       * signed out elsewhere) leaves nothing on the device. Undefined does nothing. A change of
+       * scope restores the new one's reads. Clear the QueryClient yourself when the person
+       * changes, as a sign-out already does; a `ViewerScope` inside keeps the restored reads for
+       * this person. Restoring is client-only: in a server-rendered app, give it after hydration
+       * (undefined on the server and the first client render), and the screens restore in the
+       * background.
        */
       persistScope?: string | null;
       /**
@@ -136,7 +140,7 @@ export function GenesisProvider({
   storage,
   queryClient: queryClientProp,
   persist,
-  persistScope = null,
+  persistScope,
 }: GenesisProviderProps) {
   if (provider && mock) {
     if (process.env.NODE_ENV !== "production") {
@@ -174,7 +178,9 @@ export function GenesisProvider({
     <QueryClientProvider client={queryClient}>
       <StorageContext.Provider value={resolvedStorage}>
         <DataProviderRoot provider={resolvedProvider}>
-          {restored ? children : null}
+          <PersistedViewerContext.Provider value={persist && typeof persistScope === "string" ? userOf(persistScope) : undefined}>
+            {restored ? children : null}
+          </PersistedViewerContext.Provider>
         </DataProviderRoot>
       </StorageContext.Provider>
     </QueryClientProvider>
@@ -196,7 +202,7 @@ const userOf = (scope: string) => (scope.startsWith("u:") ? scope.slice(2, scope
 function useRestoredReads(
   queryClient: QueryClient,
   persist: ((client: QueryClient) => QueryPersistence) | undefined,
-  scope: string | null,
+  scope: string | null | undefined,
 ): boolean {
   // The first `persist` given is kept (one given only later is ignored), so a screen that writes
   // it inline doesn't restart the restore on every render.
@@ -207,16 +213,23 @@ function useRestoredReads(
   const person = useRef<string | null>(null);
   const clearing = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
-    if (!persistence) return;
-    const next = scope ? userOf(scope) : null;
+    if (!persistence || scope === undefined) {
+      // Not known yet who's signed in: nothing is restored, saved or deleted.
+      setReady(true);
+      return;
+    }
+    if (scope === null) {
+      // Nobody signed in: nothing of anyone's stays on the device.
+      person.current = null;
+      clearing.current = persistence.restore("").catch(() => undefined);
+      setReady(true);
+      return;
+    }
+    const next = userOf(scope);
     if (person.current !== null && person.current !== next) {
       clearing.current = persistence.clear().catch(() => undefined);
     }
     person.current = next;
-    if (!scope) {
-      setReady(true);
-      return;
-    }
     const abort = new AbortController();
     // Saving starts with the scope, so a read that was on its way before it is never saved here.
     const stop = persistence.subscribe(scope);
@@ -239,4 +252,10 @@ function useRestoredReads(
   }, [persistence, scope]);
   return ready;
 }
+
+/**
+ * The person whose kept reads `GenesisProvider` restored (`persistScope`'s user), so a
+ * `ViewerScope` inside keeps them for that viewer instead of emptying the cache.
+ */
+export const PersistedViewerContext = createContext<string | undefined>(undefined);
 

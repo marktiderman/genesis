@@ -46,11 +46,39 @@ describe("sqliteLocalCache", () => {
     expect(await cache.readQueries(A)).toEqual([query("q1")]);
   });
 
+  it("never lets an older read overwrite a newer row, and a sweep keeps what was saved after it started", async () => {
+    const cache = sqliteLocalCache({ db: expoLike() });
+    await cache.write(A, [{ kind: "row", row: { resource: "tasks", id: "1", row: { id: 1, title: "Newer" }, fetchedAt: 5 } }]);
+    await cache.write(A, [{ kind: "row", row: { resource: "tasks", id: "1", row: { id: 1, title: "Older" }, fetchedAt: 3 } }]);
+    expect((await cache.readRows(A, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "Newer" });
+    await cache.write(A, [
+      { kind: "query", query: { ...query("old"), fetchedAt: 4 } },
+      { kind: "query", query: { ...query("new"), fetchedAt: 20 } },
+      { kind: "row", row: { resource: "tasks", id: "2", row: { id: 2 }, fetchedAt: 20 } },
+    ]);
+    await cache.write(A, [
+      { kind: "forget", key: "old", before: 10 },
+      { kind: "forget", key: "new", before: 10 },
+      { kind: "prune", resource: "tasks", keep: [], before: 10 },
+    ]);
+    expect((await cache.readQueries(A)).map((q) => q.key)).toEqual(["new"]);
+    expect((await cache.readRows(A, "tasks", ["1", "2"])).map((r) => r.id)).toEqual(["2"]);
+  });
+
+  it("clears everyone but one person", async () => {
+    const cache = sqliteLocalCache({ db: expoLike() });
+    for (const scope of [A, "u:ana|none", "u:ben|none", "u:an|none", "u:a_a|none"]) await cache.write(scope, [{ kind: "query", query: query("q1") }]);
+    await cache.clear({ except: "ana" });
+    expect(await cache.readQueries(A)).toHaveLength(1);
+    expect(await cache.readQueries("u:ana|none")).toHaveLength(1);
+    for (const scope of ["u:ben|none", "u:an|none", "u:a_a|none"]) expect(await cache.readQueries(scope)).toEqual([]);
+  });
+
   it("drops a row, and prunes the rows of a resource that aren't kept", async () => {
     const cache = sqliteLocalCache({ db: expoLike() });
     const row = (resource: string, id: string) => ({ kind: "row" as const, row: { resource, id, row: { id }, fetchedAt: 1 } });
     await cache.write(A, [row("tasks", "1"), row("tasks", "2"), row("tasks", "3"), row("people", "1")]);
-    await cache.write(A, [{ kind: "drop", resource: "tasks", id: "1" }, { kind: "prune", resource: "tasks", keep: ["3"] }]);
+    await cache.write(A, [{ kind: "drop", resource: "tasks", id: "1" }, { kind: "prune", resource: "tasks", keep: ["3"], before: 10 }]);
     expect((await cache.readRows(A, "tasks", ["1", "2", "3"])).map((r) => r.id)).toEqual(["3"]);
     expect(await cache.readRows(A, "people", ["1"])).toHaveLength(1);
   });

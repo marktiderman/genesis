@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import { useResource } from "../../hooks/use-resource";
+import { ViewerScope } from "../../hooks/viewer-scope";
 import { GenesisProvider } from "../../provider/context";
 import type { DataProvider } from "../../provider/types";
 import { memoryLocalCache } from "../memory";
@@ -15,15 +16,27 @@ function Titles() {
   return <ul>{list.data?.data.map((t) => <li key={t.id}>{t.title}</li>)}</ul>;
 }
 
-function app(cache: LocalCache, getList: DataProvider["getList"], scope: string | null = cacheScope("ana")) {
+function app(cache: LocalCache, getList: DataProvider["getList"], scope: string | null | undefined = cacheScope("ana"), viewer?: string) {
   const provider = { getList, getOne: vi.fn(), getMany: vi.fn(), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const persist = persistOffline({ cache, resources: ["tasks"], buster: "v1", throttleMs: 0 });
   return render(
     <GenesisProvider provider={provider} queryClient={client} persist={persist} persistScope={scope}>
-      <Titles />
+      {viewer === undefined ? <Titles /> : (
+        <ViewerScope viewer={viewer}>
+          <Titles />
+        </ViewerScope>
+      )}
     </GenesisProvider>,
   );
+}
+
+/** Ana's list, saved on the device by an earlier start. */
+async function savedForAna(cache: LocalCache) {
+  const first = app(cache, vi.fn(async () => ({ data: [{ id: 1, title: "One" }], total: 1 })) as DataProvider["getList"]);
+  expect(await screen.findByText("One")).toBeTruthy();
+  await new Promise((r) => setTimeout(r, 20));
+  first.unmount();
 }
 
 describe("GenesisProvider with persist", () => {
@@ -101,5 +114,34 @@ describe("GenesisProvider with persist", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(screen.queryByText("One")).toBeNull();
     await waitFor(async () => expect(await cache.readQueries(cacheScope("ana"))).toEqual([]));
+  });
+
+  it("leaves the device alone while it isn't known who's signed in, and wipes it once nobody is", async () => {
+    const cache = memoryLocalCache();
+    await savedForAna(cache);
+    const never = vi.fn(() => new Promise(() => {})) as unknown as DataProvider["getList"];
+    const loading = app(cache, never, undefined);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(await cache.readQueries(cacheScope("ana"))).not.toEqual([]);
+    loading.unmount();
+    app(cache, never, null);
+    await waitFor(async () => expect(await cache.readQueries(cacheScope("ana"))).toEqual([]));
+  });
+
+  it("deletes the last person's reads when the next start is someone else's", async () => {
+    const cache = memoryLocalCache();
+    await savedForAna(cache);
+    const never = vi.fn(() => new Promise(() => {})) as unknown as DataProvider["getList"];
+    app(cache, never, cacheScope("ben"));
+    await waitFor(async () => expect(await cache.readQueries(cacheScope("ana"))).toEqual([]));
+    expect(await cache.readRows(cacheScope("ana"), "tasks", ["1"])).toEqual([]);
+  });
+
+  it("a ViewerScope inside keeps the reads restored for its viewer", async () => {
+    const cache = memoryLocalCache();
+    await savedForAna(cache);
+    const never = vi.fn(() => new Promise(() => {})) as unknown as DataProvider["getList"];
+    app(cache, never, cacheScope("ana"), "ana");
+    expect(await screen.findByText("One")).toBeTruthy();
   });
 });

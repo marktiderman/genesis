@@ -9,13 +9,18 @@ const rowKey = (resource: string, id: string) => `${resource}\u0000${id}`;
 
 /** Applies one op to a bucket (shared with the other adapters' tests through behaviour, not code). */
 function apply(bucket: Bucket, op: CacheOp): void {
-  if (op.kind === "row") bucket.rows.set(rowKey(op.row.resource, op.row.id), op.row);
-  else if (op.kind === "query") bucket.queries.set(op.query.key, op.query);
-  else if (op.kind === "forget") bucket.queries.delete(op.key);
-  else if (op.kind === "drop") bucket.rows.delete(rowKey(op.resource, op.id));
+  if (op.kind === "row") {
+    const k = rowKey(op.row.resource, op.row.id);
+    const stored = bucket.rows.get(k);
+    if (!stored || stored.fetchedAt <= op.row.fetchedAt) bucket.rows.set(k, op.row);
+  } else if (op.kind === "query") bucket.queries.set(op.query.key, op.query);
+  else if (op.kind === "forget") {
+    const stored = bucket.queries.get(op.key);
+    if (stored && (op.before === undefined || stored.fetchedAt < op.before)) bucket.queries.delete(op.key);
+  } else if (op.kind === "drop") bucket.rows.delete(rowKey(op.resource, op.id));
   else {
     const keep = new Set(op.keep);
-    for (const [k, row] of bucket.rows) if (row.resource === op.resource && !keep.has(row.id)) bucket.rows.delete(k);
+    for (const [k, row] of bucket.rows) if (row.resource === op.resource && !keep.has(row.id) && row.fetchedAt < op.before) bucket.rows.delete(k);
   }
 }
 
@@ -52,9 +57,17 @@ export function memoryLocalCache(): LocalCache {
       buckets.set(scope, next);
     },
     async clear(target) {
-      if (!target) buckets.clear();
-      else if ("scope" in target) buckets.delete(target.scope);
-      else for (const scope of [...buckets.keys()]) if (scope.startsWith(userPrefix(target.user))) buckets.delete(scope);
+      if (!target) {
+        buckets.clear();
+        return;
+      }
+      if ("scope" in target) {
+        buckets.delete(target.scope);
+        return;
+      }
+      // A person's buckets, or (`except`) everyone else's.
+      const mine = (scope: CacheScope) => scope.startsWith(userPrefix("user" in target ? target.user : target.except));
+      for (const scope of [...buckets.keys()]) if (mine(scope) === ("user" in target)) buckets.delete(scope);
     },
   };
 }

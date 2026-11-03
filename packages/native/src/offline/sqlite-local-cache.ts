@@ -111,8 +111,11 @@ export function sqliteLocalCache({ db }: SqliteLocalCacheOptions): LocalCache {
       await db.withExclusiveTransactionAsync(async (txn) => {
         for (const op of ops) {
           if (op.kind === "row") {
+            // An older read never overwrites a newer one.
             await txn.runAsync(
-              "insert or replace into genesis_offline_rows (scope, resource, id, row, fetched_at) values (?, ?, ?, ?, ?)",
+              `insert into genesis_offline_rows (scope, resource, id, row, fetched_at) values (?, ?, ?, ?, ?)
+               on conflict (scope, resource, id) do update set row = excluded.row, fetched_at = excluded.fetched_at
+               where excluded.fetched_at >= genesis_offline_rows.fetched_at`,
               [scope, op.row.resource, op.row.id, JSON.stringify(op.row.row), op.row.fetchedAt],
             );
           } else if (op.kind === "query") {
@@ -121,11 +124,17 @@ export function sqliteLocalCache({ db }: SqliteLocalCacheOptions): LocalCache {
               [scope, op.query.key, JSON.stringify(op.query.queryKey), op.query.resource, JSON.stringify(op.query.data), op.query.fetchedAt],
             );
           } else if (op.kind === "forget") {
-            await txn.runAsync("delete from genesis_offline_queries where scope = ? and key = ?", [scope, op.key]);
+            await txn.runAsync(
+              `delete from genesis_offline_queries where scope = ? and key = ?${op.before === undefined ? "" : " and fetched_at < ?"}`,
+              op.before === undefined ? [scope, op.key] : [scope, op.key, op.before],
+            );
           } else if (op.kind === "drop") {
             await txn.runAsync("delete from genesis_offline_rows where scope = ? and resource = ? and id = ?", [scope, op.resource, op.id]);
           } else {
-            const ids = await txn.getAllAsync<{ id: string }>("select id from genesis_offline_rows where scope = ? and resource = ?", [scope, op.resource]);
+            const ids = await txn.getAllAsync<{ id: string }>(
+              "select id from genesis_offline_rows where scope = ? and resource = ? and fetched_at < ?",
+              [scope, op.resource, op.before],
+            );
             const keep = new Set(op.keep);
             for (const { id } of ids) {
               if (!keep.has(id)) await txn.runAsync("delete from genesis_offline_rows where scope = ? and resource = ? and id = ?", [scope, op.resource, id]);
@@ -141,7 +150,8 @@ export function sqliteLocalCache({ db }: SqliteLocalCacheOptions): LocalCache {
         for (const table of ["genesis_offline_rows", "genesis_offline_queries"]) {
           if (!target) await txn.runAsync(`delete from ${table}`, []);
           else if ("scope" in target) await txn.runAsync(`delete from ${table} where scope = ?`, [target.scope]);
-          else await txn.runAsync(`delete from ${table} where scope like ? escape '\\'`, [likePrefix(`u:${target.user}|`)]);
+          else if ("user" in target) await txn.runAsync(`delete from ${table} where scope like ? escape '\\'`, [likePrefix(`u:${target.user}|`)]);
+          else await txn.runAsync(`delete from ${table} where scope not like ? escape '\\'`, [likePrefix(`u:${target.except}|`)]);
         }
       });
     },

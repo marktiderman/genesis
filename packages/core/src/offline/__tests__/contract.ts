@@ -44,12 +44,42 @@ export function localCacheContract(make: () => LocalCache): void {
     expect((await cache.readRows(A, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "Detail", notes: "n" });
   });
 
+  it("never lets an older read overwrite a newer row", async () => {
+    const cache = make();
+    await cache.write(A, [{ kind: "row", row: { resource: "tasks", id: "1", row: { id: 1, title: "Newer" }, fetchedAt: 5 } }]);
+    await cache.write(A, [{ kind: "row", row: { resource: "tasks", id: "1", row: { id: 1, title: "Older" }, fetchedAt: 3 } }]);
+    expect((await cache.readRows(A, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "Newer" });
+    // In one write too, whatever the order.
+    await cache.write(A, [
+      { kind: "row", row: { resource: "tasks", id: "2", row: { id: 2, title: "Newest" }, fetchedAt: 9 } },
+      { kind: "row", row: { resource: "tasks", id: "2", row: { id: 2, title: "Stale" }, fetchedAt: 8 } },
+    ]);
+    expect((await cache.readRows(A, "tasks", ["2"]))[0]?.row).toEqual({ id: 2, title: "Newest" });
+  });
+
+  it("a sweep never deletes what was saved after it started", async () => {
+    const cache = make();
+    await cache.write(A, [
+      { kind: "query", query: { ...query("old"), fetchedAt: 5 } },
+      { kind: "query", query: { ...query("new"), fetchedAt: 20 } },
+      { kind: "row", row: { resource: "tasks", id: "1", row: { id: 1 }, fetchedAt: 5 } },
+      { kind: "row", row: { resource: "tasks", id: "2", row: { id: 2 }, fetchedAt: 20 } },
+    ]);
+    await cache.write(A, [
+      { kind: "forget", key: "old", before: 10 },
+      { kind: "forget", key: "new", before: 10 },
+      { kind: "prune", resource: "tasks", keep: [], before: 10 },
+    ]);
+    expect((await cache.readQueries(A)).map((q) => q.key)).toEqual(["new"]);
+    expect((await cache.readRows(A, "tasks", ["1", "2"])).map((r) => r.id)).toEqual(["2"]);
+  });
+
   it("drops one row, and prunes the rows of a resource that aren't kept", async () => {
     const cache = make();
     const row = (resource: string, id: string) => ({ kind: "row" as const, row: { resource, id, row: { id }, fetchedAt: 1 } });
     await cache.write(A, [row("tasks", "1"), row("tasks", "2"), row("tasks", "3"), row("people", "1")]);
     await cache.write(B, [row("tasks", "2")]);
-    await cache.write(A, [{ kind: "drop", resource: "tasks", id: "1" }, { kind: "prune", resource: "tasks", keep: ["3"] }]);
+    await cache.write(A, [{ kind: "drop", resource: "tasks", id: "1" }, { kind: "prune", resource: "tasks", keep: ["3"], before: 10 }]);
     expect((await cache.readRows(A, "tasks", ["1", "2", "3"])).map((r) => r.id)).toEqual(["3"]);
     expect(await cache.readRows(A, "people", ["1"])).toHaveLength(1);
     expect(await cache.readRows(B, "tasks", ["2"])).toHaveLength(1);
@@ -100,6 +130,21 @@ export function localCacheContract(make: () => LocalCache): void {
     expect(await cache.readRows("u:an|none", "tasks", ["1"])).toEqual([]);
     expect(await cache.readQueries(A)).toHaveLength(1);
     expect(await cache.readRows(A, "tasks", ["1"])).toHaveLength(1);
+  });
+
+  it("clears everyone but one person (a device is one person's)", async () => {
+    const cache = make();
+    const row = { kind: "row" as const, row: { resource: "tasks", id: "1", row: { id: 1 }, fetchedAt: 1 } };
+    for (const scope of [A, A2, B, "u:an|none", "u:anab|none", "u:zed|none", "u:0|none"]) await cache.write(scope, [{ kind: "query", query: query("q1") }, row]);
+    await cache.clear({ except: "ana" });
+    for (const scope of [A, A2]) {
+      expect(await cache.readQueries(scope)).toHaveLength(1);
+      expect(await cache.readRows(scope, "tasks", ["1"])).toHaveLength(1);
+    }
+    for (const scope of [B, "u:an|none", "u:anab|none", "u:zed|none", "u:0|none"]) {
+      expect(await cache.readQueries(scope)).toEqual([]);
+      expect(await cache.readRows(scope, "tasks", ["1"])).toEqual([]);
+    }
   });
 
   it("clearing one scope leaves the same person's other scope, rows included", async () => {

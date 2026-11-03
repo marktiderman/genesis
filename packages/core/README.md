@@ -466,9 +466,10 @@ import { cacheScope, indexedDbLocalCache, persistOffline } from "@marktiderman/g
 // Once, outside your components: the provider keeps the first one it's given.
 const persist = persistOffline({ cache: indexedDbLocalCache(), resources: ["tasks", "people"], buster: "2026.11.1" });
 
-export function Root({ provider, userId }: { provider: DataProvider; userId: string | null }) {
+// userId: undefined while the session loads, null once nobody is signed in.
+export function Root({ provider, userId }: { provider: DataProvider; userId: string | null | undefined }) {
   return (
-    <GenesisProvider provider={provider} persist={persist} persistScope={userId ? cacheScope(userId) : null}>
+    <GenesisProvider provider={provider} persist={persist} persistScope={userId ? cacheScope(userId) : userId}>
       <App />
     </GenesisProvider>
   );
@@ -479,9 +480,13 @@ export function Root({ provider, userId }: { provider: DataProvider; userId: str
   device is a decision: leave out anything that shouldn't sit there unencrypted.
 - **Whose cache.** `cacheScope(userId, workspaceKey)` keys every bucket to the person and the
   workspace they're in, so another person's reads, or another workspace's, are never restored.
-  While `persistScope` is null nothing is restored or saved. When the person changes or signs
-  out (`persistScope` goes to another user or to null), their reads are deleted from the device,
-  and a restore still reading is called off.
+- **A device is one person's.** Restoring someone deletes every other person's reads first, and
+  `persistScope={null}` (nobody signed in) deletes them all. So a session that ended outside the
+  app (it expired, or was signed out elsewhere) leaves nothing on a shared device for the next
+  person. While the session is still loading, pass `undefined`: nothing is restored, saved or
+  deleted. A sign-out also calls off a restore still reading.
+- **`ViewerScope` keeps them.** Inside this provider, a `ViewerScope` whose first viewer is
+  `persistScope`'s user keeps the restored reads instead of emptying the cache.
 - **Only what the server said.** A read is kept when a fetch comes back, never an optimistic
   change or a live hint's merge, which the next fetch confirms or undoes.
 - **Fresh after.** A restored read carries the time it was fetched, so a screen refetches it once
@@ -491,12 +496,14 @@ export function Root({ provider, userId }: { provider: DataProvider; userId: str
 - **One shape per row.** Reads of whole rows (no `select`) share one stored copy of each record;
   a newer read replaces it, so a field the server stops returning is gone, and a record that
   comes back empty is deleted. A projected read (`select`) is kept as it came.
-- **Expiry.** `maxAge` (default 7 days) drops older reads, and each start deletes them and the
-  rows nothing refers to; a different `buster` (your app version) discards the bucket.
-- **Client-only.** In a server-rendered app, give `persistScope` after hydration (null on the
+- **Expiry and size.** `maxAge` (default 7 days) drops older reads and `maxReads` (default 200)
+  keeps only the most recently fetched; each start deletes the rest and the rows nothing refers
+  to. A different `buster` (your app version), or a bucket that can't be read, discards it.
+- **Client-only.** In a server-rendered app, give `persistScope` after hydration (`undefined` on the
   server and the first client render): the screens render at once and restore in the background.
-- **Adapters.** `indexedDbLocalCache()` on the web (it asks the browser to keep the storage;
-  refused, the browser may evict it, and it's rebuilt from the server), `sqliteLocalCache({ db })`
+- **Adapters.** `indexedDbLocalCache()` on the web (`persist: true` asks the browser to keep the
+  storage; off by default, since some browsers ask the person, so the browser may evict it, and
+  it's rebuilt from the server), `sqliteLocalCache({ db })`
   on the phone (genesis-native `/offline`), and `memoryLocalCache()` for tests. Each implements
   `LocalCache`, and a wipe loses nothing but speed.
 
