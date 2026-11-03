@@ -683,8 +683,10 @@ export const tasksView = defineView(contracts["public.tasks"], {
   has no handle or menu and can't be dragged. A refusal from the server leaves the card where it
   was and shows why above the board, or goes to `onMoveError`.
 - **A move someone else got to first** (a conflict) opens `ConflictSheet` with their column and
-  yours: **Keep my version** sends the move again at the version their change left (a newer
-  conflict shows the sheet again; any other failure shows in the sheet), and **Take their
+  yours: **Keep my version** sends the move again at the version their change left, through the
+  resource's own `update` (`{ expectedVersion }`), so a move right after it is checked against the
+  version it saved (a newer conflict shows the sheet again; any other failure, including a save
+  that changed no row, shows in the sheet), and **Take their
   version**, or closing the sheet, leaves the card where their row puts it. With `onMoveError` the
   screen gets the conflict instead, and the sheet doesn't open. A conflict that comes back after
   the board has gone is shown as a toast. While a card's move
@@ -695,7 +697,8 @@ export const tasksView = defineView(contracts["public.tasks"], {
   the order field with the column in one update, is **Planned**
   ([`resource-view-shaping`](../features.ts)), with `orderBy.manual`.
 - **Columns past the edge.** The columns scroll sideways, and a fade at either edge shows there
-  are more columns that way.
+  are more columns that way, in either reading direction. The fade is the page's background; a
+  board on another surface (a card) sets `--board-edge` to that surface's colour.
 - **No toolbar.** Like the calendar, a board has no search box or filter bar of its own: its rows
   are the view's scope, the screen's `filter` and the preset's. A screen that wants a search puts
   it in its own header and passes the result as `filter`.

@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { resourceKeys, useDataProvider, useResource, useViewer, writeConflict, type BaseRecord, type DataRow, type FilterParam, type ResourceContract, type UseResourceOptions, type WriteConflict } from "@marktiderman/genesis-core";
+import { DataWriteError, resourceKeys, useDataProvider, useResource, useViewer, writeConflict, type BaseRecord, type DataRow, type FilterParam, type ResourceContract, type UseResourceOptions, type WriteConflict } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
 import { useLiveInvalidation, type LiveOptions } from "@marktiderman/genesis-core/hooks";
 import { boardChoices, boardProblems, type ResourceView as View, type ViewBoard, type ViewTone } from "@marktiderman/genesis-core/resource-view";
@@ -155,27 +155,31 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
       mounted.current = false;
     };
   }, []);
-  // Columns past either edge: a fade there says the board scrolls sideways (colour isn't the only
-  // cue: the columns are regions a screen reader lists, and the strip is keyboard-scrollable).
+  // Columns past either edge: a fade there says the board scrolls sideways. It's decoration: the
+  // columns are regions a screen reader lists, and focusing a card or handle scrolls it into view.
+  // Measured from the start edge, so it works right to left too (where scrollLeft runs negative).
   const strip = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ before: false, after: false });
   useEffect(() => {
     const el = strip.current;
     if (!el) return;
     const measure = () => {
-      const before = el.scrollLeft > 1;
-      const after = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+      const scrolled = Math.abs(el.scrollLeft);
+      const before = scrolled > 1;
+      const after = scrolled + el.clientWidth < el.scrollWidth - 1;
       setEdges((e) => (e.before === before && e.after === after ? e : { before, after }));
     };
     measure();
     el.addEventListener("scroll", measure, { passive: true });
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    // The strip's own size, and the board inside it (columns load, cards arrive).
     observer?.observe(el);
+    if (el.firstElementChild) observer?.observe(el.firstElementChild);
     return () => {
       el.removeEventListener("scroll", measure);
       observer?.disconnect();
     };
-  });
+  }, []);
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: [...resourceKeys(view.resource).all] }),
@@ -238,27 +242,30 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
     }
   };
 
-  // Keep mine: the same move again, checked against the version their change left. The sheet
-  // stays up while it runs: a new conflict replaces it, any other failure rejects (the sheet shows
-  // why), and success closes it. Sent through the provider with the version, as RecordView's
-  // settings save is, because the resource's `update` takes no explicit version.
+  // Keep mine: the same move again, checked against the version their change left, through the
+  // resource's own write path (`update` with `expectedVersion`), so it's queued behind any other
+  // write of the row and its committed version is recorded: a move made right after it is
+  // checked against it, not against the stale cached row. The sheet stays up while it runs: a
+  // new conflict replaces it, any other failure rejects (the sheet shows why), and success closes it.
   const keepMine = async () => {
     if (!conflict) return;
     const { id, data, conflict: c } = conflict;
+    if (inFlight.current.has(id)) return;
+    inFlight.current.add(id);
+    setSaving(new Set(inFlight.current));
     try {
-      const result = await provider.update<T & BaseRecord>(view.resource, {
-        id,
-        data: data as Partial<T & BaseRecord>,
-        ...(c.currentVersion != null ? { expectedVersion: c.currentVersion } : {}),
-      });
+      const saved = await update(id, data as Partial<T & BaseRecord>, c.currentVersion != null ? { expectedVersion: c.currentVersion } : undefined);
+      // A write that matched no rows is a refusal, never a silent success.
+      if (saved === null || saved === undefined) throw new DataWriteError("forbidden", fillMessage(m.workspace.notChanged, { noun: view.noun }));
       setConflict(null);
-      await refresh();
-      if (result?.data) resourceOptions?.onUpdateSuccess?.(result.data);
     } catch (error) {
       const again = writeConflict(error, data, { changed: [fieldName] });
       if (!again) throw error;
       setConflict({ conflict: again, id, data });
       void refresh();
+    } finally {
+      inFlight.current.delete(id);
+      setSaving(new Set(inFlight.current));
     }
   };
   // Take theirs: the card goes where their row puts it, once the board refetches.
@@ -338,10 +345,10 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
       />
       </div>
       {edges.before && (
-        <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-background to-transparent" data-testid={`${testID}-fade-start`} />
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 start-0 w-10 bg-gradient-to-r from-[var(--board-edge,var(--color-background))] to-transparent rtl:bg-gradient-to-l" data-testid={`${testID}-fade-start`} />
       )}
       {edges.after && (
-        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent" data-testid={`${testID}-fade-end`} />
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 end-0 w-10 bg-gradient-to-l from-[var(--board-edge,var(--color-background))] to-transparent rtl:bg-gradient-to-r" data-testid={`${testID}-fade-end`} />
       )}
       </div>
       <ConflictSheet
