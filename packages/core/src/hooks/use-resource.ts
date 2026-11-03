@@ -95,6 +95,20 @@ export interface UseResourceOptions<T> extends MutationModeOptions {
   onError?: (error: Error) => void;
 }
 
+/** What `update` can take beside the change. */
+export interface UpdateOptions {
+  /**
+   * Check the write against this version instead of the cached row's: "keep mine" after a
+   * conflict, at the version the conflict reported (`WriteConflict.currentVersion`). A version
+   * already chained for the row wins over it: a write sent while an earlier write of the same row
+   * is still in flight is checked against the version that one commits (as
+   * `ExecuteWriteArgs.expectedVersion`). The write
+   * still goes through the resource's write path (queued behind any other write of the row, its
+   * committed version recorded), so a move made right after it is checked against it.
+   */
+  expectedVersion?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Return type
 // ---------------------------------------------------------------------------
@@ -120,13 +134,13 @@ export interface UseResourceReturn<T> {
    * `optimistic` and `undoable` modes it resolves at once with the cached
    * row merged with `data`.
    */
-  update: (id: Identifier, data: Partial<T>) => Promise<T>;
+  update: (id: Identifier, data: Partial<T>, options?: UpdateOptions) => Promise<T>;
   /** Delete a record by id. Resolves at once in `optimistic` / `undoable` modes. */
   remove: (id: Identifier) => Promise<void>;
   /** True when any mutation is in-flight. */
   isMutating: boolean;
   createMutation: UseMutationResult<T, Error, Partial<T>>;
-  updateMutation: UseMutationResult<T, Error, { id: Identifier; data: Partial<T> }>;
+  updateMutation: UseMutationResult<T, Error, { id: Identifier; data: Partial<T>; options?: UpdateOptions }>;
   deleteMutation: UseMutationResult<void, Error, Identifier>;
 }
 
@@ -330,15 +344,16 @@ export function useResource<T extends BaseRecord = BaseRecord>(
   const updateMutation = useMutation<
     T,
     Error,
-    { id: Identifier; data: Partial<T> }
+    { id: Identifier; data: Partial<T>; options?: UpdateOptions }
   >({
-    mutationFn: async ({ id, data }) => {
+    mutationFn: async ({ id, data, options }) => {
       const before = cachedRecord(queryClient, resource, id);
       const outcome = await executeWrite<T>({
         ...modeArgs,
         kind: "update",
         id,
         data: data as Record<string, unknown>,
+        ...(options?.expectedVersion !== undefined ? { expectedVersion: options.expectedVersion } : {}),
         send: async (ctx) => {
           const result = await provider.update<T>(resource, {
             id,
@@ -393,8 +408,8 @@ export function useResource<T extends BaseRecord = BaseRecord>(
   );
 
   const update = useCallback(
-    (id: Identifier, data: Partial<T>) =>
-      updateMutation.mutateAsync({ id, data }),
+    (id: Identifier, data: Partial<T>, options?: UpdateOptions) =>
+      updateMutation.mutateAsync(options ? { id, data, options } : { id, data }),
     [updateMutation],
   );
 

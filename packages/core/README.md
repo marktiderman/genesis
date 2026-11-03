@@ -240,6 +240,16 @@ const conflict = writeConflict(error, { title: "Mine" });
 // conflict?.fields is ["title"]; send "keep mine" with expectedVersion: conflict.currentVersion.
 ```
 
+Outside a form, send "keep mine" with `useResource`'s `update(id, data, { expectedVersion })`
+(`UpdateOptions`), from a `useResource` in pessimistic mode (the default): a conflict then rejects
+`update` itself, so the screen can show the sheet again. In optimistic and undoable modes `update`
+has already resolved, and a conflict goes to `onError` instead. It goes through the resource's write path like any update: queued behind another
+write of the row, its committed version put into every cached copy, the screen's `onError` and
+invalidations applied. So the next change of that row is checked against it. Calling
+`provider.update` directly skips all of that, and a change made right after it would conflict with
+the save it just made. `ResourceView`'s board sends its "keep mine" this way, and `RecordView`'s
+settings sections (web and native) send every save this way, at the version the edit started on.
+
 `WriteState` (`pending`, `sending`, `paused`, `failed`, `conflict`) is the one shape for showing
 where a write stands, on a row or a form.
 

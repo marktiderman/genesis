@@ -21,7 +21,7 @@
 // flows). They live flat at `./` until forms category lands; at that point
 // useResourceForm + useWizard migrate to `./forms/`.
 
-export { useResource, type UseResourceOptions, type UseResourceReturn } from "./use-resource";
+export { useResource, type UpdateOptions, type UseResourceOptions, type UseResourceReturn } from "./use-resource";
 export { useOne, type UseOneOptions } from "./use-one";
 export { useRelationLabel, loadRelationLabel, relationNamingField, type UseRelationLabelOptions } from "./use-relation-label";
 export {

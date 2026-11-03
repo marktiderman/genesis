@@ -236,6 +236,40 @@ describe("RecordView", () => {
     expect((p.update as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toMatchObject({ expectedVersion: "1" });
   });
 
+  it("saves settings through the resource's write path: the version it commits reaches every cached copy", async () => {
+    const p = provider({
+      capabilities: vi.fn(async () => ({
+        search: false,
+        sort: false,
+        filterOperators: [],
+        bulkWrites: false,
+        versionedWrites: true,
+        compositeKeys: false,
+        version: { field: "version", kind: "integer" as const },
+      })),
+      update: vi.fn(async (_r: string, params: { data: unknown }) => ({ data: { ...brand, is_default: false, ...(params.data as object), version: 2 } })) as unknown as DataProvider["update"],
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    // Another screen's list of brands, read at version 1.
+    const listKey = ["brands", "list", { pagination: { page: 1, perPage: 25 } }];
+    queryClient.setQueryData(listKey, { data: [{ ...brand, is_default: false, version: 1 }], total: 1 });
+    render(
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <RecordView view={page as never} row={{ ...brand, is_default: false, version: 1 } as never} section="settings" sectionHref={(id) => `/brands/b1/${id}`} />
+      </GenesisProvider>,
+    );
+    await waitFor(() => expect(p.capabilities).toHaveBeenCalled());
+    fireEvent.change(screen.getByTestId("resource-workspace-settings-website-input"), { target: { value: "https://mine.example" } });
+    fireEvent.click(screen.getByTestId("resource-workspace-settings-save"));
+    await waitFor(() => expect(p.update).toHaveBeenCalledTimes(1));
+    expect((p.update as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toMatchObject({ expectedVersion: "1" });
+    // The list's copy now carries the version this save left, so the next write of the row from
+    // that list (a board move, an edit) is checked against it, not a false conflict with this save.
+    await waitFor(() =>
+      expect((queryClient.getQueryData(listKey) as { data: { version: unknown }[] }).data[0]!.version).toBe(2),
+    );
+  });
+
   it("shows a zero-row save as a refusal, inline", async () => {
     const p = provider({ update: vi.fn(async () => ({ data: null })) as unknown as DataProvider["update"] });
     renderRecordView("settings", p);

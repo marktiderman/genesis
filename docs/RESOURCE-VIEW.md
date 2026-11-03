@@ -676,19 +676,30 @@ export const tasksView = defineView(contracts["public.tasks"], {
   the board says so. Cards are in the view's `orderBy` order.
 - **Moving a card** works by mouse, by touch on its handle, from the keyboard and from its "Move
   to…" menu (`KanbanBoard`), and is announced. It is the resource's own `update(id, { [field]: value })`
-  (`useResource`, pessimistic), so the provider's write rules apply. Once versioned writes ship
-  (genesis#656, feature `data-offline`, not released yet), a move on a resource with a `version`
-  rule will carry the version the card was read at, so a card someone else changed is refused,
-  not overwritten. A move needs the field to be writable in the view's edit form, and both the
+  (`useResource`, pessimistic), so the provider's write rules apply. On a resource with a
+  `version` rule a move carries the version the card was read at, so a card someone else changed
+  is refused, not overwritten. A move needs the field to be writable in the view's edit form, and both the
   view's update guard and the screen's own `can` (`edit`) to allow the row: a card either refuses
-  has no handle or menu and can't be dragged. A refusal from the server (or a conflict) leaves the
-  card where it was and shows why above the board, or goes to `onMoveError`. While a card's move
+  has no handle or menu and can't be dragged. A refusal from the server leaves the card where it
+  was and shows why above the board, or goes to `onMoveError`.
+- **A move someone else got to first** (a conflict) opens `ConflictSheet` with their column and
+  yours: **Keep my version** sends the move again at the version their change left, through the
+  resource's own `update` (`{ expectedVersion }`), so a move right after it is checked against the
+  version it saved (a newer conflict shows the sheet again; any other failure, including a save
+  that changed no row, shows in the sheet), and **Take their
+  version**, or closing the sheet, leaves the card where their row puts it. Either way the sheet
+  closes at once and the card moves when the board's columns refetch, a moment later. With `onMoveError` the
+  screen gets the conflict instead, and the sheet doesn't open. A conflict that comes back after
+  the board has gone is shown as a toast. While a card's move
   is saving the card is dimmed and a second move of it is turned away, so it is never sent from
   the column it is leaving. The screen's `resourceOptions` `invalidates`, `onError` and
   `onUpdateSuccess` apply to a move; a move is always pessimistic.
 - **Order within a column** follows `orderBy`. Dragging to reorder inside a column, which writes
   the order field with the column in one update, is **Planned**
   ([`resource-view-shaping`](../features.ts)), with `orderBy.manual`.
+- **Columns past the edge.** The columns scroll sideways, and a fade at either edge shows there
+  are more columns that way, in either reading direction. The fade is the page's background; a
+  board on another surface (a card) sets `--board-edge` to that surface's colour.
 - **No toolbar.** Like the calendar, a board has no search box or filter bar of its own: its rows
   are the view's scope, the screen's `filter` and the preset's. A screen that wants a search puts
   it in its own header and passes the result as `filter`.
