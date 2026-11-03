@@ -42,7 +42,6 @@ function toDom<T extends AnyProps>(
     onLongPress?: () => void;
     onLayout?: (e: unknown) => void;
   };
-  void onLayout;
   void onPressIn;
   void onPressOut;
   void pointerEvents;
@@ -94,14 +93,27 @@ function toDom<T extends AnyProps>(
   // `accessibilityaction` DOM event (detail: the action's name) that runs the handler.
   const a11yActions = accessibilityActions as { name: string }[] | undefined;
   if (a11yActions?.length) out["data-a11y-actions"] = a11yActions.map((a) => a.name).join(",");
-  if (onAccessibilityAction) {
-    const handler = onAccessibilityAction as (e: { nativeEvent: { actionName: string } }) => void;
+  // Layout: a custom `layout` DOM event (detail: `{ width, height }`) stands in for the
+  // native measurement and calls onLayout with it.
+  const layoutHandler = onLayout as ((e: { nativeEvent: { layout: { x: number; y: number; width: number; height: number } } }) => void) | undefined;
+  if (onAccessibilityAction || layoutHandler) {
+    const handler = onAccessibilityAction as ((e: { nativeEvent: { actionName: string } }) => void) | undefined;
     out["ref"] = (node: HTMLElement | null) => {
       if (!node) return;
-      const el = node as HTMLElement & { __a11y?: (e: Event) => void };
-      if (el.__a11y) el.removeEventListener("accessibilityaction", el.__a11y);
-      el.__a11y = (e: Event) => handler({ nativeEvent: { actionName: String((e as CustomEvent).detail) } });
-      el.addEventListener("accessibilityaction", el.__a11y);
+      const el = node as HTMLElement & { __a11y?: (e: Event) => void; __layout?: (e: Event) => void };
+      if (handler) {
+        if (el.__a11y) el.removeEventListener("accessibilityaction", el.__a11y);
+        el.__a11y = (e: Event) => handler({ nativeEvent: { actionName: String((e as CustomEvent).detail) } });
+        el.addEventListener("accessibilityaction", el.__a11y);
+      }
+      if (layoutHandler) {
+        if (el.__layout) el.removeEventListener("layout", el.__layout);
+        el.__layout = (e: Event) => {
+          const d = (e as CustomEvent).detail as { width?: number; height?: number } | undefined;
+          layoutHandler({ nativeEvent: { layout: { x: 0, y: 0, width: d?.width ?? 0, height: d?.height ?? 0 } } });
+        };
+        el.addEventListener("layout", el.__layout);
+      }
     };
   }
   return out;
@@ -321,9 +333,10 @@ export const FlatList = <T,>(props: {
   refreshControl?: React.ReactNode;
   keyboardShouldPersistTaps?: "always" | "never" | "handled";
   contentInsetAdjustmentBehavior?: "automatic" | "scrollableAxes" | "never" | "always";
+  onEndReached?: (info: { distanceFromEnd: number }) => void;
   testID?: string;
 }) => {
-  const { data = [], renderItem, keyExtractor, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, refreshControl, keyboardShouldPersistTaps, contentInsetAdjustmentBehavior, testID } = props;
+  const { data = [], renderItem, keyExtractor, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, refreshControl, keyboardShouldPersistTaps, contentInsetAdjustmentBehavior, onEndReached, testID } = props;
   // Slots render like FlatList's: an element as is, a component type as <C />.
   const slot = (s: React.ReactNode | React.ComponentType | undefined) =>
     typeof s === "function" ? React.createElement(s as React.ComponentType) : (s ?? null);
@@ -334,6 +347,14 @@ export const FlatList = <T,>(props: {
       role: "list",
       "data-keyboard-should-persist-taps": keyboardShouldPersistTaps,
       "data-content-inset-adjustment-behavior": contentInsetAdjustmentBehavior,
+      // Scrolling to the end stands in as an `endreached` event, as on SectionList's mock.
+      ref: (node: HTMLElement | null) => {
+        if (!node) return;
+        const el = node as HTMLElement & { __end?: () => void };
+        if (el.__end) el.removeEventListener("endreached", el.__end);
+        el.__end = () => onEndReached?.({ distanceFromEnd: 0 });
+        el.addEventListener("endreached", el.__end);
+      },
     },
     refreshControl ?? null,
     slot(ListHeaderComponent),
@@ -460,6 +481,8 @@ export const Easing = {
 
 export const AccessibilityInfo = {
   isReduceMotionEnabled: () => Promise.resolve(false),
+  announceForAccessibility: (_text: string) => {},
+  announceForAccessibilityWithOptions: (_text: string, _options: { queue?: boolean }) => {},
   addEventListener: () => ({ remove: () => {} }),
 };
 
