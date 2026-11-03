@@ -1,7 +1,10 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -9,6 +12,7 @@ import type { DataProvider } from "./types";
 import { createMockProvider, type MockProviderOptions } from "./mock-provider";
 import type { StorageAdapter } from "../storage/types";
 import { createLocalStorageAdapter } from "../storage/adapters";
+import type { QueryPersistence } from "../offline/types";
 
 // ---------------------------------------------------------------------------
 // Context
@@ -75,6 +79,18 @@ export type GenesisProviderProps =
       /** Platform-specific storage adapter. Defaults to localStorage (SSR-safe). */
       storage?: StorageAdapter;
       /**
+       * Keep reads on the device and restore them on the next start, so lists and records open at
+       * once: `persistOffline({ cache: indexedDbLocalCache(), resources, buster })` from
+       * `@marktiderman/genesis-core/offline`. Needs `persistScope`.
+       */
+      persist?: (client: QueryClient) => QueryPersistence;
+      /**
+       * Whose cache this is: `cacheScope(user.id, workspaceKey)`, or null while nobody is signed in
+       * (nothing is restored or saved). A change restores the new scope's reads; clear the
+       * QueryClient yourself when the person changes, as a sign-out already does.
+       */
+      persistScope?: string | null;
+      /**
        * The TanStack Query client to use. Without it, GenesisProvider creates
        * its OWN client — a second cache beside any the app already has, so app
        * queries and Genesis queries would not see each other's invalidations.
@@ -95,6 +111,10 @@ export type GenesisProviderProps =
       storage?: StorageAdapter;
       /** See the `provider` variant. */
       queryClient?: QueryClient;
+      /** See the `provider` variant. */
+      persist?: (client: QueryClient) => QueryPersistence;
+      /** See the `provider` variant. */
+      persistScope?: string | null;
     };
 
 const defaultStorage = createLocalStorageAdapter();
@@ -111,6 +131,8 @@ export function GenesisProvider({
   mock,
   storage,
   queryClient: queryClientProp,
+  persist,
+  persistScope = null,
 }: GenesisProviderProps) {
   if (provider && mock) {
     if (process.env.NODE_ENV !== "production") {
@@ -142,14 +164,61 @@ export function GenesisProvider({
   );
 
   const resolvedStorage = storage ?? defaultStorage;
+  const restored = useRestoredReads(queryClient, persist, persistScope);
 
   return (
     <QueryClientProvider client={queryClient}>
       <StorageContext.Provider value={resolvedStorage}>
         <DataProviderRoot provider={resolvedProvider}>
-          {children}
+          {restored ? children : null}
         </DataProviderRoot>
       </StorageContext.Provider>
     </QueryClientProvider>
   );
 }
+
+/** How long the first render waits for the device's reads before it goes on without them. */
+const RESTORE_WAIT_MS = 400;
+
+/**
+ * Restores `scope`'s kept reads before the screens first render (so they open from the device),
+ * waiting at most RESTORE_WAIT_MS, then saves new reads. Never blocks a later scope change.
+ */
+function useRestoredReads(
+  queryClient: QueryClient,
+  persist: ((client: QueryClient) => QueryPersistence) | undefined,
+  scope: string | null,
+): boolean {
+  // The first `persist` given is kept, so a screen that writes it inline doesn't restart the
+  // restore on every render.
+  const persistRef = useRef(persist);
+  const persistence = useMemo(() => (persistRef.current ? persistRef.current(queryClient) : null), [queryClient]);
+  const [ready, setReady] = useState(!persistence || !scope);
+  useEffect(() => {
+    if (!persistence || !scope) {
+      setReady(true);
+      return;
+    }
+    let live = true;
+    let stop: (() => void) | undefined;
+    const open = () => {
+      if (live) setReady(true);
+    };
+    const wait = setTimeout(open, RESTORE_WAIT_MS);
+    void persistence
+      .restore(scope)
+      .catch(() => undefined)
+      .finally(() => {
+        clearTimeout(wait);
+        open();
+        if (live) stop = persistence.subscribe(scope);
+      });
+    return () => {
+      live = false;
+      clearTimeout(wait);
+      stop?.();
+    };
+  }, [persistence, scope]);
+  return ready;
+}
+

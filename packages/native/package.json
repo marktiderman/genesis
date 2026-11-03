@@ -53,6 +53,11 @@
       "react-native": "./src/persist.ts",
       "import": "./dist/persist.js"
     },
+    "./offline": {
+      "types": "./dist/offline.d.ts",
+      "react-native": "./src/offline/sqlite-local-cache.ts",
+      "import": "./dist/offline.js"
+    },
     "./updates": {
       "types": "./dist/updates.d.ts",
       "react-native": "./src/updates/index.ts",
@@ -111,7 +116,7 @@
     "@marktiderman/genesis-features": "workspace:^"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-core": "workspace:>=2.1.0 <3.0.0",
+    "@marktiderman/genesis-core": "workspace:>=2.12.0 <3.0.0",
     "@marktiderman/genesis-design-system": "workspace:>=1.6.1 <2.0.0",
     "@marktiderman/genesis-ui-native": "workspace:>=3.3.0 <4.0.0",
     "nativewind": "^4.0.0 || ^5.0.0-preview",

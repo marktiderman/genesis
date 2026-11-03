@@ -452,6 +452,46 @@ steps.setSorts([{ field: "stage", order: "desc" }]); // setSort(one) replaces th
   scrolled (its sort value changed, or rows were added before it) is shown
   where it first appeared, not twice.
 
+## Open from the device (`/offline`)
+
+Lists and records a person has already seen open at once from the device, before the network
+answers, and then refresh as usual. `persistOffline` keeps the reads of the resources you list,
+each record stored once, in a `LocalCache`, and puts them back into the QueryClient before the
+screens first render:
+
+```tsx
+import { GenesisProvider } from "@marktiderman/genesis-core";
+import { cacheScope, indexedDbLocalCache, persistOffline } from "@marktiderman/genesis-core/offline";
+
+// Once, outside your components: the provider keeps the first one it's given.
+const persist = persistOffline({ cache: indexedDbLocalCache(), resources: ["tasks", "people"], buster: "2026.11.1" });
+
+export function Root({ provider, userId }: { provider: DataProvider; userId: string | null }) {
+  return (
+    <GenesisProvider provider={provider} persist={persist} persistScope={userId ? cacheScope(userId) : null}>
+      <App />
+    </GenesisProvider>
+  );
+}
+```
+
+- **Opt in per resource.** Only the listed resources' reads are written. Keeping data on a
+  device is a decision: leave out anything that shouldn't sit there unencrypted.
+- **Whose cache.** `cacheScope(userId, workspaceKey)` keys every bucket to the person and the
+  workspace they're in, so another person's reads, or another workspace's, are never restored.
+  While `persistScope` is null nothing is restored or saved.
+- **Only what the server said.** A read is kept when a fetch comes back, never an optimistic
+  change or a live hint's merge, which the next fetch confirms or undoes.
+- **Fresh after.** A restored read carries the time it was fetched, so a screen refetches it as
+  soon as it shows, and it never replaces a newer read already in the client. The first render
+  waits at most 400 ms for the device; a slow device read doesn't hold the app.
+- **Expiry.** `maxAge` (default 7 days) drops older reads; a different `buster` (your app
+  version) discards the bucket.
+- **Adapters.** `indexedDbLocalCache()` on the web (it asks the browser to keep the storage;
+  refused, the browser may evict it, and it's rebuilt from the server), `sqliteLocalCache({ db })`
+  on the phone (genesis-native `/offline`), and `memoryLocalCache()` for tests. Each implements
+  `LocalCache`, and a wipe loses nothing but speed.
+
 ## Live updates (realtime)
 
 `useResource(resource, { live: true })`, `useOne(resource, id, { live: true })`

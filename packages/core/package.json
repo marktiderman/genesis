@@ -56,6 +56,10 @@
       "types": "./dist/schema/index.d.ts",
       "import": "./dist/schema/index.js"
     },
+    "./offline": {
+      "types": "./dist/offline/index.d.ts",
+      "import": "./dist/offline/index.js"
+    },
     "./slots": {
       "types": "./dist/slots.d.ts",
       "import": "./dist/slots.js"
@@ -121,6 +125,7 @@
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "fake-indexeddb": "6.2.5",
     "happy-dom": "^21.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
