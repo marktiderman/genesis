@@ -41,6 +41,11 @@ export interface KanbanColumn<T> {
   items: T[];
   /** How many items the column holds in all, when `items` is one page of them. */
   total?: number;
+  /**
+   * The most items the column should hold (a work-in-progress limit). The count shows against it
+   * ("4 / 3"), and a column over it says so in words as well as colour. Nothing stops a move in.
+   */
+  limit?: number;
 }
 
 export interface KanbanBoardProps<T> {
@@ -60,6 +65,13 @@ export interface KanbanBoardProps<T> {
    * was and announces that the move failed.
    */
   onMoveItem?: (item: T, toColumn: string) => void | Promise<void>;
+  /**
+   * Whether this item can be moved at all (not, say, a row the viewer can't change). Without it,
+   * every item can be. A card that can't has no handle or menu and can't be dragged. A move that
+   * should wait (one still saving) is better refused from `onMoveItem`: hiding the handle under
+   * keyboard focus would drop the focus.
+   */
+  canMoveItem?: (item: T) => boolean;
   /** A name for an item, for its handle, menu and announcements ("Move Ana Ruiz"). */
   getItemLabel?: (item: T) => string;
   /** Under a column's cards, e.g. a "Load more" button. */
@@ -89,6 +101,7 @@ export function KanbanBoard<T>({
   getKey,
   onMoveItem,
   getItemLabel,
+  canMoveItem,
   renderColumnFooter,
 }: KanbanBoardProps<T>) {
   // A mouse drag (native) or a touch drag on the handle.
@@ -117,10 +130,13 @@ export function KanbanBoard<T>({
   // board has re-rendered (the caller kept it there), there is nothing left to wait for.
   const refocusSettled = useRef(false);
   const moves = useRef(0);
+  // Moves still saving, by card key, oldest first.
+  const pending = useRef(new Map<string, number[]>());
   const instructionsId = useId();
   const keyOf = (item: T, index: number) => (getKey ? getKey(item) : String(index));
   // Dragging needs stable keys to find the dropped item again.
   const movable = Boolean(onMoveItem && getKey);
+  const itemMovable = (item: T) => movable && (canMoveItem?.(item) ?? true);
 
   const find = (key: string) => {
     if (!getKey) return null;
@@ -139,6 +155,15 @@ export function KanbanBoard<T>({
   const move = (item: T, to: string, name: string) => {
     const id = ++moves.current;
     const key = getKey?.(item);
+    if (key !== undefined) pending.current.set(key, [...(pending.current.get(key) ?? []), id]);
+    // A move of this card has settled: forget it, and return the moves of it still saving.
+    const settle = () => {
+      if (key === undefined) return [];
+      const left = (pending.current.get(key) ?? []).filter((m) => m !== id);
+      if (left.length) pending.current.set(key, left);
+      else pending.current.delete(key);
+      return left;
+    };
     if (key !== undefined && refocus.current === key) {
       refocusMove.current = id;
       refocusFrom.current = find(key)?.column.key ?? null;
@@ -153,6 +178,7 @@ export function KanbanBoard<T>({
     // The caller reports the failure; the card simply stays put.
     void Promise.resolve(result).then(
       () => {
+        settle();
         if (key !== undefined && refocus.current === key && refocusMove.current === id) {
           refocusSettled.current = true;
           // Re-check after the caller's update has had its render.
@@ -161,10 +187,14 @@ export function KanbanBoard<T>({
         announce(fillMessage(k.moved, { name, column: columnLabel(to) }));
       },
       () => {
+        const left = settle();
         // Nothing moved, so there is no new handle to focus; a pending
         // refocus would otherwise grab focus the next time it reaches body.
+        // Unless an earlier move of the same card is still saving (this one
+        // was refused behind it): the refocus goes back to that move.
         if (key !== undefined && refocus.current === key && refocusMove.current === id) {
-          refocus.current = null;
+          if (left.length) refocusMove.current = left[left.length - 1]!;
+          else refocus.current = null;
         }
         announce(fillMessage(k.moveFailed, { name }));
       },
@@ -173,7 +203,7 @@ export function KanbanBoard<T>({
 
   const moveKey = (key: string, to: string) => {
     const found = find(key);
-    if (!found || found.column.key === to) return;
+    if (!found || found.column.key === to || !itemMovable(found.item)) return;
     move(found.item, to, labelOf(key));
   };
 
@@ -368,12 +398,32 @@ export function KanbanBoard<T>({
             <span className={cn("text-sm font-semibold", resolved.color)}>
               {column.label}
             </span>
-            <Badge
-              variant="secondary"
-              className={cn("text-[10px] px-1.5 py-0", resolved.bgColor)}
-            >
-              {column.total ?? column.items.length}
-            </Badge>
+            {(() => {
+              const count = column.total ?? column.items.length;
+              const over = column.limit !== undefined && count > column.limit;
+              return (
+                <>
+                  <Badge
+                    variant={over ? "destructive" : "secondary"}
+                    className={cn("text-[10px] px-1.5 py-0", !over && resolved.bgColor)}
+                  >
+                    {column.limit !== undefined ? (
+                      <>
+                        <span aria-hidden>{`${count} / ${column.limit}`}</span>
+                        <span className="sr-only">{fillMessage(k.countOfLimit, { count, limit: column.limit })}</span>
+                      </>
+                    ) : (
+                      count
+                    )}
+                  </Badge>
+                  {over && (
+                    <span className="text-[10px] font-medium text-destructive" data-testid="kanban-over-limit">
+                      {fillMessage(k.overLimit, { limit: column.limit! })}
+                    </span>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Cards */}
@@ -387,6 +437,7 @@ export function KanbanBoard<T>({
                 const key = keyOf(item, i);
                 const name = getItemLabel?.(item) ?? k.cardInLabel;
                 const isGrabbed = grabbed?.key === key;
+                const canMove = itemMovable(item);
                 return (
                 <div
                   key={key}
@@ -397,19 +448,19 @@ export function KanbanBoard<T>({
                     isGrabbed && "ring-2 ring-primary/50",
                   )}
                   style={{ animationDelay: `${i * 30}ms`, animationFillMode: "both" }}
-                  draggable={movable || undefined}
-                  onDragStart={movable ? (e) => {
+                  draggable={canMove || undefined}
+                  onDragStart={canMove ? (e) => {
                     e.dataTransfer.setData(DRAG_TYPE, key);
                     e.dataTransfer.effectAllowed = "move";
                     setDragging({ key, from: column.key });
                   } : undefined}
-                  onDragEnd={movable ? () => {
+                  onDragEnd={canMove ? () => {
                     setDragging(null);
                     setOver(null);
                   } : undefined}
                 >
                   {renderCard(item)}
-                  {movable && columns.length > 1 && (
+                  {canMove && columns.length > 1 && (
                     <button
                       type="button"
                       ref={(node) => {
@@ -437,7 +488,7 @@ export function KanbanBoard<T>({
                       <GripVertical className="h-3.5 w-3.5" aria-hidden />
                     </button>
                   )}
-                  {movable && columns.length > 1 && (
+                  {canMove && columns.length > 1 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         aria-label={fillMessage(k.move, { name })}
