@@ -752,7 +752,9 @@ export const photosView = defineView(contracts["public.photos"], {
 - **A row without an image** is a placeholder tile (its `GalleryItem` has an empty `src`) showing
   its label and caption, so the gallery draws every row the count says.
 - `view.galleryItem(row)` is the row as a `GalleryItem` (its key as `id`), for a screen that hands
-  the same photos to a `Lightbox`.
+  the same photos to a `Lightbox`. A row without an image comes back with an empty `src`: leave
+  those out of what a viewer pages through (`items.filter((item) => item.src)`), as there's
+  nothing to show full screen.
 - **Not yet:** selecting photos, and a pull to refresh on the phone's gallery. GalleryGrid stays
   the component for photos that aren't records (a message's attachments, a form's uploads).
 

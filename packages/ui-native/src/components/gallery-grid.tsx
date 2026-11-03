@@ -188,11 +188,17 @@ export function NativeGalleryGrid({
           <NativeImage src={item.src} alt={item.alt} className="h-full w-full" />
         ) : (
           // No image: a neutral tile with its words, so the count matches what's drawn. The tile's
-          // own label (alt, then caption) still names it, so the words are hidden from readers.
+          // own label (alt, then caption) names a pressable tile, so the words are hidden from
+          // readers then; a plain tile isn't pressable, so the placeholder is the named image.
           <View
             testID={`${testID}-placeholder-${item.id}`}
-            importantForAccessibility="no-hide-descendants"
-            accessibilityElementsHidden
+            {...(onItemPress || selecting
+              ? { importantForAccessibility: "no-hide-descendants" as const, accessibilityElementsHidden: true }
+              : {
+                  accessible: true,
+                  accessibilityRole: "image" as const,
+                  accessibilityLabel: item.alt ?? item.caption ?? `Photo ${index + 1} of ${items.length}`,
+                })}
             className="h-full w-full items-center justify-center gap-0.5 p-2"
           >
             {item.alt ? (

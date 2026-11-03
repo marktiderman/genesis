@@ -228,11 +228,14 @@ export function GalleryGrid({
             className="absolute inset-0 size-full object-cover"
           />
         ) : (
-          // No image: a neutral tile with its words, so the count matches what's drawn. The
-          // tile's own name (alt, then caption) still names it, so the text is hidden from readers.
+          // No image: a neutral tile with its words, so the count matches what's drawn. A
+          // clickable tile's button carries the name (alt, then caption), so the words are hidden
+          // from readers; a plain tile has no button, so the placeholder is the named image.
           <span
             data-slot="gallery-tile-placeholder"
-            aria-hidden="true"
+            {...(interactive
+              ? { "aria-hidden": true }
+              : { role: "img", "aria-label": item.alt ?? item.caption ?? `Image ${index + 1}` })}
             className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 p-3 text-center text-sm text-muted-foreground"
           >
             {item.alt ? <span className="line-clamp-2 font-medium text-foreground">{item.alt}</span> : null}
