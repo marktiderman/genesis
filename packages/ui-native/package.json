@@ -214,21 +214,21 @@
             "**/*.ts"
           ],
           "forbid": {
-            "pattern": "\\bwith(?:Timing|Spring)\\([^)]*\\{[^}]*\\b(?:duration|damping|stiffness)\\s*:\\s*\\d"
+            "pattern": "(?:\\bwith(?:Timing|Spring)\\([\\s\\S]{0,200}?\\{[^}]*\\b(?:duration|damping|stiffness)\\s*:\\s*\\.?\\d|\\bAnimated\\.(?:timing|spring)\\([\\s\\S]{0,200}?\\{[^}]*\\b(?:duration|bounciness|speed|damping|stiffness)\\s*:\\s*\\.?\\d|\\.(?:duration|damping|stiffness)\\(\\s*\\.?\\d)"
           },
           "unless": {
             "pattern": "\\b(?:useMotion|animateMotion)\\b"
           },
-          "use": "useMotion() and animateMotion(R, motion, to, { spring | duration }), the shared motion tokens",
+          "use": "useMotion() with animateMotion on the JS thread, or motionSpring / motionTiming inside a worklet: the shared motion tokens",
           "import": "@marktiderman/genesis-ui-native",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#motion",
-          "why": "Motion is defined once, for web and native, and Reduce Motion is honoured in one place; a hard-coded duration or spring drifts from the rest of the app."
+          "why": "Motion is defined once, and Reduce Motion is honoured in one place; a duration or spring written as a number drifts from the rest of the app."
         }
       ],
       "primitives": [
         {
           "need": "a phone screen",
-          "use": "ScreenContainer, or a \u2026Page / \u2026Screen layout",
+          "use": "ScreenContainer, or a …Page / …Screen layout",
           "import": "@marktiderman/genesis-ui-native/layouts",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
         },

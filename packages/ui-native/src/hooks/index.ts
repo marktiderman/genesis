@@ -7,7 +7,7 @@
  */
 
 export { useReducedMotion } from "./use-reduced-motion";
-export { useMotion, animateMotion, type UseMotionOptions, type MotionHow } from "./use-motion";
+export { useMotion, animateMotion, motionSpring, motionTiming, type UseMotionOptions, type MotionHow } from "./use-motion";
 export { useThemeMode, type ThemeMode } from "./use-theme-mode";
 export { useThemeRoles, type ThemeRoleColors, type UseThemeRolesOptions } from "./use-theme-roles";
 export {

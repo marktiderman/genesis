@@ -21,5 +21,6 @@ export {
   type MotionSpring,
   type MotionSprings,
   type MotionTokens,
+  type MotionLevel,
   type ResolveMotionOptions,
 } from "./motion";

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { AccessibilityInfo } from "react-native";
 import { MOTION_DURATIONS, MOTION_SPRINGS, resolveMotion } from "@marktiderman/genesis-design-system/tokens/motion";
-import { animateMotion, useMotion } from "../use-motion";
+import { animateMotion, motionSpring, motionTiming, useMotion } from "../use-motion";
 import { __resetReducedMotion } from "../use-reduced-motion";
 import { fakeReanimated } from "../../__tests__/fake-modules";
 
@@ -37,7 +37,7 @@ describe("animateMotion", () => {
   it("springs with the named spring and the gesture's velocity", () => {
     const R = { ...fakeReanimated(), withSpring: vi.fn((to: number) => to) };
     animateMotion(R, resolveMotion("calm"), 0, { spring: "snappy", velocity: 800 });
-    expect(R.withSpring).toHaveBeenCalledWith(0, { ...MOTION_SPRINGS.snappy, velocity: 800 }, undefined);
+    expect(R.withSpring).toHaveBeenCalledWith(0, { ...MOTION_SPRINGS.snappy, velocity: 800, reduceMotion: "system" }, undefined);
   });
 
   it("times with the named duration and easing", () => {
@@ -46,7 +46,7 @@ describe("animateMotion", () => {
     const R = { ...fake, Easing: { ...fake.Easing, bezier } };
     animateMotion(R, resolveMotion("calm"), 1, { duration: "fast", easing: "decelerate" });
     expect(bezier).toHaveBeenCalledWith(0.33, 1, 0.68, 1);
-    expect(R.withTiming).toHaveBeenCalledWith(1, { duration: MOTION_DURATIONS.fast, easing: "curve" }, undefined);
+    expect(R.withTiming).toHaveBeenCalledWith(1, { duration: MOTION_DURATIONS.fast, easing: "curve", reduceMotion: "system" }, undefined);
   });
 
   it("falls back to timing at base when the module has no withSpring", () => {
@@ -55,12 +55,41 @@ describe("animateMotion", () => {
     expect(R.withTiming).toHaveBeenCalledWith(0, expect.objectContaining({ duration: MOTION_DURATIONS.base }), undefined);
   });
 
-  it("returns the final value, without animating, under reduced motion", () => {
+  it("returns the final value, without animating, under reduced motion; the callback runs after", async () => {
     const R = { ...fakeReanimated(), withSpring: vi.fn((to: number) => to) };
     const done = vi.fn();
     expect(animateMotion(R, resolveMotion("calm", { reducedMotion: true }), 42, { spring: "bouncy" }, done)).toBe(42);
     expect(R.withSpring).not.toHaveBeenCalled();
     expect(R.withTiming).not.toHaveBeenCalled();
+    expect(done).not.toHaveBeenCalled();
+    await Promise.resolve();
     expect(done).toHaveBeenCalledWith(true);
+  });
+
+  it("leaves velocity out when the gesture gave none", () => {
+    const R = { ...fakeReanimated(), withSpring: vi.fn((to: number) => to) };
+    animateMotion(R, resolveMotion("calm"), 0, { spring: "smooth" });
+    expect((R.withSpring.mock.calls[0] as unknown[] | undefined)?.[1]).not.toHaveProperty("velocity");
+  });
+});
+
+describe("worklet-safe configs", () => {
+  it("builds a spring config, with velocity only when given", () => {
+    const m = resolveMotion("calm");
+    expect(motionSpring(m, "snappy")).toEqual(MOTION_SPRINGS.snappy);
+    expect(motionSpring(m, "snappy", -300)).toEqual({ ...MOTION_SPRINGS.snappy, velocity: -300 });
+  });
+
+  it("builds a timing config with the token's curve when Easing is given", () => {
+    const m = resolveMotion("calm");
+    expect(motionTiming(m, "ui")).toEqual({ duration: MOTION_DURATIONS.ui });
+    const bezier = vi.fn(() => "curve");
+    const Easing = { ...fakeReanimated().Easing, bezier };
+    expect(motionTiming(m, "ui", "inOut", Easing)).toEqual({ duration: MOTION_DURATIONS.ui, easing: "curve" });
+    expect(bezier).toHaveBeenCalledWith(0.65, 0, 0.35, 1);
+  });
+
+  it("zeroes durations under reduced motion", () => {
+    expect(motionTiming(resolveMotion("none"), "ui")).toEqual({ duration: 0 });
   });
 });

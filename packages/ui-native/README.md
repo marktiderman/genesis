@@ -169,8 +169,12 @@ Motion is defined once, in `@marktiderman/genesis-design-system`'s motion tokens
 durations (`press`, `fast`, `base`, `ui`, `pulse`, …), easings (`out`, `swift`, `inOut`, `decelerate`)
 and springs (`snappy`, `smooth`, `bouncy`). Web reads them as the design system's `--ds-dur-*` and
 `--ds-ease-*` variables; on the phone, `useMotion()` gives the same tokens with the OS's Reduce
-Motion applied, and `animateMotion` turns them into a Reanimated animation. Under Reduce Motion it
-returns the final value, so nothing moves. Drawer, Toast and Skeleton already read them.
+Motion applied, and `animateMotion` turns them into a Reanimated animation on the JS thread. Under
+Reduce Motion it returns the final value, so nothing moves. Inside a worklet (a gesture's `onEnd`),
+build the config with `motionSpring` or `motionTiming` and call Reanimated yourself. Pass the
+brand's level (`useMotion({ level })`) until a provider carries it; without it, `calm`. A repeating
+animation checks `motion.reduced` first. Drawer, Toast and Skeleton read their durations from the
+tokens.
 
 ```tsx
 import { animateMotion, useGenesisModules, useMotion } from "@marktiderman/genesis-ui-native";
@@ -185,8 +189,9 @@ function useSnapBack(offset: { value: number }) {
 }
 ```
 
-The doctor's `motion-uses-tokens` rule warns on new code that passes `withTiming` or `withSpring` a
-hard-coded duration or spring.
+The doctor's `motion-uses-tokens` rule warns on new code that writes a duration or spring as a number
+literal in `withTiming`, `withSpring`, `Animated.timing`, `Animated.spring` or a layout animation's
+`.duration()` / `.damping()` / `.stiffness()`. A named constant isn't caught.
 
 ## Inbox and thread: `InboxPage` and `ThreadPage`
 

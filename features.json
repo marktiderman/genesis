@@ -5889,7 +5889,7 @@
     {
       "id": "motion-kit",
       "name": "Motion and feel",
-      "summary": "Motion defined once for web and native: shared durations, easings and springs (genesis-design-system's resolveMotion, Reduce Motion always meaning none), read as CSS variables on web and through useMotion and animateMotion (Reanimated) on native; next, press feedback with haptics, swipe rows and a long-press menu.",
+      "summary": "Motion defined once for web and native: shared durations, easings and springs (genesis-design-system's resolveMotion), read as the design system's CSS variables on web and through useMotion, animateMotion and the worklet-safe motionSpring and motionTiming (Reanimated) on native, where Reduce Motion holds everything still.",
       "category": "Design system",
       "status": "building",
       "claimedBy": "native-feel session",

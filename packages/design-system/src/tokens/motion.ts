@@ -11,6 +11,12 @@
  * Reduced motion always wins: `resolveMotion("calm", { reducedMotion: true })`
  * is the same as level `none`, where every duration is 0 and every spring
  * settles at once, so a component lands in its final state without moving.
+ * (On native, `useMotion()` reads the OS setting. On web, the CSS variables
+ * carry the brand's level only; a host gates movement with
+ * `prefers-reduced-motion` itself.)
+ *
+ * A repeating animation (a pulse) checks `reduced` before it repeats: a
+ * zero-length repeat would flash every frame.
  *
  * Dependency-free on purpose (no React, no Reanimated): it is imported by web
  * stylesheets' generators and by React Native alike.
@@ -18,6 +24,8 @@
  * @stability Beta
  */
 import type { MotionLevel } from "../design-systems/define";
+
+export type { MotionLevel };
 
 /** A cubic Bézier curve's four control values, as CSS `cubic-bezier()` and Reanimated `Easing.bezier()` take them. */
 export type Bezier = readonly [x1: number, y1: number, x2: number, y2: number];
@@ -80,9 +88,9 @@ export interface MotionTokens {
   level: MotionLevel;
   /** True when nothing should move (level `none`, or the OS asked for reduced motion). */
   reduced: boolean;
-  duration: MotionDurations;
-  easing: MotionEasings;
-  spring: MotionSprings;
+  duration: Readonly<MotionDurations>;
+  easing: Readonly<MotionEasings>;
+  spring: Readonly<{ [K in keyof MotionSprings]: Readonly<MotionSpring> }>;
 }
 
 /** The durations at any level that moves. */
@@ -104,7 +112,7 @@ export const MOTION_EASINGS: Readonly<MotionEasings> = Object.freeze({
   decelerate: Object.freeze([0.33, 1, 0.68, 1] as const),
 });
 
-export const MOTION_SPRINGS: Readonly<MotionSprings> = Object.freeze({
+export const MOTION_SPRINGS: Readonly<{ [K in keyof MotionSprings]: Readonly<MotionSpring> }> = Object.freeze({
   snappy: Object.freeze({ damping: 30, stiffness: 400, mass: 1 }),
   smooth: Object.freeze({ damping: 28, stiffness: 240, mass: 1 }),
   bouncy: Object.freeze({ damping: 14, stiffness: 220, mass: 1 }),
