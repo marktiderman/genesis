@@ -75,6 +75,29 @@ describe("Rating (interactive)", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("ArrowLeft / ArrowDown stop at 1 and never clear", () => {
+    const onChange = vi.fn();
+    render(<Rating value={1} onChange={onChange} />);
+    const group = screen.getByRole("radiogroup");
+    fireEvent.keyDown(group, { key: "ArrowLeft" });
+    fireEvent.keyDown(group, { key: "ArrowDown" });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("swaps ArrowLeft / ArrowRight in a right-to-left group", () => {
+    const onChange = vi.fn();
+    render(
+      <div dir="rtl">
+        <Rating value={3} onChange={onChange} />
+      </div>,
+    );
+    const group = screen.getByRole("radiogroup");
+    fireEvent.keyDown(group, { key: "ArrowLeft" });
+    expect(onChange).toHaveBeenLastCalledWith(4);
+    fireEvent.keyDown(group, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenLastCalledWith(2);
+  });
+
   it("keeps a single tab stop on the checked star", () => {
     render(<Rating value={3} onChange={() => {}} />);
     const stops = screen.getAllByRole("radio").filter((r) => r.getAttribute("tabindex") === "0");

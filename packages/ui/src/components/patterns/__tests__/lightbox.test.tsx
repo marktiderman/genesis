@@ -21,6 +21,28 @@ const items: GalleryItem[] = [
 ];
 
 describe("Lightbox", () => {
+  it("leaves arrow keys to a field inside the lightbox", () => {
+    const onIndexChange = vi.fn();
+    render(
+      <Lightbox open onOpenChange={() => {}} items={items} index={1} onIndexChange={onIndexChange} renderCaption={() => <input aria-label="note" />} />,
+    );
+    fireEvent.keyDown(screen.getByLabelText("note"), { key: "ArrowRight" });
+    expect(onIndexChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "ArrowRight" });
+    expect(onIndexChange).toHaveBeenCalledWith(2);
+  });
+
+  it("ignores a swipe that starts on a field", () => {
+    const onIndexChange = vi.fn();
+    render(
+      <Lightbox open onOpenChange={() => {}} items={items} index={1} onIndexChange={onIndexChange} renderCaption={() => <input aria-label="note" />} />,
+    );
+    const field = screen.getByLabelText("note");
+    fireEvent.touchStart(field, { changedTouches: [{ clientX: 300, clientY: 0 }] });
+    fireEvent.touchEnd(screen.getByRole("dialog"), { changedTouches: [{ clientX: 100, clientY: 0 }] });
+    expect(onIndexChange).not.toHaveBeenCalled();
+  });
+
   it("renders nothing while closed", () => {
     render(<Lightbox open={false} onOpenChange={() => {}} items={items} index={0} onIndexChange={() => {}} />);
     expect(screen.queryByRole("dialog")).toBeNull();

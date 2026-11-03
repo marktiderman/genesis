@@ -20,9 +20,9 @@ if (badge && badge.type === 'INSTANCE') {
 export default {
   example: figma.code`<NativeGalleryCard
   src={coverUrl}
-  alt="${title}"
-  title="${title}"${subtitle ? figma.code`
-  subtitle="${subtitle}"` : ''}${badgeCode ? figma.code`
+  alt={${JSON.stringify(title)}}
+  title={${JSON.stringify(title)}}${subtitle ? figma.code`
+  subtitle={${JSON.stringify(subtitle)}}` : ''}${badgeCode ? figma.code`
   badges={${badgeCode}}` : ''}${showActions ? `
   actions={<NativeButton variant="ghost" size="sm" onPress={onMore}>…</NativeButton>}` : ''}
   onPress={onOpen}

@@ -3328,9 +3328,6 @@
         "web": "@marktiderman/genesis-ui",
         "native": "@marktiderman/genesis-ui-native"
       },
-      "requires": [
-        "ui-primitives"
-      ],
       "owner": "mark",
       "apps": [
         "sample",
@@ -3384,9 +3381,6 @@
         "web": "@marktiderman/genesis-ui",
         "native": "@marktiderman/genesis-ui-native"
       },
-      "requires": [
-        "ui-primitives"
-      ],
       "owner": "mark",
       "apps": [
         "sample",

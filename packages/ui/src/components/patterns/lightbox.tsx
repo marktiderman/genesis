@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../ui/dia
 import { Button } from "../ui/button";
 import { cn } from "../../utils";
 import type { GalleryItem } from "./gallery-types";
-import { isAppShortcutTarget } from "./keyboard";
+import { isAppShortcutTarget, isAppShortcutTargetElement } from "./keyboard";
 
 /** Minimum horizontal travel, in px, for a touch to count as a swipe. */
 export const LIGHTBOX_SWIPE_THRESHOLD = 50;
@@ -88,20 +88,22 @@ export function Lightbox({
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    // A field or widget in the slots keeps its own keys (arrows included).
+    if (!isAppShortcutTarget(event.nativeEvent)) return;
     if (event.key === "ArrowLeft") {
       event.preventDefault();
       goPrev();
     } else if (event.key === "ArrowRight") {
       event.preventDefault();
       goNext();
-    } else if (event.key !== "Escape" && onKey && isAppShortcutTarget(event.nativeEvent)) {
+    } else if (event.key !== "Escape" && onKey) {
       onKey(event.nativeEvent);
     }
   };
 
   const onTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     const touch = event.changedTouches[0];
-    touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    touchStart.current = touch && isAppShortcutTargetElement(event.target) ? { x: touch.clientX, y: touch.clientY } : null;
   };
 
   const onTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {

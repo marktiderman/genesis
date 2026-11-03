@@ -12,7 +12,7 @@ export interface LiveIndicatorProps {
    * one (`bg-muted-foreground/50`).
    */
   state?: LiveIndicatorState;
-  /** Text beside the dot. Default "Live". */
+  /** Text beside the dot. Default follows the state: "Live", "Idle" or "Offline". */
   label?: string;
   /** Secondary text after the label, muted — "last photo 2m ago". */
   detail?: string;
@@ -25,6 +25,12 @@ const DOT_CLASS: Record<LiveIndicatorState, string> = {
   live: "animate-pulse bg-destructive motion-reduce:animate-none",
   idle: "bg-muted-foreground",
   offline: "bg-muted-foreground/50",
+};
+
+const DEFAULT_LABEL: Record<LiveIndicatorState, string> = {
+  live: "Live",
+  idle: "Idle",
+  offline: "Offline",
 };
 
 /**
@@ -41,13 +47,14 @@ const DOT_CLASS: Record<LiveIndicatorState, string> = {
 export function LiveIndicator({
   live = true,
   state,
-  label = "Live",
+  label: labelProp,
   detail,
   variant = "pill",
   className,
 }: LiveIndicatorProps) {
   const resolved: LiveIndicatorState = state ?? (live ? "live" : "idle");
   const isLive = resolved === "live";
+  const label = labelProp ?? DEFAULT_LABEL[resolved];
 
   const dot = (
     <span

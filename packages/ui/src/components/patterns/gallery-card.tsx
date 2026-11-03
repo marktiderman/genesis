@@ -30,10 +30,11 @@ export interface GalleryCardProps {
  * title/subtitle footer. The media-first card that galleries, libraries and
  * course lists all draw: `Card` + `AspectRatio` + the two overlay slots.
  *
- * With `onClick` the whole card is one `<button>` named by the title (or the
- * alt text), so the surface is a single tab stop. Put interactive `actions`
- * only on a card without `onClick`, or stop their propagation: a button
- * inside a button is invalid HTML.
+ * With `onClick` the cover and footer are one `<button>` named by the title
+ * (or the alt text), so the surface is a single tab stop. `actions` render
+ * as a sibling of that button, absolutely positioned top-right over the
+ * cover, so interactive actions (icon buttons, a menu) never nest inside it;
+ * `badges` are not interactive and stay inside.
  *
  * Without `src`, or while `loading`, the cover is a `bg-muted` box carrying a
  * `Skeleton`, so a grid of cards keeps its shape before the data lands.
@@ -53,6 +54,15 @@ export function GalleryCard({
   className,
 }: GalleryCardProps) {
   const showImage = Boolean(src) && !loading;
+
+  const actionsNode = actions ? (
+    <div
+      data-slot="gallery-card-actions"
+      className="absolute right-2 top-2 flex items-center gap-1"
+    >
+      {actions}
+    </div>
+  ) : null;
 
   const body = (
     <>
@@ -74,14 +84,7 @@ export function GalleryCard({
             {badges}
           </div>
         ) : null}
-        {actions ? (
-          <div
-            data-slot="gallery-card-actions"
-            className="absolute right-2 top-2 flex items-center gap-1"
-          >
-            {actions}
-          </div>
-        ) : null}
+        {actions && !onClick ? actionsNode : null}
       </AspectRatio>
       {loading && !title && !subtitle ? (
         <div data-slot="gallery-card-footer" className="space-y-1.5 p-3">
@@ -107,20 +110,23 @@ export function GalleryCard({
 
   if (onClick) {
     return (
-      <button
-        type="button"
-        data-slot="gallery-card"
-        data-loading={loading || undefined}
-        aria-label={title ?? alt}
-        aria-busy={loading || undefined}
-        onClick={onClick}
-        className={cn(
-          "block w-full cursor-pointer rounded-xl border bg-card p-0 text-left text-card-foreground shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-reduce:transition-none",
-          cardClass,
-        )}
-      >
-        {body}
-      </button>
+      <div data-slot="gallery-card-wrapper" className="relative">
+        <button
+          type="button"
+          data-slot="gallery-card"
+          data-loading={loading || undefined}
+          aria-label={title ?? alt}
+          aria-busy={loading || undefined}
+          onClick={onClick}
+          className={cn(
+            "block w-full cursor-pointer rounded-xl border bg-card p-0 text-left text-card-foreground shadow-sm transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-reduce:transition-none",
+            cardClass,
+          )}
+        >
+          {body}
+        </button>
+        {actionsNode}
+      </div>
     );
   }
 

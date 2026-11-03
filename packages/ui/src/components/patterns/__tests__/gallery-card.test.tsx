@@ -60,6 +60,24 @@ describe("GalleryCard", () => {
     expect(screen.getByRole("button", { name: "More" })).toBeTruthy();
   });
 
+  it("renders actions outside the card button when onClick is set", () => {
+    render(
+      <GalleryCard
+        src="/cover.jpg"
+        title="Yoga"
+        badges={<Badge>New</Badge>}
+        actions={<button type="button">More</button>}
+        onClick={() => {}}
+      />,
+    );
+    const card = document.querySelector('button[data-slot="gallery-card"]')!;
+    const actions = document.querySelector('[data-slot="gallery-card-actions"]')!;
+    expect(card.contains(actions)).toBe(false);
+    expect(card.querySelector('[data-slot="gallery-card-badges"]')).not.toBeNull();
+    expect(card.querySelector("button")).toBeNull();
+    expect(actions.parentElement!.className).toContain("relative");
+  });
+
   it("omits the footer when there is neither title nor subtitle", () => {
     render(<GalleryCard src="/cover.jpg" />);
     expect(document.querySelector('[data-slot="gallery-card-footer"]')).toBeNull();

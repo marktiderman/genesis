@@ -472,6 +472,8 @@ export const Easing = {
 
 export const AccessibilityInfo = {
   isReduceMotionEnabled: () => Promise.resolve(false),
+  announceForAccessibility: (_text: string) => {},
+  announceForAccessibilityWithOptions: (_text: string, _options: { queue?: boolean }) => {},
   addEventListener: () => ({ remove: () => {} }),
 };
 
