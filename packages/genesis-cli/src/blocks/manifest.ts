@@ -25,6 +25,7 @@ const FUNCTION_NAME = /^[a-z0-9][a-z0-9_-]*$/;
 const ROUTE = /^\/(?:[A-Za-z0-9_\-[\]().]+\/?)*$/;
 const INSTALL_SPEC = /^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*(@[A-Za-z0-9.^~<>=|* -]+)?$/;
 const SECRET = /^[A-Z][A-Z0-9_]*$/;
+const SQL_FUNCTION = /^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$/;
 
 export interface ManifestMigration {
   /** The package that ships it (a Genesis package). */
@@ -48,6 +49,12 @@ export interface ManifestMigration {
      */
     functions?: string[];
   }[];
+  /**
+   * SQL functions the app must define before this migration runs (a hook it calls, such as
+   * `private.genesis_viewer_people`). `genesis add`, `migrate` and `upgrade` say so, with `how`,
+   * when they'd copy it into an app whose migrations don't define one.
+   */
+  needs?: { function: string; how: string }[];
 }
 
 export interface ManifestFunction {
@@ -195,6 +202,23 @@ export function parseManifest(home: string, id: string, raw: unknown, version?: 
           if (provided.file && !MIGRATION_FILE.test(provided.file.split("/").pop()!)) problems.push(`${at2}.file: "${provided.file}" must be named NNNN_name.sql`);
           if (provided.package === out.package && provided.file === file) problems.push(`${at2}: a migration can't provide itself`);
           return provided;
+        });
+      }
+    }
+    if (m["needs"] !== undefined) {
+      if (!Array.isArray(m["needs"])) problems.push(`${where}.needs: must be a list of { function, how }`);
+      else {
+        out.needs = (m["needs"] as unknown[]).flatMap((n, j) => {
+          const at2 = `${where}.needs[${j}]`;
+          if (!isObject(n) || typeof n["function"] !== "string" || typeof n["how"] !== "string" || !n["how"].trim()) {
+            problems.push(`${at2}: must be { function: "schema.name", how: "what to add" }`);
+            return [];
+          }
+          if (!SQL_FUNCTION.test(n["function"])) {
+            problems.push(`${at2}.function: "${n["function"]}" must be a schema-qualified function name, like private.genesis_viewer_people`);
+            return [];
+          }
+          return [{ function: n["function"], how: n["how"].trim() }];
         });
       }
     }

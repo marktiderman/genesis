@@ -29,14 +29,22 @@
 --    with no tenant in common can't start one. add_members adds only people of the
 --    conversation's tenant. A direct conversation is one per pair per tenant.
 --
+--    A kind registered with `p_cross_tenant => true` lets people with no tenant in common talk:
+--    such a conversation takes its starter's tenant (`p_tenant_id` chooses among the starter's),
+--    and its members may come from anywhere. The trade-off: it lives in that one tenant, so that
+--    tenant's erase or export includes it, the other people's messages too. Such a kind has no
+--    observer check (register_kind refuses one), so no tenant's staff read it.
+--
 -- 4. Observers. A kind's observer check is asked only about people of the conversation's tenant,
 --    and never about anyone who is or was a member of it: the person who opened a ticket never
 --    reads its internal notes, even if they are also staff.
 --
 -- Existing conversations get their tenant in this order: your optional hook
--- `private.genesis_chat_conversation_tenant(conversation_id uuid) returns uuid`, then the one
--- tenant all its members share, then its creator's only tenant, then the only tenant of any one
--- of its members. If one is still left without, this migration stops and says how many: add the
+-- `private.genesis_chat_conversation_tenant(conversation_id uuid) returns uuid`; for one about a
+-- record, a resolver named for its subject type, `private.genesis_chat_resolve_<subject_type>
+-- (subject_id text) returns uuid`, when one exists (a block that owns the type ships it before
+-- this, since register_subject is new here); then the one tenant all its members share, then its
+-- creator's only tenant, then the only tenant of any one of its members. If one is still left without, this migration stops and says how many: add the
 -- hook (it runs only here), then apply it again.
 --
 -- Ship it together with genesis-support's 0004 if you use genesis-support's chat: support's 0001
@@ -87,6 +95,64 @@ grant execute on function genesis_chat.tenants_of(uuid), genesis_chat.shared_ten
 
 comment on function genesis_chat.tenants_of(uuid) is
   'The tenants a person belongs to, from the app''s private.genesis_viewer_people(viewer) hook; empty without it. Genesis Chat.';
+
+-- ── Kinds that cross tenants ──────────────────────────────────────────────────
+
+alter table genesis_chat.kinds add column cross_tenant boolean not null default false;
+comment on column genesis_chat.kinds.cross_tenant is
+  'People with no tenant in common may start one; it takes the starter''s tenant. Never with an observer check.';
+
+drop function genesis_chat.register_kind(text, text, integer, text, text, boolean, regprocedure, boolean, regprocedure, interval);
+
+create function genesis_chat.register_kind(
+  p_kind text,
+  p_label text,
+  p_max_members integer default null,
+  p_who_posts text default 'members',
+  p_membership text default 'app',
+  p_threads boolean default true,
+  p_observer_check regprocedure default null,
+  p_observers_post boolean default false,
+  p_start_check regprocedure default null,
+  p_edit_window interval default null,
+  p_cross_tenant boolean default false
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_observer_check is not null and (
+       pg_get_function_identity_arguments(p_observer_check) !~ '^[a-z_]* ?uuid, [a-z_]* ?uuid$'
+       or (select prorettype from pg_proc where oid = p_observer_check) <> 'boolean'::regtype) then
+    raise exception 'An observer check takes (conversation_id uuid, user_id uuid) and returns boolean' using errcode = '22023';
+  end if;
+  if p_start_check is not null and (
+       pg_get_function_identity_arguments(p_start_check) !~ '^[a-z_]* ?uuid\[\], [a-z_]* ?text, [a-z_]* ?text, [a-z_]* ?uuid$'
+       or (select prorettype from pg_proc where oid = p_start_check) <> 'boolean'::regtype) then
+    raise exception 'A start check takes (member_ids uuid[], subject_type text, subject_id text, user_id uuid) and returns boolean' using errcode = '22023';
+  end if;
+  if coalesce(p_cross_tenant, false) and p_observer_check is not null then
+    raise exception 'A kind that crosses tenants has no observers: no tenant''s staff may read it' using errcode = '22023';
+  end if;
+  insert into genesis_chat.kinds as k (kind, label, max_members, who_posts, membership, threads,
+                                       observer_check, observers_post, start_check, edit_window, cross_tenant)
+  values (p_kind, p_label, p_max_members, p_who_posts, p_membership, p_threads,
+          p_observer_check, p_observers_post, p_start_check, p_edit_window, coalesce(p_cross_tenant, false))
+  on conflict (kind) do update set
+    label = excluded.label, max_members = excluded.max_members, who_posts = excluded.who_posts,
+    membership = excluded.membership, threads = excluded.threads, observer_check = excluded.observer_check,
+    observers_post = excluded.observers_post, start_check = excluded.start_check,
+    edit_window = excluded.edit_window, cross_tenant = excluded.cross_tenant, updated_at = now();
+end;
+$$;
+
+revoke execute on function genesis_chat.register_kind(text, text, integer, text, text, boolean, regprocedure, boolean, regprocedure, interval, boolean) from public, anon, authenticated;
+grant execute on function genesis_chat.register_kind(text, text, integer, text, text, boolean, regprocedure, boolean, regprocedure, interval, boolean) to service_role;
+
+comment on function genesis_chat.register_kind(text, text, integer, text, text, boolean, regprocedure, boolean, regprocedure, interval, boolean) is
+  'Adds or replaces a kind of conversation and its rules. Run from a migration or the service role. Genesis Chat.';
 
 -- ── Subjects ──────────────────────────────────────────────────────────────────
 
@@ -202,11 +268,21 @@ alter table genesis_chat.conversations add column tenant_id uuid;
 do $$
 declare
   hook boolean := to_regprocedure('private.genesis_chat_conversation_tenant(uuid)') is not null;
+  r record;
   missing integer;
 begin
   if hook then
     execute 'update genesis_chat.conversations c set tenant_id = private.genesis_chat_conversation_tenant(c.id) where c.tenant_id is null';
   end if;
+
+  -- A record's tenant, from a resolver named for its subject type.
+  for r in select distinct c.subject_type from genesis_chat.conversations c
+            where c.tenant_id is null and c.subject_type is not null
+              and to_regprocedure(format('private.%I(text)', 'genesis_chat_resolve_' || c.subject_type)) is not null loop
+    execute format('update genesis_chat.conversations c set tenant_id = private.%I(c.subject_id)
+                     where c.tenant_id is null and c.subject_type = $1', 'genesis_chat_resolve_' || r.subject_type)
+      using r.subject_type;
+  end loop;
 
   -- The one tenant all its members (past and present, observers aside) share.
   update genesis_chat.conversations c set tenant_id = x.t
@@ -352,11 +428,13 @@ begin
     if p_tenant_id is not null and p_tenant_id <> tenant then
       raise exception 'That % belongs to another workspace', replace(stype, '_', ' ') using errcode = '22023';
     end if;
-    if not tenant = any(shared) then
+    if not (tenant = any(shared)
+            or (k.cross_tenant and exists (select 1 from genesis_chat.tenants_of(me) t where t = tenant))) then
       raise exception 'You can''t start a conversation with these people' using errcode = '42501';
     end if;
   elsif p_tenant_id is not null then
-    if not p_tenant_id = any(shared) then
+    if not (p_tenant_id = any(shared)
+            or (k.cross_tenant and exists (select 1 from genesis_chat.tenants_of(me) t where t = p_tenant_id))) then
       raise exception 'You can''t start a conversation with these people' using errcode = '42501';
     end if;
     tenant := p_tenant_id;
@@ -364,6 +442,16 @@ begin
     tenant := shared[1];
   elsif cardinality(shared) > 1 then
     raise exception 'Choose the workspace this conversation is in' using errcode = '22023';
+  elsif k.cross_tenant then
+    -- No tenant in common, and the kind allows that: the starter's (their only one).
+    select coalesce(array_agg(t), '{}') into shared from genesis_chat.tenants_of(me) t;
+    if cardinality(shared) = 1 then
+      tenant := shared[1];
+    elsif cardinality(shared) > 1 then
+      raise exception 'Choose the workspace this conversation is in' using errcode = '22023';
+    else
+      raise exception 'You can''t start a conversation with these people' using errcode = '42501';
+    end if;
   else
     raise exception 'You can''t start a conversation with these people' using errcode = '42501';
   end if;
@@ -472,7 +560,7 @@ $$;
 
 -- ── Adding people ─────────────────────────────────────────────────────────────
 
--- As in 0001, and only people of the conversation's tenant.
+-- As in 0001, and only people of the conversation's tenant (anyone, for a kind that crosses tenants).
 create or replace function genesis_chat.add_members(p_conversation_id uuid, p_user_ids uuid[])
 returns void
 language plpgsql
@@ -495,7 +583,7 @@ begin
   if k.start_check is null then
     raise exception 'You can''t add people to this conversation' using errcode = '42501';
   end if;
-  if exists (select 1 from unnest(adding) u
+  if not k.cross_tenant and exists (select 1 from unnest(adding) u
               where not exists (select 1 from genesis_chat.tenants_of(u) t where t = c.tenant_id)) then
     raise exception 'You can''t add these people' using errcode = '42501';
   end if;

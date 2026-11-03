@@ -437,6 +437,21 @@ steps point at the notifications runner (`genesis-notifications`), which sends i
 0001 after 0005 works too (it adopts the tables); then stop calling `genesis-push-send`, as
 notifications' steps say.
 
+A migration that calls a hook the app defines (a function Genesis never ships) names it in
+`needs`, with what to add:
+
+```json
+{
+  "file": "migrations/0004_genesis_chat_tenants.sql",
+  "needs": [{ "function": "private.genesis_viewer_people", "how": "add the tenancy hook before it (genesis-supabase 0016's header)" }]
+}
+```
+
+When `genesis add`, `migrate` or `upgrade` would copy it into an app where no migration defines that
+function (by `create [or replace] function`, in the app's migrations or one copied before it in
+the same run), its row says `needs <function> first: <how>` and the command warns, before
+`supabase db push` fails on it.
+
 In an app whose database files live elsewhere ([A phone app beside a web app](#a-phone-app-beside-a-web-app)),
 migrate plans nothing and says where to run it.
 

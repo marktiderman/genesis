@@ -6,7 +6,7 @@
 -- with the rollback).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(41);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c4' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat4-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -104,6 +104,29 @@ select throws_ok($$ select genesis_chat.add_members(pg_temp.v('grp'), array[pg_t
   'only people of the conversation''s tenant are added');
 select lives_ok($$ select genesis_chat.add_members(pg_temp.v('grp'), array[pg_temp.person('e5')]) $$,
   'people of its tenant are');
+
+-- ── Kinds that cross tenants ──────────────────────────────────────────────────
+
+reset role;
+select throws_ok($$ select genesis_chat.register_kind('pen_pal', 'Pen pal', p_cross_tenant => true,
+                      p_observer_check => 'public.genesis_chat4_test_staff(uuid, uuid)') $$, '22023', null,
+  'a kind that crosses tenants has no observers');
+select genesis_chat.register_kind('pen_pal', 'Pen pal', p_membership => 'admins', p_cross_tenant => true,
+  p_start_check => 'public.genesis_chat4_test_may_start(uuid[], text, text, uuid)');
+select pg_temp.sign_in('c3');
+insert into t select 'pp', genesis_chat.start_conversation('pen_pal', array[pg_temp.person('a1')], 'Letters');
+select pg_temp.sign_in('a1');
+select is((select tenant_id from genesis_chat.conversations where id = pg_temp.v('pp')), pg_temp.tenant('03'),
+          'people with no tenant in common start one in the starter''s tenant, where the kind allows it');
+select throws_ok($$ select genesis_chat.start_conversation('pen_pal', array[pg_temp.person('c3')]) $$, '22023', null,
+  'a starter in several tenants chooses one of theirs');
+select lives_ok($$ select genesis_chat.start_conversation('pen_pal', array[pg_temp.person('c3')], p_tenant_id => pg_temp.tenant('02')) $$,
+  'and may choose any of their own');
+select throws_ok($$ select genesis_chat.start_conversation('pen_pal', array[pg_temp.person('c3')], p_tenant_id => pg_temp.tenant('03')) $$, '42501', null,
+  'but not one only the others are in');
+select pg_temp.sign_in('c3');
+select lives_ok($$ select genesis_chat.add_members(pg_temp.v('pp'), array[pg_temp.person('e5')]) $$,
+  'and people from anywhere are added');
 
 -- ── Subjects ──────────────────────────────────────────────────────────────────
 

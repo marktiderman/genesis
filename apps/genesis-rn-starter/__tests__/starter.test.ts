@@ -407,6 +407,25 @@ describe("chat", () => {
     expect(order.indexOf(copies[0]!)).toBe(order.findIndex((f) => f.endsWith("_genesis_chat.sql")) + 1);
   });
 
+  it.runIf(chat && database)("carries chat's 0003 and 0004 migrations and their pgTAP tests unchanged, with a single-tenant hook before 0004", () => {
+    const order = filesUnder("supabase/migrations").sort();
+    const search = order.filter((f) => f.endsWith("_genesis_chat_search_threads.sql"));
+    const tenants = order.filter((f) => f.endsWith("_genesis_chat_tenants.sql"));
+    const hook = order.filter((f) => f.endsWith("_starter_tenancy.sql"));
+    expect(search).toHaveLength(1);
+    expect(tenants).toHaveLength(1);
+    expect(hook).toHaveLength(1);
+    expect(read(search[0]!)).toBe(chatSql("0003_genesis_chat_search_threads.sql"));
+    expect(read("supabase/tests/database/genesis_chat_search_threads.test.sql")).toBe(chatSql("tests/0003_genesis_chat_search_threads.test.sql"));
+    expect(read(tenants[0]!)).toBe(chatSql("0004_genesis_chat_tenants.sql"));
+    expect(read("supabase/tests/database/genesis_chat_tenants.test.sql")).toBe(chatSql("tests/0004_genesis_chat_tenants.test.sql"));
+    // 0004 places every conversation in a tenant through the hook, so the hook comes first.
+    expect(order.indexOf(hook[0]!)).toBeLessThan(order.indexOf(tenants[0]!));
+    expect(order.indexOf(search[0]!)).toBeLessThan(order.indexOf(tenants[0]!));
+    expect(read(hook[0]!)).toContain("create or replace function private.genesis_viewer_people(viewer uuid)");
+    expect(read("supabase/tests/database/starter_tenancy.test.sql")).toContain("select plan(");
+  });
+
   it("puts one chat over every signed-in tab, with Availability under Settings and search and broadcast in Messages", () => {
     expect(read("src/app/(app)/_layout.tsx")).toContain("starter.features.chat ? <ChatRoot>{app}</ChatRoot> : app");
     expect(read("src/app/(app)/messages/_layout.tsx")).not.toContain("<ChatRoot");

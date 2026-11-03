@@ -32,7 +32,7 @@ grant execute on function pg_temp.sign_in(uuid) to authenticated;
 
 -- a, b and d in one group; e and g left it (e after posting, g without); f has an observer row;
 -- c is in nothing with them.
-insert into genesis_chat.conversations (id, kind) values ('00000000-0000-4000-8000-0000000c9ac1', 'group');
+insert into genesis_chat.conversations (id, kind, tenant_id) values ('00000000-0000-4000-8000-0000000c9ac1', 'group', '00000000-0000-4000-8000-00000000a771');
 insert into genesis_chat.members (conversation_id, user_id, role, left_at) values
   ('00000000-0000-4000-8000-0000000c9ac1', '00000000-0000-4000-8000-0000000c9a01', 'owner', null),
   ('00000000-0000-4000-8000-0000000c9ac1', '00000000-0000-4000-8000-0000000c9a02', 'member', null),
