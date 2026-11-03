@@ -221,7 +221,9 @@ nobody starts a conversation and nobody observes one.
 
   `ensure_conversation` and `start_conversation` then take the tenant from it and refuse a
   record it doesn't know. An alias is an older name: calls using it reach the same conversations.
-  An unregistered subject passes `p_tenant_id` to `ensure_conversation`.
+  An unregistered subject passes `p_tenant_id` to `ensure_conversation`, or ships a resolver named
+  for its type, `private.genesis_chat_resolve_<subject_type>(subject_id text) returns uuid`, which
+  `ensure_conversation` and 0004's backfill find by that name.
 - **Observers.** A kind's observer check is asked only about people of the conversation's
   tenant, and never about anyone who is or was a member of it, so whoever opened a ticket never
   reads its internal notes, even if they're staff too.
