@@ -10,7 +10,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Easing } from "react-native";
 import { cn } from "../utils";
-import { useReducedMotion } from "../hooks/use-reduced-motion";
+import { useMotion } from "../hooks/use-motion";
 import { useGenesisModules, type GenesisReanimatedModule } from "../native-modules";
 
 export interface NativeSkeletonProps {
@@ -27,7 +27,6 @@ export interface NativeSkeletonProps {
   testID?: string;
 }
 
-const PULSE_MS = 1000;
 const LOW = 0.3;
 const HIGH = 1;
 // Held still under Reduce Motion (visual-regression flow
@@ -53,7 +52,10 @@ function NativeSkeleton(props: NativeSkeletonProps) {
 }
 
 function ReanimatedSkeleton({ reanimated: R, ...props }: NativeSkeletonProps & { reanimated: GenesisReanimatedModule }) {
-  const reduceMotion = useReducedMotion();
+  // One pulse cycle from the shared motion tokens; under Reduce Motion it holds still (a zero-length repeat would flash).
+  const motion = useMotion();
+  const reduceMotion = motion.reduced;
+  const PULSE_MS = motion.duration.pulse;
   const opacity = R.useSharedValue(LOW);
   useEffect(() => {
     R.cancelAnimation(opacity);
@@ -85,7 +87,10 @@ function ReanimatedSkeleton({ reanimated: R, ...props }: NativeSkeletonProps & {
 
 function AnimatedSkeleton(props: NativeSkeletonProps) {
   const opacity = useRef(new Animated.Value(LOW)).current;
-  const reduceMotion = useReducedMotion();
+  // One pulse cycle from the shared motion tokens; under Reduce Motion it holds still (a zero-length repeat would flash).
+  const motion = useMotion();
+  const reduceMotion = motion.reduced;
+  const PULSE_MS = motion.duration.pulse;
 
   useEffect(() => {
     if (reduceMotion) {

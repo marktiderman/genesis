@@ -26,7 +26,7 @@ import {
 } from "react-native";
 import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { cn } from "../utils";
-import { useReducedMotion } from "../hooks/use-reduced-motion";
+import { useMotion } from "../hooks/use-motion";
 import { useGenesisModules, type GenesisReanimatedModule } from "../native-modules";
 
 export interface NativeDrawerProps {
@@ -41,8 +41,6 @@ export interface NativeDrawerProps {
   testID?: string;
 }
 
-const OPEN_MS = 220;
-const SETTLE_MS = 180;
 
 export function NativeDrawer(props: NativeDrawerProps) {
   const { reanimated } = useGenesisModules();
@@ -86,14 +84,18 @@ function useSwipe(
 function ReanimatedDrawer({ reanimated: R, ...props }: NativeDrawerProps & { reanimated: GenesisReanimatedModule }) {
   const { open, side = "left", width } = props;
   const drawerWidth = width ?? Math.min(Dimensions.get("window").width * 0.8, 360);
-  const reducedMotion = useReducedMotion();
+  // The shared motion tokens: a panel opens at `base`, a released drag settles at `fast`; Reduce Motion snaps.
+  const motion = useMotion();
+  const reducedMotion = motion.reduced;
+  const OPEN_MS = motion.duration.base;
+  const SETTLE_MS = motion.duration.fast;
   const translate = R.useSharedValue(closedOffset(side, drawerWidth));
 
   useEffect(() => {
     const to = open ? 0 : closedOffset(side, drawerWidth);
     translate.value = reducedMotion ? to : R.withTiming(to, { duration: OPEN_MS });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawerWidth, open, reducedMotion, side]);
+  }, [drawerWidth, open, reducedMotion, side, OPEN_MS]);
 
   // `translate` and `R` are stable for the component's life.
   const follow = useCallback((dx: number) => {
@@ -103,7 +105,7 @@ function ReanimatedDrawer({ reanimated: R, ...props }: NativeDrawerProps & { rea
   const settle = useCallback(() => {
     translate.value = reducedMotion ? 0 : R.withTiming(0, { duration: SETTLE_MS });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reducedMotion]);
+  }, [reducedMotion, SETTLE_MS]);
   const panResponder = useSwipe(side, drawerWidth, props.onOpenChange, follow, settle);
   const animatedStyle = R.useAnimatedStyle(() => {
     "worklet";
@@ -116,7 +118,11 @@ function ReanimatedDrawer({ reanimated: R, ...props }: NativeDrawerProps & { rea
 function AnimatedDrawer(props: NativeDrawerProps) {
   const { open, side = "left", width } = props;
   const drawerWidth = width ?? Math.min(Dimensions.get("window").width * 0.8, 360);
-  const reducedMotion = useReducedMotion();
+  // The shared motion tokens: a panel opens at `base`, a released drag settles at `fast`; Reduce Motion snaps.
+  const motion = useMotion();
+  const reducedMotion = motion.reduced;
+  const OPEN_MS = motion.duration.base;
+  const SETTLE_MS = motion.duration.fast;
   const translate = useRef(new Animated.Value(closedOffset(side, drawerWidth))).current;
 
   useEffect(() => {
@@ -125,7 +131,7 @@ function AnimatedDrawer(props: NativeDrawerProps) {
       duration: reducedMotion ? 0 : OPEN_MS,
       useNativeDriver: true,
     }).start();
-  }, [drawerWidth, open, reducedMotion, side, translate]);
+  }, [drawerWidth, open, reducedMotion, side, translate, OPEN_MS]);
 
   const follow = useCallback((dx: number) => translate.setValue(dx), [translate]);
   const settle = useCallback(
@@ -135,7 +141,7 @@ function AnimatedDrawer(props: NativeDrawerProps) {
         duration: reducedMotion ? 0 : SETTLE_MS,
         useNativeDriver: true,
       }).start(),
-    [reducedMotion, translate]
+    [reducedMotion, translate, SETTLE_MS]
   );
   const panResponder = useSwipe(side, drawerWidth, props.onOpenChange, follow, settle);
 
