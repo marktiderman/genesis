@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataWriteError, defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
 import { ResourceView } from "../resource-view";
+import * as undoToast from "../undo-toast";
 
 type Task = { id: string; title: string; stage: "todo" | "doing" | "done"; version: number };
 
@@ -113,6 +114,20 @@ describe("ResourceView mode=board: conflicts", () => {
     fireEvent.click(within(sheet).getByRole("button", { name: "Take their version" }));
     await waitFor(() => expect(within(column("Doing")).getByText("Write brief")).toBeTruthy());
     expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it("toasts a conflict that comes back after the board is gone", async () => {
+    const { rows } = conflicted();
+    let reject!: (error: unknown) => void;
+    const update = vi.fn(() => new Promise((_, r) => (reject = r)));
+    const toast = vi.spyOn(undoToast, "showWriteErrorToast").mockImplementation(() => {});
+    const { unmount } = render(<ResourceView view={view} mode="board" />, { wrapper: wrap(provider(rows, update as never)) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    await moveTo("Write brief", "Done");
+    unmount();
+    const conflict = new DataWriteError("conflict", "Someone else changed this task.", { current: { ...rows[0]!, stage: "doing" }, currentVersion: "2" });
+    await act(async () => reject(conflict));
+    await waitFor(() => expect(toast).toHaveBeenCalledWith(conflict));
   });
 
   it("leaves a conflict to the screen's onMoveError when it has one", async () => {

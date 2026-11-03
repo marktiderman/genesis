@@ -686,7 +686,8 @@ export const tasksView = defineView(contracts["public.tasks"], {
   yours: **Keep my version** sends the move again at the version their change left (a newer
   conflict shows the sheet again; any other failure shows in the sheet), and **Take their
   version**, or closing the sheet, leaves the card where their row puts it. With `onMoveError` the
-  screen gets the conflict instead, and the sheet doesn't open. While a card's move
+  screen gets the conflict instead, and the sheet doesn't open. A conflict that comes back after
+  the board has gone is shown as a toast. While a card's move
   is saving the card is dimmed and a second move of it is turned away, so it is never sent from
   the column it is leaving. The screen's `resourceOptions` `invalidates`, `onError` and
   `onUpdateSuccess` apply to a move; a move is always pessimistic.

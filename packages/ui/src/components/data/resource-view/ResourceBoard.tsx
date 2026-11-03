@@ -14,6 +14,7 @@ import { Button } from "../../ui/button";
 import { cn } from "../../../utils";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { ConflictSheet } from "../ConflictSheet";
+import { showWriteErrorToast } from "../undo-toast";
 import { DetailPanel } from "../DetailPanel";
 import { KanbanBoard, type ColumnStatus, type KanbanColumn } from "../KanbanBoard";
 import { BOARD_NONE, useBoardColumns } from "../board/use-board-columns";
@@ -146,7 +147,7 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
   const queryClient = useQueryClient();
   // A move that met someone else's change: the sheet offers keeping the move or taking theirs.
   const [conflict, setConflict] = useState<{ conflict: WriteConflict; id: string; data: Record<string, unknown> } | null>(null);
-  // A conflict that settles after the board is gone has no sheet to open; it isn't set then.
+  // A conflict that settles after the board is gone has no sheet to open: it's toasted instead.
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -226,7 +227,9 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
       const found = onMoveError ? null : writeConflict(error, data, { changed: [fieldName] });
       if (onMoveError) onMoveError(error, row);
       else if (found) {
+        // Gone before the conflict came back (a route change mid-save): say so rather than drop it.
         if (mounted.current) setConflict({ conflict: found, id: key, data });
+        else showWriteErrorToast(error as Error);
       } else setRefusal(error instanceof Error && error.message ? error.message : fillMessage(m.kanban.moveFailed, { name: titleOf(row) }));
       throw error;
     } finally {
