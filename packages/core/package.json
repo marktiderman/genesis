@@ -80,6 +80,10 @@
       "types": "./dist/resource/index.d.ts",
       "import": "./dist/resource/index.js"
     },
+    "./gallery": {
+      "types": "./dist/gallery/index.d.ts",
+      "import": "./dist/gallery/index.js"
+    },
     "./resource-view": {
       "types": "./dist/resource-view/index.d.ts",
       "import": "./dist/resource-view/index.js"
