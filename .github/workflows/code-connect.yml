@@ -36,18 +36,21 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
       - name: Every visual component is mapped or listed
         run: node scripts/check-code-connect.mjs
       - name: Templates parse
-        run: npx --yes @figma/code-connect@2.1.0 connect parse --label React
+        run: npx --yes @figma/code-connect@2.1.0 connect parse --label React --exit-on-unreadable-files
 
   publish:
     name: Publish to Figma
     needs: parse
-    if: github.event_name != 'pull_request'
+    # Only main publishes: a workflow_dispatch from another branch parses but never publishes.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # A step's own `env` is not visible to its `if`, so the secret is tested at job level.
@@ -55,14 +58,31 @@ jobs:
       HAS_FIGMA_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN != '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
+      # A re-run keeps its original commit. Publishing it would put older code into Figma
+      # after a newer run already published, so a run whose commit is no longer main's head
+      # stops here.
+      - name: Still main's head
+        id: head
+        env:
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          main=$(git ls-remote --quiet "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/main | cut -f1)
+          if [ "$main" = "$RUN_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "main is now $main, this run is $RUN_SHA; publish skipped."
+          fi
       - name: Publish
-        if: env.HAS_FIGMA_TOKEN == 'true'
+        if: env.HAS_FIGMA_TOKEN == 'true' && steps.head.outputs.current == 'true'
         env:
           FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
-        run: npx --yes @figma/code-connect@2.1.0 connect publish --label React
+        run: npx --yes @figma/code-connect@2.1.0 connect publish --label React --exit-on-unreadable-files
       - name: No token
         if: env.HAS_FIGMA_TOKEN != 'true'
         run: echo "FIGMA_ACCESS_TOKEN is not set as a repository secret; publish skipped."
