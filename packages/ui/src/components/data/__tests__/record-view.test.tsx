@@ -168,6 +168,37 @@ describe("RecordView", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
+  it("checks a settings save against the row the edit started on, not one that refreshed meanwhile", async () => {
+    const versioned = (over: Partial<DataProvider> = {}) =>
+      provider({
+        capabilities: vi.fn(async () => ({
+          search: false,
+          sort: false,
+          filterOperators: [],
+          bulkWrites: false,
+          versionedWrites: true,
+          compositeKeys: false,
+          version: { field: "version", kind: "integer" as const },
+        })),
+        ...over,
+      });
+    const p = versioned();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const at = (row: Brand & { version: number }) => (
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <RecordView view={page as never} row={row} section="settings" sectionHref={(id) => `/brands/b1/${id}`} />
+      </GenesisProvider>
+    );
+    const { rerender } = render(at({ ...brand, is_default: false, version: 1 }));
+    await waitFor(() => expect(p.capabilities).toHaveBeenCalled());
+    fireEvent.change(screen.getByTestId("resource-workspace-settings-website-input"), { target: { value: "https://mine.example" } });
+    // Someone else saves; this tab's row refreshes to v2 while the edit stays on screen.
+    rerender(at({ ...brand, is_default: false, public: true, version: 2 }));
+    fireEvent.click(screen.getByTestId("resource-workspace-settings-save"));
+    await waitFor(() => expect(p.update).toHaveBeenCalledTimes(1));
+    expect((p.update as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toMatchObject({ expectedVersion: "1" });
+  });
+
   it("shows a zero-row save as a refusal, inline", async () => {
     const p = provider({ update: vi.fn(async () => ({ data: null })) as unknown as DataProvider["update"] });
     renderRecordView("settings", p);

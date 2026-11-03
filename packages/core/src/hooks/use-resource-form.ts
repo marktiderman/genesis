@@ -752,6 +752,9 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
           // The cache holds rows; patch it only when the form's values are
           // row-shaped (no provider.toFormValues reshaping this record).
           data: formSource === effectiveData ? formData : undefined,
+          // The record the form shows: its version is the one this edit is checked against, even
+          // when the cache has since refetched a newer one.
+          ...(action === "edit" && effectiveData ? { base: effectiveData as BaseRecord } : {}),
           mode: mutationMode,
           undoDelayMs,
           onUndoable,
@@ -760,7 +763,12 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
             const res =
               action === "create"
                 ? await provider.create(resource, { data: formData, ...keepalive })
-                : await provider.update(resource, { id: recordId!, data: ctx.data ?? formData, ...keepalive });
+                : await provider.update(resource, {
+                    id: recordId!,
+                    data: ctx.data ?? formData,
+                    ...keepalive,
+                    ...(ctx.expectedVersion !== undefined ? { expectedVersion: ctx.expectedVersion } : {}),
+                  });
             return { record: res.data, audit: res.audit };
           },
           committed: async (result) => {

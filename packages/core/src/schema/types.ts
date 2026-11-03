@@ -293,6 +293,14 @@ export interface ProviderCapabilities {
   readonly bulkWrites: boolean;
   /** Updates honour `expectedVersion` and reject stale writes. */
   readonly versionedWrites: boolean;
+  /**
+   * The version field the resource's writes are checked against, asked per
+   * resource (`capabilities(resource)`). Present only with `versionedWrites`.
+   * The Genesis write hooks send `String(row[version.field])` from the row
+   * they last read as `expectedVersion`, so an edit made on a stale copy is
+   * refused as a `conflict` instead of overwriting someone else's.
+   */
+  readonly version?: VersionField;
   /** Records may be keyed by more than one field. */
   readonly compositeKeys: boolean;
   /** Server-side sort by several fields at once (`ListParams.sorts`). */

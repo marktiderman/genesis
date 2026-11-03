@@ -7,7 +7,7 @@
 //   - readiness → ReadinessChip (readinessChip's words) in the tab row's end slot.
 // A section with neither list nor settings is the screen's own, through `slots[id]`.
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, useWrite, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
 import { sameFormValue, type Allowed, type ResolvedFormField, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
@@ -269,12 +269,20 @@ function SettingsForm({
   const provider = useDataProvider();
   const view = recordView.view;
   const fields = recordView.settingsFields(sectionId);
+  // A versioned resource checks the save against the version of the row shown (core README, "Versioned writes").
+  const versionField = useCapabilities(view.resource, { enabled: !!provider.capabilities }).data?.version?.field;
   // The view's update guard, for this viewer: when it refuses, the settings are read-only with its reason.
   const viewer = useViewer();
   const locked = recordView.settingsLocked(row, viewer) ?? screenLocked;
   // Only the fields this person changed are theirs: the others show the row as it is now (a live
   // refresh updates them) and are never sent, so a stale draft can't overwrite someone else's change.
   const [edits, setEdits] = useState<Values>({});
+  // The row the person started editing: their save is checked against its version, not against a
+  // row that refreshed meanwhile (someone else's save would otherwise be overwritten).
+  const editBase = useRef<DataRow | undefined>(undefined);
+  useEffect(() => {
+    if (Object.keys(edits).length === 0) editBase.current = undefined;
+  }, [edits]);
   const draft = useMemo<Values>(
     () => ({ ...Object.fromEntries(fields.map((f) => [f.field.name, row[f.field.name]])), ...edits }),
     [fields, row, edits],
@@ -303,7 +311,12 @@ function SettingsForm({
     async (values: Values) => {
       // Only the section's listed keys, never anything else the row or draft holds.
       const data = recordView.settingsPatch(sectionId, values);
-      const result = await provider.update(view.resource, { id: recordView.recordId(row), data });
+      const version = versionField ? (editBase.current ?? row)[versionField] : undefined;
+      const result = await provider.update(view.resource, {
+        id: recordView.recordId(row),
+        data,
+        ...(version != null ? { expectedVersion: String(version) } : {}),
+      });
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) {
         throw new DataWriteError("forbidden", fillMessage(m.workspace.notChanged, { noun: view.noun }));
@@ -312,10 +325,17 @@ function SettingsForm({
     },
     // The edits stay until the row shows them (the effect below), so a saved value doesn't flash
     // back to the old one while the record refetches.
-    { onSuccess: (saved) => onSaved(saved) },
+    {
+      onSuccess: (saved) => {
+        // The next edit builds on this save's version, even before the record refetches.
+        if (versionField && saved[versionField] != null) editBase.current = { ...(editBase.current ?? row), [versionField]: saved[versionField] };
+        onSaved(saved);
+      },
+    },
   );
 
   const set = (name: string, value: unknown, error?: string) => {
+    if (Object.keys(edits).length === 0 && editBase.current === undefined) editBase.current = row;
     save.reset();
     setInvalid(({ [name]: _old, ...rest }) => (error ? { ...rest, [name]: error } : rest));
     setEdits((d) => ({ ...d, [name]: value }));

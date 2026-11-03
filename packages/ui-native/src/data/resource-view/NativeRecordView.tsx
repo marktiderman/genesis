@@ -490,6 +490,8 @@ function SettingsGroup({
 }) {
   const provider = useDataProvider();
   const view = recordView.view;
+  // A versioned resource checks the save against the version of the row shown (core README, "Versioned writes").
+  const versionField = useCapabilities(view.resource, { enabled: !!provider.capabilities }).data?.version?.field;
   // The view's edit-form mapping (the form sheet's), narrowed to this section's keys in their order.
   const fields = useMemo(() => {
     const byKey = new Map(formFieldsFor(view, "edit").map((f) => [f.key, f]));
@@ -501,6 +503,12 @@ function SettingsGroup({
   // Only the fields this person changed are theirs: the others show the row as it is now (a live
   // refresh updates them) and are never sent, so a stale draft can't overwrite someone else's change.
   const [edits, setEdits] = useState<Values>({});
+  // The row the person started editing: their save is checked against its version, not against a
+  // row that refreshed meanwhile (someone else's save would otherwise be overwritten).
+  const editBase = useRef<DataRow | undefined>(undefined);
+  useEffect(() => {
+    if (Object.keys(edits).length === 0) editBase.current = undefined;
+  }, [edits]);
   const draft = useMemo<Values>(() => ({ ...Object.fromEntries(fields.map((f) => [f.key, row[f.key]])), ...edits }), [fields, row, edits]);
   // An edit the row now holds (after a save, or someone else's same change) is no longer an edit.
   useEffect(() => {
@@ -518,6 +526,7 @@ function SettingsGroup({
   const dirty = Object.keys(changed).length > 0 && !shown.some((f) => invalid[f.key]);
 
   const set = (key: string, value: unknown, error?: string) => {
+    if (Object.keys(edits).length === 0 && editBase.current === undefined) editBase.current = row;
     setRefusal(null);
     setInvalid(({ [key]: _old, ...rest }) => (error ? { ...rest, [key]: error } : rest));
     setEdits((d) => ({ ...d, [key]: value }));
@@ -527,10 +536,20 @@ function SettingsGroup({
     setRefusal(null);
     try {
       // Only the section's listed keys, never anything else the row or draft holds.
-      const result = await provider.update(view.resource, { id: recordView.recordId(row), data: recordView.settingsPatch(sectionId, changed) });
+      const version = versionField ? (editBase.current ?? row)[versionField] : undefined;
+      const result = await provider.update(view.resource, {
+        id: recordView.recordId(row),
+        data: recordView.settingsPatch(sectionId, changed),
+        ...(version != null ? { expectedVersion: String(version) } : {}),
+      });
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) setRefusal(fill(words.notChanged, { noun: view.noun }));
-      else onSaved(result.data as DataRow);
+      else {
+        const saved = result.data as DataRow;
+        // The next edit builds on this save's version, even before the record refetches.
+        if (versionField && saved[versionField] != null) editBase.current = { ...(editBase.current ?? row), [versionField]: saved[versionField] };
+        onSaved(saved);
+      }
     } catch (error) {
       setRefusal(refusalMessage(error, words.failed));
     } finally {
