@@ -130,6 +130,8 @@ export function KanbanBoard<T>({
   // board has re-rendered (the caller kept it there), there is nothing left to wait for.
   const refocusSettled = useRef(false);
   const moves = useRef(0);
+  // Moves still saving, by card key, oldest first.
+  const pending = useRef(new Map<string, number[]>());
   const instructionsId = useId();
   const keyOf = (item: T, index: number) => (getKey ? getKey(item) : String(index));
   // Dragging needs stable keys to find the dropped item again.
@@ -153,6 +155,15 @@ export function KanbanBoard<T>({
   const move = (item: T, to: string, name: string) => {
     const id = ++moves.current;
     const key = getKey?.(item);
+    if (key !== undefined) pending.current.set(key, [...(pending.current.get(key) ?? []), id]);
+    // A move of this card has settled: forget it, and return the moves of it still saving.
+    const settle = () => {
+      if (key === undefined) return [];
+      const left = (pending.current.get(key) ?? []).filter((m) => m !== id);
+      if (left.length) pending.current.set(key, left);
+      else pending.current.delete(key);
+      return left;
+    };
     if (key !== undefined && refocus.current === key) {
       refocusMove.current = id;
       refocusFrom.current = find(key)?.column.key ?? null;
@@ -167,6 +178,7 @@ export function KanbanBoard<T>({
     // The caller reports the failure; the card simply stays put.
     void Promise.resolve(result).then(
       () => {
+        settle();
         if (key !== undefined && refocus.current === key && refocusMove.current === id) {
           refocusSettled.current = true;
           // Re-check after the caller's update has had its render.
@@ -175,10 +187,14 @@ export function KanbanBoard<T>({
         announce(fillMessage(k.moved, { name, column: columnLabel(to) }));
       },
       () => {
+        const left = settle();
         // Nothing moved, so there is no new handle to focus; a pending
         // refocus would otherwise grab focus the next time it reaches body.
+        // Unless an earlier move of the same card is still saving (this one
+        // was refused behind it): the refocus goes back to that move.
         if (key !== undefined && refocus.current === key && refocusMove.current === id) {
-          refocus.current = null;
+          if (left.length) refocusMove.current = left[left.length - 1]!;
+          else refocus.current = null;
         }
         announce(fillMessage(k.moveFailed, { name }));
       },
