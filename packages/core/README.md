@@ -192,8 +192,9 @@ createSupabaseProvider(supabase, {
   refetch replaces it). A write made while an earlier one on the same record is still unsettled is
   checked against the version that one committed at. After a save they put the new version into
   every cached copy, so the next edit is checked against it, not the one before.
-- `RecordView`'s settings sections (web and native) send the version of the row they show. They
-  save only the fields the person changed, over the row as it is now.
+- `RecordView`'s settings sections (web and native) send the version of the row as it was when
+  the person started editing (after a save, the version that save left), not a row that refreshed
+  meanwhile. They save only the fields the person changed.
 - `useDraft` saves through the app's own `update(row, value)`: pass `expectedVersion` from the row
   it's given to have a draft's saves checked.
 - The version is read from the rows the app reads, so the resource's `select` or `source` view must
@@ -210,8 +211,8 @@ createSupabaseProvider(supabase, {
   "timestamp"` works the same with a column a trigger sets to `now()` on update (`moddatetime`).
 - A write sent without `expectedVersion` (a row that wasn't read first, a provider without
   capabilities) is not checked. A resource without the rule behaves exactly as before.
-- A recycle-bin table checks the version before the delete (a binned delete can't carry the
-  check), so a change landing between that check and the delete isn't caught.
+- A recycle-bin table checks the version before the delete, and the delete carries it too, so a
+  change landing between the two leaves the row in place and reads back as a `conflict`.
 
 #### Showing a conflict
 
