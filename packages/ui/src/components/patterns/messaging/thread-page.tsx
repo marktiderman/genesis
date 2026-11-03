@@ -108,7 +108,6 @@ const toDate = (value: string | Date) => (typeof value === "string" ? new Date(v
 const WEB_THREAD_LABELS: Partial<ThreadLabels> = {
   notSent: "Not sent. Select to retry.",
   conflict: "Not sent: changed elsewhere. Select to retry.",
-  retryHint: "Sends it again",
 };
 
 const messageKey = (m: ThreadMessage) => m.id;
@@ -262,7 +261,7 @@ export function ThreadPage({
             size="sm"
             data-testid={`${testID}-jump-latest`}
             onClick={() => listRef.current?.scrollToEnd({ animated: true })}
-            className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full text-primary shadow-sm"
+            className="absolute bottom-3 left-1/2 h-11 -translate-x-1/2 rounded-full text-primary shadow-sm"
           >
             {labels.jumpToLatest}
           </Button>
@@ -365,7 +364,7 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
         </span>
       ) : null}
       {broken && message.onRetry ? (
-        <button type="button" data-testid={message.testID} onClick={message.onRetry} aria-describedby={stateId} title={labels.retryHint} className={bubble}>
+        <button type="button" data-testid={message.testID} onClick={message.onRetry} aria-describedby={stateId} className={bubble}>
           {content}
         </button>
       ) : (
@@ -378,7 +377,7 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
           {state ?? message.timeLabel}
         </span>
         {canDiscard ? (
-          <button type="button" data-testid={`${message.testID}-discard`} onClick={message.onDiscard} className="min-h-6 text-muted-foreground underline-offset-2 hover:underline">
+          <button type="button" data-testid={`${message.testID}-discard`} onClick={message.onDiscard} className="-my-3 min-h-11 px-1 text-muted-foreground underline-offset-2 hover:underline">
             {labels.discard}
           </button>
         ) : null}

@@ -136,11 +136,60 @@ describe("ThreadPage (web)", () => {
     const { rerender } = render(<ThreadPage testID="t" messages={messages} composer={composer()} />);
     expect(screen.getByRole("log").getAttribute("aria-live")).toBe("off");
     const announcer = screen.getByTestId("t-messages-announcer");
-    expect(announcer.textContent).toBe("");
+    expect(announcer.textContent?.replace(/\u200b/g, "")).toBe("");
     rerender(<ThreadPage testID="t" messages={[...messages, { id: "4", body: "Fixed now", mine: false, authorName: "Support", timestamp: "2026-10-24T10:00:00Z" }]} composer={composer()} />);
-    expect(announcer.textContent).toBe("Support: Fixed now");
+    expect(announcer.textContent?.replace(/\u200b/g, "")).toBe("Support: Fixed now");
     rerender(<ThreadPage testID="t" messages={[...messages, { id: "4", body: "Fixed now", mine: false, authorName: "Support", timestamp: "2026-10-24T10:00:00Z" }, { id: "5", body: "Thanks", mine: true, timestamp: "2026-10-24T10:00:00Z" }]} composer={composer()} />);
-    expect(announcer.textContent).toBe("Support: Fixed now");
+    expect(announcer.textContent?.replace(/\u200b/g, "")).toBe("Support: Fixed now");
+  });
+
+  it("says a new message only when it just arrived, and the same words twice", () => {
+    const m = (id: string, body: string, mine = false): ThreadMessage => ({ id, body, mine, authorName: "Ana", timestamp: "2026-10-24T10:00:00Z" });
+    const { rerender } = render(<ThreadPage testID="t" messages={[m("a", "Hi")]} composer={composer()} />);
+    const announcer = screen.getByTestId("t-messages-announcer");
+    rerender(<ThreadPage testID="t" messages={[m("a", "Hi"), m("b", "Ok")]} composer={composer()} />);
+    const first = announcer.textContent;
+    rerender(<ThreadPage testID="t" messages={[m("a", "Hi"), m("b", "Ok"), m("c", "Ok")]} composer={composer()} />);
+    expect(announcer.textContent?.replace(/\u200b/g, "")).toBe("Ana: Ok");
+    expect(announcer.textContent).not.toBe(first);
+    // Discarding the newest uncovers an older row: not said again.
+    const before = announcer.textContent;
+    rerender(<ThreadPage testID="t" messages={[m("a", "Hi"), m("b", "Ok")]} composer={composer()} />);
+    expect(announcer.textContent).toBe(before);
+  });
+
+  it("asks for earlier messages again once a page arrives, and in a short thread", () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(() => 2000);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(() => 500);
+    const onLoadEarlier = vi.fn();
+    const { rerender } = render(<ThreadPage testID="t" messages={messages.slice(1)} composer={composer()} hasEarlier onLoadEarlier={onLoadEarlier} />);
+    const log = screen.getByRole("log");
+    act(() => {
+      log.scrollTop = 50;
+      fireEvent.scroll(log);
+    });
+    expect(onLoadEarlier).toHaveBeenCalledTimes(1);
+    // The page arrives without loadingEarlier ever being set.
+    rerender(<ThreadPage testID="t" messages={messages} composer={composer()} hasEarlier onLoadEarlier={onLoadEarlier} />);
+    act(() => {
+      log.scrollTop = 40;
+      fireEvent.scroll(log);
+    });
+    expect(onLoadEarlier).toHaveBeenCalledTimes(2);
+  });
+
+  it("loads earlier messages in a thread shorter than the screen", () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(() => 400);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(() => 500);
+    const onLoadEarlier = vi.fn();
+    render(<ThreadPage testID="t" messages={messages} composer={composer()} hasEarlier onLoadEarlier={onLoadEarlier} />);
+    // A browser clamps a short thread's scrollTop to 0 (happy-dom doesn't); the observer, or a scroll, then asks.
+    act(() => {
+      const log = screen.getByRole("log");
+      log.scrollTop = 0;
+      fireEvent.scroll(log);
+    });
+    expect(onLoadEarlier).toHaveBeenCalledTimes(1);
   });
 
   it("loads earlier messages near the top on scroll, once per page", () => {
@@ -358,18 +407,53 @@ describe("the 3-pane inbox (help desk)", () => {
     expect(onSelect).toHaveBeenCalledWith("all");
   });
 
-  it("runs the shortcuts, but not while typing", () => {
-    const s = { onNext: vi.fn(), onReply: vi.fn(), onNote: vi.fn(), onBack: vi.fn() };
+  it("runs the shortcuts only inside the layout, and not while typing or in a dialog", () => {
+    const s = { onNext: vi.fn(), onReply: vi.fn(), onNote: vi.fn(), onBack: vi.fn(), onClose: vi.fn() };
     render(
-      <InboxLayout list={<p>L</p>} thread={<textarea data-testid="field" />} shortcuts={s} threadOpen />,
+      <>
+        <button type="button" data-testid="outside">Sidebar</button>
+        <InboxLayout
+          list={<button type="button" data-testid="row">Row</button>}
+          thread={
+            <>
+              <textarea data-testid="field" />
+              <div role="alertdialog"><button type="button" data-testid="cancel">Cancel</button></div>
+            </>
+          }
+          shortcuts={s}
+          threadOpen
+        />
+      </>,
     );
-    fireEvent.keyDown(document.body, { key: "j" });
-    fireEvent.keyDown(document.body, { key: "r" });
-    fireEvent.keyDown(document.body, { key: "n" });
-    fireEvent.keyDown(document.body, { key: "Escape" });
+    const row = screen.getByTestId("row");
+    for (const key of ["j", "r", "n", "Escape"]) fireEvent.keyDown(row, { key });
     expect([s.onNext, s.onReply, s.onNote, s.onBack].map((f) => f.mock.calls.length)).toEqual([1, 1, 1, 1]);
     fireEvent.keyDown(screen.getByTestId("field"), { key: "r" });
+    fireEvent.keyDown(screen.getByTestId("outside"), { key: "e" });
+    fireEvent.keyDown(screen.getByTestId("cancel"), { key: "e" });
     expect(s.onReply).toHaveBeenCalledTimes(1);
+    expect(s.onClose).not.toHaveBeenCalled();
+  });
+
+  it("renders the same on the server and in the first client render (narrow, default sidebar)", async () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((q: string) => ({ matches: true, media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as MediaQueryList);
+    window.localStorage.setItem("inbox:ssr", "0");
+    const { renderToString } = await import("react-dom/server");
+    const { hydrateRoot } = await import("react-dom/client");
+    const ui = <InboxLayout testID="l" list={<p>L</p>} thread={<p>T</p>} context={<p>Requester</p>} contextStorageKey="inbox:ssr" />;
+    const host = document.createElement("div");
+    host.innerHTML = renderToString(ui);
+    document.body.appendChild(host);
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const recoverable = vi.fn();
+    await act(async () => {
+      hydrateRoot(host, ui, { onRecoverableError: recoverable });
+    });
+    expect(recoverable).not.toHaveBeenCalled();
+    expect(errors).not.toHaveBeenCalled();
+    // After hydration: wide, and the remembered "closed" applies.
+    expect(host.querySelector('[data-testid="l-context"]')).toBeNull();
+    host.remove();
   });
 
   it("puts the context beside the thread when wide, and toggles it, remembering the choice", () => {

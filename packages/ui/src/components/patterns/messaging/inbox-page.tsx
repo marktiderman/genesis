@@ -138,6 +138,7 @@ export function InboxPage({
   testID = "inbox-page",
 }: InboxPageProps) {
   const listRef = React.useRef<HTMLUListElement | null>(null);
+  const scrollerRef = React.useRef<HTMLDivElement | null>(null);
   const endSentinel = React.useRef<HTMLDivElement | null>(null);
   const clock = now();
 
@@ -146,7 +147,7 @@ export function InboxPage({
     if (!target || !onEndReached || loadingMore || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) onEndReached();
-    }, { rootMargin: "0px 0px 300px 0px" });
+    }, { root: scrollerRef.current, rootMargin: "0px 0px 300px 0px" });
     io.observe(target);
     return () => io.disconnect();
   }, [onEndReached, loadingMore, items.length]);
@@ -208,7 +209,8 @@ export function InboxPage({
   }
 
   return (
-    <div data-testid={testID} className={cn("flex min-h-0 flex-col", className)}>
+    // One scroller, which the end-of-list observer watches, so a page loads only when its end is near.
+    <div ref={scrollerRef} data-testid={testID} className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", className)}>
       {headerNode}
       {sectionTitle ? React.createElement(`h${sectionTitleLevel}`, { className: "px-4 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground" }, sectionTitle) : null}
       {items.length === 0 ? (
@@ -221,7 +223,7 @@ export function InboxPage({
           slotProps.empty,
         )
       ) : (
-        <ul ref={listRef} aria-label={label} onKeyDown={onKeyDown} className="flex flex-col divide-y overflow-y-auto">
+        <ul ref={listRef} aria-label={label} onKeyDown={onKeyDown} className="flex flex-col divide-y">
           {items.map((item, index) => {
             const selected = item.selected ?? (selectedId != null && item.id === selectedId);
             const unread = Boolean(item.unread || (item.unreadCount ?? 0) > 0);

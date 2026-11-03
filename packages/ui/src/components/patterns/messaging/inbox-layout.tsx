@@ -14,15 +14,23 @@
  * `contextStorageKey`. From `xl` up it sits beside the thread; below that, it
  * opens as a sheet over it, only when the toggle asks.
  *
- * Keyboard (`shortcuts`): each key is a callback the app can leave out, and
- * none fires while typing in a field. j / k: next and previous conversation;
- * r: reply; n: internal note; e: solve or close; a: assign; Escape: back.
+ * Keyboard (`shortcuts`): each key is a callback the app can leave out. They
+ * work only while focus is inside the layout, and never while typing in a
+ * field or inside a dialog, menu, list box, grid or tree. j / k: next and
+ * previous conversation; r: reply; n: internal note; e: solve or close;
+ * a: assign; Escape: back. To let people turn single-key shortcuts off
+ * (WCAG 2.1.4), keep a setting and pass `shortcuts={undefined}` when it's off.
+ *
+ * On the server, and in the first render on the client, the layout is narrow
+ * and the sidebar at its default, so hydration matches; the viewport and the
+ * remembered setting apply right after.
  *
  * @stability Beta
  */
 import * as React from "react";
 import { ChevronLeft, PanelRight } from "lucide-react";
 import { cn } from "../../../utils";
+import { useMediaQuery } from "../../../hooks/use-mobile";
 import { Button } from "../../ui/button";
 import { Sheet, SheetContent, SheetTitle } from "../../ui/sheet";
 
@@ -72,19 +80,6 @@ export interface InboxLayoutProps {
 
 const XL_QUERY = "(min-width: 1280px)";
 
-function useWide(): boolean {
-  const [wide, setWide] = React.useState(() => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(XL_QUERY).matches);
-  React.useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const mql = window.matchMedia(XL_QUERY);
-    const on = () => setWide(mql.matches);
-    on();
-    mql.addEventListener?.("change", on);
-    return () => mql.removeEventListener?.("change", on);
-  }, []);
-  return wide;
-}
-
 function readStored(key: string | undefined, fallback: boolean): boolean {
   if (!key) return fallback;
   try {
@@ -96,7 +91,10 @@ function readStored(key: string | undefined, fallback: boolean): boolean {
 }
 
 const typing = (el: EventTarget | null) =>
-  el instanceof HTMLElement && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) || el.closest("[role=combobox],[role=menu],[role=dialog]") !== null);
+  el instanceof HTMLElement &&
+  (el.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName) ||
+    el.closest("[role=combobox],[role=menu],[role=menubar],[role=dialog],[role=alertdialog],[role=listbox],[role=grid],[role=tree],[role=textbox]") !== null);
 
 export function InboxLayout({
   views,
@@ -114,8 +112,12 @@ export function InboxLayout({
   className,
   testID = "inbox-layout",
 }: InboxLayoutProps) {
-  const wide = useWide();
-  const [ownOpen, setOwnOpen] = React.useState(() => readStored(contextStorageKey, defaultContextOpen));
+  const wide = useMediaQuery(XL_QUERY, false);
+  const [ownOpen, setOwnOpen] = React.useState(defaultContextOpen);
+  // The remembered setting is read after hydration, so the server's HTML and the first render agree.
+  React.useEffect(() => {
+    if (contextStorageKey) setOwnOpen(readStored(contextStorageKey, defaultContextOpen));
+  }, [contextStorageKey, defaultContextOpen]);
   const contextOpen = contextOpenProp ?? ownOpen;
   const setContextOpen = (open: boolean) => {
     if (contextOpenProp === undefined) {
@@ -133,28 +135,25 @@ export function InboxLayout({
 
   // Below xl the sidebar is a sheet: it opens only when asked, whatever the remembered setting.
   const [sheetOpen, setSheetOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (wide) setSheetOpen(false);
+  }, [wide]);
   const toggle = () => (wide ? setContextOpen(!contextOpen) : setSheetOpen(!sheetOpen));
 
-  const latest = React.useRef(shortcuts);
-  latest.current = shortcuts;
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented || typing(e.target)) return;
-      const s = latest.current ?? {};
-      const run: Record<string, (() => void) | undefined> = { j: s.onNext, k: s.onPrevious, r: s.onReply, n: s.onNote, e: s.onClose, a: s.onAssign, Escape: s.onBack };
-      const fn = run[e.key];
-      if (fn) {
-        e.preventDefault();
-        fn();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, []);
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!shortcuts || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented || typing(e.target)) return;
+    const s = shortcuts;
+    const run: Record<string, (() => void) | undefined> = { j: s.onNext, k: s.onPrevious, r: s.onReply, n: s.onNote, e: s.onClose, a: s.onAssign, Escape: s.onBack };
+    const fn = run[e.key];
+    if (fn) {
+      e.preventDefault();
+      fn();
+    }
+  };
 
   const toggleLabel = labels.toggleContext ?? "Details";
   return (
-    <div data-testid={testID} className={cn("flex h-full min-h-0 w-full overflow-hidden", className)}>
+    <div data-testid={testID} onKeyDown={onKeyDown} className={cn("flex h-full min-h-0 w-full overflow-hidden", className)}>
       {views ? (
         <nav data-testid={`${testID}-views`} aria-label={labels.views ?? "Views"} className="hidden w-56 shrink-0 overflow-y-auto border-r lg:block">
           {views}
@@ -175,7 +174,7 @@ export function InboxLayout({
         {onBack || context ? (
           <div className="flex items-center border-b p-1">
             {onBack ? (
-              <Button variant="ghost" size="sm" onClick={onBack} data-testid={`${testID}-back`} className="md:hidden">
+              <Button variant="ghost" size="sm" onClick={onBack} data-testid={`${testID}-back`} className="h-11 md:hidden">
                 <ChevronLeft className="size-4" aria-hidden />
                 {labels.back ?? "Back"}
               </Button>
@@ -184,7 +183,7 @@ export function InboxLayout({
               <Button
                 variant="ghost"
                 size="sm"
-                className="ml-auto"
+                className="ml-auto size-11"
                 aria-pressed={wide ? contextOpen : sheetOpen}
                 aria-label={toggleLabel}
                 onClick={toggle}

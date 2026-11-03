@@ -129,7 +129,11 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
   const content = React.useRef<HTMLDivElement | null>(null);
   const topSentinel = React.useRef<HTMLDivElement | null>(null);
   const atBottom = React.useRef(true);
-  const [announcement, setAnnouncement] = React.useState("");
+  // A count beside the text, so the same words twice are still a change a screen reader hears.
+  const [announcement, setAnnouncementState] = React.useState({ text: "", n: 0 });
+  const setAnnouncement = React.useCallback((text: string) => setAnnouncementState((a) => ({ text, n: text ? a.n + 1 : a.n })), []);
+  // A smooth scroll the list started: its own scroll events don't mean the reader left the bottom.
+  const settling = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = React.useRef({ onAtBottomChange, onJumpFailed, onLoadEarlier, announce, data, keyExtractor });
   latest.current = { onAtBottomChange, onJumpFailed, onLoadEarlier, announce, data, keyExtractor };
 
@@ -142,7 +146,21 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
   const toBottom = React.useCallback((animated: boolean) => {
     const el = scroller.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: animated && !prefersReducedMotion() ? "smooth" : "auto" });
+    const smooth = animated && !prefersReducedMotion();
+    if (smooth) {
+      if (settling.current) clearTimeout(settling.current);
+      const done = () => {
+        if (settling.current) clearTimeout(settling.current);
+        settling.current = null;
+        el.removeEventListener("scrollend", done);
+      };
+      el.addEventListener("scrollend", done);
+      settling.current = setTimeout(done, 800);
+    }
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+  }, []);
+  React.useEffect(() => () => {
+    if (settling.current) clearTimeout(settling.current);
   }, []);
 
   React.useImperativeHandle(
@@ -164,28 +182,55 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
 
   const rowEl = (id: string) => scroller.current?.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(id)}"]`) ?? null;
   // Remember where things are now, so the next change is measured against it.
+  // The first row in view, found by halving (rows are in order top to bottom), so a long thread costs a few measurements.
   const record = React.useCallback(() => {
     const el = scroller.current;
     if (!el) return;
     const top = el.getBoundingClientRect().top;
+    const rows = content.current?.children;
     let anchorId: string | null = null;
     let anchorOffset = 0;
-    for (const row of el.querySelectorAll<HTMLElement>("[data-row-id]")) {
-      const r = row.getBoundingClientRect();
-      if (r.bottom > top) {
-        anchorId = row.dataset.rowId ?? null;
-        anchorOffset = r.top - top;
-        break;
+    if (rows && rows.length) {
+      let lo = 0;
+      let hi = rows.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if ((rows[mid] as HTMLElement).getBoundingClientRect().bottom > top) hi = mid;
+        else lo = mid + 1;
       }
+      const row = rows[lo] as HTMLElement;
+      anchorId = row.dataset.rowId ?? null;
+      anchorOffset = row.getBoundingClientRect().top - top;
     }
     before.current = { ...before.current, height: el.scrollHeight, top: el.scrollTop, anchorId, anchorOffset };
   }, []);
+  // On scroll, the cheap numbers now and the anchor once a frame.
+  const frame = React.useRef<number | null>(null);
+  const recordSoon = React.useCallback(() => {
+    const el = scroller.current;
+    if (!el) return;
+    before.current = { ...before.current, height: el.scrollHeight, top: el.scrollTop };
+    if (frame.current !== null || typeof requestAnimationFrame === "undefined") return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = null;
+      record();
+    });
+  }, [record]);
+  React.useEffect(() => () => {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+  }, []);
+  const prevIds = React.useRef<Set<string>>(new Set());
 
   React.useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
     const prev = before.current;
-    const opening = (prev.firstId === null && prev.lastId === null) || prev.conversationId !== conversationId;
+    const ids = new Set(data.map((row) => keyExtractor(row)));
+    const seen = prevIds.current;
+    prevIds.current = ids;
+    // Every row new (rows swapped for another conversation's, without a conversationId) opens it too.
+    const replaced = seen.size > 0 && ids.size > 0 && ![...ids].some((id) => seen.has(id));
+    const opening = (prev.firstId === null && prev.lastId === null) || prev.conversationId !== conversationId || replaced;
     if (opening) {
       if (data.length === 0) {
         before.current = { ...EMPTY_BEFORE, conversationId };
@@ -195,7 +240,8 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
       const at = openAt ? rowEl(openAt) : null;
       if (at) at.scrollIntoView?.({ block: "center" });
       else el.scrollTop = el.scrollHeight;
-      setAtBottom(!at);
+      // At the first unread, the reader is at the bottom if it's all on screen.
+      setAtBottom(at ? nearBottom(el) : true);
       setAnnouncement("");
     } else if (firstId !== prev.firstId && lastId === prev.lastId) {
       // Earlier rows prepended: move down by what they added.
@@ -208,7 +254,8 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
       }
       if (lastId !== prev.lastId) {
         if (atBottom.current && !jumpingRef.current) el.scrollTop = el.scrollHeight;
-        const row = data[data.length - 1];
+        // Only a row that just arrived is said (not one uncovered by discarding the last).
+        const row = lastId !== null && !seen.has(lastId) ? data[data.length - 1] : undefined;
         const said = row !== undefined ? latest.current.announce?.(row) : null;
         if (said) setAnnouncement(said);
       }
@@ -221,7 +268,10 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
   // The scroller unmounts while the first page loads: the rows after it open the conversation afresh.
   const showingLoading = loading && data.length === 0;
   React.useLayoutEffect(() => {
-    if (showingLoading) before.current = { ...EMPTY_BEFORE, conversationId: before.current.conversationId };
+    if (showingLoading) {
+      before.current = { ...EMPTY_BEFORE, conversationId: before.current.conversationId };
+      prevIds.current = new Set();
+    }
   }, [showingLoading]);
 
   // At the bottom, stay there as things change size: a photo loading, the typing line, the composer growing, the pane shown.
@@ -239,11 +289,12 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
     return () => ro.disconnect();
   }, [hasRows, showingLoading, record]);
 
-  // Built from the rows only, so a parent re-rendering (typing in the composer) doesn't restart a jump's wait.
+  // Built from the row ids only, so a parent re-rendering (typing in the composer, or rows derived in render) doesn't restart a jump's wait.
+  const idsKey = data.map((row) => keyExtractor(row)).join("\u0000");
   const has = React.useMemo(() => {
-    const ids = new Set(data.map((row) => latest.current.keyExtractor(row)));
+    const ids = new Set(idsKey ? idsKey.split("\u0000") : []);
     return (id: string) => ids.has(id);
-  }, [data]);
+  }, [idsKey]);
   const { highlightedId, jumping } = useThreadJump({
     target: jumpTo,
     has,
@@ -267,12 +318,19 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
   const canLoad = hasEarlier && !loadingEarlier && !jumping && Boolean(onLoadEarlier);
   const canLoadRef = React.useRef(canLoad);
   canLoadRef.current = canLoad;
-  // One ask per page: cleared once the page starts loading or there's nothing more.
-  const asked = React.useRef(false);
-  if (loadingEarlier || !hasEarlier) asked.current = false;
+  // One ask per page: asked again once a page has arrived (the first row changed), a load ran, or the conversation changed.
+  const pageKey = `${conversationId ?? ""}\u0000${firstId ?? ""}`;
+  const pageKeyRef = React.useRef(pageKey);
+  pageKeyRef.current = pageKey;
+  const askedAt = React.useRef<string | null>(null);
+  if (loadingEarlier) askedAt.current = null;
   const loadEarlierNow = React.useCallback(() => {
-    if (!canLoadRef.current || asked.current || atBottom.current) return;
-    asked.current = true;
+    const el = scroller.current;
+    if (!el || !canLoadRef.current || askedAt.current === pageKeyRef.current) return;
+    // At the bottom of a long thread, the top isn't near; a short one shows its top already, so it loads.
+    const short = el.scrollHeight <= el.clientHeight + 200;
+    if (atBottom.current && !short) return;
+    askedAt.current = pageKeyRef.current;
     latest.current.onLoadEarlier?.();
   }, []);
   React.useEffect(() => {
@@ -289,11 +347,12 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
   const onScroll = React.useCallback(() => {
     const el = scroller.current;
     if (!el) return;
-    record();
-    setAtBottom(nearBottom(el));
+    recordSoon();
+    const bottom = nearBottom(el);
+    if (bottom || !settling.current) setAtBottom(bottom);
     // The observer speaks only when the top crosses into reach; in a short thread it's already there.
     if (el.scrollTop < 200) loadEarlierNow();
-  }, [setAtBottom, record, loadEarlierNow]);
+  }, [setAtBottom, recordSoon, loadEarlierNow]);
 
   const earlierProps = { loading: loadingEarlier, onPress: () => onLoadEarlier?.(), label: earlierLabel, testID: `${testID}-earlier` };
 
@@ -320,7 +379,7 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
       aria-label={label}
       aria-busy={loadingEarlier || undefined}
       onScroll={onScroll}
-      className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-2", className)}
+      className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-2 [overflow-anchor:none]", className)}
     >
       {header}
       <div ref={topSentinel} aria-hidden />
@@ -352,7 +411,8 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
       )}
       {footer}
       <div className="sr-only" aria-live="polite" aria-atomic="true" data-testid={`${testID}-announcer`}>
-        {announcement}
+        {announcement.text}
+        {announcement.n % 2 ? "\u200b" : ""}
       </div>
     </div>
   );

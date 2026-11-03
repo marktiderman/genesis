@@ -17,6 +17,8 @@ export interface InboxView {
   /** How many conversations it holds (unread or open, the app decides). Hidden when undefined. */
   count?: number;
   icon?: React.ReactNode;
+  /** What the count means, for a screen reader ("3 open"). Default the bare number. */
+  countLabel?: string;
 }
 
 export interface InboxViewsProps {
@@ -50,13 +52,18 @@ export function InboxViews({ views, activeId, onSelect, sections, className, tes
                     aria-current={on ? "page" : undefined}
                     onClick={() => onSelect(view.id)}
                     className={cn(
-                      "flex min-h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       on ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                     )}
                   >
                     {view.icon ? <span className="shrink-0" aria-hidden>{view.icon}</span> : null}
                     <span className="flex-1 truncate">{view.label}</span>
-                    {view.count !== undefined ? <span className="text-xs tabular-nums text-muted-foreground">{view.count}</span> : null}
+                    {view.count !== undefined ? (
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        <span aria-hidden={view.countLabel ? true : undefined}>{view.count}</span>
+                        {view.countLabel ? <span className="sr-only">{view.countLabel}</span> : null}
+                      </span>
+                    ) : null}
                   </button>
                 </li>
               );
