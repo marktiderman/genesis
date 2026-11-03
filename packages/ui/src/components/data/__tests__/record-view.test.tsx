@@ -8,6 +8,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Tags } from "lucide-react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DataWriteError, defineResource, GenesisProvider, ViewerScope, type DataProvider, type ListParams, type Viewer } from "@marktiderman/genesis-core";
 import { defineView, defineRecordView } from "@marktiderman/genesis-core/resource-view";
@@ -70,7 +71,7 @@ const tree: NavigationNode<NavItem> = {
   id: "app",
   path: "/",
   label: "Home",
-  items: [{ to: "/brands", label: "Brands" }],
+  items: [{ to: "/brands", label: "Brands", icon: Tags }],
   children: [
     {
       id: "brands",
