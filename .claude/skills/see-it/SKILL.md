@@ -24,6 +24,16 @@ These are notes, not steps. Try things, and add what you learn here.
 - **Try it yourself first.** Drive it with Playwright (Chromium is pre-installed), screenshot it at
   a phone's width as well, and watch the console. Each of the first three previews turned up
   something that reading the diff missed.
+- **Serve the build; don't open the file.** The built page loads its script as a module, and
+  Chromium won't run a module from `file://`, so Playwright sees a blank page and times out. Serve
+  the dist folder (`python3 -m http.server 4719` from inside it) and drive
+  `http://127.0.0.1:4719/index.html`. Stop the server when you're done.
+- **Make the hard case happen on demand.** Some changes only show when something goes wrong (a
+  conflict, a refusal, an offline write). Wrap the mock provider so the page can cause it: the
+  board's conflict preview (#688) kept a version per row and a "Ravi moves it" button that changed
+  a row behind the board's back, and its `update` threw
+  `new DataWriteError("conflict", …, { current, currentVersion })` when the version sent was stale.
+  The reviewer gets a real ConflictSheet from the real code with one click.
 - **Say what to try.** A few lines on the page: what changed, what to click, what should happen.
 - **Ask on the page.** If a design choice is open, show both options and ask the question there. A
   reviewer's comment on an Artifact reaches the session that published it.
