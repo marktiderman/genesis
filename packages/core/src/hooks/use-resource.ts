@@ -99,7 +99,10 @@ export interface UseResourceOptions<T> extends MutationModeOptions {
 export interface UpdateOptions {
   /**
    * Check the write against this version instead of the cached row's: "keep mine" after a
-   * conflict, at the version the conflict reported (`WriteConflict.currentVersion`). The write
+   * conflict, at the version the conflict reported (`WriteConflict.currentVersion`). A version
+   * already chained for the row wins over it: a write sent while an earlier write of the same row
+   * is still in flight is checked against the version that one commits (as
+   * `ExecuteWriteArgs.expectedVersion`). The write
    * still goes through the resource's write path (queued behind any other write of the row, its
    * committed version recorded), so a move made right after it is checked against it.
    */

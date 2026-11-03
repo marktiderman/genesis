@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, isDataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, writeConflict, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
+import { DataWriteError, isDataWriteError, resourceKeys, useCapabilities, useDataProvider, useResource, useViewer, writeConflict, type BaseRecord, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
 import { readinessChip, type ReadinessLabels } from "@marktiderman/genesis-core/resource";
 import { sameFormValue, type Allowed, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
@@ -160,6 +160,9 @@ const A11Y_PREFIX = "action:";
  * (ActionSheetIOS, destructive ones in red); elsewhere a sheet of rows, since Android's alert
  * shows at most three buttons. A refused action stays listed and explains why when pressed.
  */
+
+/** The settings save shows its own failures (inline, or in the conflict sheet), so useResource doesn't log them too. */
+const alreadyShown = () => {};
 export function NativeRecordViewMenu<T extends Row = Row>(props: NativeRecordViewHeaderProps<T> & { testID?: string }) {
   const { testID = "native-resource-workspace-menu" } = props;
   const { actions, press, pending, words } = useHeaderActions(props);
@@ -539,6 +542,8 @@ function SettingsGroup({
     setEdits((d) => ({ ...d, [key]: value }));
   };
   const queryClient = useQueryClient();
+  // The resource's own update; the record's reads are the screen's, so this one reads nothing.
+  const { update } = useResource<DataRow & BaseRecord>(view.resource, { enabled: false, onError: alreadyShown });
   // A save that met someone else's change, and the values it tried to save.
   const [conflict, setConflict] = useState<{ conflict: WriteConflict; values: Values; row: DataRow; message: string } | null>(null);
   const lastFailure = useRef<string | null>(null);
@@ -550,18 +555,16 @@ function SettingsGroup({
     const data = recordView.settingsPatch(sectionId, values);
     try {
       const version = expectedVersion ?? (versionField ? (editBase.current ?? row)[versionField] : undefined);
-      const result = await provider.update(view.resource, {
-        id: recordView.recordId(row),
-        data,
-        ...(version != null ? { expectedVersion: String(version) } : {}),
-      });
+      // Through the resource's write path (`update` with `expectedVersion`), not the provider
+      // directly: a save made while another of this record is in flight is checked against the
+      // version that one commits, and the version this one commits goes into every cached copy.
+      const saved = await update(recordView.recordId(row), data as Partial<DataRow & BaseRecord>, version != null ? { expectedVersion: String(version) } : undefined);
       // A write that matched no rows is a refusal, never a silent success.
-      if (!result || result.data === null || result.data === undefined) {
+      if (saved === null || saved === undefined) {
         lastFailure.current = fill(words.notChanged, { noun: view.noun });
         setRefusal(lastFailure.current);
         return "failed";
       }
-      const saved = result.data as DataRow;
       // The next edit builds on this save's version, even before the record refetches.
       if (versionField && saved[versionField] != null) editBase.current = { ...(editBase.current ?? row), [versionField]: saved[versionField] };
       setConflict(null);

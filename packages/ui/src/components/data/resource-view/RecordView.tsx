@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, isDataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, useWrite, writeConflict, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
+import { DataWriteError, isDataWriteError, resourceKeys, useCapabilities, useDataProvider, useResource, useViewer, useWrite, writeConflict, type BaseRecord, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
 import { sameFormValue, type Allowed, type ResolvedFormField, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../../layout/sub-nav";
@@ -96,6 +96,9 @@ export interface RecordViewProps<T extends Row = Row> {
  * <RecordView view={brandRecordView} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />
  * ```
  */
+
+/** The settings save shows its own failures (inline, or in the conflict sheet), so useResource doesn't log them too. */
+const alreadyShown = () => {};
 export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
   const { view: recordView, row, section, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, sectionIcons, settingsLocked, testID = "resource-workspace" } = props;
   const record = row as T & DataRow;
@@ -313,6 +316,8 @@ function SettingsForm({
   const dirty = Object.keys(changed).length > 0 && Object.keys(invalid).length === 0;
 
   const queryClient = useQueryClient();
+  // The resource's own update; the list and record reads are the page's, so this one reads nothing.
+  const { update } = useResource<DataRow & BaseRecord>(view.resource, { enabled: false, onError: alreadyShown });
   // A save that met someone else's change, and the values it tried to save.
   const [conflict, setConflict] = useState<{ conflict: WriteConflict; values: Values; row: DataRow } | null>(null);
   const save = useWrite(
@@ -320,23 +325,22 @@ function SettingsForm({
       // Only the section's listed keys, never anything else the row or draft holds.
       const data = recordView.settingsPatch(sectionId, values);
       const version = expectedVersion ?? (versionField ? (editBase.current ?? row)[versionField] : undefined);
-      let result: Awaited<ReturnType<typeof provider.update>>;
+      // Through the resource's write path (`update` with `expectedVersion`), not the provider
+      // directly: a save made while another of this record is still in flight is checked against
+      // the version that one commits, and the version this one commits goes into every cached copy.
+      let saved: DataRow | null | undefined;
       try {
-        result = await provider.update(view.resource, {
-          id: recordView.recordId(row),
-          data,
-          ...(version != null ? { expectedVersion: String(version) } : {}),
-        });
+        saved = await update(recordView.recordId(row), data as Partial<DataRow & BaseRecord>, version != null ? { expectedVersion: String(version) } : undefined);
       } catch (error) {
         const found = writeConflict(error, data);
         if (found && isDataWriteError(error) && error.current) setConflict({ conflict: found, values, row: error.current });
         throw error;
       }
       // A write that matched no rows is a refusal, never a silent success.
-      if (!result || result.data === null || result.data === undefined) {
+      if (saved === null || saved === undefined) {
         throw new DataWriteError("forbidden", fillMessage(m.workspace.notChanged, { noun: view.noun }));
       }
-      return result.data as DataRow;
+      return saved;
     },
     // The edits stay until the row shows them (the effect below), so a saved value doesn't flash
     // back to the old one while the record refetches.
