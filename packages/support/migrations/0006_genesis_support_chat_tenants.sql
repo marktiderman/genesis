@@ -346,3 +346,33 @@ begin
   end if;
 end;
 $$;
+
+-- Under chat 0004: every support conversation in its ticket's tenant (again, for an app whose
+-- order put chat 0004 after 0005), and chat's own tenant gate off for this kind, because its
+-- observer check (a handler of the ticket) already reads the ticket's tenant: the app's staff are
+-- agents of its own tenant without being listed as its people.
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'genesis_chat' and table_name = 'conversations' and column_name = 'tenant_id') then
+    execute $q$
+      update genesis_chat.conversations c
+         set tenant_id = private.genesis_chat_resolve_support_report(c.subject_id)
+       where c.kind = 'support' and c.subject_type = 'support_report'
+         and private.genesis_chat_resolve_support_report(c.subject_id) is not null
+         and c.tenant_id is distinct from private.genesis_chat_resolve_support_report(c.subject_id)$q$;
+  end if;
+  if exists (select 1 from pg_proc p
+              where p.pronamespace = 'genesis_chat'::regnamespace and p.proname = 'register_kind'
+                and 'p_observer_tenant_gate' = any(p.proargnames)) then
+    execute $q$
+      select genesis_chat.register_kind('support', 'Support',
+        p_max_members => 2,
+        p_membership => 'app',
+        p_threads => false,
+        p_observer_check => 'private.genesis_support_chat_observer(uuid, uuid)',
+        p_observers_post => true,
+        p_observer_tenant_gate => false)$q$;
+  end if;
+end;
+$$;

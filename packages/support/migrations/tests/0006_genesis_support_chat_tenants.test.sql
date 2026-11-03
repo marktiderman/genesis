@@ -6,7 +6,7 @@
 -- Tenants and people as in 0004's test: c3 an agent of ta, e5 an agent of tb, f6 the app's staff.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(18);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -129,6 +129,13 @@ select ok(private.genesis_support_chat_is_staff(pg_temp.person('f6')) and not pr
 select is(private.genesis_chat_resolve_support_report(pg_temp.id('ta1')::text), pg_temp.tenant('ta'),
           'chat can resolve a ticket conversation''s tenant');
 select is(private.genesis_chat_resolve_support_report('not-a-ticket'), null, '... and nothing for anything else');
+
+-- In any app, after every migration (whatever order they ran in): no support conversation sits
+-- outside its ticket's tenant.
+select is((select count(*)::int from genesis_chat.conversations c join public.tickets t on c.subject_id = t.id::text
+            where c.kind = 'support' and c.subject_type = 'support_report'
+              and to_jsonb(c) ? 'tenant_id' and (to_jsonb(c)->>'tenant_id')::uuid is distinct from t.tenant_id), 0,
+          'every support conversation is in its ticket''s tenant');
 
 select * from finish();
 rollback;

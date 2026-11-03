@@ -557,6 +557,52 @@ $$;
 comment on function private.genesis_support_chat_backfill() is
   'Gives every support report its chat conversation and copies support_replies into it, adding only what is missing. Genesis support on chat.';
 
+-- A ticket's tenant for genesis-chat 0004: chat finds this by its name (and 0006 registers it),
+-- so a ticket's conversation takes the ticket's tenant whichever of the two migrations runs first.
+-- Defined here because this block's backfill below already needs it under chat 0004.
+create or replace function private.genesis_chat_resolve_support_report(subject_id text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select t.tenant_id from public.tickets t
+   where t.id = case when subject_id ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+                     then subject_id::uuid end
+$$;
+
+revoke execute on function private.genesis_chat_resolve_support_report(text) from public, anon, authenticated;
+
+-- Chat 0004's own tenant gate stays off for the support kind (chat looks this up by its name, in
+-- either order): support's observer check, a handler of the ticket, already reads the ticket's
+-- tenant, so the app's staff read its tickets' chats without being listed as its tenant's people.
+create or replace function private.genesis_chat_ungated_support()
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$ select true $$;
+
+revoke execute on function private.genesis_chat_ungated_support() from public, anon, authenticated;
+
+-- An app that applied genesis-chat 0004 before support's tickets had tenants: chat placed the
+-- existing support conversations by their members (the reporter's tenant). Put each one in its
+-- ticket's tenant before the backfill below meets it.
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'genesis_chat' and table_name = 'conversations' and column_name = 'tenant_id') then
+    execute $q$
+      update genesis_chat.conversations c
+         set tenant_id = private.genesis_chat_resolve_support_report(c.subject_id)
+       where c.kind = 'support' and c.subject_type = 'support_report'
+         and private.genesis_chat_resolve_support_report(c.subject_id) is not null
+         and c.tenant_id is distinct from private.genesis_chat_resolve_support_report(c.subject_id)$q$;
+  end if;
+end;
+$$;
+
 select private.genesis_support_chat_backfill();
 
 -- Privileges by name ------------------------------------------------------------------------
