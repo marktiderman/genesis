@@ -199,6 +199,8 @@ describe("ResourceView mode=board", () => {
     await act(async () => settle());
     await waitFor(() => expect(within(column("Doing")).getByText("Write brief")).toBeTruthy());
     expect(update).toHaveBeenCalledTimes(1);
+    // The refused second move didn't cancel the first's refocus: the handle has focus in its new column.
+    await waitFor(() => expect(document.activeElement).toBe(within(column("Doing")).getByRole("button", { name: "Pick up Write brief" })));
   });
 
   it("filters a yes/no board by booleans, not strings", async () => {
