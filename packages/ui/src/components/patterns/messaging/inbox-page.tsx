@@ -25,6 +25,7 @@ import { MessagesSquare, MoreHorizontal } from "lucide-react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { formatInboxTime, type InboxItem, type InboxSwipeAction } from "@marktiderman/genesis-core/conversation";
 import { cn } from "../../../utils";
+import { useHydrated } from "../../../hooks/use-mobile";
 import { Button } from "../../ui/button";
 import { Skeleton } from "../../ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../ui/dropdown-menu";
@@ -61,8 +62,10 @@ export interface InboxPageProps {
   selectedId?: string | null;
   /** A row was opened, when the row has no `onPress` of its own. */
   onSelect?: (id: string) => void;
-  /** Called near the end of the list, to load the next page. */
+  /** Called near the end of the list, to load the next page: once per page (it asks again only after the list grows). */
   onEndReached?: () => void;
+  /** There are more pages. False stops `onEndReached`. Default true. */
+  hasMore?: boolean;
   /** A next page is loading: the default footer shows a spinner. */
   loadingMore?: boolean;
   /** Above the list (a filter, a call to action). Prefer `slots.header` for a component. */
@@ -113,6 +116,7 @@ export function InboxPage({
   selectedId,
   onSelect,
   onEndReached,
+  hasMore = true,
   loadingMore = false,
   header,
   sectionTitle,
@@ -140,17 +144,27 @@ export function InboxPage({
   const listRef = React.useRef<HTMLUListElement | null>(null);
   const scrollerRef = React.useRef<HTMLDivElement | null>(null);
   const endSentinel = React.useRef<HTMLDivElement | null>(null);
+  // Times are in the viewer's zone: shown once hydrated, so the server's HTML and the first render agree.
+  const hydrated = useHydrated();
   const clock = now();
 
+  // Held in a ref, so an inline callback doesn't re-arm the observer on every render.
+  const endReached = React.useRef(onEndReached);
+  endReached.current = onEndReached;
+  // The length the last ask was made at: one ask per page, even while the end stays in view.
+  const askedAt = React.useRef<number | null>(null);
+  const canAsk = Boolean(onEndReached) && hasMore && !loadingMore;
   React.useEffect(() => {
     const target = endSentinel.current;
-    if (!target || !onEndReached || loadingMore || typeof IntersectionObserver === "undefined") return;
+    if (!target || !canAsk || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) onEndReached();
+      if (!entries.some((e) => e.isIntersecting) || askedAt.current === items.length) return;
+      askedAt.current = items.length;
+      endReached.current?.();
     }, { root: scrollerRef.current, rootMargin: "0px 0px 300px 0px" });
     io.observe(target);
     return () => io.disconnect();
-  }, [onEndReached, loadingMore, items.length]);
+  }, [canAsk, items.length]);
 
   // The roving tab stop: the row you were last on, else the open one, else the first.
   const [focusedId, setFocusedId] = React.useState<string | null>(null);
@@ -227,7 +241,7 @@ export function InboxPage({
           {items.map((item, index) => {
             const selected = item.selected ?? (selectedId != null && item.id === selectedId);
             const unread = Boolean(item.unread || (item.unreadCount ?? 0) > 0);
-            const time = item.timestamp ? formatTime(toDate(item.timestamp), clock) : null;
+            const time = hydrated && item.timestamp ? formatTime(toDate(item.timestamp), clock) : null;
             return (
               <li key={item.id}>
                 {renderSlot(

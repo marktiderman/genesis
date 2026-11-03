@@ -216,6 +216,32 @@ describe("ThreadPage (web)", () => {
   });
 });
 
+describe("ThreadPage (web): review follow-ups", () => {
+  it("makes the log a tab stop, and keeps focus on it when Jump to latest goes away", () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(() => 2000);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(() => 500);
+    render(<ThreadPage testID="t" messages={messages} composer={composer()} />);
+    const log = screen.getByRole("log");
+    expect(log.tabIndex).toBe(0);
+    act(() => {
+      log.scrollTop = 0;
+      fireEvent.scroll(log);
+    });
+    const pill = screen.getByTestId("t-jump-latest");
+    pill.focus();
+    fireEvent.click(pill);
+    expect(document.activeElement).toBe(log);
+  });
+
+  it("renders no times on the server, so hydration in another time zone matches", async () => {
+    const { renderToString } = await import("react-dom/server");
+    const html = renderToString(<ThreadPage testID="t" messages={messages} composer={composer()} />);
+    expect(html).not.toMatch(/\d{1,2}:\d{2}/);
+    const inbox = renderToString(<InboxPage testID="i" items={[{ id: "a", title: "Ada", timestamp: "2026-10-24T09:00:00Z" }]} />);
+    expect(inbox).not.toMatch(/\d{1,2}:\d{2}/);
+  });
+});
+
 describe("ComposerBar", () => {
   it("sends on Enter, adds a line on Shift+Enter, and won't send a blank message", () => {
     const onSend = vi.fn();
@@ -294,6 +320,36 @@ describe("ComposerBar", () => {
 });
 
 describe("InboxPage (web)", () => {
+  it("asks for the next page once per page, and not when there are no more", () => {
+    const observers: Array<(e: Array<{ isIntersecting: boolean }>) => void> = [];
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(cb: (e: Array<{ isIntersecting: boolean }>) => void) {
+          observers.push(cb);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    const onEndReached = vi.fn();
+    const rows = [{ id: "a", title: "A" }, { id: "b", title: "B" }];
+    const { rerender } = render(<InboxPage testID="i" items={rows} onEndReached={() => onEndReached()} />);
+    const fire = () => act(() => observers.at(-1)!([{ isIntersecting: true }]));
+    fire();
+    rerender(<InboxPage testID="i" items={rows} onEndReached={() => onEndReached()} />);
+    fire();
+    expect(onEndReached).toHaveBeenCalledTimes(1);
+    const more = [...rows, { id: "c", title: "C" }];
+    rerender(<InboxPage testID="i" items={more} onEndReached={() => onEndReached()} />);
+    fire();
+    expect(onEndReached).toHaveBeenCalledTimes(2);
+    const count = observers.length;
+    rerender(<InboxPage testID="i" items={[...more, { id: "d", title: "D" }]} hasMore={false} onEndReached={() => onEndReached()} />);
+    expect(observers.length).toBe(count);
+    vi.unstubAllGlobals();
+  });
+
   const now = () => new Date(2026, 9, 24, 12, 0);
   const items: InboxItem[] = [
     { id: "a", title: "Ada", preview: "See you then", timestamp: new Date(2026, 9, 24, 9, 41), unread: true, onPress: vi.fn() },

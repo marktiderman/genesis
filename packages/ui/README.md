@@ -154,9 +154,19 @@ function SignInPage({ client }: { client: AuthFormClient }) {
 
 ## Messaging: `ThreadPage`, `InboxPage` and `InboxLayout`
 
-The web twins of genesis-ui-native's messaging layouts, with the same props and slots, on the
-shared conversation contract in `@marktiderman/genesis-core/conversation`. The same
-`ThreadMessage[]` and `InboxItem[]` render on the web and the phone.
+The web twins of genesis-ui-native's messaging layouts, on the shared conversation contract in
+`@marktiderman/genesis-core/conversation`. The same `ThreadMessage[]` and `InboxItem[]` render on
+the web and the phone, and the props and slots match, except for these.
+
+- **Web only:**
+  - `ThreadPage`: `conversationId` and `sendOn`.
+  - `ThreadList`: `conversationId`, `openAt`, `announce` and `label`.
+  - `InboxPage`: `selectedId`, `onSelect`, `hasMore` and `moreLabel`.
+  - `InboxLayout` and `InboxViews` are web only.
+- **Native only:**
+  - `NativeThreadList`: `getItemType` and `jumpAnnouncement`.
+  - `InboxPage`: the `swipeable` slot. The web shows a row's `swipeActions` as a "More" menu instead.
+  - `ThreadPage`: `keyboardVerticalOffset`.
 
 - **`ThreadPage`:** one conversation. It fills its container.
   - Messages oldest first in a `role="log"` region, events as centred lines, attachments and a read receipt.
@@ -178,29 +188,37 @@ shared conversation contract in `@marktiderman/genesis-core/conversation`. The s
   - Each row's `swipeActions` become a "More" menu.
   - The rows are one tab stop that stays where you were. Arrow keys or j/k move between rows, and Right reaches a row's More menu. `selected` marks the open one.
   - A custom `row` slot spreads `rowProps` on its focusable element to keep the keyboard moves.
-  - Paging, loading, error and empty states.
+  - Paging (`onEndReached` asks once per page; `hasMore={false}` stops it), loading, error and empty states.
 - **`InboxPage` selection:** `selectedId` and `onSelect` keep the open conversation in the app's route.
 - **`InboxLayout`:** the three-pane inbox, with views (`InboxViews`: label, count, icon, active), the list, the thread and a context sidebar.
   - **Narrow screens:** one pane at a time, with Back.
   - **The context sidebar:** toggles, either controlled or remembered per browser under `contextStorageKey`. From `xl` up it sits beside the thread; below that it opens as a sheet.
   - **Keyboard (`shortcuts`):** j/k next and previous, r reply, n internal note, e close, a assign, Escape back. Each one is a callback you can leave out, and none fires while typing.
 
+Times show once the page has hydrated, in the viewer's time zone, so server-rendered HTML has none
+and hydration matches.
+
 ```tsx
 import { InboxLayout, InboxPage, ThreadPage, type InboxItem, type ThreadMessage } from "@marktiderman/genesis-ui";
 
-function Inbox({ items, messages, draft, setDraft, send, openId, close }: {
+function Inbox({ items, messages, draft, setDraft, send, openId, open, close }: {
   items: InboxItem[];
   messages: ThreadMessage[];
   draft: string;
   setDraft: (text: string) => void;
   send: () => void;
   openId: string | null;
+  open: (id: string) => void;
   close: () => void;
 }) {
   return (
     <InboxLayout
-      list={<InboxPage items={items} />}
-      thread={openId ? <ThreadPage messages={messages} composer={{ value: draft, onChangeText: setDraft, onSend: send }} /> : null}
+      list={<InboxPage items={items} selectedId={openId} onSelect={open} />}
+      thread={
+        openId ? (
+          <ThreadPage conversationId={openId} messages={messages} composer={{ value: draft, onChangeText: setDraft, onSend: send }} />
+        ) : null
+      }
       threadOpen={Boolean(openId)}
       onBack={close}
     />

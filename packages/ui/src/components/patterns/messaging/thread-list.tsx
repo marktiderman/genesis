@@ -39,6 +39,8 @@ export const THREAD_AT_BOTTOM_PX = 120;
 export interface ThreadListHandle {
   /** Go to the newest row (after a send: what you send is what you look at next). */
   scrollToEnd: (options?: { animated?: boolean }) => void;
+  /** Put keyboard focus on the list (it's a tab stop, so keyboard users can scroll it). */
+  focus: () => void;
 }
 
 /** What `renderItem` is told about a row besides the row itself. */
@@ -181,6 +183,7 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
         setAtBottom(true);
         toBottom(options?.animated ?? true);
       },
+      focus: () => scroller.current?.focus({ preventScroll: true }),
     }),
     [setAtBottom, toBottom],
   );
@@ -387,10 +390,11 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
       data-testid={testID}
       role="log"
       aria-live="off"
+      tabIndex={0}
       aria-label={label}
       aria-busy={loadingEarlier || undefined}
       onScroll={onScroll}
-      className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-2 [overflow-anchor:none]", className)}
+      className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-2 [overflow-anchor:none] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", className)}
     >
       {header}
       <div ref={topSentinel} aria-hidden />
@@ -412,11 +416,7 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
         <div ref={content} className="mt-auto flex flex-col">
           {data.map((row, index) => {
             const id = keyExtractor(row);
-            return (
-              <div key={id} data-row-id={id} tabIndex={-1} className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                {renderItem(row, { index, highlighted: id === highlightedId })}
-              </div>
-            );
+            return <Row key={id} id={id} row={row} index={index} highlighted={id === highlightedId} renderItem={renderItem as RowProps["renderItem"]} />;
           })}
         </div>
       )}
@@ -428,6 +428,16 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
     </div>
   );
 }
+
+type RowProps = { id: string; row: unknown; index: number; highlighted: boolean; renderItem: (row: unknown, info: ThreadRowInfo) => React.ReactNode };
+/** One row, re-rendered only when its row, place, highlight or renderer changes (not on each keystroke above). */
+const Row = React.memo(function Row({ id, row, index, highlighted, renderItem }: RowProps) {
+  return (
+    <div data-row-id={id} tabIndex={-1} className="rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {renderItem(row, { index, highlighted })}
+    </div>
+  );
+});
 
 /** A conversation's list. See the module docs. */
 export const ThreadList = React.forwardRef(ThreadListInner) as <T>(

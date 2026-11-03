@@ -31,3 +31,12 @@ export function useMediaQuery(query: string, serverValue = false): boolean {
 export function useIsMobile(): boolean {
   return useMediaQuery(MOBILE_QUERY, false);
 }
+
+const noSubscribe = () => () => {};
+/**
+ * False on the server and during hydration, true after: for output that depends on where it runs
+ * (a time in the viewer's zone, "Yesterday"), so the server's HTML and the first render agree.
+ */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(noSubscribe, () => true, () => false);
+}
