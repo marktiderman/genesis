@@ -57,6 +57,8 @@ export interface NativeZoomablePhotoProps {
   /** The page on screen: another page resets its zoom. */
   active: boolean;
   onZoomChange: (zoomed: boolean) => void;
+  /** Pinch and double-tap zoom (on by default). Off, the page still pulls down to close. */
+  zoomable?: boolean;
   /** How far it's pulled down, for the backdrop's fade; null when swiping down doesn't close. */
   onPull: ((dy: number) => void) | null;
   onDismiss: () => void;
@@ -111,7 +113,7 @@ function zoomTo(view: ZoomScrollView | null, rect: ZoomRect, animated: boolean) 
 }
 
 /** iOS: the system's zooming scroll view; at full size, a pull down past the top closes. */
-function ZoomableIos({ src, alt, width, height, active, onZoomChange, onPull, onDismiss, onTap, testID }: NativeZoomablePhotoProps) {
+function ZoomableIos({ src, alt, width, height, active, onZoomChange, zoomable = true, onPull, onDismiss, onTap, testID }: NativeZoomablePhotoProps) {
   const ref = useRef<ZoomScrollView | null>(null);
   const scale = useRef(1);
   const reducedMotion = useReducedMotion();
@@ -122,6 +124,7 @@ function ZoomableIos({ src, alt, width, height, active, onZoomChange, onPull, on
     }
   }, [active, width, height]);
   const tap = useTaps(onTap, (at) => {
+    if (!zoomable) return;
     if (scale.current > 1.01) return zoomTo(ref.current, { x: 0, y: 0, width, height }, !reducedMotion);
     const w = width / 2.5;
     const h = height / 2.5;
@@ -133,7 +136,7 @@ function ZoomableIos({ src, alt, width, height, active, onZoomChange, onPull, on
       testID={testID}
       style={{ width, height }}
       contentContainerStyle={{ width, height }}
-      maximumZoomScale={LIGHTBOX_MAX_ZOOM}
+      maximumZoomScale={zoomable ? LIGHTBOX_MAX_ZOOM : 1}
       minimumZoomScale={1}
       bouncesZoom
       centerContent
@@ -162,7 +165,7 @@ function ZoomableIos({ src, alt, width, height, active, onZoomChange, onPull, on
 }
 
 /** Android (no zooming ScrollView): two fingers pinch, one pans a zoomed photo or drags it down to close. */
-function ZoomablePan({ src, alt, width, height, active, onZoomChange, onPull, onDismiss, onTap, testID }: NativeZoomablePhotoProps) {
+function ZoomablePan({ src, alt, width, height, active, onZoomChange, zoomable = true, onPull, onDismiss, onTap, testID }: NativeZoomablePhotoProps) {
   const reducedMotion = useReducedMotion();
   const scale = useRef(new Animated.Value(1)).current;
   const tx = useRef(new Animated.Value(0)).current;
@@ -194,6 +197,7 @@ function ZoomablePan({ src, alt, width, height, active, onZoomChange, onPull, on
   }, [active, settle]);
 
   const tap = useTaps(onTap, (at) => {
+    if (!zoomable) return;
     if (s.current.scale > 1.01) return settle({ scale: 1, x: 0, y: 0 });
     const z = 2.5;
     settle({
@@ -208,11 +212,11 @@ function ZoomablePan({ src, alt, width, height, active, onZoomChange, onPull, on
       PanResponder.create({
         onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (e, g) =>
-          e.nativeEvent.touches.length >= 2 || s.current.scale > 1.01 || (Boolean(onPull) && g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5),
+          (zoomable && e.nativeEvent.touches.length >= 2) || s.current.scale > 1.01 || (Boolean(onPull) && g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5),
         onPanResponderTerminationRequest: () => false,
         onPanResponderGrant: (e) => {
           const st = s.current;
-          st.pinching = e.nativeEvent.touches.length >= 2;
+          st.pinching = zoomable && e.nativeEvent.touches.length >= 2;
           st.dragging = !st.pinching && st.scale <= 1.01 && Boolean(onPull);
           st.startScale = st.scale;
           st.startDistance = lightboxTouchDistance(e.nativeEvent.touches);
@@ -222,7 +226,7 @@ function ZoomablePan({ src, alt, width, height, active, onZoomChange, onPull, on
         onPanResponderMove: (e, g) => {
           const st = s.current;
           const touches = e.nativeEvent.touches;
-          if (touches.length >= 2) {
+          if (zoomable && touches.length >= 2) {
             if (!st.pinching) {
               st.pinching = true;
               st.dragging = false;
@@ -263,7 +267,7 @@ function ZoomablePan({ src, alt, width, height, active, onZoomChange, onPull, on
           settle({ scale: Math.max(1, s.current.scale), x: 0, y: 0 });
         },
       }),
-    [width, height, onPull, onDismiss, settle, scale, tx, ty],
+    [width, height, zoomable, onPull, onDismiss, settle, scale, tx, ty],
   );
 
   return (
