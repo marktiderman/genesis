@@ -51,3 +51,18 @@ export {
   type AuthFormSuccess,
   type AuthSignInMethod,
 } from "./auth-form";
+
+// Gallery / media patterns.
+export { GALLERY_DEFAULTS, type GalleryItem, type GalleryTileAspect } from "./gallery-types";
+export { Rating, nextRating, type RatingProps } from "./rating";
+export { GalleryGrid, type GalleryGridProps, type GallerySelectionDetail } from "./gallery-grid";
+export {
+  justifyRows,
+  galleryItemRatio,
+  DEFAULT_GALLERY_RATIO,
+  type JustifiedRow,
+  type JustifiedTile,
+} from "./gallery-layout";
+export { Lightbox, defaultLightboxLabels, type LightboxProps, type LightboxLabels } from "./lightbox";
+export { GalleryCard, type GalleryCardProps } from "./gallery-card";
+export { LiveIndicator, type LiveIndicatorProps, type LiveIndicatorState } from "./live-indicator";

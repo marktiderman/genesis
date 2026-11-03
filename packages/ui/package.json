@@ -613,6 +613,24 @@
           "need": "showing formatted text",
           "use": "RichText",
           "import": "@marktiderman/genesis-ui/rich-text"
+        },
+        {
+          "need": "a photo gallery (a wall of images, justified rows or a grid)",
+          "use": "GalleryGrid, with GalleryCard for media-first cards",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md"
+        },
+        {
+          "need": "a full-screen photo or video viewer",
+          "use": "Lightbox (renderMedia for a video or a compare view)",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md"
+        },
+        {
+          "need": "a star rating, shown or chosen",
+          "use": "Rating",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md"
         }
       ]
     }
