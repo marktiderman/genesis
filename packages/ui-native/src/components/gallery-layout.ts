@@ -2,6 +2,11 @@
  * The justified gallery layout: pure row packing, the same algorithm as the
  * web `GalleryGrid`, so both render the same rows for the same items.
  *
+ * The web file (`packages/ui/src/components/patterns/gallery-layout.ts`) is
+ * the reference; this copy exists because the native package cannot import
+ * web code. `__tests__/gallery-layout-parity.test.ts` runs both on the same
+ * fixtures and fails when they drift (G5).
+ *
  * @stability Beta
  */
 import type { GalleryItem } from "./gallery-types";

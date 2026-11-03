@@ -64,6 +64,16 @@ describe("NativeGalleryGrid additions", () => {
     expect(screen.getByTestId("g-badges-p0").contains(screen.getByTestId("b-p0"))).toBe(true);
   });
 
+  it("a press only selects when onSelectionChange is set, not also onPressItem", () => {
+    const onPressItem = vi.fn();
+    const onSelectionChange = vi.fn();
+    render(<NativeGalleryGrid items={items} onPressItem={onPressItem} onSelectionChange={onSelectionChange} testID="g" />);
+    measure(screen.getByTestId("g"), 600);
+    fireEvent.click(screen.getByTestId("g-item-p0"));
+    expect(onSelectionChange).toHaveBeenCalledTimes(1);
+    expect(onPressItem).not.toHaveBeenCalled();
+  });
+
   it("toggles selection on press, ringing selected tiles", () => {
     const onSelectionChange = vi.fn();
     render(<NativeGalleryGrid items={items} selected={["p1"]} onSelectionChange={onSelectionChange} testID="g" />);

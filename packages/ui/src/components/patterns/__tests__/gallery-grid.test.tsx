@@ -283,6 +283,17 @@ describe("GalleryGrid — onNearEnd", () => {
     expect(onNearEnd).toHaveBeenCalledTimes(2);
   });
 
+  it("creates the observer when onNearEnd is set after first commit", () => {
+    install();
+    const onNearEnd = vi.fn();
+    const items = [square("a")];
+    const { rerender } = render(<GalleryGrid items={items} />);
+    expect(callbacks.length).toBe(0);
+    rerender(<GalleryGrid items={items} onNearEnd={onNearEnd} />);
+    fire();
+    expect(onNearEnd).toHaveBeenCalledTimes(1);
+  });
+
   it("renders without IntersectionObserver (jsdom guard)", () => {
     (globalThis as unknown as { IntersectionObserver: unknown }).IntersectionObserver = undefined;
     const onNearEnd = vi.fn();

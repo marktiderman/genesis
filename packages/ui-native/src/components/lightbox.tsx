@@ -70,10 +70,14 @@ export function NativeLightbox({
   const current = Math.min(Math.max(0, index), Math.max(0, items.length - 1));
   const item = items[current];
 
+  // Re-snap on a width change (rotation, resize) so the page stays aligned; that jump is not animated.
+  const snappedWidth = useRef(width);
   useEffect(() => {
     if (!open || items.length === 0) return;
-    listRef.current?.scrollToIndex({ index: current, animated: true });
-  }, [open, current, items.length]);
+    const widthChanged = snappedWidth.current !== width;
+    snappedWidth.current = width;
+    listRef.current?.scrollToIndex({ index: current, animated: !widthChanged });
+  }, [open, current, items.length, width]);
 
   const onLayout = (e: LayoutChangeEvent) => {
     const next = e.nativeEvent.layout.width;

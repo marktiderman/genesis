@@ -36,6 +36,17 @@ describe("LiveIndicator", () => {
     expect(dot().className).toContain("bg-muted-foreground");
   });
 
+  it("defaults the label to the resolved state, and keeps an explicit one", () => {
+    const { rerender } = render(<LiveIndicator state="idle" />);
+    expect(screen.getByRole("status").textContent).toBe("Idle");
+    rerender(<LiveIndicator state="offline" />);
+    expect(screen.getByRole("status").textContent).toBe("Offline");
+    rerender(<LiveIndicator variant="dot" state="offline" />);
+    expect(screen.getByRole("status").textContent).toBe("Offline");
+    rerender(<LiveIndicator state="idle" label="Paused" />);
+    expect(screen.getByRole("status").textContent).toBe("Paused");
+  });
+
   it("keeps the label for screen readers in the dot variant", () => {
     render(<LiveIndicator variant="dot" label="Streaming" />);
     const status = screen.getByRole("status");

@@ -6,11 +6,11 @@
  * as the web `GalleryGrid`. The container width comes from `onLayout`; until
  * it is measured nothing is drawn. Tiles are `NativeImage` over a `bg-muted`
  * placeholder sized from the item's ratio (so rows don't reflow while the
- * picture loads), tappable when `onPressItem` is given; `renderItem`
+ * picture loads), tappable when `onPressItem` is given (or when selecting); `renderItem`
  * replaces the tile's content and `renderBadges` overlays its top-left.
  *
- * Selection (`selected` + `onSelectionChange`) toggles an id per press and
- * rings the chosen tiles. `getGroup` lays each group out separately under a
+ * Selection (`selected` + `onSelectionChange`) toggles an id per press, in
+ * place of `onPressItem` (as on web), and rings the chosen tiles. `getGroup` lays each group out separately under a
  * header; `onNearEnd` fires once when the last row renders, for paging.
  *
  * @stability Beta
@@ -34,6 +34,7 @@ export interface NativeGalleryGridProps {
   rowHeight?: number;
   /** Points between tiles. Default 4. */
   gap?: number;
+  /** Called on a press. Not called when `onSelectionChange` is set: a press then only toggles the selection. */
   onPressItem?: (item: GalleryItem, index: number) => void;
   /** Replaces the tile's content (the image by default). */
   renderItem?: (item: GalleryItem, index: number) => ReactNode;
@@ -112,6 +113,7 @@ export function NativeGalleryGrid({
     if (onSelectionChange) {
       const next = isSelected(item) ? selectedIds.filter((id) => id !== item.id) : [...selectedIds, item.id];
       onSelectionChange(next, { item, index });
+      return;
     }
     onPressItem?.(item, index);
   };

@@ -36,8 +36,15 @@ type AnyKeyboardEvent = Pick<
 export function isAppShortcutTarget(e: AnyKeyboardEvent): boolean {
   if (e.defaultPrevented) return false;
   if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  return isAppShortcutTargetElement(e.target);
+}
 
-  const target = e.target;
+/**
+ * Whether `target` (or an ancestor) is a field or widget that owns its own
+ * keys. Non-element targets pass. The element half of `isAppShortcutTarget`,
+ * for guards on events without modifier keys, such as touch.
+ */
+export function isAppShortcutTargetElement(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return true;
 
   let node: Element | null = target;

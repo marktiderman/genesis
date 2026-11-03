@@ -53,7 +53,9 @@ function clamp(value: number, max: number) {
  * Interactive: a `radiogroup` of buttons, one per star, with the current
  * value `aria-checked`; ArrowLeft/ArrowRight (and Up/Down) move the value,
  * Home/End jump to the ends, and clicking the current value clears it to 0
- * (`nextRating`). `readOnly` forces the read-only rendering while keeping
+ * (`nextRating`); the arrow keys stop at 1 and never clear, so clearing is by
+ * re-clicking the current star. In a right-to-left group ArrowLeft/ArrowRight
+ * swap. `readOnly` forces the read-only rendering while keeping
  * `onChange` wired for later. Filled stars use `text-warning`, empty ones
  * `text-muted-foreground`; no raw colours.
  *
@@ -110,17 +112,30 @@ export function Rating({
     target?.focus();
   };
 
+  // Why not Radix RadioGroup: each star is a value with a custom clear on
+  // re-click and a shared "filled up to N" visual. Radix items are
+  // independent radios, so they can't share that visual and can't clear on
+  // reselect. The roving tabindex and arrow handling below follow the ARIA
+  // radiogroup pattern by hand (with RTL swapping the horizontal arrows).
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const el = groupRef.current;
+    const rtl =
+      el !== null &&
+      (el.closest("[dir]")?.getAttribute("dir") === "rtl" ||
+        getComputedStyle(el).direction === "rtl");
+    const forward = rtl ? "ArrowLeft" : "ArrowRight";
+    const back = rtl ? "ArrowRight" : "ArrowLeft";
     switch (event.key) {
-      case "ArrowRight":
+      case forward:
       case "ArrowUp":
         event.preventDefault();
         commit(current + 1);
         break;
-      case "ArrowLeft":
+      case back:
       case "ArrowDown":
         event.preventDefault();
-        commit(current - 1);
+        // Stops at 1: arrows never clear. Clearing is a re-click.
+        commit(Math.max(1, current - 1));
         break;
       case "Home":
         event.preventDefault();

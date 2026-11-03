@@ -11,9 +11,10 @@
  *
  * @stability Beta
  */
-import { Pressable, View } from "react-native";
+import { Platform, Pressable, View } from "react-native";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { cn } from "../utils";
+import { useGenesisModules } from "../native-modules";
 import { NativeIcon } from "./icon";
 
 export type NativeRatingSize = "sm" | "md" | "lg";
@@ -29,9 +30,9 @@ export interface NativeRatingProps {
   readOnly?: boolean;
   /** Default "md". */
   size?: NativeRatingSize;
-  /** Read by screen readers in place of "stars" ("Service rating"). */
+  /** The control's accessible name ("Service rating"): read-only reads "Service rating: 3 of 5 stars". */
   label?: string;
-  /** The accessibility label, in place of "N of M stars". */
+  /** The accessibility text for a value, in place of "N of M stars" (read-only label, each radio's label and value). */
   getLabel?: (value: number, max: number) => string;
   className?: string;
   testID?: string;
@@ -42,6 +43,24 @@ const STAR_SIZE: Record<NativeRatingSize, number> = { sm: 14, md: 20, lg: 28 };
 /** The value after pressing `star`: that star, or 0 when it is the current value (a press clears). */
 export function nextRating(value: number, star: number): number {
   return star === value ? 0 : star;
+}
+
+/**
+ * One star. On iOS the SF Symbol differs by weight; on the lucide fallback the
+ * filled star is solid (`fill`) and the empty one an outline, so the state
+ * never rests on colour alone.
+ */
+function Star({ on, size, testID }: { on: boolean; size: number; testID?: string }) {
+  const roles = useThemeRoles();
+  const { symbol, icons } = useGenesisModules();
+  const color = on ? roles.warning : roles.secondaryLabel;
+  const Lucide = icons?.star;
+  if (!(Platform.OS === "ios" && symbol) && Lucide) {
+    return (
+      <Lucide size={size} color={color} fill={on ? roles.warning : "none"} strokeWidth={on ? 2 : 1.5} testID={testID} />
+    );
+  }
+  return <NativeIcon name="star" size={size} weight={on ? "bold" : "regular"} color={color} testID={testID} />;
 }
 
 export function NativeRating({
@@ -55,11 +74,11 @@ export function NativeRating({
   className,
   testID = "native-rating",
 }: NativeRatingProps) {
-  const roles = useThemeRoles();
   const count = Math.max(1, Math.floor(max));
   const filled = Math.min(count, Math.max(0, Math.round(Number.isFinite(value) ? value : 0)));
   const px = STAR_SIZE[size];
-  const summary = getLabel ? getLabel(filled, count) : `${filled} of ${count} ${label ?? "stars"}`;
+  const starsText = (n: number) => (getLabel ? getLabel(n, count) : `${n} of ${count} stars`);
+  const summary = label ? `${label}: ${starsText(filled)}` : starsText(filled);
   const stars = Array.from({ length: count }, (_, i) => i + 1);
   const interactive = Boolean(onChange) && !readOnly;
 
@@ -73,14 +92,7 @@ export function NativeRating({
         className={cn("flex-row items-center gap-0.5", className)}
       >
         {stars.map((n) => (
-          <NativeIcon
-            key={n}
-            name="star"
-            size={px}
-            weight={n <= filled ? "bold" : "regular"}
-            color={n <= filled ? roles.warning : roles.secondaryLabel}
-            testID={`${testID}-star-${n}`}
-          />
+          <Star key={n} on={n <= filled} size={px} testID={`${testID}-star-${n}`} />
         ))}
       </View>
     );
@@ -101,18 +113,13 @@ export function NativeRating({
             key={n}
             testID={`${testID}-star-${n}`}
             accessibilityRole="radio"
-            accessibilityLabel={`${n} of ${count} ${label ?? "stars"}`}
+            accessibilityLabel={starsText(n)}
             accessibilityState={{ selected, checked: selected }}
             onPress={() => onChange?.(nextRating(filled, n))}
             hitSlop={4}
             className="p-0.5"
           >
-            <NativeIcon
-              name="star"
-              size={px}
-              weight={n <= filled ? "bold" : "regular"}
-              color={n <= filled ? roles.warning : roles.secondaryLabel}
-            />
+            <Star on={n <= filled} size={px} />
           </Pressable>
         );
       })}

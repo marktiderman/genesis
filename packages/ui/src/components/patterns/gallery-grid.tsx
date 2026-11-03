@@ -86,12 +86,15 @@ function useNearEnd(
 ) {
   const fired = React.useRef(false);
   const callback = React.useRef(onNearEnd);
-  callback.current = onNearEnd;
+  React.useEffect(() => {
+    callback.current = onNearEnd;
+  });
+  const hasCallback = Boolean(onNearEnd);
 
   React.useEffect(() => {
     fired.current = false;
     const node = ref.current;
-    if (!node || !callback.current || typeof IntersectionObserver === "undefined") return;
+    if (!node || !hasCallback || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver((entries) => {
       if (fired.current) return;
       if (entries.some((entry) => entry.isIntersecting)) {
@@ -101,7 +104,7 @@ function useNearEnd(
     });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [ref, resetKey]);
+  }, [ref, resetKey, hasCallback]);
 }
 
 interface Group {

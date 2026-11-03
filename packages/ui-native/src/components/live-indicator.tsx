@@ -4,13 +4,14 @@
  * the source is offline.
  *
  * The pulse is an `Animated` loop that Reduce Motion turns off. Announced as
- * text in a polite live region, so a change from live to ended is read
- * without interrupting. Same props as the web `LiveIndicator`.
+ * text in a polite live region on Android and through
+ * `AccessibilityInfo.announceForAccessibility` on iOS, so a change from live
+ * to ended is read without interrupting. Same props as the web `LiveIndicator`.
  *
  * @stability Beta
  */
 import { useEffect, useRef } from "react";
-import { Animated, Easing, Text, View } from "react-native";
+import { AccessibilityInfo, Animated, Easing, Text, View } from "react-native";
 import { useReducedMotion } from "../hooks/use-reduced-motion";
 import { cn } from "../utils";
 
@@ -22,7 +23,7 @@ export interface NativeLiveIndicatorProps {
   live?: boolean;
   /** Overrides `live`: "live", "idle" (grey) or "offline" (faint). */
   state?: NativeLiveIndicatorState;
-  /** Default "Live". Read by screen readers in both variants. */
+  /** Visible text and screen-reader label. Default follows the state: "Live", "Idle" or "Offline". */
   label?: string;
   /** After the label ("12 watching", "since 9:00"). */
   detail?: string;
@@ -31,6 +32,8 @@ export interface NativeLiveIndicatorProps {
   className?: string;
   testID?: string;
 }
+
+const DEFAULT_LABEL: Record<NativeLiveIndicatorState, string> = { live: "Live", idle: "Idle", offline: "Offline" };
 
 const DOT_CLASS: Record<NativeLiveIndicatorState, string> = {
   live: "bg-destructive",
@@ -41,7 +44,7 @@ const DOT_CLASS: Record<NativeLiveIndicatorState, string> = {
 export function NativeLiveIndicator({
   live = true,
   state,
-  label = "Live",
+  label,
   detail,
   variant = "pill",
   className,
@@ -67,8 +70,22 @@ export function NativeLiveIndicator({
     return () => loop.stop();
   }, [isLive, reducedMotion, pulse]);
 
-  const stateText = isLive ? label : resolved === "offline" ? `Offline, not ${label.toLowerCase()}` : `Not ${label.toLowerCase()}`;
+  const shown = label ?? DEFAULT_LABEL[resolved];
+  const stateText = isLive ? shown : label === undefined ? shown : resolved === "offline" ? `Offline, not ${shown.toLowerCase()}` : `Not ${shown.toLowerCase()}`;
   const a11yLabel = detail ? `${stateText}, ${detail}` : stateText;
+  // accessibilityLiveRegion is Android-only: on iOS, announce a state change after mount.
+  const announced = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = announced.current;
+    announced.current = a11yLabel;
+    if (previous === null || previous === a11yLabel) return;
+    const info = AccessibilityInfo as {
+      announceForAccessibilityWithOptions?: (text: string, options: { queue?: boolean }) => void;
+      announceForAccessibility?: (text: string) => void;
+    };
+    if (info.announceForAccessibilityWithOptions) info.announceForAccessibilityWithOptions(a11yLabel, { queue: true });
+    else info.announceForAccessibility?.(a11yLabel);
+  }, [a11yLabel]);
   const dot = (
     <Animated.View
       testID={`${testID}-dot`}
@@ -110,7 +127,7 @@ export function NativeLiveIndicator({
         testID={`${testID}-label`}
         className={cn("text-xs font-semibold uppercase tracking-wide", isLive ? "text-foreground" : "text-muted-foreground")}
       >
-        {label}
+        {shown}
       </Text>
       {detail ? (
         <Text testID={`${testID}-detail`} className="text-xs text-muted-foreground">
