@@ -20,7 +20,7 @@
   "web/filter-combobox": "The filter picker inside the list screens.",
   "web/form-field": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/gallery-layout": "Pure layout math used by GalleryGrid; shown through the GalleryGrid stories.",
-  "web/gallery-types": "The GalleryItem type and GALLERY_DEFAULTS constants shared by GalleryGrid and Lightbox; no visual of its own.",
+  "web/gallery-types": "Shared GalleryItem type and defaults used by GalleryGrid and Lightbox; shown through their stories.",
   "web/grid": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/guard": "Internal fallbacks for a calendar's layout and anchor, not exported: shown by the EventCalendar stories.",
   "web/input-group": "No story or demo page yet: add a story under apps/sample/stories/.",
