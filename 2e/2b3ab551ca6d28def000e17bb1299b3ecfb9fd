@@ -1,0 +1,107 @@
+packages/ui/figma/DropdownMenu.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-30
+packages/ui/figma/Table.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-26
+packages/ui/figma/Textarea.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-16
+packages/ui/figma/RadioGroup.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-30
+packages/ui/figma/Spinner.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-14
+packages/ui/figma/DashboardPage.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-22
+packages/ui/figma/SettingsSection.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-17
+packages/ui/figma/StatusBadge.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-14
+packages/ui/figma/ConfirmDeleteDialog.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-21
+packages/ui/figma/Card.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-26
+packages/ui/figma/Tooltip.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-18
+packages/ui/figma/Toaster.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-18
+packages/ui/figma/Dialog.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-27
+packages/ui/figma/SettingsPage.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-20
+packages/ui/figma/Separator.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-14
+packages/ui/figma/DetailPanel.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-25
+packages/ui/figma/SettingsRow.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-20
+packages/ui/figma/Badge.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-15
+packages/ui/figma/Checkbox.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-18
+packages/ui/figma/code-connect.json
+  s_109ad08c59054b::t_b22ffae7944972 18-21,23,25-30,32-36,38,40-44,46-59,61-64,122
+packages/ui/figma/Tabs.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-26
+packages/ui/figma/RelationField.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-30
+packages/ui/figma/Chip.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-16
+packages/ui/figma/ResourceSettingsPage.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-12
+packages/ui/figma/FormField.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-23
+packages/ui/figma/Avatar.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-20
+packages/ui/figma/AlertDialog.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-26
+packages/ui/figma/FormPage.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-22
+packages/ui/figma/ToggleGroup.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-21
+packages/ui/figma/Sheet.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-27
+packages/ui/figma/Alert.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-19
+packages/ui/figma/Toggle.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-21
+packages/ui/figma/Popover.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-23
+packages/ui/figma/ToggleRow.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-22
+packages/ui/figma/WizardForm.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-30
+packages/ui/figma/Select.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-23
+packages/ui/figma/ResourceForm.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-27
+packages/ui/figma/Skeleton.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-12
+packages/ui/figma/Button.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-26
+packages/ui/figma/FileUploadField.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-21
+packages/ui/figma/DetailPage.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-22
+packages/ui/figma/Drawer.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-22
+packages/ui/figma/Input.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-18
+packages/ui/figma/Progress.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-14
+packages/ui/figma/Switch.figma.ts
+  s_109ad08c59054b::t_521c3a895e00ba 1-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2e2b3ab551ca6d28def000e17bb1299b3ecfb9fd",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
