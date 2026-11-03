@@ -6,6 +6,11 @@
  * internal notes for observers, voice notes recorded in place, videos from the
  * camera, emoji, and scheduled send (the arrow beside Send). Where you may not
  * post it says why instead; when who you are couldn't load, it offers a retry.
+ *
+ * Moving onto genesis-ui (feature `inbox-thread`): its scrolling, list and composer are the same
+ * behaviour as genesis-ui's `ComposerBar`, which were promoted from here. This screen keeps its data
+ * wiring (the chat client, realtime, read state) and moves its rendering onto `ComposerBar` with chat's
+ * builder; until then fix behaviour in both places.
  */
 import {
   useCallback,

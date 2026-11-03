@@ -299,13 +299,14 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
         testID={row.testID}
         accessibilityRole={row.onPress ? "button" : undefined}
         accessibilityLabel={label}
+        accessibilityState={row.selected ? { selected: true } : undefined}
         accessibilityActions={actions.map((a) => ({ name: a.id, label: a.label }))}
         onAccessibilityAction={(event) => actions.find((a) => a.id === event.nativeEvent.actionName)?.onPress()}
         onPress={row.onPress}
         onLongPress={actions.length ? () => showInboxActions(row.title, actions) : undefined}
         onPressIn={() => setPressed(true)}
         onPressOut={() => setPressed(false)}
-        style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: ROW_PADDING, paddingVertical: 11, minHeight: 60, backgroundColor: pressed && row.onPress ? colors.fill : undefined }}
+        style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: ROW_PADDING, paddingVertical: 11, minHeight: 60, backgroundColor: (pressed && row.onPress) || row.selected ? colors.fill : undefined }}
       >
         <View style={{ width: LEADING_WIDTH, alignItems: "flex-start" }}>
           {row.leading ?? (row.unreadCount && row.unreadCount > 0 ? null : <UnreadDot unread={!!row.unread} testID={`${row.testID}-unread`} color={colors.tint} />)}

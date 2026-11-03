@@ -37,6 +37,7 @@ import {
 } from "@marktiderman/genesis-core/conversation";
 import { MessagesSquare } from "lucide-react";
 import { cn } from "../../../utils";
+import { useHydrated } from "../../../hooks/use-mobile";
 import { Button } from "../../ui/button";
 import { EmptyState } from "../empty-state";
 import { ComposerBar } from "./composer-bar";
@@ -111,6 +112,10 @@ const WEB_THREAD_LABELS: Partial<ThreadLabels> = {
 };
 
 const messageKey = (m: ThreadMessage) => m.id;
+// Someone else's message arriving at the bottom is said politely; yours and events aren't.
+const announceMessage = (m: ThreadMessage) => (m.mine || m.kind === "event" || !m.body ? null : m.authorName ? `${m.authorName}: ${m.body}` : m.body);
+const NO_SLOTS: Slots<ThreadPageSlotMap> = {};
+const NO_SLOT_PROPS: SlotPropsFor<ThreadPageSlotMap> = {};
 
 export function ThreadPage({
   messages,
@@ -135,8 +140,8 @@ export function ThreadPage({
   emptyBody,
   formatTime = formatMessageTime,
   labels: labelOverrides,
-  slots = {},
-  slotProps = {},
+  slots = NO_SLOTS,
+  slotProps = NO_SLOT_PROPS,
   className,
   testID = "thread-page",
 }: ThreadPageProps) {
@@ -144,16 +149,19 @@ export function ThreadPage({
   const [atBottom, setAtBottom] = React.useState(true);
   const [gone, setGone] = React.useState<string | null>(null);
   const receiptFor = readReceiptFor(messages, readAt);
-  const labels: ThreadLabels = { ...DEFAULT_THREAD_LABELS, ...WEB_THREAD_LABELS, ...labelOverrides };
-  // Someone else's message arriving at the bottom is said politely; yours and events aren't.
-  const announce = (m: ThreadMessage) => (m.mine || m.kind === "event" || !m.body ? null : m.authorName ? `${m.authorName}: ${m.body}` : m.body);
+  // Stable across renders (typing in the composer) unless the words change, so rows don't re-render.
+  const labelsKey = labelOverrides ? JSON.stringify(labelOverrides) : "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const labels: ThreadLabels = React.useMemo(() => ({ ...DEFAULT_THREAD_LABELS, ...WEB_THREAD_LABELS, ...labelOverrides }), [labelsKey]);
+  // Times are in the viewer's zone, so they're shown once hydrated: the server's HTML has none.
+  const hydrated = useHydrated();
   const goneTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   React.useEffect(() => () => {
     if (goneTimer.current) clearTimeout(goneTimer.current);
   }, []);
 
-  const renderRow = (message: ThreadMessage, { highlighted }: ThreadRowInfo) => {
-    const timeLabel = formatTime(toDate(message.timestamp));
+  const renderRow = React.useCallback((message: ThreadMessage, { highlighted }: ThreadRowInfo) => {
+    const timeLabel = hydrated ? formatTime(toDate(message.timestamp)) : "";
     const divider =
       message.id === firstUnreadId
         ? renderSlot(DefaultUnreadDivider, slots.unreadDivider, { label: labels.newMessages, testID: `${testID}-unread` }, slotProps.unreadDivider)
@@ -187,7 +195,7 @@ export function ThreadPage({
         {message.id === receiptFor ? renderSlot(DefaultReadReceipt, slots.readReceipt, { label: readLabel, testID: `${testID}-read-receipt` }, slotProps.readReceipt) : null}
       </div>
     );
-  };
+  }, [hydrated, formatTime, firstUnreadId, slots, slotProps, labels, testID, receiptFor, readLabel]);
 
   const footer = composer ? (
     renderSlot(
@@ -229,7 +237,7 @@ export function ThreadPage({
           keyExtractor={messageKey}
           conversationId={conversationId}
           openAt={firstUnreadId}
-          announce={announce}
+          announce={announceMessage}
           renderItem={renderRow}
           loading={loading}
           hasEarlier={hasEarlier}
@@ -260,7 +268,11 @@ export function ThreadPage({
             variant="outline"
             size="sm"
             data-testid={`${testID}-jump-latest`}
-            onClick={() => listRef.current?.scrollToEnd({ animated: true })}
+            onClick={() => {
+              // The pill goes away at the bottom: put focus on the list first, so it isn't lost.
+              listRef.current?.focus();
+              listRef.current?.scrollToEnd({ animated: true });
+            }}
             className="absolute bottom-3 left-1/2 h-11 -translate-x-1/2 rounded-full text-primary shadow-sm"
           >
             {labels.jumpToLatest}
@@ -334,7 +346,7 @@ function stateLabel(message: ThreadPageSlotMap["message"]): string | null {
   }
 }
 
-function DefaultMessage(message: ThreadPageSlotMap["message"]) {
+const DefaultMessage = React.memo(function DefaultMessage(message: ThreadPageSlotMap["message"]) {
   const { labels } = message;
   const broken = message.status === "failed" || message.status === "conflict";
   const waiting = message.status === "sending" || message.status === "pending" || message.status === "paused";
@@ -385,7 +397,7 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
       </div>
     </div>
   );
-}
+});
 
 function DefaultAttachment({ uri, width, height, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
   const ratio = width && height ? width / height : 0.6;
