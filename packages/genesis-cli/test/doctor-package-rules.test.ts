@@ -389,12 +389,14 @@ describe("the real package declarations", () => {
     ]);
   });
 
-  it("ui accepts a KanbanBoard fed by useResourceView or useResourceTable in the same file, and nothing else it would flag", async () => {
+  it("ui accepts a KanbanBoard fed by useBoardColumns, useResourceView or useResourceTable in the same file, and nothing else it would flag", async () => {
     const root = makeApp(null, {
       ...install("ui", "genesis-ui-rules"),
       "src/routes/board.tsx": "export const B = () => { const t = useResourceTable(view); return <KanbanBoard columns={t.rows} />; };\n",
       "src/routes/typed.tsx": "export const T = () => { const v = useResourceView<Task>(tasks); return <KanbanBoard columns={v.rows} />; };\n",
       "src/routes/loose.tsx": "export const L = () => <KanbanBoard columns={[]} />;\n",
+      // Rows that aren't one view's, loaded by the board loader ResourceView's board mode shares.
+      "src/routes/feed.tsx": "export const F = () => { const b = useBoardColumns<Row>({ provider, resource, field, values }); return <KanbanBoard columns={b.columns} />; };\n",
       "src/routes/table.tsx": "export const T = () => { const t = useResourceTable(view); return <DataTable rows={t.rows} />; };\n",
       // A calendar is no exemption: the hook and a calendar beside a raw DataTable is still flagged.
       "src/routes/calendar.tsx": "export const C = () => { const v = useResourceView(events); return <><MiniCalendar /><DataTable rows={raw} /></>; };\n",

@@ -711,7 +711,9 @@ function DockWindow(props: Omit<ItemProps, "inSheet" | "visible" | "toggleRef">)
       onKeyDown={onKeyDown}
       className={cn(
         "pointer-events-auto flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-t-xl border border-b-0 bg-background shadow-xl",
-        item.minimized ? "h-auto" : "h-[32rem] max-h-[calc(100dvh-6rem)]",
+        // An open window is at most 26rem tall, and never more than 60% of the screen's height,
+        // so the page under it stays in view.
+        item.minimized ? "h-auto" : "h-[min(26rem,60dvh)]",
       )}
       data-testid="genesis-chat-dock-window"
       data-minimized={item.minimized || undefined}

@@ -51,6 +51,10 @@ export const uiMessages = {
     countOther: "{count} {nouns}",
     /** When a filter or search is on. `{count}`: rows that match; `{total}`: all rows. */
     countFiltered: "{count} of {total}",
+    /** A card the screen's own guard won't let this viewer move. */
+    notAllowed: "You can't move this card.",
+    /** `{name}`: a card whose last move is still saving. */
+    stillSaving: "{name} is still moving. Try again in a moment.",
     loadMore: "Load more",
     /** `{loaded}`: rows loaded so far. */
     allLoaded: "All {loaded} loaded",
@@ -166,6 +170,19 @@ export const uiMessages = {
     comfortable: "Comfortable",
     spacious: "Spacious",
   },
+  board: {
+    /** The column for rows whose field is empty. */
+    noValue: "No value",
+    /** `{field}`: a filter on the board's own field, which each column replaces with its value. */
+    ownFilterSetAside: "Your filter on {field} is set aside here: each column shows one of its values.",
+    /** A card the screen's own guard won't let this viewer move. */
+    notAllowed: "You can't move this card.",
+    /** `{name}`: a card whose last move is still saving. */
+    stillSaving: "{name} is still moving. Try again in a moment.",
+    loadMore: "Load more",
+    /** `{count}`: cards in the column not loaded yet. */
+    loadMoreLeft: "Load more ({count} left)",
+  },
   kanban: {
     noItems: "No items",
     /** The name used when a card has no label. */
@@ -188,6 +205,10 @@ export const uiMessages = {
     over: "Over {column}, column {n} of {count}.",
     droppedBack: "{name} dropped back in {column}.",
     cancelled: "Move cancelled. {name} stays in {column}.",
+    /** A column's count against its work-in-progress limit, read out. */
+    countOfLimit: "{count} of {limit}",
+    /** A column holding more than its limit. */
+    overLimit: "Over limit of {limit}",
     instructions:
       "Space or Enter picks the card up. Left and right arrows, Home and End choose a column. Space or Enter drops it, Escape puts it back. Alt with an arrow moves it one column.",
   },

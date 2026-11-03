@@ -107,9 +107,11 @@ The templates folder is not shipped: `packages/ui-native/package.json` `files` l
 
 ### The ratchet: `pnpm check:code-connect`
 
-`scripts/check-code-connect.mjs` lists every visual component genesis-ui-native exports (the
-`Native*` components and the page layouts, minus sub-parts, hooks, providers and constants) and
-reads `packages/ui-native/figma/code-connect.json`:
+`scripts/check-code-connect.mjs` covers two packages: genesis-ui-native (the `Native*`
+components and the page layouts) and genesis-ui for the web (its PascalCase exports, minus
+sub-parts, typography, auto-layout primitives and cell formatters). Each package keeps its own
+allowlist beside its templates: `packages/ui-native/figma/code-connect.json` and
+`packages/ui/figma/code-connect.json`. `--list <package>` prints the discovered names.
 
 ```json
 { "required": ["NativeAvatar"], "notYet": ["NativeButton", "NativeCard", "…"] }

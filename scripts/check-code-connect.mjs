@@ -2,12 +2,12 @@
 /**
  * check-code-connect.mjs
  *
- * Every visual component genesis-ui-native exports should have a Figma Code Connect template
- * in packages/ui-native/figma/<Name>.figma.ts, so Figma's Dev Mode shows the Genesis call for
- * the component a designer selected instead of generic React Native. This check lists the
+ * Every visual component genesis-ui-native and genesis-ui (web) export should have a Figma Code Connect template
+ * in packages/<package>/figma/<Name>.figma.ts, so Figma's Dev Mode shows the Genesis call for
+ * the component a designer selected instead of generic markup. This check lists the
  * components, checks each template's shape, and ratchets: a component is either `required`
  * (its template must exist and be well-formed) or `notYet` (reported, not failing) in
- * packages/ui-native/figma/code-connect.json. Promote a component by moving it to `required`
+ * packages/<package>/figma/code-connect.json (one allowlist per package: ui-native and ui). Promote a component by moving it to `required`
  * once its Figma node exists and its template is published (docs/DESIGN-LIBRARY.md).
  *
  * Why: the Genesis Figma library is built component by component, after the code. Without a
@@ -15,7 +15,7 @@
  * every export, the check is red from day one and gets ignored. The allowlist turns the gap
  * into a count that only shrinks.
  *
- * What counts as a visual component (read from the two export indexes):
+ * What counts as a visual component (read from each package's export indexes, see PACKAGES):
  *   - packages/ui-native/src/components/index.ts: value exports whose name starts with
  *     `Native`, minus sub-parts that belong to their parent's template (a name that extends
  *     another export of the same `export { … }` statement with Header, Title, Description,
@@ -25,6 +25,13 @@
  *   - packages/ui-native/src/layouts/index.ts: PascalCase value exports (the page layouts and
  *     screens), minus the same hooks, providers and constants, and minus the parts of a
  *     layout's chrome (NavBar* belongs to ScreenContainer, ForgotPasswordLink to AuthForm).
+ *   - genesis-ui (web): packages/ui/src/index.ts and components/{layout,patterns,data,resource}/
+ *     index.ts together: PascalCase value exports, each name once, minus hooks, providers and
+ *     constants; minus sub-parts (a name that is another export plus a suffix in
+ *     WEB_SUBPART_SUFFIXES, or one in WEB_SUBPARTS: CardHeader belongs to Card); minus the
+ *     typography names, the Stack/Grid/Split/Container auto-layout primitives and the
+ *     cell-formatter factories (WEB_EXCLUDED). The deprecated /data aliases (AppShell,
+ *     PageHeader) are `export const`, not re-exports, so each component is counted once.
  *
  * What a template must have, as its first three lines (Code Connect CLI v2, parserless):
  *   // url=<the Figma node>
@@ -40,7 +47,8 @@
  *   2 — usage error.
  *
  * Usage:
- *   node scripts/check-code-connect.mjs              # repo root
+ *   node scripts/check-code-connect.mjs              # repo root, every package
+ *   node scripts/check-code-connect.mjs --list ui    # print the discovered component names
  *   node scripts/check-code-connect.mjs --root <dir> # another checkout, or a test fixture
  *   pnpm check:code-connect
  *
@@ -56,10 +64,61 @@ export const LAYOUTS_INDEX = "packages/ui-native/src/layouts/index.ts";
 export const FIGMA_DIR = "packages/ui-native/figma";
 export const ALLOWLIST = `${FIGMA_DIR}/code-connect.json`;
 
+/**
+ * The packages the ratchet covers. Each has its own export indexes (read with the named rule),
+ * Figma folder and allowlist (`<figmaDir>/code-connect.json`).
+ */
+export const PACKAGES = [
+  {
+    name: "ui-native",
+    indexes: [
+      { file: COMPONENTS_INDEX, rule: "native" },
+      { file: LAYOUTS_INDEX, rule: "layouts" },
+    ],
+    figmaDir: FIGMA_DIR,
+  },
+  {
+    name: "ui",
+    indexes: [
+      "packages/ui/src/index.ts",
+      "packages/ui/src/components/layout/index.ts",
+      "packages/ui/src/components/patterns/index.ts",
+      "packages/ui/src/components/data/index.ts",
+      "packages/ui/src/components/resource/index.ts",
+    ].map((file) => ({ file, rule: "web" })),
+    figmaDir: "packages/ui/figma",
+  },
+];
+const allowlistOf = (pkg) => `${pkg.figmaDir}/code-connect.json`;
+
 /** A Native* name ending in one of these, after another export of the same statement, is a sub-part. */
 const SUBPART_SUFFIXES = ["Header", "Title", "Description", "Content", "Footer", "Trigger", "Item", "List", "Divider", "ScrollView"];
 /** Layout exports that are parts of a layout's chrome, covered by the parent's template. */
 const LAYOUT_SUBPARTS = new Set(["NavBarSaveButton", "NavBarSearchBar", "NavBarTitle", "ForgotPasswordLink"]);
+
+/** Web: a name ending in one of these, after another export, is a sub-part of that export. */
+const WEB_SUBPART_SUFFIXES = [
+  ...SUBPART_SUFFIXES,
+  "Portal", "Overlay", "Close", "Group", "Value", "ScrollUpButton", "ScrollDownButton", "Label", "Separator",
+  "Shortcut", "Sub", "SubContent", "SubTrigger", "RadioGroup", "CheckboxItem", "RadioItem", "Action", "Cancel",
+  "Link", "Previous", "Next", "Ellipsis", "Page", "Input", "Empty", "Body", "Row", "Head", "Cell", "Caption",
+  "Image", "Fallback", "Menu", "Indicator", "Viewport", "Slot", "Button", "Toggle", "Icon", "Prefix", "Suffix",
+  "ToggleGroup", "ToggleItem",
+];
+/** Web sub-parts no suffix rule covers (their parent is not an export, or the name is irregular). */
+const WEB_SUBPARTS = new Set([
+  "CommandDialog", "CalendarDayButton", "SettingsSection", "CopyField", "FormLabel", "FormError", "FormDescription",
+  "ChartTooltip", "ChartTooltipContent", "ChartLegend", "ChartLegendContent", "ChartStyle",
+  "ResizablePanel", "ResizableHandle", "AppShellSubNavEnd", "AppShellPageHeader", "BandLead",
+]);
+/** Web names that look like parent + suffix but are components in their own right. */
+const WEB_NOT_SUBPARTS = new Set(["ToggleGroup", "ToggleRow", "ButtonGroup", "InputGroup", "ResizablePanelGroup"]);
+/** Web exports that are not Figma components: typography, auto-layout primitives, cell-formatter factories. */
+const WEB_EXCLUDED = new Set([
+  "H1", "H2", "H3", "H4", "P", "Lead", "Large", "Small", "Muted",
+  "Stack", "Grid", "Split", "Container",
+  "DateCell", "NumberCell", "CurrencyCell", "BadgeCell",
+]);
 
 const isPascal = (name) => /^[A-Z][a-z][A-Za-z0-9]*$/.test(name); // excludes ALL_CAPS constants
 const isHookOrProvider = (name) => /^use[A-Z]/.test(name) || /Provider$/.test(name);
@@ -109,13 +168,31 @@ export function layoutsFromIndex(source) {
 }
 
 /**
+ * Visual components of the web package, from all its indexes together: PascalCase value exports,
+ * each once, minus sub-parts, typography, auto-layout primitives and cell formatters.
+ */
+export function webComponentsFromIndexes(sources) {
+  const all = new Set();
+  for (const source of sources) {
+    for (const names of exportStatements(source)) {
+      for (const name of names) if (isPascal(name) && !isHookOrProvider(name)) all.add(name);
+    }
+  }
+  const isSubpart = (name) =>
+    WEB_SUBPARTS.has(name) ||
+    (!WEB_NOT_SUBPARTS.has(name) &&
+      [...all].some((p) => p !== name && name.startsWith(p) && WEB_SUBPART_SUFFIXES.includes(name.slice(p.length))));
+  return [...all].filter((n) => !WEB_EXCLUDED.has(n) && !isSubpart(n));
+}
+
+/**
  * Checks one template's three leading directives. Returns the problems (empty when fine), or
  * `null` when the file does not exist.
  */
-export function templateProblems(root, name) {
-  const file = path.join(root, FIGMA_DIR, `${name}.figma.ts`);
+export function templateProblems(root, name, figmaDir = FIGMA_DIR) {
+  const file = path.join(root, figmaDir, `${name}.figma.ts`);
   if (!fs.existsSync(file)) return null;
-  const rel = `${FIGMA_DIR}/${name}.figma.ts`;
+  const rel = `${figmaDir}/${name}.figma.ts`;
   const lines = fs.readFileSync(file, "utf8").split(/\r?\n/, 3);
   const problems = [];
   const directive = (i, key) => {
@@ -148,52 +225,66 @@ export function templateProblems(root, name) {
   return problems;
 }
 
-export function readAllowlist(root) {
-  const file = path.join(root, ALLOWLIST);
-  if (!fs.existsSync(file)) throw new Error(`${ALLOWLIST} is missing: {"required": [...], "notYet": [...]}`);
+export function readAllowlist(root, pkg = PACKAGES[0]) {
+  const allowlist = allowlistOf(pkg);
+  const file = path.join(root, allowlist);
+  if (!fs.existsSync(file)) throw new Error(`${allowlist} is missing: {"required": [...], "notYet": [...]}`);
   const json = JSON.parse(fs.readFileSync(file, "utf8"));
   for (const key of ["required", "notYet"]) {
     if (!Array.isArray(json[key]) || json[key].some((n) => typeof n !== "string")) {
-      throw new Error(`${ALLOWLIST}: "${key}" must be an array of component names`);
+      throw new Error(`${allowlist}: "${key}" must be an array of component names`);
     }
   }
   return { required: json.required, notYet: json.notYet };
 }
 
-/**
- * Runs the whole check against a checkout. Returns { components, failures, missing, covered }:
- * `failures` are the lines that make the check exit 1; `missing` the notYet components without
- * a template (reported only).
- */
-export function checkCodeConnect(root) {
+/** The visual components one package exports, read from its indexes. */
+export function discoverComponents(root, pkg = PACKAGES[0]) {
   const read = (rel) => {
     const file = path.join(root, rel);
     if (!fs.existsSync(file)) throw new Error(`${rel} is missing`);
     return fs.readFileSync(file, "utf8");
   };
-  const components = [...componentsFromIndex(read(COMPONENTS_INDEX)), ...layoutsFromIndex(read(LAYOUTS_INDEX))];
-  const { required, notYet } = readAllowlist(root);
+  const web = pkg.indexes.filter((i) => i.rule === "web");
+  const out = [];
+  for (const { file, rule } of pkg.indexes) {
+    if (rule === "native") out.push(...componentsFromIndex(read(file)));
+    else if (rule === "layouts") out.push(...layoutsFromIndex(read(file)));
+  }
+  if (web.length) out.push(...webComponentsFromIndexes(web.map((i) => read(i.file))));
+  return out;
+}
+
+/**
+ * Runs the whole check for one package of a checkout (ui-native by default). Returns
+ * { components, failures, missing, covered }: `failures` are the lines that make the check
+ * exit 1; `missing` the notYet components without a template (reported only).
+ */
+export function checkCodeConnect(root, pkg = PACKAGES[0]) {
+  const components = discoverComponents(root, pkg);
+  const allowlist = allowlistOf(pkg);
+  const { required, notYet } = readAllowlist(root, pkg);
   const failures = [];
   const missing = [];
   const covered = [];
 
   const known = new Set(components);
   for (const name of [...required, ...notYet]) {
-    if (!known.has(name)) failures.push(`${ALLOWLIST}: ${name} is not a visual component exported from ui-native; remove it`);
+    if (!known.has(name)) failures.push(`${allowlist}: ${name} is not a visual component exported from ${pkg.name}; remove it`);
   }
   for (const name of required) {
-    if (notYet.includes(name)) failures.push(`${ALLOWLIST}: ${name} is in both "required" and "notYet"`);
+    if (notYet.includes(name)) failures.push(`${allowlist}: ${name} is in both "required" and "notYet"`);
   }
   for (const name of components) {
     const isRequired = required.includes(name);
     const isNotYet = notYet.includes(name);
     if (!isRequired && !isNotYet) {
-      failures.push(`${name}: exported from ui-native but in neither list of ${ALLOWLIST}; add it to "notYet" (or "required" with its template)`);
+      failures.push(`${name}: exported from ${pkg.name} but in neither list of ${allowlist}; add it to "notYet" (or "required" with its template)`);
       continue;
     }
-    const problems = templateProblems(root, name);
+    const problems = templateProblems(root, name, pkg.figmaDir);
     if (isRequired) {
-      if (problems === null) failures.push(`${name}: required, but ${FIGMA_DIR}/${name}.figma.ts is missing`);
+      if (problems === null) failures.push(`${name}: required, but ${pkg.figmaDir}/${name}.figma.ts is missing`);
       else if (problems.length) failures.push(...problems);
       else covered.push(name);
     } else if (problems === null) {
@@ -201,7 +292,7 @@ export function checkCodeConnect(root) {
     } else if (problems.length) {
       failures.push(...problems);
     } else {
-      failures.push(`${name}: has a template but is still "notYet" in ${ALLOWLIST}; move it to "required"`);
+      failures.push(`${name}: has a template but is still "notYet" in ${allowlist}; move it to "required"`);
     }
   }
   return { components, failures, missing, covered };
@@ -218,22 +309,43 @@ function main(argv) {
     }
     root = path.resolve(root);
   }
-  let result;
-  try {
-    result = checkCodeConnect(root);
-  } catch (err) {
-    console.error(`check-code-connect: ${err.message}`);
-    return 2;
+  const listAt = argv.indexOf("--list");
+  if (listAt !== -1) {
+    const pkg = PACKAGES.find((p) => p.name === argv[listAt + 1]);
+    if (!pkg) {
+      console.error(`--list needs a package: ${PACKAGES.map((p) => p.name).join(", ")}`);
+      return 2;
+    }
+    try {
+      for (const name of discoverComponents(root, pkg)) console.log(name);
+    } catch (err) {
+      console.error(`check-code-connect: ${err.message}`);
+      return 2;
+    }
+    return 0;
   }
-  const { components, failures, missing, covered } = result;
-  console.log(`check-code-connect: ${components.length} visual components, ${covered.length} with a published template, ${missing.length} not yet.`);
-  if (missing.length) {
-    console.log(`\nNo Code Connect template yet (${ALLOWLIST} "notYet"):`);
-    for (const name of missing) console.log(`  - ${name}  →  ${FIGMA_DIR}/${name}.figma.ts`);
+  let failed = 0;
+  for (const pkg of PACKAGES) {
+    let result;
+    try {
+      result = checkCodeConnect(root, pkg);
+    } catch (err) {
+      console.error(`check-code-connect [${pkg.name}]: ${err.message}`);
+      return 2;
+    }
+    const { components, failures, missing, covered } = result;
+    console.log(`check-code-connect [${pkg.name}]: ${components.length} visual components, ${covered.length} with a published template, ${missing.length} not yet.`);
+    if (missing.length) {
+      console.log(`\nNo Code Connect template yet (${allowlistOf(pkg)} "notYet"):`);
+      for (const name of missing) console.log(`  - ${name}  →  ${pkg.figmaDir}/${name}.figma.ts`);
+    }
+    if (failures.length) {
+      failed += failures.length;
+      console.error(`\n[${pkg.name}] ${failures.length} problem(s):`);
+      for (const line of failures) console.error(`  ${line}`);
+    }
   }
-  if (failures.length) {
-    console.error(`\n${failures.length} problem(s):`);
-    for (const line of failures) console.error(`  ${line}`);
+  if (failed) {
     console.error(`\ncheck-code-connect: failed. See the header of scripts/check-code-connect.mjs and docs/DESIGN-LIBRARY.md.`);
     return 1;
   }
