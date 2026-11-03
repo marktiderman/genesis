@@ -95,7 +95,8 @@ export type GenesisProviderProps =
        * changes, as a sign-out already does; a `ViewerScope` inside keeps the restored reads for
        * this person. Restoring is client-only: in a server-rendered app, give it after hydration
        * (undefined on the server and the first client render), and the screens restore in the
-       * background.
+       * background. Change it only once the provider's session has: a scope must never name a
+       * person before the data provider's requests are made as them.
        */
       persistScope?: string | null;
       /**

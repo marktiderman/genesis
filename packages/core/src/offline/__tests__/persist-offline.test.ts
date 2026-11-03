@@ -489,4 +489,30 @@ describe("persistOffline, refresh: nothing read before the scope is trusted", ()
     stop();
     expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "Read as Ana" });
   });
+
+  it("never saves a next page fetched onto an infinite list read before the scope", async () => {
+    const { client, persistence, cache } = setup();
+    const key = resourceKeys("tasks").infinite({});
+    const options = {
+      queryKey: key,
+      initialPageParam: 0,
+      getNextPageParam: (_last: unknown, pages: unknown[]) => pages.length,
+    };
+    // Ana's first page, still in the client when Ben's scope arrives.
+    await client.fetchInfiniteQuery({ ...options, queryFn: async () => ({ data: [{ id: 1, title: "Ana's" }], total: 2 }) });
+    const ben = cacheScope("ben");
+    const stop = persistence.subscribe(ben, { refresh: true });
+    // Ben scrolls: the next page is fetched before (or instead of) the refetch.
+    const { InfiniteQueryObserver } = await import("@tanstack/react-query");
+    const observer = new InfiniteQueryObserver(client, { ...options, queryFn: async ({ pageParam }: { pageParam: unknown }) => ({ data: [{ id: (pageParam as number) + 1, title: "Ben's" }], total: 2 }) });
+    const unsubscribe = observer.subscribe(() => {});
+    await observer.fetchNextPage();
+    await settle();
+    unsubscribe();
+    stop();
+    const saved = (await cache.readQueries(ben)).find((q) => q.key !== "__genesis_offline_meta__");
+    const titles = JSON.stringify(saved ?? {});
+    expect(titles).not.toContain("Ana's");
+    expect(await cache.readRows(ben, "tasks", ["1"]).then((rows) => rows.map((r) => r.row.title))).not.toContain("Ana's");
+  });
 });

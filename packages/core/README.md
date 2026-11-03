@@ -486,7 +486,9 @@ export function Root({ provider, userId }: { provider: DataProvider; userId: str
   person. While the session is still loading, pass `undefined`: nothing is restored, saved or
   deleted. When the scope arrives, the lists on screen are read again, and only reads made once
   it's known are saved: nothing the client held or was reading before is trusted to be this
-  person's, so no change of person, workspace or provider mount carries reads over. A sign-out
+  person's, so no change of person, workspace or provider mount carries reads over. Infinite
+  lists start again from their first page. Change `persistScope` only once the data provider's
+  session has: a scope must never name a person before requests are made as them. A sign-out
   also calls off a restore still reading.
 - **`ViewerScope` keeps them.** Inside this provider, a `ViewerScope` whose first viewer is
   `persistScope`'s user keeps the restored reads instead of emptying the cache.

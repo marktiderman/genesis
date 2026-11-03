@@ -108,6 +108,9 @@ export interface SubscribeOptions {
    * value the client set since), and the reads still on their way. Only where the client can
    * hold nothing of anyone else's: `GenesisNativeApp`, which empties it whenever the person
    * changes and starts saving only once the session is known.
+   *
+   * @internal For `GenesisNativeApp`. Elsewhere, use `refresh`: a client that outlived another
+   * person's session would have their reads adopted.
    */
   adopt?: boolean;
   /**

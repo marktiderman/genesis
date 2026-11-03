@@ -291,7 +291,12 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
       });
       if (options.refresh) {
         // Fetched again under this scope: the screens on show read now, the rest when they show.
-        void queryClient.invalidateQueries({ predicate: keptQuery }).catch(() => undefined);
+        // An infinite list is reset (its pages dropped) rather than refetched: a next page fetched
+        // onto pages read before the scope (a fetchNextPage that cancels or outlives the refetch)
+        // would be saved as this scope's, with the earlier session's pages in it.
+        const infinite = (query: Query) => keptQuery(query) && (query.queryKey as readonly unknown[])[1] === "infinite";
+        void queryClient.resetQueries({ predicate: infinite }).catch(() => undefined);
+        void queryClient.invalidateQueries({ predicate: (query) => keptQuery(query) && !infinite(query) }).catch(() => undefined);
       }
       if (options.adopt) {
         // The reads this scope made before saving started: each query's last fetched result, as it
