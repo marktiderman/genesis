@@ -298,3 +298,18 @@ begin
   end if;
 end;
 $$;
+
+-- The tenant of a ticket conversation's subject, for genesis-chat (its tenant backfill and subject
+-- resolver look for private.genesis_chat_resolve_<subject_type>). Null when there is no such ticket.
+create or replace function private.genesis_chat_resolve_support_report(subject_id text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select t.tenant_id from public.tickets t
+   where subject_id ~ '^[0-9a-fA-F-]{36}$' and t.id = subject_id::uuid
+$$;
+
+revoke execute on function private.genesis_chat_resolve_support_report(text) from public, anon, authenticated;

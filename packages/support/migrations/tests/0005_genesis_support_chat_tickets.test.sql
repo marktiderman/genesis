@@ -6,7 +6,7 @@
 -- Tenants and people as in 0004's test: c3 an agent of ta, e5 an agent of tb, f6 the app's staff.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(7);
+select plan(9);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -88,6 +88,10 @@ select throws_ok($$ update genesis_chat.conversations set assignee_id = pg_temp.
                  '42501', null, 'a ticket is assigned only to an agent of its business');
 select lives_ok($$ update genesis_chat.conversations set assignee_id = pg_temp.person('c3') where id = pg_temp.conv('ta1') $$,
                 'an agent of its business may have it');
+
+select is(private.genesis_chat_resolve_support_report(pg_temp.id('ta1')::text), pg_temp.tenant('ta'),
+          'chat can resolve a ticket conversation''s tenant');
+select is(private.genesis_chat_resolve_support_report('not-a-ticket'), null, '... and nothing for anything else');
 
 select * from finish();
 rollback;
