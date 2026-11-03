@@ -30,6 +30,10 @@ These are notes, not steps. Try things, and add what you learn here.
 - **Pick the form that fits.** A clickable demo, a before and after, an explainer for back-end work
   that has nothing to click (don't fake a screen), or a short recording from a simulator for
   native motion. Something new is welcome: say what you tried and whether it helped.
+- **Bring the app's base layer.** Without `@layer base { * { @apply border-border; } }` (the
+  starter has it, from `apps/sample/app/app.css`), Tailwind 4 draws every border black.
+- **Show the change.** A Before/After switch on the page (the chat dock's height fix had one)
+  makes a fix obvious at a glance.
 - **Keep it out of the repo.** Build from a scratch folder and move it out when you've published.
   Only this skill is committed.
 
