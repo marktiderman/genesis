@@ -21,17 +21,17 @@ export interface UseThreadJumpOptions {
   /** Whether the row is held now. */
   has: (id: string) => boolean;
   /** The first page is still loading: don't start until it's in. */
-  loading?: boolean;
+  loading?: boolean | undefined;
   /** Load earlier pages until the row is held; resolve false when it can't be. Without it, a row not held is gone. */
-  loadUntil?: (id: string) => Promise<boolean>;
+  loadUntil?: ((id: string) => Promise<boolean>) | undefined;
   /** Scroll to the row. */
   scrollTo: (id: string) => void;
   /** Before loading or scrolling (stop following the bottom). */
-  onStart?: () => void;
+  onStart?: (() => void) | undefined;
   /** Scrolled to it (say so to VoiceOver). */
-  onLanded?: (id: string) => void;
+  onLanded?: ((id: string) => void) | undefined;
   /** It isn't there (go back to where the thread was). */
-  onGone?: (id: string) => void;
+  onGone?: ((id: string) => void) | undefined;
 }
 
 type Pending = { id: string; phase: "new" | "loading" | "loaded" };

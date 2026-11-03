@@ -51,7 +51,7 @@ export type InboxPageSlotMap = {
   };
   header: { testID: string };
   footer: { loadingMore: boolean; label: string; testID: string };
-  empty: { title: string; body: string; actionLabel?: string; onAction?: () => void; testID: string };
+  empty: { title: string; body: string; actionLabel?: string | undefined; onAction?: (() => void) | undefined; testID: string };
 };
 
 export interface InboxPageProps {
@@ -162,7 +162,7 @@ export function InboxPage({
     if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
     const target = e.target as HTMLElement;
     const rows = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-inbox-row]") ?? [])];
-    if (e.key === "ArrowLeft" && target.dataset.inboxMore !== undefined) {
+    if (e.key === "ArrowLeft" && target.dataset["inboxMore"] !== undefined) {
       e.preventDefault();
       target.closest("li")?.querySelector<HTMLElement>("[data-inbox-row]")?.focus();
       return;
@@ -236,7 +236,7 @@ export function InboxPage({
                   {
                     ...item,
                     selected,
-                    onPress: item.onPress ?? (onSelect ? () => onSelect(item.id) : undefined),
+                    ...((item.onPress ?? onSelect) ? { onPress: item.onPress ?? (() => onSelect?.(item.id)) } : {}),
                     testID: item.testID ?? `${testID}-row-${item.id}`,
                     isFirst: index === 0,
                     isLast: index === items.length - 1,

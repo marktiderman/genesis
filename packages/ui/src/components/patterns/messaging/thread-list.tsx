@@ -55,39 +55,39 @@ export interface ThreadListProps<T> {
   keyExtractor: (row: T) => string;
   renderItem: (row: T, info: ThreadRowInfo) => React.ReactNode;
   /** The first page is loading: shows `loadingView` (a skeleton by default), and a jump waits. */
-  loading?: boolean;
-  loadingView?: React.ReactNode;
+  loading?: boolean | undefined;
+  loadingView?: React.ReactNode | undefined;
   /** There are earlier rows: loads them near the top, and shows the "Load earlier" button. */
-  hasEarlier?: boolean;
-  onLoadEarlier?: () => void;
-  loadingEarlier?: boolean;
-  earlierLabel?: string;
+  hasEarlier?: boolean | undefined;
+  onLoadEarlier?: (() => void) | undefined;
+  loadingEarlier?: boolean | undefined;
+  earlierLabel?: string | undefined;
   /** Replaces the default "Load earlier" button. */
-  renderEarlier?: (props: { loading: boolean; onPress: () => void; label: string; testID: string }) => React.ReactNode;
+  renderEarlier?: ((props: { loading: boolean; onPress: () => void; label: string; testID: string }) => React.ReactNode) | undefined;
   /** Go to this row, loading earlier pages with `onLoadUntil` until it's here. A new id, or the same one after `null`, goes again. */
-  jumpTo?: string | null;
+  jumpTo?: string | null | undefined;
   /** Load earlier pages until the row is held; resolve false when it can't be found. */
-  onLoadUntil?: (id: string) => Promise<boolean>;
+  onLoadUntil?: ((id: string) => Promise<boolean>) | undefined;
   /** The row couldn't be found. The list goes back to the newest row first. */
-  onJumpFailed?: (id: string) => void;
+  onJumpFailed?: ((id: string) => void) | undefined;
   /** Whether the reader is at the bottom, as it changes (to show a "new messages" pill, say). */
-  onAtBottomChange?: (atBottom: boolean) => void;
+  onAtBottomChange?: ((atBottom: boolean) => void) | undefined;
   /** Above the first row, before the "Load earlier" button: what the thread is about. */
-  header?: React.ReactNode;
+  header?: React.ReactNode | undefined;
   /** Under the last row: who is typing. */
-  footer?: React.ReactNode;
+  footer?: React.ReactNode | undefined;
   /** Shown instead of the rows when there are none. */
-  empty?: React.ReactNode;
+  empty?: React.ReactNode | undefined;
   /** Which conversation this is. A new one opens at its newest row (or `openAt`), and the held place is forgotten. */
-  conversationId?: string | null;
+  conversationId?: string | null | undefined;
   /** Open here instead of the newest row (the first unread), on first render and for each new `conversationId`. */
-  openAt?: string | null;
+  openAt?: string | null | undefined;
   /** What a screen reader says when this row arrives at the bottom; null says nothing (your own message). */
-  announce?: (row: T) => string | null;
+  announce?: ((row: T) => string | null) | undefined;
   /** The log region's name, for a screen reader. Default "Messages". */
-  label?: string;
-  className?: string;
-  testID?: string;
+  label?: string | undefined;
+  className?: string | undefined;
+  testID?: string | undefined;
 }
 
 function prefersReducedMotion(): boolean {
@@ -210,7 +210,7 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
         else lo = mid + 1;
       }
       const row = rows[lo] as HTMLElement;
-      anchorId = row.dataset.rowId ?? null;
+      anchorId = row.dataset["rowId"] ?? null;
       anchorOffset = row.getBoundingClientRect().top - top;
     }
     before.current = { ...before.current, height: el.scrollHeight, top: el.scrollTop, anchorId, anchorOffset };
