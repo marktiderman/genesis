@@ -1,0 +1,72 @@
+packages/ui-native/src/components/gallery-layout.ts
+  s_109ad08c59054b::t_e0ad7d989f6df5 5-9
+packages/ui-native/figma/NativeGalleryCard.figma.ts
+  s_109ad08c59054b::t_686f9c691bae51 23-25
+packages/ui/src/components/patterns/gallery-grid.tsx
+  s_109ad08c59054b::t_5efa0b6d83ad97 89-92,97,107
+packages/ui-native/src/components/lightbox.tsx
+  s_109ad08c59054b::t_04a227e0bb8ef2 73-74,77-80
+packages/ui-native/src/native-modules.tsx
+  s_109ad08c59054b::t_04a227e0bb8ef2 133
+packages/ui-native/src/components/live-indicator.tsx
+  s_109ad08c59054b::t_04a227e0bb8ef2 7-9,14,26,36-37,47,73-74,76-88,130
+packages/ui-native/src/components/__tests__/gallery-layout-parity.test.ts
+  s_109ad08c59054b::t_5f1f1256487302 6-11
+  s_109ad08c59054b::t_bec71c2b398771 1-4,12-37
+  s_109ad08c59054b::t_2c413758c7d91a 5
+packages/ui-native/src/components/__tests__/gallery-grid.test.tsx
+  s_109ad08c59054b::t_bec71c2b398771 67-76
+packages/ui/src/components/patterns/lightbox.tsx
+  s_109ad08c59054b::t_5efa0b6d83ad97 9,91-92,99,106
+packages/ui-native/src/components/__tests__/live-indicator.test.tsx
+  s_109ad08c59054b::t_5f5b320af83dbe 36,43,65
+  s_109ad08c59054b::t_bec71c2b398771 3-4,53-64,66-71
+  s_109ad08c59054b::t_f0848b93f4e720 72
+packages/ui-native/src/components/__tests__/rating.test.tsx
+  s_109ad08c59054b::t_bec71c2b398771 3-4,20,60-81
+  s_109ad08c59054b::t_a9bcf2b59756e1 82
+packages/ui-native/test-utils/rn-mock.tsx
+  s_109ad08c59054b::t_bec71c2b398771 475-476
+packages/ui-native/src/components/__tests__/lightbox-resnap.test.tsx
+  s_109ad08c59054b::t_ef71f2b1d5a85e 1-34
+packages/ui-native/figma/NativeLiveIndicator.figma.ts
+  s_109ad08c59054b::t_e2faca86e8788f 12
+packages/ui/src/components/patterns/live-indicator.tsx
+  s_109ad08c59054b::t_5efa0b6d83ad97 15,30-35,50,57
+packages/ui/src/components/patterns/gallery-card.tsx
+  s_109ad08c59054b::t_5efa0b6d83ad97 33-37,58-66,87,113-129
+packages/ui/src/components/patterns/keyboard.ts
+  s_109ad08c59054b::t_5efa0b6d83ad97 39-40,42-47
+packages/ui-native/src/components/rating.tsx
+  s_109ad08c59054b::t_e0ad7d989f6df5 14,17,33,35,48-65,80-81,95,116,122
+packages/ui/src/components/patterns/rating.tsx
+  s_109ad08c59054b::t_5efa0b6d83ad97 56-58,115-119,121-127,129,134,137-138
+packages/ui-native/src/components/gallery-grid.tsx
+  s_109ad08c59054b::t_04a227e0bb8ef2 9,12-13,37,116
+packages/ui/src/components/patterns/__tests__/gallery-card.test.tsx
+  s_109ad08c59054b::t_53fbe6cfae09f8 63-80
+packages/ui/src/components/patterns/__tests__/gallery-grid.test.tsx
+  s_109ad08c59054b::t_bb1f626b5735bb 286-296
+packages/ui/src/components/patterns/__tests__/lightbox.test.tsx
+  s_109ad08c59054b::t_dc7954c8ffec4b 24-45
+packages/ui/src/components/patterns/__tests__/live-indicator.test.tsx
+  s_109ad08c59054b::t_d02d6b5b7a4a7c 39-49
+packages/ui/src/components/patterns/__tests__/rating.test.tsx
+  s_109ad08c59054b::t_25702ad16b7df9 78-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a22e2292a0a07f9e9b8d1c1c3fd93ac496c81b9b",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
