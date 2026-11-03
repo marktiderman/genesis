@@ -5,6 +5,16 @@
 -- already has the staff hook, it is dropped and replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
+-- Since support 0004 every ticket has a tenant: an app without the default-tenant hook gets one
+-- here, inside this transaction only.
+do $hook$ begin
+  if to_regprocedure('private.genesis_support_default_tenant()') is null
+     and to_regclass('public.ticket_agents') is not null then
+    execute $f$create function private.genesis_support_default_tenant() returns uuid language sql stable
+      set search_path = '' as 'select ''00000000-0000-4000-8000-00000000000f''::uuid'$f$;
+    revoke execute on function private.genesis_support_default_tenant() from public, anon, authenticated;
+  end if;
+end $hook$;
 select plan(34);
 
 insert into auth.users (id, aud, role, email, instance_id)
