@@ -397,7 +397,7 @@ brand, defined in code with `defineDesignSystem` and versioned (`crisp@1`):
 | `shape` | Corners (square, crisp, soft, round, friendly), border width, shadows (flat, soft, lifted; tinted with ink; none on a dark ground) | `--ds-radius-*`, `--radius`, `--ds-border-width`, `--ds-shadow-1…3` |
 | `surfaces` | The colour engine's ground: `paper` (warm), `chalk` (cool), `pure`, `night` | `--ds-ground*`, `--ds-ink*`, `--ds-accent-*`, `--ds-on-*`, `--ds-focus`, `--ds-scrim-full`, and genesis-ui's `--background`, `--primary`, … |
 | `image` | One filter for every photo (none, warm, crisp, mono), grain, where a scrim sits | `--ds-image-filter`, `--ds-image-grain` |
-| `motion` | none, calm, lively or bold; CSS only | `--ds-ease-*`, `--ds-dur-*`, `--ds-reveal*`, `--ds-hover-lift` |
+| `motion` | none, calm, lively or bold; the shared motion tokens (`resolveMotion`), which native reads too | `--ds-ease-*`, `--ds-dur-*`, `--ds-reveal*`, `--ds-hover-lift` |
 
 - **The brand chooses** one design system plus up to three settings from fixed
   lists: `density`, `corners` and `motion` (`brand.designSystem`, on

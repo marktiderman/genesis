@@ -94,3 +94,6 @@ export {
   GENESIS_THEME_V2,
   readGenesisThemeV2Flag,
 } from "./theme";
+
+// Motion: durations, easings and springs, for web CSS and native (Reanimated) alike.
+export * from "./tokens/motion";

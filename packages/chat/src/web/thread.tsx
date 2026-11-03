@@ -152,6 +152,15 @@ export interface ChatThreadProps {
   /** Your image proxy for `linkPreviewImages: "proxy"`: the URL to load for an og:image. */
   linkPreviewProxyUrl?: (url: string) => string | null | undefined;
   slots?: ChatThreadSlots;
+  /**
+   * Mark messages read as they arrive. Default true; false while the thread is mounted but out of
+   * sight (a minimized dock window), so it keeps its draft without reading behind anyone's back.
+   */
+  markRead?: boolean;
+  /**
+   * Focus the composer whenever this turns true (a dock window opened or restored). Default false.
+   */
+  autoFocus?: boolean;
   className?: string;
 }
 
@@ -222,13 +231,15 @@ export function ChatThread({
   linkPreviewImages = "off",
   linkPreviewProxyUrl,
   slots,
+  markRead = true,
+  autoFocus = false,
   className,
 }: ChatThreadProps) {
   const { userId: me, attachmentKinds, client: chatClient } = useChat();
   const topicsState = useTopics(threadRootId ? null : conversationId);
   const [chosenTopic, setChosenTopic] = useState<string | null>(null);
   const topic = topicProp ?? chosenTopic ?? undefined;
-  const state = useConversation(conversationId, { threadRootId, topic });
+  const state = useConversation(conversationId, { threadRootId, topic, markRead });
   const actions = useMessageActions();
   const pinIds = usePins(conversationId);
   const { items, messages, members, role, canPost, conversation, activity } = state;
@@ -250,6 +261,12 @@ export function ChatThread({
   const [newCount, setNewCount] = useState(0);
   const [announcement, setAnnouncement] = useState("");
   const composer = useRef<ChatComposerHandle | null>(null);
+  useEffect(() => {
+    if (!autoFocus) return;
+    // After the frame that shows it: a window just restored from `hidden` can't take focus before.
+    const id = requestAnimationFrame(() => composer.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [autoFocus]);
 
   // A different conversation starts clean.
   useEffect(() => {
