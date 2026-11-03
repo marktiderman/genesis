@@ -333,7 +333,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
         return null;
       }
     },
-    async startConversation(kind: string, memberIds: string[], opts: { title?: string } = {}) {
+    async startConversation(kind: string, memberIds: string[], opts: { title?: string; tenantId?: string } = {}) {
       const id = uuid();
       convs.set(id, {
         conversation: {

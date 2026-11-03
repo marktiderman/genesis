@@ -1828,6 +1828,7 @@ export const features = defineFeatures({
       "Sending the same client id twice posts one message; messages are numbered per conversation by the server; read state only moves forward.",
       "Files live in the private genesis-chat bucket under <conversation>/<uploader>/, uploaded only by someone who may post there and read only by readers of the message that carries them.",
       "Push, transcripts and storage removal are effects in an outbox, done once by key, never from a trigger.",
+      "Every conversation belongs to a tenant all its people share (the subject's, through its registered resolver, when it has one); people with no tenant in common can't start one, and a kind's observers are only people of that tenant who aren't, and never were, its members.",
     ],
     links: { code: ["packages/chat"], docs: ["packages/chat/README.md"] },
     owner: "mark",

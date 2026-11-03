@@ -34,6 +34,9 @@ describe("block manifests", () => {
     expect(bad({ skills: ["skills/x/README.md"] }).join()).toMatch(/SKILL\.md/);
     expect(bad({ requires: ["fixture-notes"] }).join()).toMatch(/can't require itself/);
     expect(bad({ install: ["--registry=evil"] }).join()).toMatch(/package name/);
+    expect(bad({ migrations: [{ file: "migrations/0001_x.sql", needs: [{ function: "genesis_viewer_people", how: "add it" }] }] }).join()).toMatch(/schema-qualified/);
+    expect(bad({ migrations: [{ file: "migrations/0001_x.sql", needs: [{ function: "private.genesis_viewer_people" }] }] }).join()).toMatch(/\{ function: "schema\.name", how/);
+    expect(bad({ migrations: [{ file: "migrations/0001_x.sql", needs: [{ function: "private.genesis_viewer_people", how: "Add the tenancy hook." }] }] })).toEqual([]);
     expect(() => parseManifest("left-pad", "x", {})).toThrow(/only Genesis packages/);
   });
 
