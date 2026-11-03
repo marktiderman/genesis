@@ -63,7 +63,6 @@ export {
   type JustifiedRow,
   type JustifiedTile,
 } from "./gallery-layout";
-export { Lightbox, LIGHTBOX_SWIPE_THRESHOLD, type LightboxProps } from "./lightbox";
-export { isAppShortcutTarget } from "./keyboard";
+export { Lightbox, defaultLightboxLabels, type LightboxProps, type LightboxLabels } from "./lightbox";
 export { GalleryCard, type GalleryCardProps } from "./gallery-card";
 export { LiveIndicator, type LiveIndicatorProps, type LiveIndicatorState } from "./live-indicator";

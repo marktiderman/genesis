@@ -86,8 +86,7 @@ export { GALLERY_DEFAULTS, type GalleryItem, type GalleryTileAspect } from "./co
 export { Rating, nextRating, type RatingProps } from "./components/patterns/rating";
 export { GalleryGrid, type GalleryGridProps, type GallerySelectionDetail } from "./components/patterns/gallery-grid";
 export { justifyRows, galleryItemRatio, DEFAULT_GALLERY_RATIO, type JustifiedRow, type JustifiedTile } from "./components/patterns/gallery-layout";
-export { Lightbox, LIGHTBOX_SWIPE_THRESHOLD, type LightboxProps } from "./components/patterns/lightbox";
-export { isAppShortcutTarget } from "./components/patterns/keyboard";
+export { Lightbox, defaultLightboxLabels, type LightboxProps, type LightboxLabels } from "./components/patterns/lightbox";
 export { GalleryCard, type GalleryCardProps } from "./components/patterns/gallery-card";
 export { LiveIndicator, type LiveIndicatorProps, type LiveIndicatorState } from "./components/patterns/live-indicator";
 export { Toolbar, ToolbarButton, ToolbarLink, ToolbarSeparator, ToolbarToggleGroup, ToolbarToggleItem, toolbarVariants, type ToolbarProps, type ToolbarButtonProps, type ToolbarLinkProps, type ToolbarSeparatorProps, type ToolbarToggleItemProps } from "./components/ui/toolbar";

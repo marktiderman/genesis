@@ -19,7 +19,9 @@ describe("NativeLightbox", () => {
   it("shows every page, the counter and the current caption on a dark full-screen modal", () => {
     render(<NativeLightbox open onOpenChange={() => undefined} items={items} index={1} onIndexChange={() => undefined} testID="lb" />);
     expect(screen.getByTestId("lb").getAttribute("data-presentation-style")).toBe("overFullScreen");
-    expect(JSON.parse((screen.getByTestId("lb-body") as HTMLElement).dataset.style!).backgroundColor).toBe("#000000");
+    // The backdrop is its own layer, so a pull down can fade it.
+    const backdrop = screen.getByTestId("lb-content").firstElementChild as HTMLElement;
+    expect(JSON.parse(backdrop.dataset.style!).backgroundColor).toBe("#000000");
     expect(screen.getByTestId("lb-counter").textContent).toBe("2 / 3");
     expect(screen.getByTestId("lb-caption").textContent).toBe("Lift");
     expect(screen.getByTestId("lb-page-a")).toBeTruthy();
@@ -78,5 +80,33 @@ describe("NativeLightbox additions", () => {
     expect(screen.getByTestId("lb-description").textContent).toBe("3 March");
     expect(screen.getByTestId("lb-content").getAttribute("aria-label")).toBe("Session photos");
     expect(screen.getByTestId("lb-counter").textContent).toBe("1 / 3");
+  });
+
+  it("gives screen readers an adjustable pager that reads the position and steps through the items", () => {
+    const onIndexChange = vi.fn();
+    render(<NativeLightbox open onOpenChange={() => undefined} items={items} index={1} onIndexChange={onIndexChange} testID="lb" />);
+    const pager = screen.getByTestId("lb-pager-a11y");
+    expect(pager.getAttribute("role")).toBe("adjustable");
+    expect(pager.getAttribute("aria-label")).toBe("Second");
+    expect(pager.getAttribute("aria-valuetext")).toBe("2 of 3");
+    fireEvent(pager, new CustomEvent("accessibilityaction", { detail: "increment" }));
+    expect(onIndexChange).toHaveBeenLastCalledWith(2);
+    fireEvent(pager, new CustomEvent("accessibilityaction", { detail: "decrement" }));
+    expect(onIndexChange).toHaveBeenLastCalledWith(0);
+  });
+
+  it("names a picture with no alt by its position, and leaves renderMedia pages to themselves", () => {
+    render(
+      <NativeLightbox open onOpenChange={() => undefined} items={items} index={2} onIndexChange={() => undefined} renderMedia={(it) => <span>video {it.id}</span>} testID="lb" />,
+    );
+    expect(screen.getByTestId("lb-pager-a11y").getAttribute("aria-label")).toBe("Photo 3 of 3");
+    expect(screen.getByTestId("lb-page-c").textContent).toBe("video c");
+    expect(screen.queryByTestId("lb-photo-c")).toBeNull();
+  });
+
+  it("zooms the built-in photo pages, and lets the words change", () => {
+    render(<NativeLightbox open onOpenChange={() => undefined} items={items} index={0} onIndexChange={() => undefined} labels={{ close: "Fermer" }} testID="lb" />);
+    expect(screen.getByTestId("lb-photo-a")).toBeTruthy();
+    expect(screen.getByTestId("lb-close").getAttribute("aria-label")).toBe("Fermer");
   });
 });

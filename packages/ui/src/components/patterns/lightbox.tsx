@@ -9,7 +9,21 @@ import type { GalleryItem } from "./gallery-types";
 import { isAppShortcutTarget, isAppShortcutTargetElement } from "./keyboard";
 
 /** Minimum horizontal travel, in px, for a touch to count as a swipe. */
-export const LIGHTBOX_SWIPE_THRESHOLD = 50;
+const SWIPE_THRESHOLD = 50;
+
+/** The viewer's words, for another language (the same keys as native, plus the arrows). */
+export interface LightboxLabels {
+  previous: string;
+  next: string;
+  /** A picture with no `alt`. */
+  photo: (n: number, count: number) => string;
+}
+
+export const defaultLightboxLabels: LightboxLabels = {
+  previous: "Previous image",
+  next: "Next image",
+  photo: (n, count) => `Image ${n} of ${count}`,
+};
 
 export interface LightboxProps {
   open: boolean;
@@ -23,11 +37,11 @@ export interface LightboxProps {
   /** Extra controls in the top-right, beside the close button. */
   renderActions?: (item: GalleryItem, index: number) => React.ReactNode;
   /**
-   * Media rendered in the stage instead of the default `<img>` (a video, a
-   * before/after compare). The stage keeps its definite height and the
-   * prev/next buttons sit over it.
+   * Replaces the item's picture in the stage (a video, a before/after
+   * compare), per item, as on native. The stage keeps its definite height
+   * and the prev/next buttons sit over it.
    */
-  children?: React.ReactNode;
+  renderMedia?: (item: GalleryItem, index: number) => React.ReactNode;
   /** Shown in the top bar; also becomes the dialog's accessible title. */
   title?: string;
   /** Shown under the title in the top bar, muted. */
@@ -40,6 +54,7 @@ export interface LightboxProps {
    * shortcuts.
    */
   onKey?: (e: KeyboardEvent) => void;
+  labels?: Partial<LightboxLabels>;
   className?: string;
 }
 
@@ -52,7 +67,10 @@ export interface LightboxProps {
  * Escape closes, as every Dialog does. A "3 / 12" counter sits top-left with
  * the optional `title`/`description`; `renderActions` fills the top-right
  * beside Close; the caption (or `renderCaption`) sits under the stage, which
- * shows the image `object-contain` or whatever `children` supplies.
+ * shows the image `object-contain` or whatever `renderMedia` supplies. A
+ * picture with no `alt` is named by its position ("Image 3 of 12"), never
+ * left unnamed. Reaching an end moves focus to the other arrow, so the
+ * keyboard never lands on a disabled button.
  *
  * Controlled only: the consumer owns `open` and `index`, so the same state
  * can drive a `GalleryGrid` highlight or a URL.
@@ -67,12 +85,16 @@ export function Lightbox({
   onIndexChange,
   renderCaption,
   renderActions,
-  children,
+  renderMedia,
   title,
   description,
   onKey,
+  labels: labelOverrides,
   className,
 }: LightboxProps) {
+  const labels = { ...defaultLightboxLabels, ...labelOverrides };
+  const prevRef = React.useRef<HTMLButtonElement>(null);
+  const nextRef = React.useRef<HTMLButtonElement>(null);
   const count = items.length;
   const safeIndex = count === 0 ? 0 : Math.min(Math.max(0, index), count - 1);
   const item = items[safeIndex];
@@ -86,6 +108,14 @@ export function Lightbox({
   const goNext = () => {
     if (hasNext) onIndexChange(safeIndex + 1);
   };
+
+  // The arrow just pressed becomes disabled at an end: hand focus to the other one, so it isn't
+  // dropped to the page (and the arrow keys keep working).
+  React.useEffect(() => {
+    const active = typeof document === "undefined" ? null : document.activeElement;
+    if (!hasPrev && active === prevRef.current) nextRef.current?.focus();
+    if (!hasNext && active === nextRef.current) prevRef.current?.focus();
+  }, [hasPrev, hasNext]);
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     // A field or widget in the slots keeps its own keys (arrows included).
@@ -115,12 +145,13 @@ export function Lightbox({
     const dy = touch.clientY - start.y;
     // At least the threshold, and clearly more horizontal than vertical, so a
     // scroll through a tall caption is never read as a page turn.
-    if (Math.abs(dx) < LIGHTBOX_SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy) * 1.5) return;
     if (dx < 0) goNext();
     else goPrev();
   };
 
-  const accessibleTitle = title || item?.alt || item?.caption || `Image ${safeIndex + 1} of ${count}`;
+  const fallbackAlt = labels.photo(safeIndex + 1, count);
+  const accessibleTitle = title || item?.alt || item?.caption || fallbackAlt;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -183,7 +214,8 @@ export function Lightbox({
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Previous image"
+            ref={prevRef}
+            aria-label={labels.previous}
             disabled={!hasPrev}
             onClick={goPrev}
             className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full"
@@ -191,15 +223,15 @@ export function Lightbox({
             <ChevronLeft />
           </Button>
 
-          {children !== undefined ? (
+          {item && renderMedia ? (
             <div data-slot="lightbox-media" className="flex size-full items-center justify-center">
-              {children}
+              {renderMedia(item, safeIndex)}
             </div>
           ) : item ? (
             <img
               key={item.id}
               src={item.src}
-              alt={item.alt ?? ""}
+              alt={item.alt ?? fallbackAlt}
               className="max-h-full max-w-full object-contain"
             />
           ) : null}
@@ -208,7 +240,8 @@ export function Lightbox({
             type="button"
             variant="ghost"
             size="icon"
-            aria-label="Next image"
+            ref={nextRef}
+            aria-label={labels.next}
             disabled={!hasNext}
             onClick={goNext}
             className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full"

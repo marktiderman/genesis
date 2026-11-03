@@ -309,8 +309,20 @@ export type { NativeRatingProps, NativeRatingSize } from "./rating";
 export { NativeGalleryGrid } from "./gallery-grid";
 export type { NativeGalleryGridProps, NativeGalleryLayout } from "./gallery-grid";
 
-export { NativeLightbox } from "./lightbox";
-export type { NativeLightboxProps } from "./lightbox";
+export { NativeLightbox, defaultNativeLightboxLabels } from "./lightbox";
+export type { NativeLightboxProps, NativeLightboxLabels } from "./lightbox";
+export {
+  ZoomablePhoto,
+  lightboxShouldDismiss,
+  lightboxPinchScale,
+  lightboxTouchDistance,
+  lightboxPanLimit,
+  LIGHTBOX_DISMISS_DISTANCE,
+  LIGHTBOX_DISMISS_VELOCITY,
+  LIGHTBOX_MAX_ZOOM,
+  LIGHTBOX_DOUBLE_TAP_MS,
+} from "./lightbox-zoom";
+export type { ZoomablePhotoProps } from "./lightbox-zoom";
 
 export { NativeGalleryCard } from "./gallery-card";
 export type { NativeGalleryCardProps } from "./gallery-card";

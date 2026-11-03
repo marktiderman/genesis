@@ -45,6 +45,14 @@ declare module "react-native" {
     contentOffset: { x: number; y: number };
     contentSize: { width: number; height: number };
     layoutMeasurement: { width: number; height: number };
+    /** iOS, a zooming ScrollView. */
+    zoomScale?: number;
+    /** On a drag's end, in points per millisecond. */
+    velocity?: { x: number; y: number };
+  }
+
+  export interface GestureResponderEvent {
+    nativeEvent: { locationX: number; locationY: number; pageX: number; pageY: number; touches: { pageX: number; pageY: number }[] };
   }
 
   export interface ViewProps {
@@ -62,6 +70,8 @@ declare module "react-native" {
     accessibilityViewIsModal?: boolean;
     importantForAccessibility?: "auto" | "yes" | "no" | "no-hide-descendants";
     onAccessibilityEscape?: () => void;
+    accessibilityActions?: ReadonlyArray<{ name: string; label?: string }>;
+    onAccessibilityAction?: (event: { nativeEvent: { actionName: string } }) => void;
     pointerEvents?: "none" | "auto" | "box-none" | "box-only";
     onLayout?: (e: LayoutChangeEvent) => void;
     collapsable?: boolean;
@@ -171,7 +181,7 @@ declare module "react-native" {
   export interface PressableProps {
     style?: ViewStyle | ViewStyle[] | ((state: { pressed: boolean }) => ViewStyle | ViewStyle[]);
     className?: string;
-    onPress?: () => void;
+    onPress?: (e: GestureResponderEvent) => void;
     onLongPress?: () => void;
     disabled?: boolean;
     children?: React.ReactNode | ((state: { pressed: boolean }) => React.ReactNode);
@@ -258,6 +268,16 @@ declare module "react-native" {
     scrollEnabled?: boolean;
     refreshControl?: React.ReactElement | undefined;
     onContentSizeChange?: (width: number, height: number) => void;
+    onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+    onScrollEndDrag?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
+    scrollEventThrottle?: number;
+    /** iOS: a zooming scroll view. */
+    maximumZoomScale?: number;
+    minimumZoomScale?: number;
+    bouncesZoom?: boolean;
+    centerContent?: boolean;
+    alwaysBounceVertical?: boolean;
+    ref?: React.Ref<unknown>;
   }
 
   export interface SectionListProps<
