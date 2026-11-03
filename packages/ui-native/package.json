@@ -157,6 +157,7 @@
     "class-variance-authority": "^0.7.1"
   },
   "devDependencies": {
+    "@tanstack/react-query": "^5.105.0",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@vitest/coverage-v8": "^5.0.5",

@@ -68,7 +68,7 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 | `googleSignIn` | Native Google sign-in (`signInWithGoogle`, `googleProvider`). **Off by default**: it needs client ids and setup, see [Google sign-in](#google-sign-in). Needs `appleSignIn` on. | No Google button. |
 | `accountDeletion` | "Delete account" in Settings (`deleteMyAccount`). | No delete row. App Review requires it for apps with accounts. |
 | `notifications` | The Notifications tab (`NotificationsPage`). | The tab is hidden, its route redirects home and links to it open `/`. Drop `/notifications` from `links.paths` in `genesis.config.json` too. |
-| `queryPersistence` | The `persistedQueryKeys` queries (`src/lib/app.ts`) saved to the phone for 24 hours, per user. | Cache in memory only. |
+| `queryPersistence` | The `persistedResources` reads (`src/lib/app.ts`) kept on the phone in SQLite for 7 days, per user, so their lists and records open at once. | Cache in memory only. |
 | `queryLifecycle` | Refetch when the app comes to the front; follow the network (AppState + NetInfo). | Queries refetch only on mount. |
 | `keyboardScroll` | The focused field stays above the keyboard on form screens, with the previous / next / done bar (`KeyboardToolbar`) above it. | `KeyboardAvoidingView` fallback, no bar. |
 | `deepLinks` | `scheme://` and universal links open their screen, after sign-in if needed (`normalizeLink`). | Every link opens `/`. Universal links still open the app until you also delete the `links` block in `genesis.config.json`. |

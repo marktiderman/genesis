@@ -5,6 +5,7 @@ import { reportError } from "../errors";
 import { stableJson } from "./draft-controller";
 import { NO_VIEWER, type GenesisViewerRoles, type Viewer } from "../viewer";
 import { dropPendingWrites, flushPendingWrites } from "./mutation-mode";
+import { PersistedViewerContext } from "../provider/context";
 
 export { NO_VIEWER, type GenesisViewerRoles, type Viewer };
 
@@ -140,7 +141,8 @@ export interface ViewerScopeProps {
   viewer: string | null | undefined;
   /**
    * The viewer a persisted cache was saved for. When the first known viewer
-   * is this one, the restored cache is kept; otherwise it's emptied.
+   * is this one, the restored cache is kept; otherwise it's emptied. Inside a
+   * `GenesisProvider` with `persist`, it defaults to its `persistScope`'s user.
    */
   persistedViewer?: string | null;
   /** Where the viewer is working (see `ResourceScope`). Changing it doesn't remount or clear anything. */
@@ -206,8 +208,10 @@ const reportedScopeZones = new Set<string>();
  * </ViewerScope>
  * ```
  */
-export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, scopeTimeZone, fallback = null, children }: ViewerScopeProps) {
+export function ViewerScope({ viewer, persistedViewer: persistedViewerProp, scope, roles, timeZone, scopeTimeZone, fallback = null, children }: ViewerScopeProps) {
   const queryClient = useQueryClient();
+  const restoredFor = useContext(PersistedViewerContext);
+  const persistedViewer = persistedViewerProp !== undefined ? persistedViewerProp : restoredFor;
   const zone = personTimeZone({ timeZone });
   // Memoised, and scopeClock reports a zone once, so a bad zone isn't reported on every render.
   const scopeZone = useMemo(() => scopeClock(scopeTimeZone, zone), [scopeTimeZone, zone]);
