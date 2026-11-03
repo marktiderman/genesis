@@ -1,0 +1,36 @@
+packages/ui-native/figma/NativeRefreshControl.figma.ts
+  s_109ad08c59054b::t_1667a64764faf2 11-19
+packages/ui-native/figma/NativeDatePicker.figma.ts
+  s_109ad08c59054b::t_4796eb77465a7e 4-6,10
+packages/ui-native/figma/NativeTimePicker.figma.ts
+  s_109ad08c59054b::t_8d8e43ddda57b3 4-6,10
+packages/ui-native/figma/NativeNumberInput.figma.ts
+  s_109ad08c59054b::t_c96671cab65ce8 7-10,14
+docs/DESIGN-LIBRARY.md
+  s_109ad08c59054b::t_006523db75e3af 43-50,58-61,69-70,137-138,142
+packages/ui-native/figma/NativeAccordion.figma.ts
+  s_109ad08c59054b::t_f9da511c753c5d 11,15,20
+packages/ui-native/figma/NativeToggle.figma.ts
+  s_109ad08c59054b::t_66d3d3b07f3428 13-16
+packages/ui-native/figma/NativePopover.figma.ts
+  s_109ad08c59054b::t_360084a60ce6ed 11-12
+  s_109ad08c59054b::t_64b2995a32d7a8 19
+scripts/figma-brand-modes.mts
+  s_109ad08c59054b::t_006523db75e3af 8-12,15-22,24-32,38,74-84,98-103,107-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e55163c02575141fd7e0c799f0e9175fdad8f289",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
