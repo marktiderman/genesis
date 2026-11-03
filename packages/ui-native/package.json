@@ -202,12 +202,33 @@
           "import": "@marktiderman/genesis-ui-native/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#native",
           "why": "The phone list comes from the same view as the web list: one description, two surfaces, no second set of helpers."
+        },
+        {
+          "id": "motion-uses-tokens",
+          "need": "an animation on the phone",
+          "level": "warn",
+          "platform": "native",
+          "newOnly": true,
+          "files": [
+            "**/*.tsx",
+            "**/*.ts"
+          ],
+          "forbid": {
+            "pattern": "\\bwith(?:Timing|Spring)\\([^)]*\\{[^}]*\\b(?:duration|damping|stiffness)\\s*:\\s*\\d"
+          },
+          "unless": {
+            "pattern": "\\b(?:useMotion|animateMotion)\\b"
+          },
+          "use": "useMotion() and animateMotion(R, motion, to, { spring | duration }), the shared motion tokens",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#motion",
+          "why": "Motion is defined once, for web and native, and Reduce Motion is honoured in one place; a hard-coded duration or spring drifts from the rest of the app."
         }
       ],
       "primitives": [
         {
           "need": "a phone screen",
-          "use": "ScreenContainer, or a …Page / …Screen layout",
+          "use": "ScreenContainer, or a \u2026Page / \u2026Screen layout",
           "import": "@marktiderman/genesis-ui-native/layouts",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
         },

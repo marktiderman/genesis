@@ -163,6 +163,31 @@ import { AuthScreen, appleProvider } from "@marktiderman/genesis-ui-native/layou
 asks with `Alert.alert` (a destructive button) and then calls `deleteMyAccount(supabase)` from
 `@marktiderman/genesis-supabase`. The example and the SQL it needs are in that package's README.
 
+## Motion
+
+Motion is defined once, in `@marktiderman/genesis-design-system`'s motion tokens (`resolveMotion`):
+durations (`press`, `fast`, `base`, `ui`, `pulse`, …), easings (`out`, `swift`, `inOut`, `decelerate`)
+and springs (`snappy`, `smooth`, `bouncy`). Web reads them as the design system's `--ds-dur-*` and
+`--ds-ease-*` variables; on the phone, `useMotion()` gives the same tokens with the OS's Reduce
+Motion applied, and `animateMotion` turns them into a Reanimated animation. Under Reduce Motion it
+returns the final value, so nothing moves. Drawer, Toast and Skeleton already read them.
+
+```tsx
+import { animateMotion, useGenesisModules, useMotion } from "@marktiderman/genesis-ui-native";
+
+function useSnapBack(offset: { value: number }) {
+  const { reanimated } = useGenesisModules();
+  const motion = useMotion();
+  return (velocity: number) => {
+    if (!reanimated) return;
+    offset.value = animateMotion(reanimated, motion, 0, { spring: "snappy", velocity });
+  };
+}
+```
+
+The doctor's `motion-uses-tokens` rule warns on new code that passes `withTiming` or `withSpring` a
+hard-coded duration or spring.
+
 ## Inbox and thread: `InboxPage` and `ThreadPage`
 
 Two generic layouts for conversations (support tickets, direct messages, comment threads), in

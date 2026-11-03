@@ -20,6 +20,7 @@
  *
  * @stability Beta
  */
+import { MOTION_DURATIONS } from "@marktiderman/genesis-design-system/tokens/motion";
 import {
   createContext,
   useCallback,
@@ -125,7 +126,8 @@ interface ToastFrameProps extends ToastViewProps {
   glass: GlassComponent | null;
 }
 
-const ENTER_MS = 180;
+// The shared motion tokens: small things appear at `fast`.
+const ENTER_MS = MOTION_DURATIONS.fast;
 
 // Reanimated 4 when the app passed it, else React Native's Animated. Two
 // components rather than one with a branch, so each keeps a fixed hook order.
