@@ -197,6 +197,10 @@
           {
             "file": "migrations/0003_genesis_support_findings.sql",
             "test": "migrations/tests/0003_genesis_support_findings.test.sql"
+          },
+          {
+            "file": "migrations/0004_genesis_support_tickets.sql",
+            "test": "migrations/tests/0004_genesis_support_tickets.test.sql"
           }
         ],
         "functions": [
@@ -337,6 +341,10 @@
           {
             "file": "migrations/0001_genesis_support_chat.sql",
             "test": "migrations/tests/0001_genesis_support_chat.test.sql"
+          },
+          {
+            "file": "migrations/0005_genesis_support_chat_tickets.sql",
+            "test": "migrations/tests/0005_genesis_support_chat_tickets.test.sql"
           }
         ],
         "steps": [
@@ -377,6 +385,10 @@
           {
             "file": "migrations/0002_genesis_support_email.sql",
             "test": "migrations/tests/0002_genesis_support_email.test.sql"
+          },
+          {
+            "file": "migrations/0006_genesis_support_email_tickets.sql",
+            "test": "migrations/tests/0006_genesis_support_email_tickets.test.sql"
           }
         ],
         "steps": [
@@ -409,6 +421,28 @@
           "import": "@marktiderman/genesis-support/web",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/support/README.md",
           "why": "Feedback goes through one record and sink with the app's context and screenshots; a direct table write loses both."
+        },
+        {
+          "id": "tickets-through-support-client",
+          "need": "reading or writing support tickets",
+          "level": "warn",
+          "files": [
+            "**/*.ts",
+            "**/*.tsx",
+            "**/*.js",
+            "**/*.jsx"
+          ],
+          "exclude": [
+            "**/*.test.*",
+            "**/__tests__/**"
+          ],
+          "forbid": {
+            "pattern": "\\.from\\(\\s*[\"'](?:tickets|ticket_attachments|ticket_agents|support_reports|support_attachments)[\"']"
+          },
+          "use": "createSupportClient (myTickets, report, reply, setStatus, isAgent) or a named support function",
+          "import": "@marktiderman/genesis-support",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/support/README.md",
+          "why": "Tickets are the support module's tables: other code reaches them through its client and functions, so the module can change its tables without breaking apps (ADR 0015)."
         }
       ]
     }

@@ -1,6 +1,6 @@
 /**
  * The support block as a `defineBlock` declaration: what it adds to an app
- * (two Settings rows, its routes, migrations 0006 and 0003) and what it means for the
+ * (two Settings rows, its routes, migrations 0006, 0003 and 0004) and what it means for the
  * stores' privacy forms. Platform-neutral; `createSupport` (native) builds
  * on it, and a web app can resolve it with `resolveBlocks` too.
  */
@@ -79,6 +79,8 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: PACKAGE, file: "migrations/0006_genesis_support.sql", test: "migrations/tests/0006_genesis_support.test.sql" },
       // Severity, the verify loop and report handlers, after 0006.
       { package: "@marktiderman/genesis-support", file: "migrations/0003_genesis_support_findings.sql", test: "migrations/tests/0003_genesis_support_findings.test.sql" },
+      // Tickets and tenants: the rename, tenant_id, agents (needs the app's default-tenant hook).
+      { package: "@marktiderman/genesis-support", file: "migrations/0004_genesis_support_tickets.sql", test: "migrations/tests/0004_genesis_support_tickets.test.sql" },
     ],
     privacy: {
       collects: [
@@ -118,6 +120,7 @@ export function defineSupportChatBlock(options: { requires?: readonly string[] }
     contributes: {
       migrations: [
         { package: "@marktiderman/genesis-support", file: "migrations/0001_genesis_support_chat.sql", test: "migrations/tests/0001_genesis_support_chat.test.sql" },
+        { package: "@marktiderman/genesis-support", file: "migrations/0005_genesis_support_chat_tickets.sql", test: "migrations/tests/0005_genesis_support_chat_tickets.test.sql" },
       ],
     },
   });
@@ -138,6 +141,7 @@ export function defineSupportEmailBlock(options: { requires?: readonly string[] 
     contributes: {
       migrations: [
         { package: "@marktiderman/genesis-support", file: "migrations/0002_genesis_support_email.sql", test: "migrations/tests/0002_genesis_support_email.test.sql" },
+        { package: "@marktiderman/genesis-support", file: "migrations/0006_genesis_support_email_tickets.sql", test: "migrations/tests/0006_genesis_support_email_tickets.test.sql" },
       ],
       privacy: {
         notes: [

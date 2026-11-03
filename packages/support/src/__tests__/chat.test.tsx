@@ -167,12 +167,13 @@ describe("the support client's thread", () => {
     ]);
   });
 
-  it("declares the support-chat block after support and chat, with this package's migration", () => {
+  it("declares the support-chat block after support and chat, with this package's migrations", () => {
     const block = defineSupportChatBlock();
     expect(block.id).toBe("support-chat");
     expect(block.requires).toEqual(["support-feedback", "chat"]);
     expect(block.contributes?.migrations).toEqual([
       { package: "@marktiderman/genesis-support", file: "migrations/0001_genesis_support_chat.sql", test: "migrations/tests/0001_genesis_support_chat.test.sql" },
+      { package: "@marktiderman/genesis-support", file: "migrations/0005_genesis_support_chat_tickets.sql", test: "migrations/tests/0005_genesis_support_chat_tickets.test.sql" },
     ]);
   });
 });

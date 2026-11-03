@@ -75,6 +75,12 @@ export interface SupportReport {
   userId?: string | null;
 }
 
+/** A ticket: a request from someone outside the team, owed a reply (ADR 0011). The new name for {@link SupportReport}. */
+export type Ticket = SupportReport;
+
+/** An agent's role in a tenant: `admin` also manages the tenant's agents. */
+export type TicketAgentRole = "agent" | "admin";
+
 export interface SupportReply {
   id: string;
   reportId: string;
@@ -126,6 +132,12 @@ export interface SupportIdea {
 export interface SupportClient extends FeedbackSink {
   /** The signed-in person's reports, newest first. */
   myReports(options?: { limit?: number }): Promise<SupportReport[]>;
+  /** The signed-in person's tickets, newest first (the new name for `myReports`). Needs migration 0004. */
+  myTickets?(options?: { limit?: number }): Promise<Ticket[]>;
+  /** Does the signed-in person handle tickets in this tenant (an agent, a tenant admin)? Needs migration 0004. */
+  isAgent?(tenantId: string): Promise<boolean>;
+  /** Tenant admins: make a tenant's person an agent or agent admin, or remove them (`null`). Needs migration 0004. */
+  setAgent?(tenantId: string, personId: string, role: TicketAgentRole | null): Promise<void>;
   report(id: string): Promise<SupportReport | null>;
   replies(reportId: string): Promise<SupportReply[]>;
   /** `internal`: a staff-only note (support-chat block, staff only). */
@@ -186,6 +198,12 @@ export interface SupportClientOptions {
    * function does, which works on every schema.
    */
   severityColumn?: boolean;
+  /**
+   * The tenant a new ticket goes to (migration 0004): usually the viewer's current workspace.
+   * Left out, the database picks the sender's only tenant, else the app's default tenant. A
+   * tenant the sender isn't in is refused.
+   */
+  tenantId?: string | null | (() => string | null | Promise<string | null>);
 }
 
 const REPORT_COLUMNS =
@@ -351,11 +369,13 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       const userId = await me();
       if (!userId) throw new SupportError("Sign in to send feedback.", "42501", "submit");
       const context = sanitizeContext(record.context);
+      const tenantId = typeof options.tenantId === "function" ? await options.tenantId() : options.tenantId;
       const row = must<Row>(
         "submit",
         await supabase
           .from("support_reports")
           .insert({
+            ...(tenantId ? { tenant_id: tenantId } : {}),
             type: record.type,
             title: record.title?.trim() ? record.title.trim().slice(0, 300) : null,
             message: record.message,
@@ -491,6 +511,16 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
 
     async isStaff() {
       return must<boolean | null>("isStaff", await supabase.rpc("support_is_staff")) === true;
+    },
+
+    async myTickets(opts) {
+      return client.myReports(opts);
+    },
+    async isAgent(tenantId) {
+      return must<boolean | null>("isAgent", await supabase.rpc("support_is_agent", { tenant: tenantId })) === true;
+    },
+    async setAgent(tenantId, personId, role) {
+      must("setAgent", await supabase.rpc("support_set_agent", { tenant: tenantId, person: personId, role }));
     },
 
     async verify(reportId, fixed, note) {
