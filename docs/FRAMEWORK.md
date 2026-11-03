@@ -123,6 +123,12 @@ and only then invent around. That's the loop, and it's the point.
   fit. Cite the principle IDs above.
 - **In tools:** `genesis features find <term>` searches what exists before you build;
   `genesis doctor` flags recreations in apps; the repo's own lint rules guard Genesis.
+- **On both platforms:** `pnpm check:ui-parity` (part of `lint:genesis`) fails when a
+  genesis-ui component has no genesis-ui-native twin, or the reverse, unless `ui-parity.json`
+  records why. A twin is `X` ↔ `NativeX` (or the same name, for page layouts), or a pair listed
+  in its `twins`. A gap is either platform-shaped (a right-click menu, pull to refresh), which the
+  reason explains, or `notYet:` with what's missing. The file only shrinks: an entry whose twin
+  now exists fails the check until it's removed.
 - **For agents:** `AGENTS.md` (which `CLAUDE.md` loads) points every agent here first.
 - **Changing this document:** it changes by pull request like code. Changing a principle needs
   Mark's sign-off and a line in the pull request saying what changed and why. Part 2 records
