@@ -155,14 +155,14 @@ function useHeaderActions<T extends Row>({ view: recordView, row, onAction, can,
 /** Prefixes accessibility action names, so an action named "activate" never replaces the button's own. */
 const A11Y_PREFIX = "action:";
 
+/** The settings save shows its own failures (inline, or in the conflict sheet), so useResource doesn't log them too. */
+const alreadyShown = () => {};
+
 /**
  * The header menu: a button that lists the record view's actions. On iOS an action sheet
  * (ActionSheetIOS, destructive ones in red); elsewhere a sheet of rows, since Android's alert
  * shows at most three buttons. A refused action stays listed and explains why when pressed.
  */
-
-/** The settings save shows its own failures (inline, or in the conflict sheet), so useResource doesn't log them too. */
-const alreadyShown = () => {};
 export function NativeRecordViewMenu<T extends Row = Row>(props: NativeRecordViewHeaderProps<T> & { testID?: string }) {
   const { testID = "native-resource-workspace-menu" } = props;
   const { actions, press, pending, words } = useHeaderActions(props);

@@ -89,6 +89,9 @@ export interface RecordViewProps<T extends Row = Row> {
   testID?: string | undefined;
 }
 
+/** The settings save shows its own failures (inline, or in the conflict sheet), so useResource doesn't log them too. */
+const alreadyShown = () => {};
+
 /**
  * One record's screen, from its record view (defineRecordView):
  *
@@ -96,9 +99,6 @@ export interface RecordViewProps<T extends Row = Row> {
  * <RecordView view={brandRecordView} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />
  * ```
  */
-
-/** The settings save shows its own failures (inline, or in the conflict sheet), so useResource doesn't log them too. */
-const alreadyShown = () => {};
 export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
   const { view: recordView, row, section, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, sectionIcons, settingsLocked, testID = "resource-workspace" } = props;
   const record = row as T & DataRow;
