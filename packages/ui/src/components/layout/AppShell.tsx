@@ -364,6 +364,14 @@ export interface AppShellProps {
   /** Page content */
   children: ReactNode;
   /**
+   * Docked panels that stay open across pages, bottom-right: genesis-chat's `ChatDock`. Fixed
+   * outside the scrolling page, above it, and lifted clear of the phone's bottom bar. The region
+   * lets clicks through; the dock's own windows take them.
+   *
+   * @stability Beta
+   */
+  dock?: ReactNode;
+  /**
    * @deprecated Prefer `options.showThemeToggle`. Kept for sample-app
    * back-compat; merges into resolved options when `options` omits it.
    */
@@ -1137,6 +1145,7 @@ export function AppShell({
   footer,
   userSlot,
   children,
+  dock,
   showThemeToggle: showThemeToggleProp,
   options: optionsProp,
   optionsStorageKey,
@@ -2013,6 +2022,20 @@ export function AppShell({
               </button>
             ) : null}
           </nav>
+        ) : null}
+        {dock != null ? (
+          <div
+            className={cn(
+              "pointer-events-none fixed right-0 z-40 pr-[env(safe-area-inset-right)] print:hidden",
+              // Clear of the phone's bottom bar: the same 4rem the page keeps free below it.
+              showMobileBottom
+                ? "bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0"
+                : "bottom-[env(safe-area-inset-bottom)] md:bottom-0",
+            )}
+            data-testid="app-shell-dock"
+          >
+            {dock}
+          </div>
         ) : null}
         {bottomOverflows ? (
           <Sheet open={moreOpen} onOpenChange={setMoreOpen}>

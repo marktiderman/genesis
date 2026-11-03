@@ -4134,6 +4134,67 @@
       "flags": []
     },
     {
+      "id": "chat-dock",
+      "name": "Chat dock",
+      "summary": "Conversations that stay open while you move around the app, in genesis-chat/web: up to three windows bottom-right on a wide screen (each a full thread and composer, minimized to a bar with its unread count, or closed; a fourth replaces the one used longest ago), one side sheet with a switcher and an unread bubble on a narrow one, and expand to the zone's Messages page. Apps open anything else in it (a help desk messenger) as a panel. ChatDockProvider, useChatDock and ChatDock, mounted in AppShell's dock slot.",
+      "category": "Social",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "kind": "pattern",
+      "keywords": [
+        "chat dock",
+        "docked chat",
+        "chat heads",
+        "chat windows",
+        "messenger",
+        "floating chat",
+        "chat sheet",
+        "minimize chat",
+        "help desk messenger"
+      ],
+      "platforms": {
+        "web": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-chat/web"
+      },
+      "requires": [
+        "chat"
+      ],
+      "slots": [
+        "panel",
+        "header"
+      ],
+      "reviewedAt": "2026-11-03",
+      "acceptance": [
+        "At most three windows at once (configurable); opening a fourth replaces the one used longest ago, and opening one already docked brings it back rather than adding another.",
+        "A minimized window doesn't mount its thread, so nothing is marked read while it's a bar; its unread count stays live.",
+        "On a narrow screen the open items share one side sheet with a switcher; closing the sheet leaves a bubble with the unread count.",
+        "Expand hands the item to the zone's Messages page and takes it out of the dock."
+      ],
+      "links": {
+        "code": [
+          "packages/chat/src/web/dock.tsx",
+          "packages/ui/src/components/layout/AppShell.tsx"
+        ],
+        "docs": [
+          "packages/chat/README.md"
+        ]
+      },
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer",
+        "end user"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "inbox-thread",
       "name": "Inbox and thread",
       "summary": "Conversations between people: an inbox with unread counts and a live thread with paging, optimistic send and read state, on web and native. Native layouts InboxPage (unread dot or count, time, preview, swipe actions also reachable as accessibility actions and on long press, pull to refresh, paging, empty state) and ThreadPage (messages, attachments, a read receipt, a composer kept above the keyboard through KeyboardScrollProvider) are in genesis-ui-native, in SettingsPage's iOS inset style. Web layouts and live (realtime) updates are not built.",
