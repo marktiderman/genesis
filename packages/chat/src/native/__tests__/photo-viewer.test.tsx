@@ -97,11 +97,13 @@ describe("ChatPhotoViewer", () => {
     const modal = screen.getByTestId("v");
     expect(modal.getAttribute("data-presentation-style")).toBe("overFullScreen");
     expect(modal.getAttribute("data-presentation-style")).not.toBe("pageSheet");
-    expect(screen.getByTestId("v-counter").textContent).toBe("Photo 2 of 2");
-    const pager = screen.getByTestId("v-pager");
+    // genesis-ui-native's NativeLightbox: a "2 / 2" counter for the eye, and the pager reads chat's words.
+    expect(screen.getByTestId("v-counter").textContent).toBe("2 / 2");
+    const pager = screen.getByTestId("v-pager-a11y");
     expect(pager.getAttribute("aria-label")).toBe("Photo, b.jpg");
-    expect(screen.getByTestId("v-photo-0")).toBeTruthy();
-    expect(screen.getByTestId("v-photo-1")).toBeTruthy();
+    expect(pager.getAttribute("aria-valuetext")).toBe("Photo 2 of 2");
+    expect(screen.getByTestId("v-photo-a")).toBeTruthy();
+    expect(screen.getByTestId("v-photo-b")).toBeTruthy();
   });
 
   it("closes from its Close button", () => {
@@ -201,7 +203,8 @@ describe("ChatThreadScreen", () => {
     fireEvent.click(second);
     const modal = await screen.findByTestId("t-viewer");
     expect(modal.getAttribute("data-presentation-style")).toBe("overFullScreen");
-    expect(screen.getByTestId("t-viewer-counter").textContent).toBe("Photo 2 of 3");
+    expect(screen.getByTestId("t-viewer-counter").textContent).toBe("2 / 3");
+    expect(screen.getByTestId("t-viewer-pager-a11y").getAttribute("aria-valuetext")).toBe("Photo 2 of 3");
     fireEvent.click(screen.getByTestId("t-viewer-close"));
     await waitFor(() => expect(screen.queryByTestId("t-viewer")).toBeNull());
   });
