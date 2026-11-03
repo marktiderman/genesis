@@ -197,6 +197,10 @@
           {
             "file": "migrations/0003_genesis_support_findings.sql",
             "test": "migrations/tests/0003_genesis_support_findings.test.sql"
+          },
+          {
+            "file": "migrations/0004_genesis_support_tickets.sql",
+            "test": "migrations/tests/0004_genesis_support_tickets.test.sql"
           }
         ],
         "functions": [
@@ -335,8 +339,12 @@
         ],
         "migrations": [
           {
-            "file": "migrations/0001_genesis_support_chat.sql",
+            "file": "migrations/0005_genesis_support_chat_on_tickets.sql",
             "test": "migrations/tests/0001_genesis_support_chat.test.sql"
+          },
+          {
+            "file": "migrations/0006_genesis_support_chat_tenants.sql",
+            "test": "migrations/tests/0006_genesis_support_chat_tenants.test.sql"
           }
         ],
         "steps": [
@@ -375,8 +383,12 @@
         ],
         "migrations": [
           {
-            "file": "migrations/0002_genesis_support_email.sql",
+            "file": "migrations/0007_genesis_support_email_on_tickets.sql",
             "test": "migrations/tests/0002_genesis_support_email.test.sql"
+          },
+          {
+            "file": "migrations/0008_genesis_support_email_tenants.sql",
+            "test": "migrations/tests/0008_genesis_support_email_tenants.test.sql"
           }
         ],
         "steps": [
@@ -409,6 +421,47 @@
           "import": "@marktiderman/genesis-support/web",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/support/README.md",
           "why": "Feedback goes through one record and sink with the app's context and screenshots; a direct table write loses both."
+        },
+        {
+          "id": "tickets-through-support-client",
+          "need": "reading or writing support tickets",
+          "level": "warn",
+          "files": [
+            "**/*.ts",
+            "**/*.tsx",
+            "**/*.js",
+            "**/*.jsx"
+          ],
+          "exclude": [
+            "**/*.test.*",
+            "**/__tests__/**"
+          ],
+          "forbid": {
+            "pattern": "\\.from\\(\\s*[\"'](?:tickets|ticket_attachments|ticket_agents|support_reports|support_attachments)[\"']"
+          },
+          "use": "createSupportClient (myTickets, report, reply, setStatus, isAgent) or a named support function",
+          "import": "@marktiderman/genesis-support",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/support/README.md",
+          "why": "Tickets are the support module's tables: other code reaches them through its client and functions, so the module can change its tables without breaking apps (ADR 0015)."
+        },
+        {
+          "id": "support-old-names-in-sql",
+          "need": "SQL that reads support tickets",
+          "level": "warn",
+          "files": [
+            "**/*.sql"
+          ],
+          "exclude": [
+            "**/*genesis_support*.sql",
+            "**/tests/**"
+          ],
+          "forbid": {
+            "pattern": "\\bpublic\\.support_(?:reports|attachments)\\b"
+          },
+          "use": "public.tickets and public.ticket_attachments, or a named support function",
+          "import": "@marktiderman/genesis-support",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/support/README.md",
+          "why": "support_reports and support_attachments are views kept for one minor after migration 0004; they are dropped once every supported phone build is on the new names, and app SQL still naming them would break then (ADR 0015)."
         }
       ]
     }
