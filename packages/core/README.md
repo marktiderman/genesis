@@ -84,6 +84,7 @@ const provider = createSupabaseProvider(supabase, {
       },
     },
     tasks: {
+      version: { field: "version", kind: "integer" }, // see "Versioned writes" below
       deleteMode: "bin",
       toFormValues: (row) => ({ ...row, done: row.status === "done" }),
       prepare: ({ done, ...rest }) => ({ ...rest, status: done ? "done" : "open" }),
@@ -97,7 +98,8 @@ const provider = createSupabaseProvider(supabase, {
 | `binTables` / `resources[r].deleteMode: "bin"` | Recycle-bin delete: check the row is visible, delete it (asking for no rows, since a binning trigger reports none), read it back. Gone from view is success; still visible is `forbidden`; not visible to begin with is `gone`. Requires binned rows to drop out of the caller's view. `deleteMode: "hard"` opts a table back out. List every soft-delete table: one that isn't listed reports a successful bin as `gone`. |
 | `prepare(values, context)` | Runs before every create and update, overrides included. Gets a copy of the values; may be async. Throw `DataWriteError("invalid", message)` to refuse; nothing is sent. |
 | `create(row)` | Replaces the insert, e.g. a security-definer RPC. Return the row, or its id to have it read back. If the read-back fails, the create is still reported saved (with just the id), so nobody retries into a duplicate. |
-| `update(id, row)` | Replaces the update. Return the row, or its id (or `true`) to have it read back. Returning nothing (or `false`) means no row changed: the provider reads the row back and throws `forbidden` or `gone`, so a function that silently skips a row never reports a save. |
+| `update(id, row, context?)` | Replaces the update. Return the row, or its id (or `true`) to have it read back. Returning nothing (or `false`) means no row changed: the provider reads the row back and throws `forbidden` or `gone` (or `conflict`, with a `version` rule), so a function that silently skips a row never reports a save. With a `version` rule and a caller's `expectedVersion`, `context.expectedVersion` is the version the row must still be at: apply the change only at it. |
+| `version: { field, kind }` | Checks every update and delete against the version the caller read the row at. See [Versioned writes](#versioned-writes). |
 | `toFormValues(row)` | Row → edit-form values, for a form shaped differently from its table. Served as `DataProvider.toFormValues`, which `useResourceForm` applies in edit mode. The reverse is `prepare`. |
 | `invalidates` | Other query keys a write makes stale, as a list or `(event) => keys`. Served as `DataProvider.invalidates`, which `useResource` and `useResourceForm` (and so `ResourcePage` and `ResourceForm`) invalidate after their writes, on top of `[resource]`. |
 | `onWrite(event)` | Called after every committed create, update and delete, including writes made straight through the provider. Awaited; if it throws, the error is logged and the write is still reported saved. |
@@ -164,6 +166,39 @@ try {
   }
 }
 ```
+
+### Versioned writes
+
+Without a version, two people editing the same record both "save", and the second silently
+overwrites the first. With a `version` rule, the second save is refused as a `conflict`:
+
+```sql
+-- genesis-supabase migration 0019 ships the trigger (the versioned-writes block).
+alter table public.tasks add column version bigint not null default 1;
+create trigger tasks_version_bump before update on public.tasks
+  for each row execute function public.genesis_version_bump('version');
+```
+
+```ts
+createSupabaseProvider(supabase, {
+  resources: { tasks: { version: { field: "version", kind: "integer" } } },
+});
+```
+
+- `capabilities("tasks")` reports `versionedWrites: true` and `version: { field, kind }`.
+- `useResource`, `useResourceForm` (and so `ResourceView`, `RecordView` and `ResourceForm`) send
+  the version of the row they last read as `expectedVersion`. After a save they put the new version
+  into every cached copy, so the next edit is checked against it, not the one before.
+- The update or delete runs `where id = … and version = …`. When no row matches, the provider
+  reads the row back: at another version is `conflict`, with `error.current` (the row as it is now)
+  and `error.currentVersion`; still at the expected version is `forbidden`; not visible is `gone`.
+- The database advances the version, never the client: the provider drops a submitted value, and
+  `genesis_version_bump` sets it to the old value plus one whatever an update writes. `kind:
+  "timestamp"` works the same with a column a trigger sets to `now()` on update (`moddatetime`).
+- A write sent without `expectedVersion` (a row that wasn't read first, a provider without
+  capabilities) is not checked. A resource without the rule behaves exactly as before.
+- A recycle-bin table checks the version before the delete (a binned delete can't carry the
+  check), so a change landing between that check and the delete isn't caught.
 
 ### Races, and what the read-back can't tell you
 

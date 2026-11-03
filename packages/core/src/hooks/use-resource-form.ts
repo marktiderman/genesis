@@ -760,7 +760,12 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
             const res =
               action === "create"
                 ? await provider.create(resource, { data: formData, ...keepalive })
-                : await provider.update(resource, { id: recordId!, data: ctx.data ?? formData, ...keepalive });
+                : await provider.update(resource, {
+                    id: recordId!,
+                    data: ctx.data ?? formData,
+                    ...keepalive,
+                    ...(ctx.expectedVersion !== undefined ? { expectedVersion: ctx.expectedVersion } : {}),
+                  });
             return { record: res.data, audit: res.audit };
           },
           committed: async (result) => {

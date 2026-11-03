@@ -23,6 +23,7 @@ import type { AuditEntry, ProviderCapabilities } from "../schema/types";
 import { capabilitiesQueryKey } from "./use-capabilities";
 import { resourceKeys } from "../query-keys";
 import { pageWindow, type PageWindow } from "./page-window";
+import { patchCachedRow } from "./live-cache";
 
 export type MutationMode = "pessimistic" | "optimistic" | "undoable";
 
@@ -667,6 +668,14 @@ export interface SendContext {
   data?: Record<string, unknown>;
   /** The page is unloading: pass `keepalive: true` to the provider. */
   keepalive: boolean;
+  /**
+   * The version the record was at when this write was sent, from the cached
+   * row and the field the provider's capabilities name (`version`). Pass it
+   * as `expectedVersion`, so a write made on a stale copy is refused as a
+   * `conflict`. Undefined when the resource has no version or the row isn't
+   * cached: send the write unchecked, as before.
+   */
+  expectedVersion?: string;
 }
 
 export interface ExecuteWriteArgs<R extends BaseRecord | void> {
@@ -725,6 +734,48 @@ export async function providerServesUndo(
   }
 }
 
+/** The version field `provider` names for `resource`, from capabilities already cached. */
+function cachedVersionField(queryClient: QueryClient, provider: DataProvider, resource: string): string | undefined {
+  return queryClient.getQueryData<ProviderCapabilities>(capabilitiesQueryKey(provider, resource))?.version?.field;
+}
+
+/**
+ * The version `id`'s cached row is at, as a token for `expectedVersion`.
+ * Read when the write is sent (not when it was made), so a write queued
+ * behind another on the same record sends the version that one left.
+ * @internal Exported for tests.
+ */
+export function cachedVersion(
+  queryClient: QueryClient,
+  provider: DataProvider,
+  resource: string,
+  id: Identifier,
+): string | undefined {
+  const field = cachedVersionField(queryClient, provider, resource);
+  if (!field) return undefined;
+  const value = cachedRecord(queryClient, resource, id)?.[field];
+  return value == null ? undefined : String(value);
+}
+
+/**
+ * After an update committed: put the row's new version into every cached
+ * copy at once, so the next write on it (before any refetch lands) is
+ * checked against the version this one left, not the one before it.
+ */
+function recordNewVersion(
+  queryClient: QueryClient,
+  provider: DataProvider,
+  resource: string,
+  id: Identifier,
+  record: unknown,
+): void {
+  const field = cachedVersionField(queryClient, provider, resource);
+  if (!field || !record || typeof record !== "object") return;
+  const value = (record as Record<string, unknown>)[field];
+  if (value == null) return;
+  patchCachedRow(queryClient, resource, { id, [field]: value });
+}
+
 /** A later write that built on one that was taken back. */
 export const DROPPED_WRITE_MESSAGE =
   "This change was not saved: it was made on top of an earlier change that was undone or failed. Please make it again.";
@@ -743,7 +794,21 @@ export const DROPPED_WRITE_MESSAGE =
 export async function executeWrite<R extends BaseRecord | void>(
   args: ExecuteWriteArgs<R>,
 ): Promise<ExecuteWriteResult<R>> {
-  const { queryClient, provider, resource, kind, id, mode, send, committed, failedLater } = args;
+  const { queryClient, provider, resource, kind, id, mode, committed, failedLater } = args;
+
+  // A versioned resource checks every update and delete against the version
+  // the row was read at. The answer is cached for the provider's life, so
+  // only the first write on a resource waits for it.
+  const versioned = kind !== "create" && id != null && !!provider.capabilities;
+  if (versioned && !queryClient.getQueryData(capabilitiesQueryKey(provider, resource))) {
+    await queryClient.fetchQuery(CAPABILITIES_QUERY(provider, resource)).catch(() => undefined);
+  }
+  const send = async (context: SendContext) => {
+    const expectedVersion = versioned ? cachedVersion(queryClient, provider, resource, id!) : undefined;
+    const result = await args.send(expectedVersion === undefined ? context : { ...context, expectedVersion });
+    if (versioned && kind === "update") recordNewVersion(queryClient, provider, resource, id!, result.record);
+    return result;
+  };
 
   if (mode === "pessimistic") {
     const { record } = await send({ data: args.data, keepalive: false });
