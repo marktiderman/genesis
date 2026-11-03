@@ -5,21 +5,24 @@
  * prompts build on it too.
  *
  * - **Modes:** `modes` with a `tone` each ("Reply" / "Internal note"). The
- *   picker sits above the input, and an `internal` tone tints the whole bar
- *   in the theme's `warning` role, so a staff-only note never reads like a
- *   reply. The row it sends carries the same tone (ThreadPage).
+ *   picker sits above the input, and an `internal` tone edges the bar and
+ *   the input in the theme's `warning` role, so a staff-only note never
+ *   reads like a reply (the send button keeps the tint: text on `warning`
+ *   would fail contrast). The row it sends carries the same tone (ThreadPage).
  * - **Slots:** `leading` (attach), `trailing` (beside send: a mic), `above`
  *   (a reply preview, attachments waiting to send).
  * - **Keyboard:** the bar doesn't move itself. Put it under a keyboard-aware
  *   container (ThreadPage does, with `GenesisModules.keyboardAvoidingView`);
  *   the list above it dismisses the keyboard interactively on a drag.
  * - **Accessibility:** send and the mode picker are 44pt targets, the input
- *   is labelled by its placeholder, and Sending is announced.
+ *   is labelled by its placeholder (and says when it writes an internal
+ *   note), Sending is announced, and the input stays editable while a
+ *   message sends (the keyboard stays up).
  *
  * @stability Beta
  */
-import type { ReactNode } from "react";
-import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
+import { useEffect, type ReactNode } from "react";
+import { AccessibilityInfo, ActivityIndicator, Platform, Pressable, TextInput, View } from "react-native";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
 import { NativeIcon } from "./icon";
@@ -92,7 +95,10 @@ export function NativeComposerBar({
   const canSend = !blank && !disabled && !sending;
   // A multiline input grows with its text by itself; this caps it, after which it scrolls.
   const maxHeight = LINE * maxLines + PAD_Y * 2;
-  const accent = internal ? colors.warning : colors.tint;
+  // Say "Sending" on iOS too (a live region is Android-only).
+  useEffect(() => {
+    if (sending && Platform.OS === "ios") (AccessibilityInfo as { announceForAccessibility?: (t: string) => void }).announceForAccessibility?.(sendingLabel);
+  }, [sending, sendingLabel]);
 
   return (
     <View
@@ -119,9 +125,17 @@ export function NativeComposerBar({
                 accessibilityState={{ selected: on }}
                 accessibilityLabel={m.label}
                 onPress={() => onModeChange?.(m.id)}
-                style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 12, borderRadius: 22, backgroundColor: on ? colors.fill : "transparent" }}
+                style={{
+                  minHeight: 44,
+                  justifyContent: "center",
+                  paddingHorizontal: 12,
+                  borderRadius: 22,
+                  backgroundColor: on ? colors.fill : "transparent",
+                  borderWidth: m.tone === "internal" ? 1 : 0,
+                  borderColor: colors.warning,
+                }}
               >
-                <NativeText preset="label" style={{ color: on ? (m.tone === "internal" ? colors.warning : colors.label) : colors.secondaryLabel }}>
+                <NativeText preset="label" style={{ color: on ? colors.label : colors.secondaryLabel }}>
                   {m.label}
                 </NativeText>
               </Pressable>
@@ -136,16 +150,16 @@ export function NativeComposerBar({
           testID={`${testID}-input`}
           value={value}
           onChangeText={onChangeText}
-          placeholder={current?.tone === "internal" ? current.label : placeholder}
+          placeholder={internal ? current!.label : placeholder}
           placeholderTextColor={colors.tertiaryLabel as string}
-          accessibilityLabel={current?.tone === "internal" ? current.label : placeholder}
+          accessibilityLabel={internal ? current!.label : placeholder}
           multiline
           maxLength={maxLength}
-          editable={!sending}
           style={{
             flex: 1,
             minHeight: 44,
             maxHeight,
+            textAlignVertical: "center",
             paddingHorizontal: 14,
             paddingTop: PAD_Y,
             paddingBottom: PAD_Y,
@@ -171,12 +185,12 @@ export function NativeComposerBar({
             accessibilityState={{ disabled: !canSend }}
             disabled={!canSend}
             onPress={onSend}
-            style={{ minWidth: 44, height: 44, paddingHorizontal: hasIcon ? 0 : 14, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: canSend ? accent : colors.fill }}
+            style={{ minWidth: 44, height: 44, paddingHorizontal: hasIcon ? 0 : 14, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: canSend ? colors.tint : colors.fill }}
           >
             {hasIcon ? (
               <NativeIcon name="arrow-up" size={20} color={canSend ? colors.background : colors.tertiaryLabel} />
             ) : (
-              <NativeText preset="label" style={{ color: canSend ? colors.background : colors.tertiaryLabel }}>
+              <NativeText preset="label" className={canSend ? "text-primary-foreground" : undefined} style={canSend ? undefined : { color: colors.tertiaryLabel }}>
                 {sendLabel}
               </NativeText>
             )}

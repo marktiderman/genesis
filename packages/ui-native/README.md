@@ -217,22 +217,30 @@ Two generic layouts for conversations (support tickets, direct messages, comment
     - follows the newest only when you're at the bottom, with a "Jump to latest" pill when you
       aren't;
     - `firstUnreadId` (a "New messages" divider), and `jumpTo` with `onLoadUntil` (go to a
-      message, announced to VoiceOver);
-    - `refreshing` (a quiet "Updating…" line while fresher rows load).
+      message: it waits for `loading`, highlights the message for two seconds and announces it;
+      one that can't be found is announced and the list goes back to the newest);
+    - `loading` (a skeleton, not the empty state) and `updating` (a quiet "Updating…" line under
+      the header region while fresher rows arrive, announced once).
   - **Send states** are data: `sending`, `pending` (queued offline), `paused` (sign in to send),
-    `failed` and `conflict`, with `onRetry` and `onDiscard` (also VoiceOver actions). Keep each
+    `failed` and `conflict`, with `onRetry` and `onDiscard` (also VoiceOver actions; Discard only
+    on a message that hasn't gone). An internal note (`tone: "internal"`) says so to VoiceOver. Keep each
     message's `id` the same across refreshes (a cache, then the server), or the list jumps.
-  - **The composer** grows as you type, has a 44pt send button, and takes `modes` with a tone: an
-    `internal` mode ("Internal note") tints the bar and the note it sends.
-  - **Keyboard:** with `GenesisModules.keyboardAvoidingView` (react-native-keyboard-controller's)
-    the composer follows the keyboard frame by frame; without it, React Native's
-    `KeyboardAvoidingView`. Dragging the list dismisses the keyboard.
+  - **The composer** grows as you type, has a 44pt send button, stays editable while sending, and
+    takes `modes` with a tone: an `internal` mode ("Internal note") edges the bar and the note it
+    sends in the `warning` role. `above` and `trailing` take a reply preview and a mic.
+  - **Keyboard:** with `GenesisModules.keyboardAvoidingView` (react-native-keyboard-controller's,
+    1.21 or later) the composer follows the keyboard frame by frame and the page finds its own
+    offset (`automaticOffset`); without it, React Native's `KeyboardAvoidingView` with
+    `keyboardVerticalOffset` (100 on iOS by default). Dragging the list dismisses the keyboard on
+    iOS. The header region stays put.
   - **Read-only:** `composer={null}`, with a `closedNotice`.
   - **Slots:** `message`, `event`, `attachment`, `readReceipt`, `unreadDivider`, `composer`,
     `composerAccessory`, `headerRegion` (pinned above the list: a ticket's status and assignee),
     `header` (scrolls with the messages), `earlier`, `empty`.
 - **`NativeThreadList`**: the list on its own, for a thread of your own. It renders the rows it's
   given and never fetches. FlashList v2's chat mode when the app passed `list`, else FlatList.
+  `useThreadJump` is its jump on its own. The doctor's `threads-use-thread-list` rule warns on a
+  hand-built inverted or bottom-started list.
 - **`NativeComposerBar`**: the composer on its own. It takes `leading`, `trailing` and `above`
   slots, and `modes`.
 

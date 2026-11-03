@@ -29,6 +29,9 @@
  * Read-only: pass `composer={null}` (a closed ticket, a viewer) and an
  * optional `closedNotice`.
  *
+ * `loading` shows a skeleton instead of the empty state; `updating` a quiet
+ * line while fresher rows arrive.
+ *
  * Slots: `message`, `event`, `attachment`, `readReceipt`, `unreadDivider`,
  * `composer`, `composerAccessory` (beside the input: attach a screenshot),
  * `headerRegion` (pinned above the list: a ticket's status and assignee),
@@ -37,16 +40,21 @@
  *
  * @stability Beta
  */
-import { useCallback, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
+import { AccessibilityInfo, Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
 import { NativeEmptyState } from "../components/empty-state";
 import { NativeText } from "../components/text";
-import { NativeComposerBar, type ComposerMode, type ComposerTone } from "../components/composer-bar";
-import { NativeThreadList, type NativeThreadListHandle } from "../components/thread-list";
+import { NativeComposerBar, type ComposerMode } from "../components/composer-bar";
+import { NativeThreadList, type NativeThreadListHandle, type ThreadRowInfo } from "../components/thread-list";
+
+const announce = (text: string) => (AccessibilityInfo as { announceForAccessibility?: (t: string) => void }).announceForAccessibility?.(text);
+
+/** How a message reads: `default`, or `internal` (a staff-only note, never mistaken for a reply). */
+export type MessageTone = "default" | "internal";
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
 
 export interface ThreadAttachment {
@@ -81,7 +89,7 @@ export interface ThreadMessage {
   onRetry?: () => void;
   onDiscard?: () => void;
   /** `internal`: a staff-only note, tinted so it never reads like a reply. */
-  tone?: ComposerTone;
+  tone?: MessageTone;
   attachments?: ThreadAttachment[];
 }
 
@@ -96,6 +104,12 @@ export interface ThreadComposer {
   /** Turns the send button off (besides an empty or blank value). */
   disabled?: boolean;
   maxLength?: number;
+  /** Said while sending. Default `labels.sending`. */
+  sendingLabel?: string;
+  /** Above the input: a reply preview, attachments waiting to send. */
+  above?: ReactNode;
+  /** Beside send: a mic. */
+  trailing?: ReactNode;
   /** The input grows to this many lines, then scrolls. Default 6. */
   maxLines?: number;
   /** Ways to send ("Reply", "Internal note"); two or more show the picker. */
@@ -122,8 +136,10 @@ export interface ThreadLabels {
   newMessages: string;
   /** The pill that goes back to the newest message. */
   jumpToLatest: string;
-  /** While `refreshing`. */
+  /** While `updating`. */
   updating: string;
+  /** Said with an internal note, so VoiceOver never reads it as a reply. */
+  internal: string;
   /** Said when a `jumpTo` message can't be found. */
   messageGone: string;
 }
@@ -140,11 +156,12 @@ const DEFAULT_LABELS: ThreadLabels = {
   newMessages: "New messages",
   jumpToLatest: "Jump to latest",
   updating: "Updating…",
+  internal: "Internal note",
   messageGone: "That message isn't available.",
 };
 
 export type ThreadPageSlotMap = {
-  message: ThreadMessage & { testID: string; timeLabel: string; showReadReceipt: boolean; labels: ThreadLabels };
+  message: ThreadMessage & { testID: string; timeLabel: string; showReadReceipt: boolean; labels: ThreadLabels; /** A jump just landed here (two seconds). */ highlighted: boolean };
   event: ThreadMessage & { testID: string; timeLabel: string };
   attachment: ThreadAttachment & { testID: string; mine: boolean };
   readReceipt: { label: string; testID: string };
@@ -185,11 +202,17 @@ export interface ThreadPageProps extends ScreenHeaderProps {
   jumpTo?: string | null;
   /** Load earlier pages until the message is held; resolve false when it can't be found. */
   onLoadUntil?: (id: string) => Promise<boolean>;
-  /** A `jumpTo` message couldn't be found. Default: VoiceOver says `labels.messageGone`. */
+  /** A `jumpTo` message couldn't be found (the list goes back to the newest). Default: VoiceOver says `labels.messageGone`. */
   onJumpFailed?: (id: string) => void;
-  /** Fresher rows are on their way (the cache showed first): a quiet "Updating…" line. */
-  refreshing?: boolean;
-  /** Where the page starts below the window's top, for the keyboard. Default 100 on iOS (a standard header). */
+  /** The first page is loading: a skeleton instead of the empty state, and a jump waits for it. */
+  loading?: boolean;
+  /** Fresher rows are on their way (the cache showed first): a quiet "Updating…" line under the header region, announced once. */
+  updating?: boolean;
+  /**
+   * For the keyboard. With the keyboard-controller module the page finds its own place on screen
+   * (`automaticOffset`) and this is extra space (default 0); with React Native's, it's where the
+   * page starts below the window's top (default 100 on iOS: a standard header).
+   */
   keyboardVerticalOffset?: number;
   emptyTitle?: string;
   emptyBody?: string;
@@ -249,7 +272,8 @@ export function ThreadPage({
   jumpTo,
   onLoadUntil,
   onJumpFailed,
-  refreshing = false,
+  loading = false,
+  updating = false,
   keyboardVerticalOffset,
   emptyTitle,
   emptyBody,
@@ -266,8 +290,15 @@ export function ThreadPage({
   const receiptFor = readReceiptFor(messages, readAt);
   const labels: ThreadLabels = { ...DEFAULT_LABELS, ...labelOverrides };
 
+  // "Updating…" on iOS too (a live region is Android-only).
+  useEffect(() => {
+    if (updating && Platform.OS === "ios") announce(labels.updating);
+    // labels.updating is read when updating turns on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updating]);
+
   const renderRow = useCallback(
-    (message: ThreadMessage) => {
+    (message: ThreadMessage, { highlighted }: ThreadRowInfo) => {
       const timeLabel = formatTime(toDate(message.timestamp));
       const divider =
         message.id === firstUnreadId
@@ -287,7 +318,7 @@ export function ThreadPage({
           {renderSlot(
             DefaultMessage,
             slots.message,
-            { ...message, testID: `${testID}-message-${message.id}`, timeLabel, showReadReceipt: message.id === receiptFor, labels },
+            { ...message, testID: `${testID}-message-${message.id}`, timeLabel, showReadReceipt: message.id === receiptFor, labels, highlighted },
             slotProps.message,
           )}
           {message.attachments?.length ? (
@@ -329,6 +360,7 @@ export function ThreadPage({
       slots.composer,
       {
         ...composer,
+        sendingLabel: composer.sendingLabel ?? labels.sending,
         onSend: send!,
         testID: `${testID}-composer`,
         accessory: renderSlot(Nothing, slots.composerAccessory, { testID: `${testID}-composer-accessory` }, slotProps.composerAccessory),
@@ -341,27 +373,23 @@ export function ThreadPage({
     </NativeText>
   ) : null;
 
-  const listHeader = (
-    <>
-      {header ?? renderSlot(Nothing, slots.header, { testID: `${testID}-header` }, slotProps.header)}
-      {refreshing ? (
+  const listHeader = header ?? renderSlot(Nothing, slots.header, { testID: `${testID}-header` }, slotProps.header);
+
+  const KeyboardAvoiding = (genesis.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
+  const keyboardProps = genesis.keyboardAvoidingView
+    ? { behavior: "translate-with-padding", automaticOffset: true, keyboardVerticalOffset: keyboardVerticalOffset ?? 0 }
+    : { behavior: Platform.OS === "ios" ? "padding" : undefined, keyboardVerticalOffset: keyboardVerticalOffset ?? (Platform.OS === "ios" ? 100 : 0) };
+
+  return (
+    <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+      {/* Pinned above the keyboard-avoiding view, so it doesn't move with the keyboard. */}
+      {renderSlot(Nothing, slots.headerRegion, { testID: `${testID}-header-region` }, slotProps.headerRegion)}
+      {updating ? (
         <View testID={`${testID}-updating`} accessibilityLiveRegion="polite" accessible accessibilityLabel={labels.updating}>
           <NativeText style={{ textAlign: "center", paddingVertical: 4, color: colors.tertiaryLabel, fontSize: 12, lineHeight: 16 }}>{labels.updating}</NativeText>
         </View>
       ) : null}
-    </>
-  );
-
-  const KeyboardAvoiding = (genesis.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
-  const offset = keyboardVerticalOffset ?? (Platform.OS === "ios" ? 100 : 0);
-  const keyboardProps = genesis.keyboardAvoidingView
-    ? { behavior: "translate-with-padding", keyboardVerticalOffset: offset }
-    : { behavior: Platform.OS === "ios" ? "padding" : undefined, keyboardVerticalOffset: offset };
-
-  return (
-    <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
       <KeyboardAvoiding testID={`${testID}-keyboard`} style={{ flex: 1 }} {...keyboardProps}>
-        {renderSlot(Nothing, slots.headerRegion, { testID: `${testID}-header-region` }, slotProps.headerRegion)}
         <View style={{ flex: 1 }}>
           <NativeThreadList<ThreadMessage>
             ref={listRef}
@@ -370,6 +398,7 @@ export function ThreadPage({
             keyExtractor={(m) => m.id}
             getItemType={(m) => (m.kind === "event" ? "event" : m.mine ? "mine" : "theirs")}
             renderItem={renderRow}
+            loading={loading}
             hasEarlier={hasEarlier}
             onLoadEarlier={onLoadEarlier}
             loadingEarlier={loadingEarlier}
@@ -378,7 +407,7 @@ export function ThreadPage({
             jumpTo={jumpTo}
             onLoadUntil={onLoadUntil}
             jumpAnnouncement={(m) => [m.mine ? labels.you : m.authorName, m.body].filter(Boolean).join(", ")}
-            onJumpFailed={onJumpFailed}
+            onJumpFailed={onJumpFailed ?? (() => announce(labels.messageGone))}
             onAtBottomChange={setAtBottom}
             header={listHeader}
             empty={renderSlot(
@@ -430,7 +459,7 @@ function DefaultEmpty({ title, body, testID }: ThreadPageSlotMap["empty"]) {
 function DefaultUnreadDivider({ label, testID }: ThreadPageSlotMap["unreadDivider"]) {
   const colors = useThemeRoles();
   return (
-    <View testID={testID} accessibilityRole="header" accessibilityLabel={label} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 }}>
+    <View testID={testID} accessible accessibilityRole="header" accessibilityLabel={label} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 }}>
       <View style={{ flex: 1, height: 1, backgroundColor: colors.tint }} />
       <NativeText style={{ color: colors.tint, fontSize: 12, lineHeight: 16 }}>{label}</NativeText>
       <View style={{ flex: 1, height: 1, backgroundColor: colors.tint }} />
@@ -476,10 +505,12 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
   const waiting = message.status === "sending" || message.status === "pending" || message.status === "paused";
   const internal = message.tone === "internal";
   const state = stateLabel(message);
-  const label = [message.mine ? labels.you : (message.authorName ?? ""), message.body, message.timeLabel, state].filter(Boolean).join(", ");
+  const label = [message.mine ? labels.you : (message.authorName ?? ""), internal ? labels.internal : null, message.body, message.timeLabel, state].filter(Boolean).join(", ");
+  // Discard is offered where it shows: a message that hasn't gone yet.
+  const canDiscard = Boolean(message.onDiscard) && (broken || waiting);
   const actions = [
     ...(broken && message.onRetry ? [{ name: "activate", label: labels.retryHint }] : []),
-    ...(message.onDiscard ? [{ name: "discard", label: labels.discard }] : []),
+    ...(canDiscard ? [{ name: "discard", label: labels.discard }] : []),
   ];
   return (
     <View style={{ alignItems: message.mine ? "flex-end" : "flex-start" }}>
@@ -489,11 +520,12 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
       <Pressable
         testID={message.testID}
         accessible
+        accessibilityRole={broken && message.onRetry ? "button" : undefined}
         accessibilityLabel={label}
         accessibilityHint={broken && message.onRetry ? labels.retryHint : undefined}
         accessibilityActions={actions.length ? actions : undefined}
         onAccessibilityAction={(e) => {
-          if (e.nativeEvent.actionName === "discard") message.onDiscard?.();
+          if (e.nativeEvent.actionName === "discard" && canDiscard) message.onDiscard?.();
           else if (e.nativeEvent.actionName === "activate" && broken) message.onRetry?.();
         }}
         onPress={broken ? message.onRetry : undefined}
@@ -503,8 +535,8 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
           paddingVertical: 8,
           borderRadius: 18,
           backgroundColor: internal ? colors.surface : message.mine ? colors.tint : colors.surface,
-          borderWidth: internal ? 1 : 0,
-          borderColor: colors.warning,
+          borderWidth: internal || message.highlighted ? 2 : 0,
+          borderColor: internal ? colors.warning : colors.tint,
           opacity: waiting ? 0.6 : 1,
         }}
       >
@@ -516,8 +548,8 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
         <NativeText testID={`${message.testID}-time`} style={{ color: broken ? colors.destructive : colors.tertiaryLabel, fontSize: 11, lineHeight: 14 }}>
           {state ?? message.timeLabel}
         </NativeText>
-        {message.onDiscard && (broken || waiting) ? (
-          <Pressable testID={`${message.testID}-discard`} accessibilityRole="button" accessibilityLabel={labels.discard} onPress={message.onDiscard} hitSlop={12}>
+        {canDiscard ? (
+          <Pressable testID={`${message.testID}-discard`} accessibilityRole="button" accessibilityLabel={labels.discard} onPress={message.onDiscard} hitSlop={{ top: 15, bottom: 15, left: 12, right: 12 }}>
             <NativeText style={{ color: colors.secondaryLabel, fontSize: 11, lineHeight: 14 }}>{labels.discard}</NativeText>
           </Pressable>
         ) : null}
@@ -526,12 +558,19 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
   );
 }
 
-function DefaultAttachment({ uri, width, height, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
+function DefaultAttachment({ id, uri, width, height, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
+  const { image: ExpoImage } = useGenesisModules();
   const ratio = width && height ? width / height : 0.6;
   const w = 140;
+  const style = { width: w, height: Math.round(w / ratio), borderRadius: 12 };
   return (
     <Pressable testID={testID} accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? "Attachment"} onPress={onPress} disabled={!onPress}>
-      <Image source={{ uri }} style={{ width: w, height: Math.round(w / ratio), borderRadius: 12 }} resizeMode="cover" />
+      {/* A recycled row (FlashList) must not show the last row's picture while this one loads. */}
+      {ExpoImage ? (
+        <ExpoImage source={{ uri }} style={style} contentFit="cover" recyclingKey={id} />
+      ) : (
+        <Image key={uri} source={{ uri }} style={style} resizeMode="cover" />
+      )}
     </Pressable>
   );
 }

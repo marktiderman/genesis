@@ -117,7 +117,7 @@ describe("ThreadPage", () => {
         <ThreadPage testID="t" messages={messages} composer={composer()} keyboardVerticalOffset={64} />
       </GenesisModulesProvider>,
     );
-    expect(seen.at(-1)).toMatchObject({ behavior: "translate-with-padding", keyboardVerticalOffset: 64 });
+    expect(seen.at(-1)).toMatchObject({ behavior: "translate-with-padding", automaticOffset: true, keyboardVerticalOffset: 64 });
   });
 
   it("shows events as centred lines, and keeps them out of the read receipt", () => {
@@ -149,7 +149,7 @@ describe("ThreadPage", () => {
   });
 
   it("says it's updating while fresher rows load", () => {
-    render(<ThreadPage testID="t" messages={messages} composer={composer()} refreshing />);
+    render(<ThreadPage testID="t" messages={messages} composer={composer()} updating />);
     expect(screen.getByTestId("t-updating").textContent).toBe("Updating…");
   });
 
@@ -169,12 +169,33 @@ describe("ThreadPage", () => {
     expect(onModeChange).toHaveBeenCalledWith("reply");
   });
 
+  it("says an internal note is one, to VoiceOver", () => {
+    const rows: ThreadMessage[] = [{ id: "n", body: "Check the logs", mine: true, tone: "internal", timestamp: "2026-10-24T09:00:00Z" }];
+    render(<ThreadPage testID="t" messages={rows} composer={composer()} />);
+    expect(screen.getByTestId("t-message-n").getAttribute("aria-label")).toMatch(/^You, Internal note, Check the logs/);
+  });
+
+  it("offers Discard only on a message that hasn't gone", () => {
+    const onDiscard = vi.fn();
+    const rows: ThreadMessage[] = [{ id: "s", body: "sent", mine: true, timestamp: "2026-10-24T09:00:00Z", onDiscard }];
+    render(<ThreadPage testID="t" messages={rows} composer={composer()} />);
+    expect(screen.queryByTestId("t-message-s-discard")).toBeNull();
+  });
+
+  it("shows a skeleton, not the empty state, while the first page loads", () => {
+    render(<ThreadPage testID="t" messages={[]} composer={composer()} loading />);
+    expect(screen.getByTestId("t-messages-loading")).toBeTruthy();
+    expect(screen.queryByTestId("t-empty")).toBeNull();
+  });
+
   it("pins the header region above the list", () => {
     const Props = ({ testID }: { testID: string }) => <div data-testid={testID}>Open · Sam</div>;
     render(<ThreadPage testID="t" messages={messages} composer={composer()} slots={{ headerRegion: Props }} />);
     const region = screen.getByTestId("t-header-region");
     expect(region.textContent).toBe("Open · Sam");
     expect(screen.getByTestId("t-messages").contains(region)).toBe(false);
+    // Outside the keyboard-avoiding view, so it doesn't move with the keyboard.
+    expect(screen.getByTestId("t-keyboard").contains(region)).toBe(false);
   });
 
   it("composes a standard header by default", () => {

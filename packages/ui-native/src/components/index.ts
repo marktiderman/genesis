@@ -303,6 +303,6 @@ export {
   threadNearBottom,
   THREAD_AT_BOTTOM_POINTS,
 } from "./thread-list";
-export type { NativeThreadListProps, NativeThreadListHandle } from "./thread-list";
+export type { NativeThreadListProps, NativeThreadListHandle, ThreadRowInfo } from "./thread-list";
 export { NativeComposerBar } from "./composer-bar";
 export type { NativeComposerBarProps, ComposerMode, ComposerTone } from "./composer-bar";

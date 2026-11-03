@@ -42,7 +42,8 @@ describe("threadListMode", () => {
       maintainVisibleContentPosition: { startRenderingFromBottom: true, autoscrollToBottomThreshold: 0.2, animateAutoScrollToBottom: true },
     });
     expect(threadListMode(true, true).maintainVisibleContentPosition.animateAutoScrollToBottom).toBe(false);
-    expect(threadListMode(false, false)).toEqual({ followsByHand: true, maintainVisibleContentPosition: { minIndexForVisible: 0 } });
+    // Anchored past the list header (child 0), so loading earlier rows from the very top keeps the place.
+    expect(threadListMode(false, false)).toEqual({ followsByHand: true, maintainVisibleContentPosition: { minIndexForVisible: 1 } });
   });
 
   it("counts near the bottom as the bottom", () => {
