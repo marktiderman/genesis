@@ -37,6 +37,9 @@ describe("block manifests", () => {
     expect(bad({ migrations: [{ file: "migrations/0001_x.sql", needs: [{ function: "genesis_viewer_people", how: "add it" }] }] }).join()).toMatch(/schema-qualified/);
     expect(bad({ migrations: [{ file: "migrations/0001_x.sql", needs: [{ function: "private.genesis_viewer_people" }] }] }).join()).toMatch(/\{ function: "schema\.name", how/);
     expect(bad({ migrations: [{ file: "migrations/0001_x.sql", needs: [{ function: "private.genesis_viewer_people", how: "Add the tenancy hook." }] }] })).toEqual([]);
+    expect(bad({ migrations: [{ file: "migrations/0001_x.sql", runsBefore: "chat" }] }).join()).toMatch(/runsBefore: must be a list/);
+    expect(bad({ migrations: [{ file: "migrations/0001_x.sql", runsBefore: [{ package: "@marktiderman/genesis-chat", file: "migrations/chat.sql" }] }] }).join()).toMatch(/NNNN_name\.sql/);
+    expect(bad({ migrations: [{ file: "migrations/0001_x.sql", runsBefore: [{ package: "@marktiderman/genesis-chat", file: "migrations/0004_genesis_chat_tenants.sql" }] }] })).toEqual([]);
     expect(() => parseManifest("left-pad", "x", {})).toThrow(/only Genesis packages/);
   });
 

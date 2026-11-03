@@ -55,6 +55,12 @@ export interface ManifestMigration {
    * when they'd copy it into an app whose migrations don't define one.
    */
   needs?: { function: string; how: string }[];
+  /**
+   * Package migrations this one must be applied before (another block's, which reads what this
+   * one creates). When both are new in the same `genesis add`, `migrate` or `upgrade` run, this
+   * one is copied first, so it gets the earlier timestamp.
+   */
+  runsBefore?: { package: string; file: string }[];
 }
 
 export interface ManifestFunction {
@@ -219,6 +225,22 @@ export function parseManifest(home: string, id: string, raw: unknown, version?: 
             return [];
           }
           return [{ function: n["function"], how: n["how"].trim() }];
+        });
+      }
+    }
+    if (m["runsBefore"] !== undefined) {
+      if (!Array.isArray(m["runsBefore"])) problems.push(`${where}.runsBefore: must be a list of { package, file }`);
+      else {
+        out.runsBefore = (m["runsBefore"] as unknown[]).map((r, j) => {
+          const at2 = `${where}.runsBefore[${j}]`;
+          if (!isObject(r)) {
+            problems.push(`${at2}: must be an object`);
+            return { package: home, file: "" };
+          }
+          const before = { package: pkgOf(r["package"], at2), file: pathOf(r["file"], `${at2}.file`) };
+          if (before.file && !MIGRATION_FILE.test(before.file.split("/").pop()!)) problems.push(`${at2}.file: "${before.file}" must be named NNNN_name.sql`);
+          if (before.package === out.package && before.file === file) problems.push(`${at2}: a migration can't run before itself`);
+          return before;
         });
       }
     }

@@ -257,3 +257,32 @@ describe("a migration's needs (a hook the app defines first)", () => {
     expect(planMigrations(root, [needy], { now: NOW }).rows[0]!.unmet).toHaveLength(1);
   });
 });
+
+describe("a migration that runsBefore another block's", () => {
+  const chat = (n: number) => ({ package: "@marktiderman/genesis-chat", file: `migrations/000${n}_genesis_chat_${n}.sql`, source: `select ${n};\n` });
+  const support = (n: number, extra: object = {}) => ({ package: "@marktiderman/genesis-support", file: `migrations/000${n}_genesis_support_${n}.sql`, source: `select 10${n};\n`, ...extra });
+  const before = { runsBefore: [{ package: "@marktiderman/genesis-chat", file: "migrations/0004_genesis_chat_4.sql" }] };
+
+  it("is copied first, with its package's earlier migrations, when both are new", () => {
+    const root = makeApp({ "supabase/migrations/20260101000000_init.sql": "select 1;\n" });
+    const rows = planMigrations(root, [chat(3), chat(4), support(5), support(6, before)], { now: NOW }).rows;
+    expect(rows.map((r) => r.file.split("/").pop())).toEqual(["0003_genesis_chat_3.sql", "0005_genesis_support_5.sql", "0006_genesis_support_6.sql", "0004_genesis_chat_4.sql"]);
+    const targets = rows.map((r) => r.target!);
+    expect([...targets].sort()).toEqual(targets);
+  });
+
+  it("keeps the order given when nothing declares it, or the target isn't in the run", () => {
+    const root = makeApp({ "supabase/migrations/20260101000000_init.sql": "select 1;\n" });
+    expect(planMigrations(root, [chat(3), support(6)], { now: NOW }).rows.map((r) => r.package)).toEqual(["@marktiderman/genesis-chat", "@marktiderman/genesis-support"]);
+    expect(planMigrations(root, [chat(3), support(6, before)], { now: NOW }).rows.map((r) => r.package)).toEqual(["@marktiderman/genesis-chat", "@marktiderman/genesis-support"]);
+  });
+});
+
+describe("a hook defined only in a comment", () => {
+  it("doesn't satisfy a need", () => {
+    const HOOK = "private.genesis_viewer_people";
+    const needy = { package: "@marktiderman/genesis-fixture", file: "migrations/0002_fixture_tenants.sql", source: "select 2;\n", needs: [{ function: HOOK, how: "add it" }] };
+    const root = makeApp({ "supabase/migrations/20260101000000_init.sql": "-- create function private.genesis_viewer_people(viewer uuid) ...\n/* create or replace function private.genesis_viewer_people(v uuid) */ select 1;\n" });
+    expect(planMigrations(root, [needy], { now: NOW }).rows[0]!.unmet).toHaveLength(1);
+  });
+});
