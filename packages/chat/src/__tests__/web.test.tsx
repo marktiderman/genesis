@@ -183,6 +183,8 @@ describe("ChatThread", () => {
     });
     const intoView = vi.fn();
     const original = HTMLElement.prototype.scrollIntoView;
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
     HTMLElement.prototype.scrollIntoView = intoView;
     try {
       mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
@@ -191,9 +193,12 @@ describe("ChatThread", () => {
       scroller.scrollTo = scrollTo as unknown as typeof scroller.scrollTo;
       fireEvent.click(await screen.findByTestId("genesis-chat-reply-quote"));
       await waitFor(() => expect(document.querySelector("#genesis-chat-msg-m3 .ring-2")).not.toBeNull());
+      // The thread's own scroller moves (smoothly: no reduced-motion preference here), and nothing else does.
+      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: expect.any(Number), behavior: "smooth" }));
       expect(intoView).not.toHaveBeenCalled();
     } finally {
       HTMLElement.prototype.scrollIntoView = original;
+      window.matchMedia = originalMatchMedia;
     }
   });
 
