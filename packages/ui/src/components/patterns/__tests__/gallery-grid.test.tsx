@@ -264,6 +264,14 @@ describe("GalleryGrid — parity with native", () => {
 });
 
 describe("GalleryGrid — an item with no image", () => {
+  it("names a plain (not clickable) placeholder tile as an image", () => {
+    render(<GalleryGrid items={[{ id: "n", src: "", caption: "No photo yet" }]} />);
+    const placeholder = document.querySelector('[data-slot="gallery-tile-placeholder"]')!;
+    expect(placeholder.getAttribute("role")).toBe("img");
+    expect(placeholder.getAttribute("aria-hidden")).toBeNull();
+    expect(screen.getByRole("img", { name: "No photo yet" })).toBe(placeholder);
+  });
+
   it("draws a neutral 4:3 tile with its alt and caption, still named and clickable", () => {
     const onItemClick = vi.fn();
     render(<GalleryGrid items={[{ id: "n", src: "", alt: "Untitled", caption: "No photo yet" }]} onItemClick={onItemClick} />);

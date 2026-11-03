@@ -133,6 +133,14 @@ describe("NativeGalleryGrid additions", () => {
     expect(onItemPress).toHaveBeenCalledWith(expect.objectContaining({ id: "n" }), 0);
   });
 
+  it("names a plain (not pressable) placeholder tile as an image", () => {
+    render(<NativeGalleryGrid items={[{ id: "n", src: "", alt: "Untitled" }]} testID="g" />);
+    measure(screen.getByTestId("g"), 300);
+    const placeholder = screen.getByTestId("g-placeholder-n");
+    expect(placeholder.getAttribute("role")).toBe("image");
+    expect(placeholder.getAttribute("aria-label")).toBe("Untitled");
+  });
+
   it("shares the web's defaults", () => {
     expect(GALLERY_DEFAULTS).toEqual({ rowHeight: 180, gap: 4, columns: 3 });
   });
