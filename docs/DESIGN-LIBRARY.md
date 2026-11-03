@@ -38,19 +38,36 @@ neutral, surface, text and accent scales, status colours, typography, spacing, r
 The factories turn it into the app's theme (`tailwindFromBrand` for the web, `themeFromBrand`
 for NativeWind, `brandRoleVariables` for the role values a theme provider sets at runtime).
 
-The library has one **Brand** collection. Each mode is a consumer app, named after the app's
-brand (`Acme`, `Sample`), and its values are generated from that app's `CanonicalBrand` by the
-same mapping the factories use, so Figma shows the colour the app renders. The colour-role
-variables alias into the Brand collection where a role is brand-driven (`primary` is the
-accent's `DEFAULT`, `primary-foreground` its `foreground`), and stay literal where it is not.
+The library has one **Brand** collection with one mode per consumer app, named after the app's
+brand. It holds only the roles a brand drives (`brand/primary`, `brand/primary-foreground`,
+`brand/primary-dark`, `brand/signal`, `brand/link`, the chat bubble roles, `brand/font-sans`,
+`brand/font-display`), each aliased to a primitive in the **Primitives** collection
+(`<brand>/<colour>`). The **Color** collection's roles alias into Brand where a role is
+brand-driven and stay on the Genesis neutrals where it is not, so a mode switch recolours every
+component without a second set of role variables. Light and dark are modes of Color; brand is a
+mode of Brand; a page sets both. `primary` follows `brandRoleVariables`: the Light mode aliases
+`brand/primary`, the dark modes alias `brand/primary-dark`, which is the accent when it reads at
+4.5:1 on the dark background and the Genesis dark primary otherwise.
+
+A mode's values come from the brand file, by the same mapping the factories use:
+
+```sh
+npx tsx scripts/figma-brand-modes.mts path/to/brand.ts > brand-modes.json
+```
+
+prints, per brand, the value of every Brand variable for that brand's mode (worked out by
+`brandRoleVariables`; the signal, link and bubble roles default to the primary), the base radius
+in px, and the full light and dark role maps for reference. Add the primitives and the mode in
+Figma from the `brand` entries; when a brand changes in code, regenerate and update the mode. The mode is derived; the
+brand file is the source, as it is for the theme CSS.
 
 An app's Figma file **subscribes** to the Genesis library and sets its pages to its Brand mode.
 Nothing is copied: a change to a component or a token in the library reaches every app's file as
 a library update, and a brand change is a change to one mode. Designing a new app means a new
 mode generated from its brand, not a new library.
 
-When a brand changes in code, regenerate its mode from the brand file. The mode is derived; the
-brand file is the source, as it is for the theme CSS.
+The Professional plan allows ten modes per collection (see Plan limits), so ten brands at a
+time; the eleventh needs Organization.
 
 ## Code Connect
 
