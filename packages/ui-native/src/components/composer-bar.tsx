@@ -22,7 +22,7 @@
  * @stability Beta
  */
 import { useEffect, type ReactNode } from "react";
-import { AccessibilityInfo, ActivityIndicator, Platform, Pressable, TextInput, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Dimensions, Platform, Pressable, TextInput, View } from "react-native";
 import type { ComposerMode } from "@marktiderman/genesis-core/conversation";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
@@ -88,7 +88,9 @@ export function NativeComposerBar({
   const blank = !value.trim();
   const canSend = !blank && !disabled && !sending;
   // A multiline input grows with its text by itself; this caps it, after which it scrolls.
-  const maxHeight = LINE * maxLines + PAD_Y * 2;
+  // Lines grow with the person's text size (Dynamic Type, Android font scale).
+  const fontScale = Dimensions.get("window").fontScale || 1;
+  const maxHeight = Math.ceil(LINE * fontScale) * maxLines + PAD_Y * 2;
   // Say "Sending" on iOS too (a live region is Android-only).
   useEffect(() => {
     if (sending && Platform.OS === "ios") (AccessibilityInfo as { announceForAccessibility?: (t: string) => void }).announceForAccessibility?.(sendingLabel);

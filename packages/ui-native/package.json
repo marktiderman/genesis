@@ -232,7 +232,7 @@
             "**/*.jsx"
           ],
           "forbid": {
-            "pattern": "(?:<(?:FlatList|FlashList)\\b[^>]*\\binverted\\b|\\bstartRenderingFromBottom\\s*:\\s*true)"
+            "pattern": "(?:<(?:FlatList|FlashList)\\b[\\s\\S]{0,400}?\\binverted\\b(?!\\s*=\\s*\\{\\s*false\\s*\\})|\\bstartRenderingFromBottom\\s*:\\s*true)"
           },
           "unless": {
             "renders": [

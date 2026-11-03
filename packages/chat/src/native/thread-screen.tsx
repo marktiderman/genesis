@@ -51,7 +51,7 @@ import { attachmentPaths } from "./media";
 import { ChatPhotoViewer, galleryFor, type ChatPhoto } from "./photo-viewer";
 import { MessageActionsSheet } from "./message-actions-sheet";
 import { displayBody, MessageBubble } from "./message-bubble";
-import { haptic } from "./modules";
+import { haptic, type KeyboardAvoidingLike } from "./modules";
 import { pauseChatPlayback } from "./voice-player";
 import { buildThreadRows, type ThreadRow } from "./rows";
 
@@ -127,7 +127,10 @@ interface ChatListProps {
   testID?: string;
 }
 
-/** Points from the bottom that still count as "at the bottom" (FlatList, which follows by hand). */
+/**
+ * Points from the bottom that still count as "at the bottom" (FlatList, which follows by hand).
+ * @deprecated Promoted to genesis-ui-native as `THREAD_AT_BOTTOM_POINTS`. ChatThreadScreen moves onto NativeThreadList with its builder (feature `inbox-thread`); this copy is removed then.
+ */
 export const AT_BOTTOM_POINTS = 120;
 
 /**
@@ -136,6 +139,7 @@ export const AT_BOTTOM_POINTS = 120;
  * a screen of it, keeps the first visible row in place when earlier ones load
  * at the top). FlatList: keeps its place when earlier rows load at the top;
  * the screen follows new rows itself (`followsByHand`).
+ * @deprecated Promoted to genesis-ui-native as `threadListMode` (which anchors FlatList past the header, `minIndexForVisible: 1`). ChatThreadScreen moves onto NativeThreadList with its builder (feature `inbox-thread`); this copy is removed then.
  */
 export function threadListMode(flash: boolean, reducedMotion: boolean): { followsByHand: boolean; maintainVisibleContentPosition: Record<string, unknown> } {
   if (flash) {
@@ -147,7 +151,10 @@ export function threadListMode(flash: boolean, reducedMotion: boolean): { follow
   return { followsByHand: true, maintainVisibleContentPosition: { minIndexForVisible: 0 } };
 }
 
-/** Whether a scroll position is at (or near) the bottom of its content. */
+/**
+ * Whether a scroll position is at (or near) the bottom of its content.
+ * @deprecated Promoted to genesis-ui-native as `threadNearBottom`. ChatThreadScreen moves onto NativeThreadList with its builder (feature `inbox-thread`); this copy is removed then.
+ */
 export function nearBottom(m: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } }, slack = AT_BOTTOM_POINTS): boolean {
   return m.contentOffset.y + m.layoutMeasurement.height >= m.contentSize.height - slack;
 }
@@ -470,9 +477,11 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
     setRetryingAccess(true);
     void Promise.resolve(refetchAccess()).finally(() => setRetryingAccess(false));
   }, [refetchAccess]);
-  const KeyboardAvoiding = (modules.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
+  // Chat's own module, else the one the app gave Genesis (so it's passed once).
+  const keyboardModule = modules.keyboardAvoidingView ?? (genesis as { keyboardAvoidingView?: KeyboardAvoidingLike }).keyboardAvoidingView;
+  const KeyboardAvoiding = (keyboardModule ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
   const offset = keyboardVerticalOffset ?? measuredTop;
-  const keyboardProps = modules.keyboardAvoidingView
+  const keyboardProps = keyboardModule
     ? { behavior: "translate-with-padding", keyboardVerticalOffset: offset }
     : { behavior: Platform.OS === "ios" ? "padding" : undefined, keyboardVerticalOffset: offset };
 

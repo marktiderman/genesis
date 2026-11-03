@@ -17,9 +17,12 @@
  * Keyboard: the page sits in `GenesisModules.keyboardAvoidingView`
  * (react-native-keyboard-controller's, `translate-with-padding`: the composer
  * follows the keyboard frame by frame) when the app passed it, else React
- * Native's `KeyboardAvoidingView`. Dragging the list down dismisses the
- * keyboard interactively. (The app's `KeyboardScrollProvider` no longer
- * applies here: a virtualized list can't live in a scroll view.)
+ * Native's `KeyboardAvoidingView` (`padding` on iOS, `height` on Android, so
+ * under edge-to-edge the composer still clears the keyboard). Dragging the
+ * list down dismisses the keyboard (interactively on iOS). The app's
+ * `KeyboardScrollProvider` no longer applies here, since a virtualized list
+ * can't live in a scroll view: an app that passes it but not
+ * `keyboardAvoidingView` gets a development warning saying so.
  *
  * Data: rows arrive as props and the page never fetches. A row's send state
  * is data (`sending`, `pending`, `paused`, `failed`, `conflict`) with
@@ -40,12 +43,13 @@
  *
  * @stability Beta
  */
-import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { AccessibilityInfo, Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
+import { useKeyboardScroll } from "./keyboard";
 import { NativeEmptyState } from "../components/empty-state";
 import { NativeText } from "../components/text";
 import { NativeComposerBar, type ComposerMode } from "../components/composer-bar";
@@ -148,6 +152,25 @@ const toDate = (value: string | Date) => (typeof value === "string" ? new Date(v
 
 
 
+const NO_SLOTS: Slots<ThreadPageSlotMap> = {};
+const NO_SLOT_PROPS: SlotPropsFor<ThreadPageSlotMap> = {};
+const messageKey = (m: ThreadMessage) => m.id;
+const messageType = (m: ThreadMessage) => (m.kind === "event" ? "event" : m.mine ? "mine" : "theirs");
+
+declare const __DEV__: boolean | undefined;
+declare const process: { env: Record<string, string | undefined> } | undefined;
+let warnedNoKeyboardModule = false;
+/** Development-only: the app has keyboard-controller (it passed a keyboard scroll view) but not its KeyboardAvoidingView. */
+function warnNoKeyboardModule() {
+  const dev = typeof __DEV__ !== "undefined" ? __DEV__ : typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+  if (!dev || warnedNoKeyboardModule) return;
+  warnedNoKeyboardModule = true;
+  // genesis-allow-console: a development-only setup warning, like AuthScreen's
+  console.warn(
+    "[genesis] ThreadPage: react-native-keyboard-controller is set up (keyboardScroll) but GenesisModules.keyboardAvoidingView isn't, so the composer falls back to React Native's KeyboardAvoidingView. Pass keyboard-controller's KeyboardAvoidingView as `keyboardAvoidingView` in your Genesis modules.",
+  );
+}
+
 export function ThreadPage({
   messages,
   composer,
@@ -170,8 +193,8 @@ export function ThreadPage({
   emptyBody,
   formatTime = formatMessageTime,
   labels: labelOverrides,
-  slots = {},
-  slotProps = {},
+  slots = NO_SLOTS,
+  slotProps = NO_SLOT_PROPS,
   testID = "thread-page",
 }: ThreadPageProps) {
   const colors = useThemeRoles();
@@ -179,7 +202,14 @@ export function ThreadPage({
   const listRef = useRef<NativeThreadListHandle | null>(null);
   const [atBottom, setAtBottom] = useState(true);
   const receiptFor = readReceiptFor(messages, readAt);
-  const labels: ThreadLabels = { ...DEFAULT_THREAD_LABELS, ...labelOverrides };
+  // Kept stable across renders (typing in the composer) unless the words change, so rows don't re-render.
+  const labelsKey = labelOverrides ? JSON.stringify(labelOverrides) : "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const labels: ThreadLabels = useMemo(() => ({ ...DEFAULT_THREAD_LABELS, ...labelOverrides }), [labelsKey]);
+  const keyboardScroll = useKeyboardScroll();
+  useEffect(() => {
+    if (keyboardScroll && !genesis.keyboardAvoidingView) warnNoKeyboardModule();
+  }, [keyboardScroll, genesis.keyboardAvoidingView]);
 
   // "Updating…" on iOS too (a live region is Android-only).
   useEffect(() => {
@@ -232,9 +262,7 @@ export function ThreadPage({
         </View>
       );
     },
-    // `labels` is rebuilt each render from labelOverrides; the row reads it as is.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [firstUnreadId, formatTime, receiptFor, readLabel, slots, slotProps, testID, labelOverrides],
+    [firstUnreadId, formatTime, receiptFor, readLabel, slots, slotProps, testID, labels],
   );
 
   const send = composer
@@ -269,7 +297,7 @@ export function ThreadPage({
   const KeyboardAvoiding = (genesis.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
   const keyboardProps = genesis.keyboardAvoidingView
     ? { behavior: "translate-with-padding", automaticOffset: true, keyboardVerticalOffset: keyboardVerticalOffset ?? 0 }
-    : { behavior: Platform.OS === "ios" ? "padding" : undefined, keyboardVerticalOffset: keyboardVerticalOffset ?? (Platform.OS === "ios" ? 100 : 0) };
+    : { behavior: Platform.OS === "ios" ? "padding" : "height", keyboardVerticalOffset: keyboardVerticalOffset ?? (Platform.OS === "ios" ? 100 : 0) };
 
   return (
     <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
@@ -286,8 +314,8 @@ export function ThreadPage({
             ref={listRef}
             testID={`${testID}-messages`}
             data={messages}
-            keyExtractor={(m) => m.id}
-            getItemType={(m) => (m.kind === "event" ? "event" : m.mine ? "mine" : "theirs")}
+            keyExtractor={messageKey}
+            getItemType={messageType}
             renderItem={renderRow}
             loading={loading}
             hasEarlier={hasEarlier}
@@ -389,7 +417,7 @@ function stateLabel(message: ThreadPageSlotMap["message"]): string | null {
   }
 }
 
-function DefaultMessage(message: ThreadPageSlotMap["message"]) {
+const DefaultMessage = memo(function DefaultMessage(message: ThreadPageSlotMap["message"]) {
   const colors = useThemeRoles();
   const { labels } = message;
   const broken = message.status === "failed" || message.status === "conflict";
@@ -397,8 +425,8 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
   const internal = message.tone === "internal";
   const state = stateLabel(message);
   const label = [message.mine ? labels.you : (message.authorName ?? ""), internal ? labels.internal : null, message.body, message.timeLabel, state].filter(Boolean).join(", ");
-  // Discard is offered where it shows: a message that hasn't gone yet.
-  const canDiscard = Boolean(message.onDiscard) && (broken || waiting);
+  // Discard is offered for a message that hasn't gone: not while it's sending (it may already be on the server).
+  const canDiscard = Boolean(message.onDiscard) && (broken || message.status === "pending" || message.status === "paused");
   const actions = [
     ...(broken && message.onRetry ? [{ name: "activate", label: labels.retryHint }] : []),
     ...(canDiscard ? [{ name: "discard", label: labels.discard }] : []),
@@ -447,7 +475,7 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
       </View>
     </View>
   );
-}
+});
 
 function DefaultAttachment({ id, uri, width, height, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
   const { image: ExpoImage } = useGenesisModules();

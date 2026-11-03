@@ -340,7 +340,8 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
   const waiting = message.status === "sending" || message.status === "pending" || message.status === "paused";
   const internal = message.tone === "internal";
   const state = stateLabel(message);
-  const canDiscard = Boolean(message.onDiscard) && (broken || waiting);
+  // Not while sending: it may already be on the server.
+  const canDiscard = Boolean(message.onDiscard) && (broken || message.status === "pending" || message.status === "paused");
   const who = message.mine ? labels.you : (message.authorName ?? "");
   const stateId = React.useId();
   const prefix = [who, internal ? labels.internal : null].filter(Boolean).join(", ");
