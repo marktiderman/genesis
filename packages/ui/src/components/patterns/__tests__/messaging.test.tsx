@@ -2,7 +2,7 @@
 import * as React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ComposerBar, InboxLayout, InboxPage, ThreadPage, type InboxItem, type ThreadMessage } from "../messaging";
+import { ComposerBar, InboxLayout, InboxPage, InboxViews, ThreadPage, type InboxItem, type ThreadMessage } from "../messaging";
 
 const messages: ThreadMessage[] = [
   { id: "1", body: "The save button does nothing", mine: true, timestamp: "2026-10-24T09:00:00Z" },
@@ -214,8 +214,65 @@ describe("InboxLayout", () => {
   });
 
   it("names its regions", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((q: string) => ({ matches: true, media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as MediaQueryList);
     render(<InboxLayout testID="l" views={<p>V</p>} list={<p>L</p>} thread={<p>T</p>} context={<p>C</p>} />);
     expect(screen.getByRole("navigation", { name: "Views" })).toBeTruthy();
     expect(screen.getByRole("complementary", { name: "Details" })).toBeTruthy();
+  });
+});
+
+describe("the 3-pane inbox (help desk)", () => {
+  const items: InboxItem[] = [
+    { id: "a", title: "Ada", timestamp: new Date(2026, 9, 24, 9, 41) },
+    { id: "b", title: "Bo", timestamp: new Date(2026, 9, 24, 9, 0) },
+  ];
+
+  it("marks the open conversation from selectedId, and opens one with onSelect", () => {
+    const onSelect = vi.fn();
+    render(<InboxPage testID="i" items={items} selectedId="b" onSelect={onSelect} />);
+    expect(screen.getByTestId("i-row-b").getAttribute("aria-current")).toBe("true");
+    fireEvent.click(screen.getByTestId("i-row-a"));
+    expect(onSelect).toHaveBeenCalledWith("a");
+  });
+
+  it("lists views with counts and marks the active one", () => {
+    const onSelect = vi.fn();
+    render(<InboxViews testID="v" views={[{ id: "mine", label: "Mine", count: 4 }, { id: "all", label: "All open" }]} activeId="mine" onSelect={onSelect} />);
+    expect(screen.getByTestId("v-mine").getAttribute("aria-current")).toBe("page");
+    expect(screen.getByTestId("v-mine").textContent).toContain("4");
+    fireEvent.click(screen.getByTestId("v-all"));
+    expect(onSelect).toHaveBeenCalledWith("all");
+  });
+
+  it("runs the shortcuts, but not while typing", () => {
+    const s = { onNext: vi.fn(), onReply: vi.fn(), onNote: vi.fn(), onBack: vi.fn() };
+    render(
+      <InboxLayout list={<p>L</p>} thread={<textarea data-testid="field" />} shortcuts={s} threadOpen />,
+    );
+    fireEvent.keyDown(document.body, { key: "j" });
+    fireEvent.keyDown(document.body, { key: "r" });
+    fireEvent.keyDown(document.body, { key: "n" });
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect([s.onNext, s.onReply, s.onNote, s.onBack].map((f) => f.mock.calls.length)).toEqual([1, 1, 1, 1]);
+    fireEvent.keyDown(screen.getByTestId("field"), { key: "r" });
+    expect(s.onReply).toHaveBeenCalledTimes(1);
+  });
+
+  it("puts the context beside the thread when wide, and toggles it, remembering the choice", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((q: string) => ({ matches: true, media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as MediaQueryList);
+    window.localStorage.removeItem("inbox:ctx");
+    render(<InboxLayout testID="l" list={<p>L</p>} thread={<p>T</p>} context={<p>Requester</p>} contextStorageKey="inbox:ctx" />);
+    expect(screen.getByTestId("l-context").textContent).toBe("Requester");
+    fireEvent.click(screen.getByTestId("l-toggle-context"));
+    expect(screen.queryByTestId("l-context")).toBeNull();
+    expect(window.localStorage.getItem("inbox:ctx")).toBe("0");
+  });
+
+  it("keeps the context in a closed sheet on narrow screens until asked", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((q: string) => ({ matches: false, media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as MediaQueryList);
+    render(<InboxLayout testID="l" list={<p>L</p>} thread={<p>T</p>} context={<p>Requester</p>} threadOpen />);
+    expect(screen.queryByText("Requester")).toBeNull();
+    fireEvent.click(screen.getByTestId("l-toggle-context"));
+    expect(screen.getByText("Requester")).toBeTruthy();
   });
 });

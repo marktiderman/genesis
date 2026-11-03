@@ -36,6 +36,10 @@ export type InboxPageSlotMap = {
 export interface InboxPageProps {
   /** Newest first, as they should show. Empty → the empty state. */
   items: InboxItem[];
+  /** The open conversation (controlled, bound to the app's route): marks its row `selected`. */
+  selectedId?: string | null;
+  /** A row was opened, when the row has no `onPress` of its own. */
+  onSelect?: (id: string) => void;
   /** Called near the end of the list, to load the next page. */
   onEndReached?: () => void;
   /** A next page is loading: the default footer shows a spinner. */
@@ -77,6 +81,8 @@ const toDate = (value: string | Date) => (typeof value === "string" ? new Date(v
 
 export function InboxPage({
   items,
+  selectedId,
+  onSelect,
   onEndReached,
   loadingMore = false,
   header,
@@ -162,6 +168,7 @@ export function InboxPage({
       ) : (
         <ul ref={listRef} aria-label={label} onKeyDown={onKeyDown} className="flex flex-col divide-y overflow-y-auto">
           {items.map((item, index) => {
+            const selected = item.selected ?? (selectedId != null && item.id === selectedId);
             const time = item.timestamp ? formatTime(toDate(item.timestamp), clock) : null;
             return (
               <li key={item.id}>
@@ -170,12 +177,14 @@ export function InboxPage({
                   slots.row,
                   {
                     ...item,
+                    selected,
+                    onPress: item.onPress ?? (onSelect ? () => onSelect(item.id) : undefined),
                     testID: item.testID ?? `${testID}-row-${item.id}`,
                     isFirst: index === 0,
                     isLast: index === items.length - 1,
                     timeLabel: time,
                     moreLabel,
-                    tabIndex: item.selected || (index === 0 && !items.some((i) => i.selected)) ? 0 : -1,
+                    tabIndex: selected || (index === 0 && !items.some((i) => i.selected ?? i.id === selectedId)) ? 0 : -1,
                   } as InboxPageSlotMap["row"],
                   slotProps.row,
                 )}

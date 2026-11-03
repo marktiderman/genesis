@@ -173,7 +173,11 @@ shared conversation contract in `@marktiderman/genesis-core/conversation`. The s
   - Each row's `swipeActions` become a "More" menu.
   - Arrow keys or j/k move between rows; `selected` marks the open one.
   - Paging, loading, error and empty states.
-- **`InboxLayout`:** the three-pane inbox, with views, list, thread and an optional context sidebar. On narrow screens it shows one pane at a time, with Back.
+- **`InboxPage` selection:** `selectedId` and `onSelect` keep the open conversation in the app's route.
+- **`InboxLayout`:** the three-pane inbox, with views (`InboxViews`: label, count, icon, active), the list, the thread and a context sidebar.
+  - **Narrow screens:** one pane at a time, with Back.
+  - **The context sidebar:** toggles, either controlled or remembered per browser under `contextStorageKey`. From `xl` up it sits beside the thread; below that it opens as a sheet.
+  - **Keyboard (`shortcuts`):** j/k next and previous, r reply, n internal note, e close, a assign, Escape back. Each one is a callback you can leave out, and none fires while typing.
 
 ```tsx
 import { InboxLayout, InboxPage, ThreadPage, type InboxItem, type ThreadMessage } from "@marktiderman/genesis-ui";
