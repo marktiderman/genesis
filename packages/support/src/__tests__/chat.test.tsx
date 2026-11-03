@@ -79,7 +79,7 @@ describe("the support client's thread", () => {
     expect(await client.conversationId(REPORT)).toBeNull();
     await client.reply(REPORT, "Thanks");
     expect(told).toHaveBeenCalledTimes(1);
-    expect(told.mock.calls[0]![0]).toMatch(/0001_genesis_support_chat\.sql/);
+    expect(told.mock.calls[0]![0]).toMatch(/0005_genesis_support_chat_on_tickets\.sql/);
     expect(fake.rpcs.filter((r) => r.fn === "support_chat_conversation")).toHaveLength(1);
     expect(chat.messages).not.toHaveBeenCalled();
     expect(chat.send).not.toHaveBeenCalled();
@@ -167,12 +167,13 @@ describe("the support client's thread", () => {
     ]);
   });
 
-  it("declares the support-chat block after support and chat, with this package's migration", () => {
+  it("declares the support-chat block after support and chat, with this package's migrations", () => {
     const block = defineSupportChatBlock();
     expect(block.id).toBe("support-chat");
     expect(block.requires).toEqual(["support-feedback", "chat"]);
     expect(block.contributes?.migrations).toEqual([
-      { package: "@marktiderman/genesis-support", file: "migrations/0001_genesis_support_chat.sql", test: "migrations/tests/0001_genesis_support_chat.test.sql" },
+      { package: "@marktiderman/genesis-support", file: "migrations/0005_genesis_support_chat_on_tickets.sql", test: "migrations/tests/0001_genesis_support_chat.test.sql" },
+      { package: "@marktiderman/genesis-support", file: "migrations/0006_genesis_support_chat_tenants.sql", test: "migrations/tests/0006_genesis_support_chat_tenants.test.sql" },
     ]);
   });
 });

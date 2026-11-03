@@ -26,6 +26,7 @@ import type {
   ChatRole,
   ChatSignal,
   SendInput,
+  StartConversationOptions,
 } from "./types";
 import { normalizeHours } from "./availability";
 import { fileExtension, isAllowedExtension, randomId } from "./media";
@@ -144,6 +145,7 @@ function toConversation(r: Row): ChatConversation {
     title: str(r.title),
     subjectType: str(r.subject_type),
     subjectId: str(r.subject_id),
+    tenantId: str(r.tenant_id),
     settings: (r.settings as ChatConversation["settings"]) ?? {},
     status: (r.status as ChatConversation["status"]) ?? null,
     assigneeId: str(r.assignee_id),
@@ -429,13 +431,15 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
       return row ? toMessage(row as Row) : null;
     },
 
-    async startConversation(kind: string, memberIds: string[], opts: { title?: string; subjectType?: string; subjectId?: string } = {}) {
+    async startConversation(kind: string, memberIds: string[], opts: StartConversationOptions = {}) {
       return rpc<string>("start_conversation", {
         p_kind: kind,
         p_member_ids: memberIds,
         p_title: opts.title ?? null,
         p_subject_type: opts.subjectType ?? null,
         p_subject_id: opts.subjectId ?? null,
+        // Only when given: the same call still reaches a database before 0004.
+        ...(opts.tenantId ? { p_tenant_id: opts.tenantId } : {}),
       });
     },
 
