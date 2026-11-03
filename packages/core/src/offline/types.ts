@@ -96,9 +96,20 @@ export interface QueryPersistence {
    * Saves settled reads for `scope` as they arrive; returns the unsubscribe.
    * `restore("")` (nobody signed in) deletes every saved read on the device.
    */
-  subscribe(scope: string): () => void;
+  subscribe(scope: string, options?: SubscribeOptions): () => void;
   /** Delete the saved reads of every person this persistence restored or saved for (else everything). */
   clear(): Promise<void>;
+}
+
+/** Options for `QueryPersistence.subscribe`. */
+export interface SubscribeOptions {
+  /**
+   * The reads already in the client, or on their way, belong to this scope: save them too. For
+   * the scope a session turns out to have once it has loaded (the screens read before it was
+   * known) and on the phone (its client is emptied whenever the person changes). Left off when
+   * the scope changes from another person or workspace, whose reads are never saved here.
+   */
+  adopt?: boolean;
 }
 
 /** The scope prefix every bucket of `user` starts with. */
