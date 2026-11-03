@@ -94,6 +94,17 @@ function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+/**
+ * Centre a row in the list by scrolling the list alone. `scrollIntoView` would also scroll every
+ * scrollable ancestor (an inbox's other panes, the page), which moves things the reader didn't.
+ */
+function centerRow(scroller: HTMLElement, row: HTMLElement, smooth: boolean) {
+  const delta = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top - (scroller.clientHeight - row.offsetHeight) / 2;
+  const top = Math.max(0, scroller.scrollTop + delta);
+  if (smooth && typeof scroller.scrollTo === "function") scroller.scrollTo({ top, behavior: "smooth" });
+  else scroller.scrollTop = top;
+}
+
 const nearBottom = (el: HTMLElement) => el.scrollTop + el.clientHeight >= el.scrollHeight - THREAD_AT_BOTTOM_PX;
 
 type Before = { conversationId: string | null; firstId: string | null; lastId: string | null; height: number; top: number; anchorId: string | null; anchorOffset: number };
@@ -238,7 +249,7 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
       }
       // A conversation opening: at the first unread, or the newest.
       const at = openAt ? rowEl(openAt) : null;
-      if (at) at.scrollIntoView?.({ block: "center" });
+      if (at) centerRow(el, at, false);
       else el.scrollTop = el.scrollHeight;
       // At the first unread, the reader is at the bottom if it's all on screen.
       setAtBottom(at ? nearBottom(el) : true);
@@ -302,7 +313,7 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
     loadUntil: onLoadUntil,
     scrollTo: (id) => {
       const el = scroller.current?.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(id)}"]`);
-      el?.scrollIntoView({ block: "center", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      if (el && scroller.current) centerRow(scroller.current, el, !prefersReducedMotion());
       el?.focus({ preventScroll: true });
     },
     onStart: () => setAtBottom(false),

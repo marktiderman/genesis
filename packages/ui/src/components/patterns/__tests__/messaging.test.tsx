@@ -82,8 +82,10 @@ describe("ThreadPage (web)", () => {
 
   it("goes to a message it holds and highlights it", async () => {
     render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="2" />);
-    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalled());
-    expect(screen.getByTestId("t-message-2").className).toMatch(/ring-2/);
+    await waitFor(() => expect(screen.getByTestId("t-message-2").className).toMatch(/ring-2/));
+    // It scrolls the list itself, never its ancestors (an inbox's other panes, the page).
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+    expect(Element.prototype.scrollTo).toHaveBeenCalled();
   });
 
   it("says when a message to go to can't be found", async () => {
