@@ -61,6 +61,14 @@ insert into public.ticket_agents (tenant_id, person_id, role) values
   (pg_temp.tenant('ta'), pg_temp.person('c3'), 'agent'),
   (pg_temp.tenant('tb'), pg_temp.person('e5'), 'agent');
 
+create table if not exists public.tenant_features (
+  tenant_id uuid not null, feature_id text not null, enabled boolean not null, reason text not null,
+  primary key (tenant_id, feature_id));
+insert into public.tenant_features (tenant_id, feature_id, enabled, reason) values
+  (pg_temp.tenant('ta'), 'support-helpdesk', true, 'test'),
+  (pg_temp.tenant('tb'), 'support-helpdesk', true, 'test')
+on conflict (tenant_id, feature_id) do update set enabled = true;
+
 select pg_temp.sign_out();
 -- The app routes mail sent to ta's address to ta.
 create function private.genesis_support_email_tenant(recipients text[]) returns uuid
@@ -113,18 +121,13 @@ select is((select count(*)::int from public.support_email_messages m join public
 
 -- A business with the help desk off gets no email: it goes to the app's own support.
 select pg_temp.sign_out();
-do $$ begin
-  if to_regclass('public.tenant_features') is not null then
-    insert into public.tenant_features (tenant_id, feature_id, enabled, reason) values ('00000000-0000-4000-8000-0000000000a0', 'support-helpdesk', false, 'test');
-  end if;
-end $$;
+update public.tenant_features set enabled = false where tenant_id = pg_temp.tenant('ta') and feature_id = 'support-helpdesk';
 set local role service_role;
 select public.support_receive_email(jsonb_build_object(
   'messageId', 'm4@example.test', 'from', jsonb_build_object('email', 'sam@example.test'),
   'to', jsonb_build_array('help@ta.example.test'), 'subject', 'Mail while off', 'text', 'Hello'));
 reset role;
-select is((select tenant_id from public.tickets where title = 'Mail while off'),
-          case when to_regclass('public.tenant_features') is not null then pg_temp.tenant('d') else pg_temp.tenant('ta') end,
+select is((select tenant_id from public.tickets where title = 'Mail while off'), pg_temp.tenant('d'),
           'with the help desk off, a business''s email goes to the app''s own support');
 
 select * from finish();

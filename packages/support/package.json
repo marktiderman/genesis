@@ -443,6 +443,25 @@
           "import": "@marktiderman/genesis-support",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/support/README.md",
           "why": "Tickets are the support module's tables: other code reaches them through its client and functions, so the module can change its tables without breaking apps (ADR 0015)."
+        },
+        {
+          "id": "support-old-names-in-sql",
+          "need": "SQL that reads support tickets",
+          "level": "warn",
+          "files": [
+            "**/*.sql"
+          ],
+          "exclude": [
+            "**/*genesis_support*.sql",
+            "**/tests/**"
+          ],
+          "forbid": {
+            "pattern": "\\bpublic\\.support_(?:reports|attachments)\\b"
+          },
+          "use": "public.tickets and public.ticket_attachments, or a named support function",
+          "import": "@marktiderman/genesis-support",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/support/README.md",
+          "why": "support_reports and support_attachments are views kept for one minor after migration 0004; they are dropped once every supported phone build is on the new names, and app SQL still naming them would break then (ADR 0015)."
         }
       ]
     }

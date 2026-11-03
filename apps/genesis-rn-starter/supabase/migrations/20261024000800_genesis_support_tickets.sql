@@ -244,10 +244,10 @@ alter table public.support_ideas add column tenant_id uuid;
 create index tickets_tenant_idx on public.tickets (tenant_id, updated_at desc);
 create index support_ideas_tenant_idx on public.support_ideas (tenant_id, status);
 
--- A new ticket's tenant: the one sent (if the sender is in it, or it is the default), else the
--- sender's only tenant if the help desk is on there, else the default. An idea goes to the app's
--- own board unless a tenant is named. Server code (no sender) keeps what it sends, or the default.
--- A tenant named explicitly must have the help desk on (0004's switch, when installed).
+-- A new ticket's or idea's tenant: the one the client sends (the viewer's current workspace),
+-- checked: the sender must be in it and its help desk on; nothing sent means the app's own
+-- tenant. Nothing is guessed from the sender's memberships. Server code (no sender) keeps what it
+-- sends, or the app's own. A business takes tickets only once it turns the help desk on.
 create or replace function private.genesis_support_helpdesk_on(tenant uuid)
 returns boolean
 language plpgsql
@@ -262,10 +262,13 @@ begin
   if tenant = private.genesis_support_default_tenant_id() then
     return true;
   end if;
-  if to_regprocedure('private.tenant_feature_on(uuid,text)') is null then
-    return true;
+  -- Opt in: a business takes tickets only once it turns the help desk on (an enabled row in
+  -- genesis-supabase 0004's tenant_features). Without that table, only the app's own tenant.
+  if to_regclass('public.tenant_features') is null then
+    return false;
   end if;
-  return private.tenant_feature_on(tenant, 'support-helpdesk');
+  return exists (select 1 from public.tenant_features f
+                  where f.tenant_id = tenant and f.feature_id = 'support-helpdesk' and f.enabled);
 end;
 $$;
 
@@ -280,16 +283,7 @@ as $$
 declare
   me uuid := auth.uid();
   dflt uuid := private.genesis_support_default_tenant_id();
-  only_tenant uuid;
 begin
-  if new.tenant_id is null and me is not null and tg_table_name = 'tickets' then
-    select min(v.tenant_id::text)::uuid into only_tenant
-      from private.genesis_support_tenants_of(me) v
-    having count(distinct v.tenant_id) = 1;
-    if private.genesis_support_helpdesk_on(only_tenant) then
-      new.tenant_id := only_tenant;
-    end if;
-  end if;
   new.tenant_id := coalesce(new.tenant_id, dflt);
   if new.tenant_id is null then
     raise exception 'support: no tenant (the app defines private.genesis_support_default_tenant)'
@@ -373,8 +367,8 @@ alter table public.support_ideas validate constraint support_ideas_tenant_requir
 
 -- 5. Handling: an agent of the ticket's tenant, or whom the app's hook names ---------------
 
--- The report hook (0003) answers only for tickets in a tenant the person belongs to, or the
--- default tenant: an app's hook can't hand one business's tickets to someone outside it.
+-- The report hook (0003) is consulted only for the app's own tickets (the default tenant): an
+-- app's hook can't hand a business's tickets to anyone; those are its agents'.
 create or replace function private.genesis_support_handler(report uuid, person uuid)
 returns boolean
 language plpgsql
@@ -398,8 +392,8 @@ begin
   if to_regprocedure('private.genesis_support_report_handler(uuid, uuid)') is null then
     return false;
   end if;
-  if tenant is distinct from private.genesis_support_default_tenant_id()
-     and not exists (select 1 from private.genesis_support_tenants_of(person) v where v.tenant_id = tenant) then
+  -- The app's hook names handlers for the app's own tickets only; a business's are its agents'.
+  if tenant is distinct from private.genesis_support_default_tenant_id() then
     return false;
   end if;
   return coalesce(private.genesis_support_report_handler(report, person), false);

@@ -11,13 +11,13 @@ export const SUPPORT_CHAT_BLOCK_ID = "support-chat" as const;
 
 /** The genesis_chat kind a report's conversation is, and its subject type. */
 export const SUPPORT_CHAT_KIND = "support";
-export const SUPPORT_CHAT_SUBJECT = "support_report";
 /**
- * The chat subject type of a ticket's conversation. Compare against this, never the literal: the
- * stored value is `support_report` in this release and may change with the ticket rename's next
- * step (ADR 0015).
+ * The chat subject type of a ticket's conversation. Compare against this, never the literal. The
+ * stored value stays `support_report`, so existing conversations keep working (ADR 0015).
  */
-export const TICKET_SUBJECT = SUPPORT_CHAT_SUBJECT;
+export const TICKET_SUBJECT = "support_report";
+/** @deprecated Use `TICKET_SUBJECT` (same value). */
+export const SUPPORT_CHAT_SUBJECT = TICKET_SUBJECT;
 
 /** A file a chat message carries (a subset of genesis-chat's ChatAttachment). */
 export interface SupportChatAttachment {

@@ -6,7 +6,7 @@
 -- Tenants and people as in 0004's test: c3 an agent of ta, e5 an agent of tb, f6 the app's staff.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(17);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -63,10 +63,18 @@ insert into public.ticket_agents (tenant_id, person_id, role) values
   (pg_temp.tenant('ta'), pg_temp.person('c3'), 'agent'),
   (pg_temp.tenant('tb'), pg_temp.person('e5'), 'agent');
 
+create table if not exists public.tenant_features (
+  tenant_id uuid not null, feature_id text not null, enabled boolean not null, reason text not null,
+  primary key (tenant_id, feature_id));
+insert into public.tenant_features (tenant_id, feature_id, enabled, reason) values
+  (pg_temp.tenant('ta'), 'support-helpdesk', true, 'test'),
+  (pg_temp.tenant('tb'), 'support-helpdesk', true, 'test')
+on conflict (tenant_id, feature_id) do update set enabled = true;
+
 -- A ticket in ta and one in the app's own tenant, each with its conversation.
 select pg_temp.sign_in('a1');
 set local role authenticated;
-insert into public.tickets (type, title, message) values ('question', 'Chat in ta', 'Hello');
+insert into public.tickets (type, title, message, tenant_id) values ('question', 'Chat in ta', 'Hello', pg_temp.tenant('ta'));
 insert into public.tickets (type, title, message, tenant_id) values ('question', 'Chat in d', 'Hello', pg_temp.tenant('d'));
 reset role;
 insert into ids select 'ta1', id from public.tickets where title = 'Chat in ta';
@@ -88,6 +96,35 @@ select throws_ok($$ update genesis_chat.conversations set assignee_id = pg_temp.
                  '42501', null, 'a ticket is assigned only to an agent of its business');
 select lives_ok($$ update genesis_chat.conversations set assignee_id = pg_temp.person('c3') where id = pg_temp.conv('ta1') $$,
                 'an agent of its business may have it');
+
+-- Messages, notes and message reports stay inside the business ---------------------------------
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select lives_ok($$ select genesis_chat.send_message(pg_temp.conv('ta1'), gen_random_uuid(), 'An internal note', '[]', null, null, null, '{}', 'observers') $$,
+                'an agent of the business writes an internal note on its ticket');
+select ok(exists (select 1 from genesis_chat.messages where conversation_id = pg_temp.conv('ta1') and body = 'An internal note'),
+          '... and reads it');
+reset role;
+insert into ids select 'note', id from genesis_chat.messages where body = 'An internal note';
+
+select pg_temp.sign_in('e5');
+set local role authenticated;
+select is((select count(*)::int from genesis_chat.messages where conversation_id = pg_temp.conv('ta1')), 0,
+          'an agent of another business reads none of its messages');
+select throws_ok($$ select genesis_chat.send_message(pg_temp.conv('ta1'), gen_random_uuid(), 'Butting in', '[]', null, null, null, '{}', 'everyone') $$,
+                 null, null, '... and cannot post in it');
+select throws_ok($$ select genesis_chat.report_message(pg_temp.id('note'), 'spam') $$, '42501', null,
+                 '... nor report its messages');
+select is(public.support_chat_conversation(pg_temp.id('ta1')), null, '... nor find its conversation');
+reset role;
+
+select pg_temp.sign_in('f6');
+set local role authenticated;
+select is((select count(*)::int from genesis_chat.messages where conversation_id = pg_temp.conv('ta1')), 0,
+          'the app''s staff read none of a business''s messages');
+reset role;
+select ok(private.genesis_support_chat_is_staff(pg_temp.person('f6')) and not private.genesis_support_chat_is_staff(pg_temp.person('c3')),
+          'the old chat staff check now means an agent of the app''s own tenant only');
 
 select is(private.genesis_chat_resolve_support_report(pg_temp.id('ta1')::text), pg_temp.tenant('ta'),
           'chat can resolve a ticket conversation''s tenant');

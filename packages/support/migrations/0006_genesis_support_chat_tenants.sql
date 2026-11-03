@@ -14,6 +14,26 @@
 --
 -- Verify: the pgTAP test beside this file (`tests/0006_genesis_support_chat_tenants.test.sql`).
 
+-- The old app-wide staff check, kept for any app SQL that still calls it: from here it means an
+-- agent of the app's own tenant only (as support_is_staff does), never staff of every tenant.
+-- Nothing in support-chat calls it any more; the checks below are per ticket.
+create or replace function private.genesis_support_chat_is_staff(person uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if person is null then
+    return false;
+  end if;
+  return private.genesis_support_agent(private.genesis_support_default_tenant_id(), person);
+end;
+$$;
+
+revoke execute on function private.genesis_support_chat_is_staff(uuid) from public, anon, authenticated;
+
 -- The `support` kind's observer check: a handler of the ticket (an agent of its tenant) reads,
 -- and by the kind posts in, its conversation without being in it.
 create or replace function private.genesis_support_chat_observer(conversation_id uuid, user_id uuid)

@@ -26,8 +26,10 @@ Genesis already has what tenancy needs: a bare `tenant_id` on its tables (ADR 00
 2. **Every ticket and idea has a tenant**, the one the app's viewer-people hook names: a
    single-tenant app returns one fixed id, a multi-tenant app one per organization. The app adds
    `private.genesis_support_default_tenant()`, its own tenant, before the migration (it stops
-   otherwise). A new ticket takes the tenant sent (if the sender is in it, or it is the default),
-   else the sender's only tenant when the help desk is on there, else the default. An idea goes to
+   otherwise). A new ticket takes the tenant the client sends, usually the viewer's current
+   workspace (checked: the sender is in it, or it is the default, and its help desk is on), else
+   the default. Nothing is inferred from the sender's memberships: a client of one business may
+   still be writing to the app. An idea goes to
    the app's own board unless a tenant is named. The app's hooks raising is an error, never a
    silent fallback. `support_default_tenant()` tells clients the app's own tenant. Existing rows: the app's optional `genesis_support_tenant_for(report)`, else the
    default, filled without touching `updated_at` or firing app triggers; then a validated `not
@@ -37,10 +39,12 @@ Genesis already has what tenancy needs: a bare `tenant_id` on its tables (ADR 00
    still lists that person in the tenant. A tenant's agents and admins handle its tickets; the
    app's staff hook means an agent of the default tenant.
 4. **Reading and handling are separate checks.** Read: the requester, or a handler. Handle (reply
-   as support, internal notes, status, assignment): an agent of the ticket's tenant, or the app's
-   report hook, which only answers inside the ticket's tenant or the default one. The requester
+   as support, internal notes, status, assignment): an agent of the ticket's tenant, or, for the
+   app's own tickets only, the app's report hook. The requester
    never handles.
-5. **Per-tenant switch**: `support-helpdesk` in `tenant_features`.
+5. **Opt-in per tenant**: a tenant takes tickets once `support-helpdesk` is enabled for it in
+   `tenant_features`; no row (or no table) means off. The default tenant is always on.
+   Screenshots keep their paths; access comes from the ticket row, not the path.
 6. **Blocks follow.** The support-chat and support-email blocks' first migrations (0001, 0002)
    act on `support_reports`, which is now a view, so each block ships a version for the renamed
    table that is safe to run again (`0005_genesis_support_chat_on_tickets.sql`,
@@ -53,7 +57,12 @@ Genesis already has what tenancy needs: a bare `tenant_id` on its tables (ADR 00
    its own tenant's thread, gives a ticket's emails to its handlers, and lets an agent link an
    email ticket only to someone in its tenant.
 7. **Boundary**: apps reach tickets through `createSupportClient` and named functions; a doctor
-   warning flags direct queries on the tables.
+   warning flags direct queries on the tables, and another flags app SQL naming the old views.
+8. **The old names go** in a later minor, once every supported phone build uses the new names;
+   that minor's changeset says so.
+9. **Chat subject**: the stored `support_report` subject stays; `TICKET_SUBJECT` replaces
+   `SUPPORT_CHAT_SUBJECT` as the constant to compare with. 0006 registers the subject's tenant
+   resolver with genesis-chat's registry only if that registry is installed.
 
 ## Glossary
 

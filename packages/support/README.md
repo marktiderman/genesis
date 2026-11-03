@@ -297,16 +297,28 @@ its own help desk and your app runs its own support the same way. With the suppo
   ```
 
   A new ticket goes to the tenant it is sent with (`createSupportClient(supabase, { tenantId })`,
-  usually the viewer's workspace; refused if the sender isn't in it), else the sender's only
-  tenant, else yours. Existing reports go to yours, or where your optional
+  usually the viewer's current workspace; refused if the sender isn't in it or its help desk is
+  off), else yours. Nothing is guessed from which tenants the sender belongs to. Existing reports go to yours, or where your optional
   `private.genesis_support_tenant_for(report uuid) returns uuid` puts them.
 - **Agents**: `ticket_agents` (tenant, person, `agent` or `admin`), set with
   `support_set_agent(tenant, person, role)` (`client.setAgent`) by a tenant admin (genesis-supabase
   0004's `genesis_tenant_admin` hook) or an agent admin. A tenant's agents and admins read and
   handle its tickets and nobody else's. Your staff hook now means "an agent of your own tenant".
 - **Reading and handling stay apart**: the requester reads their ticket and never handles it; your
-  report-handler hook only answers inside the ticket's tenant (or yours).
-- **On and off**: a tenant that turns `support-helpdesk` off in `tenant_features` takes no tickets.
+  report-handler hook only answers for your own tenant's tickets.
+- **Opt-in per tenant**: a tenant takes tickets only once `support-helpdesk` is enabled for it in
+  genesis-supabase 0004's `tenant_features` (`set_tenant_feature`); without that table, only your
+  own tenant does. Your own tenant always takes tickets.
+- **Screenshots** keep their `<user>/<ticket>/<file>` paths; who may open one comes from its
+  ticket row (tenant and handlers), not the path.
+- **Old names**: `support_reports` and `support_attachments` stay as views until every phone
+  build you support sends to the new names; they are dropped in a later minor, announced in its
+  changeset. `genesis doctor` warns about app SQL (`support-old-names-in-sql`) and code
+  (`tickets-through-support-client`) that still name them.
+- **Chat subject**: support conversations keep the stored subject `support_report`; compare with
+  `TICKET_SUBJECT`, which replaces `SUPPORT_CHAT_SUBJECT`, never the literal. With genesis-chat's
+  subject registry installed, 0006 registers the subject's tenant resolver; without it, nothing
+  changes.
 - **Email** (0006): route inbound mail with an optional
   `private.genesis_support_email_tenant(recipients text[]) returns uuid`; a ticket's emails are
   read by its handlers.

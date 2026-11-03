@@ -11,7 +11,7 @@
 -- f6 the app's staff; d7 a client of both ta and tb; c9 the admin of ta.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(53);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -70,6 +70,14 @@ revoke execute on function private.genesis_support_staff(uuid) from public, anon
 insert into public.ticket_agents (tenant_id, person_id, role) values
   (pg_temp.tenant('ta'), pg_temp.record('c3'), 'agent'),
   (pg_temp.tenant('tb'), pg_temp.record('e5'), 'agent');
+-- Both businesses turn the help desk on (it is opt-in). An app without genesis-supabase 0004 gets
+-- a stand-in table for this transaction.
+create table if not exists public.tenant_features (
+  tenant_id uuid not null, feature_id text not null, enabled boolean not null, reason text not null,
+  primary key (tenant_id, feature_id));
+insert into public.tenant_features (tenant_id, feature_id, enabled, reason) values
+  (pg_temp.tenant('ta'), 'support-helpdesk', true, 'test'),
+  (pg_temp.tenant('tb'), 'support-helpdesk', true, 'test');
 -- A row keyed by a login instead of a person record grants nothing.
 insert into public.ticket_agents (tenant_id, person_id, role) values (pg_temp.tenant('tb'), pg_temp.person('b2'), 'agent');
 
@@ -86,14 +94,14 @@ select ok((select relrowsecurity from pg_class where oid = 'public.ticket_agents
 select ok(not has_table_privilege('authenticated', 'public.ticket_agents', 'insert,update,delete'),
           'nobody signed in writes agents directly');
 
--- Sending: the tenant comes from the sender, checked -------------------------------------------
+-- Sending: the client names the tenant; the database checks it ------------------------------
 select pg_temp.sign_in('a1');
 set local role authenticated;
-insert into public.tickets (type, title, message) values ('question', 'A1 asks', 'Where is it?');
+insert into public.tickets (type, title, message, tenant_id) values ('question', 'A1 asks', 'Where is it?', pg_temp.tenant('ta'));
 reset role;
 insert into ids select 'ta1', id from public.tickets where title = 'A1 asks';
 select is((select tenant_id from public.tickets where id = pg_temp.id('ta1')), pg_temp.tenant('ta'),
-          'a client of one business: the ticket goes to that business');
+          'a client names their business: the ticket goes there');
 
 select pg_temp.sign_in('a1');
 set local role authenticated;
@@ -113,13 +121,13 @@ reset role;
 insert into ids select 'tg', id from public.tickets where title = 'G7 asks';
 insert into ids select 'tgb', id from public.tickets where title = 'G7 to tb';
 select is((select tenant_id from public.tickets where id = pg_temp.id('tg')), pg_temp.tenant('d'),
-          'a client of two businesses, naming none: the app''s own support');
+          'naming none (even a client of exactly one business): the app''s own support; nothing is guessed');
 select is((select tenant_id from public.tickets where id = pg_temp.id('tgb')), pg_temp.tenant('tb'),
           '... or the business they name');
 
 select pg_temp.sign_in('b2');
 set local role authenticated;
-insert into public.tickets (type, title, message) values ('bug', 'B2 bug', 'Crash');
+insert into public.tickets (type, title, message, tenant_id) values ('bug', 'B2 bug', 'Crash', pg_temp.tenant('tb'));
 reset role;
 insert into ids select 'tb2', id from public.tickets where title = 'B2 bug';
 
@@ -166,10 +174,41 @@ reset role;
 select throws_ok($$ update public.tickets set tenant_id = '00000000-0000-4000-8000-0000000000b0' where id = pg_temp.id('ta1') $$,
                  '42501', 'support: a ticket keeps its tenant', '... not even server code');
 
+-- Replies and files stay inside the business --------------------------------------------------
+-- a1 uploads a screenshot to their ta ticket and records it.
+insert into storage.objects (bucket_id, name, owner_id)
+values ('genesis-support', pg_temp.person('a1') || '/' || pg_temp.id('ta1') || '/shot.png', pg_temp.person('a1'));
+select pg_temp.sign_in('a1');
+set local role authenticated;
+insert into public.ticket_attachments (report_id, path, content_type, byte_size, width, height)
+values (pg_temp.id('ta1'), pg_temp.person('a1') || '/' || pg_temp.id('ta1') || '/shot.png', 'image/png', 1024, 390, 844);
+reset role;
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select lives_ok($$ insert into public.support_replies (report_id, body) values (pg_temp.id('ta1'), 'An agent replies') $$,
+                'an agent of the business replies on its ticket');
+select ok(public.support_can_read(pg_temp.person('a1') || '/' || pg_temp.id('ta1') || '/shot.png', now()),
+          '... and opens its screenshots');
+reset role;
+select pg_temp.sign_in('e5');
+set local role authenticated;
+select is((select count(*)::int from public.support_replies where report_id = pg_temp.id('ta1')), 0,
+          'an agent of another business reads none of its replies');
+select throws_ok($$ insert into public.support_replies (report_id, body) values (pg_temp.id('ta1'), 'Butting in') $$,
+                 '42501', null, '... and cannot reply on it');
+select ok(not public.support_can_read(pg_temp.person('a1') || '/' || pg_temp.id('ta1') || '/shot.png', now()),
+          '... nor open its screenshots');
+reset role;
+select pg_temp.sign_in('f6');
+set local role authenticated;
+select ok(not public.support_can_read(pg_temp.person('a1') || '/' || pg_temp.id('ta1') || '/shot.png', now()),
+          'the app''s staff open no business''s screenshots');
+reset role;
+
 -- The old name still takes inserts, with the same checks.
 select pg_temp.sign_in('b2');
 set local role authenticated;
-insert into public.support_reports (type, title, message) values ('idea', 'Via the old name', 'Still works');
+insert into public.support_reports (type, title, message, tenant_id) values ('idea', 'Via the old name', 'Still works', pg_temp.tenant('tb'));
 reset role;
 select is((select tenant_id from public.tickets where title = 'Via the old name'), pg_temp.tenant('tb'),
           'a ticket sent through the old name gets its tenant too');
@@ -204,13 +243,13 @@ reset role;
 -- The app's handler hook stays inside the business -------------------------------------------
 create or replace function private.genesis_viewer_people(viewer uuid)
 returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
-  select '00000000-0000-4000-8000-0000000000a0'::uuid, viewer where viewer = '00000000-0000-4000-8000-0000000004a1'::uuid $$;
+  select '00000000-0000-4000-8000-0000000000a0'::uuid, viewer where viewer = '00000000-0000-4000-8000-0000000004b2'::uuid $$;
 create function private.genesis_support_report_handler(report uuid, person uuid) returns boolean
 language sql stable set search_path = '' as $$ select person = '00000000-0000-4000-8000-0000000004b2'::uuid $$;
 revoke execute on function private.genesis_support_report_handler(uuid, uuid) from public, anon, authenticated;
 select pg_temp.sign_in('b2');
 set local role authenticated;
-select ok(not public.support_handles(pg_temp.id('ta1')), 'the app''s hook cannot hand a business''s ticket to an outsider');
+select ok(not public.support_handles(pg_temp.id('ta1')), 'the app''s hook cannot hand a business''s ticket to anyone, even a member of it');
 select ok(public.support_handles(pg_temp.id('td1')), '... but may for the app''s own tickets');
 reset role;
 
@@ -228,13 +267,13 @@ reset role;
 -- Turning the help desk off ----------------------------------------------------------------------
 create or replace function private.genesis_viewer_people(viewer uuid)
 returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
-  select '00000000-0000-4000-8000-0000000000b0'::uuid, viewer where viewer = '00000000-0000-4000-8000-0000000004b2'::uuid $$;
+  select t.tenant_id, t.login from (values
+    ('00000000-0000-4000-8000-0000000004b2'::uuid, '00000000-0000-4000-8000-0000000000b0'::uuid),
+    ('00000000-0000-4000-8000-0000000004a1', '00000000-0000-4000-8000-0000000000a0')
+  ) as t(login, tenant_id) where t.login = viewer $$;
 select pg_temp.sign_out();
-do $$ begin
-  if to_regclass('public.tenant_features') is not null then
-    insert into public.tenant_features (tenant_id, feature_id, enabled, reason) values ('00000000-0000-4000-8000-0000000000b0', 'support-helpdesk', false, 'test');
-  end if;
-end $$;
+update public.tenant_features set enabled = false where tenant_id = pg_temp.tenant('tb') and feature_id = 'support-helpdesk';
+delete from public.tenant_features where tenant_id = pg_temp.tenant('ta') and feature_id = 'support-helpdesk';
 select pg_temp.sign_in('b2');
 set local role authenticated;
 insert into public.tickets (type, title, message) values ('question', 'Off', 'x');
@@ -242,8 +281,14 @@ select throws_ok($$ insert into public.tickets (type, title, message, tenant_id)
                  '42501', 'support: the help desk is off here', 'a business that turned the help desk off takes no tickets');
 insert into public.support_ideas (title, body) values ('An idea from b2', 'Please');
 reset role;
-
+select pg_temp.sign_in('a1');
+set local role authenticated;
+select throws_ok($$ insert into public.tickets (type, title, message, tenant_id) values ('question', 'Never on', 'x', '00000000-0000-4000-8000-0000000000a0') $$,
+                 '42501', 'support: the help desk is off here', 'a business that never turned the help desk on takes no tickets (opt-in)');
+select lives_ok($$ insert into public.tickets (type, title, message, tenant_id) values ('question', 'Always on', 'x', '00000000-0000-4000-8000-00000000000f') $$,
+                'the app''s own support always takes tickets, with no switch row');
 reset role;
+
 select is((select tenant_id from public.tickets where title = 'Off'), pg_temp.tenant('d'),
           '... its clients'' tickets go to the app''s own support instead');
 select is((select tenant_id from public.support_ideas where title = 'An idea from b2'), pg_temp.tenant('d'),

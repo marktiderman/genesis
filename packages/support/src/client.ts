@@ -203,8 +203,8 @@ export interface SupportClientOptions {
   severityColumn?: boolean;
   /**
    * The tenant a new ticket goes to (migration 0004): usually the viewer's current workspace.
-   * Left out, the database picks the sender's only tenant, else the app's default tenant. A
-   * tenant the sender isn't in is refused.
+   * Left out, the ticket goes to the app's own (default) tenant; nothing is guessed. A tenant
+   * the sender isn't in, or whose help desk is off, is refused.
    */
   tenantId?: string | null | (() => string | null | Promise<string | null>);
 }
