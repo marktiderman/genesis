@@ -203,7 +203,7 @@ export {
   type FeatureRegistryDocument,
   type SyncFeatureRegistryOptions,
 } from "./feature-registry";
-export { accountBlock, eventsBlock, featureMirrorBlock, jobsBlock, tenantFeaturesBlock } from "./blocks";
+export { accountBlock, eventsBlock, featureMirrorBlock, jobsBlock, tenantFeaturesBlock, versionedWritesBlock } from "./blocks";
 export {
   createAuthFormClient,
   fetchAuthSettings,

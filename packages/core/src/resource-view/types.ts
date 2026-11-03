@@ -340,6 +340,28 @@ export interface ViewCalendar<Name extends string = string> {
   weekStartsOn?: 0 | 1;
 }
 
+/**
+ * How the view's rows show as a board: a column per value of one field, a card per row.
+ * ResourceView's `mode="board"` draws it, and moving a card between columns writes the field
+ * through the provider. Plain values only, so every platform reads the same block.
+ */
+export interface ViewBoard<Name extends string = string> {
+  /** The field whose value is a card's column: a field with choices (an enum) or a yes/no one. */
+  field: Name;
+  /**
+   * The columns, in order, as values of `field`. Default: its choices in the contract's order,
+   * then a "No value" column when it can be empty. Listing them shows only those.
+   */
+  columns?: readonly string[];
+  /** The fields a card shows under its title, in order. Default none: the title alone. */
+  cardFields?: readonly Name[];
+  /**
+   * The most cards a column should hold, by value (`{ doing: 3 }`): a work-in-progress limit.
+   * A column over its limit says so; nothing stops a move into it.
+   */
+  limits?: Readonly<Record<string, number>>;
+}
+
 /** What `defineView` accepts. */
 export interface ViewDefinition<C extends ResourceContract, Row extends DataRow = RowOf<C>> {
   copy?: ViewCopy;
@@ -368,6 +390,8 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   scope?: readonly FieldNameOf<C>[];
   /** How the rows show as a calendar (`mode="calendar"`). */
   calendar?: ViewCalendar<FieldNameOf<C>>;
+  /** How the rows show as a board (`mode="board"`). */
+  board?: ViewBoard<FieldNameOf<C>>;
   /** Group rows under headers by this field. */
   groupBy?: FieldNameOf<C>;
   /** Default order; `manual: true` turns on drag to reorder, writing this field. */
@@ -443,6 +467,11 @@ export interface ResourceView<C extends ResourceContract = ResourceContract, Row
   /** A value in words: the field's `labels`, else title case. For badges, choices and group titles. */
   valueLabel(name: string, value: unknown): string;
   columns(preset?: string): readonly ResolvedColumn<Row>[];
+  /**
+   * One field as a column, resolved as a preset lists it (a board card's fields, say). Undefined
+   * for a name that isn't a field or one the viewer can't read (`permissions.read: false`).
+   */
+  column(name: string): ResolvedColumn<Row> | undefined;
   form(mode: "create" | "edit"): readonly ResolvedFormField[];
   /** Fields a writer may send: the form's, never generated, read-only, key or scope fields. */
   writable(mode: "create" | "edit"): readonly string[];

@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
+import { DataWriteError, isDataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, writeConflict, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
 import { readinessChip, type ReadinessLabels } from "@marktiderman/genesis-core/resource";
 import { sameFormValue, type Allowed, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
@@ -23,6 +23,7 @@ import { NativeInput } from "../../components/input";
 import { NativeListItem } from "../../components/list-item";
 import { NativeSegmentedControl } from "../../components/segmented-control";
 import { NativeSheet } from "../../components/sheet";
+import { NativeConflictSheet, type NativeConflictSheetMessages } from "../NativeConflictSheet";
 import { NativeSelect, NativeSelectContent, NativeSelectItem, NativeSelectTrigger } from "../../components/select";
 import { NativeSwitch } from "../../components/switch";
 import { NativeText } from "../../components/text";
@@ -59,6 +60,8 @@ export interface NativeRecordViewMessages extends ReadinessLabels {
   /** The back row of a section opened from the list of sections. */
   allSections: string;
   notANumber: string;
+  /** The conflict sheet's words (NativeConflictSheet's English when unset). */
+  conflict?: Partial<NativeConflictSheetMessages>;
 }
 
 export const defaultNativeRecordViewMessages: NativeRecordViewMessages = {
@@ -475,7 +478,7 @@ export function NativeRecordView<T extends Row = Row>(props: NativeRecordViewPro
 function SettingsGroup({
   recordView,
   sectionId,
-  row,
+  row: rowProp,
   words,
   onSaved,
   testID,
@@ -489,7 +492,13 @@ function SettingsGroup({
   testID: string;
 }) {
   const provider = useDataProvider();
+  // After "take theirs": their row, shown until the record refetches with it.
+  const [theirsRow, setTheirsRow] = useState<DataRow | null>(null);
+  useEffect(() => setTheirsRow(null), [rowProp]);
+  const row = theirsRow ?? rowProp;
   const view = recordView.view;
+  // A versioned resource checks the save against the version of the row shown (core README, "Versioned writes").
+  const versionField = useCapabilities(view.resource, { enabled: !!provider.capabilities }).data?.version?.field;
   // The view's edit-form mapping (the form sheet's), narrowed to this section's keys in their order.
   const fields = useMemo(() => {
     const byKey = new Map(formFieldsFor(view, "edit").map((f) => [f.key, f]));
@@ -501,6 +510,12 @@ function SettingsGroup({
   // Only the fields this person changed are theirs: the others show the row as it is now (a live
   // refresh updates them) and are never sent, so a stale draft can't overwrite someone else's change.
   const [edits, setEdits] = useState<Values>({});
+  // The row the person started editing: their save is checked against its version, not against a
+  // row that refreshed meanwhile (someone else's save would otherwise be overwritten).
+  const editBase = useRef<DataRow | undefined>(undefined);
+  useEffect(() => {
+    if (Object.keys(edits).length === 0) editBase.current = undefined;
+  }, [edits]);
   const draft = useMemo<Values>(() => ({ ...Object.fromEntries(fields.map((f) => [f.key, row[f.key]])), ...edits }), [fields, row, edits]);
   // An edit the row now holds (after a save, or someone else's same change) is no longer an edit.
   useEffect(() => {
@@ -518,24 +533,73 @@ function SettingsGroup({
   const dirty = Object.keys(changed).length > 0 && !shown.some((f) => invalid[f.key]);
 
   const set = (key: string, value: unknown, error?: string) => {
+    if (Object.keys(edits).length === 0 && editBase.current === undefined) editBase.current = row;
     setRefusal(null);
     setInvalid(({ [key]: _old, ...rest }) => (error ? { ...rest, [key]: error } : rest));
     setEdits((d) => ({ ...d, [key]: value }));
   };
-  const save = async () => {
+  const queryClient = useQueryClient();
+  // A save that met someone else's change, and the values it tried to save.
+  const [conflict, setConflict] = useState<{ conflict: WriteConflict; values: Values; row: DataRow; message: string } | null>(null);
+  const lastFailure = useRef<string | null>(null);
+  /** Saves; says whether it saved, met a (new) conflict, or failed (the refusal is shown). */
+  const save = async (values: Values = changed, expectedVersion?: string): Promise<"saved" | "conflict" | "failed"> => {
     setSaving(true);
     setRefusal(null);
+    // Only the section's listed keys, never anything else the row or draft holds.
+    const data = recordView.settingsPatch(sectionId, values);
     try {
-      // Only the section's listed keys, never anything else the row or draft holds.
-      const result = await provider.update(view.resource, { id: recordView.recordId(row), data: recordView.settingsPatch(sectionId, changed) });
+      const version = expectedVersion ?? (versionField ? (editBase.current ?? row)[versionField] : undefined);
+      const result = await provider.update(view.resource, {
+        id: recordView.recordId(row),
+        data,
+        ...(version != null ? { expectedVersion: String(version) } : {}),
+      });
       // A write that matched no rows is a refusal, never a silent success.
-      if (!result || result.data === null || result.data === undefined) setRefusal(fill(words.notChanged, { noun: view.noun }));
-      else onSaved(result.data as DataRow);
+      if (!result || result.data === null || result.data === undefined) {
+        lastFailure.current = fill(words.notChanged, { noun: view.noun });
+        setRefusal(lastFailure.current);
+        return "failed";
+      }
+      const saved = result.data as DataRow;
+      // The next edit builds on this save's version, even before the record refetches.
+      if (versionField && saved[versionField] != null) editBase.current = { ...(editBase.current ?? row), [versionField]: saved[versionField] };
+      setConflict(null);
+      onSaved(saved);
+      return "saved";
     } catch (error) {
-      setRefusal(refusalMessage(error, words.failed));
+      const found = writeConflict(error, data);
+      if (found && isDataWriteError(error) && error.current) {
+        setConflict({ conflict: found, values, row: error.current, message: error.message });
+        return "conflict";
+      }
+      lastFailure.current = refusalMessage(error, words.failed);
+      setRefusal(lastFailure.current);
+      return "failed";
     } finally {
       setSaving(false);
     }
+  };
+  const keepMine = async () => {
+    if (!conflict) return;
+    const { values, conflict: c } = conflict;
+    // The sheet stays up while this runs; a plain failure rejects, so the sheet says why.
+    // The real reason, on the sheet (the refusal line behind it says the same).
+    if ((await save(values, c.currentVersion ?? undefined)) === "failed") throw new Error(lastFailure.current ?? words.failed);
+  };
+  const takeTheirs = () => {
+    if (!conflict) return;
+    const { row: theirs } = conflict;
+    setConflict(null);
+    setEdits({});
+    // Their row at once, then the refetch confirms it.
+    setTheirsRow({ ...rowProp, ...theirs });
+    void queryClient.invalidateQueries({ queryKey: [...resourceKeys(view.resource).all] });
+  };
+  const dismissConflict = () => {
+    // Closed without choosing: the edits stay, unsaved, and the screen still says why.
+    if (conflict) setRefusal(conflict.message);
+    setConflict(null);
   };
 
   return (
@@ -563,6 +627,16 @@ function SettingsGroup({
           {words.save}
         </NativeButton>
       ) : null}
+      <NativeConflictSheet
+        conflict={conflict?.conflict ?? null}
+        noun={view.noun}
+        label={(key) => fields.find((f) => f.key === key)?.label ?? key}
+        onKeepMine={keepMine}
+        onTakeTheirs={takeTheirs}
+        onDismiss={dismissConflict}
+        {...(words.conflict ? { messages: words.conflict } : {})}
+        testID={`${testID}-conflict`}
+      />
     </View>
   );
 }
