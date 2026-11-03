@@ -16,7 +16,9 @@ create schema if not exists private;
 
 -- Helpers -----------------------------------------------------------------------------
 
--- Is this person support staff? The app's hook (0006), or nobody when it isn't there yet.
+-- Is this person support staff? After support 0004, only an agent of the app's own (default)
+-- tenant: never staff of every tenant, so a business's tickets stay closed here even if 0006
+-- (which makes these checks per ticket) hasn't run yet.
 create or replace function private.genesis_support_chat_is_staff(person uuid)
 returns boolean
 language plpgsql
@@ -25,15 +27,16 @@ security definer
 set search_path = ''
 as $$
 begin
-  if person is null or to_regprocedure('private.genesis_support_staff(uuid)') is null then
+  if person is null then
     return false;
   end if;
-  return coalesce(private.genesis_support_staff(person), false);
+  return private.genesis_support_agent(private.genesis_support_default_tenant_id(), person);
 end;
 $$;
 
--- The `support` kind's observer check: staff read (and, by the kind, post in) a report's
--- conversation without being in it.
+-- The `support` kind's observer check: a handler of the ticket (an agent of its tenant, see
+-- support 0004) reads, and by the kind posts in, its conversation without being in it. Never
+-- app-wide staff: this holds even before 0006 runs.
 create or replace function private.genesis_support_chat_observer(conversation_id uuid, user_id uuid)
 returns boolean
 language plpgsql
@@ -41,13 +44,16 @@ stable
 security definer
 set search_path = ''
 as $$
+declare
+  ticket uuid;
 begin
-  if not exists (select 1 from genesis_chat.conversations c
-                  where c.id = genesis_support_chat_observer.conversation_id
-                    and c.kind = 'support' and c.subject_type = 'support_report') then
+  select c.subject_id::uuid into ticket from genesis_chat.conversations c
+   where c.id = genesis_support_chat_observer.conversation_id
+     and c.kind = 'support' and c.subject_type = 'support_report';
+  if ticket is null then
     return false;
   end if;
-  return private.genesis_support_chat_is_staff(genesis_support_chat_observer.user_id);
+  return private.genesis_support_handler(ticket, genesis_support_chat_observer.user_id);
 end;
 $$;
 
@@ -238,7 +244,8 @@ create trigger genesis_support_chat_report_deleted
 
 -- Conversations -> reports ----------------------------------------------------------------
 
--- Only staff are assigned a report (the assignee is pushed every message).
+-- Only a handler of the ticket (an agent of its tenant) is assigned it; the assignee is pushed
+-- every message.
 create or replace function private.genesis_support_chat_assignee_check()
 returns trigger
 language plpgsql
@@ -246,8 +253,8 @@ security definer
 set search_path = ''
 as $$
 begin
-  if new.assignee_id is not null and not private.genesis_support_chat_is_staff(new.assignee_id) then
-    raise exception 'support: only staff are assigned a report' using errcode = '42501';
+  if new.assignee_id is not null and not private.genesis_support_handler(case when new.subject_type = 'support_report' then new.subject_id::uuid end, new.assignee_id) then
+    raise exception 'support: only an agent of the ticket''s tenant is assigned it' using errcode = '42501';
   end if;
   return new;
 end;
@@ -464,7 +471,7 @@ as $$
 declare
   conv uuid;
 begin
-  if not public.support_is_staff() then
+  if not private.genesis_support_handler(report, auth.uid()) then
     raise exception 'support_assign_report: only staff' using errcode = '42501';
   end if;
   conv := private.genesis_support_chat_conversation_of(report);

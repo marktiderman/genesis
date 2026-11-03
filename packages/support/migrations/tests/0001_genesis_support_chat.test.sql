@@ -18,7 +18,7 @@ do $hook$ begin
     revoke execute on function private.genesis_support_default_tenant() from public, anon, authenticated;
   end if;
 end $hook$;
-select plan(66);
+select plan(68);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-0000000000' || n)::uuid, 'authenticated', 'authenticated',
@@ -293,6 +293,39 @@ select is((select count(*)::int from genesis_chat.messages where conversation_id
 create table pg_temp.gone0 as select pg_temp.conv('r0') as conv;
 delete from auth.users where id = pg_temp.person('a1');
 select is((select count(*)::int from genesis_chat.conversations where id = (select conv from pg_temp.gone0)), 0, 'deleting the account deletes its reports'' conversations');
+
+-- Since support 0004: staff are the app's own agents, never a business's (holds before 0006 too).
+do $biz$ begin
+  if to_regclass('public.ticket_agents') is not null then
+    create table if not exists public.tenant_features (
+      tenant_id uuid not null, feature_id text not null, enabled boolean not null, reason text not null,
+      primary key (tenant_id, feature_id));
+    insert into public.tenant_features (tenant_id, feature_id, enabled, reason)
+    values ('00000000-0000-4000-8000-0000000000a0', 'support-helpdesk', true, 'test')
+    on conflict (tenant_id, feature_id) do update set enabled = true;
+    create or replace function private.genesis_viewer_people(viewer uuid)
+    returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as
+      'select ''00000000-0000-4000-8000-0000000000a0''::uuid, viewer where viewer = ''00000000-0000-4000-8000-0000000000b2''::uuid';
+    revoke execute on function private.genesis_viewer_people(uuid) from public, anon, authenticated;
+  end if;
+end $biz$;
+select pg_temp.sign_in('b2');
+do $biz$ begin
+  if to_regclass('public.ticket_agents') is not null then
+    set local role authenticated;
+    insert into public.tickets (type, title, message, tenant_id)
+    values ('question', 'A business ticket', 'Hello', '00000000-0000-4000-8000-0000000000a0');
+    reset role;
+    insert into pg_temp.ids select 'biz', c.id from genesis_chat.conversations c
+      join public.tickets t on c.subject_id = t.id::text where t.title = 'A business ticket';
+  end if;
+end $biz$;
+select ok(to_regclass('public.ticket_agents') is null
+          or not private.genesis_support_chat_observer(pg_temp.id('biz'), pg_temp.person('c3')),
+          'the app''s staff do not observe a business''s ticket');
+select ok(to_regclass('public.ticket_agents') is null
+          or not private.genesis_support_chat_is_staff(pg_temp.person('e5')),
+          'staff means the app''s own agents only');
 
 select * from finish();
 rollback;
