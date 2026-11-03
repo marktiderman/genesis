@@ -10,9 +10,10 @@
 --   create trigger tasks_version_bump before update on public.tasks
 --     for each row execute function public.genesis_version_bump('version');
 --
--- The argument names the column (default `version`). On every update it sets the column to the
--- old value plus one, whatever the update wrote there, so a client can neither hold the version
--- back nor jump it ahead. An update that changes nothing still advances it: Postgres can't tell an
+-- The argument names the column (default `version`), an integer column (bigint, say); any other
+-- type is an error (a `kind: "timestamp"` version uses a `moddatetime`-style trigger instead).
+-- On every update it sets the column to the old value plus one, whatever the update wrote there,
+-- so a client can neither hold the version back nor jump it ahead. An update that changes nothing still advances it: Postgres can't tell an
 -- unchanged row from a changed one cheaply, and a spare bump only makes a stale copy conflict,
 -- which is the safe side.
 --
@@ -38,6 +39,10 @@ begin
   if not (to_jsonb(old) ? col) then
     raise exception 'genesis_version_bump: % has no column "%"', tg_table_name, col
       using errcode = '42703';
+  end if;
+  if jsonb_typeof(to_jsonb(old) -> col) not in ('number', 'null') then
+    raise exception 'genesis_version_bump: %.% is not an integer column', tg_table_name, col
+      using errcode = '42804';
   end if;
   previous := coalesce((to_jsonb(old) ->> col)::bigint, 0);
   new := jsonb_populate_record(new, jsonb_build_object(col, previous + 1));

@@ -186,12 +186,25 @@ createSupabaseProvider(supabase, {
 ```
 
 - `capabilities("tasks")` reports `versionedWrites: true` and `version: { field, kind }`.
-- `useResource`, `useResourceForm` (and so `ResourceView`, `RecordView` and `ResourceForm`) send
-  the version of the row they last read as `expectedVersion`. After a save they put the new version
-  into every cached copy, so the next edit is checked against it, not the one before.
+- `useResource` and `useResourceForm` (and so `ResourceView`, `ResourceForm` and `RecordView`'s
+  forms) send the version of the row the change was made on as `expectedVersion`: the record an edit
+  form opened with, else the row cached when the write was made (before an optimistic change or a
+  refetch replaces it). A write made while an earlier one on the same record is still unsettled is
+  checked against the version that one committed at. After a save they put the new version into
+  every cached copy, so the next edit is checked against it, not the one before.
+- `RecordView`'s settings sections (web and native) send the version of the row they show. They
+  save only the fields the person changed, over the row as it is now.
+- `useDraft` saves through the app's own `update(row, value)`: pass `expectedVersion` from the row
+  it's given to have a draft's saves checked.
+- The version is read from the rows the app reads, so the resource's `select` or `source` view must
+  carry the column. If it doesn't, writes go out unchecked, with a warning in development.
 - The update or delete runs `where id = … and version = …`. When no row matches, the provider
-  reads the row back: at another version is `conflict`, with `error.current` (the row as it is now)
-  and `error.currentVersion`; still at the expected version is `forbidden`; not visible is `gone`.
+  reads the row back: at another version is `conflict`, with `error.current` (the row as it is now,
+  read through the resource's `source` and `select`) and `error.currentVersion`; still at the
+  expected version is `forbidden`; not visible is `gone`. A `timestamp` version is compared as an
+  instant, so the same time formatted two ways (a realtime payload, a PostgREST read) is one version.
+- An `update` rule replaces the check: it is given `{ expectedVersion }` and must apply it. One that
+  takes no third argument gets a warning in development.
 - The database advances the version, never the client: the provider drops a submitted value, and
   `genesis_version_bump` sets it to the old value plus one whatever an update writes. `kind:
   "timestamp"` works the same with a column a trigger sets to `now()` on update (`moddatetime`).

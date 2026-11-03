@@ -490,6 +490,8 @@ function SettingsGroup({
 }) {
   const provider = useDataProvider();
   const view = recordView.view;
+  // A versioned resource checks the save against the version of the row shown (core README, "Versioned writes").
+  const versionField = useCapabilities(view.resource, { enabled: !!provider.capabilities }).data?.version?.field;
   // The view's edit-form mapping (the form sheet's), narrowed to this section's keys in their order.
   const fields = useMemo(() => {
     const byKey = new Map(formFieldsFor(view, "edit").map((f) => [f.key, f]));
@@ -527,7 +529,12 @@ function SettingsGroup({
     setRefusal(null);
     try {
       // Only the section's listed keys, never anything else the row or draft holds.
-      const result = await provider.update(view.resource, { id: recordView.recordId(row), data: recordView.settingsPatch(sectionId, changed) });
+      const version = versionField ? row[versionField] : undefined;
+      const result = await provider.update(view.resource, {
+        id: recordView.recordId(row),
+        data: recordView.settingsPatch(sectionId, changed),
+        ...(version != null ? { expectedVersion: String(version) } : {}),
+      });
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) setRefusal(fill(words.notChanged, { noun: view.noun }));
       else onSaved(result.data as DataRow);

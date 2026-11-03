@@ -145,7 +145,59 @@ describe("update with a version rule", () => {
   });
 });
 
+describe("version tokens and the caller's values", () => {
+  it("a timestamp formatted two ways is one version: an RLS refusal stays forbidden, not a conflict", async () => {
+    const options: SupabaseProviderOptions = {
+      resources: { tasks: { version: { field: "updated_at", kind: "timestamp" } } },
+    };
+    queue.push(ok([]), ok([{ id: "t1", updated_at: "2026-11-03T16:00:00.5+00:00" }]));
+    const err = await failure(
+      provider(options).update("tasks", { id: "t1", data: { title: "x" }, expectedVersion: "2026-11-03 16:00:00.500000+00" }),
+    );
+    expect(err.outcome).toBe("forbidden");
+  });
+
+  it("timestamps a microsecond apart are different versions", async () => {
+    const options: SupabaseProviderOptions = {
+      resources: { tasks: { version: { field: "updated_at", kind: "timestamp" } } },
+    };
+    queue.push(ok([]), ok([{ id: "t1", updated_at: "2026-11-03T16:00:00.500001+00:00" }]));
+    const err = await failure(
+      provider(options).update("tasks", { id: "t1", data: { title: "x" }, expectedVersion: "2026-11-03T16:00:00.5+00:00" }),
+    );
+    expect(err.outcome).toBe("conflict");
+  });
+
+  it("never changes the caller's object", async () => {
+    queue.push(ok([{ id: "t1", title: "New", version: 4 }]));
+    const data = { title: "New", version: 3 };
+    await provider().update("tasks", { id: "t1", data, expectedVersion: "3" });
+    expect(data).toEqual({ title: "New", version: 3 });
+  });
+
+  it("a conflict carries the row as the resource reads it, joined columns included", async () => {
+    const options: SupabaseProviderOptions = {
+      resources: { tasks: { source: "tasks_with_people", writeColumns: ["title"], version: { field: "version", kind: "integer" } } },
+    };
+    queue.push(ok([]), ok([{ id: "t1", version: 5 }]), ok([{ id: "t1", version: 5, person_name: "Ada" }]));
+    const err = await failure(provider(options).update("tasks", { id: "t1", data: { title: "x" }, expectedVersion: "3" }));
+    expect(err.outcome).toBe("conflict");
+    expect(err.current).toEqual({ id: "t1", version: 5, person_name: "Ada" });
+    expect(calls).toContainEqual({ method: "from", args: ["tasks_with_people"] });
+  });
+});
+
 describe("an update override with a version rule", () => {
+  it("that takes no third argument gets one warning", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const update = vi.fn(async (_id: unknown, _row: unknown) => ({ id: "t1", version: 4 }));
+    const p = provider({ resources: { warned: { version: { field: "version", kind: "integer" }, update } } });
+    await p.update("warned", { id: "t1", data: {}, expectedVersion: "3" });
+    await p.update("warned", { id: "t1", data: {}, expectedVersion: "4" });
+    expect(warn.mock.calls.filter((c) => String(c[1]).includes("takes no third argument"))).toHaveLength(1);
+    warn.mockRestore();
+  });
+
   it("is told the expected version, and its 'no row' is classified like a plain update", async () => {
     const update = vi.fn(async () => null);
     queue.push(ok([{ id: "t1", version: 6 }]));
@@ -187,10 +239,12 @@ describe("deleteOne with a version rule", () => {
 
   it("on a recycle-bin table, checks the version before the delete and stops on a conflict", async () => {
     const options: SupabaseProviderOptions = { binTables: ["tasks"], ...versioned };
-    queue.push(ok([{ id: "t1", version: 4 }]), ok([{ id: "t1", version: 4 }]));
+    queue.push(ok([{ id: "t1", version: 4 }]));
     const err = await failure(provider(options).deleteOne("tasks", { id: "t1", expectedVersion: "3" }));
     expect(err.outcome).toBe("conflict");
     expect(calls.map((c) => c.method)).not.toContain("delete");
+    // The row read for the check is the one the conflict reports: read once.
+    expect(calls.filter((c) => c.method === "select")).toHaveLength(1);
   });
 
   it("on a recycle-bin table at the expected version, deletes and checks it left view", async () => {

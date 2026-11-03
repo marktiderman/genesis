@@ -269,6 +269,8 @@ function SettingsForm({
   const provider = useDataProvider();
   const view = recordView.view;
   const fields = recordView.settingsFields(sectionId);
+  // A versioned resource checks the save against the version of the row shown (core README, "Versioned writes").
+  const versionField = useCapabilities(view.resource, { enabled: !!provider.capabilities }).data?.version?.field;
   // The view's update guard, for this viewer: when it refuses, the settings are read-only with its reason.
   const viewer = useViewer();
   const locked = recordView.settingsLocked(row, viewer) ?? screenLocked;
@@ -303,7 +305,12 @@ function SettingsForm({
     async (values: Values) => {
       // Only the section's listed keys, never anything else the row or draft holds.
       const data = recordView.settingsPatch(sectionId, values);
-      const result = await provider.update(view.resource, { id: recordView.recordId(row), data });
+      const version = versionField ? row[versionField] : undefined;
+      const result = await provider.update(view.resource, {
+        id: recordView.recordId(row),
+        data,
+        ...(version != null ? { expectedVersion: String(version) } : {}),
+      });
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) {
         throw new DataWriteError("forbidden", fillMessage(m.workspace.notChanged, { noun: view.noun }));

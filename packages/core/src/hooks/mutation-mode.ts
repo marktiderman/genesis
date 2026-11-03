@@ -24,6 +24,7 @@ import { capabilitiesQueryKey } from "./use-capabilities";
 import { resourceKeys } from "../query-keys";
 import { pageWindow, type PageWindow } from "./page-window";
 import { patchCachedRow } from "./live-cache";
+import { reportError } from "../errors";
 
 export type MutationMode = "pessimistic" | "optimistic" | "undoable";
 
@@ -181,6 +182,19 @@ export function cachedRecord(
   for (const [key, value] of queryClient.getQueriesData<unknown>({ queryKey: resourceKeys(resource).details })) {
     if (isDetailKeyFor(key, resource, id) && value && typeof value === "object") return value as BaseRecord;
   }
+  return cachedRow(queryClient, resource, id, false);
+}
+
+/**
+ * The record as a whole row: a detail read without a `select` (one with a
+ * `select` is reshaped, and isn't kept current after writes), else any list.
+ */
+function cachedRow(queryClient: QueryClient, resource: string, id: Identifier, details = true): BaseRecord | undefined {
+  if (details) {
+    for (const [key, value] of queryClient.getQueriesData<unknown>({ queryKey: resourceKeys(resource).details })) {
+      if (isDetailKeyFor(key, resource, id) && key[3] === undefined && value && typeof value === "object") return value as BaseRecord;
+    }
+  }
   for (const [key, value] of queryClient.getQueriesData<unknown>({ queryKey: [resource] })) {
     for (const list of listsIn(key, value)) {
       const found = list.data.find((row) => sameId(row.id, id));
@@ -251,6 +265,12 @@ interface Registry {
   patches: Patch[];
   writes: Tracked[];
   rowTails: Map<string, Promise<void>>;
+  /**
+   * Per record: the version its last write here committed at, while more
+   * writes on it are unsettled, so a write made behind another is checked
+   * against the version that one left.
+   */
+  rowVersions: Map<string, string>;
   /** Cache data this module wrote, so the cache listener does not re-patch it. */
   produced: WeakSet<object>;
   /** True while this module is writing to the cache. */
@@ -269,6 +289,7 @@ function registryFor(queryClient: QueryClient): Registry {
       patches: [],
       writes: [],
       rowTails: new Map(),
+      rowVersions: new Map(),
       produced: new WeakSet(),
       writing: false,
     };
@@ -669,11 +690,13 @@ export interface SendContext {
   /** The page is unloading: pass `keepalive: true` to the provider. */
   keepalive: boolean;
   /**
-   * The version the record was at when this write was sent, from the cached
-   * row and the field the provider's capabilities name (`version`). Pass it
-   * as `expectedVersion`, so a write made on a stale copy is refused as a
-   * `conflict`. Undefined when the resource has no version or the row isn't
-   * cached: send the write unchecked, as before.
+   * The version of the row this write was made on (`base`, else the cached
+   * row when the write was made), or, for a write made behind another on the
+   * same record, the version that one committed at. The field is the one the
+   * provider's capabilities name (`version`). Pass it as `expectedVersion`, so
+   * a write made on a stale copy is refused as a `conflict`. Undefined when
+   * the resource has no version or the row isn't known: send the write
+   * unchecked, as before.
    */
   expectedVersion?: string;
 }
@@ -689,6 +712,12 @@ export interface ExecuteWriteArgs<R extends BaseRecord | void> {
    * nothing, e.g. when the values are form-shaped and the row is not.
    */
   data?: Record<string, unknown>;
+  /**
+   * The row as the person saw it when they made this change (an edit form's
+   * loaded record). Its version is what the write is checked against.
+   * Defaults to the cached row at the moment `executeWrite` is called.
+   */
+  base?: BaseRecord;
   mode: MutationMode;
   undoDelayMs?: number;
   onUndoable?: (write: UndoableWrite) => void;
@@ -739,10 +768,16 @@ function cachedVersionField(queryClient: QueryClient, provider: DataProvider, re
   return queryClient.getQueryData<ProviderCapabilities>(capabilitiesQueryKey(provider, resource))?.version?.field;
 }
 
+/** `row`'s version as a token for `expectedVersion`. */
+function versionToken(row: BaseRecord | undefined, field: string): string | undefined {
+  const value = row?.[field];
+  return value == null ? undefined : String(value);
+}
+
+const warnedNoVersion = new Set<string>();
+
 /**
  * The version `id`'s cached row is at, as a token for `expectedVersion`.
- * Read when the write is sent (not when it was made), so a write queued
- * behind another on the same record sends the version that one left.
  * @internal Exported for tests.
  */
 export function cachedVersion(
@@ -752,28 +787,27 @@ export function cachedVersion(
   id: Identifier,
 ): string | undefined {
   const field = cachedVersionField(queryClient, provider, resource);
-  if (!field) return undefined;
-  const value = cachedRecord(queryClient, resource, id)?.[field];
-  return value == null ? undefined : String(value);
+  return field ? versionToken(cachedRow(queryClient, resource, id), field) : undefined;
 }
 
 /**
  * After an update committed: put the row's new version into every cached
  * copy at once, so the next write on it (before any refetch lands) is
  * checked against the version this one left, not the one before it.
+ * Returns the new version.
  */
 function recordNewVersion(
   queryClient: QueryClient,
-  provider: DataProvider,
   resource: string,
   id: Identifier,
+  field: string,
   record: unknown,
-): void {
-  const field = cachedVersionField(queryClient, provider, resource);
-  if (!field || !record || typeof record !== "object") return;
+): string | undefined {
+  if (!record || typeof record !== "object") return undefined;
   const value = (record as Record<string, unknown>)[field];
-  if (value == null) return;
+  if (value == null) return undefined;
   patchCachedRow(queryClient, resource, { id, [field]: value });
+  return String(value);
 }
 
 /** A later write that built on one that was taken back. */
@@ -795,18 +829,48 @@ export async function executeWrite<R extends BaseRecord | void>(
   args: ExecuteWriteArgs<R>,
 ): Promise<ExecuteWriteResult<R>> {
   const { queryClient, provider, resource, kind, id, mode, committed, failedLater } = args;
+  const reg = registryFor(queryClient);
+  const hasRow = kind !== "create" && id != null;
+  const rowKey = hasRow ? `${resource}\u0000${String(id)}` : undefined;
 
   // A versioned resource checks every update and delete against the version
-  // the row was read at. The answer is cached for the provider's life, so
-  // only the first write on a resource waits for it.
-  const versioned = kind !== "create" && id != null && !!provider.capabilities;
-  if (versioned && !queryClient.getQueryData(capabilitiesQueryKey(provider, resource))) {
-    await queryClient.fetchQuery(CAPABILITIES_QUERY(provider, resource)).catch(() => undefined);
-  }
+  // of the row the person changed: the one they saw (`base`), else the row
+  // cached now, before this write patches it or a refetch replaces it. A write
+  // made while another on the record is unsettled builds on that one, so it
+  // is checked against the version that one commits at.
+  const seen = hasRow ? (args.base ?? cachedRow(queryClient, resource, id!)) : undefined;
+  const behind = rowKey !== undefined && (reg.rowTails.has(rowKey) || reg.writes.some((w) => w.rowKey === rowKey && w.state !== "done"));
+  const versioned = hasRow && !!provider.capabilities;
   const send = async (context: SendContext) => {
-    const expectedVersion = versioned ? cachedVersion(queryClient, provider, resource, id!) : undefined;
+    let field: string | undefined;
+    if (versioned) {
+      // Cached for the provider's life, so only the first write on a resource waits for it.
+      if (!queryClient.getQueryData(capabilitiesQueryKey(provider, resource))) {
+        await queryClient.fetchQuery(CAPABILITIES_QUERY(provider, resource)).catch(() => undefined);
+      }
+      field = cachedVersionField(queryClient, provider, resource);
+    }
+    let expectedVersion: string | undefined;
+    if (field) {
+      expectedVersion = (behind ? reg.rowVersions.get(rowKey!) : undefined) ?? versionToken(seen, field);
+      if (seen && !(field in seen) && !warnedNoVersion.has(resource)) {
+        warnedNoVersion.add(resource);
+        reportError(
+          new Error(
+            `"${resource}" has a version (${field}), but its rows as read here don't carry it, so its writes go unchecked. ` +
+              `Read the version column (add it to the resource's select or source view).`,
+          ),
+          { source: "core:versioned-writes", tags: { resource } },
+        );
+      }
+    }
     const result = await args.send(expectedVersion === undefined ? context : { ...context, expectedVersion });
-    if (versioned && kind === "update") recordNewVersion(queryClient, provider, resource, id!, result.record);
+    if (field && kind === "update") {
+      const next = recordNewVersion(queryClient, resource, id!, field, result.record);
+      if (next !== undefined && reg.writes.some((w) => w.rowKey === rowKey && w.state !== "done")) {
+        reg.rowVersions.set(rowKey!, next);
+      }
+    }
     return result;
   };
 
@@ -823,8 +887,6 @@ export async function executeWrite<R extends BaseRecord | void>(
     void queryClient.prefetchQuery(CAPABILITIES_QUERY(provider, resource));
   }
 
-  const reg = registryFor(queryClient);
-  const hasRow = kind !== "create" && id != null;
   const data = args.data ? { ...args.data } : undefined;
   let patch: Patch | undefined;
   if (hasRow && kind === "update" && data) patch = { resource, id: id!, kind: "update", data, before: new Map() };
@@ -845,7 +907,7 @@ export async function executeWrite<R extends BaseRecord | void>(
     provider,
     resource,
     kind,
-    rowKey: hasRow ? `${resource}\u0000${String(id)}` : undefined,
+    rowKey,
     patch,
     data: kind === "update" ? data : undefined,
     baseline: hasRow ? cachedRecord(queryClient, resource, id!) : undefined,
@@ -865,6 +927,7 @@ export async function executeWrite<R extends BaseRecord | void>(
     if (at >= 0) reg.writes.splice(at, 1);
     untrack(write);
     endPending(reg, resource);
+    if (rowKey && !reg.writes.some((w) => w.rowKey === rowKey)) reg.rowVersions.delete(rowKey);
   };
 
   const sendNow = async (keepalive: boolean): Promise<void> => {

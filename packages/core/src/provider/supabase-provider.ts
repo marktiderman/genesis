@@ -14,6 +14,7 @@ import { DataWriteError } from "../schema/write-outcome";
 import { DataReadError, readFailureMessage } from "../schema/read-outcome";
 import type { FilterOperator, ProviderCapabilities } from "../schema/types";
 import { readOutcomeFromCode, toDataWriteError } from "./postgrest-errors";
+import { reportError } from "../errors";
 
 // ---------------------------------------------------------------------------
 // Minimal Supabase client shape — no hard dependency on @supabase/supabase-js
@@ -539,6 +540,21 @@ function realtimeFilter(filters: FilterParam[] | undefined): string | undefined 
   return undefined;
 }
 const warnedRealtime = new Set<string>();
+const warnedUncheckedOverride = new Set<string>();
+
+/**
+ * A Postgres or ISO timestamp as microseconds since the epoch (a string, to keep every digit), or
+ * undefined when it doesn't read as one. Date.parse alone stops at milliseconds.
+ */
+function instant(text: string): string | undefined {
+  const m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}(?::?\d{2})?)?$/.exec(text.trim());
+  if (!m) return undefined;
+  const [, date, time, fraction = "", zone = "Z"] = m;
+  const offset = zone === "Z" ? "Z" : zone.length === 3 ? `${zone}:00` : zone.includes(":") ? zone : `${zone.slice(0, 3)}:${zone.slice(3)}`;
+  const ms = Date.parse(`${date}T${time}${offset}`);
+  if (Number.isNaN(ms)) return undefined;
+  return `${ms / 1000}.${fraction.padEnd(6, "0").slice(0, 6)}`;
+}
 
 /**
  * The Supabase data provider. Reads and writes go through the client you
@@ -856,23 +872,38 @@ export function createSupabaseProvider(
   }
 
   /**
+   * Whether two version tokens name the same version. A timestamp is compared
+   * as an instant to the microsecond, since a realtime payload and a PostgREST
+   * read format the same value differently ("2026-11-03 16:00:00.5+00" and
+   * "2026-11-03T16:00:00.500000+00:00").
+   */
+  function sameVersion(kind: "integer" | "timestamp", a: string | null, b: string): boolean {
+    if (a === b) return true;
+    if (a === null || kind !== "timestamp") return false;
+    const x = instant(a);
+    return x !== undefined && x === instant(b);
+  }
+
+  /**
    * A version-checked write matched no rows: read the row back to say why.
    * Not visible is `gone`; visible at another version is a `conflict` (with
-   * the row as it is now); visible at the expected version means the change
-   * itself was refused (`forbidden`). Without an expected version, as
-   * `noRowsError`.
+   * the row as it is now, read the way the resource reads); visible at the
+   * expected version means the change itself was refused (`forbidden`).
+   * Without an expected version, as `noRowsError`. `known` is the row
+   * already read back, when the caller has it.
    */
   async function staleOrNoRowsError(
     resource: string,
     id: Identifier,
     verb: "change" | "delete",
     expected: string | undefined,
+    known?: BaseRecord,
   ): Promise<DataWriteError> {
     if (expected === undefined) return noRowsError(resource, id, verb);
-    const field = versionFor(resource)!.field;
-    let current: BaseRecord | undefined;
+    const { field, kind } = versionFor(resource)!;
+    let current: BaseRecord | undefined = known;
     try {
-      current = await readBack(resource, id);
+      current ??= await readBack(resource, id);
     } catch (error) {
       const cause = toDataWriteError(error);
       return new DataWriteError(
@@ -883,14 +914,21 @@ export function createSupabaseProvider(
     }
     if (!current) return goneError(resource);
     const currentVersion = current[field] == null ? null : String(current[field]);
-    if (currentVersion !== expected) {
-      return new DataWriteError(
-        "conflict",
-        `Someone else changed this ${nounFor(resource)} after you opened it. Review their change, then make yours again.`,
-        { current, currentVersion },
-      );
+    if (sameVersion(kind, currentVersion, expected)) {
+      return new DataWriteError("forbidden", `You can't ${verb} this ${nounFor(resource)}.`);
     }
-    return new DataWriteError("forbidden", `You can't ${verb} this ${nounFor(resource)}.`);
+    // Their change, the way this resource is read (a view's joined columns too), so a screen can
+    // show it. The table's row stands in when that read fails or finds nothing.
+    const config = configFor(resource);
+    if (config.source !== undefined || config.select !== undefined) {
+      const viewed = await run(read(resource, undefined).eq("id", id)).then((rows) => rows[0] as BaseRecord | undefined, () => undefined);
+      if (viewed) current = viewed;
+    }
+    return new DataWriteError(
+      "conflict",
+      `Someone else changed this ${nounFor(resource)} after you opened it. Review their change, then make yours again.`,
+      { current, currentVersion },
+    );
   }
 
   async function prepare(
@@ -1328,17 +1366,30 @@ export function createSupabaseProvider(
 
     async update(resource, params) {
       const { id } = params;
-      const row = await tableValues(
-        resource,
-        await prepare(resource, params.data as Record<string, unknown>, { resource, action: "update", id }),
-        id,
-      );
+      // A copy: with no prepare step this is the caller's own object, and the version is taken out below.
+      const row = {
+        ...(await tableValues(
+          resource,
+          await prepare(resource, params.data as Record<string, unknown>, { resource, action: "update", id }),
+          id,
+        )),
+      };
       const version = versionFor(resource);
       const expected = expectedFor(resource, params.expectedVersion);
       // The database advances the version; a submitted value is never written.
       if (version) delete row[version.field];
       const override = configFor(resource).update;
       let record: BaseRecord;
+      if (override && version && override.length < 3 && !warnedUncheckedOverride.has(resource)) {
+        warnedUncheckedOverride.add(resource);
+        reportError(
+          new Error(
+            `[SupabaseProvider] "${resource}" has a version rule and an update rule that takes no third argument. ` +
+              `The update rule is given { expectedVersion }: apply it (match the row at that version, return nothing when none matches), or updates go unchecked.`,
+          ),
+          { source: "core:versioned-writes", tags: { resource } },
+        );
+      }
       if (override) {
         let returned: BaseRecord | Identifier | boolean | null | undefined | void;
         try {
@@ -1383,9 +1434,9 @@ export function createSupabaseProvider(
         if (expected !== undefined) {
           const current = await readBack(resource, id);
           if (!current) throw goneError(resource);
-          const field = versionFor(resource)!.field;
-          if ((current[field] == null ? null : String(current[field])) !== expected) {
-            throw await staleOrNoRowsError(resource, id, "delete", expected);
+          const { field, kind } = versionFor(resource)!;
+          if (!sameVersion(kind, current[field] == null ? null : String(current[field]), expected)) {
+            throw await staleOrNoRowsError(resource, id, "delete", expected, current);
           }
         } else if (!(await isVisible(resource, id))) throw goneError(resource);
         await run(from(resource).delete().eq("id", id));
