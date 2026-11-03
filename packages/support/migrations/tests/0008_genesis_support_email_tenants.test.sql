@@ -1,10 +1,10 @@
 -- @feat:support-email
--- pgTAP test for 0006_genesis_support_email_tickets.sql (after 0004 and 0002). Copy into your
+-- pgTAP test for 0008_genesis_support_email_tenants.sql (after 0004 and 0002). Copy into your
 -- app's `supabase/tests/database/` and run `supabase test db`. Rolls everything back; the app's
 -- hooks are replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(5);
+select plan(8);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -94,6 +94,38 @@ set local role authenticated;
 select is((select count(*)::int from public.support_email_messages m join public.tickets t on t.id = m.report_id where t.title = 'Mail to ta'), 0,
           'the app''s staff read no business''s email');
 reset role;
+
+-- An agent of ta links ta's email ticket only to someone in ta.
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select throws_ok($$ select public.support_link_requester((select id from public.tickets where title = 'Mail to ta'), '00000000-0000-4000-8000-0000000004b2') $$,
+                 '42501', null, 'a business''s agent cannot link its ticket to someone outside it');
+reset role;
+
+-- A reply naming ta's thread but sent to the app's address doesn't join ta's ticket.
+set local role service_role;
+select public.support_receive_email(jsonb_build_object(
+  'messageId', 'm3@example.test', 'inReplyTo', 'm1@example.test', 'from', jsonb_build_object('email', 'eve@example.test'),
+  'to', jsonb_build_array('help@app.example.test'), 'subject', 'Re: Mail to ta', 'text', 'Hijack'));
+reset role;
+select is((select count(*)::int from public.support_email_messages m join public.tickets t on t.id = m.report_id
+            where t.title = 'Mail to ta'), 1, 'a reply from another tenant''s address never joins the thread');
+
+-- A business with the help desk off gets no email: it goes to the app's own support.
+select pg_temp.sign_out();
+do $$ begin
+  if to_regclass('public.tenant_features') is not null then
+    insert into public.tenant_features (tenant_id, feature_id, enabled, reason) values ('00000000-0000-4000-8000-0000000000a0', 'support-helpdesk', false, 'test');
+  end if;
+end $$;
+set local role service_role;
+select public.support_receive_email(jsonb_build_object(
+  'messageId', 'm4@example.test', 'from', jsonb_build_object('email', 'sam@example.test'),
+  'to', jsonb_build_array('help@ta.example.test'), 'subject', 'Mail while off', 'text', 'Hello'));
+reset role;
+select is((select tenant_id from public.tickets where title = 'Mail while off'),
+          case when to_regclass('public.tenant_features') is not null then pg_temp.tenant('d') else pg_temp.tenant('ta') end,
+          'with the help desk off, a business''s email goes to the app''s own support');
 
 select * from finish();
 rollback;

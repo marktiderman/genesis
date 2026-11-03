@@ -1,5 +1,5 @@
 -- @feat:support-email
--- Genesis support 0006: support-email on tickets and tenants (after 0004_genesis_support_tickets.sql
+-- Genesis support 0008: support-email on tickets and tenants (after 0004_genesis_support_tickets.sql
 -- and 0002_genesis_support_email.sql).
 --
 -- Recreates the support-email functions against public.tickets, lets the app route an inbound
@@ -14,11 +14,11 @@
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0006_genesis_support_email_tickets.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0008_genesis_support_email_tenants.test.sql`).
 
 -- Which tenant an email to these addresses belongs to: the app's optional hook
 -- private.genesis_support_email_tenant(recipients text[]) returns uuid, else null (the default
--- tenant, set by 0004's trigger).
+-- tenant, set by 0004's trigger). A tenant with the help desk off gets none.
 create or replace function private.genesis_support_email_tenant_id(recipients text[])
 returns uuid
 language plpgsql
@@ -26,13 +26,18 @@ stable
 security definer
 set search_path = ''
 as $$
+declare
+  routed uuid;
 begin
   if to_regprocedure('private.genesis_support_email_tenant(text[])') is null then
     return null;
   end if;
-  return private.genesis_support_email_tenant(recipients);
-exception when others then
-  return null;
+  routed := private.genesis_support_email_tenant(recipients);
+  -- A tenant with the help desk off takes no email: it goes to the app's own support.
+  if routed is not null and not private.genesis_support_helpdesk_on(routed) then
+    return null;
+  end if;
+  return routed;
 end;
 $$;
 
@@ -122,6 +127,8 @@ begin
   if report.id is null and (reply_to is not null or cardinality(refs) > 0) then
     select r.* into report from public.support_email_messages m join public.tickets r on r.id = m.report_id
      where m.message_id = any (array_append(refs, reply_to)) and r.channel = 'email'
+       -- A reply joins a thread only in the tenant its address belongs to.
+       and r.tenant_id = coalesce(private.genesis_support_email_tenant_id(recipients), private.genesis_support_default_tenant_id())
      order by m.created_at desc limit 1;
   end if;
   if report.id is null and coalesce((email ->> 'onlyExisting')::boolean, false) then
@@ -160,6 +167,15 @@ declare
 begin
   if not private.genesis_support_handler(report, auth.uid()) then
     raise exception 'support_link_requester: only staff' using errcode = '42501';
+  end if;
+  -- A business's agent links only someone in that business (the app's own support, anyone).
+  if not exists (
+    select 1 from public.tickets t
+     where t.id = report
+       and (t.tenant_id = private.genesis_support_default_tenant_id()
+            or exists (select 1 from private.genesis_support_tenants_of(person) v where v.tenant_id = t.tenant_id))
+  ) then
+    raise exception 'support_link_requester: that person is not in this ticket''s tenant' using errcode = '42501';
   end if;
   update public.tickets r set user_id = person
    where r.id = report and r.channel = 'email' and r.user_id is null

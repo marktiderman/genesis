@@ -1802,7 +1802,7 @@ export const features = defineFeatures({
     requires: ["support-feedback"],
     reviewedAt: "2026-11-03",
     links: {
-      code: ["packages/support/migrations/0004_genesis_support_tickets.sql", "packages/support/migrations/0005_genesis_support_chat_tickets.sql", "packages/support/migrations/0006_genesis_support_email_tickets.sql", "packages/support/src/client.ts"],
+      code: ["packages/support/migrations/0004_genesis_support_tickets.sql", "packages/support/migrations/0006_genesis_support_chat_tenants.sql", "packages/support/migrations/0008_genesis_support_email_tenants.sql", "packages/support/src/client.ts"],
       docs: ["packages/support/README.md", "docs/adr/0015-tickets-and-tenancy.md"],
     },
     owner: "mark",

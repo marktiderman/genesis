@@ -172,8 +172,8 @@ describe("the support client's thread", () => {
     expect(block.id).toBe("support-chat");
     expect(block.requires).toEqual(["support-feedback", "chat"]);
     expect(block.contributes?.migrations).toEqual([
-      { package: "@marktiderman/genesis-support", file: "migrations/0001_genesis_support_chat.sql", test: "migrations/tests/0001_genesis_support_chat.test.sql" },
-      { package: "@marktiderman/genesis-support", file: "migrations/0005_genesis_support_chat_tickets.sql", test: "migrations/tests/0005_genesis_support_chat_tickets.test.sql" },
+      { package: "@marktiderman/genesis-support", file: "migrations/0005_genesis_support_chat_on_tickets.sql", test: "migrations/tests/0001_genesis_support_chat.test.sql" },
+      { package: "@marktiderman/genesis-support", file: "migrations/0006_genesis_support_chat_tenants.sql", test: "migrations/tests/0006_genesis_support_chat_tenants.test.sql" },
     ]);
   });
 });

@@ -11,7 +11,7 @@
 -- f6 the app's staff; d7 a client of both ta and tb; c9 the admin of ta.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(45);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -19,6 +19,8 @@ create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
                 else '00000000-0000-4000-8000-0000000000b0'::uuid end $$;
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000004' || n)::uuid $$;
+create function pg_temp.record(n text) returns uuid language sql immutable as $$
+  select ('00000000-0000-4000-8000-0000000005' || n)::uuid $$;
 create function pg_temp.sign_in(n text) returns void language plpgsql as $$
 begin
   perform set_config('request.jwt.claims',
@@ -42,9 +44,10 @@ from unnest(array['a1', 'b2', 'c3', 'e5', 'f6', 'd7', 'c9']) n;
 -- The app's hooks, for this transaction.
 create or replace function private.genesis_support_default_tenant() returns uuid
 language sql stable set search_path = '' as $$ select '00000000-0000-4000-8000-00000000000f'::uuid $$;
+-- Person records are not logins: a login's person id here is its id with ...0005... for ...0004....
 create or replace function private.genesis_viewer_people(viewer uuid)
 returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
-  select t.tenant_id, viewer from (values
+  select t.tenant_id, replace(viewer::text, '-0000000004', '-0000000005')::uuid from (values
     ('00000000-0000-4000-8000-0000000004a1'::uuid, '00000000-0000-4000-8000-0000000000a0'::uuid),
     ('00000000-0000-4000-8000-0000000004c3', '00000000-0000-4000-8000-0000000000a0'),
     ('00000000-0000-4000-8000-0000000004c9', '00000000-0000-4000-8000-0000000000a0'),
@@ -65,8 +68,10 @@ revoke execute on function private.genesis_tenant_admin(uuid, uuid) from public,
 revoke execute on function private.genesis_support_staff(uuid) from public, anon, authenticated;
 
 insert into public.ticket_agents (tenant_id, person_id, role) values
-  (pg_temp.tenant('ta'), pg_temp.person('c3'), 'agent'),
-  (pg_temp.tenant('tb'), pg_temp.person('e5'), 'agent');
+  (pg_temp.tenant('ta'), pg_temp.record('c3'), 'agent'),
+  (pg_temp.tenant('tb'), pg_temp.record('e5'), 'agent');
+-- A row keyed by a login instead of a person record grants nothing.
+insert into public.ticket_agents (tenant_id, person_id, role) values (pg_temp.tenant('tb'), pg_temp.person('b2'), 'agent');
 
 -- Shape -------------------------------------------------------------------------------------
 select has_table('public', 'tickets', 'tickets exists');
@@ -117,6 +122,11 @@ set local role authenticated;
 insert into public.tickets (type, title, message) values ('bug', 'B2 bug', 'Crash');
 reset role;
 insert into ids select 'tb2', id from public.tickets where title = 'B2 bug';
+
+select pg_temp.sign_in('b2');
+set local role authenticated;
+select ok(not public.support_is_agent(pg_temp.tenant('tb')), 'an agent row keyed by a login, not a person record, grants nothing');
+reset role;
 
 -- Reading and handling ------------------------------------------------------------------------
 select pg_temp.sign_in('c3');
@@ -172,14 +182,15 @@ select throws_ok($$ select public.support_set_agent('00000000-0000-4000-8000-000
 reset role;
 select pg_temp.sign_in('c9');
 set local role authenticated;
-select lives_ok($$ select public.support_set_agent('00000000-0000-4000-8000-0000000000a0', '00000000-0000-4000-8000-0000000004a1', 'agent') $$,
+select lives_ok($$ select public.support_set_agent('00000000-0000-4000-8000-0000000000a0', '00000000-0000-4000-8000-0000000005a1', 'agent') $$,
                 'a business''s admin adds an agent');
 select throws_ok($$ select public.support_set_agent('00000000-0000-4000-8000-0000000000b0', '00000000-0000-4000-8000-0000000004b2', 'agent') $$,
                  '42501', null, '... but not in another business');
 reset role;
 select pg_temp.sign_in('e5');
 set local role authenticated;
-select is((select count(*)::int from public.ticket_agents), 1, 'an agent sees only their own business''s agents');
+select is((select count(*)::int from public.ticket_agents where tenant_id = pg_temp.tenant('tb')), 2, 'an agent sees their own business''s agents');
+select is((select count(*)::int from public.ticket_agents where tenant_id <> pg_temp.tenant('tb')), 0, '... and no other business''s');
 reset role;
 -- An agent who leaves the business stops being one, whatever the agent row says.
 create or replace function private.genesis_viewer_people(viewer uuid)
@@ -218,7 +229,6 @@ reset role;
 create or replace function private.genesis_viewer_people(viewer uuid)
 returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
   select '00000000-0000-4000-8000-0000000000b0'::uuid, viewer where viewer = '00000000-0000-4000-8000-0000000004b2'::uuid $$;
-select ok(true, 'the switch is genesis-supabase 0004''s tenant_features');
 select pg_temp.sign_out();
 do $$ begin
   if to_regclass('public.tenant_features') is not null then
@@ -227,9 +237,18 @@ do $$ begin
 end $$;
 select pg_temp.sign_in('b2');
 set local role authenticated;
-select throws_ok($$ insert into public.tickets (type, title, message) values ('question', 'Off', 'x') $$,
+insert into public.tickets (type, title, message) values ('question', 'Off', 'x');
+select throws_ok($$ insert into public.tickets (type, title, message, tenant_id) values ('question', 'Off 2', 'x', '00000000-0000-4000-8000-0000000000b0') $$,
                  '42501', 'support: the help desk is off here', 'a business that turned the help desk off takes no tickets');
+insert into public.support_ideas (title, body) values ('An idea from b2', 'Please');
 reset role;
+
+reset role;
+select is((select tenant_id from public.tickets where title = 'Off'), pg_temp.tenant('d'),
+          '... its clients'' tickets go to the app''s own support instead');
+select is((select tenant_id from public.support_ideas where title = 'An idea from b2'), pg_temp.tenant('d'),
+          'an idea goes to the app''s own board unless a business is named');
+select is(public.support_default_tenant(), pg_temp.tenant('d'), 'clients can ask for the app''s own tenant');
 
 select * from finish();
 rollback;

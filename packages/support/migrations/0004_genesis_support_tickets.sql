@@ -20,7 +20,7 @@
 --
 -- Your app answers through these hooks (Genesis never defines them):
 --
---   private.genesis_support_default_tenant() returns uuid                   (required)
+--   private.genesis_support_default_tenant() returns uuid                   (required, before 0004)
 --     The app's own tenant: where its own support lives, and where a ticket goes when the
 --     sender's tenant isn't known. A single-tenant app returns its one tenant id.
 --   private.genesis_support_tenant_for(report uuid) returns uuid           (optional)
@@ -30,7 +30,7 @@
 --   private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean  (optional, 0004)
 --     Tenant admins handle tickets and manage agents.
 --
--- With rows already stored and no default tenant hook, this migration stops and says so.
+-- Without the default tenant hook this migration stops and says so: define it first.
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
@@ -51,7 +51,7 @@ comment on table public.ticket_attachments is
 
 -- 2. Tenant hooks -------------------------------------------------------------------------
 
--- The app's default tenant, or null without the hook. Fails closed on a hook that errors.
+-- The app's default tenant, or null without the hook. A hook that errors raises (never a silent fallback).
 create or replace function private.genesis_support_default_tenant_id()
 returns uuid
 language plpgsql
@@ -64,12 +64,11 @@ begin
     return null;
   end if;
   return private.genesis_support_default_tenant();
-exception when others then
-  return null;
 end;
 $$;
 
--- The tenants a login belongs to, from the app's viewer-people hook (0016). Empty without it.
+-- The tenants a login belongs to, from the app's viewer-people hook (0016). Empty without it; a
+-- hook that errors raises, so a ticket is never routed to the wrong tenant by accident.
 create or replace function private.genesis_support_tenants_of(person uuid)
 returns table (tenant_id uuid, person_id uuid)
 language plpgsql
@@ -85,8 +84,6 @@ begin
     select distinct v.tenant_id, v.person_id
       from private.genesis_viewer_people(person) v
      where v.tenant_id is not null;
-exception when others then
-  return;
 end;
 $$;
 
@@ -103,8 +100,6 @@ begin
     return false;
   end if;
   return coalesce(private.genesis_tenant_admin(tenant, person), false);
-exception when others then
-  return false;
 end;
 $$;
 
@@ -197,7 +192,8 @@ comment on function public.support_is_staff() is
   'True when the signed-in person handles the app''s own tickets (its default tenant). Genesis support.';
 
 -- Add, change or remove an agent (role null removes). Tenant admins and the tenant's agent
--- admins may; in the default tenant, staff too. The person must be in the tenant.
+-- admins may; in the default tenant, staff too. An agent row counts only while the app's hook still
+-- lists that person in the tenant (genesis_support_agent), so a stray row grants nothing.
 create or replace function public.support_set_agent(tenant uuid, person uuid, role text)
 returns void
 language plpgsql
@@ -249,8 +245,32 @@ create index tickets_tenant_idx on public.tickets (tenant_id, updated_at desc);
 create index support_ideas_tenant_idx on public.support_ideas (tenant_id, status);
 
 -- A new ticket's tenant: the one sent (if the sender is in it, or it is the default), else the
--- sender's only tenant, else the default. Server code (no sender) keeps what it sends, or the
--- default. The help desk must be on in that tenant (0004's switch, when installed).
+-- sender's only tenant if the help desk is on there, else the default. An idea goes to the app's
+-- own board unless a tenant is named. Server code (no sender) keeps what it sends, or the default.
+-- A tenant named explicitly must have the help desk on (0004's switch, when installed).
+create or replace function private.genesis_support_helpdesk_on(tenant uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if tenant is null then
+    return false;
+  end if;
+  if tenant = private.genesis_support_default_tenant_id() then
+    return true;
+  end if;
+  if to_regprocedure('private.tenant_feature_on(uuid,text)') is null then
+    return true;
+  end if;
+  return private.tenant_feature_on(tenant, 'support-helpdesk');
+end;
+$$;
+
+revoke execute on function private.genesis_support_helpdesk_on(uuid) from public, anon, authenticated;
+
 create or replace function private.genesis_support_ticket_tenant()
 returns trigger
 language plpgsql
@@ -262,11 +282,13 @@ declare
   dflt uuid := private.genesis_support_default_tenant_id();
   only_tenant uuid;
 begin
-  if new.tenant_id is null and me is not null then
+  if new.tenant_id is null and me is not null and tg_table_name = 'tickets' then
     select min(v.tenant_id::text)::uuid into only_tenant
       from private.genesis_support_tenants_of(me) v
     having count(distinct v.tenant_id) = 1;
-    new.tenant_id := only_tenant;
+    if private.genesis_support_helpdesk_on(only_tenant) then
+      new.tenant_id := only_tenant;
+    end if;
   end if;
   new.tenant_id := coalesce(new.tenant_id, dflt);
   if new.tenant_id is null then
@@ -277,8 +299,7 @@ begin
     if not exists (select 1 from private.genesis_support_tenants_of(me) v where v.tenant_id = new.tenant_id) then
       raise exception 'support: not your tenant' using errcode = '42501';
     end if;
-    if to_regprocedure('private.tenant_feature_on(uuid,text)') is not null
-       and not private.tenant_feature_on(new.tenant_id, 'support-helpdesk') then
+    if not private.genesis_support_helpdesk_on(new.tenant_id) then
       raise exception 'support: the help desk is off here' using errcode = '42501';
     end if;
   end if;
@@ -321,21 +342,26 @@ create trigger genesis_support_tenant_fixed
   before update of tenant_id on public.support_ideas
   for each row execute function private.genesis_support_tenant_fixed();
 
--- Existing rows: the app's mapping hook, else the default tenant.
+-- Existing rows: the app's mapping hook, else the default tenant. The app must name its default
+-- tenant before this migration, rows or not: without it every new ticket would be refused.
+-- Filled with user triggers off, so updated_at and the app's own update triggers are untouched.
 do $$
 declare
   dflt uuid := private.genesis_support_default_tenant_id();
   mapped boolean := to_regprocedure('private.genesis_support_tenant_for(uuid)') is not null;
 begin
+  if dflt is null then
+    raise exception 'genesis support 0004: define private.genesis_support_default_tenant() (your own tenant) before this migration; see its header.';
+  end if;
+  alter table public.tickets disable trigger user;
+  alter table public.support_ideas disable trigger user;
   if mapped then
     execute 'update public.tickets t set tenant_id = private.genesis_support_tenant_for(t.id) where t.tenant_id is null';
   end if;
-  update public.tickets set tenant_id = dflt where tenant_id is null and dflt is not null;
-  update public.support_ideas set tenant_id = dflt where tenant_id is null and dflt is not null;
-  if exists (select 1 from public.tickets where tenant_id is null)
-     or exists (select 1 from public.support_ideas where tenant_id is null) then
-    raise exception 'genesis support 0004: existing tickets or ideas have no tenant. Define private.genesis_support_default_tenant() (and, to place old tickets elsewhere, private.genesis_support_tenant_for(uuid)) before this migration.';
-  end if;
+  update public.tickets set tenant_id = dflt where tenant_id is null;
+  update public.support_ideas set tenant_id = dflt where tenant_id is null;
+  alter table public.tickets enable trigger user;
+  alter table public.support_ideas enable trigger user;
 end;
 $$;
 
@@ -424,6 +450,20 @@ $$;
 
 comment on function public.support_in_tenant(uuid) is
   'Whether a tenant is the app''s own or one the signed-in person belongs to. Genesis support.';
+
+-- The app's own tenant, for clients that send a ticket or idea to the app itself.
+create or replace function public.support_default_tenant()
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select private.genesis_support_default_tenant_id()
+$$;
+
+comment on function public.support_default_tenant() is
+  'The app''s own tenant (where its own support and idea board live). Genesis support.';
 
 -- Ideas: the app's own board is read by everyone signed in, as before; a business's board by
 -- its members; hidden ideas by their author and the tenant's agents.
@@ -582,9 +622,156 @@ grant execute on function public.support_set_agent(uuid, uuid, text) to authenti
 revoke execute on function public.support_is_staff() from public, anon;
 grant execute on function public.support_is_staff() to authenticated, service_role;
 
+revoke execute on function public.support_default_tenant() from public, anon;
+grant execute on function public.support_default_tenant() to authenticated, service_role;
 revoke execute on function public.support_in_tenant(uuid) from public, anon;
 grant execute on function public.support_in_tenant(uuid) to authenticated, service_role;
 grant select (tenant_id) on table public.support_ideas to authenticated;
+
+-- 8. The rest of support's functions, on the new names -------------------------------------
+-- (The views above keep older callers working; support's own code reads the tables.)
+
+-- May the signed-in person upload `object_name`? Only `<own id>/<own open report>/<name>.<image>`,
+-- within an hour of sending the report, and at most 5 objects in its folder. A function, so the
+-- policy can count the folder.
+create or replace function public.support_can_upload(object_name text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  me uuid := auth.uid();
+  folder text;
+begin
+  if me is null or object_name is null
+     or object_name !~ '^[0-9a-f-]{36}/[0-9a-f-]{36}/[A-Za-z0-9_-]{1,80}\.(png|jpg|jpeg|webp)$'
+     or split_part(object_name, '/', 1) <> me::text then
+    return false;
+  end if;
+  if not exists (select 1 from public.tickets r
+                 where r.id::text = split_part(object_name, '/', 2) and r.user_id = me and r.status = 'open'
+                   and r.created_at > now() - interval '1 hour') then
+    return false;
+  end if;
+  folder := split_part(object_name, '/', 1) || '/' || split_part(object_name, '/', 2) || '/';
+  return (select count(*) from storage.objects o where o.bucket_id = 'genesis-support' and left(o.name, length(folder)) = folder) < 5;
+end;
+$$;
+
+-- For the cleanup function: objects in the bucket no attachment names, older than
+-- `older_than` (an upload whose attachment row never landed). Service role only.
+create or replace function public.support_orphan_objects(older_than interval default interval '1 day', max_rows integer default 500)
+returns table (path text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select o.name from storage.objects o
+  where o.bucket_id = 'genesis-support'
+    and o.created_at <= now() - older_than
+    and not exists (select 1 from public.ticket_attachments a where a.path = o.name)
+  order by o.created_at
+  limit greatest(1, least(coalesce(max_rows, 500), 1000))
+$$;
+
+-- An attachment names an object the person already uploaded under their own report's folder.
+create or replace function private.genesis_support_new_attachment()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  new.bucket := 'genesis-support';
+  new.created_at := now();
+  if new.path is null or split_part(new.path, '/', 1) <> new.user_id::text or split_part(new.path, '/', 2) <> new.report_id::text then
+    raise exception 'support: an attachment lives under <user id>/<report id>/' using errcode = '42501';
+  end if;
+  if not exists (select 1 from public.tickets r where r.id = new.report_id and r.user_id = new.user_id) then
+    raise exception 'support: not your report' using errcode = '42501';
+  end if;
+  if not exists (select 1 from storage.objects o where o.bucket_id = 'genesis-support' and o.name = new.path) then
+    raise exception 'support: upload the file before recording it' using errcode = '23503';
+  end if;
+  if (select count(*) from public.ticket_attachments a where a.report_id = new.report_id) >= 5 then
+    raise exception 'support: at most 5 screenshots per report' using errcode = 'GS429';
+  end if;
+  return new;
+end;
+$$;
+
+-- A reply moves the thread on: the writer's side has read it, the other side has something new.
+create or replace function private.genesis_support_reply_posted()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.from_staff then
+    update public.tickets
+      set last_staff_reply_at = new.created_at, staff_read_at = new.created_at
+      where id = new.report_id;
+  else
+    update public.tickets
+      set last_user_reply_at = new.created_at, user_read_at = new.created_at
+      where id = new.report_id;
+  end if;
+  return null;
+end;
+$$;
+
+-- Status: staff, or a handler of the report.
+create or replace function public.support_set_report_status(report uuid, status text, feature text default null)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not private.genesis_support_handler(report, auth.uid()) then
+    raise exception 'support_set_report_status: only staff' using errcode = '42501';
+  end if;
+  update public.tickets r
+    set status = support_set_report_status.status,
+        feature_id = case when feature = '' then null else coalesce(feature, r.feature_id) end
+    where r.id = report;
+  if not found then
+    raise exception 'support_set_report_status: no such report' using errcode = 'P0002';
+  end if;
+end;
+$$;
+
+-- The person confirms the fix, or reopens the report (with what's still wrong, in the thread).
+create or replace function public.support_verify_report(report uuid, fixed boolean, note text default null)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  _r public.tickets;
+begin
+  select * into _r from public.tickets where id = report;
+  if _r.id is null or _r.user_id is distinct from auth.uid() then
+    raise exception 'support_verify_report: not your report' using errcode = '42501';
+  end if;
+  if _r.status <> 'addressed' then
+    raise exception 'support_verify_report: it isn''t marked fixed' using errcode = '22023';
+  end if;
+  if nullif(btrim(note), '') is not null then
+    insert into public.support_replies (report_id, body) values (report, btrim(note));
+  end if;
+  if fixed then
+    update public.tickets set verified_at = now() where id = report;
+  else
+    update public.tickets set status = 'in_progress', reopened_at = now() where id = report;
+  end if;
+end;
+$$;
 
 -- 7. The old names, for one minor ----------------------------------------------------------
 

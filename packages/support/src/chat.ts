@@ -15,7 +15,7 @@ export const SUPPORT_CHAT_SUBJECT = "support_report";
 /**
  * The chat subject type of a ticket's conversation. Compare against this, never the literal: the
  * stored value is `support_report` in this release and may change with the ticket rename's next
- * step (ADR 0011).
+ * step (ADR 0015).
  */
 export const TICKET_SUBJECT = SUPPORT_CHAT_SUBJECT;
 

@@ -25,10 +25,13 @@ Genesis already has what tenancy needs: a bare `tenant_id` on its tables (ADR 00
    with the same column grants for one minor; foreign keys keep `report_id` until then.
 2. **Every ticket and idea has a tenant**, the one the app's viewer-people hook names: a
    single-tenant app returns one fixed id, a multi-tenant app one per organization. The app adds
-   `private.genesis_support_default_tenant()`, its own tenant. A new ticket takes the tenant sent
-   (if the sender is in it, or it is the default), else the sender's only tenant, else the
-   default. Existing rows: the app's optional `genesis_support_tenant_for(report)`, else the
-   default; then a validated `not null` check. A ticket never changes tenant.
+   `private.genesis_support_default_tenant()`, its own tenant, before the migration (it stops
+   otherwise). A new ticket takes the tenant sent (if the sender is in it, or it is the default),
+   else the sender's only tenant when the help desk is on there, else the default. An idea goes to
+   the app's own board unless a tenant is named. The app's hooks raising is an error, never a
+   silent fallback. `support_default_tenant()` tells clients the app's own tenant. Existing rows: the app's optional `genesis_support_tenant_for(report)`, else the
+   default, filled without touching `updated_at` or firing app triggers; then a validated `not
+   null` check. A ticket never changes tenant.
 3. **Agents.** `ticket_agents (tenant_id, person_id, role)`, written through
    `support_set_agent` by tenant admins or agent admins. An agent row counts only while the hook
    still lists that person in the tenant. A tenant's agents and admins handle its tickets; the
@@ -38,10 +41,17 @@ Genesis already has what tenancy needs: a bare `tenant_id` on its tables (ADR 00
    report hook, which only answers inside the ticket's tenant or the default one. The requester
    never handles.
 5. **Per-tenant switch**: `support-helpdesk` in `tenant_features`.
-6. **Blocks follow**: `0005_genesis_support_chat_tickets.sql` makes the support conversation's
-   observers and assignee handlers of the ticket; `0006_genesis_support_email_tickets.sql` routes
-   inbound mail to a tenant (`genesis_support_email_tenant`) and gives a ticket's emails to its
-   handlers.
+6. **Blocks follow.** The support-chat and support-email blocks' first migrations (0001, 0002)
+   act on `support_reports`, which is now a view, so each block ships a version for the renamed
+   table that is safe to run again (`0005_genesis_support_chat_on_tickets.sql`,
+   `0007_genesis_support_email_on_tickets.sql`): apps that applied 0001/0002 get the same objects
+   back, new apps get the block whole, in any order after 0004. Then
+   `0006_genesis_support_chat_tenants.sql` makes the conversation's observers and assignee
+   handlers of the ticket (and registers the ticket subject with genesis-chat's subject registry
+   when it exists), and `0008_genesis_support_email_tenants.sql` routes inbound mail to a tenant
+   (`genesis_support_email_tenant`; a tenant with the help desk off gets none), keeps a reply to
+   its own tenant's thread, gives a ticket's emails to its handlers, and lets an agent link an
+   email ticket only to someone in its tenant.
 7. **Boundary**: apps reach tickets through `createSupportClient` and named functions; a doctor
    warning flags direct queries on the tables.
 
@@ -63,8 +73,10 @@ Genesis already has what tenancy needs: a bare `tenant_id` on its tables (ADR 00
 
 ## Consequences
 
-- Apps with existing reports add `genesis_support_default_tenant()` before upgrading; the
-  migration stops with a message otherwise.
+- Apps add `genesis_support_default_tenant()` before upgrading; the migration stops with a
+  message otherwise.
+- App SQL that creates triggers or policies on, or alters, `support_reports` must name `tickets`:
+  the old name is a view. Realtime subscriptions on `support_reports` move to `tickets`.
 - The client keeps the old table names this release; the next minor moves it to `tickets`, drops
   the views and renames `report_id`.
 - The agent inbox, the messenger and a help center build on this, in later changes.

@@ -75,7 +75,7 @@ export interface SupportReport {
   userId?: string | null;
 }
 
-/** A ticket: a request from someone outside the team, owed a reply (ADR 0011). The new name for {@link SupportReport}. */
+/** A ticket: a request from someone outside the team, owed a reply (ADR 0015). The new name for {@link SupportReport}. */
 export type Ticket = SupportReport;
 
 /** An agent's role in a tenant: `admin` also manages the tenant's agents. */
@@ -152,7 +152,10 @@ export interface SupportClient extends FeedbackSink {
   conversationId(reportId: string): Promise<string | null>;
   /** Live updates for the thread (chat only): `onChange` runs on each hint and each (re)join. Returns the stop. */
   subscribe(reportId: string, onChange: () => void): () => void;
-  /** Whether the signed-in person is support staff. */
+  /**
+   * Whether the signed-in person handles the app's own tickets (an agent of its default tenant).
+   * For a business's tickets use `isAgent(tenantId)` or `handles(reportId)` (migration 0004).
+   */
   isStaff(): Promise<boolean>;
   /** Staff: the report's status, and the FeatureId it is about (null keeps it, "" clears it). */
   setStatus(reportId: string, status: FeedbackStatus, featureId?: string | null): Promise<void>;

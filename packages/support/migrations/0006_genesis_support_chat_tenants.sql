@@ -1,5 +1,5 @@
 -- @feat:support-chat
--- Genesis support 0005: support-chat on tickets and tenants (after 0004_genesis_support_tickets.sql
+-- Genesis support 0006: support-chat on tickets and tenants (after 0004_genesis_support_tickets.sql
 -- and 0001_genesis_support_chat.sql).
 --
 -- 0004 renamed public.support_reports to public.tickets and gave every ticket a tenant. This
@@ -12,7 +12,7 @@
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0005_genesis_support_chat_tickets.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0006_genesis_support_chat_tenants.test.sql`).
 
 -- The `support` kind's observer check: a handler of the ticket (an agent of its tenant) reads,
 -- and by the kind posts in, its conversation without being in it.
@@ -313,3 +313,15 @@ as $$
 $$;
 
 revoke execute on function private.genesis_chat_resolve_support_report(text) from public, anon, authenticated;
+
+-- With genesis-chat's subject registry (chat 0004), register the ticket subject so a ticket's
+-- conversation takes the ticket's tenant. Either order of the two migrations works: without the
+-- registry this does nothing, and chat 0004 finds the resolver above by its name.
+do $$
+begin
+  if to_regprocedure('genesis_chat.register_subject(text,text,regprocedure,text[])') is not null then
+    perform genesis_chat.register_subject('support', 'support_report',
+      'private.genesis_chat_resolve_support_report(text)'::regprocedure, array[]::text[]);
+  end if;
+end;
+$$;

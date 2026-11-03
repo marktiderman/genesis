@@ -1,5 +1,5 @@
 -- @feat:support-chat
--- pgTAP test for 0005_genesis_support_chat_tickets.sql (after 0004 and 0001). Copy into your
+-- pgTAP test for 0006_genesis_support_chat_tenants.sql (after 0004 and 0001). Copy into your
 -- app's `supabase/tests/database/` and run `supabase test db`. Rolls everything back; the app's
 -- hooks are replaced inside this transaction only.
 --

@@ -280,7 +280,7 @@ it, handlers can't reply (their status changes still work, without the prompt) u
 `migrations/0004_genesis_support_tickets.sql` (applied after 0006 and 0003; ADR 0015) turns
 reports into **tickets** that each belong to a **tenant**, so every business on your app can run
 its own help desk and your app runs its own support the same way. With the support-chat block add
-`0005_genesis_support_chat_tickets.sql`, and with support-email `0006_genesis_support_email_tickets.sql`.
+`0005_genesis_support_chat_on_tickets.sql` and `0006_genesis_support_chat_tenants.sql`, and with support-email `0007_genesis_support_email_on_tickets.sql` and `0008_genesis_support_email_tenants.sql`.
 
 - `support_reports` is now `tickets` and `support_attachments` `ticket_attachments`. For one
   minor the old names are views over the new tables (they run as the caller, so row security
@@ -288,7 +288,7 @@ its own help desk and your app runs its own support the same way. With the suppo
   `TICKET_SUBJECT`, never the literal.
 - **The tenant** is whatever your `private.genesis_viewer_people` hook returns (genesis-supabase
   0016): in a single-tenant app one fixed id, in a multi-tenant app one per organization. Add your
-  own tenant before applying 0004:
+  own tenant before applying 0004 (it stops without it):
 
   ```sql
   create function private.genesis_support_default_tenant() returns uuid

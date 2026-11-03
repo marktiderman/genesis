@@ -119,8 +119,9 @@ export function defineSupportChatBlock(options: { requires?: readonly string[] }
     requires: options.requires ?? [SUPPORT_BLOCK_ID, "chat"],
     contributes: {
       migrations: [
-        { package: "@marktiderman/genesis-support", file: "migrations/0001_genesis_support_chat.sql", test: "migrations/tests/0001_genesis_support_chat.test.sql" },
-        { package: "@marktiderman/genesis-support", file: "migrations/0005_genesis_support_chat_tickets.sql", test: "migrations/tests/0005_genesis_support_chat_tickets.test.sql" },
+        // 0001 written for public.tickets and safe to re-run (apps that applied 0001 keep it), then tenancy.
+        { package: "@marktiderman/genesis-support", file: "migrations/0005_genesis_support_chat_on_tickets.sql", test: "migrations/tests/0001_genesis_support_chat.test.sql" },
+        { package: "@marktiderman/genesis-support", file: "migrations/0006_genesis_support_chat_tenants.sql", test: "migrations/tests/0006_genesis_support_chat_tenants.test.sql" },
       ],
     },
   });
@@ -140,8 +141,9 @@ export function defineSupportEmailBlock(options: { requires?: readonly string[] 
     requires: options.requires ?? [SUPPORT_BLOCK_ID],
     contributes: {
       migrations: [
-        { package: "@marktiderman/genesis-support", file: "migrations/0002_genesis_support_email.sql", test: "migrations/tests/0002_genesis_support_email.test.sql" },
-        { package: "@marktiderman/genesis-support", file: "migrations/0006_genesis_support_email_tickets.sql", test: "migrations/tests/0006_genesis_support_email_tickets.test.sql" },
+        // 0002 written for public.tickets and safe to re-run (apps that applied 0002 keep it), then tenancy.
+        { package: "@marktiderman/genesis-support", file: "migrations/0007_genesis_support_email_on_tickets.sql", test: "migrations/tests/0002_genesis_support_email.test.sql" },
+        { package: "@marktiderman/genesis-support", file: "migrations/0008_genesis_support_email_tenants.sql", test: "migrations/tests/0008_genesis_support_email_tenants.test.sql" },
       ],
       privacy: {
         notes: [
