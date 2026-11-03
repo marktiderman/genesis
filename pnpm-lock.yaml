@@ -46,7 +46,7 @@ importers:
         version: 58.0.23(@babel/core@7.29.7(supports-color@8.1.1))(expo@58.0.19)(react-dom@19.3.0(react@19.3.0))(react-native-worklets@0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
       '@hookform/resolvers':
         specifier: ^6.0.0
-        version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 6.0.1(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@marktiderman/genesis-chat':
         specifier: workspace:^
         version: link:../../packages/chat
@@ -102,14 +102,14 @@ importers:
         specifier: ^2.118.0
         version: 2.118.0
       '@tanstack/query-async-storage-persister':
-        specifier: 5.104.5
-        version: 5.104.5
+        specifier: 5.105.0
+        version: 5.105.0
       '@tanstack/query-persist-client-core':
-        specifier: 5.104.5
-        version: 5.104.5
+        specifier: 5.105.0
+        version: 5.105.0
       '@tanstack/react-query':
-        specifier: 5.104.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.0)
+        specifier: 5.105.0
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.0)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -190,7 +190,7 @@ importers:
         version: 58.0.6(expo@58.0.19)(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))
       lucide-react-native:
         specifier: '>=0.475.0'
-        version: 1.61.0(@types/react@19.3.0)(react-native-svg@15.16.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react-native-svg@15.16.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
       nativewind:
         specifier: ^4.2.7
         version: 4.2.7(54731dddc24b6c19f45c84ba539ccae3)
@@ -296,7 +296,7 @@ importers:
     dependencies:
       '@hookform/resolvers':
         specifier: ^6.0.0
-        version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 6.0.1(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@marktiderman/genesis-ai':
         specifier: workspace:^
         version: link:../../packages/ai
@@ -416,7 +416,7 @@ importers:
         version: 8.5.0(react-router@8.5.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@8.1.1)(typescript@6.0.3)
       '@tanstack/react-query':
         specifier: ^5.104.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.0)
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.0)
       '@tiptap/core':
         specifier: 3.32.0
         version: 3.32.0(@tiptap/pm@3.32.0)
@@ -455,7 +455,7 @@ importers:
         version: 5.2.2
       lucide-react:
         specifier: ^1.8.0
-        version: 1.61.0(@types/react@19.3.0)(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -670,7 +670,7 @@ importers:
         version: 2.118.0
       '@tanstack/react-query':
         specifier: ^5.104.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.0)
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.0)
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -694,7 +694,7 @@ importers:
         version: 1.7.3
       lucide-react:
         specifier: ^1.28.0
-        version: 1.61.0(@types/react@19.3.0)(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -739,10 +739,10 @@ importers:
     devDependencies:
       '@hookform/resolvers':
         specifier: ^6.0.0
-        version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 6.0.1(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@tanstack/react-query':
         specifier: ^5.104.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.0)
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.0)
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -869,7 +869,7 @@ importers:
         version: 21.0.4
       lucide-react:
         specifier: ^1.0.0
-        version: 1.61.0(@types/react@19.3.0)(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
       radix-ui:
         specifier: ^1.6.7
         version: 1.8.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -917,7 +917,7 @@ importers:
     dependencies:
       lucide-react:
         specifier: ^1.0.0
-        version: 1.61.0(@types/react@19.3.0)(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
     devDependencies:
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
@@ -1003,7 +1003,7 @@ importers:
         version: 21.0.4
       lucide-react:
         specifier: ^1.0.0
-        version: 1.61.0(@types/react@19.3.0)(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
       radix-ui:
         specifier: ^1.6.7
         version: 1.8.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1105,7 +1105,7 @@ importers:
     dependencies:
       lucide-react:
         specifier: ^1.0.0
-        version: 1.61.0(@types/react@19.3.0)(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
     devDependencies:
       '@marktiderman/genesis-core':
         specifier: workspace:^
@@ -1181,7 +1181,7 @@ importers:
         version: 21.0.4
       lucide-react:
         specifier: ^1.0.0
-        version: 1.61.0(@types/react@19.3.0)(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
       radix-ui:
         specifier: ^1.6.7
         version: 1.8.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1358,14 +1358,14 @@ importers:
         specifier: ^2.118.0
         version: 2.118.0
       '@tanstack/query-async-storage-persister':
-        specifier: 5.104.5
-        version: 5.104.5
+        specifier: 5.105.0
+        version: 5.105.0
       '@tanstack/query-persist-client-core':
-        specifier: 5.104.5
-        version: 5.104.5
+        specifier: 5.105.0
+        version: 5.105.0
       '@tanstack/react-query':
-        specifier: 5.104.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.0)
+        specifier: 5.105.0
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.0)
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1423,7 +1423,7 @@ importers:
         version: 1.0.12(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@tanstack/react-query':
         specifier: ^5.104.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.0)
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.0)
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1441,7 +1441,7 @@ importers:
         version: 21.0.4
       lucide-react:
         specifier: ^1.0.0
-        version: 1.61.0(@types/react@19.3.0)(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -1605,7 +1605,7 @@ importers:
         version: 21.0.4
       lucide-react:
         specifier: ^1.0.0
-        version: 1.61.0(@types/react@19.3.0)(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
       radix-ui:
         specifier: ^1.6.7
         version: 1.8.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1635,7 +1635,7 @@ importers:
     devDependencies:
       '@hookform/resolvers':
         specifier: ^6.0.0
-        version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 6.0.1(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../core
@@ -1650,10 +1650,10 @@ importers:
         version: 4.3.3
       '@tanstack/react-query':
         specifier: ^5.104.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.0)
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.0)
       '@tanstack/react-virtual':
-        specifier: 3.14.22
-        version: 3.14.22(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: 3.14.23
+        version: 3.14.23(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1668,7 +1668,7 @@ importers:
         version: 21.0.4
       lucide-react:
         specifier: ^1.0.0
-        version: 1.61.0(@types/react@19.3.0)(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -1773,7 +1773,7 @@ importers:
         version: 2.118.0
       '@tanstack/react-query':
         specifier: ^5.104.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.0)
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.0)
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.3(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1833,7 +1833,7 @@ importers:
         version: 9.3.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@tanstack/react-virtual':
         specifier: ^3.14.0
-        version: 3.14.22(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        version: 3.14.23(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1852,7 +1852,7 @@ importers:
     devDependencies:
       '@hookform/resolvers':
         specifier: ^6.0.0
-        version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 6.0.1(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../design-system
@@ -1900,7 +1900,7 @@ importers:
         version: 1.2.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@tanstack/react-query':
         specifier: ^5.104.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.0)
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.0)
       '@tanstack/react-router':
         specifier: 1.170.46
         version: 1.170.46(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1942,7 +1942,7 @@ importers:
         version: 1.5.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       lucide-react:
         specifier: ^1.0.0
-        version: 1.61.0(@types/react@19.3.0)(react@19.3.0)
+        version: 1.62.0(@types/react@19.3.0)(react@19.3.0)
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -1996,7 +1996,7 @@ importers:
         version: 5.2.14(a8e49c3f1c97a56464b1cc3e231df90a)
       '@hookform/resolvers':
         specifier: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0
-        version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 6.0.1(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../core
@@ -3454,8 +3454,8 @@ packages:
       react: 19.3.0
       react-native: 0.88.0
 
-  '@hookform/resolvers@6.0.2':
-    resolution: {integrity: sha512-e2dqUOlaGuirKVOd/iZWk/Yg5zeaGw7t0hSc3LzxL3o7eZGwZkTyEbBL8H52m0wRKEsNLWoMGOiXGHbPHTXlEQ==}
+  '@hookform/resolvers@6.0.1':
+    resolution: {integrity: sha512-Qj/4Ge0MMU5VtVtz2lnBiuaBQNTIR27jejpE1fYvADbx2tqae0vpnJnqgep7LAVHHpMXlrebjL9+V2zkZ7qZfA==}
     peerDependencies:
       '@sinclair/typebox': '>=0.25.24'
       '@standard-schema/spec': ^1.0.0
@@ -6151,17 +6151,29 @@ packages:
     resolution: {integrity: sha512-w1+YvwmTkwt5n8yUqEH3IWZ9DsmorCZW/EQ3KYHnqEgIkOZpH54NvW6/Epq3Dzb8H0ifIeYX8PExvrNLIH5FIA==}
     engines: {node: '>=20.19'}
 
-  '@tanstack/query-async-storage-persister@5.104.5':
-    resolution: {integrity: sha512-PvWWD1tdE9fnQa/ndEREhkZAaW72RcixAFwC2F6c+JhhRCJ/wSjdl6DgY4IjJ+EX0H6AykjEMGw+EPvzSltyqA==}
+  '@tanstack/query-async-storage-persister@5.105.0':
+    resolution: {integrity: sha512-I2QmE8pKHdYjvAIy+hf5ARZx9QmsUehk2RxdwNX1cYqHip8y2MmPUDhlLzvGCudKmOVKW0gPVPdiiN4AKcU3lg==}
 
   '@tanstack/query-core@5.104.5':
     resolution: {integrity: sha512-Q94gI8Opd+CbdVNOdj8ZCyV8WqLYitrDq1t96Xc8WZT6lY0r5iRnJLXYDxMex7EEf2v+mXvn4FcjaBKSxXZQ9A==}
 
-  '@tanstack/query-persist-client-core@5.104.5':
-    resolution: {integrity: sha512-z0+AuCPPf53bl1nntO9i8ZXGvSdO7nGRZFtcpM2DCZKz88UBzHpJZZJpuUkLFkDU7xYHnUOMrOJmky+Et1nRLg==}
+  '@tanstack/query-core@5.105.0':
+    resolution: {integrity: sha512-7p56vRmT/z4UJ6sctGIdl5WRUQyUv53IUpUwEKi2g97zMbO7zh8ZsCLffGAvCPBR4xD72e3VXsDyLwXHhoNTMQ==}
+
+  '@tanstack/query-persist-client-core@5.105.0':
+    resolution: {integrity: sha512-bOy2lMzzEyacL6s9hIa0tKmaIr/TM24HZaK9a20ctZjPYlCs6NhGdgbxi20RcdJWZwWunkLqPDnxfClD7QIyKg==}
 
   '@tanstack/react-query@5.104.5':
     resolution: {integrity: sha512-RORgFe052U+93weaNuqg7qHq7vNVNzXN/VrXqD4bbAuQCWUqOl2lV5Ui9flWk5CVvMyL/Bh27QWhzwH0aaOx9g==}
+    peerDependencies:
+      '@types/react': 19.3.0
+      react: 19.3.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+
+  '@tanstack/react-query@5.105.0':
+    resolution: {integrity: sha512-y+hMuDERvgg6ay1da0V1a6ZC0ZONt7dELxSFkqRZuwm7p1TTZs0MoXrPlBRflIpRoYjvzQVYxycnLImpFLhWrw==}
     peerDependencies:
       '@types/react': 19.3.0
       react: 19.3.0
@@ -6194,6 +6206,12 @@ packages:
       react: 19.3.0
       react-dom: 19.3.0
 
+  '@tanstack/react-virtual@3.14.23':
+    resolution: {integrity: sha512-Oyy58qQwdaQieA+A4WUDtnh9D1rv5FZvGdw8og9Xeyh88V6HH94vMSyV5i9ATIbYNe9t5Ix0WXRo9NOTpHDkYw==}
+    peerDependencies:
+      react: 19.3.0
+      react-dom: 19.3.0
+
   '@tanstack/router-core@1.171.39':
     resolution: {integrity: sha512-qUhoJ0meuSUqGYQbHbcJYdASr06YtK+bulbj6vtrhKYFkLgkSsZ6tXmMyym7sFxiSJSPYgasgozrL01LyyR/6A==}
     engines: {node: '>=20.19'}
@@ -6207,6 +6225,9 @@ packages:
 
   '@tanstack/virtual-core@3.19.7':
     resolution: {integrity: sha512-gxy5SvH0mFRJ0YujtrflB/1HAu9Wn1KGvL0bjZfQkYVVMsIpQiwcf1mR06/ViN4NjllUb4HNCjqE9FGwgTvMCQ==}
+
+  '@tanstack/virtual-core@3.19.8':
+    resolution: {integrity: sha512-Oz/SYBo/aVPyQkwtOw7Q23myITUgFIof2glQqydYJAPL6mH2SkJDkvDKZTklB+7gv5jGLZQhyTcd7SO1A1EODQ==}
 
   '@testing-library/dom@10.4.1':
     resolution: {integrity: sha512-o4PXJQidqJl82ckFaXUeoAW+XysPLauYI43Abki5hABd853iMhitooc6znOnczgbTYmEP6U6/y1ZyKAIsvMKGg==}
@@ -9710,8 +9731,19 @@ packages:
       '@types/react':
         optional: true
 
-  lucide-react@1.61.0:
-    resolution: {integrity: sha512-v2SQPPPNjnr+BlhL9Spuzmo5yR+hLkftfuE4E3jaxdNPgSH0hJKPcLJBP7yAta87jQNPsSERS59PJjCJ/CorBA==}
+  lucide-react-native@1.62.0:
+    resolution: {integrity: sha512-l4n69es6tmyIZaxg+8jSKFIS7YTGgLNq8cv08oFF6OoF96FQ7vb9SeDGrpfge+ALyJLjOhCqYcBcWDtDcRoSOA==}
+    peerDependencies:
+      '@types/react': 19.3.0
+      react: 19.3.0
+      react-native: 0.88.0
+      react-native-svg: ^12.0.0 || ^13.0.0 || ^14.0.0 || ^15.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+
+  lucide-react@1.62.0:
+    resolution: {integrity: sha512-2i8QZZhkgYMA3oJvKYpCltHh54VnT/3rIPkDLHbzr3IJQBaCz8+7j7V2k2rczYd2aCqcBaMmNlWQ2KKeDfcxmw==}
     peerDependencies:
       '@types/react': 19.3.0
       react: 19.3.0
@@ -13536,7 +13568,7 @@ snapshots:
       react: 19.3.0
       react-native: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
 
-  '@hookform/resolvers@6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)':
+  '@hookform/resolvers@6.0.1(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)':
     dependencies:
       '@standard-schema/utils': 0.3.0
       react-hook-form: 7.91.0(@types/react@19.3.0)(react@19.3.0)
@@ -16067,20 +16099,29 @@ snapshots:
 
   '@tanstack/history@1.162.5': {}
 
-  '@tanstack/query-async-storage-persister@5.104.5':
+  '@tanstack/query-async-storage-persister@5.105.0':
     dependencies:
-      '@tanstack/query-core': 5.104.5
-      '@tanstack/query-persist-client-core': 5.104.5
+      '@tanstack/query-core': 5.105.0
+      '@tanstack/query-persist-client-core': 5.105.0
 
   '@tanstack/query-core@5.104.5': {}
 
-  '@tanstack/query-persist-client-core@5.104.5':
+  '@tanstack/query-core@5.105.0': {}
+
+  '@tanstack/query-persist-client-core@5.105.0':
     dependencies:
-      '@tanstack/query-core': 5.104.5
+      '@tanstack/query-core': 5.105.0
 
   '@tanstack/react-query@5.104.5(@types/react@19.3.0)(react@19.3.0)':
     dependencies:
       '@tanstack/query-core': 5.104.5
+      react: 19.3.0
+    optionalDependencies:
+      '@types/react': 19.3.0
+
+  '@tanstack/react-query@5.105.0(@types/react@19.3.0)(react@19.3.0)':
+    dependencies:
+      '@tanstack/query-core': 5.105.0
       react: 19.3.0
     optionalDependencies:
       '@types/react': 19.3.0
@@ -16115,6 +16156,12 @@ snapshots:
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
 
+  '@tanstack/react-virtual@3.14.23(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      '@tanstack/virtual-core': 3.19.8
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+
   '@tanstack/router-core@1.171.39':
     dependencies:
       '@tanstack/history': 1.162.5
@@ -16129,6 +16176,8 @@ snapshots:
       '@tanstack/store': 0.11.2
 
   '@tanstack/virtual-core@3.19.7': {}
+
+  '@tanstack/virtual-core@3.19.8': {}
 
   '@testing-library/dom@10.4.1':
     dependencies:
@@ -20234,7 +20283,15 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
 
-  lucide-react@1.61.0(@types/react@19.3.0)(react@19.3.0):
+  lucide-react-native@1.62.0(@types/react@19.3.0)(react-native-svg@15.16.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0):
+    dependencies:
+      react: 19.3.0
+      react-native: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
+      react-native-svg: 15.16.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
+    optionalDependencies:
+      '@types/react': 19.3.0
+
+  lucide-react@1.62.0(@types/react@19.3.0)(react@19.3.0):
     dependencies:
       react: 19.3.0
     optionalDependencies:
