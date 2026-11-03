@@ -292,7 +292,7 @@ describe("DashboardPage", () => {
     ).toBeTruthy();
   });
 
-  it("defaults the stat row to four across and ramps it down for small screens", () => {
+  it("defaults the stat row to four across and ramps it down to two on a phone", () => {
     const { container } = render(
       <DashboardPage title="Q" stats={<div>tile</div>}>
         body
@@ -300,7 +300,10 @@ describe("DashboardPage", () => {
     );
 
     const grid = slotOrThrow(container, "grid");
-    expect(grid.className).toContain("grid-cols-1");
+    const classes = grid.className.split(/\s+/);
+    // Two stat cards side by side on a phone (docs/MOBILE.md), not one per row.
+    expect(classes).toContain("grid-cols-2");
+    expect(classes).not.toContain("grid-cols-1");
     expect(grid.className).toContain("sm:grid-cols-2");
     expect(grid.className).toContain("lg:grid-cols-4");
   });
@@ -414,19 +417,25 @@ describe("SettingsPage", () => {
     ]);
   });
 
-  it("sticks the rail without a breakpoint prefix, which is right in both modes", () => {
+  it("sticks the rail from the breakpoint up and is one compact row below it", () => {
     // Side by side the rail is a stretched grid item and sticks for the
-    // length of the sections; stacked, its pane is exactly its own height so
-    // sticky has nothing to travel. One class, correct twice.
+    // length of the sections. Stacked on a phone its pane is exactly its own
+    // height, so it's a single row of links that scrolls sideways instead of
+    // a list that fills the first screen (docs/MOBILE.md).
     const { container } = render(
       <SettingsPage title="Settings" sections={SECTIONS} />
     );
 
-    const classes = slotOrThrow(container, "settings-page-nav").className.split(
-      /\s+/
-    );
-    expect(classes).toContain("sticky");
-    expect(classes).toContain("top-6");
+    const nav = slotOrThrow(container, "settings-page-nav");
+    const classes = nav.className.split(/\s+/);
+    expect(classes).toContain("md:sticky");
+    expect(classes).toContain("md:top-6");
+    const list = nav.querySelector("ul")!.className.split(/\s+/);
+    expect(list).toContain("overflow-x-auto");
+    expect(list).toContain("md:flex-col");
+    for (const link of nav.querySelectorAll("a")) {
+      expect(link.className.split(/\s+/)).toContain("min-h-11");
+    }
   });
 
   it("puts the rail beside the sections above the breakpoint and stacks below it", () => {

@@ -567,6 +567,24 @@
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordview",
           "why": "One record's header, actions, sections, child lists and settings come from its record view description, the same on web and phone. Builders (BuilderLayout) are exempt."
+        },
+        {
+          "id": "overlays-fit-the-phone",
+          "need": "a dialog or sheet that fits a phone screen",
+          "level": "warn",
+          "platform": "web",
+          "newOnly": true,
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "forbid": {
+            "pattern": "<(?:Dialog|AlertDialog|Sheet)Content\\b[^>]*?\\b(?:max-h|h)-\\[\\d+(?:\\.\\d+)?vh\\]"
+          },
+          "use": "DialogContent's mobileLayout (\"sheet\", \"fullscreen\" or \"center\"); every dialog and sheet already caps itself to the screen, scrolls inside and pads for the safe areas",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/MOBILE.md",
+          "why": "A height in vh on a dialog or sheet is measured against the browser's largest viewport, so on a phone the toolbar or keyboard cuts off its bottom, and the Save button with it. The primitives size themselves in dvh, inside the safe areas; a screen that sets its own height undoes that."
         }
       ],
       "primitives": [

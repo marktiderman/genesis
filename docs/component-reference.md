@@ -4491,7 +4491,7 @@ export type { WriteOutcome };
 | [`PasswordToggleFieldToggle`](../packages/ui/src/components/ui/password-toggle-field.tsx) | `PasswordToggleFieldToggleProps` | Experimental | PasswordToggleFieldToggle — the show/hide button. |
 | [`ResourceHeader`](../packages/ui/src/components/resource/ResourceHeader.tsx) | `ResourceHeaderProps` | — | The header of a page that edits one publishable thing (a form, a course, a lesson, a worksheet): the breadcrumb ("Courses › name"), the title once, its status and save-state chips, and on the right undo and redo, Preview, Share and Publi... |
 | [`Section`](../packages/ui/src/components/layout/section.tsx) | `SectionProps` | Beta | Section — a titled region of a page: heading, optional description, optional trailing actions, and the content itself. |
-| [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | Beta | SettingsPage — a sectioned settings surface with a nav rail for jumping between sections. |
+| [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | — | _(no summary)_ |
 | [`SettingsRow`](../packages/ui/src/components/patterns/settings-row.tsx) | `SettingsRowProps` | Beta | SettingsRow — label + description on one side, an arbitrary trailing control (Switch, Select, Button, Badge, ...) on the other. This is the shared layout behind every settings/preferences list row; see `ToggleRow` for the common label+de... |
 | [`SortableList`](../packages/ui/src/components/patterns/sortable-list.tsx) | `SortableListProps` | Beta | A vertical list the user can rearrange: course steps, lesson blocks, form fields. |
 | [`Spinner`](../packages/ui/src/components/ui/spinner.tsx) | `SpinnerProps` | — | _(no summary)_ |
@@ -8753,7 +8753,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SiteFormHeader`](../packages/sites/src/sections/form-header.tsx) | function | — | _(no summary)_ |
 | [`siteFormSlots`](../packages/sites/src/sections/form-header.tsx) | const | — | _(no summary)_ |
 | [`SiteImage`](../packages/sites/src/sections/shared.tsx) | function | — | An image with alt text (empty when decorative), its size to stop layout shift, a `srcset` through the host's image URL builder, the focal point as `object-position`, a phone crop as a `<picture>` source, and lazy loading except for the p... |
-| [`TextLink`](../packages/sites/src/sections/shared.tsx) | function | — | A text link: underlined, at least 24px tall (WCAG 2.5.8). |
+| [`TextLink`](../packages/sites/src/sections/shared.tsx) | function | — | A text link: underlined, at least 24px tall (WCAG 2.5.8), and 44px on a touch screen. |
 | [`titleId`](../packages/sites/src/sections/shared.tsx) | const | — | _(no summary)_ |
 | [`WEEKDAYS`](../packages/sites/src/sections/schedule.tsx) | const | — | _(no summary)_ |
 
@@ -9916,7 +9916,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`PasswordToggleFieldToggle`](../packages/ui/src/components/ui/password-toggle-field.tsx) | `PasswordToggleFieldToggleProps` | Experimental | PasswordToggleFieldToggle — the show/hide button. |
 | [`ResourceHeader`](../packages/ui/src/components/resource/ResourceHeader.tsx) | `ResourceHeaderProps` | — | The header of a page that edits one publishable thing (a form, a course, a lesson, a worksheet): the breadcrumb ("Courses › name"), the title once, its status and save-state chips, and on the right undo and redo, Preview, Share and Publi... |
 | [`Section`](../packages/ui/src/components/layout/section.tsx) | `SectionProps` | Beta | Section — a titled region of a page: heading, optional description, optional trailing actions, and the content itself. |
-| [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | Beta | SettingsPage — a sectioned settings surface with a nav rail for jumping between sections. |
+| [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | — | _(no summary)_ |
 | [`SettingsRow`](../packages/ui/src/components/patterns/settings-row.tsx) | `SettingsRowProps` | Beta | SettingsRow — label + description on one side, an arbitrary trailing control (Switch, Select, Button, Badge, ...) on the other. This is the shared layout behind every settings/preferences list row; see `ToggleRow` for the common label+de... |
 | [`SortableList`](../packages/ui/src/components/patterns/sortable-list.tsx) | `SortableListProps` | Beta | A vertical list the user can rearrange: course steps, lesson blocks, form fields. |
 | [`Spinner`](../packages/ui/src/components/ui/spinner.tsx) | `SpinnerProps` | — | _(no summary)_ |
@@ -10492,7 +10492,7 @@ export type { ViewMode };
 | [`PageHeader`](../packages/ui/src/components/layout/PageHeader.tsx) | `PageHeaderProps` | — | _(no summary)_ |
 | [`PublicPage`](../packages/ui/src/components/layout/public-page.tsx) | `PublicPageProps` | Beta | PublicPage — a page anyone can open without signing in: a public form, a QR poster, a landing page. A brand header, one content column, and a "Powered by …" footer, themed from a brand object. |
 | [`Section`](../packages/ui/src/components/layout/section.tsx) | `SectionProps` | Beta | Section — a titled region of a page: heading, optional description, optional trailing actions, and the content itself. |
-| [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | Beta | SettingsPage — a sectioned settings surface with a nav rail for jumping between sections. |
+| [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | — | _(no summary)_ |
 | [`Split`](../packages/ui/src/components/layout/split.tsx) | `SplitProps` | Beta | Split — the master-detail layout: two panes side by side above a breakpoint, stacked below it. |
 | [`Stack`](../packages/ui/src/components/layout/stack.tsx) | `StackProps` | Beta | Stack — one-dimensional flow. The single most-repeated shape in any application: a run of things in a line, evenly spaced. |
 | [`SubNavTabs`](../packages/ui/src/components/layout/sub-nav.tsx) | `SubNavTabsProps` | Beta | A row of navigation tabs: real links (deep links and middle-click work), `aria-current="page"` on the active one, badges as chips, the active tab underlined in the brand colour. AppShell renders it in `tabs` mode; an app using `subNav: "... |
@@ -11266,7 +11266,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
-| [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | Beta | SettingsPage — a sectioned settings surface with a nav rail for jumping between sections. |
+| [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | — | _(no summary)_ |
 
 ### Types (1)
 

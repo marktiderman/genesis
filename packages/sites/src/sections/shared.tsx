@@ -147,12 +147,12 @@ export function ButtonLink({ link, ctx, tone = "primary", className }: { link: L
   );
 }
 
-/** A text link: underlined, at least 24px tall (WCAG 2.5.8). */
+/** A text link: underlined, at least 24px tall (WCAG 2.5.8), and 44px on a touch screen. */
 export function TextLink({ link, ctx, className }: { link: Link; ctx: RenderContext; className?: string }) {
   return (
     <a
       {...linkAttrs(link, ctx)}
-      className={cn("inline-flex min-h-6 items-center rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", className)}
+      className={cn("inline-flex min-h-6 pointer-coarse:min-h-11 items-center rounded-sm underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring", className)}
     >
       {link.label}
       <NewTabHint link={link} />
