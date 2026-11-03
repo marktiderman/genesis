@@ -15,6 +15,7 @@
  *
  * @stability Beta
  */
+import { MOTION_DURATIONS } from "@marktiderman/genesis-design-system/tokens/motion";
 import { useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import {
   Animated,
@@ -41,8 +42,9 @@ export interface NativeDrawerProps {
   testID?: string;
 }
 
-const OPEN_MS = 220;
-const SETTLE_MS = 180;
+// The shared motion tokens: a panel opens at `base`, a released drag settles at `fast`.
+const OPEN_MS = MOTION_DURATIONS.base;
+const SETTLE_MS = MOTION_DURATIONS.fast;
 
 export function NativeDrawer(props: NativeDrawerProps) {
   const { reanimated } = useGenesisModules();

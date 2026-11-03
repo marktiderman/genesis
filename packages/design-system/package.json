@@ -59,6 +59,11 @@
       "types": "./dist/tokens/native.d.ts",
       "import": "./dist/tokens/native.js"
     },
+    "./tokens/motion": {
+      "types": "./dist/tokens/motion.d.ts",
+      "import": "./dist/tokens/motion.js",
+      "default": "./dist/tokens/motion.js"
+    },
     "./providers/native": {
       "types": "./dist/providers/native.d.ts",
       "import": "./dist/providers/native.js",
