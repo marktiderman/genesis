@@ -80,10 +80,13 @@ is written here when a contract ships. Don't open a PR here that only proposes a
 3. **Triage brings load-bearing decisions to the maintainer:** declining a major finding, changing
    a contract, or anything that touches production. **Only the maintainer merges into `main`.**
    Agents prepare each release PR (green, reviewed, what it carries in the body) and ask.
-4. **One staging batch at a time.** Open every PR meant for `main` into the current batch,
-   `staging/<YYYY-MM-DD>/<letter>` (the open release PR into `main` names it); triage cuts a new
-   one from `main` once the last is released. Keep a separate branch only for a reason written in
-   its PR (a launch hold, say), and fold it in when that ends.
+4. **One staging branch per initiative.** Work toward one outcome (the chat upgrade, the offline
+   data layer, the help desk) shares `staging/<initiative>` (a short slug: `staging/messaging`)
+   and one release PR into `main` that says what it carries and which initiatives must release
+   first. Open every PR meant for `main` into its initiative's branch; the initiative's owner cuts
+   it from `main` with its first PR and keeps `main` merged in. One that needs another's unreleased
+   work waits for that release, or, with the maintainer's go, merges that staging branch in and
+   says so. Work in no initiative (a fix, a chore) goes into `staging/maintenance`. No date batches.
 
 Why: PRs sat with stale red checks, unanswered reviews and branches drifting from their base
 whenever nobody owned them.
