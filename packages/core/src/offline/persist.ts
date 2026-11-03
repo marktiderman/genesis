@@ -172,9 +172,14 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
         if (stale()) return;
         const found = stored.find((q) => q.key === META);
         if (!found || (found.data as { buster?: unknown })?.buster !== buster) {
-          // A different app version, or nothing kept yet: start this bucket afresh.
-          await cache.clear({ scope });
-          await cache.write(scope, [meta()]);
+          // A different app version, or nothing kept yet: start this bucket afresh, deleting what an
+          // earlier version kept but never a read saved since this restore started (saving runs
+          // alongside it).
+          const fresh: CacheOp[] = stored.filter((q) => q.key !== META).map((q) => ({ kind: "forget", key: q.key, before: startedAt }));
+          for (const resource of new Set([...stored.filter((q) => q.key !== META).map((q) => q.resource), ...kept])) {
+            fresh.push({ kind: "prune", resource, keep: [], before: startedAt });
+          }
+          await cache.write(scope, [...fresh, meta()]);
           return;
         }
         const reads = stored.filter((q) => q.key !== META);

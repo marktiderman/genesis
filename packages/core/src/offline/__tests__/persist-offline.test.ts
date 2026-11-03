@@ -515,4 +515,47 @@ describe("persistOffline, refresh: nothing read before the scope is trusted", ()
     expect(titles).not.toContain("Ana's");
     expect(await cache.readRows(ben, "tasks", ["1"]).then((rows) => rows.map((r) => r.row.title))).not.toContain("Ana's");
   });
+
+  it("starting a new bucket never deletes a read saved while the restore was still reading", async () => {
+    const cache = memoryLocalCache();
+    let release: () => void = () => {};
+    let reading!: () => void;
+    const started = new Promise<void>((r) => (reading = r));
+    const slow: LocalCache = {
+      ...cache,
+      readQueries: async (scope) => {
+        // The device answers with what it held then (an empty bucket), but slowly.
+        const then = await cache.readQueries(scope);
+        reading();
+        await new Promise<void>((r) => (release = r));
+        return then;
+      },
+    };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    const persistence = persistOffline({ cache: slow, resources: ["tasks"], buster: "v1", throttleMs: 0 })(client);
+    // Saving starts with the scope; the restore of this brand-new bucket is slow.
+    const stop = persistence.subscribe(ANA);
+    const restoring = persistence.restore(ANA);
+    await started;
+    await client.fetchQuery({ queryKey: list, queryFn: async () => ({ data: rows, total: 2 }) });
+    await settle();
+    release();
+    await restoring;
+    stop();
+    expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "One" });
+  });
+
+  it("a different app version still deletes what the earlier one kept", async () => {
+    const cache = memoryLocalCache();
+    const first = setup(cache, ["tasks"], "v1");
+    await first.persistence.restore(ANA);
+    const stop = first.persistence.subscribe(ANA);
+    await fetchAll(first.client);
+    await settle();
+    stop();
+    await new Promise((r) => setTimeout(r, 2));
+    await setup(cache, ["tasks"], "v2").persistence.restore(ANA);
+    expect((await cache.readQueries(ANA)).map((q) => q.key)).toEqual(["__genesis_offline_meta__"]);
+    expect(await cache.readRows(ANA, "tasks", ["1", "2"])).toEqual([]);
+  });
 });
