@@ -55,6 +55,11 @@ describe("NativeLightbox", () => {
     expect(screen.getByTestId("lb-counter").textContent).toBe("3 / 3");
   });
 
+  it("shows no counter for a single picture", () => {
+    render(<NativeLightbox open onOpenChange={() => undefined} items={items.slice(0, 1)} index={0} onIndexChange={() => undefined} testID="lb" />);
+    expect(screen.queryByTestId("lb-counter")).toBeNull();
+  });
+
   it("clamps an out-of-range index", () => {
     render(<NativeLightbox open onOpenChange={() => undefined} items={items} index={9} onIndexChange={() => undefined} testID="lb" />);
     expect(screen.getByTestId("lb-counter").textContent).toBe("3 / 3");

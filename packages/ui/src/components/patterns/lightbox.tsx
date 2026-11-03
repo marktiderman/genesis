@@ -179,13 +179,16 @@ export function Lightbox({
         >
           <div className="min-w-0 space-y-0.5">
             <div className="flex items-center gap-2">
-              <span
-                data-slot="lightbox-counter"
-                aria-live="polite"
-                className="text-sm tabular-nums text-muted-foreground"
-              >
-                {count === 0 ? "0 / 0" : `${safeIndex + 1} / ${count}`}
-              </span>
+              {/* One picture has no counter. */}
+              {count > 1 ? (
+                <span
+                  data-slot="lightbox-counter"
+                  aria-live="polite"
+                  className="text-sm tabular-nums text-muted-foreground"
+                >
+                  {`${safeIndex + 1} / ${count}`}
+                </span>
+              ) : null}
               <DialogTitle
                 className={cn("truncate text-sm font-medium leading-tight", !title && "sr-only")}
               >

@@ -56,6 +56,11 @@ describe("Lightbox", () => {
     expect(document.querySelector('[data-slot="lightbox-caption"]')!.textContent).toBe("Last");
   });
 
+  it("shows no counter for a single picture", () => {
+    render(<Lightbox open onOpenChange={() => {}} items={items.slice(0, 1)} index={0} onIndexChange={() => {}} />);
+    expect(document.querySelector('[data-slot="lightbox-counter"]')).toBeNull();
+  });
+
   it("steps with the buttons and reports through onIndexChange", () => {
     const onIndexChange = vi.fn();
     render(<Lightbox open onOpenChange={() => {}} items={items} index={1} onIndexChange={onIndexChange} />);
