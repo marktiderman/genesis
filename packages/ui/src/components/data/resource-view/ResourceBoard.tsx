@@ -4,14 +4,16 @@
 // value of one field. Loaded by useBoardColumns and drawn by KanbanBoard, the same two pieces
 // studio's board uses. A move is the resource's own update, through the provider's write path.
 
-import { useRef, useState, type ReactNode } from "react";
-import { useDataProvider, useResource, useViewer, type BaseRecord, type DataRow, type FilterParam, type ResourceContract, type UseResourceOptions } from "@marktiderman/genesis-core";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { resourceKeys, useDataProvider, useResource, useViewer, writeConflict, type BaseRecord, type DataRow, type FilterParam, type ResourceContract, type UseResourceOptions, type WriteConflict } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
 import { useLiveInvalidation, type LiveOptions } from "@marktiderman/genesis-core/hooks";
 import { boardChoices, boardProblems, type ResourceView as View, type ViewBoard, type ViewTone } from "@marktiderman/genesis-core/resource-view";
 import { Button } from "../../ui/button";
 import { cn } from "../../../utils";
 import { fillMessage, useUiMessages } from "../../../messages";
+import { ConflictSheet } from "../ConflictSheet";
 import { DetailPanel } from "../DetailPanel";
 import { KanbanBoard, type ColumnStatus, type KanbanColumn } from "../KanbanBoard";
 import { BOARD_NONE, useBoardColumns } from "../board/use-board-columns";
@@ -141,6 +143,44 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
   });
   const [refusal, setRefusal] = useState<string | null>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  // A move that met someone else's change: the sheet offers keeping the move or taking theirs.
+  const [conflict, setConflict] = useState<{ conflict: WriteConflict; id: string; data: Record<string, unknown> } | null>(null);
+  // A conflict that settles after the board is gone has no sheet to open; it isn't set then.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  // Columns past either edge: a fade there says the board scrolls sideways (colour isn't the only
+  // cue: the columns are regions a screen reader lists, and the strip is keyboard-scrollable).
+  const strip = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ before: false, after: false });
+  useEffect(() => {
+    const el = strip.current;
+    if (!el) return;
+    const measure = () => {
+      const before = el.scrollLeft > 1;
+      const after = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+      setEdges((e) => (e.before === before && e.after === after ? e : { before, after }));
+    };
+    measure();
+    el.addEventListener("scroll", measure, { passive: true });
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(el);
+    return () => {
+      el.removeEventListener("scroll", measure);
+      observer?.disconnect();
+    };
+  });
+  const refresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: [...resourceKeys(view.resource).all] }),
+      ...(resourceOptions?.invalidates ?? []).map((queryKey) => queryClient.invalidateQueries({ queryKey: [...queryKey] })),
+    ]);
+  };
   // Rows whose move is saving. A pessimistic move leaves the card in its old column until the
   // refetch, so a second move then would be sent from the wrong column (and, on a versioned
   // resource, refused as a conflict with the first): it is turned away until the first settles.
@@ -178,17 +218,50 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
     setRefusal(null);
     const verdict = allowed(row);
     setSaving(new Set(inFlight.current));
+    const data = { [fieldName]: stored(to) };
     try {
       if (verdict !== true) throw new Error(verdict);
-      await update(key, { [fieldName]: stored(to) } as Partial<T & BaseRecord>);
+      await update(key, data as Partial<T & BaseRecord>);
     } catch (error) {
+      const found = onMoveError ? null : writeConflict(error, data, { changed: [fieldName] });
       if (onMoveError) onMoveError(error, row);
-      else setRefusal(error instanceof Error && error.message ? error.message : fillMessage(m.kanban.moveFailed, { name: titleOf(row) }));
+      else if (found) {
+        if (mounted.current) setConflict({ conflict: found, id: key, data });
+      } else setRefusal(error instanceof Error && error.message ? error.message : fillMessage(m.kanban.moveFailed, { name: titleOf(row) }));
       throw error;
     } finally {
       inFlight.current.delete(key);
       setSaving(new Set(inFlight.current));
     }
+  };
+
+  // Keep mine: the same move again, checked against the version their change left. The sheet
+  // stays up while it runs: a new conflict replaces it, any other failure rejects (the sheet shows
+  // why), and success closes it. Sent through the provider with the version, as RecordView's
+  // settings save is, because the resource's `update` takes no explicit version.
+  const keepMine = async () => {
+    if (!conflict) return;
+    const { id, data, conflict: c } = conflict;
+    try {
+      const result = await provider.update<T & BaseRecord>(view.resource, {
+        id,
+        data: data as Partial<T & BaseRecord>,
+        ...(c.currentVersion != null ? { expectedVersion: c.currentVersion } : {}),
+      });
+      setConflict(null);
+      await refresh();
+      if (result?.data) resourceOptions?.onUpdateSuccess?.(result.data);
+    } catch (error) {
+      const again = writeConflict(error, data, { changed: [fieldName] });
+      if (!again) throw error;
+      setConflict({ conflict: again, id, data });
+      void refresh();
+    }
+  };
+  // Take theirs: the card goes where their row puts it, once the board refetches.
+  const takeTheirs = () => {
+    setConflict(null);
+    void refresh();
   };
 
   const shownCard = (row: T) =>
@@ -239,8 +312,10 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
           {refusal}
         </p>
       )}
+      <div className="relative">
+      <div ref={strip} className="snap-x overflow-x-auto pb-2" data-testid={`${testID}-strip`}>
       <KanbanBoard<T>
-        className="flex snap-x gap-4 overflow-x-auto pb-2 [&>section]:w-72 [&>section]:shrink-0 [&>section]:snap-start"
+        className="flex w-max gap-4 [&>section]:w-72 [&>section]:shrink-0 [&>section]:snap-start"
         columns={columns}
         getKey={keyOf}
         getItemLabel={titleOf}
@@ -257,6 +332,24 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
             </Button>
           );
         }}
+      />
+      </div>
+      {edges.before && (
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-background to-transparent" data-testid={`${testID}-fade-start`} />
+      )}
+      {edges.after && (
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-background to-transparent" data-testid={`${testID}-fade-end`} />
+      )}
+      </div>
+      <ConflictSheet
+        conflict={conflict?.conflict ?? null}
+        noun={view.noun}
+        label={(name) => view.label(name)}
+        format={(name, value) => (name === fieldName ? (value == null ? m.board.noValue : view.valueLabel(fieldName, value)) : String(value ?? ""))}
+        onKeepMine={keepMine}
+        onTakeTheirs={takeTheirs}
+        onDismiss={takeTheirs}
+        testID={`${testID}-conflict`}
       />
       <DetailPanel<T>
         item={open}
