@@ -104,6 +104,30 @@ describe("NativeLightbox additions", () => {
     expect(screen.queryByTestId("lb-photo-c")).toBeNull();
   });
 
+  it("with renderMedia, keeps the pages ungrouped so their own controls stay reachable, and the counter is the pager", () => {
+    const onIndexChange = vi.fn();
+    render(
+      <NativeLightbox
+        open
+        onOpenChange={() => undefined}
+        items={items}
+        index={0}
+        onIndexChange={onIndexChange}
+        renderMedia={(it) => <button data-testid={`play-${it.id}`}>Play</button>}
+        testID="lb"
+      />,
+    );
+    const pages = screen.getByTestId("lb-pages");
+    expect(pages.getAttribute("role")).toBeNull();
+    expect(pages.contains(screen.getByTestId("play-a"))).toBe(true);
+    const pager = screen.getByTestId("lb-pager-a11y");
+    expect(pager.contains(screen.getByTestId("lb-counter"))).toBe(true);
+    expect(pager.getAttribute("role")).toBe("adjustable");
+    expect(pager.getAttribute("aria-valuetext")).toBe("1 of 3");
+    fireEvent(pager, new CustomEvent("accessibilityaction", { detail: "increment" }));
+    expect(onIndexChange).toHaveBeenLastCalledWith(1);
+  });
+
   it("zooms the built-in photo pages, and lets the words change", () => {
     render(<NativeLightbox open onOpenChange={() => undefined} items={items} index={0} onIndexChange={() => undefined} labels={{ close: "Fermer" }} testID="lb" />);
     expect(screen.getByTestId("lb-photo-a")).toBeTruthy();
