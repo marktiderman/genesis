@@ -115,12 +115,11 @@ describe("Lightbox", () => {
     expect(document.querySelector('[data-slot="lightbox-caption"]')!.textContent).toBe("Second (#1)");
   });
 
-  it("renders children in the stage instead of the img, with prev/next over it", () => {
-    render(
-      <Lightbox open onOpenChange={() => {}} items={items} index={1} onIndexChange={() => {}}>
-        <video data-testid="player" />
-      </Lightbox>,
-    );
+  it("renders renderMedia for the item in the stage instead of the img, with prev/next over it", () => {
+    const renderMedia = vi.fn((item: GalleryItem) => <video data-testid="player" data-item={item.id} />);
+    render(<Lightbox open onOpenChange={() => {}} items={items} index={1} onIndexChange={() => {}} renderMedia={renderMedia} />);
+    expect(renderMedia).toHaveBeenLastCalledWith(items[1], 1);
+    expect(screen.getByTestId("player").getAttribute("data-item")).toBe("b");
     const stage = document.querySelector('[data-slot="lightbox-stage"]')!;
     expect(stage.className).toContain("flex-1");
     expect(stage.className).toContain("min-h-0");
@@ -210,5 +209,26 @@ describe("Lightbox", () => {
     swipe(100, 100, 140, 100); // 40px: too short
     swipe(100, 100, 200, 190); // mostly vertical
     expect(onIndexChange).not.toHaveBeenCalled();
+  });
+
+  it("names a picture with no alt by its position, never leaving it decorative", () => {
+    render(<Lightbox open onOpenChange={() => {}} items={[{ id: "x", src: "/x.jpg" }, ...items]} index={0} onIndexChange={() => {}} />);
+    expect(document.querySelector('[data-slot="lightbox-stage"] img')!.getAttribute("alt")).toBe("Image 1 of 4");
+  });
+
+  it("moves focus to the other arrow when the one pressed reaches an end", () => {
+    const { rerender } = render(<Lightbox open onOpenChange={() => {}} items={items} index={1} onIndexChange={() => {}} />);
+    const next = screen.getByRole("button", { name: "Next image" });
+    next.focus();
+    rerender(<Lightbox open onOpenChange={() => {}} items={items} index={2} onIndexChange={() => {}} />);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Previous image" }));
+    rerender(<Lightbox open onOpenChange={() => {}} items={items} index={0} onIndexChange={() => {}} />);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Next image" }));
+  });
+
+  it("lets the words change", () => {
+    render(<Lightbox open onOpenChange={() => {}} items={items} index={1} onIndexChange={() => {}} labels={{ previous: "Précédente", next: "Suivante" }} />);
+    expect(screen.getByRole("button", { name: "Précédente" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Suivante" })).toBeTruthy();
   });
 });

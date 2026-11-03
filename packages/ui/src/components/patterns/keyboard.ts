@@ -32,6 +32,8 @@ type AnyKeyboardEvent = Pick<
  * `Lightbox` runs every unhandled keydown through this before calling
  * `onKey`, so a consumer's "f to favourite" never fires while the user types
  * a caption. Works with a DOM `KeyboardEvent` or React's wrapper.
+ *
+ * @internal Not exported from the package: Lightbox's own guard.
  */
 export function isAppShortcutTarget(e: AnyKeyboardEvent): boolean {
   if (e.defaultPrevented) return false;

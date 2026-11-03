@@ -299,7 +299,7 @@ export type { NativeGlassSurfaceProps } from "./glass-surface";
 
 // --- Gallery and media primitives ---
 
-export type { GalleryItem } from "./gallery-types";
+export { GALLERY_DEFAULTS, type GalleryItem, type GalleryTileAspect } from "./gallery-types";
 export { justifyRows, galleryItemRatio, DEFAULT_GALLERY_RATIO } from "./gallery-layout";
 export type { JustifiedRow, JustifiedTile } from "./gallery-layout";
 
@@ -309,8 +309,20 @@ export type { NativeRatingProps, NativeRatingSize } from "./rating";
 export { NativeGalleryGrid } from "./gallery-grid";
 export type { NativeGalleryGridProps, NativeGalleryLayout } from "./gallery-grid";
 
-export { NativeLightbox } from "./lightbox";
-export type { NativeLightboxProps } from "./lightbox";
+export { NativeLightbox, defaultNativeLightboxLabels } from "./lightbox";
+export type { NativeLightboxProps, NativeLightboxLabels } from "./lightbox";
+export {
+  NativeZoomablePhoto,
+  lightboxShouldDismiss,
+  lightboxPinchScale,
+  lightboxTouchDistance,
+  lightboxPanLimit,
+  LIGHTBOX_DISMISS_DISTANCE,
+  LIGHTBOX_DISMISS_VELOCITY,
+  LIGHTBOX_MAX_ZOOM,
+  LIGHTBOX_DOUBLE_TAP_MS,
+} from "./lightbox-zoom";
+export type { NativeZoomablePhotoProps } from "./lightbox-zoom";
 
 export { NativeGalleryCard } from "./gallery-card";
 export type { NativeGalleryCardProps } from "./gallery-card";

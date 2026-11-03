@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "../../utils";
-import type { GalleryItem } from "./gallery-types";
+import { GALLERY_DEFAULTS, type GalleryItem, type GalleryTileAspect } from "./gallery-types";
 import { galleryItemRatio, justifyRows } from "./gallery-layout";
 
 export interface GallerySelectionDetail {
@@ -20,9 +20,11 @@ export interface GalleryGridProps {
   layout?: "justified" | "grid";
   /** Column count for `layout="grid"`. Default 3. */
   columns?: number;
-  /** Target row height in px for `layout="justified"`. Default 220. */
+  /** `layout="grid"` only: each tile's shape, a ratio or `"item"` for the item's own. Default 1 (square), as on native. */
+  aspectRatio?: GalleryTileAspect;
+  /** Target row height in px for `layout="justified"`. Default 180. */
   rowHeight?: number;
-  /** Space between tiles in px. Default 8. */
+  /** Space between tiles in px. Default 4. */
   gap?: number;
   /** Makes every tile a button and reports which was activated. */
   onItemClick?: (item: GalleryItem, index: number) => void;
@@ -150,9 +152,10 @@ function groupItems(items: GalleryItem[], getGroup?: (item: GalleryItem) => stri
 export function GalleryGrid({
   items,
   layout = "justified",
-  columns = 3,
-  rowHeight = 220,
-  gap = 8,
+  columns = GALLERY_DEFAULTS.columns,
+  aspectRatio = 1,
+  rowHeight = GALLERY_DEFAULTS.rowHeight,
+  gap = GALLERY_DEFAULTS.gap,
   onItemClick,
   renderItem,
   renderBadges,
@@ -263,7 +266,7 @@ export function GalleryGrid({
           style={{ gap, gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
         >
           {entries.map(({ item, index }) =>
-            tile(item, index, { aspectRatio: String(galleryItemRatio(item)) }),
+            tile(item, index, { aspectRatio: String(aspectRatio === "item" ? galleryItemRatio(item) : aspectRatio) }),
           )}
         </div>
       );
@@ -284,7 +287,9 @@ export function GalleryGrid({
         style={{ gap }}
       >
         {rows.map((row, r) => (
-          <div key={r} className="flex" style={{ gap, height: row.height }}>
+          // Off-screen rows skip layout and paint (content-visibility), so a long gallery stays
+          // cheap without a virtualizer; the intrinsic size keeps the scrollbar honest.
+          <div key={r} className="flex" style={{ gap, height: row.height, contentVisibility: "auto", containIntrinsicSize: `auto ${row.height}px` }}>
             {row.tiles.map((t) =>
               tile(t.item, entries[t.index]!.index, {
                 width: t.width,

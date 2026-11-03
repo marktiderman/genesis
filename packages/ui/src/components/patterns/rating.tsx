@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Star } from "lucide-react";
+import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import { cn } from "../../utils";
 
 export interface RatingProps {
@@ -50,14 +51,13 @@ function clamp(value: number, max: number) {
  * Read-only (no `onChange`): one `img` role whose label reads "3 of 5 stars",
  * so a screen reader hears the value once instead of five icons.
  *
- * Interactive: a `radiogroup` of buttons, one per star, with the current
- * value `aria-checked`; ArrowLeft/ArrowRight (and Up/Down) move the value,
- * Home/End jump to the ends, and clicking the current value clears it to 0
- * (`nextRating`); the arrow keys stop at 1 and never clear, so clearing is by
- * re-clicking the current star. In a right-to-left group ArrowLeft/ArrowRight
- * swap. `readOnly` forces the read-only rendering while keeping
- * `onChange` wired for later. Filled stars use `text-warning`, empty ones
- * `text-muted-foreground`; no raw colours.
+ * Interactive: Radix's `RadioGroup` (G1: the radiogroup pattern is Radix's,
+ * roving focus, arrow keys and right-to-left included), one radio per star
+ * named "N of M stars". The arrows move between stars and choose as they go;
+ * re-clicking the chosen star clears it to 0 (`nextRating`), and the arrows
+ * never clear. The stars up to the chosen one are filled, `text-warning`;
+ * empty ones `text-muted-foreground`; no raw colours. `readOnly` forces the
+ * read-only rendering while keeping `onChange` wired for later.
  *
  * @stability Beta
  */
@@ -71,9 +71,18 @@ export function Rating({
   getLabel,
   className,
 }: RatingProps) {
-  const groupRef = React.useRef<HTMLDivElement>(null);
   const count = Math.max(1, Math.floor(max));
   const current = clamp(value, count);
+  // Radix takes direction from its DirectionProvider, not the page: read the page's `dir` so the
+  // arrows swap in a right-to-left layout either way.
+  const groupRef = React.useRef<HTMLDivElement>(null);
+  const [dir, setDir] = React.useState<"ltr" | "rtl" | undefined>(undefined);
+  React.useLayoutEffect(() => {
+    const el = groupRef.current;
+    if (!el) return;
+    const found = el.parentElement?.closest("[dir]")?.getAttribute("dir");
+    setDir(found === "rtl" ? "rtl" : found === "ltr" ? "ltr" : undefined);
+  }, []);
   const describe = (v: number) => (getLabel ? getLabel(v, count) : `${v} of ${count} stars`);
   const name = describe(current);
   const starClass = STAR_SIZE[size];
@@ -102,87 +111,43 @@ export function Rating({
     );
   }
 
-  const commit = (next: number) => {
-    const clamped = clamp(next, count);
-    if (clamped !== current) onChange(clamped);
-    // Keep focus on the star that now holds the value.
-    const target = groupRef.current?.querySelector<HTMLButtonElement>(
-      `[data-value="${clamped}"]`,
-    );
-    target?.focus();
-  };
-
-  // Why not Radix RadioGroup: each star is a value with a custom clear on
-  // re-click and a shared "filled up to N" visual. Radix items are
-  // independent radios, so they can't share that visual and can't clear on
-  // reselect. The roving tabindex and arrow handling below follow the ARIA
-  // radiogroup pattern by hand (with RTL swapping the horizontal arrows).
-  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const el = groupRef.current;
-    const rtl =
-      el !== null &&
-      (el.closest("[dir]")?.getAttribute("dir") === "rtl" ||
-        getComputedStyle(el).direction === "rtl");
-    const forward = rtl ? "ArrowLeft" : "ArrowRight";
-    const back = rtl ? "ArrowRight" : "ArrowLeft";
-    switch (event.key) {
-      case forward:
-      case "ArrowUp":
-        event.preventDefault();
-        commit(current + 1);
-        break;
-      case back:
-      case "ArrowDown":
-        event.preventDefault();
-        // Stops at 1: arrows never clear. Clearing is a re-click.
-        commit(Math.max(1, current - 1));
-        break;
-      case "Home":
-        event.preventDefault();
-        commit(1);
-        break;
-      case "End":
-        event.preventDefault();
-        commit(count);
-        break;
-      default:
-    }
-  };
-
-  // Roving tabindex: the checked star is the tab stop (the first star when
-  // nothing is chosen yet), arrows move between the rest.
-  const tabStop = current === 0 ? 1 : current;
-
   return (
-    <div
+    <RadioGroupPrimitive.Root
       ref={groupRef}
-      role="radiogroup"
+      {...(dir ? { dir } : {})}
       aria-label={label ?? "Rating"}
       data-slot="rating"
+      orientation="horizontal"
+      loop={false}
+      // Nothing chosen yet: "" leaves every radio unchecked (the first star is the tab stop).
+      value={current === 0 ? "" : String(current)}
+      onValueChange={(v) => {
+        const next = clamp(Number(v), count);
+        if (next !== current) onChange(next);
+      }}
       className={cn("inline-flex items-center gap-0.5", className)}
-      onKeyDown={onKeyDown}
     >
       {stars.map((n) => {
         const filled = n <= current;
         return (
-          <button
+          <RadioGroupPrimitive.Item
             key={n}
-            type="button"
-            role="radio"
-            aria-checked={n === current}
+            value={String(n)}
             aria-label={describe(n)}
             data-value={n}
-            tabIndex={n === tabStop ? 0 : -1}
-            onClick={() => commit(nextRating(current, n))}
+            // Re-clicking the chosen star clears it; Radix leaves a checked radio as it is.
+            onClick={() => {
+              if (nextRating(current, n) === 0) onChange(0);
+            }}
             className={cn(
               "inline-flex items-center justify-center rounded-sm transition-colors hover:text-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-reduce:transition-none",
               filled ? "text-warning" : "text-muted-foreground",
             )}
           >
             <Star aria-hidden="true" className={cn(starClass, filled && "fill-current")} />
-          </button>
+          </RadioGroupPrimitive.Item>
         );
       })}
-    </div>
+    </RadioGroupPrimitive.Root>
   );
 }

@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GalleryGrid } from "../gallery-grid";
 import { justifyRows, galleryItemRatio, DEFAULT_GALLERY_RATIO } from "../gallery-layout";
-import type { GalleryItem } from "../gallery-types";
+import { GALLERY_DEFAULTS, type GalleryItem } from "../gallery-types";
 
 const landscape = (id: string): GalleryItem => ({ id, src: `/${id}.jpg`, width: 1600, height: 900 });
 const portrait = (id: string): GalleryItem => ({ id, src: `/${id}.jpg`, width: 900, height: 1600 });
@@ -237,6 +237,29 @@ describe("GalleryGrid — badges, selection, groups, placeholders", () => {
     for (const img of Array.from(document.querySelectorAll("img"))) {
       expect(img.getAttribute("loading")).toBe("lazy");
     }
+  });
+});
+
+describe("GalleryGrid — parity with native", () => {
+  it("draws square grid tiles by default, each item's own shape with aspectRatio=\"item\", or a given ratio", () => {
+    const tiles = () => Array.from(document.querySelectorAll('[data-slot="gallery-tile"]')) as HTMLElement[];
+    // "16 / 9" or "1.77…": the DOM normalizes it either way.
+    const ratio = (el: HTMLElement) => { const [w, h = "1"] = el.style.aspectRatio.split("/"); return parseFloat(w!) / parseFloat(h); };
+    const { rerender } = render(<GalleryGrid items={[landscape("a")]} layout="grid" />);
+    expect(ratio(tiles()[0]!)).toBe(1);
+    rerender(<GalleryGrid items={[landscape("a")]} layout="grid" aspectRatio="item" />);
+    expect(ratio(tiles()[0]!)).toBeCloseTo(16 / 9, 5);
+    rerender(<GalleryGrid items={[landscape("a")]} layout="grid" aspectRatio={2} />);
+    expect(ratio(tiles()[0]!)).toBe(2);
+  });
+
+  it("uses the shared defaults, and lets off-screen justified rows skip layout", () => {
+    expect(GALLERY_DEFAULTS).toEqual({ rowHeight: 180, gap: 4, columns: 3 });
+    render(<GalleryGrid items={[landscape("a"), landscape("b")]} />);
+    const body = document.querySelector('[data-slot="gallery-group-body"]') as HTMLElement;
+    expect(body.style.gap).toBe("4px");
+    const row = body.firstElementChild as HTMLElement;
+    expect(row.style.getPropertyValue("content-visibility")).toBe("auto");
   });
 });
 

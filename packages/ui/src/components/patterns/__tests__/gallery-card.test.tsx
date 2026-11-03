@@ -116,4 +116,17 @@ describe("GalleryCard — placeholder and loading", () => {
     fireEvent.click(screen.getByRole("button", { name: "Yoga" }));
     expect(onClick).toHaveBeenCalledTimes(1);
   });
+
+  it("names the button by its title and describes it with the subtitle and badges, so all are read", () => {
+    render(<GalleryCard src="/c.jpg" alt="Cover" title="Morning class" subtitle="Studio 2" badges={<span>Live</span>} onClick={() => {}} />);
+    const button = screen.getByRole("button", { name: "Morning class" });
+    expect(button.getAttribute("aria-label")).toBeNull();
+    const described = (button.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent);
+    expect(described).toEqual(["Studio 2", "Live"]);
+  });
+
+  it("falls back to the image's alt for a card with no title", () => {
+    render(<GalleryCard src="/c.jpg" alt="Cover" onClick={() => {}} />);
+    expect(screen.getByRole("button", { name: "Cover" })).toBeTruthy();
+  });
 });

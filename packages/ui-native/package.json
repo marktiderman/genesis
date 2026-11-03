@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-ui-native",
-  "version": "3.5.0",
+  "version": "3.5.1",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -216,6 +216,24 @@
           "use": "NativeRecordView",
           "import": "@marktiderman/genesis-ui-native/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordview"
+        },
+        {
+          "need": "a photo gallery on the phone",
+          "use": "NativeGalleryGrid, with NativeGalleryCard for media-first cards",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "a full-screen photo viewer on the phone (zoom, swipe down to close)",
+          "use": "NativeLightbox",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "a star rating on the phone",
+          "use": "NativeRating",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
         }
       ]
     }

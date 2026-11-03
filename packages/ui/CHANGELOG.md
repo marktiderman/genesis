@@ -1,5 +1,47 @@
 # @marktiderman/genesis-ui
 
+## 2.30.0
+
+### Minor Changes
+
+- 8ced6d0: `AuthForm`: four fixes.
+
+  - **Before hydration**, a server-rendered form's submit is disabled (drawn as enabled, so nothing changes on screen) and the form is `method="post"`. An early click or Enter no longer sends the browser's GET, which dropped what was typed and the `next` value and could put the email in the URL. A client-only render is ready at once.
+  - **`notice`**: a notice above the form's first step, drawn with `Alert`. Pass `{ kind: "reset-link-expired" | "provider-cancelled" | "account-deleted" }` for the catalogue's copy (`auth.notices`), a `message` of your own, or a plain string. An expired link is announced as an error, the others politely; `tone` overrides it. New types `AuthFormNotice` and `AuthFormNoticeKind`.
+  - **`offerCodeOnConfirm`** (opt-in, default off): with `"email-code"` in `methods`, the "check your email" screens after a magic link and after sign-up offer "Enter the code instead" (`auth.enterCodeInstead`), which opens the code step for the same email. For someone in an embedded browser, where the link opens in another browser.
+  - **Code copy**: `auth.codeSent` and `auth.codeSentIfAccount` no longer read "a 8-digit code": they now say "We sent a code to {email}. It has {length} digits." `codeLength` is documented as having to match the project's `otp_length`, and in development a refused code logs a hint to compare the two. genesis-supabase's docs say the same.
+
+- 3678bbb: `AuthForm` and `createAuthFormClient`: provider redirects, sign-up fields, a texted code, and the email beside a new password. Everything that changes what people see is opt-in.
+
+  - **Provider redirect** (genesis-supabase): `createAuthFormClient` takes `providerRedirectTo` (a string, or a function of the provider's id) and `providerQueryParams` (a record, or a function of the provider's id), passed to `signInWithOAuth` as `redirectTo` and `queryParams`. An app no longer overrides `signInWithProvider` to set them. `emailRedirectTo` sets where the emailed links (a magic link, the sign-up confirmation, and by default the reset link) come back to, apart from `redirectTo`.
+  - **Sign-up fields** (opt-in): `signUpFields={["full_name"]}`, fields of your own (`{ name, label, … }`), or a slot (`({ values, setValue, disabled }) => …`). Their values go to `client.signUp` as `data`, which genesis-supabase passes as `options.data` (the user's metadata). Without it `signUp` gets no `data`, as before.
+  - **A texted code** (opt-in): the `"phone-code"` method in `methods` asks for a phone number, texts a code (`client.sendPhoneCode`, on Supabase `signInWithOtp({ phone })`) and checks it in the same code step (`client.verifyPhoneCode`, `verifyOtp({ phone, token, type: "sms" })`). Both calls are optional on `AuthFormClient`; a client without them leaves the method out. New copy: `auth.phone`, `phoneHint`, `phoneCodeSent`, `sendPhoneCode`, `usePhoneCode`, `useDifferentPhone`, `fullName`, `errors.phoneRequired`, `errors.phoneInvalid`, `errors.fieldRequired`, `errors.over_sms_send_rate_limit`, `errors.sms_send_failed`, `errors.phone_exists`.
+  - **The email beside a new password**: in `mode="new-password"`, a known email (`initialEmail`, else the new optional `client.currentEmail()`, which genesis-supabase reads from the session) is in the form as a hidden `autocomplete="username"` field, so password managers save the new password with its account. Nothing changes on screen; `showAccountEmail` (opt-in) shows it read-only.
+
+- 0aae5e3: ResourceView's calendar mode: a weeks switch, a toolbar slot, all-day rows stored as UTC midnight, and a colour per lane.
+
+  - `calendar.weeksOptions` (`[1, 2, 4]`) adds a weeks switch beside `layouts`' switch, for every layout but `month`. Its pick is kept as the layout's is: with `onWeeksChange` the screen owns it (`weeks`), else the calendar does. Opt-in.
+  - `calendar.toolbar` puts the screen's own controls (a Print button, a mode switch) beside the switches: a node, or a function given `{ layout, weeks, anchor }` (`ResourceCalendarToolbarState`). Opt-in.
+  - Bug fix: an all-day row (`allDayField` true) stored as instants at UTC midnight, as Google's API and most sources write one, showed on the day before for a viewer behind UTC. Such a row is now read on UTC, so it stays on its day on every clock, and the window asks for a day more each side so one on its edge loads. Rows stored as days were already right and are drawn with no zone arithmetic; other all-day instants (midnights on the viewer's clock) still read on the viewer's clock.
+  - `laneColor(i)` (`/data`): a distinct, theme-aware colour for any lane index. The five chart tokens first, then colours made from them in OKLCH and deepened toward `--foreground`, so lane six no longer repeats lane one and contrast against the background rises rather than falls. EventCalendar's `colorLanes` (and the calendar's `colorLanes`) gives each lane with no colour of its own `laneColor(i)`; off by default, so nothing changes until a screen turns it on.
+
+- 6c76b5e: ResourceView gaps a consumer app found while adopting it. Every new behaviour is opt-in.
+
+  - **ResourceForm from a view.** `<ResourceForm view={tasksView} …>` opens the form ResourceView would, with no list around it: the same fields (one builder, `useViewFormFields`, now exported from `/data`), links as pickers, the viewer's scope and a single-value `filter` filled hidden on create, and the view's noun and `copy.form` words. `filter`, `defaults` and `scoped` work as on ResourceView; `fields`, `title`, `submitLabel`, `description` and `noun` still win. `resource` is optional when a view is given. A view's fields are the whole form even when empty (core's `useResourceForm` takes `inferFields: false` for that), and a value the `filter` fixes is never replaced from the URL (`ResourceFormFieldDef.fromUrl: false`, which ResourceView's own form now sets too).
+  - **Calendar mode.** A view's `calendar` block takes `durationField` and `durationUnit` (`minutes`, `hours`, `days`): a row with no end runs from its start for its duration. `phoneLayout` (`"agenda"`, say) is the layout below 768px until the person picks one; unset, phones are unchanged. The screen's `calendar` takes `classNameOf(row)` and `statusOf(row)`, so a cancelled event can be struck through, with words read out and printed, rather than dropped; `EventCalendar`'s `CalendarEvent` takes `className` and `status`. `defineView` checks the new keys.
+  - **Calendar subtitle (fix).** Calendar mode now shows the screen's `subtitle`, else the view's `copy.subtitle`, under its title, as the list does; it used to drop it.
+  - **A link picker's order.** `fields.<link>.link.orderBy` is `"view"` (the linked view's `orderBy`, a `position` say) or `{ field, direction }`. Unset, a picker sorts by name as before. `relation.orderBy` on a hand-written relation field and `useLinkOptions`' target `orderBy` do the same; web's RelationField and native's link picker both send it.
+
+### Patch Changes
+
+- e3e7e9c: Two list fixes. Both are bug fixes to how existing chrome draws, not design changes, so neither is opt-in:
+
+  - **DataTable's pager** is pinned to the bottom of a scrolling table, but drew translucent (`bg-muted/30`), so rows scrolling under it showed through. It now draws opaque (`bg-card`, with the table's rounded bottom corners).
+  - **ResourcePage's default list row** added its own padding, bottom border and hover on top of the ones DataGrid's list wrapper already draws, so list rows had doubled padding, two dividers and two hover tints. The row now adds none, and each is drawn once by the wrapper. A `renderCard` you pass is unchanged.
+
+- Updated dependencies [6c76b5e]
+  - @marktiderman/genesis-core@2.10.0
+
 ## 2.29.0
 
 ### Minor Changes
