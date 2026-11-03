@@ -79,7 +79,7 @@ describe("the support client's thread", () => {
     expect(await client.conversationId(REPORT)).toBeNull();
     await client.reply(REPORT, "Thanks");
     expect(told).toHaveBeenCalledTimes(1);
-    expect(told.mock.calls[0]![0]).toMatch(/0001_genesis_support_chat\.sql/);
+    expect(told.mock.calls[0]![0]).toMatch(/0005_genesis_support_chat_on_tickets\.sql/);
     expect(fake.rpcs.filter((r) => r.fn === "support_chat_conversation")).toHaveLength(1);
     expect(chat.messages).not.toHaveBeenCalled();
     expect(chat.send).not.toHaveBeenCalled();

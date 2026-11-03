@@ -319,7 +319,7 @@ its own help desk and your app runs its own support the same way. With the suppo
   `TICKET_SUBJECT`, which replaces `SUPPORT_CHAT_SUBJECT`, never the literal. With genesis-chat's
   subject registry installed, 0006 registers the subject's tenant resolver; without it, nothing
   changes.
-- **Email** (0006): route inbound mail with an optional
+- **Email** (0008): route inbound mail with an optional
   `private.genesis_support_email_tenant(recipients text[]) returns uuid`; a ticket's emails are
   read by its handlers.
 - **Ideas** get a tenant too: your own board is open to everyone signed in, a tenant's board to

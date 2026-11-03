@@ -337,7 +337,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       if (isMissingFunction(result.error)) {
         chatInstalled = false;
         warn(
-          "genesis-support: a chat client was given, but the support-chat block's migration (0001_genesis_support_chat.sql) isn't applied. Report threads use support_replies.",
+          "genesis-support: a chat client was given, but the support-chat block's migrations (0005_genesis_support_chat_on_tickets.sql and 0006_genesis_support_chat_tenants.sql) aren't applied. Report threads use support_replies.",
         );
         return { mode: "replies", conversationId: null };
       }

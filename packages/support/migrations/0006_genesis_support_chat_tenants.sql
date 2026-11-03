@@ -329,7 +329,8 @@ security definer
 set search_path = ''
 as $$
   select t.tenant_id from public.tickets t
-   where subject_id ~ '^[0-9a-fA-F-]{36}$' and t.id = subject_id::uuid
+   where t.id = case when subject_id ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+                     then subject_id::uuid end
 $$;
 
 revoke execute on function private.genesis_chat_resolve_support_report(text) from public, anon, authenticated;

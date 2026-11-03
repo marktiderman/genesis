@@ -110,8 +110,9 @@ export function defineSupportBlock(options: SupportBlockOptions = {}) {
 
 /**
  * The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of
- * its own (the support block's thread route renders the conversation); it brings migration
- * `0001_genesis_support_chat.sql` from this package, after 0006 and genesis-chat's migrations.
+ * its own (the support block's thread route renders the conversation); it brings migrations
+ * `0005_genesis_support_chat_on_tickets.sql` and `0006_genesis_support_chat_tenants.sql` from this
+ * package, after support 0004 and genesis-chat's migrations.
  */
 export function defineSupportChatBlock(options: { requires?: readonly string[] } = {}) {
   return defineBlock({

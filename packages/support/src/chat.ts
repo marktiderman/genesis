@@ -1,6 +1,6 @@
 /**
- * Support threads on genesis-chat (the `support-chat` block, migration
- * `0001_genesis_support_chat.sql` in this package): what the support client
+ * Support threads on genesis-chat (the `support-chat` block, migrations
+ * 0005 and 0006 in this package): what the support client
  * needs from a genesis-chat client, as a structural type, so genesis-support
  * never imports genesis-chat. Pass `createChatClient(supabase)` from
  * `@marktiderman/genesis-chat` as the support client's `chat` option.
