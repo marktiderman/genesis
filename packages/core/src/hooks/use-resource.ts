@@ -27,6 +27,7 @@ import {
 } from "./mutation-mode";
 import { useLiveInvalidation, type LiveOptions } from "./use-live";
 import { resourceKeys } from "../query-keys";
+import { isDataWriteError } from "../schema/write-outcome";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -291,6 +292,8 @@ export function useResource<T extends BaseRecord = BaseRecord>(
 
   const defaultOnError = useCallback(
     (error: Error) => {
+      // A conflict is an outcome the caller shows (a conflict sheet), not a failure to log.
+      if (isDataWriteError(error) && error.outcome === "conflict") return;
       console.error(`[useResource] ${resource} mutation failed:`, error.message);
     },
     [resource],
