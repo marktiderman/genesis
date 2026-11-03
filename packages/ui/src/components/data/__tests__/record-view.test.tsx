@@ -200,8 +200,11 @@ describe("RecordView", () => {
     fireEvent.click(screen.getByTestId("resource-workspace-settings-save"));
     fireEvent.click(await screen.findByTestId("resource-workspace-settings-conflict-take-theirs"));
     await waitFor(() => expect(screen.queryByTestId("resource-workspace-settings-conflict")).toBeNull());
-    expect((screen.getByTestId("resource-workspace-settings-website-input") as HTMLInputElement).value).toBe("");
+    // Their value at once, before the record refetches.
+    expect((screen.getByTestId("resource-workspace-settings-website-input") as HTMLInputElement).value).toBe("https://theirs.example");
     expect(screen.queryByTestId("resource-workspace-settings-error")).toBeNull();
+  });
+
   it("checks a settings save against the row the edit started on, not one that refreshed meanwhile", async () => {
     const versioned = (over: Partial<DataProvider> = {}) =>
       provider({

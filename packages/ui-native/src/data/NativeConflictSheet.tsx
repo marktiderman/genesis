@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { useEffect, useState, type ReactNode } from "react";
+import { AccessibilityInfo, View } from "react-native";
 import { titleCase, type WriteConflict } from "@marktiderman/genesis-core";
 import { NativeButton } from "../components/button";
 import { NativeSheet, NativeSheetScrollView } from "../components/sheet";
@@ -16,8 +16,14 @@ export interface NativeConflictSheetMessages {
   mine: string;
   /** An empty value in the comparison. */
   empty: string;
+  /** Their value for a field their row as read here doesn't carry. */
+  unknown: string;
   keepMine: string;
   takeTheirs: string;
+  /** When "keep mine" failed for another reason (offline, refused). */
+  failed: string;
+  yes: string;
+  no: string;
   /** The noun when the screen gave none. */
   record: string;
 }
@@ -29,8 +35,12 @@ const english: NativeConflictSheetMessages = {
   theirs: "Theirs",
   mine: "Yours",
   empty: "Empty",
-  keepMine: "Keep mine",
-  takeTheirs: "Take theirs",
+  unknown: "Not shown",
+  keepMine: "Keep my version",
+  takeTheirs: "Take their version",
+  failed: "Your version wasn't saved.",
+  yes: "Yes",
+  no: "No",
   record: "record",
 };
 
@@ -58,9 +68,9 @@ export interface NativeConflictSheetProps {
   testID?: string;
 }
 
-function plain(value: unknown, empty: string): string {
-  if (value === null || value === undefined || value === "") return empty;
-  if (typeof value === "boolean") return value ? "✓" : "✗";
+function plain(value: unknown, w: NativeConflictSheetMessages): string {
+  if (value === null || value === undefined || value === "") return w.empty;
+  if (typeof value === "boolean") return value ? w.yes : w.no;
   if (typeof value === "object") {
     try {
       return JSON.stringify(value);
@@ -92,14 +102,28 @@ export function NativeConflictSheet({
 }: NativeConflictSheetProps) {
   const w = { ...english, ...messages };
   const [keeping, setKeeping] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const fields = conflict?.fields ?? [];
-  const show = (field: string, value: unknown): ReactNode =>
-    format ? format(field, value) : <NativeText preset="body-sm">{plain(value, w.empty)}</NativeText>;
+  const title = w.title.replace("{noun}", noun ?? w.record);
+  // "Keep mine" needs the version their row is at; without one it could only conflict again.
+  const canKeep = fields.length > 0 && conflict?.currentVersion != null;
+  // Said once as it opens, so a screen reader user knows why a sheet came up.
+  useEffect(() => {
+    setFailed(null);
+    if (conflict) AccessibilityInfo.announceForAccessibility?.(title);
+  }, [conflict, title]);
+  const has = (field: string) => !!conflict && field in conflict.theirs;
+  const text = (field: string, value: unknown, known = true) => (known ? plain(value, w) : w.unknown);
+  const show = (field: string, value: unknown, known = true): ReactNode =>
+    format && known ? format(field, value) : <NativeText preset="body-sm">{text(field, value, known)}</NativeText>;
 
   const keep = async () => {
     setKeeping(true);
+    setFailed(null);
     try {
       await onKeepMine();
+    } catch (error) {
+      setFailed(error instanceof Error && error.message ? error.message : w.failed);
     } finally {
       setKeeping(false);
     }
@@ -115,7 +139,7 @@ export function NativeConflictSheet({
       <NativeSheetScrollView>
         <View style={{ gap: 12, paddingHorizontal: 16, paddingVertical: 12 }}>
           <NativeText preset="h4" accessibilityRole="header">
-            {w.title.replace("{noun}", noun ?? w.record)}
+            {title}
           </NativeText>
           <NativeText preset="body-sm" className="text-muted-foreground">
             {fields.length > 0 ? w.description : w.same}
@@ -124,24 +148,29 @@ export function NativeConflictSheet({
             ? fields.map((field) => (
                 <View key={field} style={{ gap: 4 }} testID={`${testID}-field-${field}`}>
                   <NativeText preset="label">{label(field)}</NativeText>
-                  <View accessible accessibilityLabel={`${w.theirs}: ${plain(conflict.theirs[field], w.empty)}`}>
+                  <View accessible {...(format ? {} : { accessibilityLabel: `${w.theirs}: ${text(field, conflict.theirs[field], has(field))}` })}>
                     <NativeText preset="caption" className="text-muted-foreground">{w.theirs}</NativeText>
-                    {show(field, conflict.theirs[field])}
+                    {show(field, conflict.theirs[field], has(field))}
                   </View>
-                  <View accessible accessibilityLabel={`${w.mine}: ${plain(conflict.mine[field], w.empty)}`}>
+                  <View accessible {...(format ? {} : { accessibilityLabel: `${w.mine}: ${text(field, conflict.mine[field])}` })}>
                     <NativeText preset="caption" className="text-muted-foreground">{w.mine}</NativeText>
                     {show(field, conflict.mine[field])}
                   </View>
                 </View>
               ))
             : null}
+          {failed ? (
+            <NativeText preset="body-sm" className="text-destructive" accessibilityRole="alert" testID={`${testID}-failed`}>
+              {failed}
+            </NativeText>
+          ) : null}
           <View style={{ gap: 8, paddingTop: 4 }}>
-            {fields.length > 0 ? (
-              <NativeButton onPress={() => void keep()} loading={keeping} disabled={keeping} testID={`${testID}-keep-mine`}>
+            {canKeep ? (
+              <NativeButton size="lg" onPress={() => void keep()} loading={keeping} disabled={keeping} testID={`${testID}-keep-mine`}>
                 {w.keepMine}
               </NativeButton>
             ) : null}
-            <NativeButton variant="outline" onPress={onTakeTheirs} disabled={keeping} testID={`${testID}-take-theirs`}>
+            <NativeButton size="lg" variant="outline" onPress={onTakeTheirs} disabled={keeping} testID={`${testID}-take-theirs`}>
               {w.takeTheirs}
             </NativeButton>
           </View>

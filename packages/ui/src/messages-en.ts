@@ -261,8 +261,12 @@ export const uiMessages = {
     mine: "Yours",
     /** An empty value in the comparison. */
     empty: "Empty",
-    keepMine: "Keep mine",
-    takeTheirs: "Take theirs",
+    /** Their value for a field their row as read here doesn't carry. */
+    unknown: "Not shown",
+    keepMine: "Keep my version",
+    takeTheirs: "Take their version",
+    /** When "keep mine" failed for another reason (offline, refused). */
+    failed: "Your version wasn't saved.",
     /** The record's noun when the screen gave none. */
     record: "record",
   },

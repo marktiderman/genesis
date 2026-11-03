@@ -75,7 +75,11 @@ export function RecordPanel(props: RecordPanelProps) {
   });
   const [conflict, setConflict] = useState<string | null>(null);
   // An edit that met someone else's change: theirs beside it, until the person chooses.
-  const [editConflict, setEditConflict] = useState<{ conflict: WriteConflict; values: Record<string, unknown> } | null>(null);
+  const [editConflict, setEditConflict] = useState<{
+    conflict: WriteConflict;
+    values: Record<string, unknown>;
+    changed: readonly string[];
+  } | null>(null);
   const [copied, setCopied] = useState(false);
   const row = record.data;
   const title = row ? (displayText(row[schema.labelField ?? ""]) ?? id) : id;
@@ -93,7 +97,8 @@ export function RecordPanel(props: RecordPanelProps) {
 
   async function save(values: Record<string, unknown>, expectedVersion?: string | null) {
     setConflict(null);
-    setEditConflict(null);
+    // "Keep mine" leaves its conflict up until this save settles.
+    if (expectedVersion === undefined) setEditConflict(null);
     try {
       const result = await provider.update<BaseRecord>(schema.name, {
         id,
@@ -101,15 +106,19 @@ export function RecordPanel(props: RecordPanelProps) {
         expectedVersion: expectedVersion !== undefined ? expectedVersion : versionOf(schema, row),
       });
       queryClient.setQueryData(recordKey, result.data);
+      setEditConflict(null);
       props.onSaved(result.data as Record<string, unknown>, result.audit);
     } catch (error) {
       if (isDataWriteError(error) && error.outcome === "conflict") {
-        const found = writeConflict(error, values);
-        if (found) setEditConflict({ conflict: found, values });
-        else {
-          setConflict(error.message);
-          void record.refetch();
+        // Only the fields this edit changed are a choice; the rest is what the form loaded.
+        const changed = Object.keys(values).filter((k) => !Object.is(values[k], row?.[k]) && !(values[k] == null && row?.[k] == null));
+        const found = writeConflict(error, values, { changed });
+        if (found) {
+          setEditConflict({ conflict: found, values, changed });
+          throw error;
         }
+        setConflict(error.message);
+        void record.refetch();
       }
       props.onFailed("update", error instanceof Error ? error.message : String(error));
       throw error;
@@ -260,11 +269,19 @@ export function RecordPanel(props: RecordPanelProps) {
         )}
         <ConflictSheet
           conflict={editConflict?.conflict ?? null}
-          noun={schema.label?.toLowerCase() ?? "record"}
+          {...(schema.label ? { noun: schema.label.toLowerCase() } : {})}
           label={(name) => schema.fields.find((f) => f.name === name)?.label ?? name}
           onKeepMine={async () => {
             if (!editConflict) return;
-            await save(editConflict.values, editConflict.conflict.currentVersion).catch(() => undefined);
+            const { conflict: c, values, changed } = editConflict;
+            // Only this edit's changes are kept; every other field takes their value.
+            const mine = Object.fromEntries(
+              Object.entries(values).map(([k, v]) => [k, changed.includes(k) || !(k in c.theirs) ? v : c.theirs[k]]),
+            );
+            await save(mine, c.currentVersion).catch((error: unknown) => {
+              // A new conflict replaces this one; anything else is shown on the sheet.
+              if (!(isDataWriteError(error) && error.outcome === "conflict")) throw error;
+            });
           }}
           onTakeTheirs={() => {
             if (!editConflict) return;

@@ -215,11 +215,13 @@ createSupabaseProvider(supabase, {
 
 #### Showing a conflict
 
-A conflict is a choice for the person, not just an error. `writeConflict(error, mine)` turns a
-`conflict` into a `WriteConflict`: `theirs` (the row as it is now), `mine` (what the save tried),
-`fields` (the ones that differ) and `currentVersion`. `useResourceForm` keeps one as `conflict`,
-with `keepMine()` (the same values again, at `currentVersion`), `takeTheirs()` and
-`dismissConflict()`. `ConflictSheet` (genesis-ui) and `NativeConflictSheet` (genesis-ui-native)
+A conflict is a choice for the person, not just an error. `writeConflict(error, mine, { changed })`
+turns a `conflict` into a `WriteConflict`: `theirs` (the row as it is now), `mine` (what the save
+tried), `fields` (the ones this person changed that differ from theirs) and `currentVersion`.
+`useResourceForm` keeps one as `conflict`, with `keepMine()`, `takeTheirs()` and
+`dismissConflict()`. Keep mine sends only this person's changes as theirs to keep, at
+`currentVersion`; every other field takes their value, so a field only they changed is never put
+back. After take theirs, the next save is checked against their version. `ConflictSheet` (genesis-ui) and `NativeConflictSheet` (genesis-ui-native)
 show it, theirs first; `ResourceForm`, `RecordView`'s settings sections and Data Studio's record
 panel open it themselves.
 

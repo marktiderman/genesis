@@ -28,7 +28,7 @@ export {
   type WriteOutcome,
   type DataWriteErrorOptions,
 } from "./write-outcome";
-export { writeConflict, type WriteConflict, type WriteState } from "./write-state";
+export { writeConflict, type WriteConflict, type WriteConflictOptions, type WriteState } from "./write-state";
 export {
   DataReadError,
   isDataReadError,

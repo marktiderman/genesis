@@ -34,7 +34,7 @@ export type {
 } from "./schema/types";
 export { keyFields, encodeRecordKey, decodeRecordKey } from "./schema/keys";
 export { defineResource } from "./schema/types";
-export { writeConflict, type WriteConflict, type WriteState } from "./schema/write-state";
+export { writeConflict, type WriteConflict, type WriteConflictOptions, type WriteState } from "./schema/write-state";
 
 // Query keys
 export {

@@ -861,8 +861,10 @@ export async function executeWrite<R extends BaseRecord | void>(
       }
       field = cachedVersionField(queryClient, provider, resource);
     }
-    // A version the caller names ("keep mine" after a conflict, which proves the row has one) goes as is.
-    let expectedVersion: string | undefined = args.expectedVersion;
+    // A version the caller names ("keep mine" after a conflict, which proves the row has one) goes
+    // as is, unless a write on the row made since has committed a newer one.
+    let expectedVersion: string | undefined =
+      args.expectedVersion !== undefined ? ((behind ? reg.rowVersions.get(rowKey!) : undefined) ?? args.expectedVersion) : undefined;
     if (field && expectedVersion === undefined) {
       expectedVersion = (behind ? reg.rowVersions.get(rowKey!) : undefined) ?? versionToken(seen, field);
       if (seen && !(field in seen) && !warnedNoVersion.has(resource)) {

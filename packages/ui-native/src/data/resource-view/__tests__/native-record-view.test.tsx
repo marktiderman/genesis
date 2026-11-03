@@ -317,8 +317,11 @@ describe("NativeRecordView", () => {
     fireEvent.click(screen.getByTestId("native-resource-workspace-settings-save"));
     fireEvent.click(await screen.findByTestId("native-resource-workspace-settings-conflict-take-theirs"));
     await waitFor(() => expect(screen.queryByTestId("native-resource-workspace-settings-conflict-field-website")).toBeNull());
-    expect((screen.getByTestId("native-resource-workspace-settings-website-input") as HTMLInputElement).value).toBe("");
+    // Their value at once, before the record refetches.
+    expect((screen.getByTestId("native-resource-workspace-settings-website-input") as HTMLInputElement).value).toBe("https://theirs.example");
     expect(update).toHaveBeenCalledTimes(1);
+  });
+
   it("checks a settings save against the row the edit started on, not one that refreshed meanwhile", async () => {
     const p = provider({
       capabilities: vi.fn(async () => ({

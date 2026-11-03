@@ -48,6 +48,25 @@ describe("ConflictSheet", () => {
     expect(screen.getByText(/already matches yours/)).toBeTruthy();
   });
 
+  it("shows why keep mine failed, and stays up", async () => {
+    const onKeepMine = vi.fn(async () => {
+      throw new Error("You're offline.");
+    });
+    render(<ConflictSheet conflict={conflict} onKeepMine={onKeepMine} onTakeTheirs={() => {}} onDismiss={() => {}} />);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("conflict-sheet-keep-mine"));
+    });
+    expect(screen.getByTestId("conflict-sheet-failed").textContent).toBe("You're offline.");
+    expect(screen.getByTestId("conflict-sheet")).toBeTruthy();
+  });
+
+  it("offers no keep mine without a version to save at, and says when their row doesn't show a field", () => {
+    const hidden = writeConflict(new DataWriteError("conflict", "x", { current: { id: "t1" } }), { secret: "mine" })!;
+    render(<ConflictSheet conflict={hidden} onKeepMine={() => {}} onTakeTheirs={() => {}} onDismiss={() => {}} />);
+    expect(screen.getByTestId("conflict-sheet-field-secret").textContent).toBe("SecretNot shownmine");
+    expect(screen.queryByTestId("conflict-sheet-keep-mine")).toBeNull();
+  });
+
   it("stays closed without a conflict, and Escape dismisses it", () => {
     const onDismiss = vi.fn();
     const { rerender } = render(<ConflictSheet conflict={null} onKeepMine={() => {}} onTakeTheirs={() => {}} onDismiss={onDismiss} />);

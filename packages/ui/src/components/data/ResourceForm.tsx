@@ -37,7 +37,7 @@ import type { WizardStep } from "@marktiderman/genesis-core/hooks";
 import { titleCase } from "../../hooks/use-resource-page";
 import { fillMessage, useUiMessages } from "../../messages";
 import { AlertTriangle } from "lucide-react";
-import type { ResourceContract } from "@marktiderman/genesis-core";
+import { isDataWriteError, type ResourceContract } from "@marktiderman/genesis-core";
 import type { ResourceView as View } from "@marktiderman/genesis-core/resource-view";
 import { useViewFormFields, type ViewFormOptions } from "./resource-view/view-form";
 
@@ -464,7 +464,8 @@ export function ResourceForm(props: ResourceFormProps) {
     },
     // The form is closed by the time an optimistic or undoable save fails,
     // so the error has to reach the user some other way.
-    onError: onError ?? (mutationMode === "pessimistic" ? undefined : showWriteErrorToast),
+    // A conflict opens ConflictSheet below instead, so it isn't toasted twice.
+    onError: onError ?? (mutationMode === "pessimistic" ? undefined : (error) => { if (!(isDataWriteError(error) && error.outcome === "conflict")) showWriteErrorToast(error); }),
     prefillFromUrl,
     autoPlaceholder,
     warnWhenUnsaved,
@@ -582,7 +583,8 @@ export function ResourceForm(props: ResourceFormProps) {
   }
 
   // ── Page layout ──
-  if (!open) return null;
+  // Closed (an optimistic save handed off): only a conflict that came back later shows.
+  if (!open) return conflictSheet;
 
   return (
     <>

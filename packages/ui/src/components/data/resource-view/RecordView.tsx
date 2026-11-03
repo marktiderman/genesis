@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, useWrite, writeConflict, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
+import { DataWriteError, isDataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, useWrite, writeConflict, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
 import { sameFormValue, type Allowed, type ResolvedFormField, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../../layout/sub-nav";
@@ -252,7 +252,7 @@ function SettingsForm({
   recordView,
   sectionId,
   title,
-  row,
+  row: rowProp,
   onSaved,
   testID,
   screenLocked,
@@ -268,6 +268,10 @@ function SettingsForm({
 }) {
   const m = useUiMessages();
   const provider = useDataProvider();
+  // After "take theirs": their row, shown until the record refetches with it.
+  const [theirsRow, setTheirsRow] = useState<DataRow | null>(null);
+  useEffect(() => setTheirsRow(null), [rowProp]);
+  const row = theirsRow ?? rowProp;
   const view = recordView.view;
   const fields = recordView.settingsFields(sectionId);
   // A versioned resource checks the save against the version of the row shown (core README, "Versioned writes").
@@ -310,7 +314,7 @@ function SettingsForm({
 
   const queryClient = useQueryClient();
   // A save that met someone else's change, and the values it tried to save.
-  const [conflict, setConflict] = useState<{ conflict: WriteConflict; values: Values } | null>(null);
+  const [conflict, setConflict] = useState<{ conflict: WriteConflict; values: Values; row: DataRow } | null>(null);
   const save = useWrite(
     async ({ values, expectedVersion }: { values: Values; expectedVersion?: string }) => {
       // Only the section's listed keys, never anything else the row or draft holds.
@@ -325,7 +329,7 @@ function SettingsForm({
         });
       } catch (error) {
         const found = writeConflict(error, data);
-        if (found) setConflict({ conflict: found, values });
+        if (found && isDataWriteError(error) && error.current) setConflict({ conflict: found, values, row: error.current });
         throw error;
       }
       // A write that matched no rows is a refusal, never a silent success.
@@ -348,15 +352,23 @@ function SettingsForm({
   const keepMine = async () => {
     if (!conflict) return;
     const { values, conflict: c } = conflict;
-    setConflict(null);
-    await save.run({ values, ...(c.currentVersion != null ? { expectedVersion: c.currentVersion } : {}) }).catch(() => undefined);
+    // The sheet stays up while this runs: a new conflict replaces it, any other failure rejects
+    // (the sheet shows why), and success closes it.
+    await save.run({ values, ...(c.currentVersion != null ? { expectedVersion: c.currentVersion } : {}) }).then(
+      () => setConflict(null),
+      (error: unknown) => {
+        if (!writeConflict(error, values)) throw error;
+      },
+    );
   };
   const takeTheirs = () => {
     if (!conflict) return;
+    const { row: theirs } = conflict;
     setConflict(null);
     save.reset();
     setEdits({});
-    // The record refetches, so the fields show their change.
+    // Their row at once, then the refetch confirms it.
+    setTheirsRow({ ...rowProp, ...theirs });
     void queryClient.invalidateQueries({ queryKey: [...resourceKeys(view.resource).all] });
   };
 

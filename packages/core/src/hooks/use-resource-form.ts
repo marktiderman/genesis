@@ -708,13 +708,26 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     [form, showError, onError, action, resource],
   );
 
-  // Submit handler
-  // A save that met someone else's change, and the values it tried to save.
-  const [conflictState, setConflictState] = useState<{ conflict: WriteConflict; submitted: Record<string, unknown> } | null>(null);
+  // A save that met someone else's change: the values it tried to save, the fields the person
+  // changed, and their row as it is now.
+  const [conflictState, setConflictState] = useState<{
+    conflict: WriteConflict;
+    submitted: Record<string, unknown>;
+    changed: readonly string[];
+    row: Record<string, unknown>;
+  } | null>(null);
+  // After "take theirs": their row, as the record the next save is checked against, until the
+  // form's own record changes.
+  const [rebased, setRebased] = useState<BaseRecord | null>(null);
+  // Counts conflicts found, so "keep mine" can tell a new conflict from a plain failure.
+  const conflictsFound = useRef(0);
+  useEffect(() => setRebased(null), [effectiveData]);
 
+  // Submit handler. Resolves true when the save went through (or had nothing to send).
   const save = useCallback(
-    async (submitted: Record<string, unknown>, expectedVersion?: string) => {
-      setConflictState(null);
+    async (submitted: Record<string, unknown>, expectedVersion?: string): Promise<boolean> => {
+      // "Keep mine" leaves the conflict up until this save settles.
+      if (expectedVersion === undefined) setConflictState(null);
       // What the form shows as this save goes out (raw input values, before
       // any resolver coercion), to tell later whether it still does.
       const shown = structuredCloneSafe(form.getValues());
@@ -746,11 +759,26 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
           .map(([k]) => k),
       );
       const formData = blankValues(changed, resolvedFields, action, touched);
+      // A conflict offers only what this person changed, compared in the form's shape.
+      const conflictOf = (error: unknown) => {
+        const found = writeConflict(error, formData, {
+          changed: touched,
+          ...(provider.toFormValues && formSource !== effectiveData
+            ? { view: (row: Record<string, unknown>) => provider.toFormValues!(resource, row as BaseRecord) as Record<string, unknown> }
+            : {}),
+        });
+        if (found && isDataWriteError(error) && error.current) {
+          conflictsFound.current += 1;
+          setConflictState({ conflict: found, submitted, changed: [...touched], row: error.current as Record<string, unknown> });
+        }
+        return found;
+      };
       // An edit with nothing left to write (only read-only fields) has nothing to send.
       if (action === "edit" && Object.keys(formData).length === 0) {
+        setConflictState(null);
         markSaved();
         onSuccess?.({ ...(effectiveData ?? {}), ...(id != null && id !== "" ? { id } : {}) });
-        return;
+        return true;
       }
       try {
         let recordId: string | number | undefined;
@@ -772,7 +800,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
           data: formSource === effectiveData ? formData : undefined,
           // The record the form shows: its version is the one this edit is checked against, even
           // when the cache has since refetched a newer one.
-          ...(action === "edit" && effectiveData ? { base: effectiveData as BaseRecord } : {}),
+          ...(action === "edit" && (rebased ?? effectiveData) ? { base: (rebased ?? effectiveData) as BaseRecord } : {}),
           ...(expectedVersion !== undefined ? { expectedVersion } : {}),
           mode: mutationMode,
           undoDelayMs,
@@ -815,11 +843,11 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
             await Promise.all(related.map((queryKey) => queryClient.invalidateQueries({ queryKey: [...queryKey] })));
           },
           failedLater: (error) => {
-            const conflict = mountedRef.current ? writeConflict(error, formData) : null;
-            if (conflict) setConflictState({ conflict, submitted });
+            if (mountedRef.current) conflictOf(error);
             reportError(error, shown);
           },
         });
+        setConflictState(null);
         markSaved();
         if (outcome.status === "committed") {
           onSuccess?.(outcome.record);
@@ -830,30 +858,44 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
               : { ...formData },
           );
         }
+        return true;
       } catch (err) {
-        const conflict = writeConflict(err, formData);
-        if (conflict) setConflictState({ conflict, submitted });
+        conflictOf(err);
         reportError(err instanceof Error ? err : new Error(String(err)));
+        return false;
       }
     },
-    [form, action, provider, resource, id, effectiveData, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, reportError, markSaved, updates, defaultValues, resolvedFields],
+    [form, action, provider, resource, id, effectiveData, rebased, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, reportError, markSaved, updates, defaultValues, resolvedFields],
   );
 
-  const handleSubmit = useCallback((submitted: Record<string, unknown>) => save(submitted), [save]);
+  const handleSubmit = useCallback(async (submitted: Record<string, unknown>) => {
+    await save(submitted);
+  }, [save]);
 
   const keepMine = useCallback(async () => {
     if (!conflictState) return;
-    const { conflict, submitted } = conflictState;
+    const { conflict, submitted, changed } = conflictState;
+    // Only what this person changed is theirs to keep: every other field the form sends takes
+    // their value, so "keep mine" never puts back a stale copy of a field nobody touched here.
+    const values = { ...submitted };
+    for (const key of Object.keys(values)) {
+      if (!changed.includes(key) && key in conflict.theirs) values[key] = conflict.theirs[key];
+    }
     form.clearErrors("root");
-    await save(submitted, conflict.currentVersion ?? undefined);
+    const found = conflictsFound.current;
+    const ok = await save(values, conflict.currentVersion ?? undefined);
+    // Failed without a new conflict (which replaces this one): say why, on the sheet.
+    if (!ok && conflictsFound.current === found) throw new Error(form.getFieldState("root").error?.message ?? "Not saved.");
   }, [conflictState, form, save]);
 
   const dismissConflict = useCallback(() => setConflictState(null), []);
 
   const takeTheirs = useCallback(() => {
     if (!conflictState) return;
-    const { theirs } = conflictState.conflict;
+    const { row: theirs } = conflictState;
     setConflictState(null);
+    // The next save is checked against their row's version, not the one the form opened at.
+    setRebased({ ...((effectiveData ?? {}) as BaseRecord), ...(theirs as BaseRecord) });
     form.clearErrors();
     const recordId = id ?? (effectiveData as Record<string, unknown> | undefined)?.id;
     if (recordId != null && recordId !== "") {

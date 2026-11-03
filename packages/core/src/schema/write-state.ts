@@ -17,8 +17,8 @@ export interface WriteConflict {
   /** The values this write tried to save. */
   readonly mine: Readonly<Record<string, unknown>>;
   /**
-   * The fields of `mine` whose value differs from `theirs`, in `mine`'s order:
-   * the ones the choice is about. Empty when they already agree.
+   * The fields this person changed whose value differs from `theirs`, in
+   * `mine`'s order: the ones the choice is about. Empty when they already agree.
    */
   readonly fields: readonly string[];
   /** The version the row is at now: send "keep mine" at it. Null when the row carries none. */
@@ -41,29 +41,76 @@ export type WriteState =
   | { readonly status: "failed"; readonly message: string }
   | { readonly status: "conflict"; readonly message: string; readonly conflict: WriteConflict };
 
-/** Equal for a choice: the same JSON-like value (Dates by time). */
-function same(a: unknown, b: unknown): boolean {
-  if (Object.is(a, b)) return true;
-  if ((a === null || a === undefined) && (b === null || b === undefined)) return true;
-  if (a instanceof Date || b instanceof Date) {
-    const t = (v: unknown) => (v instanceof Date ? v.getTime() : typeof v === "string" ? Date.parse(v) : NaN);
-    return t(a) === t(b) && !Number.isNaN(t(a));
+const empty = (v: unknown) => v === null || v === undefined || v === "";
+const DATE = /^\d{4}-\d{2}-\d{2}([T ]|$)/;
+
+/** A JSON-like value with object keys in order, so `{x,y}` and `{y,x}` compare equal. */
+function canonical(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value instanceof Date) return value.toISOString();
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value as object)
+        .sort()
+        .map((k) => [k, canonical((value as Record<string, unknown>)[k])]),
+    );
   }
-  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  return value;
+}
+
+/**
+ * Equal for a choice. An empty input and a null column are the same; a number and the text a form
+ * holds for it are the same; a date and a timestamp of that instant are the same; objects compare
+ * by content, whatever their key order.
+ */
+function same(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b) || (empty(a) && empty(b))) return true;
+  if (empty(a) || empty(b)) return false;
+  if (typeof a === "number" || typeof b === "number") {
+    const x = Number(a);
+    const y = Number(b);
+    if (!Number.isNaN(x) && !Number.isNaN(y) && typeof a !== "boolean" && typeof b !== "boolean") return x === y;
+  }
+  const asTime = (v: unknown) => (v instanceof Date ? v.getTime() : typeof v === "string" && DATE.test(v) ? Date.parse(v) : NaN);
+  const t = asTime(a);
+  if (!Number.isNaN(t) && t === asTime(b)) return true;
+  if (typeof a !== "object" || typeof b !== "object") return false;
   try {
-    return JSON.stringify(a) === JSON.stringify(b);
+    return JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
   } catch {
     return false;
   }
 }
 
+/** Options for {@link writeConflict}. */
+export interface WriteConflictOptions {
+  /**
+   * The fields this person changed. Only these are offered as a choice; the rest of `mine` is
+   * what the form loaded, and "keep mine" must not put it back over theirs. Default: every field
+   * of `mine`.
+   */
+  readonly changed?: Iterable<string>;
+  /** Shapes their row like `mine` (a form's `toFormValues`), before comparing. */
+  readonly view?: (row: Record<string, unknown>) => Record<string, unknown>;
+}
+
 /**
  * The conflict `error` reports for a write of `mine`, or null when `error`
- * isn't a `conflict` that carries the row as it is now.
+ * isn't a `conflict` that carries the row as it is now. A field `mine` has and
+ * their row doesn't (a column it doesn't read) counts as different: the
+ * person decides it, never a silent "nothing to choose".
  */
-export function writeConflict(error: unknown, mine: Readonly<Record<string, unknown>>): WriteConflict | null {
+export function writeConflict(
+  error: unknown,
+  mine: Readonly<Record<string, unknown>>,
+  options: WriteConflictOptions = {},
+): WriteConflict | null {
   if (!isDataWriteError(error) || error.outcome !== "conflict" || !error.current) return null;
-  const theirs = error.current as Record<string, unknown>;
-  const fields = Object.keys(mine).filter((field) => field in theirs && !same(mine[field], theirs[field]));
+  const row = error.current as Record<string, unknown>;
+  const theirs = options.view ? options.view(row) : row;
+  const changed = options.changed ? new Set(options.changed) : undefined;
+  const fields = Object.keys(mine).filter(
+    (field) => (!changed || changed.has(field)) && (!(field in theirs) || !same(mine[field], theirs[field])),
+  );
   return { theirs, mine, fields, currentVersion: error.currentVersion ?? null };
 }
