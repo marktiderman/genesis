@@ -161,24 +161,31 @@ export interface LightboxProps {
 
 /** A message's photos full size: genesis-ui's `Lightbox` (arrow keys, a counter, focus kept on the arrows), fed chat's attachments. */
 function ChatLightbox({ images, index, onIndexChange }: LightboxProps) {
+  // Only photos with a link open: one still uploading has nothing to show full size. `at` maps
+  // between the viewer's positions and `images`' indexes.
+  const at = useMemo(() => images.flatMap((img, i) => (img.url ? [i] : [])), [images]);
   const items = useMemo<GalleryItem[]>(
     () =>
-      images.map((img) => ({
-        id: img.key,
-        src: img.url ?? "",
-        alt: img.name ?? "Photo",
-        ...(img.width ? { width: img.width } : {}),
-        ...(img.height ? { height: img.height } : {}),
-      })),
-    [images],
+      at.map((i) => {
+        const img = images[i]!;
+        return {
+          id: img.key,
+          src: img.url!,
+          alt: img.name ?? "Photo",
+          ...(img.width ? { width: img.width } : {}),
+          ...(img.height ? { height: img.height } : {}),
+        };
+      }),
+    [images, at],
   );
+  const shown = index === null ? -1 : at.indexOf(index);
   return (
     <GenesisLightbox
-      open={index !== null && images[index] != null}
+      open={shown !== -1}
       onOpenChange={(open) => !open && onIndexChange(null)}
       items={items}
-      index={index ?? 0}
-      onIndexChange={onIndexChange}
+      index={Math.max(0, shown)}
+      onIndexChange={(i) => onIndexChange(at[i] ?? null)}
       labels={{ previous: "Previous photo", next: "Next photo", photo: (n, count) => `Photo ${n} of ${count}` }}
       className="genesis-chat-lightbox"
     />

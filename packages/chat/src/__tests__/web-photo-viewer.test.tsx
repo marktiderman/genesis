@@ -22,6 +22,16 @@ describe("chat's photos full size", () => {
     expect(screen.getByRole("img", { name: "a.jpg" })).toBeTruthy();
   });
 
+  it("leave out a photo still uploading, with no link to show", () => {
+    const uploading = { ...view("u", "u.jpg"), url: null } as AttachmentView;
+    const onIndexChange = vi.fn();
+    render(<Lightbox images={[view("a", "a.jpg"), uploading, view("b", "b.jpg")]} index={2} onIndexChange={onIndexChange} />);
+    expect(document.querySelector('[data-slot="lightbox-counter"]')!.textContent).toBe("2 / 2");
+    expect(document.querySelector('img[src=""]')).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Previous photo" }));
+    expect(onIndexChange).toHaveBeenLastCalledWith(0);
+  });
+
   it("keep the deprecated Lightbox export working: null closes it", () => {
     const onIndexChange = vi.fn();
     const { rerender } = render(<Lightbox images={[view("a", "a.jpg")]} index={0} onIndexChange={onIndexChange} />);

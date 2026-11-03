@@ -81,9 +81,12 @@ export function ChatPhotoViewer({ photos, initialIndex = 0, onClose, testID = "c
   const [notice, setNotice] = useState<string | null>(null);
   const items = useMemo<GalleryItem[]>(() => (photos ?? []).map((p) => ({ id: p.key, src: p.uri, alt: p.alt })), [photos]);
 
-  // Each opening starts at its photo.
+  // Each opening starts at its photo, with no notice or busy state left from the last one.
   useEffect(() => {
-    if (photos) setIndex(initialIndex);
+    if (!photos) return;
+    setIndex(initialIndex);
+    setNotice(null);
+    setBusy(false);
   }, [photos, initialIndex]);
   useEffect(() => {
     if (!notice) return;
