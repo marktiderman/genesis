@@ -132,7 +132,7 @@ export interface GenesisSymbolProps {
 export type GenesisSymbolComponent = ComponentType<GenesisSymbolProps>;
 
 /** A lucide-style icon component: `size`, `color`, `strokeWidth`. */
-export type GenesisIconComponent = ComponentType<{ size?: number; color?: ColorValue; strokeWidth?: number; testID?: string }>;
+export type GenesisIconComponent = ComponentType<{ size?: number; color?: ColorValue; fill?: ColorValue; strokeWidth?: number; testID?: string }>;
 
 /** Icon components by semantic name (`lucideIcons` from `/icons/lucide` is one). Missing names draw nothing. */
 export type GenesisIconSet = Partial<Record<NativeIconName, GenesisIconComponent>>;

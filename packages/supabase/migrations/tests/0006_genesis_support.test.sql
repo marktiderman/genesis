@@ -9,6 +9,16 @@
 -- request.jwt.claim.sub on older images), so pg_temp.sign_in sets both.
 begin;
 create extension if not exists pgtap with schema extensions;
+-- Since support 0004 every ticket has a tenant: an app without the default-tenant hook gets one
+-- here, inside this transaction only.
+do $hook$ begin
+  if to_regprocedure('private.genesis_support_default_tenant()') is null
+     and to_regclass('public.ticket_agents') is not null then
+    execute $f$create function private.genesis_support_default_tenant() returns uuid language sql stable
+      set search_path = '' as 'select ''00000000-0000-4000-8000-00000000000f''::uuid'$f$;
+    revoke execute on function private.genesis_support_default_tenant() from public, anon, authenticated;
+  end if;
+end $hook$;
 select plan(119);
 
 -- People: a1 reports, b2 is someone else, c3 is staff (once the hook exists),
@@ -50,15 +60,17 @@ grant execute on function pg_temp.person(text), pg_temp.sign_in(text), pg_temp.r
 drop function if exists private.genesis_support_staff(uuid);
 
 -- Shape -------------------------------------------------------------------------
-select has_table('public', 'support_reports', 'support_reports exists');
-select has_table('public', 'support_attachments', 'support_attachments exists');
+-- Since support 0004 these are public.tickets and public.ticket_attachments, and the old names views.
+select has_relation('public', 'support_reports', 'support_reports exists');
+select has_relation('public', 'support_attachments', 'support_attachments exists');
 select has_table('public', 'support_replies', 'support_replies exists');
 select has_table('public', 'support_ideas', 'support_ideas exists');
 select has_table('public', 'support_idea_votes', 'support_idea_votes exists');
 select col_is_pk('public', 'support_idea_votes', array['idea_id', 'user_id'], 'one vote per person per idea');
 select ok(
   (select bool_and(relrowsecurity) from pg_class where oid in (
-    'public.support_reports'::regclass, 'public.support_attachments'::regclass, 'public.support_attachment_purges'::regclass,
+    coalesce(to_regclass('public.tickets'), 'public.support_reports'::regclass),
+    coalesce(to_regclass('public.ticket_attachments'), 'public.support_attachments'::regclass), 'public.support_attachment_purges'::regclass,
     'public.support_replies'::regclass, 'public.support_ideas'::regclass, 'public.support_idea_votes'::regclass)),
   'RLS is on for every support table'
 );

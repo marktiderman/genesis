@@ -261,6 +261,8 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
     // A function whose migration another provides calls what only that migration creates: it's
     // superseded (push's genesis-push-send, where notifications' 0001 provides 0005).
     const superseded = supersededFunctions(migrations.rows, providers);
+    // A new migration that calls a hook no migration defines yet fails when applied: say so now.
+    for (const r of migrations.rows) for (const u of r.unmet ?? []) planWarnings.push(`${r.package} ${r.file} ${u}`);
     const replaced = full.functions
       .filter((fn) => superseded.has(`${fn.package}:${fn.dir}`))
       .map((fn) => {

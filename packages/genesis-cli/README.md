@@ -437,6 +437,34 @@ steps point at the notifications runner (`genesis-notifications`), which sends i
 0001 after 0005 works too (it adopts the tables); then stop calling `genesis-push-send`, as
 notifications' steps say.
 
+A migration that calls a hook the app defines (a function Genesis never ships) names it in
+`needs`, with what to add:
+
+```json
+{
+  "file": "migrations/0004_genesis_chat_tenants.sql",
+  "needs": [{ "function": "private.genesis_viewer_people", "how": "add the tenancy hook before it (genesis-supabase 0016's header)" }]
+}
+```
+
+When `genesis add`, `migrate` or `upgrade` would copy it into an app where no migration defines that
+function (by `create [or replace] function`, in the app's migrations or one copied before it in
+the same run, outside SQL comments), its row says `needs <function> first: <how>` and the
+command warns, before `supabase db push` fails on it.
+
+A migration another block's migration reads names that one in `runsBefore`:
+
+```json
+{
+  "file": "migrations/0006_genesis_support_chat_tenants.sql",
+  "runsBefore": [{ "package": "@marktiderman/genesis-chat", "file": "migrations/0004_genesis_chat_tenants.sql" }]
+}
+```
+
+When both are new in the same `genesis add`, `migrate` or `upgrade` run, it is copied first (with
+its own package's earlier migrations, which keep their order), so it gets the earlier timestamp.
+When the other is already in the app, nothing moves: the migration has to handle that case itself.
+
 In an app whose database files live elsewhere ([A phone app beside a web app](#a-phone-app-beside-a-web-app)),
 migrate plans nothing and says where to run it.
 

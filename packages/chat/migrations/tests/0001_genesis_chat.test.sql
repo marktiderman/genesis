@@ -13,6 +13,14 @@ insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c0' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
 from unnest(array['a1', 'b2', 'c3', 'd4', 'e5']) n;
 
+-- From 0004 every conversation belongs to a tenant: everyone in this test shares one (the
+-- app's own hook comes back with the rollback).
+create schema if not exists private;
+create or replace function private.genesis_viewer_people(viewer uuid)
+returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
+  select '00000000-0000-4000-8000-0000000000f0'::uuid, viewer
+$$;
+
 create function pg_temp.person(n text) returns uuid language sql immutable as $$ select ('00000000-0000-4000-8000-00000000c0' || n)::uuid $$;
 create function pg_temp.sign_in(n text) returns void language plpgsql as $$
 begin
@@ -193,8 +201,8 @@ select throws_ok($$ select genesis_chat.add_members(pg_temp.v('grp'), array[pg_t
 -- Tickets: observers and internal notes ----------------------------------------------------
 
 select pg_temp.as_server();
-insert into t select 'tkt', genesis_chat.ensure_conversation('ticket', 'report', 'r-1', 'Login trouble');
-select is(genesis_chat.ensure_conversation('ticket', 'report', 'r-1'), pg_temp.v('tkt'), 'the server finds a record''s conversation again');
+insert into t select 'tkt', genesis_chat.ensure_conversation('ticket', 'report', 'r-1', 'Login trouble', p_tenant_id => '00000000-0000-4000-8000-0000000000f0');
+select is(genesis_chat.ensure_conversation('ticket', 'report', 'r-1', p_tenant_id => '00000000-0000-4000-8000-0000000000f0'), pg_temp.v('tkt'), 'the server finds a record''s conversation again');
 select is(genesis_chat.sync_members(pg_temp.v('tkt'), array[pg_temp.person('b2')]), 1, 'and sets its members');
 select pg_temp.sign_in('b2');
 select lives_ok($$ select genesis_chat.send_message(pg_temp.v('tkt'), gen_random_uuid(), 'I can''t sign in') $$, 'the person writes in');

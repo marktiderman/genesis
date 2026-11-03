@@ -8,7 +8,28 @@
 -- People: a1 reports, b2 is someone else, c3 and d4 are staff, e5 is not staff.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(66);
+-- Since support 0004 every ticket has a tenant: an app without the default-tenant hook gets one
+-- here, inside this transaction only.
+do $hook$ begin
+  if to_regprocedure('private.genesis_support_default_tenant()') is null
+     and to_regclass('public.ticket_agents') is not null then
+    execute $f$create function private.genesis_support_default_tenant() returns uuid language sql stable
+      set search_path = '' as 'select ''00000000-0000-4000-8000-00000000000f''::uuid'$f$;
+    revoke execute on function private.genesis_support_default_tenant() from public, anon, authenticated;
+  end if;
+end $hook$;
+-- Since genesis-chat 0004 every conversation has a tenant and only that tenant's people observe
+-- it: here every login is a person of the app's own tenant (a single-tenant app), inside this
+-- transaction only. The app's staff must be people of its own tenant to read support chats.
+do $hook$ begin
+  if to_regprocedure('private.genesis_support_default_tenant()') is not null then
+    execute $f$create or replace function private.genesis_viewer_people(viewer uuid)
+      returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = ''
+      as 'select private.genesis_support_default_tenant(), viewer where viewer is not null'$f$;
+    revoke execute on function private.genesis_viewer_people(uuid) from public, anon, authenticated;
+  end if;
+end $hook$;
+select plan(68);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-0000000000' || n)::uuid, 'authenticated', 'authenticated',
@@ -66,7 +87,7 @@ select ok(
 );
 
 -- The copy: a report and replies from before this block -----------------------------------
-alter table public.support_reports disable trigger genesis_support_chat_report_added;
+alter table public.tickets disable trigger genesis_support_chat_report_added;
 alter table public.support_replies disable trigger genesis_support_chat_reply_added;
 alter table genesis_chat.messages disable trigger genesis_support_chat_message_posted;
 
@@ -88,7 +109,7 @@ set local role authenticated;
 insert into public.support_replies (report_id, body) values (pg_temp.id('r0'), 'fourth');
 reset role;
 
-alter table public.support_reports enable trigger genesis_support_chat_report_added;
+alter table public.tickets enable trigger genesis_support_chat_report_added;
 alter table public.support_replies enable trigger genesis_support_chat_reply_added;
 alter table genesis_chat.messages enable trigger genesis_support_chat_message_posted;
 
@@ -283,6 +304,39 @@ select is((select count(*)::int from genesis_chat.messages where conversation_id
 create table pg_temp.gone0 as select pg_temp.conv('r0') as conv;
 delete from auth.users where id = pg_temp.person('a1');
 select is((select count(*)::int from genesis_chat.conversations where id = (select conv from pg_temp.gone0)), 0, 'deleting the account deletes its reports'' conversations');
+
+-- Since support 0004: staff are the app's own agents, never a business's (holds before 0006 too).
+do $biz$ begin
+  if to_regclass('public.ticket_agents') is not null then
+    create table if not exists public.tenant_features (
+      tenant_id uuid not null, feature_id text not null, enabled boolean not null, reason text not null,
+      primary key (tenant_id, feature_id));
+    insert into public.tenant_features (tenant_id, feature_id, enabled, reason)
+    values ('00000000-0000-4000-8000-0000000000a0', 'support-helpdesk', true, 'test')
+    on conflict (tenant_id, feature_id) do update set enabled = true;
+    create or replace function private.genesis_viewer_people(viewer uuid)
+    returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as
+      'select ''00000000-0000-4000-8000-0000000000a0''::uuid, viewer where viewer = ''00000000-0000-4000-8000-0000000000b2''::uuid';
+    revoke execute on function private.genesis_viewer_people(uuid) from public, anon, authenticated;
+  end if;
+end $biz$;
+select pg_temp.sign_in('b2');
+do $biz$ begin
+  if to_regclass('public.ticket_agents') is not null then
+    set local role authenticated;
+    insert into public.tickets (type, title, message, tenant_id)
+    values ('question', 'A business ticket', 'Hello', '00000000-0000-4000-8000-0000000000a0');
+    reset role;
+    insert into pg_temp.ids select 'biz', c.id from genesis_chat.conversations c
+      join public.tickets t on c.subject_id = t.id::text where t.title = 'A business ticket';
+  end if;
+end $biz$;
+select ok(to_regclass('public.ticket_agents') is null
+          or not private.genesis_support_chat_observer(pg_temp.id('biz'), pg_temp.person('c3')),
+          'the app''s staff do not observe a business''s ticket');
+select ok(to_regclass('public.ticket_agents') is null
+          or not private.genesis_support_chat_is_staff(pg_temp.person('e5')),
+          'staff means the app''s own agents only');
 
 select * from finish();
 rollback;
