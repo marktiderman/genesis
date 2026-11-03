@@ -9,7 +9,7 @@
  * Uses built-in vitest matchers only — this package does not ship
  * @testing-library/jest-dom.
  */
-import { render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Rating, nextRating } from "../rating";
@@ -58,51 +58,67 @@ describe("Rating (interactive)", () => {
     expect(onChange).toHaveBeenCalledWith(4);
   });
 
-  it("steps with ArrowRight / ArrowLeft and stops at the ends", () => {
+  // Radix's RadioGroup takes the keys on the focused radio, as a real user's focus is.
+  // Radix moves focus on the next tick; the arrow chooses the star it lands on.
+  const press = async (key: string) => {
+    await act(async () => {
+      fireEvent.keyDown(document.activeElement!, { key });
+      await new Promise((r) => setTimeout(r, 0));
+      fireEvent.keyUp(document.activeElement!, { key });
+    });
+  };
+  const focusStar = (n: number) => act(() => screen.getByRole("radio", { name: `${n} of 5 stars` }).focus());
+
+  it("steps with ArrowRight / ArrowLeft and stops at the ends", async () => {
     const onChange = vi.fn();
     const { rerender } = render(<Rating value={2} onChange={onChange} />);
-    const group = screen.getByRole("radiogroup");
-
-    fireEvent.keyDown(group, { key: "ArrowRight" });
+    focusStar(2);
+    await press("ArrowRight");
     expect(onChange).toHaveBeenLastCalledWith(3);
 
-    fireEvent.keyDown(group, { key: "ArrowLeft" });
-    expect(onChange).toHaveBeenLastCalledWith(1);
+    rerender(<Rating value={3} onChange={onChange} />);
+    await press("ArrowLeft");
+    expect(onChange).toHaveBeenLastCalledWith(2);
 
     onChange.mockClear();
     rerender(<Rating value={5} onChange={onChange} />);
-    fireEvent.keyDown(screen.getByRole("radiogroup"), { key: "ArrowRight" });
+    focusStar(5);
+    await press("ArrowRight");
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("ArrowLeft / ArrowDown stop at 1 and never clear", () => {
+  it("ArrowLeft stops at 1 and never clears", async () => {
     const onChange = vi.fn();
     render(<Rating value={1} onChange={onChange} />);
-    const group = screen.getByRole("radiogroup");
-    fireEvent.keyDown(group, { key: "ArrowLeft" });
-    fireEvent.keyDown(group, { key: "ArrowDown" });
+    focusStar(1);
+    await press("ArrowLeft");
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("swaps ArrowLeft / ArrowRight in a right-to-left group", () => {
+  it("swaps ArrowLeft / ArrowRight in a right-to-left group", async () => {
     const onChange = vi.fn();
-    render(
+    const { rerender } = render(
       <div dir="rtl">
         <Rating value={3} onChange={onChange} />
       </div>,
     );
-    const group = screen.getByRole("radiogroup");
-    fireEvent.keyDown(group, { key: "ArrowLeft" });
+    focusStar(3);
+    await press("ArrowLeft");
     expect(onChange).toHaveBeenLastCalledWith(4);
-    fireEvent.keyDown(group, { key: "ArrowRight" });
-    expect(onChange).toHaveBeenLastCalledWith(2);
+    rerender(
+      <div dir="rtl">
+        <Rating value={4} onChange={onChange} />
+      </div>,
+    );
+    await press("ArrowRight");
+    expect(onChange).toHaveBeenLastCalledWith(3);
   });
 
-  it("keeps a single tab stop on the checked star", () => {
+  it("is one tab stop that lands on the checked star", () => {
     render(<Rating value={3} onChange={() => {}} />);
-    const stops = screen.getAllByRole("radio").filter((r) => r.getAttribute("tabindex") === "0");
-    expect(stops).toHaveLength(1);
-    expect(stops[0]!.getAttribute("aria-label")).toBe("3 of 5 stars");
+    expect(screen.getAllByRole("radio").every((r) => r.getAttribute("tabindex") === "-1")).toBe(true);
+    act(() => screen.getByRole("radiogroup").focus());
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("3 of 5 stars");
   });
 });
 

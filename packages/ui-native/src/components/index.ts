@@ -312,7 +312,7 @@ export type { NativeGalleryGridProps, NativeGalleryLayout } from "./gallery-grid
 export { NativeLightbox, defaultNativeLightboxLabels } from "./lightbox";
 export type { NativeLightboxProps, NativeLightboxLabels } from "./lightbox";
 export {
-  ZoomablePhoto,
+  NativeZoomablePhoto,
   lightboxShouldDismiss,
   lightboxPinchScale,
   lightboxTouchDistance,
@@ -322,7 +322,7 @@ export {
   LIGHTBOX_MAX_ZOOM,
   LIGHTBOX_DOUBLE_TAP_MS,
 } from "./lightbox-zoom";
-export type { ZoomablePhotoProps } from "./lightbox-zoom";
+export type { NativeZoomablePhotoProps } from "./lightbox-zoom";
 
 export { NativeGalleryCard } from "./gallery-card";
 export type { NativeGalleryCardProps } from "./gallery-card";

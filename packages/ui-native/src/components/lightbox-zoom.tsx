@@ -48,7 +48,7 @@ export function lightboxPanLimit(scale: number, size: number): number {
 
 const clamp = (v: number, limit: number) => Math.max(-limit, Math.min(limit, v));
 
-export interface ZoomablePhotoProps {
+export interface NativeZoomablePhotoProps {
   src: string;
   alt?: string;
   width: number;
@@ -65,7 +65,7 @@ export interface ZoomablePhotoProps {
 }
 
 /** The page: iOS's zooming scroll view, or Android's pinch and pan. */
-export function ZoomablePhoto(props: ZoomablePhotoProps) {
+export function NativeZoomablePhoto(props: NativeZoomablePhotoProps) {
   return Platform.OS === "ios" ? <ZoomableIos {...props} /> : <ZoomablePan {...props} />;
 }
 
@@ -110,7 +110,7 @@ function zoomTo(view: ZoomScrollView | null, rect: ZoomRect, animated: boolean) 
 }
 
 /** iOS: the system's zooming scroll view; at full size, a pull down past the top closes. */
-function ZoomableIos({ src, alt, width, height, active, onZoomChange, onPull, onDismiss, onTap, testID }: ZoomablePhotoProps) {
+function ZoomableIos({ src, alt, width, height, active, onZoomChange, onPull, onDismiss, onTap, testID }: NativeZoomablePhotoProps) {
   const ref = useRef<ZoomScrollView | null>(null);
   const scale = useRef(1);
   const reducedMotion = useReducedMotion();
@@ -161,7 +161,7 @@ function ZoomableIos({ src, alt, width, height, active, onZoomChange, onPull, on
 }
 
 /** Android (no zooming ScrollView): two fingers pinch, one pans a zoomed photo or drags it down to close. */
-function ZoomablePan({ src, alt, width, height, active, onZoomChange, onPull, onDismiss, onTap, testID }: ZoomablePhotoProps) {
+function ZoomablePan({ src, alt, width, height, active, onZoomChange, onPull, onDismiss, onTap, testID }: NativeZoomablePhotoProps) {
   const reducedMotion = useReducedMotion();
   const scale = useRef(new Animated.Value(1)).current;
   const tx = useRef(new Animated.Value(0)).current;

@@ -54,6 +54,12 @@ export function GalleryCard({
   className,
 }: GalleryCardProps) {
   const showImage = Boolean(src) && !loading;
+  // The button is named by the title and described by the subtitle and badges (a "Live" badge
+  // included), so a screen reader hears all of them, not only a label laid over them.
+  const id = React.useId();
+  const titleId = `${id}-title`;
+  const subtitleId = `${id}-subtitle`;
+  const badgesId = `${id}-badges`;
 
   const actionsNode = actions ? (
     <div
@@ -78,6 +84,7 @@ export function GalleryCard({
         )}
         {badges ? (
           <div
+            id={badgesId}
             data-slot="gallery-card-badges"
             className="absolute left-2 top-2 flex flex-wrap items-center gap-1.5"
           >
@@ -94,12 +101,12 @@ export function GalleryCard({
       ) : title || subtitle ? (
         <div data-slot="gallery-card-footer" className="space-y-0.5 p-3">
           {title ? (
-            <div className="truncate text-sm font-medium leading-tight text-card-foreground">
+            <div id={titleId} className="truncate text-sm font-medium leading-tight text-card-foreground">
               {title}
             </div>
           ) : null}
           {subtitle ? (
-            <div className="truncate text-xs text-muted-foreground">{subtitle}</div>
+            <div id={subtitleId} className="truncate text-xs text-muted-foreground">{subtitle}</div>
           ) : null}
         </div>
       ) : null}
@@ -115,7 +122,8 @@ export function GalleryCard({
           type="button"
           data-slot="gallery-card"
           data-loading={loading || undefined}
-          aria-label={title ?? alt}
+          {...(title ? { "aria-labelledby": titleId } : { "aria-label": alt })}
+          aria-describedby={[subtitle ? subtitleId : null, badges ? badgesId : null].filter(Boolean).join(" ") || undefined}
           aria-busy={loading || undefined}
           onClick={onClick}
           className={cn(

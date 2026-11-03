@@ -40,7 +40,7 @@ import { FULL_SCREEN_DARK, NativeFullScreenModal } from "./full-screen-modal";
 import type { GalleryItem } from "./gallery-types";
 import { NativeIcon } from "./icon";
 import { NativeImage } from "./image";
-import { ZoomablePhoto } from "./lightbox-zoom";
+import { NativeZoomablePhoto } from "./lightbox-zoom";
 
 /** The viewer's words, for another language. */
 export interface NativeLightboxLabels {
@@ -240,7 +240,7 @@ function LightboxBody({
               {renderMedia ? (
                 renderMedia(it, i)
               ) : zoomable || swipeToDismiss ? (
-                <ZoomablePhoto
+                <NativeZoomablePhoto
                   src={it.src}
                   alt={it.alt ?? labels.photo(i + 1, items.length)}
                   width={width}
