@@ -1,0 +1,21 @@
+packages/ui-native/figma/NativeCheckbox.figma.ts
+  s_109ad08c59054b::t_5833735b532d7d 5-7,15-16
+packages/ui-native/figma/NativeChipGroup.figma.ts
+  s_109ad08c59054b::t_5123564b6c595c 4-5,9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "387eba235a418e5783218025d8611719f2d64f6e",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
