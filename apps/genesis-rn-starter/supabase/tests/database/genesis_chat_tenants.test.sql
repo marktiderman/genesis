@@ -6,7 +6,7 @@
 -- with the rollback).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(43);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c4' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat4-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -157,6 +157,13 @@ select throws_ok($$ select genesis_chat.ensure_conversation('desk', 'invoice', '
   'an unregistered type needs its tenant');
 select lives_ok($$ select genesis_chat.ensure_conversation('desk', 'invoice', 'I-1', p_tenant_id => pg_temp.tenant('03')) $$,
   'and takes it');
+create function private.genesis_chat_resolve_order(subject_id text) returns uuid language sql stable set search_path = '' as $$
+  select case when subject_id = 'O-1' then '00000000-0000-4000-8000-000000000402'::uuid end $$;
+insert into t select 'ord', genesis_chat.ensure_conversation('desk', 'order', 'O-1');
+select is((select tenant_id from genesis_chat.conversations where id = pg_temp.v('ord')),
+          pg_temp.tenant('02'), 'or a resolver named for the type names it');
+select throws_ok($$ select genesis_chat.ensure_conversation('desk', 'order', 'O-404') $$, '22023', null,
+  'and a record that resolver doesn''t know has no conversation');
 
 -- ── Observers ─────────────────────────────────────────────────────────────────
 

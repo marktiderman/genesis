@@ -22,7 +22,9 @@
 --    ensure_conversation and start_conversation take the tenant from it (and refuse a subject
 --    it doesn't know). An alias is an older name for the same type: calls using it reach the
 --    same conversation, and new ones are stored under the type's own name. An unregistered
---    subject needs `p_tenant_id`.
+--    subject needs `p_tenant_id`, unless a resolver named for its type exists
+--    (`private.genesis_chat_resolve_<subject_type>(subject_id text) returns uuid`), which
+--    ensure_conversation and the backfill below use.
 --
 -- 3. Starting one. start_conversation's members must all share the tenant, which is the
 --    subject's, or the one they share (`p_tenant_id` chooses when they share several). People
@@ -489,7 +491,8 @@ $$;
 drop function genesis_chat.ensure_conversation(text, text, text, text, jsonb);
 
 -- The server's side: the conversation for one of the app's records, made once, in the record's
--- tenant (its resolver's, or `p_tenant_id` for a type that isn't registered).
+-- tenant: its registered resolver's; for a type that isn't registered, `p_tenant_id`, or else a
+-- resolver named for the type (`private.genesis_chat_resolve_<subject_type>(text)`) when one exists.
 create function genesis_chat.ensure_conversation(
   p_kind text,
   p_subject_type text,
@@ -526,6 +529,13 @@ begin
     end if;
   else
     names := array[p_subject_type];
+    -- Not registered: a resolver named for the type, when there is one (as the backfill uses).
+    if tenant is null and to_regprocedure(format('private.%I(text)', 'genesis_chat_resolve_' || p_subject_type)) is not null then
+      execute format('select private.%I($1)', 'genesis_chat_resolve_' || p_subject_type) into tenant using p_subject_id;
+      if tenant is null then
+        raise exception 'No such %: %', replace(p_subject_type, '_', ' '), p_subject_id using errcode = '22023';
+      end if;
+    end if;
     if tenant is null then
       raise exception 'A conversation needs its tenant: register the subject type % for kind % (genesis_chat.register_subject), or pass p_tenant_id', p_subject_type, p_kind
         using errcode = '22023';
