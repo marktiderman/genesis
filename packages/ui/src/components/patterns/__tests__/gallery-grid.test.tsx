@@ -199,13 +199,13 @@ describe("GalleryGrid — badges, selection, groups, placeholders", () => {
     expect(onItemClick).not.toHaveBeenCalled();
   });
 
-  it("groups items by getGroup in order of first appearance, under sticky headers", () => {
+  it("groups items by groupBy in order of first appearance, under sticky headers", () => {
     const dated = [
       { ...landscape("a"), caption: "June" },
       { ...square("b"), caption: "May" },
       { ...portrait("c"), caption: "June" },
     ];
-    render(<GalleryGrid items={dated} getGroup={(item) => item.caption!} onItemClick={() => {}} />);
+    render(<GalleryGrid items={dated} groupBy={(item) => item.caption!} onItemClick={() => {}} />);
     const headers = Array.from(document.querySelectorAll('[data-slot="gallery-group-header"]'));
     expect(headers.map((h) => h.textContent)).toEqual(["June", "May"]);
     expect(headers[0]!.className).toContain("sticky");
@@ -222,7 +222,7 @@ describe("GalleryGrid — badges, selection, groups, placeholders", () => {
       { ...square("b"), caption: "May" },
       { ...portrait("c"), caption: "June" },
     ];
-    render(<GalleryGrid items={dated} getGroup={(item) => item.caption!} onItemClick={onItemClick} />);
+    render(<GalleryGrid items={dated} groupBy={(item) => item.caption!} onItemClick={onItemClick} />);
     // "c" is the second tile of the first group ("June") but index 2 overall.
     fireEvent.click(screen.getAllByRole("button", { name: "June" })[1]!);
     expect(onItemClick).toHaveBeenCalledWith(expect.objectContaining({ id: "c" }), 2);
@@ -263,7 +263,22 @@ describe("GalleryGrid — parity with native", () => {
   });
 });
 
-describe("GalleryGrid — onNearEnd", () => {
+describe("GalleryGrid — an item with no image", () => {
+  it("draws a neutral 4:3 tile with its alt and caption, still named and clickable", () => {
+    const onItemClick = vi.fn();
+    render(<GalleryGrid items={[{ id: "n", src: "", alt: "Untitled", caption: "No photo yet" }]} onItemClick={onItemClick} />);
+    const tile = screen.getByRole("button", { name: "Untitled" });
+    expect(tile.querySelector("img")).toBeNull();
+    const placeholder = tile.querySelector('[data-slot="gallery-tile-placeholder"]')!;
+    expect(placeholder.getAttribute("aria-hidden")).toBe("true");
+    expect(placeholder.textContent).toBe("UntitledNo photo yet");
+    expect((tile.querySelector('[data-slot="gallery-tile-media"]') as HTMLElement).style.aspectRatio).toMatch(/^1\.333/);
+    fireEvent.click(tile);
+    expect(onItemClick).toHaveBeenCalledWith(expect.objectContaining({ id: "n" }), 0);
+  });
+});
+
+describe("GalleryGrid — loadMore", () => {
   type Callback = (entries: { isIntersecting: boolean }[]) => void;
   let callbacks: Callback[] = [];
   const original = globalThis.IntersectionObserver;
@@ -290,37 +305,47 @@ describe("GalleryGrid — onNearEnd", () => {
 
   const fire = () => act(() => callbacks.forEach((cb) => cb([{ isIntersecting: true }])));
 
-  it("calls onNearEnd once when the sentinel appears, and re-arms when items grow", () => {
+  it("calls loadMore once when the sentinel appears, and re-arms when items grow", () => {
     install();
-    const onNearEnd = vi.fn();
+    const loadMore = vi.fn();
     const first = [square("a"), square("b")];
-    const { rerender } = render(<GalleryGrid items={first} onNearEnd={onNearEnd} />);
+    const { rerender } = render(<GalleryGrid items={first} loadMore={loadMore} />);
     expect(document.querySelector('[data-slot="gallery-sentinel"]')).not.toBeNull();
 
     fire();
     fire();
-    expect(onNearEnd).toHaveBeenCalledTimes(1);
+    expect(loadMore).toHaveBeenCalledTimes(1);
 
-    rerender(<GalleryGrid items={[...first, square("c")]} onNearEnd={onNearEnd} />);
+    rerender(<GalleryGrid items={[...first, square("c")]} loadMore={loadMore} />);
     fire();
-    expect(onNearEnd).toHaveBeenCalledTimes(2);
+    expect(loadMore).toHaveBeenCalledTimes(2);
   });
 
-  it("creates the observer when onNearEnd is set after first commit", () => {
-    install();
+  it("still takes the deprecated onNearEnd and getGroup", () => {
     const onNearEnd = vi.fn();
+    const items = [square("a"), square("b")];
+    install();
+    render(<GalleryGrid items={items} onNearEnd={onNearEnd} getGroup={() => "All"} />);
+    fire();
+    expect(onNearEnd).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("All")).toBeTruthy();
+  });
+
+  it("creates the observer when loadMore is set after first commit", () => {
+    install();
+    const loadMore = vi.fn();
     const items = [square("a")];
     const { rerender } = render(<GalleryGrid items={items} />);
     expect(callbacks.length).toBe(0);
-    rerender(<GalleryGrid items={items} onNearEnd={onNearEnd} />);
+    rerender(<GalleryGrid items={items} loadMore={loadMore} />);
     fire();
-    expect(onNearEnd).toHaveBeenCalledTimes(1);
+    expect(loadMore).toHaveBeenCalledTimes(1);
   });
 
   it("renders without IntersectionObserver (jsdom guard)", () => {
     (globalThis as unknown as { IntersectionObserver: unknown }).IntersectionObserver = undefined;
-    const onNearEnd = vi.fn();
-    render(<GalleryGrid items={[square("a")]} onNearEnd={onNearEnd} />);
-    expect(onNearEnd).not.toHaveBeenCalled();
+    const loadMore = vi.fn();
+    render(<GalleryGrid items={[square("a")]} loadMore={loadMore} />);
+    expect(loadMore).not.toHaveBeenCalled();
   });
 });
