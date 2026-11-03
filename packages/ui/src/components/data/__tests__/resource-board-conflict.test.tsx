@@ -165,6 +165,44 @@ describe("ResourceView mode=board: conflicts", () => {
     await waitFor(() => expect(within(screen.getByTestId("resource-board-conflict")).getByText(/You can't change this task now|wasn't saved/)).toBeTruthy());
   });
 
+  it("shows a keep-mine save that changed no row as a refusal in the sheet", async () => {
+    const { rows, update } = conflicted();
+    render(<ResourceView view={view} mode="board" />, { wrapper: wrap(provider(rows, update as never)) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    raviMovesIt(rows);
+    await moveTo("Write brief", "Done");
+    const sheet = await screen.findByTestId("resource-board-conflict");
+    update.mockImplementationOnce(async () => ({ data: null }) as never);
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole("button", { name: "Keep my version" }));
+    });
+    // Still open, saying nothing was saved, rather than closing as if it had.
+    await waitFor(() => expect(within(screen.getByTestId("resource-board-conflict")).getByText(/was not changed|wasn't saved/)).toBeTruthy());
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it("dims the card while keeping mine saves", async () => {
+    const { rows, update } = conflicted();
+    render(<ResourceView view={view} mode="board" />, { wrapper: wrap(provider(rows, update as never)) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    raviMovesIt(rows);
+    await moveTo("Write brief", "Done");
+    const sheet = await screen.findByTestId("resource-board-conflict");
+    let settle!: () => void;
+    update.mockImplementationOnce(
+      (_r: string, params: { id: string; data: Partial<Task> }) =>
+        new Promise((resolve) => {
+          settle = () => resolve({ data: Object.assign(rows[0]!, params.data, { version: 3 }) });
+        }) as never,
+    );
+    act(() => {
+      fireEvent.click(within(sheet).getByRole("button", { name: "Keep my version" }));
+    });
+    await waitFor(() => expect(screen.getByText("Write brief").closest("button")?.getAttribute("aria-busy")).toBe("true"));
+    await act(async () => settle());
+    await waitFor(() => expect(screen.getByText("Write brief").closest("button")?.getAttribute("aria-busy")).toBeNull());
+  });
+
   it("taking theirs leaves the card where their row puts it", async () => {
     const { rows, update } = conflicted();
     render(<ResourceView view={view} mode="board" />, { wrapper: wrap(provider(rows, update as never)) });
@@ -216,6 +254,21 @@ describe("ResourceView mode=board: edges", () => {
     await waitFor(() => expect(screen.getByTestId("resource-board-fade-end")).toBeTruthy());
     expect(screen.queryByTestId("resource-board-fade-start")).toBeNull();
     metrics.scrollLeft = 400;
+    fireEvent.scroll(strip);
+    await waitFor(() => expect(screen.getByTestId("resource-board-fade-start")).toBeTruthy());
+    expect(screen.queryByTestId("resource-board-fade-end")).toBeNull();
+  });
+
+  it("fades the right edges right to left, where scrollLeft runs negative", async () => {
+    const { rows, update } = conflicted();
+    render(<ResourceView view={view} mode="board" />, { wrapper: wrap(provider(rows, update as never)) });
+    const strip = await screen.findByTestId("resource-board-strip");
+    // At the start (the right edge in RTL) scrollLeft is 0; scrolled to the end it is -400.
+    const metrics = { scrollLeft: 0, clientWidth: 600, scrollWidth: 1000 };
+    for (const key of Object.keys(metrics) as (keyof typeof metrics)[]) {
+      Object.defineProperty(strip, key, { configurable: true, get: () => metrics[key] });
+    }
+    metrics.scrollLeft = -400;
     fireEvent.scroll(strip);
     await waitFor(() => expect(screen.getByTestId("resource-board-fade-start")).toBeTruthy());
     expect(screen.queryByTestId("resource-board-fade-end")).toBeNull();

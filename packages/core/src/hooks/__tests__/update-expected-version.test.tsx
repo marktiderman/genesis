@@ -11,12 +11,17 @@ import { describe, expect, it, vi } from "vitest";
 import { GenesisProvider } from "../../provider/context";
 import type { DataProvider } from "../../provider/types";
 import { useResource } from "../use-resource";
+import { DataWriteError } from "../../schema/write-outcome";
 
 function setup() {
   // The list was read at version 1; someone else has since saved version 2.
   const row: Record<string, unknown> = { id: "t1", title: "T", stage: "todo", version: 1 };
   let version = 2;
+  // A versioned provider: a write sent at any version but the current one is a conflict.
   const update = vi.fn(async (_r: string, params: { id: string; data: Record<string, unknown>; expectedVersion?: string }) => {
+    if (params.expectedVersion !== String(version)) {
+      throw new DataWriteError("conflict", "Someone else changed this task.", { current: { ...row, version }, currentVersion: String(version) });
+    }
     version += 1;
     Object.assign(row, params.data, { version });
     return { data: { ...row } };
@@ -65,12 +70,12 @@ describe("useResource().update with expectedVersion", () => {
     expect(update).toHaveBeenLastCalledWith("tasks", expect.objectContaining({ data: { stage: "doing" }, expectedVersion: "3" }));
   });
 
-  it("without options, sends the cached row's version as before", async () => {
+  it("without options, sends the cached row's version as before (here stale, so a conflict)", async () => {
     const { update, wrapper } = setup();
     const { result } = renderHook(() => useResource("tasks"), { wrapper });
     await vi.waitFor(() => expect(result.current.list.data?.data).toHaveLength(1));
     await act(async () => {
-      await result.current.update("t1", { stage: "done" });
+      await expect(result.current.update("t1", { stage: "done" })).rejects.toMatchObject({ outcome: "conflict" });
     });
     expect(update).toHaveBeenLastCalledWith("tasks", expect.objectContaining({ expectedVersion: "1" }));
   });

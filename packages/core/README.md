@@ -241,7 +241,9 @@ const conflict = writeConflict(error, { title: "Mine" });
 ```
 
 Outside a form, send "keep mine" with `useResource`'s `update(id, data, { expectedVersion })`
-(`UpdateOptions`). It goes through the resource's write path like any update: queued behind another
+(`UpdateOptions`), from a `useResource` in pessimistic mode (the default): a conflict then rejects
+`update` itself, so the screen can show the sheet again. In optimistic and undoable modes `update`
+has already resolved, and a conflict goes to `onError` instead. It goes through the resource's write path like any update: queued behind another
 write of the row, its committed version put into every cached copy, the screen's `onError` and
 invalidations applied. So the next change of that row is checked against it. Calling
 `provider.update` directly skips all of that, and a change made right after it would conflict with
