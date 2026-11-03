@@ -4103,8 +4103,8 @@
       "links": {
         "code": [
           "packages/support/migrations/0004_genesis_support_tickets.sql",
-          "packages/support/migrations/0005_genesis_support_chat_tickets.sql",
-          "packages/support/migrations/0006_genesis_support_email_tickets.sql",
+          "packages/support/migrations/0006_genesis_support_chat_tenants.sql",
+          "packages/support/migrations/0008_genesis_support_email_tenants.sql",
           "packages/support/src/client.ts"
         ],
         "docs": [
