@@ -17,6 +17,7 @@ pnpm add @marktiderman/genesis-design-system
 | `./schema/brand`, `./schema/brand.schema.json` | `CanonicalBrand`, `validateBrand`, `brandContrastProblems`, and the JSON Schema. |
 | `./themes/genesis.css`, `./themes/genesis-tailwind4.css` | The default theme and the Tailwind v4 bridge. |
 | `./tokens`, `./tokens/native`, `./presets/*`, `./theme`, `./providers/native` | Tokens, presets and the theme provider. |
+| `./tokens/motion` | `resolveMotion`, the shared durations, easings and springs (web CSS and native alike). No runtime imports. |
 
 ## A brand
 
@@ -94,7 +95,7 @@ of the brand's own (a preview of a swap). The brand's choices still apply.
 |---|---|
 | `density` | `compact`, `normal`, `generous` (section padding) |
 | `corners` | `square`, `crisp`, `soft`, `round`, `friendly` |
-| `motion` | `none`, `calm`, `lively`, `bold` (CSS only; reduced motion means none) |
+| `motion` | `none`, `calm`, `lively`, `bold` (web CSS and, through genesis-ui-native's `useMotion`, native; reduced motion means none) |
 
 **Shipped:** `classic@1` (no tokens: the host's own look, the default),
 `crisp@1` (cool ground, hairlines, small corners, flat, calm) and `soft@1`
@@ -147,7 +148,7 @@ A host reads each with its own value as the fallback:
 | `shape` | `--ds-radius-{sm,md,lg,button,image}`, genesis-ui's `--radius` (so `rounded-xl` cards get `md`), `--radius-2xl`, `--ds-border-width`, `--ds-shadow-1…3` (ink-tinted; none in dark mode) |
 | `surfaces` | `--ds-ground`, `--ds-ground-raised`, `--ds-ground-sunk`, `--ds-ink`, `--ds-ink-quiet`, `--ds-border`, `--ds-input-border`, `--ds-accent-{fill,text,edge,tint}`, `--ds-on-{accent,tint,inverse}`, `--ds-inverse`, `--ds-focus`, `--ds-scrim-full`, `--ds-secondary-*`, and genesis-ui's roles (`--background`, `--primary`, `--muted-foreground`, … as HSL triplets) |
 | `image` | `--ds-image-filter`, `--ds-image-grain` |
-| `motion` | `--ds-ease-{out,swift,in-out}`, `--ds-dur-{press,hover,ui,reveal,media}`, `--ds-reveal` and `--ds-reveal-phone` (the keyframes to run, `ds-rise` or `ds-clip`, which the host's stylesheet defines), `--ds-reveal-distance`, `--ds-reveal-range`, `--ds-hover-lift` |
+| `motion` | `--ds-ease-{out,swift,in-out,decelerate}`, `--ds-dur-{press,fast,hover,base,ui,reveal,media}` (from `resolveMotion`; a host gates them with `prefers-reduced-motion`), `--ds-reveal` and `--ds-reveal-phone` (the keyframes to run, `ds-rise` or `ds-clip`, which the host's stylesheet defines), `--ds-reveal-distance`, `--ds-reveal-range`, `--ds-hover-lift` |
 
 ## The colour engine
 

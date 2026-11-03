@@ -73,6 +73,8 @@ export {
   type ThreadComposer,
   type ThreadLabels,
   type ThreadMessage,
+  type ThreadMessageStatus,
+  type MessageTone,
   type ThreadPageProps,
   type ThreadPageSlotMap,
 } from "./thread-page";

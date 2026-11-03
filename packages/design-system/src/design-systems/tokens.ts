@@ -10,6 +10,7 @@
  * host reads each token with a fallback, `var(--ds-text-h2, <its own>)`.
  */
 import { FONT_CLASSES, type FontClass } from "../fonts";
+import { motionCssVariables } from "../tokens/motion";
 import { RADIUS_SCALE } from "../tokens/spacing";
 import { hexToHslTriplet, palette, rolePairs, type ColorRoles, type ContrastPair, type Palette, type PaletteInput } from "./color";
 import {
@@ -74,7 +75,7 @@ const IMAGE_FILTER_CSS = {
   mono: "grayscale(1) contrast(1.1)",
 } as const;
 
-interface MotionTokens {
+interface RevealTokens {
   /** The keyframes a reveal runs: `ds-rise`, `ds-clip`, or `none`. The host's stylesheet defines them. */
   reveal: string;
   /** On phones (`bold` falls back to `calm`'s reveal there). */
@@ -85,7 +86,7 @@ interface MotionTokens {
   lift: string;
 }
 
-const MOTION: Record<MotionLevel, MotionTokens> = {
+const MOTION: Record<MotionLevel, RevealTokens> = {
   none: { reveal: "none", revealPhone: "none", distance: "0px", range: "normal", lift: "0px" },
   calm: { reveal: "ds-rise", revealPhone: "ds-rise", distance: "16px", range: "entry 0% cover 35%", lift: "-2px" },
   lively: { reveal: "ds-rise", revealPhone: "ds-rise", distance: "24px", range: "entry 0% cover 25%", lift: "-3px" },
@@ -250,14 +251,7 @@ export function designSystemTheme(ds: DesignSystem, input: DesignSystemTokenInpu
   if (ds.motion) {
     const m = MOTION[choices.motion];
     Object.assign(shared, {
-      "--ds-ease-out": "cubic-bezier(0.22, 1, 0.36, 1)",
-      "--ds-ease-swift": "cubic-bezier(0.2, 0.75, 0.5, 1)",
-      "--ds-ease-in-out": "cubic-bezier(0.65, 0, 0.35, 1)",
-      "--ds-dur-press": choices.motion === "none" ? "0ms" : "120ms",
-      "--ds-dur-hover": "200ms",
-      "--ds-dur-ui": choices.motion === "none" ? "0ms" : "320ms",
-      "--ds-dur-reveal": choices.motion === "none" ? "0ms" : "700ms",
-      "--ds-dur-media": choices.motion === "none" ? "0ms" : "1100ms",
+      ...motionCssVariables(choices.motion),
       "--ds-reveal": m.reveal,
       "--ds-reveal-phone": m.revealPhone,
       "--ds-reveal-distance": m.distance,

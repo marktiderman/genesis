@@ -7,6 +7,8 @@
  */
 
 export { useReducedMotion } from "./use-reduced-motion";
+export { useThreadJump, JUMP_SETTLE_MS, type UseThreadJumpOptions } from "./use-thread-jump";
+export { useMotion, animateMotion, motionSpring, motionTiming, type UseMotionOptions, type MotionHow, type MotionSpringConfig, type MotionTimingConfig } from "./use-motion";
 export { useThemeMode, type ThemeMode } from "./use-theme-mode";
 export { useThemeRoles, type ThemeRoleColors, type UseThemeRolesOptions } from "./use-theme-roles";
 export {

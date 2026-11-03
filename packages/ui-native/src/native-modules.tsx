@@ -31,6 +31,7 @@
  * | `symbol` (expo-symbols)        | NativeIcon on iOS                        | `icons` (lucide)              |
  * | `icons` (a lucide icon set)    | NativeIcon on Android, web, and as the SF Symbol fallback | a blank space of the icon's size |
  * | `datePicker` (@expo/ui)        | NativeDatePicker, NativeTimePicker       | @react-native-community/datetimepicker |
+ * | `keyboardAvoidingView` (react-native-keyboard-controller's `KeyboardAvoidingView`) | ThreadPage: the composer follows the keyboard frame by frame (`translate-with-padding`) | React Native `KeyboardAvoidingView` |
  * | `navigation` (React Navigation's theming: from `expo-router` in an Expo Router app, which bundles its own copy; `@react-navigation/native` otherwise) | GenesisNativeApp: headers and tab bars in the brand's light and dark colors | React Navigation's default (light) theme |
  *
  * The props below are written structurally (no import of the optional
@@ -90,9 +91,11 @@ export interface GenesisReanimatedModule {
   useSharedValue: <V>(initial: V) => { value: V };
   useAnimatedStyle: (updater: () => Record<string, unknown>, deps?: unknown[]) => Record<string, unknown>;
   withTiming: (toValue: number, config?: { duration?: number; easing?: unknown; reduceMotion?: unknown }, callback?: (finished?: boolean) => void) => number;
+  /** Optional so older injected modules and test fakes still fit; `animateMotion` falls back to `withTiming`. */
+  withSpring?: (toValue: number, config?: { damping?: number; stiffness?: number; mass?: number; velocity?: number; reduceMotion?: unknown }, callback?: (finished?: boolean) => void) => number;
   withRepeat: (animation: number, numberOfReps?: number, reverse?: boolean, callback?: unknown, reduceMotion?: unknown) => number;
   cancelAnimation: (value: { value: unknown }) => void;
-  Easing: { inOut: (easing: unknown) => unknown; ease: unknown; out: (easing: unknown) => unknown; cubic: unknown };
+  Easing: { inOut: (easing: unknown) => unknown; ease: unknown; out: (easing: unknown) => unknown; cubic: unknown; bezier?: (x1: number, y1: number, x2: number, y2: number) => unknown };
   ReduceMotion?: { System: unknown; Always: unknown; Never: unknown };
 }
 
@@ -169,6 +172,15 @@ export interface GenesisNavigationModule {
 }
 
 /** Every optional native module Genesis components can use. Each is optional on its own. */
+/** react-native-keyboard-controller's `KeyboardAvoidingView`, written structurally (the same shape as genesis-chat's). */
+export type KeyboardAvoidingLike = ComponentType<{
+  behavior?: "height" | "padding" | "position" | "translate-with-padding";
+  keyboardVerticalOffset?: number;
+  automaticOffset?: boolean;
+  children?: ReactNode;
+  testID?: string;
+}>;
+
 export interface GenesisModules {
   list?: GenesisListComponent;
   image?: GenesisImageComponent;
@@ -178,6 +190,8 @@ export interface GenesisModules {
   icons?: GenesisIconSet;
   datePicker?: GenesisDatePickerComponent;
   navigation?: GenesisNavigationModule;
+  /** react-native-keyboard-controller's `KeyboardAvoidingView` (it takes `behavior: "translate-with-padding"`). */
+  keyboardAvoidingView?: KeyboardAvoidingLike;
 }
 
 const EMPTY: GenesisModules = Object.freeze({});

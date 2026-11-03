@@ -1,9 +1,9 @@
 // @feat:inbox-thread
-import { forwardRef, useImperativeHandle, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ThreadPage, getThreadPageStackOptions, readReceiptFor, type ThreadMessage } from "../thread-page";
-import { KeyboardScrollProvider, type KeyboardScrollProps } from "../keyboard";
+import { GenesisModulesProvider } from "../../native-modules";
 
 const messages: ThreadMessage[] = [
   { id: "1", body: "The save button does nothing", mine: true, timestamp: "2026-10-24T09:00:00Z" },
@@ -99,27 +99,127 @@ describe("ThreadPage", () => {
     expect(screen.getByTestId("t-empty").textContent).toContain("Say hello");
   });
 
-  it("falls back to a KeyboardAvoidingView without a keyboard scroll view", () => {
+  it("sits in React Native's KeyboardAvoidingView without the keyboard module", () => {
     render(<ThreadPage testID="t" messages={messages} composer={composer()} />);
-    expect(screen.getByTestId("t-kav")).toBeTruthy();
-    expect(screen.queryByTestId("t-keyboard")).toBeNull();
+    const keyboard = screen.getByTestId("t-keyboard");
+    expect(keyboard.querySelector('[data-testid="t-composer-input"]')).toBeTruthy();
+    expect(keyboard.querySelector('[data-testid="t-messages"]')).toBeTruthy();
   });
 
-  it("puts the messages and the composer in the app's keyboard scroll view, and scrolls to the newest", () => {
-    const scrollToEnd = vi.fn();
-    const Scroll = forwardRef<unknown, KeyboardScrollProps & { children?: ReactNode }>(function Scroll({ children, testID }, ref) {
-      useImperativeHandle(ref, () => ({ scrollToEnd }));
+  it("follows the keyboard frame by frame with the app's keyboard-controller KeyboardAvoidingView", () => {
+    const seen: Record<string, unknown>[] = [];
+    const Kav = ({ children, testID, ...rest }: Record<string, unknown> & { children?: ReactNode; testID?: string }) => {
+      seen.push(rest);
       return <div data-testid={testID}>{children}</div>;
-    });
+    };
+    render(
+      <GenesisModulesProvider modules={{ keyboardAvoidingView: Kav }}>
+        <ThreadPage testID="t" messages={messages} composer={composer()} keyboardVerticalOffset={64} />
+      </GenesisModulesProvider>,
+    );
+    expect(seen.at(-1)).toMatchObject({ behavior: "translate-with-padding", automaticOffset: true, keyboardVerticalOffset: 64 });
+  });
+
+  it("shows events as centred lines, and keeps them out of the read receipt", () => {
+    const withEvent: ThreadMessage[] = [...messages, { id: "e", kind: "event", body: "Sam was assigned", mine: true, timestamp: "2026-10-24T09:20:00Z" }];
+    render(<ThreadPage testID="t" messages={withEvent} composer={composer()} readAt="2026-10-24T10:00:00Z" />);
+    expect(screen.getByTestId("t-event-e").textContent).toBe("Sam was assigned");
+    expect(screen.queryByTestId("t-message-e")).toBeNull();
+    expect(readReceiptFor(withEvent, "2026-10-24T10:00:00Z")).toBe("3");
+  });
+
+  it("marks the first unread with a divider", () => {
+    render(<ThreadPage testID="t" messages={messages} composer={composer()} firstUnreadId="2" labels={{ newMessages: "Unread" }} />);
+    expect(screen.getByTestId("t-unread").textContent).toBe("Unread");
+  });
+
+  it("says each send state, and discards on request", () => {
+    const onDiscard = vi.fn();
+    const rows: ThreadMessage[] = [
+      { id: "p", body: "a", mine: true, timestamp: "2026-10-24T09:00:00Z", status: "pending" },
+      { id: "z", body: "b", mine: true, timestamp: "2026-10-24T09:00:00Z", status: "paused" },
+      { id: "c", body: "c", mine: true, timestamp: "2026-10-24T09:00:00Z", status: "conflict", onRetry: vi.fn(), onDiscard },
+    ];
+    render(<ThreadPage testID="t" messages={rows} composer={composer()} />);
+    expect(screen.getByTestId("t-message-p-time").textContent).toBe("Waiting to send");
+    expect(screen.getByTestId("t-message-z-time").textContent).toBe("Sign in to send");
+    expect(screen.getByTestId("t-message-c-time").textContent).toMatch(/changed elsewhere/);
+    fireEvent.click(screen.getByTestId("t-message-c-discard"));
+    expect(onDiscard).toHaveBeenCalled();
+  });
+
+  it("says it's updating while fresher rows load", () => {
+    render(<ThreadPage testID="t" messages={messages} composer={composer()} updating />);
+    expect(screen.getByTestId("t-updating").textContent).toBe("Updating…");
+  });
+
+  it("tints an internal note, and the composer in its internal mode", () => {
+    const rows: ThreadMessage[] = [{ id: "n", body: "Check the logs", mine: true, tone: "internal", timestamp: "2026-10-24T09:00:00Z" }];
+    const onModeChange = vi.fn();
+    render(
+      <ThreadPage
+        testID="t"
+        messages={rows}
+        composer={composer({ modes: [{ id: "reply", label: "Reply" }, { id: "note", label: "Internal note", tone: "internal" }], mode: "note", onModeChange })}
+      />,
+    );
+    expect(screen.getByTestId("t-composer-mode-note").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("t-composer-input").getAttribute("placeholder")).toBe("Internal note");
+    fireEvent.click(screen.getByTestId("t-composer-mode-reply"));
+    expect(onModeChange).toHaveBeenCalledWith("reply");
+  });
+
+  it("says an internal note is one, to VoiceOver", () => {
+    const rows: ThreadMessage[] = [{ id: "n", body: "Check the logs", mine: true, tone: "internal", timestamp: "2026-10-24T09:00:00Z" }];
+    render(<ThreadPage testID="t" messages={rows} composer={composer()} />);
+    expect(screen.getByTestId("t-message-n").getAttribute("aria-label")).toMatch(/^You, Internal note, Check the logs/);
+  });
+
+  it("offers Discard only on a message that hasn't gone", () => {
+    const onDiscard = vi.fn();
+    const rows: ThreadMessage[] = [{ id: "s", body: "sent", mine: true, timestamp: "2026-10-24T09:00:00Z", onDiscard }];
+    render(<ThreadPage testID="t" messages={rows} composer={composer()} />);
+    expect(screen.queryByTestId("t-message-s-discard")).toBeNull();
+  });
+
+  it("doesn't offer Discard while a message is sending (it may already be on the server)", () => {
+    const onDiscard = vi.fn();
+    const rows: ThreadMessage[] = [
+      { id: "a", body: "a", mine: true, timestamp: "2026-10-24T09:00:00Z", status: "sending", onDiscard },
+      { id: "b", body: "b", mine: true, timestamp: "2026-10-24T09:01:00Z", status: "pending", onDiscard },
+    ];
+    render(<ThreadPage testID="t" messages={rows} composer={composer()} />);
+    expect(screen.queryByTestId("t-message-a-discard")).toBeNull();
+    expect(screen.getByTestId("t-message-b-discard")).toBeTruthy();
+  });
+
+  it("warns in development when keyboard-controller is set up but not passed as keyboardAvoidingView", async () => {
+    const { KeyboardScrollProvider } = await import("../keyboard");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const Scroll = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
     render(
       <KeyboardScrollProvider component={Scroll}>
         <ThreadPage testID="t" messages={messages} composer={composer()} />
       </KeyboardScrollProvider>,
     );
-    const scroll = screen.getByTestId("t-keyboard");
-    expect(scroll.querySelector('[data-testid="t-composer-input"]')).toBeTruthy();
-    expect(screen.queryByTestId("t-kav")).toBeNull();
-    expect(scrollToEnd).toHaveBeenCalled();
+    expect(warn.mock.calls.some(([m]) => String(m).includes("keyboardAvoidingView"))).toBe(true);
+    warn.mockRestore();
+  });
+
+  it("shows a skeleton, not the empty state, while the first page loads", () => {
+    render(<ThreadPage testID="t" messages={[]} composer={composer()} loading />);
+    expect(screen.getByTestId("t-messages-loading")).toBeTruthy();
+    expect(screen.queryByTestId("t-empty")).toBeNull();
+  });
+
+  it("pins the header region above the list", () => {
+    const Props = ({ testID }: { testID: string }) => <div data-testid={testID}>Open · Sam</div>;
+    render(<ThreadPage testID="t" messages={messages} composer={composer()} slots={{ headerRegion: Props }} />);
+    const region = screen.getByTestId("t-header-region");
+    expect(region.textContent).toBe("Open · Sam");
+    expect(screen.getByTestId("t-messages").contains(region)).toBe(false);
+    // Outside the keyboard-avoiding view, so it doesn't move with the keyboard.
+    expect(screen.getByTestId("t-keyboard").contains(region)).toBe(false);
   });
 
   it("composes a standard header by default", () => {
