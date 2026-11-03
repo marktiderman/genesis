@@ -6,6 +6,10 @@
  *
  * Render under genesis-chat's `ChatProvider` (from `@marktiderman/genesis-chat/react`) inside a
  * TanStack QueryClientProvider, with a support client made with the `chat` option.
+ *
+ * Moving onto genesis-ui (feature `inbox-thread`): the thread here is genesis-chat's `ChatThread`,
+ * whose rendering moves onto genesis-ui's `ThreadPage` (and `InboxPage`, `ComposerBar`) with
+ * chat's builder. This screen keeps its report header and staff controls and follows that move.
  */
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";

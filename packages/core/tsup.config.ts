@@ -21,6 +21,7 @@ export default defineConfig({
     "src/resource/index.ts",
     "src/resource-view/index.ts",
     "src/gallery/index.ts",
+    "src/conversation/index.ts",
     "src/urls.ts",
     "src/csv.ts",
     "src/errors.ts",

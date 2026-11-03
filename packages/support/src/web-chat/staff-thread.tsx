@@ -2,6 +2,10 @@
  * The staff view of a report on genesis-chat: the report, its status and who has it, and the
  * conversation, where staff reply as observers and write internal notes (the composer's note
  * toggle) the person never sees.
+ *
+ * Moving onto genesis-ui (feature `inbox-thread`): the thread here is genesis-chat's `ChatThread`,
+ * whose rendering moves onto genesis-ui's `ThreadPage` (and `InboxPage`, `ComposerBar`) with
+ * chat's builder. This screen keeps its report header and staff controls and follows that move.
  */
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";

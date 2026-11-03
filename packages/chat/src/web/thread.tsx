@@ -8,6 +8,11 @@
  * With topics, a topic bar filters it; when the other person is away or outside
  * their hours a banner says so; search (in the header) jumps to a message,
  * loading earlier ones as needed; links get preview cards.
+ *
+ * Moving onto genesis-ui (feature `inbox-thread`): its scrolling, list and composer are the same
+ * behaviour as genesis-ui's `ThreadPage`, which were promoted from here. This screen keeps its data
+ * wiring (the chat client, realtime, read state) and moves its rendering onto `ThreadPage` with chat's
+ * builder; until then fix behaviour in both places.
  */
 import {
   useCallback,

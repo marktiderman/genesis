@@ -23,19 +23,13 @@
  */
 import { useEffect, type ReactNode } from "react";
 import { AccessibilityInfo, ActivityIndicator, Dimensions, Platform, Pressable, TextInput, View } from "react-native";
+import type { ComposerMode } from "@marktiderman/genesis-core/conversation";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
 import { NativeIcon } from "./icon";
 import { NativeText } from "./text";
 
-/** How a mode reads: `default`, or `internal` (staff only: tinted, never mistaken for a reply). */
-export type ComposerTone = "default" | "internal";
-
-export interface ComposerMode {
-  id: string;
-  label: string;
-  tone?: ComposerTone;
-}
+export type { ComposerMode, ComposerTone } from "@marktiderman/genesis-core/conversation";
 
 export interface NativeComposerBarProps {
   value: string;
