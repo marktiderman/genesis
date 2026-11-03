@@ -1,5 +1,5 @@
 import type { Query, QueryCacheNotifyEvent, QueryClient } from "@tanstack/react-query";
-import { userPrefix, type CacheOp, type CacheScope, type LocalCache, type QueryPersistence, type StoredQuery, type StoredRow } from "./types";
+import { userPrefix, type CacheOp, type CacheScope, type LocalCache, type QueryPersistence, type StoredQuery, type StoredRow, type SubscribeOptions } from "./types";
 
 /** Options for {@link persistOffline}. */
 export interface PersistOfflineOptions {
@@ -204,15 +204,18 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
       }
     };
 
-    const subscribe = (raw: string) => {
+    const subscribe = (raw: string, options: SubscribeOptions = {}) => {
       const scope = toScope(raw);
       if (!scope) return () => {};
       const mine = ++saves;
       people.add(scope.slice(2, scope.indexOf("|")));
       // What each read was when it came back: saved later, but never what the client changed since.
       const pending = new Map<string, { queryKey: readonly unknown[]; data: unknown; fetchedAt: number }>();
-      // Reads already on their way when this started belong to the scope before: never saved here.
-      const before = new Set(queryClient.getQueryCache().getAll().filter((q) => q.state.fetchStatus === "fetching").map((q) => q.queryHash));
+      // Reads already on their way when this started belong to the scope before: never saved here,
+      // unless they're this scope's (`adopt`).
+      const before = options.adopt
+        ? new Set<string>()
+        : new Set(queryClient.getQueryCache().getAll().filter((q) => q.state.fetchStatus === "fetching").map((q) => q.queryHash));
       let timer: ReturnType<typeof setTimeout> | undefined;
       let first = true;
 
@@ -264,6 +267,17 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
         pending.set(event.query.queryHash, { queryKey: event.query.queryKey, data, fetchedAt: dataUpdatedAt });
         timer ??= setTimeout(flush, throttleMs);
       });
+      if (options.adopt) {
+        // The reads this scope made before saving started, saved as they stand: a screen's query
+        // (one with a queryFn) that has data. A value only ever put in the client (setQueryData,
+        // no queryFn) isn't a read, and is never adopted.
+        for (const query of queryClient.getQueryCache().getAll()) {
+          const { status, data, dataUpdatedAt } = query.state;
+          if (status !== "success" || data === undefined || !dataUpdatedAt || !query.options.queryFn || !keptQuery(query)) continue;
+          pending.set(query.queryHash, { queryKey: query.queryKey, data, fetchedAt: dataUpdatedAt });
+        }
+        if (pending.size) timer ??= setTimeout(flush, throttleMs);
+      }
       return () => {
         unsubscribe();
         if (timer) clearTimeout(timer);

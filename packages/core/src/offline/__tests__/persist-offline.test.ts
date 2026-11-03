@@ -403,3 +403,29 @@ describe("persistOffline, bounds", () => {
     expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "List v3" });
   });
 });
+
+describe("persistOffline, adopting the reads a scope made before saving started", () => {
+  it("saves a read already settled and one still on its way, when told they're this scope's", async () => {
+    const { client, persistence, cache } = setup();
+    await client.fetchQuery({ queryKey: detail, queryFn: async () => ({ id: 1, title: "Settled" }) });
+    let answer: (v: unknown) => void = () => {};
+    const inFlight = client.fetchQuery({ queryKey: list, queryFn: () => new Promise((r) => (answer = r)) });
+    const stop = persistence.subscribe(ANA, { adopt: true });
+    answer({ data: rows, total: 2 });
+    await inFlight;
+    await settle();
+    stop();
+    const keys = (await cache.readQueries(ANA)).map((q) => q.key);
+    expect(keys).toHaveLength(3); // the meta, the record and the list
+    expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "One" });
+  });
+
+  it("never adopts a value only ever put in the client, only a screen's reads", async () => {
+    const { client, persistence, cache } = setup();
+    client.setQueryData(list, { data: [{ id: 1, title: "Unsaved" }], total: 1 });
+    const stop = persistence.subscribe(ANA, { adopt: true });
+    await settle();
+    stop();
+    expect(await cache.readRows(ANA, "tasks", ["1"])).toEqual([]);
+  });
+});

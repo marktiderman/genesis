@@ -144,4 +144,28 @@ describe("GenesisProvider with persist", () => {
     app(cache, never, cacheScope("ana"), "ana");
     expect(await screen.findByText("One")).toBeTruthy();
   });
+
+  it("saves the first read after the session loads, so the next start opens it from the device", async () => {
+    const cache = memoryLocalCache();
+    const provider = { getList: vi.fn(async () => ({ data: [{ id: 1, title: "First load" }], total: 1 })), getOne: vi.fn(), getMany: vi.fn(), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const persist = persistOffline({ cache, resources: ["tasks"], buster: "v1", throttleMs: 0 });
+    const tree = (scope: string | null | undefined) => (
+      <GenesisProvider provider={provider} queryClient={client} persist={persist} persistScope={scope}>
+        <Titles />
+      </GenesisProvider>
+    );
+    // The session is still loading: the screen reads anyway.
+    const view = render(tree(undefined));
+    expect(await screen.findByText("First load")).toBeTruthy();
+    // Then it turns out to be Ana's.
+    view.rerender(tree(cacheScope("ana")));
+    await waitFor(async () => expect((await cache.readQueries(cacheScope("ana"))).length).toBeGreaterThan(1));
+    view.unmount();
+
+    // Next start: the network never answers, and the list opens from the device.
+    const never = vi.fn(() => new Promise(() => {})) as unknown as DataProvider["getList"];
+    app(cache, never);
+    expect(await screen.findByText("First load")).toBeTruthy();
+  });
 });

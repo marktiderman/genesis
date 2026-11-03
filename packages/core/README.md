@@ -484,7 +484,9 @@ export function Root({ provider, userId }: { provider: DataProvider; userId: str
   `persistScope={null}` (nobody signed in) deletes them all. So a session that ended outside the
   app (it expired, or was signed out elsewhere) leaves nothing on a shared device for the next
   person. While the session is still loading, pass `undefined`: nothing is restored, saved or
-  deleted. A sign-out also calls off a restore still reading.
+  deleted, and the reads the screens make meanwhile are saved once the scope arrives (they're
+  this session's). A change from another person or workspace never carries reads over. A sign-out
+  also calls off a restore still reading.
 - **`ViewerScope` keeps them.** Inside this provider, a `ViewerScope` whose first viewer is
   `persistScope`'s user keeps the restored reads instead of emptying the cache.
 - **Only what the server said.** A read is kept when a fetch comes back, never an optimistic
