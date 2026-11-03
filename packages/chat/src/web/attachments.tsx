@@ -5,18 +5,9 @@
  * form, a lesson) through the `attachment` slot, a generic card by default.
  * Pending uploads draw from their local previews with a spinner.
  */
-import { useCallback, useState, type ComponentType, type KeyboardEvent } from "react";
-import { ChevronLeft, ChevronRight, Download, FileText, Link2, Paperclip } from "lucide-react";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  Spinner,
-  VisuallyHidden,
-  cn,
-} from "@marktiderman/genesis-ui";
+import { useMemo, useState, type ComponentType } from "react";
+import { Download, FileText, Link2, Paperclip } from "lucide-react";
+import { Button, Lightbox as GenesisLightbox, Spinner, cn, type GalleryItem } from "@marktiderman/genesis-ui";
 import type { ChatAttachment, ChatMessage } from "../core/types";
 import type { ChatAttachmentKind, ChatCardContext } from "../react/index";
 import { ChatAttachmentCard, type ChatAttachmentCardProps } from "./cards";
@@ -156,7 +147,7 @@ export function ImageGrid({ images, className }: ImageGridProps) {
           );
         })}
       </div>
-      <Lightbox images={images} index={open} onIndexChange={setOpen} />
+      <ChatLightbox images={images} index={open} onIndexChange={setOpen} />
     </>
   );
 }
@@ -168,52 +159,45 @@ export interface LightboxProps {
   onIndexChange: (index: number | null) => void;
 }
 
-/** A photo full size, with the previous and next ones on the arrow keys. */
-export function Lightbox({ images, index, onIndexChange }: LightboxProps) {
-  const img = index === null ? null : images[index];
-  const go = useCallback(
-    (delta: number) => {
-      if (index === null || images.length < 2) return;
-      onIndexChange((index + delta + images.length) % images.length);
-    },
-    [images.length, index, onIndexChange],
+/** A message's photos full size: genesis-ui's `Lightbox` (arrow keys, a counter, focus kept on the arrows), fed chat's attachments. */
+function ChatLightbox({ images, index, onIndexChange }: LightboxProps) {
+  // Only photos with a link open: one still uploading has nothing to show full size. `at` maps
+  // between the viewer's positions and `images`' indexes.
+  const at = useMemo(() => images.flatMap((img, i) => (img.url ? [i] : [])), [images]);
+  const items = useMemo<GalleryItem[]>(
+    () =>
+      at.map((i) => {
+        const img = images[i]!;
+        return {
+          id: img.key,
+          src: img.url!,
+          alt: img.name ?? "Photo",
+          ...(img.width ? { width: img.width } : {}),
+          ...(img.height ? { height: img.height } : {}),
+        };
+      }),
+    [images, at],
   );
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === "ArrowRight") {
-      e.preventDefault();
-      go(1);
-    } else if (e.key === "ArrowLeft") {
-      e.preventDefault();
-      go(-1);
-    }
-  };
+  const shown = index === null ? -1 : at.indexOf(index);
   return (
-    <Dialog open={img != null} onOpenChange={(o) => !o && onIndexChange(null)}>
-      <DialogContent className="max-w-[min(64rem,95vw)] border-0 bg-background p-2" onKeyDown={onKey} data-testid="genesis-chat-lightbox">
-        <VisuallyHidden>
-          <DialogTitle>{img?.name ?? "Photo"}</DialogTitle>
-          <DialogDescription>
-            Photo {index === null ? 0 : index + 1} of {images.length}. Use the arrow keys for the others.
-          </DialogDescription>
-        </VisuallyHidden>
-        {img?.url ? <img src={img.url} alt={img.name ?? "Photo"} className="mx-auto max-h-[80vh] w-auto rounded-md object-contain" /> : null}
-        {images.length > 1 ? (
-          <div className="flex items-center justify-between gap-2">
-            <Button type="button" variant="ghost" size="icon" onClick={() => go(-1)} aria-label="Previous photo">
-              <ChevronLeft />
-            </Button>
-            <span className="text-sm tabular-nums text-muted-foreground">
-              {(index ?? 0) + 1} / {images.length}
-            </span>
-            <Button type="button" variant="ghost" size="icon" onClick={() => go(1)} aria-label="Next photo">
-              <ChevronRight />
-            </Button>
-          </div>
-        ) : null}
-      </DialogContent>
-    </Dialog>
+    <GenesisLightbox
+      open={shown !== -1}
+      onOpenChange={(open) => !open && onIndexChange(null)}
+      items={items}
+      index={Math.max(0, shown)}
+      onIndexChange={(i) => onIndexChange(at[i] ?? null)}
+      labels={{ previous: "Previous photo", next: "Next photo", photo: (n, count) => `Photo ${n} of ${count}` }}
+      className="genesis-chat-lightbox"
+    />
   );
 }
+
+/**
+ * @deprecated Chat's photo grid opens its photos itself. To show photos full size elsewhere, render
+ * `Lightbox` from `@marktiderman/genesis-ui` with `GalleryItem`s. This adapter is removed in a
+ * later minor.
+ */
+export const Lightbox = ChatLightbox;
 
 /** A video: a hosted one (Mux) streams once ready and says "Processing…" until then; a file plays from storage. */
 export function VideoAttachment({ view }: { view: AttachmentView }) {

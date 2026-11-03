@@ -113,7 +113,9 @@ thread's header options.
 
 The parts (`ChatComposer`, `MessageBubble`, `MessageActionsSheet`, `VoiceNotePlayer`,
 `ChatPhotoViewer`, `ChatEmojiPicker`, `ChatStartSheet`, `ChatBroadcastSheet`) build your own
-screen, and the logic under them (`composerReducer`, `buildThreadRows`, `useChatComposer`,
+screen. `ChatPhotoViewer` is genesis-ui-native's `NativeLightbox` with chat's words and its Save
+and Share buttons, and on the web chat's photos open in genesis-ui's `Lightbox`: one photo viewer
+across the app, and the logic under them (`composerReducer`, `buildThreadRows`, `useChatComposer`,
 `useVoiceRecorder`) is exported too. Glue: `createTusUpload` (resumable uploads for
 `ChatProvider upload`), and for genesis-native's push block the `messages` category with Reply and
 Mark read (`registerChatNotificationActions`, `handleChatPushResponse`, `chatThreadMatch`, also on

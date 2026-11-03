@@ -307,18 +307,20 @@ function LightboxBody({
               )
             ) : null}
             {/* With photo pages the page reads the position and the counter is for the eye; with
-                renderMedia pages the counter is the pager. */}
+                renderMedia pages the counter is the pager. One picture has no counter. */}
             {renderMedia ? (
               <View {...pagerA11y}>
-                <Text testID={`${testID}-counter`} className="text-xs font-medium text-white/70">
-                  {items.length > 0 ? `${current + 1} / ${items.length}` : ""}
-                </Text>
+                {many ? (
+                  <Text testID={`${testID}-counter`} className="text-xs font-medium text-white/70">
+                    {`${current + 1} / ${items.length}`}
+                  </Text>
+                ) : null}
               </View>
-            ) : (
+            ) : many ? (
               <Text testID={`${testID}-counter`} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden className="text-xs font-medium text-white/70">
-                {items.length > 0 ? `${current + 1} / ${items.length}` : ""}
+                {`${current + 1} / ${items.length}`}
               </Text>
-            )}
+            ) : null}
           </View>
           <View testID={`${testID}-actions`} className="min-w-11 flex-row items-center justify-end gap-1">
             {item && renderActions ? renderActions(item, current) : null}
