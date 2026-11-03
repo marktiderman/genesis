@@ -68,7 +68,7 @@ const dock = useChatDock();
 |---|---|
 | `ChatDockProvider` | The dock's state: `max` (3), `onExpand(item)` (no expand button for conversations without it), `storageKey` (keep the open conversations across reloads, per signed-in person; they come back as bars after hydration, and ones that no longer exist are dropped). |
 | `useChatDock()` | `open(conversationId, { title, minimized })`, `openPanel({ id, title, render, icon, unread, onExpand })`, `updatePanel(id, { unread, title })` (in place, for a live unread count), `close`, `closeAll`, `minimize`, `restore`, `activate` (the sheet's tab), `bringToFront` (one behind "+N"), `expand`, `items`. `useOptionalChatDock()` is null without a provider, for a button that docks when the app has a dock and navigates when it doesn't. |
-| `ChatDock` | The windows, or the sheet and bubble. Render it once, in AppShell's `dock` slot (fixed bottom-right, clear of the phone's bottom bar). `threadProps` go to every docked thread; `labels` change its words. |
+| `ChatDock` | The windows, or the sheet and bubble. Render it once, in AppShell's `dock` slot (fixed bottom-right, clear of the phone's bottom bar). An open window is 22rem wide and at most 26rem tall, and never more than 60% of the screen's height, so the page stays in view. `threadProps` go to every docked thread; `labels` change its words. |
 | `forgetChatDock(storageKey, userId)` | Clears what the dock kept for someone: call it on sign-out on a shared browser. |
 | `chatDockReducer`, `chatDockWindowsThatFit` | The state machine and the width rule, pure, for your own dock. |
 
