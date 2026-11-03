@@ -119,5 +119,7 @@
     "WizardForm",
     "WorkspaceSwitcher"
   ],
-  "notYet": []
+  "notYet": [
+    "ConflictSheet"
+  ]
 }
