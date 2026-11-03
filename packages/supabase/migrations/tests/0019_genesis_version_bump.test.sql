@@ -1,4 +1,4 @@
--- @feat:data-offline
+-- @feat:versioned-writes
 -- pgTAP test for 0019_genesis_version_bump.sql.
 -- Copy into your app's `supabase/tests/database/` and run `supabase test db`.
 -- It creates only its own temporary tables and rolls everything back.
