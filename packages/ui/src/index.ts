@@ -82,7 +82,7 @@ export { Calendar, CalendarDayButton } from "./components/ui/calendar";
 export { DatePicker, type DatePickerProps } from "./components/ui/date-picker";
 export { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, ChartStyle, type ChartConfig, type ChartPayloadItem, type ChartTooltipContentProps } from "./components/ui/chart";
 export { FormField, FormLabel, FormError, FormDescription } from "./components/patterns/form-field";
-export type { GalleryItem } from "./components/patterns/gallery-types";
+export { GALLERY_DEFAULTS, type GalleryItem, type GalleryTileAspect } from "./components/patterns/gallery-types";
 export { Rating, nextRating, type RatingProps } from "./components/patterns/rating";
 export { GalleryGrid, type GalleryGridProps, type GallerySelectionDetail } from "./components/patterns/gallery-grid";
 export { justifyRows, galleryItemRatio, DEFAULT_GALLERY_RATIO, type JustifiedRow, type JustifiedTile } from "./components/patterns/gallery-layout";

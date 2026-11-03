@@ -333,9 +333,10 @@ export const FlatList = <T,>(props: {
   refreshControl?: React.ReactNode;
   keyboardShouldPersistTaps?: "always" | "never" | "handled";
   contentInsetAdjustmentBehavior?: "automatic" | "scrollableAxes" | "never" | "always";
+  onEndReached?: (info: { distanceFromEnd: number }) => void;
   testID?: string;
 }) => {
-  const { data = [], renderItem, keyExtractor, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, refreshControl, keyboardShouldPersistTaps, contentInsetAdjustmentBehavior, testID } = props;
+  const { data = [], renderItem, keyExtractor, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, refreshControl, keyboardShouldPersistTaps, contentInsetAdjustmentBehavior, onEndReached, testID } = props;
   // Slots render like FlatList's: an element as is, a component type as <C />.
   const slot = (s: React.ReactNode | React.ComponentType | undefined) =>
     typeof s === "function" ? React.createElement(s as React.ComponentType) : (s ?? null);
@@ -346,6 +347,14 @@ export const FlatList = <T,>(props: {
       role: "list",
       "data-keyboard-should-persist-taps": keyboardShouldPersistTaps,
       "data-content-inset-adjustment-behavior": contentInsetAdjustmentBehavior,
+      // Scrolling to the end stands in as an `endreached` event, as on SectionList's mock.
+      ref: (node: HTMLElement | null) => {
+        if (!node) return;
+        const el = node as HTMLElement & { __end?: () => void };
+        if (el.__end) el.removeEventListener("endreached", el.__end);
+        el.__end = () => onEndReached?.({ distanceFromEnd: 0 });
+        el.addEventListener("endreached", el.__end);
+      },
     },
     refreshControl ?? null,
     slot(ListHeaderComponent),

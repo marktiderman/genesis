@@ -1,25 +1,32 @@
 /**
  * NativeGalleryGrid — photos in rows: justified (each row scaled to fill the
- * width, as in a photo library) or a fixed-column grid of squares.
+ * width, as in a photo library) or a fixed-column grid (square tiles by
+ * default, or each item's own shape with `aspectRatio="item"`).
  *
  * Rows come from the pure `justifyRows`, so the same items pack the same way
- * as the web `GalleryGrid`. The container width comes from `onLayout`; until
- * it is measured nothing is drawn. Tiles are `NativeImage` over a `bg-muted`
- * placeholder sized from the item's ratio (so rows don't reflow while the
- * picture loads), tappable when `onPressItem` is given (or when selecting); `renderItem`
- * replaces the tile's content and `renderBadges` overlays its top-left.
+ * as the web `GalleryGrid`, with the same defaults (`GALLERY_DEFAULTS`) and
+ * the same props, `onItemPress` in place of the web's `onItemClick` (as
+ * `NativeResourcePage` pairs with `ResourcePage`). The container width comes
+ * from `onLayout`; until it is measured nothing is drawn. The rows are a
+ * virtualized `FlatList` (the grid scrolls itself; `header` and `footer` go
+ * above and below), so a long gallery mounts only what's near the screen and
+ * `onNearEnd` fires when scrolling nears the end, for "load more". Tiles are
+ * `NativeImage` over a `bg-muted` placeholder sized from the item's ratio (so
+ * rows don't reflow while the picture loads), tappable when `onItemPress` is
+ * given (or when selecting); `renderItem` replaces the tile's content and
+ * `renderBadges` overlays its top-left.
  *
  * Selection (`selected` + `onSelectionChange`) toggles an id per press, in
- * place of `onPressItem` (as on web), and rings the chosen tiles. `getGroup` lays each group out separately under a
- * header; `onNearEnd` fires once when the last row renders, for paging.
+ * place of `onItemPress` (as on web), and rings the chosen tiles. `getGroup`
+ * lays each group out separately under a header.
  *
  * @stability Beta
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Pressable, Text, View, type LayoutChangeEvent } from "react-native";
+import { useMemo, useState, type ReactNode } from "react";
+import { FlatList, Pressable, Text, View, type LayoutChangeEvent } from "react-native";
 import { cn } from "../utils";
-import { justifyRows } from "./gallery-layout";
-import type { GalleryItem } from "./gallery-types";
+import { galleryItemRatio, justifyRows } from "./gallery-layout";
+import { GALLERY_DEFAULTS, type GalleryItem, type GalleryTileAspect } from "./gallery-types";
 import { NativeImage } from "./image";
 
 export type NativeGalleryLayout = "justified" | "grid";
@@ -30,12 +37,14 @@ export interface NativeGalleryGridProps {
   layout?: NativeGalleryLayout;
   /** Grid layout only: tiles per row. Default 3. */
   columns?: number;
-  /** Justified layout only: target row height in points. Default 160. */
+  /** Grid layout only: each tile's shape, a ratio or `"item"` for the item's own. Default 1 (square), as on web. */
+  aspectRatio?: GalleryTileAspect;
+  /** Justified layout only: target row height in points. Default 180. */
   rowHeight?: number;
   /** Points between tiles. Default 4. */
   gap?: number;
   /** Called on a press. Not called when `onSelectionChange` is set: a press then only toggles the selection. */
-  onPressItem?: (item: GalleryItem, index: number) => void;
+  onItemPress?: (item: GalleryItem, index: number) => void;
   /** Replaces the tile's content (the image by default). */
   renderItem?: (item: GalleryItem, index: number) => ReactNode;
   /** Overlaid top-left of the default tile. */
@@ -43,8 +52,12 @@ export interface NativeGalleryGridProps {
   /** Ids of the selected items. With `onSelectionChange`, a press toggles the tile. */
   selected?: string[];
   onSelectionChange?: (ids: string[], detail: { item: GalleryItem; index: number }) => void;
-  /** Called once when the last row renders; armed again when the item count changes. */
+  /** Called when scrolling nears the last rows (FlatList's `onEndReached`): the hook for "load more". */
   onNearEnd?: () => void;
+  /** Above the first row, scrolling with it. */
+  header?: ReactNode;
+  /** Below the last row (a "Loading more" spinner). */
+  footer?: ReactNode;
   /** Groups items (in order of first appearance), each under a header reading the key. */
   getGroup?: (item: GalleryItem) => string;
   className?: string;
@@ -73,18 +86,26 @@ function groupItems(items: GalleryItem[], getGroup?: (item: GalleryItem) => stri
   return groups;
 }
 
+/** One line of the list: a group's header, or a row of tiles with their sizes. */
+type Line =
+  | { kind: "header"; key: string; group: string }
+  | { kind: "row"; key: string; group: string | null; first: boolean; tiles: { item: GalleryItem; index: number; width: number; height: number }[] };
+
 export function NativeGalleryGrid({
   items,
   layout = "justified",
-  columns = 3,
-  rowHeight = 160,
-  gap = 4,
-  onPressItem,
+  columns = GALLERY_DEFAULTS.columns,
+  aspectRatio = 1,
+  rowHeight = GALLERY_DEFAULTS.rowHeight,
+  gap = GALLERY_DEFAULTS.gap,
+  onItemPress,
   renderItem,
   renderBadges,
   selected,
   onSelectionChange,
   onNearEnd,
+  header,
+  footer,
   getGroup,
   className,
   testID = "native-gallery-grid",
@@ -99,15 +120,42 @@ export function NativeGalleryGrid({
   const selectedIds = selected ?? [];
   const isSelected = (item: GalleryItem) => selectedIds.includes(item.id);
 
-  // onNearEnd fires once per item count, after the rows (so the last one) have rendered.
-  const measured = width > 0 && items.length > 0;
-  const firedFor = useRef<number | null>(null);
-  useEffect(() => {
-    if (!measured || !onNearEnd) return;
-    if (firedFor.current === items.length) return;
-    firedFor.current = items.length;
-    onNearEnd();
-  }, [measured, items.length, onNearEnd]);
+  const lines = useMemo<Line[]>(() => {
+    if (width <= 0) return [];
+    const out: Line[] = [];
+    groupItems(items, getGroup).forEach((group) => {
+      if (group.key !== null) out.push({ kind: "header", key: `h:${group.key}`, group: group.key });
+      const rows: Line[] = [];
+      if (layout === "grid") {
+        const cols = Math.max(1, Math.floor(columns));
+        const side = (width - gap * (cols - 1)) / cols;
+        for (let i = 0; i < group.entries.length; i += cols) {
+          const slice = group.entries.slice(i, i + cols);
+          // A row is as tall as its tallest tile ("item" shapes differ); squares by default.
+          const heights = slice.map(({ item }) => side / (aspectRatio === "item" ? galleryItemRatio(item) : aspectRatio));
+          rows.push({
+            kind: "row",
+            key: `r:${group.key ?? ""}:${i}`,
+            group: group.key,
+            first: i === 0,
+            tiles: slice.map(({ item, index }, n) => ({ item, index, width: side, height: heights[n]! })),
+          });
+        }
+      } else {
+        justifyRows(group.entries.map((e) => e.item), width, rowHeight, gap).forEach((row, r) => {
+          rows.push({
+            kind: "row",
+            key: `r:${group.key ?? ""}:${r}`,
+            group: group.key,
+            first: r === 0,
+            tiles: row.tiles.map((t) => ({ item: t.item, index: group.entries[t.index]!.index, width: t.width, height: t.height })),
+          });
+        });
+      }
+      out.push(...rows);
+    });
+    return out;
+  }, [width, items, getGroup, layout, columns, aspectRatio, rowHeight, gap]);
 
   const press = (item: GalleryItem, index: number) => {
     if (onSelectionChange) {
@@ -115,7 +163,7 @@ export function NativeGalleryGrid({
       onSelectionChange(next, { item, index });
       return;
     }
-    onPressItem?.(item, index);
+    onItemPress?.(item, index);
   };
 
   const tile = (item: GalleryItem, index: number, size: { width: number; height: number }) => {
@@ -135,7 +183,7 @@ export function NativeGalleryGrid({
     );
     const tileID = `${testID}-item-${item.id}`;
     const tileClass = cn("overflow-hidden rounded-md bg-muted", chosen && "border-2 border-ring");
-    if (onPressItem || selecting) {
+    if (onItemPress || selecting) {
       return (
         <Pressable
           key={item.id}
@@ -158,46 +206,41 @@ export function NativeGalleryGrid({
     );
   };
 
-  const rowsFor = (entries: Group["entries"]): ReactNode => {
-    if (layout === "grid") {
-      const cols = Math.max(1, Math.floor(columns));
-      const side = (width - gap * (cols - 1)) / cols;
-      const rows: Group["entries"][] = [];
-      entries.forEach((entry, i) => {
-        if (i % cols === 0) rows.push([]);
-        rows[rows.length - 1].push(entry);
-      });
-      return rows.map((row, r) => (
-        <View key={r} className="flex-row" style={{ gap, marginTop: r === 0 ? 0 : gap }}>
-          {row.map(({ item, index }) => tile(item, index, { width: side, height: side }))}
-        </View>
-      ));
+  const renderLine = ({ item: line, index: n }: { item: Line; index: number }) => {
+    if (line.kind === "header") {
+      return (
+        <Text accessibilityRole="header" testID={`${testID}-group-${line.group}`} className="mb-2 text-sm font-medium text-muted-foreground" style={{ marginTop: n === 0 ? 0 : gap * 3 }}>
+          {line.group}
+        </Text>
+      );
     }
-    const indexOf = new Map(entries.map((e) => [e.item.id, e.index]));
-    return justifyRows(entries.map((e) => e.item), width, rowHeight, gap).map((row, r) => (
-      <View key={r} className="flex-row" style={{ gap, marginTop: r === 0 ? 0 : gap }}>
-        {row.tiles.map((t) => tile(t.item, indexOf.get(t.item.id) ?? t.index, { width: t.width, height: t.height }))}
+    return (
+      <View
+        className="flex-row"
+        testID={line.group === null ? undefined : `${testID}-row-${line.group}`}
+        style={{ gap, marginTop: line.first ? 0 : gap }}
+      >
+        {line.tiles.map((t) => tile(t.item, t.index, { width: t.width, height: t.height }))}
       </View>
-    ));
+    );
   };
 
-  let body: ReactNode = null;
-  if (width > 0) {
-    body = groupItems(items, getGroup).map((group, g) => (
-      <View key={group.key ?? g} testID={group.key === null ? undefined : `${testID}-group-${group.key}`} style={{ marginTop: g === 0 ? 0 : gap * 3 }}>
-        {group.key !== null ? (
-          <Text accessibilityRole="header" className="mb-2 text-sm font-medium text-muted-foreground">
-            {group.key}
-          </Text>
-        ) : null}
-        {rowsFor(group.entries)}
-      </View>
-    ));
-  }
-
   return (
-    <View testID={testID} onLayout={onLayout} className={cn("w-full", className)}>
-      {body}
+    <View testID={testID} onLayout={onLayout} className={cn("w-full flex-1", className)}>
+      {width > 0 ? (
+        <FlatList
+          testID={`${testID}-list`}
+          data={lines}
+          keyExtractor={(line) => line.key}
+          renderItem={renderLine}
+          ListHeaderComponent={header ? <>{header}</> : undefined}
+          ListFooterComponent={footer ? <>{footer}</> : undefined}
+          onEndReached={onNearEnd ? () => onNearEnd() : undefined}
+          onEndReachedThreshold={0.5}
+          initialNumToRender={8}
+          windowSize={7}
+        />
+      ) : null}
     </View>
   );
 }

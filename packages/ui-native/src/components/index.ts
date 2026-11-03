@@ -299,7 +299,7 @@ export type { NativeGlassSurfaceProps } from "./glass-surface";
 
 // --- Gallery and media primitives ---
 
-export type { GalleryItem } from "./gallery-types";
+export { GALLERY_DEFAULTS, type GalleryItem, type GalleryTileAspect } from "./gallery-types";
 export { justifyRows, galleryItemRatio, DEFAULT_GALLERY_RATIO } from "./gallery-layout";
 export type { JustifiedRow, JustifiedTile } from "./gallery-layout";
 

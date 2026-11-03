@@ -53,7 +53,7 @@ export {
 } from "./auth-form";
 
 // Gallery / media patterns.
-export type { GalleryItem } from "./gallery-types";
+export { GALLERY_DEFAULTS, type GalleryItem, type GalleryTileAspect } from "./gallery-types";
 export { Rating, nextRating, type RatingProps } from "./rating";
 export { GalleryGrid, type GalleryGridProps, type GallerySelectionDetail } from "./gallery-grid";
 export {

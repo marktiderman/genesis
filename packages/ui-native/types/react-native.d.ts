@@ -353,6 +353,13 @@ declare module "react-native" {
     numColumns?: number;
     onEndReached?: () => void;
     onEndReachedThreshold?: number;
+    /** How many items render before the first scroll. */
+    initialNumToRender?: number;
+    /** How many screens' worth of items stay mounted around the visible ones. */
+    windowSize?: number;
+    scrollEnabled?: boolean;
+    extraData?: unknown;
+    accessible?: boolean;
     refreshing?: boolean;
     onRefresh?: () => void;
     refreshControl?: React.ReactElement | undefined;
