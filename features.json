@@ -3301,6 +3301,109 @@
       "flags": []
     },
     {
+      "id": "media-gallery",
+      "name": "Gallery grid, gallery card, lightbox and live indicator",
+      "summary": "Photo-gallery primitives on both platforms: GalleryGrid (justified or fixed-column tiles from a shared GalleryItem list, packed by a pure justifyRows), GalleryCard (a 4:3 cover with overlaid badges and actions, title and subtitle), Lightbox (a full-screen viewer with prev/next, counter, caption and actions, keyboard on the web and paging swipes on the phone) and LiveIndicator (a pulsing live pill). The same props on the web (@marktiderman/genesis-ui patterns) and the phone (NativeGalleryGrid, NativeGalleryCard, NativeLightbox, NativeLiveIndicator).",
+      "category": "Media",
+      "status": "building",
+      "claimedBy": "claude/gallery-primitives",
+      "kind": "pattern",
+      "keywords": [
+        "gallery",
+        "photo grid",
+        "justified",
+        "lightbox",
+        "viewer",
+        "gallery card",
+        "cover",
+        "live indicator",
+        "live pill",
+        "media"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui",
+        "native": "@marktiderman/genesis-ui-native"
+      },
+      "owner": "mark",
+      "apps": [
+        "sample",
+        "native"
+      ],
+      "audience": [
+        "developer",
+        "designer"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "GalleryGrid lays items out in justified rows that fill the container width at the target row height, and in numColumns columns in grid layout, on both platforms.",
+        "Lightbox opens at the given index, moves with prev/next (keys on the web, swipes on the phone), reports the index, and stops at both ends.",
+        "GalleryCard draws its cover at the given ratio with badges and actions overlaid; LiveIndicator announces its label politely and stops pulsing when not live."
+      ],
+      "links": {
+        "code": [
+          "packages/ui/src/components/patterns/gallery-grid.tsx",
+          "packages/ui/src/components/patterns/lightbox.tsx",
+          "packages/ui/src/components/patterns/gallery-card.tsx",
+          "packages/ui/src/components/patterns/live-indicator.tsx",
+          "packages/ui-native/src/components/gallery-grid.tsx",
+          "packages/ui-native/src/components/lightbox.tsx",
+          "packages/ui-native/src/components/gallery-card.tsx",
+          "packages/ui-native/src/components/live-indicator.tsx"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "rating",
+      "name": "Star rating",
+      "summary": "A star rating on both platforms: Rating on the web and NativeRating on the phone, read-only (an image with \"N of M stars\") or interactive (a radio group of stars with keyboard and screen-reader support), in three sizes.",
+      "category": "Forms",
+      "status": "building",
+      "claimedBy": "claude/gallery-primitives",
+      "kind": "element",
+      "keywords": [
+        "rating",
+        "stars",
+        "star rating",
+        "review",
+        "score"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui",
+        "native": "@marktiderman/genesis-ui-native"
+      },
+      "owner": "mark",
+      "apps": [
+        "sample",
+        "native"
+      ],
+      "audience": [
+        "developer",
+        "designer"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "A read-only Rating reads as an image labelled \"N of M stars\"; an interactive one is a radio group whose arrow keys (web) or star presses (phone) change the value."
+      ],
+      "links": {
+        "code": [
+          "packages/ui/src/components/patterns/rating.tsx",
+          "packages/ui-native/src/components/rating.tsx"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "figma-design-library",
       "name": "Figma design library with Code Connect",
       "summary": "One Figma library whose variable collections are named after the design system's CSS variables and whose components are genesis-ui-native's exports, a Brand collection with one mode per consumer app generated from its CanonicalBrand, and Code Connect templates (packages/ui-native/figma, published with the Code Connect CLI) that show the Genesis call in Dev Mode; check-code-connect.mjs ratchets which components must have one.",

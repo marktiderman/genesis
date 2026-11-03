@@ -1,5 +1,10 @@
 {
   "required": [
+    "NativeGalleryCard",
+    "NativeGalleryGrid",
+    "NativeLightbox",
+    "NativeLiveIndicator",
+    "NativeRating",
     "AuthScreen",
     "NativeAccordion",
     "NativeAlert",
@@ -54,6 +59,7 @@
   ],
   "notYet": [
     "NativeRangeSlider",
+    "NativeZoomablePhoto",
     "SettingsPage",
     "SettingsSubPage",
     "NotificationsPage",
