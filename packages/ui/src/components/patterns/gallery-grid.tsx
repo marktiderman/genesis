@@ -219,13 +219,26 @@ export function GalleryGrid({
         className="relative size-full bg-muted"
         style={{ aspectRatio: String(galleryItemRatio(item)) }}
       >
-        <img
-          src={item.src}
-          alt={item.alt ?? ""}
-          loading="lazy"
-          decoding="async"
-          className="absolute inset-0 size-full object-cover"
-        />
+        {item.src ? (
+          <img
+            src={item.src}
+            alt={item.alt ?? ""}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 size-full object-cover"
+          />
+        ) : (
+          // No image: a neutral tile with its words, so the count matches what's drawn. The
+          // tile's own name (alt, then caption) still names it, so the text is hidden from readers.
+          <span
+            data-slot="gallery-tile-placeholder"
+            aria-hidden="true"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 p-3 text-center text-sm text-muted-foreground"
+          >
+            {item.alt ? <span className="line-clamp-2 font-medium text-foreground">{item.alt}</span> : null}
+            {item.caption ? <span className="line-clamp-2 text-xs">{item.caption}</span> : null}
+          </span>
+        )}
         {renderBadges ? (
           <div
             data-slot="gallery-tile-badges"

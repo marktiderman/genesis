@@ -184,7 +184,29 @@ export function NativeGalleryGrid({
     ) : (
       <>
         <View className="absolute inset-0 bg-muted" />
-        <NativeImage src={item.src} alt={item.alt} className="h-full w-full" />
+        {item.src ? (
+          <NativeImage src={item.src} alt={item.alt} className="h-full w-full" />
+        ) : (
+          // No image: a neutral tile with its words, so the count matches what's drawn. The tile's
+          // own label (alt, then caption) still names it, so the words are hidden from readers.
+          <View
+            testID={`${testID}-placeholder-${item.id}`}
+            importantForAccessibility="no-hide-descendants"
+            accessibilityElementsHidden
+            className="h-full w-full items-center justify-center gap-0.5 p-2"
+          >
+            {item.alt ? (
+              <Text numberOfLines={2} className="text-center text-sm font-medium text-foreground">
+                {item.alt}
+              </Text>
+            ) : null}
+            {item.caption ? (
+              <Text numberOfLines={2} className="text-center text-xs text-muted-foreground">
+                {item.caption}
+              </Text>
+            ) : null}
+          </View>
+        )}
         {renderBadges ? (
           <View testID={`${testID}-badges-${item.id}`} pointerEvents="box-none" className="absolute left-1 top-1 flex-row items-center gap-1">
             {renderBadges(item, index)}

@@ -263,6 +263,21 @@ describe("GalleryGrid — parity with native", () => {
   });
 });
 
+describe("GalleryGrid — an item with no image", () => {
+  it("draws a neutral 4:3 tile with its alt and caption, still named and clickable", () => {
+    const onItemClick = vi.fn();
+    render(<GalleryGrid items={[{ id: "n", src: "", alt: "Untitled", caption: "No photo yet" }]} onItemClick={onItemClick} />);
+    const tile = screen.getByRole("button", { name: "Untitled" });
+    expect(tile.querySelector("img")).toBeNull();
+    const placeholder = tile.querySelector('[data-slot="gallery-tile-placeholder"]')!;
+    expect(placeholder.getAttribute("aria-hidden")).toBe("true");
+    expect(placeholder.textContent).toBe("UntitledNo photo yet");
+    expect((tile.querySelector('[data-slot="gallery-tile-media"]') as HTMLElement).style.aspectRatio).toMatch(/^1\.333/);
+    fireEvent.click(tile);
+    expect(onItemClick).toHaveBeenCalledWith(expect.objectContaining({ id: "n" }), 0);
+  });
+});
+
 describe("GalleryGrid — loadMore", () => {
   type Callback = (entries: { isIntersecting: boolean }[]) => void;
   let callbacks: Callback[] = [];

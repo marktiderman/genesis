@@ -121,6 +121,18 @@ describe("NativeGalleryGrid additions", () => {
     expect(screen.getByTestId("g-group-All")).toBeTruthy();
   });
 
+  it("draws an item with no image as a neutral tile with its words, still named and pressable", () => {
+    const onItemPress = vi.fn();
+    render(<NativeGalleryGrid items={[{ id: "n", src: "", alt: "Untitled", caption: "No photo yet" }]} onItemPress={onItemPress} testID="g" />);
+    measure(screen.getByTestId("g"), 300);
+    const tile = screen.getByTestId("g-item-n");
+    expect(tile.getAttribute("aria-label")).toBe("Untitled");
+    expect(tile.querySelector("img")).toBeNull();
+    expect(screen.getByTestId("g-placeholder-n").textContent).toBe("UntitledNo photo yet");
+    fireEvent.click(tile);
+    expect(onItemPress).toHaveBeenCalledWith(expect.objectContaining({ id: "n" }), 0);
+  });
+
   it("shares the web's defaults", () => {
     expect(GALLERY_DEFAULTS).toEqual({ rowHeight: 180, gap: 4, columns: 3 });
   });
