@@ -233,7 +233,8 @@ Screen settings:
   filled hidden and sent on create, like `filter`. The filter wins a clash;
 - `onSaved(row, action)`: after the built-in form saves, e.g. to open a builder for a new row.
   A pessimistic save gives the server's row with its key;
-- `mode`: `table`, `grid` (cards), `list` or `calendar` ([Calendar](#calendar)); `sheet` is
+- `mode`: `table`, `grid` (cards), `list`, `calendar` ([Calendar](#calendar)) or `board`
+  ([Board](#board)); `sheet` is
   **Planned** ([`resource-view-sheet`](../features.ts));
 - `header`: `page` (the full header) or `toolbar` (its actions without the title block);
 - `toolbar`: content beside the header's actions;
@@ -241,6 +242,7 @@ Screen settings:
 - `slots` and `slotProps`: replace or adjust ResourcePage's parts (`shell`, `filters`, `bulkBar`,
   `grid`, `table`, `detail`, `form`, `deleteDialog`);
 - `tree`: nested rows from a flat list ([Tree mode](#tree-mode)).
+- `calendar` and `board`: the screen's settings for those modes, over the view's blocks.
 
 Every other ResourcePage prop passes through (`renderCard`, `renderDetail`, `live`, `pagination`).
 
@@ -635,6 +637,65 @@ feed, an expanded recurring series): give it `CalendarEvent`s (`start`/`end` as 
 `toCalendarEvent` already turns a feed's exclusive end into that, so its output draws as it is. Recurring series expand with `expandRecurrence` from
 `@marktiderman/genesis-core/dates`, and the window helpers (`monthGridRange`, `weeksRange`,
 `rangeIn`) are there too. Studio's calendar is drawn by it.
+
+## Board
+
+<!-- api: ResourceViewProps, ViewBoard, ResourceBoardOptions<any>, UseBoardColumnsOptions -->
+
+A view's `board` block says how its rows show as a board: a column per value of one field, a card
+per row. `mode="board"` shows it, and moving a card between columns writes that field.
+
+```ts
+export const tasksView = defineView(contracts["public.tasks"], {
+  scope: ["project_id"],
+  fields: { stage: { labels: { todo: "To do" }, tones: { done: "success" } } },
+  board: { field: "stage", cardFields: ["due_on", "owner_id"], limits: { doing: 3 } },
+  orderBy: { field: "due_on" },
+});
+```
+
+```tsx
+<ResourceView view={tasksView} mode="board" />
+<ResourceView view={tasksView} mode="board" board={{ columns: ["todo", "doing"], onSelect: openTask }} />
+```
+
+- **The block** (`ViewBoard`, plain values only): `field` (an enum, or a yes/no field), `columns`
+  (the values to show, in order; by default the field's choices in the contract's order, then a
+  "No value" column when it can be empty), `cardFields` (shown under a card's title, drawn as their
+  cells are), and `limits` (work-in-progress limits by value). `defineView` checks every name and
+  value, and the board checks a screen's overrides the same way (`boardProblems`).
+- **The screen** overrides any of those through `board={…}` and adds `onSelect(row)` (default: the
+  view's peek), `renderCard(row)`, `onMoveError(error, row)` and `perPage` (default 50).
+- **Columns.** Each shows its value's words (`labels`) and tone (`tones`), and its count. With a
+  limit the count reads "4 / 3", and a column over its limit says so in words, not colour alone.
+  Nothing stops a move into a full column.
+- **Data** goes through the view's provider rules: one `getList` per column page, with the scope,
+  the screen's `filter`, a preset's filter and the column's value (`is_null` for "No value"), under
+  core's list keys, so a save to the resource refreshes the board like any list. A column loads
+  50 cards and then "Load more", on its own. A filter on the board's own field is set aside, and
+  the board says so. Cards are in the view's `orderBy` order.
+- **Moving a card** works by mouse, by touch on its handle, from the keyboard and from its "Move
+  to…" menu (`KanbanBoard`), and is announced. It is the resource's own `update(id, { [field]: value })`
+  (`useResource`, pessimistic), so the provider's write rules apply, and on a resource with a
+  `version` rule the write carries the version the card was read at: a card someone else changed
+  is refused, not overwritten. A move needs the field to be writable in the view's edit form and the
+  view's update guard (`can`) to allow the row; a refusal (the guard's reason, the server's error, a
+  conflict) leaves the card where it was and shows why above the board, or goes to `onMoveError`.
+- **Order within a column** follows `orderBy`. Dragging to reorder inside a column, which writes
+  the order field with the column in one update, is **Planned**
+  ([`resource-view-shaping`](../features.ts)), with `orderBy.manual`.
+- **Not a list mode.** Like the calendar, a board is never stored as the user's remembered view,
+  and `useResourceView` has no table state for it.
+
+`KanbanBoard` (`/data`) draws boards for rows that aren't one view's, and `useBoardColumns` loads
+them, one paged request per column. Studio's board is those two over its own provider:
+
+```tsx
+const board = useBoardColumns({ provider, resource: "tasks", field: "stage", values: ["todo", "done"] });
+<KanbanBoard columns={board.columns.map((c) => ({ key: c.value, label: c.value, items: c.items }))} renderCard={drawCard} />
+```
+
+On the phone, a board on `NativeResourceView` is **Planned** ([`resource-view-board`](../features.ts)).
 
 ## Security model
 

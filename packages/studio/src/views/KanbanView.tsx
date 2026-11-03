@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQueries } from "@tanstack/react-query";
 import type { BaseRecord, DataProvider, FilterParam, SortParam } from "@marktiderman/genesis-core/provider";
 import { encodeRecordKey, isDataWriteError, type AuditEntry, type FieldSchema, type ResourceSchema } from "@marktiderman/genesis-core/schema";
 import { Button } from "@marktiderman/genesis-ui/button";
-import { KanbanBoard, type KanbanColumn } from "@marktiderman/genesis-ui/data";
+import { BOARD_NONE, BOARD_PAGE, KanbanBoard, useBoardColumns, type KanbanColumn } from "@marktiderman/genesis-ui/data";
 import { choicesFor, displayText, fieldLabel } from "../values";
 
 type Row = Record<string, unknown>;
 
 /** Cards per column page. */
-export const KANBAN_PAGE = 50;
-const NONE = "__genesis_none__";
+export const KANBAN_PAGE = BOARD_PAGE;
+const NONE = BOARD_NONE;
 
 export interface KanbanViewProps {
   provider: DataProvider;
@@ -52,51 +51,35 @@ export function KanbanView({
   onSignedOut,
 }: KanbanViewProps) {
   const values = useMemo(() => [...(choicesFor(field) ?? []), ...(field.nullable ? [NONE] : [])], [field]);
-  const [pages, setPages] = useState<Record<string, number>>({});
   const [moving, setMoving] = useState<string | null>(null);
-  const filterKey = JSON.stringify(filters);
-  const sortKey = JSON.stringify(sorts);
-
-  const specs = values.flatMap((value) =>
-    Array.from({ length: pages[value] ?? 1 }, (_, i) => ({ value, page: i + 1 })),
-  );
-  const results = useQueries({
-    queries: specs.map(({ value, page }) => ({
-      queryKey: ["genesis-studio", sessionKey, "list", schema.name, "kanban", field.name, value, page, filterKey, search, sortKey],
-      retry: false,
-      queryFn: () =>
-        provider.getList<BaseRecord>(schema.name, {
-          pagination: { page, perPage: KANBAN_PAGE },
-          sort: sorts[0],
-          sorts,
-          filters: [
-            ...filters.filter((f) => f.field !== field.name),
-            value === NONE
-              ? ({ field: field.name, operator: "is_null" } as FilterParam)
-              : ({ field: field.name, operator: "eq", value } as FilterParam),
-          ],
-          search: search ? { query: search, fields: [] } : undefined,
-        }),
-    })),
+  // The same loader ResourceView's board uses, keyed under studio's session so a sign-out drops it.
+  const board = useBoardColumns<BaseRecord>({
+    provider,
+    resource: schema.name,
+    field: field.name,
+    values,
+    filters,
+    sorts,
+    ...(search ? { search: { query: search, fields: [] } } : {}),
+    perPage: KANBAN_PAGE,
+    retry: false,
+    queryKey: (request, column) => ["genesis-studio", sessionKey, "list", schema.name, "kanban", field.name, column.value, column.page, request],
   });
 
-  const failure = results.find((r) => r.error)?.error;
+  const failure = board.error;
   const signedOut = Boolean(failure && isDataWriteError(failure) && failure.outcome === "unauthenticated");
   useEffect(() => {
     if (signedOut) onSignedOut();
   }, [signedOut, onSignedOut]);
   // A filter on the board's own field is replaced by each column's value.
-  const ownFilter = filters.some((f) => f.field === field.name);
+  const ownFilter = board.ownFilterSetAside;
 
-  const columns: KanbanColumn<Row>[] = values.map((value) => {
-    const mine = specs.map((s, i) => ({ s, r: results[i]! })).filter(({ s }) => s.value === value);
-    return {
-      key: value,
-      label: value === NONE ? "No value" : value,
-      items: mine.flatMap(({ r }) => (r.data?.data ?? []) as Row[]),
-      ...(mine[0]?.r.data ? { total: mine[0].r.data.total } : {}),
-    };
-  });
+  const columns: KanbanColumn<Row>[] = board.columns.map((c) => ({
+    key: c.value,
+    label: c.value === NONE ? "No value" : c.value,
+    items: c.items as Row[],
+    ...(c.total !== undefined ? { total: c.total } : {}),
+  }));
 
   const labelField = schema.labelField;
   // A card's subtitle: the next two fields a person would read, not keys,
@@ -141,11 +124,11 @@ export function KanbanView({
       {ownFilter && (
         <p className="text-xs text-muted-foreground">Your filter on {field.name} is set aside here: each column shows one of its values.</p>
       )}
-      {failure && !signedOut && (
+      {failure != null && !signedOut ? (
         <p role="alert" className="text-sm text-destructive">
           {failure instanceof Error ? failure.message : String(failure)}
         </p>
-      )}
+      ) : null}
       <div>
         <KanbanBoard<Row>
           className="grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] lg:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] xl:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]"
@@ -179,7 +162,7 @@ export function KanbanView({
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setPages((p) => ({ ...p, [column.key]: (p[column.key] ?? 1) + 1 }))}
+                onClick={() => board.loadMore(column.key)}
               >
                 Load more ({(column.total - column.items.length).toLocaleString()} left)
               </Button>

@@ -41,6 +41,11 @@ export interface KanbanColumn<T> {
   items: T[];
   /** How many items the column holds in all, when `items` is one page of them. */
   total?: number;
+  /**
+   * The most items the column should hold (a work-in-progress limit). The count shows against it
+   * ("4 / 3"), and a column over it says so in words as well as colour. Nothing stops a move in.
+   */
+  limit?: number;
 }
 
 export interface KanbanBoardProps<T> {
@@ -368,12 +373,32 @@ export function KanbanBoard<T>({
             <span className={cn("text-sm font-semibold", resolved.color)}>
               {column.label}
             </span>
-            <Badge
-              variant="secondary"
-              className={cn("text-[10px] px-1.5 py-0", resolved.bgColor)}
-            >
-              {column.total ?? column.items.length}
-            </Badge>
+            {(() => {
+              const count = column.total ?? column.items.length;
+              const over = column.limit !== undefined && count > column.limit;
+              return (
+                <>
+                  <Badge
+                    variant={over ? "destructive" : "secondary"}
+                    className={cn("text-[10px] px-1.5 py-0", !over && resolved.bgColor)}
+                  >
+                    {column.limit !== undefined ? (
+                      <>
+                        <span aria-hidden>{`${count} / ${column.limit}`}</span>
+                        <span className="sr-only">{fillMessage(k.countOfLimit, { count, limit: column.limit })}</span>
+                      </>
+                    ) : (
+                      count
+                    )}
+                  </Badge>
+                  {over && (
+                    <span className="text-[10px] font-medium text-destructive" data-testid="kanban-over-limit">
+                      {fillMessage(k.overLimit, { limit: column.limit! })}
+                    </span>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Cards */}

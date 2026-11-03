@@ -21,3 +21,4 @@ export { RowAvatar } from "./RowAvatar";
 export { ResourceViewDefaultsProvider, useResourceViewDefaults, type ResourceViewDefaults } from "./defaults";
 export { useViewFormFields, type ViewFormOptions } from "./view-form";
 export { CALENDAR_LIMIT, ResourceCalendar, type ResourceCalendarOptions, type ResourceCalendarProps, type ResourceCalendarToolbarState } from "./ResourceCalendar";
+export { ResourceBoard, type ResourceBoardOptions, type ResourceBoardProps } from "./ResourceBoard";
