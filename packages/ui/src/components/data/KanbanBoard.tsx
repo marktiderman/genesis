@@ -65,6 +65,12 @@ export interface KanbanBoardProps<T> {
    * was and announces that the move failed.
    */
   onMoveItem?: (item: T, toColumn: string) => void | Promise<void>;
+  /**
+   * Whether this item can be moved now (a row the viewer can't change, or one whose last move is
+   * still saving). Without it, every item can be. A card that can't has no handle or menu and
+   * can't be dragged.
+   */
+  canMoveItem?: (item: T) => boolean;
   /** A name for an item, for its handle, menu and announcements ("Move Ana Ruiz"). */
   getItemLabel?: (item: T) => string;
   /** Under a column's cards, e.g. a "Load more" button. */
@@ -94,6 +100,7 @@ export function KanbanBoard<T>({
   getKey,
   onMoveItem,
   getItemLabel,
+  canMoveItem,
   renderColumnFooter,
 }: KanbanBoardProps<T>) {
   // A mouse drag (native) or a touch drag on the handle.
@@ -126,6 +133,7 @@ export function KanbanBoard<T>({
   const keyOf = (item: T, index: number) => (getKey ? getKey(item) : String(index));
   // Dragging needs stable keys to find the dropped item again.
   const movable = Boolean(onMoveItem && getKey);
+  const itemMovable = (item: T) => movable && (canMoveItem?.(item) ?? true);
 
   const find = (key: string) => {
     if (!getKey) return null;
@@ -178,7 +186,7 @@ export function KanbanBoard<T>({
 
   const moveKey = (key: string, to: string) => {
     const found = find(key);
-    if (!found || found.column.key === to) return;
+    if (!found || found.column.key === to || !itemMovable(found.item)) return;
     move(found.item, to, labelOf(key));
   };
 
@@ -412,6 +420,7 @@ export function KanbanBoard<T>({
                 const key = keyOf(item, i);
                 const name = getItemLabel?.(item) ?? k.cardInLabel;
                 const isGrabbed = grabbed?.key === key;
+                const canMove = itemMovable(item);
                 return (
                 <div
                   key={key}
@@ -422,19 +431,19 @@ export function KanbanBoard<T>({
                     isGrabbed && "ring-2 ring-primary/50",
                   )}
                   style={{ animationDelay: `${i * 30}ms`, animationFillMode: "both" }}
-                  draggable={movable || undefined}
-                  onDragStart={movable ? (e) => {
+                  draggable={canMove || undefined}
+                  onDragStart={canMove ? (e) => {
                     e.dataTransfer.setData(DRAG_TYPE, key);
                     e.dataTransfer.effectAllowed = "move";
                     setDragging({ key, from: column.key });
                   } : undefined}
-                  onDragEnd={movable ? () => {
+                  onDragEnd={canMove ? () => {
                     setDragging(null);
                     setOver(null);
                   } : undefined}
                 >
                   {renderCard(item)}
-                  {movable && columns.length > 1 && (
+                  {canMove && columns.length > 1 && (
                     <button
                       type="button"
                       ref={(node) => {
@@ -462,7 +471,7 @@ export function KanbanBoard<T>({
                       <GripVertical className="h-3.5 w-3.5" aria-hidden />
                     </button>
                   )}
-                  {movable && columns.length > 1 && (
+                  {canMove && columns.length > 1 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         aria-label={fillMessage(k.move, { name })}

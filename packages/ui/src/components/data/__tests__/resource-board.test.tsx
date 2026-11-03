@@ -126,17 +126,72 @@ describe("ResourceView mode=board", () => {
     await waitFor(() => expect(p.update).toHaveBeenCalledWith("tasks", expect.objectContaining({ id: "b", data: { stage: null } })));
   });
 
-  it("leaves a card the guard refuses where it was, and says why", async () => {
+  it("gives a card the view's guard refuses no handle or menu, and never writes it", async () => {
     const p = provider(ROWS.map((r) => ({ ...r })));
     render(<ResourceView view={view} mode="board" />, { wrapper: wrap(p) });
     await waitFor(() => expect(within(column("Doing")).getByText("Ship it")).toBeTruthy());
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Move Ship it" }), { button: 0, ctrlKey: false, pointerType: "mouse" });
+    expect(screen.queryByRole("button", { name: "Move Ship it" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Pick up Ship it" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Move Review copy" })).toBeTruthy();
+    expect(p.update).not.toHaveBeenCalled();
+  });
+
+  it("narrows by the screen's own can as well (guards only narrow)", async () => {
+    const p = provider(ROWS.map((r) => ({ ...r })));
+    render(<ResourceView view={view} mode="board" can={(action) => action !== "edit"} />, { wrapper: wrap(p) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: /^Move / })).toBeNull();
+  });
+
+  it("applies the screen's resourceOptions to a move", async () => {
+    const onUpdateSuccess = vi.fn();
+    const p = provider(ROWS.map((r) => ({ ...r })));
+    render(<ResourceView view={view} mode="board" resourceOptions={{ onUpdateSuccess }} />, { wrapper: wrap(p) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Move Write brief" }), { button: 0, ctrlKey: false, pointerType: "mouse" });
     await act(async () => {
       fireEvent.click(await screen.findByRole("menuitem", { name: "Done" }));
     });
-    expect((await screen.findByTestId("resource-board-refusal")).textContent).toBe("This task is locked.");
-    expect(p.update).not.toHaveBeenCalled();
-    expect(within(column("Doing")).getByText("Ship it")).toBeTruthy();
+    await waitFor(() => expect(onUpdateSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: "a", stage: "done" })));
+  });
+
+  it("turns away a second move of a card while its first is saving", async () => {
+    let settle!: () => void;
+    const rows = ROWS.map((r) => ({ ...r }));
+    const update = vi.fn(
+      (_resource: string, { id, data }: { id: string; data: Partial<Task> }) =>
+        new Promise((resolve) => {
+          settle = () => resolve({ data: Object.assign(rows.find((r) => r.id === id)!, data) });
+        }),
+    );
+    const p = provider(rows, update as never);
+    render(<ResourceView view={view} mode="board" />, { wrapper: wrap(p) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    const handle = screen.getByRole("button", { name: "Pick up Write brief" });
+    // Alt+→ twice, before the first save lands.
+    fireEvent.keyDown(handle, { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(handle, { key: "ArrowRight", altKey: true });
+    await waitFor(() => expect(screen.getByText("Write brief").closest("button")?.getAttribute("aria-busy")).toBe("true"));
+    expect(update).toHaveBeenCalledTimes(1);
+    await act(async () => settle());
+    await waitFor(() => expect(within(column("Doing")).getByText("Write brief")).toBeTruthy());
+  });
+
+  it("filters a yes/no board by booleans, not strings", async () => {
+    const byUrgent = defineView(tasks, { board: { field: "locked" } });
+    const p = provider(ROWS.map((r) => ({ ...r })));
+    render(<ResourceView view={byUrgent} mode="board" />, { wrapper: wrap(p) });
+    await waitFor(() => expect(within(column("True")).getByText("Ship it")).toBeTruthy());
+    const values = vi.mocked(p.getList).mock.calls.map(([, params]) => (params.filters?.at(-1) as { value?: unknown }).value);
+    expect(values).toEqual(expect.arrayContaining([true, false]));
+  });
+
+  it("falls back to the view's block when the screen's override is bad", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    render(<ResourceView view={view} mode="board" board={{ columns: ["blocked"] }} />, { wrapper: wrap(provider(ROWS.map((r) => ({ ...r })))) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    expect(screen.getAllByRole("region")).toHaveLength(4);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/"blocked".*showing the view's board/));
   });
 
   it("leaves a card the server refuses where it was, and hands the error to onMoveError", async () => {
@@ -162,6 +217,24 @@ describe("ResourceView mode=board", () => {
     expect(within(column("To do")).queryByText("Task 2")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Load more (1 left)" }));
     await waitFor(() => expect(within(column("To do")).getByText("Task 2")).toBeTruthy());
+  });
+
+  it("draws a card once when it shows on two loaded pages of a column", async () => {
+    const a: Task = { id: "a", title: "Write brief", stage: "todo", due_on: null, locked: false };
+    const b: Task = { id: "b", title: "Book venue", stage: "todo", due_on: null, locked: false };
+    // Page 2 was read after a row above it moved away: "b" shifted up and shows on both pages.
+    const p = provider();
+    vi.mocked(p.getList).mockImplementation(async (_r, params) => {
+      const stage = (params.filters?.at(-1) as { value?: unknown }).value;
+      if (stage !== "todo") return { data: [], total: 0 };
+      return params.pagination?.page === 2 ? { data: [b], total: 3 } : { data: [a, b], total: 3 };
+    });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<ResourceView view={view} mode="board" board={{ perPage: 2 }} />, { wrapper: wrap(p) });
+    fireEvent.click(await screen.findByRole("button", { name: /Load more/ }));
+    await waitFor(() => expect(vi.mocked(p.getList).mock.calls.some(([, q]) => q.pagination?.page === 2)).toBe(true));
+    await waitFor(() => expect(within(column("To do")).getAllByText("Book venue")).toHaveLength(1));
+    expect(error.mock.calls.some(([m]) => String(m).includes("same key"))).toBe(false);
   });
 
   it("opens the peek from a card", async () => {

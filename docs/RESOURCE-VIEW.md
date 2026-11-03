@@ -676,14 +676,24 @@ export const tasksView = defineView(contracts["public.tasks"], {
   the board says so. Cards are in the view's `orderBy` order.
 - **Moving a card** works by mouse, by touch on its handle, from the keyboard and from its "Move
   to…" menu (`KanbanBoard`), and is announced. It is the resource's own `update(id, { [field]: value })`
-  (`useResource`, pessimistic), so the provider's write rules apply, and on a resource with a
-  `version` rule the write carries the version the card was read at: a card someone else changed
-  is refused, not overwritten. A move needs the field to be writable in the view's edit form and the
-  view's update guard (`can`) to allow the row; a refusal (the guard's reason, the server's error, a
-  conflict) leaves the card where it was and shows why above the board, or goes to `onMoveError`.
+  (`useResource`, pessimistic), so the provider's write rules apply. Once versioned writes ship
+  (genesis#656, feature `data-offline`, not released yet), a move on a resource with a `version`
+  rule will carry the version the card was read at, so a card someone else changed is refused,
+  not overwritten. A move needs the field to be writable in the view's edit form, and both the
+  view's update guard and the screen's own `can` (`edit`) to allow the row: a card either refuses
+  has no handle or menu and can't be dragged. A refusal from the server (or a conflict) leaves the
+  card where it was and shows why above the board, or goes to `onMoveError`. While a card's move
+  is saving the card is dimmed and a second move of it is turned away, so it is never sent from
+  the column it is leaving. The screen's `resourceOptions` `invalidates`, `onError` and
+  `onUpdateSuccess` apply to a move; a move is always pessimistic.
 - **Order within a column** follows `orderBy`. Dragging to reorder inside a column, which writes
   the order field with the column in one update, is **Planned**
   ([`resource-view-shaping`](../features.ts)), with `orderBy.manual`.
+- **No toolbar.** Like the calendar, a board has no search box or filter bar of its own: its rows
+  are the view's scope, the screen's `filter` and the preset's. A screen that wants a search puts
+  it in its own header and passes the result as `filter`.
+- **A bad override** (`board={{ columns: ["blocked"] }}` for a value the field doesn't have) warns
+  in development and shows the view's own block; without a block of its own, the view throws.
 - **Not a list mode.** Like the calendar, a board is never stored as the user's remembered view,
   and `useResourceView` has no table state for it.
 
