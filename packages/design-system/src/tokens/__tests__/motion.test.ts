@@ -22,6 +22,15 @@ describe("resolveMotion", () => {
     expect(hover).toBe(MOTION_DURATIONS.hover);
   });
 
+  it("settles springs at once, without overshoot, when nothing should move", () => {
+    const { spring } = resolveMotion("none");
+    for (const s of Object.values(spring)) {
+      expect(s.damping).toBeGreaterThanOrEqual(2 * Math.sqrt(s.stiffness * s.mass));
+      expect(s.stiffness).toBeGreaterThan(MOTION_SPRINGS.snappy.stiffness);
+    }
+    expect(resolveMotion("calm").spring).toEqual(MOTION_SPRINGS);
+  });
+
   it("treats the OS's reduced motion as level none, whatever the level", () => {
     const m = resolveMotion("bold", { reducedMotion: true });
     expect(m).toEqual(resolveMotion("none"));

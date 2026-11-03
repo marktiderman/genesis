@@ -25,6 +25,7 @@
  *
  * ```tsx
  * .onEnd((e) => { x.value = withSpring(0, motionSpring(motion, "snappy", e.velocityX)); })
+ * opacity.value = withTiming(1, motionTiming(motion, "fast", Easing, "decelerate"));
  * ```
  *
  * A repeating animation checks `motion.reduced` first: a zero-length repeat
@@ -60,24 +61,46 @@ export type MotionHow =
   | { spring: keyof MotionSprings; velocity?: number; duration?: never; easing?: never }
   | { duration: keyof MotionDurations; easing?: keyof MotionEasings; spring?: never; velocity?: never };
 
-/** A `withSpring` config from a named spring. Worklet-safe (plain data in, plain data out). */
-export function motionSpring(motion: MotionTokens, name: keyof MotionSprings, velocity?: number): { damping: number; stiffness: number; mass: number; velocity?: number } {
+/** What `motionSpring` gives `withSpring`. */
+export interface MotionSpringConfig {
+  damping: number;
+  stiffness: number;
+  mass: number;
+  velocity?: number;
+}
+
+/** What `motionTiming` gives `withTiming`. */
+export interface MotionTimingConfig {
+  duration: number;
+  easing?: unknown;
+}
+
+/**
+ * A `withSpring` config from a named spring. Worklet-safe (plain data in,
+ * plain data out). Under reduced motion it's the stiff, critically damped
+ * spring that settles in a few frames; to not move at all, check
+ * `motion.reduced` and assign the value.
+ */
+export function motionSpring(motion: MotionTokens, name: keyof MotionSprings, velocity?: number): MotionSpringConfig {
   "worklet";
   const s = motion.spring[name];
-  return typeof velocity === "number" ? { damping: s.damping, stiffness: s.stiffness, mass: s.mass, velocity } : { damping: s.damping, stiffness: s.stiffness, mass: s.mass };
+  return typeof velocity === "number" && !motion.reduced
+    ? { damping: s.damping, stiffness: s.stiffness, mass: s.mass, velocity }
+    : { damping: s.damping, stiffness: s.stiffness, mass: s.mass };
 }
 
 /**
  * A `withTiming` config from a named duration and easing. Pass Reanimated's
- * `Easing` to get the token's curve (without it, Reanimated's default curve).
- * Worklet-safe when `Easing` is.
+ * `Easing` (`R.Easing`, or `Easing` imported in a worklet) so the token's
+ * curve is used; a module without `Easing.bezier` gets Reanimated's default
+ * curve. Worklet-safe.
  */
 export function motionTiming(
   motion: MotionTokens,
   duration: keyof MotionDurations,
+  Easing: Pick<GenesisReanimatedModule["Easing"], "bezier"> | undefined,
   easing: keyof MotionEasings = "out",
-  Easing?: GenesisReanimatedModule["Easing"]
-): { duration: number; easing?: unknown } {
+): MotionTimingConfig {
   "worklet";
   const [x1, y1, x2, y2] = motion.easing[easing];
   const curve = Easing?.bezier ? Easing.bezier(x1, y1, x2, y2) : undefined;
@@ -87,31 +110,19 @@ export function motionTiming(
 /**
  * A Reanimated animation to `toValue` with the motion tokens, for a shared
  * value on the JS thread: `x.value = animateMotion(R, motion, 0, { spring: "smooth" })`.
- * In a worklet, use `motionSpring` / `motionTiming` instead.
+ * Under reduced motion it returns `toValue` itself, so nothing moves.
  *
- * Reduced motion returns `toValue` itself (no animation); `callback` then runs
- * on the next microtask, after the caller has assigned the value, as
- * Reanimated would. A module without `withSpring` (an older one, a test fake)
- * gets a `withTiming` at `base`. Reanimated is also told to follow the
- * system's setting (`ReduceMotion.System`), which covers the moment before
- * the OS answers on first launch.
+ * It takes no completion callback: Reanimated runs one on the UI thread, so
+ * it must be a worklet, and the reduced path couldn't keep that promise. To
+ * act when an animation ends, call `withSpring` / `withTiming` yourself with
+ * `motionSpring` / `motionTiming` and a worklet callback. A module without
+ * `withSpring` (an older one, a test fake) gets a `withTiming` at `base`.
  */
-export function animateMotion(
-  R: GenesisReanimatedModule,
-  motion: MotionTokens,
-  toValue: number,
-  how: MotionHow,
-  callback?: (finished?: boolean) => void
-): number {
-  if (motion.reduced) {
-    if (callback) queueMicrotask(() => callback(true));
-    return toValue;
-  }
-  const reduceMotion = R.ReduceMotion?.System;
-  const system = reduceMotion === undefined ? {} : { reduceMotion };
+export function animateMotion(R: GenesisReanimatedModule, motion: MotionTokens, toValue: number, how: MotionHow): number {
+  if (motion.reduced) return toValue;
   if (how.spring !== undefined) {
-    if (R.withSpring) return R.withSpring(toValue, { ...motionSpring(motion, how.spring, how.velocity), ...system }, callback);
-    return R.withTiming(toValue, { ...motionTiming(motion, "base", "out", R.Easing), ...system }, callback);
+    if (R.withSpring) return R.withSpring(toValue, motionSpring(motion, how.spring, how.velocity));
+    return R.withTiming(toValue, motionTiming(motion, "base", R.Easing));
   }
-  return R.withTiming(toValue, { ...motionTiming(motion, how.duration, how.easing, R.Easing), ...system }, callback);
+  return R.withTiming(toValue, motionTiming(motion, how.duration, R.Easing, how.easing));
 }

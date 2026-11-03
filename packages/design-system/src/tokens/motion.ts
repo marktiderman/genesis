@@ -9,8 +9,9 @@
  *   turns them into Reanimated `withTiming` and `withSpring` configs.
  *
  * Reduced motion always wins: `resolveMotion("calm", { reducedMotion: true })`
- * is the same as level `none`, where every duration is 0 and every spring
- * settles at once, so a component lands in its final state without moving.
+ * is the same as level `none`, where every duration is 0 and every spring is
+ * a stiff, critically damped one that settles in a few frames without
+ * overshoot, so a component lands in its final state.
  * (On native, `useMotion()` reads the OS setting. On web, the CSS variables
  * carry the brand's level only; a host gates movement with
  * `prefers-reduced-motion` itself.)
@@ -33,33 +34,33 @@ export type Bezier = readonly [x1: number, y1: number, x2: number, y2: number];
 /** Durations in milliseconds, by what they're for. */
 export interface MotionDurations {
   /** Press feedback: a button or row pressing in and out. */
-  press: number;
+  readonly press: number;
   /** Small things appearing: a toast, a menu, a drawer settling back. */
-  fast: number;
+  readonly fast: number;
   /** A hover's colour or lift (web). Kept at level `none`: it isn't movement. */
-  hover: number;
+  readonly hover: number;
   /** A panel opening: a drawer, a sheet's backdrop. */
-  base: number;
+  readonly base: number;
   /** A larger change in place: a section expanding, a view switching. */
-  ui: number;
+  readonly ui: number;
   /** One cycle of a loading pulse (Skeleton). */
-  pulse: number;
+  readonly pulse: number;
   /** A scroll-driven reveal (web). */
-  reveal: number;
+  readonly reveal: number;
   /** Media: a hero image's slow zoom (web). */
-  media: number;
+  readonly media: number;
 }
 
 /** Easing curves. */
 export interface MotionEasings {
   /** Fast start, long gentle stop. The default for things arriving. */
-  out: Bezier;
+  readonly out: Bezier;
   /** A quicker settle, for small UI. */
-  swift: Bezier;
+  readonly swift: Bezier;
   /** Starts and stops gently: things moving between two places, a pulse. */
-  inOut: Bezier;
+  readonly inOut: Bezier;
   /** A cubic ease-out: toasts and other things entering from an edge. */
-  decelerate: Bezier;
+  readonly decelerate: Bezier;
 }
 
 /**
@@ -68,29 +69,29 @@ export interface MotionEasings {
  * motion that follows a finger keeps its velocity.
  */
 export interface MotionSpring {
-  damping: number;
-  stiffness: number;
-  mass: number;
+  readonly damping: number;
+  readonly stiffness: number;
+  readonly mass: number;
 }
 
 /** The named springs. */
 export interface MotionSprings {
   /** Quick and nearly without overshoot: press feedback, a swiped row snapping back. */
-  snappy: MotionSpring;
+  readonly snappy: MotionSpring;
   /** Smooth and settled: a sheet or drawer let go, a list making room for a new row. */
-  smooth: MotionSpring;
+  readonly smooth: MotionSpring;
   /** A little overshoot, used sparingly: a reaction landing, a badge appearing. */
-  bouncy: MotionSpring;
+  readonly bouncy: MotionSpring;
 }
 
 /** Every motion token at one level. */
 export interface MotionTokens {
-  level: MotionLevel;
+  readonly level: MotionLevel;
   /** True when nothing should move (level `none`, or the OS asked for reduced motion). */
-  reduced: boolean;
-  duration: Readonly<MotionDurations>;
-  easing: Readonly<MotionEasings>;
-  spring: Readonly<{ [K in keyof MotionSprings]: Readonly<MotionSpring> }>;
+  readonly reduced: boolean;
+  readonly duration: MotionDurations;
+  readonly easing: MotionEasings;
+  readonly spring: MotionSprings;
 }
 
 /** The durations at any level that moves. */
@@ -112,7 +113,7 @@ export const MOTION_EASINGS: Readonly<MotionEasings> = Object.freeze({
   decelerate: Object.freeze([0.33, 1, 0.68, 1] as const),
 });
 
-export const MOTION_SPRINGS: Readonly<{ [K in keyof MotionSprings]: Readonly<MotionSpring> }> = Object.freeze({
+export const MOTION_SPRINGS: MotionSprings = Object.freeze({
   snappy: Object.freeze({ damping: 30, stiffness: 400, mass: 1 }),
   smooth: Object.freeze({ damping: 28, stiffness: 240, mass: 1 }),
   bouncy: Object.freeze({ damping: 14, stiffness: 220, mass: 1 }),
@@ -129,6 +130,15 @@ const STILL_DURATIONS: Readonly<MotionDurations> = Object.freeze({
   reveal: 0,
   media: 0,
 });
+
+/**
+ * The springs under reduced motion: critically damped and very stiff, so
+ * whatever a gesture left settles in a few frames with no overshoot. (A spring
+ * can't be zero-length the way a timing can; a caller that must not move at
+ * all checks `reduced` and assigns the value.)
+ */
+const STILL_SPRING: MotionSpring = Object.freeze({ damping: 200, stiffness: 10000, mass: 1 });
+const STILL_SPRINGS: MotionSprings = Object.freeze({ snappy: STILL_SPRING, smooth: STILL_SPRING, bouncy: STILL_SPRING });
 
 export interface ResolveMotionOptions {
   /** The OS's reduce-motion setting (`prefers-reduced-motion`, or iOS/Android's). Turns every level into `none`. */
@@ -148,7 +158,7 @@ export function resolveMotion(level: MotionLevel = "calm", options: ResolveMotio
     reduced,
     duration: reduced ? STILL_DURATIONS : MOTION_DURATIONS,
     easing: MOTION_EASINGS,
-    spring: MOTION_SPRINGS,
+    spring: reduced ? STILL_SPRINGS : MOTION_SPRINGS,
   };
 }
 
