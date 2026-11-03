@@ -129,6 +129,15 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
     // Restores and saves count apart, so starting to save doesn't cancel a restore still reading.
     let restores = 0;
     let saves = 0;
+    // Each query's last fetched result, recorded from the start whatever the scope: what adopting
+    // saves, so a value the client changed since (setQueryData) is never taken for a read.
+    const fetched = new WeakMap<Query, { data: unknown; fetchedAt: number }>();
+    queryClient.getQueryCache().subscribe((event: QueryCacheNotifyEvent) => {
+      if (event.type !== "updated") return;
+      const action = event.action as { type?: string; manual?: boolean };
+      if (action.type !== "success" || action.manual) return;
+      fetched.set(event.query, { data: event.query.state.data, fetchedAt: event.query.state.dataUpdatedAt });
+    });
     // Everyone this persistence restored or saved for: `clear` deletes all of their reads.
     const people = new Set<string>();
     const meta = (): CacheOp => ({ kind: "query", query: { key: META, queryKey: [META], resource: META, data: { buster }, fetchedAt: Date.now() } });
@@ -210,7 +219,7 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
       const mine = ++saves;
       people.add(scope.slice(2, scope.indexOf("|")));
       // What each read was when it came back: saved later, but never what the client changed since.
-      const pending = new Map<string, { queryKey: readonly unknown[]; data: unknown; fetchedAt: number }>();
+      const pending = new Map<string, { query: Query; queryKey: readonly unknown[]; data: unknown; fetchedAt: number }>();
       // Reads already on their way when this started belong to the scope before: never saved here,
       // unless they're this scope's (`adopt`).
       const before = options.adopt
@@ -227,6 +236,8 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
         const newest = new Map<string, StoredRow>();
         first = false;
         for (const read of pending.values()) {
+          // A query the client let go of before this save ran (the person changed) isn't saved.
+          if (queryClient.getQueryCache().get(read.query.queryHash) !== read.query) continue;
           const [resource, kind, params, detailSelect] = read.queryKey;
           // A record's projection is its key's fourth part; a list's is in its params.
           const select = kind === "detail" ? detailSelect : (params as { select?: unknown } | undefined)?.select;
@@ -267,17 +278,16 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
         if (before.delete(event.query.queryHash)) return;
         if (!keptQuery(event.query)) return;
         const { data, dataUpdatedAt } = event.query.state;
-        pending.set(event.query.queryHash, { queryKey: event.query.queryKey, data, fetchedAt: dataUpdatedAt });
+        pending.set(event.query.queryHash, { query: event.query, queryKey: event.query.queryKey, data, fetchedAt: dataUpdatedAt });
         timer ??= setTimeout(flush, throttleMs);
       });
       if (options.adopt) {
-        // The reads this scope made before saving started, saved as they stand: a screen's query
-        // (one with a queryFn) that has data. A value only ever put in the client (setQueryData,
-        // no queryFn) isn't a read, and is never adopted.
+        // The reads this scope made before saving started: each query's last fetched result, as it
+        // came back. A value the client set or changed since (setQueryData) is never adopted.
         for (const query of queryClient.getQueryCache().getAll()) {
-          const { status, data, dataUpdatedAt } = query.state;
-          if (status !== "success" || data === undefined || !dataUpdatedAt || !query.options.queryFn || !keptQuery(query)) continue;
-          pending.set(query.queryHash, { queryKey: query.queryKey, data, fetchedAt: dataUpdatedAt });
+          const read = fetched.get(query);
+          if (!read || read.data === undefined || !keptQuery(query)) continue;
+          pending.set(query.queryHash, { query, queryKey: query.queryKey, data: read.data, fetchedAt: read.fetchedAt });
         }
         if (pending.size) timer ??= setTimeout(flush, throttleMs);
       }

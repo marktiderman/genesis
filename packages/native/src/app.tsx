@@ -525,7 +525,7 @@ function Shell(props: GenesisNativeAppProps) {
   useEffect(() => {
     // The screens mount, and start reading, before this effect runs: their reads are this person's
     // (the client is emptied whenever the person changes), so they're saved too.
-    if (bootState.status === "ready" && persistence) return persistence.subscribe(sessionState.userId ?? "", { adopt: true });
+    if (bootState.status === "ready" && persistence) return persistence.subscribe(sessionState.userId ?? "", { adopt: Boolean(sessionState.userId) });
   }, [bootState.status, persistence, sessionState.userId]);
   useEffect(() => {
     const utils = errorUtils ?? defaultErrorUtils();

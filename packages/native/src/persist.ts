@@ -13,7 +13,7 @@
  * @stability Beta
  */
 import { defaultShouldDehydrateQuery, type QueryClient } from "@tanstack/react-query";
-import { persistQueryClientRestore, persistQueryClientSubscribe } from "@tanstack/query-persist-client-core";
+import { persistQueryClientRestore, persistQueryClientSave, persistQueryClientSubscribe } from "@tanstack/query-persist-client-core";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { DAY_MS, type AsyncStorageLike, type QueryPersistence } from "./query";
 
@@ -72,7 +72,11 @@ export function createQueryPersistence({
         // An unreadable cache has already been deleted; start without it rather than fail the boot.
       }
     },
-    subscribe: (scope) => persistQueryClientSubscribe({ queryClient, persister, buster: scoped(scope), dehydrateOptions }),
+    subscribe: (scope, options) => {
+      // Adopting: what's already in the client is saved now, not only at its next change.
+      if (options?.adopt && scope) void persistQueryClientSave({ queryClient, persister, buster: scoped(scope), dehydrateOptions }).catch(() => undefined);
+      return persistQueryClientSubscribe({ queryClient, persister, buster: scoped(scope), dehydrateOptions });
+    },
     clear: async () => {
       await persister.removeClient();
     },

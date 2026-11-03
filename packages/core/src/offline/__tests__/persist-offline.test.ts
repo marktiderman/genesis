@@ -444,4 +444,27 @@ describe("persistOffline, adopting the reads a scope made before saving started"
     stop();
     expect(await cache.readRows(cacheScope("ben"), "tasks", ["1"])).toEqual([]);
   });
+
+  it("adopts what a screen's query last fetched, never a change the client made after", async () => {
+    const { client, persistence, cache } = setup();
+    await client.fetchQuery({ queryKey: list, queryFn: async () => ({ data: rows, total: 2 }) });
+    // An optimistic patch, made before saving starts.
+    client.setQueryData(list, { data: [{ id: 1, title: "Unsaved" }, rows[1]], total: 2 });
+    const stop = persistence.subscribe(ANA, { adopt: true });
+    await settle();
+    stop();
+    expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "One" });
+  });
+
+  it("never saves an adopted read whose query the client let go of before the save ran", async () => {
+    const cache = memoryLocalCache();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    const persistence = persistOffline({ cache, resources: ["tasks"], buster: "v1", throttleMs: 20 })(client);
+    await client.fetchQuery({ queryKey: list, queryFn: async () => ({ data: rows, total: 2 }) });
+    const stop = persistence.subscribe(ANA, { adopt: true });
+    client.clear(); // the person changed before the throttled save
+    await new Promise((r) => setTimeout(r, 40));
+    stop();
+    expect(await cache.readRows(ANA, "tasks", ["1"])).toEqual([]);
+  });
 });
