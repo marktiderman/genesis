@@ -42,9 +42,10 @@ all with no backend, for demos, stories and tests.
 
 Conversations that stay open while people move around the app. On a wide screen there are up to
 three windows bottom-right, each a full thread and composer, minimized to a bar (with its unread
-count) or closed, and a fourth replaces the one used longest ago. On a narrow screen the open ones
-share one side sheet with a switcher, and closing it leaves a bubble with the unread count.
-"Expand" sends the conversation to your Messages page and takes it out of the dock.
+count) or closed; a fourth replaces the one used longest ago, and where fewer fit side by side the
+rest wait behind a "+N" menu. On a narrow screen the open ones share one side sheet with a
+switcher, and closing it leaves a bubble with the unread count. "Expand" sends the conversation to
+your Messages page and takes it out of the dock.
 
 ```tsx
 import { AppShell } from "@marktiderman/genesis-ui/layout";
@@ -65,19 +66,32 @@ const dock = useChatDock();
 
 | Part | What it is |
 |---|---|
-| `ChatDockProvider` | The dock's state: `max` (3), `onExpand(item)` (no expand button for conversations without it), `storageKey` (keep the open conversations across reloads; they come back as bars). |
-| `useChatDock()` | `open(conversationId, { title, minimized })`, `openPanel({ id, title, render, icon, unread, onExpand })`, `updatePanel(id, { unread, title })` (in place, for a live unread count), `close`, `closeAll`, `minimize`, `restore`, `expand`, `items`. `useOptionalChatDock()` is null without a provider, for a button that docks when the app has a dock and navigates when it doesn't. |
+| `ChatDockProvider` | The dock's state: `max` (3), `onExpand(item)` (no expand button for conversations without it), `storageKey` (keep the open conversations across reloads, per signed-in person; they come back as bars after hydration, and ones that no longer exist are dropped). |
+| `useChatDock()` | `open(conversationId, { title, minimized })`, `openPanel({ id, title, render, icon, unread, onExpand })`, `updatePanel(id, { unread, title })` (in place, for a live unread count), `close`, `closeAll`, `minimize`, `restore`, `activate` (the sheet's tab), `bringToFront` (one behind "+N"), `expand`, `items`. `useOptionalChatDock()` is null without a provider, for a button that docks when the app has a dock and navigates when it doesn't. |
 | `ChatDock` | The windows, or the sheet and bubble. Render it once, in AppShell's `dock` slot (fixed bottom-right, clear of the phone's bottom bar). `threadProps` go to every docked thread; `labels` change its words. |
-| `chatDockReducer` | The state machine, pure, for your own dock. |
+| `forgetChatDock(storageKey, userId)` | Clears what the dock kept for someone: call it on sign-out on a shared browser. |
+| `chatDockReducer`, `chatDockWindowsThatFit` | The state machine and the width rule, pure, for your own dock. |
 
-A minimized window doesn't mount its thread, so nothing is marked read while it's a bar. The
-window's title bar is the thread's own header (its `header` slot), with its title, avatar and
-"typing…". Escape minimizes the window it's pressed in.
+**What it keeps.** A minimized window, and a sheet tab out of view, keep their thread mounted but
+hidden (ChatThread's `markRead={false}`): what someone was typing, a reply and attachments wait for
+them, and nothing is marked read while it's out of sight. The window's title bar shows the thread's
+own title, avatar and "typing…". Opening or restoring a window focuses its composer; Escape
+minimizes the window it's pressed in (not while an input method is composing) and leaves focus on
+its bar. The unread total is announced politely to screen readers.
 
 **Your own panel.** Anything else that should live in the dock (a help desk messenger) opens with
 `openPanel`: the dock draws the window and its title bar, `render()` draws the body. Opening the
 same `id` again brings that window back. A panel's own `onExpand` wins over the provider's.
-Panels aren't kept across reloads (they hold functions).
+Panels aren't kept across reloads (they hold functions). Keep its unread count live with an effect;
+an update that changes nothing changes nothing, so this settles:
+
+```tsx
+const dock = useChatDock();
+useEffect(() => dock.updatePanel("help", { unread }), [dock, unread]);
+```
+
+**Toasts.** The dock sits where Genesis's `Toaster` puts toasts by default (bottom-right). With a
+dock mounted, move them: `<Toaster position="top-right" />`.
 
 ## On native
 
