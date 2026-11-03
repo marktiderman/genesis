@@ -10,9 +10,9 @@
  * from `onLayout`; until it is measured nothing is drawn. The rows are a
  * virtualized `FlatList` (the grid scrolls itself; `header` and `footer` go
  * above and below), so a long gallery mounts only what's near the screen and
- * `onNearEnd` fires when scrolling nears the end, for "load more". Don't put
+ * `loadMore` fires when scrolling nears the end, for "load more". Don't put
  * it inside a ScrollView: it fills its parent (`flex-1`), and nested it would
- * draw every row and fire `onNearEnd` at once. Put what goes above or below
+ * draw every row and fire `loadMore` at once. Put what goes above or below
  * it in `header` and `footer`. Tiles are
  * `NativeImage` over a `bg-muted` placeholder sized from the item's ratio (so
  * rows don't reflow while the picture loads), tappable when `onItemPress` is
@@ -20,7 +20,7 @@
  * `renderBadges` overlays its top-left.
  *
  * Selection (`selected` + `onSelectionChange`) toggles an id per press, in
- * place of `onItemPress` (as on web), and rings the chosen tiles. `getGroup`
+ * place of `onItemPress` (as on web), and rings the chosen tiles. `groupBy`
  * lays each group out separately under a header.
  *
  * @stability Beta
@@ -55,13 +55,17 @@ export interface NativeGalleryGridProps {
   /** Ids of the selected items. With `onSelectionChange`, a press toggles the tile. */
   selected?: string[];
   onSelectionChange?: (ids: string[], detail: { item: GalleryItem; index: number }) => void;
-  /** Called when scrolling nears the last rows (FlatList's `onEndReached`): the hook for "load more". */
+  /** Called when scrolling nears the last rows (FlatList's `onEndReached`): the hook for "load more" (NativeResourceView's name). */
+  loadMore?: () => void;
+  /** @deprecated Use `loadMore`. */
   onNearEnd?: () => void;
   /** Above the first row, scrolling with it. */
   header?: ReactNode;
   /** Below the last row (a "Loading more" spinner). */
   footer?: ReactNode;
-  /** Groups items (in order of first appearance), each under a header reading the key. */
+  /** Groups items (in order of first appearance), each under a header reading the key (a view's `groupBy`, for an array). */
+  groupBy?: (item: GalleryItem) => string;
+  /** @deprecated Use `groupBy`. */
   getGroup?: (item: GalleryItem) => string;
   className?: string;
   testID?: string;
@@ -72,12 +76,12 @@ interface Group {
   entries: { item: GalleryItem; index: number }[];
 }
 
-function groupItems(items: GalleryItem[], getGroup?: (item: GalleryItem) => string): Group[] {
-  if (!getGroup) return [{ key: null, entries: items.map((item, index) => ({ item, index })) }];
+function groupItems(items: GalleryItem[], groupBy?: (item: GalleryItem) => string): Group[] {
+  if (!groupBy) return [{ key: null, entries: items.map((item, index) => ({ item, index })) }];
   const groups: Group[] = [];
   const byKey = new Map<string, Group>();
   items.forEach((item, index) => {
-    const key = getGroup(item);
+    const key = groupBy(item);
     let group = byKey.get(key);
     if (!group) {
       group = { key, entries: [] };
@@ -106,13 +110,17 @@ export function NativeGalleryGrid({
   renderBadges,
   selected,
   onSelectionChange,
+  loadMore: loadMoreProp,
   onNearEnd,
   header,
   footer,
+  groupBy: groupByProp,
   getGroup,
   className,
   testID = "native-gallery-grid",
 }: NativeGalleryGridProps) {
+  const loadMore = loadMoreProp ?? onNearEnd;
+  const groupBy = groupByProp ?? getGroup;
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => {
     const next = e.nativeEvent.layout.width;
@@ -126,7 +134,7 @@ export function NativeGalleryGrid({
   const lines = useMemo<Line[]>(() => {
     if (width <= 0) return [];
     const out: Line[] = [];
-    groupItems(items, getGroup).forEach((group) => {
+    groupItems(items, groupBy).forEach((group) => {
       if (group.key !== null) out.push({ kind: "header", key: `h:${group.key}`, group: group.key });
       const rows: Line[] = [];
       if (layout === "grid") {
@@ -158,7 +166,7 @@ export function NativeGalleryGrid({
       out.push(...rows);
     });
     return out;
-  }, [width, items, getGroup, layout, columns, aspectRatio, rowHeight, gap]);
+  }, [width, items, groupBy, layout, columns, aspectRatio, rowHeight, gap]);
 
   const press = (item: GalleryItem, index: number) => {
     if (onSelectionChange) {
@@ -238,7 +246,7 @@ export function NativeGalleryGrid({
           renderItem={renderLine}
           ListHeaderComponent={header ? <>{header}</> : undefined}
           ListFooterComponent={footer ? <>{footer}</> : undefined}
-          onEndReached={onNearEnd ? () => onNearEnd() : undefined}
+          onEndReached={loadMore ? () => loadMore() : undefined}
           onEndReachedThreshold={0.5}
           initialNumToRender={8}
           windowSize={7}

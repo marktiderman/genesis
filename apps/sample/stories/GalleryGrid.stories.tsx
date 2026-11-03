@@ -48,6 +48,6 @@ export const Selection: Story = {
 export const Groups: Story = {
   args: {
     layout: "justified",
-    getGroup: (item) => (Number(item.id.slice(1)) < 9 ? "Morning" : "Afternoon"),
+    groupBy: (item) => (Number(item.id.slice(1)) < 9 ? "Morning" : "Afternoon"),
   },
 };

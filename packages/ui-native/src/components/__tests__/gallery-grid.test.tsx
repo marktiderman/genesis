@@ -88,17 +88,17 @@ describe("NativeGalleryGrid additions", () => {
     expect(onSelectionChange).toHaveBeenLastCalledWith([], { item: items[1], index: 1 });
   });
 
-  it("calls onNearEnd only when scrolling nears the end, not on measure or on new items", () => {
-    const onNearEnd = vi.fn();
+  it("calls loadMore only when scrolling nears the end, not on measure or on new items", () => {
+    const loadMore = vi.fn();
     const many = Array.from({ length: 60 }, (_, i) => ({ id: `m${i}`, src: `https://example.test/m${i}.jpg`, width: 400, height: 300 }));
-    const { rerender } = render(<NativeGalleryGrid items={many} onNearEnd={onNearEnd} testID="g" />);
+    const { rerender } = render(<NativeGalleryGrid items={many} loadMore={loadMore} testID="g" />);
     measure(screen.getByTestId("g"), 600);
-    rerender(<NativeGalleryGrid items={[...many, { id: "x", src: "https://example.test/x.jpg" }]} onNearEnd={onNearEnd} testID="g" />);
-    expect(onNearEnd).not.toHaveBeenCalled();
+    rerender(<NativeGalleryGrid items={[...many, { id: "x", src: "https://example.test/x.jpg" }]} loadMore={loadMore} testID="g" />);
+    expect(loadMore).not.toHaveBeenCalled();
     act(() => {
       screen.getByTestId("g-list").dispatchEvent(new Event("endreached"));
     });
-    expect(onNearEnd).toHaveBeenCalledTimes(1);
+    expect(loadMore).toHaveBeenCalledTimes(1);
   });
 
   it("renders the rows through a list with a header and footer, and sizes grid tiles by aspectRatio", () => {
@@ -110,6 +110,17 @@ describe("NativeGalleryGrid additions", () => {
     expect(style(screen.getByTestId("g-item-p0"))).toEqual({ width: 100, height: 50 });
   });
 
+  it("still takes the deprecated onNearEnd and getGroup", () => {
+    const onNearEnd = vi.fn();
+    render(<NativeGalleryGrid items={items} onNearEnd={onNearEnd} getGroup={() => "All"} testID="g" />);
+    measure(screen.getByTestId("g"), 600);
+    act(() => {
+      screen.getByTestId("g-list").dispatchEvent(new Event("endreached"));
+    });
+    expect(onNearEnd).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("g-group-All")).toBeTruthy();
+  });
+
   it("shares the web's defaults", () => {
     expect(GALLERY_DEFAULTS).toEqual({ rowHeight: 180, gap: 4, columns: 3 });
   });
@@ -117,7 +128,7 @@ describe("NativeGalleryGrid additions", () => {
   it("groups items in order of first appearance under headers", () => {
     const grouped = items.map((it, i) => ({ ...it, caption: i % 2 ? "Odd" : "Even" }));
     const onItemPress = vi.fn();
-    render(<NativeGalleryGrid items={grouped} getGroup={(it) => it.caption!} onItemPress={onItemPress} testID="g" />);
+    render(<NativeGalleryGrid items={grouped} groupBy={(it) => it.caption!} onItemPress={onItemPress} testID="g" />);
     measure(screen.getByTestId("g"), 600);
     const headers = screen.getAllByRole("header").map((h) => h.textContent);
     expect(headers).toEqual(["Even", "Odd"]);
