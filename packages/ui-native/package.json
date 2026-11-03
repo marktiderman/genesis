@@ -216,9 +216,6 @@
           "forbid": {
             "pattern": "(?:\\bwith(?:Timing|Spring)\\(\\s*[^,()]+,\\s*\\{[^}]*\\b(?:duration|damping|stiffness)\\s*:\\s*(?:0?\\.\\d*[1-9]|[1-9])|\\bAnimated\\.(?:timing|spring)\\(\\s*[^,()]+,\\s*\\{[^}]*\\b(?:duration|bounciness|speed|damping|stiffness)\\s*:\\s*(?:0?\\.\\d*[1-9]|[1-9])|\\b(?:FadeIn|FadeOut|Slide|Zoom|Bounce|Flip|Stretch|Roll|Rotate|Pinwheel|LightSpeed|Layout|LinearTransition|SequencedTransition|FadingTransition|JumpingTransition|CurvedTransition|EntryExitTransition)\\w*(?:\\.\\w+\\([^()]*\\))*\\.(?:duration|damping|stiffness)\\(\\s*(?:0?\\.\\d*[1-9]|[1-9]))"
           },
-          "unless": {
-            "pattern": "\\b(?:useMotion|animateMotion|motionSpring|motionTiming)\\b"
-          },
           "use": "useMotion() with animateMotion on the JS thread, or motionSpring / motionTiming inside a worklet: the shared motion tokens",
           "import": "@marktiderman/genesis-ui-native",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#motion",
