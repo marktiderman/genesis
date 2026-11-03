@@ -26,13 +26,33 @@ export function localCacheContract(make: () => LocalCache): void {
     expect(await cache.readRows(A, "tasks", ["1", "2"])).toEqual([{ resource: "tasks", id: "1", row: { id: 1, title: "One" }, fetchedAt: 1000 }]);
   });
 
-  it("merges a narrower read into the stored row instead of dropping fields", async () => {
+  it("replaces a stored row with the newer read, so a field no longer returned is gone", async () => {
     const cache = make();
     await cache.write(A, [{ kind: "row", row: { resource: "tasks", id: "1", row: { id: 1, title: "One", notes: "n" }, fetchedAt: 1 } }]);
     await cache.write(A, [{ kind: "row", row: { resource: "tasks", id: "1", row: { id: 1, title: "Two" }, fetchedAt: 2 } }]);
     const [row] = await cache.readRows(A, "tasks", ["1"]);
-    expect(row?.row).toEqual({ id: 1, title: "Two", notes: "n" });
+    expect(row?.row).toEqual({ id: 1, title: "Two" });
     expect(row?.fetchedAt).toBe(2);
+  });
+
+  it("applies one write's ops in order, the same row twice included", async () => {
+    const cache = make();
+    await cache.write(A, [
+      { kind: "row", row: { resource: "tasks", id: "1", row: { id: 1, title: "List" }, fetchedAt: 1 } },
+      { kind: "row", row: { resource: "tasks", id: "1", row: { id: 1, title: "Detail", notes: "n" }, fetchedAt: 2 } },
+    ]);
+    expect((await cache.readRows(A, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "Detail", notes: "n" });
+  });
+
+  it("drops one row, and prunes the rows of a resource that aren't kept", async () => {
+    const cache = make();
+    const row = (resource: string, id: string) => ({ kind: "row" as const, row: { resource, id, row: { id }, fetchedAt: 1 } });
+    await cache.write(A, [row("tasks", "1"), row("tasks", "2"), row("tasks", "3"), row("people", "1")]);
+    await cache.write(B, [row("tasks", "2")]);
+    await cache.write(A, [{ kind: "drop", resource: "tasks", id: "1" }, { kind: "prune", resource: "tasks", keep: ["3"] }]);
+    expect((await cache.readRows(A, "tasks", ["1", "2", "3"])).map((r) => r.id)).toEqual(["3"]);
+    expect(await cache.readRows(A, "people", ["1"])).toHaveLength(1);
+    expect(await cache.readRows(B, "tasks", ["2"])).toHaveLength(1);
   });
 
   it("keeps scopes apart: another person's, or the same person's other workspace", async () => {
@@ -73,9 +93,20 @@ export function localCacheContract(make: () => LocalCache): void {
 
   it("clearing a person doesn't touch another whose id starts the same", async () => {
     const cache = make();
-    await cache.write("u:an|none", [{ kind: "query", query: query("q1") }]);
-    await cache.write(A, [{ kind: "query", query: query("q1") }]);
+    await cache.write("u:an|none", [{ kind: "query", query: query("q1") }, { kind: "row", row: { resource: "tasks", id: "1", row: { id: 1 }, fetchedAt: 1 } }]);
+    await cache.write(A, [{ kind: "query", query: query("q1") }, { kind: "row", row: { resource: "tasks", id: "1", row: { id: 1 }, fetchedAt: 1 } }]);
     await cache.clear({ user: "an" });
+    expect(await cache.readQueries("u:an|none")).toEqual([]);
+    expect(await cache.readRows("u:an|none", "tasks", ["1"])).toEqual([]);
     expect(await cache.readQueries(A)).toHaveLength(1);
+    expect(await cache.readRows(A, "tasks", ["1"])).toHaveLength(1);
+  });
+
+  it("clearing one scope leaves the same person's other scope, rows included", async () => {
+    const cache = make();
+    for (const scope of [A, A2]) await cache.write(scope, [{ kind: "row", row: { resource: "tasks", id: "1", row: { id: 1 }, fetchedAt: 1 } }]);
+    await cache.clear({ scope: A });
+    expect(await cache.readRows(A, "tasks", ["1"])).toEqual([]);
+    expect(await cache.readRows(A2, "tasks", ["1"])).toHaveLength(1);
   });
 }

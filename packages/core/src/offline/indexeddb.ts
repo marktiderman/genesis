@@ -53,6 +53,8 @@ export function indexedDbLocalCache(options: IndexedDbLocalCacheOptions = {}): L
       void storage?.persist?.().catch(() => false);
     }
     const request = factory.open(name, VERSION);
+    // Another tab holds an older version open: it closes on its versionchange, then this opens.
+    request.onblocked = () => undefined;
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains("rows")) {
@@ -75,17 +77,11 @@ export function indexedDbLocalCache(options: IndexedDbLocalCacheOptions = {}): L
     return opening;
   };
 
-  const deleteScope = (store: IDBObjectStore, scope: string) =>
-    new Promise<void>((resolve, reject) => {
-      const cursor = store.index("scope").openKeyCursor(IDBKeyRange.only(scope));
-      cursor.onsuccess = () => {
-        const c = cursor.result;
-        if (!c) return resolve();
-        store.delete(c.primaryKey);
-        c.continue();
-      };
-      cursor.onerror = () => reject(cursor.error);
-    });
+  // Every key starts with its scope, so a scope's (or a person's) records are one key range: an
+  // array key sorts after any shorter array it starts with, and an array element sorts after a
+  // string, so `[scope, []]` is above every `[scope, ...]`.
+  const scopeRange = (scope: string) => IDBKeyRange.bound([scope], [scope, []]);
+  const personRange = (user: string) => IDBKeyRange.bound([userPrefix(user)], [`${userPrefix(user)}\uffff`]);
 
   return {
     async readQueries(scope) {
@@ -109,41 +105,33 @@ export function indexedDbLocalCache(options: IndexedDbLocalCacheOptions = {}): L
       const tx = db.transaction(["rows", "queries"], "readwrite");
       const rows = tx.objectStore("rows");
       const queries = tx.objectStore("queries");
+      // Requests in one transaction run in the order they're made, so the ops apply in order.
       for (const op of ops) {
-        if (op.kind === "row") {
-          const key = [scope, op.row.resource, op.row.id];
-          const get = rows.get(key);
-          get.onsuccess = () => {
-            const before = get.result as RowRecord | undefined;
-            rows.put({ ...op.row, scope, row: { ...(before?.row ?? {}), ...op.row.row } } satisfies RowRecord);
+        if (op.kind === "row") rows.put({ ...op.row, scope } satisfies RowRecord);
+        else if (op.kind === "query") queries.put({ ...op.query, scope } satisfies QueryRecord);
+        else if (op.kind === "forget") queries.delete([scope, op.key]);
+        else if (op.kind === "drop") rows.delete([scope, op.resource, op.id]);
+        else {
+          const keep = new Set(op.keep);
+          const cursor = rows.openKeyCursor(IDBKeyRange.bound([scope, op.resource], [scope, op.resource, []]));
+          cursor.onsuccess = () => {
+            const c = cursor.result;
+            if (!c) return;
+            if (!keep.has(String((c.primaryKey as unknown[])[2]))) rows.delete(c.primaryKey);
+            c.continue();
           };
-        } else if (op.kind === "query") {
-          queries.put({ ...op.query, scope } satisfies QueryRecord);
-        } else {
-          queries.delete([scope, op.key]);
         }
       }
       await finished(tx);
     },
     async clear(target) {
       const db = await open();
-      // Which scopes go, read first: a transaction can't wait on anything but its own requests.
-      const scopes = !target ? null : "scope" in target ? [target.scope] : (await scopesFor(db)).filter((s) => s.startsWith(userPrefix(target.user)));
       const tx = db.transaction(["rows", "queries"], "readwrite");
       for (const store of [tx.objectStore("rows"), tx.objectStore("queries")]) {
-        if (!scopes) store.clear();
-        else for (const scope of scopes) void deleteScope(store, scope);
+        if (!target) store.clear();
+        else store.delete("scope" in target ? scopeRange(target.scope) : personRange(target.user));
       }
       await finished(tx);
     },
   };
-
-  async function scopesFor(db: IDBDatabase): Promise<string[]> {
-    const out = new Set<string>();
-    for (const store of ["rows", "queries"] as const) {
-      const keys = (await done(db.transaction(store).objectStore(store).index("scope").getAllKeys())) as IDBValidKey[];
-      for (const k of keys) out.add(String((k as unknown[])[0]));
-    }
-    return [...out];
-  }
 }

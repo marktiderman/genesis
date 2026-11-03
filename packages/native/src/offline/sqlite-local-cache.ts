@@ -26,7 +26,9 @@ export interface SqliteLocalCacheOptions {
   db: SQLiteDatabaseLike;
 }
 
+// busy_timeout: a clear at sign-out that overlaps a save waits for it instead of failing.
 const SCHEMA = `
+pragma busy_timeout = 5000;
 create table if not exists genesis_offline_rows (
   scope text not null, resource text not null, id text not null,
   row text not null, fetched_at integer not null,
@@ -50,7 +52,9 @@ const likePrefix = (prefix: string) => `${prefix.replace(/[\\%_]/g, (c) => `\\${
 /**
  * A `LocalCache` in SQLite, for the phone. Rows and queries are separate
  * tables keyed by scope, so one row is stored once whatever lists hold it,
- * and every write runs in one exclusive transaction.
+ * and every write runs in one exclusive transaction. Values are stored as
+ * JSON, so a `Date` in a read comes back as its ISO text (rows from Supabase
+ * are text already).
  *
  * @stability Beta
  */
@@ -107,22 +111,25 @@ export function sqliteLocalCache({ db }: SqliteLocalCacheOptions): LocalCache {
       await db.withExclusiveTransactionAsync(async (txn) => {
         for (const op of ops) {
           if (op.kind === "row") {
-            const [before] = await txn.getAllAsync<{ row: string }>(
-              "select row from genesis_offline_rows where scope = ? and resource = ? and id = ?",
-              [scope, op.row.resource, op.row.id],
-            );
-            const merged = { ...(before ? (JSON.parse(before.row) as Record<string, unknown>) : {}), ...op.row.row };
             await txn.runAsync(
               "insert or replace into genesis_offline_rows (scope, resource, id, row, fetched_at) values (?, ?, ?, ?, ?)",
-              [scope, op.row.resource, op.row.id, JSON.stringify(merged), op.row.fetchedAt],
+              [scope, op.row.resource, op.row.id, JSON.stringify(op.row.row), op.row.fetchedAt],
             );
           } else if (op.kind === "query") {
             await txn.runAsync(
               "insert or replace into genesis_offline_queries (scope, key, query_key, resource, data, fetched_at) values (?, ?, ?, ?, ?, ?)",
               [scope, op.query.key, JSON.stringify(op.query.queryKey), op.query.resource, JSON.stringify(op.query.data), op.query.fetchedAt],
             );
-          } else {
+          } else if (op.kind === "forget") {
             await txn.runAsync("delete from genesis_offline_queries where scope = ? and key = ?", [scope, op.key]);
+          } else if (op.kind === "drop") {
+            await txn.runAsync("delete from genesis_offline_rows where scope = ? and resource = ? and id = ?", [scope, op.resource, op.id]);
+          } else {
+            const ids = await txn.getAllAsync<{ id: string }>("select id from genesis_offline_rows where scope = ? and resource = ?", [scope, op.resource]);
+            const keep = new Set(op.keep);
+            for (const { id } of ids) {
+              if (!keep.has(id)) await txn.runAsync("delete from genesis_offline_rows where scope = ? and resource = ? and id = ?", [scope, op.resource, id]);
+            }
           }
         }
       });

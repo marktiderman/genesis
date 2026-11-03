@@ -37,10 +37,16 @@ const keyText = (key: readonly unknown[]) =>
   );
 
 /** A person's scope from what the app shell hands over: a user id, or a scope `cacheScope` built. */
-const toScope = (scope: string): CacheScope | null => (!scope ? null : scope.startsWith("u:") ? scope : `${userPrefix(scope)}none`);
+const toScope = (scope: string): CacheScope | null =>
+  !scope ? null : scope.startsWith("u:") ? (/^u:[^|]+\|/.test(scope) ? scope : null) : `${userPrefix(scope)}none`;
 
-/** Replaces the rows in a read with references, and collects them. Null: not a shape this keeps. */
+/**
+ * Replaces the rows in a read with references, and collects them. Only a read of whole rows (no
+ * `select`) is split, so every stored row has one shape; a projection is kept as it came. Null:
+ * not a shape this keeps.
+ */
 function split(kind: string, select: unknown, data: unknown, rows: Row[]): unknown {
+  if (select !== undefined) return kind === "infinite" && !(data && typeof data === "object" && Array.isArray((data as { pages?: unknown }).pages)) ? null : data;
   const list = (page: unknown) => {
     if (!page || typeof page !== "object" || !Array.isArray((page as { data?: unknown }).data)) return page;
     const p = page as { data: unknown[] };
@@ -52,8 +58,8 @@ function split(kind: string, select: unknown, data: unknown, rows: Row[]): unkno
     const d = data as { pages: unknown[] };
     return { ...d, pages: d.pages.map(list) };
   }
-  // A record read whole is a row; a projection (`select`) is kept as it is, beside the rows.
-  if (select === undefined && isRow(data)) {
+  // A record read whole is a row.
+  if (isRow(data)) {
     rows.push(data);
     return { $row: String(data.id) };
   }
@@ -97,10 +103,14 @@ function join(value: unknown, rows: Map<string, Row>): unknown {
  * - Only reads that came back from the provider are kept (never an optimistic
  *   change that hasn't been saved), in the bucket of the person and workspace
  *   they were read in.
- * - A restored read is marked as fetched when it was, so it refetches as soon
- *   as a screen shows it. It never replaces a newer read already in the client.
+ * - A restored read is marked as fetched when it was, so a screen refetches it
+ *   once it's stale (the client's `staleTime`), as with any cached read. It
+ *   never replaces a newer read already in the client.
+ * - A newer read replaces a stored row, so a field the server stops returning
+ *   goes; a record that comes back empty is deleted from the device. Each start
+ *   deletes reads older than `maxAge` and the rows no kept read refers to.
  * - A sign-out, a change of person or workspace, or `clear()` stops every save
- *   still in flight from landing in the new bucket.
+ *   and restore still in flight from landing in the new bucket.
  *
  * @stability Beta
  */
@@ -114,41 +124,44 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
     // Restores and saves count apart, so starting to save doesn't cancel a restore still reading.
     let restores = 0;
     let saves = 0;
-    let lastUser: string | null = null;
+    // Everyone this persistence restored or saved for: `clear` deletes all of their reads.
+    const people = new Set<string>();
+    const meta = (): CacheOp => ({ kind: "query", query: { key: META, queryKey: [META], resource: META, data: { buster }, fetchedAt: Date.now() } });
 
     const keptQuery = (query: Query) => {
       const [resource, kind] = query.queryKey as readonly unknown[];
       return typeof resource === "string" && kept.has(resource) && typeof kind === "string" && KINDS.has(kind);
     };
 
-    const restore = async (raw: string) => {
+    const restore = async (raw: string, signal?: AbortSignal) => {
       const scope = toScope(raw);
       if (!scope) return;
       const mine = ++restores;
-      lastUser = scope.slice(2, scope.indexOf("|"));
+      people.add(scope.slice(2, scope.indexOf("|")));
+      const stale = () => mine !== restores || signal?.aborted === true;
       try {
         const stored = await cache.readQueries(scope);
-        const meta = stored.find((q) => q.key === META);
-        if (!meta || (meta.data as { buster?: unknown })?.buster !== buster) {
+        if (stale()) return;
+        const found = stored.find((q) => q.key === META);
+        if (!found || (found.data as { buster?: unknown })?.buster !== buster) {
           // A different app version, or nothing kept yet: start this bucket afresh.
           await cache.clear({ scope });
-          await cache.write(scope, [{ kind: "query", query: { key: META, queryKey: [META], resource: META, data: { buster }, fetchedAt: Date.now() } }]);
+          await cache.write(scope, [meta()]);
           return;
         }
-        const fresh = stored.filter((q) => q.key !== META && Date.now() - q.fetchedAt <= maxAge && kept.has(q.resource));
+        const reads = stored.filter((q) => q.key !== META);
+        const fresh = reads.filter((q) => Date.now() - q.fetchedAt <= maxAge && kept.has(q.resource));
         // The rows each resource's reads refer to, read once per resource.
         const wanted = new Map<string, Set<string>>();
-        for (const q of fresh) {
-          const ids = wanted.get(q.resource) ?? new Set<string>();
-          refsIn(q.data, ids);
-          wanted.set(q.resource, ids);
-        }
+        for (const q of reads) if (!wanted.has(q.resource)) wanted.set(q.resource, new Set());
+        for (const q of fresh) refsIn(q.data, wanted.get(q.resource)!);
         const rowsOf = new Map<string, Map<string, Row>>();
         for (const [resource, ids] of wanted) {
-          const found = await cache.readRows(scope, resource, [...ids]);
-          rowsOf.set(resource, new Map(found.map((r) => [r.id, r.row as Row])));
+          if (ids.size === 0) continue;
+          const rows = await cache.readRows(scope, resource, [...ids]);
+          rowsOf.set(resource, new Map(rows.map((r) => [r.id, r.row as Row])));
         }
-        if (mine !== restores) return;
+        if (stale()) return;
         for (const q of fresh) {
           const data = join(q.data, rowsOf.get(q.resource) ?? new Map());
           if (data === undefined) continue; // A row it needs is gone: the screen reads it again.
@@ -156,6 +169,11 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
           if (existing?.data !== undefined && existing.dataUpdatedAt >= q.fetchedAt) continue;
           queryClient.setQueryData(q.queryKey, data, { updatedAt: q.fetchedAt });
         }
+        // Keep the device to what can still be restored: expired reads, reads of resources no
+        // longer kept, and rows nothing refers to are deleted.
+        const sweep: CacheOp[] = reads.filter((q) => !fresh.includes(q)).map((q) => ({ kind: "forget", key: q.key }));
+        for (const [resource, ids] of wanted) sweep.push({ kind: "prune", resource, keep: [...ids] });
+        if (sweep.length) await cache.write(scope, sweep);
       } catch {
         // An unreadable cache is no reason to fail the start: the screens read from the server.
       }
@@ -165,23 +183,37 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
       const scope = toScope(raw);
       if (!scope) return () => {};
       const mine = ++saves;
-      const pending = new Map<string, Query>();
+      people.add(scope.slice(2, scope.indexOf("|")));
+      // What each read was when it came back: saved later, but never what the client changed since.
+      const pending = new Map<string, { queryKey: readonly unknown[]; data: unknown; fetchedAt: number }>();
+      // Reads already on their way when this started belong to the scope before: never saved here.
+      const before = new Set(queryClient.getQueryCache().getAll().filter((q) => q.state.fetchStatus === "fetching").map((q) => q.queryHash));
       let timer: ReturnType<typeof setTimeout> | undefined;
+      let first = true;
 
       const flush = () => {
         timer = undefined;
         if (mine !== saves || pending.size === 0) return;
-        const ops: CacheOp[] = [];
-        for (const query of pending.values()) {
-          const state = query.state;
-          if (state.status !== "success" || state.data === undefined) continue;
-          const [resource, kind, , select] = query.queryKey as readonly unknown[];
+        // The bucket's app version, so the next start keeps what this saves.
+        const ops: CacheOp[] = first ? [meta()] : [];
+        first = false;
+        for (const read of pending.values()) {
+          const [resource, kind, params, detailSelect] = read.queryKey;
+          // A record's projection is its key's fourth part; a list's is in its params.
+          const select = kind === "detail" ? detailSelect : (params as { select?: unknown } | undefined)?.select;
+          const key = keyText(read.queryKey);
+          if (kind === "detail" && read.data == null) {
+            // The record came back empty (deleted, or no longer readable): forget it here too.
+            const id = read.queryKey[2];
+            ops.push({ kind: "forget", key });
+            if (select === undefined && id != null) ops.push({ kind: "drop", resource: resource as string, id: String(id) });
+            continue;
+          }
           const rows: Row[] = [];
-          const data = split(kind as string, select, state.data, rows);
+          const data = split(kind as string, select, read.data, rows);
           if (data === null) continue;
-          for (const row of rows) ops.push({ kind: "row", row: { resource: resource as string, id: String(row.id), row, fetchedAt: state.dataUpdatedAt } });
-          const stored: StoredQuery = { key: keyText(query.queryKey), queryKey: query.queryKey, resource: resource as string, data, fetchedAt: state.dataUpdatedAt };
-          ops.push({ kind: "query", query: stored });
+          for (const row of rows) ops.push({ kind: "row", row: { resource: resource as string, id: String(row.id), row, fetchedAt: read.fetchedAt } });
+          ops.push({ kind: "query", query: { key, queryKey: read.queryKey, resource: resource as string, data, fetchedAt: read.fetchedAt } satisfies StoredQuery });
         }
         pending.clear();
         if (ops.length) void cache.write(scope, ops).catch(() => undefined);
@@ -193,8 +225,10 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
         // A fetch that came back; never a change made in the client (an optimistic patch, a live
         // hint's merge, a restore), which the next fetch confirms or undoes.
         if (action.type !== "success" || action.manual) return;
+        if (before.delete(event.query.queryHash)) return;
         if (!keptQuery(event.query)) return;
-        pending.set(event.query.queryHash, event.query);
+        const { data, dataUpdatedAt } = event.query.state;
+        pending.set(event.query.queryHash, { queryKey: event.query.queryKey, data, fetchedAt: dataUpdatedAt });
         timer ??= setTimeout(flush, throttleMs);
       });
       return () => {
@@ -207,7 +241,10 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
     const clear = async () => {
       restores += 1;
       saves += 1;
-      await cache.clear(lastUser ? { user: lastUser } : undefined);
+      const everyone = [...people];
+      people.clear();
+      if (everyone.length === 0) await cache.clear();
+      else for (const user of everyone) await cache.clear({ user });
     };
 
     return { restore, subscribe, clear };

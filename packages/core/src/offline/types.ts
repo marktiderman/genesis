@@ -20,7 +20,10 @@ export interface StoredRow {
   readonly resource: string;
   /** `String(row.id)`. */
   readonly id: string;
-  /** The fields read so far. A narrower read merges into it; it never drops a field. */
+  /**
+   * The row as last read whole (a list or a record read without `select`). A
+   * newer read replaces it, so a field the server stops returning is gone.
+   */
   readonly row: Readonly<Record<string, unknown>>;
   readonly fetchedAt: number;
 }
@@ -42,7 +45,11 @@ export interface StoredQuery {
 export type CacheOp =
   | { readonly kind: "row"; readonly row: StoredRow }
   | { readonly kind: "query"; readonly query: StoredQuery }
-  | { readonly kind: "forget"; readonly key: string };
+  | { readonly kind: "forget"; readonly key: string }
+  /** Deletes one stored row (the record came back empty: deleted, or no longer readable). */
+  | { readonly kind: "drop"; readonly resource: string; readonly id: string }
+  /** Deletes every stored row of `resource` that isn't in `keep`: the rows no kept read refers to. */
+  | { readonly kind: "prune"; readonly resource: string; readonly keep: readonly string[] };
 
 /**
  * The device cache. `memoryLocalCache` (tests), `indexedDbLocalCache` (the
@@ -56,7 +63,7 @@ export interface LocalCache {
   readQueries(scope: CacheScope): Promise<StoredQuery[]>;
   /** The stored rows of `resource` with these ids; missing ones are left out. */
   readRows(scope: CacheScope, resource: string, ids: readonly string[]): Promise<StoredRow[]>;
-  /** Applies `ops` in one transaction. A row op merges into the stored row's fields. */
+  /** Applies `ops` in order, in one transaction. A row op replaces the stored row. */
   write(scope: CacheScope, ops: readonly CacheOp[]): Promise<void>;
   /** Deletes one scope's bucket, every bucket of one person, or everything. */
   clear(target?: { readonly scope: CacheScope } | { readonly user: string }): Promise<void>;
@@ -69,11 +76,14 @@ export interface LocalCache {
  * @stability Beta
  */
 export interface QueryPersistence {
-  /** Load the saved reads for `scope` into the client. */
-  restore(scope: string): Promise<void>;
+  /**
+   * Load the saved reads for `scope` into the client. Once `signal` aborts (the
+   * person signed out, or the scope changed), nothing more is loaded.
+   */
+  restore(scope: string, signal?: AbortSignal): Promise<void>;
   /** Save settled reads for `scope` as they arrive; returns the unsubscribe. */
   subscribe(scope: string): () => void;
-  /** Delete the saved reads (of the last person restored, else everything). */
+  /** Delete the saved reads of every person this persistence restored or saved for (else everything). */
   clear(): Promise<void>;
 }
 

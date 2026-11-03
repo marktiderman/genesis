@@ -66,4 +66,40 @@ describe("GenesisProvider with persist", () => {
     app(stuck, vi.fn(async () => ({ data: [{ id: 1, title: "From the network" }], total: 1 })) as DataProvider["getList"]);
     expect(await screen.findByText("From the network", {}, { timeout: 2000 })).toBeTruthy();
   });
+
+  it("signing out deletes the person's reads from the device, and a restore still reading shows nothing", async () => {
+    const cache = memoryLocalCache();
+    const first = app(cache, vi.fn(async () => ({ data: [{ id: 1, title: "One" }], total: 1 })) as DataProvider["getList"]);
+    expect(await screen.findByText("One")).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 20));
+    first.unmount();
+
+    // Next start: the device is slow to answer, and the person signs out meanwhile.
+    let release: () => void = () => {};
+    let reading = false;
+    const slow: LocalCache = {
+      ...cache,
+      readQueries: async (scope) => {
+        reading = true;
+        await new Promise<void>((r) => (release = r));
+        return cache.readQueries(scope);
+      },
+    };
+    const provider = { getList: vi.fn(() => new Promise(() => {})), getOne: vi.fn(), getMany: vi.fn(), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const persist = persistOffline({ cache: slow, resources: ["tasks"], buster: "v1", throttleMs: 0 });
+    const tree = (scope: string | null) => (
+      <GenesisProvider provider={provider} queryClient={client} persist={persist} persistScope={scope}>
+        <Titles />
+      </GenesisProvider>
+    );
+    const view = render(tree(cacheScope("ana")));
+    await waitFor(() => expect(reading).toBe(true));
+    view.rerender(tree(null));
+    client.clear();
+    release();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByText("One")).toBeNull();
+    await waitFor(async () => expect(await cache.readQueries(cacheScope("ana"))).toEqual([]));
+  });
 });

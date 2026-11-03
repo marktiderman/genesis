@@ -479,14 +479,22 @@ export function Root({ provider, userId }: { provider: DataProvider; userId: str
   device is a decision: leave out anything that shouldn't sit there unencrypted.
 - **Whose cache.** `cacheScope(userId, workspaceKey)` keys every bucket to the person and the
   workspace they're in, so another person's reads, or another workspace's, are never restored.
-  While `persistScope` is null nothing is restored or saved.
+  While `persistScope` is null nothing is restored or saved. When the person changes or signs
+  out (`persistScope` goes to another user or to null), their reads are deleted from the device,
+  and a restore still reading is called off.
 - **Only what the server said.** A read is kept when a fetch comes back, never an optimistic
   change or a live hint's merge, which the next fetch confirms or undoes.
-- **Fresh after.** A restored read carries the time it was fetched, so a screen refetches it as
-  soon as it shows, and it never replaces a newer read already in the client. The first render
-  waits at most 400 ms for the device; a slow device read doesn't hold the app.
-- **Expiry.** `maxAge` (default 7 days) drops older reads; a different `buster` (your app
-  version) discards the bucket.
+- **Fresh after.** A restored read carries the time it was fetched, so a screen refetches it once
+  it's stale (the client's `staleTime`), like any cached read, and it never replaces a newer read
+  already in the client. The first render waits at most 400 ms for the device; a slow device read
+  doesn't hold the app, and nothing waits on the server.
+- **One shape per row.** Reads of whole rows (no `select`) share one stored copy of each record;
+  a newer read replaces it, so a field the server stops returning is gone, and a record that
+  comes back empty is deleted. A projected read (`select`) is kept as it came.
+- **Expiry.** `maxAge` (default 7 days) drops older reads, and each start deletes them and the
+  rows nothing refers to; a different `buster` (your app version) discards the bucket.
+- **Client-only.** In a server-rendered app, give `persistScope` after hydration (null on the
+  server and the first client render): the screens render at once and restore in the background.
 - **Adapters.** `indexedDbLocalCache()` on the web (it asks the browser to keep the storage;
   refused, the browser may evict it, and it's rebuilt from the server), `sqliteLocalCache({ db })`
   on the phone (genesis-native `/offline`), and `memoryLocalCache()` for tests. Each implements

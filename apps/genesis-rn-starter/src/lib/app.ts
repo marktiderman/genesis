@@ -27,10 +27,10 @@ const { features } = starter;
 
 /**
  * The resources whose reads are kept on the phone when `queryPersistence` is on, so their lists
- * and records open at once. Add yours: `["me", "projects"]`. Only what may sit on a phone
- * unencrypted.
+ * and records open at once. The starter has no resource lists yet, so nothing is kept: add yours
+ * (`["projects"]`) as you add their views. Only what may sit on a phone unencrypted.
  */
-export const persistedResources = ["me"] as const;
+export const persistedResources: readonly string[] = [];
 
 export const shell: Omit<GenesisNativeAppProps, "children" | "splash"> = {
   brand: genesisBrand,

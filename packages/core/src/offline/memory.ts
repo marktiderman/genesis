@@ -9,14 +9,13 @@ const rowKey = (resource: string, id: string) => `${resource}\u0000${id}`;
 
 /** Applies one op to a bucket (shared with the other adapters' tests through behaviour, not code). */
 function apply(bucket: Bucket, op: CacheOp): void {
-  if (op.kind === "row") {
-    const k = rowKey(op.row.resource, op.row.id);
-    const before = bucket.rows.get(k);
-    bucket.rows.set(k, before ? { ...op.row, row: { ...before.row, ...op.row.row } } : op.row);
-  } else if (op.kind === "query") {
-    bucket.queries.set(op.query.key, op.query);
-  } else {
-    bucket.queries.delete(op.key);
+  if (op.kind === "row") bucket.rows.set(rowKey(op.row.resource, op.row.id), op.row);
+  else if (op.kind === "query") bucket.queries.set(op.query.key, op.query);
+  else if (op.kind === "forget") bucket.queries.delete(op.key);
+  else if (op.kind === "drop") bucket.rows.delete(rowKey(op.resource, op.id));
+  else {
+    const keep = new Set(op.keep);
+    for (const [k, row] of bucket.rows) if (row.resource === op.resource && !keep.has(row.id)) bucket.rows.delete(k);
   }
 }
 

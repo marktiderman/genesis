@@ -35,15 +35,24 @@ const A = "u:ana|org:acme";
 const query = (key: string) => ({ key, queryKey: ["tasks", "list", { key }], resource: "tasks", data: { data: [{ $row: "1" }] }, fetchedAt: 1 });
 
 describe("sqliteLocalCache", () => {
-  it("stores rows once, merges narrower reads, and reads queries back", async () => {
+  it("stores rows once, replaces a row with the newer read, and reads queries back", async () => {
     const cache = sqliteLocalCache({ db: expoLike() });
     await cache.write(A, [
       { kind: "row", row: { resource: "tasks", id: "1", row: { id: 1, title: "One", notes: "n" }, fetchedAt: 1 } },
       { kind: "query", query: query("q1") },
     ]);
     await cache.write(A, [{ kind: "row", row: { resource: "tasks", id: "1", row: { id: 1, title: "Two" }, fetchedAt: 2 } }]);
-    expect(await cache.readRows(A, "tasks", ["1", "9"])).toEqual([{ resource: "tasks", id: "1", row: { id: 1, title: "Two", notes: "n" }, fetchedAt: 2 }]);
+    expect(await cache.readRows(A, "tasks", ["1", "9"])).toEqual([{ resource: "tasks", id: "1", row: { id: 1, title: "Two" }, fetchedAt: 2 }]);
     expect(await cache.readQueries(A)).toEqual([query("q1")]);
+  });
+
+  it("drops a row, and prunes the rows of a resource that aren't kept", async () => {
+    const cache = sqliteLocalCache({ db: expoLike() });
+    const row = (resource: string, id: string) => ({ kind: "row" as const, row: { resource, id, row: { id }, fetchedAt: 1 } });
+    await cache.write(A, [row("tasks", "1"), row("tasks", "2"), row("tasks", "3"), row("people", "1")]);
+    await cache.write(A, [{ kind: "drop", resource: "tasks", id: "1" }, { kind: "prune", resource: "tasks", keep: ["3"] }]);
+    expect((await cache.readRows(A, "tasks", ["1", "2", "3"])).map((r) => r.id)).toEqual(["3"]);
+    expect(await cache.readRows(A, "people", ["1"])).toHaveLength(1);
   });
 
   it("rolls a failed write back whole", async () => {

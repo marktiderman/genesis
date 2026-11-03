@@ -81,13 +81,17 @@ export type GenesisProviderProps =
       /**
        * Keep reads on the device and restore them on the next start, so lists and records open at
        * once: `persistOffline({ cache: indexedDbLocalCache(), resources, buster })` from
-       * `@marktiderman/genesis-core/offline`. Needs `persistScope`.
+       * `@marktiderman/genesis-core/offline`. Needs `persistScope`. Give it from the first render:
+       * the provider keeps the first one it's given.
        */
       persist?: (client: QueryClient) => QueryPersistence;
       /**
        * Whose cache this is: `cacheScope(user.id, workspaceKey)`, or null while nobody is signed in
-       * (nothing is restored or saved). A change restores the new scope's reads; clear the
-       * QueryClient yourself when the person changes, as a sign-out already does.
+       * (nothing is restored or saved). A change restores the new scope's reads; when the person
+       * changes or signs out, their kept reads are deleted from the device. Clear the QueryClient
+       * yourself when the person changes, as a sign-out already does. Restoring is client-only:
+       * in a server-rendered app, give it after hydration (null on the server and the first
+       * client render), and the screens restore in the background.
        */
       persistScope?: string | null;
       /**
@@ -180,43 +184,57 @@ export function GenesisProvider({
 /** How long the first render waits for the device's reads before it goes on without them. */
 const RESTORE_WAIT_MS = 400;
 
+/** The person a scope belongs to (`u:<user>|<workspace>`, or a bare user id). */
+const userOf = (scope: string) => (scope.startsWith("u:") ? scope.slice(2, scope.indexOf("|") < 0 ? undefined : scope.indexOf("|")) : scope);
+
 /**
  * Restores `scope`'s kept reads before the screens first render (so they open from the device),
- * waiting at most RESTORE_WAIT_MS, then saves new reads. Never blocks a later scope change.
+ * waiting at most RESTORE_WAIT_MS, then saves new reads. Only the first render waits, and never on
+ * the server; a later scope change restores in the background. When the person changes or signs
+ * out, their reads are deleted from the device before anything of the next scope is restored.
  */
 function useRestoredReads(
   queryClient: QueryClient,
   persist: ((client: QueryClient) => QueryPersistence) | undefined,
   scope: string | null,
 ): boolean {
-  // The first `persist` given is kept, so a screen that writes it inline doesn't restart the
-  // restore on every render.
+  // The first `persist` given is kept (one given only later is ignored), so a screen that writes
+  // it inline doesn't restart the restore on every render.
   const persistRef = useRef(persist);
   const persistence = useMemo(() => (persistRef.current ? persistRef.current(queryClient) : null), [queryClient]);
-  const [ready, setReady] = useState(!persistence || !scope);
+  const [ready, setReady] = useState(!persistence || !scope || typeof window === "undefined");
+  // Whose reads this provider last restored or saved, and the clear of them still running.
+  const person = useRef<string | null>(null);
+  const clearing = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => {
-    if (!persistence || !scope) {
+    if (!persistence) return;
+    const next = scope ? userOf(scope) : null;
+    if (person.current !== null && person.current !== next) {
+      clearing.current = persistence.clear().catch(() => undefined);
+    }
+    person.current = next;
+    if (!scope) {
       setReady(true);
       return;
     }
-    let live = true;
-    let stop: (() => void) | undefined;
+    const abort = new AbortController();
+    // Saving starts with the scope, so a read that was on its way before it is never saved here.
+    const stop = persistence.subscribe(scope);
     const open = () => {
-      if (live) setReady(true);
+      if (!abort.signal.aborted) setReady(true);
     };
     const wait = setTimeout(open, RESTORE_WAIT_MS);
-    void persistence
-      .restore(scope)
+    void clearing.current
+      .then(() => (abort.signal.aborted ? undefined : persistence.restore(scope, abort.signal)))
       .catch(() => undefined)
       .finally(() => {
         clearTimeout(wait);
         open();
-        if (live) stop = persistence.subscribe(scope);
       });
     return () => {
-      live = false;
+      abort.abort();
       clearTimeout(wait);
-      stop?.();
+      stop();
     };
   }, [persistence, scope]);
   return ready;

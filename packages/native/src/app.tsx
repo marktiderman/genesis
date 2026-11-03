@@ -116,8 +116,8 @@ export interface GenesisNativeAppProps {
   provider?: DataProvider;
   queryClient?: NativeQueryClientOptions;
   /**
-   * Save queries to the phone: `persistQueries({ storage, keys, buster })`
-   * from `@marktiderman/genesis-native/persist`. The saved cache belongs to
+   * Keep reads on the phone: `persistOffline({ cache: sqliteLocalCache({ db }), resources, buster })`
+   * from `@marktiderman/genesis-native/offline`. The saved cache belongs to
    * one user: it is restored only for that user and cleared when the user
    * changes (sign-out, a session that ended while the app was closed, an
    * account switch).
