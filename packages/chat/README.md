@@ -11,7 +11,7 @@ replies, threads, reactions, read state, live updates and push.
 | `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast. |
 | `/native` | Beta: screens and parts on genesis-ui-native (inbox, thread, search, availability), voice notes, photos and video, and the push block's glue. See "On native" below. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
-| `migrations/0001_genesis_chat.sql`, `0002_genesis_chat_coaching.sql`, `0003_genesis_chat_search_threads.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`. |
+| `migrations/0001_genesis_chat.sql` … `0004_genesis_chat_tenants.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`; 0004 puts every conversation in a tenant (see Tenants). |
 
 ## On the web
 
@@ -172,6 +172,49 @@ select genesis_chat.register_kind('direct', 'Direct message', p_max_members => 2
 A conversation tied to one of your records (a group, a ticket) is made by your server with
 `genesis_chat.ensure_conversation(kind, subject_type, subject_id, title)`, and its members set with
 `genesis_chat.sync_members(conversation, user_ids, role)`.
+
+## Tenants (migration 0004)
+
+Every conversation belongs to a tenant (`conversations.tenant_id`, `ChatConversation.tenantId`).
+Who belongs to which tenant is your app's answer, through the hook genesis-supabase's viewer
+people use (0016), which you define once:
+
+```sql
+create function private.genesis_viewer_people(viewer uuid)
+returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
+  select m.team_id, m.person_id from public.team_members m where m.user_id = viewer
+$$;
+revoke execute on function private.genesis_viewer_people(uuid) from public, anon, authenticated;
+```
+
+A single-tenant app returns its one tenant id for everyone. Without the hook nobody is in a
+tenant, so nobody starts a conversation and nobody observes one.
+
+- **Starting one.** Everyone in it shares the tenant: the subject's when it has one, else the one
+  they share. People who share several pass `tenantId` (`startConversation(kind, ids, { tenantId })`,
+  `useStartConversation`); people who share none can't start one. `add_members` adds only people
+  of the conversation's tenant, and a direct conversation is one per pair per tenant.
+- **Subjects.** Register the record types a kind's conversations are about, with a resolver
+  that names the record's tenant (null when there's no such record):
+
+  ```sql
+  select genesis_chat.register_subject('support', 'ticket', 'private.ticket_tenant(text)',
+                                       p_aliases => array['support_report']);
+  ```
+
+  `ensure_conversation` and `start_conversation` then take the tenant from it and refuse a
+  record it doesn't know. An alias is an older name: calls using it reach the same conversations.
+  An unregistered subject passes `p_tenant_id` to `ensure_conversation`.
+- **Observers.** A kind's observer check is asked only about people of the conversation's
+  tenant, and never about anyone who is or was a member of it, so whoever opened a ticket never
+  reads its internal notes, even if they're staff too.
+
+**Upgrading.** Add the hook before applying 0004. It fills in the tenant of every existing
+conversation: from your optional `private.genesis_chat_conversation_tenant(conversation_id uuid)`
+hook, then the one tenant all its members share, then its creator's only tenant, then any one
+member's only tenant. If any conversation is left without a tenant, it stops and says how many.
+Replace your copies of the 0001–0003 pgTAP tests with this release's (they now give their own
+people a tenant). If you use genesis-support's chat, apply its 0004 in the same release.
 
 ## Access
 

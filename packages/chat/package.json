@@ -243,12 +243,17 @@
           {
             "file": "migrations/0003_genesis_chat_search_threads.sql",
             "test": "migrations/tests/0003_genesis_chat_search_threads.test.sql"
+          },
+          {
+            "file": "migrations/0004_genesis_chat_tenants.sql",
+            "test": "migrations/tests/0004_genesis_chat_tenants.test.sql"
           }
         ],
         "install": [
           "@supabase/supabase-js@^2.118.0"
         ],
         "steps": [
+          "Say who belongs to which tenant: private.genesis_viewer_people(viewer uuid) returns table (tenant_id uuid, person_id uuid), the hook genesis-supabase's 0016 documents (a single-tenant app returns its one tenant). Every conversation belongs to a tenant from migration 0004.",
           "Expose the genesis_chat schema to the API: add it to `schemas` under [api] in supabase/config.toml, and to Exposed schemas in the dashboard.",
           "Register your kinds' rules in a migration of your own, after this one: a start check for direct (who may message whom) and any kinds of your own, with an observer check where staff read without being members (genesis-chat README, Kinds and rules).",
           "Run the outbox: call createChatRunner from @marktiderman/genesis-chat/server on a schedule (every minute) or from a database webhook on genesis_chat.effects, with your push sender."
