@@ -106,7 +106,7 @@
     "react-hook-form": "^7.0.0",
     "react-native": ">=0.76.0",
     "react-native-gesture-handler": ">=2.0.0",
-    "react-native-keyboard-controller": ">=1.11.0",
+    "react-native-keyboard-controller": ">=1.21.0",
     "react-native-reanimated": ">=3.0.0",
     "react-native-safe-area-context": ">=4.0.0",
     "tailwind-merge": "^3.0.0",
@@ -220,6 +220,31 @@
           "import": "@marktiderman/genesis-ui-native",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#motion",
           "why": "Motion is defined once, and Reduce Motion is honoured in one place; a duration or spring written as a number drifts from the rest of the app."
+        },
+        {
+          "id": "threads-use-thread-list",
+          "need": "a conversation's message list on the phone",
+          "level": "warn",
+          "platform": "native",
+          "newOnly": true,
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "forbid": {
+            "pattern": "(?:<(?:FlatList|FlashList)\\b[\\s\\S]{0,400}?\\binverted\\b(?!\\s*=\\s*\\{\\s*false\\s*\\})|\\bstartRenderingFromBottom\\s*:\\s*true)"
+          },
+          "unless": {
+            "renders": [
+              "ThreadPage",
+              "NativeThreadList",
+              "ChatThreadScreen"
+            ]
+          },
+          "use": "ThreadPage, or NativeThreadList for a thread of your own (bottom-anchored, holds its place on load, jumps to a message)",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#inbox-and-thread-inboxpage-and-threadpage",
+          "why": "A hand-built inverted or bottom-started list recreates what NativeThreadList already does (G5), usually without holding its place, VoiceOver order or the jump."
         }
       ],
       "primitives": [
@@ -234,6 +259,12 @@
           "use": "NativeRecordView",
           "import": "@marktiderman/genesis-ui-native/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordview"
+        },
+        {
+          "need": "a conversation on the phone: messages, a composer",
+          "use": "ThreadPage (slots, modes, events), or NativeThreadList and NativeComposerBar to build your own",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#inbox-and-thread-inboxpage-and-threadpage"
         },
         {
           "need": "a photo gallery on the phone",

@@ -43,3 +43,18 @@ describe("motion-uses-tokens", () => {
     expect(unless).toBeUndefined();
   });
 });
+
+describe("threads-use-thread-list", () => {
+  const { re } = rule("threads-use-thread-list");
+
+  it.each([
+    ["<FlatList inverted data={m} />"],
+    ["<FlatList renderItem={({ item }) => <Row item={item} />} inverted />"],
+    ["<FlatList data={m} inverted={true} />"],
+    ["<FlashList data={m} maintainVisibleContentPosition={{ startRenderingFromBottom: true }} />"],
+  ])("flags %s", (code) => expect(re.test(code)).toBe(true));
+  it.each([["<FlatList data={rows} />"], ["<FlatList data={rows} inverted={false} />"], ["<FlatList data={rows} inverted={ false } />"]])(
+    "leaves %s alone",
+    (code) => expect(re.test(code)).toBe(false),
+  );
+});
