@@ -27,11 +27,12 @@ const tasks = defineResource<Task>()({
 });
 const view = defineView(tasks, { fields: { stage: { labels: { todo: "To do" } } }, board: { field: "stage" } });
 
-function provider(rows: Task[], update: DataProvider["update"]): DataProvider {
+function provider(rows: Task[], update: DataProvider["update"], versioned = true): DataProvider {
   const matches = (row: Task, f: FilterParam) => (f.operator === "eq" ? row[f.field as keyof Task] === f.value : true);
   return {
     getList: vi.fn(async (_r: string, params: ListParams) => {
-      const data = rows.filter((row) => (params.filters ?? []).every((f) => matches(row, f)));
+      // Copies, as a real read returns: a change to `rows` later isn't seen until the next read.
+      const data = rows.filter((row) => (params.filters ?? []).every((f) => matches(row, f))).map((row) => ({ ...row }));
       return { data, total: data.length };
     }),
     getOne: vi.fn(),
@@ -39,6 +40,20 @@ function provider(rows: Task[], update: DataProvider["update"]): DataProvider {
     create: vi.fn(),
     update,
     deleteOne: vi.fn(),
+    // The real versioned path: core's write hooks send each row's `version` as `expectedVersion`.
+    ...(versioned
+      ? {
+          capabilities: async () => ({
+            search: false,
+            sort: false,
+            filterOperators: [],
+            bulkWrites: false,
+            versionedWrites: true,
+            compositeKeys: false,
+            version: { field: "version", kind: "integer" as const },
+          }),
+        }
+      : {}),
   } as unknown as DataProvider;
 }
 
@@ -76,19 +91,20 @@ async function moveTo(name: string, target: string) {
   });
 }
 
+/** Ravi moves the card to "doing" behind this board's back: the row is now at version 2. */
+function raviMovesIt(rows: Task[]) {
+  Object.assign(rows[0]!, { stage: "doing", version: 2 });
+}
+
 describe("ResourceView mode=board: conflicts", () => {
   it("opens ConflictSheet when a move meets someone else's change, and keeping mine re-sends at their version", async () => {
     const { rows, update } = conflicted();
-    const p = provider(rows, update as never);
-    render(<ResourceView view={view} mode="board" />, { wrapper: wrap(p) });
+    render(<ResourceView view={view} mode="board" />, { wrapper: wrap(provider(rows, update as never)) });
     await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
-    // Someone else moves it to "doing" behind this board's back.
-    Object.assign(rows[0]!, { stage: "doing", version: 2 });
-    // The board still read version 1: send the move with it, as #656's versioned writes do.
-    update.mockImplementationOnce(async () => {
-      throw new DataWriteError("conflict", "Someone else changed this task.", { current: { ...rows[0]! }, currentVersion: "2" });
-    });
+    raviMovesIt(rows);
     await moveTo("Write brief", "Done");
+    // The board read version 1, and core sent it.
+    expect(update).toHaveBeenLastCalledWith("tasks", expect.objectContaining({ id: "a", expectedVersion: "1" }));
     const sheet = await screen.findByTestId("resource-board-conflict");
     expect(within(sheet).getByText("Doing")).toBeTruthy();
     expect(within(sheet).getByText("Done")).toBeTruthy();
@@ -101,14 +117,59 @@ describe("ResourceView mode=board: conflicts", () => {
     await waitFor(() => expect(within(column("Done")).getByText("Write brief")).toBeTruthy());
   });
 
+  it("checks a move made right after keeping mine against the version keeping mine saved", async () => {
+    const { rows, update } = conflicted();
+    const p = provider(rows, update as never);
+    // Hold the refetch after "keep mine", so the cache still has the stale row when the next move goes.
+    let hold = false;
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    const getList = p.getList as ReturnType<typeof vi.fn>;
+    const real = getList.getMockImplementation()!;
+    getList.mockImplementation(async (...args: unknown[]) => {
+      if (hold) await held;
+      return real(...args);
+    });
+    render(<ResourceView view={view} mode="board" />, { wrapper: wrap(p) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    raviMovesIt(rows);
+    await moveTo("Write brief", "Done");
+    const sheet = await screen.findByTestId("resource-board-conflict");
+    hold = true;
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole("button", { name: "Keep my version" }));
+    });
+    await waitFor(() => expect(screen.queryByTestId("resource-board-conflict")).toBeNull());
+    expect(rows[0]!.version).toBe(3);
+    // The board still draws the card outside Done (the refetch is held): send it to Done again.
+    await moveTo("Write brief", "Done");
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(3));
+    expect(update).toHaveBeenLastCalledWith("tasks", expect.objectContaining({ data: { stage: "done" }, expectedVersion: "3" }));
+    expect(screen.queryByTestId("resource-board-conflict")).toBeNull();
+    release();
+  });
+
+  it("shows a failure that isn't a conflict in the sheet, and keeps it open", async () => {
+    const { rows, update } = conflicted();
+    render(<ResourceView view={view} mode="board" />, { wrapper: wrap(provider(rows, update as never)) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    raviMovesIt(rows);
+    await moveTo("Write brief", "Done");
+    const sheet = await screen.findByTestId("resource-board-conflict");
+    update.mockImplementationOnce(async () => {
+      throw new DataWriteError("forbidden", "You can't change this task now.");
+    });
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole("button", { name: "Keep my version" }));
+    });
+    await waitFor(() => expect(within(screen.getByTestId("resource-board-conflict")).getByText(/You can't change this task now|wasn't saved/)).toBeTruthy());
+  });
+
   it("taking theirs leaves the card where their row puts it", async () => {
     const { rows, update } = conflicted();
     render(<ResourceView view={view} mode="board" />, { wrapper: wrap(provider(rows, update as never)) });
     await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
-    Object.assign(rows[0]!, { stage: "doing", version: 2 });
-    update.mockImplementationOnce(async () => {
-      throw new DataWriteError("conflict", "Someone else changed this task.", { current: { ...rows[0]! }, currentVersion: "2" });
-    });
+    raviMovesIt(rows);
     await moveTo("Write brief", "Done");
     const sheet = await screen.findByTestId("resource-board-conflict");
     fireEvent.click(within(sheet).getByRole("button", { name: "Take their version" }));
@@ -135,9 +196,7 @@ describe("ResourceView mode=board: conflicts", () => {
     const onMoveError = vi.fn();
     render(<ResourceView view={view} mode="board" board={{ onMoveError }} />, { wrapper: wrap(provider(rows, update as never)) });
     await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
-    update.mockImplementationOnce(async () => {
-      throw new DataWriteError("conflict", "Someone else changed this task.", { current: { ...rows[0]!, stage: "doing" }, currentVersion: "2" });
-    });
+    raviMovesIt(rows);
     await moveTo("Write brief", "Done");
     await waitFor(() => expect(onMoveError).toHaveBeenCalled());
     expect(screen.queryByTestId("resource-board-conflict")).toBeNull();
