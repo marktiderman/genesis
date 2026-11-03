@@ -44,7 +44,7 @@
     "clean": "rm -rf dist",
     "check:exports": "node ../../scripts/check-exports-resolve.mjs",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests-exact.json",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests-exact.json",
     "typecheck:strict": "tsc -p tsconfig.strict.json"
   },
   "exports": {
@@ -449,6 +449,7 @@
     "@tiptap/pm": "3.32.0",
     "@tiptap/react": "3.32.0",
     "@tiptap/starter-kit": "3.32.0",
+    "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "date-fns": "^4.1.0",

@@ -43,7 +43,7 @@ function deferred<T>() {
 function setup(extra: Partial<DataProvider> = {}) {
   const provider: DataProvider = {
     getList: vi.fn(async () => ({ data: [], total: 0 })),
-    getOne: vi.fn(async () => ({ data: { id: "t1", title: "Write" } })),
+    getOne: vi.fn(async () => ({ data: { id: "t1", title: "Write" } })) as DataProvider["getOne"],
     getMany: vi.fn(async () => ({ data: [] })),
     create: vi.fn(async (_r, { data }) => ({ data: { id: "new", ...(data as object) } })) as DataProvider["create"],
     update: vi.fn(async (_r, { id, data }) => ({ data: { id, ...(data as object) } })) as DataProvider["update"],
@@ -932,7 +932,7 @@ describe("pending patches survive refetches and new list keys (medium 3, low 5)"
   });
 
   it("a deleted row stays gone when a new list key is fetched during the undo window", async () => {
-    const { wrapper, queryClient, provider } = setup({ getList: vi.fn(async () => serverRows()) });
+    const { wrapper, queryClient, provider } = setup({ getList: vi.fn(async () => serverRows()) as DataProvider["getList"] });
     let write: UndoableWrite | undefined;
     const { result } = renderHook(
       () => useResource<Row>("tasks", { enabled: false, mutationMode: "undoable", onUndoable: (w) => (write = w) }),
@@ -953,7 +953,7 @@ describe("pending patches survive refetches and new list keys (medium 3, low 5)"
   });
 
   it("a refetch of the same key keeps a pending delete and a pending edit", async () => {
-    const { wrapper, queryClient, provider, list } = setup({ getList: vi.fn(async () => serverRows()) });
+    const { wrapper, queryClient, provider, list } = setup({ getList: vi.fn(async () => serverRows()) as DataProvider["getList"] });
     const { result } = renderHook(
       () => useResource<Row>("tasks", { enabled: false, mutationMode: "undoable" }),
       { wrapper },
@@ -991,7 +991,7 @@ describe("pending patches survive refetches and new list keys (medium 3, low 5)"
 
   it("once the write is sent, its patch is no longer re-applied", async () => {
     const getList = vi.fn(async () => serverRows());
-    const { wrapper, queryClient, provider, list } = setup({ getList });
+    const { wrapper, queryClient, provider, list } = setup({ getList: getList as DataProvider["getList"] });
     const { result } = renderHook(
       () => useResource<Row>("tasks", { enabled: false, mutationMode: "undoable" }),
       { wrapper },

@@ -178,7 +178,7 @@ describe("Stack", () => {
   it("forwards a ref to the rendered element and passes through DOM props", () => {
     let node: HTMLDivElement | null = null;
     render(
-      <Stack ref={(el) => (node = el)} id="stack-root" role="list" testID="s" />
+      <Stack ref={(el) => { node = el; }} id="stack-root" role="list" testID="s" />
     );
 
     expect(node).toBe(screen.getByTestId("s"));
@@ -229,7 +229,7 @@ describe("Grid", () => {
 
   it("forwards a ref and merges className", () => {
     let node: HTMLDivElement | null = null;
-    render(<Grid ref={(el) => (node = el)} className="mt-8" testID="g" />);
+    render(<Grid ref={(el) => { node = el; }} className="mt-8" testID="g" />);
 
     expect(node).toBe(screen.getByTestId("g"));
     expect(screen.getByTestId("g").className).toContain("mt-8");
@@ -312,7 +312,7 @@ describe("Split", () => {
     let node: HTMLDivElement | null = null;
     render(
       <Split
-        ref={(el) => (node = el)}
+        ref={(el) => { node = el; }}
         gap="xl"
         testID="sp"
         start={<span>m</span>}
@@ -448,7 +448,7 @@ describe("Section", () => {
     let node: HTMLElement | null = null;
     render(
       <Section
-        ref={(el) => (node = el)}
+        ref={(el) => { node = el; }}
         title="Styled"
         headingClassName="text-3xl"
         testID="sec"
@@ -507,7 +507,7 @@ describe("Container", () => {
 
   it("forwards a ref and merges className", () => {
     let node: HTMLDivElement | null = null;
-    render(<Container ref={(el) => (node = el)} className="py-10" testID="c" />);
+    render(<Container ref={(el) => { node = el; }} className="py-10" testID="c" />);
 
     expect(node).toBe(screen.getByTestId("c"));
     expect(screen.getByTestId("c").className).toContain("py-10");
