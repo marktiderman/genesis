@@ -161,6 +161,16 @@ describe("useResourceForm on a conflict", () => {
     expect(update.mock.calls[1]![1].expectedVersion).toBe("5");
   });
 
+  it("a form that stays open after a save checks its next save against the version that save left", async () => {
+    const { hook, update } = setup(undefined, 0);
+    await saveMine(hook);
+    await act(async () => {
+      await hook.result.current.handleSave({ title: "Again", notes: "same" });
+    });
+    expect(update.mock.calls[0]![1].expectedVersion).toBe("3");
+    expect(update.mock.calls[1]![1].expectedVersion).toBe("6");
+  });
+
   it("keep mine that meets another change shows the new conflict; the sheet isn't closed first", async () => {
     const { hook, update } = setup(undefined, 2);
     await saveMine(hook);
@@ -269,5 +279,36 @@ describe("useResourceForm on a conflict, in optimistic mode over a fetched recor
     act(() => hook.result.current.dismissConflict());
     expect(hook.result.current.conflict).toBeNull();
     await waitFor(() => expect(hook.result.current.form.getValues("title")).toBe("Mine"));
+  });
+});
+
+describe("useResource on a conflict", () => {
+  it("doesn't log a conflict as a failed mutation (the caller shows it), but logs other failures", async () => {
+    const { useResource } = await import("../use-resource");
+    let outcome: "conflict" | "forbidden" = "conflict";
+    const provider = {
+      getList: vi.fn(async () => ({ data: [], total: 0 })),
+      update: vi.fn(async () => {
+        throw new DataWriteError(outcome, "x", outcome === "conflict" ? { current: { id: "t1" }, currentVersion: "5" } : {});
+      }),
+    } as unknown as DataProvider;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <GenesisProvider provider={provider} queryClient={queryClient}>
+        {children}
+      </GenesisProvider>
+    );
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const hook = renderHook(() => useResource<{ id: string; title: string }>("tasks"), { wrapper });
+    await act(async () => {
+      await expect(hook.result.current.update("t1", { title: "Mine" })).rejects.toThrow();
+    });
+    expect(logged).not.toHaveBeenCalled();
+    outcome = "forbidden";
+    await act(async () => {
+      await expect(hook.result.current.update("t1", { title: "Mine" })).rejects.toThrow();
+    });
+    expect(logged).toHaveBeenCalledTimes(1);
+    logged.mockRestore();
   });
 });
