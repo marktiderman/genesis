@@ -7,6 +7,7 @@ export {
   type CacheScope,
   type LocalCache,
   type QueryPersistence,
+  type SubscribeOptions,
   type StoredQuery,
   type StoredRow,
 } from "./types";

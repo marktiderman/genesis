@@ -403,3 +403,159 @@ describe("persistOffline, bounds", () => {
     expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "List v3" });
   });
 });
+
+describe("persistOffline, adopting the reads a scope made before saving started", () => {
+  it("saves a read already settled and one still on its way, when told they're this scope's", async () => {
+    const { client, persistence, cache } = setup();
+    await client.fetchQuery({ queryKey: detail, queryFn: async () => ({ id: 1, title: "Settled" }) });
+    let answer: (v: unknown) => void = () => {};
+    const inFlight = client.fetchQuery({ queryKey: list, queryFn: () => new Promise((r) => (answer = r)) });
+    const stop = persistence.subscribe(ANA, { adopt: true });
+    answer({ data: rows, total: 2 });
+    await inFlight;
+    await settle();
+    stop();
+    const keys = (await cache.readQueries(ANA)).map((q) => q.key);
+    expect(keys).toHaveLength(3); // the meta, the record and the list
+    expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "One" });
+  });
+
+  it("never adopts a value only ever put in the client, only a screen's reads", async () => {
+    const { client, persistence, cache } = setup();
+    client.setQueryData(list, { data: [{ id: 1, title: "Unsaved" }], total: 1 });
+    const stop = persistence.subscribe(ANA, { adopt: true });
+    await settle();
+    stop();
+    expect(await cache.readRows(ANA, "tasks", ["1"])).toEqual([]);
+  });
+
+  // TanStack doesn't report a removed query's fetch to the cache's listeners today; persist checks
+  // anyway, so a change there can't save one person's read under the next.
+  it("never saves a read that finishes after the client let go of it (the person changed)", async () => {
+    const { client, persistence, cache } = setup();
+    let answer: (v: unknown) => void = () => {};
+    const inFlight = client.fetchQuery({ queryKey: list, queryFn: () => new Promise((r) => (answer = r)) }).catch(() => undefined);
+    // The person changes: the client is emptied, and saving starts for the next one, adopting.
+    client.clear();
+    const stop = persistence.subscribe(cacheScope("ben"), { adopt: true });
+    answer({ data: rows, total: 2 });
+    await inFlight;
+    await settle();
+    stop();
+    expect(await cache.readRows(cacheScope("ben"), "tasks", ["1"])).toEqual([]);
+  });
+
+  it("adopts what a screen's query last fetched, never a change the client made after", async () => {
+    const { client, persistence, cache } = setup();
+    await client.fetchQuery({ queryKey: list, queryFn: async () => ({ data: rows, total: 2 }) });
+    // An optimistic patch, made before saving starts.
+    client.setQueryData(list, { data: [{ id: 1, title: "Unsaved" }, rows[1]], total: 2 });
+    const stop = persistence.subscribe(ANA, { adopt: true });
+    await settle();
+    stop();
+    expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "One" });
+  });
+
+  it("never saves an adopted read whose query the client let go of before the save ran", async () => {
+    const cache = memoryLocalCache();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    const persistence = persistOffline({ cache, resources: ["tasks"], buster: "v1", throttleMs: 20 })(client);
+    await client.fetchQuery({ queryKey: list, queryFn: async () => ({ data: rows, total: 2 }) });
+    const stop = persistence.subscribe(ANA, { adopt: true });
+    client.clear(); // the person changed before the throttled save
+    await new Promise((r) => setTimeout(r, 40));
+    stop();
+    expect(await cache.readRows(ANA, "tasks", ["1"])).toEqual([]);
+  });
+
+});
+
+describe("persistOffline, refresh: nothing read before the scope is trusted", () => {
+  it("calls off a kept read still on its way, saves nothing already in the client, and saves what's fetched again", async () => {
+    const { client, persistence, cache } = setup();
+    // Already in the client (another session's, maybe), and one read still on its way.
+    await client.fetchQuery({ queryKey: detail, queryFn: async () => ({ id: 1, title: "Before" }) });
+    let answer: (v: unknown) => void = () => {};
+    const observer = client.getQueryCache().build(client, { queryKey: list, queryFn: () => new Promise((r) => (answer = r)) });
+    const inFlight = observer.fetch().catch(() => "called off");
+    const stop = persistence.subscribe(ANA, { refresh: true });
+    answer({ data: [{ id: 1, title: "Read with the old session" }], total: 1 });
+    expect(await inFlight).toBe("called off");
+    await settle();
+    expect(await cache.readRows(ANA, "tasks", ["1"])).toEqual([]);
+    // A screen reads again under this scope: saved.
+    await client.fetchQuery({ queryKey: list, queryFn: async () => ({ data: [{ id: 1, title: "Read as Ana" }], total: 1 }) });
+    await settle();
+    stop();
+    expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "Read as Ana" });
+  });
+
+  it("never saves a next page fetched onto an infinite list read before the scope", async () => {
+    const { client, persistence, cache } = setup();
+    const key = resourceKeys("tasks").infinite({});
+    const options = {
+      queryKey: key,
+      initialPageParam: 0,
+      getNextPageParam: (_last: unknown, pages: unknown[]) => pages.length,
+    };
+    // Ana's first page, still in the client when Ben's scope arrives.
+    await client.fetchInfiniteQuery({ ...options, queryFn: async () => ({ data: [{ id: 1, title: "Ana's" }], total: 2 }) });
+    const ben = cacheScope("ben");
+    const stop = persistence.subscribe(ben, { refresh: true });
+    // Ben scrolls: the next page is fetched before (or instead of) the refetch.
+    const { InfiniteQueryObserver } = await import("@tanstack/react-query");
+    const observer = new InfiniteQueryObserver(client, { ...options, queryFn: async ({ pageParam }: { pageParam: unknown }) => ({ data: [{ id: (pageParam as number) + 1, title: "Ben's" }], total: 2 }) });
+    const unsubscribe = observer.subscribe(() => {});
+    await observer.fetchNextPage();
+    await settle();
+    unsubscribe();
+    stop();
+    const saved = (await cache.readQueries(ben)).find((q) => q.key !== "__genesis_offline_meta__");
+    const titles = JSON.stringify(saved ?? {});
+    expect(titles).not.toContain("Ana's");
+    expect(await cache.readRows(ben, "tasks", ["1"]).then((rows) => rows.map((r) => r.row.title))).not.toContain("Ana's");
+  });
+
+  it("starting a new bucket never deletes a read saved while the restore was still reading", async () => {
+    const cache = memoryLocalCache();
+    let release: () => void = () => {};
+    let reading!: () => void;
+    const started = new Promise<void>((r) => (reading = r));
+    const slow: LocalCache = {
+      ...cache,
+      readQueries: async (scope) => {
+        // The device answers with what it held then (an empty bucket), but slowly.
+        const then = await cache.readQueries(scope);
+        reading();
+        await new Promise<void>((r) => (release = r));
+        return then;
+      },
+    };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    const persistence = persistOffline({ cache: slow, resources: ["tasks"], buster: "v1", throttleMs: 0 })(client);
+    // Saving starts with the scope; the restore of this brand-new bucket is slow.
+    const stop = persistence.subscribe(ANA);
+    const restoring = persistence.restore(ANA);
+    await started;
+    await client.fetchQuery({ queryKey: list, queryFn: async () => ({ data: rows, total: 2 }) });
+    await settle();
+    release();
+    await restoring;
+    stop();
+    expect((await cache.readRows(ANA, "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "One" });
+  });
+
+  it("a different app version still deletes what the earlier one kept", async () => {
+    const cache = memoryLocalCache();
+    const first = setup(cache, ["tasks"], "v1");
+    await first.persistence.restore(ANA);
+    const stop = first.persistence.subscribe(ANA);
+    await fetchAll(first.client);
+    await settle();
+    stop();
+    await new Promise((r) => setTimeout(r, 2));
+    await setup(cache, ["tasks"], "v2").persistence.restore(ANA);
+    expect((await cache.readQueries(ANA)).map((q) => q.key)).toEqual(["__genesis_offline_meta__"]);
+    expect(await cache.readRows(ANA, "tasks", ["1", "2"])).toEqual([]);
+  });
+});

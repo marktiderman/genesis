@@ -1,6 +1,6 @@
 // @feat:data-offline
-// One contract suite for every LocalCache adapter. genesis-native runs the same cases against
-// sqliteLocalCache (its own test imports `localCacheContract`).
+// One contract suite for the core LocalCache adapters. genesis-native's sqliteLocalCache test
+// repeats the cases against real SQLite.
 import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { describe } from "vitest";

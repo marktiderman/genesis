@@ -144,4 +144,77 @@ describe("GenesisProvider with persist", () => {
     app(cache, never, cacheScope("ana"), "ana");
     expect(await screen.findByText("One")).toBeTruthy();
   });
+
+  it("saves the first read after the session loads, so the next start opens it from the device", async () => {
+    const cache = memoryLocalCache();
+    const provider = { getList: vi.fn(async () => ({ data: [{ id: 1, title: "First load" }], total: 1 })), getOne: vi.fn(), getMany: vi.fn(), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const persist = persistOffline({ cache, resources: ["tasks"], buster: "v1", throttleMs: 0 });
+    const tree = (scope: string | null | undefined) => (
+      <GenesisProvider provider={provider} queryClient={client} persist={persist} persistScope={scope}>
+        <Titles />
+      </GenesisProvider>
+    );
+    // The session is still loading: the screen reads anyway.
+    const view = render(tree(undefined));
+    expect(await screen.findByText("First load")).toBeTruthy();
+    // Then it turns out to be Ana's.
+    view.rerender(tree(cacheScope("ana")));
+    await waitFor(async () => expect((await cache.readQueries(cacheScope("ana"))).length).toBeGreaterThan(1));
+    view.unmount();
+
+    // Next start: the network never answers, and the list opens from the device.
+    const never = vi.fn(() => new Promise(() => {})) as unknown as DataProvider["getList"];
+    app(cache, never);
+    expect(await screen.findByText("First load")).toBeTruthy();
+  });
+
+  it("never carries one session's reads into the next person's, through a loading session in between", async () => {
+    const cache = memoryLocalCache();
+    // The server answers as whoever the session is.
+    let signedIn = "ana";
+    const provider = { getList: vi.fn(async () => ({ data: [{ id: 1, title: `${signedIn}'s task` }], total: 1 })), getOne: vi.fn(), getMany: vi.fn(), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const persist = persistOffline({ cache, resources: ["tasks"], buster: "v1", throttleMs: 0 });
+    const tree = (scope: string | null | undefined) => (
+      <GenesisProvider provider={provider} queryClient={client} persist={persist} persistScope={scope}>
+        <Titles />
+      </GenesisProvider>
+    );
+    const view = render(tree(cacheScope("ana")));
+    expect(await screen.findByText("ana's task")).toBeTruthy();
+    // The session reloads, and turns out to be Ben's; the app hasn't emptied the client.
+    signedIn = "ben";
+    view.rerender(tree(undefined));
+    view.rerender(tree(cacheScope("ben")));
+    expect(await screen.findByText("ben's task")).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 30));
+    expect((await cache.readRows(cacheScope("ben"), "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "ben's task" });
+  });
+
+  it("a provider mounted on a client that outlived another person's session saves only what it reads itself", async () => {
+    const cache = memoryLocalCache();
+    let signedIn = "ana";
+    const provider = { getList: vi.fn(async () => ({ data: [{ id: 1, title: `${signedIn}'s task` }], total: 1 })), getOne: vi.fn(), getMany: vi.fn(), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    // The app's client, holding Ana's read from a screen outside any GenesisProvider.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const first = render(
+      <GenesisProvider provider={provider} queryClient={client}>
+        <Titles />
+      </GenesisProvider>,
+    );
+    expect(await screen.findByText("ana's task")).toBeTruthy();
+    first.unmount();
+    // Ben signs in; a provider with persistence mounts on the same client.
+    signedIn = "ben";
+    const persist = persistOffline({ cache, resources: ["tasks"], buster: "v1", throttleMs: 0 });
+    render(
+      <GenesisProvider provider={provider} queryClient={client} persist={persist} persistScope={cacheScope("ben")}>
+        <Titles />
+      </GenesisProvider>,
+    );
+    expect(await screen.findByText("ben's task")).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 30));
+    expect((await cache.readRows(cacheScope("ben"), "tasks", ["1"]))[0]?.row).toEqual({ id: 1, title: "ben's task" });
+  });
 });

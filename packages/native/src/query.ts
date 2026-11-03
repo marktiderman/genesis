@@ -50,8 +50,11 @@ export function createNativeQueryClient(config: QueryClientConfig = {}): QueryCl
 export interface QueryPersistence {
   /** Load the saved cache into the client, if it was saved for `scope`. */
   restore(scope: string): Promise<void>;
-  /** Save on every cache change, for `scope`; returns the unsubscribe. */
-  subscribe(scope: string): () => void;
+  /**
+   * Save on every cache change, for `scope`; returns the unsubscribe. `adopt`: the reads already
+   * in the client are this scope's too (the app empties the client whenever the person changes).
+   */
+  subscribe(scope: string, options?: { adopt?: boolean }): () => void;
   /**
    * Delete the saved cache. Clear the QueryClient first: the subscription
    * then saves the empty cache, so a save already in flight can't leave the

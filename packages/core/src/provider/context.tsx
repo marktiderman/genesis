@@ -95,7 +95,8 @@ export type GenesisProviderProps =
        * changes, as a sign-out already does; a `ViewerScope` inside keeps the restored reads for
        * this person. Restoring is client-only: in a server-rendered app, give it after hydration
        * (undefined on the server and the first client render), and the screens restore in the
-       * background.
+       * background. Change it only once the provider's session has: a scope must never name a
+       * person before the data provider's requests are made as them.
        */
       persistScope?: string | null;
       /**
@@ -212,7 +213,14 @@ function useRestoredReads(
   // Whose reads this provider last restored or saved, and the clear of them still running.
   const person = useRef<string | null>(null);
   const clearing = useRef<Promise<void>>(Promise.resolve());
+  // The scope the last run of the effect saw ("not known yet" at mount). A scope that arrives from
+  // there is saved only from reads fetched once it's known: whatever the client already holds or
+  // is reading may be another session's (the session was loading, or the client outlived this
+  // provider and someone else's session), so it's fetched again (`refresh`), never adopted.
+  const previous = useRef<string | null | undefined>(undefined);
   useEffect(() => {
+    const from = previous.current;
+    previous.current = scope;
     if (!persistence || scope === undefined) {
       // Not known yet who's signed in: nothing is restored, saved or deleted.
       setReady(true);
@@ -231,8 +239,9 @@ function useRestoredReads(
     }
     person.current = next;
     const abort = new AbortController();
-    // Saving starts with the scope, so a read that was on its way before it is never saved here.
-    const stop = persistence.subscribe(scope);
+    // Saving starts with the scope. A read made before it is saved only when the scope before was
+    // "not known yet" (the same session, loading); from another person or workspace, never.
+    const stop = persistence.subscribe(scope, { refresh: from === undefined });
     const open = () => {
       if (!abort.signal.aborted) setReady(true);
     };

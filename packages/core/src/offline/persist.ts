@@ -1,5 +1,5 @@
 import type { Query, QueryCacheNotifyEvent, QueryClient } from "@tanstack/react-query";
-import { userPrefix, type CacheOp, type CacheScope, type LocalCache, type QueryPersistence, type StoredQuery, type StoredRow } from "./types";
+import { userPrefix, type CacheOp, type CacheScope, type LocalCache, type QueryPersistence, type StoredQuery, type StoredRow, type SubscribeOptions } from "./types";
 
 /** Options for {@link persistOffline}. */
 export interface PersistOfflineOptions {
@@ -129,6 +129,15 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
     // Restores and saves count apart, so starting to save doesn't cancel a restore still reading.
     let restores = 0;
     let saves = 0;
+    // Each query's last fetched result, recorded from the start whatever the scope: what adopting
+    // saves, so a value the client changed since (setQueryData) is never taken for a read.
+    const fetched = new WeakMap<Query, { data: unknown; fetchedAt: number }>();
+    queryClient.getQueryCache().subscribe((event: QueryCacheNotifyEvent) => {
+      if (event.type !== "updated") return;
+      const action = event.action as { type?: string; manual?: boolean };
+      if (action.type !== "success" || action.manual) return;
+      fetched.set(event.query, { data: event.query.state.data, fetchedAt: event.query.state.dataUpdatedAt });
+    });
     // Everyone this persistence restored or saved for: `clear` deletes all of their reads.
     const people = new Set<string>();
     const meta = (): CacheOp => ({ kind: "query", query: { key: META, queryKey: [META], resource: META, data: { buster }, fetchedAt: Date.now() } });
@@ -163,9 +172,14 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
         if (stale()) return;
         const found = stored.find((q) => q.key === META);
         if (!found || (found.data as { buster?: unknown })?.buster !== buster) {
-          // A different app version, or nothing kept yet: start this bucket afresh.
-          await cache.clear({ scope });
-          await cache.write(scope, [meta()]);
+          // A different app version, or nothing kept yet: start this bucket afresh, deleting what an
+          // earlier version kept but never a read saved since this restore started (saving runs
+          // alongside it).
+          const fresh: CacheOp[] = stored.filter((q) => q.key !== META).map((q) => ({ kind: "forget", key: q.key, before: startedAt }));
+          for (const resource of new Set([...stored.filter((q) => q.key !== META).map((q) => q.resource), ...kept])) {
+            fresh.push({ kind: "prune", resource, keep: [], before: startedAt });
+          }
+          await cache.write(scope, [...fresh, meta()]);
           return;
         }
         const reads = stored.filter((q) => q.key !== META);
@@ -204,15 +218,26 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
       }
     };
 
-    const subscribe = (raw: string) => {
+    const subscribe = (raw: string, options: SubscribeOptions = {}) => {
       const scope = toScope(raw);
       if (!scope) return () => {};
       const mine = ++saves;
       people.add(scope.slice(2, scope.indexOf("|")));
       // What each read was when it came back: saved later, but never what the client changed since.
-      const pending = new Map<string, { queryKey: readonly unknown[]; data: unknown; fetchedAt: number }>();
-      // Reads already on their way when this started belong to the scope before: never saved here.
-      const before = new Set(queryClient.getQueryCache().getAll().filter((q) => q.state.fetchStatus === "fetching").map((q) => q.queryHash));
+      const pending = new Map<string, { query: Query; queryKey: readonly unknown[]; data: unknown; fetchedAt: number }>();
+      // `refresh`: no kept read already made or on its way is trusted to be this scope's. The ones in
+      // flight are called off (so they never come back as a success), and the kept queries are
+      // fetched again below, once this subscription is listening.
+      if (options.refresh) {
+        for (const query of queryClient.getQueryCache().getAll()) {
+          if (keptQuery(query) && query.state.fetchStatus === "fetching") void query.cancel({ revert: true });
+        }
+      }
+      // Reads already on their way when this started belong to the scope before: never saved here,
+      // unless they're this scope's (`adopt`).
+      const before = options.adopt
+        ? new Set<string>()
+        : new Set(queryClient.getQueryCache().getAll().filter((q) => q.state.fetchStatus === "fetching").map((q) => q.queryHash));
       let timer: ReturnType<typeof setTimeout> | undefined;
       let first = true;
 
@@ -224,6 +249,8 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
         const newest = new Map<string, StoredRow>();
         first = false;
         for (const read of pending.values()) {
+          // A query the client let go of before this save ran (the person changed) isn't saved.
+          if (queryClient.getQueryCache().get(read.query.queryHash) !== read.query) continue;
           const [resource, kind, params, detailSelect] = read.queryKey;
           // A record's projection is its key's fourth part; a list's is in its params.
           const select = kind === "detail" ? detailSelect : (params as { select?: unknown } | undefined)?.select;
@@ -258,12 +285,34 @@ export function persistOffline(options: PersistOfflineOptions): (queryClient: Qu
         // A fetch that came back; never a change made in the client (an optimistic patch, a live
         // hint's merge, a restore), which the next fetch confirms or undoes.
         if (action.type !== "success" || action.manual) return;
+        // A query no longer in the client (cleared when the person changed) finishing its fetch
+        // belongs to whoever was signed in before: never saved.
+        if (queryClient.getQueryCache().get(event.query.queryHash) !== event.query) return;
         if (before.delete(event.query.queryHash)) return;
         if (!keptQuery(event.query)) return;
         const { data, dataUpdatedAt } = event.query.state;
-        pending.set(event.query.queryHash, { queryKey: event.query.queryKey, data, fetchedAt: dataUpdatedAt });
+        pending.set(event.query.queryHash, { query: event.query, queryKey: event.query.queryKey, data, fetchedAt: dataUpdatedAt });
         timer ??= setTimeout(flush, throttleMs);
       });
+      if (options.refresh) {
+        // Fetched again under this scope: the screens on show read now, the rest when they show.
+        // An infinite list is reset (its pages dropped) rather than refetched: a next page fetched
+        // onto pages read before the scope (a fetchNextPage that cancels or outlives the refetch)
+        // would be saved as this scope's, with the earlier session's pages in it.
+        const infinite = (query: Query) => keptQuery(query) && (query.queryKey as readonly unknown[])[1] === "infinite";
+        void queryClient.resetQueries({ predicate: infinite }).catch(() => undefined);
+        void queryClient.invalidateQueries({ predicate: (query) => keptQuery(query) && !infinite(query) }).catch(() => undefined);
+      }
+      if (options.adopt) {
+        // The reads this scope made before saving started: each query's last fetched result, as it
+        // came back. A value the client set or changed since (setQueryData) is never adopted.
+        for (const query of queryClient.getQueryCache().getAll()) {
+          const read = fetched.get(query);
+          if (!read || read.data === undefined || !keptQuery(query)) continue;
+          pending.set(query.queryHash, { query, queryKey: query.queryKey, data: read.data, fetchedAt: read.fetchedAt });
+        }
+        if (pending.size) timer ??= setTimeout(flush, throttleMs);
+      }
       return () => {
         unsubscribe();
         if (timer) clearTimeout(timer);
