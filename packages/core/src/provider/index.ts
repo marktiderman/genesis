@@ -51,6 +51,7 @@ export {
   type SupabaseProviderOptions,
   type SupabaseResourceConfig,
   type SupabaseWriteContext,
+  type SupabaseUpdateContext,
   type SupabaseRealtimeChannel,
   type SupabaseRealtimePayload,
 } from "./supabase-provider";

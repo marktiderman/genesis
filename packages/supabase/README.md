@@ -971,6 +971,28 @@ events.track("task.completed", { feature: "tasks", tenantId, properties: { count
 - A vendor (PostHog, Amplitude) is a later sink fed from these events; Genesis flags stay the
   source of truth.
 
+## Versioned writes (the versioned-writes block)
+
+`genesis_version_bump` advances a row's version on every update, so the data provider's `version`
+rule can refuse an edit made on a stale copy as a `conflict` instead of overwriting someone
+else's. `genesis add versioned-writes` copies `migrations/0019_genesis_version_bump.sql` and its
+pgTAP test.
+
+```sql
+alter table public.tasks add column version bigint not null default 1;
+create trigger tasks_version_bump before update on public.tasks
+  for each row execute function public.genesis_version_bump('version');
+```
+
+- The argument names the column (default `version`). On every update the trigger sets it to the
+  old value plus one, whatever the update wrote, so a client can't hold it back or jump it ahead.
+- An update that changes nothing still advances it: a spare bump only makes a stale copy
+  conflict, which is the safe side.
+- A table without the column fails the update (`42703`) rather than skipping the check silently.
+- Then give the resource the rule: `createSupabaseProvider(supabase, { resources: { tasks: {
+  version: { field: "version", kind: "integer" } } } })`. See genesis-core's README, "Versioned
+  writes".
+
 ## Testing your schema's data contract (genesis_testing)
 
 `sql/testing/genesis_testing.sql` is a pgTAP kit that checks your own tables and functions keep the
@@ -1019,7 +1041,7 @@ ids are shared with `@marktiderman/genesis-core/testing`.
 
 ## Blocks
 
-`accountBlock`, `tenantFeaturesBlock` and `jobsBlock` are `defineBlock` declarations
+`accountBlock`, `tenantFeaturesBlock`, `jobsBlock` and `versionedWritesBlock` are `defineBlock` declarations
 (`@marktiderman/genesis-features/blocks`) of what this package's blocks need: their migrations
 (with their tests) and, for the account, what it means for the stores' privacy forms. The
 functions above don't change; the declarations are for `resolveBlocks` and the shell.

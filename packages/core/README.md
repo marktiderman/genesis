@@ -84,6 +84,7 @@ const provider = createSupabaseProvider(supabase, {
       },
     },
     tasks: {
+      version: { field: "version", kind: "integer" }, // see "Versioned writes" below
       deleteMode: "bin",
       toFormValues: (row) => ({ ...row, done: row.status === "done" }),
       prepare: ({ done, ...rest }) => ({ ...rest, status: done ? "done" : "open" }),
@@ -97,7 +98,8 @@ const provider = createSupabaseProvider(supabase, {
 | `binTables` / `resources[r].deleteMode: "bin"` | Recycle-bin delete: check the row is visible, delete it (asking for no rows, since a binning trigger reports none), read it back. Gone from view is success; still visible is `forbidden`; not visible to begin with is `gone`. Requires binned rows to drop out of the caller's view. `deleteMode: "hard"` opts a table back out. List every soft-delete table: one that isn't listed reports a successful bin as `gone`. |
 | `prepare(values, context)` | Runs before every create and update, overrides included. Gets a copy of the values; may be async. Throw `DataWriteError("invalid", message)` to refuse; nothing is sent. |
 | `create(row)` | Replaces the insert, e.g. a security-definer RPC. Return the row, or its id to have it read back. If the read-back fails, the create is still reported saved (with just the id), so nobody retries into a duplicate. |
-| `update(id, row)` | Replaces the update. Return the row, or its id (or `true`) to have it read back. Returning nothing (or `false`) means no row changed: the provider reads the row back and throws `forbidden` or `gone`, so a function that silently skips a row never reports a save. |
+| `update(id, row, context?)` | Replaces the update. Return the row, or its id (or `true`) to have it read back. Returning nothing (or `false`) means no row changed: the provider reads the row back and throws `forbidden` or `gone` (or `conflict`, with a `version` rule), so a function that silently skips a row never reports a save. With a `version` rule and a caller's `expectedVersion`, `context.expectedVersion` is the version the row must still be at: apply the change only at it. |
+| `version: { field, kind }` | Checks every update and delete against the version the caller read the row at. See [Versioned writes](#versioned-writes). |
 | `toFormValues(row)` | Row → edit-form values, for a form shaped differently from its table. Served as `DataProvider.toFormValues`, which `useResourceForm` applies in edit mode. The reverse is `prepare`. |
 | `invalidates` | Other query keys a write makes stale, as a list or `(event) => keys`. Served as `DataProvider.invalidates`, which `useResource` and `useResourceForm` (and so `ResourcePage` and `ResourceForm`) invalidate after their writes, on top of `[resource]`. |
 | `onWrite(event)` | Called after every committed create, update and delete, including writes made straight through the provider. Awaited; if it throws, the error is logged and the write is still reported saved. |
@@ -164,6 +166,82 @@ try {
   }
 }
 ```
+
+### Versioned writes
+
+Without a version, two people editing the same record both "save", and the second silently
+overwrites the first. With a `version` rule, the second save is refused as a `conflict`:
+
+```sql
+-- genesis-supabase migration 0019 ships the trigger (the versioned-writes block).
+alter table public.tasks add column version bigint not null default 1;
+create trigger tasks_version_bump before update on public.tasks
+  for each row execute function public.genesis_version_bump('version');
+```
+
+```ts
+createSupabaseProvider(supabase, {
+  resources: { tasks: { version: { field: "version", kind: "integer" } } },
+});
+```
+
+- `capabilities("tasks")` reports `versionedWrites: true` and `version: { field, kind }`.
+- `useResource` and `useResourceForm` (and so `ResourceView`, `ResourceForm` and `RecordView`'s
+  forms) send the version of the row the change was made on as `expectedVersion`: the record an edit
+  form opened with, else the row cached when the write was made (before an optimistic change or a
+  refetch replaces it). A write made while an earlier one on the same record is still unsettled is
+  checked against the version that one committed at. After a save they put the new version into
+  every cached copy, so the next edit is checked against it, not the one before.
+- `RecordView`'s settings sections (web and native) send the version of the row as it was when
+  the person started editing (after a save, the version that save left), not a row that refreshed
+  meanwhile. They save only the fields the person changed.
+- `useDraft` saves through the app's own `update(row, value)`: pass `expectedVersion` from the row
+  it's given to have a draft's saves checked.
+- The version is read from the rows the app reads, so the resource's `select` or `source` view must
+  carry the column. If it doesn't, writes go out unchecked, with a warning in development.
+- The update or delete runs `where id = … and version = …`. When no row matches, the provider
+  reads the row back: at another version is `conflict`, with `error.current` (the row as it is now,
+  read through the resource's `source` and `select`) and `error.currentVersion`; still at the
+  expected version is `forbidden`; not visible is `gone`. A `timestamp` version is compared as an
+  instant, so the same time formatted two ways (a realtime payload, a PostgREST read) is one version.
+- An `update` rule replaces the check: it is given `{ expectedVersion }` and must apply it. One that
+  takes no third argument gets a warning in development.
+- The database advances the version, never the client: the provider drops a submitted value, and
+  `genesis_version_bump` sets it to the old value plus one whatever an update writes. `kind:
+  "timestamp"` works the same with a column a trigger sets to `now()` on update (`moddatetime`).
+- A write sent without `expectedVersion` (a row that wasn't read first, a provider without
+  capabilities) is not checked. A resource without the rule behaves exactly as before.
+- A recycle-bin table checks the version before the delete, and the delete carries it too, so a
+  change landing between the two leaves the row in place and reads back as a `conflict`.
+
+#### Showing a conflict
+
+A conflict is a choice for the person, not just an error. `writeConflict(error, mine, { changed })`
+turns a `conflict` into a `WriteConflict`: `theirs` (the row as it is now), `mine` (what the save
+tried), `fields` (the ones this person changed that differ from theirs) and `currentVersion`.
+`useResourceForm` keeps one as `conflict`, with `keepMine()`, `takeTheirs()` and
+`dismissConflict()`. Keep mine sends only this person's changes as theirs to keep, at
+`currentVersion`; every other field takes their value, so a field only they changed is never put
+back. After take theirs, the next save is checked against their version. Until the person saves or
+takes theirs, what they typed stays on the form, even when a rolled-back optimistic save refetches
+their row, so neither a second conflict nor closing the sheet loses it. A form's own `onError`
+still receives the conflict (to log it); `ResourceForm` doesn't toast it, since the sheet shows it. `ConflictSheet` (genesis-ui) and `NativeConflictSheet` (genesis-ui-native)
+show it, theirs first; `ResourceForm`, `RecordView`'s settings sections and Data Studio's record
+panel open it themselves.
+
+```ts
+import { DataWriteError, writeConflict } from "@marktiderman/genesis-core";
+
+const error = new DataWriteError("conflict", "Someone else changed this task.", {
+  current: { id: "t1", title: "Theirs", version: 5 },
+  currentVersion: "5",
+});
+const conflict = writeConflict(error, { title: "Mine" });
+// conflict?.fields is ["title"]; send "keep mine" with expectedVersion: conflict.currentVersion.
+```
+
+`WriteState` (`pending`, `sending`, `paused`, `failed`, `conflict`) is the one shape for showing
+where a write stands, on a row or a form.
 
 ### Races, and what the read-back can't tell you
 

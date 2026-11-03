@@ -344,6 +344,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
             id,
             data: (ctx.data ?? data) as Partial<T>,
             ...(ctx.keepalive ? { keepalive: true } : {}),
+            ...(ctx.expectedVersion !== undefined ? { expectedVersion: ctx.expectedVersion } : {}),
           });
           return { record: result.data, audit: result.audit };
         },
@@ -365,8 +366,12 @@ export function useResource<T extends BaseRecord = BaseRecord>(
         ...modeArgs,
         kind: "delete",
         id,
-        send: async ({ keepalive }) => {
-          const result = await provider.deleteOne(resource, { id, ...(keepalive ? { keepalive } : {}) });
+        send: async ({ keepalive, expectedVersion }) => {
+          const result = await provider.deleteOne(resource, {
+            id,
+            ...(keepalive ? { keepalive } : {}),
+            ...(expectedVersion !== undefined ? { expectedVersion } : {}),
+          });
           return { record: undefined, audit: result?.audit };
         },
         committed: () => {
