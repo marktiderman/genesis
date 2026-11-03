@@ -80,7 +80,9 @@ describe("Reduced motion", () => {
 
 describe("Overlay heights", () => {
   it("no component sizes an overlay in vh", () => {
-    const offenders = all.filter(({ text }) => /\b(?:max-)?h-\[\d+(?:\.\d+)?vh\]/.test(text) && /Content\b/.test(text) && /(Dialog|Sheet)/.test(text));
+    // A vh height is fine as the fallback for browsers without dvh, on a line that also sets the dvh one.
+    const vhOnly = (text: string) => text.split("\n").some((line) => /\b(?:max-)?h-\[\d+(?:\.\d+)?vh\]/.test(line) && !/dvh/.test(line));
+    const offenders = all.filter(({ text }) => vhOnly(text) && /Content\b/.test(text) && /(Dialog|Sheet)/.test(text));
     expect(offenders.map((o) => o.file)).toEqual([]);
   });
 });
