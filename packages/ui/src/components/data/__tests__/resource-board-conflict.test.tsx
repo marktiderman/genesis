@@ -125,7 +125,7 @@ describe("ResourceView mode=board: conflicts", () => {
     let release!: () => void;
     const held = new Promise<void>((r) => (release = r));
     const getList = p.getList as ReturnType<typeof vi.fn>;
-    const real = getList.getMockImplementation()!;
+    const real = getList.getMockImplementation() as (...args: unknown[]) => Promise<unknown>;
     getList.mockImplementation(async (...args: unknown[]) => {
       if (hold) await held;
       return real(...args);
