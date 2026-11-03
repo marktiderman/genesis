@@ -541,6 +541,7 @@ function SettingsGroup({
   const queryClient = useQueryClient();
   // A save that met someone else's change, and the values it tried to save.
   const [conflict, setConflict] = useState<{ conflict: WriteConflict; values: Values; row: DataRow; message: string } | null>(null);
+  const lastFailure = useRef<string | null>(null);
   /** Saves; says whether it saved, met a (new) conflict, or failed (the refusal is shown). */
   const save = async (values: Values = changed, expectedVersion?: string): Promise<"saved" | "conflict" | "failed"> => {
     setSaving(true);
@@ -556,7 +557,8 @@ function SettingsGroup({
       });
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) {
-        setRefusal(fill(words.notChanged, { noun: view.noun }));
+        lastFailure.current = fill(words.notChanged, { noun: view.noun });
+        setRefusal(lastFailure.current);
         return "failed";
       }
       const saved = result.data as DataRow;
@@ -571,7 +573,8 @@ function SettingsGroup({
         setConflict({ conflict: found, values, row: error.current, message: error.message });
         return "conflict";
       }
-      setRefusal(refusalMessage(error, words.failed));
+      lastFailure.current = refusalMessage(error, words.failed);
+      setRefusal(lastFailure.current);
       return "failed";
     } finally {
       setSaving(false);
@@ -581,7 +584,8 @@ function SettingsGroup({
     if (!conflict) return;
     const { values, conflict: c } = conflict;
     // The sheet stays up while this runs; a plain failure rejects, so the sheet says why.
-    if ((await save(values, c.currentVersion ?? undefined)) === "failed") throw new Error(words.failed);
+    // The real reason, on the sheet (the refusal line behind it says the same).
+    if ((await save(values, c.currentVersion ?? undefined)) === "failed") throw new Error(lastFailure.current ?? words.failed);
   };
   const takeTheirs = () => {
     if (!conflict) return;

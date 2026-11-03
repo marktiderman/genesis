@@ -222,7 +222,10 @@ tried), `fields` (the ones this person changed that differ from theirs) and `cur
 `useResourceForm` keeps one as `conflict`, with `keepMine()`, `takeTheirs()` and
 `dismissConflict()`. Keep mine sends only this person's changes as theirs to keep, at
 `currentVersion`; every other field takes their value, so a field only they changed is never put
-back. After take theirs, the next save is checked against their version. `ConflictSheet` (genesis-ui) and `NativeConflictSheet` (genesis-ui-native)
+back. After take theirs, the next save is checked against their version. Until the person saves or
+takes theirs, what they typed stays on the form, even when a rolled-back optimistic save refetches
+their row, so neither a second conflict nor closing the sheet loses it. A form's own `onError`
+still receives the conflict (to log it); `ResourceForm` doesn't toast it, since the sheet shows it. `ConflictSheet` (genesis-ui) and `NativeConflictSheet` (genesis-ui-native)
 show it, theirs first; `ResourceForm`, `RecordView`'s settings sections and Data Studio's record
 panel open it themselves.
 

@@ -721,11 +721,32 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
   const [rebased, setRebased] = useState<BaseRecord | null>(null);
   // Counts conflicts found, so "keep mine" can tell a new conflict from a plain failure.
   const conflictsFound = useRef(0);
-  useEffect(() => setRebased(null), [effectiveData]);
+  // Cleared when the form's record really changes, not when a screen hands an equal object again.
+  const rebasedFor = useRef(effectiveData);
+  useEffect(() => {
+    if (sameValue(rebasedFor.current, effectiveData)) return;
+    rebasedFor.current = effectiveData;
+    setRebased(null);
+  }, [effectiveData]);
+  // What this person typed that a conflict hasn't settled: kept on the form across the refetch a
+  // rolled-back optimistic save starts (which resets the form to their row), until they save or
+  // take theirs, so neither a second conflict nor closing the sheet loses it.
+  const [unsettled, setUnsettled] = useState<{ changed: readonly string[]; values: Record<string, unknown> } | null>(null);
+  useEffect(() => {
+    if (!unsettled) return;
+    for (const key of unsettled.changed) {
+      if (!sameValue(form.getValues(key), unsettled.values[key])) form.setValue(key, unsettled.values[key], { shouldDirty: true });
+    }
+  }, [unsettled, defaultValues, form]);
 
   // Submit handler. Resolves true when the save went through (or had nothing to send).
   const save = useCallback(
-    async (submitted: Record<string, unknown>, expectedVersion?: string): Promise<boolean> => {
+    async (
+      submitted: Record<string, unknown>,
+      expectedVersion?: string,
+      /** "Keep mine": the fields this person changed, as the conflict recorded them. */
+      keep?: readonly string[],
+    ): Promise<boolean> => {
       // "Keep mine" leaves the conflict up until this save settles.
       if (expectedVersion === undefined) setConflictState(null);
       // What the form shows as this save goes out (raw input values, before
@@ -754,9 +775,10 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
           : writable;
       // An empty input the person left or made empty is no value (see `blankValues`).
       const touched = new Set(
-        Object.entries(changed)
-          .filter(([k, v]) => !sameValue(k in (shown as object) ? (shown as Record<string, unknown>)[k] : v, defaultValues[k]))
-          .map(([k]) => k),
+        keep ??
+          Object.entries(changed)
+            .filter(([k, v]) => !sameValue(k in (shown as object) ? (shown as Record<string, unknown>)[k] : v, defaultValues[k]))
+            .map(([k]) => k),
       );
       const formData = blankValues(changed, resolvedFields, action, touched);
       // A conflict offers only what this person changed, compared in the form's shape.
@@ -769,6 +791,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
         });
         if (found && isDataWriteError(error) && error.current) {
           conflictsFound.current += 1;
+          setUnsettled({ changed: [...touched], values: { ...submitted } });
           setConflictState({ conflict: found, submitted, changed: [...touched], row: error.current as Record<string, unknown> });
         }
         return found;
@@ -848,6 +871,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
           },
         });
         setConflictState(null);
+        setUnsettled(null);
         markSaved();
         if (outcome.status === "committed") {
           onSuccess?.(outcome.record);
@@ -883,7 +907,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     }
     form.clearErrors("root");
     const found = conflictsFound.current;
-    const ok = await save(values, conflict.currentVersion ?? undefined);
+    const ok = await save(values, conflict.currentVersion ?? undefined, changed);
     // Failed without a new conflict (which replaces this one): say why, on the sheet.
     if (!ok && conflictsFound.current === found) throw new Error(form.getFieldState("root").error?.message ?? "Not saved.");
   }, [conflictState, form, save]);
@@ -894,6 +918,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     if (!conflictState) return;
     const { row: theirs } = conflictState;
     setConflictState(null);
+    setUnsettled(null);
     // The next save is checked against their row's version, not the one the form opened at.
     setRebased({ ...((effectiveData ?? {}) as BaseRecord), ...(theirs as BaseRecord) });
     form.clearErrors();

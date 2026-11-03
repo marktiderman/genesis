@@ -187,3 +187,87 @@ describe("useResourceForm on a conflict", () => {
     expect(hook.result.current.conflict).not.toBeNull();
   });
 });
+
+describe("useResourceForm on a conflict, in optimistic mode over a fetched record", () => {
+  /** A table of one row that someone else keeps changing: each of this form's saves conflicts until `open`. */
+  function optimistic(conflicts: number) {
+    const db = { row: { id: "t1", title: "Old", notes: "n", version: 3 } as Record<string, unknown> };
+    let left = conflicts;
+    const update = vi.fn(async (_r: string, params: { data: Record<string, unknown>; expectedVersion?: string }) => {
+      if (left > 0) {
+        left -= 1;
+        // Someone else's save lands first.
+        db.row = { ...db.row, title: `Theirs ${conflicts - left}`, version: Number(db.row.version) + 1 };
+        throw new DataWriteError("conflict", "Someone else changed this task.", { current: db.row, currentVersion: String(db.row.version) });
+      }
+      db.row = { ...db.row, ...params.data, version: Number(db.row.version) + 1 };
+      return { data: db.row };
+    });
+    const provider = {
+      getOne: vi.fn(async () => ({ data: { ...db.row } })),
+      update,
+      capabilities: async () => ({
+        search: false,
+        sort: false,
+        filterOperators: [],
+        bulkWrites: false,
+        versionedWrites: true,
+        compositeKeys: false,
+        version: { field: "version", kind: "integer" as const },
+      }),
+    } as unknown as DataProvider;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <GenesisProvider provider={provider} queryClient={queryClient}>
+        {children}
+      </GenesisProvider>
+    );
+    const hook = renderHook(
+      () => {
+        const form = useResourceForm({ resource: "tasks", action: "edit", id: "t1", fields, mutationMode: "optimistic" });
+        // What the form's inputs do: register their fields, so the form holds their values.
+        form.form.register("title");
+        form.form.register("notes");
+        return form;
+      },
+      { wrapper },
+    );
+    return { hook, update, db };
+  }
+
+  async function typeAndSave(hook: ReturnType<typeof optimistic>["hook"], title: string) {
+    await waitFor(() => expect(hook.result.current.form.getValues("title")).toBe("Old"));
+    act(() => hook.result.current.form.setValue("title", title, { shouldDirty: true }));
+    await act(async () => {
+      await hook.result.current.handleSave(hook.result.current.form.getValues());
+    });
+    await waitFor(() => expect(hook.result.current.conflict).not.toBeNull());
+  }
+
+  it("a second conflict after the refetch still offers this person's change, and keep mine sends it", async () => {
+    const { hook, update } = optimistic(2);
+    await typeAndSave(hook, "Mine");
+    // The rollback refetches their row; what this person typed stays on the form.
+    await waitFor(() => expect(hook.result.current.form.getValues("title")).toBe("Mine"));
+    await act(async () => {
+      await hook.result.current.keepMine().catch(() => undefined);
+    });
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(2));
+    expect(update.mock.calls[1]![1].data.title).toBe("Mine");
+    await waitFor(() => expect(hook.result.current.conflict?.fields).toEqual(["title"]));
+    expect(hook.result.current.conflict?.mine.title).toBe("Mine");
+    await act(async () => {
+      await hook.result.current.keepMine();
+    });
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(3));
+    expect(update.mock.calls[2]![1]).toMatchObject({ data: { title: "Mine" }, expectedVersion: "5" });
+  });
+
+  it("closing the sheet keeps what was typed, after the refetch too", async () => {
+    const { hook } = optimistic(1);
+    await typeAndSave(hook, "Mine");
+    act(() => hook.result.current.dismissConflict());
+    expect(hook.result.current.conflict).toBeNull();
+    await waitFor(() => expect(hook.result.current.form.getValues("title")).toBe("Mine"));
+  });
+});
