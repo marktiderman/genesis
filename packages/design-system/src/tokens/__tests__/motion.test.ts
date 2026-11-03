@@ -63,7 +63,14 @@ describe("motion CSS", () => {
       "--ds-dur-reveal": "700ms",
       "--ds-dur-media": "1100ms",
     });
-    expect(motionCssVariables("none")).toMatchObject({ "--ds-dur-press": "0ms", "--ds-dur-hover": "200ms", "--ds-dur-ui": "0ms" });
+    expect(motionCssVariables("none")).toMatchObject({
+      "--ds-dur-press": "0ms",
+      "--ds-dur-fast": "0ms",
+      "--ds-dur-base": "0ms",
+      "--ds-dur-hover": "200ms",
+      "--ds-dur-ui": "0ms",
+    });
+    expect(motionCssVariables("calm")).toMatchObject({ "--ds-dur-fast": "180ms", "--ds-dur-base": "220ms", "--ds-ease-decelerate": "cubic-bezier(0.33, 1, 0.68, 1)" });
   });
 
   it("is what a design system with motion emits", () => {
