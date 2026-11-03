@@ -1,5 +1,10 @@
 {
   "required": [
+    "NativeGalleryCard",
+    "NativeGalleryGrid",
+    "NativeLightbox",
+    "NativeLiveIndicator",
+    "NativeRating",
     "AuthScreen",
     "NativeAccordion",
     "NativeAlert",

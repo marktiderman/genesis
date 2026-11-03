@@ -296,3 +296,24 @@ export type { NativeImageProps } from "./image";
 
 export { NativeGlassSurface, useLiquidGlass, useReduceTransparency } from "./glass-surface";
 export type { NativeGlassSurfaceProps } from "./glass-surface";
+
+// --- Gallery and media primitives ---
+
+export type { GalleryItem } from "./gallery-types";
+export { justifyRows, galleryItemRatio, DEFAULT_GALLERY_RATIO } from "./gallery-layout";
+export type { JustifiedRow, JustifiedTile } from "./gallery-layout";
+
+export { NativeRating, nextRating } from "./rating";
+export type { NativeRatingProps, NativeRatingSize } from "./rating";
+
+export { NativeGalleryGrid } from "./gallery-grid";
+export type { NativeGalleryGridProps, NativeGalleryLayout } from "./gallery-grid";
+
+export { NativeLightbox } from "./lightbox";
+export type { NativeLightboxProps } from "./lightbox";
+
+export { NativeGalleryCard } from "./gallery-card";
+export type { NativeGalleryCardProps } from "./gallery-card";
+
+export { NativeLiveIndicator } from "./live-indicator";
+export type { NativeLiveIndicatorProps, NativeLiveIndicatorState, NativeLiveIndicatorVariant } from "./live-indicator";

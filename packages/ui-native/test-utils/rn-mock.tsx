@@ -42,7 +42,6 @@ function toDom<T extends AnyProps>(
     onLongPress?: () => void;
     onLayout?: (e: unknown) => void;
   };
-  void onLayout;
   void onPressIn;
   void onPressOut;
   void pointerEvents;
@@ -94,14 +93,27 @@ function toDom<T extends AnyProps>(
   // `accessibilityaction` DOM event (detail: the action's name) that runs the handler.
   const a11yActions = accessibilityActions as { name: string }[] | undefined;
   if (a11yActions?.length) out["data-a11y-actions"] = a11yActions.map((a) => a.name).join(",");
-  if (onAccessibilityAction) {
-    const handler = onAccessibilityAction as (e: { nativeEvent: { actionName: string } }) => void;
+  // Layout: a custom `layout` DOM event (detail: `{ width, height }`) stands in for the
+  // native measurement and calls onLayout with it.
+  const layoutHandler = onLayout as ((e: { nativeEvent: { layout: { x: number; y: number; width: number; height: number } } }) => void) | undefined;
+  if (onAccessibilityAction || layoutHandler) {
+    const handler = onAccessibilityAction as ((e: { nativeEvent: { actionName: string } }) => void) | undefined;
     out["ref"] = (node: HTMLElement | null) => {
       if (!node) return;
-      const el = node as HTMLElement & { __a11y?: (e: Event) => void };
-      if (el.__a11y) el.removeEventListener("accessibilityaction", el.__a11y);
-      el.__a11y = (e: Event) => handler({ nativeEvent: { actionName: String((e as CustomEvent).detail) } });
-      el.addEventListener("accessibilityaction", el.__a11y);
+      const el = node as HTMLElement & { __a11y?: (e: Event) => void; __layout?: (e: Event) => void };
+      if (handler) {
+        if (el.__a11y) el.removeEventListener("accessibilityaction", el.__a11y);
+        el.__a11y = (e: Event) => handler({ nativeEvent: { actionName: String((e as CustomEvent).detail) } });
+        el.addEventListener("accessibilityaction", el.__a11y);
+      }
+      if (layoutHandler) {
+        if (el.__layout) el.removeEventListener("layout", el.__layout);
+        el.__layout = (e: Event) => {
+          const d = (e as CustomEvent).detail as { width?: number; height?: number } | undefined;
+          layoutHandler({ nativeEvent: { layout: { x: 0, y: 0, width: d?.width ?? 0, height: d?.height ?? 0 } } });
+        };
+        el.addEventListener("layout", el.__layout);
+      }
     };
   }
   return out;
