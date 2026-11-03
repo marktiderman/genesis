@@ -9,7 +9,7 @@
 export { ThreadList, THREAD_AT_BOTTOM_PX, type ThreadListHandle, type ThreadListProps, type ThreadRowInfo } from "./thread-list";
 export { ComposerBar, type ComposerBarProps } from "./composer-bar";
 export { ThreadPage, type ThreadPageProps, type ThreadPageSlotMap } from "./thread-page";
-export { InboxPage, type InboxPageProps, type InboxPageSlotMap } from "./inbox-page";
+export { InboxPage, type InboxPageProps, type InboxPageSlotMap, type InboxRowProps } from "./inbox-page";
 export { InboxLayout, type InboxLayoutProps, type InboxShortcuts } from "./inbox-layout";
 export { InboxViews, type InboxView, type InboxViewsProps } from "./inbox-views";
 export type {

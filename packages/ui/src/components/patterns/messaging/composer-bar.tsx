@@ -8,22 +8,28 @@
  *
  * - **Sending:** Enter sends and Shift+Enter adds a line (`sendOn="enter"`,
  *   the default), or Cmd/Ctrl+Enter sends (`sendOn="mod-enter"`, for long
- *   replies). Nothing sends while composing with an input method.
+ *   replies). Nothing sends while composing with an input method (Safari
+ *   included, which reports the confirming Enter as keyCode 229). On a touch
+ *   screen, Enter adds a line and the button sends, as in a phone's apps.
  * - **Modes:** `modes` with a tone each ("Reply" / "Internal note"). Two or
  *   more show a picker above the input; an `internal` tone edges the bar and
  *   the input in the theme's `warning` colour and labels the input with the
  *   mode, so a staff-only note never reads like a reply.
  * - **Slots:** `leading` (attach), `trailing` (beside send: a mic), `above`
  *   (a reply preview, attachments waiting to send).
- * - **Accessibility:** the input is labelled, the mode picker is a tablist,
- *   and "Sending" is announced politely.
+ * - **Accessibility:** the input is labelled; the mode picker is a single-choice
+ *   toggle group (arrow keys move between modes); the send button stays put
+ *   while sending, so focus stays on it, and "Sending" is announced politely
+ *   from a region that's always there.
  *
  * @stability Beta
  */
 import * as React from "react";
-import { ArrowUp, Loader2 } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import type { ComposerMode } from "@marktiderman/genesis-core/conversation";
 import { cn } from "../../../utils";
+import { Spinner } from "../../ui/spinner";
+import { ToggleGroup, ToggleGroupItem } from "../../ui/toggle-group";
 
 export interface ComposerBarProps {
   value: string;
@@ -40,7 +46,9 @@ export interface ComposerBarProps {
   maxLength?: number;
   /** The input grows to this many lines, then scrolls. Default 6. */
   maxLines?: number;
-  /** Which key sends. Default `enter` (Shift+Enter for a new line). */
+  /** The mode picker's name, for a screen reader. Default "Send as". */
+  modesLabel?: string;
+  /** Which key sends. Default `enter` (Shift+Enter for a new line; on a touch screen Enter adds a line). */
   sendOn?: "enter" | "mod-enter";
   /** Ways to send ("Reply", "Internal note"). Two or more show the picker. */
   modes?: readonly ComposerMode[];
@@ -53,6 +61,8 @@ export interface ComposerBarProps {
   className?: string;
   testID?: string;
 }
+
+const isTouch = () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
 
 const LINE_PX = 22;
 const PAD_PX = 16;
@@ -70,6 +80,7 @@ export const ComposerBar = React.forwardRef<HTMLTextAreaElement, ComposerBarProp
     maxLength,
     maxLines = 6,
     sendOn = "enter",
+    modesLabel = "Send as",
     modes,
     mode,
     onModeChange,
@@ -107,28 +118,27 @@ export const ComposerBar = React.forwardRef<HTMLTextAreaElement, ComposerBarProp
       className={cn("flex flex-col gap-2 border-t bg-background px-3 py-2", internal && "border-t-2 border-t-warning", className)}
     >
       {modes && modes.length > 1 ? (
-        <div role="tablist" aria-label="Send as" data-testid={`${testID}-modes`} className="flex gap-1">
-          {modes.map((m) => {
-            const on = m.id === current?.id;
-            return (
-              <button
-                key={m.id}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                data-testid={`${testID}-mode-${m.id}`}
-                onClick={() => onModeChange?.(m.id)}
-                className={cn(
-                  "min-h-11 rounded-full px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  on ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
-                  m.tone === "internal" && "border border-warning",
-                )}
-              >
-                {m.label}
-              </button>
-            );
-          })}
-        </div>
+        <ToggleGroup
+          type="single"
+          aria-label={modesLabel}
+          value={current?.id ?? ""}
+          onValueChange={(id) => {
+            if (id) onModeChange?.(id);
+          }}
+          data-testid={`${testID}-modes`}
+          className="justify-start"
+        >
+          {modes.map((m) => (
+            <ToggleGroupItem
+              key={m.id}
+              value={m.id}
+              data-testid={`${testID}-mode-${m.id}`}
+              className={cn("min-h-11 rounded-full px-3", m.tone === "internal" && "border border-warning")}
+            >
+              {m.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
       ) : null}
       {above}
       <div className="flex items-end gap-2">
@@ -143,9 +153,9 @@ export const ComposerBar = React.forwardRef<HTMLTextAreaElement, ComposerBarProp
           aria-label={label}
           onChange={(e) => onChangeText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+            if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
             const mod = e.metaKey || e.ctrlKey;
-            if (sendOn === "enter" ? !e.shiftKey && !mod : mod) {
+            if (sendOn === "enter" ? !e.shiftKey && !mod && !isTouch() : mod) {
               e.preventDefault();
               send();
             }
@@ -156,22 +166,23 @@ export const ComposerBar = React.forwardRef<HTMLTextAreaElement, ComposerBarProp
           )}
         />
         {trailing}
-        {sending ? (
-          <span data-testid={`${testID}-sending`} role="status" aria-live="polite" aria-label={sendingLabel} className="flex size-11 items-center justify-center">
-            <Loader2 className="size-5 animate-spin motion-reduce:animate-none" aria-hidden />
-          </span>
-        ) : (
-          <button
-            type="button"
-            data-testid={`${testID}-send`}
-            aria-label={sendLabel}
-            disabled={!canSend}
-            onClick={send}
-            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:bg-muted disabled:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ArrowUp className="size-5" aria-hidden />
-          </button>
-        )}
+        <button
+          type="button"
+          data-testid={`${testID}-send`}
+          aria-label={sendLabel}
+          aria-disabled={!canSend}
+          aria-busy={sending || undefined}
+          onClick={send}
+          className={cn(
+            "flex size-11 shrink-0 items-center justify-center rounded-full transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            canSend || sending ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+          )}
+        >
+          {sending ? <Spinner data-testid={`${testID}-sending`} className="size-5 motion-reduce:animate-none" aria-hidden /> : <ArrowUp className="size-5" aria-hidden />}
+        </button>
+        <span className="sr-only" role="status" aria-live="polite" data-testid={`${testID}-status`}>
+          {sending ? sendingLabel : ""}
+        </span>
       </div>
     </div>
   );

@@ -35,7 +35,10 @@ import {
   type ThreadLabels,
   type ThreadMessage,
 } from "@marktiderman/genesis-core/conversation";
+import { MessagesSquare } from "lucide-react";
 import { cn } from "../../../utils";
+import { Button } from "../../ui/button";
+import { EmptyState } from "../empty-state";
 import { ComposerBar } from "./composer-bar";
 import { ThreadList, type ThreadListHandle, type ThreadRowInfo } from "./thread-list";
 
@@ -46,7 +49,7 @@ export type ThreadPageSlotMap = {
   readReceipt: { label: string; testID: string };
   unreadDivider: { label: string; testID: string };
   /** `accessory` is the `composerAccessory` slot, already rendered. */
-  composer: ThreadComposer & { testID: string; accessory?: React.ReactNode };
+  composer: ThreadComposer & { testID: string; accessory?: React.ReactNode; sendOn?: "enter" | "mod-enter" };
   composerAccessory: { testID: string };
   /** Pinned above the list: a ticket's status, assignee and priority, and "more". */
   headerRegion: { testID: string };
@@ -58,6 +61,8 @@ export type ThreadPageSlotMap = {
 export interface ThreadPageProps {
   /** Oldest first. */
   messages: ThreadMessage[];
+  /** Which conversation this is. When it changes (another row picked in an inbox), the thread opens afresh: at the first unread, or the newest. */
+  conversationId?: string | null;
   /** `null`: read-only, no composer. */
   composer: ThreadComposer | null;
   /** Shown instead of the composer when it is `null` ("This conversation is closed"). */
@@ -99,8 +104,18 @@ export interface ThreadPageProps {
 
 const toDate = (value: string | Date) => (typeof value === "string" ? new Date(value) : value);
 
+/** The web's words where the shared defaults are touch wording. */
+const WEB_THREAD_LABELS: Partial<ThreadLabels> = {
+  notSent: "Not sent. Select to retry.",
+  conflict: "Not sent: changed elsewhere. Select to retry.",
+  retryHint: "Sends it again",
+};
+
+const messageKey = (m: ThreadMessage) => m.id;
+
 export function ThreadPage({
   messages,
+  conversationId,
   composer,
   closedNotice,
   header,
@@ -130,7 +145,13 @@ export function ThreadPage({
   const [atBottom, setAtBottom] = React.useState(true);
   const [gone, setGone] = React.useState<string | null>(null);
   const receiptFor = readReceiptFor(messages, readAt);
-  const labels: ThreadLabels = { ...DEFAULT_THREAD_LABELS, ...labelOverrides };
+  const labels: ThreadLabels = { ...DEFAULT_THREAD_LABELS, ...WEB_THREAD_LABELS, ...labelOverrides };
+  // Someone else's message arriving at the bottom is said politely; yours and events aren't.
+  const announce = (m: ThreadMessage) => (m.mine || m.kind === "event" || !m.body ? null : m.authorName ? `${m.authorName}: ${m.body}` : m.body);
+  const goneTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => {
+    if (goneTimer.current) clearTimeout(goneTimer.current);
+  }, []);
 
   const renderRow = (message: ThreadMessage, { highlighted }: ThreadRowInfo) => {
     const timeLabel = formatTime(toDate(message.timestamp));
@@ -206,7 +227,10 @@ export function ThreadPage({
           ref={listRef}
           testID={`${testID}-messages`}
           data={messages}
-          keyExtractor={(m) => m.id}
+          keyExtractor={messageKey}
+          conversationId={conversationId}
+          openAt={firstUnreadId}
+          announce={announce}
           renderItem={renderRow}
           loading={loading}
           hasEarlier={hasEarlier}
@@ -217,7 +241,10 @@ export function ThreadPage({
           jumpTo={jumpTo}
           onLoadUntil={onLoadUntil}
           onJumpFailed={(id) => {
-            setGone(labels.messageGone);
+            // Cleared first, so the same failure twice is said twice.
+            setGone("");
+            if (goneTimer.current) clearTimeout(goneTimer.current);
+            goneTimer.current = setTimeout(() => setGone(labels.messageGone), 50);
             onJumpFailed?.(id);
           }}
           onAtBottomChange={setAtBottom}
@@ -230,14 +257,15 @@ export function ThreadPage({
           )}
         />
         {!atBottom && messages.length > 0 ? (
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             data-testid={`${testID}-jump-latest`}
             onClick={() => listRef.current?.scrollToEnd({ animated: true })}
-            className="absolute bottom-3 left-1/2 min-h-9 -translate-x-1/2 rounded-full border bg-background px-4 text-sm font-medium text-primary shadow-sm"
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full text-primary shadow-sm"
           >
             {labels.jumpToLatest}
-          </button>
+          </Button>
         ) : null}
         <span role="status" aria-live="polite" className="sr-only">
           {gone}
@@ -255,18 +283,17 @@ function Nothing(_props: { testID: string }) {
 function DefaultEarlier({ loading, onPress, label, testID }: ThreadPageSlotMap["earlier"]) {
   return (
     <div className="flex justify-center py-2">
-      <button type="button" data-testid={testID} onClick={onPress} disabled={loading} aria-busy={loading} className="min-h-9 rounded-full px-4 text-sm font-medium text-primary disabled:opacity-60">
+      <Button variant="ghost" size="sm" data-testid={testID} onClick={onPress} disabled={loading} aria-busy={loading} className="rounded-full text-primary">
         {label}
-      </button>
+      </Button>
     </div>
   );
 }
 
 function DefaultEmpty({ title, body, testID }: ThreadPageSlotMap["empty"]) {
   return (
-    <div data-testid={testID} className="px-6 py-10 text-center">
-      <p className="font-medium">{title}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+    <div data-testid={testID}>
+      <EmptyState icon={MessagesSquare} title={title} description={body} />
     </div>
   );
 }
@@ -316,6 +343,8 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
   const state = stateLabel(message);
   const canDiscard = Boolean(message.onDiscard) && (broken || waiting);
   const who = message.mine ? labels.you : (message.authorName ?? "");
+  const stateId = React.useId();
+  const prefix = [who, internal ? labels.internal : null].filter(Boolean).join(", ");
   const bubble = cn(
     "max-w-[75%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-left text-[15px] leading-[22px]",
     internal ? "border-2 border-warning bg-background text-foreground" : message.mine ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
@@ -324,9 +353,7 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
   );
   const content = (
     <>
-      <span className="sr-only">
-        {[who, internal ? labels.internal : null].filter(Boolean).join(", ")}:{" "}
-      </span>
+      {prefix ? <span className="sr-only">{prefix}: </span> : null}
       {message.body}
     </>
   );
@@ -338,7 +365,7 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
         </span>
       ) : null}
       {broken && message.onRetry ? (
-        <button type="button" data-testid={message.testID} onClick={message.onRetry} aria-description={labels.retryHint} className={bubble}>
+        <button type="button" data-testid={message.testID} onClick={message.onRetry} aria-describedby={stateId} title={labels.retryHint} className={bubble}>
           {content}
         </button>
       ) : (
@@ -347,7 +374,7 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
         </div>
       )}
       <div className="mx-3 mt-0.5 flex items-center gap-2 text-[11px] leading-[14px]">
-        <span data-testid={`${message.testID}-time`} className={broken ? "text-destructive" : "text-muted-foreground"}>
+        <span id={stateId} data-testid={`${message.testID}-time`} className={broken ? "text-destructive" : "text-muted-foreground"}>
           {state ?? message.timeLabel}
         </span>
         {canDiscard ? (

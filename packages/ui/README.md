@@ -160,18 +160,24 @@ shared conversation contract in `@marktiderman/genesis-core/conversation`. The s
 
 - **`ThreadPage`:** one conversation. It fills its container.
   - Messages oldest first in a `role="log"` region, events as centred lines, attachments and a read receipt.
+  - Pass `conversationId`: when it changes (another row picked in an inbox), the thread opens afresh, at the first unread or the newest.
+  - A screen reader hears someone else's new message, not each page of earlier ones.
+  - While you're at the bottom it stays there as things change size: a photo loading, the typing line, the composer growing.
   - Earlier pages load near the top, with a "Load earlier" button too, and the list keeps its place while they arrive.
   - It follows the newest message only while you're at the bottom; otherwise a "Jump to latest" pill shows.
   - `firstUnreadId` adds a divider, and `jumpTo` with `onLoadUntil` goes to a message and highlights it.
   - `loading` and `updating`, and send states as data (`pending`, `paused`, `failed`, `conflict`, with `onRetry` and `onDiscard`).
   - Internal notes (`tone: "internal"`) are edged in `warning` and say so to a screen reader.
 - **`ComposerBar`:** an input that grows as you type, with `modes` and a tone.
-  - Enter sends; Shift+Enter adds a line. With `sendOn="mod-enter"`, Cmd/Ctrl+Enter sends instead.
+  - Enter sends; Shift+Enter adds a line. With `sendOn="mod-enter"`, Cmd/Ctrl+Enter sends instead. On a touch screen, Enter adds a line.
+  - Nothing sends on the Enter that confirms an input method, in Safari too.
+  - The send button stays put while sending, so focus doesn't jump.
   - Slots: `leading`, `trailing`, `above`.
 - **`ThreadList`:** the list on its own.
 - **`InboxPage`:** conversation rows: unread dot or count, a short time, a preview, a status line.
   - Each row's `swipeActions` become a "More" menu.
-  - Arrow keys or j/k move between rows; `selected` marks the open one.
+  - The rows are one tab stop that stays where you were. Arrow keys or j/k move between rows, and Right reaches a row's More menu. `selected` marks the open one.
+  - A custom `row` slot spreads `rowProps` on its focusable element to keep the keyboard moves.
   - Paging, loading, error and empty states.
 - **`InboxPage` selection:** `selectedId` and `onSelect` keep the open conversation in the app's route.
 - **`InboxLayout`:** the three-pane inbox, with views (`InboxViews`: label, count, icon, active), the list, the thread and a context sidebar.

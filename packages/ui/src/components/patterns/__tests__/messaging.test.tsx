@@ -105,13 +105,73 @@ describe("ThreadPage (web)", () => {
     rerender(<ThreadPage testID="t" messages={messages} composer={composer()} />);
     expect(log.scrollTop).toBe(900);
   });
+
+  it("opens another conversation at its newest message, without loading earlier ones", () => {
+    let height = 1000;
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(() => height);
+    const onLoadEarlier = vi.fn();
+    const { rerender } = render(<ThreadPage testID="t" conversationId="a" messages={messages} composer={composer()} hasEarlier onLoadEarlier={onLoadEarlier} />);
+    const log = screen.getByRole("log");
+    act(() => {
+      log.scrollTop = 300;
+      fireEvent.scroll(log);
+    });
+    onLoadEarlier.mockClear();
+    height = 1400;
+    const other: ThreadMessage[] = [{ id: "b1", body: "Hello", mine: false, authorName: "Ana", timestamp: "2026-10-24T10:00:00Z" }, { id: "b2", body: "Hi", mine: true, timestamp: "2026-10-24T10:00:00Z" }];
+    rerender(<ThreadPage testID="t" conversationId="b" messages={other} composer={composer()} hasEarlier onLoadEarlier={onLoadEarlier} />);
+    expect(log.scrollTop).toBe(1400);
+    expect(onLoadEarlier).not.toHaveBeenCalled();
+  });
+
+  it("opens again at the newest after a loading state", () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(() => 1200);
+    const { rerender } = render(<ThreadPage testID="t" conversationId="a" messages={messages} composer={composer()} />);
+    rerender(<ThreadPage testID="t" conversationId="b" messages={[]} loading composer={composer()} />);
+    rerender(<ThreadPage testID="t" conversationId="b" messages={messages} composer={composer()} />);
+    expect(screen.getByRole("log").scrollTop).toBe(1200);
+  });
+
+  it("keeps live announcements off the log, and says only someone else's new message", () => {
+    const { rerender } = render(<ThreadPage testID="t" messages={messages} composer={composer()} />);
+    expect(screen.getByRole("log").getAttribute("aria-live")).toBe("off");
+    const announcer = screen.getByTestId("t-messages-announcer");
+    expect(announcer.textContent).toBe("");
+    rerender(<ThreadPage testID="t" messages={[...messages, { id: "4", body: "Fixed now", mine: false, authorName: "Support", timestamp: "2026-10-24T10:00:00Z" }]} composer={composer()} />);
+    expect(announcer.textContent).toBe("Support: Fixed now");
+    rerender(<ThreadPage testID="t" messages={[...messages, { id: "4", body: "Fixed now", mine: false, authorName: "Support", timestamp: "2026-10-24T10:00:00Z" }, { id: "5", body: "Thanks", mine: true, timestamp: "2026-10-24T10:00:00Z" }]} composer={composer()} />);
+    expect(announcer.textContent).toBe("Support: Fixed now");
+  });
+
+  it("loads earlier messages near the top on scroll, once per page", () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(() => 2000);
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(() => 500);
+    const onLoadEarlier = vi.fn();
+    render(<ThreadPage testID="t" messages={messages} composer={composer()} hasEarlier onLoadEarlier={onLoadEarlier} />);
+    const log = screen.getByRole("log");
+    act(() => {
+      log.scrollTop = 100;
+      fireEvent.scroll(log);
+      fireEvent.scroll(log);
+    });
+    expect(onLoadEarlier).toHaveBeenCalledTimes(1);
+  });
+
+  it("describes a failed message's retry with its state", () => {
+    render(<ThreadPage testID="t" messages={[{ id: "f", body: "Oops", mine: true, status: "failed", onRetry: vi.fn(), timestamp: "2026-10-24T10:00:00Z" }]} composer={composer()} />);
+    const retry = screen.getByTestId("t-message-f");
+    const described = document.getElementById(retry.getAttribute("aria-describedby")!);
+    expect(described?.textContent).toBe("Not sent. Select to retry.");
+  });
 });
 
 describe("ComposerBar", () => {
   it("sends on Enter, adds a line on Shift+Enter, and won't send a blank message", () => {
     const onSend = vi.fn();
     const { rerender } = render(<ComposerBar testID="c" value="  " onChangeText={vi.fn()} onSend={onSend} />);
-    expect((screen.getByTestId("c-send") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("c-send").getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(screen.getByTestId("c-send"));
+    expect(onSend).not.toHaveBeenCalled();
     rerender(<ComposerBar testID="c" value="Hi" onChangeText={vi.fn()} onSend={onSend} />);
     fireEvent.keyDown(screen.getByTestId("c-input"), { key: "Enter", shiftKey: true });
     expect(onSend).not.toHaveBeenCalled();
@@ -141,17 +201,44 @@ describe("ComposerBar", () => {
         onModeChange={onModeChange}
       />,
     );
-    expect(screen.getByRole("tab", { name: "Internal note" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("radio", { name: "Internal note" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("radiogroup", { name: "Send as" })).toBeTruthy();
     expect(screen.getByLabelText("Internal note", { selector: "textarea" })).toBeTruthy();
     expect(screen.getByTestId("c").getAttribute("data-tone")).toBe("internal");
-    fireEvent.click(screen.getByRole("tab", { name: "Reply" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Reply" }));
     expect(onModeChange).toHaveBeenCalledWith("reply");
   });
 
-  it("spins while sending, and announces it", () => {
-    render(<ComposerBar testID="c" value="Hi" onChangeText={vi.fn()} onSend={vi.fn()} sending />);
-    expect(screen.getByRole("status", { name: "Sending" })).toBeTruthy();
-    expect(screen.queryByTestId("c-send")).toBeNull();
+  it("spins while sending, keeps focus on send, won't send twice, and announces it", () => {
+    const onSend = vi.fn();
+    const { rerender } = render(<ComposerBar testID="c" value="Hi" onChangeText={vi.fn()} onSend={onSend} />);
+    const send = screen.getByTestId("c-send");
+    send.focus();
+    expect(screen.getByTestId("c-status").textContent).toBe("");
+    rerender(<ComposerBar testID="c" value="Hi" onChangeText={vi.fn()} onSend={onSend} sending />);
+    expect(document.activeElement).toBe(send);
+    expect(screen.getByTestId("c-sending")).toBeTruthy();
+    expect(screen.getByTestId("c-status").textContent).toBe("Sending");
+    fireEvent.click(send);
+    expect(onSend).not.toHaveBeenCalled();
+    rerender(<ComposerBar testID="c" value="" onChangeText={vi.fn()} onSend={onSend} />);
+    expect(document.activeElement).toBe(send);
+  });
+
+  it("doesn't send on the Enter that confirms an input method (Safari's keyCode 229)", () => {
+    const onSend = vi.fn();
+    render(<ComposerBar testID="c" value="こんにちは" onChangeText={vi.fn()} onSend={onSend} />);
+    fireEvent.keyDown(screen.getByTestId("c-input"), { key: "Enter", keyCode: 229 });
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("adds a line on Enter on a touch screen", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((q: string) => ({ matches: q === "(pointer: coarse)", media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as MediaQueryList);
+    const onSend = vi.fn();
+    render(<ComposerBar testID="c" value="Hi" onChangeText={vi.fn()} onSend={onSend} />);
+    fireEvent.keyDown(screen.getByTestId("c-input"), { key: "Enter" });
+    expect(onSend).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 });
 
@@ -179,14 +266,41 @@ describe("InboxPage (web)", () => {
     expect(screen.getByRole("button", { name: "More: Cy" })).toBeTruthy();
   });
 
-  it("moves between rows with the arrow keys and j/k", () => {
+  it("moves between rows with the arrow keys and j/k, and the tab stop follows", () => {
     render(<InboxPage testID="i" items={items} now={now} />);
-    const list = screen.getByRole("list");
     screen.getByTestId("i-row-a").focus();
-    fireEvent.keyDown(list, { key: "j" });
+    fireEvent.keyDown(document.activeElement!, { key: "j" });
     expect(document.activeElement).toBe(screen.getByTestId("i-row-b"));
-    fireEvent.keyDown(list, { key: "ArrowUp" });
+    expect(screen.getByTestId("i-row-b").tabIndex).toBe(0);
+    expect(screen.getByTestId("i-row-a").tabIndex).toBe(-1);
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowUp" });
     expect(document.activeElement).toBe(screen.getByTestId("i-row-a"));
+  });
+
+  it("ignores keys that aren't aimed at a row, and reaches a row's More with Right", () => {
+    const withMenu = items.map((i) => ({ ...i, swipeActions: [{ id: "archive", label: "Archive", onPress: vi.fn() }] }));
+    render(<InboxPage testID="i" items={withMenu} now={now} />);
+    const more = screen.getByTestId("i-row-a-more");
+    expect(more.tabIndex).toBe(-1);
+    screen.getByTestId("i-row-a").focus();
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(more);
+    fireEvent.keyDown(more, { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(screen.getByTestId("i-row-a"));
+    // Keys inside an open menu (portaled, but bubbling through React) stay the menu's.
+    fireEvent.keyDown(screen.getByTestId("i-row-b"), { key: "x" });
+    const item = document.createElement("div");
+    item.setAttribute("role", "menuitem");
+    screen.getByTestId("i-row-a").closest("li")!.appendChild(item);
+    item.tabIndex = -1;
+    item.focus();
+    fireEvent.keyDown(item, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(item);
+  });
+
+  it("says an unread count as \"3 unread\"", () => {
+    render(<InboxPage testID="i" items={[{ id: "z", title: "Zed", unreadCount: 3 }]} now={now} />);
+    expect(screen.getByTestId("i-row-z").textContent).toContain("3 unread");
   });
 
   it("shows loading, error and empty states", () => {
