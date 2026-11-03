@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { AccessibilityInfo } from "react-native";
 import { MOTION_DURATIONS, MOTION_SPRINGS, resolveMotion } from "@marktiderman/genesis-design-system/tokens/motion";
 import { animateMotion, motionSpring, motionTiming, useMotion } from "../use-motion";
@@ -12,9 +12,12 @@ afterEach(() => {
 });
 
 describe("useMotion", () => {
-  it("gives the shared tokens at calm by default", () => {
-    vi.spyOn(AccessibilityInfo, "isReduceMotionEnabled").mockResolvedValue(false);
+  it("gives the shared tokens at calm by default, once the OS has answered", async () => {
+    const asked = vi.spyOn(AccessibilityInfo, "isReduceMotionEnabled").mockResolvedValue(false);
     const { result } = renderHook(() => useMotion());
+    await waitFor(() => expect(asked).toHaveBeenCalled());
+    await act(async () => {});
+    expect(result.current.level).toBe("calm");
     expect(result.current.reduced).toBe(false);
     expect(result.current.duration).toEqual(MOTION_DURATIONS);
   });
@@ -70,6 +73,11 @@ describe("animateMotion", () => {
 });
 
 describe("worklet-safe configs", () => {
+  it("are marked as worklets, so Reanimated's Babel plugin moves them to the UI thread", () => {
+    // The directive must survive in the shipped source (ui-native's react-native entry is ./src).
+    for (const fn of [motionSpring, motionTiming]) expect(fn.toString()).toMatch(/["']worklet["']/);
+  });
+
   it("builds a spring config, with velocity only when given", () => {
     const m = resolveMotion("calm");
     expect(motionSpring(m, "snappy")).toEqual(MOTION_SPRINGS.snappy);
