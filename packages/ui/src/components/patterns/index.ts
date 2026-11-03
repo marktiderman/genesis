@@ -51,3 +51,6 @@ export {
   type AuthFormSuccess,
   type AuthSignInMethod,
 } from "./auth-form";
+
+// Messaging: ThreadPage, ThreadList, ComposerBar (and InboxPage, InboxLayout) on the shared conversation contract.
+export * from "./messaging";

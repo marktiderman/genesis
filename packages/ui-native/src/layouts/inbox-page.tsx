@@ -41,49 +41,11 @@ import { NativeBadge } from "../components/badge";
 import { NativeRefreshControl } from "../components/refresh-control";
 import { NativeLoadingState } from "../components/loading-state";
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
+import { formatInboxTime, type InboxItem, type InboxSwipeAction } from "@marktiderman/genesis-core/conversation";
 
-/** An action on a row: swipe, long press, or an accessibility action. */
-export interface InboxSwipeAction {
-  id: string;
-  label: string;
-  onPress: () => void;
-  /** Destructive tone (delete, leave). */
-  destructive?: boolean;
-}
-
-export interface InboxItem {
-  /** Stable id for keying. */
-  id: string;
-  title: string;
-  /** The latest message or a summary, at most two lines. */
-  preview?: string;
-  /** When it last changed. Shown as a short time or date. */
-  timestamp?: string | Date;
-  /** Something new the person hasn't read: a dot, and the title in bold. */
-  unread?: boolean;
-  /** How many unread messages; shown as a count instead of the dot when above 0. */
-  unreadCount?: number;
-  /** A short status shown under the preview ("In progress", "12 votes"). */
-  meta?: string;
-  /** Replaces the unread dot (an icon). For a picture of who it is, use `avatar`, which keeps the dot. */
-  leading?: ReactNode;
-  /**
-   * A picture of who or what it is (a `NativeAvatar`, about 40pt), between the
-   * unread dot and the text. The separator then starts at the text. It is hidden
-   * from screen readers; when it shows someone `title` doesn't name, say who in
-   * `avatarLabel`.
-   */
-  avatar?: ReactNode;
-  /** Who the avatar shows, read before the title, when `title` doesn't name them. */
-  avatarLabel?: string;
-  /** Shown at the end of the row (a vote button, a badge). Replaces the chevron. */
-  trailing?: ReactNode;
-  /** Opens the conversation. Rows with `onPress` show a chevron unless `trailing` is set. */
-  onPress?: () => void;
-  swipeActions?: InboxSwipeAction[];
-  /** testID override. Default `<page testID>-row-<id>`. */
-  testID?: string;
-}
+// The conversation contract is genesis-core's, shared with genesis-ui's InboxPage.
+export type { InboxItem, InboxSwipeAction } from "@marktiderman/genesis-core/conversation";
+export { formatInboxTime } from "@marktiderman/genesis-core/conversation";
 
 /** The parts `slots` and `slotProps` reach, with the props each receives. */
 export type InboxPageSlotMap = {
@@ -138,18 +100,6 @@ export function getInboxPageStackOptions(props: ScreenHeaderProps & { headerTitl
     headerRight: props.headerRight,
     headerOptions: props.headerOptions,
   });
-}
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** The default row time: `9:41`, `Yesterday`, `Monday`, then a short date. */
-export function formatInboxTime(date: Date, now: Date): string {
-  const start = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const days = Math.round((start(now) - start(date)) / DAY_MS);
-  if (days <= 0) return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-  if (days === 1) return "Yesterday";
-  if (days < 7) return date.toLocaleDateString(undefined, { weekday: "long" });
-  return date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: date.getFullYear() === now.getFullYear() ? undefined : "numeric" });
 }
 
 /** The row's leading padding, the unread dot's column, an avatar's default size and its gap to the text. */

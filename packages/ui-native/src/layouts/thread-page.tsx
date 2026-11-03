@@ -1,95 +1,87 @@
 /**
  * ThreadPage — one conversation: messages oldest first, a composer at the
- * bottom that stays above the keyboard, attachments, a read receipt, and
- * "load earlier" paging.
+ * bottom that follows the keyboard, attachments, a read receipt, earlier
+ * pages, going to a message, and the first unread.
  *
- * Generic: a support ticket with staff replies, a direct message, a comment
- * thread. Mine are on the trailing side in the tint, theirs on the leading
- * side on `surface`, over the `groupedBackground` page (SettingsPage's iOS
- * palette).
+ * Generic: a support ticket with staff replies, a help desk thread with
+ * internal notes, a direct message, a comment thread. Mine are on the
+ * trailing side in the tint, theirs on the leading side on `surface`, over the
+ * `groupedBackground` page (SettingsPage's iOS palette). Events ("Sam was
+ * assigned") are centred, muted lines between them.
  *
- * Keyboard: with `KeyboardScrollProvider` (the native app shell's
- * `keyboardScroll`, react-native-keyboard-controller's
- * `KeyboardAwareScrollView`), the messages and the composer scroll together
- * and the composer is kept above the keyboard. Without it, a
- * `KeyboardAvoidingView` does the same on iOS. Either way the thread stays
- * scrolled to the newest message as it grows.
+ * Built from the messaging atoms, so an app can take this whole or build its
+ * own from the same parts: `NativeThreadList` (bottom-anchored, holds its
+ * place while earlier messages load, follows the newest only at the bottom)
+ * and `NativeComposerBar` (grows as you type, modes with a tone, 44pt send).
+ *
+ * Keyboard: the page sits in `GenesisModules.keyboardAvoidingView`
+ * (react-native-keyboard-controller's, `translate-with-padding`: the composer
+ * follows the keyboard frame by frame) when the app passed it, else React
+ * Native's `KeyboardAvoidingView` (`padding` on iOS, `height` on Android, so
+ * under edge-to-edge the composer still clears the keyboard). Dragging the
+ * list down dismisses the keyboard (interactively on iOS). The app's
+ * `KeyboardScrollProvider` no longer applies here, since a virtualized list
+ * can't live in a scroll view: an app that passes it but not
+ * `keyboardAvoidingView` gets a development warning saying so.
+ *
+ * Data: rows arrive as props and the page never fetches. A row's send state
+ * is data (`sending`, `pending`, `paused`, `failed`, `conflict`) with
+ * `onRetry` / `onDiscard`, whatever feeds it (an outbox, an offline queue).
+ * Ids must stay the same across refreshes (a cache, then the server).
  *
  * Read-only: pass `composer={null}` (a closed ticket, a viewer) and an
  * optional `closedNotice`.
  *
- * Slots: `message`, `attachment`, `readReceipt`, `composer`,
- * `composerAccessory` (beside the input: attach a screenshot), `header`
- * (above the messages: what the thread is about), `earlier` and `empty`.
+ * `loading` shows a skeleton instead of the empty state; `updating` a quiet
+ * line while fresher rows arrive.
+ *
+ * Slots: `message`, `event`, `attachment`, `readReceipt`, `unreadDivider`,
+ * `composer`, `composerAccessory` (beside the input: attach a screenshot),
+ * `headerRegion` (pinned above the list: a ticket's status and assignee),
+ * `header` (scrolls above the first message: what the thread is about),
+ * `earlier` and `empty`.
  *
  * @stability Beta
  */
-import { createElement, useEffect, useRef, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { AccessibilityInfo, Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeRoles } from "../hooks/use-theme-roles";
-import { NativeButton } from "../components/button";
+import { useGenesisModules } from "../native-modules";
+import { useKeyboardScroll } from "./keyboard";
 import { NativeEmptyState } from "../components/empty-state";
 import { NativeText } from "../components/text";
+import { NativeComposerBar, type ComposerMode } from "../components/composer-bar";
+import { NativeThreadList, type NativeThreadListHandle, type ThreadRowInfo } from "../components/thread-list";
+import {
+  DEFAULT_THREAD_LABELS,
+  formatMessageTime,
+  readReceiptFor,
+  type ThreadAttachment,
+  type ThreadComposer,
+  type ThreadLabels,
+  type ThreadMessage,
+} from "@marktiderman/genesis-core/conversation";
+
+const announce = (text: string) => (AccessibilityInfo as { announceForAccessibility?: (t: string) => void }).announceForAccessibility?.(text);
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
-import { useKeyboardScroll } from "./keyboard";
 
-export interface ThreadAttachment {
-  id: string;
-  /** An image URI (a signed URL, a file:// path). */
-  uri: string;
-  width?: number;
-  height?: number;
-  accessibilityLabel?: string;
-  onPress?: () => void;
-}
-
-export interface ThreadMessage {
-  id: string;
-  body: string;
-  /** Sent by the person using the app: trailing side, tint. */
-  mine: boolean;
-  /** Shown over theirs ("Support"); never over mine. */
-  authorName?: string;
-  timestamp: string | Date;
-  /** An optimistic message: `sending`, then `sent`, or `failed` with `onRetry`. */
-  status?: "sending" | "sent" | "failed";
-  onRetry?: () => void;
-  attachments?: ThreadAttachment[];
-}
-
-export interface ThreadComposer {
-  value: string;
-  onChangeText: (text: string) => void;
-  onSend: () => void;
-  /** A send is in flight: the button spins and won't send twice. */
-  sending?: boolean;
-  placeholder?: string;
-  sendLabel?: string;
-  /** Turns the send button off (besides an empty or blank value). */
-  disabled?: boolean;
-  maxLength?: number;
-}
-
-/** What the default parts say. */
-export interface ThreadLabels {
-  /** Who "mine" is, to VoiceOver. */
-  you: string;
-  sending: string;
-  notSent: string;
-  retryHint: string;
-}
-
-const DEFAULT_LABELS: ThreadLabels = { you: "You", sending: "Sending", notSent: "Not sent. Tap to retry.", retryHint: "Double tap to send again" };
+// The conversation contract is genesis-core's, shared with genesis-ui's ThreadPage.
+export type { MessageTone, ThreadAttachment, ThreadComposer, ThreadLabels, ThreadMessage, ThreadMessageStatus } from "@marktiderman/genesis-core/conversation";
+export { readReceiptFor } from "@marktiderman/genesis-core/conversation";
 
 export type ThreadPageSlotMap = {
-  message: ThreadMessage & { testID: string; timeLabel: string; showReadReceipt: boolean; labels: ThreadLabels };
+  message: ThreadMessage & { testID: string; timeLabel: string; showReadReceipt: boolean; labels: ThreadLabels; /** A jump just landed here (two seconds). */ highlighted: boolean };
+  event: ThreadMessage & { testID: string; timeLabel: string };
   attachment: ThreadAttachment & { testID: string; mine: boolean };
   readReceipt: { label: string; testID: string };
+  unreadDivider: { label: string; testID: string };
   /** `accessory` is the `composerAccessory` slot, already rendered. */
   composer: ThreadComposer & { testID: string; accessory?: ReactNode };
   composerAccessory: { testID: string };
+  /** Pinned above the list: a ticket's status, assignee and priority, and "more". */
+  headerRegion: { testID: string };
   header: { testID: string };
   earlier: { loading: boolean; onPress: () => void; label: string; testID: string };
   empty: { title: string; body: string; testID: string };
@@ -102,7 +94,7 @@ export interface ThreadPageProps extends ScreenHeaderProps {
   composer: ThreadComposer | null;
   /** Shown instead of the composer when it is `null` ("This conversation is closed"). */
   closedNotice?: string;
-  /** Above the messages (what the thread is about). Prefer `slots.header` for a component. */
+  /** Above the first message, scrolling with them. Prefer `slots.header` for a component. */
   header?: ReactNode;
   /**
    * When the other side last read the thread. My newest message sent before
@@ -110,11 +102,29 @@ export interface ThreadPageProps extends ScreenHeaderProps {
    */
   readAt?: string | Date | null;
   readLabel?: string;
-  /** There are older messages: shows a "load earlier" button at the top. */
+  /** There are older messages: they load near the top, and a "load earlier" button shows. */
   hasEarlier?: boolean;
   onLoadEarlier?: () => void;
   loadingEarlier?: boolean;
   earlierLabel?: string;
+  /** The first message the reader hasn't seen: a "New messages" divider above it. */
+  firstUnreadId?: string | null;
+  /** Go to this message (a search result, a pinned one), loading with `onLoadUntil` until it's here. */
+  jumpTo?: string | null;
+  /** Load earlier pages until the message is held; resolve false when it can't be found. */
+  onLoadUntil?: (id: string) => Promise<boolean>;
+  /** A `jumpTo` message couldn't be found (the list goes back to the newest). Default: VoiceOver says `labels.messageGone`. */
+  onJumpFailed?: (id: string) => void;
+  /** The first page is loading: a skeleton instead of the empty state, and a jump waits for it. */
+  loading?: boolean;
+  /** Fresher rows are on their way (the cache showed first): a quiet "Updating…" line under the header region, announced once. */
+  updating?: boolean;
+  /**
+   * For the keyboard. With the keyboard-controller module the page finds its own place on screen
+   * (`automaticOffset`) and this is extra space (default 0); with React Native's, it's where the
+   * page starts below the window's top (default 100 on iOS: a standard header).
+   */
+  keyboardVerticalOffset?: number;
   emptyTitle?: string;
   emptyBody?: string;
   formatTime?: (date: Date) => string;
@@ -140,23 +150,25 @@ export function getThreadPageStackOptions(props: ScreenHeaderProps & { headerTit
 
 const toDate = (value: string | Date) => (typeof value === "string" ? new Date(value) : value);
 
-function defaultTime(date: Date): string {
-  return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-}
 
-/** The newest of my messages the other side has read, or null. */
-export function readReceiptFor(messages: readonly ThreadMessage[], readAt: string | Date | null | undefined): string | null {
-  if (!readAt) return null;
-  const read = toDate(readAt).getTime();
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]!;
-    if (m.mine && m.status !== "sending" && m.status !== "failed" && toDate(m.timestamp).getTime() <= read) return m.id;
-  }
-  return null;
-}
 
-interface ScrollLike {
-  scrollToEnd?: (options?: { animated?: boolean }) => void;
+const NO_SLOTS: Slots<ThreadPageSlotMap> = {};
+const NO_SLOT_PROPS: SlotPropsFor<ThreadPageSlotMap> = {};
+const messageKey = (m: ThreadMessage) => m.id;
+const messageType = (m: ThreadMessage) => (m.kind === "event" ? "event" : m.mine ? "mine" : "theirs");
+
+declare const __DEV__: boolean | undefined;
+declare const process: { env: Record<string, string | undefined> } | undefined;
+let warnedNoKeyboardModule = false;
+/** Development-only: the app has keyboard-controller (it passed a keyboard scroll view) but not its KeyboardAvoidingView. */
+function warnNoKeyboardModule() {
+  const dev = typeof __DEV__ !== "undefined" ? __DEV__ : typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+  if (!dev || warnedNoKeyboardModule) return;
+  warnedNoKeyboardModule = true;
+  // genesis-allow-console: a development-only setup warning, like AuthScreen's
+  console.warn(
+    "[genesis] ThreadPage: react-native-keyboard-controller is set up (keyboardScroll) but GenesisModules.keyboardAvoidingView isn't, so the composer falls back to React Native's KeyboardAvoidingView. Pass keyboard-controller's KeyboardAvoidingView as `keyboardAvoidingView` in your Genesis modules.",
+  );
 }
 
 export function ThreadPage({
@@ -170,81 +182,96 @@ export function ThreadPage({
   onLoadEarlier,
   loadingEarlier = false,
   earlierLabel = "Load earlier messages",
+  firstUnreadId,
+  jumpTo,
+  onLoadUntil,
+  onJumpFailed,
+  loading = false,
+  updating = false,
+  keyboardVerticalOffset,
   emptyTitle,
   emptyBody,
-  formatTime = defaultTime,
+  formatTime = formatMessageTime,
   labels: labelOverrides,
-  slots = {},
-  slotProps = {},
+  slots = NO_SLOTS,
+  slotProps = NO_SLOT_PROPS,
   testID = "thread-page",
 }: ThreadPageProps) {
   const colors = useThemeRoles();
-  const KeyboardScroll = useKeyboardScroll();
-  const scrollRef = useRef<ScrollLike | null>(null);
+  const genesis = useGenesisModules();
+  const listRef = useRef<NativeThreadListHandle | null>(null);
+  const [atBottom, setAtBottom] = useState(true);
   const receiptFor = readReceiptFor(messages, readAt);
-  const labels: ThreadLabels = { ...DEFAULT_LABELS, ...labelOverrides };
-  const newest = messages[messages.length - 1]?.id;
-
-  // Keep the newest message in view when one arrives (or is sent).
+  // Kept stable across renders (typing in the composer) unless the words change, so rows don't re-render.
+  const labelsKey = labelOverrides ? JSON.stringify(labelOverrides) : "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const labels: ThreadLabels = useMemo(() => ({ ...DEFAULT_THREAD_LABELS, ...labelOverrides }), [labelsKey]);
+  const keyboardScroll = useKeyboardScroll();
   useEffect(() => {
-    scrollRef.current?.scrollToEnd?.({ animated: true });
-  }, [newest]);
+    if (keyboardScroll && !genesis.keyboardAvoidingView) warnNoKeyboardModule();
+  }, [keyboardScroll, genesis.keyboardAvoidingView]);
 
-  const body = (
-    <View style={{ flexGrow: 1 }}>
-      {header ?? renderSlot(Nothing, slots.header, { testID: `${testID}-header` }, slotProps.header)}
-      {hasEarlier && onLoadEarlier
-        ? renderSlot(
-            DefaultEarlier,
-            slots.earlier,
-            { loading: loadingEarlier, onPress: onLoadEarlier, label: earlierLabel, testID: `${testID}-earlier` },
-            slotProps.earlier,
-          )
-        : null}
-      <View testID={`${testID}-messages`} accessibilityRole="list" style={{ flexGrow: 1, justifyContent: "flex-end", paddingHorizontal: 12, paddingVertical: 8, gap: 6 }}>
-        {messages.length === 0
-          ? renderSlot(
-              DefaultEmpty,
-              slots.empty,
-              { title: emptyTitle ?? "No messages yet", body: emptyBody ?? "Write the first one below.", testID: `${testID}-empty` },
-              slotProps.empty,
-            )
-          : messages.map((message) => (
-              <View key={message.id}>
-                {renderSlot(
-                  DefaultMessage,
-                  slots.message,
-                  {
-                    ...message,
-                    testID: `${testID}-message-${message.id}`,
-                    timeLabel: formatTime(toDate(message.timestamp)),
-                    showReadReceipt: message.id === receiptFor,
-                    labels,
-                  },
-                  slotProps.message,
-                )}
-                {message.attachments?.length ? (
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: message.mine ? "flex-end" : "flex-start", marginTop: 4 }}>
-                    {message.attachments.map((attachment) => (
-                      <View key={attachment.id}>
-                        {renderSlot(
-                          DefaultAttachment,
-                          slots.attachment,
-                          { ...attachment, mine: message.mine, testID: `${testID}-attachment-${attachment.id}` },
-                          slotProps.attachment,
-                        )}
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-                {message.id === receiptFor
-                  ? renderSlot(DefaultReadReceipt, slots.readReceipt, { label: readLabel, testID: `${testID}-read-receipt` }, slotProps.readReceipt)
-                  : null}
-              </View>
-            ))}
-      </View>
-    </View>
+  // "Updating…" on iOS too (a live region is Android-only).
+  useEffect(() => {
+    if (updating && Platform.OS === "ios") announce(labels.updating);
+    // labels.updating is read when updating turns on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updating]);
+
+  const renderRow = useCallback(
+    (message: ThreadMessage, { highlighted }: ThreadRowInfo) => {
+      const timeLabel = formatTime(toDate(message.timestamp));
+      const divider =
+        message.id === firstUnreadId
+          ? renderSlot(DefaultUnreadDivider, slots.unreadDivider, { label: labels.newMessages, testID: `${testID}-unread` }, slotProps.unreadDivider)
+          : null;
+      if (message.kind === "event") {
+        return (
+          <View style={{ paddingVertical: 3 }}>
+            {divider}
+            {renderSlot(DefaultEvent, slots.event, { ...message, testID: `${testID}-event-${message.id}`, timeLabel }, slotProps.event)}
+          </View>
+        );
+      }
+      return (
+        <View style={{ paddingVertical: 3 }}>
+          {divider}
+          {renderSlot(
+            DefaultMessage,
+            slots.message,
+            { ...message, testID: `${testID}-message-${message.id}`, timeLabel, showReadReceipt: message.id === receiptFor, labels, highlighted },
+            slotProps.message,
+          )}
+          {message.attachments?.length ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: message.mine ? "flex-end" : "flex-start", marginTop: 4 }}>
+              {message.attachments.map((attachment) => (
+                <View key={attachment.id}>
+                  {renderSlot(
+                    DefaultAttachment,
+                    slots.attachment,
+                    { ...attachment, mine: message.mine, testID: `${testID}-attachment-${attachment.id}` },
+                    slotProps.attachment,
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : null}
+          {message.id === receiptFor
+            ? renderSlot(DefaultReadReceipt, slots.readReceipt, { label: readLabel, testID: `${testID}-read-receipt` }, slotProps.readReceipt)
+            : null}
+        </View>
+      );
+    },
+    [firstUnreadId, formatTime, receiptFor, readLabel, slots, slotProps, testID, labels],
   );
+
+  const send = composer
+    ? () => {
+        composer.onSend();
+        // What you send is what you look at next, wherever the list was.
+        listRef.current?.scrollToEnd({ animated: true });
+      }
+    : undefined;
 
   const footer = composer ? (
     renderSlot(
@@ -252,6 +279,8 @@ export function ThreadPage({
       slots.composer,
       {
         ...composer,
+        sendingLabel: composer.sendingLabel ?? labels.sending,
+        onSend: send!,
         testID: `${testID}-composer`,
         accessory: renderSlot(Nothing, slots.composerAccessory, { testID: `${testID}-composer-accessory` }, slotProps.composerAccessory),
       },
@@ -263,45 +292,66 @@ export function ThreadPage({
     </NativeText>
   ) : null;
 
-  const page = { flex: 1, backgroundColor: colors.groupedBackground };
-  const onContentSizeChange = () => scrollRef.current?.scrollToEnd?.({ animated: false });
+  const listHeader = header ?? renderSlot(Nothing, slots.header, { testID: `${testID}-header` }, slotProps.header);
 
-  if (KeyboardScroll) {
-    // The composer scrolls with the messages, so the keyboard-aware view keeps it (the focused input) above the keyboard.
-    return (
-      <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={page}>
-        {createElement(
-          KeyboardScroll as never,
-          {
-            ref: scrollRef,
-            testID: `${testID}-keyboard`,
-            keyboardShouldPersistTaps: "handled",
-            contentInsetAdjustmentBehavior: "automatic",
-            contentContainerStyle: { flexGrow: 1 },
-            bottomOffset: 8,
-            onContentSizeChange,
-          } as never,
-          body,
-          footer,
-        )}
-      </SafeAreaView>
-    );
-  }
+  const KeyboardAvoiding = (genesis.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
+  const keyboardProps = genesis.keyboardAvoidingView
+    ? { behavior: "translate-with-padding", automaticOffset: true, keyboardVerticalOffset: keyboardVerticalOffset ?? 0 }
+    : { behavior: Platform.OS === "ios" ? "padding" : "height", keyboardVerticalOffset: keyboardVerticalOffset ?? (Platform.OS === "ios" ? 100 : 0) };
+
   return (
-    <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={page}>
-      <KeyboardAvoidingView testID={`${testID}-kav`} style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}>
-        <ScrollView
-          ref={scrollRef as never}
-          testID={`${testID}-scroll`}
-          keyboardShouldPersistTaps="handled"
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ flexGrow: 1 }}
-          onContentSizeChange={onContentSizeChange}
-        >
-          {body}
-        </ScrollView>
+    <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+      {/* Pinned above the keyboard-avoiding view, so it doesn't move with the keyboard. */}
+      {renderSlot(Nothing, slots.headerRegion, { testID: `${testID}-header-region` }, slotProps.headerRegion)}
+      {updating ? (
+        <View testID={`${testID}-updating`} accessibilityLiveRegion="polite" accessible accessibilityLabel={labels.updating}>
+          <NativeText style={{ textAlign: "center", paddingVertical: 4, color: colors.tertiaryLabel, fontSize: 12, lineHeight: 16 }}>{labels.updating}</NativeText>
+        </View>
+      ) : null}
+      <KeyboardAvoiding testID={`${testID}-keyboard`} style={{ flex: 1 }} {...keyboardProps}>
+        <View style={{ flex: 1 }}>
+          <NativeThreadList<ThreadMessage>
+            ref={listRef}
+            testID={`${testID}-messages`}
+            data={messages}
+            keyExtractor={messageKey}
+            getItemType={messageType}
+            renderItem={renderRow}
+            loading={loading}
+            hasEarlier={hasEarlier}
+            onLoadEarlier={onLoadEarlier}
+            loadingEarlier={loadingEarlier}
+            earlierLabel={earlierLabel}
+            renderEarlier={(p) => renderSlot(DefaultEarlierButton, slots.earlier, { ...p, testID: `${testID}-earlier` }, slotProps.earlier)}
+            jumpTo={jumpTo}
+            onLoadUntil={onLoadUntil}
+            jumpAnnouncement={(m) => [m.mine ? labels.you : m.authorName, m.body].filter(Boolean).join(", ")}
+            onJumpFailed={onJumpFailed ?? (() => announce(labels.messageGone))}
+            onAtBottomChange={setAtBottom}
+            header={listHeader}
+            empty={renderSlot(
+              DefaultEmpty,
+              slots.empty,
+              { title: emptyTitle ?? "No messages yet", body: emptyBody ?? "Write the first one below.", testID: `${testID}-empty` },
+              slotProps.empty,
+            )}
+          />
+          {!atBottom && messages.length > 0 ? (
+            <Pressable
+              testID={`${testID}-jump-latest`}
+              accessibilityRole="button"
+              accessibilityLabel={labels.jumpToLatest}
+              onPress={() => listRef.current?.scrollToEnd({ animated: true })}
+              style={{ position: "absolute", bottom: 8, alignSelf: "center", minHeight: 44, justifyContent: "center", paddingHorizontal: 16, borderRadius: 22, backgroundColor: colors.surface }}
+            >
+              <NativeText preset="label" style={{ color: colors.tint }}>
+                {labels.jumpToLatest}
+              </NativeText>
+            </Pressable>
+          ) : null}
+        </View>
         {footer}
-      </KeyboardAvoidingView>
+      </KeyboardAvoiding>
     </SafeAreaView>
   );
 }
@@ -310,13 +360,14 @@ function Nothing(_props: { testID: string }) {
   return null;
 }
 
-function DefaultEarlier({ loading, onPress, label, testID }: ThreadPageSlotMap["earlier"]) {
+function DefaultEarlierButton({ loading, onPress, label, testID }: ThreadPageSlotMap["earlier"]) {
+  const colors = useThemeRoles();
   return (
-    <View style={{ alignItems: "center", paddingTop: 8 }}>
-      <NativeButton variant="ghost" size="sm" onPress={onPress} loading={loading} testID={testID}>
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ busy: loading }} onPress={onPress} disabled={loading} style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}>
+      <NativeText preset="label" style={{ color: colors.tint }}>
         {label}
-      </NativeButton>
-    </View>
+      </NativeText>
+    </Pressable>
   );
 }
 
@@ -324,16 +375,62 @@ function DefaultEmpty({ title, body, testID }: ThreadPageSlotMap["empty"]) {
   return <NativeEmptyState variant="first-run" title={title} body={body} testID={testID} />;
 }
 
+function DefaultUnreadDivider({ label, testID }: ThreadPageSlotMap["unreadDivider"]) {
+  const colors = useThemeRoles();
+  return (
+    <View testID={testID} accessible accessibilityRole="header" accessibilityLabel={label} style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 }}>
+      <View style={{ flex: 1, height: 1, backgroundColor: colors.tint }} />
+      <NativeText style={{ color: colors.tint, fontSize: 12, lineHeight: 16 }}>{label}</NativeText>
+      <View style={{ flex: 1, height: 1, backgroundColor: colors.tint }} />
+    </View>
+  );
+}
+
+function DefaultEvent({ body, timeLabel, testID }: ThreadPageSlotMap["event"]) {
+  const colors = useThemeRoles();
+  return (
+    <View testID={testID} accessible accessibilityLabel={`${body}, ${timeLabel}`} style={{ alignSelf: "center", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, backgroundColor: colors.fill }}>
+      <NativeText style={{ color: colors.secondaryLabel, fontSize: 12, lineHeight: 16, textAlign: "center" }}>{body}</NativeText>
+    </View>
+  );
+}
+
 // No `color` key on mine: an undefined color in the style would override the class's.
 const MINE_TEXT = { fontSize: 17, lineHeight: 22 } as const;
 
-function DefaultMessage(message: ThreadPageSlotMap["message"]) {
-  const colors = useThemeRoles();
-  const failed = message.status === "failed";
+/** What a message's state says under it, or null when it's sent. */
+function stateLabel(message: ThreadPageSlotMap["message"]): string | null {
   const { labels } = message;
-  const label = [message.mine ? labels.you : (message.authorName ?? ""), message.body, message.timeLabel, failed ? labels.notSent : message.status === "sending" ? labels.sending : null]
-    .filter(Boolean)
-    .join(", ");
+  switch (message.status) {
+    case "sending":
+      return labels.sending;
+    case "pending":
+      return labels.pending;
+    case "paused":
+      return labels.paused;
+    case "failed":
+      return labels.notSent;
+    case "conflict":
+      return labels.conflict;
+    default:
+      return null;
+  }
+}
+
+const DefaultMessage = memo(function DefaultMessage(message: ThreadPageSlotMap["message"]) {
+  const colors = useThemeRoles();
+  const { labels } = message;
+  const broken = message.status === "failed" || message.status === "conflict";
+  const waiting = message.status === "sending" || message.status === "pending" || message.status === "paused";
+  const internal = message.tone === "internal";
+  const state = stateLabel(message);
+  const label = [message.mine ? labels.you : (message.authorName ?? ""), internal ? labels.internal : null, message.body, message.timeLabel, state].filter(Boolean).join(", ");
+  // Discard is offered for a message that hasn't gone: not while it's sending (it may already be on the server).
+  const canDiscard = Boolean(message.onDiscard) && (broken || message.status === "pending" || message.status === "paused");
+  const actions = [
+    ...(broken && message.onRetry ? [{ name: "activate", label: labels.retryHint }] : []),
+    ...(canDiscard ? [{ name: "discard", label: labels.discard }] : []),
+  ];
   return (
     <View style={{ alignItems: message.mine ? "flex-end" : "flex-start" }}>
       {!message.mine && message.authorName ? (
@@ -342,38 +439,57 @@ function DefaultMessage(message: ThreadPageSlotMap["message"]) {
       <Pressable
         testID={message.testID}
         accessible
+        accessibilityRole={broken && message.onRetry ? "button" : undefined}
         accessibilityLabel={label}
-        accessibilityHint={failed && message.onRetry ? labels.retryHint : undefined}
-        onPress={failed ? message.onRetry : undefined}
+        accessibilityHint={broken && message.onRetry ? labels.retryHint : undefined}
+        accessibilityActions={actions.length ? actions : undefined}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === "discard" && canDiscard) message.onDiscard?.();
+          else if (e.nativeEvent.actionName === "activate" && broken) message.onRetry?.();
+        }}
+        onPress={broken ? message.onRetry : undefined}
         style={{
           maxWidth: "80%",
           paddingHorizontal: 14,
           paddingVertical: 8,
           borderRadius: 18,
-          backgroundColor: message.mine ? colors.tint : colors.surface,
-          opacity: message.status === "sending" ? 0.6 : 1,
+          backgroundColor: internal ? colors.surface : message.mine ? colors.tint : colors.surface,
+          borderWidth: internal || message.highlighted ? 2 : 0,
+          borderColor: internal ? colors.warning : colors.tint,
+          opacity: waiting ? 0.6 : 1,
         }}
       >
-        <NativeText className={message.mine ? "text-primary-foreground" : undefined} style={message.mine ? MINE_TEXT : { ...MINE_TEXT, color: colors.label }}>
+        <NativeText className={message.mine && !internal ? "text-primary-foreground" : undefined} style={message.mine && !internal ? MINE_TEXT : { ...MINE_TEXT, color: colors.label }}>
           {message.body}
         </NativeText>
       </Pressable>
-      <NativeText
-        testID={`${message.testID}-time`}
-        style={{ marginTop: 2, marginHorizontal: 12, color: failed ? colors.destructive : colors.tertiaryLabel, fontSize: 11, lineHeight: 14 }}
-      >
-        {failed ? labels.notSent : message.timeLabel}
-      </NativeText>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2, marginHorizontal: 12 }}>
+        <NativeText testID={`${message.testID}-time`} style={{ color: broken ? colors.destructive : colors.tertiaryLabel, fontSize: 11, lineHeight: 14 }}>
+          {state ?? message.timeLabel}
+        </NativeText>
+        {canDiscard ? (
+          <Pressable testID={`${message.testID}-discard`} accessibilityRole="button" accessibilityLabel={labels.discard} onPress={message.onDiscard} hitSlop={{ top: 15, bottom: 15, left: 12, right: 12 }}>
+            <NativeText style={{ color: colors.secondaryLabel, fontSize: 11, lineHeight: 14 }}>{labels.discard}</NativeText>
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
-}
+});
 
-function DefaultAttachment({ uri, width, height, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
+function DefaultAttachment({ id, uri, width, height, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
+  const { image: ExpoImage } = useGenesisModules();
   const ratio = width && height ? width / height : 0.6;
   const w = 140;
+  const style = { width: w, height: Math.round(w / ratio), borderRadius: 12 };
   return (
     <Pressable testID={testID} accessibilityRole="image" accessibilityLabel={accessibilityLabel ?? "Attachment"} onPress={onPress} disabled={!onPress}>
-      <Image source={{ uri }} style={{ width: w, height: Math.round(w / ratio), borderRadius: 12 }} resizeMode="cover" />
+      {/* A recycled row (FlashList) must not show the last row's picture while this one loads. */}
+      {ExpoImage ? (
+        <ExpoImage source={{ uri }} style={style} contentFit="cover" recyclingKey={id} />
+      ) : (
+        <Image key={uri} source={{ uri }} style={style} resizeMode="cover" />
+      )}
     </Pressable>
   );
 }
@@ -387,58 +503,6 @@ function DefaultReadReceipt({ label, testID }: ThreadPageSlotMap["readReceipt"])
   );
 }
 
-function DefaultComposer({
-  value,
-  onChangeText,
-  onSend,
-  sending = false,
-  placeholder = "Message",
-  sendLabel = "Send",
-  disabled = false,
-  maxLength,
-  testID,
-  accessory,
-}: ThreadPageSlotMap["composer"]) {
-  const colors = useThemeRoles();
-  const blank = !value.trim();
-  return (
-    <View
-      testID={testID}
-      style={{ flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, backgroundColor: colors.groupedBackground }}
-    >
-      {accessory}
-      <TextInput
-        testID={`${testID}-input`}
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.tertiaryLabel as string}
-        accessibilityLabel={placeholder}
-        multiline
-        maxLength={maxLength}
-        editable={!sending}
-        style={{
-          flex: 1,
-          minHeight: 36,
-          maxHeight: 120,
-          paddingHorizontal: 14,
-          paddingTop: 8,
-          paddingBottom: 8,
-          borderRadius: 18,
-          fontSize: 17,
-          color: colors.label as string,
-          backgroundColor: colors.surface,
-        }}
-      />
-      {sending ? (
-        <View style={{ height: 36, justifyContent: "center", paddingHorizontal: 8 }}>
-          <ActivityIndicator testID={`${testID}-sending`} accessibilityLabel="Sending" />
-        </View>
-      ) : (
-        <NativeButton size="sm" onPress={onSend} disabled={disabled || blank} testID={`${testID}-send`}>
-          {sendLabel}
-        </NativeButton>
-      )}
-    </View>
-  );
+function DefaultComposer({ accessory, testID, ...composer }: ThreadPageSlotMap["composer"]) {
+  return <NativeComposerBar {...composer} leading={accessory} testID={testID} />;
 }

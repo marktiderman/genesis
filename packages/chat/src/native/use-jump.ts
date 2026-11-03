@@ -38,6 +38,9 @@ export interface UseJumpOptions {
 
 type Pending = JumpTarget & { phase: "new" | "loading" | "loaded" };
 
+/**
+ * @deprecated Promoted to genesis-ui-native as `useThreadJump`. ChatThreadScreen moves onto NativeThreadList with its builder (feature `inbox-thread`); this copy is removed then.
+ */
 export function useJumpToMessage({ target, rows, loading, has, loadUntil, scrollTo, onStart, onLanded, onGone, onError }: UseJumpOptions) {
   const [pending, setPending] = useState<Pending | null>(target ? { ...target, phase: "new" } : null);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
