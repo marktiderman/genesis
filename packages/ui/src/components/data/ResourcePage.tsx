@@ -838,6 +838,11 @@ export interface ResourcePageProps<
    * This is the reason a surface that needs one part to differ does not have
    * to drop to the primitives and re-derive the pagination, selection and
    * detail wiring that were already correct.
+   *
+   * A `grid` replacement that draws its own items and should open them sets a static
+   * `opensItems = true` (as ResourceView's gallery does): it then gets `onItemClick` and
+   * `getItemLabel`, which open the row's detail. Without it, a grid slot gets them only with
+   * `openOnCardClick` and a `renderCard`, as before.
    */
   slots?: ResourcePageSlots<T>;
   /** Extra props merged into a part you are KEEPING. Wins over ours. */
@@ -1435,8 +1440,9 @@ export function ResourcePage<
             )
           )
           ,
-          // A replaced grid (ResourceView's gallery, say) draws its own items, so it opens them too.
-          ...(((openOnCardClick && renderCardProp) || slots?.grid) && detail !== "none"
+          // A grid slot that opts in (`opensItems`, as ResourceView's gallery does) opens its own items;
+          // every other slot gets exactly what it always did.
+          ...(((openOnCardClick && renderCardProp) || (slots?.grid as { opensItems?: boolean } | null | undefined)?.opensItems === true) && detail !== "none"
             ? {
                 onItemClick: handleRowClick,
                 getItemLabel: (item: T) => fillMessage(m.common.openItem, { name: titleOf(item) }).trim(),

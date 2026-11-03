@@ -24,7 +24,7 @@ export function galleryGridSlot<T extends Row>(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
   view: View<any, T & DataRow>,
   override: Partial<ViewGallery> | undefined,
-): ComponentType<GridProps<T>> {
+): ComponentType<GridProps<T>> & { opensItems: true } {
   function ResourceGallery(props: GridProps<T>) {
     const { items, viewMode, onItemClick } = props;
     const photos = useMemo(() => {
@@ -57,5 +57,6 @@ export function galleryGridSlot<T extends Row>(
       </div>
     );
   }
-  return ResourceGallery;
+  // ResourcePage hands its open handler (`onItemClick`) only to a grid slot that asks for it.
+  return Object.assign(ResourceGallery, { opensItems: true as const });
 }

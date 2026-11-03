@@ -93,6 +93,18 @@ describe("NativeResourceView gallery", () => {
     expect(await screen.findByText("Hills")).toBeTruthy();
   });
 
+  it("draws rows without an image as tiles that open, never the empty state over rows that exist", async () => {
+    const bare = provider();
+    (bare.getList as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ data: [ROWS[2]], total: 1 }));
+    const onRowPress = vi.fn();
+    render(<NativeResourceView view={view} mode="grid" onRowPress={onRowPress} emptyState={<span>Nothing here</span>} />, { wrapper: wrap(bare) });
+    await measured();
+    await waitFor(() => expect(tile("p3")).not.toBeNull());
+    expect(screen.queryByText("Nothing here")).toBeNull();
+    fireEvent.click(tile("p3")!);
+    expect(onRowPress).toHaveBeenCalledWith(ROWS[2]);
+  });
+
   it("keeps list mode, and a view without a gallery, as they were", async () => {
     const { unmount } = render(<NativeResourceView view={view} />, { wrapper: wrap(provider()) });
     expect(await screen.findByText("Not shot yet")).toBeTruthy();

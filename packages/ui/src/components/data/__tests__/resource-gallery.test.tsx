@@ -80,6 +80,27 @@ describe("ResourceView gallery", () => {
     expect(await screen.findByText("Hills")).toBeTruthy();
   });
 
+  it("opens a row without an image, from its tile", async () => {
+    localStorage.clear();
+    render(<ResourceView view={view} mode="grid" />, { wrapper: wrap(provider()) });
+    await waitFor(() => expect(tiles()).toHaveLength(3));
+    fireEvent.click(tiles()[2]!);
+    expect(await screen.findByText("Town")).toBeTruthy();
+  });
+
+  it("gives a screen's own grid slot exactly what it got before: no open handler unless it opts in", async () => {
+    localStorage.clear();
+    const seen: Record<string, unknown>[] = [];
+    const Mine = (props: Record<string, unknown>) => {
+      seen.push(props);
+      return <div data-testid="my-grid" />;
+    };
+    render(<ResourceView view={view} mode="grid" slots={{ grid: Mine as never }} />, { wrapper: wrap(provider()) });
+    await screen.findByTestId("my-grid");
+    await waitFor(() => expect(seen.some((p) => (p.items as unknown[]).length === 3)).toBe(true));
+    expect(seen.every((p) => p.onItemClick === undefined && p.getItemLabel === undefined)).toBe(true);
+  });
+
   it("leaves the table view alone", async () => {
     localStorage.clear();
     render(<ResourceView view={view} mode="table" />, { wrapper: wrap(provider()) });
