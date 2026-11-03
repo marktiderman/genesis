@@ -200,7 +200,17 @@
           },
           {
             "file": "migrations/0004_genesis_support_tickets.sql",
-            "test": "migrations/tests/0004_genesis_support_tickets.test.sql"
+            "test": "migrations/tests/0004_genesis_support_tickets.test.sql",
+            "needs": [
+              {
+                "function": "private.genesis_support_default_tenant",
+                "how": "tickets have a tenant from support 0004. Add a migration before it that defines private.genesis_support_default_tenant() returns uuid: your own tenant, where your own support lives (a single-tenant app returns its one tenant id). See 0004's header."
+              },
+              {
+                "function": "private.genesis_viewer_people",
+                "how": "a ticket's agents and the tenants a sender may write to come from it. Add a migration before support 0004 that defines private.genesis_viewer_people(viewer uuid) returns table (tenant_id uuid, person_id uuid). See genesis-supabase 0016's header."
+              }
+            ]
           }
         ],
         "functions": [
@@ -344,7 +354,13 @@
           },
           {
             "file": "migrations/0006_genesis_support_chat_tenants.sql",
-            "test": "migrations/tests/0006_genesis_support_chat_tenants.test.sql"
+            "test": "migrations/tests/0006_genesis_support_chat_tenants.test.sql",
+            "runsBefore": [
+              {
+                "package": "@marktiderman/genesis-chat",
+                "file": "migrations/0004_genesis_chat_tenants.sql"
+              }
+            ]
           }
         ],
         "steps": [

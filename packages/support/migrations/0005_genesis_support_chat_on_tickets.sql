@@ -574,6 +574,18 @@ $$;
 
 revoke execute on function private.genesis_chat_resolve_support_report(text) from public, anon, authenticated;
 
+-- Chat 0004's own tenant gate stays off for the support kind (chat looks this up by its name, in
+-- either order): support's observer check, a handler of the ticket, already reads the ticket's
+-- tenant, so the app's staff read its tickets' chats without being listed as its tenant's people.
+create or replace function private.genesis_chat_ungated_support()
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$ select true $$;
+
+revoke execute on function private.genesis_chat_ungated_support() from public, anon, authenticated;
+
 -- An app that applied genesis-chat 0004 before support's tickets had tenants: chat placed the
 -- existing support conversations by their members (the reporter's tenant). Put each one in its
 -- ticket's tenant before the backfill below meets it.
