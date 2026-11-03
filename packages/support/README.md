@@ -304,9 +304,10 @@ its own help desk and your app runs its own support the same way. With the suppo
   `support_set_agent(tenant, person, role)` (`client.setAgent`) by a tenant admin (genesis-supabase
   0004's `genesis_tenant_admin` hook) or an agent admin. A tenant's agents and admins read and
   handle its tickets and nobody else's. Your staff hook now means "an agent of your own tenant".
-  With genesis-chat 0004, only a conversation's tenant's people observe it, so your
-  `genesis_viewer_people` hook must list your staff as people of your own tenant for them to read
-  support chats.
+  With genesis-chat 0004, support chats keep their ticket's tenant (0005 and 0006 move any that
+  chat placed by their members), and support turns chat's own tenant gate off for its kind, since
+  its observer check already reads the ticket's tenant: your staff read your tickets' chats without
+  being listed as people of your tenant.
 - **Reading and handling stay apart**: the requester reads their ticket and never handles it; your
   report-handler hook only answers for your own tenant's tickets.
 - **Opt-in per tenant**: a tenant takes tickets only once `support-helpdesk` is enabled for it in
