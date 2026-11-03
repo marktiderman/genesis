@@ -181,7 +181,7 @@ describe("EventCalendar", () => {
     expect(document.activeElement?.getAttribute("data-day")).toBe("2026-11-09");
     fireEvent.keyDown(document.activeElement!, { key: "End" });
     expect(document.activeElement?.getAttribute("data-day")).toBe("2026-11-14");
-    expect(document.activeElement?.tabIndex).toBe(0);
+    expect((document.activeElement as HTMLElement | null)?.tabIndex).toBe(0);
   });
 
   it("lists the agenda day by day, skipping empty days, made to print", () => {
@@ -469,7 +469,7 @@ describe("ResourceView mode=calendar: review fixes", () => {
 
   it("ends an all-day row stored as instants the day before its end", async () => {
     const allDay = defineView(
-      defineResource<Event & { all_day: boolean }>()({ ...events, fields: [...events.fields, { name: "all_day", type: "boolean" }] }),
+      defineResource<Event & { all_day: boolean }>()({ name: events.name, key: events.key, labelField: events.labelField, fields: [...events.fields, { name: "all_day", type: "boolean" }] }),
       { columns: { default: ["title"] }, calendar: { field: "starts_at", endField: "ends_at", allDayField: "all_day", layout: "weeks", weeks: 1, weekStartsOn: 0 } },
     );
     // Midnight to midnight in Denver: 2 November only.

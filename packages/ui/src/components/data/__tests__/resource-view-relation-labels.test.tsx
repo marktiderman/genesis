@@ -34,7 +34,8 @@ const PEOPLE = [
   { id: "u2", full_name: "Grace Hopper", nickname: "Amazing Grace" },
 ];
 
-function setup(describe?: DataProvider["describe"], peopleFail = false) {
+// The schemas below are plain objects, as a provider returns them; typed loosely here.
+function setup(describe?: (resource: string) => Promise<unknown>, peopleFail = false) {
   const getList = vi.fn(async (resource: string, params: ListParams) => {
     if (resource === "tasks") return { data: TASKS, total: TASKS.length };
     if (peopleFail) throw new Error("permission denied");
@@ -48,7 +49,7 @@ function setup(describe?: DataProvider["describe"], peopleFail = false) {
     create: vi.fn(),
     update: vi.fn(),
     deleteOne: vi.fn(),
-    ...(describe ? { describe } : {}),
+    ...(describe ? { describe: describe as DataProvider["describe"] } : {}),
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const Wrapper = ({ children }: { children: ReactNode }) => (

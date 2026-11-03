@@ -174,7 +174,7 @@ describe("calendar mode: all-day rows", () => {
       render(<ResourceView view={view} mode="calendar" calendar={base} />, { wrapper: wrap(p) });
       await waitFor(() => expect(p.getList).toHaveBeenCalled());
       const params = vi.mocked(p.getList).mock.calls[0]![1] as ListParams;
-      const bound = (op: string) => String(params.filters!.find((f) => "operator" in f && f.operator === op && f.field === "starts_at")!.value);
+      const bound = (op: string) => String((params.filters!.find((f) => "operator" in f && f.operator === op && f.field === "starts_at") as { value: unknown }).value);
       // The week of Mon 2 Nov: from before the 2nd's UTC midnight to after the 9th's.
       expect(Date.parse(bound("gte"))).toBeLessThanOrEqual(Date.parse("2026-11-02T00:00:00Z"));
       expect(Date.parse(bound("lt"))).toBeGreaterThan(Date.parse("2026-11-08T00:00:00Z"));

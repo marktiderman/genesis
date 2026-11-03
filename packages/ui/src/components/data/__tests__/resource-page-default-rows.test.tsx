@@ -37,8 +37,8 @@ function renderMembers(defaultView: "list" | "grid", extra: Partial<ResourcePage
         columns={[
           "id",
           "email",
-          { key: "full_name", label: "Name", accessor: (m) => `${m.first} ${m.last}` },
-          { key: "visits", label: "Visits", render: (_m, v) => <b data-testid="visits-cell">{String(v)} visits</b> },
+          { key: "full_name", header: "Name", accessor: (m) => `${m.first} ${m.last}` },
+          { key: "visits", header: "Visits", render: (_m, v) => <b data-testid="visits-cell">{String(v)} visits</b> },
         ]}
         titleField="email"
         {...extra}

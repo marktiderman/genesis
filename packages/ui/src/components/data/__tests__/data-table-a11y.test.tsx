@@ -24,7 +24,7 @@ const columns: DataTableColumn<Row>[] = [
   { key: "team", header: "Team", sortable: true },
 ];
 
-const bodyRows = () => screen.getAllByRole("row").slice(1);
+const bodyRows = () => screen.getAllByRole("row").slice(1) as HTMLTableRowElement[];
 const openButtons = () => bodyRows().map((r) => within(r).getByRole("button"));
 
 describe("DataTable sortable headers", () => {

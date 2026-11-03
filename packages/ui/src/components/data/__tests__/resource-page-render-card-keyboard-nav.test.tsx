@@ -103,7 +103,7 @@ describe("ResourcePage — renderCard override", () => {
         if (item.id === "1") {
           seen.push(
             ...["update", "remove", "refetch", "open"].filter(
-              (k) => typeof (actions as Record<string, unknown>)[k] === "function",
+              (k) => typeof (actions as unknown as Record<string, unknown>)[k] === "function",
             ),
           );
         }

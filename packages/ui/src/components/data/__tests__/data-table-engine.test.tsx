@@ -28,7 +28,7 @@ const columns: DataTableColumn<Row>[] = [
   { key: "active", header: "Active", sortable: true, render: (r) => (r.active ? "yes" : "no") },
 ];
 
-const firstColumn = () => screen.getAllByRole("row").slice(1).map((r) => r.cells[0]!.textContent);
+const firstColumn = () => (screen.getAllByRole("row").slice(1) as HTMLTableRowElement[]).map((r) => r.cells[0]!.textContent);
 const headers = () => screen.getAllByRole("columnheader").map((h) => h.textContent);
 const sortBy = (name: string) =>
   fireEvent.click(within(screen.getByRole("columnheader", { name: new RegExp(name, "i") })).getByRole("button"));
@@ -128,7 +128,7 @@ describe("DataTable virtualization", () => {
     render(
       <DataTable items={many} columns={columns} getKey={(r) => r.id} pagination={false} virtualize={{ height: 400 }} columnVisibility={false} />,
     );
-    const rendered = screen.getAllByRole("row").slice(1).filter((r) => r.cells.length > 1);
+    const rendered = (screen.getAllByRole("row").slice(1) as HTMLTableRowElement[]).filter((r) => r.cells.length > 1);
     expect(rendered.length).toBeGreaterThan(0);
     expect(rendered.length).toBeLessThan(60);
   });
