@@ -187,13 +187,30 @@ $$;
 revoke execute on function private.genesis_viewer_people(uuid) from public, anon, authenticated;
 ```
 
-A single-tenant app returns its one tenant id for everyone. Without the hook nobody is in a
-tenant, so nobody starts a conversation and nobody observes one.
+A single-tenant app returns its one tenant id for everyone, and each login can be its own person
+record (the RN starter does this):
+
+```sql
+create function private.genesis_viewer_people(viewer uuid)
+returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
+  select '00000000-0000-4000-8000-00000000a771'::uuid, viewer where viewer is not null
+$$;
+```
+
+An app with personal records as well as organizations returns the personal one too; its tenant
+can be the record's own id (genesis-supabase 0016). Without the hook nobody is in a tenant, so
+nobody starts a conversation and nobody observes one.
 
 - **Starting one.** Everyone in it shares the tenant: the subject's when it has one, else the one
   they share. People who share several pass `tenantId` (`startConversation(kind, ids, { tenantId })`,
   `useStartConversation`); people who share none can't start one. `add_members` adds only people
   of the conversation's tenant, and a direct conversation is one per pair per tenant.
+- **Across tenants.** A kind registered with `p_cross_tenant => true` lets people with no tenant
+  in common talk (a marketplace's buyer and seller, say). The conversation takes its starter's
+  tenant (`tenantId` chooses among the starter's own), and its members may come from anywhere.
+  The trade-off: it lives in that one tenant, so that tenant's erase or export includes it,
+  everyone's messages in it too. Such a kind has no observer check (`register_kind` refuses one),
+  so no tenant's staff read it.
 - **Subjects.** Register the record types a kind's conversations are about, with a resolver
   that names the record's tenant (null when there's no such record):
 
@@ -209,10 +226,12 @@ tenant, so nobody starts a conversation and nobody observes one.
   tenant, and never about anyone who is or was a member of it, so whoever opened a ticket never
   reads its internal notes, even if they're staff too.
 
-**Upgrading.** Add the hook before applying 0004. It fills in the tenant of every existing
-conversation: from your optional `private.genesis_chat_conversation_tenant(conversation_id uuid)`
-hook, then the one tenant all its members share, then its creator's only tenant, then any one
-member's only tenant. If any conversation is left without a tenant, it stops and says how many.
+**Upgrading.** Add the hook before applying 0004 (`genesis add`, `migrate` and `upgrade` warn
+when it's missing). 0004 fills in the tenant of every existing conversation: from your optional
+`private.genesis_chat_conversation_tenant(conversation_id uuid)` hook; for one about a record, a
+resolver named for its type, `private.genesis_chat_resolve_<subject_type>(subject_id text)
+returns uuid`, when one exists (a block that owns the type ships it); then the one tenant all its
+members share, then its creator's only tenant, then any one member's only tenant. If any conversation is left without a tenant, it stops and says how many.
 Replace your copies of the 0001–0003 pgTAP tests with this release's (they now give their own
 people a tenant). If you use genesis-support's chat, apply its 0004 in the same release.
 

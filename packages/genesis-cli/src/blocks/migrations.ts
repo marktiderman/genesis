@@ -110,7 +110,21 @@ export interface MigrationRow {
   forward?: string;
   /** For a `provided` row: the migration that provides its objects. */
   providedBy?: { package: string; file: string };
+  /** For a `new` row: what it needs that no migration before it defines (its manifest's `needs`). */
+  unmet?: string[];
   detail?: string;
+}
+
+/** Does this SQL define the function `schema.name` (any arguments)? */
+export function definesFunction(sql: string, fn: string): boolean {
+  const [schema, name] = fn.split(".");
+  const quoted = (id: string) => `(?:${id}|"${id}")`;
+  return new RegExp(`create\\s+(?:or\\s+replace\\s+)?function\\s+${quoted(schema!)}\\s*\\.\\s*${quoted(name!)}\\s*\\(`, "i").test(sql);
+}
+
+/** "needs private.x first: how" lines for a row, as add, migrate and upgrade print them. */
+export function unmetNeeds(src: Pick<ManifestMigration, "needs">, defined: (fn: string) => boolean): string[] {
+  return (src.needs ?? []).filter((n) => !defined(n.function)).map((n) => `needs ${n.function} first: ${n.how}`);
 }
 
 /** Does this row still need a person? */
@@ -274,6 +288,13 @@ export function planMigrations(
         continue;
       }
       const row: MigrationRow = { ...base, state: "new" };
+      // Its needs: defined in a migration the app has, or one copied before it in this run.
+      const earlier = sources.slice(0, sources.indexOf(src)).filter((s) => s.source !== null);
+      const unmet = unmetNeeds(src, (fn) => app.some((m) => definesFunction(m.content, fn)) || earlier.some((s) => definesFunction(s.source!, fn)));
+      if (unmet.length) {
+        row.unmet = unmet;
+        row.detail = unmet.join("; ");
+      }
       rows.push(row);
       pending.push({ row, src, kind: "migration" });
       continue;
