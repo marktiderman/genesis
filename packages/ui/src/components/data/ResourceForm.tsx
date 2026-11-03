@@ -29,6 +29,7 @@ import {
   type UseResourceFormOptions,
 } from "@marktiderman/genesis-core/hooks";
 import { showUndoToast, showWriteErrorToast } from "./undo-toast";
+import { ConflictSheet } from "./ConflictSheet";
 import { compact } from "./compact";
 import { ResourceFormFieldRenderer, type ResourceFormFieldDef } from "./ResourceFormField";
 import { WizardForm } from "./WizardForm";
@@ -36,7 +37,7 @@ import type { WizardStep } from "@marktiderman/genesis-core/hooks";
 import { titleCase } from "../../hooks/use-resource-page";
 import { fillMessage, useUiMessages } from "../../messages";
 import { AlertTriangle } from "lucide-react";
-import type { ResourceContract } from "@marktiderman/genesis-core";
+import { isDataWriteError, type ResourceContract } from "@marktiderman/genesis-core";
 import type { ResourceView as View } from "@marktiderman/genesis-core/resource-view";
 import { useViewFormFields, type ViewFormOptions } from "./resource-view/view-form";
 
@@ -463,7 +464,8 @@ export function ResourceForm(props: ResourceFormProps) {
     },
     // The form is closed by the time an optimistic or undoable save fails,
     // so the error has to reach the user some other way.
-    onError: onError ?? (mutationMode === "pessimistic" ? undefined : showWriteErrorToast),
+    // A conflict opens ConflictSheet below instead, so it isn't toasted twice.
+    onError: onError ?? (mutationMode === "pessimistic" ? undefined : (error) => { if (!(isDataWriteError(error) && error.outcome === "conflict")) showWriteErrorToast(error); }),
     prefillFromUrl,
     autoPlaceholder,
     warnWhenUnsaved,
@@ -474,8 +476,21 @@ export function ResourceForm(props: ResourceFormProps) {
     onUndoable: onUndoable ?? showUndoToast,
   });
 
-  const { form, resolvedFields, handleSave, isSaving, isLoading, isDirty, confirmLeave } =
+  const { form, resolvedFields, handleSave, isSaving, isLoading, isDirty, confirmLeave, conflict, keepMine, takeTheirs, dismissConflict } =
     useResourceForm(hookOptions);
+  // A save that met someone else's change: theirs beside yours (over the form, or after an
+  // optimistic save closed it).
+  const conflictSheet = (
+    <ConflictSheet
+      conflict={conflict}
+      noun={noun ?? resourceLabel.toLowerCase()}
+      label={(field) => resolvedFields.find((f) => f.key === field)?.label ?? titleCase(field)}
+      onKeepMine={keepMine}
+      onTakeTheirs={takeTheirs}
+      onDismiss={dismissConflict}
+      testID="resource-form-conflict"
+    />
+  );
 
   const onDirtyChangeRef = useRef(onDirtyChange);
   useEffect(() => {
@@ -526,6 +541,7 @@ export function ResourceForm(props: ResourceFormProps) {
   // ── Dialog layout ──
   if (effectiveLayout === "dialog") {
     return (
+      <>
       <Dialog open={open} onOpenChange={requestOpenChange}>
         <DialogContent className="sm:max-w-[560px]" {...focusProps}>
           <DialogHeader>
@@ -537,12 +553,15 @@ export function ResourceForm(props: ResourceFormProps) {
           <FormBody {...bodyProps} seed />
         </DialogContent>
       </Dialog>
+      {conflictSheet}
+      </>
     );
   }
 
   // ── Sheet layout ──
   if (effectiveLayout === "sheet") {
     return (
+      <>
       <Sheet open={open} onOpenChange={requestOpenChange}>
         {/* The sheet keeps its width (three quarters of a phone, 480px from sm up). It doesn't
             scroll itself: the fields do, so Save and Cancel stay pinned at the bottom above the
@@ -558,13 +577,17 @@ export function ResourceForm(props: ResourceFormProps) {
           <FormBody {...bodyProps} fill seed />
         </SheetContent>
       </Sheet>
+      {conflictSheet}
+      </>
     );
   }
 
   // ── Page layout ──
-  if (!open) return null;
+  // Closed (an optimistic save handed off): only a conflict that came back later shows.
+  if (!open) return conflictSheet;
 
   return (
+    <>
     <Card className="mx-auto max-w-[560px]">
       <CardHeader>
         <CardTitle>{formTitle}</CardTitle>
@@ -573,5 +596,7 @@ export function ResourceForm(props: ResourceFormProps) {
         <FormBody {...bodyProps} />
       </CardContent>
     </Card>
+    {conflictSheet}
+    </>
   );
 }

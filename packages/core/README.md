@@ -192,8 +192,9 @@ createSupabaseProvider(supabase, {
   refetch replaces it). A write made while an earlier one on the same record is still unsettled is
   checked against the version that one committed at. After a save they put the new version into
   every cached copy, so the next edit is checked against it, not the one before.
-- `RecordView`'s settings sections (web and native) send the version of the row they show. They
-  save only the fields the person changed, over the row as it is now.
+- `RecordView`'s settings sections (web and native) send the version of the row as it was when
+  the person started editing (after a save, the version that save left), not a row that refreshed
+  meanwhile. They save only the fields the person changed.
 - `useDraft` saves through the app's own `update(row, value)`: pass `expectedVersion` from the row
   it's given to have a draft's saves checked.
 - The version is read from the rows the app reads, so the resource's `select` or `source` view must
@@ -210,8 +211,37 @@ createSupabaseProvider(supabase, {
   "timestamp"` works the same with a column a trigger sets to `now()` on update (`moddatetime`).
 - A write sent without `expectedVersion` (a row that wasn't read first, a provider without
   capabilities) is not checked. A resource without the rule behaves exactly as before.
-- A recycle-bin table checks the version before the delete (a binned delete can't carry the
-  check), so a change landing between that check and the delete isn't caught.
+- A recycle-bin table checks the version before the delete, and the delete carries it too, so a
+  change landing between the two leaves the row in place and reads back as a `conflict`.
+
+#### Showing a conflict
+
+A conflict is a choice for the person, not just an error. `writeConflict(error, mine, { changed })`
+turns a `conflict` into a `WriteConflict`: `theirs` (the row as it is now), `mine` (what the save
+tried), `fields` (the ones this person changed that differ from theirs) and `currentVersion`.
+`useResourceForm` keeps one as `conflict`, with `keepMine()`, `takeTheirs()` and
+`dismissConflict()`. Keep mine sends only this person's changes as theirs to keep, at
+`currentVersion`; every other field takes their value, so a field only they changed is never put
+back. After take theirs, the next save is checked against their version. Until the person saves or
+takes theirs, what they typed stays on the form, even when a rolled-back optimistic save refetches
+their row, so neither a second conflict nor closing the sheet loses it. A form's own `onError`
+still receives the conflict (to log it); `ResourceForm` doesn't toast it, since the sheet shows it. `ConflictSheet` (genesis-ui) and `NativeConflictSheet` (genesis-ui-native)
+show it, theirs first; `ResourceForm`, `RecordView`'s settings sections and Data Studio's record
+panel open it themselves.
+
+```ts
+import { DataWriteError, writeConflict } from "@marktiderman/genesis-core";
+
+const error = new DataWriteError("conflict", "Someone else changed this task.", {
+  current: { id: "t1", title: "Theirs", version: 5 },
+  currentVersion: "5",
+});
+const conflict = writeConflict(error, { title: "Mine" });
+// conflict?.fields is ["title"]; send "keep mine" with expectedVersion: conflict.currentVersion.
+```
+
+`WriteState` (`pending`, `sending`, `paused`, `failed`, `conflict`) is the one shape for showing
+where a write stands, on a row or a form.
 
 ### Races, and what the read-back can't tell you
 

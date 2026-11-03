@@ -18,5 +18,5 @@ Versioned writes: two people editing the same record no longer silently overwrit
   - After a save they put the new version into every cached copy, so a second edit is checked against it.
   - A resource without the rule, a row that wasn't read first, or a provider without capabilities is sent unchecked, as before. A versioned resource whose rows don't carry the version column is reported once through `reportError`.
   - A timestamp version is compared as an instant (to the microsecond), and a conflict's `error.current` is read through the resource's `source` and `select`.
-- **genesis-ui, genesis-ui-native:** `RecordView`'s settings sections send the version of the row they show.
+- **genesis-ui, genesis-ui-native:** `RecordView`'s settings sections send the version of the row as it was when the person started editing.
 - **genesis-supabase:** migration `0019_genesis_version_bump.sql` (with a pgTAP test), the `versioned-writes` block and `versionedWritesBlock`. `genesis_version_bump('col')` advances the column by one on every update, whatever the update wrote, and refuses a column that isn't an integer.

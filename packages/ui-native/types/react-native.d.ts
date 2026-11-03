@@ -124,6 +124,8 @@ declare module "react-native" {
     isReduceMotionEnabled(): Promise<boolean>;
     /** iOS: the Reduce Transparency setting. */
     isReduceTransparencyEnabled?(): Promise<boolean>;
+    /** Says `announcement` with VoiceOver or TalkBack. */
+    announceForAccessibility?(announcement: string): void;
     addEventListener(
       eventName: string,
       handler: (...args: any[]) => void
