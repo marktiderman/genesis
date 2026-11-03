@@ -8,7 +8,7 @@ replies, threads, reactions, read state, live updates and push.
 |---|---|
 | `@marktiderman/genesis-chat` | The headless core: types, `createChatClient`, the send outbox, thread logic, media rules. No React. |
 | `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useConversation`, `useMessageActions`, and for 0002 `useTopics`, `useScheduled`, `useAvailability`, `useBroadcast`, `useSearch`, `useLinkPreviews`. |
-| `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast. |
+| `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast, and the chat dock. |
 | `/native` | Beta: screens and parts on genesis-ui-native (inbox, thread, search, availability), voice notes, photos and video, and the push block's glue. See "On native" below. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
 | `migrations/0001_genesis_chat.sql`, `0002_genesis_chat_coaching.sql`, `0003_genesis_chat_search_threads.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`. |
@@ -37,6 +37,47 @@ for your own attachment kinds, `composerAccessory`). Mount a Genesis `<Toaster /
 (a file too big, a send not allowed). Tailwind must scan the package
 (`@source "../node_modules/@marktiderman/genesis-chat/dist"`). `createMemoryChatClient` runs it
 all with no backend, for demos, stories and tests.
+
+## The chat dock
+
+Conversations that stay open while people move around the app. On a wide screen there are up to
+three windows bottom-right, each a full thread and composer, minimized to a bar (with its unread
+count) or closed, and a fourth replaces the one used longest ago. On a narrow screen the open ones
+share one side sheet with a switcher, and closing it leaves a bubble with the unread count.
+"Expand" sends the conversation to your Messages page and takes it out of the dock.
+
+```tsx
+import { AppShell } from "@marktiderman/genesis-ui/layout";
+import { ChatDock, ChatDockProvider, useChatDock } from "@marktiderman/genesis-chat/web";
+
+<ChatProvider client={chat} userId={user.id}>
+  <ChatDockProvider onExpand={(item) => item.type === "conversation" && navigate(`/messages/${item.conversationId}`)} storageKey="acme-chat-dock">
+    <AppShell appName="Acme" navItems={nav} dock={<ChatDock resolveUser={resolveUser} />}>
+      {children}
+    </AppShell>
+  </ChatDockProvider>
+</ChatProvider>
+
+// Anywhere below: a "Message" button on someone's profile.
+const dock = useChatDock();
+<Button onClick={() => dock.open(conversationId)}>Message</Button>
+```
+
+| Part | What it is |
+|---|---|
+| `ChatDockProvider` | The dock's state: `max` (3), `onExpand(item)` (no expand button for conversations without it), `storageKey` (keep the open conversations across reloads; they come back as bars). |
+| `useChatDock()` | `open(conversationId, { title, minimized })`, `openPanel({ id, title, render, icon, unread, onExpand })`, `close`, `closeAll`, `minimize`, `restore`, `expand`, `items`. `useOptionalChatDock()` is null without a provider, for a button that docks when the app has a dock and navigates when it doesn't. |
+| `ChatDock` | The windows, or the sheet and bubble. Render it once, in AppShell's `dock` slot (fixed bottom-right, clear of the phone's bottom bar). `threadProps` go to every docked thread; `labels` change its words. |
+| `chatDockReducer` | The state machine, pure, for your own dock. |
+
+A minimized window doesn't mount its thread, so nothing is marked read while it's a bar. The
+window's title bar is the thread's own header (its `header` slot), with its title, avatar and
+"typing…". Escape minimizes the window it's pressed in.
+
+**Your own panel.** Anything else that should live in the dock (a help desk messenger) opens with
+`openPanel`: the dock draws the window and its title bar, `render()` draws the body. Opening the
+same `id` again brings that window back. A panel's own `onExpand` wins over the provider's.
+Panels aren't kept across reloads (they hold functions).
 
 ## On native
 

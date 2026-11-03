@@ -73,3 +73,23 @@ export {
   type VideoRecorderState,
   type VideoRecording,
 } from "./video";
+export {
+  ChatDock,
+  ChatDockProvider,
+  useChatDock,
+  useOptionalChatDock,
+  chatDockReducer,
+  emptyChatDock,
+  defaultChatDockLabels,
+  type ChatDockProps,
+  type ChatDockProviderProps,
+  type ChatDockApi,
+  type ChatDockItem,
+  type ChatDockConversation,
+  type ChatDockPanel,
+  type ChatDockState,
+  type ChatDockAction,
+  type ChatDockLabels,
+  type OpenConversationOptions,
+  type OpenPanelInput,
+} from "./dock";
