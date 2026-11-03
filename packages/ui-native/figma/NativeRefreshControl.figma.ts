@@ -8,8 +8,15 @@ const instance = figma.selectedInstance
 const title = instance.getString('Title')
 
 export default {
-  example: figma.code`<NativeRefreshControl refreshing={refreshing} onRefresh={refresh}${title ? figma.code` title="${title}"` : ''} />`,
-  imports: ['import { NativeRefreshControl } from "@marktiderman/genesis-ui-native"'],
+  example: figma.code`<ScrollView
+  refreshControl={<NativeRefreshControl refreshing={refreshing} onRefresh={refresh}${title ? figma.code` title="${title}"` : ''} />}
+>
+  {children}
+</ScrollView>`,
+  imports: [
+    'import { ScrollView } from "react-native"',
+    'import { NativeRefreshControl } from "@marktiderman/genesis-ui-native"',
+  ],
   id: 'native-refresh-control',
   metadata: { nestable: true },
 }

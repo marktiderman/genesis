@@ -40,12 +40,14 @@ for NativeWind, `brandRoleVariables` for the role values a theme provider sets a
 
 The library has one **Brand** collection with one mode per consumer app, named after the app's
 brand. It holds only the roles a brand drives (`brand/primary`, `brand/primary-foreground`,
-`brand/signal`, `brand/link`, the chat bubble roles, `brand/font-sans`, `brand/font-display`),
-each aliased to a primitive in the **Primitives** collection (`<brand>/<colour>`). The **Color**
-collection's roles alias into Brand where a role is brand-driven (`primary` → `brand/primary`)
-and stay on the Genesis neutrals where it is not, so a mode switch recolours every component
-without a second set of role variables. Light and dark are modes of Color; brand is a mode of
-Brand; a page sets both.
+`brand/primary-dark`, `brand/signal`, `brand/link`, the chat bubble roles, `brand/font-sans`,
+`brand/font-display`), each aliased to a primitive in the **Primitives** collection
+(`<brand>/<colour>`). The **Color** collection's roles alias into Brand where a role is
+brand-driven and stay on the Genesis neutrals where it is not, so a mode switch recolours every
+component without a second set of role variables. Light and dark are modes of Color; brand is a
+mode of Brand; a page sets both. `primary` follows `brandRoleVariables`: the Light mode aliases
+`brand/primary`, the dark modes alias `brand/primary-dark`, which is the accent when it reads at
+4.5:1 on the dark background and the Genesis dark primary otherwise.
 
 A mode's values come from the brand file, by the same mapping the factories use:
 
@@ -53,9 +55,10 @@ A mode's values come from the brand file, by the same mapping the factories use:
 npx tsx scripts/figma-brand-modes.mts path/to/brand.ts > brand-modes.json
 ```
 
-prints, per brand, the role values `brandRoleVariables` works out (as hex, light and dark), the
-base radius in px and the font families. Add the primitives and the mode in Figma from that
-output; when a brand changes in code, regenerate and update the mode. The mode is derived; the
+prints, per brand, the value of every Brand variable for that brand's mode (worked out by
+`brandRoleVariables`; the signal, link and bubble roles default to the primary), the base radius
+in px, and the full light and dark role maps for reference. Add the primitives and the mode in
+Figma from the `brand` entries; when a brand changes in code, regenerate and update the mode. The mode is derived; the
 brand file is the source, as it is for the theme CSS.
 
 An app's Figma file **subscribes** to the Genesis library and sets its pages to its Brand mode.
@@ -63,8 +66,8 @@ Nothing is copied: a change to a component or a token in the library reaches eve
 a library update, and a brand change is a change to one mode. Designing a new app means a new
 mode generated from its brand, not a new library.
 
-The Professional plan allows four modes per collection (see Plan limits), so four brands at a
-time; a fifth needs Organization or a decision about which four the library carries.
+The Professional plan allows ten modes per collection (see Plan limits), so ten brands at a
+time; the eleventh needs Organization.
 
 ## Code Connect
 
@@ -131,10 +134,10 @@ On Figma's Professional plan, Code Connect has one active library and one active
 framework is enough). The framework is the label on the published docs, so the publish passes
 `--label React`. A plan admin sets both in Figma's Admin → Settings → Code Connect; the CLI only
 sets them when the slot is empty, and reports which library or framework is active when it
-refuses. Other connections are kept but deactivated. A variable collection has 4 modes, so the
-Brand collection holds up to four consumer apps. Organization raises modes to 40 and lifts the
+refuses. Other connections are kept but deactivated. A variable collection has 10 modes, so the
+Brand collection holds up to ten consumer apps. Organization raises modes to 20 and lifts the
 one-active-library limit (a second library would split foundations from components, which we do
 not need yet), and adds library analytics, branching with review and shared fonts; Enterprise
 has unlimited modes through extended collections. Nothing in this setup depends on
-Organization; move when the fifth brand arrives. (Figma's Code Connect help page and pricing
+Organization; move when the eleventh brand arrives. (Figma's Code Connect help page and pricing
 table, read 2026-11-02.)

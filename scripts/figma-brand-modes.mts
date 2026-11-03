@@ -5,26 +5,37 @@
  *   npx tsx scripts/figma-brand-modes.mts <brand-module>... > brand-modes.json
  *
  * Each argument is a module (TS or JS) exporting a `CanonicalBrand` (the first export with
- * `name`, `neutral` and `accent`). The output is one entry per brand with the theme role
- * variables `brandRoleVariables` works out, as hex, per mode, plus the brand's radius and font
- * family: exactly the values the library's Brand collection holds for that brand's mode, so the
- * mode is derived from the brand file the same way the theme CSS is (docs/DESIGN-LIBRARY.md,
- * "Brands: one mode per consumer app").
+ * `name`, `neutral` and `accent`). The output is one entry per brand: `brand` is the value of
+ * each variable in the library's Brand collection for that brand's mode, worked out by
+ * `brandRoleVariables` (so the mode is derived from the brand file the same way the theme CSS
+ * is; docs/DESIGN-LIBRARY.md, "Brands: one mode per consumer app"), and `roles` is the full
+ * light and dark role map for reference.
  *
  * Output shape:
- *   [{ name, light: { background: "#fafafa", … }, dark: { … }, radius: 10, fontSans: "Inter",
- *      fontDisplay: "Inter", fontMono: "…" }]
+ *   [{ name, radius: 10,
+ *      brand: { "brand/primary": "#4f46e5", "brand/primary-foreground": "#ffffff",
+ *               "brand/primary-dark": "#7b75eb", "brand/font-sans": "Inter",
+ *               "brand/font-display": "Inter",
+ *               "brand/signal": "#4f46e5", "brand/signal-foreground": "#ffffff",
+ *               "brand/link": "#4f46e5", "brand/sent-bubble": "#4f46e5",
+ *               "brand/sent-bubble-foreground": "#ffffff", "brand/unread": "#4f46e5" },
+ *      roles: { light: { background: "#ffffff", … }, dark: { … } } }]
  *
- * Role names drop the `--` prefix (`--primary` → `primary`). `--radius` is converted to px
- * (16px per rem). Fonts come from `typography.fontFamily` (head of each stack), defaulting to
- * the Genesis families. Nothing here names a consumer app: the brands are whatever files are
- * passed in.
+ * `brand/primary-dark` is the primary in dark mode: the accent when it reads at 4.5:1 on the
+ * dark background, else the Genesis dark primary (what `brandRoleVariables` does). The signal,
+ * link, bubble and unread roles have no CanonicalBrand field; the library's convention is the
+ * primary, which this prints, and a brand that wants another colour sets it in Figma. Every
+ * other Color role stays on the Genesis neutrals, which is why they are under `roles`, not
+ * `brand`. Role names drop the `--` prefix; `--radius` is converted to px (16px per rem).
+ * Fonts are the head of each `typography.fontFamily` stack after the brand's native
+ * `platformOverrides` are applied (what the native theme uses), defaulting to the Genesis
+ * families. Nothing here names a consumer app: the brands are whatever files are passed in.
  */
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 import { brandRoleVariables, type CanonicalBrand } from "../packages/design-system/dist/index.js";
 
-const GENESIS_FONTS = { sans: "Inter", display: "Inter", mono: "JetBrains Mono" };
+const GENESIS_FONTS = { sans: "Inter", display: "Inter" };
 
 function isBrand(value: unknown): value is CanonicalBrand {
   return !!value && typeof value === "object" && "name" in value && "neutral" in value && "accent" in value;
@@ -59,12 +70,18 @@ function head(stack: unknown): string | undefined {
 
 export interface BrandMode {
   name: string;
-  light: Record<string, string>;
-  dark: Record<string, string>;
   radius: number;
-  fontSans: string;
-  fontDisplay: string;
-  fontMono: string;
+  /** One entry per variable of the library's Brand collection. */
+  brand: Record<string, string>;
+  /** The full theme role maps, as hex, for reference. */
+  roles: { light: Record<string, string>; dark: Record<string, string> };
+}
+
+/** The brand's font stacks as the native theme sees them: native `platformOverrides` first. */
+function fontFamilies(brand: CanonicalBrand): Record<string, unknown> {
+  const overrides = (brand as { platformOverrides?: { native?: { typography?: { fontFamily?: Record<string, unknown> } } } }).platformOverrides?.native?.typography?.fontFamily;
+  const base = (brand.typography as { fontFamily?: Record<string, unknown> } | undefined)?.fontFamily ?? {};
+  return { ...base, ...(overrides ?? {}) };
 }
 
 export function brandMode(brand: CanonicalBrand): BrandMode {
@@ -78,15 +95,29 @@ export function brandMode(brand: CanonicalBrand): BrandMode {
     }
     return out;
   };
-  const families = (brand.typography as { fontFamily?: Record<string, unknown> } | undefined)?.fontFamily ?? {};
+  const families = fontFamilies(brand);
+  const light = colors(roles.light);
+  const dark = colors(roles.dark);
+  const primary = light.primary;
+  const onPrimary = light["primary-foreground"];
+  const fontSans = head(families.sans) ?? GENESIS_FONTS.sans;
   return {
     name: brand.name,
-    light: colors(roles.light),
-    dark: colors(roles.dark),
     radius: lengthToPx(roles.light["--radius"]) ?? 10,
-    fontSans: head(families.sans) ?? GENESIS_FONTS.sans,
-    fontDisplay: head(families.display) ?? head(families.sans) ?? GENESIS_FONTS.display,
-    fontMono: head(families.mono) ?? GENESIS_FONTS.mono,
+    brand: {
+      "brand/primary": primary,
+      "brand/primary-foreground": onPrimary,
+      "brand/primary-dark": dark.primary,
+      "brand/font-sans": fontSans,
+      "brand/font-display": head(families.display) ?? fontSans,
+      "brand/signal": primary,
+      "brand/signal-foreground": onPrimary,
+      "brand/link": primary,
+      "brand/sent-bubble": primary,
+      "brand/sent-bubble-foreground": onPrimary,
+      "brand/unread": primary,
+    },
+    roles: { light, dark },
   };
 }
 

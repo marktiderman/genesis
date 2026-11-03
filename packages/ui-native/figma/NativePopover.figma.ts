@@ -8,15 +8,15 @@ const side = instance.getEnum('side', { bottom: 'bottom', top: 'top' })
 
 export default {
   example: figma.code`<NativePopover open={open} onOpenChange={setOpen}>
-  <NativePopoverTrigger asChild>
-    <NativeButton>Open popover</NativeButton>
+  <NativePopoverTrigger>
+    <NativeText>Open popover</NativeText>
   </NativePopoverTrigger>
   <NativePopoverContent${side !== 'bottom' ? figma.code` side="${side}"` : ''}>
     {children}
   </NativePopoverContent>
 </NativePopover>`,
   imports: [
-    'import { NativePopover, NativePopoverTrigger, NativePopoverContent, NativeButton } from "@marktiderman/genesis-ui-native"',
+    'import { NativePopover, NativePopoverTrigger, NativePopoverContent, NativeText } from "@marktiderman/genesis-ui-native"',
   ],
   id: 'native-popover',
   metadata: { nestable: false },
