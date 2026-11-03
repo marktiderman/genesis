@@ -275,4 +275,16 @@ describe("the 3-pane inbox (help desk)", () => {
     fireEvent.click(screen.getByTestId("l-toggle-context"));
     expect(screen.getByText("Requester")).toBeTruthy();
   });
+
+  it("closes the context sheet on Escape without going back, and keeps focus inside it", async () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((q: string) => ({ matches: false, media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as MediaQueryList);
+    const onBack = vi.fn();
+    render(<InboxLayout testID="l" list={<p>L</p>} thread={<p>T</p>} context={<button type="button">Assign</button>} threadOpen shortcuts={{ onBack }} />);
+    fireEvent.click(screen.getByTestId("l-toggle-context"));
+    const sheet = await screen.findByTestId("l-context-sheet");
+    expect(sheet.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document.activeElement ?? sheet, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByText("Assign")).toBeNull());
+    expect(onBack).not.toHaveBeenCalled();
+  });
 });
