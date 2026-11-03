@@ -43,13 +43,19 @@ export interface GalleryGridProps {
   onSelectionChange?: (ids: string[], detail: GallerySelectionDetail) => void;
   /**
    * Called once when the sentinel after the last row scrolls into view, and
-   * armed again whenever `items.length` changes — the hook for "load more".
+   * armed again whenever `items.length` changes — the hook for "load more"
+   * (the same name as ResourceView's).
    */
+  loadMore?: () => void;
+  /** @deprecated Use `loadMore`. */
   onNearEnd?: () => void;
   /**
    * Groups items by the returned key, in order of first appearance; each
-   * group is laid out on its own under a sticky header showing the key.
+   * group is laid out on its own under a sticky header showing the key (a
+   * view's `groupBy`, for an array).
    */
+  groupBy?: (item: GalleryItem) => string;
+  /** @deprecated Use `groupBy`. */
   getGroup?: (item: GalleryItem) => string;
   className?: string;
 }
@@ -78,20 +84,20 @@ function useContainerWidth(ref: React.RefObject<HTMLElement | null>, fallback: n
 }
 
 /**
- * Fires `onNearEnd` once when `ref` enters the viewport; re-armed when
+ * Fires `loadMore` once when `ref` enters the viewport; re-armed when
  * `resetKey` (the item count) changes. No-op without IntersectionObserver.
  */
 function useNearEnd(
   ref: React.RefObject<HTMLElement | null>,
-  onNearEnd: (() => void) | undefined,
+  loadMore: (() => void) | undefined,
   resetKey: number,
 ) {
   const fired = React.useRef(false);
-  const callback = React.useRef(onNearEnd);
+  const callback = React.useRef(loadMore);
   React.useEffect(() => {
-    callback.current = onNearEnd;
+    callback.current = loadMore;
   });
-  const hasCallback = Boolean(onNearEnd);
+  const hasCallback = Boolean(loadMore);
 
   React.useEffect(() => {
     fired.current = false;
@@ -114,12 +120,12 @@ interface Group {
   entries: { item: GalleryItem; index: number }[];
 }
 
-function groupItems(items: GalleryItem[], getGroup?: (item: GalleryItem) => string): Group[] {
-  if (!getGroup) return [{ key: null, entries: items.map((item, index) => ({ item, index })) }];
+function groupItems(items: GalleryItem[], groupBy?: (item: GalleryItem) => string): Group[] {
+  if (!groupBy) return [{ key: null, entries: items.map((item, index) => ({ item, index })) }];
   const byKey = new Map<string, Group>();
   const groups: Group[] = [];
   items.forEach((item, index) => {
-    const key = getGroup(item);
+    const key = groupBy(item);
     let group = byKey.get(key);
     if (!group) {
       group = { key, entries: [] };
@@ -161,17 +167,21 @@ export function GalleryGrid({
   renderBadges,
   selected,
   onSelectionChange,
+  loadMore: loadMoreProp,
   onNearEnd,
+  groupBy: groupByProp,
   getGroup,
   className,
 }: GalleryGridProps) {
+  const loadMore = loadMoreProp ?? onNearEnd;
+  const groupBy = groupByProp ?? getGroup;
   const containerRef = React.useRef<HTMLDivElement>(null);
   const sentinelRef = React.useRef<HTMLDivElement>(null);
   const lastToggled = React.useRef<number | null>(null);
   // Unmeasured (first paint, SSR, test DOM): pretend to be a modest desktop
   // width so the justified rows still have a shape.
   const width = useContainerWidth(containerRef, 960);
-  useNearEnd(sentinelRef, onNearEnd, items.length);
+  useNearEnd(sentinelRef, loadMore, items.length);
 
   const selecting = Boolean(onSelectionChange);
   const selectedSet = React.useMemo(() => new Set(selected ?? []), [selected]);
@@ -209,13 +219,26 @@ export function GalleryGrid({
         className="relative size-full bg-muted"
         style={{ aspectRatio: String(galleryItemRatio(item)) }}
       >
-        <img
-          src={item.src}
-          alt={item.alt ?? ""}
-          loading="lazy"
-          decoding="async"
-          className="absolute inset-0 size-full object-cover"
-        />
+        {item.src ? (
+          <img
+            src={item.src}
+            alt={item.alt ?? ""}
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 size-full object-cover"
+          />
+        ) : (
+          // No image: a neutral tile with its words, so the count matches what's drawn. The
+          // tile's own name (alt, then caption) still names it, so the text is hidden from readers.
+          <span
+            data-slot="gallery-tile-placeholder"
+            aria-hidden="true"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 p-3 text-center text-sm text-muted-foreground"
+          >
+            {item.alt ? <span className="line-clamp-2 font-medium text-foreground">{item.alt}</span> : null}
+            {item.caption ? <span className="line-clamp-2 text-xs">{item.caption}</span> : null}
+          </span>
+        )}
         {renderBadges ? (
           <div
             data-slot="gallery-tile-badges"
@@ -303,7 +326,7 @@ export function GalleryGrid({
     );
   };
 
-  const groups = groupItems(items, getGroup);
+  const groups = groupItems(items, groupBy);
 
   return (
     <div
@@ -311,7 +334,7 @@ export function GalleryGrid({
       data-slot="gallery-grid"
       data-layout={layout}
       className={cn("flex w-full flex-col", className)}
-      style={{ gap: getGroup ? gap * 2 : gap }}
+      style={{ gap: groupBy ? gap * 2 : gap }}
     >
       {groups.map((group) => (
         <section key={group.key ?? "__all"} data-slot="gallery-group" className="flex flex-col" style={{ gap }}>
