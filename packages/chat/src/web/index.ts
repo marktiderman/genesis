@@ -87,6 +87,7 @@ export {
   type ChatDockItem,
   type ChatDockConversation,
   type ChatDockPanel,
+  type ChatDockPanelPatch,
   type ChatDockState,
   type ChatDockAction,
   type ChatDockLabels,

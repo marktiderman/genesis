@@ -70,7 +70,11 @@ export type ChatDockAction =
   | { type: "close"; id: string }
   | { type: "minimize"; id: string; minimized: boolean }
   | { type: "sheet"; open: boolean }
+  | { type: "update"; id: string; patch: ChatDockPanelPatch }
   | { type: "closeAll" };
+
+/** What a panel can change while it's docked, without moving or opening it. */
+export type ChatDockPanelPatch = Partial<Pick<ChatDockPanel, "title" | "unread" | "icon" | "render" | "onExpand">>;
 
 export const emptyChatDock: ChatDockState = { items: [], activeId: null, sheetOpen: false };
 
@@ -100,6 +104,13 @@ export function chatDockReducer(state: ChatDockState, action: ChatDockAction, ma
       const sheetOpen = action.open && state.items.length > 0;
       return sheetOpen === state.sheetOpen ? state : { ...state, sheetOpen };
     }
+    case "update": {
+      const at = state.items.findIndex((i) => i.id === action.id && i.type === "panel");
+      if (at === -1) return state;
+      const items = state.items.slice();
+      items[at] = { ...(items[at] as ChatDockPanel), ...action.patch };
+      return { ...state, items };
+    }
     case "closeAll":
       return emptyChatDock;
   }
@@ -124,6 +135,11 @@ export interface ChatDockApi {
   open: (conversationId: string, opts?: OpenConversationOptions) => void;
   /** Opens a panel of your own in the dock (the help desk messenger), or brings it back. */
   openPanel: (panel: OpenPanelInput) => void;
+  /**
+   * Changes a docked panel in place (its unread count as it changes, its title) without moving,
+   * opening or restoring it. Nothing happens if that panel isn't docked.
+   */
+  updatePanel: (id: string, patch: ChatDockPanelPatch) => void;
   close: (id: string) => void;
   closeAll: () => void;
   minimize: (id: string) => void;
@@ -219,6 +235,7 @@ export function ChatDockProvider({ max = 3, onExpand, storageKey, children }: Ch
     dispatch({ type: "open", item: { ...panel, type: "panel", minimized: false } });
     if (minimized) dispatch({ type: "minimize", id: panel.id, minimized: true });
   }, []);
+  const updatePanel = useCallback((id: string, patch: ChatDockPanelPatch) => dispatch({ type: "update", id, patch }), []);
   const close = useCallback((id: string) => dispatch({ type: "close", id }), []);
   const closeAll = useCallback(() => dispatch({ type: "closeAll" }), []);
   const minimize = useCallback((id: string) => dispatch({ type: "minimize", id, minimized: true }), []);
@@ -248,6 +265,7 @@ export function ChatDockProvider({ max = 3, onExpand, storageKey, children }: Ch
       sheetOpen: state.sheetOpen,
       open,
       openPanel,
+      updatePanel,
       close,
       closeAll,
       minimize,
@@ -256,7 +274,7 @@ export function ChatDockProvider({ max = 3, onExpand, storageKey, children }: Ch
       canExpand,
       setSheetOpen,
     }),
-    [state, open, openPanel, close, closeAll, minimize, restore, expand, canExpand, setSheetOpen],
+    [state, open, openPanel, updatePanel, close, closeAll, minimize, restore, expand, canExpand, setSheetOpen],
   );
   return <DockContext.Provider value={api}>{children}</DockContext.Provider>;
 }

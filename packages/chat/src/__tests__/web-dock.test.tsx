@@ -214,6 +214,23 @@ describe("ChatDock on a wide screen", () => {
     expect(panelExpand).toHaveBeenCalledTimes(1);
   });
 
+  it("updates a docked panel's unread count in place, without moving or opening it", async () => {
+    mount();
+    act(() => {
+      dock.openPanel({ id: "help", title: "Help", render: () => <p>Help home</p>, minimized: true });
+      dock.open("c1");
+    });
+    await waitFor(() => expect(screen.getAllByTestId("genesis-chat-dock-window")).toHaveLength(2));
+    act(() => dock.updatePanel("help", { unread: 3 }));
+    const help = screen.getByRole("region", { name: "Help" });
+    expect(within(help).getByTestId("genesis-chat-dock-toggle").getAttribute("aria-label")).toContain("Help, 3 unread");
+    expect(help.getAttribute("data-minimized")).toBe("true");
+    expect(dock.items.map((i) => i.id)).toEqual(["c1", "help"]);
+    // Not docked: nothing happens.
+    act(() => dock.updatePanel("nope", { unread: 1 }));
+    expect(dock.items).toHaveLength(2);
+  });
+
   it("keeps the open conversations across a reload, as bars, when given a storageKey", async () => {
     window.localStorage.clear();
     mount({ storageKey: "dock-test" });

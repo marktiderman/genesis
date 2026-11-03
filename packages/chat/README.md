@@ -66,7 +66,7 @@ const dock = useChatDock();
 | Part | What it is |
 |---|---|
 | `ChatDockProvider` | The dock's state: `max` (3), `onExpand(item)` (no expand button for conversations without it), `storageKey` (keep the open conversations across reloads; they come back as bars). |
-| `useChatDock()` | `open(conversationId, { title, minimized })`, `openPanel({ id, title, render, icon, unread, onExpand })`, `close`, `closeAll`, `minimize`, `restore`, `expand`, `items`. `useOptionalChatDock()` is null without a provider, for a button that docks when the app has a dock and navigates when it doesn't. |
+| `useChatDock()` | `open(conversationId, { title, minimized })`, `openPanel({ id, title, render, icon, unread, onExpand })`, `updatePanel(id, { unread, title })` (in place, for a live unread count), `close`, `closeAll`, `minimize`, `restore`, `expand`, `items`. `useOptionalChatDock()` is null without a provider, for a button that docks when the app has a dock and navigates when it doesn't. |
 | `ChatDock` | The windows, or the sheet and bubble. Render it once, in AppShell's `dock` slot (fixed bottom-right, clear of the phone's bottom bar). `threadProps` go to every docked thread; `labels` change its words. |
 | `chatDockReducer` | The state machine, pure, for your own dock. |
 
