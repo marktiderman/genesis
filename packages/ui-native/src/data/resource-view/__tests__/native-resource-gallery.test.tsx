@@ -101,6 +101,7 @@ describe("NativeResourceView gallery", () => {
     await measured();
     await waitFor(() => expect(tile("p3")).not.toBeNull());
     expect(screen.queryByText("Nothing here")).toBeNull();
+    expect(screen.queryByTestId("native-resource-view-gallery-placeholder-p3")).not.toBeNull();
     fireEvent.click(tile("p3")!);
     expect(onRowPress).toHaveBeenCalledWith(ROWS[2]);
   });

@@ -740,7 +740,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
             </>
           }
           footer={state.loadingMore ? <NativeLoadingState fullScreen={false} size="small" label={messages.list.loadingMore} testID={`${testID}-more`} /> : null}
-          {...(state.hasMore ? { onNearEnd: state.loadMore } : {})}
+          {...(state.hasMore ? { loadMore: state.loadMore } : {})}
         />
       ) : (
         <SectionList<T, NativeResourceSection<T>>

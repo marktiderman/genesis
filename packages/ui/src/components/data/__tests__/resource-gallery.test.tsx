@@ -7,7 +7,7 @@
  * - the table view is untouched, and a screen's own grid slot still wins;
  * - a screen's `gallery` overrides the view's block, or adds one.
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -84,8 +84,11 @@ describe("ResourceView gallery", () => {
     localStorage.clear();
     render(<ResourceView view={view} mode="grid" />, { wrapper: wrap(provider()) });
     await waitFor(() => expect(tiles()).toHaveLength(3));
+    // GalleryGrid draws an empty src as a placeholder tile, never an empty <img>.
+    expect(tiles()[2]!.querySelector('[data-slot="gallery-tile-placeholder"]')).not.toBeNull();
+    expect(tiles()[2]!.querySelector("img")).toBeNull();
     fireEvent.click(tiles()[2]!);
-    expect(await screen.findByText("Town")).toBeTruthy();
+    expect(within(await screen.findByRole("dialog")).getByText("Town")).toBeTruthy();
   });
 
   it("gives a screen's own grid slot exactly what it got before: no open handler unless it opts in", async () => {
