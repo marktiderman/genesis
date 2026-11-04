@@ -1,0 +1,38 @@
+packages/ui-native/figma/NativeListItem.figma.ts
+  s_109ad08c59054b::t_c247c73f0cf759 17-24,31-33,43
+  s_109ad08c59054b::t_549a443a823020 34
+packages/ui/figma/Tabs.figma.ts
+  s_109ad08c59054b::t_683ea882efc2b6 11-21,28,32
+packages/ui-native/figma/AuthScreen.figma.ts
+  s_109ad08c59054b::t_c247c73f0cf759 5-6,14-20,24-25
+packages/ui/figma/KanbanBoard.figma.ts
+  s_109ad08c59054b::t_683ea882efc2b6 4-5,12-14,21,23,25
+packages/ui/figma/SettingsSection.figma.ts
+  s_109ad08c59054b::t_683ea882efc2b6 8
+packages/ui-native/figma/NativeTabs.figma.ts
+  s_109ad08c59054b::t_e1f013042526ed 4-5,9-23,25,27-34,36,41-42,44-46
+packages/ui/figma/ResourceHeader.figma.ts
+  s_109ad08c59054b::t_683ea882efc2b6 17-22,26-27
+packages/ui-native/figma/NativeSegmentedControl.figma.ts
+  s_109ad08c59054b::t_88c6c59be55869 7-14
+packages/ui/figma/SubNavTabs.figma.ts
+  s_109ad08c59054b::t_683ea882efc2b6 9-16,19,24
+packages/ui/figma/PublicPage.figma.ts
+  s_109ad08c59054b::t_683ea882efc2b6 11-16,25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f37990d360ee715ef3095a12aad2cb18050fb0c4",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
