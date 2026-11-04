@@ -38,6 +38,7 @@ export {
   type InfinitePageParam,
 } from "./use-infinite-resource";
 export { useCapabilities } from "./use-capabilities";
+export { usePersistedUiState, type PersistedUiStateOptions } from "./use-persisted-ui-state";
 export { useWrite, WRITE_FAILED, type UseWriteOptions, type UseWriteReturn } from "./use-write";
 export { useDraft, type UseDraftReturn } from "./use-draft";
 export {
