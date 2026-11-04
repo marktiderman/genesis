@@ -83,15 +83,48 @@ When a screen needs something the library lacks (a slot, a count, a missing comp
 Never close a gap with a local component, a detached instance, or an override that fakes a
 variant the component doesn't have.
 
-## Workflow for a feature
+## Workflow for a feature: design, approve, then build
 
-1. Prototype the screen in the app file from library components before writing code. The
-   library is the source for components; the route code is the source for behaviour.
-2. Build the code from the same components (Dev Mode shows the Genesis JSX for any instance via
-   Code Connect; `pnpm check:code-connect` tracks every covered visual export as `required` (has a template),
-   `notYet` or `composed`, and fails on an export that is none of them).
-3. When code and design diverge, fix the one that is wrong; when both are right and differ, the
-   library wins for components and the code wins for flow.
+A new idea or a change to an existing screen is designed and approved in Figma before any code
+is written. The maintainer approves designs, not pull requests, for product decisions.
+
+1. **Propose.** On the app file's `Proposals` page, in the `Draft` section, build the screens
+   from library instances: one frame per route or state, named `<slug>/<route>` (for a change to an
+   existing screen, a copy of that frame with the change applied, next to the current one). Wire
+   the frames into a clickable flow (reactions) so the idea can be walked, and set a flow starting
+   point named after the slug. A short note frame beside them states the goal, what changes, and
+   any Genesis gap it needs (plain `<App>/Name` frames for those).
+2. **Review.** Move the frames to `In review` and tell the maintainer the Present link and the
+   starting point's name. Iterate there: every round is an edit to those frames, never a second
+   copy. Questions for the maintainer go as numbered options with a recommendation.
+3. **Approve.** The maintainer says "approved" (in chat or as a Figma comment on the note frame).
+   The agent moves the frames to `Approved`, replaces the live frames on the route page with the
+   approved ones (same names, so links hold), and records the approval date in the note.
+4. **Build.** Only now does code start. The implementation PR links the approved frames (file,
+   page, node ids) in its body, is built from the same library components, and its preview (the
+   repo's `see-it` page) is checked against the frames before it is marked ready. Code that departs
+   from the approved design goes back to step 2, not into the PR.
+5. **Close.** When the PR merges, the proposal frames move to `Built` with the PR link in the note;
+   a quarter later the `Built` section is emptied (the route page is the record).
+
+What skips the gate: bug fixes with no visible change, copy fixes, and changes the maintainer
+has already decided in writing. What never skips it: a new screen, a new flow, a layout change, a
+new component, or anything a user would notice.
+
+### The Proposals page
+
+Every app file has a `Proposals` page with four sections, left to right: `Draft`, `In review`,
+`Approved`, `Built`. Frames keep their route names inside a slug prefix; the library's Brand and
+Color modes are set on each frame as on the route pages. Nothing on this page is detached or
+local; a gap is a plain `<App>/Name` frame and a line in the note.
+
+### Code Connect keeps the two in step
+
+Build the code from the same components (Dev Mode shows the Genesis JSX for any instance via
+Code Connect; `pnpm check:code-connect` tracks every covered visual export as `required` (has a
+template), `notYet` or `composed`, and fails on an export that is none of them). When code and
+design diverge after approval, the approved frames win for layout and components and the route
+code wins for behaviour; either way the fix is a step-2 round, not a silent change.
 
 ## Publishing
 
