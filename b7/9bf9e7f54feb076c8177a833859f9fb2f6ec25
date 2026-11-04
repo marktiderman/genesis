@@ -1,0 +1,63 @@
+packages/support/migrations/tests/0010_genesis_support_help_center.test.sql
+  s_b9ce29ee4fad7a::t_97e6e470f81707 10,203,206
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 31-32,40-41,66-70,157-163,183-202,204-205,207-208,216-217,238-244,252
+packages/support/src/web-chat/tenant.ts
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 1-38
+packages/support/src/__tests__/messenger.test.tsx
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 317,324,328,524-557
+  s_b9ce29ee4fad7a::t_3b94abb5cdeb79 558
+packages/support/src/web-chat/help-admin.tsx
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 37,248-254,263-264
+packages/support/src/__tests__/chat.test.tsx
+  s_b9ce29ee4fad7a::t_66abb4b2de4d57 226-244
+.changeset/chat-outside-pictures-are-links.md
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 1-5
+packages/chat/src/web/attachments.tsx
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 53-60,62-66,69-70,72
+packages/support/src/web-chat/messenger.tsx
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 39-40,103,150-151,189,337-339,399,418,467,534,537,547,581,589-592,595,629-631,634,636,646,738-739,744
+packages/support/migrations/0010_genesis_support_help_center.sql
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 18-20,61-62,117,298,382-384,396-398,401-404,417-418,524-542,602-603
+packages/support/src/client.ts
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 176,211-212,704
+packages/support/src/web-chat/staff-thread.tsx
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 144-145,147,149
+.changeset/support-messenger-help-center.md
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 5
+packages/support/src/__tests__/ai-answer.test.ts
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 12,15,23-24,77-92,94,96,98-99,101-108
+  s_b9ce29ee4fad7a::t_e2c4c785ef0f36 93,95,97,100
+  s_b9ce29ee4fad7a::t_1ebcb4276a15ea 109
+packages/support/src/copy.ts
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 134,182
+packages/support/src/__tests__/agent-inbox.test.tsx
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 332,360-362
+packages/support/src/ai.ts
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 12-15,108-109,137-146,171-172,174-185,187-188,191,196-197,201-214,217,219,234,236-238,240-241
+packages/support/README.md
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 274-280,282,286-289,319-322
+packages/support/src/web-chat/thread-files.tsx
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 2-4,6,24-30
+packages/chat/src/__tests__/web-attachment-view.test.ts
+  s_b9ce29ee4fad7a::t_f8931d564bfa1d 1-27
+packages/support/src/native/screens.tsx
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 133,206
+packages/support/src/web-chat/agent-inbox.tsx
+  s_b9ce29ee4fad7a::t_4307b4d517f1f9 38-39,53,107-108,120-123,147,154,157,214,216-217,262,273-276,291,390-397,485,532,534
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b79bf9e7f54feb076c8177a833859f9fb2f6ec25",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
