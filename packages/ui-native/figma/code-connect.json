@@ -54,6 +54,7 @@
     "NativeText",
     "NativeTextarea",
     "NativeThreadList",
+    "NativeTierBadge",
     "NativeTimePicker",
     "NativeToggle",
     "NativeTooltip",
@@ -61,7 +62,7 @@
     "ScreenContainer",
     "ThreadPage"
   ],
-  "notYet": ["NativeTierBadge"],
+  "notYet": [],
   "composed": [
     "NativeSwipeRow",
     "NativeContextMenu",
