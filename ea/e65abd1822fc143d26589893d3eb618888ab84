@@ -1,0 +1,23 @@
+AGENTS.md
+  s_109ad08c59054b::t_ec98643559a422 24-25
+docs/DESIGN-LIBRARY.md
+  s_109ad08c59054b::t_e324e4824a48fb 8
+docs/FIGMA-GUIDELINES.md
+  s_109ad08c59054b::t_ba2fb9f382cb97 35-38,91-92,118-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eae65abd1822fc143d26589893d3eb618888ab84",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
