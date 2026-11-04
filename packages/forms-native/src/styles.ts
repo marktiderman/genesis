@@ -19,7 +19,7 @@ export function formStyles(t: FormTheme) {
     scrollContent: v({ flexGrow: 1, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 }),
     progressTrack: v({ height: 4, borderRadius: 2, backgroundColor: t.fill, overflow: "hidden" }),
     progressFill: v({ height: 4, borderRadius: 2, backgroundColor: t.tint }),
-    progressText: tx({ marginTop: 6, fontSize: 13, color: t.secondaryLabel }),
+    progressText: tx({ marginTop: 6, fontSize: 13, lineHeight: 18, color: t.secondaryLabel }),
     brandRow: v({ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 }),
     brandMark: v({ minWidth: 32, minHeight: 32, borderRadius: 8, backgroundColor: t.tint, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 }),
     brandInitials: tx({ fontSize: 12, lineHeight: 16, fontWeight: "700", color: t.onTint }),
@@ -41,6 +41,8 @@ export function formStyles(t: FormTheme) {
       borderBottomColor: t.separator,
       paddingVertical: 8,
       fontSize: 22,
+      // Set, so NativeWind's text-base (a 24-point line) on the input doesn't apply.
+      lineHeight: 28,
       color: t.label,
     }),
     inputFocused: tx({ borderBottomColor: t.tint }),

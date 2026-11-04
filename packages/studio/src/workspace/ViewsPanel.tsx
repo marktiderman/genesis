@@ -12,6 +12,16 @@ const VIEWS: { kind: StudioViewKind; label: string; icon: typeof Table2; unavail
   { kind: "calendar", label: "Calendar", icon: CalendarDays, unavailable: "A calendar needs a date field." },
 ];
 
+export interface ViewsPanelProps {
+  view: StudioViewKind;
+  available: Record<StudioViewKind, boolean>;
+  onChange: (view: StudioViewKind) => void;
+  saved: SavedViewItem[];
+  onLoad: (view: SavedViewItem) => void;
+  onDelete: (id: string) => void;
+  onSave: (name: string) => void;
+}
+
 /**
  * The left column: how to look at this table, and the views you've saved.
  *
@@ -25,15 +35,7 @@ export function ViewsPanel({
   onLoad,
   onDelete,
   onSave,
-}: {
-  view: StudioViewKind;
-  available: Record<StudioViewKind, boolean>;
-  onChange: (view: StudioViewKind) => void;
-  saved: SavedViewItem[];
-  onLoad: (view: SavedViewItem) => void;
-  onDelete: (id: string) => void;
-  onSave: (name: string) => void;
-}) {
+}: ViewsPanelProps) {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   return (
@@ -119,6 +121,14 @@ export function ViewsPanel({
   );
 }
 
+export interface TableTabsProps {
+  resources: { name: string; label?: string; access: { update: boolean; reason?: string } }[];
+  selected?: string;
+  onSelect: (resource: string) => void;
+  /** `plain` draws underlined tabs on the page instead of a tinted band. */
+  variant?: "card" | "plain";
+}
+
 /**
  * Table tabs across the top, as Airtable shows a base's tables.
  *
@@ -129,13 +139,7 @@ export function TableTabs({
   selected,
   onSelect,
   variant = "card",
-}: {
-  resources: { name: string; label?: string; access: { update: boolean; reason?: string } }[];
-  selected?: string;
-  onSelect: (resource: string) => void;
-  /** `plain` draws underlined tabs on the page instead of a tinted band. */
-  variant?: "card" | "plain";
-}) {
+}: TableTabsProps) {
   const picker = resources.length > PICKER_AFTER && <AllTables resources={resources} selected={selected} onSelect={onSelect} />;
   if (variant === "plain") {
     return (

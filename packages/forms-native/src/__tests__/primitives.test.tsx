@@ -53,7 +53,9 @@ describe("forms on ui-native primitives", () => {
     );
     const bar = screen.getByTestId("form-progress");
     expect(bar.textContent).toContain("Question 2 of 4");
-    expect(bar.querySelectorAll("[role=progressbar]").length).toBeGreaterThanOrEqual(1);
+    // The inner NativeProgress is hidden: a screen reader hears one progress bar, not two.
+    expect(screen.getAllByRole("progressbar")).toHaveLength(1);
+    expect(screen.getByRole("progressbar")).toBe(bar);
   });
 
   it("DefaultProgress colors the bar from the form theme, so a host tint reaches it", () => {

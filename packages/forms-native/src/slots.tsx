@@ -186,8 +186,11 @@ export function DefaultProgress({ step, total, testID = "form" }: ProgressSlotPr
       accessibilityValue={{ min: 0, max: total, now: step, text: label }}
       testID={`${testID}-progress`}
     >
-      <NativeProgress value={percent} style={s.progressTrack} indicatorStyle={s.progressFill} testID={`${testID}-progress-bar`} />
-      <Text style={s.progressText}>{label}</Text>
+      {/* Hidden: the View above is the one progress bar a screen reader hears. */}
+      <View importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+        <NativeProgress value={percent} style={s.progressTrack} indicatorStyle={s.progressFill} testID={`${testID}-progress-bar`} />
+      </View>
+      <NativeText style={s.progressText}>{label}</NativeText>
     </View>
   );
 }
@@ -216,7 +219,7 @@ export function DefaultEnding({ title, description, actions, focusRef, testID = 
       <View style={s.endingMark} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
         <NativeText style={s.endingCheck}>✓</NativeText>
       </View>
-      <NativeText {...({ ref: focusRef } as object)} accessibilityRole="header" style={s.endingTitle}>
+      <NativeText ref={focusRef} accessibilityRole="header" style={s.endingTitle}>
         {title}
       </NativeText>
       {description ? <NativeText style={s.endingDescription}>{description}</NativeText> : null}

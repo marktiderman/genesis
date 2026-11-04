@@ -28,6 +28,12 @@ function fromDraft(d: FilterDraft): FilterParam {
     : ({ field: d.field, operator: d.operator } as FilterParam);
 }
 
+export interface FilterBuilderProps {
+  fields: readonly FieldSchema[];
+  filters: FilterParam[];
+  onChange: (filters: FilterParam[]) => void;
+}
+
 /**
  * Filters by field, with the operators that fit each field's type.
  *
@@ -37,11 +43,7 @@ export function FilterBuilder({
   fields,
   filters,
   onChange,
-}: {
-  fields: readonly FieldSchema[];
-  filters: FilterParam[];
-  onChange: (filters: FilterParam[]) => void;
-}) {
+}: FilterBuilderProps) {
   const [open, setOpen] = useState(false);
   const [drafts, setDrafts] = useState<FilterDraft[]>(filters.map(toDraft));
   const filterable = fields.filter((f) => !f.array);
@@ -156,6 +158,12 @@ export function FilterBuilder({
   );
 }
 
+export interface SortBuilderProps {
+  fields: readonly FieldSchema[];
+  sorts: SortParam[];
+  onChange: (sorts: SortParam[]) => void;
+}
+
 /**
  * Sort by several fields, first one first.
  *
@@ -165,11 +173,7 @@ export function SortBuilder({
   fields,
   sorts,
   onChange,
-}: {
-  fields: readonly FieldSchema[];
-  sorts: SortParam[];
-  onChange: (sorts: SortParam[]) => void;
-}) {
+}: SortBuilderProps) {
   const sortable = fields.filter((f) => !f.array);
   const unused = sortable.filter((f) => !sorts.some((s) => s.field === f.name));
   return (
@@ -223,6 +227,12 @@ export function SortBuilder({
   );
 }
 
+export interface GroupPickerProps {
+  fields: readonly FieldSchema[];
+  group: string | undefined;
+  onChange: (group: string | undefined) => void;
+}
+
 /**
  * Group rows by a field with few distinct values.
  *
@@ -232,11 +242,7 @@ export function GroupPicker({
   fields,
   group,
   onChange,
-}: {
-  fields: readonly FieldSchema[];
-  group: string | undefined;
-  onChange: (group: string | undefined) => void;
-}) {
+}: GroupPickerProps) {
   const groupable = fields.filter((f) => !f.array && f.type !== "json");
   return (
     <Select value={group ?? NONE} onValueChange={(v) => onChange(v === NONE ? undefined : v)}>
@@ -256,12 +262,18 @@ export function GroupPicker({
   );
 }
 
+export interface ExportButtonProps {
+  onExport: () => void;
+  busy: boolean;
+  progress: number;
+}
+
 /**
  * The studio toolbar's export button, with its progress.
  *
  * @stability Beta
  */
-export function ExportButton({ onExport, busy, progress }: { onExport: () => void; busy: boolean; progress: number }) {
+export function ExportButton({ onExport, busy, progress }: ExportButtonProps) {
   return (
     <Button type="button" variant="ghost" size="sm" onClick={onExport} disabled={busy} testID="studio-export" aria-label="Export CSV" title="Export CSV">
       <Download className="h-3.5 w-3.5" aria-hidden />
@@ -270,12 +282,18 @@ export function ExportButton({ onExport, busy, progress }: { onExport: () => voi
   );
 }
 
+export interface NewRowButtonProps {
+  allowed: boolean;
+  reason?: string;
+  onClick: () => void;
+}
+
 /**
  * The studio toolbar's new row button, disabled with a reason when not allowed.
  *
  * @stability Beta
  */
-export function NewRowButton({ allowed, reason, onClick }: { allowed: boolean; reason?: string; onClick: () => void }) {
+export function NewRowButton({ allowed, reason, onClick }: NewRowButtonProps) {
   return (
     <Button type="button" size="sm" onClick={onClick} disabled={!allowed} title={allowed ? undefined : reason} testID="studio-new-row">
       <Plus className="mr-1 h-3.5 w-3.5" aria-hidden />
@@ -291,6 +309,13 @@ const VIEW_UNAVAILABLE: Partial<Record<ViewKind, string>> = {
   calendar: "A calendar needs a date or timestamp field.",
 };
 
+export interface ViewSwitchProps {
+  view: ViewKind;
+  onChange: (view: ViewKind) => void;
+  /** Views this table can show. A board and a calendar each need a fitting field. */
+  available?: Partial<Record<ViewKind, boolean>>;
+}
+
 /**
  * Switch between the table, the spreadsheet grid, a board and a calendar.
  *
@@ -300,12 +325,7 @@ export function ViewSwitch({
   view,
   onChange,
   available = { table: true, sheet: true },
-}: {
-  view: ViewKind;
-  onChange: (view: ViewKind) => void;
-  /** Views this table can show. A board and a calendar each need a fitting field. */
-  available?: Partial<Record<ViewKind, boolean>>;
-}) {
+}: ViewSwitchProps) {
   return (
     <div role="group" aria-label="View" className="inline-flex rounded-md border p-0.5" data-testid="studio-view-switch">
       {(["table", "sheet", "kanban", "calendar"] as const)
@@ -327,6 +347,13 @@ export function ViewSwitch({
   );
 }
 
+export interface ViewFieldPickerProps {
+  label: string;
+  fields: readonly FieldSchema[];
+  value: string;
+  onChange: (field: string) => void;
+}
+
 /**
  * Which field lays out the board or the calendar.
  *
@@ -337,12 +364,7 @@ export function ViewFieldPicker({
   fields,
   value,
   onChange,
-}: {
-  label: string;
-  fields: readonly FieldSchema[];
-  value: string;
-  onChange: (field: string) => void;
-}) {
+}: ViewFieldPickerProps) {
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="h-9 w-auto gap-1.5 text-sm" aria-label={label} data-testid="studio-view-field">
@@ -359,6 +381,12 @@ export function ViewFieldPicker({
   );
 }
 
+export interface HideFieldsProps {
+  fields: readonly FieldSchema[];
+  hidden: ReadonlySet<string>;
+  onChange: (hidden: Set<string>) => void;
+}
+
 /**
  * Which fields the grid shows.
  *
@@ -368,11 +396,7 @@ export function HideFields({
   fields,
   hidden,
   onChange,
-}: {
-  fields: readonly FieldSchema[];
-  hidden: ReadonlySet<string>;
-  onChange: (hidden: Set<string>) => void;
-}) {
+}: HideFieldsProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -408,12 +432,17 @@ export function HideFields({
   );
 }
 
+export interface SearchBoxProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
 /**
  * Search every text field, as you type.
  *
  * @stability Beta
  */
-export function SearchBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+export function SearchBox({ value, onChange }: SearchBoxProps) {
   return (
     <div className="relative">
       <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />

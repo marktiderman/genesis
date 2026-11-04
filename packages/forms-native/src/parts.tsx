@@ -32,14 +32,10 @@ export const Button: ForwardRefExoticComponent<ButtonProps & RefAttributes<Compo
 ) {
   const s = useFormStyles();
   const off = !!disabled || !!busy;
-  // NativeButton hands what it doesn't name (the ref, the style) to its Pressable.
-  const pass = {
-    ref,
-    style: [s.button, variant === "secondary" ? s.buttonSecondary : variant === "plain" ? s.buttonPlain : null, off ? s.buttonDisabled : null],
-  } as object;
   return (
     <NativeButton
-      {...pass}
+      ref={ref}
+      style={[s.button, variant === "secondary" ? s.buttonSecondary : variant === "plain" ? s.buttonPlain : null, off ? s.buttonDisabled : null]}
       variant={VARIANT[variant]}
       // The size variant's fixed height would cap `s.button`'s minHeight: the button grows with the text size.
       className="h-auto"

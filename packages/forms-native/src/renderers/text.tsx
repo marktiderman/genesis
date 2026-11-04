@@ -62,13 +62,14 @@ export function AnswerInput({
   useEffect(() => (lacksReturn ? () => setNeedsKeysBar(false) : undefined), [lacksReturn, setNeedsKeysBar]);
   // genesis-ui-native's input (or textarea), drawn as the focus layout's answer line.
   const Input = multiline ? NativeTextarea : NativeInput;
-  const pass = { ref } as object;
   return (
     <Input
-      {...pass}
+      ref={ref}
       testID={props.inputId}
       // Drop the boxed field's classes (fixed height, border, fill, padding): `s.input` draws the answer line.
       inputClassName="h-auto rounded-none border-0 bg-transparent px-0 py-0"
+      // NativeTextarea sets four lines by default; the answer line sizes from `s.multiline`, as before.
+      numberOfLines={undefined}
       value={value}
       onChangeText={onChangeText}
       editable={!locked}

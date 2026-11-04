@@ -7,7 +7,8 @@
  * @stability Stable
  */
 import { type VariantProps, cva } from "class-variance-authority";
-import { ActivityIndicator, Animated, Pressable, Text, View, type AccessibilityState } from "react-native";
+import type { ComponentRef, Ref } from "react";
+import { ActivityIndicator, Animated, Pressable, Text, View, type AccessibilityState, type StyleProp, type ViewStyle } from "react-native";
 import type { HapticKind } from "../hooks/use-haptics";
 import { usePressFeedback } from "../hooks/use-press-feedback";
 import { cn } from "../utils";
@@ -89,6 +90,10 @@ export interface NativeButtonProps
    * when the press counts, except `select`, which ticks on press-in as `usePressFeedback` does. Default none.
    */
   haptic?: HapticKind | undefined;
+  /** Styles for the pressable, after the classes: colors or sizes from a theme object. */
+  style?: StyleProp<ViewStyle> | undefined;
+  /** The pressable (React 19 passes `ref` as a prop). */
+  ref?: Ref<ComponentRef<typeof View>> | undefined;
 }
 
 function NativeButton({
