@@ -1,0 +1,23 @@
+scripts/pgtap-local/apply.sh
+  s_b9ce29ee4fad7a::t_61286923403a71 13
+packages/support/src/web-chat/agent-inbox.tsx
+  s_b9ce29ee4fad7a::t_61286923403a71 491-493
+scripts/pgtap-local/upgrade-check.test.sql
+  s_b9ce29ee4fad7a::t_61286923403a71 14-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "22020fba66319a8540d92ebb562382c3baf3ff3a",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
