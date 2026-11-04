@@ -9,6 +9,8 @@
 export { useReducedMotion } from "./use-reduced-motion";
 // The jump is the shared conversation contract's (genesis-core), re-exported here.
 export { useThreadJump, JUMP_SETTLE_MS, type UseThreadJumpOptions } from "@marktiderman/genesis-core/conversation";
+export { useHaptics, playHaptic, type HapticKind, type GenesisHapticsModule } from "./use-haptics";
+export { usePressFeedback, type PressFeedbackOptions, type PressFeedback } from "./use-press-feedback";
 export { useMotion, animateMotion, motionSpring, motionTiming, type UseMotionOptions, type MotionHow, type MotionSpringConfig, type MotionTimingConfig } from "./use-motion";
 export { useThemeMode, type ThemeMode } from "./use-theme-mode";
 export { useThemeRoles, type ThemeRoleColors, type UseThemeRolesOptions } from "./use-theme-roles";

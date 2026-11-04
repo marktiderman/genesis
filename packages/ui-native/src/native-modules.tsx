@@ -32,6 +32,7 @@
  * | `icons` (a lucide icon set)    | NativeIcon on Android, web, and as the SF Symbol fallback | a blank space of the icon's size |
  * | `datePicker` (@expo/ui)        | NativeDatePicker, NativeTimePicker       | @react-native-community/datetimepicker |
  * | `keyboardAvoidingView` (react-native-keyboard-controller's `KeyboardAvoidingView`) | ThreadPage: the composer follows the keyboard frame by frame (`translate-with-padding`) | React Native `KeyboardAvoidingView` |
+ * | `haptics` (expo-haptics) | useHaptics, usePressFeedback, NativeComposerBar (send) | no haptics |
  * | `navigation` (React Navigation's theming: from `expo-router` in an Expo Router app, which bundles its own copy; `@react-navigation/native` otherwise) | GenesisNativeApp: headers and tab bars in the brand's light and dark colors | React Navigation's default (light) theme |
  *
  * The props below are written structurally (no import of the optional
@@ -40,6 +41,7 @@
  * @stability Beta
  */
 import { createContext, createElement, useContext, useMemo, type ComponentType, type ReactNode } from "react";
+import type { GenesisHapticsModule } from "./hooks/use-haptics";
 import type { ColorValue } from "react-native";
 import type { NativeIconName } from "./icon-names";
 
@@ -192,6 +194,8 @@ export interface GenesisModules {
   navigation?: GenesisNavigationModule;
   /** react-native-keyboard-controller's `KeyboardAvoidingView` (it takes `behavior: "translate-with-padding"`). */
   keyboardAvoidingView?: KeyboardAvoidingLike;
+  /** expo-haptics (`import * as Haptics from "expo-haptics"`): `useHaptics`, `usePressFeedback`, and the primitives that answer a touch. Without it, no haptics. */
+  haptics?: GenesisHapticsModule;
 }
 
 const EMPTY: GenesisModules = Object.freeze({});

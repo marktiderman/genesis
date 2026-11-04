@@ -17,6 +17,30 @@ describe("NativeComposerBar", () => {
     expect(onSend).toHaveBeenCalledTimes(1);
   });
 
+  it("taps a light haptic when a message sends, and none when it can't", () => {
+    const haptics = {
+      impactAsync: vi.fn(() => Promise.resolve()),
+      selectionAsync: vi.fn(() => Promise.resolve()),
+      notificationAsync: vi.fn(() => Promise.resolve()),
+      ImpactFeedbackStyle: { Light: "light", Medium: "medium" },
+      NotificationFeedbackType: { Success: "s", Warning: "w", Error: "e" },
+    };
+    const { rerender } = render(
+      <GenesisModulesProvider modules={{ haptics }}>
+        <NativeComposerBar {...base} value=" " testID="c" />
+      </GenesisModulesProvider>,
+    );
+    fireEvent.click(screen.getByTestId("c-send"));
+    expect(haptics.impactAsync).not.toHaveBeenCalled();
+    rerender(
+      <GenesisModulesProvider modules={{ haptics }}>
+        <NativeComposerBar {...base} value="Hi" testID="c" />
+      </GenesisModulesProvider>,
+    );
+    fireEvent.click(screen.getByTestId("c-send"));
+    expect(haptics.impactAsync).toHaveBeenCalledWith("light");
+  });
+
   it("spins instead of sending twice", () => {
     render(<NativeComposerBar {...base} value="Hi" sending testID="c" />);
     expect(screen.getByTestId("c-sending").getAttribute("aria-label")).toBe("Sending");
