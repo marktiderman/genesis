@@ -1,0 +1,47 @@
+packages/ui-native/figma/code-connect.json
+  s_b9ce29ee4fad7a::t_12b3474409dc4c 66-67
+packages/ui-native/src/components/composer-bar.tsx
+  s_b9ce29ee4fad7a::t_12b3474409dc4c 30-31,36,137,250,271
+packages/ui-native/src/components/__tests__/composer-bar.test.tsx
+  s_b9ce29ee4fad7a::t_12b3474409dc4c 2,154,157-159,161-166
+packages/ui-native/src/components/context-menu.tsx
+  s_b9ce29ee4fad7a::t_1318330c86c465 1-84
+ui-parity.json
+  s_b9ce29ee4fad7a::t_12b3474409dc4c 92
+packages/ui-native/src/components/__tests__/swipe-row-context-menu.test.tsx
+  s_b9ce29ee4fad7a::t_cb15050f283323 1-142
+packages/ui-native/src/native-modules.tsx
+  s_b9ce29ee4fad7a::t_12b3474409dc4c 36,200-201,204-215
+  s_b9ce29ee4fad7a::t_a7d16b65404bca 216
+packages/core/src/conversation/types.ts
+  s_b9ce29ee4fad7a::t_12b3474409dc4c 141-142
+packages/ui-native/README.md
+  s_b9ce29ee4fad7a::t_12b3474409dc4c 252-253,291-292
+packages/ui-native/src/components/swipe-row.tsx
+  s_b9ce29ee4fad7a::t_11242791625d29 1-74
+packages/ui-native/src/layouts/inbox-page.tsx
+  s_b9ce29ee4fad7a::t_12b3474409dc4c 14-17,42,44,227,260-263,275,308,365
+packages/ui-native/src/components/index.ts
+  s_b9ce29ee4fad7a::t_12b3474409dc4c 310-313
+.changeset/native-swipe-and-context-menu.md
+  s_b9ce29ee4fad7a::t_12b3474409dc4c 1-8
+packages/ui-native/src/layouts/__tests__/inbox-page.test.tsx
+  s_b9ce29ee4fad7a::t_6f9bbfcab6d7fb 3,6
+  s_b9ce29ee4fad7a::t_12b3474409dc4c 88,103-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f342c0de481cb60f574a31eff05b4245c700e7f6",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
