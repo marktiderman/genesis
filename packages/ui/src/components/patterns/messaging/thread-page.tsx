@@ -83,7 +83,7 @@ export interface ThreadPageProps {
   /** Go to this message, loading with `onLoadUntil` until it's here. */
   jumpTo?: string | null;
   onLoadUntil?: (id: string) => Promise<boolean>;
-  /** A `jumpTo` message couldn't be found (the list goes back to the newest). */
+  /** A `jumpTo` message couldn't be found (the reader stays where they are). Default: a screen reader hears `labels.messageGone`. */
   onJumpFailed?: (id: string) => void;
   /** The first page is loading: a skeleton instead of the empty state, and a jump waits for it. */
   loading?: boolean;
@@ -112,6 +112,7 @@ const WEB_THREAD_LABELS: Partial<ThreadLabels> = {
 };
 
 const messageKey = (m: ThreadMessage) => m.id;
+const messageJumpId = (m: ThreadMessage) => m.jumpId ?? m.id;
 // Someone else's message arriving at the bottom is said politely; yours and events aren't.
 const announceMessage = (m: ThreadMessage) => (m.mine || m.kind === "event" || !m.body ? null : m.authorName ? `${m.authorName}: ${m.body}` : m.body);
 const NO_SLOTS: Slots<ThreadPageSlotMap> = {};
@@ -246,14 +247,17 @@ export function ThreadPage({
           earlierLabel={earlierLabel}
           renderEarlier={(p) => renderSlot(DefaultEarlier, slots.earlier, { ...p, testID: `${testID}-earlier` }, slotProps.earlier)}
           jumpTo={jumpTo}
+          jumpId={messageJumpId}
           onLoadUntil={onLoadUntil}
-          onJumpFailed={(id) => {
-            // Cleared first, so the same failure twice is said twice.
-            setGone("");
-            if (goneTimer.current) clearTimeout(goneTimer.current);
-            goneTimer.current = setTimeout(() => setGone(labels.messageGone), 50);
-            onJumpFailed?.(id);
-          }}
+          onJumpFailed={
+            onJumpFailed ??
+            (() => {
+              // Cleared first, so the same failure twice is said twice.
+              setGone("");
+              if (goneTimer.current) clearTimeout(goneTimer.current);
+              goneTimer.current = setTimeout(() => setGone(labels.messageGone), 50);
+            })
+          }
           onAtBottomChange={setAtBottom}
           header={header ?? renderSlot(Nothing, slots.header, { testID: `${testID}-header` }, slotProps.header)}
           empty={renderSlot(

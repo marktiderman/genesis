@@ -213,7 +213,11 @@ export const TextInput = React.forwardRef<HTMLInputElement, AnyProps>(
       onBlur?: () => void;
     };
     // The keyboard and autofill a field asks for, as data attributes a test can read.
-    const { autoComplete, enterKeyHint, ...others } = rest as { autoComplete?: string; enterKeyHint?: string };
+    const { autoComplete, enterKeyHint, onSelectionChange, ...others } = rest as {
+      autoComplete?: string;
+      enterKeyHint?: string;
+      onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
+    };
     void others;
     void autoCapitalize;
     void autoCorrect;
@@ -241,6 +245,10 @@ export const TextInput = React.forwardRef<HTMLInputElement, AnyProps>(
       onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter") onSubmitEditing?.();
       },
+      onSelect: onSelectionChange
+        ? (e: React.SyntheticEvent<HTMLInputElement>) =>
+            onSelectionChange({ nativeEvent: { selection: { start: e.currentTarget.selectionStart ?? 0, end: e.currentTarget.selectionEnd ?? 0 } } })
+        : undefined,
       onFocus,
       onBlur,
       ref,

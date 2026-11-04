@@ -25,6 +25,8 @@ export interface ChatOrganiseCopy {
   topicReopenedDone: string;
   // Scheduled send
   schedule: string;
+  /** The hint on Send when it can schedule. */
+  scheduleHoldHint: string;
   scheduleTitle: string;
   scheduleHint: string;
   schedulePick: string;
@@ -122,6 +124,7 @@ export const chatOrganiseCopy: ChatOrganiseCopy = {
   topicClosedDone: "Closed {name}",
   topicReopenedDone: "Reopened {name}",
   schedule: "Schedule message",
+  scheduleHoldHint: "Touch and hold to schedule",
   scheduleTitle: "Schedule message",
   scheduleHint: "It sends at this time, in your time zone, as if you'd sent it then.",
   schedulePick: "Pick a date and time",

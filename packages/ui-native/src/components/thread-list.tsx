@@ -22,7 +22,12 @@
  * rendered. Going to a row waits for `loading`, loads until it's held,
  * scrolls to it (again after FlashList's own placement on open), highlights
  * it for two seconds and announces it. Reduce Motion scrolls without
- * animating.
+ * animating. The reader's touch wins: a drag during a jump ends the list's own
+ * scrolling and drops the jump, even one still loading, so nothing snaps back.
+ *
+ * A row is gone when, once `onLoadUntil` has settled, no row answers to its
+ * id. The list knows only its rows: a row that's drawn (a deleted message's
+ * tombstone) is there, and whatever isn't drawn isn't, whatever a cache holds.
  *
  * Promoted from genesis-chat's thread and its `useJumpToMessage` (G4); chat
  * moves onto it later.
@@ -123,7 +128,7 @@ export interface NativeThreadListProps<T> {
   onLoadUntil?: (id: string) => Promise<boolean>;
   /** What VoiceOver says on arriving at `jumpTo`. */
   jumpAnnouncement?: (row: T) => string;
-  /** The row couldn't be found (deleted, out of reach). The list goes back to the newest row first. */
+  /** No row answers to this id once `onLoadUntil` has settled, or it failed. The list goes back to the newest row first. */
   onJumpFailed?: (id: string) => void;
   /** Whether the reader is at the bottom, as it changes (to show a "new messages" pill, say). */
   onAtBottomChange?: (atBottom: boolean) => void;
@@ -211,6 +216,8 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   const placed = useRef(!mode.followsByHand);
   // While the list scrolls itself, its own scroll events don't move "at the bottom".
   const settlingUntil = useRef(0);
+  // Bumped by each move the list starts and by the reader's touch: a queued try from an older move doesn't run.
+  const moveId = useRef(0);
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const later = useCallback((fn: () => void, ms: number) => {
     const t = setTimeout(() => {
@@ -238,13 +245,14 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   const toBottom = useCallback(
     (animated: boolean) => {
       settlingUntil.current = Date.now() + SETTLING_MS;
+      const move = ++moveId.current;
       const go = (a: boolean) => listRef.current?.scrollToEnd?.({ animated: a && !reducedMotion });
       requestAnimationFrame(() => {
         go(animated);
         placed.current = true;
       });
       // Once more after a new row has its size (FlashList measures it after the first pass).
-      if (animated) later(() => go(true), 180);
+      if (animated) later(() => move === moveId.current && go(true), 180);
     },
     [later, reducedMotion],
   );
@@ -264,7 +272,9 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   const jumpTries = useRef<{ id: string; tries: number } | null>(null);
   const scrollToRow = useCallback(
     (id: string) => {
+      const move = ++moveId.current;
       const scroll = () => {
+        if (move !== moveId.current) return;
         const at = indexOf(id);
         if (at < 0) return;
         // Each try moves the list again: its events don't count until this one settles.
@@ -280,10 +290,25 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     },
     [indexOf, later, reducedMotion],
   );
+  // A jump to a row already in view moves nothing, so no scroll event says where the list is: look
+  // once its own scrolling has settled (a second try extends that; mid-way it can still read as the
+  // bottom). No scroll event yet means the list hasn't moved from where it opens, the bottom.
+  const lookForBottom = useCallback(() => {
+    if (recheck.current) clearTimeout(recheck.current);
+    const look = () => {
+      const wait = settlingUntil.current - Date.now();
+      if (wait > 0) {
+        recheck.current = setTimeout(look, wait + 50);
+        return;
+      }
+      if (!metrics.current || threadNearBottom(metrics.current)) setAtBottom(true);
+    };
+    recheck.current = setTimeout(look, SETTLING_MS + 50);
+  }, [setAtBottom]);
   const has = useCallback((id: string) => indexOf(id) >= 0, [indexOf]);
   // `has` must change when the rows do, so the jump looks again.
   const hasNow = useMemo(() => (id: string) => has(id), [has, data]); // eslint-disable-line react-hooks/exhaustive-deps
-  const { highlightedId, jumping } = useThreadJump({
+  const { highlightedId, jumping, cancel: cancelJump } = useThreadJump({
     target: jumpTo,
     has: hasNow,
     loading,
@@ -294,18 +319,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
       placed.current = true;
     },
     onLanded: (id) => {
-      // A jump to a row already at the bottom moves nothing, so no scroll event says so: look once it settles.
-      // Not before the list's own scrolling has settled (a second try extends it): mid-way, it can still read as the bottom.
-      if (recheck.current) clearTimeout(recheck.current);
-      const look = () => {
-        const wait = settlingUntil.current - Date.now();
-        if (wait > 0) {
-          recheck.current = setTimeout(look, wait + 50);
-          return;
-        }
-        if (metrics.current && threadNearBottom(metrics.current)) setAtBottom(true);
-      };
-      recheck.current = setTimeout(look, SETTLING_MS + 50);
+      lookForBottom();
       const at = indexOf(id);
       const said = at >= 0 ? latest.current.jumpAnnouncement?.(latest.current.data[at]!) : undefined;
       if (said) announce(said);
@@ -350,25 +364,36 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     },
     [setAtBottom],
   );
-  // The reader's touch ends the list's own scroll: from here their scrolling counts, even mid-jump.
-  const onScrollBeginDrag = useCallback(() => {
+  // The reader's touch ends the list's own scroll: from here their scrolling counts, even mid-jump,
+  // the tries still queued don't snap them back, and a jump still loading doesn't land. Only a drag:
+  // a fling follows one, and onMomentumScrollBegin isn't promised to be the reader's alone (Android
+  // may report a programmatic smooth scroll), which would cancel the list's own retry. VoiceOver's
+  // three-finger scroll and a wheel send no drag, so those count once the settling window (400ms) ends.
+  const readerTookOver = useCallback(() => {
     settlingUntil.current = 0;
-  }, []);
+    moveId.current += 1;
+    jumpTries.current = null;
+    cancelJump();
+  }, [cancelJump]);
   const onScrollToIndexFailed = useCallback(
     ({ index, averageItemLength }: { index: number; averageItemLength: number }) => {
+      const target = jumpTries.current;
+      // The reader took over.
+      if (!target) return;
       // FlatList hasn't measured that far up yet: get near it, then try again by id (three times at most).
       listRef.current?.scrollToOffset?.({ offset: Math.max(0, index * averageItemLength - 200), animated: false });
-      const target = jumpTries.current;
-      if (!target || target.tries >= 3) return;
+      if (target.tries >= 3) return;
       target.tries += 1;
       later(() => {
+        if (jumpTries.current !== target) return;
         const at = indexOf(target.id);
         if (at < 0) return;
         settlingUntil.current = Date.now() + SETTLING_MS;
         listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion, viewPosition: 0.5 });
+        lookForBottom();
       }, 250);
     },
-    [indexOf, later, reducedMotion],
+    [indexOf, later, lookForBottom, reducedMotion],
   );
   const follow = useCallback(() => {
     if (atBottom.current && !jumping) toBottom(false);
@@ -410,7 +435,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
       maintainVisibleContentPosition={mode.maintainVisibleContentPosition}
       scrollEventThrottle={32}
       onScroll={onScroll}
-      onScrollBeginDrag={onScrollBeginDrag}
+      onScrollBeginDrag={readerTookOver}
       onScrollToIndexFailed={onScrollToIndexFailed}
       {...(mode.followsByHand ? { onContentSizeChange: follow, onLayout: follow } : {})}
       ListHeaderComponent={listHeader}

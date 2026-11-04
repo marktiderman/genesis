@@ -155,6 +155,7 @@ const toDate = (value: string | Date) => (typeof value === "string" ? new Date(v
 const NO_SLOTS: Slots<ThreadPageSlotMap> = {};
 const NO_SLOT_PROPS: SlotPropsFor<ThreadPageSlotMap> = {};
 const messageKey = (m: ThreadMessage) => m.id;
+const messageJumpId = (m: ThreadMessage) => m.jumpId ?? m.id;
 const messageType = (m: ThreadMessage) => (m.kind === "event" ? "event" : m.mine ? "mine" : "theirs");
 
 declare const __DEV__: boolean | undefined;
@@ -324,6 +325,7 @@ export function ThreadPage({
             earlierLabel={earlierLabel}
             renderEarlier={(p) => renderSlot(DefaultEarlierButton, slots.earlier, { ...p, testID: `${testID}-earlier` }, slotProps.earlier)}
             jumpTo={jumpTo}
+            jumpId={messageJumpId}
             onLoadUntil={onLoadUntil}
             jumpAnnouncement={(m) => [m.mine ? labels.you : m.authorName, m.body].filter(Boolean).join(", ")}
             onJumpFailed={onJumpFailed ?? (() => announce(labels.messageGone))}

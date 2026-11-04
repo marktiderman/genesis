@@ -1,6 +1,6 @@
 // @feat:inbox-thread
-import type { ReactNode } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { forwardRef, useImperativeHandle, type ReactNode } from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ThreadPage, getThreadPageStackOptions, readReceiptFor, type ThreadMessage } from "../thread-page";
 import { GenesisModulesProvider } from "../../native-modules";
@@ -224,5 +224,42 @@ describe("ThreadPage", () => {
 
   it("composes a standard header by default", () => {
     expect(getThreadPageStackOptions({ headerTitle: "Report" })).toEqual({ title: "Report" });
+  });
+});
+
+describe("ThreadPage's jumpId", () => {
+  it("goes to a message by jumpId when its id is the client's: that row, highlighted, and nothing gone", async () => {
+    const scrollToIndex = vi.fn();
+    const List = forwardRef<unknown, Record<string, any>>(function List(props, ref) {
+      useImperativeHandle(ref, () => ({ scrollToIndex, scrollToEnd: vi.fn(), scrollToOffset: vi.fn() }));
+      return (
+        <div>
+          {props.data.map((item: ThreadMessage, index: number) => (
+            <div key={props.keyExtractor(item)}>{props.renderItem({ item, index })}</div>
+          ))}
+        </div>
+      );
+    });
+    const onJumpFailed = vi.fn();
+    const Message = ({ id, highlighted }: { id: string; highlighted: boolean }) => <span data-testid={`m-${id}`} data-highlighted={String(highlighted)} />;
+    render(
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <ThreadPage
+          testID="jump"
+          messages={[
+            { id: "c1", jumpId: "m1", body: "first", mine: false, timestamp: "2026-10-01T09:00:00Z" },
+            { id: "c2", jumpId: "m2", body: "second", mine: true, timestamp: "2026-10-01T09:01:00Z" },
+          ]}
+          composer={null}
+          jumpTo="m2"
+          onJumpFailed={onJumpFailed}
+          slots={{ message: Message as never }}
+        />
+      </GenesisModulesProvider>,
+    );
+    await waitFor(() => expect(scrollToIndex).toHaveBeenCalledWith(expect.objectContaining({ index: 1 })));
+    await waitFor(() => expect(screen.getByTestId("m-c2").getAttribute("data-highlighted")).toBe("true"));
+    expect(screen.getByTestId("m-c1").getAttribute("data-highlighted")).toBe("false");
+    expect(onJumpFailed).not.toHaveBeenCalled();
   });
 });
