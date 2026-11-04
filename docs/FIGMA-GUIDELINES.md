@@ -77,8 +77,10 @@ from the library, that is a **gap**, not a reason for a local component (see "Ga
 What makes the app prototype feel live, all with library instances:
 
 - **`Sample` data collection**, modes `Typical`, `Empty`, `Full` (strings, numbers, booleans).
-  Text and visibility bind to it; a number can't bind to text, so a count has a string partner
-  set by an expression. Reactions may `SET_VARIABLE`, `SET_VARIABLE_MODE`, `CONDITIONAL` and
+  Text and visibility bind to it. A number variable binds to text content in the Figma UI;
+  the Plugin API's `characters` binding takes string variables, so a count written by a script
+  gets a string partner set by an expression (`count + " selected"`), and the same when a value
+  needs formatting. Reactions may `SET_VARIABLE`, `SET_VARIABLE_MODE`, `CONDITIONAL` and
   `CHANGE_TO`; variant properties bind to variables, which is how a single-select row works.
 - **Photos as paint styles** named `Sample/Photo/<name>` (Figma has no image variables); replacing
   the style replaces the photo everywhere, inside library instances too.
