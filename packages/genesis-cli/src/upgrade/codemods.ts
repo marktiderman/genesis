@@ -151,7 +151,59 @@ export const genesisEslintConfig: Codemod = {
   },
 };
 
-export const CODEMODS: readonly Codemod[] = [scopeNeutralNames, genesisEslintConfig];
+/** `empty` → `hasContent` inside each `<NativeComposerBar …>` tag. Its opposite sense: an expression is negated. */
+export function rewriteComposerBarEmpty(text: string): string {
+  const open = /<NativeComposerBar\b/g;
+  let out = "";
+  let at = 0;
+  for (let m = open.exec(text); m; m = open.exec(text)) {
+    // The tag runs to the first `>` outside braces (an arrow function's `=>` sits inside them).
+    let depth = 0;
+    let end = m.index + m[0].length;
+    for (; end < text.length; end++) {
+      const c = text[end];
+      if (c === "{") depth++;
+      else if (c === "}") depth--;
+      else if (c === ">" && depth === 0) break;
+    }
+    const tag = text.slice(m.index, end);
+    let next = tag;
+    // Attributes only: an attribute's value in braces can't be matched past a nested brace, so those are left to the type error.
+    next = next.replace(/(\s)empty=\{false\}/, "$1hasContent");
+    next = next.replace(/(\s)empty=\{true\}/, "$1hasContent={false}");
+    next = next.replace(/(\s)empty=\{([^{}]+)\}/, "$1hasContent={!($2)}");
+    next = next.replace(/(\s)empty(?=[\s/]|$)/, "$1hasContent={false}");
+    out += text.slice(at, m.index) + next;
+    at = end;
+  }
+  return out + text.slice(at);
+}
+
+/**
+ * NativeComposerBar's `empty` is `hasContent`, with the opposite sense (genesis-ui-native 3.8.0).
+ * A spread (`{...bar}`) can't be read from here: its `empty` shows up as a type error.
+ */
+export const composerBarHasContent: Codemod = {
+  id: "genesis-ui-native-3-8-composer-has-content",
+  package: "@marktiderman/genesis-ui-native",
+  version: "3.8.0",
+  description: "NativeComposerBar's empty is now hasContent, with the opposite sense: empty={false} → hasContent.",
+  run({ root, dryRun }) {
+    const changed: string[] = [];
+    for (const rel of appScripts(root)) {
+      const abs = path.join(root, rel);
+      const text = readFileSync(abs, "utf8");
+      if (!text.includes("NativeComposerBar")) continue;
+      const next = rewriteComposerBarEmpty(text);
+      if (next === text) continue;
+      changed.push(rel);
+      if (!dryRun) writeFileSync(abs, next);
+    }
+    return changed;
+  },
+};
+
+export const CODEMODS: readonly Codemod[] = [scopeNeutralNames, genesisEslintConfig, composerBarHasContent];
 
 /** A registered codemod by id, for `genesis codemod <id>`. */
 export function codemodById(id: string, registry: readonly Codemod[] = CODEMODS): Codemod | undefined {

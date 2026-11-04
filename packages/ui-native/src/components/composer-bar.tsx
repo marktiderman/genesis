@@ -78,7 +78,10 @@ export interface NativeComposerBarProps {
   sendActionsHint?: string;
   /** Passed to the input (to insert at the cursor, say). */
   onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
-  /** The input takes text (default). When false, nothing sends and the input reads as disabled. */
+  /**
+   * The input takes text (default). When false, Send is off and the input reads as disabled.
+   * `idleAction` is the app's, so disable it too.
+   */
   editable?: boolean;
   testID?: string;
 }

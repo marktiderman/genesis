@@ -22,8 +22,8 @@
  * rendered. Going to a row waits for `loading`, loads until it's held,
  * scrolls to it (again after FlashList's own placement on open), highlights
  * it for two seconds and announces it. Reduce Motion scrolls without
- * animating. The reader's touch wins: a drag or a fling during a jump ends
- * the list's own scrolling, so nothing snaps back.
+ * animating. The reader's touch wins: a drag during a jump ends the list's own
+ * scrolling and drops the jump, even one still loading, so nothing snaps back.
  *
  * A row is gone when, once `onLoadUntil` has settled, no row answers to its
  * id. The list knows only its rows: a row that's drawn (a deleted message's
@@ -160,7 +160,6 @@ interface ThreadListComponentProps {
   maintainVisibleContentPosition?: Record<string, unknown>;
   onScroll?: (e: { nativeEvent: ScrollMetrics }) => void;
   onScrollBeginDrag?: () => void;
-  onMomentumScrollBegin?: () => void;
   scrollEventThrottle?: number;
   onContentSizeChange?: () => void;
   onLayout?: () => void;
@@ -309,7 +308,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   const has = useCallback((id: string) => indexOf(id) >= 0, [indexOf]);
   // `has` must change when the rows do, so the jump looks again.
   const hasNow = useMemo(() => (id: string) => has(id), [has, data]); // eslint-disable-line react-hooks/exhaustive-deps
-  const { highlightedId, jumping } = useThreadJump({
+  const { highlightedId, jumping, cancel: cancelJump } = useThreadJump({
     target: jumpTo,
     has: hasNow,
     loading,
@@ -366,13 +365,16 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     [setAtBottom],
   );
   // The reader's touch ends the list's own scroll: from here their scrolling counts, even mid-jump,
-  // and the tries still queued don't snap them back. VoiceOver's three-finger scroll and a wheel send
-  // neither event, so those count once the settling window (400ms) ends.
+  // the tries still queued don't snap them back, and a jump still loading doesn't land. Only a drag:
+  // a fling follows one, and onMomentumScrollBegin isn't promised to be the reader's alone (Android
+  // may report a programmatic smooth scroll), which would cancel the list's own retry. VoiceOver's
+  // three-finger scroll and a wheel send no drag, so those count once the settling window (400ms) ends.
   const readerTookOver = useCallback(() => {
     settlingUntil.current = 0;
     moveId.current += 1;
     jumpTries.current = null;
-  }, []);
+    cancelJump();
+  }, [cancelJump]);
   const onScrollToIndexFailed = useCallback(
     ({ index, averageItemLength }: { index: number; averageItemLength: number }) => {
       const target = jumpTries.current;
@@ -434,7 +436,6 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
       scrollEventThrottle={32}
       onScroll={onScroll}
       onScrollBeginDrag={readerTookOver}
-      onMomentumScrollBegin={readerTookOver}
       onScrollToIndexFailed={onScrollToIndexFailed}
       {...(mode.followsByHand ? { onContentSizeChange: follow, onLayout: follow } : {})}
       ListHeaderComponent={listHeader}

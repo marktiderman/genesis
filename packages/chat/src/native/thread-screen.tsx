@@ -298,7 +298,14 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const { loadUntil } = conv;
   // A jump names the server's message id; its seq says how far back to load.
   const jumpSeq = jumpTo?.seq;
-  const jumpMessageId = jumpTo?.messageId ?? null;
+  // Not while the first page has failed: there's nothing to look in, so the message isn't known to be
+  // gone. The reader hears the read failed, and the jump goes ahead when the rows come.
+  const firstPageFailed = Boolean(conv.error) && rows.length === 0;
+  const jumpMessageId = firstPageFailed ? null : (jumpTo?.messageId ?? null);
+  const jumpBlocked = firstPageFailed && Boolean(jumpTo);
+  useEffect(() => {
+    if (jumpBlocked) fail();
+  }, [jumpBlocked, fail]);
   // A load that failed has said so: the message isn't known to be gone.
   const jumpLoadFailed = useRef(false);
   const onLoadUntil = useCallback(

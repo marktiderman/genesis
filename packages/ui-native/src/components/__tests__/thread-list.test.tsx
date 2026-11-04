@@ -191,7 +191,7 @@ describe("NativeThreadList", () => {
     afterEach(() => vi.useRealTimers());
     const tick = async (ms: number) => act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
 
-    it.each(["onScrollBeginDrag", "onMomentumScrollBegin"])("%s cancels the queued try, so nothing snaps back", async (event) => {
+    it("a drag cancels the queued try, so nothing snaps back", async () => {
       vi.useFakeTimers();
       const { List, calls } = recordingList();
       render(
@@ -201,9 +201,53 @@ describe("NativeThreadList", () => {
       );
       await tick(20);
       expect(calls.scrollToIndex).toHaveBeenCalledTimes(1);
-      act(() => (calls.props.at(-1)![event] as () => void)());
+      act(() => (calls.props.at(-1)!.onScrollBeginDrag as () => void)());
       await tick(1000);
       expect(calls.scrollToIndex).toHaveBeenCalledTimes(1);
+    });
+
+    it("doesn't take onMomentumScrollBegin for the reader: Android may report the list's own smooth scroll", async () => {
+      vi.useFakeTimers();
+      const { List, calls } = recordingList();
+      render(
+        <GenesisModulesProvider modules={{ list: List as never }}>
+          <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} jumpTo="a" />
+        </GenesisModulesProvider>,
+      );
+      await tick(20);
+      expect(calls.props.at(-1)!.onMomentumScrollBegin).toBeUndefined();
+    });
+
+    it("a drag while a jump is still loading drops it: the row arriving doesn't move the list, and earlier pages load again", async () => {
+      vi.useFakeTimers();
+      const { List, calls } = recordingList();
+      const onLoadEarlier = vi.fn();
+      const onJumpFailed = vi.fn();
+      let resolve: (v: boolean) => void = () => undefined;
+      const onLoadUntil = vi.fn(() => new Promise<boolean>((r) => (resolve = r)));
+      const props = { testID: "l", keyExtractor: (r: Row) => r.id, renderItem: renderRow, jumpTo: "old", hasEarlier: true, onLoadEarlier, onLoadUntil, onJumpFailed };
+      const { rerender } = render(
+        <GenesisModulesProvider modules={{ list: List as never }}>
+          <NativeThreadList {...props} data={rows} />
+        </GenesisModulesProvider>,
+      );
+      await tick(20);
+      expect(onLoadUntil).toHaveBeenCalledWith("old");
+      // Waiting on the load: near the top doesn't load more.
+      (calls.props.at(-1)!.onStartReached as () => void)();
+      expect(onLoadEarlier).not.toHaveBeenCalled();
+      act(() => (calls.props.at(-1)!.onScrollBeginDrag as () => void)());
+      (calls.props.at(-1)!.onStartReached as () => void)();
+      expect(onLoadEarlier).toHaveBeenCalledTimes(1);
+      await act(async () => resolve(true));
+      rerender(
+        <GenesisModulesProvider modules={{ list: List as never }}>
+          <NativeThreadList {...props} data={[{ id: "old", text: "old" }, ...rows]} />
+        </GenesisModulesProvider>,
+      );
+      await tick(1000);
+      expect(calls.scrollToIndex).not.toHaveBeenCalled();
+      expect(onJumpFailed).not.toHaveBeenCalled();
     });
 
     it("cancels the retries of a row FlatList hadn't measured", async () => {

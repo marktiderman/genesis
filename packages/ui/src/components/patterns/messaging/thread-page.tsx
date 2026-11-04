@@ -83,7 +83,7 @@ export interface ThreadPageProps {
   /** Go to this message, loading with `onLoadUntil` until it's here. */
   jumpTo?: string | null;
   onLoadUntil?: (id: string) => Promise<boolean>;
-  /** A `jumpTo` message couldn't be found (the list goes back to the newest). */
+  /** A `jumpTo` message couldn't be found (the reader stays where they are). Default: a screen reader hears `labels.messageGone`. */
   onJumpFailed?: (id: string) => void;
   /** The first page is loading: a skeleton instead of the empty state, and a jump waits for it. */
   loading?: boolean;
@@ -249,13 +249,15 @@ export function ThreadPage({
           jumpTo={jumpTo}
           jumpId={messageJumpId}
           onLoadUntil={onLoadUntil}
-          onJumpFailed={(id) => {
-            // Cleared first, so the same failure twice is said twice.
-            setGone("");
-            if (goneTimer.current) clearTimeout(goneTimer.current);
-            goneTimer.current = setTimeout(() => setGone(labels.messageGone), 50);
-            onJumpFailed?.(id);
-          }}
+          onJumpFailed={
+            onJumpFailed ??
+            (() => {
+              // Cleared first, so the same failure twice is said twice.
+              setGone("");
+              if (goneTimer.current) clearTimeout(goneTimer.current);
+              goneTimer.current = setTimeout(() => setGone(labels.messageGone), 50);
+            })
+          }
           onAtBottomChange={setAtBottom}
           header={header ?? renderSlot(Nothing, slots.header, { testID: `${testID}-header` }, slotProps.header)}
           empty={renderSlot(

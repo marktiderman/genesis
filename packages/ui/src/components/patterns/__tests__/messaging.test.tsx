@@ -113,6 +113,89 @@ describe("ThreadPage (web)", () => {
     await waitFor(() => expect(onJumpFailed).toHaveBeenCalledWith("gone"), { timeout: 2000 });
   });
 
+  describe("a jump that doesn't land", () => {
+    const status = () => screen.getAllByRole("status").map((el) => el.textContent).join("");
+
+    it("tells a screen reader itself only when the app didn't take it on", async () => {
+      const { unmount } = render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="gone" onLoadUntil={async () => false} labels={{ messageGone: "Not here" }} />);
+      await waitFor(() => expect(status()).toContain("Not here"), { timeout: 2000 });
+      unmount();
+      const onJumpFailed = vi.fn();
+      render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="gone" onLoadUntil={async () => false} onJumpFailed={onJumpFailed} labels={{ messageGone: "Not here" }} />);
+      await waitFor(() => expect(onJumpFailed).toHaveBeenCalled(), { timeout: 2000 });
+      await act(async () => void (await new Promise((r) => setTimeout(r, 100))));
+      expect(status()).not.toContain("Not here");
+    });
+
+    it("leaves the reader where they are", async () => {
+      vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(() => 2000);
+      vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(() => 500);
+      const onJumpFailed = vi.fn();
+      const { rerender } = render(<ThreadPage testID="t" messages={messages} composer={composer()} onLoadUntil={async () => false} onJumpFailed={onJumpFailed} />);
+      const log = screen.getByRole("log");
+      log.scrollTop = 300;
+      fireEvent.scroll(log);
+      rerender(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="gone" onLoadUntil={async () => false} onJumpFailed={onJumpFailed} />);
+      await waitFor(() => expect(onJumpFailed).toHaveBeenCalled(), { timeout: 2000 });
+      expect(log.scrollTop).toBe(300);
+      expect(screen.getByTestId("t-jump-latest")).toBeTruthy();
+    });
+  });
+
+  describe("the reader during a jump", () => {
+    it.each([
+      ["a wheel", (log: HTMLElement) => fireEvent.wheel(log)],
+      ["a touch", (log: HTMLElement) => fireEvent.touchMove(log)],
+      ["a key", (log: HTMLElement) => fireEvent.keyDown(log, { key: "PageUp" })],
+      ["the scrollbar", (log: HTMLElement) => fireEvent.pointerDown(log)],
+    ])("%s drops a jump still loading: the row arriving doesn't move the list", async (_name, move) => {
+      let resolve: (v: boolean) => void = () => undefined;
+      const onLoadUntil = vi.fn(() => new Promise<boolean>((r) => (resolve = r)));
+      const onJumpFailed = vi.fn();
+      const older = { id: "old", body: "older", mine: false, timestamp: "2026-10-01T08:00:00Z" };
+      const { rerender } = render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="old" onLoadUntil={onLoadUntil} onJumpFailed={onJumpFailed} />);
+      await waitFor(() => expect(onLoadUntil).toHaveBeenCalled());
+      move(screen.getByRole("log"));
+      await act(async () => resolve(true));
+      vi.mocked(Element.prototype.scrollTo).mockClear();
+      rerender(<ThreadPage testID="t" messages={[older, ...messages]} composer={composer()} jumpTo="old" onLoadUntil={onLoadUntil} onJumpFailed={onJumpFailed} />);
+      await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+      expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
+      expect(screen.getByTestId("t-message-old").className).not.toMatch(/ring-2/);
+      expect(onJumpFailed).not.toHaveBeenCalled();
+    });
+
+    it("loads earlier pages again once it has dropped the jump", async () => {
+      const onLoadEarlier = vi.fn();
+      const onLoadUntil = vi.fn(() => new Promise<boolean>(() => undefined));
+      render(<ThreadPage testID="t" messages={messages} composer={composer()} hasEarlier onLoadEarlier={onLoadEarlier} jumpTo="old" onLoadUntil={onLoadUntil} />);
+      await waitFor(() => expect(onLoadUntil).toHaveBeenCalled());
+      const log = screen.getByRole("log");
+      log.scrollTop = 0;
+      fireEvent.scroll(log);
+      expect(onLoadEarlier).not.toHaveBeenCalled();
+      fireEvent.wheel(log);
+      await act(async () => {});
+      fireEvent.scroll(log);
+      expect(onLoadEarlier).toHaveBeenCalledTimes(1);
+    });
+
+    it("doesn't take focus from a field the reader is typing in", async () => {
+      const { rerender } = render(<ThreadPage testID="t" messages={messages} composer={composer()} />);
+      const input = screen.getByTestId("t-composer-input");
+      input.focus();
+      rerender(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="2" />);
+      await waitFor(() => expect(screen.getByTestId("t-message-2").className).toMatch(/ring-2/));
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("focuses the row it landed on otherwise", async () => {
+      render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="2" />);
+      await waitFor(() => expect(screen.getByTestId("t-message-2").className).toMatch(/ring-2/));
+      expect(document.activeElement?.getAttribute("data-row-id")).toBe("2");
+    });
+  });
+
   it("keeps the place when earlier messages arrive above", () => {
     let height = 1000;
     vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(() => height);

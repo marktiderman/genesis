@@ -324,7 +324,6 @@ const THREAD_SLOTS = {
 // Chat's composer keeps its own text and sends for itself.
 const THREAD_COMPOSER = { value: "", onChangeText: () => undefined, onSend: () => undefined };
 const GONE = "That message isn't here any more";
-const THREAD_LABELS = { messageGone: GONE };
 
 export function ChatThread({
   conversationId,
@@ -527,6 +526,7 @@ export function ChatThread({
     if (jumpToProp) reach(jumpToProp);
   }, [jumpToProp?.messageId, jumpToProp?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const firstPageFailed = Boolean(state.error) && rows.length === 0;
   const { loadUntil } = state;
   // A load that failed has said so: the message isn't known to be gone.
   const jumpLoadFailed = useRef(false);
@@ -694,11 +694,12 @@ export function ChatThread({
             onLoadEarlier={loadOlder}
             loadingEarlier={loadingEarlier}
             firstUnreadId={firstUnreadRow}
-            jumpTo={jump?.messageId ?? null}
+            // Not while the first page has failed: there's nothing to look in, the empty slot says so
+            // with Try again, and the jump goes ahead when the rows come.
+            jumpTo={firstPageFailed ? null : (jump?.messageId ?? null)}
             onLoadUntil={onLoadUntil}
             onJumpFailed={onJumpFailed}
             loading={state.isLoading}
-            labels={THREAD_LABELS}
             slots={THREAD_SLOTS}
             slotProps={
               {

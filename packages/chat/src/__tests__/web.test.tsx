@@ -203,7 +203,26 @@ describe("ChatThread", () => {
     }
   });
 
-  it("sits on ThreadPage: a landed message keeps its row, and the pill goes back to the newest", async () => {
+  it("the pill shows once scrolled up, and goes back to the newest", async () => {
+    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(() => 2000);
+    // All read, so it opens at the newest.
+    const client = createMemoryChatClient({ me: ME, conversations: [group({ members: [{ userId: ME, lastReadSeq: 99 }, { userId: SAM }, { userId: LEE }] })] });
+    mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
+    const log = await screen.findByTestId("genesis-chat-thread-page-messages");
+    await screen.findByText("Hi Sam");
+    expect(screen.queryByTestId("genesis-chat-thread-page-jump-latest")).toBeNull();
+    log.scrollTop = 100;
+    fireEvent.scroll(log);
+    const pill = await screen.findByTestId("genesis-chat-thread-page-jump-latest");
+    const scrollTo = vi.fn();
+    log.scrollTo = scrollTo as unknown as typeof log.scrollTo;
+    fireEvent.click(pill);
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: 2000 }));
+    expect(screen.queryByTestId("genesis-chat-thread-page-jump-latest")).toBeNull();
+    height.mockRestore();
+  });
+
+  it("sits on ThreadPage: a landed message keeps its row", async () => {
     const client = createMemoryChatClient({ me: ME, conversations: [group()] });
     mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
     const input = await screen.findByTestId("genesis-chat-input");
@@ -244,6 +263,36 @@ describe("ChatThread", () => {
       mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} jumpTo={{ messageId: "nope", seq: 0 }} />);
       await waitFor(() => expect(error).toHaveBeenCalledWith("offline"));
       await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+      expect(info).not.toHaveBeenCalled();
+    });
+
+    it("tells a screen reader only what really happened after a failed load", async () => {
+      const client = createMemoryChatClient({ me: ME, conversations: [group()] });
+      const real = client.messages.bind(client);
+      vi.spyOn(client, "messages").mockImplementationOnce(async (...args) => ({ ...(await real(...args)), hasEarlier: true })).mockRejectedValue(new Error("offline"));
+      const error = vi.spyOn(toast, "error");
+      mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} jumpTo={{ messageId: "nope", seq: 0 }} />);
+      await waitFor(() => expect(error).toHaveBeenCalled());
+      await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+      expect(screen.getAllByRole("status").some((el) => /isn't (here|available)/.test(el.textContent ?? ""))).toBe(false);
+    });
+
+    it("with a deep link and a first page that failed: offers Try again, never gone, and goes there once rows come", async () => {
+      const client = createMemoryChatClient({ me: ME, conversations: [group()] });
+      const real = client.messages.bind(client);
+      let offline = true;
+      vi.spyOn(client, "messages").mockImplementation(async (...args) => {
+        if (offline) throw new Error("offline");
+        return real(...args);
+      });
+      const info = vi.spyOn(toast, "info");
+      mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} jumpTo={{ messageId: "m3" }} />);
+      expect(await screen.findByText("Couldn't load this conversation")).toBeTruthy();
+      await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+      expect(info).not.toHaveBeenCalled();
+      offline = false;
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      await waitFor(() => expect(document.querySelector("#genesis-chat-msg-m3 .ring-2")).not.toBeNull());
       expect(info).not.toHaveBeenCalled();
     });
 

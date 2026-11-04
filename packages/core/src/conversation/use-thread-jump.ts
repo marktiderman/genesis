@@ -10,7 +10,8 @@
  * rows, not a one-shot: a target set before the first page has loaded waits
  * for `loading` to end, a row that arrives a render or two after `loadUntil`
  * resolves is still found, and going to the same id again (after `null`)
- * goes again.
+ * goes again. `cancel()` drops a jump the reader has taken over from: whatever
+ * it was waiting on, it won't scroll or report the row gone.
  *
  * @stability Beta
  */
@@ -107,5 +108,11 @@ export function useThreadJump({ target, has, loading = false, loadUntil, scrollT
     void latest.current.loadUntil(id).then(settle, settle);
   }, [pending, loading, has, go]);
 
-  return { highlightedId, jumping: pending !== null };
+  const cancel = useCallback(() => {
+    if (goneTimer.current) clearTimeout(goneTimer.current);
+    armed.current = null;
+    setPending(null);
+  }, [goneTimer]);
+
+  return { highlightedId, jumping: pending !== null, cancel };
 }

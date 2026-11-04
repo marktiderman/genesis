@@ -150,6 +150,33 @@ describe("ChatThreadScreen's jump when it can't load back", () => {
     expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
   });
 
+  it("with a deep link and a first page that failed: says the read failed, never gone, and goes there once rows come", async () => {
+    const list = scrollingList();
+    const client = fakeClient([msg(1, SAM, "2026-10-24T10:00:00Z"), msg(2, ME, "2026-10-24T10:01:00Z")], 3);
+    (client.messages as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("offline"));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <GenesisModulesProvider modules={{ list: list.List as never }}>
+          <ChatProvider client={client} userId={ME}>
+            <NativeToastProvider>
+              <ChatNativeProvider>
+                <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m2" }} />
+              </ChatNativeProvider>
+            </NativeToastProvider>
+          </ChatProvider>
+        </GenesisModulesProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText(chatNativeCopy.actionFailed, {}, { timeout: 2000 })).toBeTruthy();
+    await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+    expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
+    expect(list.scrollToIndex).not.toHaveBeenCalled();
+    await act(async () => void (await qc.refetchQueries()));
+    await waitFor(() => expect(list.scrollToIndex).toHaveBeenCalled());
+    expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
+  });
+
   it("finds a deleted message: its tombstone is a row", async () => {
     const list = scrollingList();
     const deleted = { ...msg(2, SAM, "2026-10-24T10:01:00Z"), deletedAt: "2026-10-24T11:00:00Z" } as ChatMessage;

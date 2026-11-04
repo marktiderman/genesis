@@ -64,14 +64,47 @@ describe("ChatComposer", () => {
     expect(chat.impactAsync).not.toHaveBeenCalled();
   });
 
-  it("sits on NativeComposerBar: Send waits while access loads, with the input read-only", () => {
+  it("sits on NativeComposerBar: while access loads, a restored draft can't be sent and the input is read-only", async () => {
+    const drafts = memoryDraftStorage();
+    await drafts.setItem(draftKey("u1", "c1"), JSON.stringify({ text: "half written" }));
+    const onSend = vi.fn();
     render(
-      <ChatNativeProvider>
-        <Harness canPost={null as unknown as boolean} />
+      <ChatNativeProvider modules={{ drafts }}>
+        <Harness canPost={null as unknown as boolean} onSend={onSend} />
       </ChatNativeProvider>,
     );
+    await waitFor(() => expect((screen.getByTestId("cmp-input") as HTMLInputElement).value).toBe("half written"));
     expect(screen.getByTestId("cmp-input").hasAttribute("disabled")).toBe(true);
     expect(screen.getByTestId("cmp-send").getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(screen.getByTestId("cmp-send"));
+    expect(onSend).not.toHaveBeenCalled();
+    expect((screen.getByTestId("cmp-input") as HTMLInputElement).value).toBe("half written");
+  });
+
+  it("sends attachments with no text through the bar, and the mic gives way to Send", async () => {
+    const imagePicker = { launchImageLibraryAsync: vi.fn(async () => ({ canceled: false, assets: [{ uri: "file:///a.jpg", fileName: "a.jpg", mimeType: "image/jpeg", width: 10, height: 10 }] })) };
+    const audio = {
+      useAudioRecorder: () => ({ prepareToRecordAsync: vi.fn(), record: vi.fn(), stop: vi.fn(), getStatus: vi.fn(), uri: null }),
+      useAudioPlayer: vi.fn(),
+      useAudioPlayerStatus: vi.fn(),
+      RecordingPresets: { HIGH_QUALITY: {} },
+      requestRecordingPermissionsAsync: vi.fn(),
+      setAudioModeAsync: vi.fn(),
+    };
+    const onSend = vi.fn();
+    render(
+      <ChatNativeProvider modules={{ imagePicker, audio } as unknown as ChatNativeModules}>
+        <Harness onSend={onSend} />
+      </ChatNativeProvider>,
+    );
+    expect(screen.getByTestId("cmp-mic")).toBeTruthy();
+    expect(screen.queryByTestId("cmp-send")).toBeNull();
+    fireEvent.click(screen.getByTestId("cmp-attach"));
+    await waitFor(() => expect(screen.getByTestId("cmp-attachments")).toBeTruthy());
+    expect(screen.queryByTestId("cmp-mic")).toBeNull();
+    fireEvent.click(screen.getByTestId("cmp-send"));
+    expect(onSend).toHaveBeenCalledTimes(1);
+    expect(onSend.mock.calls[0]![0].input.body).toBe("");
   });
 
   it("restores the thread's draft", async () => {
