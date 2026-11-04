@@ -135,32 +135,67 @@ export const genesisEslintConfig: Codemod = {
   },
 };
 
-/** `empty` → `hasContent` inside each `<NativeComposerBar …>` tag. Its opposite sense: an expression is negated. */
+/**
+ * `empty` → `hasContent` on each `<NativeComposerBar …>` itself, with the opposite sense (an expression
+ * is negated). Only at the tag's own level: what's inside another attribute's braces or quotes (nested
+ * JSX, a string) is someone else's.
+ */
 export function rewriteComposerBarEmpty(text: string): string {
   const open = /<NativeComposerBar\b/g;
   let out = "";
   let at = 0;
   for (let m = open.exec(text); m; m = open.exec(text)) {
-    // The tag runs to the first `>` outside braces (an arrow function's `=>` sits inside them).
+    out += text.slice(at, m.index) + m[0];
+    let i = m.index + m[0].length;
     let depth = 0;
-    let end = m.index + m[0].length;
-    for (; end < text.length; end++) {
-      const c = text[end];
-      if (c === "{") depth++;
-      else if (c === "}") depth--;
-      else if (c === ">" && depth === 0) break;
+    let quote: string | null = null;
+    for (; i < text.length; i++) {
+      const c = text[i]!;
+      if (quote) {
+        if (c === quote) quote = null;
+      } else if (depth === 0 && (c === '"' || c === "'")) {
+        quote = c;
+      } else if (c === "{") {
+        depth++;
+      } else if (c === "}") {
+        depth--;
+      } else if (c === ">" && depth === 0) {
+        break;
+      } else if (depth === 0 && /\s/.test(c)) {
+        const attr = /^empty(?![\w-])/.exec(text.slice(i + 1, i + 7));
+        if (attr) {
+          const after = i + 1 + "empty".length;
+          const value = text.startsWith("={", after) ? closingBrace(text, after + 1) : -1;
+          if (value >= 0) {
+            const expr = text.slice(after + 2, value);
+            out += `${c}${expr.trim() === "false" ? "hasContent" : expr.trim() === "true" ? "hasContent={false}" : `hasContent={!(${expr})}`}`;
+            i = value;
+            continue;
+          }
+          // `empty="…"` isn't a boolean: left to the type error.
+          if (text[after] !== "=") {
+            out += `${c}hasContent={false}`;
+            i = after - 1;
+            continue;
+          }
+        }
+      }
+      out += c;
     }
-    const tag = text.slice(m.index, end);
-    let next = tag;
-    // Attributes only: an attribute's value in braces can't be matched past a nested brace, so those are left to the type error.
-    next = next.replace(/(\s)empty=\{false\}/, "$1hasContent");
-    next = next.replace(/(\s)empty=\{true\}/, "$1hasContent={false}");
-    next = next.replace(/(\s)empty=\{([^{}]+)\}/, "$1hasContent={!($2)}");
-    next = next.replace(/(\s)empty(?=[\s/]|$)/, "$1hasContent={false}");
-    out += text.slice(at, m.index) + next;
-    at = end;
+    at = i;
+    open.lastIndex = i;
   }
   return out + text.slice(at);
+}
+
+/** The `}` that closes the `{` at `start`, or -1. */
+function closingBrace(text: string, start: number): number {
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}" && --depth === 0) return i;
+  }
+  return -1;
 }
 
 /**

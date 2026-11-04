@@ -296,6 +296,31 @@ describe("ChatThread", () => {
       expect(info).not.toHaveBeenCalled();
     });
 
+    it("keeps a deep link through a failed first page even with a message of yours waiting to send", async () => {
+      const client = createMemoryChatClient({ me: ME, conversations: [group()] });
+      const real = client.messages.bind(client);
+      let offline = true;
+      vi.spyOn(client, "messages").mockImplementation(async (...args) => {
+        if (offline) throw new Error("offline");
+        return real(...args);
+      });
+      const info = vi.spyOn(toast, "info");
+      mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} jumpTo={{ messageId: "m3" }} />);
+      await screen.findByText("Couldn't load this conversation");
+      const release = client.holdNextSend();
+      fireEvent.change(await screen.findByTestId("genesis-chat-input"), { target: { value: "Still here" } });
+      fireEvent.keyDown(screen.getByTestId("genesis-chat-input"), { key: "Enter" });
+      await screen.findByTestId("genesis-chat-pending-sending");
+      await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+      expect(info).not.toHaveBeenCalled();
+      offline = false;
+      release();
+      await act(async () => {
+        await screen.findByTestId("genesis-chat-thread-page");
+      });
+      expect(info).not.toHaveBeenCalled();
+    });
+
     it("says it's gone when the thread has loaded and no row answers", async () => {
       const client = createMemoryChatClient({ me: ME, conversations: [group()] });
       const info = vi.spyOn(toast, "info");

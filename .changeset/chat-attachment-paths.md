@@ -3,4 +3,4 @@
 "@marktiderman/genesis-cli": patch
 ---
 
-Migration 0005 tightens how attachments are stored: only an attachment with `provider = 'storage'` has a `path`, and only those count when a file's read access is worked out. Paths on other providers are cleared, and kept for the service role in `genesis_chat.attachment_paths_cleared`. Genesis's clients never send them, so nothing changes for them. Run `genesis migrate` to pick it up; it needs nothing from your app.
+Migration 0005 tightens attachment paths: only an attachment in storage has one. Genesis's clients are unaffected. Run `genesis migrate` to pick it up; it needs nothing from your app. It keeps any paths it clears in `genesis_chat.attachment_paths_cleared`, for the service role: they contain user ids, and account deletion doesn't touch that table, so look at it once and drop it (the migration's header says how).

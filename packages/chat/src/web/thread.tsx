@@ -526,7 +526,8 @@ export function ChatThread({
     if (jumpToProp) reach(jumpToProp);
   }, [jumpToProp?.messageId, jumpToProp?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const firstPageFailed = Boolean(state.error) && rows.length === 0;
+  // Messages, not rows: a saved outbox row is drawn even when nothing could be read.
+  const firstPageFailed = Boolean(state.error) && messages.length === 0;
   const { loadUntil } = state;
   // A load that failed has said so: the message isn't known to be gone.
   const jumpLoadFailed = useRef(false);

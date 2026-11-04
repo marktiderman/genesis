@@ -1,21 +1,21 @@
--- Genesis Chat 0005: only a file in storage has a path
+-- Genesis Chat 0005: attachment paths are tightened
 --
 -- Builds on 0001–0004 (never edited once released). Needs nothing from your app, and no other
 -- package's migrations depend on where it runs after chat 0001.
 --
--- An attachment's `path` names an object in the genesis-chat bucket, and only attachments with
--- `provider = 'storage'` are checked against what their sender uploaded. So:
+-- 1. An attachment has a `path` only when its provider is `storage`, by a check on the table.
+--    send_message refuses anything else with 23514; a scheduled message holding one records that
+--    as its `error` when it comes due, as with any refusal. Genesis's own clients never send one.
+-- 2. Read access counts `path` only on storage attachments, and `poster_path` on any provider
+--    (a hosted video's poster lives in the bucket).
+-- 3. Paths on other providers are cleared, with the transcript of a voice row among them, and
+--    kept in `genesis_chat.attachment_paths_cleared` for the service role. A link keeps its `url`,
+--    and a video its provider id.
 --
--- 1. Any other provider now has no path, by a check on the table, whichever function writes the
---    row. send_message refuses one with 23514; a scheduled message holding one records it as its
---    `error` when it comes due, as with any refusal. Genesis's own clients never send one.
--- 2. Reading an object counts `path` only on storage attachments. `poster_path` still counts on
---    any provider: a hosted video's poster lives in the bucket, and send_message has always
---    checked it against the sender's uploads.
--- 3. Paths already on rows with another provider are cleared, and kept in
---    `genesis_chat.attachment_paths_cleared` for the service role, in case you want to look at
---    them. Nothing else about those rows changes: a link keeps its `url`, a video its provider id.
---    Removing a row of that kind never removed a stored file, so nothing was deleted by them.
+-- `attachment_paths_cleared` holds object paths, which contain user ids, and nothing removes them:
+-- account deletion doesn't touch this table, and neither does retention. Look at it once after
+-- this runs (usually it's empty), then drop it, `drop table genesis_chat.attachment_paths_cleared`,
+-- and sooner if a person's data must go.
 
 create table genesis_chat.attachment_paths_cleared (
   attachment_id uuid primary key,
@@ -29,12 +29,31 @@ alter table genesis_chat.attachment_paths_cleared enable row level security;
 revoke all on genesis_chat.attachment_paths_cleared from public, anon, authenticated;
 grant select on genesis_chat.attachment_paths_cleared to service_role;
 
-insert into genesis_chat.attachment_paths_cleared (attachment_id, message_id, conversation_id, provider, path)
-select id, message_id, conversation_id, provider, path
-  from genesis_chat.attachments
- where provider <> 'storage' and path is not null;
+-- A function so its test can run it: rows are refused once the check below is on. Returns how many it cleared.
+create function genesis_chat.clear_paths_outside_storage()
+returns integer
+language plpgsql
+set search_path = ''
+as $$
+declare
+  cleared integer;
+begin
+  insert into genesis_chat.attachment_paths_cleared (attachment_id, message_id, conversation_id, provider, path)
+  select id, message_id, conversation_id, provider, path
+    from genesis_chat.attachments
+   where provider <> 'storage' and path is not null
+  on conflict (attachment_id) do nothing;
+  update genesis_chat.attachments
+     set path = null,
+         transcript = case when kind = 'voice' then null else transcript end
+   where provider <> 'storage' and path is not null;
+  get diagnostics cleared = row_count;
+  return cleared;
+end;
+$$;
+revoke all on function genesis_chat.clear_paths_outside_storage() from public, anon, authenticated, service_role;
 
-update genesis_chat.attachments set path = null where provider <> 'storage' and path is not null;
+select genesis_chat.clear_paths_outside_storage();
 
 alter table genesis_chat.attachments
   add constraint attachments_path_only_in_storage check (provider = 'storage' or path is null);
