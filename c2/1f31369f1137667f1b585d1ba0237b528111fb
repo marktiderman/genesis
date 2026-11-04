@@ -1,0 +1,25 @@
+.github/workflows/review-gate.yml
+  s_e63e2ce0535b22::t_ffba81a401f0c9 4
+  s_e63e2ce0535b22::t_48628f921b8bd6 1-3,5-51
+.github/workflows/claude-code-review.yml
+  s_e63e2ce0535b22::t_f02f24018f187c 13
+  s_e63e2ce0535b22::t_6553f7524086df 1-5
+AGENTS.md
+  s_e63e2ce0535b22::t_27705ea974360a 96-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c21f31369f1137667f1b585d1ba0237b528111fb",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
