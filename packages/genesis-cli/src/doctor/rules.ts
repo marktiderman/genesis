@@ -238,7 +238,7 @@ export function checkTokens(ctx: DoctorContext): void {
   }
 }
 
-export function checkShadowedExports(ctx: DoctorContext): void {
+export function checkShadowedExports(ctx: Pick<DoctorContext, "root" | "files" | "config" | "packages" | "report"> & { genesis: Pick<DoctorContext["genesis"], "uiPackage" | "values"> }): void {
   // The app's overlay of the component package exports those names because it is that package.
   const overlays = markedOverlays(ctx);
   const re = /\bexport\s+(?:default\s+)?(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Z][\w$]*)/g;
@@ -247,7 +247,7 @@ export function checkShadowedExports(ctx: DoctorContext): void {
     file.code.split("\n").forEach((text, i) => {
       for (const m of text.matchAll(re)) {
         if (!ctx.genesis.values.has(m[1])) continue;
-        ctx.report({ rule: "shadowed-export", file: file.path, line: i + 1, subject: m[1], message: `shadows the Genesis export '${m[1]}'; reuse or extend Genesis ${m[1]}` });
+        ctx.report({ rule: "shadowed-export", file: file.path, line: i + 1, subject: m[1], message: `shadows the Genesis export '${m[1]}'; reuse or extend ${m[1]} from ${ctx.genesis.uiPackage} (or rename yours if it's a different thing)` });
       }
     });
   }

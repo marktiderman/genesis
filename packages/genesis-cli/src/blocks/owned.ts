@@ -52,7 +52,7 @@ export function copyOwned(root: string, lock: GenesisLock, write: OwnedWrite, dr
 }
 
 export type RefreshOutcome =
-  | { path: string; outcome: "unchanged" | "updated" | "merged" | "conflict" | "kept-deleted" | "gone-upstream" | "kept-mine" | "refused" | "deferred" | "resolved"; detail?: string };
+  | { path: string; outcome: "unchanged" | "updated" | "merged" | "conflict" | "kept-deleted" | "gone-upstream" | "kept-mine" | "refused" | "deferred" | "resolved" | "repository"; detail?: string };
 
 const CLI = "@marktiderman/genesis-cli";
 
@@ -112,7 +112,7 @@ export interface RefreshInput {
   path: string;
   /** The package's current text (substitutions applied), or null when it no longer ships it. */
   theirs: string | null;
-  /** The text the lock's checksum was taken from, when it can still be read. */
+  /** The text the app's file last took (the caller checks it against the lock), when it can still be read. */
   base: string | null;
   version?: string;
 }
@@ -167,7 +167,7 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
     lock.files[input.path] = { ...entry, pending: theirsSha };
     return null;
   };
-  if (!options.keepMine && input.base !== null && sha256(input.base) === entry.sha256) {
+  if (!options.keepMine && input.base !== null) {
     const merged = mergeThreeWay(mine, input.base, input.theirs);
     if (merged?.clean) {
       write(input.path, merged.text);
