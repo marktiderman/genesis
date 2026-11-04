@@ -342,6 +342,9 @@ importers:
       '@marktiderman/genesis-studio-server':
         specifier: workspace:^
         version: link:../../packages/studio-server
+      '@marktiderman/genesis-support':
+        specifier: workspace:^
+        version: link:../../packages/support
       '@marktiderman/genesis-ui':
         specifier: workspace:^
         version: link:../../packages/ui

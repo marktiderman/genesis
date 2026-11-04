@@ -361,12 +361,17 @@
                 "file": "migrations/0004_genesis_chat_tenants.sql"
               }
             ]
+          },
+          {
+            "file": "migrations/0009_genesis_support_inbox.sql",
+            "test": "migrations/tests/0009_genesis_support_inbox.test.sql"
           }
         ],
         "steps": [
           "Apply this block's migration after 0006_genesis_support.sql and genesis-chat's 0001 and 0002 (genesis add support-chat orders them). It gives every existing report its conversation and copies support_replies into it, with no push.",
           "Pass genesis-chat's client to support: createSupport({ ..., chat: createChatClient(supabase) }) on native, createSupportClient(supabase, { chat }) on the web. Without it, threads stay on support_replies.",
           "Web: render SupportReportThread (the person) or SupportStaffThread (staff: status, assignee, internal notes) from @marktiderman/genesis-support/web-chat under genesis-chat's ChatProvider.",
+          "Web agent inbox: render SupportAgentInbox from @marktiderman/genesis-support/web-chat at a route of your own, with the open ticket in its URL.",
           "Keep genesis-chat's runner going (push for replies). support_replies stays mirrored for one release, for older app builds; a later migration removes it."
         ]
       },

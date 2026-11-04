@@ -7,7 +7,7 @@
  * whose rendering moves onto genesis-ui's `ThreadPage` (and `InboxPage`, `ComposerBar`) with
  * chat's builder. This screen keeps its report header and staff controls and follows that move.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui";
 import { chatKeys, useChat } from "@marktiderman/genesis-chat/react";
@@ -27,46 +27,32 @@ export interface SupportStaffThreadProps extends Omit<SupportReportThreadProps, 
 
 const NOBODY = "__nobody__";
 
-interface ControlsProps {
-  client: SupportStaffThreadProps["client"];
-  reportId: string;
+export interface TicketControlsProps {
   status: FeedbackStatus;
-  reporter: string | null;
-  conversationId: string;
-  staff?: SupportStaffThreadProps["staff"] | undefined;
-  resolveUser: ResolveUser;
+  assignee: string | null;
+  /** The requester's name, when it should show. */
+  reporter?: string | null | undefined;
+  /** Who it can be given to. Without it there is no assignee picker. */
+  staff?: readonly { id: string; name: string }[] | undefined;
+  onStatus: (status: FeedbackStatus) => void;
+  onAssign: (userId: string | null) => void;
+  failed: boolean;
   copy: SupportCopy;
-  onError?: ((error: unknown) => void) | undefined;
 }
 
-function StaffControls({ client, reportId, status, reporter, conversationId, staff, resolveUser, copy, onError }: ControlsProps) {
-  const chat = useChat();
-  const queryClient = useQueryClient();
-  const [failed, setFailed] = useState(false);
-  const conversation = useQuery({ queryKey: chatKeys.conversation(conversationId), queryFn: () => chat.client.conversation(conversationId) });
-  const assignee = conversation.data?.assigneeId ?? null;
-  const run = (work: Promise<unknown>) =>
-    work
-      .then(() => {
-        setFailed(false);
-        void queryClient.invalidateQueries({ queryKey: supportWebKeys.report(reportId) });
-        void queryClient.invalidateQueries({ queryKey: chatKeys.conversation(conversationId) });
-      })
-      .catch((error: unknown) => {
-        setFailed(true);
-        onError?.(error);
-      });
+/** A ticket's status and assignee pickers: the staff thread and the agent inbox share them. */
+export function TicketControls({ status, assignee, reporter, staff, onStatus, onAssign, failed, copy }: TicketControlsProps) {
   return (
     <div className="flex flex-wrap items-end gap-4">
       {reporter ? (
         <div className="flex flex-col gap-1">
           <Label>{copy.staff.reporter}</Label>
-          <span className="text-sm">{resolveUser(reporter).name}</span>
+          <span className="text-sm">{reporter}</span>
         </div>
       ) : null}
       <div className="flex flex-col gap-1">
         <Label htmlFor="genesis-support-staff-status">{copy.staff.status}</Label>
-        <Select value={status} onValueChange={(value) => void run(client.setStatus(reportId, value as FeedbackStatus))}>
+        <Select value={status} onValueChange={(value) => onStatus(value as FeedbackStatus)}>
           <SelectTrigger id="genesis-support-staff-status" className="w-44" data-testid="genesis-support-staff-status">
             <SelectValue />
           </SelectTrigger>
@@ -82,7 +68,7 @@ function StaffControls({ client, reportId, status, reporter, conversationId, sta
       {staff ? (
         <div className="flex flex-col gap-1">
           <Label htmlFor="genesis-support-staff-assignee">{copy.staff.assignee}</Label>
-          <Select value={assignee ?? NOBODY} onValueChange={(value) => void run(client.assign(reportId, value === NOBODY ? null : value))}>
+          <Select value={assignee ?? NOBODY} onValueChange={(value) => onAssign(value === NOBODY ? null : value)}>
             <SelectTrigger id="genesis-support-staff-assignee" className="w-48" data-testid="genesis-support-staff-assignee">
               <SelectValue />
             </SelectTrigger>
@@ -106,9 +92,59 @@ function StaffControls({ client, reportId, status, reporter, conversationId, sta
   );
 }
 
+interface ControlsProps {
+  client: SupportStaffThreadProps["client"];
+  reportId: string;
+  status: FeedbackStatus;
+  reporter: string | null;
+  conversationId: string;
+  staff?: SupportStaffThreadProps["staff"] | undefined;
+  resolveUser: ResolveUser;
+  copy: SupportCopy;
+  onError?: ((error: unknown) => void) | undefined;
+}
+
+function StaffControls({ client, reportId, status, reporter, conversationId, staff, resolveUser, copy, onError }: ControlsProps) {
+  const chat = useChat();
+  const queryClient = useQueryClient();
+  const [failed, setFailed] = useState(false);
+  const conversation = useQuery({ queryKey: chatKeys.conversation(conversationId), queryFn: () => chat.client.conversation(conversationId) });
+  const run = (work: Promise<unknown>) =>
+    work
+      .then(() => {
+        setFailed(false);
+        void queryClient.invalidateQueries({ queryKey: supportWebKeys.report(reportId) });
+        void queryClient.invalidateQueries({ queryKey: chatKeys.conversation(conversationId) });
+      })
+      .catch((error: unknown) => {
+        setFailed(true);
+        onError?.(error);
+      });
+  return (
+    <TicketControls
+      status={status}
+      assignee={conversation.data?.assigneeId ?? null}
+      reporter={reporter ? resolveUser(reporter).name : null}
+      staff={staff}
+      onStatus={(value) => void run(client.setStatus(reportId, value))}
+      onAssign={(value) => void run(client.assign(reportId, value))}
+      failed={failed}
+      copy={copy}
+    />
+  );
+}
+
 /** A report for staff: status and assignee controls over the live conversation, with internal notes. */
 export function SupportStaffThread({ staff, onError, ...props }: SupportStaffThreadProps) {
   const copy = useMemo(() => resolveSupportCopy(props.copy), [props.copy]);
+  const report = useRef(onError);
+  report.current = onError;
+  // Chat marks what's read as it shows, but a ticket with no messages has no place to move: this marks the ticket itself.
+  const { client, reportId } = props;
+  useEffect(() => {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    client.markRead(reportId, { ticket: true }).catch((error: unknown) => report.current?.(error));
+  }, [client, reportId]);
   return (
     <ReportThreadShell
       {...props}

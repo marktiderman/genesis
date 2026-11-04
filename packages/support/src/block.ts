@@ -111,8 +111,8 @@ export function defineSupportBlock(options: SupportBlockOptions = {}) {
 /**
  * The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of
  * its own (the support block's thread route renders the conversation); it brings migrations
- * `0005_genesis_support_chat_on_tickets.sql` and `0006_genesis_support_chat_tenants.sql` from this
- * package, after support 0004 and genesis-chat's migrations.
+ * `0005_genesis_support_chat_on_tickets.sql`, `0006_genesis_support_chat_tenants.sql` and
+ * `0009_genesis_support_inbox.sql` from this package, after support 0004 and genesis-chat's migrations.
  */
 export function defineSupportChatBlock(options: { requires?: readonly string[] } = {}) {
   return defineBlock({
@@ -123,6 +123,8 @@ export function defineSupportChatBlock(options: { requires?: readonly string[] }
         // 0001 written for public.tickets and safe to re-run (apps that applied 0001 keep it), then tenancy.
         { package: "@marktiderman/genesis-support", file: "migrations/0005_genesis_support_chat_on_tickets.sql", test: "migrations/tests/0001_genesis_support_chat.test.sql" },
         { package: "@marktiderman/genesis-support", file: "migrations/0006_genesis_support_chat_tenants.sql", test: "migrations/tests/0006_genesis_support_chat_tenants.test.sql" },
+        // The agent inbox's read path.
+        { package: "@marktiderman/genesis-support", file: "migrations/0009_genesis_support_inbox.sql", test: "migrations/tests/0009_genesis_support_inbox.test.sql" },
       ],
     },
   });
