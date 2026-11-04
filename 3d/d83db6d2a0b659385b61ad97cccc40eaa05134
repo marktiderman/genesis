@@ -1,0 +1,19 @@
+packages/ui-native/figma/ThreadPage.figma.ts
+  s_109ad08c59054b::t_98da4a71d43f6d 1,5-7,11-14,20-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3dd83db6d2a0b659385b61ad97cccc40eaa05134",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
