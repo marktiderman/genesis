@@ -156,5 +156,9 @@ export function uncoveredBreaks(changes: readonly BumpChange[], registry: readon
     const [a, b] = bare(v).split(".").map(Number);
     return a === 0 ? `0.${b}` : String(a);
   };
-  return changes.filter((c) => major(c.from) !== major(c.to) && codemodsFor([c], registry).length === 0);
+  // A codemod covers a major only when it was declared for it: its version starts the major moved to.
+  // One declared at a minor fixes that minor's rule, and says nothing about the major's breaks.
+  const startsMajor = (v: string) => (bare(v).split(".").map(Number)[0] === 0 ? bare(v).split(".")[2] === "0" : /^\d+\.0\.0$/.test(bare(v)));
+  const covers = (mod: Codemod, c: BumpChange) => startsMajor(mod.version) && major(mod.version) === major(c.to);
+  return changes.filter((c) => major(c.from) !== major(c.to) && !codemodsFor([c], registry).some((mod) => covers(mod, c)));
 }

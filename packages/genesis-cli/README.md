@@ -495,16 +495,17 @@ doesn't fit, is a warning.
 2. Runs a codemod only when a release declares a breaking change it fixes: the registry in
    `src/upgrade/codemods.ts` names the package and the first version that breaks, and a codemod
    runs when a package moves across it. A major move (or a 0.x minor) without one is listed with
-   a link to its changelog (read from the Genesis repository) and the major changes in it, or "no
-   app impact" when it lists none: a dependency's bump passed along. When the changelog can't be
-   read, the link alone. `genesis codemod` lists them and `genesis codemod <id> [--dry-run]` runs
+   a link to its changelog (read from the Genesis repository) and the major changes in it, or a
+   note that it lists none of its own and moved with its dependencies (a peer's break can still
+   reach you). When the changelog can't be read, or doesn't reach that version, the link alone. A
+   codemod covers a major only when it was declared for that major. `genesis codemod` lists them and `genesis codemod <id> [--dry-run]` runs
    one by hand, for an app that moved its versions some other way:
 
    | Codemod | Runs when | Changes |
    | --- | --- | --- |
    | `genesis-core-2-scope-names` | genesis-core crosses 2.0.0 | Genesis API usage only, never an app's own names that match (a view field means one inside `defineView(…)` or an object typed `ViewDefinition`/`ViewField`; the prop means an attribute of `<NativeResourceView>` or a key of an object typed `NativeResourceViewProps`; each with the name imported from Genesis): a view field's `timeZone: "practice"` → `"scope"`, NativeResourceView's `practiceTimeZone` (attribute or object key) → `scopeTimeZone`, `resolveZone("practice", …)` → `"scope"`, and DisplayTimeZones' `practice` (a `{ viewer, practice }` object's key, `.practice` on a value from `useDisplayTimeZones()` or typed `DisplayTimeZones`) → `scope`. `scope={{ practiceId }}` needs nothing (it is the app's own key in ResourceScope's open slot); when a file reads `scope.practiceId` and nothing declares it, the codemod prints the one-line `ResourceScope` augmentation that types it. The doctor's `removed-scope-name` rule finds what it would rewrite. |
    | `genesis-cli-eslint-config` | genesis-cli crosses 1.20.0 | An ESLint flat config (`eslint.config.{js,mjs,cjs,ts,mts,cts}`) that doesn't load [`@marktiderman/genesis-cli/eslint`](#lint-rules) yet: adds the import (`require` or `import`, as the file is written) and spreads `genesis("native")` (an app with `expo` or `react-native`) or `genesis("web")` last into the array it exports, or into the array or arguments of the `defineConfig(…)` / `tseslint.config(…)` call it exports. A native app gets `eslint-plugin-testing-library` in its devDependencies when it's missing. A config that already loads the export is left alone; one it can't edit safely (built in a variable or a function, or exported twice) is left as it is, and it prints the two lines to add. A config that still inlines the starter's RNTL rules gets the spread and a note to delete the old block. Started from an older CLI, the upgrade doesn't have this codemod (see "Upgrading the CLI itself" below); the doctor's `genesis-eslint-config` then reports the app, and `genesis codemod genesis-cli-eslint-config` runs it. |
-   | `genesis-ui-overlays-fit-the-phone` | genesis-ui crosses 2.31.0 | The doctor's `ui/overlays-fit-the-phone`: in files that import genesis-ui, drops `max-h-[…vh]` from `DialogContent`, `AlertDialogContent` and `SheetContent` and moves a set height or minimum to `dvh`. See docs/MIGRATION.md. |
+   | `genesis-ui-overlays-fit-the-phone` | genesis-ui crosses 2.31.0 | The doctor's `ui/overlays-fit-the-phone`: in files that import genesis-ui, drops a `max-h-[…vh]` of 80 or more from `DialogContent`, `AlertDialogContent` and `SheetContent`, and moves a shorter cap, a set height or a minimum to `dvh`. See docs/MIGRATION.md. |
    | `genesis-ui-native-haptics` | genesis-ui-native crosses 3.7.0 | The doctor's `haptics-use-genesis`: turns calls on `import * as Haptics from "expo-haptics"` into `playHaptic(Haptics, "light")`, and prints the files with calls it can't name. See docs/MIGRATION.md. |
 3. Reinstalls. With pnpm, a release younger than the app's `minimumReleaseAge` is installed in
    loose mode and pnpm pins it in `minimumReleaseAgeExclude`, in the pnpm-workspace.yaml pnpm reads
@@ -560,7 +561,8 @@ doesn't fit, is a warning.
    And names each export the release added that the app builds by hand, with the swap to make,
    before the doctor's `shadowed-export` reports it. That swap isn't mechanical, so it's named and
    not made.
-5. Runs `genesis doctor` and prints a summary; `--pr` commits to `genesis-upgrade/<version>`,
+5. Runs `genesis doctor` and prints a summary (a changed file the repository ignores stays out of
+   the `--pr` commit, and the summary names it); `--pr` commits to `genesis-upgrade/<version>`,
    pushes and opens a pull request with `gh`. It checks first, before writing anything, that the
    tree is clean, a branch is checked out and the branch name is free; it commits the lockfile
    (found up to the repository's root), never `.genesis-next` files. `--dry-run` changes nothing,

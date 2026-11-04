@@ -1,9 +1,9 @@
 /**
- * What a major move with no codemod means for the app: a link to the package's changelog, and,
- * when it can be read, either the major changes it lists or "no app impact". The published
- * packages don't ship their changelogs, so the text comes from the Genesis repository. A major
- * with no major changes of its own is a dependency's bump passed along (changesets' fixed and
- * dependent bumps).
+ * What's known about a major move with no codemod: a link to the package's changelog, and, when
+ * it can be read, the major changes it lists. The published packages don't ship their changelogs,
+ * so the text comes from the Genesis repository. A major listing none of its own moved with its
+ * dependencies (changesets' fixed and dependent bumps), and a peer's break can still reach the
+ * app, so the line says only that.
  */
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
@@ -33,7 +33,7 @@ const firstLine = (entry: string) => {
   return line.length > 160 ? `${line.slice(0, 157)}…` : line;
 };
 
-/** The breaking entries a changelog lists between two versions; null when it lists neither version's range. */
+/** The breaking entries a changelog lists between two versions; null when it doesn't reach the version moved to. */
 export function breakingEntries(changelog: string, from: string, to: string): string[] | null {
   const low = bare(from);
   const high = bare(to);
@@ -44,7 +44,7 @@ export function breakingEntries(changelog: string, from: string, to: string): st
   for (const part of parts) {
     const version = part.split("\n", 1)[0]!.trim();
     if (compareVersions(version, low) <= 0 || compareVersions(version, high) > 0) continue;
-    matched = true;
+    if (compareVersions(version, high) === 0) matched = true;
     let inside = false;
     for (const line of part.split("\n")) {
       if (line.startsWith("### ")) inside = heading.test(line);
@@ -65,20 +65,23 @@ function repositoryDirectory(root: string, name: string): string | null {
   }
 }
 
-/** One summary line for each package's major move, once per package. */
+/** One summary line for each package's major move, once per package, from the lowest version any package.json moved from. */
 export async function breakLines(root: string, breaks: readonly BumpChange[], reader: ChangelogReader): Promise<string[]> {
-  const seen = new Set<string>();
-  const lines: string[] = [];
+  const lowest = new Map<string, BumpChange>();
   for (const b of breaks) {
-    if (seen.has(`${b.name}@${b.to}`)) continue;
-    seen.add(`${b.name}@${b.to}`);
+    const key = `${b.name}@${b.to}`;
+    const held = lowest.get(key);
+    if (!held || compareVersions(bare(b.from), bare(held.from)) < 0) lowest.set(key, b);
+  }
+  const lines: string[] = [];
+  for (const b of lowest.values()) {
     const directory = repositoryDirectory(root, b.name);
     const url = directory ? `https://github.com/${REPOSITORY}/blob/main/${directory}/CHANGELOG.md#${bare(b.to).replace(/\D/g, "")}` : `https://www.npmjs.com/package/${b.name}`;
     const head = `- \`${b.name}\` ${b.from} → ${b.to}`;
     const text = directory && reader.changelog ? await reader.changelog(directory) : null;
     const entries = text === null ? null : breakingEntries(text, b.from, b.to);
     if (entries === null) lines.push(`${head}: read [its changelog](${url})`);
-    else if (!entries.length) lines.push(`${head}: no app impact (no breaking changes of its own; [changelog](${url}))`);
+    else if (!entries.length) lines.push(`${head}: no breaking changes of its own; moved with its dependencies, see [its changelog](${url})`);
     else lines.push(`${head}: [changelog](${url})`, ...entries.slice(0, 5).map((e) => `  - ${e}`), ...(entries.length > 5 ? [`  - and ${entries.length - 5} more`] : []));
   }
   return lines;

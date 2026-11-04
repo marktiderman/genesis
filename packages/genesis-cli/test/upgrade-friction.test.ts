@@ -6,7 +6,7 @@
  * mechanical fix.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { folderSubstitutions, renderOwned } from "../src/blocks/app-folder.js";
@@ -16,7 +16,7 @@ import { GenesisConfigError, readGenesisConfig } from "../src/doctor/config.js";
 import { formatReport, runDoctor } from "../src/doctor/index.js";
 import { SKILL_PATH } from "../src/doctor/primitives.js";
 import { breakingEntries, breakLines } from "../src/upgrade/changelog.js";
-import { CODEMODS, codemodsFor } from "../src/upgrade/codemods.js";
+import { CODEMODS, codemodsFor, uncoveredBreaks } from "../src/upgrade/codemods.js";
 import { hapticsUseGenesis, overlaysFitThePhone, rewriteHaptics, rewriteOverlayHeights } from "../src/upgrade/doctor-rule-codemods.js";
 import { checkSubstitutions, runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
 import { expoApp, fakePackage, linkWorkspacePackage, makeApp, PACKAGES, read, snapshot, tempDir, writeTree } from "./blocks-helpers.js";
@@ -136,12 +136,40 @@ describe("an app in a sub-folder of its repository", () => {
     await upgrade(root, next(YML('      - "global.css"\n')));
     expect(readLock(root).files[FILE]!.pending).toBeDefined();
     rmSync(path.join(root, `${FILE}.genesis-next`));
-    // The app's edit is further from the template's change this time, so it merges.
+    // Worked in by hand: the file changed. The app's edit is further from the template's change this time, so it merges.
+    writeTree(root, { [FILE]: inMobile(YML('      - "global.css"\n')) });
     const report = await upgrade(root, next(YML('      - "global.css"\n').replace("# Paths are the app's.", "# Paths are from here.")), "1.3.0");
     expect(report.refreshed.find((r) => r.path === FILE)).toMatchObject({ outcome: "merged" });
     expect(read(root, FILE)).toContain("# Paths are from here.");
     expect(read(root, FILE)).toContain('- "mobile/src/**"');
     expect(existsSync(path.join(root, `${FILE}.genesis-next`))).toBe(false);
+  });
+
+  it("doesn't take a missing .genesis-next as resolved when the app's file never changed: the version it held isn't dropped", async () => {
+    const root = app(inMobile(YML()), {});
+    await upgrade(root, next(YML('      - "global.css"\n')));
+    const mine = read(root, FILE);
+    expect(readLock(root).files[FILE]!.pendingMine).toBe(sha256(mine));
+    // A teammate's clone, or a file deleted unread: .genesis-next is never committed.
+    rmSync(path.join(root, `${FILE}.genesis-next`));
+    const newer = YML('      - "global.css"\n').replace("# Paths are the app's.", "# Paths are from here.");
+    const report = await upgrade(root, next(newer), "1.3.0");
+    expect(report.refreshed.find((r) => r.path === FILE)).toMatchObject({ outcome: "kept-mine" });
+    expect(read(root, FILE)).toBe(mine);
+    expect(read(root, `${FILE}.genesis-next`)).toBe(raw(newer));
+    expect(report.summary).not.toContain(`${FILE}: merged`);
+  });
+
+  it("doesn't count a lock from before pendingMine as resolved", async () => {
+    const root = app(inMobile(YML()), {});
+    await upgrade(root, next(YML('      - "global.css"\n')));
+    const lock = readLock(root);
+    delete lock.files[FILE]!.pendingMine;
+    writeLock(root, lock);
+    rmSync(path.join(root, `${FILE}.genesis-next`));
+    writeTree(root, { [FILE]: inMobile(YML('      - "global.css"\n')) });
+    const report = await upgrade(root, next(YML('      - "global.css"\n').replace("# Paths are the app's.", "# Paths are from here.")), "1.3.0");
+    expect(report.refreshed.find((r) => r.path === FILE)).toMatchObject({ outcome: "kept-mine" });
   });
 
   it("leaves .github/workflows to the repository: nothing written, a template's change named once, no doctor warning", async () => {
@@ -208,6 +236,46 @@ describe("what's generated from the packages", () => {
     expect(existsSync(path.join(root, "features.json"))).toBe(false);
     await runUpgrade({ root, lookup: release({ [UI]: "1.3.0" }), install: false, doctor: false, dryRun: true });
     expect(read(root, SKILL_PATH)).toBe("old\n");
+  });
+
+  it("--pr leaves a gitignored file out of the commit and names it, instead of stopping on a new branch", async () => {
+    const root = expoApp({
+      "package.json": JSON.stringify({ name: "a", dependencies: { [UI]: "^1.0.0" } }),
+      [SKILL_PATH]: "old\n",
+      ".gitignore": "node_modules\nfeatures.json\n.claude/\n",
+      "AGENTS.md": "# Notes\n",
+    });
+    packages(root);
+    uiPackage(root, "1.0.0", ["Button"]);
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+    const origin = tempDir();
+    execFileSync("git", ["init", "-q", "--bare"], { cwd: origin });
+    git("init", "-q", "-b", "main");
+    git("config", "user.email", "test@example.com");
+    git("config", "user.name", "Test");
+    git("config", "commit.gpgsign", "false");
+    git("remote", "add", "origin", origin);
+    git("add", ".");
+    git("commit", "-q", "-m", "start");
+    const bin = tempDir();
+    writeTree(bin, { gh: '#!/bin/sh\necho "https://example.com/pull/1"\n' });
+    chmodSync(path.join(bin, "gh"), 0o755);
+    const was = process.env.PATH;
+    process.env.PATH = `${bin}${path.delimiter}${was}`;
+    try {
+      const report = await runUpgrade({ root, lookup: release({ [UI]: "1.2.0" }), install: false, doctor: false, pr: true, upstream: { read: () => null } as never });
+      expect(report.pr).toBe("https://example.com/pull/1");
+      expect(report.summary).toContain(`Changed but gitignored, so not in the pull request: `);
+      expect(report.summary).toContain("features.json");
+      expect(report.summary).toContain(SKILL_PATH);
+      expect(report.files).not.toContain("features.json");
+    } finally {
+      process.env.PATH = was;
+    }
+    expect(git("rev-parse", "--abbrev-ref", "HEAD")).toBe("genesis-upgrade/2.0.0");
+    const committed = git("show", "--name-only", "--format=", "HEAD").split("\n");
+    expect(committed).toEqual(expect.arrayContaining(["package.json", "AGENTS.md"]));
+    expect(committed).not.toContain("features.json");
   });
 
   it("carries on when a generator fails, with a warning", async () => {
@@ -306,9 +374,37 @@ describe("major moves with no codemod", () => {
     expect(breakingEntries(CHANGELOG, "^2.4.0", "^2.5.0")).toEqual([]);
     expect(breakingEntries(CHANGELOG, "0.2.0", "2.5.0")).toEqual(expect.arrayContaining(["Listed, in a move from 2.4.", "Already here."]));
     expect(breakingEntries(CHANGELOG, "^9.0.0", "^10.0.0")).toBeNull();
+    // Reaches into the range but not the version moved to (main behind the release): unknown, not empty.
+    expect(breakingEntries(CHANGELOG, "^3.0.0", "^4.0.0")).toBeNull();
   });
 
-  it("links each package's changelog, says no app impact when it lists no breaking change, and links when it can't be read", async () => {
+  it("reads a mixed workspace from the lowest version any package.json moved from", async () => {
+    const root = makeApp();
+    fakePackage(root, UI, { repository: { directory: "packages/ui" } });
+    const lines = await breakLines(
+      root,
+      [
+        { file: "a/package.json", name: UI, from: "^2.5.0", to: "^3.0.0" },
+        { file: "b/package.json", name: UI, from: "^1.0.0", to: "^3.0.0" },
+      ],
+      { changelog: () => "## 3.0.0\n\n### Patch Changes\n\n- a fix\n\n## 2.0.0\n\n### Major Changes\n\n- abc1234: The real break.\n" },
+    );
+    expect(lines[0]).toContain("^1.0.0 → ^3.0.0");
+    expect(lines).toContain("  - The real break.");
+  });
+
+  it("a codemod declared at a minor doesn't cover a major move across it; one declared for that major does", () => {
+    const names = (name: string, from: string, to: string) => uncoveredBreaks([{ file: "p", name, from, to }], CODEMODS).map((c) => c.name);
+    expect(names(UI, "^2.30.0", "^3.0.0")).toEqual([UI]);
+    expect(names("@marktiderman/genesis-ui-native", "^3.6.0", "^4.0.0")).toEqual(["@marktiderman/genesis-ui-native"]);
+    expect(names("@marktiderman/genesis-core", "^1.9.0", "^2.3.0")).toEqual([]);
+    // Moved past the major it was declared for.
+    expect(names("@marktiderman/genesis-core", "^1.9.0", "^3.0.0")).toEqual(["@marktiderman/genesis-core"]);
+    // A minor's codemod inside a major move's new line doesn't cover it either.
+    expect(names("@marktiderman/genesis-cli", "^0.9.0", "^1.25.0")).toEqual(["@marktiderman/genesis-cli"]);
+  });
+
+  it("links each package's changelog, says when it lists no breaking change of its own, and links when it can't be read", async () => {
     const root = makeApp();
     fakePackage(root, UI, { repository: { directory: "packages/ui" } });
     fakePackage(root, "@marktiderman/genesis-forms", { repository: { directory: "packages/forms" } });
@@ -327,7 +423,7 @@ describe("major moves with no codemod", () => {
     expect(lines).toEqual([
       `- \`${UI}\` ^2.4.0 → ^3.0.0: [changelog](https://github.com/marktiderman/genesis/blob/main/packages/ui/CHANGELOG.md#300)`,
       "  - `Tabs` takes `value`, not `active`.",
-      "- `@marktiderman/genesis-forms` ^3.0.0 → ^4.0.0: no app impact (no breaking changes of its own; [changelog](https://github.com/marktiderman/genesis/blob/main/packages/forms/CHANGELOG.md#400))",
+      "- `@marktiderman/genesis-forms` ^3.0.0 → ^4.0.0: no breaking changes of its own; moved with its dependencies, see [its changelog](https://github.com/marktiderman/genesis/blob/main/packages/forms/CHANGELOG.md#400)",
       "- `@marktiderman/genesis-data` ^1.0.0 → ^2.0.0: read [its changelog](https://github.com/marktiderman/genesis/blob/main/packages/data/CHANGELOG.md#200)",
       "- `@marktiderman/genesis-gone` ^1.0.0 → ^2.0.0: read [its changelog](https://www.npmjs.com/package/@marktiderman/genesis-gone)",
     ]);
@@ -336,7 +432,9 @@ describe("major moves with no codemod", () => {
   it("ends up in the upgrade's summary", async () => {
     const root = makeApp({ "package.json": JSON.stringify({ name: "a", dependencies: { [UI]: "^2.4.0" } }) });
     fakePackage(root, UI, { repository: { directory: "packages/ui" } });
-    const report = await runUpgrade({ root, lookup: { ...release({ [UI]: "3.0.0" }), changelog: () => CHANGELOG }, install: false, doctor: false, codemods: [] });
+    // The real registry: genesis-ui's codemod at 2.31.0 runs on this move and doesn't hide its major.
+    const report = await runUpgrade({ root, lookup: { ...release({ [UI]: "3.0.0" }), changelog: () => CHANGELOG }, install: false, doctor: false });
+    expect(report.codemods.map((c) => c.id)).toContain("genesis-ui-overlays-fit-the-phone");
     expect(report.summary).toContain("Major moves with no codemod:");
     expect(report.summary).toContain("`Tabs` takes `value`");
   });
@@ -350,8 +448,9 @@ const rulePattern = (folder: string, id: string) => {
 describe("genesis-ui-overlays-fit-the-phone", () => {
   const rule = rulePattern("ui", "overlays-fit-the-phone");
 
-  it("drops max-h in vh, keeps a set height in dvh, and satisfies the rule", () => {
+  it("drops a screen-sized max-h, keeps a chosen cap or set height in dvh, and satisfies the rule", () => {
     const cases: [string, string][] = [
+      ['<DialogContent className="max-h-[50vh] overflow-y-auto">', '<DialogContent className="max-h-[50dvh] overflow-y-auto">'],
       ['<DialogContent className="max-h-[85vh] overflow-y-auto">', '<DialogContent className="overflow-y-auto">'],
       ['<DialogContent className="max-h-[85vh]">', "<DialogContent>"],
       ['<SheetContent side="right" className="w-96 sm:max-h-[90.5vh] p-4">', '<SheetContent side="right" className="w-96 p-4">'],
@@ -368,6 +467,9 @@ describe("genesis-ui-overlays-fit-the-phone", () => {
   it("changes nothing else", () => {
     const text = '<div className="max-h-[85vh]" /><DialogContent className="max-h-dvh" /><Dialog><p className="h-[10vh]" /></Dialog>';
     expect(rewriteOverlayHeights(text)).toBe(text);
+    // A tag with no vh keeps its own spacing, and an empty className.
+    const untouched = '<DialogContent className="  a   b " /><SheetContent className="" />';
+    expect(rewriteOverlayHeights(untouched)).toBe(untouched);
   });
 
   it("runs on files that import genesis-ui, leaves a local copy's, and honours --dry-run", async () => {
@@ -402,6 +504,18 @@ describe("genesis-ui-native-haptics", () => {
   it("joins an existing import, and keeps the app's name for the module", () => {
     const text = rewriteHaptics('import * as H from "expo-haptics";\nimport { NativeButton } from "@marktiderman/genesis-ui-native";\nH.selectionAsync();\n').text;
     expect(text).toBe('import * as H from "expo-haptics";\nimport { NativeButton, playHaptic } from "@marktiderman/genesis-ui-native";\nplayHaptic(H, "select");\n');
+  });
+
+  it("doesn't import twice from a multi-line import, and leaves calls in comments", () => {
+    const multi = 'import * as Haptics from "expo-haptics";\nimport {\n  NativeButton,\n  playHaptic,\n} from "@marktiderman/genesis-ui-native";\nHaptics.selectionAsync();\n';
+    expect(rewriteHaptics(multi).text).toBe(multi.replace("Haptics.selectionAsync()", 'playHaptic(Haptics, "select")'));
+    const joined = rewriteHaptics('import * as Haptics from "expo-haptics";\nimport {\n  NativeButton,\n} from "@marktiderman/genesis-ui-native";\nHaptics.selectionAsync();\n').text;
+    expect(joined.match(/playHaptic\b/g)).toHaveLength(2);
+    expect(joined).toContain("NativeButton, playHaptic }");
+    const commented = `${head}// Haptics.selectionAsync();\n/*\n * Haptics.impactAsync();\n */\nconst a = 1; // Haptics.notificationAsync()\n`;
+    expect(rewriteHaptics(commented)).toEqual({ text: commented, left: false });
+    const mixed = rewriteHaptics(`${head}// Haptics.selectionAsync();\nHaptics.selectionAsync();\n`).text;
+    expect(mixed).toContain('// Haptics.selectionAsync();\nplayHaptic(Haptics, "select");');
   });
 
   it("leaves what it can't name, and says so", () => {

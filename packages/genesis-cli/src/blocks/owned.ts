@@ -135,7 +135,7 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
   if (theirsSha === entry.sha256) return { path: input.path, outcome: "unchanged" };
   const record = (sha: string) => {
     // Written again: neither pending nor deleted any more.
-    const { pending: _settled, deleted: _back, ...rest } = entry;
+    const { pending: _settled, pendingMine: _was, deleted: _back, ...rest } = entry;
     lock.files[input.path] = { ...rest, sha256: sha, ...(input.version ? { version: input.version } : {}) };
   };
   if (mine === null) {
@@ -154,7 +154,7 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
   // that version. The app's file is the resolution; that version becomes the base.
   if (entry.pending === theirsSha) {
     if (existingNext === null) {
-      const { pending: _done, ...rest } = entry;
+      const { pending: _done, pendingMine: _was, ...rest } = entry;
       lock.files[input.path] = { ...rest, sha256: theirsSha, ...(input.version ? { version: input.version } : {}) };
       return { path: input.path, outcome: "resolved", detail: "your file is kept as the resolution of the last upgrade" };
     }
@@ -164,7 +164,7 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
   const writeNext = (text: string): string | null => {
     if (existingNext !== null && existingNext !== text) return `${next} is already there with other text; resolve it (and delete it) first`;
     write(next, text);
-    lock.files[input.path] = { ...entry, pending: theirsSha };
+    lock.files[input.path] = { ...entry, pending: theirsSha, pendingMine: mineSha };
     return null;
   };
   if (!options.keepMine && input.base !== null) {

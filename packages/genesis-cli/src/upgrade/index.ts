@@ -28,7 +28,7 @@
  * migrations and neither refreshes nor adds files under supabase/: the summary says where to
  * run genesis upgrade for them. Lock entries under supabase/ are left as they are.
  */
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
@@ -406,9 +406,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     // The lock's checksum is of this text, or of it before `appFolder` was set.
     const was = sourceText(root, entry.source, lock.substitutions);
     const taken = [sha256(text), ...(was === null ? [] : [sha256(was)])];
-    // Or the last upgrade's .genesis-next was dealt with and deleted, with no run in between:
-    // that version is what the app's file was resolved against.
-    const resolved = entry.pending && taken.includes(entry.pending) && readApp(root, `${file}.genesis-next`) === null;
+    // Or the last upgrade's .genesis-next was worked in and deleted, with no run in between: that
+    // version is what the app's file was resolved against. Its being gone isn't enough (it's never
+    // committed), so the app's file must have changed since it was written.
+    const mine = entry.pending && entry.pendingMine && taken.includes(entry.pending) && readApp(root, `${file}.genesis-next`) === null ? readApp(root, file) : null;
+    const resolved = mine !== null && sha256(mine) !== entry.pendingMine;
     if (taken.includes(entry.sha256) || resolved) bases.set(file, text);
   }
   // The export names before the install, to see which ones the release adds.
@@ -662,7 +664,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     }
   }
 
+  // `git add` refuses an ignored path by name, which would stop --pr part way through.
+  const ignored = options.pr && !options.dryRun ? gitIgnored(root, [...files]) : [];
+  for (const f of ignored) files.delete(f);
+
   const lines = [bumpSummary(release.version, changes, skipped)];
+  if (ignored.length) lines.push("", `Changed but gitignored, so not in the pull request: ${ignored.join(", ")}.`);
   if (codemodRuns.length) lines.push("", "Codemods:", "", ...codemodRuns.map((c) => `- ${c.id}${c.files.length ? `: ${c.files.join(", ")}` : ""}`));
   if (breaks.length) lines.push("", "Major moves with no codemod:", "", ...(await breakLines(root, breaks, lookup)));
   if (swaps.length) lines.push("", "New exports this app builds by hand (`shadowed-export` reports each until it's swapped or renamed):", "", ...swapLines(swaps));
@@ -722,6 +729,13 @@ export function checkSubstitutions(substitutions: Record<string, string> | undef
   }
 }
 
+/** Those of `files` git ignores (a tracked file never counts: `git add` takes it). */
+function gitIgnored(root: string, files: readonly string[]): string[] {
+  if (!files.length) return [];
+  const result = spawnSync("git", ["check-ignore", "--stdin", "-z"], { cwd: root, input: files.join("\0"), encoding: "utf8" });
+  return result.status === 0 ? result.stdout.split("\0").filter(Boolean) : [];
+}
+
 /** Before anything is written: a --pr run needs a clean tree, a branch to start from, and a free branch name. */
 function checkPullRequest(root: string, version: string): string {
   const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -752,7 +766,8 @@ function openPullRequest(root: string, version: string, report: UpgradeReport, b
     for (const f of ["pnpm-lock.yaml", "bun.lock", "bun.lockb", "package-lock.json", "yarn.lock"]) if (existsSync(path.join(dir, f))) lockfiles.push(path.relative(root, path.join(dir, f)));
     if (lockfiles.length || dir === top || path.dirname(dir) === dir) break;
   }
-  const paths = [...report.files.filter((f) => existsSync(path.join(root, f))), ...lockfiles];
+  const ignoredLocks = gitIgnored(root, lockfiles);
+  const paths = [...report.files.filter((f) => existsSync(path.join(root, f))), ...lockfiles.filter((f) => !ignoredLocks.includes(f))];
   git("add", "--", ...paths);
   // What the overlay rebase deleted (a file gone upstream, or the whole overlay), staged as deletions.
   const overlayDirs = report.overlays.filter((o) => !o.skipped && !o.conflicts.length && (o.remove || [...o.writes.values()].includes(null))).map((o) => o.rel);
