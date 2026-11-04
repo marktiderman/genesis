@@ -4386,7 +4386,7 @@
     {
       "id": "support-helpdesk",
       "name": "Help desk",
-      "summary": "genesis-support as a help desk any tenant of an app can run (ADR 0015): reports become tickets, every ticket belongs to the tenant the app's viewer-people hook names (the app's own tenant for its own support), tenant agents and admins handle their tenant's tickets and nobody else's, reading and handling are separate checks, a tenant turns it on or off with tenant_features, and email routes to a tenant. On the web, SupportAgentInbox is a tenant's inbox on genesis-ui's InboxLayout and ThreadPage: Mine, Unassigned and All, the thread with reply and internal note, status, assignee and a details panel the app can add to. Still to come: the messenger (Home, Messages, Help), and a help center with AI answers.",
+      "summary": "genesis-support as a help desk any tenant of an app can run (ADR 0015): reports become tickets, every ticket belongs to the tenant the app's viewer-people hook names (the app's own tenant for its own support), tenant agents and admins handle their tenant's tickets and nobody else's, reading and handling are separate checks, a tenant turns it on or off with tenant_features, and email routes to a tenant. On the web, SupportAgentInbox is a tenant's inbox on genesis-ui's InboxLayout and ThreadPage: Mine, Unassigned and All, the thread with reply and internal note, status, assignee and a details panel the app can add to. People have a messenger (Home, Messages, Help) on web and phone, opening in the chat dock when the app has one, and a help center a tenant's agents write, with optional AI answers that cite its articles and hand off to a person, and pages for a public site.",
       "category": "Support",
       "status": "building",
       "claimedBy": "mark",
@@ -4423,7 +4423,13 @@
           "packages/support/migrations/0008_genesis_support_email_tenants.sql",
           "packages/support/migrations/0009_genesis_support_inbox.sql",
           "packages/support/src/client.ts",
-          "packages/support/src/web-chat/agent-inbox.tsx"
+          "packages/support/src/web-chat/agent-inbox.tsx",
+          "packages/support/migrations/0010_genesis_support_help_center.sql",
+          "packages/support/src/web-chat/messenger.tsx",
+          "packages/support/src/web-chat/help-admin.tsx",
+          "packages/support/src/native/help.tsx",
+          "packages/support/src/ai.ts",
+          "packages/support/src/help-pages.ts"
         ],
         "docs": [
           "packages/support/README.md",

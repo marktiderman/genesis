@@ -7,7 +7,7 @@
  * whose rendering moves onto genesis-ui's `ThreadPage` (and `InboxPage`, `ComposerBar`) with
  * chat's builder. This screen keeps its report header and staff controls and follows that move.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@marktiderman/genesis-ui";
 import { chatKeys, useChat } from "@marktiderman/genesis-chat/react";
@@ -137,6 +137,14 @@ function StaffControls({ client, reportId, status, reporter, conversationId, sta
 /** A report for staff: status and assignee controls over the live conversation, with internal notes. */
 export function SupportStaffThread({ staff, onError, ...props }: SupportStaffThreadProps) {
   const copy = useMemo(() => resolveSupportCopy(props.copy), [props.copy]);
+  const report = useRef(onError);
+  report.current = onError;
+  // Chat marks what's read as it shows, but a ticket with no messages has no place to move: this marks the ticket itself.
+  const { client, reportId } = props;
+  useEffect(() => {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    client.markRead(reportId, { ticket: true }).catch((error: unknown) => report.current?.(error));
+  }, [client, reportId]);
   return (
     <ReportThreadShell
       {...props}

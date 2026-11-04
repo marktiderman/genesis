@@ -211,7 +211,7 @@ function Messages({ client, tenantId, copy, go, here, report }: Shared) {
 }
 
 /** The AI's answer, or that it has none, always with the way to a person. */
-function AnswerCard({ ask, copy, go, here, report }: { ask: UseHelpAsk } & Pick<Shared, "copy" | "go" | "here" | "report">) {
+function AnswerCard({ ask, titles, copy, go, here, report }: { ask: UseHelpAsk; titles: ReadonlyMap<string, { slug: string; title: string }> } & Pick<Shared, "copy" | "go" | "here" | "report">) {
   const { state } = ask;
   const [failed, setFailed] = useState(false);
   const [handing, setHanding] = useState(false);
@@ -243,7 +243,7 @@ function AnswerCard({ ask, copy, go, here, report }: { ask: UseHelpAsk } & Pick<
           <p className="text-xs font-medium text-muted-foreground">{copy.messenger.aiLabel}</p>
           <p className="whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">{state.answer}</p>
           <p className="text-xs text-muted-foreground">{copy.messenger.aiNote}</p>
-          <CitedArticles ids={state.articleIds} copy={copy} go={go} here={here} />
+          <CitedArticles ids={state.articleIds} titles={titles} copy={copy} go={go} here={here} />
         </>
       ) : (
         <p role="status" className="whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">
@@ -275,33 +275,24 @@ function AnswerCard({ ask, copy, go, here, report }: { ask: UseHelpAsk } & Pick<
   );
 }
 
-const CitedContext = { Provider: null };
-void CitedContext;
-
-function CitedArticles({ ids, copy, go, here }: { ids: readonly string[] } & Pick<Shared, "copy" | "go" | "here">) {
+function CitedArticles({ ids, copy, go, here, titles }: { ids: readonly string[]; titles: ReadonlyMap<string, { slug: string; title: string }> } & Pick<Shared, "copy" | "go" | "here">) {
   return ids.length ? (
     <nav aria-label={copy.messenger.aiSources} className="flex flex-col gap-1 text-sm">
       <span className="text-xs text-muted-foreground">{copy.messenger.aiSources}</span>
       {ids.map((id) => (
-        <CitedArticle key={id} id={id} copy={copy} go={go} here={here} />
+        <button
+          key={id}
+          type="button"
+          onClick={() => go({ name: "article", slug: titles.get(id)?.slug ?? id, from: here })}
+          className="min-h-11 text-left text-primary underline underline-offset-2"
+          data-testid={`genesis-support-messenger-ai-source-${id}`}
+        >
+          {titles.get(id)?.title ?? copy.messenger.aiSources}
+        </button>
       ))}
     </nav>
   ) : null;
 }
-
-function CitedArticle({ id, go, here }: { id: string } & Pick<Shared, "copy" | "go" | "here">) {
-  const titles = useContextTitles();
-  const known = titles.get(id);
-  return (
-    <button type="button" onClick={() => go({ name: "article", slug: known?.slug ?? id, from: here })} className="min-h-11 text-left text-primary underline underline-offset-2" data-testid={`genesis-support-messenger-ai-source-${id}`}>
-      {known?.title ?? id}
-    </button>
-  );
-}
-
-// The articles a citation can name, by id, from the list Help already read.
-const titlesRef: { current: ReadonlyMap<string, { slug: string; title: string }> } = { current: new Map() };
-const useContextTitles = () => titlesRef.current;
 
 function Help({
   client,
@@ -321,7 +312,8 @@ function Help({
   useReported(collections.error, report);
   useReported(articles.error, report);
   useReported(hits.error, report);
-  titlesRef.current = useMemo(() => new Map((articles.data ?? []).map((a) => [a.id, { slug: a.slug, title: a.title }])), [articles.data]);
+  // What a citation names, by id, from the list this screen already read.
+  const titles = useMemo(() => new Map((articles.data ?? []).map((a) => [a.id, { slug: a.slug, title: a.title }])), [articles.data]);
   const open = useCallback((slug: string) => go({ name: "article", slug, from: here }), [go, here]);
   const known = new Set((collections.data ?? []).map((c) => c.id));
   const loose = (articles.data ?? []).filter((a) => !a.collectionId || !known.has(a.collectionId));
@@ -338,7 +330,7 @@ function Help({
     <div data-testid="genesis-support-messenger-help" className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-col gap-3 p-3">
         <SearchForm copy={copy} initial={query} onSearch={onSearch} />
-        {aiOn ? <AnswerCard ask={ask} copy={copy} go={go} here={here} report={report} /> : null}
+        {aiOn ? <AnswerCard ask={ask} titles={titles} copy={copy} go={go} here={here} report={report} /> : null}
       </div>
       {query ? (
         <InboxPage
@@ -497,7 +489,7 @@ function Conversation({ client, tenantId, copy, report, id, resolveUser }: Share
   useEffect(() => client.subscribe(id, refresh), [client, id, refresh]);
 
   // Read while it's in front of them: as it shows, as something new arrives, and on coming back.
-  const latest = replies.data ? (replies.data[replies.data.length - 1]?.id ?? "none") : null;
+  const latest = replies.isFetchedAfterMount && !replies.isError && replies.data ? (replies.data[replies.data.length - 1]?.id ?? "none") : null;
   useEffect(() => {
     if (latest === null) return;
     const read = () => {

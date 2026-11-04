@@ -1,6 +1,6 @@
 # pgTAP for package migrations
 
-CI's `Package pgTAP` job runs the pgTAP beside every package's migrations with `docker.sh`. These scripts run them on a
+CI's `Package pgTAP` job runs the pgTAP beside every package's migrations, and genesis-supabase's testing helpers', with `docker.sh`. These scripts run them on a
 plain Postgres (17 in CI, 16 also tested) with pgTAP installed, over `supabase-stubs.sql`: just
 enough of Supabase's `auth` and `storage` schemas and roles. It isn't a Supabase stack. For an
 app's full suite, use `supabase test db` or the `supabase/postgres` image.
@@ -11,7 +11,9 @@ scripts/pgtap-local/docker.sh helpdesk chat    # some of them
 ```
 
 `suites.sh` lists the suites: each one's migrations, in the order an app applies them, and its
-tests. **A new migration or test goes in it**: one in no suite fails the job.
+tests. **A new migration or test goes in it**: one in no suite fails the job. `helpdesk-upgrade` applies
+the released support migrations, seeds rows (`upgrade-seed.sql`), upgrades them and checks what moved
+(`upgrade-check.test.sql`).
 
 To run one file against a Postgres of your own:
 

@@ -33,4 +33,8 @@ create or replace function realtime.topic() returns text language sql stable as 
 create or replace function realtime.send(payload jsonb, event text, topic text, private boolean default true) returns void language sql as $$ select null::void $$;
 grant usage on schema realtime to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
-alter default privileges in schema public grant all on tables to service_role;
+-- Supabase's default grants: what a migration creates is open to these roles until it revokes it,
+-- so a test that anon can't reach something means the migration closed it.
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;

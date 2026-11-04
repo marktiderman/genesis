@@ -240,6 +240,59 @@ One difference: a chat message carries its sender's id, so the person can learn 
 member answered (support_replies hid it). Name staff as "Support" in `resolveUser` (the web views
 do by default for the person).
 
+## The help desk (the `support-helpdesk` block)
+
+`genesis add support-helpdesk` copies `migrations/0010_genesis_support_help_center.sql`. It's on for a
+tenant once `support-helpdesk` is enabled for it in `tenant_features`; the app's own tenant is always
+on.
+
+**The messenger.** `<SupportMessenger>` is Home (greeting, article search, the latest conversation),
+Messages and Help. A first message becomes a ticket in the tenant, and the reply arrives live.
+`<SupportMessengerLauncher>` is a button with the unread count that opens it in the chat dock when
+the app has `ChatDockProvider`, else in a sheet. On the phone: `useMessengerHome`, `useHelpCenter`,
+`useHelpArticle` with `HelpArticleBody`, and `useStartConversation`, at the block's routes, with
+`tenantId` and `askAi` given to `createSupport`.
+
+```tsx
+import { SupportMessengerLauncher } from "@marktiderman/genesis-support/web-chat";
+import type { SupportClient } from "@marktiderman/genesis-support";
+
+declare const support: SupportClient;
+declare const workspaceId: string;
+
+export const help = <SupportMessengerLauncher client={support} tenantId={workspaceId} />;
+```
+
+**The help center.** Articles are a tenant's own: collections, drafts, and published articles its
+people can read. Agents write them in `<SupportHelpCenterAdmin>`, or with `client.saveHelpArticle`. A
+body is plain text, and a blank line starts a paragraph. Anon reads nothing through the database: for
+a public help center, `helpCenterPages({ collections, articles })` gives genesis-sites pages to add
+to the tenant's site and publish.
+
+**AI answers** are off until a tenant opts in, with an enabled `support-helpdesk-ai` row in
+`tenant_features`. The AI answers only from that tenant's published articles and cites them; an
+answer that cites anything else isn't kept, and every outcome offers a person.
+
+1. Register the task (server only). Give `defineAi` your `safety` protocol: the task hands it what the
+   person wrote, before any model. Install `@marktiderman/genesis-ai` and `zod`.
+
+   ```ts
+   import { createAiHandler } from "@marktiderman/genesis-ai/server";
+   import type { Ai } from "@marktiderman/genesis-ai";
+   import { supportHelpAnswerTask } from "@marktiderman/genesis-support/ai";
+
+   declare const ai: Ai;
+
+   export const POST = createAiHandler({ ai, tasks: [supportHelpAnswerTask()], context: async () => null });
+   ```
+
+2. Pass `askAi` to the messenger: `askAi={(questionId) => run({ questionId })}`, with `run` from
+   `useAiTask(HELP_ANSWER_TASK)`.
+
+A resolution is a question whose person said the answer helped: `help_questions.outcome = 'resolved'`,
+readable by the tenant's agents, beside genesis-ai's usage row for each call. The person's own click
+records it, so it's a count of what people said, not a billing record.
+
 ## Email tickets (the `support-email` block)
 
 Email is a ticket channel (ADR 0011). `genesis add support-email` copies
@@ -368,8 +421,11 @@ its own help desk and your app runs its own support the same way. With the suppo
 
 ## Not yet
 
-- No agent inbox on the phone yet: `SupportAgentInbox` is web only. Without the support-chat block,
-  staff work through the database functions.
+- No agent inbox or article editor on the phone yet: `SupportAgentInbox` and
+  `SupportHelpCenterAdmin` are web only. Without the support-chat block, staff work through the
+  database functions.
+- Articles are plain text, with no images or formatting. A messenger's person is signed in: there's
+  no anonymous or signed-token identity yet.
 - The agent inbox shows a ticket's latest 200 messages, and its queues refresh on a timer, not live.
   An open ticket's thread is live.
 - The agent inbox doesn't list who can be assigned: pass `agents`, with each agent's login. Agent

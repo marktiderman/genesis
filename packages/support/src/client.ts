@@ -173,6 +173,8 @@ export interface SupportReply {
 export interface SupportReplyAttachment extends Omit<SupportChatAttachment, "url"> {
   /** A signed URL (or the attachment's own https URL); null when it couldn't be signed. */
   url: string | null;
+  /** The URL is a signed one from this app's storage. False: an address from outside it. */
+  stored: boolean;
 }
 
 export interface SupportAttachmentView {
@@ -509,7 +511,11 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       createdAt: m.createdAt,
       internal: m.visibility === "observers",
       seq: m.seq,
-      attachments: m.attachments.map((a) => ({ ...a, url: (a.path ? signed[a.path] : null) ?? a.url ?? null })),
+      // A path that doesn't sign has no URL: it never falls back to the address the message carries.
+      attachments: m.attachments.map((a) => {
+        const url = a.path ? (signed[a.path] ?? null) : (a.url ?? null);
+        return { ...a, url, stored: Boolean(a.path && url) };
+      }),
     };
   }
 

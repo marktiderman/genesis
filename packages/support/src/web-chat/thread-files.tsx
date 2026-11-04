@@ -1,6 +1,6 @@
 /**
- * A reply's files in `ThreadPage`, whose own attachment draws images only. A photo in this app's
- * storage shows; anything else is a link. A file from outside storage names its host and loads
+ * A reply's files in `ThreadPage`, whose own attachment draws images only. A photo signed from this
+ * app's storage shows; anything else is a link. A file from outside storage names its host and loads
  * nothing until it's asked for: whoever sent it chose that address.
  */
 import { createContext, useContext } from "react";
@@ -30,7 +30,7 @@ export function threadFiles(replies: readonly SupportReply[], copy: SupportCopy)
   const map = new Map<string, ThreadFile>();
   for (const r of replies) {
     for (const a of r.attachments ?? []) {
-      const stored = Boolean(a.path);
+      const stored = a.stored;
       const name = a.name ?? copy.agentInbox.openFile;
       map.set(a.id, { image: stored && (a.kind === "image" || Boolean(a.mime?.startsWith("image/"))), name: stored ? name : `${name} (${hostOf(a.url)})` });
     }

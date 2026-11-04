@@ -8,7 +8,7 @@
 -- of ta; c4 another agent of ta; e5 an agent of tb; f6 the app's staff; c9 the admin of ta.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(59);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -208,8 +208,20 @@ select is(pg_temp.names(array(select t.id from public.tickets t)), array['ta1', 
 select is(pg_temp.names(array(select t.id from public.support_reports t)), array['ta1', 'ta2', 'tc3'], '... through the old-name view too');
 select is((select array_agg(q.subject_id::uuid) from genesis_chat.observed('support') q where q.subject_id::uuid = any (array[pg_temp.id('tb1'), pg_temp.id('td1')])), null,
           'chat''s observed queue holds no other tenant''s ticket');
+select ok(exists (select 1 from genesis_chat.observed('support') q where q.subject_id = pg_temp.id('ta1')::text), '... and does hold their own tenant''s');
 select pg_temp.sign_in('f6');
 select is(pg_temp.names(array(select t.id from public.tickets t)), array['td1'], 'row security: the app''s staff list only the app''s own tickets');
+
+select ok(exists (select 1 from genesis_chat.observed('support') q where q.subject_id = pg_temp.id('td1')::text), 'chat''s observed queue holds the app''s own ticket for its staff');
+
+-- An email ticket's sender. The columns are the support-email block's: added here for an app without it.
+reset role;
+alter table public.tickets add column if not exists channel text, add column if not exists requester_email text, add column if not exists requester_name text;
+update public.tickets set channel = 'email', requester_email = 'ada@example.test', requester_name = 'Ada L' where id = pg_temp.id('td1');
+set local role authenticated;
+select is((select q.channel from public.support_agent_tickets() q where q.id = pg_temp.id('td1')), 'email', 'the row says it came by email');
+select is((select q.requester_email from public.support_agent_tickets() q where q.id = pg_temp.id('td1')), 'ada@example.test', '... from whom');
+select is((select q.requester_name from public.support_agent_tickets() q where q.id = pg_temp.id('td1')), 'Ada L', '... by name');
 
 reset role;
 select * from finish();
