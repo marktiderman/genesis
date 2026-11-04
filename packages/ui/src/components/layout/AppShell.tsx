@@ -9,7 +9,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 import {
   Menu,
@@ -49,7 +48,7 @@ import {
 import { cn } from "../../utils";
 import { useIsMobile } from "../../hooks/use-mobile";
 import { useUiMessages } from "../../messages";
-import { readStoredOptions, writeStoredOptions } from "../../option-storage";
+import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
 import {
   DefaultLink,
   isPathActive,
@@ -197,57 +196,26 @@ const OPTION_DEFAULTS: Required<
   scrollRoot: "container",
 };
 
-// The user's collapse choice lives at `${optionsStorageKey}:collapsed` as
-// "1" / "0"; no entry means they haven't chosen. It is read through
-// `useSyncExternalStore`, so a client-only mount reads it during the first
-// render (no expanded-then-collapsed flash), hydration uses the server
-// snapshot (no mismatch), and every shell on the page, and other tabs via the
-// `storage` event, stays in step.
-const collapsedListeners = new Set<() => void>();
-
-function subscribeCollapsed(listener: () => void): () => void {
-  collapsedListeners.add(listener);
-  if (typeof window !== "undefined") {
-    window.addEventListener("storage", listener);
-  }
-  return () => {
-    collapsedListeners.delete(listener);
-    if (typeof window !== "undefined") {
-      window.removeEventListener("storage", listener);
+// The user's options object, as JSON; anything but an object reads as none.
+const NO_OVERRIDES: Partial<AppShellOptions> = {};
+const OPTIONS_FORMAT = {
+  parse: (raw: string): Partial<AppShellOptions> | undefined => {
+    try {
+      const value = JSON.parse(raw) as unknown;
+      return value && typeof value === "object" && !Array.isArray(value) ? (value as Partial<AppShellOptions>) : undefined;
+    } catch {
+      return undefined;
     }
-  };
-}
+  },
+};
 
-function readStoredCollapsed(key: string): boolean | undefined {
-  if (typeof window === "undefined") return undefined;
-  try {
-    const raw = localStorage.getItem(`${key}:collapsed`);
-    if (raw === "1") return true;
-    if (raw === "0") return false;
-    return undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function writeStoredCollapsed(key: string, collapsed: boolean | undefined) {
-  if (typeof window === "undefined") return;
-  try {
-    if (collapsed === undefined) localStorage.removeItem(`${key}:collapsed`);
-    else localStorage.setItem(`${key}:collapsed`, collapsed ? "1" : "0");
-  } catch {
-    // quota / private mode
-  }
-  collapsedListeners.forEach((listener) => listener());
-}
-
-function useStoredCollapsed(key: string | undefined): boolean | undefined {
-  return useSyncExternalStore(
-    subscribeCollapsed,
-    () => (key ? readStoredCollapsed(key) : undefined),
-    () => undefined,
-  );
-}
+// The user's collapse choice lives at `${optionsStorageKey}:collapsed` as "1" / "0"; no entry
+// means they haven't chosen. usePersistedUiState reads it SSR-safely (no expanded-then-collapsed
+// flash, no hydration mismatch) and keeps every shell on the page, and other tabs, in step.
+const COLLAPSED_FORMAT = {
+  parse: (raw: string) => (raw === "1" ? true : raw === "0" ? false : undefined),
+  serialize: (collapsed: boolean | undefined) => (collapsed ? "1" : "0"),
+};
 
 function isTypingTarget(el: EventTarget | null): boolean {
   if (!el || typeof (el as HTMLElement).tagName !== "string") return false;
@@ -1208,14 +1176,11 @@ export function AppShell({
   const parentNavigation =
     parentNavigationProp === undefined ? derived?.parent : parentNavigationProp ?? undefined;
 
-  const [userOverrides, setUserOverrides] = useState<Partial<AppShellOptions>>(
-    {},
-  );
-  // Tracks which storage key the current overrides were hydrated from, so a
-  // key change can't flush the previous key's overrides into the new key
-  // before the read effect re-hydrates.
-  const [hydratedKey, setHydratedKey] = useState<string | undefined>(
-    optionsStorageKey ? undefined : "",
+  // The user's sidebar options, under the app's storage key (none: this session only).
+  const [userOverrides, setUserOverrides] = usePersistedUiState<Partial<AppShellOptions>>(
+    optionsStorageKey ?? null,
+    NO_OVERRIDES,
+    OPTIONS_FORMAT,
   );
 
   // Close the drawer on any path change (product switcher, deep links, …).
@@ -1250,22 +1215,6 @@ export function AppShell({
   const hasUser = userSlot != null;
   const hasFooter = footer != null;
   const hasLogo = Boolean(logo || appLogo);
-
-  useEffect(() => {
-    if (!optionsStorageKey) {
-      setUserOverrides({});
-      setHydratedKey("");
-      return;
-    }
-    setUserOverrides(readStoredOptions<AppShellOptions>(optionsStorageKey));
-    setHydratedKey(optionsStorageKey);
-  }, [optionsStorageKey]);
-
-  useEffect(() => {
-    // Persist only once overrides belong to the current key (see hydratedKey).
-    if (!optionsStorageKey || hydratedKey !== optionsStorageKey) return;
-    writeStoredOptions<AppShellOptions>(optionsStorageKey, userOverrides);
-  }, [optionsStorageKey, userOverrides, hydratedKey]);
 
   const lockedOptions = optionsProp?.lockedOptions;
 
@@ -1318,11 +1267,12 @@ export function AppShell({
   // Collapse precedence: controlled prop > the user's own choice (stored, or
   // this session's when there is no storage key) > this page's default
   // (prop, then the navigation trail) > the app default > expanded.
-  const storedCollapsed = useStoredCollapsed(optionsStorageKey);
-  const [sessionCollapsed, setSessionCollapsed] = useState<boolean | undefined>(
+  // Without a storage key, the choice lasts this session (usePersistedUiState's null key).
+  const [userCollapsed, setUserCollapsed] = usePersistedUiState<boolean | undefined>(
+    optionsStorageKey ? `${optionsStorageKey}:collapsed` : null,
     undefined,
+    COLLAPSED_FORMAT,
   );
-  const userCollapsed = optionsStorageKey ? storedCollapsed : sessionCollapsed;
   const pageDefaultCollapsed =
     defaultCollapsedProp ??
     derived?.navDefaultCollapsed ??
@@ -1337,12 +1287,11 @@ export function AppShell({
   const setCollapsed = useCallback(
     (next: boolean) => {
       if (!isCollapseControlled) {
-        if (optionsStorageKey) writeStoredCollapsed(optionsStorageKey, next);
-        else setSessionCollapsed(next);
+        setUserCollapsed(next);
       }
       onCollapsedChange?.(next);
     },
-    [isCollapseControlled, optionsStorageKey, onCollapsedChange],
+    [isCollapseControlled, setUserCollapsed, onCollapsedChange],
   );
 
   const sidebarRef = useRef<HTMLElement>(null);
@@ -1581,7 +1530,7 @@ export function AppShell({
           </ul>
           {optionsStorageKey &&
           (Object.keys(userOverrides).length > 0 ||
-            storedCollapsed !== undefined) ? (
+            userCollapsed !== undefined) ? (
             <Button
               type="button"
               variant="ghost"
@@ -1590,7 +1539,7 @@ export function AppShell({
               onClick={() => {
                 setUserOverrides({});
                 // Hand the sidebar back to the page defaults too.
-                writeStoredCollapsed(optionsStorageKey, undefined);
+                setUserCollapsed(undefined);
               }}
               data-testid="app-shell-options-reset"
               aria-label="Reset sidebar options"

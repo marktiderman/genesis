@@ -278,7 +278,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
       testID={testID}
       accessibilityElementsHidden={invisible || undefined}
       importantForAccessibility={invisible ? "no-hide-descendants" : undefined}
-      style={{ paddingHorizontal: 8, paddingTop: row.groupStart ? 8 : 2, backgroundColor: props.highlighted ? colors.fill : undefined, display: invisible ? "none" : undefined }}
+      style={{ paddingTop: row.groupStart ? 8 : 2, borderRadius: 12, backgroundColor: props.highlighted ? colors.fill : undefined, display: invisible ? "none" : undefined }}
     >
       {row.showName && sender?.name ? (
         <NativeText preset="caption" style={{ marginLeft: group ? 48 : 12, marginBottom: 2, color: colors.secondaryLabel }}>

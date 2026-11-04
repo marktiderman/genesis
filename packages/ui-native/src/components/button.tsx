@@ -5,6 +5,7 @@
  */
 import { type VariantProps, cva } from "class-variance-authority";
 import { ActivityIndicator, Pressable, Text, type AccessibilityState } from "react-native";
+import { useHaptics, type HapticKind } from "../hooks/use-haptics";
 import { cn } from "../utils";
 
 const buttonVariants = cva(
@@ -66,6 +67,11 @@ export interface NativeButtonProps
   accessibilityHint?: string;
   /** Merged with the button's own `disabled` and `busy`: `{ selected: true }` for a vote cast, a filter on. */
   accessibilityState?: AccessibilityState;
+  /**
+   * A haptic through `GenesisModules.haptics` (`light` for a vote, `success` for a save): it plays
+   * when the press counts, except `select`, which ticks on press-in as `usePressFeedback` does. Default none.
+   */
+  haptic?: HapticKind | undefined;
 }
 
 function NativeButton({
@@ -78,9 +84,19 @@ function NativeButton({
   disabled,
   loading,
   accessibilityState,
+  haptic,
   ...props
 }: NativeButtonProps) {
   const isDisabled = disabled || loading;
+  const play = useHaptics();
+  const press =
+    haptic && haptic !== "select" && onPress
+      ? () => {
+          play(haptic);
+          onPress();
+        }
+      : onPress;
+  const tick = haptic === "select" && onPress ? () => play("select") : undefined;
 
   return (
     <Pressable
@@ -89,7 +105,8 @@ function NativeButton({
         isDisabled && "opacity-50",
         className
       )}
-      onPress={onPress}
+      onPress={press}
+      onPressIn={tick}
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading }}

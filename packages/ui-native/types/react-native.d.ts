@@ -143,6 +143,8 @@ declare module "react-native" {
     autoComplete?: string;
     /** What the return key does: "submit" keeps the keyboard open, "blurAndSubmit" closes it. */
     submitBehavior?: "submit" | "blurAndSubmit" | "newline";
+    /** The caret or selected range changed. */
+    onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
     testID?: string;
     ref?: React.Ref<any>;
   }

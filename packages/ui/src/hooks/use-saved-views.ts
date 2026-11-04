@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
 
 /** Same shape as `DataFilters` `savedViews` items — kept local to avoid cycles. */
 export interface SavedViewItem {
@@ -9,13 +10,13 @@ export interface SavedViewItem {
   filters: Record<string, unknown>;
 }
 
-function readViews(storageKey: string): SavedViewItem[] {
-  if (typeof window === "undefined") return [];
+const NO_VIEWS: SavedViewItem[] = [];
+
+/** The stored list, keeping only well-formed views; anything else reads as none. */
+function parseViews(raw: string): SavedViewItem[] | undefined {
   try {
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
+    if (!Array.isArray(parsed)) return undefined;
     return parsed.filter(
       (v): v is SavedViewItem =>
         !!v &&
@@ -25,18 +26,10 @@ function readViews(storageKey: string): SavedViewItem[] {
         typeof (v as SavedViewItem).filters === "object",
     );
   } catch {
-    return [];
+    return undefined;
   }
 }
-
-function writeViews(storageKey: string, views: SavedViewItem[]) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(views));
-  } catch {
-    // quota / private mode — ignore
-  }
-}
+const VIEWS_FORMAT = { parse: parseViews };
 
 export interface UseSavedViewsReturn {
   savedViews: SavedViewItem[];
@@ -46,7 +39,8 @@ export interface UseSavedViewsReturn {
 }
 
 /**
- * Persist `DataFilters` saved-view shape in localStorage.
+ * Persist `DataFilters` saved-view shape in the app's storage (localStorage on the web), through
+ * usePersistedUiState: SSR-safe, and in step across every list on the same key.
  *
  * @example
  * const { savedViews, saveView, deleteView } = useSavedViews("genesis-map-views");
@@ -59,27 +53,20 @@ export interface UseSavedViewsReturn {
  * />
  */
 export function useSavedViews(storageKey: string): UseSavedViewsReturn {
-  const [savedViews, setSavedViews] = useState<SavedViewItem[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const [savedViews, setSavedViews] = usePersistedUiState(storageKey, NO_VIEWS, VIEWS_FORMAT);
 
-  useEffect(() => {
-    setSavedViews(readViews(storageKey));
-    setHydrated(true);
-  }, [storageKey]);
+  const saveView = useCallback(
+    (name: string, filters: Record<string, unknown>) => {
+      const id = `view-${Date.now().toString(36)}`;
+      setSavedViews((prev) => [...prev, { id, name, filters }]);
+    },
+    [setSavedViews],
+  );
 
-  useEffect(() => {
-    if (!hydrated) return;
-    writeViews(storageKey, savedViews);
-  }, [savedViews, storageKey, hydrated]);
-
-  const saveView = useCallback((name: string, filters: Record<string, unknown>) => {
-    const id = `view-${Date.now().toString(36)}`;
-    setSavedViews((prev) => [...prev, { id, name, filters }]);
-  }, []);
-
-  const deleteView = useCallback((id: string) => {
-    setSavedViews((prev) => prev.filter((v) => v.id !== id));
-  }, []);
+  const deleteView = useCallback(
+    (id: string) => setSavedViews((prev) => prev.filter((v) => v.id !== id)),
+    [setSavedViews],
+  );
 
   const loadViewFilters = useCallback(
     (id: string) => {
