@@ -1,9 +1,14 @@
 /**
  * Progress — determinate horizontal progress indicator.
  *
+ * The fill is `bg-primary` and the track `bg-muted`. `indicatorColor` and
+ * `trackColor` take a colour value (a theme role from `useThemeRoles`, a
+ * brand's tint) for a package or screen that styles without NativeWind
+ * classes; they win over the class props.
+ *
  * @stability Stable
  */
-import { View } from "react-native";
+import { View, type ColorValue } from "react-native";
 import { cn } from "../utils";
 
 export interface NativeProgressProps {
@@ -14,6 +19,10 @@ export interface NativeProgressProps {
   trackClassName?: string;
   /** Indicator color class. Defaults to bg-primary */
   indicatorClassName?: string;
+  /** The fill's colour as a value (a theme role, a brand tint); wins over `indicatorClassName`. */
+  indicatorColor?: ColorValue;
+  /** The track's colour as a value; wins over `trackClassName`. */
+  trackColor?: ColorValue;
   testID?: string;
 }
 
@@ -22,6 +31,8 @@ function NativeProgress({
   value = 0,
   trackClassName,
   indicatorClassName,
+  indicatorColor,
+  trackColor,
   ...props
 }: NativeProgressProps) {
   const safeValue = Number.isFinite(value) ? value : 0;
@@ -37,11 +48,15 @@ function NativeProgress({
       accessibilityRole="progressbar"
       accessibilityLabel={`${clampedValue}% complete`}
       accessibilityValue={{ min: 0, max: 100, now: clampedValue }}
+      style={trackColor === undefined ? undefined : { backgroundColor: trackColor }}
       {...props}
     >
       <View
         className={cn("h-full rounded-full bg-primary", indicatorClassName)}
-        style={{ width: `${clampedValue}%` }}
+        style={{
+          width: `${clampedValue}%`,
+          ...(indicatorColor === undefined ? {} : { backgroundColor: indicatorColor }),
+        }}
       />
     </View>
   );

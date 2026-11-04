@@ -63,7 +63,9 @@
     "ScreenContainer",
     "ThreadPage"
   ],
-  "notYet": [],
+  "notYet": [
+    "NativeChoiceCard"
+  ],
   "composed": [
     "SettingsPage",
     "SettingsSubPage",

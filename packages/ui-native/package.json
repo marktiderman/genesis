@@ -315,6 +315,12 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
         },
         {
+          "need": "a selectable option card on the phone (radio or checkbox, with a picture or a description)",
+          "use": "NativeChoiceCard",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
           "need": "a star rating on the phone",
           "use": "NativeRating",
           "import": "@marktiderman/genesis-ui-native/components",
