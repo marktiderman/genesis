@@ -1,0 +1,25 @@
+.changeset/figma-routes-followups.md
+  s_e63e2ce0535b22::t_7858456b249b6b 1-5
+packages/genesis-cli/README.md
+  s_e63e2ce0535b22::t_3d82d6ac3a011b 831,1276,1280-1281,1293-1297,1310-1311
+packages/genesis-cli/src/figma/routes.ts
+  s_e63e2ce0535b22::t_a6a61bb7058ae4 52-58,159-160,168,185-188,215-238,258-263,299,303-305,324,326-335,397-398,401,441-443,452,454,461,480,499,508,514
+packages/genesis-cli/test/figma-routes.test.ts
+  s_e63e2ce0535b22::t_de5ee9a535d1bb 1-2,10,12,16-17,65-73,98-116,154-179,193-206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c0904919a599f4b5e5e511c8d2af1a57093aff38",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
