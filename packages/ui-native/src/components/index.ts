@@ -306,7 +306,7 @@ export {
 } from "./thread-list";
 export type { NativeThreadListProps, NativeThreadListHandle, ThreadRowInfo } from "./thread-list";
 export { NativeComposerBar } from "./composer-bar";
-export type { NativeComposerBarProps, ComposerMode, ComposerTone } from "./composer-bar";
+export type { NativeComposerBarProps, ComposerMode, ComposerTone, ComposerSendAction } from "./composer-bar";
 
 // --- Gallery and media primitives ---
 

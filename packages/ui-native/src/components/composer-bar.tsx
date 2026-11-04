@@ -9,8 +9,14 @@
  *   the input in the theme's `warning` role, so a staff-only note never
  *   reads like a reply (the send button keeps the tint: text on `warning`
  *   would fail contrast). The row it sends carries the same tone (ThreadPage).
- * - **Slots:** `leading` (attach), `trailing` (beside send: a mic), `above`
- *   (a reply preview, attachments waiting to send).
+ * - **Slots:** `leading` (attach), `trailing` (beside send: an emoji button),
+ *   `above` (a reply preview, attachments waiting to send), `idleAction` (in
+ *   Send's place while there's nothing to send: a hold-to-record mic) and
+ *   `replaceInput` (instead of `leading` and the input: a recording's
+ *   waveform). Attachments with no text: pass `empty={false}`.
+ * - **More ways to send:** `sendActions` ("Schedule"). Touch and hold Send:
+ *   one action runs, several open a menu. Each is also an accessibility
+ *   action on Send.
  * - **Keyboard:** the bar doesn't move itself. Put it under a keyboard-aware
  *   container (ThreadPage does, with `GenesisModules.keyboardAvoidingView`);
  *   the list above it dismisses the keyboard interactively on a drag.
@@ -22,7 +28,7 @@
  * @stability Beta
  */
 import { useEffect, type ReactNode } from "react";
-import { AccessibilityInfo, ActivityIndicator, Animated, Dimensions, Platform, Pressable, TextInput, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Alert, Animated, Dimensions, Platform, Pressable, TextInput, View } from "react-native";
 import type { ComposerMode } from "@marktiderman/genesis-core/conversation";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
@@ -55,7 +61,42 @@ export interface NativeComposerBarProps {
   leading?: ReactNode;
   trailing?: ReactNode;
   above?: ReactNode;
+  /**
+   * Whether there's nothing to send. By default, a blank `value`; pass `false` when attachments
+   * are waiting and no text is needed.
+   */
+  empty?: boolean;
+  /** Takes Send's place (the same 44pt spot) while there's nothing to send and nothing sending: a hold-to-record mic. */
+  idleAction?: ReactNode;
+  /** Shown instead of `leading` and the input (a recording in progress). Label it yourself: it's one region to VoiceOver. */
+  replaceInput?: ReactNode;
+  /** Touch and hold Send for these (one runs straight away; several open a menu). Each is also an accessibility action on Send. */
+  sendActions?: readonly ComposerSendAction[];
+  /** Title of the menu when there are several `sendActions`. */
+  sendActionsTitle?: string;
+  /** The hint on Send when it has `sendActions`. Default "Touch and hold for more options". */
+  sendActionsHint?: string;
+  /** Passed to the input (to insert at the cursor, say). */
+  onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
+  /** The input takes text (default). When false, nothing sends and the input reads as disabled. */
+  editable?: boolean;
   testID?: string;
+}
+
+/** Another way to send (touch and hold Send). */
+export interface ComposerSendAction {
+  id: string;
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+}
+
+function openSendActions(actions: readonly ComposerSendAction[], title: string | undefined) {
+  if (actions.length === 1) return actions[0]!.onPress();
+  Alert.alert(title ?? "", undefined, [
+    ...actions.map((a) => ({ text: a.label, style: a.destructive ? ("destructive" as const) : ("default" as const), onPress: a.onPress })),
+    { text: "Cancel", style: "cancel" as const },
+  ]);
 }
 
 const LINE = 22;
@@ -78,6 +119,14 @@ export function NativeComposerBar({
   leading,
   trailing,
   above,
+  empty,
+  idleAction,
+  replaceInput,
+  sendActions,
+  sendActionsTitle,
+  sendActionsHint = "Touch and hold for more options",
+  onSelectionChange,
+  editable = true,
   testID = "composer",
 }: NativeComposerBarProps) {
   const colors = useThemeRoles();
@@ -86,8 +135,10 @@ export function NativeComposerBar({
   const hasIcon = Boolean(symbol || icons?.["arrow-up"]);
   const current = modes?.find((m) => m.id === mode) ?? modes?.[0];
   const internal = current?.tone === "internal";
-  const blank = !value.trim();
-  const canSend = !blank && !disabled && !sending;
+  const blank = empty ?? !value.trim();
+  const canSend = !blank && !disabled && !sending && editable;
+  const actions = sendActions?.length ? sendActions : null;
+  const idle = idleAction != null && blank && !sending;
   const sendPress = usePressFeedback({ haptic: "light", scale: 0.9, disabled: !canSend });
   // A multiline input grows with its text by itself; this caps it, after which it scrolls.
   // Lines grow with the person's text size (Dynamic Type, Android font scale).
@@ -143,6 +194,10 @@ export function NativeComposerBar({
       ) : null}
       {above}
       <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
+        {replaceInput != null ? (
+          <View style={{ flex: 1, minHeight: 44, justifyContent: "center" }}>{replaceInput}</View>
+        ) : (
+          <>
         {leading}
         <TextInput
           testID={`${testID}-input`}
@@ -151,6 +206,9 @@ export function NativeComposerBar({
           placeholder={internal ? current!.label : placeholder}
           placeholderTextColor={colors.tertiaryLabel as string}
           accessibilityLabel={internal ? current!.label : placeholder}
+          accessibilityState={editable ? undefined : { disabled: true }}
+          editable={editable}
+          onSelectionChange={onSelectionChange}
           multiline
           maxLength={maxLength}
           style={{
@@ -168,10 +226,17 @@ export function NativeComposerBar({
             backgroundColor: colors.surface,
             borderWidth: internal ? 1 : 0,
             borderColor: colors.warning,
+            opacity: editable ? 1 : 0.6,
           }}
         />
+          </>
+        )}
         {trailing}
-        {sending ? (
+        {idle ? (
+          <View testID={`${testID}-idle`} style={{ minWidth: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+            {idleAction}
+          </View>
+        ) : sending ? (
           <View testID={`${testID}-sending`} accessible accessibilityLabel={sendingLabel} accessibilityLiveRegion="polite" style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
             <ActivityIndicator />
           </View>
@@ -182,6 +247,10 @@ export function NativeComposerBar({
               accessibilityRole="button"
               accessibilityLabel={sendLabel}
               accessibilityState={{ disabled: !canSend }}
+              accessibilityHint={actions ? sendActionsHint : undefined}
+              accessibilityActions={actions && canSend ? actions.map((a) => ({ name: a.id, label: a.label })) : undefined}
+              onAccessibilityAction={actions ? (e) => actions.find((a) => a.id === e.nativeEvent.actionName)?.onPress() : undefined}
+              onLongPress={actions ? () => openSendActions(actions, sendActionsTitle) : undefined}
               disabled={!canSend}
               onPressIn={sendPress.onPressIn}
               onPressOut={sendPress.onPressOut}
