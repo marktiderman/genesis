@@ -1,0 +1,59 @@
+packages/forms-native/figma/AnswerInput.figma.ts
+  s_109ad08c59054b::t_ec88dd2116beab 9
+packages/forms-native/figma/DefaultHeader.figma.ts
+  s_109ad08c59054b::t_ec88dd2116beab 10
+packages/native/figma/FatalScreen.figma.ts
+  s_109ad08c59054b::t_ec88dd2116beab 7-8
+packages/sites/figma/features.figma.ts
+  s_109ad08c59054b::t_9d25a6ab282300 13
+packages/notifications/figma/web/NotificationBell.figma.ts
+  s_109ad08c59054b::t_ec88dd2116beab 7
+packages/sites/figma/rich-text.figma.ts
+  s_109ad08c59054b::t_7a4815d8794db1 13
+packages/sites/figma/SectionTitle.figma.ts
+  s_109ad08c59054b::t_a27647bbf462e6 9
+packages/forms-native/figma/Button.figma.ts
+  s_109ad08c59054b::t_a27647bbf462e6 10
+packages/sites/figma/team.figma.ts
+  s_109ad08c59054b::t_d16bbf54d1ad2d 13
+packages/forms-native/figma/DefaultEnding.figma.ts
+  s_109ad08c59054b::t_ec88dd2116beab 9
+packages/forms-native/figma/DefaultNavigation.figma.ts
+  s_109ad08c59054b::t_ec88dd2116beab 19
+packages/sites/figma/file.figma.ts
+  s_109ad08c59054b::t_7a4815d8794db1 13
+packages/sites/figma/gallery.figma.ts
+  s_109ad08c59054b::t_7a4815d8794db1 13
+packages/sites/figma/map.figma.ts
+  s_109ad08c59054b::t_7a4815d8794db1 13
+packages/sites/figma/schedule.figma.ts
+  s_109ad08c59054b::t_7a4815d8794db1 13
+packages/product/figma/VoteButton.figma.ts
+  s_109ad08c59054b::t_bcf57b54e8c18f 8
+packages/native/figma/PushPromptSheet.figma.ts
+  s_109ad08c59054b::t_a27647bbf462e6 12-13
+packages/forms-native/figma/ChoiceRow.figma.ts
+  s_109ad08c59054b::t_ec88dd2116beab 10
+packages/forms-native/figma/DefaultBrand.figma.ts
+  s_109ad08c59054b::t_ec88dd2116beab 8
+packages/forms-native/figma/DefaultNotice.figma.ts
+  s_109ad08c59054b::t_ec88dd2116beab 9
+packages/forms-web/figma/DefaultEnding.figma.ts
+  s_109ad08c59054b::t_ec88dd2116beab 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "836293af9d16246e663cec38a1cf307289559ec5",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
