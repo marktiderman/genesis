@@ -89,7 +89,7 @@ export const THEME_SECTIONS: readonly ThemeSection[] = [
       color("secondary", "240 4.8% 95.9%", "240 3.7% 15.9%"),
       color("secondary-foreground", "240 5.9% 10%", "0 0% 98%"),
       color("muted", "240 4.8% 95.9%", "240 3.7% 15.9%"),
-      color("muted-foreground", "240 3.8% 46.1%", "240 5% 64.9%"),
+      color("muted-foreground", "240 5.2% 33.9%", "240 5% 64.9%"),
       color("accent", "240 4.8% 95.9%", "240 3.7% 15.9%"),
       color("accent-foreground", "240 5.9% 10%", "0 0% 98%"),
       color("destructive", "0 84.2% 60.2%", "0 62.8% 30.6%"),

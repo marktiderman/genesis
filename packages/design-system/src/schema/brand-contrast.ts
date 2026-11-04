@@ -66,6 +66,7 @@ const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 const ROLE_PAIRS: readonly [string, string, number, string][] = [
   ["foreground", "background", AA, "body text on the page"],
   ["muted-foreground", "background", AA, "muted text on the page"],
+  ["muted-foreground", "muted", AA, "muted text on the muted fill"],
   ["primary-foreground", "primary", AA, "text on the primary fill"],
   ["primary", "background", NON_TEXT, "the primary fill on the page"],
   ["ring", "background", NON_TEXT, "the focus ring on the page"],

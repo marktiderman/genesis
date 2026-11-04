@@ -10,7 +10,7 @@
     "secondary": { "$type": "color", "$value": "#f4f4f5" },
     "secondary-foreground": { "$type": "color", "$value": "#18181b" },
     "muted": { "$type": "color", "$value": "#f4f4f5" },
-    "muted-foreground": { "$type": "color", "$value": "#71717a" },
+    "muted-foreground": { "$type": "color", "$value": "#52525b" },
     "accent": { "$type": "color", "$value": "#f4f4f5" },
     "accent-foreground": { "$type": "color", "$value": "#18181b" },
     "destructive": { "$type": "color", "$value": "#ef4444" },
