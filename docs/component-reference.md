@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 660 components · 4314 other exports · 3598 standalone types across 198 entry points in 30 packages.
+**Totals:** 660 components · 4326 other exports · 3616 standalone types across 198 entry points in 30 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1268,7 +1268,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (73)
+### Other exports (74)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1334,6 +1334,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
+| [`usePersistedUiState`](../packages/core/src/hooks/use-persisted-ui-state.ts) | function | — | _(no summary)_ |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
 | [`useResourceForm`](../packages/core/src/hooks/use-resource-form.ts) | function | — | _(no summary)_ |
@@ -1348,7 +1349,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`writeConflict`](../packages/core/src/schema/write-state.ts) | function | — | The conflict `error` reports for a write of `mine`, or null when `error` isn't a `conflict` that carries the row as it is now. A field `mine` has and their row doesn't (a column it doesn't read) counts as different: the person decides it... |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (121)
+### Types (122)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1410,6 +1411,7 @@ export type { MutationMode };
 export type { MutationModeOptions };
 export type { NullFilter };
 export type { PaginationParam };
+export type { PersistedUiStateOptions };
 export type { PostgrestFieldErrors };
 export type { ProviderCapabilities };
 export type { QueryKeys };
@@ -1583,7 +1585,7 @@ export type { WriteOutcome };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (37)
+### Other exports (38)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1616,6 +1618,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
+| [`usePersistedUiState`](../packages/core/src/hooks/use-persisted-ui-state.ts) | function | — | _(no summary)_ |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
 | [`useResourceForm`](../packages/core/src/hooks/use-resource-form.ts) | function | — | _(no summary)_ |
@@ -1627,7 +1630,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWrite`](../packages/core/src/hooks/use-write.ts) | function | — | A one-off write that isn't a resource page's create, update or remove: a database function, `createOrAdopt`, several writes in a row. It invalidates what it made stale and reports failures in plain words. |
 | [`WRITE_FAILED`](../packages/core/src/hooks/use-write.ts) | const | — | _(no summary)_ |
 
-### Types (36)
+### Types (37)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1645,6 +1648,7 @@ export type { LinkTarget };
 export type { LiveOptions };
 export type { MutationMode };
 export type { MutationModeOptions };
+export type { PersistedUiStateOptions };
 export type { ResourceScope };
 export type { UndoableWrite };
 export type { UpdateOptions };
@@ -4447,7 +4451,7 @@ export type { UploadHost };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (73)
+### Other exports (74)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4513,6 +4517,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
+| [`usePersistedUiState`](../packages/core/src/hooks/use-persisted-ui-state.ts) | function | — | _(no summary)_ |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
 | [`useResourceForm`](../packages/core/src/hooks/use-resource-form.ts) | function | — | _(no summary)_ |
@@ -4527,7 +4532,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`writeConflict`](../packages/core/src/schema/write-state.ts) | function | — | The conflict `error` reports for a write of `mine`, or null when `error` isn't a `conflict` that carries the row as it is now. A field `mine` has and their row doesn't (a column it doesn't read) counts as different: the person decides it... |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (121)
+### Types (122)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -4589,6 +4594,7 @@ export type { MutationMode };
 export type { MutationModeOptions };
 export type { NullFilter };
 export type { PaginationParam };
+export type { PersistedUiStateOptions };
 export type { PostgrestFieldErrors };
 export type { ProviderCapabilities };
 export type { QueryKeys };
@@ -5158,7 +5164,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useResourcePage`](../packages/ui/src/hooks/use-resource-page.ts) | function | — | _(no summary)_ |
 | [`useResourceTable`](../packages/ui/src/components/data/use-resource-table.ts) | function | Beta | The list behind {@link ResourcePage}, without any markup: where the rows come from (a `resource` through the data provider, or `data` you pass), search, sort, status filter and paging, selection, the open record (and its URL state), the ... |
 | [`useResourceUrlState`](../packages/ui/src/hooks/use-resource-url-state.ts) | function | Beta | A list's peek, page, sort and search, kept in the URL through any {@link SearchParamsAdapter} (the browser's, React Router's or TanStack Router's). The URL is the source of truth: a copied link reopens the same record on the same page, a... |
-| [`useSavedViews`](../packages/ui/src/hooks/use-saved-views.ts) | function | — | Persist `DataFilters` saved-view shape in localStorage. |
+| [`useSavedViews`](../packages/ui/src/hooks/use-saved-views.ts) | function | — | Persist `DataFilters` saved-view shape in the app's storage (localStorage on the web), through usePersistedUiState: SSR-safe, and in step across every list on the same key. |
 | [`useViewPreference`](../packages/ui/src/hooks/use-view-preference.ts) | function | — | _(no summary)_ |
 | [`useViewSettings`](../packages/ui/src/hooks/use-view-settings.ts) | function | — | _(no summary)_ |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
@@ -5697,7 +5703,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (69)
+### Other exports (72)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5750,6 +5756,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NativeListItemDivider`](../packages/ui-native/src/components/list-item.tsx) | function | — | _(no summary)_ |
 | [`NativeSheetScrollView`](../packages/ui-native/src/components/sheet.tsx) | function | Beta | A `ScrollView` for sheet content: the library's `BottomSheetScrollView` under `NativeSheetProvider` (so scrolling and dragging the sheet don't fight), React Native's otherwise. Sized to its content until it reaches the sheet's height. |
 | [`nextRating`](../packages/ui-native/src/components/rating.tsx) | function | — | The value after pressing `star`: that star, or 0 when it is the current value (a press clears). |
+| [`playHaptic`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | Plays a haptic on the module given; never throws and never rejects. No module, no haptic. |
 | [`readReceiptFor`](../packages/core/src/conversation/format.ts) | function | — | The newest of my messages the other side has read, or null. Events and undelivered messages never count. |
 | [`SF_SYMBOLS`](../packages/ui-native/src/icon-names.ts) | const | Beta | The semantic icon names Genesis components ask for, and the SF Symbol each one draws on iOS. Components say "settings" or "bell", never a library's own name; `lucideIcons` (`/icons/lucide`) maps the same names for Android, web and the SF... |
 | [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as a menu (long press). |
@@ -5762,10 +5769,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toggleVariants`](../packages/ui-native/src/components/toggle.tsx) | value | — | _(no summary)_ |
 | [`useGenesisExtension`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | function | — | Read an extension scale by key. Returns `undefined` when the provider isn't mounted OR when the key isn't declared on the brand. The return type follows the consumer's augmented `BrandExtensions[K]`. |
 | [`useGenesisModules`](../packages/ui-native/src/native-modules.tsx) | function | — | The modules given to the nearest `GenesisModulesProvider`; `{}` without one. |
+| [`useHaptics`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | A function that plays a haptic through the app's `GenesisModules.haptics`. Stable across renders. |
 | [`useKeyboardScroll`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard-aware scroll view, or null when none was provided. |
 | [`useKeyboardToolbar`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard toolbar, or null when none was provided (or no scroll view to go with it). |
 | [`useLiquidGlass`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | expo-glass-effect's `GlassView` when Liquid Glass can be drawn here, else `null`. |
 | [`useMotion`](../packages/ui-native/src/hooks/use-motion.ts) | function | — | _(no summary)_ |
+| [`usePressFeedback`](../packages/ui-native/src/hooks/use-press-feedback.ts) | function | — | _(no summary)_ |
 | [`useReducedMotion`](../packages/ui-native/src/hooks/use-reduced-motion.ts) | function | — | _(no summary)_ |
 | [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
 | [`useThemeMode`](../packages/ui-native/src/hooks/use-theme-mode.ts) | function | — | _(no summary)_ |
@@ -5773,7 +5782,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (83)
+### Types (88)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -5785,6 +5794,7 @@ export type { AuthScreenSlotMap };
 export type { BoxBackground };
 export type { BrandExtensionsValue };
 export type { ComposerMode };
+export type { ComposerSendAction };
 export type { ComposerTone };
 export type { FlexAlign };
 export type { FlexJustify };
@@ -5793,6 +5803,7 @@ export type { GalleryTileAspect };
 export type { GenesisDatePickerComponent };
 export type { GenesisDatePickerProps };
 export type { GenesisGlassModule };
+export type { GenesisHapticsModule };
 export type { GenesisIconComponent };
 export type { GenesisIconSet };
 export type { GenesisImageComponent };
@@ -5806,6 +5817,7 @@ export type { GenesisReanimatedModule };
 export type { GenesisSymbolComponent };
 export type { GenesisSymbolProps };
 export type { GoogleProviderOptions };
+export type { HapticKind };
 export type { InboxItem };
 export type { InboxPageSlotMap };
 export type { InboxSwipeAction };
@@ -5838,6 +5850,8 @@ export type { NativeToastOptions };
 export type { NativeToastVariant };
 export type { NotificationItem };
 export type { NotificationsPageSlotMap };
+export type { PressFeedback };
+export type { PressFeedbackOptions };
 export type { SafeAreaEdge };
 export type { ScreenHeaderProps };
 export type { ScrollEdgeBehavior };
@@ -8579,7 +8593,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createVoteQueue`](../packages/product/src/app.ts) | function | Experimental | The offline vote queue, modelled on chat's outbox: a vote shows at once, is saved, and is sent when there is a connection (`flush()`: on start, after each vote and on reconnect). Votes on one idea collapse into the last one, and a toggle... |
 | [`demand`](../packages/product/src/board.ts) | function | Experimental | Demand for a feature: each open signal counts its importance (1 when unset) plus its votes. Closed signals don't count, so demand falls as asks are answered. |
 | [`diffRelease`](../packages/product/src/release.ts) | function | Experimental | The features a release shipped: those that reached `live` or `beta` between the catalog before and after it. Features with `visibility: internal` are left out of release notes. |
-| [`haptic`](../packages/product/src/native/haptics.ts) | function | — | Plays a haptic when the app gave expo-haptics; never throws, never rejects. |
+| [`haptic`](../packages/product/src/native/haptics.ts) | function | — | Plays a haptic when the app gave expo-haptics; never throws, never rejects (genesis-ui-native's `playHaptic`). |
 | [`IdeaBoardScreen`](../packages/product/src/native/idea-board.tsx) | function | — | The idea board screen. Put `getInboxPageStackOptions({ headerTitle })` on its `<Stack.Screen>`. |
 | [`isAppPath`](../packages/product/src/notifications.ts) | function | Experimental | _(no summary)_ |
 | [`isPermanentVoteError`](../packages/product/src/app.ts) | function | Experimental | True for an error retrying won't fix: `permanent: true`, or an HTTP 4xx other than 408 and 429. @stability Experimental |
@@ -10745,7 +10759,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useResourceView`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | function | — | The headless form: the same state as `useResourceTable`, from a view. |
 | [`useResourceViewDefaults`](../packages/ui/src/components/data/resource-view/defaults.tsx) | function | — | The list defaults in effect (empty without a provider). |
 | [`useResourceViewProps`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | function | — | The ResourcePage props a view and a screen's options make. `useResourceView` and `<ResourceView>` both use it; call it yourself to hand the props to your own layout. |
-| [`useSavedViews`](../packages/ui/src/hooks/use-saved-views.ts) | function | — | Persist `DataFilters` saved-view shape in localStorage. |
+| [`useSavedViews`](../packages/ui/src/hooks/use-saved-views.ts) | function | — | Persist `DataFilters` saved-view shape in the app's storage (localStorage on the web), through usePersistedUiState: SSR-safe, and in step across every list on the same key. |
 | [`useViewFormFields`](../packages/ui/src/components/data/resource-view/view-form.ts) | function | Beta | The fields of a view's form, as ResourceForm takes them: what `<ResourceView>` builds its own form from. The viewer's scope narrows link pickers. Call it for a form of your own layout, or pass the view to `<ResourceForm view={…}>`, which... |
 | [`ViewSettings`](../packages/ui/src/components/patterns/view-settings.tsx) | function | — | _(no summary)_ |
 | [`ViewToggle`](../packages/ui/src/components/patterns/view-toggle.tsx) | function | — | _(no summary)_ |
@@ -11144,7 +11158,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useResourcePage`](../packages/ui/src/hooks/use-resource-page.ts) | function | — | _(no summary)_ |
 | [`useResourceTable`](../packages/ui/src/components/data/use-resource-table.ts) | function | Beta | The list behind {@link ResourcePage}, without any markup: where the rows come from (a `resource` through the data provider, or `data` you pass), search, sort, status filter and paging, selection, the open record (and its URL state), the ... |
 | [`useResourceUrlState`](../packages/ui/src/hooks/use-resource-url-state.ts) | function | Beta | A list's peek, page, sort and search, kept in the URL through any {@link SearchParamsAdapter} (the browser's, React Router's or TanStack Router's). The URL is the source of truth: a copied link reopens the same record on the same page, a... |
-| [`useSavedViews`](../packages/ui/src/hooks/use-saved-views.ts) | function | — | Persist `DataFilters` saved-view shape in localStorage. |
+| [`useSavedViews`](../packages/ui/src/hooks/use-saved-views.ts) | function | — | Persist `DataFilters` saved-view shape in the app's storage (localStorage on the web), through usePersistedUiState: SSR-safe, and in step across every list on the same key. |
 | [`useViewPreference`](../packages/ui/src/hooks/use-view-preference.ts) | function | — | _(no summary)_ |
 | [`useViewSettings`](../packages/ui/src/hooks/use-view-settings.ts) | function | — | _(no summary)_ |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
@@ -11998,7 +12012,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (69)
+### Other exports (72)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -12051,6 +12065,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NativeListItemDivider`](../packages/ui-native/src/components/list-item.tsx) | function | — | _(no summary)_ |
 | [`NativeSheetScrollView`](../packages/ui-native/src/components/sheet.tsx) | function | Beta | A `ScrollView` for sheet content: the library's `BottomSheetScrollView` under `NativeSheetProvider` (so scrolling and dragging the sheet don't fight), React Native's otherwise. Sized to its content until it reaches the sheet's height. |
 | [`nextRating`](../packages/ui-native/src/components/rating.tsx) | function | — | The value after pressing `star`: that star, or 0 when it is the current value (a press clears). |
+| [`playHaptic`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | Plays a haptic on the module given; never throws and never rejects. No module, no haptic. |
 | [`readReceiptFor`](../packages/core/src/conversation/format.ts) | function | — | The newest of my messages the other side has read, or null. Events and undelivered messages never count. |
 | [`SF_SYMBOLS`](../packages/ui-native/src/icon-names.ts) | const | Beta | The semantic icon names Genesis components ask for, and the SF Symbol each one draws on iOS. Components say "settings" or "bell", never a library's own name; `lucideIcons` (`/icons/lucide`) maps the same names for Android, web and the SF... |
 | [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as a menu (long press). |
@@ -12063,10 +12078,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toggleVariants`](../packages/ui-native/src/components/toggle.tsx) | value | — | _(no summary)_ |
 | [`useGenesisExtension`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | function | — | Read an extension scale by key. Returns `undefined` when the provider isn't mounted OR when the key isn't declared on the brand. The return type follows the consumer's augmented `BrandExtensions[K]`. |
 | [`useGenesisModules`](../packages/ui-native/src/native-modules.tsx) | function | — | The modules given to the nearest `GenesisModulesProvider`; `{}` without one. |
+| [`useHaptics`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | A function that plays a haptic through the app's `GenesisModules.haptics`. Stable across renders. |
 | [`useKeyboardScroll`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard-aware scroll view, or null when none was provided. |
 | [`useKeyboardToolbar`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard toolbar, or null when none was provided (or no scroll view to go with it). |
 | [`useLiquidGlass`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | expo-glass-effect's `GlassView` when Liquid Glass can be drawn here, else `null`. |
 | [`useMotion`](../packages/ui-native/src/hooks/use-motion.ts) | function | — | _(no summary)_ |
+| [`usePressFeedback`](../packages/ui-native/src/hooks/use-press-feedback.ts) | function | — | _(no summary)_ |
 | [`useReducedMotion`](../packages/ui-native/src/hooks/use-reduced-motion.ts) | function | — | _(no summary)_ |
 | [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
 | [`useThemeMode`](../packages/ui-native/src/hooks/use-theme-mode.ts) | function | — | _(no summary)_ |
@@ -12074,7 +12091,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (83)
+### Types (88)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -12086,6 +12103,7 @@ export type { AuthScreenSlotMap };
 export type { BoxBackground };
 export type { BrandExtensionsValue };
 export type { ComposerMode };
+export type { ComposerSendAction };
 export type { ComposerTone };
 export type { FlexAlign };
 export type { FlexJustify };
@@ -12094,6 +12112,7 @@ export type { GalleryTileAspect };
 export type { GenesisDatePickerComponent };
 export type { GenesisDatePickerProps };
 export type { GenesisGlassModule };
+export type { GenesisHapticsModule };
 export type { GenesisIconComponent };
 export type { GenesisIconSet };
 export type { GenesisImageComponent };
@@ -12107,6 +12126,7 @@ export type { GenesisReanimatedModule };
 export type { GenesisSymbolComponent };
 export type { GenesisSymbolProps };
 export type { GoogleProviderOptions };
+export type { HapticKind };
 export type { InboxItem };
 export type { InboxPageSlotMap };
 export type { InboxSwipeAction };
@@ -12139,6 +12159,8 @@ export type { NativeToastOptions };
 export type { NativeToastVariant };
 export type { NotificationItem };
 export type { NotificationsPageSlotMap };
+export type { PressFeedback };
+export type { PressFeedbackOptions };
 export type { SafeAreaEdge };
 export type { ScreenHeaderProps };
 export type { ScrollEdgeBehavior };
@@ -12310,13 +12332,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (47)
+### Types (48)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { BoxBackground };
 export type { ComposerMode };
+export type { ComposerSendAction };
 export type { ComposerTone };
 export type { FlexAlign };
 export type { FlexJustify };
@@ -12475,7 +12498,7 @@ export type { UseNativeResourceViewReturn };
 | --- | --- | --- | --- |
 | [`BrandExtensionsProvider`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | `BrandExtensionsProviderProps` | — | _(no summary)_ |
 
-### Other exports (10)
+### Other exports (13)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -12485,22 +12508,29 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`JUMP_SETTLE_MS`](../packages/core/src/conversation/use-thread-jump.ts) | const | — | After `loadUntil` resolves, how long the rows have to arrive before the row counts as gone. |
 | [`motionSpring`](../packages/ui-native/src/hooks/use-motion.ts) | function | — | A `withSpring` config from a named spring. Worklet-safe (plain data in, plain data out). Under reduced motion it's the stiff, critically damped spring that settles in a few frames; to not move at all, check `motion.reduced` and assign th... |
 | [`motionTiming`](../packages/ui-native/src/hooks/use-motion.ts) | function | — | A `withTiming` config from a named duration and easing. Pass Reanimated's `Easing` (`R.Easing`, or `Easing` imported in a worklet) so the token's curve is used; a module without `Easing.bezier` gets Reanimated's default curve. Worklet-safe. |
+| [`playHaptic`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | Plays a haptic on the module given; never throws and never rejects. No module, no haptic. |
 | [`useGenesisExtension`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | function | — | Read an extension scale by key. Returns `undefined` when the provider isn't mounted OR when the key isn't declared on the brand. The return type follows the consumer's augmented `BrandExtensions[K]`. |
+| [`useHaptics`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | A function that plays a haptic through the app's `GenesisModules.haptics`. Stable across renders. |
 | [`useMotion`](../packages/ui-native/src/hooks/use-motion.ts) | function | — | _(no summary)_ |
+| [`usePressFeedback`](../packages/ui-native/src/hooks/use-press-feedback.ts) | function | — | _(no summary)_ |
 | [`useReducedMotion`](../packages/ui-native/src/hooks/use-reduced-motion.ts) | function | — | _(no summary)_ |
 | [`useThemeMode`](../packages/ui-native/src/hooks/use-theme-mode.ts) | function | — | _(no summary)_ |
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 
-### Types (9)
+### Types (13)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { BrandExtensionsValue };
+export type { GenesisHapticsModule };
+export type { HapticKind };
 export type { MotionHow };
 export type { MotionSpringConfig };
 export type { MotionTimingConfig };
+export type { PressFeedback };
+export type { PressFeedbackOptions };
 export type { ThemeMode };
 export type { ThemeRoleColors };
 export type { UseMotionOptions };

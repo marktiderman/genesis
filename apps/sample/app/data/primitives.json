@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 164
+      "count": 163
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -925,6 +925,13 @@
               "description": ""
             },
             {
+              "name": "haptic",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "A haptic through `GenesisModules.haptics` (`light` for a vote, `success` for a save): it plays\nwhen the press counts, except `select`, which ticks on press-in as `usePressFeedback` does. Default none."
+            },
+            {
               "name": "loading",
               "type": "boolean",
               "required": false,
@@ -1344,7 +1351,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/composer-bar.tsx",
       "stability": "beta",
-      "summary": "NativeComposerBar — the bar you write a message in: an input that grows\nwith what you type (up to `maxLines`, then scrolls), a send button, and\nslots beside and above it. ThreadPage's composer; chat, comments and AI\nprompts build on it too.\n\n- **Modes:** `modes` with a `tone` each (\"Reply\" / \"Internal note\"). The\n  picker sits above the input, and an `internal` tone edges the bar and\n  the input in the theme's `warning` role, so a staff-only note never\n  reads like a reply (the send button keeps the tint: text on `warning`\n  would fail contrast). The row it sends carries the same tone (ThreadPage).\n- **Slots:** `leading` (attach), `trailing` (beside send: a mic), `above`\n  (a reply preview, attachments waiting to send).\n- **Keyboard:** the bar doesn't move itself. Put it under a keyboard-aware\n  container (ThreadPage does, with `GenesisModules.keyboardAvoidingView`);\n  the list above it dismisses the keyboard interactively on a drag.\n- **Accessibility:** send and the mode picker are 44pt targets, the input\n  is labelled by its placeholder (and says when it writes an internal\n  note), Sending is announced, and the input stays editable while a\n  message sends (the keyboard stays up).",
+      "summary": "NativeComposerBar — the bar you write a message in: an input that grows\nwith what you type (up to `maxLines`, then scrolls), a send button, and\nslots beside and above it. ThreadPage's composer; chat, comments and AI\nprompts build on it too.\n\n- **Modes:** `modes` with a `tone` each (\"Reply\" / \"Internal note\"). The\n  picker sits above the input, and an `internal` tone edges the bar and\n  the input in the theme's `warning` role, so a staff-only note never\n  reads like a reply (the send button keeps the tint: text on `warning`\n  would fail contrast). The row it sends carries the same tone (ThreadPage).\n- **Slots:** `leading` (attach), `trailing` (beside send: an emoji button),\n  `above` (a reply preview, attachments waiting to send), `idleAction` (in\n  Send's place while there's nothing to send: a hold-to-record mic) and\n  `replaceInput` (instead of `leading` and the input: a recording's\n  waveform). Attachments with no text: pass `empty={false}`.\n- **More ways to send:** `sendActions` (\"Schedule\"). Touch and hold Send:\n  one action runs, several open a menu. Each is also an accessibility\n  action on Send.\n- **Keyboard:** the bar doesn't move itself. Put it under a keyboard-aware\n  container (ThreadPage does, with `GenesisModules.keyboardAvoidingView`);\n  the list above it dismisses the keyboard interactively on a drag.\n- **Accessibility:** send and the mode picker are 44pt targets, the input\n  is labelled by its placeholder (and says when it writes an internal\n  note), Sending is announced, and the input stays editable while a\n  message sends (the keyboard stays up).",
       "primaryComponent": "NativeComposerBar",
       "components": [
         {
@@ -1385,6 +1392,27 @@
               "required": false,
               "defaultValue": "false",
               "description": "Turns sending off (besides a blank value)."
+            },
+            {
+              "name": "editable",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "The input takes text (default). When false, nothing sends and the input reads as disabled."
+            },
+            {
+              "name": "empty",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Whether there's nothing to send. By default, a blank `value`; pass `false` when attachments\nare waiting and no text is needed."
+            },
+            {
+              "name": "idleAction",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Takes Send's place (the same 44pt spot) while there's nothing to send and nothing sending: a hold-to-record mic."
             },
             {
               "name": "leading",
@@ -1429,11 +1457,46 @@
               "description": ""
             },
             {
+              "name": "onSelectionChange",
+              "type": "((e: { nativeEvent: { selection: { start: number; end: number; }; }; }) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Passed to the input (to insert at the cursor, say)."
+            },
+            {
               "name": "placeholder",
               "type": "string",
               "required": false,
               "defaultValue": "Message",
               "description": ""
+            },
+            {
+              "name": "replaceInput",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown instead of `leading` and the input (a recording in progress). Label it yourself: it's one region to VoiceOver."
+            },
+            {
+              "name": "sendActions",
+              "type": "readonly ComposerSendAction[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Touch and hold Send for these (one runs straight away; several open a menu). Each is also an accessibility action on Send."
+            },
+            {
+              "name": "sendActionsHint",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Touch and hold for more options",
+              "description": "The hint on Send when it has `sendActions`. Default \"Touch and hold for more options\"."
+            },
+            {
+              "name": "sendActionsTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Title of the menu when there are several `sendActions`."
             },
             {
               "name": "sending",
@@ -7897,6 +7960,13 @@
               "description": "What VoiceOver says on arriving at `jumpTo`."
             },
             {
+              "name": "jumpId",
+              "type": "((row: T) => string | null)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The id `jumpTo` names a row by, when it isn't the row's key: a message keyed by the id the\nphone gave it (so it keeps its row when the server's copy lands) and gone to by the server's\nid. `null` for a row that can't be gone to (a day heading). `keyExtractor` by default.\nPass a stable function (module scope, or `useCallback`): a new one each render re-renders every row."
+            },
+            {
               "name": "jumpTo",
               "type": "string | null",
               "required": false,
@@ -13817,7 +13887,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "localStorage key for the user's column order."
+              "description": "Storage key for the user's column order (the app's storage adapter; localStorage on the web)."
             },
             {
               "name": "columnVisibility",
@@ -13831,7 +13901,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "localStorage key for persisting column visibility"
+              "description": "Storage key for remembering column visibility (the app's storage adapter; localStorage on the web)."
             },
             {
               "name": "density",
@@ -13957,7 +14027,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "localStorage key for persisting column resize widths"
+              "description": "Storage key for remembering column widths (the app's storage adapter; localStorage on the web)."
             },
             {
               "name": "selectable",
@@ -17668,23 +17738,6 @@
         {
           "name": "NONE_CHOICE",
           "summary": "The value of a picker's \"None\" choice (the words are `messages.link.none`), which sets a field\nthat can be empty back to empty. Radix's Select and cmdk can't hold \"\" as an item value, so every\npicker in this package uses this one sentinel and turns it into `null` before it leaves the picker.",
-          "props": []
-        }
-      ]
-    },
-    {
-      "slug": "option-storage",
-      "aliases": [],
-      "surface": "web",
-      "subpath": "@marktiderman/genesis-ui",
-      "filePath": "packages/ui/src/option-storage.ts",
-      "stability": "stable",
-      "summary": "Generic localStorage-backed persistence for \"customize chrome\" option\nobjects (AppShell, PageHeader, …). SSR-safe (no-ops without `window`) and\nswallows quota / private-mode errors so a storage failure never breaks\nrendering.\n\nCallers own their own shape validation — this module only handles the\nJSON <-> localStorage plumbing shared across chrome components.",
-      "primaryComponent": "readStoredOptions",
-      "components": [
-        {
-          "name": "readStoredOptions",
-          "summary": "Generic localStorage-backed persistence for \"customize chrome\" option\nobjects (AppShell, PageHeader, …). SSR-safe (no-ops without `window`) and\nswallows quota / private-mode errors so a storage failure never breaks\nrendering.\n\nCallers own their own shape validation — this module only handles the\nJSON <-> localStorage plumbing shared across chrome components.",
           "props": []
         }
       ]
