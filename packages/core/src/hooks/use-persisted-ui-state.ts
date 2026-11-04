@@ -13,7 +13,7 @@
  * - Forgiving: a stored value `parse` refuses falls back to `initial`, and a write storage won't
  *   keep (quota, private mode, a no-op adapter) still applies for this hook's lifetime. Only for
  *   this hook: with nothing stored, another hook on the key can't see it, so the two can disagree
- *   until storage works again.
+ *   until this hook successfully stores or clears the key.
  * - Optional: a `null` key is plain state that isn't stored, for a component whose persistence
  *   the caller turns on with a key prop.
  *

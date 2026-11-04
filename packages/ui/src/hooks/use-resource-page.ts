@@ -323,9 +323,9 @@ export function useResourcePage<T = Record<string, unknown>>(
       (f) => f.field === "__sort__",
     );
     if (!sortFilter || !("value" in sortFilter) || typeof sortFilter.value !== "string") return null;
-    const [field, order] = sortFilter.value.split(":");
+    const [field, order, nulls] = sortFilter.value.split(":");
     if (!field || (order !== "asc" && order !== "desc")) return null;
-    return { field, order } as SortParam;
+    return (nulls === "first" || nulls === "last" ? { field, order, nulls } : { field, order }) as SortParam;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- only on mount
 
   const initialStatus = useMemo(() => {

@@ -185,7 +185,16 @@ export function useResourceTableModel<
                 // A `render` only draws the column's own value, so it can still sort.
                 !(resourceCursorPaging && col.accessor),
           );
-    return { q: url.q, sort: sortable ? url.sort : null, page: url.page };
+    if (!sortable || !url.sort) return { q: url.q, sort: null, page: url.page };
+    // The URL holds `field:order` only. Where empty values go follows the view's default sort
+    // (same field and direction) or the screen's matching sort option, as a header click does.
+    const { field, order } = url.sort;
+    const fromDefault = resourceOptions?.defaultSort;
+    const nulls =
+      url.sort.nulls ??
+      (fromDefault?.field === field && fromDefault.order === order ? fromDefault.nulls : undefined) ??
+      slotProps?.filters?.sortOptions?.find((o) => o.value === `${field}:${order}`)?.nulls;
+    return { q: url.q, sort: nulls ? { ...url.sort, nulls } : url.sort, page: url.page };
   });
   // The URL names the open record only where there is a peek to open.
   const urlPeek = detail === "panel" || detail === "modal" ? url : undefined;
