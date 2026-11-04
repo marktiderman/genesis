@@ -1,0 +1,23 @@
+packages/ui-native/src/components/gallery-grid.tsx
+  s_9613ab470e300c::t_1e1d38807abb00 9-10,29,70-71,121,127-129,277
+.changeset/native-gallery-grid-first-paint.md
+  s_9613ab470e300c::t_7561481eef2768 1-5
+packages/ui-native/src/components/__tests__/gallery-grid.test.tsx
+  s_9613ab470e300c::t_940c3454c7f2be 25,27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "34fb7ab024eb34199bce12896e729ed8e7ca3f0c",
+  "prompts": {},
+  "sessions": {
+    "s_9613ab470e300c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df308523-d2f5-4e93-bef7-0f444d7d1772",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
