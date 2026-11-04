@@ -1,0 +1,33 @@
+scripts/pgtap-local/docker.sh
+  s_b9ce29ee4fad7a::t_5ec53b1d2b5f5d 1-15
+scripts/pgtap-local/README.md
+  s_b9ce29ee4fad7a::t_d0a45a85619c73 1,3-16
+scripts/pgtap-local/apply.sh
+  s_b9ce29ee4fad7a::t_4df70a45403b1f 12-13
+scripts/pgtap-local/supabase-stubs-app.sql
+  s_b9ce29ee4fad7a::t_d01f35e2441a25 27,37-38
+scripts/pgtap-local/suites.sh
+  s_b9ce29ee4fad7a::t_aa8707031fa6ce 1-18,20-40,42-45
+  s_b9ce29ee4fad7a::t_b0cea22643244f 19
+  s_b9ce29ee4fad7a::t_e589a77d5cc7e8 41
+.github/workflows/ci.yml
+  s_b9ce29ee4fad7a::t_8e558252973088 205-219
+scripts/pgtap-local/supabase-stubs.sql
+  s_b9ce29ee4fad7a::t_d01f35e2441a25 15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9d6d7a95338dd9d6e1af6c6f8ca77e91386de4b3",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
