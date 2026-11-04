@@ -66,7 +66,11 @@ from the library, that is a **gap**, not a reason for a local component (see "Ga
   instance (place content frames over it, as the sample screens do). Fonts: load the brand's
   families before writing text (`getStyledTextSegments` on an existing frame shows them).
 - **Sample data only.** Invented people and records. Never a real customer's data, and nothing
-  public in the Genesis repository names a consumer app.
+  public in the Genesis repository names a consumer app. An app file may own a local `Sample`
+  variable collection (strings, numbers, booleans) with modes such as `Empty`, `Typical` and
+  `Full`, and bind text and visibility in its frames to it, so one frame shows each data state;
+  variables are configuration, not components. What an app file never owns is a component with
+  its own variants: a state a library component can't show is a library gap.
 
 ## Gaps
 
