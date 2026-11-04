@@ -33,11 +33,11 @@ describe("NativeTabBar", () => {
     expect(screen.getByTestId("native-tab-bar-t3").getAttribute("aria-selected")).toBe("true");
   });
 
-  it("past five, the fifth slot is More and its sheet holds the rest", () => {
+  it("past five, the fifth slot is More and its sheet holds the rest", async () => {
     render(<Bar n={7} />);
     expect(screen.queryByTestId("native-tab-bar-t5")).toBeNull();
     fireEvent.click(screen.getByTestId("native-tab-bar-more"));
-    fireEvent.click(screen.getByTestId("native-tab-bar-t7"));
+    fireEvent.click(await screen.findByTestId("native-tab-bar-t7"));
     expect(screen.getByTestId("current").textContent).toBe("t7");
   });
 

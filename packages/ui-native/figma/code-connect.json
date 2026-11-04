@@ -61,7 +61,12 @@
     "ScreenContainer",
     "ThreadPage"
   ],
-  "notYet": [],
+  "notYet": [
+    "NativeTabBar",
+    "NativeBulkBar",
+    "NativeShareSheet",
+    "NativeWhatsNewSheet"
+  ],
   "composed": [
     "NativeSwipeRow",
     "NativeContextMenu",

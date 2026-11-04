@@ -3,16 +3,16 @@ import { describe, expect, it, vi } from "vitest";
 import { NativeWhatsNewSheet } from "../whats-new-sheet";
 
 describe("NativeWhatsNewSheet", () => {
-  it("lists the notes and closes with Got it", () => {
+  it("lists the notes and closes with Got it", async () => {
     const dismiss = vi.fn();
     render(<NativeWhatsNewSheet notes={[{ key: "1.2.0", title: "Faster sync", body: "Lists load sooner." }]} dismiss={dismiss} />);
-    expect(screen.getByText("What's new")).toBeTruthy();
+    expect(await screen.findByText("What's new")).toBeTruthy();
     expect(screen.getByTestId("native-whats-new-1.2.0").textContent).toContain("Lists load sooner.");
     fireEvent.click(screen.getByTestId("native-whats-new-done"));
     expect(dismiss).toHaveBeenCalled();
   });
 
-  it("Learn more closes, then opens the note", () => {
+  it("Learn more closes, then opens the note", async () => {
     const calls: string[] = [];
     render(
       <NativeWhatsNewSheet
@@ -22,8 +22,8 @@ describe("NativeWhatsNewSheet", () => {
         learnMoreLabel="More"
       />,
     );
+    fireEvent.click(await screen.findByTestId("native-whats-new-open-n1"));
     expect(screen.queryByTestId("native-whats-new-open-n2")).toBeNull();
-    fireEvent.click(screen.getByTestId("native-whats-new-open-n1"));
     expect(calls).toEqual(["dismiss", "open /boards"]);
   });
 });

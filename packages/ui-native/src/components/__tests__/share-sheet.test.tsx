@@ -6,9 +6,9 @@ import { NativeShareSheet } from "../share-sheet";
 afterEach(() => vi.restoreAllMocks());
 
 describe("NativeShareSheet", () => {
-  it("says it is loading while the link is null", () => {
+  it("says it is loading while the link is null", async () => {
     render(<NativeShareSheet open onOpenChange={() => {}} url={null} />);
-    expect(screen.getByTestId("native-share-sheet-loading")).toBeTruthy();
+    expect(await screen.findByTestId("native-share-sheet-loading")).toBeTruthy();
     expect(screen.getByText("Share your page")).toBeTruthy();
   });
 
@@ -24,7 +24,7 @@ describe("NativeShareSheet", () => {
         onCopy={onCopy}
       />,
     );
-    expect(screen.getByText("Share your form")).toBeTruthy();
+    expect(await screen.findByText("Share your form")).toBeTruthy();
     expect(screen.getByTestId("qr").textContent).toBe("https://acme.test/f/1");
     await act(async () => {
       fireEvent.click(screen.getByTestId("native-share-sheet-copy"));
@@ -33,12 +33,14 @@ describe("NativeShareSheet", () => {
     expect(screen.getByText("Copied")).toBeTruthy();
   });
 
-  it("shares through the system sheet, which Copy also uses without onCopy", () => {
+  it("shares through the system sheet, which Copy also uses without onCopy", async () => {
     const share = vi.spyOn(Share, "share").mockResolvedValue({ action: "sharedAction" } as never);
     render(<NativeShareSheet open onOpenChange={() => {}} url="https://acme.test/p" name="Intake" />);
+    fireEvent.click(await screen.findByTestId("native-share-sheet-share"));
     expect(screen.queryByTestId("native-share-sheet-qr")).toBeNull();
-    fireEvent.click(screen.getByTestId("native-share-sheet-share"));
-    fireEvent.click(screen.getByTestId("native-share-sheet-copy"));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("native-share-sheet-copy"));
+    });
     expect(share).toHaveBeenCalledTimes(2);
     expect(share.mock.calls[0]![0]).toMatchObject({ url: "https://acme.test/p", title: "Intake" });
   });
