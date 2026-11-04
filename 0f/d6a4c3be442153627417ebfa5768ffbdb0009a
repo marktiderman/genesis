@@ -1,0 +1,40 @@
+packages/native/src/app.tsx
+  s_109ad08c59054b::t_29f9b137abe9c3 278,505
+  s_109ad08c59054b::t_0331149ee4c701 250-251
+packages/product/package.json
+  s_109ad08c59054b::t_04b9ea2bf93fb5 71
+packages/native/src/observability/block.tsx
+  s_109ad08c59054b::t_29f9b137abe9c3 110
+packages/native/src/errors.tsx
+  s_109ad08c59054b::t_7bc9e352e98c99 51
+  s_109ad08c59054b::t_bcd5d63da0a47c 11,34-50,52-72,76-81,84-87,91,97-99,101-102
+packages/native/package.json
+  s_109ad08c59054b::t_67f683f414d988 121
+packages/native/src/screen-boundary.tsx
+  s_109ad08c59054b::t_bcd5d63da0a47c 22,30-36,39-40,45,60
+  s_109ad08c59054b::t_29f9b137abe9c3 94
+packages/native/src/index.ts
+  s_109ad08c59054b::t_29f9b137abe9c3 35-36
+packages/native/src/updates/screens.tsx
+  s_109ad08c59054b::t_b38e5281e35aa7 14,135-138,141-145
+.changeset/native-one-fatal-screen.md
+  s_109ad08c59054b::t_debf742ac411f1 1-6
+packages/product/src/native/whats-new.tsx
+  s_109ad08c59054b::t_a981b7f1942d3f 17,40-52,54,56-65,77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0fd6a4c3be442153627417ebfa5768ffbdb0009a",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
