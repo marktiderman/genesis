@@ -1,0 +1,27 @@
+.changeset/forms-native-primitive-sizing.md
+  s_e63e2ce0535b22::t_730e2a67b84b64 7-8
+packages/forms-native/src/__tests__/primitives.test.tsx
+  s_e63e2ce0535b22::t_5083af91974ac9 6-13,58-82
+packages/forms-native/src/slots.tsx
+  s_e63e2ce0535b22::t_252be4f8df9977 143,189
+packages/forms-native/src/styles.ts
+  s_e63e2ce0535b22::t_4a812ad6201a15 25-29,37,134
+packages/ui-native/src/components/progress.tsx
+  s_e63e2ce0535b22::t_48054efc2ca95a 6,17-20,29,49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f3579aa17dd228ad178bd2310f3812489c1b61de",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
