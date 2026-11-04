@@ -99,6 +99,7 @@ describe("genesis init --template native --beside <web-app>", () => {
     expect(chat.steps.some((s) => s.includes("genesis add chat --database-only there"))).toBe(true);
     expect(add.steps.some((s) => /supabase (functions deploy|secrets set)/.test(s))).toBe(false);
 
+    linkWorkspacePackage(mobile, "@marktiderman/genesis-cli", "genesis-cli");
     const upgrade = await runUpgrade({ root: mobile, lookup: { release: () => ({ version: "9.9.9", packages: {} }), latest: () => null }, dryRun: true, install: false, doctor: false });
     // Still listed, to apply where the database is.
     expect(upgrade.newMigrations).toContain(`@marktiderman/genesis-chat migrations/0001_genesis_chat.sql (apply in ../app: genesis add chat --database-only)`);
@@ -115,11 +116,11 @@ describe("genesis init --template native --beside <web-app>", () => {
     // An app that had its own supabase/ before the setting: the entries stay, the files are gone.
     lock.files["supabase/functions/genesis-push-send/index.ts"] = { source: `${SUPABASE}:functions/genesis-push-send/index.ts`, sha256: sha256("old") };
     writeLock(mobile, lock);
+    symlinkSync(path.join(PACKAGES, "..", "apps", "genesis-rn-starter", "node_modules"), path.join(mobile, "node_modules"), "dir");
     const upgrade = await runUpgrade({ root: mobile, lookup: { release: () => ({ version: "9.9.9", packages: {} }), latest: () => null }, install: false, doctor: false });
     expect(upgrade.refreshed.map((r) => r.path)).not.toContain("supabase/functions/genesis-push-send/index.ts");
     expect(existsSync(path.join(mobile, "supabase"))).toBe(false);
     expect(upgrade.summary).toContain("still lists 1 file under supabase/");
-    symlinkSync(path.join(PACKAGES, "..", "apps", "genesis-rn-starter", "node_modules"), path.join(mobile, "node_modules"), "dir");
     const doctor = await runDoctor({ root: mobile, contracts: false });
     const lockFindings = doctor.findings.filter((f) => f.rule === "lock-files");
     expect(lockFindings.map((f) => `${f.level} ${f.subject}`)).toEqual(["info supabase/"]);
@@ -131,7 +132,8 @@ describe("genesis init --template native --beside <web-app>", () => {
     const doctor = await runDoctor({ root: mobile, contracts: false });
     expect(doctor.errors).toBe(0);
     expect(doctor.ok).toBe(true);
-    const warnings = doctor.findings.filter((f) => f.level !== "info");
+    // The symlinked node_modules is the starter's, and the workspace hoists this plugin above it, where an app's own install wouldn't.
+    const warnings = doctor.findings.filter((f) => f.level !== "info" && !f.message.includes("but it isn't installed"));
     expect(warnings.map((f) => f.rule)).toEqual(["eas-placeholder", "eas-placeholder", "eas-placeholder"]);
     expect(doctor.findings.filter((f) => ["lock-files", "database-elsewhere"].includes(f.rule) || f.rule.startsWith("migration-"))).toEqual([]);
   });

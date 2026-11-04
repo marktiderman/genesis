@@ -11,7 +11,8 @@
  * open beside the list (`InboxLayout`), marked `aria-current`.
  *
  * Keyboard: the rows are one tab stop, which stays on the row you were last on;
- * Up and Down (or j and k) move between rows, Enter opens one, and Right
+ * Up and Down (or j and k) move between rows, Home and End go to the first and
+ * last, Enter opens one, and Right
  * reaches a row's "More" menu (Left comes back). Anything the app puts in a
  * row's `trailing` is its own tab stop. A custom `row` slot spreads `rowProps`
  * on its focusable element to keep this.
@@ -190,7 +191,7 @@ export function InboxPage({
       }
       return;
     }
-    const keys: Record<string, number> = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1 };
+    const keys: Record<string, number> = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1, Home: -rows.length, End: rows.length };
     const step = keys[e.key];
     if (!step) return;
     const at = rows.indexOf(target);
