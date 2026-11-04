@@ -10,7 +10,7 @@ export default {
   type: "gallery",
   v: 1,
   variant: "${variant}",
-  props: { heading: "Inside the studio", images: [{ image: { src: "/studio.jpg", alt: "The main room" } }] },
+  props: { heading: "Inside the studio", images: [{ src: "/studio.jpg", alt: "The main room" }] },
 }`,
   imports: ['import "@marktiderman/genesis-sites/sections"'],
   id: 'sites-section-gallery',

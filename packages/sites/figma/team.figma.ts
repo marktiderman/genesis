@@ -10,7 +10,7 @@ export default {
   type: "team",
   v: 1,
   variant: "${variant}",
-  props: { heading: "Your coaches", members: [{ name: "Sam Rivera", role: "Head coach" }] },
+  props: { heading: "Our team", members: [{ name: "Sam Rivera", role: "Founder" }] },
 }`,
   imports: ['import "@marktiderman/genesis-sites/sections"'],
   id: 'sites-section-team',

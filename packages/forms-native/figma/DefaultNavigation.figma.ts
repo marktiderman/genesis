@@ -16,6 +16,7 @@ export default {
   submitLabel="Submit"
   retryLabel="Try again"
   backLabel="Back"
+  submitRef={submitRef}
 />`,
   imports: ['import { DefaultNavigation } from "@marktiderman/genesis-forms-native"'],
   id: 'forms-native-default-navigation',

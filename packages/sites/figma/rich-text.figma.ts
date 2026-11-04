@@ -10,7 +10,7 @@ export default {
   type: "rich-text",
   v: 1,
   variant: "${variant}",
-  props: { heading: "Our story", body: "We opened in a railway arch…" },
+  props: { heading: "Our story", body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "We opened in a railway arch…" }] }] } },
 }`,
   imports: ['import "@marktiderman/genesis-sites/sections"'],
   id: 'sites-section-rich-text',

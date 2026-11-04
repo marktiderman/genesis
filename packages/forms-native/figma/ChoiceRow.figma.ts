@@ -7,7 +7,7 @@ const label = instance.getString('Label')
 const multiple = instance.getEnum('multiple', { false: false, true: true })
 const selected = instance.getEnum('selected', { false: false, true: true })
 export default {
-  example: figma.code`<ChoiceRow label="${label}" selected={${selected ? 'true' : 'false'}} multiple={${multiple ? 'true' : 'false'}} onPress={toggle} />`,
+  example: figma.code`<ChoiceRow label={${JSON.stringify(label)}} selected={${selected ? 'true' : 'false'}} multiple={${multiple ? 'true' : 'false'}} onPress={toggle} />`,
   imports: ['import { ChoiceRow } from "@marktiderman/genesis-forms-native"'],
   id: 'forms-native-choice-row',
   metadata: { nestable: true },

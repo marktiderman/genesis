@@ -10,7 +10,7 @@ export default {
   type: "schedule",
   v: 2,
   variant: "${variant}",
-  props: { heading: "Class times" },
+  props: { heading: "Class times", sessions: [{ day: "mon", start: "18:00", end: "19:00", title: "Session name" }] },
 }`,
   imports: ['import "@marktiderman/genesis-sites/sections"'],
   id: 'sites-section-schedule',

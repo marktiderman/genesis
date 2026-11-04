@@ -7,7 +7,7 @@ const title = instance.getString('Title')
 const description = instance.getString('Description')
 const requiredNote = instance.getString('Required note')
 export default {
-  example: figma.code`<DefaultHeader title="${title}" showTitle description="${description}" requiredNote="${requiredNote}" />`,
+  example: figma.code`<DefaultHeader title={${JSON.stringify(title)}} showTitle description={${JSON.stringify(description)}} requiredNote={${JSON.stringify(requiredNote)}} />`,
   imports: ['import { DefaultHeader } from "@marktiderman/genesis-forms-native"'],
   id: 'forms-native-default-header',
   metadata: { nestable: true },

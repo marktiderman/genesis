@@ -6,7 +6,7 @@ const instance = figma.selectedInstance
 const title = instance.getString('Title')
 const description = instance.getString('Description')
 export default {
-  example: figma.code`<DefaultEnding title="${title}" description="${description}" />`,
+  example: figma.code`<DefaultEnding title={${JSON.stringify(title)}} description={${JSON.stringify(description)}} />`,
   imports: ['import { DefaultEnding } from "@marktiderman/genesis-forms-web"'],
   id: 'forms-web-default-ending',
   metadata: { nestable: true },

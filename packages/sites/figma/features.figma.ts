@@ -10,7 +10,7 @@ export default {
   type: "features",
   v: 1,
   variant: "${variant}",
-  props: { heading: "What you get", items: [{ title: "Guided sessions", body: "A coach in every class." }] },
+  props: { heading: "What you get", items: [{ title: "Guided sessions", body: "A guide in every session." }] },
 }`,
   imports: ['import "@marktiderman/genesis-sites/sections"'],
   id: 'sites-section-features',

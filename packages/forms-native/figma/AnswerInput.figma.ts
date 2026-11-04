@@ -6,7 +6,7 @@ const instance = figma.selectedInstance
 const multiline = instance.getEnum('multiline', { false: false, true: true })
 const state = instance.getEnum('state', { "default": "default", "focused": "focused", "invalid": "invalid" })
 export default {
-  example: figma.code`<AnswerInput {...props}${multiline ? ' multiline' : ''}${state === 'invalid' ? ' invalid' : ''} />`,
+  example: figma.code`<AnswerInput {...props}${state === 'invalid' ? ' binding={{ ...props.binding, error: "Enter an answer." }}' : ''}${multiline ? ' multiline' : ''} />`,
   imports: ['import { AnswerInput } from "@marktiderman/genesis-forms-native"'],
   id: 'forms-native-answer-input',
   metadata: { nestable: true },

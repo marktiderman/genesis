@@ -4,7 +4,7 @@
 import figma from 'figma'
 
 export default {
-  example: figma.code`<NotificationBell onOpen={(item) => navigate(item.link)} onSeeAll={() => navigate("/notifications")} />`,
+  example: figma.code`<NotificationBell onOpen={(item) => item.url && navigate(item.url)} onSeeAll={() => navigate("/notifications")} />`,
   imports: ['import { NotificationBell } from "@marktiderman/genesis-notifications/web"'],
   id: 'notifications-web-notification-bell',
   metadata: { nestable: true },

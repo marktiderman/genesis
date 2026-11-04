@@ -9,8 +9,8 @@ export default {
   reason={reason}
   accept={accept}
   decline={decline}
-  title="${instance.getString('Title')}"
-  body="${instance.getString('Body')}"
+  title={${JSON.stringify(instance.getString('Title'))}}
+  body={${JSON.stringify(instance.getString('Body'))}}
 />`,
   imports: ['import { PushPromptSheet } from "@marktiderman/genesis-native/push"'],
   id: 'native-push-prompt-sheet',

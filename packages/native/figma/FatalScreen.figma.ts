@@ -4,8 +4,8 @@
 import figma from 'figma'
 
 export default {
-  example: figma.code`<GenesisNativeApp config={config} slots={{ fatal: FatalScreen }}>{children}</GenesisNativeApp>`,
-  imports: ['import { FatalScreen, GenesisNativeApp } from "@marktiderman/genesis-native"'],
+  example: figma.code`<FatalScreen error={error} retry={retry} />`,
+  imports: ['import { FatalScreen } from "@marktiderman/genesis-native"'],
   id: 'native-fatal-screen',
   metadata: { nestable: false },
 }

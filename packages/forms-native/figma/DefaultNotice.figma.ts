@@ -6,7 +6,7 @@ const instance = figma.selectedInstance
 const kind = instance.getEnum('kind', { "restored": "restored", "discarded": "discarded", "draftError": "draftError", "saving": "saving" })
 const message = instance.getString('Message')
 export default {
-  example: figma.code`<DefaultNotice kind="${kind}" message="${message}" />`,
+  example: figma.code`<DefaultNotice kind={${JSON.stringify(kind)}} message={${JSON.stringify(message)}} />`,
   imports: ['import { DefaultNotice } from "@marktiderman/genesis-forms-native"'],
   id: 'forms-native-default-notice',
   metadata: { nestable: true },

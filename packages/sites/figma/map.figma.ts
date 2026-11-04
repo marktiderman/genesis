@@ -10,7 +10,7 @@ export default {
   type: "map",
   v: 1,
   variant: "${variant}",
-  props: { heading: "Visit the studio", address: ["12 Mill Lane", "Anytown"], provider: "openstreetmap" },
+  props: { heading: "Visit the studio", address: ["12 Mill Lane", "Anytown"], provider: "openstreetmap", lat: 51.5007, lng: -0.1246 },
 }`,
   imports: ['import "@marktiderman/genesis-sites/sections"'],
   id: 'sites-section-map',

@@ -10,7 +10,7 @@ export default {
   type: "file",
   v: 1,
   variant: "${variant}",
-  props: { heading: "Forms and documents", files: [] },
+  props: { heading: "Forms and documents", files: [{ label: "Price list", file: { src: "/files/price-list.pdf", mime: "application/pdf" } }] },
 }`,
   imports: ['import "@marktiderman/genesis-sites/sections"'],
   id: 'sites-section-file',

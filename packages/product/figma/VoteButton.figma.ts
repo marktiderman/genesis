@@ -5,7 +5,7 @@ import figma from 'figma'
 const instance = figma.selectedInstance
 
 export default {
-  example: figma.code`<VoteButton voted={${instance.getBoolean('voted')}} label={String(idea.votes)} onPress={toggleVote} />`,
+  example: figma.code`<VoteButton voted={${instance.getBoolean('voted')}} label={String(idea.votes)} onPress={toggleVote} testID={"vote-" + idea.id} />`,
   imports: ['import { VoteButton } from "@marktiderman/genesis-product/native"'],
   id: 'product-vote-button',
   metadata: { nestable: true },

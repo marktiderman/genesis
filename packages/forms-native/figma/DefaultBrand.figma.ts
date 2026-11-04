@@ -5,7 +5,7 @@ import figma from 'figma'
 const instance = figma.selectedInstance
 const name = instance.getString('Name')
 export default {
-  example: figma.code`<DefaultBrand name="${name}" />`,
+  example: figma.code`<DefaultBrand name={${JSON.stringify(name)}} />`,
   imports: ['import { DefaultBrand } from "@marktiderman/genesis-forms-native"'],
   id: 'forms-native-default-brand',
   metadata: { nestable: true },
