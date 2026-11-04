@@ -1,5 +1,41 @@
 # @marktiderman/genesis-studio
 
+## 0.3.0
+
+### Minor Changes
+
+- 9765abf: A save that meets someone else's change now asks the person instead of only showing an error: their value beside yours, then "Keep mine" or "Take theirs". Features: data-offline.
+
+  - **genesis-core:**
+    - `writeConflict(error, mine, { changed?, view? })` turns a `conflict` `DataWriteError` into a `WriteConflict`: `theirs`, `mine`, the `fields` this person changed that differ from theirs (a field their row doesn't carry counts as different), and `currentVersion`. Empty values, numbers and their text, dates and object key order compare as a person would.
+    - `WriteState` (`pending`, `sending`, `paused`, `failed`, `conflict`) is the one shape for where a write stands.
+    - `useResourceForm` returns `conflict`, `keepMine()`, `takeTheirs()` and `dismissConflict()`. What the person typed stays on the form until they save or take theirs, across an optimistic save's refetch too. Keep mine sends this person's changes at the version the conflict reported, with their values for every other field, and rejects with the reason if it fails for anything but a new conflict. After take theirs, the next save is checked against their version.
+    - `ExecuteWriteArgs.expectedVersion` names the version a write is checked against.
+  - **genesis-ui:** `ConflictSheet`, from `/data`. `ResourceForm` (every layout, and after an optimistic save closed it, without a second toast) and `RecordView`'s settings sections open it on a conflict. It hides keep mine when there's no version to save at. New `conflict` messages.
+  - **genesis-ui-native:** `NativeConflictSheet`, from `/data`, announced as it opens. `NativeResourceForm` and `NativeRecordView`'s settings sections open it on a conflict; its words come from `messages.conflict`.
+  - **genesis-studio:** the record panel's edit conflict opens `ConflictSheet` (theirs beside yours) instead of replacing what was typed. Its genesis-core floor is now 2.11: upgrade genesis-core with genesis-studio.
+
+### Patch Changes
+
+- 80a52f2: Board mode, from its review:
+
+  - A move narrows by the screen's own `can` as well as the view's guard, and the screen's `resourceOptions` (`invalidates`, `onError`, `onUpdateSuccess`) apply to it. A move stays pessimistic.
+  - A card either guard refuses has no handle or menu and can't be dragged (the new `KanbanBoard` `canMoveItem`), instead of being refused after the drop.
+  - While a card's move is saving the card is dimmed and a second move of it is turned away, so it is never sent from the column it is leaving.
+  - A yes/no board filters its columns by `true` and `false`, not the strings (`useBoardColumns` `toValue`).
+  - A row that shows on two loaded pages of a column is drawn once (`useBoardColumns` `getKey`). Studio's board passes it too.
+  - A bad screen `board={…}` override warns in development and shows the view's own block, instead of throwing.
+
+  Features: resource-view-board
+
+- 992b788: Board mode for lists: `<ResourceView view={tasksView} mode="board" />` shows a view's rows as cards in a column per value of one field, and moving a card writes that field.
+
+  - **genesis-core:** a view's `board` block (`ViewBoard`): `field` (an enum or a yes/no field), `columns` (which values, in order; default the field's choices, then "No value" when it can be empty), `cardFields` and `limits` (work-in-progress limits by value). `defineView` checks every name and value; `boardProblems` and `boardChoices` check a screen's overrides the same way. `view.column(name)` resolves one field as a column preset would, for a card's fields.
+  - **genesis-ui:** `mode="board"` on ResourceView, drawn by the new `ResourceBoard` (`board={…}` overrides the view's block and adds `onSelect`, `renderCard`, `onMoveError`, `perPage`). Each column is one paged `getList` under core's list keys, inside the viewer's scope and the screen's filters. A move is the resource's own `update(id, { [field]: value })`, so the provider's write rules apply and a versioned resource's check refuses a stale move; a refused move leaves the card where it was and says why. `useBoardColumns` is the loader on its own, for boards over rows that aren't one view's. `KanbanColumn.limit` shows a column's count against its limit ("4 / 3") and says when it's over. The `lists-use-resource-view` doctor rule also accepts a KanbanBoard fed by `useBoardColumns`, and `genesis catalog` points a board at `mode="board"`.
+  - **genesis-studio:** the board loads through `useBoardColumns`, the same loader ResourceView's board uses. No change in what it shows.
+
+  Features: resource-view-board
+
 ## 0.2.8
 
 ### Patch Changes

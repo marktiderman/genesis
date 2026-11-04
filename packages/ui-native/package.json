@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-ui-native",
-  "version": "3.5.1",
+  "version": "3.6.0",
   "private": false,
   "type": "module",
   "sideEffects": false,

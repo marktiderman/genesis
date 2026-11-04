@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03",
+  "generatedAt": "2026-11-04",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 146
+      "count": 164
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 80
+      "count": 91
     }
   },
   "primitives": [
@@ -1338,6 +1338,148 @@
       ]
     },
     {
+      "slug": "composer-bar",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/composer-bar.tsx",
+      "stability": "beta",
+      "summary": "NativeComposerBar — the bar you write a message in: an input that grows\nwith what you type (up to `maxLines`, then scrolls), a send button, and\nslots beside and above it. ThreadPage's composer; chat, comments and AI\nprompts build on it too.\n\n- **Modes:** `modes` with a `tone` each (\"Reply\" / \"Internal note\"). The\n  picker sits above the input, and an `internal` tone edges the bar and\n  the input in the theme's `warning` role, so a staff-only note never\n  reads like a reply (the send button keeps the tint: text on `warning`\n  would fail contrast). The row it sends carries the same tone (ThreadPage).\n- **Slots:** `leading` (attach), `trailing` (beside send: a mic), `above`\n  (a reply preview, attachments waiting to send).\n- **Keyboard:** the bar doesn't move itself. Put it under a keyboard-aware\n  container (ThreadPage does, with `GenesisModules.keyboardAvoidingView`);\n  the list above it dismisses the keyboard interactively on a drag.\n- **Accessibility:** send and the mode picker are 44pt targets, the input\n  is labelled by its placeholder (and says when it writes an internal\n  note), Sending is announced, and the input stays editable while a\n  message sends (the keyboard stays up).",
+      "primaryComponent": "NativeComposerBar",
+      "components": [
+        {
+          "name": "NativeComposerBar",
+          "summary": "",
+          "props": [
+            {
+              "name": "onChangeText",
+              "type": "(text: string) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onSend",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "above",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Turns sending off (besides a blank value)."
+            },
+            {
+              "name": "leading",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "maxLength",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "maxLines",
+              "type": "number",
+              "required": false,
+              "defaultValue": "6",
+              "description": "The input grows to this many lines, then scrolls. Default 6."
+            },
+            {
+              "name": "mode",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The chosen mode's id. Default the first."
+            },
+            {
+              "name": "modes",
+              "type": "readonly ComposerMode[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Ways to send (\"Reply\", \"Internal note\"). Two or more show the picker."
+            },
+            {
+              "name": "onModeChange",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "placeholder",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Message",
+              "description": ""
+            },
+            {
+              "name": "sending",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "A send is in flight: the button spins and won't send twice."
+            },
+            {
+              "name": "sendingLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Sending",
+              "description": ""
+            },
+            {
+              "name": "sendLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Send",
+              "description": "Send's label, to VoiceOver. Default \"Send\"."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "composer",
+              "description": ""
+            },
+            {
+              "name": "trailing",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "ComposerTone",
+          "summary": "How a composer mode reads. The same tones as a message.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "date-time-picker",
       "aliases": [],
       "surface": "native",
@@ -1942,6 +2084,349 @@
       ]
     },
     {
+      "slug": "gallery-card",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/gallery-card.tsx",
+      "stability": "beta",
+      "summary": "NativeGalleryCard — a photo or video cover with an optional title line\nunder it, and slots over the picture for badges (top-left) and actions\n(top-right). An album, a session recording, a product shot.\n\nThe cover is `NativeImage` at `ratio` (4:3 by default); without `src`, or\nwhile `loading`, it is a muted box with a `NativeSkeleton`. The whole card\nis a button when `onPress` is given. Same props as the web `GalleryCard`.",
+      "primaryComponent": "NativeGalleryCard",
+      "components": [
+        {
+          "name": "NativeGalleryCard",
+          "summary": "",
+          "props": [
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Over the cover, top-right (an icon button, a menu)."
+            },
+            {
+              "name": "alt",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "badges",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Over the cover, top-left (a `NativeBadge`, a `NativeLiveIndicator`)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Draws the cover as a skeleton."
+            },
+            {
+              "name": "onPress",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "ratio",
+              "type": "number",
+              "required": false,
+              "defaultValue": "4 / 3",
+              "description": "Cover width ÷ height. Default 4/3."
+            },
+            {
+              "name": "src",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The cover picture. Without it the cover is a placeholder."
+            },
+            {
+              "name": "subtitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-gallery-card",
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gallery-grid",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/gallery-grid.tsx",
+      "stability": "beta",
+      "summary": "NativeGalleryGrid — photos in rows: justified (each row scaled to fill the\nwidth, as in a photo library) or a fixed-column grid (square tiles by\ndefault, or each item's own shape with `aspectRatio=\"item\"`).\n\nRows come from the pure `justifyRows`, so the same items pack the same way\nas the web `GalleryGrid`, with the same defaults (`GALLERY_DEFAULTS`) and\nthe same props, `onItemPress` in place of the web's `onItemClick` (as\n`NativeResourcePage` pairs with `ResourcePage`). The container width comes\nfrom `onLayout`; until it is measured nothing is drawn. The rows are a\nvirtualized `FlatList` (the grid scrolls itself; `header` and `footer` go\nabove and below), so a long gallery mounts only what's near the screen and\n`loadMore` fires when scrolling nears the end, for \"load more\". Don't put\nit inside a ScrollView: it fills its parent (`flex-1`), and nested it would\ndraw every row and fire `loadMore` at once. Put what goes above or below\nit in `header` and `footer`. Tiles are\n`NativeImage` over a `bg-muted` placeholder sized from the item's ratio (so\nrows don't reflow while the picture loads), tappable when `onItemPress` is\ngiven (or when selecting); `renderItem` replaces the tile's content and\n`renderBadges` overlays its top-left.\n\nSelection (`selected` + `onSelectionChange`) toggles an id per press, in\nplace of `onItemPress` (as on web), and rings the chosen tiles. `groupBy`\nlays each group out separately under a header.",
+      "primaryComponent": "NativeGalleryGrid",
+      "components": [
+        {
+          "name": "NativeGalleryGrid",
+          "summary": "",
+          "props": [
+            {
+              "name": "items",
+              "type": "GalleryItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aspectRatio",
+              "type": "GalleryTileAspect",
+              "required": false,
+              "defaultValue": "1",
+              "description": "Grid layout only: each tile's shape, a ratio or `\"item\"` for the item's own. Default 1 (square), as on web."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "columns",
+              "type": "number",
+              "required": false,
+              "defaultValue": "GALLERY_DEFAULTS.columns",
+              "description": "Grid layout only: tiles per row. Default 3."
+            },
+            {
+              "name": "footer",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Below the last row (a \"Loading more\" spinner)."
+            },
+            {
+              "name": "gap",
+              "type": "number",
+              "required": false,
+              "defaultValue": "GALLERY_DEFAULTS.gap",
+              "description": "Points between tiles. Default 4."
+            },
+            {
+              "name": "getGroup",
+              "type": "((item: GalleryItem) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "@deprecated Use `groupBy`."
+            },
+            {
+              "name": "groupBy",
+              "type": "((item: GalleryItem) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Groups items (in order of first appearance), each under a header reading the key (a view's `groupBy`, for an array)."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the first row, scrolling with it."
+            },
+            {
+              "name": "layout",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "justified",
+              "description": "Default \"justified\"."
+            },
+            {
+              "name": "loadMore",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called when scrolling nears the last rows (FlatList's `onEndReached`): the hook for \"load more\" (NativeResourceView's name)."
+            },
+            {
+              "name": "onItemPress",
+              "type": "((item: GalleryItem, index: number) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called on a press. Not called when `onSelectionChange` is set: a press then only toggles the selection."
+            },
+            {
+              "name": "onNearEnd",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "@deprecated Use `loadMore`."
+            },
+            {
+              "name": "onSelectionChange",
+              "type": "((ids: string[], detail: { item: GalleryItem; index: number; }) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "renderBadges",
+              "type": "((item: GalleryItem, index: number) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Overlaid top-left of the default tile."
+            },
+            {
+              "name": "renderItem",
+              "type": "((item: GalleryItem, index: number) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the tile's content (the image by default)."
+            },
+            {
+              "name": "rowHeight",
+              "type": "number",
+              "required": false,
+              "defaultValue": "GALLERY_DEFAULTS.rowHeight",
+              "description": "Justified layout only: target row height in points. Default 180."
+            },
+            {
+              "name": "selected",
+              "type": "string[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Ids of the selected items. With `onSelectionChange`, a press toggles the tile."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-gallery-grid",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gallery-layout",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/gallery-layout.ts",
+      "stability": "stable",
+      "summary": "Used when an item has no `width`/`height` (or a degenerate one).",
+      "primaryComponent": "DEFAULT_GALLERY_RATIO",
+      "components": [
+        {
+          "name": "DEFAULT_GALLERY_RATIO",
+          "summary": "Used when an item has no `width`/`height` (or a degenerate one).",
+          "props": []
+        },
+        {
+          "name": "galleryItemRatio",
+          "summary": "Width ÷ height of an item, falling back to 4:3.",
+          "props": [
+            {
+              "name": "id",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "src",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "alt",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "caption",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "height",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "width",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "justifyRows",
+          "summary": "Pack `items` into rows of a target `rowHeight`, then scale each row so its\ntiles exactly fill `containerWidth` (minus `gap` between tiles). Pure: same\ninput, same rows.\n\nGreedy, as in the classic justified-gallery algorithm: tiles are added at\nthe target height until the row would overflow; the row is then closed at\nwhichever of \"with\" / \"without\" the overflowing tile is nearer the target\nwidth, and scaled to fit. The last row is scaled too, but never above the\ntarget height (a single landscape photo in the last row should not fill\nthe width as a banner); it is left-aligned at the target height instead.\n\n`containerWidth <= 0` (not measured yet) yields no rows, so callers render\nnothing rather than divide by zero.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "gallery-types",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/gallery-types.ts",
+      "stability": "beta",
+      "summary": "The gallery's defaults, the same on web and native: a target row height and the space between\ntiles (px on web, points on native), and the columns of `layout=\"grid\"`.",
+      "primaryComponent": "__type",
+      "components": [
+        {
+          "name": "__type",
+          "summary": "The gallery's defaults, the same on web and native: a target row height and the space between\ntiles (px on web, points on native), and the columns of `layout=\"grid\"`.",
+          "props": []
+        },
+        {
+          "name": "GalleryItem",
+          "summary": "One image in a gallery. Shared by `GalleryGrid`, `Lightbox` and their native twins, so a\nconsumer passes the same array to the grid and to the viewer it opens.\n\n`width`/`height` are the image's intrinsic pixel size when known; the justified layout uses\ntheir ratio to pack rows and falls back to 4:3 when they are absent.",
+          "props": []
+        },
+        {
+          "name": "GalleryTileAspect",
+          "summary": "A `layout=\"grid\"` tile's shape: a ratio (width / height; 1 is square, the default), or `\"item\"`\nfor each item's own (its `width`/`height`, 4:3 when unknown).",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "glass-surface",
       "aliases": [],
       "surface": "native",
@@ -2432,11 +2917,6 @@
           ]
         },
         {
-          "name": "formatInboxTime",
-          "summary": "The default row time: `9:41`, `Yesterday`, `Monday`, then a short date.",
-          "props": []
-        },
-        {
           "name": "InboxPage",
           "summary": "",
           "props": [
@@ -2627,6 +3107,16 @@
         {
           "name": "showInboxActions",
           "summary": "Opens a row's actions as a menu (long press).",
+          "props": []
+        },
+        {
+          "name": "InboxSwipeAction",
+          "summary": "An action on an inbox row: a swipe, a long press or context menu, an accessibility action.",
+          "props": []
+        },
+        {
+          "name": "formatInboxTime",
+          "summary": "The default inbox row time: `9:41`, `Yesterday`, `Monday`, then a short date.",
           "props": []
         }
       ]
@@ -2918,6 +3408,257 @@
       ]
     },
     {
+      "slug": "lightbox",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/lightbox.tsx",
+      "stability": "beta",
+      "summary": "NativeLightbox — a full-screen photo viewer: swipe between the items, a\nclose button, a \"3 / 12\" counter, the caption at the bottom and a slot for\nactions (share, save) at the top right. `title`/`description` sit in the\ntop bar; `renderMedia` swaps a page's picture for a video or a compare view.\n\nThe built-in photo pages pinch or double-tap to zoom (`zoomable`, on by\ndefault), and paging stops while one is zoomed; at full size a pull down\ncloses the viewer (`swipeToDismiss`, on by default), fading the backdrop as\nit goes; a tap shows or hides the top bar and caption. Pages from\n`renderMedia` are left to their own gestures. With VoiceOver or TalkBack the\npager is adjustable: swipe up or down for the next or previous item, and it\nreads \"3 of 12\". The gestures are built from genesis-chat's photo viewer\n(see `lightbox-zoom`), which moves onto this one next, so there is one viewer.\n\nBuilt on `NativeFullScreenModal`. The pictures are a horizontal paging\n`FlatList`, one per screen width, a few pages mounted at a time; a swipe\nreports `onIndexChange` when the page settles, and a new `index` from\noutside scrolls to it. No looping: the first and last page stop. The same\nprops as the web `Lightbox`.",
+      "primaryComponent": "NativeLightbox",
+      "components": [
+        {
+          "name": "NativeLightbox",
+          "summary": "",
+          "props": [
+            {
+              "name": "index",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": "The item shown, 0-based."
+            },
+            {
+              "name": "items",
+              "type": "GalleryItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onIndexChange",
+              "type": "(index: number) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onOpenChange",
+              "type": "(open: boolean) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "description",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Under the title in the top bar."
+            },
+            {
+              "name": "labels",
+              "type": "Partial<NativeLightboxLabels>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "renderActions",
+              "type": "((item: GalleryItem, index: number) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Top-right slot: icon buttons for the current item."
+            },
+            {
+              "name": "renderCaption",
+              "type": "((item: GalleryItem, index: number) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the default caption (the item's `caption`)."
+            },
+            {
+              "name": "renderMedia",
+              "type": "((item: GalleryItem, index: number) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the page's picture (a video player, a before/after view); fills the page."
+            },
+            {
+              "name": "swipeToDismiss",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "A pull down at full size closes the viewer. Default true."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-lightbox",
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "In the top bar, and the viewer's accessibility label."
+            },
+            {
+              "name": "zoomable",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Pinch or double-tap the built-in photo pages to zoom. Default true."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "lightbox-zoom",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/lightbox-zoom.tsx",
+      "stability": "beta",
+      "summary": "Whether a drag down that ended here closes the viewer.",
+      "primaryComponent": "lightboxShouldDismiss",
+      "components": [
+        {
+          "name": "lightboxShouldDismiss",
+          "summary": "Whether a drag down that ended here closes the viewer.",
+          "props": []
+        },
+        {
+          "name": "lightboxPinchScale",
+          "summary": "The zoom a pinch has reached: from where it started, by how far the fingers spread.",
+          "props": []
+        },
+        {
+          "name": "lightboxTouchDistance",
+          "summary": "Points between two touches.",
+          "props": []
+        },
+        {
+          "name": "lightboxPanLimit",
+          "summary": "How far a zoomed photo may pan before an edge shows, per axis.",
+          "props": []
+        },
+        {
+          "name": "NativeZoomablePhoto",
+          "summary": "The page: iOS's zooming scroll view, or Android's pinch and pan.",
+          "props": [
+            {
+              "name": "active",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": "The page on screen: another page resets its zoom."
+            },
+            {
+              "name": "height",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onDismiss",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onPull",
+              "type": "((dy: number) => void) | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "How far it's pulled down, for the backdrop's fade; null when swiping down doesn't close."
+            },
+            {
+              "name": "onTap",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "A single tap (shows or hides the viewer's chrome)."
+            },
+            {
+              "name": "onZoomChange",
+              "type": "(zoomed: boolean) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "src",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "width",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "alt",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "zoomable",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Pinch and double-tap zoom (on by default). Off, the page still pulls down to close."
+            }
+          ]
+        },
+        {
+          "name": "LIGHTBOX_DISMISS_DISTANCE",
+          "summary": "Points pulled down (or dragged, on Android) that close the viewer on release.",
+          "props": []
+        },
+        {
+          "name": "LIGHTBOX_DISMISS_VELOCITY",
+          "summary": "Or a quick flick down, in points per millisecond.",
+          "props": []
+        },
+        {
+          "name": "LIGHTBOX_MAX_ZOOM",
+          "summary": "How far a photo zooms in.",
+          "props": []
+        },
+        {
+          "name": "LIGHTBOX_DOUBLE_TAP_MS",
+          "summary": "Between two taps (each fires on release) for a double tap: a quick one measured 330ms apart on iOS.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "list-item",
       "aliases": [],
       "surface": "native",
@@ -3006,6 +3747,73 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "live-indicator",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/live-indicator.tsx",
+      "stability": "beta",
+      "summary": "NativeLiveIndicator — \"Live\" with a pulsing dot, for a stream or a session\nthat is on right now; the dot goes grey when it is idle and fainter when\nthe source is offline.\n\nThe pulse is an `Animated` loop that Reduce Motion turns off. Announced as\ntext in a polite live region on Android and through\n`AccessibilityInfo.announceForAccessibility` on iOS, so a change from live\nto ended is read without interrupting. Same props as the web `LiveIndicator`.",
+      "primaryComponent": "NativeLiveIndicator",
+      "components": [
+        {
+          "name": "NativeLiveIndicator",
+          "summary": "",
+          "props": [
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "detail",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "After the label (\"12 watching\", \"since 9:00\")."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Visible text and screen-reader label. Default follows the state: \"Live\", \"Idle\" or \"Offline\"."
+            },
+            {
+              "name": "live",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Default true. `live={false}` is `state=\"idle\"`."
+            },
+            {
+              "name": "state",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Overrides `live`: \"live\", \"idle\" (grey) or \"offline\" (faint)."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-live-indicator",
+              "description": ""
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "pill",
+              "description": "\"pill\" (default): dot and label on a rounded surface. \"dot\": the dot alone."
             }
           ]
         }
@@ -3161,6 +3969,87 @@
           "name": "fill",
           "summary": "Fill `{name}` placeholders. A placeholder with no value is left as it is.",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "native-conflict-sheet",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/NativeConflictSheet.tsx",
+      "stability": "beta",
+      "summary": "The phone's ConflictSheet: when a save met someone else's change, a bottom\nsheet shows their value above the one this person tried to save, for each\nfield where they differ, then \"Take theirs\" or \"Keep mine\".\nNativeRecordView's settings sections open it on a `conflict`.",
+      "primaryComponent": "NativeConflictSheet",
+      "components": [
+        {
+          "name": "NativeConflictSheet",
+          "summary": "The phone's ConflictSheet: when a save met someone else's change, a bottom\nsheet shows their value above the one this person tried to save, for each\nfield where they differ, then \"Take theirs\" or \"Keep mine\".\nNativeRecordView's settings sections open it on a `conflict`.",
+          "props": [
+            {
+              "name": "conflict",
+              "type": "WriteConflict | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "The conflict to show (`writeConflict(error, values)`); null keeps it closed."
+            },
+            {
+              "name": "onDismiss",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Closed without choosing: the changes stay where they are, unsaved."
+            },
+            {
+              "name": "onKeepMine",
+              "type": "() => void | Promise<void>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Save these values over theirs, at the version the conflict reported. The sheet waits for it."
+            },
+            {
+              "name": "onTakeTheirs",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Drop these values and show their row."
+            },
+            {
+              "name": "format",
+              "type": "((field: string, value: unknown) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A field's value as shown. Default: plain text."
+            },
+            {
+              "name": "label",
+              "type": "((field: string) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A field's label. Default: the field name, title-cased."
+            },
+            {
+              "name": "messages",
+              "type": "Partial<NativeConflictSheetMessages>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The record's noun (\"task\"), for the title."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-conflict-sheet",
+              "description": ""
+            }
+          ]
         }
       ]
     },
@@ -4346,6 +5235,13 @@
               "description": "Filters sent to the server (`{ client_id: id }`); `null` means \"is empty\" and a list means\n\"any of\" (`{ status: [\"open\", \"blocked\"] }`, sent as `in`; a create never takes a list). A create\nalso saves every non-null value here (a tab's filter too), even for read-only fields such as\na required link: they come from the screen, never from an input. An edit never sends them."
             },
             {
+              "name": "gallery",
+              "type": "Partial<ViewGallery<string>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `mode=\"grid\"`: overrides the view's `gallery` block, or adds one. With a gallery, grid mode\ndraws a photo per row in justified rows (NativeGalleryGrid, the web's layout) in place of\ncards; a row without an image is a placeholder tile, and a press opens the row as a card's does."
+            },
+            {
               "name": "header",
               "type": "ReactNode",
               "required": false,
@@ -5225,6 +6121,92 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "rating",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/rating.tsx",
+      "stability": "beta",
+      "summary": "NativeRating — a row of stars showing a score out of `max`, read-only or\ntappable.\n\nWithout `onChange` (or with `readOnly`) it is one image for screen readers\n(\"3 of 5 stars\"). With it, each star is a radio in a radiogroup, so\nVoiceOver and TalkBack read the chosen one and the rest as options;\npressing the current value clears the rating (`nextRating`). Filled stars\ndraw in the `warning` role (what `text-warning` resolves to), empty ones in\nthe muted foreground. Same props as the web `Rating`.",
+      "primaryComponent": "NativeRating",
+      "components": [
+        {
+          "name": "nextRating",
+          "summary": "The value after pressing `star`: that star, or 0 when it is the current value (a press clears).",
+          "props": []
+        },
+        {
+          "name": "NativeRating",
+          "summary": "",
+          "props": [
+            {
+              "name": "value",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": "The score, 0..`max`. Fractions round to the nearest star."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "getLabel",
+              "type": "((value: number, max: number) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The accessibility text for a value, in place of \"N of M stars\" (read-only label, each radio's label and value)."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The control's accessible name (\"Service rating\"): read-only reads \"Service rating: 3 of 5 stars\"."
+            },
+            {
+              "name": "max",
+              "type": "number",
+              "required": false,
+              "defaultValue": "5",
+              "description": "Number of stars. Default 5."
+            },
+            {
+              "name": "onChange",
+              "type": "((value: number) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Makes the stars tappable; absent, the rating is read-only."
+            },
+            {
+              "name": "readOnly",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Read-only even with `onChange`."
+            },
+            {
+              "name": "size",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "md",
+              "description": "Default \"md\"."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-rating",
               "description": ""
             }
           ]
@@ -6816,13 +7798,193 @@
       ]
     },
     {
+      "slug": "thread-list",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/thread-list.tsx",
+      "stability": "beta",
+      "summary": "A conversation's list. See the module docs.",
+      "primaryComponent": "NativeThreadList",
+      "components": [
+        {
+          "name": "threadNearBottom",
+          "summary": "Whether a scroll position is at (or near) the bottom of its content.",
+          "props": []
+        },
+        {
+          "name": "threadListMode",
+          "summary": "How the list is set up. FlashList follows by itself, within\n`THREAD_AT_BOTTOM_POINTS` of the bottom (its threshold is a fraction of the\nviewport: a fifth until the viewport's height is known); FlatList keeps its\nplace on prepend, anchored on the first row past the header (index 1: the\nheader is child 0), and the list follows the bottom by hand.",
+          "props": []
+        },
+        {
+          "name": "THREAD_AT_BOTTOM_POINTS",
+          "summary": "Points from the bottom that still count as \"at the bottom\".",
+          "props": []
+        },
+        {
+          "name": "NativeThreadList",
+          "summary": "A conversation's list. See the module docs.",
+          "props": [
+            {
+              "name": "data",
+              "type": "readonly T[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "Oldest first."
+            },
+            {
+              "name": "keyExtractor",
+              "type": "(row: T) => string",
+              "required": true,
+              "defaultValue": null,
+              "description": "A row's id. It must stay the same across refreshes (from a cache to the server), or rows jump."
+            },
+            {
+              "name": "renderItem",
+              "type": "(row: T, info: ThreadRowInfo) => ReactElement<unknown, string | JSXElementConstructor<any>> | null",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "earlierLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "empty",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown instead of the rows when there are none."
+            },
+            {
+              "name": "footer",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Under the last row: who is typing, a \"Sending…\" line."
+            },
+            {
+              "name": "getItemType",
+              "type": "((row: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Rows of different shapes recycle apart (FlashList): \"mine\", \"theirs\", \"event\"."
+            },
+            {
+              "name": "hasEarlier",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "There are earlier rows: loads them near the top, and shows the \"Load earlier\" button."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the first row, before the \"Load earlier\" button: what the thread is about."
+            },
+            {
+              "name": "jumpAnnouncement",
+              "type": "((row: T) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "What VoiceOver says on arriving at `jumpTo`."
+            },
+            {
+              "name": "jumpTo",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "Go to this row, loading earlier pages with `onLoadUntil` until it's here. A new id, or the same one after `null`, goes again."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The first page is loading: shows `loadingView` (a skeleton by default), and a jump waits."
+            },
+            {
+              "name": "loadingEarlier",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "loadingView",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onAtBottomChange",
+              "type": "((atBottom: boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Whether the reader is at the bottom, as it changes (to show a \"new messages\" pill, say)."
+            },
+            {
+              "name": "onJumpFailed",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The row couldn't be found (deleted, out of reach). The list goes back to the newest row first."
+            },
+            {
+              "name": "onLoadEarlier",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onLoadUntil",
+              "type": "((id: string) => Promise<boolean>)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Load earlier pages until the row is held; resolve false when it can't be found."
+            },
+            {
+              "name": "ref",
+              "type": "Ref<NativeThreadListHandle>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "renderEarlier",
+              "type": "((props: { loading: boolean; onPress: () => void; label: string; testID: string; }) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the default \"Load earlier\" button."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "thread-page",
       "aliases": [],
       "surface": "native",
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/thread-page.tsx",
       "stability": "beta",
-      "summary": "ThreadPage — one conversation: messages oldest first, a composer at the\nbottom that stays above the keyboard, attachments, a read receipt, and\n\"load earlier\" paging.\n\nGeneric: a support ticket with staff replies, a direct message, a comment\nthread. Mine are on the trailing side in the tint, theirs on the leading\nside on `surface`, over the `groupedBackground` page (SettingsPage's iOS\npalette).\n\nKeyboard: with `KeyboardScrollProvider` (the native app shell's\n`keyboardScroll`, react-native-keyboard-controller's\n`KeyboardAwareScrollView`), the messages and the composer scroll together\nand the composer is kept above the keyboard. Without it, a\n`KeyboardAvoidingView` does the same on iOS. Either way the thread stays\nscrolled to the newest message as it grows.\n\nRead-only: pass `composer={null}` (a closed ticket, a viewer) and an\noptional `closedNotice`.\n\nSlots: `message`, `attachment`, `readReceipt`, `composer`,\n`composerAccessory` (beside the input: attach a screenshot), `header`\n(above the messages: what the thread is about), `earlier` and `empty`.",
+      "summary": "ThreadPage — one conversation: messages oldest first, a composer at the\nbottom that follows the keyboard, attachments, a read receipt, earlier\npages, going to a message, and the first unread.\n\nGeneric: a support ticket with staff replies, a help desk thread with\ninternal notes, a direct message, a comment thread. Mine are on the\ntrailing side in the tint, theirs on the leading side on `surface`, over the\n`groupedBackground` page (SettingsPage's iOS palette). Events (\"Sam was\nassigned\") are centred, muted lines between them.\n\nBuilt from the messaging atoms, so an app can take this whole or build its\nown from the same parts: `NativeThreadList` (bottom-anchored, holds its\nplace while earlier messages load, follows the newest only at the bottom)\nand `NativeComposerBar` (grows as you type, modes with a tone, 44pt send).\n\nKeyboard: the page sits in `GenesisModules.keyboardAvoidingView`\n(react-native-keyboard-controller's, `translate-with-padding`: the composer\nfollows the keyboard frame by frame) when the app passed it, else React\nNative's `KeyboardAvoidingView` (`padding` on iOS, `height` on Android, so\nunder edge-to-edge the composer still clears the keyboard). Dragging the\nlist down dismisses the keyboard (interactively on iOS). The app's\n`KeyboardScrollProvider` no longer applies here, since a virtualized list\ncan't live in a scroll view: an app that passes it but not\n`keyboardAvoidingView` gets a development warning saying so.\n\nData: rows arrive as props and the page never fetches. A row's send state\nis data (`sending`, `pending`, `paused`, `failed`, `conflict`) with\n`onRetry` / `onDiscard`, whatever feeds it (an outbox, an offline queue).\nIds must stay the same across refreshes (a cache, then the server).\n\nRead-only: pass `composer={null}` (a closed ticket, a viewer) and an\noptional `closedNotice`.\n\n`loading` shows a skeleton instead of the empty state; `updating` a quiet\nline while fresher rows arrive.\n\nSlots: `message`, `event`, `attachment`, `readReceipt`, `unreadDivider`,\n`composer`, `composerAccessory` (beside the input: attach a screenshot),\n`headerRegion` (pinned above the list: a ticket's status and assignee),\n`header` (scrolls above the first message: what the thread is about),\n`earlier` and `empty`.",
       "primaryComponent": "ThreadPage",
       "components": [
         {
@@ -6874,11 +8036,6 @@
           ]
         },
         {
-          "name": "readReceiptFor",
-          "summary": "The newest of my messages the other side has read, or null.",
-          "props": []
-        },
-        {
           "name": "ThreadPage",
           "summary": "",
           "props": [
@@ -6925,6 +8082,13 @@
               "description": ""
             },
             {
+              "name": "firstUnreadId",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "The first message the reader hasn't seen: a \"New messages\" divider above it."
+            },
+            {
               "name": "formatTime",
               "type": "((date: Date) => string)",
               "required": false,
@@ -6936,14 +8100,14 @@
               "type": "boolean",
               "required": false,
               "defaultValue": "false",
-              "description": "There are older messages: shows a \"load earlier\" button at the top."
+              "description": "There are older messages: they load near the top, and a \"load earlier\" button shows."
             },
             {
               "name": "header",
               "type": "ReactNode",
               "required": false,
               "defaultValue": null,
-              "description": "Above the messages (what the thread is about). Prefer `slots.header` for a component."
+              "description": "Above the first message, scrolling with them. Prefer `slots.header` for a component."
             },
             {
               "name": "headerLeft",
@@ -6974,6 +8138,20 @@
               "description": "Custom header title. Falls back to `<Stack.Screen name>` mapping."
             },
             {
+              "name": "jumpTo",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "Go to this message (a search result, a pinned one), loading with `onLoadUntil` until it's here."
+            },
+            {
+              "name": "keyboardVerticalOffset",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "For the keyboard. With the keyboard-controller module the page finds its own place on screen\n(`automaticOffset`) and this is extra space (default 0); with React Native's, it's where the\npage starts below the window's top (default 100 on iOS: a standard header)."
+            },
+            {
               "name": "labels",
               "type": "Partial<ThreadLabels>",
               "required": false,
@@ -6988,6 +8166,13 @@
               "description": "When true, iOS uses large-title mode + scroll-edge appearance."
             },
             {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The first page is loading: a skeleton instead of the empty state, and a jump waits for it."
+            },
+            {
               "name": "loadingEarlier",
               "type": "boolean",
               "required": false,
@@ -6995,11 +8180,25 @@
               "description": ""
             },
             {
+              "name": "onJumpFailed",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A `jumpTo` message couldn't be found (the list goes back to the newest). Default: VoiceOver says `labels.messageGone`."
+            },
+            {
               "name": "onLoadEarlier",
               "type": "(() => void)",
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "onLoadUntil",
+              "type": "((id: string) => Promise<boolean>)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Load earlier pages until the message is held; resolve false when it can't be found."
             },
             {
               "name": "readAt",
@@ -7042,8 +8241,40 @@
               "required": false,
               "defaultValue": "thread-page",
               "description": "testID on the root. Default `\"thread-page\"`."
+            },
+            {
+              "name": "updating",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Fresher rows are on their way (the cache showed first): a quiet \"Updating…\" line under the header region, announced once."
             }
           ]
+        },
+        {
+          "name": "MessageTone",
+          "summary": "How a message reads: `default`, or `internal` (a staff-only note, never mistaken for a reply).",
+          "props": []
+        },
+        {
+          "name": "ThreadAttachment",
+          "summary": "The conversation contract: what a thread, its messages, its composer and an\ninbox row are, for web (genesis-ui) and native (genesis-ui-native) alike.\nOne description serves both: the same `ThreadMessage[]` renders in ui's\n`ThreadPage` and ui-native's `ThreadPage`, and genesis-chat, the help desk\nor an app's own thread feed either.\n\nData, not behaviour: a row's send state (`status`) and its actions come in\nfrom whatever owns the data (an outbox, the offline queue, the server), and\nthe layouts never fetch. Ids stay the same across refreshes (a cache, then\nthe server): pass `clientId ?? serverId` as `id`.",
+          "props": []
+        },
+        {
+          "name": "ThreadLabels",
+          "summary": "What the default parts of a thread say.",
+          "props": []
+        },
+        {
+          "name": "ThreadMessageStatus",
+          "summary": "Where a message is on its way. `sending` (in flight), `sent`, `pending`\n(queued: offline), `paused` (the session expired: sign in to send),\n`failed` and `conflict` (changed elsewhere) with `onRetry` / `onDiscard`.",
+          "props": []
+        },
+        {
+          "name": "readReceiptFor",
+          "summary": "The newest of my messages the other side has read, or null. Events and undelivered messages never count.",
+          "props": []
         }
       ]
     },
@@ -7249,6 +8480,13 @@
               "description": "Whether this row allows the named action: `true`, or the guard's reason. Only narrows what the\nserver allows. Throws {@link ViewDefinitionError} for a name the view doesn't define."
             },
             {
+              "name": "column",
+              "type": "(name: string) => ResolvedColumn<T & DataRow> | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": "One field as a column, resolved as a preset lists it (a board card's fields, say). Undefined\nfor a name that isn't a field or one the viewer can't read (`permissions.read: false`)."
+            },
+            {
               "name": "columns",
               "type": "(preset?: string | undefined) => readonly ResolvedColumn<T & DataRow>[]",
               "required": true,
@@ -7289,6 +8527,13 @@
               "required": true,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "galleryItem",
+              "type": "(row: T & DataRow, override?: Partial<ViewGallery<string>> | undefined) => GalleryItem | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": "The row as a gallery photo, by the view's `gallery` block and any `override` a screen passes\n(ResourceView's `gallery`): undefined without a gallery block. Its `id` is the row's key, its\n`alt` the row's label unless the block names a field; a row without an image has an empty `src`,\nwhich GalleryGrid and NativeGalleryGrid draw as a placeholder tile; leave those out of a Lightbox."
             },
             {
               "name": "label",
@@ -7388,6 +8633,13 @@
               "description": "Whether this row allows the named action: `true`, or the guard's reason. Only narrows what the\nserver allows. Throws {@link ViewDefinitionError} for a name the view doesn't define."
             },
             {
+              "name": "column",
+              "type": "(name: string) => ResolvedColumn<T & DataRow> | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": "One field as a column, resolved as a preset lists it (a board card's fields, say). Undefined\nfor a name that isn't a field or one the viewer can't read (`permissions.read: false`)."
+            },
+            {
               "name": "columns",
               "type": "(preset?: string | undefined) => readonly ResolvedColumn<T & DataRow>[]",
               "required": true,
@@ -7428,6 +8680,13 @@
               "required": true,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "galleryItem",
+              "type": "(row: T & DataRow, override?: Partial<ViewGallery<string>> | undefined) => GalleryItem | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": "The row as a gallery photo, by the view's `gallery` block and any `override` a screen passes\n(ResourceView's `gallery`): undefined without a gallery block. Its `id` is the row's key, its\n`alt` the row's label unless the block names a field; a row without an image has an empty `src`,\nwhich GalleryGrid and NativeGalleryGrid draw as a placeholder tile; leave those out of a Lightbox."
             },
             {
               "name": "label",
@@ -7848,6 +9107,13 @@
               "required": false,
               "defaultValue": null,
               "description": "This page's default: open the desktop sidebar collapsed (`true`) or\nexpanded (`false`) until the user toggles it. Reactive, so a layout can\npass it per route. Wins over `navigation`'s `defaultCollapsed` and\n`options.defaultCollapsed`; the user's own choice (persisted under\n`optionsStorageKey`) wins over all of them.\n@stability Beta"
+            },
+            {
+              "name": "dock",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Docked panels that stay open across pages, bottom-right: genesis-chat's `ChatDock`. Fixed\noutside the scrolling page, above it, and lifted clear of the phone's bottom bar. The region\nlets clicks through; the dock's own windows take them.\n@stability Beta"
             },
             {
               "name": "footer",
@@ -11247,6 +12513,164 @@
       ]
     },
     {
+      "slug": "composer-bar",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/messaging/composer-bar.tsx",
+      "stability": "beta",
+      "summary": "ComposerBar — the bar you write a message in, on the web: a textarea that\ngrows with what you type (up to `maxLines`, then scrolls), a send button,\nand slots beside and above it.\n\nThe web twin of ui-native's `NativeComposerBar`, with the same props, on\nthe shared conversation contract (`@marktiderman/genesis-core/conversation`).\n\n- **Sending:** Enter sends and Shift+Enter adds a line (`sendOn=\"enter\"`,\n  the default), or Cmd/Ctrl+Enter sends (`sendOn=\"mod-enter\"`, for long\n  replies). Nothing sends while composing with an input method (Safari\n  included, which reports the confirming Enter as keyCode 229). On a touch\n  screen, Enter adds a line and the button sends, as in a phone's apps.\n- **Modes:** `modes` with a tone each (\"Reply\" / \"Internal note\"). Two or\n  more show a picker above the input; an `internal` tone edges the bar and\n  the input in the theme's `warning` colour and labels the input with the\n  mode, so a staff-only note never reads like a reply.\n- **Slots:** `leading` (attach), `trailing` (beside send: a mic), `above`\n  (a reply preview, attachments waiting to send).\n- **Accessibility:** the input is labelled; the mode picker is a single-choice\n  toggle group (arrow keys move between modes); the send button stays put\n  while sending, so focus stays on it, and \"Sending\" is announced politely\n  from a region that's always there.",
+      "primaryComponent": "ComposerBar",
+      "components": [
+        {
+          "name": "ComposerBar",
+          "summary": "",
+          "props": [
+            {
+              "name": "onChangeText",
+              "type": "(text: string) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onSend",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "above",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Turns sending off (besides a blank value)."
+            },
+            {
+              "name": "leading",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "maxLength",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "maxLines",
+              "type": "number",
+              "required": false,
+              "defaultValue": "6",
+              "description": "The input grows to this many lines, then scrolls. Default 6."
+            },
+            {
+              "name": "mode",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The chosen mode's id. Default the first."
+            },
+            {
+              "name": "modes",
+              "type": "readonly ComposerMode[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Ways to send (\"Reply\", \"Internal note\"). Two or more show the picker."
+            },
+            {
+              "name": "modesLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Send as",
+              "description": "The mode picker's name, for a screen reader. Default \"Send as\"."
+            },
+            {
+              "name": "onModeChange",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "placeholder",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Message",
+              "description": ""
+            },
+            {
+              "name": "sending",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "A send is in flight: the button spins and won't send twice."
+            },
+            {
+              "name": "sendingLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Sending",
+              "description": ""
+            },
+            {
+              "name": "sendLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Send",
+              "description": "Send's label, to a screen reader. Default \"Send\"."
+            },
+            {
+              "name": "sendOn",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "enter",
+              "description": "Which key sends. Default `enter` (Shift+Enter for a new line; on a touch screen Enter adds a line)."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "composer",
+              "description": ""
+            },
+            {
+              "name": "trailing",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "confirm-delete-dialog",
       "aliases": [],
       "surface": "web",
@@ -11315,6 +12739,80 @@
               "required": false,
               "defaultValue": null,
               "description": "Default \"Delete this record?\"."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "conflict-sheet",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/ConflictSheet.tsx",
+      "stability": "beta",
+      "summary": "Shown when a save met someone else's change: their value beside the one\nthis person tried to save, for each field where the two differ, theirs\nfirst. \"Keep mine\" saves over theirs at the new version; \"Take theirs\"\ndrops the changes. ResourceForm, RecordView's settings sections and Data\nStudio's record panel open it on a `conflict`.",
+      "primaryComponent": "ConflictSheet",
+      "components": [
+        {
+          "name": "ConflictSheet",
+          "summary": "Shown when a save met someone else's change: their value beside the one\nthis person tried to save, for each field where the two differ, theirs\nfirst. \"Keep mine\" saves over theirs at the new version; \"Take theirs\"\ndrops the changes. ResourceForm, RecordView's settings sections and Data\nStudio's record panel open it on a `conflict`.",
+          "props": [
+            {
+              "name": "conflict",
+              "type": "WriteConflict | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "The conflict to show (`useResourceForm`'s `conflict`, or `writeConflict(error, values)`); null keeps it closed."
+            },
+            {
+              "name": "onDismiss",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Closed without choosing (Escape, or outside): the changes stay where they are, unsaved."
+            },
+            {
+              "name": "onKeepMine",
+              "type": "() => void | Promise<void>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Save these values over theirs, at the version the conflict reported. The sheet waits for it,\nand shows its error when it rejects (a new conflict replaces `conflict` instead)."
+            },
+            {
+              "name": "onTakeTheirs",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Drop these values and show their row."
+            },
+            {
+              "name": "format",
+              "type": "((field: string, value: unknown) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A field's value as shown. Default: plain text."
+            },
+            {
+              "name": "label",
+              "type": "((field: string) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A field's label. Default: the field name, title-cased."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The record's noun (\"task\"), for the title."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "conflict-sheet",
+              "description": ""
             }
           ]
         }
@@ -14183,6 +15681,321 @@
       ]
     },
     {
+      "slug": "gallery-card",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/gallery-card.tsx",
+      "stability": "beta",
+      "summary": "GalleryCard — a cover image with badges and actions overlaid, and a\ntitle/subtitle footer. The media-first card that galleries, libraries and\ncourse lists all draw: `Card` + `AspectRatio` + the two overlay slots.\n\nWith `onClick` the cover and footer are one `<button>` named by the title\n(or the alt text), so the surface is a single tab stop. `actions` render\nas a sibling of that button, absolutely positioned top-right over the\ncover, so interactive actions (icon buttons, a menu) never nest inside it;\n`badges` are not interactive and stay inside.\n\nWithout `src`, or while `loading`, the cover is a `bg-muted` box carrying a\n`Skeleton`, so a grid of cards keeps its shape before the data lands.",
+      "primaryComponent": "GalleryCard",
+      "components": [
+        {
+          "name": "GalleryCard",
+          "summary": "GalleryCard — a cover image with badges and actions overlaid, and a\ntitle/subtitle footer. The media-first card that galleries, libraries and\ncourse lists all draw: `Card` + `AspectRatio` + the two overlay slots.\n\nWith `onClick` the cover and footer are one `<button>` named by the title\n(or the alt text), so the surface is a single tab stop. `actions` render\nas a sibling of that button, absolutely positioned top-right over the\ncover, so interactive actions (icon buttons, a menu) never nest inside it;\n`badges` are not interactive and stay inside.\n\nWithout `src`, or while `loading`, the cover is a `bg-muted` box carrying a\n`Skeleton`, so a grid of cards keeps its shape before the data lands.",
+          "props": [
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Overlaid top-right on the cover (icon buttons, a menu)."
+            },
+            {
+              "name": "alt",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "badges",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Overlaid top-left on the cover; several badges sit in a row with a gap."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Shows a skeleton cover (and title/subtitle skeletons) while the item loads."
+            },
+            {
+              "name": "onClick",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Makes the whole card a button."
+            },
+            {
+              "name": "ratio",
+              "type": "number",
+              "required": false,
+              "defaultValue": "4 / 3",
+              "description": "Cover aspect ratio, width ÷ height. Default 4/3."
+            },
+            {
+              "name": "src",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Cover image. Without it the cover is a muted placeholder."
+            },
+            {
+              "name": "subtitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gallery-grid",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/gallery-grid.tsx",
+      "stability": "beta",
+      "summary": "GalleryGrid — a wall of images, justified (rows that fill the width, as\n`justifyRows` packs them) or a plain equal-column grid, optionally grouped\nunder sticky headers.\n\nTiles are plain `<div>`s until `onItemClick` or `onSelectionChange` is\ngiven; then each becomes a `<button>` named by the item's `alt` (or\ncaption, or \"Image N\"), so the gallery is keyboard- and screen-reader-\nnavigable without a wrapper per tile. A selected tile shows a ring and\n`aria-pressed`. `renderItem` swaps the `<img>` for anything while keeping\nthe layout and the click; `renderBadges` overlays the default tile.\n\nDefault tiles lazy-load into a `bg-muted` box already sized from the\nitem's `width`/`height` (4:3 when unknown), so rows do not reflow as\nimages arrive.",
+      "primaryComponent": "GalleryGrid",
+      "components": [
+        {
+          "name": "GalleryGrid",
+          "summary": "GalleryGrid — a wall of images, justified (rows that fill the width, as\n`justifyRows` packs them) or a plain equal-column grid, optionally grouped\nunder sticky headers.\n\nTiles are plain `<div>`s until `onItemClick` or `onSelectionChange` is\ngiven; then each becomes a `<button>` named by the item's `alt` (or\ncaption, or \"Image N\"), so the gallery is keyboard- and screen-reader-\nnavigable without a wrapper per tile. A selected tile shows a ring and\n`aria-pressed`. `renderItem` swaps the `<img>` for anything while keeping\nthe layout and the click; `renderBadges` overlays the default tile.\n\nDefault tiles lazy-load into a `bg-muted` box already sized from the\nitem's `width`/`height` (4:3 when unknown), so rows do not reflow as\nimages arrive.",
+          "props": [
+            {
+              "name": "items",
+              "type": "GalleryItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aspectRatio",
+              "type": "GalleryTileAspect",
+              "required": false,
+              "defaultValue": "1",
+              "description": "`layout=\"grid\"` only: each tile's shape, a ratio or `\"item\"` for the item's own. Default 1 (square), as on native."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "columns",
+              "type": "number",
+              "required": false,
+              "defaultValue": "GALLERY_DEFAULTS.columns",
+              "description": "Column count for `layout=\"grid\"`. Default 3."
+            },
+            {
+              "name": "gap",
+              "type": "number",
+              "required": false,
+              "defaultValue": "GALLERY_DEFAULTS.gap",
+              "description": "Space between tiles in px. Default 4."
+            },
+            {
+              "name": "getGroup",
+              "type": "((item: GalleryItem) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "@deprecated Use `groupBy`."
+            },
+            {
+              "name": "groupBy",
+              "type": "((item: GalleryItem) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Groups items by the returned key, in order of first appearance; each\ngroup is laid out on its own under a sticky header showing the key (a\nview's `groupBy`, for an array)."
+            },
+            {
+              "name": "layout",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "justified",
+              "description": "`justified` (default): rows of a target height, each scaled to fill the\nwidth, Flickr-style. `grid`: a fixed number of equal columns."
+            },
+            {
+              "name": "loadMore",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called once when the sentinel after the last row scrolls into view, and\narmed again whenever `items.length` changes — the hook for \"load more\"\n(the same name as ResourceView's)."
+            },
+            {
+              "name": "onItemClick",
+              "type": "((item: GalleryItem, index: number) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Makes every tile a button and reports which was activated."
+            },
+            {
+              "name": "onNearEnd",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "@deprecated Use `loadMore`."
+            },
+            {
+              "name": "onSelectionChange",
+              "type": "((ids: string[], detail: GallerySelectionDetail) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Turns tile clicks into selection: a click toggles the item, shift-click\nselects the range from the last toggled tile. Called with the whole new\nselection and the tile that caused it. While set, `onItemClick` is not\ncalled for clicks (open the item from an action instead)."
+            },
+            {
+              "name": "renderBadges",
+              "type": "((item: GalleryItem, index: number) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Overlaid top-left of the default tile (ignored when `renderItem` takes over)."
+            },
+            {
+              "name": "renderItem",
+              "type": "((item: GalleryItem, index: number) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the default `<img>` tile. The wrapper still sizes and clicks."
+            },
+            {
+              "name": "rowHeight",
+              "type": "number",
+              "required": false,
+              "defaultValue": "GALLERY_DEFAULTS.rowHeight",
+              "description": "Target row height in px for `layout=\"justified\"`. Default 180."
+            },
+            {
+              "name": "selected",
+              "type": "string[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Ids of the selected items. Selection is on when `onSelectionChange` is given."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gallery-layout",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/gallery-layout.ts",
+      "stability": "stable",
+      "summary": "Used when an item has no `width`/`height` (or a degenerate one).",
+      "primaryComponent": "DEFAULT_GALLERY_RATIO",
+      "components": [
+        {
+          "name": "DEFAULT_GALLERY_RATIO",
+          "summary": "Used when an item has no `width`/`height` (or a degenerate one).",
+          "props": []
+        },
+        {
+          "name": "galleryItemRatio",
+          "summary": "Width ÷ height of an item, falling back to 4:3.",
+          "props": [
+            {
+              "name": "id",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "src",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "alt",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "caption",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "height",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "width",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "justifyRows",
+          "summary": "Pack `items` into rows of a target `rowHeight`, then scale each row so its\ntiles exactly fill `containerWidth` (minus `gap` between tiles). Pure: same\ninput, same rows.\n\nGreedy, as in the classic justified-gallery algorithm: tiles are added at\nthe target height until the row would overflow; the row is then closed at\nwhichever of \"with\" / \"without\" the overflowing tile is nearer the target\nwidth, and scaled to fit. The last row is scaled too, but never above the\ntarget height (a single landscape photo in the last row should not fill\nthe width as a banner); it is left-aligned at the target height instead.\n\n`containerWidth <= 0` (not measured yet) yields no rows, so callers render\nnothing rather than divide by zero.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "gallery-types",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/gallery-types.ts",
+      "stability": "beta",
+      "summary": "The gallery's defaults, the same on web and native: a target row height and the space between\ntiles (px on web, points on native), and the columns of `layout=\"grid\"`.",
+      "primaryComponent": "__type",
+      "components": [
+        {
+          "name": "__type",
+          "summary": "The gallery's defaults, the same on web and native: a target row height and the space between\ntiles (px on web, points on native), and the columns of `layout=\"grid\"`.",
+          "props": []
+        },
+        {
+          "name": "GalleryItem",
+          "summary": "One image in a gallery. Shared by `GalleryGrid`, `Lightbox` and their native twins, so a\nconsumer passes the same array to the grid and to the viewer it opens.\n\n`width`/`height` are the image's intrinsic pixel size when known; the justified layout uses\ntheir ratio to pack rows and falls back to 4:3 when they are absent.",
+          "props": []
+        },
+        {
+          "name": "GalleryTileAspect",
+          "summary": "A `layout=\"grid\"` tile's shape: a ratio (width / height; 1 is square, the default), or `\"item\"`\nfor each item's own (its `width`/`height`, 4:3 when unknown).",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "grid",
       "aliases": [],
       "surface": "web",
@@ -14331,6 +16144,410 @@
               "type": "boolean",
               "required": false,
               "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "inbox-layout",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/messaging/inbox-layout.tsx",
+      "stability": "beta",
+      "summary": "InboxLayout — the 3-pane inbox on the web: views (Mine, Unassigned, All), a\nlist of conversations, the open thread, and a context sidebar (who it's\nfrom, properties, linked work).\n\nIt only positions its panes: fill them with `InboxViews`, `InboxPage` and\n`ThreadPage` (or the app's own), and keep which conversation is open where\nthe app keeps it, its router's URL param. On narrow screens it shows one\npane at a time, like the phone: the list, or the thread with a Back button\n(`onBack`) when `threadOpen`. The views rail shows from `lg` up.\n\nThe context sidebar toggles: controlled (`contextOpen` /\n`onContextOpenChange`), or on its own, remembered per viewer under\n`contextStorageKey`. From `xl` up it sits beside the thread; below that, it\nopens as a sheet over it, only when the toggle asks.\n\nKeyboard (`shortcuts`): each key is a callback the app can leave out. They\nwork only while focus is inside the layout, and never while typing in a\nfield or inside a dialog, menu, list box, grid or tree. j / k: next and\nprevious conversation; r: reply; n: internal note; e: solve or close;\na: assign; Escape: back. To let people turn single-key shortcuts off\n(WCAG 2.1.4), keep a setting and pass `shortcuts={undefined}` when it's off.\n\nOn the server, and in the first render on the client, the layout is narrow\nand the sidebar at its default, so hydration matches; the viewport and the\nremembered setting apply right after.",
+      "primaryComponent": "InboxLayout",
+      "components": [
+        {
+          "name": "InboxLayout",
+          "summary": "",
+          "props": [
+            {
+              "name": "list",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": "The list of conversations (an `InboxPage`)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "context",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Beside the thread from `xl` up, a sheet below: who it's from, its properties, linked work."
+            },
+            {
+              "name": "contextOpen",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Whether the context sidebar is open (controlled)."
+            },
+            {
+              "name": "contextStorageKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Uncontrolled: remember open or closed in this browser under this key."
+            },
+            {
+              "name": "defaultContextOpen",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Uncontrolled: open at first. Default true."
+            },
+            {
+              "name": "labels",
+              "type": "{ views?: string; list?: string; thread?: string | undefined; context?: string | undefined; back?: string | undefined; toggleContext?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "Words the layout says."
+            },
+            {
+              "name": "onBack",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Back to the list on narrow screens. Without it, no Back button shows."
+            },
+            {
+              "name": "onContextOpenChange",
+              "type": "((open: boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "shortcuts",
+              "type": "InboxShortcuts",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "inbox-layout",
+              "description": ""
+            },
+            {
+              "name": "thread",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The open conversation (a `ThreadPage`), or what shows when none is open."
+            },
+            {
+              "name": "threadOpen",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "A conversation is open: on narrow screens the thread shows instead of the list."
+            },
+            {
+              "name": "views",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The views rail (`InboxViews`). Hidden below `lg`."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "inbox-page",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/messaging/inbox-page.tsx",
+      "stability": "beta",
+      "summary": "InboxPage — a list of conversations on the web: rows with an unread dot or\ncount, a short time (`9:41`, `Yesterday`, a weekday, a date), a two-line\npreview and a status line, paging, and loading, error and empty states.\n\nThe web twin of ui-native's `InboxPage`, with the same props and slots, on\nthe shared conversation contract (`@marktiderman/genesis-core/conversation`):\nthe same `InboxItem[]` renders on both. Each row's `swipeActions` (a swipe on\nthe phone) are a \"More\" menu on the row here, so they're always reachable\nby mouse, keyboard and screen reader. A `selected` row is the conversation\nopen beside the list (`InboxLayout`), marked `aria-current`.\n\nKeyboard: the rows are one tab stop, which stays on the row you were last on;\nUp and Down (or j and k) move between rows, Enter opens one, and Right\nreaches a row's \"More\" menu (Left comes back). Anything the app puts in a\nrow's `trailing` is its own tab stop. A custom `row` slot spreads `rowProps`\non its focusable element to keep this.\n\nSlots: `row`, `header` (above the list), `footer` (below it), `empty`.",
+      "primaryComponent": "InboxPage",
+      "components": [
+        {
+          "name": "InboxPage",
+          "summary": "",
+          "props": [
+            {
+              "name": "items",
+              "type": "InboxItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "Newest first, as they should show. Empty → the empty state."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "emptyActionLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A button in the empty state (\"Send feedback\")."
+            },
+            {
+              "name": "emptyBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Conversations will show up here.",
+              "description": ""
+            },
+            {
+              "name": "emptyTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Nothing here yet",
+              "description": ""
+            },
+            {
+              "name": "error",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The read failed: the empty slot shows `errorTitle` / `errorBody` instead."
+            },
+            {
+              "name": "errorBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Check your connection and try again.",
+              "description": ""
+            },
+            {
+              "name": "errorTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Couldn't load these",
+              "description": ""
+            },
+            {
+              "name": "formatTime",
+              "type": "((date: Date, now: Date) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "How a row's time reads. Default: the time today, \"Yesterday\", the weekday this week, else the date."
+            },
+            {
+              "name": "hasMore",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "There are more pages. False stops `onEndReached`. Default true."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the list (a filter, a call to action). Prefer `slots.header` for a component."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Conversations",
+              "description": "The list's name, for a screen reader. Default \"Conversations\"."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The first page is loading: a skeleton instead of the empty state."
+            },
+            {
+              "name": "loadingLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Loading",
+              "description": "Said while the first page loads. Default \"Loading\"."
+            },
+            {
+              "name": "loadingMore",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "A next page is loading: the default footer shows a spinner."
+            },
+            {
+              "name": "loadingMoreLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Loading more",
+              "description": "Said while the next page loads. Default \"Loading more\"."
+            },
+            {
+              "name": "moreLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "More",
+              "description": "\"More\" on a row's action menu."
+            },
+            {
+              "name": "now",
+              "type": "(() => Date)",
+              "required": false,
+              "defaultValue": "() => new Date()",
+              "description": "The clock, for tests."
+            },
+            {
+              "name": "onEmptyAction",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onEndReached",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called near the end of the list, to load the next page: once per page (it asks again only after the list grows)."
+            },
+            {
+              "name": "onRefresh",
+              "type": "(() => void | Promise<void>)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onSelect",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A row was opened, when the row has no `onPress` of its own."
+            },
+            {
+              "name": "refreshing",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accepted for parity with native, where it's pull to refresh; the web refreshes from the app."
+            },
+            {
+              "name": "sectionTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "An optional title over the list."
+            },
+            {
+              "name": "sectionTitleLevel",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "2",
+              "description": "The section title's heading level. Default 2."
+            },
+            {
+              "name": "selectedId",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "The open conversation (controlled, bound to the app's route): marks its row `selected`."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<InboxPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "slots",
+              "type": "Slots<InboxPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "inbox-page",
+              "description": "testID on the root. Default `\"inbox-page\"`."
+            },
+            {
+              "name": "unreadLabel",
+              "type": "((count: number | null) => string)",
+              "required": false,
+              "defaultValue": "(count) => (count ? `${count} unread` : \"unread\")",
+              "description": "How a row's unread count reads to a screen reader. Default \"3 unread\" (and \"unread\" for a dot)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "inbox-views",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/messaging/inbox-views.tsx",
+      "stability": "beta",
+      "summary": "InboxViews — the views rail of a 3-pane inbox: \"Mine\", \"Unassigned\", \"All\nopen\", \"Waiting\", \"Solved\", saved views. Each with a count and an icon; the\nactive one is marked `aria-current`. Plain props: the app fills it from its\nown data, and counts can change live.\n\nThe default for `InboxLayout`'s `views` pane; an app can put anything there.",
+      "primaryComponent": "InboxViews",
+      "components": [
+        {
+          "name": "InboxViews",
+          "summary": "",
+          "props": [
+            {
+              "name": "onSelect",
+              "type": "(id: string) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "views",
+              "type": "readonly InboxView[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "activeId",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "sections",
+              "type": "readonly { title: string; ids: readonly string[]; }[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Group headings over the views (\"Views\", \"Saved\")."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "inbox-views",
               "description": ""
             }
           ]
@@ -14533,6 +16750,13 @@
               "description": ""
             },
             {
+              "name": "canMoveItem",
+              "type": "((item: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Whether this item can be moved at all (not, say, a row the viewer can't change). Without it,\nevery item can be. A card that can't has no handle or menu and can't be dragged. A move that\nshould wait (one still saving) is better refused from `onMoveItem`: hiding the handle under\nkeyboard focus would drop the focus."
+            },
+            {
               "name": "className",
               "type": "string",
               "required": false,
@@ -14596,6 +16820,28 @@
       ]
     },
     {
+      "slug": "keyboard",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/keyboard.ts",
+      "stability": "beta",
+      "summary": "Whether a keydown is a fair target for an app-level shortcut: nothing has\nclaimed it (`defaultPrevented`), no ctrl/meta/alt modifier is held (those\nare the browser's and the OS's), and focus is not inside something that\ntypes or has its own key handling — input, textarea, select, video, audio,\n`[contenteditable]`, or an element with (or inside one with) the role\nlistbox, menu, slider, combobox, radiogroup or tablist.\n\n`Lightbox` runs every unhandled keydown through this before calling\n`onKey`, so a consumer's \"f to favourite\" never fires while the user types\na caption. Works with a DOM `KeyboardEvent` or React's wrapper.",
+      "primaryComponent": "isAppShortcutTarget",
+      "components": [
+        {
+          "name": "isAppShortcutTarget",
+          "summary": "Whether a keydown is a fair target for an app-level shortcut: nothing has\nclaimed it (`defaultPrevented`), no ctrl/meta/alt modifier is held (those\nare the browser's and the OS's), and focus is not inside something that\ntypes or has its own key handling — input, textarea, select, video, audio,\n`[contenteditable]`, or an element with (or inside one with) the role\nlistbox, menu, slider, combobox, radiogroup or tablist.\n\n`Lightbox` runs every unhandled keydown through this before calling\n`onKey`, so a consumer's \"f to favourite\" never fires while the user types\na caption. Works with a DOM `KeyboardEvent` or React's wrapper.",
+          "props": []
+        },
+        {
+          "name": "isAppShortcutTargetElement",
+          "summary": "Whether `target` (or an ancestor) is a field or widget that owns its own\nkeys. Non-element targets pass. The element half of `isAppShortcutTarget`,\nfor guards on events without modifier keys, such as touch.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "label",
       "aliases": [],
       "surface": "web",
@@ -14634,6 +16880,175 @@
           "name": "laneColor",
           "summary": "A distinct CSS colour for lane `index` (0-based), from the theme, in light and dark:\n\n- 0–4: the chart tokens, `hsl(var(--chart-1))` to `--chart-5`;\n- 5–9: the same five deepened toward `--foreground` (35%): darker on a light theme, lighter on\n  a dark one, so they gain contrast against the background rather than lose it;\n- 10–49: each chart token blended with another (60/40, in OKLCH), plain then deepened, through\n  all four partners;\n- 50 on: the same fifty, a step further toward the foreground each round (never reaching it).\n\nThe same index always gives the same colour, and no two indexes give the same one. Past a\nhandful, colours alone stop telling lanes apart, which is why a calendar names every lane too.\n\n```tsx\nconst lanes = people.map((p, i) => ({ key: p.id, label: p.name, color: laneColor(i) }));\n```",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "lightbox",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/lightbox.tsx",
+      "stability": "beta",
+      "summary": "Lightbox — a full-screen image viewer over the page, built on `Dialog`.\n\nPrev/next buttons, ArrowLeft/ArrowRight and a horizontal swipe step\nthrough `items`; they stop at the ends (no wrap-around), and the button at\nan end is disabled so a keyboard user is not sent to a dead control.\nEscape closes, as every Dialog does. A \"3 / 12\" counter sits top-left with\nthe optional `title`/`description`; `renderActions` fills the top-right\nbeside Close; the caption (or `renderCaption`) sits under the stage, which\nshows the image `object-contain` or whatever `renderMedia` supplies. A\npicture with no `alt` is named by its position (\"Image 3 of 12\"), never\nleft unnamed. Reaching an end moves focus to the other arrow, so the\nkeyboard never lands on a disabled button.\n\nControlled only: the consumer owns `open` and `index`, so the same state\ncan drive a `GalleryGrid` highlight or a URL.",
+      "primaryComponent": "Lightbox",
+      "components": [
+        {
+          "name": "Lightbox",
+          "summary": "Lightbox — a full-screen image viewer over the page, built on `Dialog`.\n\nPrev/next buttons, ArrowLeft/ArrowRight and a horizontal swipe step\nthrough `items`; they stop at the ends (no wrap-around), and the button at\nan end is disabled so a keyboard user is not sent to a dead control.\nEscape closes, as every Dialog does. A \"3 / 12\" counter sits top-left with\nthe optional `title`/`description`; `renderActions` fills the top-right\nbeside Close; the caption (or `renderCaption`) sits under the stage, which\nshows the image `object-contain` or whatever `renderMedia` supplies. A\npicture with no `alt` is named by its position (\"Image 3 of 12\"), never\nleft unnamed. Reaching an end moves focus to the other arrow, so the\nkeyboard never lands on a disabled button.\n\nControlled only: the consumer owns `open` and `index`, so the same state\ncan drive a `GalleryGrid` highlight or a URL.",
+          "props": [
+            {
+              "name": "index",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": "Index of the item on show."
+            },
+            {
+              "name": "items",
+              "type": "GalleryItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onIndexChange",
+              "type": "(index: number) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onOpenChange",
+              "type": "(open: boolean) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "description",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown under the title in the top bar, muted."
+            },
+            {
+              "name": "labels",
+              "type": "Partial<LightboxLabels>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onKey",
+              "type": "((e: KeyboardEvent) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Keydowns the lightbox did not handle itself (not the arrows, not Escape),\nfiltered through `isAppShortcutTarget`: never fired when the event is\nalready defaultPrevented, a ctrl/meta/alt modifier is held, or focus is\nin a field or a widget with its own keys. For \"f to favourite\"-style\nshortcuts."
+            },
+            {
+              "name": "renderActions",
+              "type": "((item: GalleryItem, index: number) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Extra controls in the top-right, beside the close button."
+            },
+            {
+              "name": "renderCaption",
+              "type": "((item: GalleryItem, index: number) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the default caption (the item's `caption`) under the image."
+            },
+            {
+              "name": "renderMedia",
+              "type": "((item: GalleryItem, index: number) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the item's picture in the stage (a video, a before/after\ncompare), per item, as on native. The stage keeps its definite height\nand the prev/next buttons sit over it."
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown in the top bar; also becomes the dialog's accessible title."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "live-indicator",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/live-indicator.tsx",
+      "stability": "beta",
+      "summary": "LiveIndicator — the \"● Live\" chip for streams, classes and sessions that\nare happening now. The dot pulses while live; idle it goes muted and\nstill, offline fainter still, so the state reads at a glance as well as by\ncolour. `detail` carries a short secondary line (\"last photo 2m ago\").\n\n`role=\"status\"` with `aria-live=\"polite\"` so a screen reader announces the\nchange from offline to live without stealing focus.",
+      "primaryComponent": "LiveIndicator",
+      "components": [
+        {
+          "name": "LiveIndicator",
+          "summary": "LiveIndicator — the \"● Live\" chip for streams, classes and sessions that\nare happening now. The dot pulses while live; idle it goes muted and\nstill, offline fainter still, so the state reads at a glance as well as by\ncolour. `detail` carries a short secondary line (\"last photo 2m ago\").\n\n`role=\"status\"` with `aria-live=\"polite\"` so a screen reader announces the\nchange from offline to live without stealing focus.",
+          "props": [
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "detail",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Secondary text after the label, muted — \"last photo 2m ago\"."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Text beside the dot. Default follows the state: \"Live\", \"Idle\" or \"Offline\"."
+            },
+            {
+              "name": "live",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Whether the thing is live now. Default true. Shorthand for `state`: true ≡ \"live\", false ≡ \"idle\"."
+            },
+            {
+              "name": "state",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Three-way state; wins over `live` when both are given. `live` pulses in\nthe destructive colour, `idle` is a still muted dot, `offline` a fainter\none (`bg-muted-foreground/50`)."
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "pill",
+              "description": "`pill` (default): dot + label in a rounded chip. `dot`: the dot alone, label read by screen readers only."
+            }
+          ]
         }
       ]
     },
@@ -14863,6 +17278,13 @@
               "description": ""
             },
             {
+              "name": "board",
+              "type": "DeepPartial<{ noValue: string; ownFilterSetAside: string; notAllowed: string; stillSaving: string; loadMore: string; loadMoreLeft: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "bulk",
               "type": "DeepPartial<{ selected: string; }>",
               "required": false,
@@ -14891,6 +17313,13 @@
               "description": ""
             },
             {
+              "name": "conflict",
+              "type": "DeepPartial<{ title: string; description: string; same: string; field: string; theirs: string; mine: string; empty: string; unknown: string; keepMine: string; takeTheirs: string; failed: string; record: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": "ConflictSheet: a save met someone else's change."
+            },
+            {
               "name": "detail",
               "type": "DeepPartial<{ fallbackTitle: string; }>",
               "required": false,
@@ -14913,7 +17342,7 @@
             },
             {
               "name": "kanban",
-              "type": "DeepPartial<{ noItems: string; card: string; cardInLabel: string; pickUp: string; move: string; moveTo: string; moved: string; moveFailed: string; pickedUp: string; pickedUpTouch: string; over: string; droppedBack: string; cancelled: string; instructions: string; }>",
+              "type": "DeepPartial<{ noItems: string; card: string; cardInLabel: string; pickUp: string; move: string; moveTo: string; moved: string; moveFailed: string; pickedUp: string; pickedUpTouch: string; over: string; droppedBack: string; cancelled: string; countOfLimit: string; overLimit: string; instructions: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14927,7 +17356,7 @@
             },
             {
               "name": "page",
-              "type": "DeepPartial<{ errorTitle: string; errorBody: string; retry: string; create: string; countOne: string; countOther: string; countFiltered: string; loadMore: string; allLoaded: string; loadedMore: string; ... 13 more ...; deleteFailed: string; }>",
+              "type": "DeepPartial<{ errorTitle: string; errorBody: string; retry: string; create: string; countOne: string; countOther: string; countFiltered: string; notAllowed: string; stillSaving: string; loadMore: string; ... 15 more ...; deleteFailed: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14987,7 +17416,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 15 more ...; shell: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 17 more ...; shell: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -15012,6 +17441,11 @@
         {
           "name": "link",
           "summary": "A link's picker in a form (RelationField).",
+          "props": []
+        },
+        {
+          "name": "conflict",
+          "summary": "ConflictSheet: a save met someone else's change.",
           "props": []
         },
         {
@@ -15044,6 +17478,11 @@
         {
           "name": "link",
           "summary": "A link's picker in a form (RelationField).",
+          "props": []
+        },
+        {
+          "name": "conflict",
+          "summary": "ConflictSheet: a save met someone else's change.",
           "props": []
         }
       ]
@@ -16037,6 +18476,85 @@
       ]
     },
     {
+      "slug": "rating",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/rating.tsx",
+      "stability": "beta",
+      "summary": "Rating — a row of stars, read-only or interactive.\n\nRead-only (no `onChange`): one `img` role whose label reads \"3 of 5 stars\",\nso a screen reader hears the value once instead of five icons.\n\nInteractive: Radix's `RadioGroup` (G1: the radiogroup pattern is Radix's,\nroving focus, arrow keys and right-to-left included), one radio per star\nnamed \"N of M stars\". The arrows move between stars and choose as they go;\nre-clicking the chosen star clears it to 0 (`nextRating`), and the arrows\nnever clear. The stars up to the chosen one are filled, `text-warning`;\nempty ones `text-muted-foreground`; no raw colours. `readOnly` forces the\nread-only rendering while keeping `onChange` wired for later.",
+      "primaryComponent": "Rating",
+      "components": [
+        {
+          "name": "nextRating",
+          "summary": "The value a click on `star` produces: that star, or 0 when it is already\nthe current value, so the one gesture also clears the rating.",
+          "props": []
+        },
+        {
+          "name": "Rating",
+          "summary": "Rating — a row of stars, read-only or interactive.\n\nRead-only (no `onChange`): one `img` role whose label reads \"3 of 5 stars\",\nso a screen reader hears the value once instead of five icons.\n\nInteractive: Radix's `RadioGroup` (G1: the radiogroup pattern is Radix's,\nroving focus, arrow keys and right-to-left included), one radio per star\nnamed \"N of M stars\". The arrows move between stars and choose as they go;\nre-clicking the chosen star clears it to 0 (`nextRating`), and the arrows\nnever clear. The stars up to the chosen one are filled, `text-warning`;\nempty ones `text-muted-foreground`; no raw colours. `readOnly` forces the\nread-only rendering while keeping `onChange` wired for later.",
+          "props": [
+            {
+              "name": "value",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": "Current value, 0..`max`. Fractions are rounded for display."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "getLabel",
+              "type": "((value: number, max: number) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the default \"N of M stars\" value text used in aria labels."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accessible name for the control (or the image, when read-only)."
+            },
+            {
+              "name": "max",
+              "type": "number",
+              "required": false,
+              "defaultValue": "5",
+              "description": "Number of stars. Default 5."
+            },
+            {
+              "name": "onChange",
+              "type": "((value: number) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called with the new value when a star is chosen. Absent, the rating is\nread-only and renders as a single `img` named \"N of M stars\"."
+            },
+            {
+              "name": "readOnly",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Read-only even with `onChange` present (e.g. while saving)."
+            },
+            {
+              "name": "size",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "md",
+              "description": "Star size. Default `md`."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "react-router",
       "aliases": [],
       "surface": "web",
@@ -16661,6 +19179,164 @@
             {
               "name": "withHandle",
               "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "resource-board",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/ResourceBoard.tsx",
+      "stability": "beta",
+      "summary": "A view's rows as a board. Prefer `<ResourceView view={v} mode=\"board\" />`, which passes the\nscope and the screen's filters.",
+      "primaryComponent": "ResourceBoard",
+      "components": [
+        {
+          "name": "ResourceBoard",
+          "summary": "A view's rows as a board. Prefer `<ResourceView view={v} mode=\"board\" />`, which passes the\nscope and the screen's filters.",
+          "props": [
+            {
+              "name": "view",
+              "type": "ResourceView<ResourceContract<any>, T & DataRow>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "can",
+              "type": "((action: ResourceAction, item?: T) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own guard (ResourceView's `can`): it only narrows the view's. A card moves only\nwhen both allow `edit` for its row."
+            },
+            {
+              "name": "cardFields",
+              "type": "readonly string[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The fields a card shows under its title, in order. Default none: the title alone."
+            },
+            {
+              "name": "cells",
+              "type": "Partial<Record<string, (row: T) => ReactNode>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Draw some card and peek fields the screen's own way, by key (ResourceView's `cells`)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "columns",
+              "type": "readonly string[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The columns, in order, as values of `field`. Default: its choices in the contract's order,\nthen a \"No value\" column when it can be empty. Listing them shows only those."
+            },
+            {
+              "name": "enabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "False while the screen waits (on its scope, say): nothing is fetched. Default true."
+            },
+            {
+              "name": "field",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The field whose value is a card's column: a field with choices (an enum) or a yes/no one."
+            },
+            {
+              "name": "filters",
+              "type": "readonly FilterParam[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Server filters (the view's scope and the screen's), already as params."
+            },
+            {
+              "name": "limits",
+              "type": "Readonly<Record<string, number>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The most cards a column should hold, by value (`{ doing: 3 }`): a work-in-progress limit.\nA column over its limit says so; nothing stops a move into it."
+            },
+            {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onMoveError",
+              "type": "((error: unknown, row: T) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A move was refused (a guard, the server, a conflict with someone else's edit). The card is\nalready back where it was. Default: the reason shows above the board."
+            },
+            {
+              "name": "onSelect",
+              "type": "((row: T) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A card was chosen. Default: the view's peek."
+            },
+            {
+              "name": "perPage",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Cards per column page. Default 50."
+            },
+            {
+              "name": "renderCard",
+              "type": "((row: T) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Draw a card this screen's way. Default: the row's title and the board's `cardFields`."
+            },
+            {
+              "name": "resourceOptions",
+              "type": "Pick<UseResourceOptions<T & BaseRecord>, \"invalidates\" | \"onError\" | \"onUpdateSuccess\">",
+              "required": false,
+              "defaultValue": null,
+              "description": "The list's write options (ResourceView's `resourceOptions`): `invalidates`, `onError` and\n`onUpdateSuccess` apply to a move. A move is always pessimistic, so `mutationMode` is ignored."
+            },
+            {
+              "name": "select",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "subtitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -17329,6 +20005,23 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "resource-gallery",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/ResourceGallery.tsx",
+      "stability": "stable",
+      "summary": "A ResourcePage grid slot that draws the grid view as a gallery: the table and list views pass\nthrough to DataGrid untouched. A row without an image is a placeholder tile (an empty `src`), so\nthe gallery draws every row the count says. Clicking a photo opens the row, as clicking a card does.",
+      "primaryComponent": "galleryGridSlot",
+      "components": [
+        {
+          "name": "galleryGridSlot",
+          "summary": "A ResourcePage grid slot that draws the grid view as a gallery: the table and list views pass\nthrough to DataGrid untouched. A row without an image is a placeholder tile (an empty `src`), so\nthe gallery draws every row the count says. Clicking a photo opens the row, as clicking a card does.",
+          "props": []
         }
       ]
     },
@@ -18097,7 +20790,7 @@
               "type": "ResourcePageSlots<T>",
               "required": false,
               "defaultValue": null,
-              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct."
+              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct.\n\nA `grid` replacement that draws its own items and should open them sets a static\n`opensItems = true` (as ResourceView's gallery does): it then gets `onItemClick` and\n`getItemLabel`, which open the row's detail. Without it, a grid slot gets them only with\n`openOnCardClick` and a `renderCard`, as before."
             },
             {
               "name": "statusFilter",
@@ -18310,6 +21003,13 @@
               "description": "Enable built-in edit form (ignored if onEdit callback is provided)."
             },
             {
+              "name": "board",
+              "type": "ResourceBoardOptions<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `mode=\"board\"`: overrides the view's `board` block (its field, columns, card fields,\nlimits) and adds what it can't hold (`onSelect`, `renderCard`, `onMoveError`)."
+            },
+            {
               "name": "bulkActions",
               "type": "{ label: string; icon?: LucideIcon; variant?: \"default\" | \"destructive\"; onAction: (ids: string[]) => void | Promise<void>; disabled?: boolean | undefined; testId?: string | undefined; }[] | undefined",
               "required": false,
@@ -18590,6 +21290,13 @@
               "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
             },
             {
+              "name": "gallery",
+              "type": "Partial<ViewGallery<string>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `mode=\"grid\"`: overrides the view's `gallery` block (its image, size and caption fields,\nthe row height), or turns the grid into a gallery for a view without one."
+            },
+            {
               "name": "getKey",
               "type": "((item: T) => string)",
               "required": false,
@@ -18668,10 +21375,10 @@
             },
             {
               "name": "mode",
-              "type": "ViewModeDefault | \"calendar\"",
+              "type": "ViewModeDefault | \"calendar\" | \"board\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick."
             },
             {
               "name": "mutationMode",
@@ -18944,7 +21651,7 @@
               "type": "ResourcePageSlots<T>",
               "required": false,
               "defaultValue": null,
-              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct."
+              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct.\n\nA `grid` replacement that draws its own items and should open them sets a static\n`opensItems = true` (as ResourceView's gallery does): it then gets `onItemClick` and\n`getItemLabel`, which open the row's detail. Without it, a grid slot gets them only with\n`openOnCardClick` and a `renderCard`, as before."
             },
             {
               "name": "statusFilter",
@@ -19065,6 +21772,13 @@
               "description": "Enable built-in edit form (ignored if onEdit callback is provided)."
             },
             {
+              "name": "board",
+              "type": "ResourceBoardOptions<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `mode=\"board\"`: overrides the view's `board` block (its field, columns, card fields,\nlimits) and adds what it can't hold (`onSelect`, `renderCard`, `onMoveError`)."
+            },
+            {
               "name": "bulkActions",
               "type": "{ label: string; icon?: LucideIcon; variant?: \"default\" | \"destructive\"; onAction: (ids: string[]) => void | Promise<void>; disabled?: boolean | undefined; testId?: string | undefined; }[] | undefined",
               "required": false,
@@ -19345,6 +22059,13 @@
               "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
             },
             {
+              "name": "gallery",
+              "type": "Partial<ViewGallery<string>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `mode=\"grid\"`: overrides the view's `gallery` block (its image, size and caption fields,\nthe row height), or turns the grid into a gallery for a view without one."
+            },
+            {
               "name": "getKey",
               "type": "((item: T) => string)",
               "required": false,
@@ -19423,10 +22144,10 @@
             },
             {
               "name": "mode",
-              "type": "ViewModeDefault | \"calendar\"",
+              "type": "ViewModeDefault | \"calendar\" | \"board\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick."
             },
             {
               "name": "mutationMode",
@@ -19699,7 +22420,7 @@
               "type": "ResourcePageSlots<T>",
               "required": false,
               "defaultValue": null,
-              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct."
+              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct.\n\nA `grid` replacement that draws its own items and should open them sets a static\n`opensItems = true` (as ResourceView's gallery does): it then gets `onItemClick` and\n`getItemLabel`, which open the row's detail. Without it, a grid slot gets them only with\n`openOnCardClick` and a `renderCard`, as before."
             },
             {
               "name": "statusFilter",
@@ -19820,6 +22541,13 @@
               "description": "Enable built-in edit form (ignored if onEdit callback is provided)."
             },
             {
+              "name": "board",
+              "type": "ResourceBoardOptions<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `mode=\"board\"`: overrides the view's `board` block (its field, columns, card fields,\nlimits) and adds what it can't hold (`onSelect`, `renderCard`, `onMoveError`)."
+            },
+            {
               "name": "bulkActions",
               "type": "{ label: string; icon?: LucideIcon; variant?: \"default\" | \"destructive\"; onAction: (ids: string[]) => void | Promise<void>; disabled?: boolean | undefined; testId?: string | undefined; }[] | undefined",
               "required": false,
@@ -20100,6 +22828,13 @@
               "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
             },
             {
+              "name": "gallery",
+              "type": "Partial<ViewGallery<string>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `mode=\"grid\"`: overrides the view's `gallery` block (its image, size and caption fields,\nthe row height), or turns the grid into a gallery for a view without one."
+            },
+            {
               "name": "getKey",
               "type": "((item: T) => string)",
               "required": false,
@@ -20178,10 +22913,10 @@
             },
             {
               "name": "mode",
-              "type": "ViewModeDefault | \"calendar\"",
+              "type": "ViewModeDefault | \"calendar\" | \"board\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick."
             },
             {
               "name": "mutationMode",
@@ -20454,7 +23189,7 @@
               "type": "ResourcePageSlots<T>",
               "required": false,
               "defaultValue": null,
-              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct."
+              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct.\n\nA `grid` replacement that draws its own items and should open them sets a static\n`opensItems = true` (as ResourceView's gallery does): it then gets `onItemClick` and\n`getItemLabel`, which open the row's detail. Without it, a grid slot gets them only with\n`openOnCardClick` and a `renderCard`, as before."
             },
             {
               "name": "statusFilter",
@@ -22722,6 +25457,397 @@
       ]
     },
     {
+      "slug": "thread-list",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/messaging/thread-list.tsx",
+      "stability": "beta",
+      "summary": "A conversation's list. See the module docs.",
+      "primaryComponent": "ThreadList",
+      "components": [
+        {
+          "name": "THREAD_AT_BOTTOM_PX",
+          "summary": "Pixels from the bottom that still count as \"at the bottom\".",
+          "props": []
+        },
+        {
+          "name": "ThreadList",
+          "summary": "A conversation's list. See the module docs.",
+          "props": [
+            {
+              "name": "data",
+              "type": "readonly T[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "Oldest first."
+            },
+            {
+              "name": "keyExtractor",
+              "type": "(row: T) => string",
+              "required": true,
+              "defaultValue": null,
+              "description": "A row's id. It must stay the same across refreshes (from a cache to the server)."
+            },
+            {
+              "name": "renderItem",
+              "type": "(row: T, info: ThreadRowInfo) => ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "announce",
+              "type": "((row: T) => string | null)",
+              "required": false,
+              "defaultValue": null,
+              "description": "What a screen reader says when this row arrives at the bottom; null says nothing (your own message)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "conversationId",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "Which conversation this is. A new one opens at its newest row (or `openAt`), and the held place is forgotten."
+            },
+            {
+              "name": "earlierLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "empty",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown instead of the rows when there are none."
+            },
+            {
+              "name": "footer",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Under the last row: who is typing."
+            },
+            {
+              "name": "hasEarlier",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "There are earlier rows: loads them near the top, and shows the \"Load earlier\" button."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the first row, before the \"Load earlier\" button: what the thread is about."
+            },
+            {
+              "name": "jumpTo",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "Go to this row, loading earlier pages with `onLoadUntil` until it's here. A new id, or the same one after `null`, goes again."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The log region's name, for a screen reader. Default \"Messages\"."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The first page is loading: shows `loadingView` (a skeleton by default), and a jump waits."
+            },
+            {
+              "name": "loadingEarlier",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "loadingView",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onAtBottomChange",
+              "type": "((atBottom: boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Whether the reader is at the bottom, as it changes (to show a \"new messages\" pill, say)."
+            },
+            {
+              "name": "onJumpFailed",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The row couldn't be found. The list goes back to the newest row first."
+            },
+            {
+              "name": "onLoadEarlier",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onLoadUntil",
+              "type": "((id: string) => Promise<boolean>)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Load earlier pages until the row is held; resolve false when it can't be found."
+            },
+            {
+              "name": "openAt",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "Open here instead of the newest row (the first unread), on first render and for each new `conversationId`."
+            },
+            {
+              "name": "ref",
+              "type": "Ref<ThreadListHandle>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "renderEarlier",
+              "type": "((props: { loading: boolean; onPress: () => void; label: string; testID: string; }) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the default \"Load earlier\" button."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "thread-page",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/messaging/thread-page.tsx",
+      "stability": "beta",
+      "summary": "ThreadPage — one conversation on the web: messages oldest first, a composer\nat the bottom, attachments, a read receipt, earlier pages, going to a\nmessage, the first unread, events between messages, and send states.\n\nThe web twin of ui-native's `ThreadPage`, with the same props and slots, on\nthe shared conversation contract (`@marktiderman/genesis-core/conversation`):\nthe same `ThreadMessage[]` and `ThreadComposer` render on both. Built from\nthe web atoms `ThreadList` and `ComposerBar`, so an app can take this whole\nor build its own thread from the same parts.\n\nIt fills its container (a flex column of full height): put it in a page, a\npane of `InboxLayout`, or the chat dock. Mine are on the trailing side in\n`primary`, theirs on the leading side on `muted`; an internal note\n(`tone: \"internal\"`) is edged in `warning` and says so to a screen reader.\n\nData: rows arrive as props and the page never fetches. A row's send state is\ndata (`sending`, `pending`, `paused`, `failed`, `conflict`) with `onRetry` /\n`onDiscard`. Read-only: `composer={null}`, with an optional `closedNotice`.\n\nSlots: `message`, `event`, `attachment`, `readReceipt`, `unreadDivider`,\n`composer`, `composerAccessory`, `headerRegion` (pinned above the list),\n`header` (scrolls above the first message), `earlier` and `empty`.",
+      "primaryComponent": "ThreadPage",
+      "components": [
+        {
+          "name": "ThreadPage",
+          "summary": "",
+          "props": [
+            {
+              "name": "composer",
+              "type": "ThreadComposer | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "`null`: read-only, no composer."
+            },
+            {
+              "name": "messages",
+              "type": "ThreadMessage[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "Oldest first."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "closedNotice",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown instead of the composer when it is `null` (\"This conversation is closed\")."
+            },
+            {
+              "name": "conversationId",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "Which conversation this is. When it changes (another row picked in an inbox), the thread opens afresh: at the first unread, or the newest."
+            },
+            {
+              "name": "earlierLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Load earlier messages",
+              "description": ""
+            },
+            {
+              "name": "emptyBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "emptyTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "firstUnreadId",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "The first message the reader hasn't seen: a \"New messages\" divider above it."
+            },
+            {
+              "name": "formatTime",
+              "type": "((date: Date) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "hasEarlier",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "There are older messages: they load near the top, and a \"load earlier\" button shows."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the first message, scrolling with them. Prefer `slots.header` for a component."
+            },
+            {
+              "name": "jumpTo",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "Go to this message, loading with `onLoadUntil` until it's here."
+            },
+            {
+              "name": "labels",
+              "type": "Partial<ThreadLabels>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The words the defaults say, for translating."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The first page is loading: a skeleton instead of the empty state, and a jump waits for it."
+            },
+            {
+              "name": "loadingEarlier",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": ""
+            },
+            {
+              "name": "onJumpFailed",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A `jumpTo` message couldn't be found (the list goes back to the newest)."
+            },
+            {
+              "name": "onLoadEarlier",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onLoadUntil",
+              "type": "((id: string) => Promise<boolean>)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "readAt",
+              "type": "string | Date | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "When the other side last read the thread: my newest message sent before it shows the read receipt."
+            },
+            {
+              "name": "readLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Read",
+              "description": ""
+            },
+            {
+              "name": "sendOn",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Which key sends. Default `enter` (Shift+Enter for a new line). Native ignores it."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<ThreadPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "slots",
+              "type": "Slots<ThreadPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "thread-page",
+              "description": "testID on the root. Default `\"thread-page\"`."
+            },
+            {
+              "name": "updating",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Fresher rows are on their way (the cache showed first): a quiet \"Updating…\" line."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "toggle",
       "aliases": [],
       "surface": "web",
@@ -23326,6 +26452,137 @@
         {
           "name": "useAnnouncer",
           "summary": "A polite live-region message for drag and drop (SortableList,\nKanbanBoard). Render `message` in an `aria-live=\"polite\"` element.\n\nA live region only speaks when its text changes, so the same message\ntwice in a row is told apart by a trailing no-break space.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "use-board-columns",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/board/use-board-columns.ts",
+      "stability": "beta",
+      "summary": "Load a board: one request per column page, each with the shared filters, sort and search plus the\ncolumn's value. Columns page on their own (`loadMore`), and the pages a column has loaded reset\nwhen the filters, sort or search change.",
+      "primaryComponent": "useBoardColumns",
+      "components": [
+        {
+          "name": "boardColumnFilter",
+          "summary": "One column's own filter: its value, or \"is empty\".",
+          "props": []
+        },
+        {
+          "name": "useBoardColumns",
+          "summary": "Load a board: one request per column page, each with the shared filters, sort and search plus the\ncolumn's value. Columns page on their own (`loadMore`), and the pages a column has loaded reset\nwhen the filters, sort or search change.",
+          "props": [
+            {
+              "name": "field",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The field each column narrows on."
+            },
+            {
+              "name": "provider",
+              "type": "DataProvider",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "resource",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "values",
+              "type": "readonly string[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The columns, in order, as values of `field`; {@link BOARD_NONE} is the column for empty ones."
+            },
+            {
+              "name": "enabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "False while the screen waits (on its scope, say). Default true."
+            },
+            {
+              "name": "filters",
+              "type": "readonly FilterParam[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Filters every column shares. One on `field` itself is set aside: each column has its own."
+            },
+            {
+              "name": "getKey",
+              "type": "((row: BaseRecord) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A stable key per row. With it, a row that shows on two loaded pages of a column (it moved\nbetween page reads) is drawn once."
+            },
+            {
+              "name": "perPage",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Cards per column page. Default {@link BOARD_PAGE}."
+            },
+            {
+              "name": "queryKey",
+              "type": "((request: ListParams, column: { value: string; page: number; }) => readonly unknown[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "A column page's query key. Default core's list keys (`[resource, \"list\", …]`), so a save to the\nresource refreshes the board like any list, and a write finds the row it changes in the cache."
+            },
+            {
+              "name": "retry",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Retry failed reads (TanStack's `retry`). Default TanStack's."
+            },
+            {
+              "name": "search",
+              "type": "{ query: string; fields: string[]; }",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "select",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "sorts",
+              "type": "readonly SortParam[]",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "toValue",
+              "type": "((value: string) => unknown)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A column's value as the field stores it, for its filter: `\"true\"` → `true` for a yes/no field.\nDefault: the value as given."
+            }
+          ]
+        },
+        {
+          "name": "BOARD_NONE",
+          "summary": "The column for rows whose field is empty.",
+          "props": []
+        },
+        {
+          "name": "BOARD_PAGE",
+          "summary": "Cards per column page.",
           "props": []
         }
       ]
@@ -23975,7 +27232,7 @@
               "type": "ResourcePageSlots<T>",
               "required": false,
               "defaultValue": null,
-              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct."
+              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct.\n\nA `grid` replacement that draws its own items and should open them sets a static\n`opensItems = true` (as ResourceView's gallery does): it then gets `onItemClick` and\n`getItemLabel`, which open the row's detail. Without it, a grid slot gets them only with\n`openOnCardClick` and a `renderCard`, as before."
             },
             {
               "name": "statusFilter",
@@ -24681,7 +27938,7 @@
               "type": "ResourcePageSlots<T>",
               "required": false,
               "defaultValue": null,
-              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct."
+              "description": "The interior parts `ResourcePage` composes, by name. Replace one with your\nown component, or pass `null` to eject it entirely — see\n{@link ResourcePageSlots}.\n\nThis is the reason a surface that needs one part to differ does not have\nto drop to the primitives and re-derive the pagination, selection and\ndetail wiring that were already correct.\n\nA `grid` replacement that draws its own items and should open them sets a static\n`opensItems = true` (as ResourceView's gallery does): it then gets `onItemClick` and\n`getItemLabel`, which open the row's detail. Without it, a grid slot gets them only with\n`openOnCardClick` and a `renderCard`, as before."
             },
             {
               "name": "statusFilter",
