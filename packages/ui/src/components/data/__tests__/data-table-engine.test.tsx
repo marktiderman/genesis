@@ -220,6 +220,55 @@ describe("DataTable follow-ups (#105 review)", () => {
   });
 });
 
+describe("DataTable remembers choices under its existing keys", () => {
+  // Saved choices from before usePersistedUiState must still read back: these are the keys apps'
+  // users already have in storage.
+  it("reads a saved visibility map (dt-vis-), a new column taking its default", () => {
+    localStorage.setItem("dt-vis-people", JSON.stringify({ count: false, joined: false }));
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} columnVisibilityKey="people" />);
+    expect(headers()).toEqual(["Name", "Active"]);
+  });
+
+  it("reads a saved column order (dt-order-)", () => {
+    localStorage.setItem("dt-order-people", JSON.stringify(["active", "name"]));
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} columnOrderKey="people" columnVisibility={false} />);
+    expect(headers()).toEqual(["Active", "Name", "Count", "Joined"]);
+  });
+
+  it("reads saved widths (dt-resize-) onto the columns", () => {
+    localStorage.setItem("dt-resize-people", JSON.stringify({ name: 321 }));
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} resizeKey="people" columnVisibility={false} />);
+    const name = screen.getByRole("columnheader", { name: /name/i });
+    expect(name.style.width).toBe("321px");
+  });
+
+  it("saves a dragged column's width under dt-resize- when the drag ends", () => {
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} resizeKey="drag" columnVisibility={false} />);
+    const name = screen.getByRole("columnheader", { name: /name/i });
+    const handle = name.querySelector<HTMLElement>(".cursor-col-resize")!;
+    handle.setPointerCapture = () => {};
+    const start = Number.parseInt(name.style.width || "150", 10);
+    fireEvent.pointerDown(handle, { clientX: 100, pointerId: 1 });
+    act(() => {
+      handle.dispatchEvent(Object.assign(new Event("pointermove"), { clientX: 140 }));
+    });
+    act(() => {
+      handle.dispatchEvent(new Event("pointerup"));
+    });
+    const saved = JSON.parse(localStorage.getItem("dt-resize-drag") ?? "null") as Record<string, number> | null;
+    expect(saved?.name).toBe(start + 40);
+  });
+
+  it("writes a moved column to dt-order-, and never writes the defaults on load", () => {
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} columnOrderKey="fresh" columnVisibilityKey="fresh" resizeKey="fresh" />);
+    expect(localStorage.getItem("dt-order-fresh")).toBeNull();
+    expect(localStorage.getItem("dt-vis-fresh")).toBeNull();
+    expect(localStorage.getItem("dt-resize-fresh")).toBeNull();
+    fireEvent.keyDown(within(screen.getByRole("columnheader", { name: /name/i })).getByRole("button"), { key: "ArrowRight", altKey: true });
+    expect(JSON.parse(localStorage.getItem("dt-order-fresh")!)).toEqual(["count", "name", "joined", "active"]);
+  });
+});
+
 describe("DataTable with primitive items", () => {
   // The engine wraps each item as `{ item }` (TanStack Table needs object rows);
   // nothing outside the table may see the wrapper.

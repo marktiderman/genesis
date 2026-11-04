@@ -18,10 +18,7 @@ import { ViewSettings } from "../patterns/view-settings";
 import type { Density } from "../../hooks/use-view-settings";
 import { cn } from "../../utils";
 import { fillMessage, useUiMessages } from "../../messages";
-import {
-  readStoredOptions as readStoredOptionsRaw,
-  writeStoredOptions,
-} from "../../option-storage";
+import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -119,11 +116,18 @@ const STRING_OPTION_KEYS: PageHeaderOptionKey[] = ["detailsLabel"];
 
 /**
  * Reads persisted options and keeps only known keys whose stored value has
- * the expected primitive type — a malformed or hand-edited localStorage
- * value can't smuggle in an unexpected key or wrong-typed override.
+ * the expected primitive type — a malformed or hand-edited stored value
+ * can't smuggle in an unexpected key or wrong-typed override.
  */
-function readStoredOptions(key: string): Partial<PageHeaderOptions> {
-  const raw = readStoredOptionsRaw<PageHeaderOptions>(key);
+function sanitizeOptions(stored: string): Partial<PageHeaderOptions> | undefined {
+  let raw: Partial<Record<PageHeaderOptionKey, unknown>>;
+  try {
+    const value = JSON.parse(stored) as unknown;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+    raw = value as Partial<Record<PageHeaderOptionKey, unknown>>;
+  } catch {
+    return undefined;
+  }
   const sanitized: Partial<PageHeaderOptions> = {};
   for (const optKey of BOOLEAN_OPTION_KEYS) {
     const value = raw[optKey];
@@ -139,6 +143,9 @@ function readStoredOptions(key: string): Partial<PageHeaderOptions> {
   }
   return sanitized;
 }
+
+const NO_OVERRIDES: Partial<PageHeaderOptions> = {};
+const OPTIONS_FORMAT = { parse: sanitizeOptions };
 
 /** One entry in {@link PageHeaderProps.secondaryActions}. */
 export interface PageHeaderAction {
@@ -260,32 +267,13 @@ export function PageHeader({
   // conditional array at every call site is what makes those call sites drift.
   const visibleSecondary = (secondaryActions ?? []).filter((a) => !a.hidden);
 
-  const [userOverrides, setUserOverrides] = useState<Partial<PageHeaderOptions>>(
-    {},
+  // The user's header options, under the page's storage key (none: this session only), kept
+  // only for known keys of the right type (sanitizeOptions).
+  const [userOverrides, setUserOverrides] = usePersistedUiState<Partial<PageHeaderOptions>>(
+    optionsStorageKey ?? null,
+    NO_OVERRIDES,
+    OPTIONS_FORMAT,
   );
-  // Tracks which storage key the current overrides were hydrated from, so a
-  // key change (routing between pages with distinct keys while this header
-  // stays mounted) can't flush the previous key's overrides into the new key
-  // before the read effect re-hydrates.
-  const [hydratedKey, setHydratedKey] = useState<string | undefined>(
-    optionsStorageKey ? undefined : "",
-  );
-
-  useEffect(() => {
-    if (!optionsStorageKey) {
-      setUserOverrides({});
-      setHydratedKey("");
-      return;
-    }
-    setUserOverrides(readStoredOptions(optionsStorageKey));
-    setHydratedKey(optionsStorageKey);
-  }, [optionsStorageKey]);
-
-  useEffect(() => {
-    // Persist only once overrides belong to the current key (see hydratedKey).
-    if (!optionsStorageKey || hydratedKey !== optionsStorageKey) return;
-    writeStoredOptions(optionsStorageKey, userOverrides);
-  }, [optionsStorageKey, userOverrides, hydratedKey]);
 
   const resolved = useMemo(() => {
     const merged: PageHeaderOptions = {
