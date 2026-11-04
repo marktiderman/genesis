@@ -1,0 +1,30 @@
+packages/ui-native/package.json
+  s_9613ab470e300c::t_892153166f80de 328-333
+docs/DESIGN-LIBRARY.md
+  s_9613ab470e300c::t_46c29b056abfa4 64-75
+apps/sample/stories/Button.stories.tsx
+  s_9613ab470e300c::t_5a1aad5b4e5d56 44
+  s_9613ab470e300c::t_47c525fd7cbf9a 23
+packages/ui/package.json
+  s_9613ab470e300c::t_fb2db025939c62 361-364
+  s_9613ab470e300c::t_892153166f80de 669-674
+apps/sample/stories/TierBadge.stories.tsx
+  s_9613ab470e300c::t_47c525fd7cbf9a 1-3,5-10,12-30
+  s_9613ab470e300c::t_5a1aad5b4e5d56 4,11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f932765203864942b31f66188899734a3b712aa",
+  "prompts": {},
+  "sessions": {
+    "s_9613ab470e300c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df308523-d2f5-4e93-bef7-0f444d7d1772",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
