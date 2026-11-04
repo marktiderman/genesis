@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { resourceKeys, useDataProvider, useResource, useViewer, writeConflict, type BaseRecord, type DataRow, type FilterParam, type ResourceContract, type UseResourceOptions, type WriteConflict } from "@marktiderman/genesis-core";
+import { isDataWriteError, NO_ROWS_MATCHED, resourceKeys, useDataProvider, useResource, useViewer, writeConflict, type BaseRecord, type DataRow, type FilterParam, type ResourceContract, type UseResourceOptions, type WriteConflict } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
 import { useLiveInvalidation, type LiveOptions } from "@marktiderman/genesis-core/hooks";
 import { boardChoices, boardProblems, type ResourceView as View, type ViewBoard, type ViewTone } from "@marktiderman/genesis-core/resource-view";
@@ -239,7 +239,8 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
         // Gone before the conflict came back (a route change mid-save): say so rather than drop it.
         if (mounted.current) setConflict({ conflict: found, id: key, data });
         else showWriteErrorToast(error as Error);
-      } else setRefusal(error instanceof Error && error.message ? error.message : fillMessage(m.kanban.moveFailed, { name: titleOf(row) }));
+      } else if (isDataWriteError(error) && error.code === NO_ROWS_MATCHED) setRefusal(fillMessage(m.workspace.notChanged, { noun: view.noun }));
+      else setRefusal(error instanceof Error && error.message ? error.message : fillMessage(m.kanban.moveFailed, { name: titleOf(row) }));
       throw error;
     } finally {
       inFlight.current.delete(key);

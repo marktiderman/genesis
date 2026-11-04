@@ -187,7 +187,7 @@ export function useResourceTableModel<
           );
     if (!sortable || !url.sort) return { q: url.q, sort: null, page: url.page };
     // The URL holds `field:order` only. Where empty values go follows the view's default sort
-    // (same field and direction) or the screen's matching sort option, as a header click does.
+    // (same field and direction) or the screen's matching sort option, as the sort menu does.
     const { field, order } = url.sort;
     const fromDefault = resourceOptions?.defaultSort;
     const nulls =
