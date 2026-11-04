@@ -11,9 +11,10 @@
  *
  * Swipe actions: each row's `swipeActions` are always reachable without a
  * gesture library, as VoiceOver / TalkBack custom actions and on long press
- * (a menu). For the swipe itself, fill the `swipeable` slot with your
- * gesture-handler wrapper (`ReanimatedSwipeable` from
- * react-native-gesture-handler, an optional peer); it receives the actions
+ * (`NativeContextMenu`). The swipe itself is `NativeSwipeRow`, once the app
+ * passes `GenesisModules.swipeable` (`ReanimatedSwipeable` from
+ * react-native-gesture-handler, an optional peer), with each action's `side`.
+ * The `swipeable` slot takes your own wrapper instead; it receives the actions
  * and the row.
  *
  * Rows: `avatar` puts a picture of who it is between the unread dot and the
@@ -38,7 +39,9 @@ import { NativeEmptyState } from "../components/empty-state";
 import { NativeText } from "../components/text";
 import { NativeButton } from "../components/button";
 import { NativeBadge } from "../components/badge";
+import { NativeContextMenu } from "../components/context-menu";
 import { NativeRefreshControl } from "../components/refresh-control";
+import { NativeSwipeRow } from "../components/swipe-row";
 import { NativeLoadingState } from "../components/loading-state";
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
 import { formatInboxTime, type InboxItem, type InboxSwipeAction } from "@marktiderman/genesis-core/conversation";
@@ -221,7 +224,7 @@ export function InboxPage({
           return (
             <Fragment>
               {actions.length && slots.swipeable !== null
-                ? renderSlot(PassThroughSwipeable, slots.swipeable, { actions, testID: `${row.testID}-swipe`, children: content }, slotProps.swipeable)
+                ? renderSlot(NativeSwipeRow, slots.swipeable, { actions, testID: `${row.testID}-swipe`, children: content }, slotProps.swipeable)
                 : content}
             </Fragment>
           );
@@ -233,11 +236,6 @@ export function InboxPage({
 
 function EmptyPart(_props: InboxPageSlotMap["header"]) {
   return null;
-}
-
-/** The default `swipeable`: no gesture, just the row (its actions are on long press and in the accessibility actions). */
-function PassThroughSwipeable({ children }: InboxPageSlotMap["swipeable"]) {
-  return <>{children}</>;
 }
 
 function SectionTitle({ title, testID }: { title: string; testID: string }) {
@@ -259,7 +257,10 @@ function SectionTitle({ title, testID }: { title: string; testID: string }) {
   );
 }
 
-/** Opens a row's actions as a menu (long press). */
+/**
+ * Opens a row's actions as the system alert. `InboxPage` now opens `NativeContextMenu`; `NativeResourceView`
+ * still uses this.
+ */
 export function showInboxActions(title: string, actions: InboxSwipeAction[], cancelLabel = "Cancel"): void {
   Alert.alert(title, undefined, [
     ...actions.map((a) => ({ text: a.label, style: a.destructive ? ("destructive" as const) : ("default" as const), onPress: a.onPress })),
@@ -271,6 +272,7 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
   const colors = useThemeRoles();
   const ios = Platform.OS === "ios";
   const [pressed, setPressed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const actions = row.swipeActions ?? [];
   const radius = iosGroupRadius();
   const unreadLabel = row.unreadCount && row.unreadCount > 0 ? `${row.unreadCount} unread` : row.unread ? "Unread" : null;
@@ -303,7 +305,7 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
         accessibilityActions={actions.map((a) => ({ name: a.id, label: a.label }))}
         onAccessibilityAction={(event) => actions.find((a) => a.id === event.nativeEvent.actionName)?.onPress()}
         onPress={row.onPress}
-        onLongPress={actions.length ? () => showInboxActions(row.title, actions) : undefined}
+        onLongPress={actions.length ? () => setMenuOpen(true) : undefined}
         onPressIn={() => setPressed(true)}
         onPressOut={() => setPressed(false)}
         style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: ROW_PADDING, paddingVertical: 11, minHeight: 60, backgroundColor: (pressed && row.onPress) || row.selected ? colors.fill : undefined }}
@@ -360,6 +362,7 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
           <View testID={`${row.testID}-separator-line`} style={{ flex: 1, backgroundColor: colors.separator }} />
         </View>
       )}
+      {actions.length ? <NativeContextMenu open={menuOpen} onOpenChange={setMenuOpen} title={row.title} actions={actions} testID={`${row.testID}-menu`} /> : null}
     </View>
   );
 }

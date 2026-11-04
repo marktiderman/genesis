@@ -1,8 +1,9 @@
 // @feat:inbox-thread
 import type { ReactNode } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Alert, Platform, StyleSheet } from "react-native";
+import { GenesisModulesProvider } from "../../native-modules";
 import { InboxPage, formatInboxTime, getInboxPageStackOptions, type InboxItem } from "../inbox-page";
 
 const NOW = new Date(2026, 9, 24, 15, 0);
@@ -84,7 +85,7 @@ describe("InboxPage", () => {
     expect(items[0]!.onPress).toHaveBeenCalled();
   });
 
-  it("offers swipe actions as accessibility actions and on long press, without a gesture library", () => {
+  it("offers swipe actions as accessibility actions and on long press, without a gesture library", async () => {
     const remove = vi.fn();
     const markRead = vi.fn();
     render(
@@ -99,11 +100,29 @@ describe("InboxPage", () => {
     row.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "delete" }));
     expect(remove).toHaveBeenCalledTimes(1);
     fireEvent.contextMenu(row);
-    const [title, , buttons] = vi.mocked(Alert.alert).mock.calls[0]!;
-    expect(title).toBe("Thread");
-    expect(buttons?.map((b) => [b.text, b.style])).toEqual([["Mark read", "default"], ["Delete", "destructive"], ["Cancel", "cancel"]]);
-    buttons?.[0]?.onPress?.();
-    expect(markRead).toHaveBeenCalled();
+    await act(async () => {});
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(screen.getByTestId("inbox-row-x-menu-title").textContent).toBe("Thread");
+    expect(screen.getByTestId("inbox-row-x-menu-action-read").textContent).toBe("Mark read");
+    expect(screen.getByTestId("inbox-row-x-menu-action-delete").textContent).toBe("Delete");
+    expect(screen.getByTestId("inbox-row-x-menu-cancel")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("inbox-row-x-menu-action-read"));
+    await waitFor(() => expect(markRead).toHaveBeenCalled());
+  });
+
+  it("swipes through NativeSwipeRow once the app gave the module", () => {
+    const Swipeable = ({ children, testID, renderRightActions }: { children?: ReactNode; testID: string; renderRightActions?: () => ReactNode }) => (
+      <div data-testid={testID}>
+        {renderRightActions?.()}
+        {children}
+      </div>
+    );
+    render(
+      <GenesisModulesProvider modules={{ swipeable: Swipeable as never }}>
+        <InboxPage testID="inbox" items={[{ id: "x", title: "Thread", swipeActions: [{ id: "delete", label: "Delete", onPress: vi.fn(), destructive: true }] }]} />
+      </GenesisModulesProvider>,
+    );
+    expect(screen.getByTestId("inbox-row-x-swipe-action-delete")).toBeTruthy();
   });
 
   it("wraps rows with actions in the swipeable slot, and a null slot leaves them bare", () => {

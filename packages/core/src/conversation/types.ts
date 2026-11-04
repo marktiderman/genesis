@@ -138,6 +138,8 @@ export interface InboxSwipeAction {
   onPress: () => void;
   /** Destructive tone (delete, leave). */
   destructive?: boolean;
+  /** Which side of the row a swipe uncovers it from, on the phone. Default `trailing`. */
+  side?: "leading" | "trailing";
 }
 
 export interface InboxItem {
