@@ -1,0 +1,21 @@
+packages/core/src/hooks/__tests__/use-link-options.test.tsx
+  s_e63e2ce0535b22::t_498bc235f3203c 90-99
+packages/core/src/hooks/use-link-options.ts
+  s_e63e2ce0535b22::t_b591c54a87f284 123,141,143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3a8b4f8cc95987f8d95e98f7350459038fdd2051",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
