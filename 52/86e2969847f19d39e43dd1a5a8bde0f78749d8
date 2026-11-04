@@ -1,0 +1,29 @@
+packages/ui/src/components/layout/AppShell.tsx
+  s_109ad08c59054b::t_5ef6c9a79a714d 51,1435-1437
+.changeset/ui-chip-selected-tab-bar.md
+  s_109ad08c59054b::t_bc772602043c10 1-5
+packages/ui/src/components/layout/index.ts
+  s_109ad08c59054b::t_5ef6c9a79a714d 73
+packages/ui/src/components/layout/tab-bar.tsx
+  s_109ad08c59054b::t_14f620121a02c9 1-150
+packages/ui/src/components/layout/__tests__/tab-bar.test.tsx
+  s_109ad08c59054b::t_5cbd8b9f24a2cb 1-45
+apps/sample/stories/TabBar.stories.tsx
+  s_109ad08c59054b::t_4d5f3e586dee8c 1-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5286e2969847f19d39e43dd1a5a8bde0f78749d8",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
