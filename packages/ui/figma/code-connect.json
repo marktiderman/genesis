@@ -102,6 +102,7 @@
     "SubNavTabs",
     "SummaryCard",
     "Switch",
+    "TabBar",
     "Table",
     "Tabs",
     "Textarea",
@@ -120,7 +121,5 @@
     "WizardForm",
     "WorkspaceSwitcher"
   ],
-  "notYet": [
-    "TabBar"
-  ]
+  "notYet": []
 }
