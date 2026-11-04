@@ -1,0 +1,81 @@
+packages/support/src/__tests__/messenger.test.tsx
+  s_b9ce29ee4fad7a::t_decdd86160052c 8-9,53,114,116,119,129,131-132,138-139,141,144,146,150-151,157-158,176,233,242,244,246-263,272-316,321,328-332,367,375,388,391,396-398,400,403,406-412,416-417,421-426,433-450,452-493,495-505
+  s_b9ce29ee4fad7a::t_ced53cdc602c45 451,494
+  s_b9ce29ee4fad7a::t_a55dd78e91cd16 506-507
+packages/ai/src/server/run.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 144
+packages/support/src/native/index.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 25
+packages/support/src/native/support.tsx
+  s_b9ce29ee4fad7a::t_decdd86160052c 24,61-64
+packages/support/migrations/tests/0010_genesis_support_help_center.test.sql
+  s_b9ce29ee4fad7a::t_decdd86160052c 101-104,129-130,156-157,174,176-192,198
+  s_b9ce29ee4fad7a::t_ced53cdc602c45 10
+features.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 1950-1951,1961-1976
+  s_b9ce29ee4fad7a::t_5f491e0be8415c 1977-1982
+packages/support/migrations/0010_genesis_support_help_center.sql
+  s_b9ce29ee4fad7a::t_a1682bfc9837d5 223-230
+  s_b9ce29ee4fad7a::t_decdd86160052c 12-13,16-17,29,41-42,46,69,72,116-132,136,138,141-152,155,158,160,163-177,183,185,188-201,204-207,212,216,220-222,238,428,437-462,474-475,477-482,484,519,543,545,547,549,562-565
+packages/support/src/web-chat/index.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 21
+packages/support/src/copy.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 180-184
+packages/support/src/ai.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 8-12,14-15,18,26,64,66-67,90,103-105,124-128,133-182
+.changeset/dock-panel-visible.md
+  s_b9ce29ee4fad7a::t_decdd86160052c 1-5
+packages/support/src/index.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 22
+packages/chat/src/web/dock.tsx
+  s_b9ce29ee4fad7a::t_decdd86160052c 79-80,652
+packages/support/src/web-chat/messenger.tsx
+  s_b9ce29ee4fad7a::t_decdd86160052c 37,58,64-69,102,147-149,156,187,218,222-232,264,278-282,327-331,353,391,410,459,461,493,507,514,519,525,586,621-626,635-636,647-648,656,660,667,712-714,724,728,732,739-740,743-747,756
+packages/support/src/web-chat/help-admin.tsx
+  s_b9ce29ee4fad7a::t_decdd86160052c 96,109-115,123,133,296-305,322-333,352
+packages/support/README.md
+  s_b9ce29ee4fad7a::t_decdd86160052c 252-256,275-278,281-285,289,292-300,303-310,313-314,447-448
+packages/support/src/help-ask.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 2-5,11-20,26-27,34,47-49,55-56,63,67,71-72,74-77,80,93-107,112
+packages/ai/src/define.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 146
+packages/ai/src/types.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 154-155
+features.json
+  s_b9ce29ee4fad7a::t_5f58e161859c63 4416-4417,4419,4448-4487,4489,4494
+  s_b9ce29ee4fad7a::t_7dc210733576ea 4488,4490-4493,4495-4497
+packages/support/src/block.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 195
+packages/ai/src/__tests__/handler-wrap-store.test.ts
+  s_b9ce29ee4fad7a::t_5ab206253f7bb3 169-178
+packages/support/src/native/help.tsx
+  s_b9ce29ee4fad7a::t_decdd86160052c 6,9-11,42-44,48,51-62,91,102-106,126,225,228
+packages/support/src/client.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 207,211-212,467-470,531,702-707,709-710,712-713,716-717,728,749,760-761,763-764
+packages/support/src/record.ts
+  s_b9ce29ee4fad7a::t_decdd86160052c 62
+packages/support/src/__tests__/ai-answer.test.ts
+  s_b9ce29ee4fad7a::t_20dab49017e0e8 1-66
+apps/sample/stories/SupportMessenger.stories.tsx
+  s_b9ce29ee4fad7a::t_decdd86160052c 5,76,102-105
+.changeset/ai-safety-required.md
+  s_b9ce29ee4fad7a::t_decdd86160052c 1-5
+packages/support/package.json
+  s_b9ce29ee4fad7a::t_decdd86160052c 86,431
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d1cb2b868a7b28059dca6ce597072d260a4d442b",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
