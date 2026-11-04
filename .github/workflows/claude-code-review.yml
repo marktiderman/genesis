@@ -1,8 +1,8 @@
-# Claude reviews every pull request once, whatever branch it targets (main,
-# staging/* and prestage/* batches alike), when it opens or leaves draft, with
-# Anthropic's code-review plugin (parallel reviewers, findings posted as a PR
-# comment). For another pass after new pushes, comment "@claude review"
-# (claude.yml). Reviewing every push would bill a full review per push.
+# Claude reviews every pull request, whatever branch it targets (main,
+# staging/* and prestage/* batches alike), when it opens, leaves draft, and on
+# every push, with Anthropic's code-review plugin (parallel reviewers, findings
+# posted as a PR comment), so the latest head is always reviewed. A newer push
+# cancels a review still running. "@claude review" (claude.yml) asks for one by hand.
 #
 # Needs the Claude GitHub app on the repo and the CLAUDE_CODE_OAUTH_TOKEN
 # secret (`claude setup-token`). To change the model, edit --model below.
@@ -10,7 +10,7 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, ready_for_review, reopened]
+    types: [opened, synchronize, ready_for_review, reopened]
 
 concurrency:
   group: claude-review-${{ github.event.pull_request.number }}
