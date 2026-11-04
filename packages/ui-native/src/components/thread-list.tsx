@@ -116,6 +116,7 @@ export interface NativeThreadListProps<T> {
    * The id `jumpTo` names a row by, when it isn't the row's key: a message keyed by the id the
    * phone gave it (so it keeps its row when the server's copy lands) and gone to by the server's
    * id. `null` for a row that can't be gone to (a day heading). `keyExtractor` by default.
+   * Pass a stable function (module scope, or `useCallback`): a new one each render re-renders every row.
    */
   jumpId?: (row: T) => string | null | undefined;
   /** Load earlier pages until the row is held; resolve false when it can't be found. */
@@ -153,6 +154,7 @@ interface ThreadListComponentProps {
   contentContainerStyle?: Record<string, unknown>;
   maintainVisibleContentPosition?: Record<string, unknown>;
   onScroll?: (e: { nativeEvent: ScrollMetrics }) => void;
+  onScrollBeginDrag?: () => void;
   scrollEventThrottle?: number;
   onContentSizeChange?: () => void;
   onLayout?: () => void;
@@ -348,6 +350,10 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     },
     [setAtBottom],
   );
+  // The reader's touch ends the list's own scroll: from here their scrolling counts, even mid-jump.
+  const onScrollBeginDrag = useCallback(() => {
+    settlingUntil.current = 0;
+  }, []);
   const onScrollToIndexFailed = useCallback(
     ({ index, averageItemLength }: { index: number; averageItemLength: number }) => {
       // FlatList hasn't measured that far up yet: get near it, then try again by id (three times at most).
@@ -404,6 +410,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
       maintainVisibleContentPosition={mode.maintainVisibleContentPosition}
       scrollEventThrottle={32}
       onScroll={onScroll}
+      onScrollBeginDrag={onScrollBeginDrag}
       onScrollToIndexFailed={onScrollToIndexFailed}
       {...(mode.followsByHand ? { onContentSizeChange: follow, onLayout: follow } : {})}
       ListHeaderComponent={listHeader}

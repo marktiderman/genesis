@@ -165,6 +165,28 @@ describe("NativeThreadList", () => {
     expect(onAtBottomChange).not.toHaveBeenCalledWith(true);
   });
 
+  it("counts the reader's own drag straight away, even while the list is settling from a jump", async () => {
+    const { List, calls } = recordingList();
+    const onAtBottomChange = vi.fn();
+    render(
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} jumpTo="c" onAtBottomChange={onAtBottomChange} />
+      </GenesisModulesProvider>,
+    );
+    await waitFor(() => expect(calls.scrollToIndex).toHaveBeenCalled());
+    const props = calls.props.at(-1)!;
+    const scroll = props.onScroll as (e: unknown) => void;
+    // Inside the settling window: the list's own movement is ignored...
+    act(() => scroll({ nativeEvent: { contentOffset: { y: 1500 }, contentSize: { height: 2000 }, layoutMeasurement: { height: 500 } } }));
+    expect(onAtBottomChange).not.toHaveBeenCalledWith(true);
+    // ...but a reader who takes hold and reaches the bottom counts at once.
+    act(() => (props.onScrollBeginDrag as () => void)());
+    act(() => scroll({ nativeEvent: { contentOffset: { y: 1500 }, contentSize: { height: 2000 }, layoutMeasurement: { height: 500 } } }));
+    expect(onAtBottomChange).toHaveBeenLastCalledWith(true);
+    act(() => scroll({ nativeEvent: { contentOffset: { y: 0 }, contentSize: { height: 2000 }, layoutMeasurement: { height: 500 } } }));
+    expect(onAtBottomChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("loads until a row it doesn't hold, and says when it can't be found", async () => {
     const { List } = recordingList();
     const onLoadUntil = vi.fn(async () => false);
