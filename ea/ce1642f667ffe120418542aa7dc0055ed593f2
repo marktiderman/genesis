@@ -1,0 +1,19 @@
+ui-parity.json
+  s_9613ab470e300c::t_5b1353ae01e48b 91,108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eace1642f667ffe120418542aa7dc0055ed593f2",
+  "prompts": {},
+  "sessions": {
+    "s_9613ab470e300c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df308523-d2f5-4e93-bef7-0f444d7d1772",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
