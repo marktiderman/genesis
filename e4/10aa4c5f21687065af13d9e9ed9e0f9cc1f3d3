@@ -1,0 +1,57 @@
+packages/forms-native/src/__tests__/kinds.test.tsx
+  s_e63e2ce0535b22::t_f66cb2109dafa8 26-27
+.changeset/forms-native-primitive-sizing.md
+  s_e63e2ce0535b22::t_492d82ff8be2d1 6,8-10
+.changeset/studio-exports-parts.md
+  s_e63e2ce0535b22::t_463eaeecc29b2c 6-7
+docs/DESIGN-LIBRARY.md
+  s_e63e2ce0535b22::t_dcfddd218ebe03 152-154,158-160,172-179
+packages/forms-native/src/__tests__/primitives.test.tsx
+  s_e63e2ce0535b22::t_aaeed9591b4a81 56-58
+packages/forms-native/src/parts.tsx
+  s_e63e2ce0535b22::t_f6c461cd5bbcad 37-38
+packages/forms-native/src/renderers/text.tsx
+  s_e63e2ce0535b22::t_45199920b1ddf6 67,71-72
+packages/forms-native/src/slots.tsx
+  s_e63e2ce0535b22::t_ffd73e29e4eaae 189-193,222
+packages/forms-native/src/styles.ts
+  s_e63e2ce0535b22::t_2692ec44f54895 22,44-45
+packages/forms-native/test-utils/rn-mock.tsx
+  s_e63e2ce0535b22::t_cdd1eab6b33834 57,78
+packages/studio/src/DataStudio.tsx
+  s_e63e2ce0535b22::t_4b8f9488ea9cae 1052-1056,1062
+packages/studio/src/grid/cells.tsx
+  s_e63e2ce0535b22::t_7290edadcde6d4 23-27,33,77-82,88
+packages/studio/src/index.ts
+  s_e63e2ce0535b22::t_fb28b27a5de394 19,22-43,49
+packages/studio/src/toolbar/Toolbar.tsx
+  s_e63e2ce0535b22::t_14b983864856a0 31-36,46,161-166,176,230-235,245,265-270,276,285-290,296,312-318,328,350-356,367,384-389,399,435-439,445
+packages/studio/src/workspace/ViewsPanel.tsx
+  s_e63e2ce0535b22::t_8c9164432c2fdf 15-24,38,124-131,142
+packages/ui-native/src/components/button.tsx
+  s_e63e2ce0535b22::t_cf3958bfcca1bb 10-11,93-96
+packages/ui-native/src/components/input.tsx
+  s_e63e2ce0535b22::t_4d29be8979ebf4 6,16-17
+packages/ui-native/src/components/text.tsx
+  s_e63e2ce0535b22::t_c80b230b3e45b6 7,39-40
+packages/ui-native/src/components/textarea.tsx
+  s_e63e2ce0535b22::t_af7e13911edf2a 6,16-17
+packages/ui-native/types/react-native.d.ts
+  s_e63e2ce0535b22::t_3c9025a9c2f004 15-17,189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e410aa4c5f21687065af13d9e9ed9e0f9cc1f3d3",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
