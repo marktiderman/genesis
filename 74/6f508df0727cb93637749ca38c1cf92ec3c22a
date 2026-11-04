@@ -1,0 +1,60 @@
+packages/support/src/record.ts
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 60-64
+packages/support/package.json
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 63-66,85,95-96,99-104,140,155-156,167-168,393-434,518
+packages/support/src/web-chat/agent-inbox.tsx
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 43,152,220,271,312,318
+packages/support/src/native/index.ts
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 24-25
+scripts/pgtap-local/suites.sh
+  s_b9ce29ee4fad7a::t_e29c210385418c 19,21
+packages/support/src/client.ts
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 81-124,205-206,208,220-243,408-425,521,571,574-576,692-757
+  s_b9ce29ee4fad7a::t_707bf6f30aaad0 758
+packages/support/src/copy.ts
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 148-223
+packages/support/src/index.ts
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 21
+packages/support/src/ai.ts
+  s_b9ce29ee4fad7a::t_1a81ea8a810851 1-123
+packages/support/migrations/tests/0010_genesis_support_help_center.test.sql
+  s_b9ce29ee4fad7a::t_ba3c4f86e8c6b3 148
+  s_b9ce29ee4fad7a::t_76a252fe52b621 1-147,149-180
+packages/support/src/web-chat/index.ts
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 7-8,19-21
+packages/support/src/native/support.tsx
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 24,56-62,137
+packages/support/tsup.config.ts
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 4,21
+packages/support/src/block.ts
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 24-31,42-45,171-195
+  s_b9ce29ee4fad7a::t_fe2a39c10719d1 196-199
+packages/support/src/help-ask.ts
+  s_b9ce29ee4fad7a::t_7710ce6350db58 1-106
+packages/support/src/web-chat/messenger.tsx
+  s_b9ce29ee4fad7a::t_b559a3ed55765a 1-761
+packages/support/src/help-pages.ts
+  s_b9ce29ee4fad7a::t_ce9e033678aa13 1-102
+packages/support/src/web-chat/thread-files.tsx
+  s_b9ce29ee4fad7a::t_e7ed7365b4d79f 1-58
+packages/support/migrations/0010_genesis_support_help_center.sql
+  s_b9ce29ee4fad7a::t_36e5f2800c16e9 392,400,413,428,442
+  s_b9ce29ee4fad7a::t_425b42bb3a0bef 40
+  s_b9ce29ee4fad7a::t_4f3eb4f622493f 1-39,41-391,393-399,401-412,414-427,429-441,443-479
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "746f508df0727cb93637749ca38c1cf92ec3c22a",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
