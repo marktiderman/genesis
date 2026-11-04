@@ -355,6 +355,8 @@ type CursorValue = string | number | boolean | null;
 interface CursorColumn {
   s: string;
   o: "asc" | "desc";
+  /** Where empty values go, when the sort said (`SortParam.nulls`). */
+  n?: "first" | "last";
 }
 
 /**
@@ -367,6 +369,8 @@ interface CursorState {
   s: string | null;
   /** The sort's order; the key's own order when `s` is null and there is no `c`. */
   o: "asc" | "desc";
+  /** Where the one sort column's empty values go, when the sort said. */
+  n?: "first" | "last";
   /** The key column. */
   k: string;
   /** The last row's sort value (absent when `s` is null). */
@@ -398,9 +402,10 @@ function decodeCursor(cursor: string): CursorState | undefined {
     if (!state || typeof state !== "object" || typeof state.k !== "string" || !isIdentifier(state.id)) return undefined;
     if (state.o !== "asc" && state.o !== "desc") return undefined;
     if (state.d !== undefined && state.d !== "b") return undefined;
+    if (state.n !== undefined && state.n !== "first" && state.n !== "last") return undefined;
     if (state.c !== undefined) {
       if (!Array.isArray(state.c) || !Array.isArray(state.vs) || state.c.length !== state.vs.length) return undefined;
-      if (!state.c.every((col) => col && typeof col.s === "string" && (col.o === "asc" || col.o === "desc"))) return undefined;
+      if (!state.c.every((col) => col && typeof col.s === "string" && (col.o === "asc" || col.o === "desc") && (col.n === undefined || col.n === "first" || col.n === "last"))) return undefined;
     }
     return state;
   } catch {
@@ -417,7 +422,7 @@ function quoteFilterValue(value: string | number | boolean): string {
 function cursorColumns(state: CursorState): { cols: (CursorColumn & { v: CursorValue })[]; keyOrder: "asc" | "desc" } {
   if (state.c) return { cols: state.c.map((col, i) => ({ ...col, v: state.vs![i] ?? null })), keyOrder: "asc" };
   if (state.s === null) return { cols: [], keyOrder: state.o };
-  return { cols: [{ s: state.s, o: state.o, v: state.v ?? null }], keyOrder: "asc" };
+  return { cols: [{ s: state.s, o: state.o, ...(state.n ? { n: state.n } : {}), v: state.v ?? null }], keyOrder: "asc" };
 }
 
 /**
@@ -426,21 +431,33 @@ function cursorColumns(state: CursorState): { cols: (CursorColumn & { v: CursorV
  * unique, so nothing after it can matter) and sets the key's own order;
  * otherwise the key comes last, ascending. A repeated column counts once.
  */
+/** A sort as `.order()`'s options: unset `nulls` stays unset, so the store's default holds. */
+function orderOptions({ order, nulls }: SortParam): { ascending: boolean; nullsFirst?: boolean } {
+  return { ascending: order === "asc", ...(nulls ? { nullsFirst: nulls === "first" } : {}) };
+}
+
+/** Empty values last: what the sort says, else Postgres's own default for its order. */
+function nullsGoLast(order: "asc" | "desc", nulls: "first" | "last" | undefined): boolean {
+  return nulls ? nulls === "last" : order === "asc";
+}
+
 function sortColumns(params: ListParams, key: string): { columns: SortParam[]; keyOrder: "asc" | "desc" } {
   const requested = params.sorts && params.sorts.length > 0 ? params.sorts : params.sort ? [params.sort] : [];
   const columns: SortParam[] = [];
   for (const sort of requested) {
     if (sort.field === key) return { columns, keyOrder: sort.order ?? "asc" };
-    if (!columns.some((c) => c.field === sort.field)) columns.push({ field: sort.field, order: sort.order ?? "asc" });
+    if (!columns.some((c) => c.field === sort.field)) {
+      columns.push({ field: sort.field, order: sort.order ?? "asc", ...(sort.nulls ? { nulls: sort.nulls } : {}) });
+    }
   }
   return { columns, keyOrder: "asc" };
 }
 
 /**
  * The PostgREST `or` clauses selecting the rows after `state` (before it, for
- * a cursor going back), for a list ordered by each sort column (nulls last
- * when ascending and first when descending, as Postgres orders them by
- * default) and then by the key. Spelled out one column at a time: Postgres's
+ * a cursor going back), for a list ordered by each sort column (empty values
+ * where the sort put them; unset, last when ascending and first when
+ * descending, as Postgres orders them by default) and then by the key. Spelled out one column at a time: Postgres's
  * row comparison `(a, b) > (x, y)` doesn't follow that null placement, and
  * PostgREST's filters can't express it anyway.
  * @internal Exported for tests.
@@ -459,9 +476,9 @@ export function keysetClauses(state: CursorState): string {
   const tail: string[] = [];
   const equal: string[] = [];
   const within = (piece: string) => (equal.length ? `and(${equal.join(",")},${piece})` : piece);
-  for (const { s, o, v } of cols) {
-    // Ascending puts nulls last; going back mirrors which side is "ahead".
-    const nullsAhead = (o === "asc") !== back;
+  for (const { s, o, n, v } of cols) {
+    // Nulls placed last are ahead of every value; going back mirrors which side is "ahead".
+    const nullsAhead = nullsGoLast(o, n) !== back;
     if (v === null) {
       if (!nullsAhead) main.push(within(`${s}.not.is.null`));
       equal.push(`${s}.is.null`);
@@ -1012,20 +1029,20 @@ export function createSupabaseProvider(
     if (unplain) return refuseCursor(resource, `cursor paging can sort only by a plain column, not "${unplain.field}".`);
     const sortFields = columns.map((c) => c.field);
     // One column keeps the cursor's original shape; several use `c`/`vs`.
-    const shape = (values: CursorValue[]): Pick<CursorState, "s" | "o" | "v" | "c" | "vs"> =>
+    const shape = (values: CursorValue[]): Pick<CursorState, "s" | "o" | "n" | "v" | "c" | "vs"> =>
       columns.length === 0
         ? { s: null, o: keyOrder }
         : columns.length === 1
-          ? { s: columns[0]!.field, o: columns[0]!.order, v: values[0] ?? null }
-          : { s: null, o: "asc", c: columns.map((c) => ({ s: c.field, o: c.order })), vs: values };
-    const sortId = JSON.stringify([columns.map((c) => [c.field, c.order]), keyOrder]);
+          ? { s: columns[0]!.field, o: columns[0]!.order, ...(columns[0]!.nulls ? { n: columns[0]!.nulls } : {}), v: values[0] ?? null }
+          : { s: null, o: "asc", c: columns.map((c) => ({ s: c.field, o: c.order, ...(c.nulls ? { n: c.nulls } : {}) })), vs: values };
+    const sortId = JSON.stringify([columns.map((c) => [c.field, c.order, c.nulls ?? null]), keyOrder]);
 
     let after: CursorState | undefined;
     if (cursor) {
       after = decodeCursor(cursor);
       if (!after) return refuseCursor(resource, "the cursor is not one this provider made.");
       const made = cursorColumns(after);
-      if (JSON.stringify([made.cols.map((c) => [c.s, c.o]), made.keyOrder]) !== sortId || after.k !== key) {
+      if (JSON.stringify([made.cols.map((c) => [c.s, c.o, c.n ?? null]), made.keyOrder]) !== sortId || after.k !== key) {
         return refuseCursor(resource, "the cursor was made for a different sort; start again from the first page (cursor: null).");
       }
     }
@@ -1042,10 +1059,10 @@ export function createSupabaseProvider(
     // Going back reads the rows before the cursor in the reverse order (nearest first), then
     // turns them around.
     const back = after?.d === "b";
-    for (const { field, order } of columns) {
-      // Pinned to Postgres's default null placement, which the keyset assumes.
+    for (const { field, order, nulls } of columns) {
+      // Always pinned: the keyset has to know where empty values are. Going back reverses them too.
       const ascending = (order === "asc") !== back;
-      query = query.order(field, { ascending, nullsFirst: !ascending });
+      query = query.order(field, { ascending, nullsFirst: nullsGoLast(order, nulls) === back });
     }
     query = query.order(key, { ascending: (keyOrder === "asc") !== back });
     query = query.range(0, perPage);
@@ -1134,10 +1151,10 @@ export function createSupabaseProvider(
         const requested = params.sorts && params.sorts.length > 0 ? params.sorts : params.sort ? [params.sort] : [];
         if (requested.length > 0 && key) {
           const { columns, keyOrder } = sortColumns(params, key);
-          for (const { field, order } of columns) query = query.order(field, { ascending: order === "asc" });
+          for (const sort of columns) query = query.order(sort.field, orderOptions(sort));
           query = query.order(key, { ascending: keyOrder === "asc" });
         } else if (requested.length > 0) {
-          for (const { field, order } of requested) query = query.order(field, { ascending: order === "asc" });
+          for (const sort of requested) query = query.order(sort.field, orderOptions(sort));
         } else if (params.pagination && key) {
           query = query.order(key, { ascending: true });
         }

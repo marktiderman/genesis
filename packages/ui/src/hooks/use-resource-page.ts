@@ -264,6 +264,9 @@ function compareItems<T>(a: T, b: T, sort: SortParam): number {
   const rb = b as Record<string, unknown>;
   const va = ra[sort.field];
   const vb = rb[sort.field];
+  if (sort.nulls && (va == null) !== (vb == null)) {
+    return (va == null) === (sort.nulls === "first") ? -1 : 1;
+  }
   const sa = va == null ? "" : String(va);
   const sb = vb == null ? "" : String(vb);
   const cmp = sa.localeCompare(sb, undefined, {

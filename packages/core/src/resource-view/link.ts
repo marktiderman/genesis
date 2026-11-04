@@ -116,7 +116,12 @@ export function resolveLink(
     get orderBy() {
       const order = link?.orderBy === "view" ? linkedView()?.definition.orderBy : link?.orderBy;
       if (!order || typeof order.field !== "string" || !IDENTIFIER.test(order.field)) return undefined;
-      return Object.freeze({ field: order.field, direction: order.direction === "desc" ? ("desc" as const) : ("asc" as const) });
+      const nulls = (order as { nulls?: unknown }).nulls;
+      return Object.freeze({
+        field: order.field,
+        direction: order.direction === "desc" ? ("desc" as const) : ("asc" as const),
+        ...(nulls === "first" || nulls === "last" ? { nulls } : {}),
+      });
     },
     filters(scope?: ResourceScope | null, values: Readonly<Record<string, unknown>> = {}): FilterParam[] {
       const view = linkedView();

@@ -190,7 +190,7 @@ export function useResourceTableModel<
   // The URL names the open record only where there is a peek to open.
   const urlPeek = detail === "panel" || detail === "modal" ? url : undefined;
   const urlSortKey = urlSeed?.sort
-    ? `${urlSeed.sort.field}:${urlSeed.sort.order}`
+    ? `${urlSeed.sort.field}:${urlSeed.sort.order}:${urlSeed.sort.nulls ?? ""}`
     : "";
 
   const isServerControlled =
@@ -377,12 +377,17 @@ export function useResourceTableModel<
   const pushedSortRef = useRef<string>(queryDriven ? urlSortKey : "");
   useEffect(() => {
     if (!queryDriven) return;
-    const key = page.sort ? `${page.sort.field}:${page.sort.order}` : "";
+    const key = page.sort ? `${page.sort.field}:${page.sort.order}:${page.sort.nulls ?? ""}` : "";
     if (key === pushedSortRef.current) return;
     pushedSortRef.current = key;
     // Clearing the sort returns to the resource's default order, not to
-    // whatever order the provider happens to use.
-    setResourceSort(page.sort ?? defaultSort);
+    // whatever order the provider happens to use. The default's `nulls` follows its field and
+    // direction: a header click back to it doesn't bring the empty rows back to the top.
+    const nulls =
+      page.sort && !page.sort.nulls && defaultSort?.nulls && page.sort.field === defaultSort.field && page.sort.order === defaultSort.order
+        ? defaultSort.nulls
+        : undefined;
+    setResourceSort(page.sort ? { ...page.sort, ...(nulls ? { nulls } : {}) } : defaultSort);
   }, [queryDriven, page.sort, defaultSort, setResourceSort]);
 
   const statusField = statusFilter
@@ -812,11 +817,17 @@ export function useResourceTableModel<
   const handleSortSelect = useCallback(
     (value: string) => {
       page.filterConfig.onSortChange(value);
+      // A screen's own sort option can say where empty values go.
+      const optionNulls = slotProps?.filters?.sortOptions?.find((o) => o.value === value)?.nulls;
+      if (optionNulls) {
+        const [optionField, optionOrder] = value.split(":");
+        if (optionField && (optionOrder === "asc" || optionOrder === "desc")) page.setSort({ field: optionField, order: optionOrder, nulls: optionNulls });
+      }
       if (!isServerControlled) return;
       const [field, order] = value.split(":");
       onSortChange?.(
         field && (order === "asc" || order === "desc")
-          ? { field, order }
+          ? { field, order, ...(optionNulls ? { nulls: optionNulls } : {}) }
           : null,
       );
       // See handleSearchChange: useResource's setSort resets the page.
@@ -824,6 +835,8 @@ export function useResourceTableModel<
     },
     [
       page.filterConfig,
+      page.setSort,
+      slotProps?.filters?.sortOptions,
       isServerControlled,
       onSortChange,
       onPageChange,

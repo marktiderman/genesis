@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, resourceKeys, useDataProvider, useResource, useViewer, writeConflict, type BaseRecord, type DataRow, type FilterParam, type ResourceContract, type UseResourceOptions, type WriteConflict } from "@marktiderman/genesis-core";
+import { resourceKeys, useDataProvider, useResource, useViewer, writeConflict, type BaseRecord, type DataRow, type FilterParam, type ResourceContract, type UseResourceOptions, type WriteConflict } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
 import { useLiveInvalidation, type LiveOptions } from "@marktiderman/genesis-core/hooks";
 import { boardChoices, boardProblems, type ResourceView as View, type ViewBoard, type ViewTone } from "@marktiderman/genesis-core/resource-view";
@@ -126,7 +126,7 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
     field: fieldName,
     values,
     filters,
-    ...(orderBy ? { sorts: [{ field: orderBy.field, order: orderBy.direction ?? "asc" }] } : {}),
+    ...(orderBy ? { sorts: [{ field: orderBy.field, order: orderBy.direction ?? "asc", ...(orderBy.nulls ? { nulls: orderBy.nulls } : {}) }] } : {}),
     ...(select !== undefined ? { select } : {}),
     ...(perPage !== undefined ? { perPage } : {}),
     enabled,
@@ -139,7 +139,12 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
   const { update } = useResource<T & BaseRecord>(view.resource, {
     enabled: false,
     ...(resourceOptions?.invalidates ? { invalidates: resourceOptions.invalidates } : {}),
-    ...(resourceOptions?.onError ? { onError: resourceOptions.onError } : {}),
+    // The board reports a failed move itself (the refusal line, or `onMoveError`), so a failure
+    // isn't logged as well; and a conflict is the sheet's, so it isn't the app's failure either.
+    onError: (error) => {
+      if (!onMoveError && writeConflict(error, {})) return;
+      resourceOptions?.onError?.(error);
+    },
     ...(resourceOptions?.onUpdateSuccess ? { onUpdateSuccess: resourceOptions.onUpdateSuccess } : {}),
   });
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -254,9 +259,7 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
     inFlight.current.add(id);
     setSaving(new Set(inFlight.current));
     try {
-      const saved = await update(id, data as Partial<T & BaseRecord>, c.currentVersion != null ? { expectedVersion: c.currentVersion } : undefined);
-      // A write that matched no rows is a refusal, never a silent success.
-      if (saved === null || saved === undefined) throw new DataWriteError("forbidden", fillMessage(m.workspace.notChanged, { noun: view.noun }));
+      await update(id, data as Partial<T & BaseRecord>, c.currentVersion != null ? { expectedVersion: c.currentVersion } : undefined);
       setConflict(null);
     } catch (error) {
       const again = writeConflict(error, data, { changed: [fieldName] });
