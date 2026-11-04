@@ -1,0 +1,33 @@
+packages/ui-native/src/components/__tests__/whats-new-sheet.test.tsx
+  s_9613ab470e300c::t_c3beebdc9bc94f 6,9,15,25
+packages/ui/package.json
+  s_9613ab470e300c::t_0b803778702f0c 665-676
+packages/ui/figma/code-connect.json
+  s_9613ab470e300c::t_cbbbc43167cb78 123-125
+packages/ui-native/src/components/__tests__/share-sheet.test.tsx
+  s_9613ab470e300c::t_e9782a02c8aaaf 9,11,27,36,39,41-43
+packages/ui-native/figma/code-connect.json
+  s_9613ab470e300c::t_cbbbc43167cb78 64-69
+packages/ui-native/package.json
+  s_9613ab470e300c::t_0b803778702f0c 328-351
+packages/ui-native/test-utils/rn-mock.tsx
+  s_9613ab470e300c::t_e9782a02c8aaaf 562-566
+packages/ui-native/src/components/__tests__/tab-bar.test.tsx
+  s_9613ab470e300c::t_e9782a02c8aaaf 36,40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5815a211bdf367280555e61c8406ad81830ccf66",
+  "prompts": {},
+  "sessions": {
+    "s_9613ab470e300c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df308523-d2f5-4e93-bef7-0f444d7d1772",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
