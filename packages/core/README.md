@@ -703,6 +703,33 @@ const draft = useDraft({
 `DraftController` is the same logic without React, for tests or other
 frameworks.
 
+## Remembered UI state
+
+`usePersistedUiState(key, initial)` keeps a piece of UI state past a reload: a collapsed sidebar, a
+table's column widths, a panel's size. It stores it through the app's storage adapter (`useStorage()`:
+localStorage on the web, the adapter `GenesisProvider` was given on a phone).
+
+```tsx
+import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
+
+function Sidebar() {
+  const [collapsed, setCollapsed] = usePersistedUiState("acme:sidebar", false);
+  return <button onClick={() => setCollapsed(!collapsed)}>{collapsed ? "Expand" : "Collapse"}</button>;
+}
+```
+
+- **SSR-safe:** the server renders `initial` and the client hydrates against it, then shows the
+  stored value, so there's no hydration mismatch. A client-only render reads storage directly,
+  with no flash of the default.
+- **In step:** every hook on the same key, on the page or in another tab, sees a write.
+- **Defaults stay defaults:** `initial` is never written, so changing it reaches everyone who
+  hasn't chosen. `set(undefined)` clears the stored value back to `initial`.
+- **Forgiving:** a stored value `parse` refuses reads as `initial`; a write storage won't keep
+  (a full quota, a private window) still applies while the component is mounted.
+- **Optional:** a `null` key is plain state, for a component whose persistence a key prop turns on.
+- **An existing format:** `parse` and `serialize` read and write what's already stored, for example
+  `"1"`/`"0"` as AppShell's collapsed sidebar does, so moving onto the hook keeps users' choices.
+
 ## Query keys
 
 Build every cache key in one place, so a write invalidates what it made stale and nothing cached for
