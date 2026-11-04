@@ -8,7 +8,7 @@
 -- of ta; c4 another agent of ta; e5 an agent of tb; f6 the app's staff; c9 the admin of ta.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(48);
+select plan(54);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -148,11 +148,11 @@ select is((select q.assignee_id from public.support_agent_tickets(pg_temp.tenant
           'the row says who has it');
 select is((select q.conversation_id from public.support_agent_tickets(pg_temp.tenant('ta')) q where q.id = pg_temp.id('ta1')), pg_temp.conv('ta1'),
           '... and its conversation');
-select results_eq($$ select mine, unassigned, all_tickets from public.support_agent_ticket_counts('00000000-0000-4000-8000-0000000000a0') $$,
-                  $$ values (1, 1, 2) $$, 'the counts match the views');
+select results_eq($$ select inbox_view, tickets from public.support_agent_ticket_counts('00000000-0000-4000-8000-0000000000a0') order by 1 $$,
+                  $$ values ('all', 2), ('mine', 1), ('unassigned', 1) $$, 'the counts match the views');
 select pg_temp.sign_in('c4');
-select results_eq($$ select mine, unassigned, all_tickets from public.support_agent_ticket_counts('00000000-0000-4000-8000-0000000000a0') $$,
-                  $$ values (0, 2, 3) $$, 'another agent''s counts are their own');
+select results_eq($$ select inbox_view, tickets from public.support_agent_ticket_counts('00000000-0000-4000-8000-0000000000a0') order by 1 $$,
+                  $$ values ('all', 3), ('mine', 0), ('unassigned', 2) $$, 'another agent''s counts are their own');
 select is(pg_temp.queue('mine', pg_temp.tenant('ta')), '{}'::text[], '... and so is mine');
 
 select pg_temp.sign_in('c3');
@@ -182,11 +182,24 @@ select is((select count(*)::int from public.support_agent_tickets(pg_temp.tenant
 select is((select q.preview from public.support_agent_tickets(pg_temp.tenant('ta')) q where q.id = pg_temp.id('ta2')), 'Second in ta',
           'with no messages, the preview is the ticket''s words');
 select ok((select q.agent_unread from public.support_agent_tickets(pg_temp.tenant('ta')) q where q.id = pg_temp.id('ta2')), 'a new ticket is unread');
+select lives_ok($$ select genesis_chat.mark_read(pg_temp.conv('ta2')) $$, 'chat has no place to move in an empty conversation');
+select ok((select q.agent_unread from public.support_agent_tickets(pg_temp.tenant('ta')) q where q.id = pg_temp.id('ta2')), '... so the ticket is still unread');
+select lives_ok($$ select public.support_mark_read(pg_temp.id('ta2')) $$, 'marking the ticket itself read');
+select ok(not (select q.agent_unread from public.support_agent_tickets(pg_temp.tenant('ta')) q where q.id = pg_temp.id('ta2')), '... reads it');
 select lives_ok($$ select genesis_chat.send_message(pg_temp.conv('ta2'), gen_random_uuid(), 'A reply', '[]', null, null, null, '{}', 'everyone') $$, 'an agent replies');
 select lives_ok($$ select genesis_chat.send_message(pg_temp.conv('ta2'), gen_random_uuid(), 'A secret note', '[]', null, null, null, '{}', 'observers') $$, 'and leaves a note');
 select is((select q.preview from public.support_agent_tickets(pg_temp.tenant('ta')) q where q.id = pg_temp.id('ta2')), 'A reply',
           'the preview is the latest message the requester can see, never a note');
-select ok(not (select q.agent_unread from public.support_agent_tickets(pg_temp.tenant('ta')) q where q.id = pg_temp.id('ta2')), 'an agent''s reply reads it');
+select ok(not (select q.agent_unread from public.support_agent_tickets(pg_temp.tenant('ta')) q where q.id = pg_temp.id('ta2')), 'an agent''s reply leaves it read');
+reset role;
+update genesis_chat.messages set moderation = 'hidden' where conversation_id = pg_temp.conv('ta2') and body = 'A reply';
+update public.tickets set context = context || '{"severity": "high"}' where id = pg_temp.id('ta2');
+set local role authenticated;
+select pg_temp.sign_in('c3');
+select is((select q.preview from public.support_agent_tickets(pg_temp.tenant('ta')) q where q.id = pg_temp.id('ta2')), 'Second in ta',
+          'a hidden message is no preview');
+select is((select q.severity from public.support_agent_tickets(pg_temp.tenant('ta')) q where q.id = pg_temp.id('ta2')), 'high',
+          'severity kept only in the context still shows');
 
 -- The other ways to read a queue: each stops at the tenant too ---------------------------------
 

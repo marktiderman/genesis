@@ -5,7 +5,7 @@ set -u
 root=$(cd "$(dirname "$0")/../.." && pwd)
 name="genesis-pgtap-$(basename "$root" | tr -cd 'a-zA-Z0-9')"
 docker rm -f "$name" >/dev/null 2>&1
-docker run -d --name "$name" -e POSTGRES_HOST_AUTH_METHOD=trust -v "$root:/repo:ro" postgres:17 >/dev/null || exit 1
+docker run -d --name "$name" -e POSTGRES_HOST_AUTH_METHOD=trust -v "$root:/repo:ro" postgres:17@sha256:31ba9c94a03ada9988f2bb493a22a75eef3a185884533e5cdbcd498ea835b08f >/dev/null || exit 1
 trap 'docker rm -f "$name" >/dev/null 2>&1' EXIT
 for _ in $(seq 1 60); do
   docker exec "$name" pg_isready -U postgres -h 127.0.0.1 >/dev/null 2>&1 && break

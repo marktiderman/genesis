@@ -87,6 +87,11 @@ export interface AgentTicket extends Ticket {
   severity: string | null;
   /** `email` for an email ticket; null when the support-email block isn't installed or it came from the app. */
   channel: string | null;
+  /** Who an email ticket is from (support-email block): they have no login to name. */
+  requesterEmail: string | null;
+  requesterName: string | null;
+  platform: string | null;
+  device: Record<string, unknown>;
   conversationId: string | null;
   /** Who has it, a login, or null for nobody. */
   assigneeId: string | null;
@@ -174,7 +179,11 @@ export interface SupportClient extends FeedbackSink {
   replies(reportId: string): Promise<SupportReply[]>;
   /** `internal`: a staff-only note (support-chat block, staff only). */
   reply(reportId: string, body: string, options?: { internal?: boolean }): Promise<SupportReply>;
-  markRead(reportId: string): Promise<void>;
+  /**
+   * `ticket`: also mark the ticket itself read. For an agent: on chat, a conversation with no
+   * messages yet has no place to move, so a new ticket would stay unread.
+   */
+  markRead(reportId: string, options?: { ticket?: boolean }): Promise<void>;
   /**
    * Where the report's thread lives: its genesis-chat conversation when a `chat` client was given
    * and the support-chat block is installed, else support_replies.
@@ -316,6 +325,10 @@ function toAgentTicket(r: Row): AgentTicket {
     tenantId: String(r["tenant_id"]),
     severity: (r["severity"] as string | null) ?? null,
     channel: (r["channel"] as string | null) ?? null,
+    requesterEmail: (r["requester_email"] as string | null) ?? null,
+    requesterName: cleanLabel(r["requester_name"] as string | null),
+    platform: (r["platform"] as string | null) ?? null,
+    device: (r["device"] as Record<string, unknown> | null) ?? {},
     conversationId: (r["conversation_id"] as string | null) ?? null,
     assigneeId: (r["assignee_id"] as string | null) ?? null,
     activityAt: String(r["activity_at"]),
@@ -527,11 +540,12 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       return { id: String(row["id"]), reportId: String(row["report_id"]), body: String(row["body"]), fromStaff: row["from_staff"] === true, mine: true, createdAt: String(row["created_at"]) };
     },
 
-    async markRead(reportId) {
+    async markRead(reportId, { ticket = false } = {}) {
       const where = await thread(reportId);
       if (where.mode === "chat" && chat) {
         // The migration carries the conversation's read place to the report.
         await chat.markRead(where.conversationId);
+        if (ticket) must("markRead", await supabase.rpc("support_mark_read", { report: reportId }));
         return;
       }
       must("markRead", await supabase.rpc("support_mark_read", { report: reportId }));
@@ -586,8 +600,8 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     },
     async agentTicketCounts({ tenantId = null } = {}) {
       const rows = must<Row[]>("agentTicketCounts", await supabase.rpc("support_agent_ticket_counts", { tenant: tenantId }));
-      const row = rows?.[0];
-      return { mine: Number(row?.["mine"] ?? 0), unassigned: Number(row?.["unassigned"] ?? 0), all: Number(row?.["all_tickets"] ?? 0) };
+      const count = (view: TicketInboxView) => Number((rows ?? []).find((r) => r["inbox_view"] === view)?.["tickets"] ?? 0);
+      return { mine: count("mine"), unassigned: count("unassigned"), all: count("all") };
     },
 
     async verify(reportId, fixed, note) {

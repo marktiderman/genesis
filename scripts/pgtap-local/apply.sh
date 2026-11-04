@@ -1,7 +1,7 @@
 #!/bin/bash
 # Apply package migrations, in the order given, to a fresh database on a local Postgres with pgTAP,
-# over Supabase-shaped stubs (auth, storage). Not a Supabase stack: good for package pgTAP, which
-# Genesis CI doesn't run. Defines a default-tenant hook right before support 0004.
+# over Supabase-shaped stubs (auth, storage). Not a Supabase stack: good for package pgTAP (CI's
+# Package pgTAP job runs it through suites.sh). Defines a default-tenant hook right before support 0004.
 #   PGHOST=/path/to/socket PGPORT=54329 scripts/pgtap-local/apply.sh packages/supabase/migrations/0004_… …
 set -u
 here=$(cd "$(dirname "$0")" && pwd); root=$(cd "$here/../.." && pwd)

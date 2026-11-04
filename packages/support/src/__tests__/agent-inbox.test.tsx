@@ -49,9 +49,20 @@ describe("the client's read path", () => {
     await expect(createSupportClient(client).agentTickets!()).rejects.toMatchObject({ code: "42501" });
   });
 
+  it("marks the ticket itself read too when asked, for a conversation with no messages", async () => {
+    const { client, rpcs } = fakeSupabase({ rpc: (fn) => (fn === "support_chat_conversation" ? { data: "c1", error: null } : { data: null, error: null }) });
+    const chat = { markRead: vi.fn(async () => 0) };
+    const support = createSupportClient(client, { chat: chat as never });
+    await support.markRead("t1");
+    expect(rpcs.map((r) => r.fn)).not.toContain("support_mark_read");
+    await support.markRead("t1", { ticket: true });
+    expect(chat.markRead).toHaveBeenCalledTimes(2);
+    expect(rpcs.map((r) => r.fn)).toContain("support_mark_read");
+  });
+
   it("reads one ticket and the counts", async () => {
     const { client, rpcs } = fakeSupabase({
-      rpc: (fn) => (fn === "support_agent_ticket_counts" ? { data: [{ mine: 1, unassigned: 2, all_tickets: 3 }], error: null } : { data: [], error: null }),
+      rpc: (fn) => (fn === "support_agent_ticket_counts" ? { data: [{ inbox_view: "mine", tickets: 1 }, { inbox_view: "unassigned", tickets: 2 }, { inbox_view: "all", tickets: 3 }], error: null } : { data: [], error: null }),
     });
     const support = createSupportClient(client);
     expect(await support.agentTicket!("t1", { tenantId: "ta" })).toBeNull();
@@ -80,6 +91,10 @@ const ticket = (over: Partial<AgentTicket> = {}): AgentTicket => ({
   userId: "u1",
   severity: "high",
   channel: null,
+  requesterEmail: null,
+  requesterName: null,
+  platform: null,
+  device: {},
   conversationId: "c1",
   assigneeId: null,
   activityAt: "2026-11-03T11:00:00Z",
@@ -165,7 +180,7 @@ describe("SupportAgentInbox", () => {
     expect(screen.getByTestId("genesis-support-agent-thread-message-m1").className).not.toContain("bg-primary");
     expect(screen.getByTestId("genesis-support-agent-thread-message-m2").className).toContain("bg-primary");
     expect(screen.getAllByText("Ada").length).toBeGreaterThan(0);
-    await waitFor(() => expect(client.markRead).toHaveBeenCalledWith("t1"));
+    await waitFor(() => expect(client.markRead).toHaveBeenCalledWith("t1", { ticket: true }));
     expect(client.subscribe).toHaveBeenCalledWith("t1", expect.any(Function));
   });
 
@@ -202,6 +217,55 @@ describe("SupportAgentInbox", () => {
     expect(onError).toHaveBeenCalled();
   });
 
+  it("doesn't mark a ticket read from a hidden tab, and does on coming back", async () => {
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    const client = fakeClient();
+    show(client, { ticketId: "t1" });
+    await screen.findByTestId("genesis-support-agent-thread-message-m1");
+    expect(client.markRead).not.toHaveBeenCalled();
+    visibility.mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(client.markRead).toHaveBeenCalledTimes(1));
+    visibility.mockRestore();
+  });
+
+  it("says a thread failed rather than showing it empty, and takes no reply", async () => {
+    const onError = vi.fn();
+    show(fakeClient({ replies: vi.fn(async () => Promise.reject(new Error("offline"))) }), { ticketId: "t1", onError });
+    expect(await screen.findByText("Couldn't load this conversation")).toBeTruthy();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(onError).toHaveBeenCalled();
+  });
+
+  it("says an open ticket failed rather than that it's gone", async () => {
+    show(fakeClient({ agentTicket: vi.fn(async () => Promise.reject(new Error("offline"))) }), { ticketId: "t1" });
+    // After the inbox's own retries of a failure that isn't a refusal.
+    expect(await screen.findByText("Couldn't open this ticket", {}, { timeout: 6000 })).toBeTruthy();
+  });
+
+  it("offers only the queues asked for, and starts on the first", async () => {
+    const client = fakeClient();
+    show(client, { views: ["all"] });
+    await screen.findByTestId("genesis-support-agent-views-all");
+    expect(screen.queryByTestId("genesis-support-agent-views-mine")).toBeNull();
+    expect(client.agentTickets).toHaveBeenCalledWith(expect.objectContaining({ view: "all" }));
+  });
+
+  it("names an email ticket's sender", async () => {
+    const client = fakeClient({ agentTicket: vi.fn(async () => ticket({ userId: null, requesterName: "Ada L", requesterEmail: "ada@example.test" })) });
+    show(client, { ticketId: "t1" });
+    fireEvent.click(await screen.findByTestId("genesis-support-agent-inbox-toggle-context"));
+    const details = await screen.findByTestId("genesis-support-agent-details");
+    expect(details.textContent).toContain("Ada L");
+    expect(details.textContent).toContain("ada@example.test");
+  });
+
+  it("keeps the current assignee in the picker's options, and never the requester", async () => {
+    show(fakeClient({ agentTicket: vi.fn(async () => ticket({ assigneeId: "a2" })) }), { ticketId: "t1", agents: [{ id: "u1", name: "Ada" }, { id: "a1", name: "Sam" }] });
+    const picker = await screen.findByTestId("genesis-support-staff-assignee");
+    expect(picker.textContent).toContain("Kit");
+  });
+
   it("has no note mode without chat", async () => {
     show(fakeClient({ thread: vi.fn(async () => ({ mode: "replies" as const, conversationId: null })) }), { ticketId: "t1" });
     await screen.findByRole("textbox");
@@ -228,7 +292,8 @@ describe("SupportAgentInbox", () => {
     );
     const link = await screen.findByTestId("genesis-support-agent-thread-attachment-pdf");
     expect(link.getAttribute("href")).toBe("https://files.test/invoice.pdf");
-    expect(link.textContent).toBe("invoice.pdf");
+    expect(link.textContent).toBe("invoice.pdf (files.test)");
+    expect(link.querySelector("img")).toBeNull();
     expect(screen.queryByTestId("genesis-support-agent-thread-attachment-bad")).toBeNull();
   });
 });

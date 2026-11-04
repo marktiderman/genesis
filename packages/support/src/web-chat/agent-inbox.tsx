@@ -28,8 +28,11 @@ import {
   ThreadPage,
   cn,
   type InboxItem,
+  type InboxPageProps,
+  type InboxShortcuts,
   type ThreadAttachment,
   type ThreadMessage,
+  type ThreadPageProps,
   type ThreadPageSlotMap,
 } from "@marktiderman/genesis-ui";
 import type { ResolveUser } from "@marktiderman/genesis-chat/web";
@@ -62,24 +65,31 @@ export interface SupportAgentInboxProps {
   onViewChange?: (view: TicketInboxView) => void;
   /** Uncontrolled: the queue to start on. Default `mine`. */
   defaultView?: TicketInboxView;
+  /** Which queues to offer, in order. Default Mine, Unassigned, All. */
+  views?: readonly TicketInboxView[];
   /** Names people: requesters and agents. */
   resolveUser: ResolveUser;
   /** Who a ticket can be given to, by login. Without it there is no assignee picker. */
   agents?: readonly { id: string; name: string }[];
   /** The app's own cards in the details panel (who this customer is, say), under the ticket's details. */
   context?: (ticket: AgentTicket) => ReactNode;
+  /** Keys for the inbox (`InboxLayout`'s j, k, r, n, e, a, Escape). Off by default: leave it out for no single-key shortcuts. */
+  shortcuts?: InboxShortcuts;
+  /** The layouts' own slots: the list's rows, header and empty state; the thread's messages and events. */
+  slots?: { list?: InboxPageProps["slots"]; thread?: ThreadPageProps["slots"] };
   /** Remember in this browser whether the details panel is open, under this key. */
   contextStorageKey?: string;
   copy?: SupportCopyOverrides;
   /** Every refused or failed read and change, for reporting. */
   onError?: (error: unknown) => void;
-  /** Tickets per page. Default 50. */
+  /** Tickets per page, at most 200. Default 50. */
   pageSize?: number;
   /** How often the queues re-read, in ms. Default 30 seconds; `false` for never. An open thread is live anyway. */
   refreshInterval?: number | false;
   className?: string;
 }
 
+const MAX_PAGE = 200;
 const VIEWS: readonly TicketInboxView[] = ["mine", "unassigned", "all"];
 const NOT_ALLOWED = "42501";
 
@@ -139,14 +149,27 @@ function TicketAttachment({ id, uri, accessibilityLabel, testID }: ThreadPageSlo
   );
 }
 
+/** The requester's name: their person, or for an email ticket who it says it's from. */
+const requesterOf = (ticket: AgentTicket, resolveUser: ResolveUser, copy: SupportCopy) =>
+  ticket.userId ? resolveUser(ticket.userId).name : (ticket.requesterName ?? ticket.requesterEmail ?? copy.agentInbox.emailSender);
+
 /** Only web addresses open from a thread: a file's URL comes from a message. */
 const isWebUrl = (url: string | null): url is string => Boolean(url && /^https?:\/\//i.test(url));
+
+const hostOf = (url: string | null) => {
+  try {
+    return url ? new URL(url).host : "";
+  } catch {
+    return "";
+  }
+};
 
 interface PaneProps {
   client: SupportClient;
   ticket: AgentTicket;
   resolveUser: ResolveUser;
   agents?: readonly { id: string; name: string }[] | undefined;
+  slots?: ThreadPageProps["slots"] | undefined;
   copy: SupportCopy;
   onError?: ((error: unknown) => void) | undefined;
 }
@@ -156,7 +179,7 @@ const REPLY = "reply";
 const paneSlots = { headerRegion: TicketHeaderRegion, attachment: TicketAttachment };
 
 /** The open ticket's thread. Keyed by ticket, so a draft never follows you to another one. */
-function TicketPane({ client, ticket, resolveUser, agents, copy, onError }: PaneProps) {
+function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError }: PaneProps) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<string>(REPLY);
@@ -188,23 +211,53 @@ function TicketPane({ client, ticket, resolveUser, agents, copy, onError }: Pane
     [client, ticket.id, queryClient],
   );
 
-  // Reading it: once it shows, and again when something new arrives.
-  const shown = replies.data?.length;
   useEffect(() => {
-    if (shown === undefined) return;
-    client
-      .markRead(ticket.id)
-      .then(() => queryClient.invalidateQueries({ queryKey: ["genesis-support", "agent-inbox", "list"] }))
-      .catch((error: unknown) => report.current?.(error));
-  }, [client, ticket.id, shown, queryClient]);
+    if (replies.error) report.current?.(replies.error);
+    if (where.error) report.current?.(where.error);
+  }, [replies.error, where.error]);
 
-  const requester = ticket.userId ? resolveUser(ticket.userId).name : copy.agentInbox.emailSender;
+  // Reading it, while it's in front of someone: when it shows, when something new arrives, and when
+  // they come back to the tab. The read state is the team's, so a hidden tab mustn't clear it.
+  const latest = replies.data ? (replies.data[replies.data.length - 1]?.id ?? "none") : null;
+  useEffect(() => {
+    if (latest === null) return;
+    const read = () => {
+      if (document.visibilityState !== "visible") return;
+      client
+        .markRead(ticket.id, { ticket: true })
+        .then(() => queryClient.invalidateQueries({ queryKey: ["genesis-support", "agent-inbox", "list"] }))
+        .catch((error: unknown) => report.current?.(error));
+    };
+    read();
+    document.addEventListener("visibilitychange", read);
+    return () => document.removeEventListener("visibilitychange", read);
+  }, [client, ticket.id, latest, queryClient]);
+
+  const requester = requesterOf(ticket, resolveUser, copy);
   const messages = useMemo<ThreadMessage[]>(() => (replies.data ?? []).map((r) => toMessage(r, resolveUser, requester, copy)), [replies.data, resolveUser, requester, copy]);
+  // A file from outside this app's storage is a link naming its host: the requester chose that
+  // address, so the agent's browser doesn't load it until they ask.
   const files = useMemo(() => {
     const map = new Map<string, { image: boolean; name: string | null }>();
-    for (const r of replies.data ?? []) for (const a of r.attachments ?? []) map.set(a.id, { image: a.kind === "image" || Boolean(a.mime?.startsWith("image/")), name: a.name });
+    for (const r of replies.data ?? [])
+      for (const a of r.attachments ?? []) {
+        const stored = Boolean(a.path);
+        map.set(a.id, {
+          image: stored && (a.kind === "image" || Boolean(a.mime?.startsWith("image/"))),
+          name: stored ? a.name : `${a.name ?? copy.agentInbox.openFile} (${hostOf(a.url)})`,
+        });
+      }
     return map;
-  }, [replies.data]);
+  }, [replies.data, copy]);
+  // Never the requester, who can't handle their own ticket; always whoever has it now, so the picker shows them.
+  const assignable = useMemo(() => {
+    if (!agents) return undefined;
+    const list = agents.filter((a) => a.id !== ticket.userId);
+    const current = ticket.assigneeId;
+    return current && !list.some((a) => a.id === current) ? [{ id: current, name: resolveUser(current).name }, ...list] : list;
+  }, [agents, ticket.userId, ticket.assigneeId, resolveUser]);
+  const threadSlots = useMemo(() => ({ ...paneSlots, ...slots }), [slots]);
+  const threadFailed = replies.isError && !replies.data;
 
   const change = (work: Promise<unknown>) =>
     work
@@ -238,7 +291,7 @@ function TicketPane({ client, ticket, resolveUser, agents, copy, onError }: Pane
   const pane: PaneValue = {
     ticket,
     copy,
-    agents,
+    agents: assignable,
     failed: changeFailed,
     onStatus: (status) => void change(client.setStatus(ticket.id, status)),
     onAssign: (userId) => void change(client.assign(ticket.id, userId)),
@@ -253,12 +306,13 @@ function TicketPane({ client, ticket, resolveUser, agents, copy, onError }: Pane
         loading={replies.isPending}
         readAt={ticket.userReadAt}
         readLabel={copy.thread.read}
-        emptyTitle={copy.thread.emptyTitle}
-        emptyBody={copy.agentInbox.threadEmptyBody}
+        emptyTitle={threadFailed ? copy.agentInbox.threadErrorTitle : copy.thread.emptyTitle}
+        emptyBody={threadFailed ? copy.agentInbox.errorBody : copy.agentInbox.threadEmptyBody}
         labels={{ you: copy.thread.you, internal: copy.thread.internalNote }}
-        slots={paneSlots}
+        slots={threadSlots}
         testID="genesis-support-agent-thread"
-        composer={{
+        // Not while the thread failed to load: nobody should answer a conversation they can't see.
+        composer={threadFailed ? null : {
           value: draft,
           onChangeText: setDraft,
           onSend: send,
@@ -328,7 +382,8 @@ function TicketDetails({ client, ticket, resolveUser, context, copy }: Pick<Pane
   return (
     <div data-testid="genesis-support-agent-details" className="flex flex-col gap-4 p-4">
       <dl className="flex flex-col gap-3">
-        <Detail label={copy.agentInbox.from}>{ticket.userId ? resolveUser(ticket.userId).name : copy.agentInbox.emailSender}</Detail>
+        <Detail label={copy.agentInbox.from}>{requesterOf(ticket, resolveUser, copy)}</Detail>
+        {ticket.requesterEmail ? <Detail label={copy.agentInbox.emailSender}>{ticket.requesterEmail}</Detail> : null}
         <Detail label={copy.agentInbox.type}>{copy.feedback.types[ticket.type]}</Detail>
         {ticket.severity ? <Detail label={copy.agentInbox.severity}>{severities[ticket.severity] ?? ticket.severity}</Detail> : null}
         {opened ? <Detail label={copy.agentInbox.opened}>{opened}</Detail> : null}
@@ -373,48 +428,56 @@ export function SupportAgentInbox({
   onTicketChange,
   view: viewProp,
   onViewChange,
-  defaultView = "mine",
+  defaultView,
+  views = VIEWS,
   resolveUser,
   agents,
   context,
+  shortcuts,
+  slots,
   contextStorageKey,
   copy: copyOverrides,
   onError,
-  pageSize = 50,
+  pageSize: pageSizeProp = 50,
   refreshInterval = 30_000,
   className,
 }: SupportAgentInboxProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
-  const [ownView, setOwnView] = useState<TicketInboxView>(defaultView);
+  const pageSize = Math.min(Math.max(pageSizeProp, 1), MAX_PAGE);
+  const [ownView, setOwnView] = useState<TicketInboxView>(defaultView ?? views[0] ?? "mine");
   const view = viewProp ?? ownView;
   const setView = (next: TicketInboxView) => {
     if (viewProp === undefined) setOwnView(next);
     onViewChange?.(next);
   };
   const tenantKey = tenantId;
+  // A refusal doesn't change by asking again.
+  const poll = (query: { state: { error: unknown } }) => (isRefused(query.state.error) ? false : refreshInterval);
 
   const list = useInfiniteQuery({
     queryKey: supportInboxKeys.list(tenantKey, view),
     initialPageParam: null as AgentTicket | null,
     queryFn: ({ pageParam }) => required(client.agentTickets)({ tenantId, view, before: pageParam, limit: pageSize }),
     getNextPageParam: (last) => (last.length === pageSize ? (last[last.length - 1] ?? null) : null),
-    refetchInterval: refreshInterval,
+    refetchInterval: poll,
     retry: (count, error) => !isRefused(error) && count < 2,
   });
   const counts = useQuery({
     queryKey: supportInboxKeys.counts(tenantKey),
     queryFn: () => required(client.agentTicketCounts)({ tenantId }),
-    refetchInterval: refreshInterval,
+    refetchInterval: poll,
     retry: (count, error) => !isRefused(error) && count < 2,
   });
   const open = useQuery({
     queryKey: supportInboxKeys.ticket(tenantKey, ticketId ?? ""),
     queryFn: () => required(client.agentTicket)(ticketId as string, { tenantId }),
     enabled: Boolean(ticketId),
+    // Another agent's status or assignee, also without live updates.
+    refetchInterval: poll,
     retry: (count, error) => !isRefused(error) && count < 2,
   });
 
-  // Every failed read, once, for the app's reporting.
+  // Every failed read, for the app's reporting.
   const reported = useRef(onError);
   reported.current = onError;
   for (const error of [list.error, counts.error, open.error]) useReport(error, reported);
@@ -447,13 +510,21 @@ export function SupportAgentInbox({
       threadOpen={Boolean(ticketId)}
       onBack={() => onTicketChange(null)}
       {...(contextStorageKey ? { contextStorageKey } : {})}
-      labels={{ list: copy.agentInbox.listLabel, views: copy.agentInbox.viewLabel }}
+      {...(shortcuts ? { shortcuts } : {})}
+      labels={{
+        list: copy.agentInbox.listLabel,
+        views: copy.agentInbox.viewLabel,
+        thread: copy.agentInbox.conversation,
+        context: copy.agentInbox.details,
+        toggleContext: copy.agentInbox.details,
+        back: copy.agentInbox.back,
+      }}
       views={
         <InboxViews
           testID="genesis-support-agent-views"
-          views={VIEWS.map((id) => {
+          views={views.map((id) => {
             const count = viewCount(id);
-            return { id, label: copy.agentInbox.views[id], ...(count === undefined ? {} : { count, countLabel: fill(copy.agentInbox.count, { count }) }) };
+            return { id, label: copy.agentInbox.views[id], ...(count === undefined ? {} : { count, countLabel: count === 1 ? copy.agentInbox.oneTicket : fill(copy.agentInbox.count, { count }) }) };
           })}
           activeId={view}
           onSelect={(id) => setView(id as TicketInboxView)}
@@ -470,7 +541,7 @@ export function SupportAgentInbox({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {VIEWS.map((id) => (
+                  {views.map((id) => (
                     <SelectItem key={id} value={id}>
                       {copy.agentInbox.views[id]}
                     </SelectItem>
@@ -492,11 +563,16 @@ export function SupportAgentInbox({
           loadingMore={list.isFetchingNextPage}
           onEndReached={() => void list.fetchNextPage()}
           label={copy.agentInbox.listLabel}
+          moreLabel={copy.agentInbox.more}
+          loadingLabel={copy.agentInbox.loading}
+          loadingMoreLabel={copy.agentInbox.loadingMore}
+          unreadLabel={(count) => (count ? fill(copy.agentInbox.unreadCount, { count }) : copy.agentInbox.unread)}
+          {...(slots?.list ? { slots: slots.list } : {})}
         />
       }
       thread={
         ticket ? (
-          <TicketPane key={ticket.id} client={client} ticket={ticket} resolveUser={resolveUser} agents={agents} copy={copy} onError={onError} />
+          <TicketPane key={ticket.id} client={client} ticket={ticket} resolveUser={resolveUser} agents={agents} slots={slots?.thread} copy={copy} onError={onError} />
         ) : ticketId && open.isPending ? (
           <div className="flex flex-col gap-3 p-4" aria-busy="true" data-testid="genesis-support-agent-thread-loading">
             <Skeleton className="h-16 w-full" />
@@ -504,7 +580,11 @@ export function SupportAgentInbox({
           </div>
         ) : (
           <div data-testid="genesis-support-agent-no-ticket">
-            <EmptyState title={ticketId ? copy.agentInbox.notFound : copy.agentInbox.pickTitle} {...(ticketId ? {} : { description: copy.agentInbox.pickBody })} />
+            {ticketId && open.isError ? (
+              <EmptyState title={isRefused(open.error) ? copy.agentInbox.notAllowedTitle : copy.agentInbox.ticketErrorTitle} description={isRefused(open.error) ? copy.agentInbox.notAllowedBody : copy.agentInbox.errorBody} />
+            ) : (
+              <EmptyState title={ticketId ? copy.agentInbox.notFound : copy.agentInbox.pickTitle} {...(ticketId ? {} : { description: copy.agentInbox.pickBody })} />
+            )}
           </div>
         )
       }

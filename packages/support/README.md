@@ -191,7 +191,9 @@ tenant's whole help desk inbox on genesis-ui's `InboxLayout`, `InboxViews`, `Inb
 `ThreadPage`: the views Mine, Unassigned and All, the tickets, the open ticket's thread with reply
 and internal note, its status and assignee, and a details panel. Keep the open ticket in your
 router; the inbox only needs a TanStack `QueryClientProvider` and a support client made with the
-`chat` option.
+`chat` option. Point Tailwind at its classes as you do for genesis-ui (`@source
+"../node_modules/@marktiderman/genesis-support/dist";`), or the view picker meant for narrow screens
+also shows on wide ones.
 
 ```tsx
 import { SupportAgentInbox } from "@marktiderman/genesis-support/web-chat";

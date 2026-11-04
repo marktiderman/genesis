@@ -10,14 +10,17 @@
 --     status `addressed` or `wont_fix`. Page with the last row's activity_at and id. only_id
 --     reads one ticket of the queue, for a link to it.
 --   public.support_agent_ticket_counts(tenant)
---     How many tickets each of those views holds.
+--     How many tickets each of those views holds, a row per view.
 --
 -- A null tenant means the app's own. Who may call: an agent of the tenant (private.genesis_support_agent:
 -- an agent row while the app's hook lists them, a tenant admin, or in the app's own tenant its
 -- staff), anyone else is refused. An agent's own ticket stays out of their queue, as they can't
 -- handle it. Whom the app's report hook names (0003) reach a ticket by its id, not through a queue.
 --
--- The preview is the latest message the requester can see, never an internal note.
+-- The preview is the latest message the requester can see, never an internal note or a hidden one.
+--
+-- A later change that adds a column or argument drops and recreates the function: replacing it with
+-- another signature would leave two, which PostgREST can't choose between.
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
@@ -68,6 +71,10 @@ returns table (
   app_version text,
   severity text,
   channel text,
+  requester_email text,
+  requester_name text,
+  platform text,
+  device jsonb,
   created_at timestamptz,
   updated_at timestamptz,
   last_staff_reply_at timestamptz,
@@ -96,7 +103,9 @@ begin
   end if;
   return query
     select t.id, t.tenant_id, t.user_id, t.type, t.title, t.message, t.status, t.feature_id, t.route, t.app_version,
-           t.severity, to_jsonb(t) ->> 'channel', t.created_at, t.updated_at,
+           coalesce(t.severity, t.context ->> 'severity'), to_jsonb(t) ->> 'channel',
+           to_jsonb(t) ->> 'requester_email', to_jsonb(t) ->> 'requester_name', t.platform, t.device,
+           t.created_at, t.updated_at,
            t.last_staff_reply_at, t.last_user_reply_at, t.user_read_at, t.staff_read_at,
            t.context -> 'pin', t.context ->> 'about_label',
            c.id, c.assignee_id,
@@ -104,7 +113,8 @@ begin
            left(coalesce(
              (select m.body from genesis_chat.messages m
                where m.conversation_id = c.id and m.visibility = 'everyone' and m.kind = 'text'
-                 and m.deleted_at is null and nullif(btrim(m.body), '') is not null
+                 and m.deleted_at is null and m.moderation is distinct from 'hidden'
+                 and nullif(btrim(m.body), '') is not null
                order by m.seq desc limit 1),
              t.message), 160),
            t.staff_read_at is null or coalesce(t.last_user_reply_at > t.staff_read_at, false)
@@ -131,7 +141,7 @@ comment on function public.support_agent_tickets(uuid, text, timestamptz, uuid, 
   'A tenant''s tickets for its agents, with assignee and preview, latest activity first. Genesis support.';
 
 create or replace function public.support_agent_ticket_counts(tenant uuid default null)
-returns table (mine integer, unassigned integer, all_tickets integer)
+returns table (inbox_view text, tickets integer)
 language plpgsql
 stable
 security definer
@@ -142,13 +152,18 @@ declare
   resolved uuid := private.genesis_support_inbox_tenant(tenant);
 begin
   return query
-    select (count(*) filter (where c.assignee_id = me and t.status not in ('addressed', 'wont_fix')))::integer,
-           (count(*) filter (where c.assignee_id is null and t.status not in ('addressed', 'wont_fix')))::integer,
-           count(*)::integer
-      from public.tickets t
-      left join genesis_chat.conversations c
-        on c.kind = 'support' and c.subject_type = 'support_report' and c.subject_id = t.id::text
-     where t.tenant_id = resolved and t.user_id is distinct from me;
+    select v.name, count(t.id)::integer
+      from (values ('mine'), ('unassigned'), ('all')) as v(name)
+      left join (public.tickets t
+                 left join genesis_chat.conversations c
+                   on c.kind = 'support' and c.subject_type = 'support_report' and c.subject_id = t.id::text)
+        on t.tenant_id = resolved and t.user_id is distinct from me
+       and case v.name
+             when 'mine' then c.assignee_id = me and t.status not in ('addressed', 'wont_fix')
+             when 'unassigned' then c.assignee_id is null and t.status not in ('addressed', 'wont_fix')
+             else true
+           end
+     group by v.name;
 end;
 $$;
 
