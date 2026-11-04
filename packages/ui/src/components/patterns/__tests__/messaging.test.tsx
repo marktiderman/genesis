@@ -537,8 +537,99 @@ describe("InboxPage (web): Home and End", () => {
   });
 });
 
+describe("ThreadPage (web): files, errors and the modes' name", () => {
+  const withFile = (attachment: Partial<NonNullable<ThreadMessage["attachments"]>[number]>): ThreadMessage[] => [
+    { id: "1", body: "See attached", mine: false, timestamp: "2026-10-01T09:00:00Z", attachments: [{ id: "f", kind: "file", uri: "https://example.test/a.pdf", name: "a.pdf", ...attachment }] },
+  ];
+
+  it("shows a file by name, as a link to it", () => {
+    render(<ThreadPage testID="t" messages={withFile({})} composer={null} />);
+    const link = screen.getByTestId("t-attachment-f");
+    expect(link.tagName).toBe("A");
+    expect(link.getAttribute("href")).toBe("https://example.test/a.pdf");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.textContent).toBe("a.pdf");
+  });
+
+  it("never links a file to a script, and onPress takes over", () => {
+    const onPress = vi.fn();
+    const { rerender } = render(<ThreadPage testID="t" messages={withFile({ uri: "javascript:alert(1)" })} composer={null} />);
+    expect(screen.getByTestId("t-attachment-f").tagName).toBe("SPAN");
+    rerender(<ThreadPage testID="t" messages={withFile({ onPress })} composer={null} />);
+    fireEvent.click(screen.getByTestId("t-attachment-f"));
+    expect(onPress).toHaveBeenCalled();
+  });
+
+  it("still draws an image by default", () => {
+    render(<ThreadPage testID="t" messages={[{ id: "1", body: "", mine: false, timestamp: "2026-10-01T09:00:00Z", attachments: [{ id: "i", uri: "https://example.test/a.png" }] }]} composer={null} />);
+    expect(screen.getByTestId("t-attachment-i").querySelector("img")).toBeTruthy();
+  });
+
+  it("has an error state, with Try again", () => {
+    const onRetry = vi.fn();
+    const { rerender } = render(<ThreadPage testID="t" messages={[]} composer={null} error onRetry={onRetry} />);
+    expect(screen.getByTestId("t-error").textContent).toContain("Couldn't load this conversation");
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(onRetry).toHaveBeenCalled();
+    expect(screen.queryByTestId("t-empty")).toBeNull();
+    rerender(<ThreadPage testID="t" messages={[]} composer={null} error errorTitle="Oops" errorBody="Later" />);
+    expect(screen.getByTestId("t-error").textContent).toContain("Oops");
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
+  it("shows the rows it has even with error", () => {
+    render(<ThreadPage testID="t" messages={messages} composer={null} error />);
+    expect(screen.queryByTestId("t-error")).toBeNull();
+    expect(screen.getByTestId("t-message-1")).toBeTruthy();
+  });
+
+  it("names the mode picker from the composer", () => {
+    render(<ThreadPage testID="t" messages={messages} composer={composer({ modesLabel: "Envoyer comme", modes: [{ id: "a", label: "A" }, { id: "b", label: "B" }] } as never)} />);
+    expect(screen.getByTestId("t-composer-modes").getAttribute("aria-label")).toBe("Envoyer comme");
+  });
+});
+
+describe("InboxLayout: views when narrow, and the toggle's row", () => {
+  const wide = (min: number) =>
+    vi.spyOn(window, "matchMedia").mockImplementation((q: string) => ({ matches: Number(/(\d+)px/.exec(q)?.[1] ?? 0) <= min, media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as MediaQueryList);
+
+  it("opens the views in a sheet from a button naming the chosen one, and closes on a choice", async () => {
+    wide(400);
+    const onSelect = vi.fn();
+    render(<InboxLayout testID="l" views={<InboxViews views={[{ id: "mine", label: "Mine" }]} onSelect={onSelect} />} activeViewLabel="Mine" list={<p>L</p>} />);
+    expect(screen.getByTestId("l-views-open").textContent).toContain("Mine");
+    fireEvent.click(screen.getByTestId("l-views-open"));
+    const sheet = await screen.findByTestId("l-views-sheet");
+    fireEvent.click(sheet.querySelector('[data-testid="inbox-views-mine"]')!);
+    expect(onSelect).toHaveBeenCalledWith("mine");
+    await waitFor(() => expect(screen.queryByTestId("l-views-sheet")).toBeNull());
+  });
+
+  it("spends no row on the toggle from md up, and floats it", () => {
+    wide(800);
+    render(<InboxLayout testID="l" list={<p>L</p>} thread={<p>T</p>} context={<p>C</p>} onBack={vi.fn()} threadOpen />);
+    expect(screen.queryByTestId("l-back")).toBeNull();
+    expect(screen.getByTestId("l-toggle-context").parentElement!.className).toContain("absolute");
+  });
+
+  it("keeps the row for Back and the toggle on a phone", () => {
+    wide(400);
+    render(<InboxLayout testID="l" list={<p>L</p>} thread={<p>T</p>} context={<p>C</p>} onBack={vi.fn()} threadOpen />);
+    expect(screen.getByTestId("l-back")).toBeTruthy();
+    expect(screen.getByTestId("l-toggle-context").parentElement!.className).not.toContain("absolute");
+  });
+
+  it("hands the toggle to a thread that places it", () => {
+    wide(800);
+    render(<InboxLayout testID="l" list={<p>L</p>} context={<p>C</p>} thread={({ contextToggle }) => <header data-testid="mine">{contextToggle}</header>} threadOpen />);
+    expect(screen.getByTestId("mine").contains(screen.getByTestId("l-toggle-context"))).toBe(true);
+    expect(screen.getAllByTestId("l-toggle-context")).toHaveLength(1);
+  });
+});
+
 describe("InboxLayout", () => {
   it("shows the list or the open thread on narrow screens, with Back", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((q: string) => ({ matches: false, media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as MediaQueryList);
     const onBack = vi.fn();
     const { rerender } = render(<InboxLayout testID="l" views={<p>Views</p>} list={<p>List</p>} thread={<p>Thread</p>} context={<p>Ctx</p>} onBack={onBack} />);
     expect(screen.getByTestId("l-list").className).toMatch(/(^|\s)flex(\s|$)/);

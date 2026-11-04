@@ -56,6 +56,8 @@ export interface NativeComposerBarProps {
   maxLines?: number;
   /** Ways to send ("Reply", "Internal note"). Two or more show the picker. */
   modes?: readonly ComposerMode[];
+  /** The picker's name, to VoiceOver. Default "Send as". */
+  modesLabel?: string;
   /** The chosen mode's id. Default the first. */
   mode?: string;
   onModeChange?: (id: string) => void;
@@ -110,6 +112,7 @@ export function NativeComposerBar({
   maxLength,
   maxLines = 6,
   modes,
+  modesLabel = "Send as",
   mode,
   onModeChange,
   leading,
@@ -160,7 +163,7 @@ export function NativeComposerBar({
       }}
     >
       {modes && modes.length > 1 ? (
-        <View testID={`${testID}-modes`} accessibilityRole="tablist" style={{ flexDirection: "row", gap: 4 }}>
+        <View testID={`${testID}-modes`} accessibilityRole="tablist" accessibilityLabel={modesLabel} style={{ flexDirection: "row", gap: 4 }}>
           {modes.map((m) => {
             const on = m.id === current?.id;
             return (

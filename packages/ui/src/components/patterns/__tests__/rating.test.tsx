@@ -152,3 +152,38 @@ describe("Rating — readOnly, clearing, getLabel", () => {
     expect(screen.getByRole("radio", { name: "3/3 hearts" })).toBeTruthy();
   });
 });
+
+describe("Rating — a form's stars", () => {
+  it("keeps the chosen star when not clearable, and still calls the star's own click", () => {
+    const onChange = vi.fn();
+    const onClick = vi.fn();
+    render(<Rating value={3} onChange={onChange} clearable={false} getItemProps={() => ({ onClick })} />);
+    fireEvent.click(screen.getByRole("radio", { name: "3 of 5 stars" }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes the group's aria, a star's description, and a 44px target", () => {
+    render(<Rating value={0} onChange={vi.fn()} size="touch" tone="primary" aria-labelledby="q" aria-required getItemProps={(n) => ({ "aria-describedby": n === 1 ? "low" : undefined })} />);
+    const group = screen.getByRole("radiogroup");
+    expect(group.getAttribute("aria-labelledby")).toBe("q");
+    expect(group.getAttribute("aria-label")).toBeNull();
+    expect(group.getAttribute("aria-required")).toBe("true");
+    const stars = screen.getAllByRole("radio");
+    expect(stars[0]!.getAttribute("aria-describedby")).toBe("low");
+    expect(stars[0]!.className).toContain("size-11");
+  });
+
+  it("colours the chosen stars by tone", () => {
+    render(<Rating value={2} onChange={vi.fn()} tone="primary" />);
+    expect(screen.getAllByRole("radio")[0]!.className).toContain("text-primary");
+    expect(screen.getAllByRole("radio")[0]!.className).not.toContain("text-warning");
+  });
+
+  it("can be disabled", () => {
+    const onChange = vi.fn();
+    render(<Rating value={0} onChange={onChange} disabled />);
+    fireEvent.click(screen.getAllByRole("radio")[0]!);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});

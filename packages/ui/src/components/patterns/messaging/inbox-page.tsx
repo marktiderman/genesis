@@ -19,6 +19,10 @@
  *
  * Slots: `row`, `header` (above the list), `footer` (below it), `empty`.
  *
+ * Tailwind has to see this package's classes: import
+ * `@marktiderman/genesis-ui/styles.css`, or add
+ * `@source "../node_modules/@marktiderman/genesis-ui/dist";` to your CSS.
+ *
  * @stability Beta
  */
 import * as React from "react";

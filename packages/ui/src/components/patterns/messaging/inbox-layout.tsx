@@ -7,12 +7,16 @@
  * `ThreadPage` (or the app's own), and keep which conversation is open where
  * the app keeps it, its router's URL param. On narrow screens it shows one
  * pane at a time, like the phone: the list, or the thread with a Back button
- * (`onBack`) when `threadOpen`. The views rail shows from `lg` up.
+ * (`onBack`) when `threadOpen`. The views rail shows from `lg` up; below that,
+ * a button over the list (with `activeViewLabel`) opens the same views in a
+ * sheet, which closes when one is chosen.
  *
  * The context sidebar toggles: controlled (`contextOpen` /
  * `onContextOpenChange`), or on its own, remembered per viewer under
  * `contextStorageKey`. From `xl` up it sits beside the thread; below that, it
- * opens as a sheet over it, only when the toggle asks.
+ * opens as a sheet over it, only when the toggle asks. From `md` up the toggle
+ * floats at the thread's top right and takes no row of its own. To put it in
+ * your own header, pass `thread` as a function: it gets `{ contextToggle }`.
  *
  * Keyboard (`shortcuts`): each key is a callback the app can leave out. They
  * work only while focus is inside the layout, and never while typing in a
@@ -24,6 +28,10 @@
  * On the server, and in the first render on the client, the layout is narrow
  * and the sidebar at its default, so hydration matches; the viewport and the
  * remembered setting apply right after.
+ *
+ * Tailwind has to see this package's classes: import
+ * `@marktiderman/genesis-ui/styles.css`, or add
+ * `@source "../node_modules/@marktiderman/genesis-ui/dist";` to your CSS.
  *
  * @stability Beta
  */
@@ -53,12 +61,17 @@ export interface InboxShortcuts {
 }
 
 export interface InboxLayoutProps {
-  /** The views rail (`InboxViews`). Hidden below `lg`. */
+  /** The views rail (`InboxViews`) from `lg` up, and a sheet from a button over the list below it. */
   views?: React.ReactNode;
+  /** The chosen view's name, on that button ("Mine"). */
+  activeViewLabel?: string;
   /** The list of conversations (an `InboxPage`). */
   list: React.ReactNode;
-  /** The open conversation (a `ThreadPage`), or what shows when none is open. */
-  thread?: React.ReactNode;
+  /**
+   * The open conversation (a `ThreadPage`), or what shows when none is open. As a function, it gets
+   * the Details toggle to place in its own header (a `headerRegion`), and the layout adds none.
+   */
+  thread?: React.ReactNode | ((parts: { contextToggle: React.ReactNode }) => React.ReactNode);
   /** Beside the thread from `xl` up, a sheet below: who it's from, its properties, linked work. */
   context?: React.ReactNode;
   /** Whether the context sidebar is open (controlled). */
@@ -80,6 +93,7 @@ export interface InboxLayoutProps {
 }
 
 const XL_QUERY = "(min-width: 1280px)";
+const MD_QUERY = "(min-width: 768px)";
 
 /** The remembered context panel, stored as "1" / "0" under `contextStorageKey`. */
 const OPEN_FORMAT = { parse: (raw: string) => raw === "1", serialize: (open: boolean) => (open ? "1" : "0") };
@@ -92,6 +106,7 @@ const typing = (el: EventTarget | null) =>
 
 export function InboxLayout({
   views,
+  activeViewLabel,
   list,
   thread,
   context,
@@ -107,6 +122,8 @@ export function InboxLayout({
   testID = "inbox-layout",
 }: InboxLayoutProps) {
   const wide = useMediaQuery(XL_QUERY, false);
+  const twoPanes = useMediaQuery(MD_QUERY, false);
+  const [viewsOpen, setViewsOpen] = React.useState(false);
   // The remembered setting (usePersistedUiState: SSR-safe, and it still works for this visit when
   // storage is off). Without a key, it lasts this visit.
   const [ownOpen, setOwnOpen] = usePersistedUiState(contextStorageKey ?? null, defaultContextOpen, OPEN_FORMAT);
@@ -135,6 +152,21 @@ export function InboxLayout({
   };
 
   const toggleLabel = labels.toggleContext ?? "Details";
+  const viewsLabel = labels.views ?? "Views";
+  const contextToggle = context ? (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="size-11"
+      aria-pressed={wide ? contextOpen : sheetOpen}
+      aria-label={toggleLabel}
+      onClick={toggle}
+      data-testid={`${testID}-toggle-context`}
+    >
+      <PanelRight className="size-4" aria-hidden />
+    </Button>
+  ) : null;
+  const placesToggle = typeof thread === "function";
   return (
     <div data-testid={testID} onKeyDown={onKeyDown} className={cn("flex h-full min-h-0 w-full overflow-hidden", className)}>
       {views ? (
@@ -147,6 +179,14 @@ export function InboxLayout({
         aria-label={labels.list ?? "Conversations"}
         className={cn("min-h-0 w-full shrink-0 flex-col overflow-y-auto border-r md:flex md:w-80 lg:w-96", threadOpen ? "hidden" : "flex")}
       >
+        {views ? (
+          <div className="sticky top-0 z-10 border-b bg-background p-1 lg:hidden">
+            <Button variant="ghost" size="sm" className="h-11 w-full justify-between" onClick={() => setViewsOpen(true)} data-testid={`${testID}-views-open`}>
+              <span>{viewsLabel}</span>
+              {activeViewLabel ? <span className="truncate text-muted-foreground">{activeViewLabel}</span> : null}
+            </Button>
+          </div>
+        ) : null}
         {list}
       </section>
       <section
@@ -154,35 +194,39 @@ export function InboxLayout({
         aria-label={labels.thread ?? "Conversation"}
         className={cn("relative min-h-0 min-w-0 flex-1 flex-col md:flex", threadOpen ? "flex" : "hidden")}
       >
-        {onBack || context ? (
+        {!twoPanes && (onBack || (contextToggle && !placesToggle)) ? (
           <div className="flex items-center border-b p-1">
             {onBack ? (
-              <Button variant="ghost" size="sm" onClick={onBack} data-testid={`${testID}-back`} className="h-11 md:hidden">
+              <Button variant="ghost" size="sm" onClick={onBack} data-testid={`${testID}-back`} className="h-11">
                 <ChevronLeft className="size-4" aria-hidden />
                 {labels.back ?? "Back"}
               </Button>
             ) : null}
-            {context ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="ml-auto size-11"
-                aria-pressed={wide ? contextOpen : sheetOpen}
-                aria-label={toggleLabel}
-                onClick={toggle}
-                data-testid={`${testID}-toggle-context`}
-              >
-                <PanelRight className="size-4" aria-hidden />
-              </Button>
-            ) : null}
+            {placesToggle ? null : <div className="ml-auto">{contextToggle}</div>}
           </div>
         ) : null}
-        <div className="flex min-h-0 flex-1 flex-col">{thread}</div>
+        {twoPanes && contextToggle && !placesToggle ? <div className="absolute right-1 top-1 z-10 rounded-md bg-background/80">{contextToggle}</div> : null}
+        <div className="flex min-h-0 flex-1 flex-col">{typeof thread === "function" ? thread({ contextToggle }) : thread}</div>
       </section>
       {context && contextOpen && wide ? (
         <aside data-testid={`${testID}-context`} aria-label={labels.context ?? "Details"} className="w-80 shrink-0 overflow-y-auto border-l">
           {context}
         </aside>
+      ) : null}
+      {views ? (
+        <Sheet open={viewsOpen} onOpenChange={setViewsOpen}>
+          <SheetContent side="left" data-testid={`${testID}-views-sheet`} className="w-72 overflow-y-auto p-0">
+            <SheetTitle className="sr-only">{viewsLabel}</SheetTitle>
+            {/* Closes on a choice: the views are the app's, and any button or link in them chooses. */}
+            <div
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest("button, a")) setViewsOpen(false);
+              }}
+            >
+              {views}
+            </div>
+          </SheetContent>
+        </Sheet>
       ) : null}
       {context && !wide ? (
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
