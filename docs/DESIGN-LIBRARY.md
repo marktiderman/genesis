@@ -5,7 +5,7 @@ system's CSS variables and whose components are genesis-ui-native's exports, a B
 with one mode per consumer app, and Code Connect templates that show a designer the Genesis
 call for the component they selected. Feature: `figma-design-library` in `features.ts`.
 
-Working practice for agents (app files, gaps, publishing, the MCP) is in `FIGMA-GUIDELINES.md`.
+Working practice for agents (app files, gaps, publishing, the MCP) is in [FIGMA-GUIDELINES.md](FIGMA-GUIDELINES.md).
 
 ## One library file
 

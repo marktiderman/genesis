@@ -21,7 +21,8 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
   are config; recreating something that exists, or should, is the custom code we remove. Cite
   the principle IDs (G1–G6) in reviews.
 - Design lives in Figma: the library file and one file per consumer app. Prototype a screen there
-  before coding it, from library instances only; `docs/FIGMA-GUIDELINES.md` has the setup and the
+  before coding it, from library instances where they exist (a plain frame only for a written-up
+  library gap); `docs/FIGMA-GUIDELINES.md` has the setup and the
   rules, `docs/DESIGN-LIBRARY.md` the library's internals.
 - Work tracked outside this repo is referenced only by its id (`Closes <ID>`): never write what
   the card is, or which app it's for, in a commit, PR or comment.

@@ -32,8 +32,10 @@ from the library, that is a **gap**, not a reason for a local component (see "Ga
   `DataTable`, `Section/Hero`), prefixed per package only where names clash
   (`FormsNative/Button`, `Studio/…`). Variants mirror the code's enum props; booleans mirror
   optional parts (`Show footer`); text properties mirror text props; `INSTANCE_SWAP` mirrors
-  slots (`Icon`, `Content`, `Actions`). A sub-part reused inside a set is its own component
-  (`DataTable/Cell`, `AppShell/NavItem`).
+  slots (`Icon`, `Content`, `Actions`). A sub-part that the code exports and the ratchet checks gets its own
+  set (`AppShell/NavItem` for `NavItem`); a sub-part the code keeps inside the parent
+  (`NativeCardHeader`, `NativeDialogTitle`, a table cell) stays a layer inside that parent's
+  component and never becomes a second library component.
 - **Variable collections.** `Primitives` (raw palette, hidden), `Brand` (one mode per consumer
   app: primary, signal, bubble, link, fonts), `Color` (semantic roles; modes Light, Dark; aliases
   into Brand), `Radius`, `Spacing`. Every fill, stroke and text colour in a component is bound to
@@ -86,7 +88,8 @@ variant the component doesn't have.
 1. Prototype the screen in the app file from library components before writing code. The
    library is the source for components; the route code is the source for behaviour.
 2. Build the code from the same components (Dev Mode shows the Genesis JSX for any instance via
-   Code Connect; `pnpm check:code-connect` keeps every exported component mapped).
+   Code Connect; `pnpm check:code-connect` tracks every covered visual export as `required` (has a template),
+   `notYet` or `composed`, and fails on an export that is none of them).
 3. When code and design diverge, fix the one that is wrong; when both are right and differ, the
    library wins for components and the code wins for flow.
 
@@ -112,5 +115,6 @@ variant the component doesn't have.
 - Screenshot what you built (`get_screenshot`, modest `maxDimension`) and fix clipping, overlap
   and empty slots before reporting. A result is verified by a read-back, not by the script
   having run.
-- The Figma REST API needs `projects:read` to list a team's files; `file_content:read` alone
-  reads a known file.
+- The Figma REST API lists a team's files through the folder endpoints, which need the
+  `folders:read` scope (`projects:read` is the legacy name); `file_content:read` alone reads a
+  known file.
