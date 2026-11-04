@@ -1,0 +1,47 @@
+.changeset/inbox-layout-and-thread-asks.md
+  s_b9ce29ee4fad7a::t_23594a29e65f47 1-13
+packages/ui-native/src/layouts/__tests__/thread-page.test.tsx
+  s_b9ce29ee4fad7a::t_23594a29e65f47 4,231-265
+  s_b9ce29ee4fad7a::t_cd985af1db8a72 266-267
+packages/ui/src/components/patterns/messaging/inbox-page.tsx
+  s_b9ce29ee4fad7a::t_23594a29e65f47 22-25
+.changeset/forms-stars-on-rating.md
+  s_b9ce29ee4fad7a::t_23594a29e65f47 1-6
+packages/ui/README.md
+  s_b9ce29ee4fad7a::t_23594a29e65f47 28
+packages/ui/src/components/patterns/__tests__/messaging.test.tsx
+  s_b9ce29ee4fad7a::t_5dc836c9fa7790 632
+  s_b9ce29ee4fad7a::t_23594a29e65f47 540-629
+packages/ui/src/components/patterns/__tests__/rating.test.tsx
+  s_b9ce29ee4fad7a::t_23594a29e65f47 155-189
+packages/ui/src/components/patterns/messaging/thread-page.tsx
+  s_b9ce29ee4fad7a::t_23594a29e65f47 25-28,42,63,94-100,149-153,282-284,326,329,424-458
+packages/ui-native/src/components/composer-bar.tsx
+  s_b9ce29ee4fad7a::t_23594a29e65f47 59-60,115,166
+packages/ui/src/components/patterns/messaging/inbox-layout.tsx
+  s_b9ce29ee4fad7a::t_23594a29e65f47 10-12,17-19,32-35,64,66-67,70-74,96,109,125-126,155-169,182-189,197,200,205,208-209,216-229
+  s_b9ce29ee4fad7a::t_4bb60033fb5f35 230
+packages/core/src/conversation/types.ts
+  s_b9ce29ee4fad7a::t_23594a29e65f47 19-21,23-24,92-93
+packages/ui-native/src/layouts/thread-page.tsx
+  s_b9ce29ee4fad7a::t_86467d4c075e43 48,54-55
+  s_b9ce29ee4fad7a::t_23594a29e65f47 89,122-128,200-204,351-353,392-407,512-540
+packages/ui-native/package.json
+  s_b9ce29ee4fad7a::t_5dc836c9fa7790 305-316
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3d601c8e280c5613b5e133c061c82426532d5043",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
