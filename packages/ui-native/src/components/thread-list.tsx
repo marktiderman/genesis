@@ -264,7 +264,10 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     (id: string) => {
       const scroll = () => {
         const at = indexOf(id);
-        if (at >= 0) listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion, viewPosition: 0.5 });
+        if (at < 0) return;
+        // Each try moves the list again: its events don't count until this one settles.
+        settlingUntil.current = Date.now() + SETTLING_MS;
+        listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion, viewPosition: 0.5 });
       };
       jumpTries.current = { id, tries: 0 };
       settlingUntil.current = Date.now() + SETTLING_MS;
@@ -290,10 +293,17 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     },
     onLanded: (id) => {
       // A jump to a row already at the bottom moves nothing, so no scroll event says so: look once it settles.
+      // Not before the list's own scrolling has settled (a second try extends it): mid-way, it can still read as the bottom.
       if (recheck.current) clearTimeout(recheck.current);
-      recheck.current = setTimeout(() => {
+      const look = () => {
+        const wait = settlingUntil.current - Date.now();
+        if (wait > 0) {
+          recheck.current = setTimeout(look, wait + 50);
+          return;
+        }
         if (metrics.current && threadNearBottom(metrics.current)) setAtBottom(true);
-      }, SETTLING_MS + 50);
+      };
+      recheck.current = setTimeout(look, SETTLING_MS + 50);
       const at = indexOf(id);
       const said = at >= 0 ? latest.current.jumpAnnouncement?.(latest.current.data[at]!) : undefined;
       if (said) announce(said);
@@ -329,10 +339,12 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
       metrics.current = { contentOffset: { y: e.nativeEvent.contentOffset.y }, contentSize: { height: e.nativeEvent.contentSize.height }, layoutMeasurement: { height: e.nativeEvent.layoutMeasurement.height } };
       const height = e.nativeEvent.layoutMeasurement.height;
       setViewport((v) => (Math.abs(v - height) < 1 ? v : height));
-      const near = threadNearBottom(e.nativeEvent);
-      // The list's own scroll (to the newest, to a row) passes through "not at the bottom": ignore that.
-      if (!near && Date.now() < settlingUntil.current) return;
-      setAtBottom(near);
+      // The list's own scroll (to the newest, to a row) isn't the reader moving. Going to a row starts
+      // at the bottom, so its first events say "at the bottom": taken, that turned following back on,
+      // and FlatList's next layout scrolled to the end, away from the row. After a jump, onLanded
+      // looks again once it has settled.
+      if (Date.now() < settlingUntil.current) return;
+      setAtBottom(threadNearBottom(e.nativeEvent));
     },
     [setAtBottom],
   );
@@ -345,7 +357,9 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
       target.tries += 1;
       later(() => {
         const at = indexOf(target.id);
-        if (at >= 0) listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion, viewPosition: 0.5 });
+        if (at < 0) return;
+        settlingUntil.current = Date.now() + SETTLING_MS;
+        listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion, viewPosition: 0.5 });
       }, 250);
     },
     [indexOf, later, reducedMotion],

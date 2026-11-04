@@ -149,6 +149,22 @@ describe("NativeThreadList", () => {
     expect(screen.getByTestId("row-c:1").getAttribute("data-highlighted")).toBe("false");
   });
 
+  it("doesn't take its own scroll to a row for coming back to the bottom (which would follow the bottom again and leave the row)", async () => {
+    const { List, calls } = recordingList();
+    const onAtBottomChange = vi.fn();
+    render(
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} jumpTo="a" onAtBottomChange={onAtBottomChange} />
+      </GenesisModulesProvider>,
+    );
+    await waitFor(() => expect(calls.scrollToIndex).toHaveBeenCalled());
+    expect(onAtBottomChange).toHaveBeenLastCalledWith(false);
+    // The jump's scroll starts where the list was, at the bottom: its first events say so.
+    const scroll = calls.props.at(-1)!.onScroll as (e: unknown) => void;
+    act(() => scroll({ nativeEvent: { contentOffset: { y: 1500 }, contentSize: { height: 2000 }, layoutMeasurement: { height: 500 } } }));
+    expect(onAtBottomChange).not.toHaveBeenCalledWith(true);
+  });
+
   it("loads until a row it doesn't hold, and says when it can't be found", async () => {
     const { List } = recordingList();
     const onLoadUntil = vi.fn(async () => false);
