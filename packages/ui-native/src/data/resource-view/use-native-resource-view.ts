@@ -151,7 +151,7 @@ export function screenLists(...filters: (Filter | undefined)[]): Record<string, 
 /** Pages kept loaded by default (cursor paging). */
 export const DEFAULT_MAX_PAGES = 10;
 
-type ServerSort = { field: string; order: "asc" | "desc" };
+type ServerSort = { field: string; order: "asc" | "desc"; nulls?: "first" | "last" };
 
 /**
  * The server sorts: the `groupBy` field first, so every page arrives in section order and a later
@@ -161,7 +161,7 @@ type ServerSort = { field: string; order: "asc" | "desc" };
 export function serverSorts<T extends Row>(view: AnyResourceView<T>): ServerSort[] {
   const groupBy = view.definition.groupBy as string | undefined;
   const orderBy = view.definition.orderBy;
-  const order: ServerSort | undefined = orderBy ? { field: orderBy.field as string, order: orderBy.direction ?? "asc" } : undefined;
+  const order: ServerSort | undefined = orderBy ? { field: orderBy.field as string, order: orderBy.direction ?? "asc", ...(orderBy.nulls ? { nulls: orderBy.nulls } : {}) } : undefined;
   if (!groupBy) return order ? [order] : [];
   if (order?.field === groupBy) return [order];
   return [{ field: groupBy, order: "asc" }, ...(order ? [order] : [])];

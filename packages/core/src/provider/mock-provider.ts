@@ -123,7 +123,10 @@ export function createMockProvider(
     const sorts = params.sorts && params.sorts.length > 0 ? params.sorts : params.sort ? [params.sort] : [];
     if (sorts.length > 0) {
       rows.sort((a, b) => {
-        for (const { field, order } of sorts) {
+        for (const { field, order, nulls } of sorts) {
+          if (nulls && (a[field] == null) !== (b[field] == null)) {
+            return (a[field] == null) === (nulls === "first") ? -1 : 1;
+          }
           const cmp = compareValues(a[field], b[field]);
           if (cmp !== 0) return order === "desc" ? -cmp : cmp;
         }

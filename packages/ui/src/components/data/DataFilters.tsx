@@ -65,7 +65,8 @@ interface DataFiltersProps {
   searchPlaceholder?: string | undefined;
   sort: string;
   onSortChange: (sort: string) => void;
-  sortOptions: Array<{ value: string; label: string }>;
+  /** `value` is `field:asc` or `field:desc`. `nulls` says where rows with no value go on that sort (server-driven lists). */
+  sortOptions: Array<{ value: string; label: string; nulls?: "first" | "last" }>;
   filters?: DataFilterConfig[] | undefined;
   /** Status chip toggles */
   statusChips?: {

@@ -57,11 +57,11 @@ const matches = (clauses: string, row: Row) => splitTop(clauses).some((t) => hol
 
 /** Postgres's order: each column (asc: nulls last; desc: nulls first), then the key ascending. */
 function compare(sorts: SortParam[], a: Row, b: Row): number {
-  for (const { field, order } of sorts) {
+  for (const { field, order, nulls } of sorts) {
     const x = a[field] ?? null;
     const y = b[field] ?? null;
     if (x === y) continue;
-    const nullsLast = order === "asc";
+    const nullsLast = nulls ? nulls === "last" : order === "asc";
     if (x === null) return nullsLast ? 1 : -1;
     if (y === null) return nullsLast ? -1 : 1;
     const cmp = x < y ? -1 : 1;
@@ -83,7 +83,7 @@ const cursorFor = (sorts: SortParam[], row: Row, d?: "b") => ({
   s: null,
   o: "asc" as const,
   k: "id",
-  c: sorts.map((s) => ({ s: s.field, o: s.order ?? ("asc" as const) })),
+  c: sorts.map((s) => ({ s: s.field, o: s.order ?? ("asc" as const), ...(s.nulls ? { n: s.nulls } : {}) })),
   vs: sorts.map((s) => row[s.field] ?? null),
   id: row.id!,
   ...(d ? { d } : {}),
@@ -123,10 +123,13 @@ describe("keysetClauses with several columns", () => {
     [{ field: "a", order: "desc" }, { field: "b", order: "desc" }],
     [{ field: "a", order: "asc" }, { field: "b", order: "desc" }, { field: "c", order: "asc" }],
     [{ field: "c", order: "desc" }, { field: "a", order: "asc" }, { field: "b", order: "desc" }],
+    [{ field: "a", order: "desc", nulls: "last" }, { field: "b", order: "asc" }],
+    [{ field: "a", order: "asc", nulls: "first" }, { field: "b", order: "desc", nulls: "last" }],
+    [{ field: "a", order: "desc", nulls: "first" }, { field: "b", order: "desc", nulls: "last" }, { field: "c", order: "asc", nulls: "first" }],
   ];
 
   for (const sorts of orders) {
-    const label = sorts.map((s) => `${s.field} ${s.order}`).join(", ");
+    const label = sorts.map((s) => `${s.field} ${s.order}${s.nulls ? ` nulls ${s.nulls}` : ""}`).join(", ");
     it(`pages forward and back through every row once, in order: ${label}`, () => {
       for (let seed = 1; seed <= 20; seed++) {
         const rand = random(seed);
@@ -233,6 +236,29 @@ describe("getList with sorts", () => {
       ["position", { ascending: true, nullsFirst: false }],
       ["id", { ascending: false }],
     ]);
+  });
+
+  it("a sort's nulls reaches both pagers, and a cursor keeps it", async () => {
+    const rated: SortParam[] = [{ field: "rating", order: "desc", nulls: "last" }];
+    await page({ pagination: { page: 1, perPage: 2 }, sort: rated[0] }, { data: [], error: null, count: 0 });
+    expect(callsOf("order")).toEqual([
+      ["rating", { ascending: false, nullsFirst: false }],
+      ["id", { ascending: true }],
+    ]);
+    const first = await page(
+      { pagination: { page: 1, perPage: 1, cursor: null }, sorts: rated },
+      { data: [{ id: "1", rating: 5 }, { id: "2", rating: null }], error: null, count: 2 },
+    );
+    expect(callsOf("order")).toEqual([
+      ["rating", { ascending: false, nullsFirst: false }],
+      ["id", { ascending: true }],
+    ]);
+    await page({ pagination: { page: 2, perPage: 1, cursor: first.nextCursor! }, sorts: rated }, { data: [], error: null });
+    expect(callsOf("or")).toEqual([['rating.lt."5",and(rating.eq."5",id.gt."1"),rating.is.null']]);
+    // The same column with the other placement is a different sort: this cursor can't continue it.
+    await expect(
+      page({ pagination: { page: 2, perPage: 1, cursor: first.nextCursor! }, sorts: [{ field: "rating", order: "desc" }] }, { data: [], error: null }),
+    ).rejects.toSatisfy((e: unknown) => isDataReadError(e) && /different sort/.test(String((e.cause as Error).message)));
   });
 
   it("refuses a cursor made for other sorts", async () => {
