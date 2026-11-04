@@ -1,4 +1,4 @@
--- @feat:support-helpdesk
+-- @feat:support-chat
 -- Genesis support 0009: the agent inbox's read path (after 0006_genesis_support_chat_tenants.sql).
 --
 -- An agent's queue needs a ticket with its conversation's assignee, in one tenant, so the two

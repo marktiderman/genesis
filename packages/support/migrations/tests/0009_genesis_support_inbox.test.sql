@@ -1,4 +1,4 @@
--- @feat:support-helpdesk
+-- @feat:support-chat
 -- pgTAP test for every way staff read a queue of tickets: 0009's functions, the tickets table and
 -- its old-name view under row security, and genesis-chat's observed queue. No tenant's agents see
 -- another's tickets, whichever they use. Copy into your app's `supabase/tests/database/` and run
