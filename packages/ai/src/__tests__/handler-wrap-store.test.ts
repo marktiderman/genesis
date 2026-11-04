@@ -169,7 +169,8 @@ describe("definitions", () => {
   it("checkTasks refuses a task that needs a safety protocol when there's none", () => {
     const store = memoryStore();
     const vendors = [{ id: "anthropic", model: (id: string) => ({ modelId: id, provider: "anthropic.messages" }) }];
-    const needs = defineTask({ ...echo, safetyRequired: true });
+    expect(() => defineTask({ ...echo, safetyRequired: true, safetyText: undefined })).toThrow(/needs safetyText/);
+    const needs = defineTask({ ...echo, safetyRequired: true, safetyText: () => "words" });
     const without = defineAi({ vendors, models: { default: { model: "claude-haiku-5-5" } }, store, gate: () => true });
     const withIt = defineAi({ vendors, models: { default: { model: "claude-haiku-5-5" } }, store, gate: () => true, safety: () => null });
     expect(() => checkTasks(without, [needs])).toThrow(/needs a safety protocol/);

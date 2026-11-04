@@ -37,7 +37,7 @@ import { resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from 
 
 export interface SupportHelpCenterAdminProps {
   client: SupportClient;
-  /** Whose help center. Left out or null, the app's own. */
+  /** Whose help center. Null is the app's own. Left out, the client's `tenantId`, else the app's own. */
   tenantId?: string | null;
   /** The open article, from the app's router: its id, `"new"`, or null. */
   articleId: string | null;
@@ -52,9 +52,9 @@ const NEW = "new";
 const NONE = "__none__";
 const keys = {
   all: ["genesis-support", "help-admin"] as const,
-  list: (tenantId: string | null) => ["genesis-support", "help-admin", "list", tenantId] as const,
-  collections: (tenantId: string | null) => ["genesis-support", "help-admin", "collections", tenantId] as const,
-  article: (tenantId: string | null, id: string) => ["genesis-support", "help-admin", "article", tenantId, id] as const,
+  list: (scope: string) => ["genesis-support", "help-admin", "list", scope] as const,
+  collections: (scope: string) => ["genesis-support", "help-admin", "collections", scope] as const,
+  article: (scope: string, id: string) => ["genesis-support", "help-admin", "article", scope, id] as const,
 };
 
 function required<T>(method: T | undefined): NonNullable<T> {
@@ -84,7 +84,7 @@ function failureOf(error: unknown, copy: SupportCopy): string {
 
 interface EditorProps {
   client: SupportClient;
-  tenantId: string | null;
+  tenantArg: { tenantId?: string | null };
   article: HelpArticle | null;
   collections: readonly HelpCollection[];
   copy: SupportCopy;
@@ -94,7 +94,7 @@ interface EditorProps {
 }
 
 /** Keyed by article, so it never shows the last one's words. */
-function Editor({ client, tenantId, article, collections, copy, onSaved, onDeleted, onError }: EditorProps) {
+function Editor({ client, tenantArg, article, collections, copy, onSaved, onDeleted, onError }: EditorProps) {
   const ids = { title: useId(), slug: useId(), summary: useId(), body: useId(), collection: useId(), status: useId() };
   const [title, setTitle] = useState(article?.title ?? "");
   const [slug, setSlug] = useState(article?.slug ?? "");
@@ -108,11 +108,6 @@ function Editor({ client, tenantId, article, collections, copy, onSaved, onDelet
   const shownSlug = slugTouched ? slug : slugFrom(title);
   // The copy these edits started from: moved only by this editor's own save, so another agent's is noticed.
   const base = useRef(article?.updatedAt ?? null);
-  const adopt = useRef(false);
-  if (adopt.current && article && article.updatedAt !== base.current) {
-    base.current = article.updatedAt;
-    adopt.current = false;
-  }
 
   const save = (e: FormEvent) => {
     e.preventDefault();
@@ -120,7 +115,7 @@ function Editor({ client, tenantId, article, collections, copy, onSaved, onDelet
     setSaving(true);
     setMessage(null);
     required(client.saveHelpArticle)({
-      ...(article ? { id: article.id, expectedUpdatedAt: base.current } : { tenantId }),
+      ...(article ? { id: article.id, expectedUpdatedAt: base.current } : tenantArg),
       collectionId: collection === NONE ? null : collection,
       slug: shownSlug,
       title: title.trim(),
@@ -128,9 +123,9 @@ function Editor({ client, tenantId, article, collections, copy, onSaved, onDelet
       body,
       status,
     })
-      .then((id) => {
+      .then(({ id, updatedAt }) => {
         setMessage({ failed: false, text: copy.helpAdmin.saved });
-        adopt.current = true;
+        base.current = updatedAt;
         onSaved(id);
       })
       .catch((error: unknown) => {
@@ -249,7 +244,7 @@ function Editor({ client, tenantId, article, collections, copy, onSaved, onDelet
 }
 
 /** A tenant's help center, for its agents. */
-export function SupportHelpCenterAdmin({ client, tenantId = null, articleId, onArticleChange, copy: copyOverrides, onError, className }: SupportHelpCenterAdminProps) {
+export function SupportHelpCenterAdmin({ client, tenantId, articleId, onArticleChange, copy: copyOverrides, onError, className }: SupportHelpCenterAdminProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
   const queryClient = useQueryClient();
   const collectionId = useId();
@@ -258,10 +253,12 @@ export function SupportHelpCenterAdmin({ client, tenantId = null, articleId, onA
   const report = useRef(onError);
   report.current = onError;
 
-  const list = useQuery({ queryKey: keys.list(tenantId), queryFn: () => required(client.helpArticles)({ tenantId, includeDrafts: true }) });
-  const collections = useQuery({ queryKey: keys.collections(tenantId), queryFn: () => required(client.helpCollections)({ tenantId }) });
+  const scope = tenantId === undefined ? "client-option" : (tenantId ?? "app");
+  const tenantArg = tenantId === undefined ? {} : { tenantId };
+  const list = useQuery({ queryKey: keys.list(scope), queryFn: () => required(client.helpArticles)({ ...tenantArg, includeDrafts: true }) });
+  const collections = useQuery({ queryKey: keys.collections(scope), queryFn: () => required(client.helpCollections)(tenantArg) });
   const opening = articleId && articleId !== NEW ? articleId : null;
-  const article = useQuery({ queryKey: keys.article(tenantId, opening ?? ""), queryFn: () => required(client.helpArticle)(opening as string, { tenantId }), enabled: Boolean(opening) });
+  const article = useQuery({ queryKey: keys.article(scope, opening ?? ""), queryFn: () => required(client.helpArticle)(opening as string, tenantArg), enabled: Boolean(opening) });
   useEffect(() => {
     for (const error of [list.error, collections.error, article.error]) if (error) report.current?.(error);
   }, [list.error, collections.error, article.error]);
@@ -282,7 +279,7 @@ export function SupportHelpCenterAdmin({ client, tenantId = null, articleId, onA
     const title = newCollection.trim();
     if (!title) return;
     setCollectionFailed(false);
-    required(client.saveHelpCollection)({ tenantId, title, position: collections.data?.length ?? 0 })
+    required(client.saveHelpCollection)({ ...tenantArg, title, position: collections.data?.length ?? 0 })
       .then(() => {
         setNewCollection("");
         refresh();
@@ -341,7 +338,7 @@ export function SupportHelpCenterAdmin({ client, tenantId = null, articleId, onA
 
   const editor =
     articleId === NEW ? (
-      <Editor key="new" client={client} tenantId={tenantId} article={null} collections={collections.data ?? []} copy={copy} onSaved={(id) => { refresh(); onArticleChange(id); }} onDeleted={() => onArticleChange(null)} onError={onError} />
+      <Editor key="new" client={client} tenantArg={tenantArg} article={null} collections={collections.data ?? []} copy={copy} onSaved={(id) => { refresh(); onArticleChange(id); }} onDeleted={() => onArticleChange(null)} onError={onError} />
     ) : opening && article.isPending ? (
       <div className="flex flex-col gap-3 p-4" aria-busy="true" data-testid="genesis-support-help-loading">
         <Skeleton className="h-10 w-full" />
@@ -351,7 +348,7 @@ export function SupportHelpCenterAdmin({ client, tenantId = null, articleId, onA
       <Editor
         key={article.data.id}
         client={client}
-        tenantId={tenantId}
+        tenantArg={tenantArg}
         article={article.data}
         collections={collections.data ?? []}
         copy={copy}

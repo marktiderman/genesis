@@ -181,6 +181,7 @@ export const supportCopy = {
     aiAskHint: "Sends your words to our AI service, which answers from our articles.",
     aiNeedsConsent: "To get AI answers, you need to agree to share your question with our AI service.",
     aiConsent: "Review and agree",
+    aiRetry: "Ask again",
     aiSafety: "We can't answer this here. A person can help. If you're in danger, please contact your local emergency services.",
     aiThinking: "Looking through our articles",
     aiNote: "An AI wrote this from our articles, and it can be wrong.",

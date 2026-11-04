@@ -92,7 +92,7 @@ function sampleClient(): SupportClient {
     helpAiEnabled: async () => true,
     askHelp: async () => "q1",
     closeHelpQuestion: async () => undefined,
-    saveHelpArticle: async (input) => input.id ?? "new",
+    saveHelpArticle: async (input) => ({ id: input.id ?? "new", updatedAt: new Date().toISOString() }),
     saveHelpCollection: async () => "new",
     deleteHelpArticle: async () => undefined,
   };

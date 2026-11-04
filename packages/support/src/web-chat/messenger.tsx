@@ -40,16 +40,31 @@ import { ThreadFileAttachment, ThreadFilesContext, threadAttachments, threadFile
 
 export type MessengerSpace = "home" | "messages" | "help";
 
+/**
+ * What a messenger's data belongs to, for its query keys: the client it reads through and the
+ * tenant it names, so two clients, or the app's own and the client's option, never share a cache.
+ */
+const clientIds = new WeakMap<SupportClient, number>();
+let nextClientId = 1;
+function scopeOf(client: SupportClient, tenantId: string | null | undefined): string {
+  let id = clientIds.get(client);
+  if (id === undefined) {
+    id = nextClientId++;
+    clientIds.set(client, id);
+  }
+  return `${id}:${tenantId === undefined ? "client-option" : (tenantId ?? "app")}`;
+}
+
 export const supportMessengerKeys = {
   all: ["genesis-support", "messenger"] as const,
-  tickets: (tenantId: string | null) => ["genesis-support", "messenger", "tickets", tenantId] as const,
+  tickets: (scope: string) => ["genesis-support", "messenger", "tickets", scope] as const,
   ticket: (id: string) => ["genesis-support", "messenger", "ticket", id] as const,
   replies: (id: string) => ["genesis-support", "messenger", "replies", id] as const,
-  collections: (tenantId: string | null) => ["genesis-support", "messenger", "collections", tenantId] as const,
-  articles: (tenantId: string | null, collectionId: string | null) => ["genesis-support", "messenger", "articles", tenantId, collectionId] as const,
-  article: (tenantId: string | null, slug: string) => ["genesis-support", "messenger", "article", tenantId, slug] as const,
-  search: (tenantId: string | null, query: string) => ["genesis-support", "messenger", "search", tenantId, query] as const,
-  ai: (tenantId: string | null) => ["genesis-support", "messenger", "ai", tenantId] as const,
+  collections: (scope: string) => ["genesis-support", "messenger", "collections", scope] as const,
+  articles: (scope: string, collectionId: string | null) => ["genesis-support", "messenger", "articles", scope, collectionId] as const,
+  article: (scope: string, slug: string) => ["genesis-support", "messenger", "article", scope, slug] as const,
+  search: (scope: string, query: string) => ["genesis-support", "messenger", "search", scope, query] as const,
+  ai: (scope: string) => ["genesis-support", "messenger", "ai", scope] as const,
 };
 
 export interface SupportMessengerProps {
@@ -100,6 +115,7 @@ function required<T>(method: T | undefined): NonNullable<T> {
 interface Shared {
   client: SupportClient;
   tenantId: string | null | undefined;
+  scope: string;
   copy: SupportCopy;
   go: (screen: Screen) => void;
   here: Screen;
@@ -144,9 +160,9 @@ function SearchForm({ copy, initial, onSearch }: { copy: SupportCopy; initial: s
   );
 }
 
-function Home({ client, tenantId, copy, go, here, report, greeting, onSearch }: Shared & { greeting: string | undefined; onSearch: ((query: string) => void) | null }) {
-  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(tenantId ?? null), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }) });
-  const articles = useQuery({ queryKey: supportMessengerKeys.articles(tenantId ?? null, null), queryFn: () => required(client.helpArticles)(tenantId === undefined ? {} : { tenantId }) });
+function Home({ client, tenantId, scope, copy, go, here, report, greeting, onSearch }: Shared & { greeting: string | undefined; onSearch: ((query: string) => void) | null }) {
+  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(scope), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }) });
+  const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, null), queryFn: () => required(client.helpArticles)(tenantId === undefined ? {} : { tenantId }) });
   useReported(tickets.error, report);
   useReported(articles.error, report);
   const latest = tickets.data?.[0];
@@ -183,8 +199,8 @@ function Home({ client, tenantId, copy, go, here, report, greeting, onSearch }: 
   );
 }
 
-function Messages({ client, tenantId, copy, go, here, report }: Shared) {
-  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(tenantId ?? null), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }) });
+function Messages({ client, tenantId, scope, copy, go, here, report }: Shared) {
+  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(scope), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }) });
   useReported(tickets.error, report);
   const items = useMemo(() => ticketItems(tickets.data ?? [], copy, (id) => go({ name: "ticket", id, from: here })), [tickets.data, copy, go, here]);
   return (
@@ -280,6 +296,11 @@ function AnswerCard({ ask, query, titles, onConsent, copy, go, here, report }: {
               {copy.messenger.aiConsent}
             </Button>
           ) : null}
+          {state.phase === "none" && state.needsConsent ? (
+            <Button size="sm" variant="outline" onClick={() => void ask.ask(state.question)} data-testid="genesis-support-messenger-ai-retry">
+              {copy.messenger.aiRetry}
+            </Button>
+          ) : null}
           <Button size="sm" variant={state.phase === "answered" ? "outline" : "default"} disabled={handing} onClick={person} data-testid="genesis-support-messenger-ai-person">
             {copy.messenger.aiPerson}
           </Button>
@@ -316,6 +337,7 @@ function CitedArticles({ ids, copy, go, here, titles }: { ids: readonly string[]
 function Help({
   client,
   tenantId,
+  scope,
   copy,
   go,
   here,
@@ -326,9 +348,9 @@ function Help({
   aiOn,
   onConsent,
 }: Shared & { query: string; onSearch: (query: string) => void; ask: UseHelpAsk; aiOn: boolean; onConsent: (() => void) | undefined }) {
-  const collections = useQuery({ queryKey: supportMessengerKeys.collections(tenantId ?? null), queryFn: () => required(client.helpCollections)(tenantId === undefined ? {} : { tenantId }) });
-  const articles = useQuery({ queryKey: supportMessengerKeys.articles(tenantId ?? null, null), queryFn: () => required(client.helpArticles)(tenantId === undefined ? {} : { tenantId }) });
-  const hits = useQuery({ queryKey: supportMessengerKeys.search(tenantId ?? null, query), queryFn: () => required(client.searchHelp)(query, tenantId === undefined ? {} : { tenantId }), enabled: Boolean(query) });
+  const collections = useQuery({ queryKey: supportMessengerKeys.collections(scope), queryFn: () => required(client.helpCollections)(tenantId === undefined ? {} : { tenantId }) });
+  const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, null), queryFn: () => required(client.helpArticles)(tenantId === undefined ? {} : { tenantId }) });
+  const hits = useQuery({ queryKey: supportMessengerKeys.search(scope, query), queryFn: () => required(client.searchHelp)(query, tenantId === undefined ? {} : { tenantId }), enabled: Boolean(query) });
   useReported(collections.error, report);
   useReported(articles.error, report);
   useReported(hits.error, report);
@@ -387,8 +409,8 @@ function Help({
   );
 }
 
-function Collection({ client, tenantId, copy, go, here, report, id }: Shared & { id: string }) {
-  const articles = useQuery({ queryKey: supportMessengerKeys.articles(tenantId ?? null, id), queryFn: () => required(client.helpArticles)({ ...(tenantId === undefined ? {} : { tenantId }), collectionId: id }) });
+function Collection({ client, tenantId, scope, copy, go, here, report, id }: Shared & { id: string }) {
+  const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, id), queryFn: () => required(client.helpArticles)({ ...(tenantId === undefined ? {} : { tenantId }), collectionId: id }) });
   useReported(articles.error, report);
   return (
     <InboxPage
@@ -406,8 +428,8 @@ function Collection({ client, tenantId, copy, go, here, report, id }: Shared & {
   );
 }
 
-function Article({ client, tenantId, copy, go, here, report, slug }: Shared & { slug: string }) {
-  const article = useQuery({ queryKey: supportMessengerKeys.article(tenantId ?? null, slug), queryFn: () => required(client.helpArticle)(slug, tenantId === undefined ? {} : { tenantId }) });
+function Article({ client, tenantId, scope, copy, go, here, report, slug }: Shared & { slug: string }) {
+  const article = useQuery({ queryKey: supportMessengerKeys.article(scope, slug), queryFn: () => required(client.helpArticle)(slug, tenantId === undefined ? {} : { tenantId }) });
   useReported(article.error, report);
   if (article.isPending) {
     return (
@@ -443,7 +465,7 @@ function Article({ client, tenantId, copy, go, here, report, slug }: Shared & { 
   );
 }
 
-function Compose({ client, tenantId, copy, go, report, context, from }: Shared & { context: () => FeedbackContext; from: Screen }) {
+function Compose({ client, tenantId, scope, copy, go, report, context, from }: Shared & { context: () => FeedbackContext; from: Screen }) {
   const id = useId();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
@@ -458,7 +480,7 @@ function Compose({ client, tenantId, copy, go, report, context, from }: Shared &
     client
       .submit({ type: "question", message: words, context: context(), ...(tenantId === undefined ? {} : { tenantId }) })
       .then(({ id: ticket }) => {
-        void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(tenantId ?? null) });
+        void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(scope) });
         // Back from the thread goes where they started, not to this form.
         go({ name: "ticket", id: ticket, from });
       })
@@ -490,7 +512,7 @@ function Compose({ client, tenantId, copy, go, report, context, from }: Shared &
 const threadSlots = { attachment: ThreadFileAttachment };
 
 /** A person's conversation. Keyed by ticket, so a draft never follows them to another one. */
-function Conversation({ client, tenantId, copy, report, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
+function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -504,8 +526,8 @@ function Conversation({ client, tenantId, copy, report, id, resolveUser, active 
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.replies(id) });
     void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.ticket(id) });
-    void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(tenantId ?? null) });
-  }, [queryClient, id, tenantId]);
+    void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(scope) });
+  }, [queryClient, id, scope]);
   useEffect(() => client.subscribe(id, refresh), [client, id, refresh]);
 
   // Read while it's in front of them: as it shows, as something new arrives, and on coming back.
@@ -516,13 +538,13 @@ function Conversation({ client, tenantId, copy, report, id, resolveUser, active 
       if (document.visibilityState !== "visible") return;
       client
         .markRead(id)
-        .then(() => queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(tenantId ?? null) }))
+        .then(() => queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(scope) }))
         .catch((error: unknown) => report(error));
     };
     read();
     document.addEventListener("visibilitychange", read);
     return () => document.removeEventListener("visibilitychange", read);
-  }, [client, id, latest, active, tenantId, queryClient, report]);
+  }, [client, id, latest, active, scope, queryClient, report]);
 
   const shown = useMemo(() => (replies.data ?? []).filter((r) => !r.internal), [replies.data]);
   const files = useMemo(() => threadFiles(shown, copy), [shown, copy]);
@@ -620,11 +642,12 @@ function useReported(error: unknown, report: (error: unknown) => void) {
 
 /** The messenger: Home, Messages and Help, in whatever holds it. Another tenant is another messenger: nothing carries over. */
 export function SupportMessenger(props: SupportMessengerProps) {
-  return <Messenger key={props.tenantId ?? ""} {...props} />;
+  return <Messenger key={scopeOf(props.client, props.tenantId)} {...props} />;
 }
 
 function Messenger({ client, tenantId, spaces = SPACES, greeting, askAi, onAiConsent, active = true, resolveUser, context = defaultContext, copy: copyOverrides, onError, className }: SupportMessengerProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
+  const scope = scopeOf(client, tenantId);
   const first = spaces[0] ?? "home";
   const [screen, setScreen] = useState<Screen>({ name: "space", space: first });
   const [query, setQuery] = useState("");
@@ -632,7 +655,7 @@ function Messenger({ client, tenantId, spaces = SPACES, greeting, askAi, onAiCon
   errors.current = onError;
   const report = useCallback((error: unknown) => errors.current?.(error), []);
   const ai = useQuery({
-    queryKey: supportMessengerKeys.ai(tenantId ?? null),
+    queryKey: supportMessengerKeys.ai(scope),
     queryFn: () => required(client.helpAiEnabled)(tenantId === undefined ? {} : { tenantId }),
     enabled: Boolean(askAi && spaces.includes("help")),
     staleTime: 5 * 60_000,
@@ -640,7 +663,7 @@ function Messenger({ client, tenantId, spaces = SPACES, greeting, askAi, onAiCon
   useReported(ai.error, report);
   const ask = useHelpAsk({ client, tenantId, askAi, context, onError: report });
   const aiOn = Boolean(askAi && ai.data);
-  const shared: Shared = { client, tenantId, copy, go: setScreen, here: screen, report };
+  const shared: Shared = { client, tenantId, scope, copy, go: setScreen, here: screen, report };
 
   const search = (next: string) => {
     setQuery(next);
@@ -729,7 +752,8 @@ export function SupportMessengerLauncher({ position = "bottom-right", label, onE
   const copy = useMemo(() => resolveSupportCopy(messenger.copy), [messenger.copy]);
   const dock = useOptionalChatDock();
   const [sheet, setSheet] = useState(false);
-  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(tenantId ?? null), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }), refetchInterval: refreshInterval });
+  const scope = scopeOf(client, tenantId);
+  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(scope), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }), refetchInterval: refreshInterval });
   const unread = (tickets.data ?? []).filter((t) => t.unread).length;
   const title = label ?? copy.messenger.title;
 
@@ -742,9 +766,6 @@ export function SupportMessengerLauncher({ position = "bottom-right", label, onE
   useEffect(() => {
     updatePanel?.(PANEL_ID, { unread, render });
   }, [updatePanel, unread, render]);
-
-  // In the dock, its own bar is the way back to it.
-  if (dock?.items.some((item) => item.id === PANEL_ID)) return null;
 
   const open = () => {
     if (dock) dock.openPanel({ id: PANEL_ID, title, render, unread, icon: <MessageCircle className="size-4" aria-hidden />, ...(onExpand ? { onExpand } : {}) });

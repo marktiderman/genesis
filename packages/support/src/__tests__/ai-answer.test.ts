@@ -19,7 +19,8 @@ const admin = (answer: () => { data: unknown; error: unknown } = () => ({ data: 
   rpc: vi.fn(async (_fn: string, args: Record<string, unknown>) => (args["outcome"] === "answered" ? answer() : { data: args["outcome"], error: null })),
 });
 const ok = (output: unknown) => ({ ok: true, output });
-const answer = (ai: unknown, keeper: ReturnType<typeof admin>) => answerHelpQuestion(ai as never, { questionId: QUESTION, context: { tenantId: "session", personId: "me", db: db() as never }, admin: keeper });
+const AI = { config: { safety: () => null } };
+const answer = (_ai: unknown, keeper: ReturnType<typeof admin>) => answerHelpQuestion(AI as never, { questionId: QUESTION, context: { tenantId: "session", personId: "me", db: db() as never }, admin: keeper });
 
 describe("answerHelpQuestion", () => {
   beforeEach(() => run.mockReset());
@@ -57,6 +58,25 @@ describe("answerHelpQuestion", () => {
   it("gives no words when the protocol gave none", async () => {
     run.mockResolvedValue({ ok: false, outcome: "safety_routed", message: "Routed by the safety protocol.", safety: { category: "crisis" } });
     expect(await answer({}, admin())).toEqual({ status: "safety", response: null });
+  });
+
+  it("gives no words for a blank response, so the fixed line shows", async () => {
+    run.mockResolvedValue({ ok: false, outcome: "safety_routed", message: "Routed by the safety protocol.", safety: { category: "crisis", response: "  " } });
+    expect(await answer({}, admin())).toEqual({ status: "safety", response: null });
+  });
+
+  it("leaves a question another call has taken to that call", async () => {
+    const { HELP_AI_REFUSALS } = await import("../ai");
+    run.mockResolvedValue({ ok: false, outcome: "invalid_input", message: HELP_AI_REFUSALS.answered });
+    const keeper = admin();
+    expect(await answer({}, keeper)).toEqual({ status: "none" });
+    expect(keeper.rpc).not.toHaveBeenCalled();
+  });
+
+  it("still gives a safety route's words when recording it fails", async () => {
+    run.mockResolvedValue({ ok: false, outcome: "safety_routed", message: "x", safety: { category: "crisis", response: "Please call." } });
+    const keeper = { rpc: vi.fn(async () => Promise.reject(new Error("down"))) };
+    expect(await answer({}, keeper as never)).toEqual({ status: "safety", response: "Please call." });
   });
 
   it("ends at none on any other stop", async () => {

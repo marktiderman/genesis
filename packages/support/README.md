@@ -284,6 +284,10 @@ answer that cites anything else isn't kept, and every outcome offers a person.
    a service-role client, so nobody can write an answer of their own, and spends the question's
    tenant's budget.
 
+   Don't register `supportHelpAnswerTask` with `createAiHandler`: that hands a client the task's raw
+   output and records nothing. `answerHelpQuestion` doesn't throw: failures end at no answer, and
+   reach `onError`.
+
    ```ts
    import type { Ai } from "@marktiderman/genesis-ai";
    import { answerHelpQuestion, type HelpAiAdmin, type HelpAiDb } from "@marktiderman/genesis-support/ai";
@@ -307,7 +311,8 @@ answer that cites anything else isn't kept, and every outcome offers a person.
    `supportHelpAnswerTask({ consent: "terms" })`, passed as `task`. Until they agree, the messenger
    says so and offers a person; `onAiConsent` opens your screen for agreeing. The consent check comes
    first in genesis-ai's pipeline, so without consent the safety protocol doesn't run: the person
-   sees the consent message and the way to a person.
+   sees the consent message and the way to a person. Their words aren't kept meanwhile; once they've
+   agreed, "Ask again" asks anew.
 
 A resolution is a question whose person said the answer helped: `help_questions.outcome = 'resolved'`,
 readable by the tenant's agents, beside genesis-ai's usage row for each call. It's what people said,

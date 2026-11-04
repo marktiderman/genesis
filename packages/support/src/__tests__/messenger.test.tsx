@@ -299,6 +299,34 @@ describe("SupportMessenger", () => {
     expect(client.markRead).not.toHaveBeenCalled();
   });
 
+  it("offers to ask again once they've agreed", async () => {
+    const client = fakeClient();
+    const answers: HelpAnswerResponse[] = [{ status: "needs_consent" }, { status: "answered", answer: "Open Settings.", articleIds: [ARTICLE] }];
+    show(client, { spaces: ["help"], askAi: async () => answers.shift()! });
+    await search("words");
+    fireEvent.click(await screen.findByTestId("genesis-support-messenger-ai-ask"));
+    fireEvent.click(await screen.findByTestId("genesis-support-messenger-ai-retry"));
+    expect((await screen.findByTestId("genesis-support-messenger-ai")).textContent).toContain("Open Settings.");
+    expect(client.askHelp).toHaveBeenCalledTimes(2);
+  });
+
+  it("never shares a cache between clients, or between the app's own and the client's option", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const one = fakeClient();
+    const two = fakeClient();
+    const view = (client: SupportClient, tenantId?: string | null) => (
+      <QueryClientProvider client={queryClient}>
+        <SupportMessenger client={client} {...(tenantId === undefined ? {} : { tenantId })} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(view(one));
+    await waitFor(() => expect(one.ticketsInTenant).toHaveBeenCalledWith({}));
+    rerender(view(one, null));
+    await waitFor(() => expect(one.ticketsInTenant).toHaveBeenCalledWith({ tenantId: null }));
+    rerender(view(two));
+    await waitFor(() => expect(two.ticketsInTenant).toHaveBeenCalled());
+  });
+
   it("starts afresh on another tenant", async () => {
     const client = fakeClient();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -334,7 +362,7 @@ describe("SupportMessengerLauncher", () => {
 
 describe("SupportHelpCenterAdmin", () => {
   const admin = (over: Partial<SupportClient> = {}) =>
-    fakeClient({ saveHelpArticle: vi.fn(async () => "new-id"), deleteHelpArticle: vi.fn(async () => undefined), saveHelpCollection: vi.fn(async () => "col2"), ...over });
+    fakeClient({ saveHelpArticle: vi.fn(async () => ({ id: "new-id", updatedAt: "2026-11-04T00:00:00Z" })), deleteHelpArticle: vi.fn(async () => undefined), saveHelpCollection: vi.fn(async () => "col2"), ...over });
 
   it("lists drafts too, and writes a new article with an address from its title", async () => {
     const client = admin();
@@ -347,6 +375,16 @@ describe("SupportHelpCenterAdmin", () => {
     fireEvent.click(screen.getByTestId("genesis-support-help-save"));
     await waitFor(() => expect(client.saveHelpArticle).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "ta", slug: "resume-billing", status: "draft", body: "Words" })));
     await waitFor(() => expect(onArticleChange).toHaveBeenCalledWith("new-id"));
+  });
+
+  it("saves next from the copy it just made, and keeps saying it saved", async () => {
+    const client = admin();
+    render(<SupportHelpCenterAdmin client={client} tenantId="ta" articleId={ARTICLE} onArticleChange={() => undefined} />, { wrapper });
+    await screen.findByTestId("genesis-support-help-body");
+    fireEvent.click(screen.getByTestId("genesis-support-help-save"));
+    await waitFor(() => expect(screen.getByTestId("genesis-support-help-message").textContent).toBe("Saved"));
+    fireEvent.click(screen.getByTestId("genesis-support-help-save"));
+    await waitFor(() => expect(client.saveHelpArticle).toHaveBeenLastCalledWith(expect.objectContaining({ expectedUpdatedAt: "2026-11-04T00:00:00Z" })));
   });
 
   it("says when someone else saved first, and keeps the words", async () => {
@@ -485,16 +523,39 @@ describe("answerHelpQuestion, on the real pipeline", () => {
   it("won't run without a safety protocol", async () => {
     const ai = await setup();
     const database_ = database();
+    const keeper = admin();
     const task = { ...supportHelpAnswerTask(), consent: "terms" as const };
-    expect(await answerHelpQuestion(ai, { questionId: QUESTION, context: context(database_), admin: admin(), task })).toEqual({ status: "none" });
+    expect(await answerHelpQuestion(ai, { questionId: QUESTION, context: context(database_), admin: keeper, task })).toEqual({ status: "none" });
     expect(database_.rpc).not.toHaveBeenCalled();
+    expect(keeper.rpc).toHaveBeenCalledWith("support_record_answer", expect.objectContaining({ outcome: "no_answer" }));
+  });
+
+  it("runs the safety check even when search fails", async () => {
+    const safety = vi.fn(() => ({ category: "crisis", response: "Please call the line." }));
+    const ai = await setup({ safety });
+    const failing = database();
+    const rpc = failing.rpc.getMockImplementation()!;
+    failing.rpc.mockImplementation(async (fn: string) => (fn === "support_search_articles" ? { data: null, error: { code: "57014" } } : rpc(fn)) as never);
+    const task = { ...supportHelpAnswerTask(), consent: "terms" as const };
+    expect(await answerHelpQuestion(ai, { questionId: QUESTION, context: context(failing), admin: admin(), task })).toEqual({ status: "safety", response: "Please call the line." });
+    expect(safety).toHaveBeenCalledTimes(1);
+  });
+
+  it("ends at no answer when a safety protocol throws, and says so", async () => {
+    const onError = vi.fn();
+    const ai = await setup({ safety: () => { throw new Error("protocol down"); } });
+    const keeper = admin();
+    const task = { ...supportHelpAnswerTask(), consent: "terms" as const };
+    expect(await answerHelpQuestion(ai, { questionId: QUESTION, context: context(database()), admin: keeper, task, onError })).toEqual({ status: "none" });
+    expect(onError).toHaveBeenCalled();
+    expect(keeper.rpc).toHaveBeenCalledWith("support_record_answer", expect.objectContaining({ outcome: "no_answer" }));
   });
 
   it("says so when the person hasn't agreed, and keeps the question open", async () => {
     const ai = await setup({ safety: () => null });
     const keeper = admin();
     expect(await answerHelpQuestion(ai, { questionId: QUESTION, context: context(database()), admin: keeper })).toEqual({ status: "needs_consent" });
-    expect(keeper.rpc).not.toHaveBeenCalled();
+    expect(keeper.rpc).toHaveBeenCalledWith("support_record_answer", expect.objectContaining({ outcome: "no_consent" }));
   });
 
   it("refuses an id that isn't one", async () => {

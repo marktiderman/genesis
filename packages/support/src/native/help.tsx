@@ -104,6 +104,11 @@ export function HelpAnswerCard({ ask, titles, copy, onArticle, onTicket, query, 
               {copy.messenger.aiConsent}
             </NativeButton>
           ) : null}
+          {state.phase === "none" && state.needsConsent ? (
+            <NativeButton size="sm" variant="outline" onPress={() => void ask.ask(state.question)} testID="genesis-support-help-ai-retry">
+              {copy.messenger.aiRetry}
+            </NativeButton>
+          ) : null}
           <NativeButton size="sm" onPress={person} testID="genesis-support-help-ai-person">
             {copy.messenger.aiPerson}
           </NativeButton>

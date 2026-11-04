@@ -10,7 +10,8 @@
 --   public.help_questions
 --     A question put to the AI: what was asked, what it answered, the articles it cited, and how it
 --     ended. `resolved` means the person said the answer helped: the usage count for answers. What
---     a safety protocol routed elsewhere isn't kept. Only the server records an answer.
+--     a safety protocol routed elsewhere, or someone asked without having agreed to share, isn't
+--     kept. Only the server records an answer.
 --
 -- AI answers are off until a tenant opts in, the app's own tenant included: an enabled
 -- `support-helpdesk-ai` row in genesis-supabase 0004's tenant_features. Unlike 0004's usual reading,
@@ -69,7 +70,7 @@ create table public.help_questions (
   question text not null constraint help_questions_question check (question ~ '\S' and char_length(question) <= 2000),
   answer text constraint help_questions_answer check (char_length(answer) <= 8000),
   article_ids uuid[] not null default '{}',
-  outcome text not null default 'asked' constraint help_questions_outcome check (outcome in ('asked', 'answering', 'answered', 'no_answer', 'safety_routed', 'resolved', 'handed_off')),
+  outcome text not null default 'asked' constraint help_questions_outcome check (outcome in ('asked', 'answering', 'answered', 'no_answer', 'no_consent', 'safety_routed', 'resolved', 'handed_off')),
   ticket_id uuid references public.tickets (id) on delete set null,
   created_at timestamptz not null default now(),
   answered_at timestamptz,
@@ -297,7 +298,8 @@ end;
 $$;
 
 -- Create (no article) or change an article. A tenant never changes. `expected_updated_at`: the save
--- the editor started from, so a second agent's save isn't lost without anyone knowing (40001).
+-- the editor started from, so a second agent's save isn't lost without anyone knowing (40001). It
+-- returns the copy it made, for the editor's next save.
 create or replace function public.support_save_article(
   article uuid default null,
   tenant uuid default null,
@@ -307,9 +309,10 @@ create or replace function public.support_save_article(
   summary text default null,
   body text default null,
   status text default 'draft',
-  expected_updated_at timestamptz default null
+  expected_updated_at timestamptz default null,
+  out saved_id uuid,
+  out saved_at timestamptz
 )
-returns uuid
 language plpgsql
 security definer
 set search_path = ''
@@ -318,7 +321,6 @@ declare
   me uuid := auth.uid();
   owner_tenant uuid;
   was public.help_articles;
-  saved uuid;
 begin
   if article is null then
     owner_tenant := coalesce(tenant, private.genesis_support_default_tenant_id());
@@ -330,11 +332,11 @@ begin
     raise exception 'support_save_article: only an agent of this tenant' using errcode = '42501';
   end if;
   if article is null then
-    insert into public.help_articles (tenant_id, collection_id, slug, title, summary, body, status, published_at, created_by, updated_by)
+    insert into public.help_articles as a (tenant_id, collection_id, slug, title, summary, body, status, published_at, created_by, updated_by)
     values (owner_tenant, collection, support_save_article.slug, btrim(support_save_article.title), nullif(btrim(support_save_article.summary), ''),
             coalesce(support_save_article.body, ''), support_save_article.status,
             case when support_save_article.status = 'published' then clock_timestamp() end, me, me)
-    returning id into saved;
+    returning a.id, a.updated_at into saved_id, saved_at;
   else
     if expected_updated_at is not null and was.updated_at is distinct from expected_updated_at then
       raise exception 'support_save_article: someone else changed this article' using errcode = '40001';
@@ -350,9 +352,8 @@ begin
            updated_by = me,
            updated_at = clock_timestamp()
      where a.id = article
-    returning a.id into saved;
+    returning a.id, a.updated_at into saved_id, saved_at;
   end if;
-  return saved;
 end;
 $$;
 
@@ -471,12 +472,20 @@ declare
   words text := btrim(coalesce(answer, ''));
 begin
   select * into q from public.help_questions h where h.id = $1 for update;
-  if q.id is null or q.outcome not in ('asked', 'answering') then
-    raise exception 'support_record_answer: no open question' using errcode = '22023';
+  if q.id is null then
+    raise exception 'support_record_answer: no such question' using errcode = '22023';
   end if;
-  if $2 = 'safety_routed' then
-    update public.help_questions h set outcome = 'safety_routed', question = '(not kept)', answered_at = clock_timestamp() where h.id = $1;
-    return 'safety_routed';
+  -- Their words go whatever else has happened to the question.
+  if $2 in ('safety_routed', 'no_consent') then
+    update public.help_questions h
+       set question = '(not kept)',
+           outcome = case when h.outcome in ('asked', 'answering', 'no_answer') then $2 else h.outcome end,
+           answered_at = coalesce(h.answered_at, clock_timestamp())
+     where h.id = $1;
+    return $2;
+  end if;
+  if q.outcome not in ('asked', 'answering') then
+    raise exception 'support_record_answer: no open question' using errcode = '22023';
   end if;
   if $2 not in ('answered', 'no_answer') then
     raise exception 'support_record_answer: unknown outcome' using errcode = '22023';

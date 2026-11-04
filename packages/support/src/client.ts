@@ -111,7 +111,7 @@ export type HelpSearchHit = Pick<HelpArticleSummary, "id" | "collectionId" | "sl
 /** What an agent saves. No `id` makes a new one. `expectedUpdatedAt`: the copy the editor started from (a newer one is refused, `40001`). */
 export interface HelpArticleInput {
   id?: string | null;
-  /** The tenant of a new article. Left out, the app's own. An article never changes tenant. */
+  /** The tenant of a new article. Null is the app's own; left out, the client's `tenantId`, else the app's own. An article never changes tenant. */
   tenantId?: string | null;
   collectionId?: string | null;
   slug: string;
@@ -221,7 +221,7 @@ export interface SupportClient extends FeedbackSink {
   agentTicket?(id: string, options?: { tenantId?: string | null }): Promise<AgentTicket | null>;
   /** Agents: how many tickets each queue holds. Needs migration 0009. */
   agentTicketCounts?(options?: { tenantId?: string | null }): Promise<AgentTicketCounts>;
-  /** A help center's collections, in their order (migration 0010). A null or missing tenant is the app's own. */
+  /** A help center's collections, in their order (migration 0010). Null is the app's own tenant; left out, the client's `tenantId`, else the app's own. The same for every help center call. */
   helpCollections?(options?: { tenantId?: string | null }): Promise<HelpCollection[]>;
   /** Its articles, without their bodies. `includeDrafts` is for an agent's list; others get published ones either way. */
   helpArticles?(options?: { tenantId?: string | null; collectionId?: string | null; includeDrafts?: boolean }): Promise<HelpArticleSummary[]>;
@@ -229,8 +229,8 @@ export interface SupportClient extends FeedbackSink {
   helpArticle?(slugOrId: string, options?: { tenantId?: string | null }): Promise<HelpArticle | null>;
   /** Published articles for what someone typed, best first. */
   searchHelp?(query: string, options?: { tenantId?: string | null; limit?: number }): Promise<HelpSearchHit[]>;
-  /** Agents: save an article; returns its id. */
-  saveHelpArticle?(input: HelpArticleInput): Promise<string>;
+  /** Agents: save an article; returns its id and the copy's time, for `expectedUpdatedAt` next. */
+  saveHelpArticle?(input: HelpArticleInput): Promise<{ id: string; updatedAt: string }>;
   /** Agents: delete an article. */
   deleteHelpArticle?(id: string): Promise<void>;
   /** Agents: save a collection (no `id` makes a new one); returns its id. */
@@ -239,7 +239,7 @@ export interface SupportClient extends FeedbackSink {
   deleteHelpCollection?(id: string): Promise<void>;
   /** Can the signed-in person ask this tenant's AI? Off until the tenant opts in. */
   helpAiEnabled?(options?: { tenantId?: string | null }): Promise<boolean>;
-  /** Keeps a question for the AI (`supportHelpAnswerTask`) and returns its id, which is all a client sends the task. */
+  /** Keeps a question for the AI and returns its id, which is all the client sends your endpoint (`answerHelpQuestion`). */
   askHelp?(question: string, options?: { tenantId?: string | null }): Promise<string>;
   /** How it ended: the answer helped (the usage count), or it went to a person, with their ticket. */
   closeHelpQuestion?(questionId: string, outcome: "resolved" | "handed_off", ticketId?: string | null): Promise<void>;
@@ -720,10 +720,9 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       });
     },
     async saveHelpArticle(input) {
-      return String(
-        must(
-          "saveHelpArticle",
-          await supabase.rpc("support_save_article", {
+      const saved = must<Row | Row[]>(
+        "saveHelpArticle",
+        await supabase.rpc("support_save_article", {
             article: input.id ?? null,
             tenant: await scope(input.tenantId),
             collection: input.collectionId ?? null,
@@ -733,9 +732,10 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
             body: input.body,
             status: input.status,
             expected_updated_at: input.expectedUpdatedAt ?? null,
-          }),
-        ),
+        }),
       );
+      const row = (Array.isArray(saved) ? saved[0] : saved) as Row;
+      return { id: String(row["saved_id"]), updatedAt: String(row["saved_at"]) };
     },
     async deleteHelpArticle(id) {
       must("deleteHelpArticle", await supabase.rpc("support_delete_article", { article: id }));

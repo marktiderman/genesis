@@ -7,7 +7,7 @@
 -- client of tb; c3 an agent of ta; e5 an agent of tb; f6 the app's staff; g7 a client of tc.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(70);
+select plan(74);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -87,8 +87,8 @@ select throws_ok($$ select public.support_save_article(null, '00000000-0000-4000
 
 select pg_temp.sign_in('c3');
 insert into ids select 'col', public.support_save_collection(null, pg_temp.tenant('ta'), 'Billing', 'Money', 1);
-insert into ids select 'pub', public.support_save_article(null, pg_temp.tenant('ta'), pg_temp.id('col'), 'reset-password', 'Reset your password', 'How to get back in', 'Open Settings and press Reset. An email arrives.', 'published');
-insert into ids select 'draft', public.support_save_article(null, pg_temp.tenant('ta'), null, 'secret-plan', 'Secret plan', null, 'Password rules we have not announced.', 'draft');
+insert into ids select 'pub', (public.support_save_article(null, pg_temp.tenant('ta'), pg_temp.id('col'), 'reset-password', 'Reset your password', 'How to get back in', 'Open Settings and press Reset. An email arrives.', 'published')).saved_id;
+insert into ids select 'draft', (public.support_save_article(null, pg_temp.tenant('ta'), null, 'secret-plan', 'Secret plan', null, 'Password rules we have not announced.', 'draft')).saved_id;
 select isnt(pg_temp.id('pub'), null, 'an agent writes an article');
 select ok((select published_at is not null from public.help_articles where id = pg_temp.id('pub')), 'publishing dates it');
 select ok((select published_at is null from public.help_articles where id = pg_temp.id('draft')), 'a draft has no date');
@@ -106,7 +106,7 @@ select throws_ok($$ select public.support_save_article(pg_temp.id('pub'), null, 
                  'a save that started from an older copy is refused');
 
 select pg_temp.sign_in('e5');
-insert into ids select 'tb-art', public.support_save_article(null, pg_temp.tenant('tb'), null, 'reset-password', 'Reset in tb', null, 'Password help for the other business.', 'published');
+insert into ids select 'tb-art', (public.support_save_article(null, pg_temp.tenant('tb'), null, 'reset-password', 'Reset in tb', null, 'Password help for the other business.', 'published')).saved_id;
 select isnt(pg_temp.id('tb-art'), null, 'another tenant has the same slug');
 select throws_ok($$ select public.support_save_article(pg_temp.id('pub'), null, null, 'reset-password', 'Taken over', null, 'Words', 'published') $$, '42501', null,
                  'an agent changes no other tenant''s article');
@@ -116,7 +116,7 @@ select throws_ok($$ select public.support_save_article(null, '00000000-0000-4000
                  'an article can''t join another tenant''s collection');
 
 select pg_temp.sign_in('f6');
-insert into ids select 'own', public.support_save_article(null, null, null, 'app-password', 'The app''s password help', null, 'Password help for everyone.', 'published');
+insert into ids select 'own', (public.support_save_article(null, null, null, 'app-password', 'The app''s password help', null, 'Password help for everyone.', 'published')).saved_id;
 select isnt(pg_temp.id('own'), null, 'a null tenant is the app''s own, which its staff write');
 
 -- Reading ---------------------------------------------------------------------------------------
@@ -188,6 +188,11 @@ insert into public.help_questions (tenant_id, user_id, question) values (pg_temp
 insert into ids select 'q3', id from public.help_questions where question = 'Something hard to read';
 select is(public.support_record_answer(pg_temp.id('q3'), 'safety_routed'), 'safety_routed', 'a safety route is recorded');
 select is((select question from public.help_questions where id = pg_temp.id('q3')), '(not kept)', '... without what they wrote');
+select lives_ok($$ select public.support_record_answer(pg_temp.id('q2'), 'safety_routed') $$, 'a later safety route still takes their words from an answered question');
+select is((select question from public.help_questions where id = pg_temp.id('q2')), '(not kept)', '... whatever came first');
+insert into public.help_questions (tenant_id, user_id, question) values (pg_temp.tenant('ta'), pg_temp.person('a1'), 'Before agreeing');
+select is(public.support_record_answer((select id from public.help_questions where question = 'Before agreeing'), 'no_consent'), 'no_consent', 'a question asked before agreeing');
+select is((select count(*)::int from public.help_questions where question = 'Before agreeing'), 0, '... isn''t kept');
 set local role authenticated;
 select pg_temp.sign_in('a1');
 select lives_ok($$ select public.support_close_question(pg_temp.id('q1'), 'resolved') $$, 'it helped');
@@ -195,7 +200,7 @@ select is((select outcome from public.help_questions where id = pg_temp.id('q1')
 select pg_temp.sign_in('b2');
 select is((select count(*)::int from public.help_questions), 0, 'someone else reads no question');
 select pg_temp.sign_in('c3');
-select is((select count(*)::int from public.help_questions), 3, 'the tenant''s agents read its questions');
+select is((select count(*)::int from public.help_questions), 4, 'the tenant''s agents read its questions');
 
 reset role;
 select * from finish();
