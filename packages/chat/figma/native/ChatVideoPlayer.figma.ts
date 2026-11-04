@@ -12,8 +12,7 @@ export default {
   uri={url}
   playbackId={attachment.playbackId}
   status="${status}"
-  durationMs={attachment.durationMs}${uploading ? '
-  uploading' : ''}
+  durationMs={attachment.durationMs}${uploading ? '\n  uploading' : ''}
 />`,
   imports: ['import { ChatVideoPlayer } from "@marktiderman/genesis-chat/native"'],
   id: 'chat-native-chat-video-player',

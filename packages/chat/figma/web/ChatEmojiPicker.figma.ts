@@ -5,7 +5,7 @@ import figma from 'figma'
 const instance = figma.selectedInstance
 
 export default {
-  example: figma.code`<ChatEmojiPicker onSelect={insertEmoji} />`,
+  example: figma.code`<ChatEmojiPicker onSelect={insertEmoji} emojibaseUrl="https://cdn.example.com/emojibase" />`,
   imports: ['import { ChatEmojiPicker } from "@marktiderman/genesis-chat/web"'],
   id: 'chat-web-chat-emoji-picker',
   metadata: { nestable: false },

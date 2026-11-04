@@ -5,7 +5,7 @@ import figma from 'figma'
 const instance = figma.selectedInstance
 
 const title = instance.getString('Title')
-const description = instance.getString('Description')
+const description = instance.getBoolean('Show description') ? instance.getString('Description') : ''
 
 export default {
   example: figma.code`<SettingsSection title="${title}"${description ? figma.code` description="${description}"` : ''}>

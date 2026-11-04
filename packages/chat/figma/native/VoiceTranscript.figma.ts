@@ -4,7 +4,7 @@
 import figma from 'figma'
 const instance = figma.selectedInstance
 const mine = instance.getEnum('mine', { false: false, true: true })
-const status = instance.getEnum('status', { done: 'done', pending: 'pending' })
+const status = instance.getEnum('status', { done: 'ready', pending: 'pending' })
 
 export default {
   example: figma.code`<VoiceTranscript transcript={attachment.transcript} status="${status}" mine={${mine ? 'true' : 'false'}} testID="chat-transcript" />`,
