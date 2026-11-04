@@ -828,6 +828,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `removed-scope-name` | error | A "practice" name genesis-core 2 removed, in a file that imports a Genesis package: a view field's `timeZone: "practice"` (a string value in a view definition), NativeResourceView's `practiceTimeZone`, `resolveZone("practice", …)`, or DisplayTimeZones' `practice`. `defineView` refuses the first when the view loads and the rest are type errors; this lists them in CI. `genesis codemod genesis-core-2-scope-names` rewrites every one. It reads only Genesis API usage, the same shapes the codemod rewrites (see its row above); comments and an app's own `practice` settings, props and `resolveZone` are skipped. |
 | `deprecated-import` | warn | A named import of a Genesis export tagged `@deprecated` (or `@stability Deprecated`) in its published declarations. It goes at the next major; the message carries the tag's advice. Ratcheted by default: under `--base`, files that didn't change report it as `info`, so an upgrade never fails strict CI on untouched files. |
 | `beta-import` | info | A named import of an export tagged `@stability Beta` or `Experimental`, which may still change in a minor. Info by default since most of Genesis is beta; set it to `warn` in `rules` to see it in CI. |
+| `figma-routes` | info | Runs only when genesis.config.json has a `figma` block: [genesis figma:routes](#genesis-figmaroutes) as findings. A route with no frame, navigation with no hotspot and a `// figma:` id that isn't the route's frame are `info`, `warn` under `--strict`; frames with no route and hotspots to them are always `info`. Never `error`. Without `FIGMA_ACCESS_TOKEN`, or when the API can't be read, one `info` notice. The Vite plugin and `genesis upgrade` skip it (it reads the network). |
 | `scope-practice-id` | info | `scope.practiceId` read with no `ResourceScope` augmentation in the app (declaration files included). It still works, as the app's own key in the open slot, but reads as `unknown`; the message gives the one-line augmentation. Never fails, `--strict` included. |
 | `stale-exception` | warn | An `allow` entry that no longer matches anything, or a `packageRules` entry that names no rule an installed package declares (a typo there would change nothing). An id in the namespace of a package with a `plugin` isn't checked, since a plugin's ids aren't known until it reports. |
 | `package-rules-invalid` | warn | An installed or local package's `genesis.doctor` declaration (or its plugin) that doesn't validate: its rules don't run; the rest of the doctor does. Read forward-compatibly, since a package can be newer than the CLI: an unknown key is ignored, and a `prefer` rule or primitive that doesn't validate is skipped on its own, each with this warning. An unknown key on a `prefer` rule itself or in its `unless` could narrow where it applies, so that rule is skipped whole rather than run wider; an unknown key in `forbid` is only dropped. It is never an error, so a package upgrade can't break an app's build. See [Package rules](#package-rules). |
@@ -1252,6 +1253,88 @@ if (!result.ok) throw new Error(formatReport(result));
    the local Vite plugin import with `@marktiderman/genesis-cli/vite`.
 4. Run `genesis doctor`, fix or `allow` what it reports (it checks `raw-color` in code as well
    as CSS, and `raw-tag` only in JSX files), then delete the old script.
+## genesis figma:routes
+
+A read-only check that an app's Figma app file covers its routes, so CI reports the drift and an
+agent closes it (through the Figma MCP; this command never writes to Figma). The file layout it
+expects is in [docs/FIGMA-GUIDELINES.md](../../docs/FIGMA-GUIDELINES.md): frames named by route,
+`<route> · <state>` for a state, and a `Proposals` page.
+
+```json
+{ "figma": { "file": "<file key>", "pages": { "web": "<page name>", "native": "<page name>" }, "proposalsPage": "Proposals" } }
+```
+
+`figma` goes at the top of genesis.config.json. `file` is the key from the file's URL; `pages`
+names the page holding each platform's route frames (one or both); `proposalsPage` defaults to
+`Proposals`. The token comes from `FIGMA_ACCESS_TOKEN` (a personal access token with read access
+to the file). It is sent only as the `X-Figma-Token` header, never printed or written; nothing is
+cached.
+
+| Option | |
+| --- | --- |
+| `--json` | Print the report as JSON. |
+| `--strict` | Exit 1 when anything is missing (a route with no frame, navigation with no hotspot, a mismatched `// figma:` id). |
+| `-d, --dir <dir>` | The app's folder (default: cwd). |
+
+Exit codes: `0` reported, `1` gaps under `--strict`, `2` the check couldn't run (no `figma` block,
+no token, the API refused). The same check runs in `genesis doctor` as the `figma-routes` rule.
+
+**Routes.** Expo Router under `src/app`, else `app` (platform `native`): a file is its route,
+`(group)` folders kept as written, `index` naming its folder (`(tabs)/index.tsx` is `(tabs)`), and
+`_layout` and `+`-files (`+not-found`, `+native-intent`, `+html`, `+api`) left out. TanStack
+Router file routes under `src/routes` (platform `web`): dots and folders are segments, `$id`
+params and `{-$section}` optional segments kept as written, `.lazy` files folded into their
+route, `__root`, `route.tsx` and `-private` files left out. The root page is `index`.
+
+**Navigation.** String literals only: `router.push("…")`, `router.replace("…")`,
+`router.navigate("…")`, `<Link href="…">`, `<Link to="…">` and `navigate({ to: "…" })`, in
+`src/` and `app/`. A target is matched to a route by URL: groups and pathless `_x` segments
+dropped, params match any segment, optional segments may be absent.
+
+**Figma.** `GET /v1/files/:key?depth=2` gives the pages and their top-level frames;
+sections on those pages are read with `GET /v1/files/:key/nodes?ids=…&depth=1` for the frames
+inside them. Each route frame's tree is then read with `GET /v1/files/:key/nodes?ids=…`, and a
+hotspot is any node in it with `interactions[].actions[]` of `type: "NODE"` and a
+`destinationId` (any `navigation` except `CHANGE_TO`, which swaps a variant), or with the older
+`transitionNodeID`. A frame matches a route when its name before ` · ` is the route as written
+(`(tabs)/settings`) or names the same URL (`settings`).
+
+**The report.** A summary (routes, route frames, covered routes and percent, hotspots, missing),
+then: routes with no frame; frames on a route page with no route (move them to Proposals, or add
+the route); the Proposals page's frames by section; navigation in a route file whose screen has a
+frame but no hotspot to the target's frame; hotspots whose destination frame has no route; and
+`// figma:` ids that don't match.
+
+```text
+Figma route coverage (file FAKEfileKEY123): 7 routes, 6 frames, 4 covered (57%), 3 hotspots, 6 missing
+
+Routes with no frame (3)
+  platform  route             file
+  --------  ----------------  -------------------------------
+  native    items/[id]        src/app/items/[id].tsx
+  web       admin/decks       src/routes/admin/decks.tsx
+  web       docs/{-$section}  src/routes/docs.{-$section}.tsx
+
+Navigation with no hotspot (2)
+  from    to                      at
+  ------  ----------------------  --------------------------
+  (tabs)  items/[id] (no frame)   src/app/(tabs)/index.tsx:6
+  index   admin/decks (no frame)  src/routes/index.tsx:6
+```
+
+### Linking a route to its frame
+
+A route file may name its frame's node id in a comment on one of its first five lines, so an
+agent can jump from the route to the frame:
+
+```tsx
+// figma: 12:345
+export default function Settings() { … }
+```
+
+`12-345` (as a URL writes it) works too. The check reports a comment whose id isn't one of the
+frames named for that route (the frame was replaced, or the comment was copied).
+
 ## genesis upstream
 
 What an app needed from Genesis and didn't find goes in `docs/genesis-upstream.md` (or

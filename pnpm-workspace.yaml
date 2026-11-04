@@ -62,6 +62,28 @@ overrides:
   react-dom: 19.3.0
   "@types/react": 19.3.0
   react-native: 0.88.0
+  # Security floors for transitive dependencies (Dependabot). Each dependent's own range would
+  # hold the vulnerable version, or a fresh lockfile could fall back to it. A range-keyed override
+  # touches only the versions below the fix. Overrides apply at the workspace root only: a package
+  # consumer doesn't get them, but `genesis init` copies this block into a new native app's
+  # settings, where the same floors are just as welcome. Drop an entry when its dependents' own
+  # ranges exclude the vulnerable versions.
+  "@xmldom/xmldom@<0.8.15": ^0.8.15
+  "@xmldom/xmldom@>=0.9.0 <0.9.12": ^0.9.12
+  "brace-expansion@<1.1.21": ^1.1.21
+  "brace-expansion@>=2.0.0 <2.1.7": ^2.1.7
+  "brace-expansion@>=4.0.0 <5.0.12": ^5.0.12
+  "esbuild@>=0.27.3 <0.28.1": ^0.28.2
+  "fast-uri@>=3.0.0 <3.1.9": ^3.1.9
+  # glob 7 is not affected. 14 is a major, and the only change the dependents see is the fix.
+  "glob@>=9.0.0 <14.0.2": ^14.0.3
+  # @tiptap/html and @puckeditor/core ask for ^20; the fix only exists on 21.
+  "happy-dom@<21.0.4": ^21.0.4
+  "js-yaml@>=3.0.0 <3.15.2": ^3.15.2
+  "js-yaml@>=4.0.0 <4.3.2": ^4.3.2
+  "morgan@<1.12.1": ^1.12.1
+  # xcode only calls uuid.v4(), so the v3/v5/v6 flaw never ran; 11.1.1 is the first fixed version.
+  "uuid@<11.1.1": ^11.1.1
 
 patchedDependencies:
   # tsup 8.5.1's declaration build forces `baseUrl: "."` into the compiler options, and TypeScript 6

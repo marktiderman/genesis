@@ -1438,7 +1438,8 @@ export function DataTable<T>({
               ? m.table.noRows
               : fillMessage(m.table.range, { from: showingFrom, to: showingTo, total: totalItems })}
           </span>
-          <div className="flex items-center gap-3">
+          {/* Wraps: touch targets grow on a coarse pointer, and a phone's width can't hold it all on one line. */}
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
             <div className="flex items-center gap-1.5">
               <span>{m.table.rows}</span>
               <Select
