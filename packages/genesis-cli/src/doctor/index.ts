@@ -308,8 +308,8 @@ function applyConfig(raw: FindingInput[], config: DoctorConfig, packageIds: Read
   return out.sort((x, y) => x.file.localeCompare(y.file) || x.line - y.line || x.rule.localeCompare(y.rule));
 }
 
-/** The human-readable report. */
-export function formatReport(result: DoctorResult): string {
+/** The human-readable report. `verbose` lists the components no file imports; otherwise only their count. */
+export function formatReport(result: DoctorResult, options: { verbose?: boolean } = {}): string {
   const g = result.genesis;
   const lines = [
     `Genesis doctor: ${g.uiPackage}@${g.uiVersion}, ${g.components.length} components, ${g.tokens.size} tokens, ` +
@@ -318,7 +318,7 @@ export function formatReport(result: DoctorResult): string {
   for (const f of result.findings) {
     lines.push(`${f.level.toUpperCase().padEnd(5)} ${f.file}${f.line ? `:${f.line}` : ""}  [${f.rule}] ${f.message}`);
   }
-  lines.push(`Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}`);
+  lines.push(options.verbose ? `Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}` : `Available but unused: ${result.unused.length} (genesis doctor --verbose lists them)`);
   lines.push(`Primitives: ${result.primitives.rules} rules from ${result.primitives.packages} packages; see genesis catalog`);
   const info = result.infos ? `, ${result.infos} info` : "";
   lines.push(result.ok ? `PASS (${result.warnings} warnings${info})` : `FAIL (${result.errors} errors, ${result.warnings} warnings${info})`);

@@ -23,6 +23,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
+import { appFolderOf, isRepositoryWorkflow } from "../blocks/app-folder.js";
 import { catalogBlocks, findBlock } from "../blocks/discover.js";
 import type { BlockManifest } from "../blocks/manifest.js";
 import { appPath, sha256 } from "../blocks/files.js";
@@ -97,6 +98,12 @@ export async function checkLockFiles(ctx: DoctorContext): Promise<void> {
   } catch {
     // An invalid genesis.config.json is the config's own error.
   }
+  let appFolder: string | null = null;
+  try {
+    appFolder = appFolderOf(ctx.root);
+  } catch {
+    // An invalid genesis.config.json is the config's own error.
+  }
   const elsewhere = home ? Object.keys(lock.files).filter(isSupabasePath) : [];
   if (home && elsewhere.length) {
     ctx.report({
@@ -136,6 +143,8 @@ export async function checkLockFiles(ctx: DoctorContext): Promise<void> {
     }
     if (text === null) {
       if (entry.deleted) continue;
+      // GitHub reads this one from the repository's root; here it was never needed.
+      if (appFolder && isRepositoryWorkflow(rel)) continue;
       ctx.report({
         rule: "lock-files",
         level: "warn",
