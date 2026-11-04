@@ -23,6 +23,8 @@ describe("field kinds", () => {
     const input = byTestId("form-notes");
     expect(input.tagName).toBe("TEXTAREA");
     expect(input.getAttribute("data-return-key")).toBe("default");
+    // NativeTextarea's default four lines don't apply: the answer line sizes from its style.
+    expect(input.hasAttribute("data-lines")).toBe(false);
   });
 
   it("email and phone get their keyboards and autofill hints", () => {

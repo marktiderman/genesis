@@ -3,6 +3,7 @@
  *
  * @stability Stable
  */
+import type { ComponentRef, Ref } from "react";
 import { Text, TextInput, type TextInputProps, View } from "react-native";
 import { nativeColors } from "@marktiderman/genesis-design-system/tokens/native";
 import { cn } from "../utils";
@@ -12,6 +13,8 @@ export interface NativeInputProps extends TextInputProps {
   inputClassName?: string;
   label?: string;
   error?: string;
+  /** The underlying TextInput (React 19 passes `ref` as a prop). */
+  ref?: Ref<ComponentRef<typeof TextInput>> | undefined;
 }
 
 function NativeInput({

@@ -95,6 +95,19 @@ is written here when a contract ships. Don't open a PR here that only proposes a
 Why: PRs sat with stale red checks, unanswered reviews and branches drifting from their base
 whenever nobody owned them.
 
+### Adversarial review gate
+
+Every PR into a staging batch (`staging/**`) carries the check "Adversarial review"
+(`.github/workflows/review-gate.yml`). It passes only while the PR has the label `review: approved`.
+
+- An independent adversarial reviewer, never the PR's author, reviews the latest head and posts a
+  formal GitHub review with its findings: `gh pr review <n> --approve` or `--request-changes`.
+- The reviewer adds `review: approved` once every high or medium finding is fixed or declined with
+  a reason. Never approve or label your own PR.
+- A new commit removes the label, so every push needs a review of the new head. Claude review
+  (`claude-code-review.yml`) also re-runs on every push.
+- The author turns on Auto-fix for every PR it opens.
+
 ## Releasing, and how apps get a release
 
 - **Release:** the maintainer merges the batch's release PR into `main`; the Release workflow

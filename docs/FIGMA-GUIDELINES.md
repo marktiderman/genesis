@@ -166,6 +166,13 @@ the route frame after the merge so the file stays true. A change the maintainer 
 decided in writing is code-first too. When unsure, it is a proposal; a small team keeps the
 gate narrow so proposals don't go stale.
 
+**CI keeps the file honest.** An app with a `figma` block in genesis.config.json runs
+`genesis figma:routes` (or the doctor's `figma-routes` rule) in CI with `FIGMA_ACCESS_TOKEN`: it
+lists routes with no frame, frames with no route, navigation with no hotspot, hotspots to a frame
+with no route, and `// figma: <node-id>` comments that don't match the route's frame. The check
+only reads; the agent working on the app closes the gaps in the file through the MCP
+([the CLI README](../packages/genesis-cli/README.md#genesis-figmaroutes)).
+
 ### Proposal sections
 
 A proposal is a section on its route page, named `Proposal · <status> · <slug>` with status

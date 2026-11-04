@@ -559,6 +559,11 @@ export const Appearance = {
 export const KeyboardAvoidingView = (props: AnyProps) =>
   React.createElement("div", { ...toDom(props) });
 
+// Mockable Share.share: tests spy on it or read `Share.share.mock.calls`.
+export const Share = {
+  share: _vi.fn(async (_content: { url?: string; message?: string; title?: string }) => ({ action: "sharedAction" })),
+};
+
 export const Linking = {
   openURL: _vi.fn(async (_url: string) => {}),
   canOpenURL: _vi.fn(async (_url: string) => true),

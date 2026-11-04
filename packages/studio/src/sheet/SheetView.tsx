@@ -46,6 +46,8 @@ export interface SheetViewProps {
  * The spreadsheet view of a table (DATA-STUDIO.md P2). A paste across rows
  * is saved in ONE transaction through `updateMany`: every row changes, at
  * the version it was read, or none does, and the failing cells are marked.
+ *
+ * @stability Beta
  */
 export function SheetView({
   provider,

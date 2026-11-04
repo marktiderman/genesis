@@ -9,7 +9,7 @@
  * the host, through props, labels and slots. Moved up from genesis-forms-studio.
  */
 export * from "./rules";
-export { Chip } from "./chip";
+export { Chip, type ChipProps } from "./chip";
 export { ResourceHeader, type ResourceHeaderProps } from "./ResourceHeader";
 export { ReadinessChip } from "./ReadinessChip";
 export { ResponsesToolbar, type ResponsesView } from "./ResponsesToolbar";

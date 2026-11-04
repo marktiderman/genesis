@@ -107,7 +107,7 @@ export interface ObservabilityBlock<E extends EventSchema = EventSchema> extends
   replayId(): string | undefined;
   /**
    * An Expo Router `ErrorBoundary` for a route: reports the error non-fatal
-   * (source `screen`), shows `fallback` (default `ScreenErrorScreen`) with
+   * (source `screen`), shows `fallback` (default `<FatalScreen kind="screen" />`) with
    * "Try again", and is wrapped by each sink's route wrapper (Sentry's
    * `wrapExpoRouterErrorBoundary`). Build it once, at module scope.
    */

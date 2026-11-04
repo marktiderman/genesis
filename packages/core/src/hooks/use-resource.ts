@@ -27,7 +27,7 @@ import {
 } from "./mutation-mode";
 import { useLiveInvalidation, type LiveOptions } from "./use-live";
 import { resourceKeys } from "../query-keys";
-import { isDataWriteError } from "../schema/write-outcome";
+import { DataWriteError, isDataWriteError, NO_ROWS_MATCHED } from "../schema/write-outcome";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -364,6 +364,11 @@ export function useResource<T extends BaseRecord = BaseRecord>(
             ...(ctx.keepalive ? { keepalive: true } : {}),
             ...(ctx.expectedVersion !== undefined ? { expectedVersion: ctx.expectedVersion } : {}),
           });
+          // A write that matched no rows didn't save, whatever provider says so this way: it fails
+          // here, before it counts as committed, so it never reads as a silent success.
+          if (result.data === null || result.data === undefined) {
+            throw new DataWriteError("forbidden", "This change wasn't saved: no row matched it.", { code: NO_ROWS_MATCHED });
+          }
           return { record: result.data, audit: result.audit };
         },
         committed: (record) => {

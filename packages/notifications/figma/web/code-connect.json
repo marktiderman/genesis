@@ -1,0 +1,14 @@
+{
+  "required": [
+    "NotificationRowView",
+    "NotificationBell"
+  ],
+  "notYet": [],
+  "composed": [
+    "NotificationFeed",
+    "PreferencesMatrix",
+    "DeliveryLog",
+    "SuppressionList",
+    "SendTestNotification"
+  ]
+}

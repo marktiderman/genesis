@@ -23,6 +23,8 @@ export interface RelationPickerProps {
 /**
  * Pick a linked row by searching the target resource on the server, so it
  * works for a table of any size; shows each row by its label field.
+ *
+ * @stability Beta
  */
 export function RelationPicker({ provider, sessionKey, field, value, onChange, disabled, id }: RelationPickerProps) {
   const [open, setOpen] = useState(false);

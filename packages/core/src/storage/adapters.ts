@@ -2,13 +2,21 @@ import type { StorageAdapter } from "./types";
 
 /** localStorage adapter with SSR safety. */
 export function createLocalStorageAdapter(): StorageAdapter {
+  // Once per key and operation: a browser that blocks storage fails every read, and a hook reads
+  // on every render.
+  const warned = new Set<string>();
+  const warn = (doing: string, key: string, err: unknown) => {
+    if (warned.has(`${doing}:${key}`)) return;
+    warned.add(`${doing}:${key}`);
+    console.warn(`[StorageAdapter] Failed to ${doing} "${key}":`, err instanceof Error ? err.message : String(err));
+  };
   return {
     getItem(key) {
       if (typeof window === "undefined" || typeof localStorage === "undefined") return null;
       try {
         return localStorage.getItem(key);
       } catch (err) {
-        console.warn(`[StorageAdapter] Failed to read "${key}":`, err instanceof Error ? err.message : String(err));
+        warn("read", key, err);
         return null;
       }
     },
@@ -17,7 +25,7 @@ export function createLocalStorageAdapter(): StorageAdapter {
       try {
         localStorage.setItem(key, value);
       } catch (err) {
-        console.warn(`[StorageAdapter] Failed to write "${key}":`, err instanceof Error ? err.message : String(err));
+        warn("write", key, err);
       }
     },
     removeItem(key) {
@@ -25,7 +33,7 @@ export function createLocalStorageAdapter(): StorageAdapter {
       try {
         localStorage.removeItem(key);
       } catch (err) {
-        console.warn(`[StorageAdapter] Failed to remove "${key}":`, err instanceof Error ? err.message : String(err));
+        warn("remove", key, err);
       }
     },
   };

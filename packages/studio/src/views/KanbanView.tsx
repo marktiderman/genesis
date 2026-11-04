@@ -36,6 +36,8 @@ function versionOf(schema: ResourceSchema, row: Row): string | null {
  * is paged on its own (50 cards, then "Load more"), with the same filters,
  * search and sort as the table. Moving a card is a version-checked update of
  * `field`, so a card someone else just changed is refused, not overwritten.
+ *
+ * @stability Beta
  */
 export function KanbanView({
   provider,

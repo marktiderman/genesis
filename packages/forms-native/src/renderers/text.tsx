@@ -4,7 +4,8 @@
  * except in long text, where it starts a new line.
  */
 import { useCallback, useEffect, useState, type ComponentRef } from "react";
-import { Platform, Text, TextInput, View, type KeyboardTypeOptions, type TextInputProps } from "react-native";
+import { Platform, type TextInput, type KeyboardTypeOptions, type TextInputProps } from "react-native";
+import { NativeInput, NativeText, NativeTextarea } from "@marktiderman/genesis-ui-native/components";
 import { dateLimits, getFieldType, isIsoDate, numberLimits } from "@marktiderman/genesis-forms";
 import type { FieldRendererProps } from "@marktiderman/genesis-forms-react";
 import { accessibilityHint, FieldChrome, questionLabel } from "../chrome";
@@ -59,14 +60,19 @@ export function AnswerInput({
   // draws it with Next or Send) carries the step on, and the form's own Next button stays in view.
   const lacksReturn = !multiline && keyboardLacksReturnKey(hints?.keyboardType);
   useEffect(() => (lacksReturn ? () => setNeedsKeysBar(false) : undefined), [lacksReturn, setNeedsKeysBar]);
+  // genesis-ui-native's input (or textarea), drawn as the focus layout's answer line.
+  const Input = multiline ? NativeTextarea : NativeInput;
   return (
-    <TextInput
+    <Input
       ref={ref}
       testID={props.inputId}
+      // Drop the boxed field's classes (fixed height, border, fill, padding): `s.input` draws the answer line.
+      inputClassName="h-auto rounded-none border-0 bg-transparent px-0 py-0"
+      // NativeTextarea sets four lines by default; the answer line sizes from `s.multiline`, as before.
+      numberOfLines={undefined}
       value={value}
       onChangeText={onChangeText}
       editable={!locked}
-      multiline={multiline}
       placeholder={placeholder ?? field.placeholder ?? ANSWER_PLACEHOLDER}
       placeholderTextColor={theme.tertiaryLabel as string}
       accessibilityLabel={questionLabel(props)}
@@ -146,7 +152,7 @@ export function NumberField(props: FieldRendererProps) {
         }}
       />
       {min !== undefined || max !== undefined ? (
-        <Text style={s.hint}>{min !== undefined && max !== undefined ? `From ${min} to ${max}` : min !== undefined ? `${min} or more` : `${max} or less`}</Text>
+        <NativeText style={s.hint}>{min !== undefined && max !== undefined ? `From ${min} to ${max}` : min !== undefined ? `${min} or more` : `${max} or less`}</NativeText>
       ) : null}
     </FieldChrome>
   );
@@ -193,9 +199,9 @@ export function DateField(props: FieldRendererProps) {
           binding.setValue(shaped === "" ? undefined : shaped);
         }}
       />
-      {whole ? <Text style={s.hint}>{longDate(value)}</Text> : null}
+      {whole ? <NativeText style={s.hint}>{longDate(value)}</NativeText> : null}
       {min !== undefined || max !== undefined ? (
-        <Text style={s.hint}>{min !== undefined && max !== undefined ? `From ${min} to ${max}` : min !== undefined ? `${min} or later` : `${max} or earlier`}</Text>
+        <NativeText style={s.hint}>{min !== undefined && max !== undefined ? `From ${min} to ${max}` : min !== undefined ? `${min} or later` : `${max} or earlier`}</NativeText>
       ) : null}
     </FieldChrome>
   );

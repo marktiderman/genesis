@@ -38,6 +38,7 @@ export type {
 export {
   DataWriteError,
   isDataWriteError,
+  NO_ROWS_MATCHED,
   type WriteOutcome,
   type DataWriteErrorOptions,
 } from "../schema/write-outcome";
