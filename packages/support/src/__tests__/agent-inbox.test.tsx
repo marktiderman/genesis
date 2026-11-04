@@ -229,6 +229,13 @@ describe("SupportAgentInbox", () => {
     visibility.mockRestore();
   });
 
+  it("opens with the ticket's own words, which aren't a message in its conversation", async () => {
+    show(fakeClient({ replies: vi.fn(async () => []) }), { ticketId: "t1" });
+    const first = await screen.findByTestId("genesis-support-agent-thread-message-t1");
+    expect(first.textContent).toContain("It does nothing");
+    expect(first.className).not.toContain("bg-primary");
+  });
+
   it("says a thread failed rather than showing it empty, and takes no reply", async () => {
     const onError = vi.fn();
     show(fakeClient({ replies: vi.fn(async () => Promise.reject(new Error("offline"))) }), { ticketId: "t1", onError });

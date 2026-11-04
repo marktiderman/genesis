@@ -42,13 +42,12 @@ const seed = (over: Partial<AgentTicket> & Pick<AgentTicket, "id" | "title" | "m
 });
 
 const TICKETS: AgentTicket[] = [
-  seed({ id: "t1", title: "The export button does nothing", message: "On the Reports page it never downloads.", userId: "client-ada", preview: "It also happens on the Invoices page.", unread: true, assigneeId: ME, severity: "high" }),
+  seed({ id: "t1", title: "The export button does nothing", message: "On the Reports page it never downloads.", userId: "client-ada", createdAt: at(42), preview: "It also happens on the Invoices page.", unread: true, assigneeId: ME, severity: "high" }),
   seed({ id: "t2", title: "How do I add a second admin?", message: "We have a new office manager.", userId: "client-grace", preview: "We have a new office manager.", type: "question", unread: true, activityAt: at(90), route: null }),
   seed({ id: "t3", title: "Love the new schedule view", message: "Much faster.", userId: "client-alan", preview: "Thanks, passing it on.", type: "praise", status: "addressed", assigneeId: "agent-kit", activityAt: at(1500) }),
 ];
 
 const REPLIES: SupportReply[] = [
-  { id: "m1", reportId: "t1", body: "On the Reports page it never downloads.", fromStaff: false, mine: false, authorId: "client-ada", createdAt: at(42) },
   { id: "m2", reportId: "t1", body: "Thanks Ada, looking now. Which browser?", fromStaff: true, mine: true, authorId: ME, createdAt: at(40) },
   { id: "m3", reportId: "t1", body: "Safari on a Mac.", fromStaff: false, mine: false, authorId: "client-ada", createdAt: at(35) },
   { id: "m4", reportId: "t1", body: "Reproduced on Safari only.", fromStaff: true, mine: true, internal: true, authorId: ME, createdAt: at(30) },

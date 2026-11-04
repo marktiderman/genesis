@@ -130,7 +130,6 @@ export const supportCopy = {
     /** `{count}` unread. */
     unreadCount: "{count} unread",
     notFound: "That ticket isn't in this inbox.",
-    threadEmptyBody: "Write the first reply below.",
     reply: "Reply",
     notePlaceholder: "Only your team sees this",
     sendFailed: "That wasn't sent. Your words are still here; try again.",

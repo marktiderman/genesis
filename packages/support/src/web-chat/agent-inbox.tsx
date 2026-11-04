@@ -234,7 +234,16 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
   }, [client, ticket.id, latest, queryClient]);
 
   const requester = requesterOf(ticket, resolveUser, copy);
-  const messages = useMemo<ThreadMessage[]>(() => (replies.data ?? []).map((r) => toMessage(r, resolveUser, requester, copy)), [replies.data, resolveUser, requester, copy]);
+  // The ticket's own words come first: they aren't a message in its conversation.
+  const messages = useMemo<ThreadMessage[]>(
+    () => [
+      { id: ticket.id, body: ticket.message, mine: false, authorName: requester, timestamp: ticket.createdAt },
+      ...(replies.data ?? []).map((r) => toMessage(r, resolveUser, requester, copy)),
+      // A thread that didn't load says so: the ticket's words alone would read as nothing said since.
+      ...(replies.isError && !replies.data ? [{ id: "thread-failed", kind: "event" as const, body: copy.agentInbox.threadErrorTitle, mine: false, timestamp: ticket.createdAt }] : []),
+    ],
+    [ticket.id, ticket.message, ticket.createdAt, replies.data, replies.isError, resolveUser, requester, copy],
+  );
   // A file from outside this app's storage is a link naming its host: the requester chose that
   // address, so the agent's browser doesn't load it until they ask.
   const files = useMemo(() => {
@@ -306,8 +315,6 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
         loading={replies.isPending}
         readAt={ticket.userReadAt}
         readLabel={copy.thread.read}
-        emptyTitle={threadFailed ? copy.agentInbox.threadErrorTitle : copy.thread.emptyTitle}
-        emptyBody={threadFailed ? copy.agentInbox.errorBody : copy.agentInbox.threadEmptyBody}
         labels={{ you: copy.thread.you, internal: copy.thread.internalNote }}
         slots={threadSlots}
         testID="genesis-support-agent-thread"
