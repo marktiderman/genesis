@@ -55,7 +55,7 @@ function NativeProgress({
       accessibilityLabel={`${clampedValue}% complete`}
       accessibilityValue={{ min: 0, max: 100, now: clampedValue }}
       {...props}
-      style={{ ...style, ...(trackColor === undefined ? {} : { backgroundColor: trackColor }) }}
+      style={trackColor === undefined ? style : { ...style, backgroundColor: trackColor }}
     >
       <View
         className={cn("h-full rounded-full bg-primary", indicatorClassName)}
