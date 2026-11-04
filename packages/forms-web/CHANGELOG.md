@@ -1,5 +1,15 @@
 # @marktiderman/genesis-forms-web
 
+## 0.8.0
+
+### Minor Changes
+
+- 0c3b2b5: Export the form's parts so apps can reuse them: the default slots (`DefaultHeader`, `DefaultBrand`, `DefaultProgress`, `DefaultNavigation`, `DefaultErrorSummary`, beside `DefaultEnding`) and the field renderers (`TextField`, `NumberField`, `DateField`, `ScaleField`, `YesNoField`, `SingleChoiceField`, `MultiChoiceField`, `DropdownField`, `ConsentField`, `PhotoField`, `ListField`, `TableField`, `MediaNotesField`, `TextHighlightsField`), each `@stability Beta`. `Form` stays the composed entry point.
+
+### Patch Changes
+
+- 3d601c8: `Rating` takes `size="touch"` (a 44px target), `tone` (`warning`, the default, or `primary`), `clearable` (default true), `disabled`, `getItemProps` and the root's own attributes (`aria-*`, `data-*`, handlers). forms-web's star question is now `Rating`, with the same names, targets and colour; the stars' icon is Rating's.
+
 ## 0.7.0
 
 ### Minor Changes

@@ -1,5 +1,61 @@
 # @marktiderman/genesis-ui
 
+## 2.32.0
+
+### Minor Changes
+
+- fcf81d4: Opt-in brand roles, backward compatible: `CanonicalBrand` gains optional `dark` (dark-mode roles that `brandRoleVariables`, `resolveTokens` and sites themes resolve from), `signal`, `accents` (`--brand-accent-<name>`, `theme.accents`), `gradients.primary` (`--brand-gradient-primary`, `theme.buttonGradient`) and `typography.display` (`--font-display`, `--font-weight-display`, `--font-numeric-display`, `theme.display`). New `brandExtraVariables`, `brandGradientCss` and `useOptionalTheme`. `Button` / `NativeButton` gain `variant="gradient"` (falls back to the primary), and new `TierBadge` / `NativeTierBadge` take a tone from `accents`. A brand that sets none of these renders exactly as before.
+- b53d341: genesis-chat's web `ChatThread` and `ChatInbox` now sit on genesis-ui's `ThreadPage` and `InboxPage`, with chat's rows and composer in their slots. Their props are unchanged.
+
+  - `ThreadMessage` takes an optional `jumpId`: the id `jumpTo` names a message by, when that isn't its `id`. Both `ThreadPage`s honour it, and web `ThreadList` takes `jumpId`, as `NativeThreadList` already does.
+  - Web `InboxPage`: Home and End go to the first and last rows. Web `ThreadList` no longer chains its scroll to the page around it.
+  - What a chat reader sees change on the web: the pill says "Jump to latest" whenever they've scrolled up, instead of "New messages" only when one arrived. A message of yours from another device no longer pulls them to the bottom; what they send here still does. A jump that can't load says the load failed, not that the message is gone. Inbox rows have dividers, and are one tab stop that moves with the arrow keys, instead of one stop each. `ChatInbox` shows cached rows when a refresh fails, instead of the error. A screen reader hears "Loading" while a thread's first page loads, instead of "Loading messages".
+  - Test ids: `genesis-chat-scroller` is `genesis-chat-thread-page-messages`, `genesis-chat-announcer` is `genesis-chat-thread-page-messages-announcer`, `genesis-chat-new-pill` is `genesis-chat-thread-page-jump-latest`, and `genesis-chat-thread-loading` is `genesis-chat-thread-page-messages-loading`.
+
+  Chat now needs genesis-core 2.13.0 and genesis-ui 2.32.0.
+
+- 3d601c8: `Rating` takes `size="touch"` (a 44px target), `tone` (`warning`, the default, or `primary`), `clearable` (default true), `disabled`, `getItemProps` and the root's own attributes (`aria-*`, `data-*`, handlers). forms-web's star question is now `Rating`, with the same names, targets and colour; the stars' icon is Rating's.
+- 3d601c8: What building a support inbox on the layouts asked for. Nothing changes for an app that doesn't use these.
+
+  - `InboxLayout`: below `lg`, a button over the list opens `views` in a sheet (`activeViewLabel` names the chosen one). `thread` can be a function that gets `{ contextToggle }` to place the Details toggle in its own header, and then no row is spent on it from `md` up. A `thread` element keeps the row as before.
+  - `ThreadAttachment` takes `kind` (`image`, the default, or `file`) and `name`. A file shows its name and opens `uri`: on the web, http(s) with its host beside the name, or a `blob:` as a download; on the phone, http(s), and a local file only on your own message.
+  - `ThreadPage`, web and native: `error`, `errorTitle`, `errorBody`, `onRetry` and `retryLabel`. The `empty` slot gets `actionLabel` and `onAction`.
+  - `ThreadComposer` carries `modesLabel`, and `NativeComposerBar` takes it too, as `ComposerBar` does.
+  - The web layouts' docs and genesis-ui's README say what Tailwind needs to see the package's classes.
+
+- 3a5703c: A sort can say where empty values go: `nulls: "first" | "last"` on `SortParam`, a view's `orderBy`, a link's `orderBy` and each of `slotProps.filters.sortOptions`. The Supabase provider passes it to both offset and cursor paging, and a cursor made for another placement is refused. Unset, nothing changes.
+
+  `useResource`'s `update` now fails when the provider returns no row (`DataWriteError` with outcome `forbidden`), in every mutation mode, before the write counts as committed. The Supabase provider already threw; this reaches a custom provider that returned `{ data: null }`. ResourceView's board no longer checks this itself.
+
+  A failed board move is no longer logged to the console as well as shown on the board, and a conflict the board's sheet shows no longer reaches the screen's `resourceOptions.onError`.
+
+  `usePersistedUiState`'s follow-ups: `createLocalStorageAdapter` warns once per key and operation rather than on every render, DataTable's column move writes to the current key when `columnOrderKey` changes, and AppShell's Reset clears its stored options.
+
+- 29554ef: Jumping to a row in a thread, settled.
+
+  - `useThreadJump` returns `cancel()`, which drops a jump the reader has taken over from.
+  - `NativeThreadList`: the reader's touch wins. A drag during a jump cancels the tries still queued (also the second try at the newest row) and a jump still loading, so nothing snaps back.
+  - `ThreadList` (web): a wheel, a touch, the scroll keys or the scrollbar drop a jump still loading. A row landing no longer takes focus from a field the reader is typing in. A jump that fails leaves the reader where they are; `NativeThreadList` still goes back to the newest, because FlatList may not have been placed yet.
+  - `ThreadPage` (web): with `onJumpFailed`, the app says what happened, as on native. Without it, a screen reader hears `labels.messageGone`.
+  - `NativeThreadList` and `ThreadList`: following new rows comes back on after a jump that moved nothing (a short thread).
+  - A row is gone when, once `onLoadUntil` has settled or failed, no row answers to its id. What's drawn counts, not what a cache holds: a jump to a message another view has cached, but this thread doesn't draw, loads and then says it's gone. A deleted message's tombstone is a row, so it's found.
+  - genesis-chat, web and native: a load that failed says so, and no longer also says the message is gone. A jump whose first page failed waits: it says the read failed and goes ahead when the rows come.
+  - For the record, from the release that added `jumpId`: `<testID>-earlier-loading` on chat's list became `<testID>-list-earlier-loading`.
+
+- 5286e29: `Chip` takes `selected`, `onSelectedChange` and `disabled`: with `onSelectedChange` it is a filter chip, a toggle button with `aria-pressed`. New `TabBar` (`@marktiderman/genesis-ui/layout`): a bottom tab bar with any number of items, where past `max` (5) the last slot is "More", opening a sheet with the rest; a badged tab is named with its count, as AppShell's bottom nav does. AppShell's phone bottom nav and `TabBar` split with genesis-core's `splitTabBarItems`.
+
+### Patch Changes
+
+- 5d145c4: DataTable's pager wraps its controls, so it no longer pushes a phone's page wider than the screen.
+- Updated dependencies [b53d341]
+- Updated dependencies [80e6b92]
+- Updated dependencies [3d601c8]
+- Updated dependencies [f342c0d]
+- Updated dependencies [65b3063]
+- Updated dependencies [3a5703c]
+- Updated dependencies [29554ef]
+  - @marktiderman/genesis-core@2.13.0
+
 ## 2.31.1
 
 ### Patch Changes

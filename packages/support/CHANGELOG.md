@@ -1,5 +1,18 @@
 # @marktiderman/genesis-support
 
+## 0.6.0
+
+### Minor Changes
+
+- 38d530f: The help desk's agent inbox on the web. `SupportAgentInbox` (`/web-chat`) is a tenant's inbox on genesis-ui's `InboxLayout`, `InboxViews`, `InboxPage` and `ThreadPage`: the views Mine, Unassigned and All, the thread with reply and internal note, status, assignee and a details panel the app can add to (`context`). Migration `0009_genesis_support_inbox.sql` (in the support-chat block) adds its read path, `support_agent_tickets` and `support_agent_ticket_counts`, for a tenant's agents only; the client gains `agentTickets`, `agentTicket` and `agentTicketCounts`, and a reply gains `authorId` on genesis-chat.
+- The help desk's person side. `SupportMessenger` and `SupportMessengerLauncher` (`/web-chat`) are Home, Messages and Help, opening in the chat dock when the app has one; `useMessengerHome`, `useHelpCenter`, `useHelpArticle` and `useStartConversation` (`/native`) are the same on the phone. Migration `0010_genesis_support_help_center.sql`, in a new `support-helpdesk` block, adds a tenant's help center: collections and articles, written in `SupportHelpCenterAdmin`, and `helpCenterPages` for a public site. `supportHelpAnswerTask` (`/ai`) is an optional AI answer: off until a tenant opts in, grounded only in its published articles, citing them, and always offering a person. `FeedbackRecord` gains `tenantId`, and `myReports` a `tenantId` filter. The optional genesis-chat peer's floor rises to 0.9.0, for the chat dock; a release with `{ visible }` on a docked panel, and a genesis-ai with `safetyRequired`, are better still, and those floors should rise once they're published.
+
+### Patch Changes
+
+- fa9d095: `cleanRoute` drops the query and fragment with one search, so a route made of many `#` characters no longer takes quadratic time. The support intake function's copy of the contract matches.
+- Updated dependencies [5813132]
+  - @marktiderman/genesis-features@0.8.2
+
 ## 0.5.0
 
 ### Minor Changes

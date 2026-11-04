@@ -1,5 +1,41 @@
 # @marktiderman/genesis
 
+## 0.10.18
+
+### Patch Changes
+
+- Updated dependencies [fcf81d4]
+- Updated dependencies [b53d341]
+- Updated dependencies [cff9c4c]
+- Updated dependencies [80e6b92]
+- Updated dependencies [5813132]
+- Updated dependencies [200b7fd]
+- Updated dependencies [05ef485]
+- Updated dependencies [3d601c8]
+- Updated dependencies [0c3b2b5]
+- Updated dependencies [3d601c8]
+- Updated dependencies [d1af498]
+- Updated dependencies [34fb7ab]
+- Updated dependencies [0fd6a4c]
+- Updated dependencies [76294ce]
+- Updated dependencies [f342c0d]
+- Updated dependencies [5d145c4]
+- Updated dependencies [65b3063]
+- Updated dependencies [3a5703c]
+- Updated dependencies [29554ef]
+- Updated dependencies [5286e29]
+- Updated dependencies [70d4ff4]
+- Updated dependencies [4ed8ce4]
+- Updated dependencies [6568686]
+  - @marktiderman/genesis-design-system@1.9.0
+  - @marktiderman/genesis-ui@2.32.0
+  - @marktiderman/genesis-ui-native@3.9.0
+  - @marktiderman/genesis-core@2.13.0
+  - @marktiderman/genesis-features@0.8.2
+  - @marktiderman/genesis-forms@0.11.1
+  - @marktiderman/genesis-forms-web@0.8.0
+  - @marktiderman/genesis-native@0.10.0
+
 ## 0.10.17
 
 ### Patch Changes

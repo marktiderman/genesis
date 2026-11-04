@@ -1,5 +1,11 @@
 # @marktiderman/genesis-forms
 
+## 0.11.1
+
+### Patch Changes
+
+- 05ef485: `parseForm` no longer throws when an invalid value (an object whose `toString` is not a function) appears in an error message; it reports the issue instead.
+
 ## 0.11.0
 
 ### Minor Changes

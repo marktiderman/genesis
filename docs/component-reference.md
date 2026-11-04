@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 660 components · 4326 other exports · 3616 standalone types across 198 entry points in 30 packages.
+**Totals:** 715 components · 4406 other exports · 3675 standalone types across 200 entry points in 30 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1268,7 +1268,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (74)
+### Other exports (75)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1311,6 +1311,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isSafeUrl`](../packages/core/src/urls.ts) | function | — | True when `url` is safe to put in an `href`: an absolute http(s), mailto or tel URL, a root-relative path (`/lessons/1`) or a fragment (`#notes`). |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
 | [`loadRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | The words for one linked id, batched with every other id asked for in the same tick: one `getList(resource, { filters: [{ field, operator: "in" }] })` per linked resource and naming field. Resolves null when the row has no words or isn't... |
+| [`NO_ROWS_MATCHED`](../packages/core/src/schema/write-outcome.ts) | const | — | `DataWriteError.code` when a write came back with no row: `useResource`'s `update` sets it. |
 | [`NO_VIEWER`](../packages/core/src/viewer.ts) | const | — | The viewer outside any ViewerScope: no one, nowhere, no roles. |
 | [`normalizeLinkUrl`](../packages/core/src/urls.ts) | function | — | Turn what a person typed into the link field into a safe href, or `null`. `example.com/page` becomes `https://example.com/page`; an email address becomes a `mailto:` link. |
 | [`pendingWriteCount`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Optimistic or undoable writes on `resource` not yet settled. |
@@ -1491,7 +1492,7 @@ export type { WriteState };
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 
-### Other exports (17)
+### Other exports (18)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1507,6 +1508,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. A unique vi... |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
+| [`NO_ROWS_MATCHED`](../packages/core/src/schema/write-outcome.ts) | const | — | `DataWriteError.code` when a write came back with no row: `useResource`'s `update` sets it. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
 | [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
@@ -1704,7 +1706,7 @@ export type { StorageAdapter };
 
 **Barrel:** [`packages/core/src/schema/index.ts`](../packages/core/src/schema/index.ts)
 
-### Other exports (10)
+### Other exports (11)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1718,6 +1720,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
+| [`NO_ROWS_MATCHED`](../packages/core/src/schema/write-outcome.ts) | const | — | `DataWriteError.code` when a write came back with no row: `useResource`'s `update` sets it. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`writeConflict`](../packages/core/src/schema/write-state.ts) | function | — | The conflict `error` reports for a write of `mine`, or null when `error` isn't a `conflict` that carries the row as it is now. A field `mine` has and their row doesn't (a column it doesn't read) counts as different: the person decides it... |
 
@@ -1816,7 +1819,7 @@ export type { Slots };
 
 **Barrel:** [`packages/core/src/navigation.ts`](../packages/core/src/navigation.ts)
 
-### Other exports (2)
+### Other exports (4)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1824,6 +1827,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`isPathActive`](../packages/core/src/navigation.ts) | function | Beta | Default active-path matcher, mirroring React Router's `NavLink` (prefix match, with `/` treated as exact). Consumers can override via an `isActive` prop where components accept one. |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
+| [`splitTabBarItems`](../packages/core/src/navigation.ts) | function | Beta | A phone bottom tab bar's split: up to `max` items fit; beyond that, the first `max - 1` show and the rest go under "More" in the last slot. Pure, so the web `TabBar`, AppShell's phone bottom nav and genesis-ui-native's `NativeTabBar` all... |
+| [`TAB_BAR_MAX`](../packages/core/src/navigation.ts) | const | Beta | Most slots a phone bottom tab bar shows before the rest go under "More". |
 
 ### Types (3)
 
@@ -2254,7 +2259,7 @@ DTCG design tokens, brand schema, theme generators. Brand-agnostic; consumer bra
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (80)
+### Other exports (83)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -2262,6 +2267,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
 | [`brandContrastProblems`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | The brand's contrast problems: role pairs (per platform, when its `platformOverrides` make them differ) and extension colors. Empty when every pair reaches its minimum. Colors that aren't `#rgb` / `#rrggbb` are skipped. Assumes a brand o... |
+| [`brandExtraVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The opt-in brand variables, per mode, for what has no Genesis role: each is set only when the brand sets its field, so a brand without them gets an empty map. |
+| [`brandGradientCss`](../packages/design-system/src/factories/brand-roles.ts) | function | — | `gradients.primary` as CSS (`linear-gradient(135deg, #a, #b)`), or undefined. |
 | [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
 | [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
 | [`classicDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Today's look, unchanged: it emits no tokens, so every component keeps the stylesheet's own sizes, spacing and colours. The default for a brand that names no design system. |
@@ -2336,12 +2343,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`themeToCss`](../packages/design-system/src/tokens/themes.ts) | function | — | Convert a theme variable map to a CSS string block. |
 | [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
 | [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
+| [`useOptionalTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`validateBrand`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | {@link validateBrandShape | The brand shape check} plus {@link brandContrastProblems}: contrast pairs under their minimum come back as `warnings` (`ok` stays true); body text under 1.5:1 on its page is an error. The package entry exports... |
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (58)
+### Types (62)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -2349,8 +2357,10 @@ Type-only exports not consumed as a component's `Props`.
 export type { Bezier };
 export type { BrandContrastFinding };
 export type { BrandContrastProblem };
+export type { BrandDarkRoles };
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
+export type { BrandGradient };
 export type { BrandRoleVariables };
 export type { BrandRoleVariablesOptions };
 export type { BrandValidationOptions };
@@ -2367,6 +2377,7 @@ export type { DesignSystemInput };
 export type { DesignSystemPair };
 export type { DesignSystemTheme };
 export type { DesignSystemTokenInput };
+export type { DisplayTypography };
 export type { EyebrowRule };
 export type { FluidSize };
 export type { FontClass };
@@ -2383,6 +2394,7 @@ export type { MotionSpring };
 export type { MotionSprings };
 export type { MotionTokens };
 export type { NativeBrandOutput };
+export type { NativeDisplayText };
 export type { Oklch };
 export type { Palette };
 export type { PaletteInput };
@@ -2560,17 +2572,20 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isLength`](../packages/design-system/src/schema/brand.ts) | function | — | Whether a length passes LENGTH_REGEX, and, for a clamp, its min isn't above its max. |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
 
-### Types (10)
+### Types (13)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { BrandContrastFinding };
+export type { BrandDarkRoles };
 export type { BrandExtensions };
+export type { BrandGradient };
 export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorScale };
+export type { DisplayTypography };
 export type { GradientToken };
 export type { PlatformOverridable };
 export type { ShadowToken };
@@ -2702,7 +2717,7 @@ export type { SelfHostedFont };
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/provider.web.tsx) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (4)
+### Other exports (5)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -2711,7 +2726,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`GENESIS_THEME_V2`](../packages/design-system/src/theme/flag.ts) | const | — | Resolved flag value at module-load time. Most consumer code should read this instead of calling {@link readGenesisThemeV2Flag} repeatedly. |
 | [`readGenesisThemeV2Flag`](../packages/design-system/src/theme/flag.ts) | function | — | Read the GENESIS_THEME_V2 flag in a platform-agnostic way. |
 | [`resolveTokens`](../packages/design-system/src/theme/theme.ts) | function | — | Resolves the brand's tokens for a given mode. Pure function; same implementation on web + native (consumed by both providers). |
-| [`useTheme`](../packages/design-system/src/theme/use-theme.ts) | function | — | Read the active theme from the nearest `<GenesisThemeProvider>`. |
+| [`useOptionalTheme`](../packages/design-system/src/theme/use-theme.ts) | function | Beta | Read the active theme from the nearest `<GenesisThemeProvider>`. |
+| [`useTheme`](../packages/design-system/src/theme/use-theme.ts) | function | Stable | The theme, or throws outside a `<GenesisThemeProvider>`. A primitive that should still render without one uses {@link useOptionalTheme}. |
 
 ### Types (5)
 
@@ -3989,7 +4005,7 @@ The React Native renderer for Genesis Forms: <FormFocus>, one question or conten
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
-| [`Button`](../packages/forms-native/src/parts.tsx) | `ButtonProps` | — | A button drawn from the theme: at least 48 points tall, and it grows with the text size. |
+| [`Button`](../packages/forms-native/src/parts.tsx) | `ButtonProps` | Beta | A form's button: genesis-ui-native's `NativeButton` (its press feedback and accessibility), sized for a form (at least 48 points tall, growing with the text size) and colored from the form's theme, so a host's `tint` still applies. |
 | [`ChoiceRow`](../packages/forms-native/src/chrome.tsx) | `ChoiceRowProps` | — | One option: the whole row is the target (at least 52 points tall), a real radio or checkbox. |
 | [`FieldChrome`](../packages/forms-native/src/chrome.tsx) | `FieldChromeProps` | — | _(no summary)_ |
 | [`FormFocus`](../packages/forms-native/src/FormFocus.tsx) | `FormFocusProps` | — | _(no summary)_ |
@@ -4380,7 +4396,7 @@ The web renderer for Genesis Forms: <Form> with one-question-at-a-time and class
 | [`FieldChrome`](../packages/forms-web/src/chrome.tsx) | `FieldChromeProps` | — | Label, description and error around a control. Group types (radio, checkbox list, rating, scale) get a real `fieldset`/`legend`, so a screen reader announces the question with every option; the fieldset carries the field's `inputId` (an ... |
 | [`Form`](../packages/forms-web/src/Form.tsx) | `FormProps` | — | _(no summary)_ |
 
-### Other exports (23)
+### Other exports (42)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4388,18 +4404,36 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`builtInRenderers`](../packages/forms-web/src/renderers.tsx) | const | — | _(no summary)_ |
 | [`CLASSIC_PROGRESS_DELAY_MS`](../packages/forms-react/src/controller.ts) | const | — | In classic layout, how long after the last answer changed. |
+| [`ConsentField`](../packages/forms-web/src/renderers.tsx) | function | Beta | One checkbox to agree to something. The question is the legend; the checkbox's own words are `props.text` ("I agree to the terms"), else "I agree". |
+| [`DateField`](../packages/forms-web/src/renderers.tsx) | function | Beta | A calendar day from the browser's own date picker, stored as `YYYY-MM-DD`. |
+| [`DefaultBrand`](../packages/forms-web/src/Form.tsx) | function | Beta | The form's default brand slot: a logo, or the name's initials, beside the name. |
 | [`DefaultEnding`](../packages/forms-web/src/Form.tsx) | function | — | The built-in ending (a check, the title and description, then any `actions`). Exported so a custom ending slot can wrap it rather than copy it. |
+| [`DefaultErrorSummary`](../packages/forms-web/src/Form.tsx) | function | Beta | The form's default error summary slot: each answer that needs attention, linked to its question. |
+| [`DefaultHeader`](../packages/forms-web/src/Form.tsx) | function | Beta | The form's default header slot: title, description, image and the required note. |
+| [`DefaultNavigation`](../packages/forms-web/src/Form.tsx) | function | Beta | The form's default navigation slot: Back, and Next or Send. |
+| [`DefaultProgress`](../packages/forms-web/src/Form.tsx) | function | Beta | The form's default progress slot: the step on the respondent's path, as a bar. |
 | [`defaultRegistry`](../packages/forms-web/src/renderers.tsx) | const | — | The built-in web renderers, shared by every `<Form>` that gets no `registry`. `extend()` returns a new registry and leaves this one alone; `register()` changes this one in place, for every form in the app. |
 | [`describedBy`](../packages/forms-web/src/chrome.tsx) | function | — | _(no summary)_ |
+| [`DropdownField`](../packages/forms-web/src/renderers.tsx) | function | Beta | One option from a native `<select>`: compact for a long list, and the phone's own picker on touch devices. Over more options than `SEARCHABLE_OPTION_COUNT` (or with `props.searchable: true`) it is a searchable list instead, which also sh... |
 | [`HIDDEN_QUERY_KEEP_MS`](../packages/forms-web/src/clean-url.ts) | const | — | How long a reload brings the query back: 30 minutes. |
 | [`hideQueryOnLoad`](../packages/forms-web/src/clean-url.ts) | function | — | Run once when the page has read its query. Returns "hidden" when it took the query out of the address bar, "restoring" when a reload is bringing a hidden query back (the page is about to load again), else "none". |
+| [`ListField`](../packages/forms-web/src/structured.tsx) | function | Beta | The renderer for a list answer: entries added, removed and reordered. |
+| [`MediaNotesField`](../packages/forms-web/src/structured.tsx) | function | Beta | The renderer for notes pinned to moments in a recording. |
 | [`MediaTimeContext`](../packages/forms-web/src/source.ts) | const | — | Provide it around `<Form>` to link `media-notes` fields to a media player. |
+| [`MultiChoiceField`](../packages/forms-web/src/renderers.tsx) | function | Beta | The renderer for a multiple choice: a list of options, or a search when there are many. |
+| [`NumberField`](../packages/forms-web/src/renderers.tsx) | function | Beta | A number, typed as text with the decimal keypad: what was typed is kept while it is not a number yet ("-", "1."), and stored as a number once it is. Text that never becomes a number is kept as text, so validation says so. |
 | [`photoAccept`](../packages/forms-web/src/photo.tsx) | function | — | The `accept` attribute for a field: its MIME types, plus HEIC's file names for browsers that give it no type. |
+| [`PhotoField`](../packages/forms-web/src/photo.tsx) | function | Beta | The renderer for a photo answer: pick, preview and upload images. |
 | [`photoFileProblem`](../packages/forms-web/src/photo.tsx) | function | — | Why a picked file can't be added, or null when it can. |
 | [`photoFileType`](../packages/forms-web/src/photo.tsx) | function | — | The file's type as the field judges it: some browsers give a HEIC photo no type, so its name decides. |
 | [`PROGRESS_DELAY_MS`](../packages/forms-react/src/controller.ts) | const | — | How long after a step forward `onProgress` waits, so quick steps save once. |
+| [`ScaleField`](../packages/forms-web/src/renderers.tsx) | function | Beta | The renderer for a rating scale, NPS or star rating. |
 | [`signedUploadHost`](../packages/forms-web/src/signed-upload.ts) | function | — | The browser half of the upload handshake (genesis-forms/server's `createUploadHandler`): for each file it asks `endpoint` for a signed upload (`UploadRequest` as JSON), sends the bytes with `send`, and resolves to the reference the serve... |
+| [`SingleChoiceField`](../packages/forms-web/src/renderers.tsx) | function | Beta | The renderer for a single choice: a list of options, or a search when there are many. |
 | [`SourceTextContext`](../packages/forms-web/src/source.ts) | const | — | The text a form is about (an article, a policy, a contract). `text-highlights` fields highlight passages of it; a field's own `props.text` is used when no host provides one. Offsets are UTF-16 indices into this exact string. |
+| [`TableField`](../packages/forms-web/src/structured.tsx) | function | Beta | The renderer for a table answer: rows of columns. |
+| [`TextField`](../packages/forms-web/src/renderers.tsx) | function | Beta | The renderer for typed text answers (short, long, email, phone, URL). |
+| [`TextHighlightsField`](../packages/forms-web/src/structured.tsx) | function | Beta | The renderer for highlights marked in a source text. |
 | [`themeColors`](../packages/forms-web/src/theme.ts) | function | — | The accent as Genesis primary colours for a light and a dark page, each adjusted only as far as contrast needs. Null when `accent` is not a colour this understands. |
 | [`themeCss`](../packages/forms-web/src/theme.ts) | function | — | The CSS that applies `theme` to the elements matching `selector`, or "" when it changes no colour. |
 | [`UPLOAD_WAIT_MESSAGE`](../packages/forms-web/src/upload.ts) | const | — | Said when the respondent tries to move on or send while a photo is still uploading. |
@@ -4409,6 +4443,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useSourceText`](../packages/forms-web/src/source.ts) | function | — | The enclosing `SourceTextContext` value, or null. |
 | [`useUpload`](../packages/forms-web/src/upload.ts) | function | — | The enclosing `UploadContext` value, or null when no host stores files. |
 | [`wasReload`](../packages/forms-web/src/clean-url.ts) | const | — | Whether this page load was a reload (Navigation Timing), in the browser; false elsewhere. |
+| [`YesNoField`](../packages/forms-web/src/renderers.tsx) | function | Beta | The renderer for a yes or no question. |
 
 ### Types (19)
 
@@ -4451,7 +4486,7 @@ export type { UploadHost };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (74)
+### Other exports (75)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4494,6 +4529,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isSafeUrl`](../packages/core/src/urls.ts) | function | — | True when `url` is safe to put in an `href`: an absolute http(s), mailto or tel URL, a root-relative path (`/lessons/1`) or a fragment (`#notes`). |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
 | [`loadRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | The words for one linked id, batched with every other id asked for in the same tick: one `getList(resource, { filters: [{ field, operator: "in" }] })` per linked resource and naming field. Resolves null when the row has no words or isn't... |
+| [`NO_ROWS_MATCHED`](../packages/core/src/schema/write-outcome.ts) | const | — | `DataWriteError.code` when a write came back with no row: `useResource`'s `update` sets it. |
 | [`NO_VIEWER`](../packages/core/src/viewer.ts) | const | — | The viewer outside any ViewerScope: no one, nowhere, no roles. |
 | [`normalizeLinkUrl`](../packages/core/src/urls.ts) | function | — | Turn what a person typed into the link field into a safe href, or `null`. `example.com/page` becomes `https://example.com/page`; an email address becomes a `mailto:` link. |
 | [`pendingWriteCount`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Optimistic or undoable writes on `resource` not yet settled. |
@@ -4667,7 +4703,7 @@ export type { WriteState };
 
 **Barrel:** [`packages/genesis/src/ui.ts`](../packages/genesis/src/ui.ts)
 
-### Components (56)
+### Components (57)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -4677,7 +4713,7 @@ export type { WriteState };
 | [`Band`](../packages/ui/src/components/layout/band.tsx) | `BandProps` | Beta | Band: a full-bleed, full-width marketing section. The background runs edge to edge; the content sits in a centered column with the page gutter. It is what a landing page is made of: a hero, a features band, a call to action, a footer. |
 | [`BandLead`](../packages/ui/src/components/layout/band.tsx) | `BandLeadProps` | Beta | _(no summary)_ |
 | [`BuilderLayout`](../packages/ui/src/components/layout/builder-layout.tsx) | `BuilderLayoutProps` | Beta | BuilderLayout — the three columns of a builder: an outline of the parts on the left, the editor for the selected part in the centre, a live preview on the right. |
-| [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link. |
+| [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link, gradient (the brand's `gradients.primary`, else the primary). |
 | [`ButtonGroup`](../packages/ui/src/components/ui/button-group.tsx) | `ButtonGroupProps` | — | _(no summary)_ |
 | [`ChartTooltipContent`](../packages/ui/src/components/ui/chart.tsx) | `ChartTooltipContentProps` | — | _(no summary)_ |
 | [`CommandPalette`](../packages/ui/src/components/ui/command-palette.tsx) | `CommandPaletteProps` | — | Thin action registry over `CommandDialog` / cmdk. Consumers register flat commands; optional `group` buckets them. |
@@ -4718,6 +4754,7 @@ export type { WriteState };
 | [`Table`](../packages/ui/src/components/ui/table.tsx) | `TableProps` | — | _(no summary)_ |
 | [`ThreadList`](../packages/ui/src/components/patterns/messaging/thread-list.tsx) | `ThreadListProps` | — | A conversation's list. See the module docs. |
 | [`ThreadPage`](../packages/ui/src/components/patterns/messaging/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
+| [`TierBadge`](../packages/ui/src/components/ui/tier-badge.tsx) | `TierBadgeProps` | — | _(no summary)_ |
 | [`ToggleRow`](../packages/ui/src/components/patterns/toggle-row.tsx) | `ToggleRowProps` | Beta | ToggleRow — `SettingsRow` pre-wired with a `Switch`: the common label+description+on/off row for settings and preferences UI. |
 | [`Toolbar`](../packages/ui/src/components/ui/toolbar.tsx) | `ToolbarProps` | Beta | Toolbar — a grouped set of controls that behaves as ONE tab stop. |
 | [`ToolbarButton`](../packages/ui/src/components/ui/toolbar.tsx) | `ToolbarButtonProps` | Beta | ToolbarButton — a button that participates in the toolbar's roving tabindex. |
@@ -4785,7 +4822,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ChartStyle`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`ChartTooltip`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`Checkbox`](../packages/ui/src/components/ui/checkbox.tsx) | value | — | _(no summary)_ |
-| [`Chip`](../packages/ui/src/components/resource/chip.tsx) | function | — | A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges). |
+| [`Chip`](../packages/ui/src/components/resource/chip.tsx) | function | — | A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges). With `onSelectedChange` it is a filter chip that toggles `selected`. |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`Collapsible`](../packages/ui/src/components/ui/collapsible.tsx) | value | — | _(no summary)_ |
 | [`CollapsibleContent`](../packages/ui/src/components/ui/collapsible.tsx) | value | — | _(no summary)_ |
@@ -5217,7 +5254,7 @@ export type { WizardStep };
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (80)
+### Other exports (83)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5225,6 +5262,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
 | [`brandContrastProblems`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | The brand's contrast problems: role pairs (per platform, when its `platformOverrides` make them differ) and extension colors. Empty when every pair reaches its minimum. Colors that aren't `#rgb` / `#rrggbb` are skipped. Assumes a brand o... |
+| [`brandExtraVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The opt-in brand variables, per mode, for what has no Genesis role: each is set only when the brand sets its field, so a brand without them gets an empty map. |
+| [`brandGradientCss`](../packages/design-system/src/factories/brand-roles.ts) | function | — | `gradients.primary` as CSS (`linear-gradient(135deg, #a, #b)`), or undefined. |
 | [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
 | [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
 | [`classicDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Today's look, unchanged: it emits no tokens, so every component keeps the stylesheet's own sizes, spacing and colours. The default for a brand that names no design system. |
@@ -5299,12 +5338,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`themeToCss`](../packages/design-system/src/tokens/themes.ts) | function | — | Convert a theme variable map to a CSS string block. |
 | [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
 | [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
+| [`useOptionalTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`validateBrand`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | {@link validateBrandShape | The brand shape check} plus {@link brandContrastProblems}: contrast pairs under their minimum come back as `warnings` (`ok` stays true); body text under 1.5:1 on its page is an error. The package entry exports... |
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (58)
+### Types (62)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -5312,8 +5352,10 @@ Type-only exports not consumed as a component's `Props`.
 export type { Bezier };
 export type { BrandContrastFinding };
 export type { BrandContrastProblem };
+export type { BrandDarkRoles };
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
+export type { BrandGradient };
 export type { BrandRoleVariables };
 export type { BrandRoleVariablesOptions };
 export type { BrandValidationOptions };
@@ -5330,6 +5372,7 @@ export type { DesignSystemInput };
 export type { DesignSystemPair };
 export type { DesignSystemTheme };
 export type { DesignSystemTokenInput };
+export type { DisplayTypography };
 export type { EyebrowRule };
 export type { FluidSize };
 export type { FontClass };
@@ -5346,6 +5389,7 @@ export type { MotionSpring };
 export type { MotionSprings };
 export type { MotionTokens };
 export type { NativeBrandOutput };
+export type { NativeDisplayText };
 export type { Oklch };
 export type { Palette };
 export type { PaletteInput };
@@ -5431,7 +5475,7 @@ export type { ThemeRole };
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/provider.web.tsx) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (4)
+### Other exports (5)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5440,7 +5484,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`GENESIS_THEME_V2`](../packages/design-system/src/theme/flag.ts) | const | — | Resolved flag value at module-load time. Most consumer code should read this instead of calling {@link readGenesisThemeV2Flag} repeatedly. |
 | [`readGenesisThemeV2Flag`](../packages/design-system/src/theme/flag.ts) | function | — | Read the GENESIS_THEME_V2 flag in a platform-agnostic way. |
 | [`resolveTokens`](../packages/design-system/src/theme/theme.ts) | function | — | Resolves the brand's tokens for a given mode. Pure function; same implementation on web + native (consumed by both providers). |
-| [`useTheme`](../packages/design-system/src/theme/use-theme.ts) | function | — | Read the active theme from the nearest `<GenesisThemeProvider>`. |
+| [`useOptionalTheme`](../packages/design-system/src/theme/use-theme.ts) | function | Beta | Read the active theme from the nearest `<GenesisThemeProvider>`. |
+| [`useTheme`](../packages/design-system/src/theme/use-theme.ts) | function | Stable | The theme, or throws outside a `<GenesisThemeProvider>`. A primitive that should still render without one uses {@link useOptionalTheme}. |
 
 ### Types (5)
 
@@ -5594,7 +5639,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 **Barrel:** [`packages/genesis/src/native.ts`](../packages/genesis/src/native.ts)
 
-### Components (104)
+### Components (112)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -5618,14 +5663,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NativeAvatar`](../packages/ui-native/src/components/avatar.tsx) | `NativeAvatarProps` | — | _(no summary)_ |
 | [`NativeBadge`](../packages/ui-native/src/components/badge.tsx) | `NativeBadgeProps` | — | _(no summary)_ |
 | [`NativeBanner`](../packages/ui-native/src/components/inline-alert.tsx) | `NativeBannerProps` | — | _(no summary)_ |
+| [`NativeBulkBar`](../packages/ui-native/src/components/bulk-bar.tsx) | `NativeBulkBarProps` | — | _(no summary)_ |
 | [`NativeButton`](../packages/ui-native/src/components/button.tsx) | `NativeButtonProps` | — | _(no summary)_ |
 | [`NativeCard`](../packages/ui-native/src/components/card.tsx) | `NativeCardProps` | — | _(no summary)_ |
 | [`NativeCardTitle`](../packages/ui-native/src/components/card.tsx) | `NativeCardTitleProps` | — | _(no summary)_ |
 | [`NativeCheckbox`](../packages/ui-native/src/components/checkbox.tsx) | `NativeCheckboxProps` | — | _(no summary)_ |
 | [`NativeChip`](../packages/ui-native/src/components/chip-group.tsx) | `NativeChipProps` | — | _(no summary)_ |
 | [`NativeChipGroup`](../packages/ui-native/src/components/chip-group.tsx) | `NativeChipGroupProps` | — | _(no summary)_ |
+| [`NativeChoiceCard`](../packages/ui-native/src/components/choice-card.tsx) | `NativeChoiceCardProps` | — | _(no summary)_ |
 | [`NativeCombobox`](../packages/ui-native/src/components/combobox.tsx) | `NativeComboboxProps` | — | _(no summary)_ |
 | [`NativeComposerBar`](../packages/ui-native/src/components/composer-bar.tsx) | `NativeComposerBarProps` | — | _(no summary)_ |
+| [`NativeContextMenu`](../packages/ui-native/src/components/context-menu.tsx) | `NativeContextMenuProps` | — | _(no summary)_ |
 | [`NativeDatePicker`](../packages/ui-native/src/components/date-time-picker.tsx) | `NativeDatePickerProps` | — | _(no summary)_ |
 | [`NativeDialog`](../packages/ui-native/src/components/dialog.tsx) | `NativeDialogProps` | — | _(no summary)_ |
 | [`NativeDialogContent`](../packages/ui-native/src/components/dialog.tsx) | `NativeDialogContentProps` | — | _(no summary)_ |
@@ -5672,12 +5720,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NativeSelectItem`](../packages/ui-native/src/components/select.tsx) | `NativeSelectItemProps` | — | _(no summary)_ |
 | [`NativeSelectTrigger`](../packages/ui-native/src/components/select.tsx) | `NativeSelectTriggerProps` | — | _(no summary)_ |
 | [`NativeSeparator`](../packages/ui-native/src/components/separator.tsx) | `NativeSeparatorProps` | — | _(no summary)_ |
+| [`NativeShareSheet`](../packages/ui-native/src/components/share-sheet.tsx) | `NativeShareSheetProps` | — | _(no summary)_ |
 | [`NativeSheet`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProps` | Beta | _(no summary)_ |
 | [`NativeSheetProvider`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProviderProps` | Beta | Opts every `NativeSheet` below it into `@gorhom/bottom-sheet` and mounts the library's `BottomSheetModalProvider`. A module missing any export the sheet needs is reported with `console.error` and ignored, so sheets fall back to the nativ... |
 | [`NativeSkeleton`](../packages/ui-native/src/components/skeleton.tsx) | `NativeSkeletonProps` | — | _(no summary)_ |
 | [`NativeSlider`](../packages/ui-native/src/components/slider.tsx) | `NativeSliderProps` | — | _(no summary)_ |
 | [`NativeStepper`](../packages/ui-native/src/components/stepper.tsx) | `NativeStepperProps` | — | _(no summary)_ |
+| [`NativeSwipeRow`](../packages/ui-native/src/components/swipe-row.tsx) | `NativeSwipeRowProps` | — | _(no summary)_ |
 | [`NativeSwitch`](../packages/ui-native/src/components/switch.tsx) | `NativeSwitchProps` | — | _(no summary)_ |
+| [`NativeTabBar`](../packages/ui-native/src/components/tab-bar.tsx) | `NativeTabBarProps` | — | _(no summary)_ |
 | [`NativeTabs`](../packages/ui-native/src/components/tabs.tsx) | `NativeTabsProps` | — | _(no summary)_ |
 | [`NativeTabsContent`](../packages/ui-native/src/components/tabs.tsx) | `NativeTabsContentProps` | — | _(no summary)_ |
 | [`NativeTabsList`](../packages/ui-native/src/components/tabs.tsx) | `NativeTabsListProps` | — | _(no summary)_ |
@@ -5685,12 +5736,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NativeText`](../packages/ui-native/src/components/text.tsx) | `NativeTextProps` | — | _(no summary)_ |
 | [`NativeTextarea`](../packages/ui-native/src/components/textarea.tsx) | `NativeTextareaProps` | — | _(no summary)_ |
 | [`NativeThreadList`](../packages/ui-native/src/components/thread-list.tsx) | `NativeThreadListProps` | — | A conversation's list. See the module docs. |
+| [`NativeTierBadge`](../packages/ui-native/src/components/tier-badge.tsx) | `NativeTierBadgeProps` | — | _(no summary)_ |
 | [`NativeTimePicker`](../packages/ui-native/src/components/date-time-picker.tsx) | `NativeTimePickerProps` | — | _(no summary)_ |
 | [`NativeToastProvider`](../packages/ui-native/src/components/toast.tsx) | `NativeToastProviderProps` | — | _(no summary)_ |
 | [`NativeToggle`](../packages/ui-native/src/components/toggle.tsx) | `NativeToggleProps` | — | _(no summary)_ |
 | [`NativeTooltip`](../packages/ui-native/src/components/tooltip.tsx) | `NativeTooltipProps` | — | _(no summary)_ |
 | [`NativeTooltipContent`](../packages/ui-native/src/components/tooltip.tsx) | `NativeTooltipContentProps` | — | _(no summary)_ |
 | [`NativeTooltipTrigger`](../packages/ui-native/src/components/tooltip.tsx) | `NativeTooltipTriggerProps` | — | _(no summary)_ |
+| [`NativeWhatsNewSheet`](../packages/ui-native/src/components/whats-new-sheet.tsx) | `NativeWhatsNewSheetProps` | — | _(no summary)_ |
 | [`NativeZoomablePhoto`](../packages/ui-native/src/components/lightbox-zoom.tsx) | `NativeZoomablePhotoProps` | — | The page: iOS's zooming scroll view, or Android's pinch and pan. |
 | [`NavBarSaveButton`](../packages/ui-native/src/layouts/nav-bar.tsx) | `NavBarSaveButtonProps` | — | _(no summary)_ |
 | [`NavBarSearchBar`](../packages/ui-native/src/layouts/nav-bar.tsx) | `NavBarSearchBarProps` | — | Inline search input meant to occupy the title slot on a search results screen. For a sticky search-below-the-header pattern, prefer the standalone <NativeSearchBar> primitive. |
@@ -5703,7 +5756,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (72)
+### Other exports (73)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5758,8 +5811,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`nextRating`](../packages/ui-native/src/components/rating.tsx) | function | — | The value after pressing `star`: that star, or 0 when it is the current value (a press clears). |
 | [`playHaptic`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | Plays a haptic on the module given; never throws and never rejects. No module, no haptic. |
 | [`readReceiptFor`](../packages/core/src/conversation/format.ts) | function | — | The newest of my messages the other side has read, or null. Events and undelivered messages never count. |
+| [`sentBubbleColor`](../packages/ui-native/src/hooks/use-theme-roles.ts) | const | — | The colour of a message you sent, on every thread on the phone. Its text is `text-primary-foreground`. |
 | [`SF_SYMBOLS`](../packages/ui-native/src/icon-names.ts) | const | Beta | The semantic icon names Genesis components ask for, and the SF Symbol each one draws on iOS. Components say "settings" or "bell", never a library's own name; `lucideIcons` (`/icons/lucide`) maps the same names for Android, web and the SF... |
-| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as a menu (long press). |
+| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as the system alert. `InboxPage` now opens `NativeContextMenu`; `NativeResourceView` still uses this. |
 | [`spaceScale`](../packages/ui-native/src/components/layout/spacing.ts) | const | — | Layout spacing scale — the single source of truth for gap / padding / margin across the Genesis layout primitives (Stack / Inline / Box / Grid). |
 | [`spacingClass`](../packages/ui-native/src/components/layout/spacing.ts) | function | — | Resolve a semantic spacing token to its NativeWind utility class for a given prefix — e.g. `spacingClass("gap", "md") === "gap-3"` (12px / 4). |
 | [`textVariants`](../packages/ui-native/src/components/text.tsx) | value | — | _(no summary)_ |
@@ -5782,7 +5836,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (88)
+### Types (93)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -5831,8 +5885,10 @@ export type { MotionHow };
 export type { MotionSpringConfig };
 export type { MotionTimingConfig };
 export type { NativeAccordionType };
+export type { NativeBulkAction };
 export type { NativeChipGroupMode };
 export type { NativeComboboxOption };
+export type { NativeContextMenuAction };
 export type { NativeEmptyStateVariant };
 export type { NativeGalleryLayout };
 export type { NativeIconName };
@@ -5842,12 +5898,15 @@ export type { NativeLiveIndicatorState };
 export type { NativeLiveIndicatorVariant };
 export type { NativeLoadingStateEdge };
 export type { NativeRatingSize };
+export type { NativeRatingTone };
 export type { NativeSegmentedControlOption };
 export type { NativeSheetLibrary };
 export type { NativeStepperStep };
+export type { NativeTabBarItem };
 export type { NativeThreadListHandle };
 export type { NativeToastOptions };
 export type { NativeToastVariant };
+export type { NativeWhatsNewNote };
 export type { NotificationItem };
 export type { NotificationsPageSlotMap };
 export type { PressFeedback };
@@ -5889,7 +5948,7 @@ export type { UseThreadJumpOptions };
 | --- | --- | --- | --- |
 | [`AuthGate`](../packages/native/src/auth.tsx) | `AuthGateProps` | — | Render one tree for a signed-in user and another for everyone else. |
 | [`BootScreen`](../packages/native/src/app.tsx) | `BootScreenProps` | — | The default boot slot: a plain loading view (the splash covers it at launch). |
-| [`FatalScreen`](../packages/native/src/errors.tsx) | `FatalScreenProps` | — | The default fatal screen: what went wrong and "Try again". |
+| [`FatalScreen`](../packages/native/src/errors.tsx) | `FatalScreenProps` | — | The fatal screen: what went wrong and "Try again", for the whole app, one screen, or (with `kind="plain"`) the last resort that needs nothing above it. |
 | [`GenesisErrorBoundary`](../packages/native/src/errors.tsx) | `GenesisErrorBoundaryProps` | — | An error boundary whose fallback gets `{ error, retry }`. |
 | [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard, data, boot behind the splash, errors, session and held links. |
 | [`ScreenErrorBoundary`](../packages/native/src/screen-boundary.tsx) | `ScreenErrorBoundaryProps` | Beta | A boundary around part of a screen tree, for apps without Expo Router's per-route boundaries: non-fatal, reported, with "Try again". |
@@ -5921,12 +5980,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`mergeBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The merge `useBlockSettings` does, without hooks (subtitles already read). @stability Beta |
 | [`normalizeLink`](../packages/native/src/links.ts) | function | — | The app path for `url`, `"/"` when it is unknown, or `null` when it is ignored. |
 | [`onBeforeReload`](../packages/native/src/reload.ts) | function | Beta | Run `hook` before every reload the updates block starts. Returns the unregister. @stability Beta |
-| [`PlainFatalScreen`](../packages/native/src/errors.tsx) | function | — | The last-resort fatal screen: React Native primitives only, no theme, no context, nothing that can itself fail. Shown when the providers could not start, or when the `fatal` slot threw. |
+| [`PlainFatalScreen`](../packages/native/src/errors.tsx) | function | — | The last-resort fatal screen. |
 | [`queryKeyName`](../packages/native/src/query.ts) | function | — | The first segment of a query or mutation key, when it is a name; never the ids after it. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
 | [`reportQueryErrors`](../packages/native/src/query.ts) | function | Beta | Hand every query and mutation that failed for good (after its retries) to `report`, as a non-fatal `query` or `mutation` error tagged with the key's first segment (`query.key: "tasks"`), never the ids after it. |
 | [`runBeforeReload`](../packages/native/src/reload.ts) | function | Beta | Run every registered hook, in parallel, and resolve when they have all settled or `timeoutMs` has passed, whichever is first. Never rejects. |
-| [`ScreenErrorScreen`](../packages/native/src/screen-boundary.tsx) | function | Beta | The default screen fallback: the screen hit a problem, and "Try again". @stability Beta |
+| [`ScreenErrorScreen`](../packages/native/src/screen-boundary.tsx) | function | — | The default screen fallback: the screen hit a problem, and "Try again". |
 | [`SessionProvider`](../packages/native/src/auth.tsx) | function | — | Makes a session store readable with `useSession()`. |
 | [`useBlocks`](../packages/native/src/blocks.tsx) | function | Beta | The resolved blocks: their ids, nav entries, Settings rows, routes and the rest, each tagged with its FeatureId. Throws outside `GenesisNativeApp`. |
 | [`useBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The app's Settings sections with every block's rows added: each row goes at the end of the section its `section` names (by `order`, then block order), and a section no one has yet is added after the rest. |
@@ -5934,7 +5993,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useHeldLink`](../packages/native/src/held-link.ts) | function | — | Follow the held link after a sign-in, drop it otherwise; returns the link still held. |
 | [`useSession`](../packages/native/src/auth.tsx) | function | — | The session and whether it is known yet. Inside `GenesisNativeApp` or a `SessionProvider`. |
 
-### Types (47)
+### Types (49)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -5957,6 +6016,8 @@ export type { ErrorKind };
 export type { ErrorMessages };
 export type { ErrorReport };
 export type { ErrorUtilsLike };
+export type { FatalScreenKind };
+export type { FatalScreenViewProps };
 export type { GlobalErrorHandlerOptions };
 export type { HeldLinkAuth };
 export type { HydrationGate };
@@ -6580,7 +6641,7 @@ export type { UseSubmitOutboxOptions };
 | [`FieldChrome`](../packages/forms-web/src/chrome.tsx) | `FieldChromeProps` | — | Label, description and error around a control. Group types (radio, checkbox list, rating, scale) get a real `fieldset`/`legend`, so a screen reader announces the question with every option; the fieldset carries the field's `inputId` (an ... |
 | [`Form`](../packages/forms-web/src/Form.tsx) | `FormProps` | — | _(no summary)_ |
 
-### Other exports (23)
+### Other exports (42)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -6588,18 +6649,36 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`builtInRenderers`](../packages/forms-web/src/renderers.tsx) | const | — | _(no summary)_ |
 | [`CLASSIC_PROGRESS_DELAY_MS`](../packages/forms-react/src/controller.ts) | const | — | In classic layout, how long after the last answer changed. |
+| [`ConsentField`](../packages/forms-web/src/renderers.tsx) | function | Beta | One checkbox to agree to something. The question is the legend; the checkbox's own words are `props.text` ("I agree to the terms"), else "I agree". |
+| [`DateField`](../packages/forms-web/src/renderers.tsx) | function | Beta | A calendar day from the browser's own date picker, stored as `YYYY-MM-DD`. |
+| [`DefaultBrand`](../packages/forms-web/src/Form.tsx) | function | Beta | The form's default brand slot: a logo, or the name's initials, beside the name. |
 | [`DefaultEnding`](../packages/forms-web/src/Form.tsx) | function | — | The built-in ending (a check, the title and description, then any `actions`). Exported so a custom ending slot can wrap it rather than copy it. |
+| [`DefaultErrorSummary`](../packages/forms-web/src/Form.tsx) | function | Beta | The form's default error summary slot: each answer that needs attention, linked to its question. |
+| [`DefaultHeader`](../packages/forms-web/src/Form.tsx) | function | Beta | The form's default header slot: title, description, image and the required note. |
+| [`DefaultNavigation`](../packages/forms-web/src/Form.tsx) | function | Beta | The form's default navigation slot: Back, and Next or Send. |
+| [`DefaultProgress`](../packages/forms-web/src/Form.tsx) | function | Beta | The form's default progress slot: the step on the respondent's path, as a bar. |
 | [`defaultRegistry`](../packages/forms-web/src/renderers.tsx) | const | — | The built-in web renderers, shared by every `<Form>` that gets no `registry`. `extend()` returns a new registry and leaves this one alone; `register()` changes this one in place, for every form in the app. |
 | [`describedBy`](../packages/forms-web/src/chrome.tsx) | function | — | _(no summary)_ |
+| [`DropdownField`](../packages/forms-web/src/renderers.tsx) | function | Beta | One option from a native `<select>`: compact for a long list, and the phone's own picker on touch devices. Over more options than `SEARCHABLE_OPTION_COUNT` (or with `props.searchable: true`) it is a searchable list instead, which also sh... |
 | [`HIDDEN_QUERY_KEEP_MS`](../packages/forms-web/src/clean-url.ts) | const | — | How long a reload brings the query back: 30 minutes. |
 | [`hideQueryOnLoad`](../packages/forms-web/src/clean-url.ts) | function | — | Run once when the page has read its query. Returns "hidden" when it took the query out of the address bar, "restoring" when a reload is bringing a hidden query back (the page is about to load again), else "none". |
+| [`ListField`](../packages/forms-web/src/structured.tsx) | function | Beta | The renderer for a list answer: entries added, removed and reordered. |
+| [`MediaNotesField`](../packages/forms-web/src/structured.tsx) | function | Beta | The renderer for notes pinned to moments in a recording. |
 | [`MediaTimeContext`](../packages/forms-web/src/source.ts) | const | — | Provide it around `<Form>` to link `media-notes` fields to a media player. |
+| [`MultiChoiceField`](../packages/forms-web/src/renderers.tsx) | function | Beta | The renderer for a multiple choice: a list of options, or a search when there are many. |
+| [`NumberField`](../packages/forms-web/src/renderers.tsx) | function | Beta | A number, typed as text with the decimal keypad: what was typed is kept while it is not a number yet ("-", "1."), and stored as a number once it is. Text that never becomes a number is kept as text, so validation says so. |
 | [`photoAccept`](../packages/forms-web/src/photo.tsx) | function | — | The `accept` attribute for a field: its MIME types, plus HEIC's file names for browsers that give it no type. |
+| [`PhotoField`](../packages/forms-web/src/photo.tsx) | function | Beta | The renderer for a photo answer: pick, preview and upload images. |
 | [`photoFileProblem`](../packages/forms-web/src/photo.tsx) | function | — | Why a picked file can't be added, or null when it can. |
 | [`photoFileType`](../packages/forms-web/src/photo.tsx) | function | — | The file's type as the field judges it: some browsers give a HEIC photo no type, so its name decides. |
 | [`PROGRESS_DELAY_MS`](../packages/forms-react/src/controller.ts) | const | — | How long after a step forward `onProgress` waits, so quick steps save once. |
+| [`ScaleField`](../packages/forms-web/src/renderers.tsx) | function | Beta | The renderer for a rating scale, NPS or star rating. |
 | [`signedUploadHost`](../packages/forms-web/src/signed-upload.ts) | function | — | The browser half of the upload handshake (genesis-forms/server's `createUploadHandler`): for each file it asks `endpoint` for a signed upload (`UploadRequest` as JSON), sends the bytes with `send`, and resolves to the reference the serve... |
+| [`SingleChoiceField`](../packages/forms-web/src/renderers.tsx) | function | Beta | The renderer for a single choice: a list of options, or a search when there are many. |
 | [`SourceTextContext`](../packages/forms-web/src/source.ts) | const | — | The text a form is about (an article, a policy, a contract). `text-highlights` fields highlight passages of it; a field's own `props.text` is used when no host provides one. Offsets are UTF-16 indices into this exact string. |
+| [`TableField`](../packages/forms-web/src/structured.tsx) | function | Beta | The renderer for a table answer: rows of columns. |
+| [`TextField`](../packages/forms-web/src/renderers.tsx) | function | Beta | The renderer for typed text answers (short, long, email, phone, URL). |
+| [`TextHighlightsField`](../packages/forms-web/src/structured.tsx) | function | Beta | The renderer for highlights marked in a source text. |
 | [`themeColors`](../packages/forms-web/src/theme.ts) | function | — | The accent as Genesis primary colours for a light and a dark page, each adjusted only as far as contrast needs. Null when `accent` is not a colour this understands. |
 | [`themeCss`](../packages/forms-web/src/theme.ts) | function | — | The CSS that applies `theme` to the elements matching `selector`, or "" when it changes no colour. |
 | [`UPLOAD_WAIT_MESSAGE`](../packages/forms-web/src/upload.ts) | const | — | Said when the respondent tries to move on or send while a photo is still uploading. |
@@ -6609,6 +6688,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useSourceText`](../packages/forms-web/src/source.ts) | function | — | The enclosing `SourceTextContext` value, or null. |
 | [`useUpload`](../packages/forms-web/src/upload.ts) | function | — | The enclosing `UploadContext` value, or null when no host stores files. |
 | [`wasReload`](../packages/forms-web/src/clean-url.ts) | const | — | Whether this page load was a reload (Navigation Timing), in the browser; false elsewhere. |
+| [`YesNoField`](../packages/forms-web/src/renderers.tsx) | function | Beta | The renderer for a yes or no question. |
 
 ### Types (19)
 
@@ -6782,18 +6862,24 @@ Genesis CLI — `genesis init` scaffolds a Genesis app (`--template native`: a n
 
 **Barrel:** [`packages/genesis-cli/src/index.ts`](../packages/genesis-cli/src/index.ts)
 
-### Other exports (19)
+### Other exports (28)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| `appNavTargets` | value | — | _(no summary)_ |
+| `appRoutes` | value | — | _(no summary)_ |
+| `checkFigmaRoutes` | value | — | _(no summary)_ |
 | `CommentSettingsError` | value | — | _(no summary)_ |
+| `compareFigmaRoutes` | value | — | _(no summary)_ |
 | `defineDoctorPlugin` | value | — | _(no summary)_ |
 | `detectHost` | value | — | _(no summary)_ |
 | `DoctorConfigError` | value | — | _(no summary)_ |
 | `emitContracts` | value | — | _(no summary)_ |
 | `EmitError` | value | — | _(no summary)_ |
+| `FigmaConfigError` | value | — | _(no summary)_ |
+| `formatCoverage` | value | — | _(no summary)_ |
 | `formatReport` | value | — | _(no summary)_ |
 | `GenesisConfigError` | value | — | _(no summary)_ |
 | `introspectOpenApi` | value | — | _(no summary)_ |
@@ -6802,23 +6888,30 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `parseTableComment` | value | — | _(no summary)_ |
 | `planScaffold` | value | — | _(no summary)_ |
 | `planStudioInit` | value | — | _(no summary)_ |
+| `readFigma` | value | — | _(no summary)_ |
+| `readFigmaConfig` | value | — | _(no summary)_ |
 | `readGenesisConfig` | value | — | _(no summary)_ |
 | `runDoctor` | value | — | _(no summary)_ |
 | `runScaffold` | value | — | _(no summary)_ |
 | `validateConsumerName` | value | — | _(no summary)_ |
+| `validateFigmaConfig` | value | — | _(no summary)_ |
 | `validateLinks` | value | — | _(no summary)_ |
 
-### Types (25)
+### Types (30)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AppRoute };
+export type { CoverageReport };
 export type { DoctorConfig };
 export type { DoctorContext };
 export type { DoctorPlugin };
 export type { DoctorResult };
 export type { EmitOptions };
 export type { FieldSettings };
+export type { FigmaConfig };
+export type { FigmaFacts };
 export type { FileSystem };
 export type { Finding };
 export type { GenesisConfigFile };
@@ -6828,6 +6921,7 @@ export type { InitOptions };
 export type { InitPlan };
 export type { IntrospectedColumn };
 export type { IntrospectedTable };
+export type { NavTarget };
 export type { OpenApiDocument };
 export type { PlannedFile };
 export type { ProjectFacts };
@@ -6895,7 +6989,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `DoctorConfigError` | value | — | _(no summary)_ |
 | `findPackageDir` | value | — | _(no summary)_ |
 | `formatPrimitives` | value | — | _(no summary)_ |
-| [`formatReport`](../packages/genesis-cli/src/doctor/index.ts) | function | — | The human-readable report. |
+| [`formatReport`](../packages/genesis-cli/src/doctor/index.ts) | function | — | The human-readable report. `verbose` lists the components no file imports; otherwise only their count. |
 | `GenesisConfigError` | value | — | _(no summary)_ |
 | `genesisInstalls` | value | — | _(no summary)_ |
 | [`genesisSummary`](../packages/genesis-cli/src/doctor/index.ts) | function | — | What `--print-genesis` shows: the facts every rule is derived from. |
@@ -7414,7 +7508,7 @@ The native app shell: `GenesisNativeApp` (boot behind the splash, fatal screen, 
 | --- | --- | --- | --- |
 | [`AuthGate`](../packages/native/src/auth.tsx) | `AuthGateProps` | — | Render one tree for a signed-in user and another for everyone else. |
 | [`BootScreen`](../packages/native/src/app.tsx) | `BootScreenProps` | — | The default boot slot: a plain loading view (the splash covers it at launch). |
-| [`FatalScreen`](../packages/native/src/errors.tsx) | `FatalScreenProps` | — | The default fatal screen: what went wrong and "Try again". |
+| [`FatalScreen`](../packages/native/src/errors.tsx) | `FatalScreenProps` | — | The fatal screen: what went wrong and "Try again", for the whole app, one screen, or (with `kind="plain"`) the last resort that needs nothing above it. |
 | [`GenesisErrorBoundary`](../packages/native/src/errors.tsx) | `GenesisErrorBoundaryProps` | — | An error boundary whose fallback gets `{ error, retry }`. |
 | [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard, data, boot behind the splash, errors, session and held links. |
 | [`ScreenErrorBoundary`](../packages/native/src/screen-boundary.tsx) | `ScreenErrorBoundaryProps` | Beta | A boundary around part of a screen tree, for apps without Expo Router's per-route boundaries: non-fatal, reported, with "Try again". |
@@ -7446,12 +7540,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`mergeBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The merge `useBlockSettings` does, without hooks (subtitles already read). @stability Beta |
 | [`normalizeLink`](../packages/native/src/links.ts) | function | — | The app path for `url`, `"/"` when it is unknown, or `null` when it is ignored. |
 | [`onBeforeReload`](../packages/native/src/reload.ts) | function | Beta | Run `hook` before every reload the updates block starts. Returns the unregister. @stability Beta |
-| [`PlainFatalScreen`](../packages/native/src/errors.tsx) | function | — | The last-resort fatal screen: React Native primitives only, no theme, no context, nothing that can itself fail. Shown when the providers could not start, or when the `fatal` slot threw. |
+| [`PlainFatalScreen`](../packages/native/src/errors.tsx) | function | — | The last-resort fatal screen. |
 | [`queryKeyName`](../packages/native/src/query.ts) | function | — | The first segment of a query or mutation key, when it is a name; never the ids after it. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
 | [`reportQueryErrors`](../packages/native/src/query.ts) | function | Beta | Hand every query and mutation that failed for good (after its retries) to `report`, as a non-fatal `query` or `mutation` error tagged with the key's first segment (`query.key: "tasks"`), never the ids after it. |
 | [`runBeforeReload`](../packages/native/src/reload.ts) | function | Beta | Run every registered hook, in parallel, and resolve when they have all settled or `timeoutMs` has passed, whichever is first. Never rejects. |
-| [`ScreenErrorScreen`](../packages/native/src/screen-boundary.tsx) | function | Beta | The default screen fallback: the screen hit a problem, and "Try again". @stability Beta |
+| [`ScreenErrorScreen`](../packages/native/src/screen-boundary.tsx) | function | — | The default screen fallback: the screen hit a problem, and "Try again". |
 | [`SessionProvider`](../packages/native/src/auth.tsx) | function | — | Makes a session store readable with `useSession()`. |
 | [`useBlocks`](../packages/native/src/blocks.tsx) | function | Beta | The resolved blocks: their ids, nav entries, Settings rows, routes and the rest, each tagged with its FeatureId. Throws outside `GenesisNativeApp`. |
 | [`useBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The app's Settings sections with every block's rows added: each row goes at the end of the section its `section` names (by `order`, then block order), and a section no one has yet is added after the rest. |
@@ -7459,7 +7553,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useHeldLink`](../packages/native/src/held-link.ts) | function | — | Follow the held link after a sign-in, drop it otherwise; returns the link still held. |
 | [`useSession`](../packages/native/src/auth.tsx) | function | — | The session and whether it is known yet. Inside `GenesisNativeApp` or a `SessionProvider`. |
 
-### Types (47)
+### Types (49)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -7482,6 +7576,8 @@ export type { ErrorKind };
 export type { ErrorMessages };
 export type { ErrorReport };
 export type { ErrorUtilsLike };
+export type { FatalScreenKind };
+export type { FatalScreenViewProps };
 export type { GlobalErrorHandlerOptions };
 export type { HeldLinkAuth };
 export type { HydrationGate };
@@ -7617,7 +7713,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWhatsNew`](../packages/native/src/updates/block.tsx) | function | — | The notes to show now, or `null`. |
 | [`versionSignature`](../packages/native/src/updates/signature.ts) | function | — | _(no summary)_ |
 | [`WEEK_MS`](../packages/native/src/updates/policy.ts) | const | — | _(no summary)_ |
-| [`WhatsNewSheet`](../packages/native/src/updates/screens.tsx) | function | — | The release notes for this version, once, in a sheet. |
+| [`WhatsNewSheet`](../packages/native/src/updates/screens.tsx) | function | — | The release notes for this version, once, in a sheet: the updates block's slot, drawn by genesis-ui-native's `NativeWhatsNewSheet` (the same sheet genesis-product's uses). |
 
 ### Types (37)
 
@@ -7802,7 +7898,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`OBSERVABILITY_BLOCK_ID`](../packages/native/src/observability/block.tsx) | const | — | The FeatureId of the observability block. |
 | [`ObservabilityProvider`](../packages/native/src/observability/block.tsx) | function | Beta | Provides a block to the hooks without its root (rung 4). @stability Beta |
 | [`observeSink`](../packages/native/src/observability/sink.ts) | function | Beta | EAS Observe. It measures launch (cold, warm, bundle load, first render), time to interactive and, with its Expo Router integration, per-route render times on its own; it has no API for a custom timing metric, so `timing` is logged as an ... |
-| [`ScreenErrorScreen`](../packages/native/src/screen-boundary.tsx) | function | Beta | The default screen fallback: the screen hit a problem, and "Try again". @stability Beta |
+| [`ScreenErrorScreen`](../packages/native/src/screen-boundary.tsx) | function | — | The default screen fallback: the screen hit a problem, and "Try again". |
 | [`scrubbedError`](../packages/native/src/observability/sink.ts) | function | — | A copy of `error` whose message and stack have been scrubbed (for sinks that don't scrub themselves). |
 | [`scrubBreadcrumb`](../packages/native/src/observability/sink.ts) | function | — | Breadcrumb data scrubbed and made plain (for sinks and the devtools overlay). |
 | [`scrubEvent`](../packages/native/src/observability/scrub.ts) | function | — | The event with the user reduced to its id, the request reduced to its method, URL (cut at `?`) and scrubbed headers, and every other value scrubbed. `null` when scrubbing threw: fail closed, send nothing rather than PII. |
@@ -8576,7 +8672,7 @@ export type { WhatsNewUpdatesLike };
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`ProductWhatsNew`](../packages/product/src/native/whats-new.tsx) | `ProductWhatsNewProps` | — | Renders the sheet while the store shows notes, and nothing otherwise. |
-| [`ProductWhatsNewSheet`](../packages/product/src/native/whats-new.tsx) | `ProductWhatsNewSheetProps` | — | _(no summary)_ |
+| [`ProductWhatsNewSheet`](../packages/product/src/native/whats-new.tsx) | `ProductWhatsNewSheetProps` | — | The sheet, in the product's copy: genesis-ui-native's `NativeWhatsNewSheet` with the notes' ids as keys. |
 | [`RoadmapDetailSheet`](../packages/product/src/native/roadmap.tsx) | `RoadmapDetailSheetProps` | — | _(no summary)_ |
 | [`VoteButton`](../packages/product/src/native/idea-board.tsx) | `VoteButtonProps` | — | _(no summary)_ |
 
@@ -9357,11 +9453,32 @@ Data Studio workspace UI — a table sidebar and a sheet grid with version-check
 
 **Barrel:** [`packages/studio/src/index.ts`](../packages/studio/src/index.ts)
 
-### Components (1)
+### Components (22)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
+| [`ActivityPanel`](../packages/studio/src/DataStudio.tsx) | `ActivityPanelProps` | Beta | The studio's activity panel: recent changes, with undo. |
+| [`BulkEditDialog`](../packages/studio/src/toolbar/BulkEdit.tsx) | `BulkEditDialogProps` | Beta | Set one field on every selected row: all of them change, or none do. |
+| [`CalendarView`](../packages/studio/src/views/CalendarView.tsx) | `CalendarViewProps` | Beta | A month of the table's rows, placed by a date field and drawn by Genesis UI's EventCalendar. One request per month grid (a `gte`/`lt` range on the field covering the month's whole weeks, so the days shown from the months either side are ... |
 | [`DataStudio`](../packages/studio/src/DataStudio.tsx) | `DataStudioProps` | Experimental | The Data Studio: a sidebar of the tables this user may see, and a sheet of the selected one where a cell is edited in place. Every edit carries the version it was read at, so a stale edit is refused rather than saved over someone else's,... |
+| [`ExportButton`](../packages/studio/src/toolbar/Toolbar.tsx) | `ExportButtonProps` | Beta | The studio toolbar's export button, with its progress. |
+| [`FieldIcon`](../packages/studio/src/grid/cells.tsx) | `FieldIconProps` | Beta | An icon for the field's type, as Airtable shows in each column header. |
+| [`FilterBuilder`](../packages/studio/src/toolbar/Toolbar.tsx) | `FilterBuilderProps` | Beta | Filters by field, with the operators that fit each field's type. |
+| [`GroupPicker`](../packages/studio/src/toolbar/Toolbar.tsx) | `GroupPickerProps` | Beta | Group rows by a field with few distinct values. |
+| [`HideFields`](../packages/studio/src/toolbar/Toolbar.tsx) | `HideFieldsProps` | Beta | Which fields the grid shows. |
+| [`ImportDialog`](../packages/studio/src/toolbar/ImportDialog.tsx) | `ImportDialogProps` | Beta | CSV import (DATA-STUDIO.md P2): map the file's columns to fields, check every row against the database with a dry run, then add them all in one transaction. Nothing is coerced or dropped: a value that won't convert is listed, with the da... |
+| [`KanbanView`](../packages/studio/src/views/KanbanView.tsx) | `KanbanViewProps` | Beta | A board of the table's rows, one column per value of `field`. Each column is paged on its own (50 cards, then "Load more"), with the same filters, search and sort as the table. Moving a card is a version-checked update of `field`, so a c... |
+| [`NewRowButton`](../packages/studio/src/toolbar/Toolbar.tsx) | `NewRowButtonProps` | Beta | The studio toolbar's new row button, disabled with a reason when not allowed. |
+| [`Pill`](../packages/studio/src/grid/cells.tsx) | `PillProps` | Beta | A value drawn as a tinted pill. |
+| [`RecordPanel`](../packages/studio/src/record/RecordPanel.tsx) | `RecordPanelProps` | Beta | One record, in a side panel: its fields as a form, the records it links to and from, and its audit history. The URL names it, so the link copies. |
+| [`RelationPicker`](../packages/studio/src/record/RelationPicker.tsx) | `RelationPickerProps` | Beta | Pick a linked row by searching the target resource on the server, so it works for a table of any size; shows each row by its label field. |
+| [`SearchBox`](../packages/studio/src/toolbar/Toolbar.tsx) | `SearchBoxProps` | Beta | Search every text field, as you type. |
+| [`SheetView`](../packages/studio/src/sheet/SheetView.tsx) | `SheetViewProps` | Beta | The spreadsheet view of a table (DATA-STUDIO.md P2). A paste across rows is saved in ONE transaction through `updateMany`: every row changes, at the version it was read, or none does, and the failing cells are marked. |
+| [`SortBuilder`](../packages/studio/src/toolbar/Toolbar.tsx) | `SortBuilderProps` | Beta | Sort by several fields, first one first. |
+| [`TableTabs`](../packages/studio/src/workspace/ViewsPanel.tsx) | `TableTabsProps` | Beta | Table tabs across the top, as Airtable shows a base's tables. |
+| [`ViewFieldPicker`](../packages/studio/src/toolbar/Toolbar.tsx) | `ViewFieldPickerProps` | Beta | Which field lays out the board or the calendar. |
+| [`ViewsPanel`](../packages/studio/src/workspace/ViewsPanel.tsx) | `ViewsPanelProps` | Beta | The left column: how to look at this table, and the views you've saved. |
+| [`ViewSwitch`](../packages/studio/src/toolbar/Toolbar.tsx) | `ViewSwitchProps` | Beta | Switch between the table, the spreadsheet grid, a board and a calendar. |
 
 ### Other exports (5)
 
@@ -9375,7 +9492,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useHistoryRouter`](../packages/studio/src/router.ts) | function | — | For an app with no router: keeps the studio's state in the current page's query string through the History API. |
 | [`useMemoryRouter`](../packages/studio/src/router.ts) | function | — | A router held in memory, for tests and embedded previews. |
 
-### Types (6)
+### Types (7)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -9386,6 +9503,7 @@ export type { StudioNavigateOptions };
 export type { StudioRouter };
 export type { StudioSessionSource };
 export type { StudioView };
+export type { ViewKind };
 ```
 
 ---
@@ -9855,7 +9973,7 @@ Support and feedback for Genesis apps, in the app's own Supabase: a feedback rec
 
 **Barrel:** [`packages/support/src/index.ts`](../packages/support/src/index.ts)
 
-### Other exports (43)
+### Other exports (47)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9873,14 +9991,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createSupabaseSink`](../packages/support/src/client.ts) | function | — | The Supabase sink on its own (the support client is one). |
 | [`createSupportClient`](../packages/support/src/client.ts) | function | — | The support client over the app's Supabase client. |
 | [`defineSupportBlock`](../packages/support/src/block.ts) | function | — | The platform-neutral declaration. |
-| [`defineSupportChatBlock`](../packages/support/src/block.ts) | function | — | The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of its own (the support block's thread route renders the conversation); it brings migrations `0005_genesis_support_chat_on_tickets.sql` and `0006_ge... |
+| [`defineSupportChatBlock`](../packages/support/src/block.ts) | function | — | The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of its own (the support block's thread route renders the conversation); it brings migrations `0005_genesis_support_chat_on_tickets.sql`, `0006_genes... |
 | [`defineSupportEmailBlock`](../packages/support/src/block.ts) | function | — | The support-email block: email is a ticket channel (ADR 0011). It brings migration `0002_genesis_support_email.sql` from this package, after 0006; the server half is `@marktiderman/genesis-support/email` with genesis-notifications' inbou... |
+| [`defineSupportHelpdeskBlock`](../packages/support/src/block.ts) | function | — | The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It brings migration `0010_genesis_support_help_center.sql`. Its screens are components and hooks the app routes to: `SupportMessengerLauncher`, `... |
 | [`DEVICE_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`EXTRA_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`FEEDBACK_REPORT_TYPES`](../packages/support/src/contract.ts) | const | — | _(no summary)_ |
 | [`FEEDBACK_STATUSES`](../packages/support/src/contract.ts) | const | — | _(no summary)_ |
 | [`FEEDBACK_TYPES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`fill`](../packages/support/src/copy.ts) | function | — | Fills `{name}` placeholders. |
+| [`helpArticleDoc`](../packages/support/src/help-pages.ts) | function | — | Plain text as rich text: a blank line parts paragraphs, a single line break stays one. |
+| [`helpCenterPages`](../packages/support/src/help-pages.ts) | function | — | The index page and one page per published article, ready for a site's `createSite` or page saves. |
 | [`IntakeError`](../packages/support/src/intake.ts) | class | — | A non-2xx answer (`status` 0: it never arrived). `code` is the function's `error`. |
 | [`isMissingFunction`](../packages/support/src/chat.ts) | function | — | PostgREST's "no such function" (PGRST202) or Postgres's (42883): the block's migration isn't applied. |
 | [`isSitePath`](../packages/support/src/routes.ts) | function | — | Whether a report's route is a path on this site, safe to link: one leading "/", not "//" or "/\\" (another host), no scheme, no whitespace or control characters, and no placeholder segment (":id") where cleanRoute took an id out. |
@@ -9896,6 +10017,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SUPPORT_CHAT_KIND`](../packages/support/src/chat.ts) | const | — | The genesis_chat kind a report's conversation is, and its subject type. |
 | [`SUPPORT_CHAT_SUBJECT`](../packages/support/src/chat.ts) | const | — | _(no summary)_ |
 | [`SUPPORT_EMAIL_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The support-email block's id. |
+| [`SUPPORT_HELPDESK_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The help desk block's id: the messenger, the help center and its AI answers, with the agent inbox. |
 | [`SUPPORT_TO_CHAT_STATUS`](../packages/support/src/chat.ts) | const | — | A support report's status, as genesis-chat's conversation status (the migration's mapping). |
 | [`supportContributions`](../packages/support/src/block.ts) | function | — | The block's contributions, for any platform. |
 | [`supportCopy`](../packages/support/src/copy.ts) | const | — | Every string the support block shows, in English. Pass `copy` (any part of this shape) to translate or reword; what you leave out stays English. |
@@ -9905,11 +10027,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`validateSubmitInput`](../packages/support/src/contract.ts) | function | — | Checks a `submit` body the way the server does: known keys only, every limit. |
 | [`WIDGET_HEADERS`](../packages/support/src/contract.ts) | const | — | Headers a client sends. The person's access token goes in `Authorization: Bearer …`. |
 
-### Types (46)
+### Types (59)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AgentTicket };
+export type { AgentTicketCounts };
 export type { BootConfig };
 export type { ContextCollector };
 export type { ContextCollectorOptions };
@@ -9924,6 +10048,16 @@ export type { FeedbackSink };
 export type { FeedbackStatus };
 export type { FeedbackType };
 export type { FindingSeverity };
+export type { HelpAnswerResponse };
+export type { HelpArticle };
+export type { HelpArticleInput };
+export type { HelpArticleStatus };
+export type { HelpArticleSummary };
+export type { HelpAskState };
+export type { HelpCenterPage };
+export type { HelpCenterPagesInput };
+export type { HelpCollection };
+export type { HelpSearchHit };
 export type { IdeaStatus };
 export type { IdentityMode };
 export type { IntakeClient };
@@ -9953,6 +10087,7 @@ export type { SupportThreadInfo };
 export type { ThemeTokens };
 export type { Ticket };
 export type { TicketAgentRole };
+export type { TicketInboxView };
 export type { WidgetConfig };
 export type { WidgetType };
 export type { WidgetTypeWire };
@@ -10016,20 +10151,36 @@ export type { WebCapture };
 
 **Barrel:** [`packages/support/src/web-chat/index.ts`](../packages/support/src/web-chat/index.ts)
 
-### Components (2)
+### Components (6)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
+| [`SupportAgentInbox`](../packages/support/src/web-chat/agent-inbox.tsx) | `SupportAgentInboxProps` | — | A tenant's help desk inbox: its queues, the open ticket's thread and its details. Another tenant is a fresh inbox. |
+| [`SupportHelpCenterAdmin`](../packages/support/src/web-chat/help-admin.tsx) | `SupportHelpCenterAdminProps` | — | A tenant's help center, for its agents. |
+| [`SupportMessenger`](../packages/support/src/web-chat/messenger.tsx) | `SupportMessengerProps` | — | The messenger: Home, Messages and Help, in whatever holds it. Another tenant is another messenger: nothing carries over. |
+| [`SupportMessengerLauncher`](../packages/support/src/web-chat/messenger.tsx) | `SupportMessengerLauncherProps` | — | A button with the unread count that opens the messenger: in the chat dock when there is one, else a sheet. |
 | [`SupportReportThread`](../packages/support/src/web-chat/report-thread.tsx) | `SupportReportThreadProps` | — | The person's view of their report: the report, then the conversation with support, live. |
 | [`SupportStaffThread`](../packages/support/src/web-chat/staff-thread.tsx) | `SupportStaffThreadProps` | — | A report for staff: status and assignee controls over the live conversation, with internal notes. |
 
-### Other exports (1)
+### Other exports (3)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`supportInboxKeys`](../packages/support/src/web-chat/agent-inbox.tsx) | const | — | The agent inbox's query keys, under genesis-support's root. |
+| [`supportMessengerKeys`](../packages/support/src/web-chat/messenger.tsx) | const | — | _(no summary)_ |
 | [`supportWebKeys`](../packages/support/src/web-chat/report-thread.tsx) | const | — | The query keys, under genesis-support's root (as on native). |
+
+### Types (3)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { HelpAnswerResponse };
+export type { HelpAskState };
+export type { MessengerSpace };
+```
 
 ---
 
@@ -10037,14 +10188,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 **Barrel:** [`packages/support/src/native/index.ts`](../packages/support/src/native/index.ts)
 
-### Components (2)
+### Components (3)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`FeedbackForm`](../packages/support/src/native/feedback-form.tsx) | `FeedbackFormProps` | — | _(no summary)_ |
+| [`HelpAnswerCard`](../packages/support/src/native/help.tsx) | `HelpAnswerCardProps` | — | The AI's answer, or that it has none, always with the way to a person. |
 | [`ScreenshotAnnotator`](../packages/support/src/native/annotator.tsx) | `ScreenshotAnnotatorProps` | — | _(no summary)_ |
 
-### Other exports (17)
+### Other exports (22)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10052,15 +10204,20 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`boxOf`](../packages/support/src/native/annotator.tsx) | function | — | _(no summary)_ |
 | [`createSupport`](../packages/support/src/native/support.tsx) | function | — | _(no summary)_ |
+| [`HelpArticleBody`](../packages/support/src/native/help.tsx) | function | — | An article's words, and the way to a person. |
 | [`listenForShake`](../packages/support/src/native/modules.ts) | function | — | Calls `onShake` when the phone is shaken: a few strong jolts close together, then a cooldown. Returns the stop. |
 | [`SendFeedbackButton`](../packages/support/src/native/screens.tsx) | function | — | "Send feedback", for a devtools panel's slot or any screen: captures the screen, then opens the feedback screen. Renders nothing when support is off. |
 | [`strokeDots`](../packages/support/src/native/annotator.tsx) | function | — | The dots along a stroke, close enough to read as a line. |
 | [`SUPPORT_QUERY_ROOT`](../packages/support/src/native/support.tsx) | const | — | _(no summary)_ |
 | [`SupportProvider`](../packages/support/src/native/support.tsx) | function | — | _(no summary)_ |
+| [`useHelpArticle`](../packages/support/src/native/help.tsx) | function | — | One article, by its slug. |
+| [`useHelpCenter`](../packages/support/src/native/help.tsx) | function | — | The help center: its collections and articles, or within one collection, with search. With the tenant's AI on and `askAi` given to `createSupport`, searching also asks it. |
 | [`useIdeaBoard`](../packages/support/src/native/screens.tsx) | function | — | The idea board: most votes first, a vote button on each, and a field to suggest one. |
+| [`useMessengerHome`](../packages/support/src/native/help.tsx) | function | — | Home: a greeting, search, the way to send a message; the latest conversation and articles as rows. |
 | [`useOptionalSupport`](../packages/support/src/native/support.tsx) | function | — | The same block, or `null` when support is off (for a button that hides itself). |
 | [`usePendingFeedback`](../packages/support/src/native/support.tsx) | function | — | The pending feedback, re-rendering when it changes. |
 | [`useShippedIdeas`](../packages/support/src/native/screens.tsx) | function | — | "You asked, we shipped": the shipped ideas the person suggested or voted for, with the FeatureId each shipped as. |
+| [`useStartConversation`](../packages/support/src/native/help.tsx) | function | — | Start a conversation: an empty thread whose first message becomes a ticket, then its thread opens. |
 | [`useSupport`](../packages/support/src/native/support.tsx) | function | — | The support block, from `GenesisNativeApp blocks` (or `SupportProvider`). Throws outside one. |
 | [`useSupportConversation`](../packages/support/src/native/screens.tsx) | function | — | Where a report's thread lives: its genesis-chat conversation (the support-chat block, with a `chat` client given to `createSupport`), or support_replies. For a screen of your own that renders the conversation with `@marktiderman/genesis-... |
 | [`useSupportInbox`](../packages/support/src/native/screens.tsx) | function | — | Help: the person's reports, newest first, with unread staff replies, and links to the idea board. |
@@ -10068,7 +10225,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useUnreadReplies`](../packages/support/src/native/support.tsx) | function | — | How many reports have a staff reply the person hasn't read. |
 | [`VoteButton`](../packages/support/src/native/screens.tsx) | function | — | A vote toggle for an idea row. |
 
-### Types (9)
+### Types (11)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10076,6 +10233,8 @@ Type-only exports not consumed as a component's `Props`.
 export type { AccelerometerLike };
 export type { AccelerometerMeasurement };
 export type { CaptureOptions };
+export type { HelpAnswerResponse };
+export type { HelpAskState };
 export type { PendingFeedback };
 export type { PendingScreenshot };
 export type { ShakeOptions };
@@ -10110,6 +10269,35 @@ export type { SupportEmailClient };
 export type { SupportEmailMessage };
 export type { SupportEmailProvider };
 export type { SupportEmailRouteOptions };
+```
+
+---
+
+## @marktiderman/genesis-support/ai
+
+**Barrel:** [`packages/support/src/ai.ts`](../packages/support/src/ai.ts)
+
+### Other exports (5)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`answerHelpQuestion`](../packages/support/src/ai.ts) | function | — | Runs the help center's answer task for a question and records what came of it, for your endpoint: |
+| [`HELP_AI_REFUSALS`](../packages/support/src/ai.ts) | const | — | _(no summary)_ |
+| [`HELP_ANSWER_FEATURE`](../packages/support/src/ai.ts) | const | — | The FeatureId its gate checks by default. A tenant also opts in through `tenant_features`, which the database checks. |
+| [`HELP_ANSWER_TASK`](../packages/support/src/ai.ts) | const | — | The task's id. |
+| [`supportHelpAnswerTask`](../packages/support/src/ai.ts) | function | — | The help center's answer task, for `answerHelpQuestion`'s `task` option (a model alias, `consent: "terms"`). |
+
+### Types (4)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { HelpAiAdmin };
+export type { HelpAiDb };
+export type { HelpAnswerTaskOptions };
+export type { LoadedHelpQuestion };
 ```
 
 ---
@@ -10256,7 +10444,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (56)
+### Components (57)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -10266,7 +10454,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`Band`](../packages/ui/src/components/layout/band.tsx) | `BandProps` | Beta | Band: a full-bleed, full-width marketing section. The background runs edge to edge; the content sits in a centered column with the page gutter. It is what a landing page is made of: a hero, a features band, a call to action, a footer. |
 | [`BandLead`](../packages/ui/src/components/layout/band.tsx) | `BandLeadProps` | Beta | _(no summary)_ |
 | [`BuilderLayout`](../packages/ui/src/components/layout/builder-layout.tsx) | `BuilderLayoutProps` | Beta | BuilderLayout — the three columns of a builder: an outline of the parts on the left, the editor for the selected part in the centre, a live preview on the right. |
-| [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link. |
+| [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link, gradient (the brand's `gradients.primary`, else the primary). |
 | [`ButtonGroup`](../packages/ui/src/components/ui/button-group.tsx) | `ButtonGroupProps` | — | _(no summary)_ |
 | [`ChartTooltipContent`](../packages/ui/src/components/ui/chart.tsx) | `ChartTooltipContentProps` | — | _(no summary)_ |
 | [`CommandPalette`](../packages/ui/src/components/ui/command-palette.tsx) | `CommandPaletteProps` | — | Thin action registry over `CommandDialog` / cmdk. Consumers register flat commands; optional `group` buckets them. |
@@ -10307,6 +10495,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`Table`](../packages/ui/src/components/ui/table.tsx) | `TableProps` | — | _(no summary)_ |
 | [`ThreadList`](../packages/ui/src/components/patterns/messaging/thread-list.tsx) | `ThreadListProps` | — | A conversation's list. See the module docs. |
 | [`ThreadPage`](../packages/ui/src/components/patterns/messaging/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
+| [`TierBadge`](../packages/ui/src/components/ui/tier-badge.tsx) | `TierBadgeProps` | — | _(no summary)_ |
 | [`ToggleRow`](../packages/ui/src/components/patterns/toggle-row.tsx) | `ToggleRowProps` | Beta | ToggleRow — `SettingsRow` pre-wired with a `Switch`: the common label+description+on/off row for settings and preferences UI. |
 | [`Toolbar`](../packages/ui/src/components/ui/toolbar.tsx) | `ToolbarProps` | Beta | Toolbar — a grouped set of controls that behaves as ONE tab stop. |
 | [`ToolbarButton`](../packages/ui/src/components/ui/toolbar.tsx) | `ToolbarButtonProps` | Beta | ToolbarButton — a button that participates in the toolbar's roving tabindex. |
@@ -10374,7 +10563,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ChartStyle`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`ChartTooltip`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`Checkbox`](../packages/ui/src/components/ui/checkbox.tsx) | value | — | _(no summary)_ |
-| [`Chip`](../packages/ui/src/components/resource/chip.tsx) | function | — | A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges). |
+| [`Chip`](../packages/ui/src/components/resource/chip.tsx) | function | — | A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges). With `onSelectedChange` it is a filter chip that toggles `selected`. |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`Collapsible`](../packages/ui/src/components/ui/collapsible.tsx) | value | — | _(no summary)_ |
 | [`CollapsibleContent`](../packages/ui/src/components/ui/collapsible.tsx) | value | — | _(no summary)_ |
@@ -10944,7 +11133,7 @@ export type { ViewMode };
 
 **Barrel:** [`packages/ui/src/components/layout/index.ts`](../packages/ui/src/components/layout/index.ts)
 
-### Components (19)
+### Components (20)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -10966,6 +11155,7 @@ export type { ViewMode };
 | [`Split`](../packages/ui/src/components/layout/split.tsx) | `SplitProps` | Beta | Split — the master-detail layout: two panes side by side above a breakpoint, stacked below it. |
 | [`Stack`](../packages/ui/src/components/layout/stack.tsx) | `StackProps` | Beta | Stack — one-dimensional flow. The single most-repeated shape in any application: a run of things in a line, evenly spaced. |
 | [`SubNavTabs`](../packages/ui/src/components/layout/sub-nav.tsx) | `SubNavTabsProps` | Beta | A row of navigation tabs: real links (deep links and middle-click work), `aria-current="page"` on the active one, badges as chips, the active tab underlined in the brand colour. AppShell renders it in `tabs` mode; an app using `subNav: "... |
+| [`TabBar`](../packages/ui/src/components/layout/tab-bar.tsx) | `TabBarProps` | Beta | A bottom tab bar for a phone-width web screen, the twin of genesis-ui-native's `NativeTabBar`: any number of items, and past `max` (5) the last slot is "More", which opens a bottom sheet with the rest. AppShell's own phone bottom nav (li... |
 | [`WorkspaceSwitcher`](../packages/ui/src/components/layout/workspace-switcher.tsx) | `WorkspaceSwitcherProps` | Beta | The workspace switcher. Put it in AppShell's `headerSlot`, and the `rail` and `bar` variants in `collapsedHeaderSlot` and `mobileHeaderSlot`. |
 
 ### Other exports (27)
@@ -11002,7 +11192,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WORKSPACE_SWITCHER_SEARCH_THRESHOLD`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | With `search="auto"`, past this many workspaces the menu opens with a search box. |
 | [`workspaceThemeStyle`](../packages/ui/src/components/layout/workspace-switcher.tsx) | function | Beta | The CSS variables for a workspace's brand (`workspace.theme.accent`): `--primary`, `--primary-foreground` and `--ring` pointed at an accessible shade of the accent, as `brandThemeStyle` does for a public page. Empty without a valid accen... |
 
-### Types (35)
+### Types (36)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -11028,6 +11218,7 @@ export type { SplitBreakpoint };
 export type { SplitRatio };
 export type { SubNavItem };
 export type { SubNavMode };
+export type { TabBarItem };
 export type { UseAppShellSubNavOptions };
 export type { WorkspaceSwitcherAction };
 export type { WorkspaceSwitcherBadgeProps };
@@ -11050,19 +11241,19 @@ export type { WorkspaceSwitcherVariant };
 
 **Barrel:** [`packages/ui/src/components/resource/index.ts`](../packages/ui/src/components/resource/index.ts)
 
-### Components (1)
+### Components (2)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
+| [`Chip`](../packages/ui/src/components/resource/chip.tsx) | `ChipProps` | — | A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges). With `onSelectedChange` it is a filter chip that toggles `selected`. |
 | [`ResourceHeader`](../packages/ui/src/components/resource/ResourceHeader.tsx) | `ResourceHeaderProps` | — | The header of a page that edits one publishable thing (a form, a course, a lesson, a worksheet): the breadcrumb ("Courses › name"), the title once, its status and save-state chips, and on the right undo and redo, Preview, Share and Publi... |
 
-### Other exports (15)
+### Other exports (14)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`Chip`](../packages/ui/src/components/resource/chip.tsx) | function | — | A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges). |
 | [`dayLabel`](../packages/core/src/resource/days.ts) | function | — | A day (YYYY-MM-DD) in words, given today on the same clock: "Today", "Yesterday", "Oct 21", "Oct 21, 2025". |
 | [`embedSnippet`](../packages/core/src/resource/share.ts) | function | — | An `<iframe>` that shows the page on another website, full width. |
 | [`FollowUpList`](../packages/ui/src/components/resource/FollowUpList.tsx) | function | — | Responses that need a follow-up (the host decides which; forms-studio's needsFollowUp is one rule), each with who answered, a tag, the day and context, their comment, its low score and the host's actions (Reply, Mark handled). Handled it... |
@@ -11263,7 +11454,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 
-### Other exports (17)
+### Other exports (18)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -11279,6 +11470,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. A unique vi... |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
+| [`NO_ROWS_MATCHED`](../packages/core/src/schema/write-outcome.ts) | const | — | `DataWriteError.code` when a write came back with no row: `useResource`'s `update` sets it. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
 | [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
@@ -11573,7 +11765,7 @@ export type { BuilderLayoutSlotProps };
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
-| [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link. |
+| [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link, gradient (the brand's `gradients.primary`, else the primary). |
 
 ### Types (1)
 
@@ -11816,6 +12008,18 @@ export type { TableProps };
 
 ---
 
+## @marktiderman/genesis-ui/tier-badge
+
+**Barrel:** [`packages/ui/src/components/ui/tier-badge.tsx`](../packages/ui/src/components/ui/tier-badge.tsx)
+
+### Components (1)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`TierBadge`](../packages/ui/src/components/ui/tier-badge.tsx) | `TierBadgeProps` | — | _(no summary)_ |
+
+---
+
 ## @marktiderman/genesis-ui/toggle-row
 
 **Barrel:** [`packages/ui/src/components/patterns/toggle-row.tsx`](../packages/ui/src/components/patterns/toggle-row.tsx)
@@ -11903,7 +12107,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (104)
+### Components (112)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -11927,14 +12131,17 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeAvatar`](../packages/ui-native/src/components/avatar.tsx) | `NativeAvatarProps` | — | _(no summary)_ |
 | [`NativeBadge`](../packages/ui-native/src/components/badge.tsx) | `NativeBadgeProps` | — | _(no summary)_ |
 | [`NativeBanner`](../packages/ui-native/src/components/inline-alert.tsx) | `NativeBannerProps` | — | _(no summary)_ |
+| [`NativeBulkBar`](../packages/ui-native/src/components/bulk-bar.tsx) | `NativeBulkBarProps` | — | _(no summary)_ |
 | [`NativeButton`](../packages/ui-native/src/components/button.tsx) | `NativeButtonProps` | — | _(no summary)_ |
 | [`NativeCard`](../packages/ui-native/src/components/card.tsx) | `NativeCardProps` | — | _(no summary)_ |
 | [`NativeCardTitle`](../packages/ui-native/src/components/card.tsx) | `NativeCardTitleProps` | — | _(no summary)_ |
 | [`NativeCheckbox`](../packages/ui-native/src/components/checkbox.tsx) | `NativeCheckboxProps` | — | _(no summary)_ |
 | [`NativeChip`](../packages/ui-native/src/components/chip-group.tsx) | `NativeChipProps` | — | _(no summary)_ |
 | [`NativeChipGroup`](../packages/ui-native/src/components/chip-group.tsx) | `NativeChipGroupProps` | — | _(no summary)_ |
+| [`NativeChoiceCard`](../packages/ui-native/src/components/choice-card.tsx) | `NativeChoiceCardProps` | — | _(no summary)_ |
 | [`NativeCombobox`](../packages/ui-native/src/components/combobox.tsx) | `NativeComboboxProps` | — | _(no summary)_ |
 | [`NativeComposerBar`](../packages/ui-native/src/components/composer-bar.tsx) | `NativeComposerBarProps` | — | _(no summary)_ |
+| [`NativeContextMenu`](../packages/ui-native/src/components/context-menu.tsx) | `NativeContextMenuProps` | — | _(no summary)_ |
 | [`NativeDatePicker`](../packages/ui-native/src/components/date-time-picker.tsx) | `NativeDatePickerProps` | — | _(no summary)_ |
 | [`NativeDialog`](../packages/ui-native/src/components/dialog.tsx) | `NativeDialogProps` | — | _(no summary)_ |
 | [`NativeDialogContent`](../packages/ui-native/src/components/dialog.tsx) | `NativeDialogContentProps` | — | _(no summary)_ |
@@ -11981,12 +12188,15 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeSelectItem`](../packages/ui-native/src/components/select.tsx) | `NativeSelectItemProps` | — | _(no summary)_ |
 | [`NativeSelectTrigger`](../packages/ui-native/src/components/select.tsx) | `NativeSelectTriggerProps` | — | _(no summary)_ |
 | [`NativeSeparator`](../packages/ui-native/src/components/separator.tsx) | `NativeSeparatorProps` | — | _(no summary)_ |
+| [`NativeShareSheet`](../packages/ui-native/src/components/share-sheet.tsx) | `NativeShareSheetProps` | — | _(no summary)_ |
 | [`NativeSheet`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProps` | Beta | _(no summary)_ |
 | [`NativeSheetProvider`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProviderProps` | Beta | Opts every `NativeSheet` below it into `@gorhom/bottom-sheet` and mounts the library's `BottomSheetModalProvider`. A module missing any export the sheet needs is reported with `console.error` and ignored, so sheets fall back to the nativ... |
 | [`NativeSkeleton`](../packages/ui-native/src/components/skeleton.tsx) | `NativeSkeletonProps` | — | _(no summary)_ |
 | [`NativeSlider`](../packages/ui-native/src/components/slider.tsx) | `NativeSliderProps` | — | _(no summary)_ |
 | [`NativeStepper`](../packages/ui-native/src/components/stepper.tsx) | `NativeStepperProps` | — | _(no summary)_ |
+| [`NativeSwipeRow`](../packages/ui-native/src/components/swipe-row.tsx) | `NativeSwipeRowProps` | — | _(no summary)_ |
 | [`NativeSwitch`](../packages/ui-native/src/components/switch.tsx) | `NativeSwitchProps` | — | _(no summary)_ |
+| [`NativeTabBar`](../packages/ui-native/src/components/tab-bar.tsx) | `NativeTabBarProps` | — | _(no summary)_ |
 | [`NativeTabs`](../packages/ui-native/src/components/tabs.tsx) | `NativeTabsProps` | — | _(no summary)_ |
 | [`NativeTabsContent`](../packages/ui-native/src/components/tabs.tsx) | `NativeTabsContentProps` | — | _(no summary)_ |
 | [`NativeTabsList`](../packages/ui-native/src/components/tabs.tsx) | `NativeTabsListProps` | — | _(no summary)_ |
@@ -11994,12 +12204,14 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeText`](../packages/ui-native/src/components/text.tsx) | `NativeTextProps` | — | _(no summary)_ |
 | [`NativeTextarea`](../packages/ui-native/src/components/textarea.tsx) | `NativeTextareaProps` | — | _(no summary)_ |
 | [`NativeThreadList`](../packages/ui-native/src/components/thread-list.tsx) | `NativeThreadListProps` | — | A conversation's list. See the module docs. |
+| [`NativeTierBadge`](../packages/ui-native/src/components/tier-badge.tsx) | `NativeTierBadgeProps` | — | _(no summary)_ |
 | [`NativeTimePicker`](../packages/ui-native/src/components/date-time-picker.tsx) | `NativeTimePickerProps` | — | _(no summary)_ |
 | [`NativeToastProvider`](../packages/ui-native/src/components/toast.tsx) | `NativeToastProviderProps` | — | _(no summary)_ |
 | [`NativeToggle`](../packages/ui-native/src/components/toggle.tsx) | `NativeToggleProps` | — | _(no summary)_ |
 | [`NativeTooltip`](../packages/ui-native/src/components/tooltip.tsx) | `NativeTooltipProps` | — | _(no summary)_ |
 | [`NativeTooltipContent`](../packages/ui-native/src/components/tooltip.tsx) | `NativeTooltipContentProps` | — | _(no summary)_ |
 | [`NativeTooltipTrigger`](../packages/ui-native/src/components/tooltip.tsx) | `NativeTooltipTriggerProps` | — | _(no summary)_ |
+| [`NativeWhatsNewSheet`](../packages/ui-native/src/components/whats-new-sheet.tsx) | `NativeWhatsNewSheetProps` | — | _(no summary)_ |
 | [`NativeZoomablePhoto`](../packages/ui-native/src/components/lightbox-zoom.tsx) | `NativeZoomablePhotoProps` | — | The page: iOS's zooming scroll view, or Android's pinch and pan. |
 | [`NavBarSaveButton`](../packages/ui-native/src/layouts/nav-bar.tsx) | `NavBarSaveButtonProps` | — | _(no summary)_ |
 | [`NavBarSearchBar`](../packages/ui-native/src/layouts/nav-bar.tsx) | `NavBarSearchBarProps` | — | Inline search input meant to occupy the title slot on a search results screen. For a sticky search-below-the-header pattern, prefer the standalone <NativeSearchBar> primitive. |
@@ -12012,7 +12224,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (72)
+### Other exports (73)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -12067,8 +12279,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`nextRating`](../packages/ui-native/src/components/rating.tsx) | function | — | The value after pressing `star`: that star, or 0 when it is the current value (a press clears). |
 | [`playHaptic`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | Plays a haptic on the module given; never throws and never rejects. No module, no haptic. |
 | [`readReceiptFor`](../packages/core/src/conversation/format.ts) | function | — | The newest of my messages the other side has read, or null. Events and undelivered messages never count. |
+| [`sentBubbleColor`](../packages/ui-native/src/hooks/use-theme-roles.ts) | const | — | The colour of a message you sent, on every thread on the phone. Its text is `text-primary-foreground`. |
 | [`SF_SYMBOLS`](../packages/ui-native/src/icon-names.ts) | const | Beta | The semantic icon names Genesis components ask for, and the SF Symbol each one draws on iOS. Components say "settings" or "bell", never a library's own name; `lucideIcons` (`/icons/lucide`) maps the same names for Android, web and the SF... |
-| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as a menu (long press). |
+| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as the system alert. `InboxPage` now opens `NativeContextMenu`; `NativeResourceView` still uses this. |
 | [`spaceScale`](../packages/ui-native/src/components/layout/spacing.ts) | const | — | Layout spacing scale — the single source of truth for gap / padding / margin across the Genesis layout primitives (Stack / Inline / Box / Grid). |
 | [`spacingClass`](../packages/ui-native/src/components/layout/spacing.ts) | function | — | Resolve a semantic spacing token to its NativeWind utility class for a given prefix — e.g. `spacingClass("gap", "md") === "gap-3"` (12px / 4). |
 | [`textVariants`](../packages/ui-native/src/components/text.tsx) | value | — | _(no summary)_ |
@@ -12091,7 +12304,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThreadJump`](../packages/core/src/conversation/use-thread-jump.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (88)
+### Types (93)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -12140,8 +12353,10 @@ export type { MotionHow };
 export type { MotionSpringConfig };
 export type { MotionTimingConfig };
 export type { NativeAccordionType };
+export type { NativeBulkAction };
 export type { NativeChipGroupMode };
 export type { NativeComboboxOption };
+export type { NativeContextMenuAction };
 export type { NativeEmptyStateVariant };
 export type { NativeGalleryLayout };
 export type { NativeIconName };
@@ -12151,12 +12366,15 @@ export type { NativeLiveIndicatorState };
 export type { NativeLiveIndicatorVariant };
 export type { NativeLoadingStateEdge };
 export type { NativeRatingSize };
+export type { NativeRatingTone };
 export type { NativeSegmentedControlOption };
 export type { NativeSheetLibrary };
 export type { NativeStepperStep };
+export type { NativeTabBarItem };
 export type { NativeThreadListHandle };
 export type { NativeToastOptions };
 export type { NativeToastVariant };
+export type { NativeWhatsNewNote };
 export type { NotificationItem };
 export type { NotificationsPageSlotMap };
 export type { PressFeedback };
@@ -12192,7 +12410,7 @@ export type { UseThreadJumpOptions };
 
 **Barrel:** [`packages/ui-native/src/components/index.ts`](../packages/ui-native/src/components/index.ts)
 
-### Components (89)
+### Components (97)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -12210,14 +12428,17 @@ export type { UseThreadJumpOptions };
 | [`NativeAvatar`](../packages/ui-native/src/components/avatar.tsx) | `NativeAvatarProps` | — | _(no summary)_ |
 | [`NativeBadge`](../packages/ui-native/src/components/badge.tsx) | `NativeBadgeProps` | — | _(no summary)_ |
 | [`NativeBanner`](../packages/ui-native/src/components/inline-alert.tsx) | `NativeBannerProps` | — | _(no summary)_ |
+| [`NativeBulkBar`](../packages/ui-native/src/components/bulk-bar.tsx) | `NativeBulkBarProps` | — | _(no summary)_ |
 | [`NativeButton`](../packages/ui-native/src/components/button.tsx) | `NativeButtonProps` | — | _(no summary)_ |
 | [`NativeCard`](../packages/ui-native/src/components/card.tsx) | `NativeCardProps` | — | _(no summary)_ |
 | [`NativeCardTitle`](../packages/ui-native/src/components/card.tsx) | `NativeCardTitleProps` | — | _(no summary)_ |
 | [`NativeCheckbox`](../packages/ui-native/src/components/checkbox.tsx) | `NativeCheckboxProps` | — | _(no summary)_ |
 | [`NativeChip`](../packages/ui-native/src/components/chip-group.tsx) | `NativeChipProps` | — | _(no summary)_ |
 | [`NativeChipGroup`](../packages/ui-native/src/components/chip-group.tsx) | `NativeChipGroupProps` | — | _(no summary)_ |
+| [`NativeChoiceCard`](../packages/ui-native/src/components/choice-card.tsx) | `NativeChoiceCardProps` | — | _(no summary)_ |
 | [`NativeCombobox`](../packages/ui-native/src/components/combobox.tsx) | `NativeComboboxProps` | — | _(no summary)_ |
 | [`NativeComposerBar`](../packages/ui-native/src/components/composer-bar.tsx) | `NativeComposerBarProps` | — | _(no summary)_ |
+| [`NativeContextMenu`](../packages/ui-native/src/components/context-menu.tsx) | `NativeContextMenuProps` | — | _(no summary)_ |
 | [`NativeDatePicker`](../packages/ui-native/src/components/date-time-picker.tsx) | `NativeDatePickerProps` | — | _(no summary)_ |
 | [`NativeDialog`](../packages/ui-native/src/components/dialog.tsx) | `NativeDialogProps` | — | _(no summary)_ |
 | [`NativeDialogContent`](../packages/ui-native/src/components/dialog.tsx) | `NativeDialogContentProps` | — | _(no summary)_ |
@@ -12264,12 +12485,15 @@ export type { UseThreadJumpOptions };
 | [`NativeSelectItem`](../packages/ui-native/src/components/select.tsx) | `NativeSelectItemProps` | — | _(no summary)_ |
 | [`NativeSelectTrigger`](../packages/ui-native/src/components/select.tsx) | `NativeSelectTriggerProps` | — | _(no summary)_ |
 | [`NativeSeparator`](../packages/ui-native/src/components/separator.tsx) | `NativeSeparatorProps` | — | _(no summary)_ |
+| [`NativeShareSheet`](../packages/ui-native/src/components/share-sheet.tsx) | `NativeShareSheetProps` | — | _(no summary)_ |
 | [`NativeSheet`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProps` | Beta | _(no summary)_ |
 | [`NativeSheetProvider`](../packages/ui-native/src/components/sheet.tsx) | `NativeSheetProviderProps` | Beta | Opts every `NativeSheet` below it into `@gorhom/bottom-sheet` and mounts the library's `BottomSheetModalProvider`. A module missing any export the sheet needs is reported with `console.error` and ignored, so sheets fall back to the nativ... |
 | [`NativeSkeleton`](../packages/ui-native/src/components/skeleton.tsx) | `NativeSkeletonProps` | — | _(no summary)_ |
 | [`NativeSlider`](../packages/ui-native/src/components/slider.tsx) | `NativeSliderProps` | — | _(no summary)_ |
 | [`NativeStepper`](../packages/ui-native/src/components/stepper.tsx) | `NativeStepperProps` | — | _(no summary)_ |
+| [`NativeSwipeRow`](../packages/ui-native/src/components/swipe-row.tsx) | `NativeSwipeRowProps` | — | _(no summary)_ |
 | [`NativeSwitch`](../packages/ui-native/src/components/switch.tsx) | `NativeSwitchProps` | — | _(no summary)_ |
+| [`NativeTabBar`](../packages/ui-native/src/components/tab-bar.tsx) | `NativeTabBarProps` | — | _(no summary)_ |
 | [`NativeTabs`](../packages/ui-native/src/components/tabs.tsx) | `NativeTabsProps` | — | _(no summary)_ |
 | [`NativeTabsContent`](../packages/ui-native/src/components/tabs.tsx) | `NativeTabsContentProps` | — | _(no summary)_ |
 | [`NativeTabsList`](../packages/ui-native/src/components/tabs.tsx) | `NativeTabsListProps` | — | _(no summary)_ |
@@ -12277,12 +12501,14 @@ export type { UseThreadJumpOptions };
 | [`NativeText`](../packages/ui-native/src/components/text.tsx) | `NativeTextProps` | — | _(no summary)_ |
 | [`NativeTextarea`](../packages/ui-native/src/components/textarea.tsx) | `NativeTextareaProps` | — | _(no summary)_ |
 | [`NativeThreadList`](../packages/ui-native/src/components/thread-list.tsx) | `NativeThreadListProps` | — | A conversation's list. See the module docs. |
+| [`NativeTierBadge`](../packages/ui-native/src/components/tier-badge.tsx) | `NativeTierBadgeProps` | — | _(no summary)_ |
 | [`NativeTimePicker`](../packages/ui-native/src/components/date-time-picker.tsx) | `NativeTimePickerProps` | — | _(no summary)_ |
 | [`NativeToastProvider`](../packages/ui-native/src/components/toast.tsx) | `NativeToastProviderProps` | — | _(no summary)_ |
 | [`NativeToggle`](../packages/ui-native/src/components/toggle.tsx) | `NativeToggleProps` | — | _(no summary)_ |
 | [`NativeTooltip`](../packages/ui-native/src/components/tooltip.tsx) | `NativeTooltipProps` | — | _(no summary)_ |
 | [`NativeTooltipContent`](../packages/ui-native/src/components/tooltip.tsx) | `NativeTooltipContentProps` | — | _(no summary)_ |
 | [`NativeTooltipTrigger`](../packages/ui-native/src/components/tooltip.tsx) | `NativeTooltipTriggerProps` | — | _(no summary)_ |
+| [`NativeWhatsNewSheet`](../packages/ui-native/src/components/whats-new-sheet.tsx) | `NativeWhatsNewSheetProps` | — | _(no summary)_ |
 | [`NativeZoomablePhoto`](../packages/ui-native/src/components/lightbox-zoom.tsx) | `NativeZoomablePhotoProps` | — | The page: iOS's zooming scroll view, or Android's pinch and pan. |
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 
@@ -12332,7 +12558,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (48)
+### Types (53)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -12364,8 +12590,10 @@ export type { JustifiedRow };
 export type { JustifiedTile };
 export type { KeyboardAvoidingLike };
 export type { NativeAccordionType };
+export type { NativeBulkAction };
 export type { NativeChipGroupMode };
 export type { NativeComboboxOption };
+export type { NativeContextMenuAction };
 export type { NativeEmptyStateVariant };
 export type { NativeGalleryLayout };
 export type { NativeIconName };
@@ -12375,12 +12603,15 @@ export type { NativeLiveIndicatorState };
 export type { NativeLiveIndicatorVariant };
 export type { NativeLoadingStateEdge };
 export type { NativeRatingSize };
+export type { NativeRatingTone };
 export type { NativeSegmentedControlOption };
 export type { NativeSheetLibrary };
 export type { NativeStepperStep };
+export type { NativeTabBarItem };
 export type { NativeThreadListHandle };
 export type { NativeToastOptions };
 export type { NativeToastVariant };
+export type { NativeWhatsNewNote };
 export type { SpaceToken };
 export type { SpacingPrefix };
 export type { TextPreset };
@@ -12498,7 +12729,7 @@ export type { UseNativeResourceViewReturn };
 | --- | --- | --- | --- |
 | [`BrandExtensionsProvider`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | `BrandExtensionsProviderProps` | — | _(no summary)_ |
 
-### Other exports (13)
+### Other exports (14)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -12509,6 +12740,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`motionSpring`](../packages/ui-native/src/hooks/use-motion.ts) | function | — | A `withSpring` config from a named spring. Worklet-safe (plain data in, plain data out). Under reduced motion it's the stiff, critically damped spring that settles in a few frames; to not move at all, check `motion.reduced` and assign th... |
 | [`motionTiming`](../packages/ui-native/src/hooks/use-motion.ts) | function | — | A `withTiming` config from a named duration and easing. Pass Reanimated's `Easing` (`R.Easing`, or `Easing` imported in a worklet) so the token's curve is used; a module without `Easing.bezier` gets Reanimated's default curve. Worklet-safe. |
 | [`playHaptic`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | Plays a haptic on the module given; never throws and never rejects. No module, no haptic. |
+| [`sentBubbleColor`](../packages/ui-native/src/hooks/use-theme-roles.ts) | const | — | The colour of a message you sent, on every thread on the phone. Its text is `text-primary-foreground`. |
 | [`useGenesisExtension`](../packages/ui-native/src/hooks/use-genesis-extension.ts) | function | — | Read an extension scale by key. Returns `undefined` when the provider isn't mounted OR when the key isn't declared on the brand. The return type follows the consumer's augmented `BrandExtensions[K]`. |
 | [`useHaptics`](../packages/ui-native/src/hooks/use-haptics.ts) | function | — | A function that plays a haptic through the app's `GenesisModules.haptics`. Stable across renders. |
 | [`useMotion`](../packages/ui-native/src/hooks/use-motion.ts) | function | — | _(no summary)_ |
@@ -12585,7 +12817,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`KEYBOARD_TOOLBAR_HEIGHT`](../packages/ui-native/src/layouts/keyboard.tsx) | const | — | Height of react-native-keyboard-controller's `KeyboardToolbar`, kept clear above the focused input. Mirrors `KEYBOARD_TOOLBAR_HEIGHT` in the library's `src/components/KeyboardToolbar/constants.ts` (1.22): move them together. |
 | [`KeyboardScrollProvider`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | _(no summary)_ |
 | [`readReceiptFor`](../packages/core/src/conversation/format.ts) | function | — | The newest of my messages the other side has read, or null. Events and undelivered messages never count. |
-| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as a menu (long press). |
+| [`showInboxActions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | Opens a row's actions as the system alert. `InboxPage` now opens `NativeContextMenu`; `NativeResourceView` still uses this. |
 | [`useKeyboardScroll`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard-aware scroll view, or null when none was provided. |
 | [`useKeyboardToolbar`](../packages/ui-native/src/layouts/keyboard.tsx) | function | — | The app's keyboard toolbar, or null when none was provided (or no scroll view to go with it). |
 

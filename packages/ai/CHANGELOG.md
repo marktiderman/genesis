@@ -1,5 +1,11 @@
 # @marktiderman/genesis-ai
 
+## 0.3.0
+
+### Minor Changes
+
+- d1cb2b8: `safetyRequired` on a task: it won't run without the app's safety protocol. `checkTasks` fails, and a call stops as `off`.
+
 ## 0.2.0
 
 ### Minor Changes
