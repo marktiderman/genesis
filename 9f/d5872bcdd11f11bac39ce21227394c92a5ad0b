@@ -1,0 +1,25 @@
+packages/ui/figma/TierBadge.figma.ts
+  s_9613ab470e300c::t_ff97c2c37d85b5 1-18
+packages/ui-native/figma/code-connect.json
+  s_9613ab470e300c::t_ff97c2c37d85b5 57,65
+packages/ui-native/figma/NativeTierBadge.figma.ts
+  s_9613ab470e300c::t_ff97c2c37d85b5 1-18
+packages/ui/figma/code-connect.json
+  s_9613ab470e300c::t_ff97c2c37d85b5 109,124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9fd5872bcdd11f11bac39ce21227394c92a5ad0b",
+  "prompts": {},
+  "sessions": {
+    "s_9613ab470e300c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df308523-d2f5-4e93-bef7-0f444d7d1772",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
