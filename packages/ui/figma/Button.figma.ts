@@ -6,7 +6,7 @@
 import figma from 'figma'
 const instance = figma.selectedInstance
 
-const variant = instance.getEnum('variant', { default: 'default', destructive: 'destructive', outline: 'outline', secondary: 'secondary', ghost: 'ghost', link: 'link' })
+const variant = instance.getEnum('variant', { default: 'default', destructive: 'destructive', outline: 'outline', secondary: 'secondary', ghost: 'ghost', link: 'link', gradient: 'gradient' })
 const size = instance.getEnum('size', { default: 'default', sm: 'sm', lg: 'lg', icon: 'icon' })
 const label = instance.getString('Label')
 const loading = instance.getBoolean('Loading')

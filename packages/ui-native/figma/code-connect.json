@@ -61,7 +61,7 @@
     "ScreenContainer",
     "ThreadPage"
   ],
-  "notYet": [],
+  "notYet": ["NativeTierBadge"],
   "composed": [
     "NativeSwipeRow",
     "NativeContextMenu",
