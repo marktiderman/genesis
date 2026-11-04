@@ -1,6 +1,5 @@
 // @feat:inbox-thread
-import { fireEvent, render, screen } from "@testing-library/react";
-import { Alert } from "react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider } from "../../native-modules";
 import { NativeComposerBar } from "../composer-bar";
@@ -148,25 +147,23 @@ describe("NativeComposerBar", () => {
     });
 
     it("runs a single action straight away on touch and hold", () => {
-      const spy = vi.spyOn(Alert, "alert").mockImplementation(() => undefined);
       const onPress = vi.fn();
       render(<NativeComposerBar {...base} value="Hi" sendActions={[{ ...later, onPress }]} testID="c" />);
       fireEvent.contextMenu(screen.getByTestId("c-send"));
       expect(onPress).toHaveBeenCalledTimes(1);
-      expect(spy).not.toHaveBeenCalled();
-      spy.mockRestore();
+      expect(screen.queryByTestId("c-send-menu")).toBeNull();
     });
 
-    it("opens a menu with a Cancel for several", () => {
-      const spy = vi.spyOn(Alert, "alert").mockImplementation(() => undefined);
-      render(<NativeComposerBar {...base} value="Hi" sendActions={[later, silent]} sendActionsTitle="Send" testID="c" />);
+    it("opens a menu with a Cancel for several", async () => {
+      const onPress = vi.fn();
+      render(<NativeComposerBar {...base} value="Hi" sendActions={[later, { ...silent, onPress }]} sendActionsTitle="Send" testID="c" />);
       fireEvent.contextMenu(screen.getByTestId("c-send"));
-      expect(spy).toHaveBeenCalledTimes(1);
-      const [title, , buttons] = spy.mock.calls[0]!;
-      expect(title).toBe("Send");
-      expect(buttons!.map((b) => b.text)).toEqual(["Send later", "Send silently", "Cancel"]);
-      expect(buttons!.at(-1)!.style).toBe("cancel");
-      spy.mockRestore();
+      await act(async () => {});
+      expect(screen.getByTestId("c-send-menu-title").textContent).toBe("Send");
+      expect(screen.getByTestId("c-send-menu-action-later").textContent).toBe("Send later");
+      expect(screen.getByTestId("c-send-menu-cancel")).toBeTruthy();
+      fireEvent.click(screen.getByTestId("c-send-menu-action-silent"));
+      await waitFor(() => expect(onPress).toHaveBeenCalledTimes(1));
     });
 
     it("offers each as an accessibility action on Send, only while it can send", () => {

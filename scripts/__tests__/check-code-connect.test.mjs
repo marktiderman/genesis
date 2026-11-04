@@ -9,6 +9,7 @@ import {
   FIGMA_DIR,
   LAYOUTS_INDEX,
   PACKAGES,
+  chatComponentsFromIndex,
   checkCodeConnect,
   componentsFromIndex,
   layoutsFromIndex,
@@ -243,7 +244,7 @@ describe("web sub-part rule", () => {
 describe("two-package layout", () => {
   it("checks each package against its own allowlist and names the package", () => {
     const [native, web] = PACKAGES;
-    expect(PACKAGES.map((p) => p.name)).toEqual(["ui-native", "ui"]);
+    expect(PACKAGES.map((p) => p.name)).toEqual(["ui-native", "ui", "chat-native", "chat-web"]);
     expect(web.figmaDir).toBe("packages/ui/figma");
     const root = make({ notYet: ALL, sources: [] });
     const write = (rel, text) => {
@@ -260,5 +261,50 @@ describe("two-package layout", () => {
     expect(failures).toContain(
       'Dialog: exported from ui but in no list of packages/ui/figma/code-connect.json; add it to "notYet" (or "required" with its template, or "composed" for a screen assembled from library components)',
     );
+  });
+});
+
+const chatIndex = `
+export { ChatInboxScreen, inboxRow, type ChatInboxScreenProps } from "./inbox-screen";
+export { ChatComposer, type ChatComposerProps } from "./composer";
+export { MessageBubble, displayBody, formatClock } from "./message-bubble";
+export { ChatAutoRetry, useChatAutoRetry, isOnline } from "./auto-retry";
+export { ChatNativeProvider, useChatNative } from "./context";
+export { ChatErrorBoundary } from "./error-boundary";
+export { EMOJI_CATEGORIES, RECENT_EMOJI_MAX, type EmojiEntry } from "./emoji";
+export type { ChatPushCopy } from "./push";
+`;
+
+describe("chat entry points", () => {
+  it("lists PascalCase components without hooks, providers, constants, helpers or the non-visual exports", () => {
+    expect(chatComponentsFromIndex(chatIndex)).toEqual(["ChatInboxScreen", "ChatComposer", "MessageBubble"]);
+  });
+
+  it("checks the native and web entry points against their own folders, so a shared name is two components", () => {
+    const chat = PACKAGES.filter((p) => p.name.startsWith("chat-"));
+    expect(chat.map((p) => p.figmaDir)).toEqual(["packages/chat/figma/native", "packages/chat/figma/web"]);
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "code-connect-chat-"));
+    const write = (rel, text) => {
+      fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+      fs.writeFileSync(path.join(root, rel), text);
+    };
+    const url = "https://www.figma.com/design/abcdefghijklmnopqrstuv/Sample?node-id=1-2";
+    for (const pkg of chat) {
+      write(pkg.indexes[0].file, chatIndex);
+      const plat = pkg.name.slice("chat-".length);
+      write(`packages/chat/src/${plat}/composer.tsx`, "export {};\n");
+      write(`${pkg.figmaDir}/ChatComposer.figma.ts`, `// url=${url}\n// source=packages/chat/src/${plat}/composer.tsx\n// component=ChatComposer\n`);
+      write(`${pkg.figmaDir}/code-connect.json`, JSON.stringify({ required: ["ChatComposer"], notYet: ["MessageBubble"], composed: ["ChatInboxScreen"] }));
+    }
+    for (const pkg of chat) {
+      const result = checkCodeConnect(root, pkg);
+      expect(result.failures).toEqual([]);
+      expect(result.covered).toEqual(["ChatComposer"]);
+      expect(result.composed).toEqual(["ChatInboxScreen"]);
+      expect(result.missing).toEqual(["MessageBubble"]);
+    }
+    fs.rmSync(`${root}/packages/chat/figma/web/ChatComposer.figma.ts`);
+    expect(checkCodeConnect(root, chat[1]).failures).toEqual(["ChatComposer: required, but packages/chat/figma/web/ChatComposer.figma.ts is missing"]);
+    expect(checkCodeConnect(root, chat[0]).failures).toEqual([]);
   });
 });

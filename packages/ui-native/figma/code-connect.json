@@ -63,6 +63,8 @@
   ],
   "notYet": [],
   "composed": [
+    "NativeSwipeRow",
+    "NativeContextMenu",
     "SettingsPage",
     "SettingsSubPage",
     "NotificationsPage",

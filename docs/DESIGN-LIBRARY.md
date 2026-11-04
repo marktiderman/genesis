@@ -107,11 +107,21 @@ The templates folder is not shipped: `packages/ui-native/package.json` `files` l
 
 ### The ratchet: `pnpm check:code-connect`
 
-`scripts/check-code-connect.mjs` covers two packages: genesis-ui-native (the `Native*`
-components and the page layouts) and genesis-ui for the web (its PascalCase exports, minus
-sub-parts, typography, auto-layout primitives and cell formatters). Each package keeps its own
-allowlist beside its templates: `packages/ui-native/figma/code-connect.json` and
-`packages/ui/figma/code-connect.json`. `--list <package>` prints the discovered names.
+`scripts/check-code-connect.mjs` covers three packages: genesis-ui-native (the `Native*`
+components and the page layouts), genesis-ui for the web (its PascalCase exports, minus
+sub-parts, typography, auto-layout primitives and cell formatters), and genesis-chat (the
+PascalCase exports of `/native` and `/web`, minus hooks, providers and the non-visual
+`ChatAutoRetry` and `ChatErrorBoundary`). Each keeps its own allowlist beside its templates:
+`packages/ui-native/figma/code-connect.json`, `packages/ui/figma/code-connect.json`, and for chat
+one per entry point, `packages/chat/figma/native/` and `packages/chat/figma/web/` (both export a
+`ChatComposer`, a `ChatTopicBar` and more under the same name, so each is checked as its own
+package: `chat-native`, `chat-web`). `--list <package>` prints the discovered names.
+
+Chat's components are on the library pages **Chat · Native** and **Chat · Web**. The native ones
+nest the Messages page's primitives (`Msg/Bubble`, `Msg/Tapback`, `Msg/TapbackBar`,
+`Msg/RecordCard`, `NativeComposerBar`, `NativeZoomablePhoto`) as exposed instances rather than
+redrawing them. Chat's screens, sheets of library parts and dispatchers (`ChatInboxScreen`,
+`ChatPanel`, `ChatDock`, `MessageAttachments` on the web) are `composed`.
 
 ```json
 { "required": ["NativeAvatar"], "notYet": ["NativeRangeSlider", "…"], "composed": ["SettingsPage", "…"] }

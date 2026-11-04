@@ -6,15 +6,22 @@
 import figma from 'figma'
 const instance = figma.selectedInstance
 
-const tabs = [instance.getString('Tab 1'), instance.getString('Tab 2'), instance.getString('Tab 3')]
+const tabs = [
+  instance.getString('Tab 1'),
+  instance.getString('Tab 2'),
+  instance.getString('Tab 3'),
+  instance.getBoolean('Show tab 4') ? instance.getString('Tab 4') : null,
+  instance.getBoolean('Show tab 5') ? instance.getString('Tab 5') : null,
+  instance.getBoolean('Show tab 6') ? instance.getString('Tab 6') : null,
+].filter((label): label is string => Boolean(label))
 const selected = instance.getEnum('selected', { '1': 0, '2': 1, '3': 2 })
 
-const item = (label: string) => figma.code`
+const item = (label: string) => `
     { to: "/${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}", label: "${label}" },`
 
 export default {
   example: figma.code`<SubNavTabs
-  items={[${item(tabs[0])}${item(tabs[1])}${item(tabs[2])}
+  items={[${tabs.map(item).join('')}
   ]}
   activePath="/${tabs[selected].toLowerCase().replace(/[^a-z0-9]+/g, '-')}"
   linkComponent={DefaultLink}

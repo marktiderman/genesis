@@ -303,6 +303,18 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
         },
         {
+          "need": "a row's actions behind a swipe on the phone",
+          "use": "NativeSwipeRow, on GenesisModules.swipeable",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "what a long press opens on the phone: a short list of actions",
+          "use": "NativeContextMenu",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
           "need": "a star rating on the phone",
           "use": "NativeRating",
           "import": "@marktiderman/genesis-ui-native/components",

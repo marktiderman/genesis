@@ -1,5 +1,5 @@
 {
   "codeConnect": {
-    "include": ["packages/ui-native/figma/**/*.figma.ts", "packages/ui/figma/**/*.figma.ts"]
+    "include": ["packages/ui-native/figma/**/*.figma.ts", "packages/ui/figma/**/*.figma.ts", "packages/chat/figma/**/*.figma.ts"]
   }
 }

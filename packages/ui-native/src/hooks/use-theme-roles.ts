@@ -43,3 +43,6 @@ export function useThemeRoles(options: UseThemeRolesOptions = {}): ThemeRoleColo
     [scheme, tint, androidDynamic],
   );
 }
+
+/** The colour of a message you sent, on every thread on the phone. Its text is `text-primary-foreground`. */
+export const sentBubbleColor = <C,>(roles: { tint: C }): C => roles.tint;

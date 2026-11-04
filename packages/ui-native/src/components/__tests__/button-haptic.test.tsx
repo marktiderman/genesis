@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Animated } from "react-native";
 import { describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider } from "../../native-modules";
 import { NativeButton } from "../button";
@@ -48,5 +49,26 @@ describe("NativeButton haptic", () => {
     fireEvent.click(screen.getByTestId("b"));
     expect(haptics.impactAsync).not.toHaveBeenCalled();
     expect(haptics.notificationAsync).not.toHaveBeenCalled();
+  });
+
+  it("answers a touch through usePressFeedback, and not when disabled", () => {
+    const timing = vi.spyOn(Animated, "timing");
+    const { rerender } = render(<NativeButton testID="b" onPress={vi.fn()}>Save</NativeButton>);
+    fireEvent.pointerDown(screen.getByTestId("b"));
+    expect(timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ toValue: 0.97 }));
+    timing.mockClear();
+    rerender(<NativeButton testID="b" onPress={vi.fn()} disabled>Save</NativeButton>);
+    fireEvent.pointerDown(screen.getByTestId("b"));
+    expect(timing).not.toHaveBeenCalled();
+    timing.mockRestore();
+  });
+
+  it("keeps each size's gap, and lets a caller's layout classes reach what's inside", () => {
+    render(<NativeButton testID="b" size="sm" className="w-full justify-start"><i data-testid="in" /></NativeButton>);
+    const content = screen.getByTestId("in").parentElement!;
+    expect(content.className).toContain("gap-1.5");
+    expect(content.className).toContain("justify-start");
+    expect(content.className).not.toContain("w-full");
+    expect(screen.getByTestId("b").className).toContain("w-full");
   });
 });

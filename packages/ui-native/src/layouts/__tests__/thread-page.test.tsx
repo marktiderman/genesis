@@ -1,6 +1,7 @@
 // @feat:inbox-thread
 import { forwardRef, useImperativeHandle, type ReactNode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Linking } from "react-native";
 import { describe, expect, it, vi } from "vitest";
 import { ThreadPage, getThreadPageStackOptions, readReceiptFor, type ThreadMessage } from "../thread-page";
 import { GenesisModulesProvider } from "../../native-modules";
@@ -224,6 +225,55 @@ describe("ThreadPage", () => {
 
   it("composes a standard header by default", () => {
     expect(getThreadPageStackOptions({ headerTitle: "Report" })).toEqual({ title: "Report" });
+  });
+});
+
+describe("ThreadPage: files, errors and the modes' name", () => {
+  const withFile = (uri: string): ThreadMessage[] => [
+    { id: "1", body: "See attached", mine: false, timestamp: "2026-10-01T09:00:00Z", attachments: [{ id: "f", kind: "file", uri, name: "a.pdf" }] },
+  ];
+
+  it("shows a file by name and opens its link", () => {
+    const open = vi.spyOn(Linking, "openURL").mockResolvedValue(true as never);
+    render(<ThreadPage testID="t" messages={withFile("https://example.test/a.pdf")} composer={null} />);
+    const file = screen.getByTestId("t-attachment-f");
+    expect(file.textContent).toBe("a.pdf");
+    fireEvent.click(file);
+    expect(open).toHaveBeenCalledWith("https://example.test/a.pdf");
+    open.mockRestore();
+  });
+
+  it("won't open a file at another scheme", () => {
+    const open = vi.spyOn(Linking, "openURL").mockResolvedValue(true as never);
+    render(<ThreadPage testID="t" messages={withFile("someapp://do-a-thing")} composer={null} />);
+    fireEvent.click(screen.getByTestId("t-attachment-f"));
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it("opens a local file only on your own message", () => {
+    const open = vi.spyOn(Linking, "openURL").mockResolvedValue(true as never);
+    const local = (mine: boolean): ThreadMessage[] => [{ ...withFile("file:///a.pdf")[0]!, mine }];
+    const { rerender } = render(<ThreadPage testID="t" messages={local(false)} composer={null} />);
+    fireEvent.click(screen.getByTestId("t-attachment-f"));
+    expect(open).not.toHaveBeenCalled();
+    rerender(<ThreadPage testID="t" messages={local(true)} composer={null} />);
+    fireEvent.click(screen.getByTestId("t-attachment-f"));
+    expect(open).toHaveBeenCalledWith("file:///a.pdf");
+    open.mockRestore();
+  });
+
+  it("has an error state, with Try again", () => {
+    const onRetry = vi.fn();
+    render(<ThreadPage testID="t" messages={[]} composer={null} error onRetry={onRetry} />);
+    expect(screen.getByTestId("t-error").textContent).toContain("Couldn't load this conversation");
+    fireEvent.click(screen.getByTestId("t-error-action"));
+    expect(onRetry).toHaveBeenCalled();
+  });
+
+  it("names the mode picker from the composer", () => {
+    render(<ThreadPage testID="t" messages={messages} composer={composer({ modesLabel: "Envoyer comme", modes: [{ id: "a", label: "A" }, { id: "b", label: "B" }] })} />);
+    expect(screen.getByTestId("t-composer-modes").getAttribute("aria-label")).toBe("Envoyer comme");
   });
 });
 
