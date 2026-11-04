@@ -46,7 +46,7 @@ importers:
         version: 58.0.23(@babel/core@7.29.7(supports-color@8.1.1))(expo@58.0.19)(react-dom@19.3.0(react@19.3.0))(react-native-worklets@0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
       '@hookform/resolvers':
         specifier: ^6.0.0
-        version: 6.0.0(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@marktiderman/genesis-chat':
         specifier: workspace:^
         version: link:../../packages/chat
@@ -299,7 +299,7 @@ importers:
     dependencies:
       '@hookform/resolvers':
         specifier: ^6.0.0
-        version: 6.0.0(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@marktiderman/genesis-ai':
         specifier: workspace:^
         version: link:../../packages/ai
@@ -507,16 +507,16 @@ importers:
         version: 8.5.0(@react-router/serve@8.5.0(react-router@8.5.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@8.1.1)(typescript@6.0.3))(react-router@8.5.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(supports-color@8.1.1)(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
       '@storybook/addon-a11y':
         specifier: ^10.6.3
-        version: 10.6.4(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))
+        version: 10.6.3(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))
       '@storybook/addon-docs':
         specifier: ^10.6.3
-        version: 10.6.4(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))
+        version: 10.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))
       '@storybook/addon-vitest':
         specifier: ^10.6.3
-        version: 10.6.4(@vitest/browser-playwright@5.0.5)(@vitest/browser@5.0.5)(react@19.3.0)(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(vitest@5.0.5)
+        version: 10.6.3(@vitest/browser-playwright@5.0.5)(@vitest/browser@5.0.5)(react@19.3.0)(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(vitest@5.0.5)
       '@storybook/react-vite':
         specifier: ^10.6.3
-        version: 10.6.4(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(rollup@4.62.4)(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(supports-color@8.1.1)(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
+        version: 10.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(rollup@4.62.4)(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(supports-color@8.1.1)(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
       '@tailwindcss/vite':
         specifier: ^4.2.2
         version: 4.3.3(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
@@ -555,7 +555,7 @@ importers:
         version: 2.4.0(typescript@6.0.3)
       storybook:
         specifier: ^10.6.3
-        version: 10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
+        version: 10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
       tailwindcss:
         specifier: ^4.2.2
         version: 4.3.3
@@ -742,7 +742,7 @@ importers:
     devDependencies:
       '@hookform/resolvers':
         specifier: ^6.0.0
-        version: 6.0.0(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@tanstack/react-query':
         specifier: ^5.105.0
         version: 5.105.0(@types/react@19.3.0)(react@19.3.0)
@@ -1641,7 +1641,7 @@ importers:
     devDependencies:
       '@hookform/resolvers':
         specifier: ^6.0.0
-        version: 6.0.0(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../core
@@ -1839,7 +1839,7 @@ importers:
         version: 9.3.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@tanstack/react-virtual':
         specifier: ^3.14.0
-        version: 3.14.22(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        version: 3.14.23(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1858,7 +1858,7 @@ importers:
     devDependencies:
       '@hookform/resolvers':
         specifier: ^6.0.0
-        version: 6.0.0(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../design-system
@@ -2002,7 +2002,7 @@ importers:
         version: 58.0.23(@babel/core@7.29.7(supports-color@8.1.1))(expo@58.0.19)(react-dom@19.3.0(react@19.3.0))(react-native-worklets@0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
       '@gorhom/bottom-sheet':
         specifier: '>=5.0.0'
-        version: 5.2.14(a8e49c3f1c97a56464b1cc3e231df90a)
+        version: 5.2.14(fe28712e2fa3eb271599de92859df4ea)
       '@hookform/resolvers':
         specifier: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0
         version: 6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
@@ -2050,7 +2050,7 @@ importers:
         version: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
       react-native-gesture-handler:
         specifier: '>=2.0.0'
-        version: 3.1.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
+        version: 3.3.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
       react-native-keyboard-controller:
         specifier: '>=1.21.0'
         version: 1.22.7(react-native-reanimated@4.7.1(react-native-worklets@0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
@@ -3462,84 +3462,6 @@ packages:
     peerDependencies:
       react: 19.3.0
       react-native: 0.88.0
-
-  '@hookform/resolvers@6.0.0':
-    resolution: {integrity: sha512-6iBzQnB+YwAveVc8HUi6QYLITn5X+xNKRMFIcNXHZlvp2aTI7yWbj4n/JodXxirMCcBc4VCjb2aYAJh4x07mVw==}
-    peerDependencies:
-      '@sinclair/typebox': '>=0.25.24'
-      '@standard-schema/spec': ^1.0.0
-      '@typeschema/main': '>=0.13.7'
-      '@vinejs/vine': ^2.0.0 || ^3.0.0 || ^4.0.0
-      ajv: ^8.12.0
-      ajv-errors: ^3.0.0
-      ajv-formats: ^2.1.1
-      arktype: ^2.0.0
-      ata-validator: ^1.23.0
-      class-transformer: '>=0.4.0'
-      class-validator: '>=0.12.0'
-      computed-types: ^1.0.0
-      effect: ^4.0.0
-      fluentvalidation-ts: ^3.0.0
-      fp-ts: ^2.7.0
-      io-ts: ^2.0.0
-      joi: ^17.0.0 || ^18.0.0
-      nope-validator: '>=0.12.0'
-      react-hook-form: ^7.55.0
-      superstruct: '>=0.12.0'
-      typanion: ^3.3.2
-      valibot: '>=0.31.0 || ^1.0.0-beta.4 || ^1.0.0-rc'
-      vest: '>=6.0.0'
-      yup: ^1.0.0
-      zod: ^3.25.0 || ^4.0.0
-    peerDependenciesMeta:
-      '@sinclair/typebox':
-        optional: true
-      '@standard-schema/spec':
-        optional: true
-      '@typeschema/main':
-        optional: true
-      '@vinejs/vine':
-        optional: true
-      ajv:
-        optional: true
-      ajv-errors:
-        optional: true
-      ajv-formats:
-        optional: true
-      arktype:
-        optional: true
-      ata-validator:
-        optional: true
-      class-transformer:
-        optional: true
-      class-validator:
-        optional: true
-      computed-types:
-        optional: true
-      effect:
-        optional: true
-      fluentvalidation-ts:
-        optional: true
-      fp-ts:
-        optional: true
-      io-ts:
-        optional: true
-      joi:
-        optional: true
-      nope-validator:
-        optional: true
-      superstruct:
-        optional: true
-      typanion:
-        optional: true
-      valibot:
-        optional: true
-      vest:
-        optional: true
-      yup:
-        optional: true
-      zod:
-        optional: true
 
   '@hookform/resolvers@6.0.2':
     resolution: {integrity: sha512-e2dqUOlaGuirKVOd/iZWk/Yg5zeaGw7t0hSc3LzxL3o7eZGwZkTyEbBL8H52m0wRKEsNLWoMGOiXGHbPHTXlEQ==}
@@ -6014,26 +5936,26 @@ packages:
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
 
-  '@storybook/addon-a11y@10.6.4':
-    resolution: {integrity: sha512-a2SC6d7CrQOkuP6MXtBkQvi/lb3qmRE4Vp51bk88y4lVVwPBLsNFrSNrorY7RE+WoGivFBg6rDNYhzUy720GQA==}
+  '@storybook/addon-a11y@10.6.3':
+    resolution: {integrity: sha512-nqvjpmu5g+PPtEKwgE0qAi4wfuQ9yngOb/1Gm24pBBZOuRsd3UMEBjKORSuAGrIAz9X3LCFfQi7sCcBFXvFbwg==}
     peerDependencies:
-      storybook: ^10.6.4
+      storybook: ^10.6.3
 
-  '@storybook/addon-docs@10.6.4':
-    resolution: {integrity: sha512-rRgf5evcDPo4A0i9IBNkhkubfo4BG0YsqanDdpNDODiYYWDzM8xEgLHtGZf/xs4sLbyMITUhhQJr/c3JmAPZ1A==}
+  '@storybook/addon-docs@10.6.3':
+    resolution: {integrity: sha512-365f712au4w/xvFqEKY6TIvTeGGAY7FKRB8zP4CFa3VSv9oyxHaq/ublFg4YDbCeRagppwl1PZ6k4+PoUor3+A==}
     peerDependencies:
       '@types/react': 19.3.0
-      storybook: ^10.6.4
+      storybook: ^10.6.3
     peerDependenciesMeta:
       '@types/react':
         optional: true
 
-  '@storybook/addon-vitest@10.6.4':
-    resolution: {integrity: sha512-ojRolkXhfq/Mvp4GvNESqGlNJG+/xyXVoUHopiIBcSxqKq2cqXgpfisRBOyFN6KS346EAlZK896UrQBjmYmQRA==}
+  '@storybook/addon-vitest@10.6.3':
+    resolution: {integrity: sha512-ANz0SHAi9OTtrZt+YmcQvP7tcUZrTSm8Gq/nI7p9ZRyHAUOTdGoCex2cPyLc3mEqZTCBnaYXR6ZhURlpGsh9dQ==}
     peerDependencies:
       '@vitest/browser': ^4.0.0 || ^5.0.0
       '@vitest/browser-playwright': ^4.0.0 || ^5.0.0
-      storybook: ^10.6.4
+      storybook: ^10.6.3
       vitest: ^4.0.0 || ^5.0.0
     peerDependenciesMeta:
       '@vitest/browser':
@@ -6043,10 +5965,10 @@ packages:
       vitest:
         optional: true
 
-  '@storybook/builder-vite@10.6.4':
-    resolution: {integrity: sha512-trRRLMLlVesA6ELghA1pRQK2xdCtXSW8KKx7thyCUjWuhsRmnuLnctKEaPO7BCQj57Ct7E+dCWsU7KyHriNlPQ==}
+  '@storybook/builder-vite@10.6.3':
+    resolution: {integrity: sha512-1+WCZZg/fPxxyHDB5sFKniFt9/4RFUIzoNqMujv+BLRROM+gQeyUHvdvoyZOZ51+P8ee+/PgnNKHjsTupV+nOA==}
     peerDependencies:
-      storybook: ^10.6.4
+      storybook: ^10.6.3
       vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
 
   '@storybook/global@5.0.0':
@@ -6057,40 +5979,40 @@ packages:
     peerDependencies:
       react: 19.3.0
 
-  '@storybook/react-dom-shim@10.6.4':
-    resolution: {integrity: sha512-5nSuUmDM6qU11Gsugrm/WcQRMMx8ZG1i5ZZPpy9Q3kU40IDCRiEA8MwsYPa7QuqwCuyJEyIwm5I0sgvVxWVCcg==}
+  '@storybook/react-dom-shim@10.6.3':
+    resolution: {integrity: sha512-cJUuPrieiTl06kzlgaU89iG+CtLAgUTt0Xdvm8qFT9yR2qwafSaswhwYWlZCNX4nWuOu7eK7uzWTwzKqyDBOWQ==}
     peerDependencies:
       '@types/react': 19.3.0
       '@types/react-dom': ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react: 19.3.0
       react-dom: 19.3.0
-      storybook: ^10.6.4
+      storybook: ^10.6.3
     peerDependenciesMeta:
       '@types/react':
         optional: true
       '@types/react-dom':
         optional: true
 
-  '@storybook/react-vite@10.6.4':
-    resolution: {integrity: sha512-g7rDbCSefBPfiQE7+Qoq5XstHYF9jzXvKvadLwpmYm6mgTkh+sE3/xYjy6P1tm18nUG8GZMQJOf3ifuugclQzA==}
+  '@storybook/react-vite@10.6.3':
+    resolution: {integrity: sha512-geWwLi9JnaRG2t9bYBfz+94skARzzXNT1Toaf0lk7Oog13rtNK7ay2pWNm9SP6/L2S7mEjoWu9+zHLpwxXvfIw==}
     peerDependencies:
       react: 19.3.0
       react-dom: 19.3.0
-      storybook: ^10.6.4
+      storybook: ^10.6.3
       typescript: '>= 4.9.x'
       vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
     peerDependenciesMeta:
       typescript:
         optional: true
 
-  '@storybook/react@10.6.4':
-    resolution: {integrity: sha512-5oyUucNrco9xZEpRiKQ7YtWP6Sr63DsOxh/RbpjRTOachM4GChemEFdoOEuRO2Wk18sccPvJAI1fHIdMWTIdcQ==}
+  '@storybook/react@10.6.3':
+    resolution: {integrity: sha512-3tfAkZNdUyx3I4IjM8dgbNWg4k0gj89Hi1MPiawfTybRRWhvnX2YqV9Ut4mrud7YzRv0v+U7+ZYEvj+maUPaow==}
     peerDependencies:
       '@types/react': 19.3.0
       '@types/react-dom': ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react: 19.3.0
       react-dom: 19.3.0
-      storybook: ^10.6.4
+      storybook: ^10.6.3
       typescript: '>= 4.9.x'
     peerDependenciesMeta:
       '@types/react':
@@ -6275,12 +6197,6 @@ packages:
     peerDependencies:
       react: 19.3.0
 
-  '@tanstack/react-virtual@3.14.22':
-    resolution: {integrity: sha512-zNiB9IF3prySTfAUrj9tPHjD/lonBYkfxrPP4v4ITUx+qwHajJR5cY/xirjvwc+KWkur10GX3TpsbKh7JkD8Lw==}
-    peerDependencies:
-      react: 19.3.0
-      react-dom: 19.3.0
-
   '@tanstack/react-virtual@3.14.23':
     resolution: {integrity: sha512-Oyy58qQwdaQieA+A4WUDtnh9D1rv5FZvGdw8og9Xeyh88V6HH94vMSyV5i9ATIbYNe9t5Ix0WXRo9NOTpHDkYw==}
     peerDependencies:
@@ -6297,9 +6213,6 @@ packages:
   '@tanstack/table-core@9.3.1':
     resolution: {integrity: sha512-zQvlxSNi2qGM3L4jh85Z6hqMfdIR5qOfD9KHOU32nuKFJGN0RlJ7UvV1lsPb1fPVhpFYI0VP3jJGxLdLDpTKjQ==}
     engines: {node: '>=20'}
-
-  '@tanstack/virtual-core@3.19.7':
-    resolution: {integrity: sha512-gxy5SvH0mFRJ0YujtrflB/1HAu9Wn1KGvL0bjZfQkYVVMsIpQiwcf1mR06/ViN4NjllUb4HNCjqE9FGwgTvMCQ==}
 
   '@tanstack/virtual-core@3.19.8':
     resolution: {integrity: sha512-Oz/SYBo/aVPyQkwtOw7Q23myITUgFIof2glQqydYJAPL6mH2SkJDkvDKZTklB+7gv5jGLZQhyTcd7SO1A1EODQ==}
@@ -10644,12 +10557,6 @@ packages:
       react-native-gesture-handler: '>= 2.0.0'
       react-native-reanimated: '>= 2.0.0'
 
-  react-native-gesture-handler@3.1.0:
-    resolution: {integrity: sha512-+kWVyZ6vLdtyFa1/aOc/sZncLAVPUKxhji/ttbiLI7hOaSU44bLjhI7p+Ns+pMl2r3RqPXssl5qHReYet9G77g==}
-    peerDependencies:
-      react: 19.3.0
-      react-native: 0.88.0
-
   react-native-gesture-handler@3.3.0:
     resolution: {integrity: sha512-ZCTlJ09nE3GPbm7J74lvwpxmx1TQ/7MDlHZNLARVYTN82k21mJUJ7BmI9eWjEi8eevHiAudI5O1Cpnt0rJfoJA==}
     peerDependencies:
@@ -11202,8 +11109,8 @@ packages:
     resolution: {integrity: sha512-eLoXW/DHyl62zxY4SCaIgnRhuMr6ri4juEYARS8E6sCEqzKpOiE521Ucofdx+KnDZl5xmvGYaaKCk5FEOxJCoQ==}
     engines: {node: '>= 0.4'}
 
-  storybook@10.6.4:
-    resolution: {integrity: sha512-pdtErBHV1cUzzZlVenLc7PGklKt1uWtdM9qCgiLa29bn5E3YRKnF2KR7YE4QgJrJ4FJWManzIhzMABqkTL0AUg==}
+  storybook@10.6.3:
+    resolution: {integrity: sha512-lNBvcZFG44C98KvQHYzfq1O46m+sl94zY1+na5/9E3ihtNMbvpOgYyMFMIcWYUvOMo3OM4q9jzvB73KU20bU8w==}
     hasBin: true
     peerDependencies:
       '@types/react': 19.3.0
@@ -13629,13 +13536,13 @@ snapshots:
 
   '@fontsource/work-sans@5.3.0': {}
 
-  '@gorhom/bottom-sheet@5.2.14(a8e49c3f1c97a56464b1cc3e231df90a)':
+  '@gorhom/bottom-sheet@5.2.14(fe28712e2fa3eb271599de92859df4ea)':
     dependencies:
       '@gorhom/portal': 1.0.14(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
       invariant: 2.2.4
       react: 19.3.0
       react-native: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
-      react-native-gesture-handler: 3.1.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
+      react-native-gesture-handler: 3.3.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
       react-native-reanimated: 4.7.1(react-native-worklets@0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
     optionalDependencies:
       '@types/react': 19.3.0
@@ -13645,17 +13552,6 @@ snapshots:
       nanoid: 3.3.20
       react: 19.3.0
       react-native: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
-
-  '@hookform/resolvers@6.0.0(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)':
-    dependencies:
-      '@standard-schema/utils': 0.3.0
-      react-hook-form: 7.91.0(@types/react@19.3.0)(react@19.3.0)
-    optionalDependencies:
-      '@sinclair/typebox': 0.34.52
-      '@standard-schema/spec': 1.1.0
-      ajv: 8.20.0
-      valibot: 1.4.2(typescript@6.0.3)
-      zod: 4.6.7
 
   '@hookform/resolvers@6.0.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.91.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)':
     dependencies:
@@ -15981,20 +15877,20 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
-  '@storybook/addon-a11y@10.6.4(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))':
+  '@storybook/addon-a11y@10.6.3(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))':
     dependencies:
       '@storybook/global': 5.0.0
       axe-core: 4.14.0
-      storybook: 10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
+      storybook: 10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
 
-  '@storybook/addon-docs@10.6.4(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))':
+  '@storybook/addon-docs@10.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))':
     dependencies:
       '@mdx-js/react': 3.1.1(@types/react@19.3.0)(react@19.3.0)
       '@storybook/icons': 2.2.0(react@19.3.0)
-      '@storybook/react-dom-shim': 10.6.4(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))
+      '@storybook/react-dom-shim': 10.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
-      storybook: 10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
+      storybook: 10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
       ts-dedent: 2.3.0
       unplugin: 2.3.11
     optionalDependencies:
@@ -16002,11 +15898,11 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react-dom'
 
-  '@storybook/addon-vitest@10.6.4(@vitest/browser-playwright@5.0.5)(@vitest/browser@5.0.5)(react@19.3.0)(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(vitest@5.0.5)':
+  '@storybook/addon-vitest@10.6.3(@vitest/browser-playwright@5.0.5)(@vitest/browser@5.0.5)(react@19.3.0)(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(vitest@5.0.5)':
     dependencies:
       '@storybook/global': 5.0.0
       '@storybook/icons': 2.2.0(react@19.3.0)
-      storybook: 10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
+      storybook: 10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
     optionalDependencies:
       '@vitest/browser': 5.0.5(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))(vitest@5.0.5)
       '@vitest/browser-playwright': 5.0.5(playwright@1.64.1)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))(vitest@5.0.5)
@@ -16014,9 +15910,9 @@ snapshots:
     transitivePeerDependencies:
       - react
 
-  '@storybook/builder-vite@10.6.4(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))':
+  '@storybook/builder-vite@10.6.3(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
-      storybook: 10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
+      storybook: 10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
       ts-dedent: 2.3.0
       vite: 8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1)
 
@@ -16026,28 +15922,28 @@ snapshots:
     dependencies:
       react: 19.3.0
 
-  '@storybook/react-dom-shim@10.6.4(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))':
+  '@storybook/react-dom-shim@10.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))':
     dependencies:
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)
-      storybook: 10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
+      storybook: 10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
     optionalDependencies:
       '@types/react': 19.3.0
       '@types/react-dom': 19.3.0(@types/react@19.3.0)
 
-  '@storybook/react-vite@10.6.4(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(rollup@4.62.4)(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(supports-color@8.1.1)(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))':
+  '@storybook/react-vite@10.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(rollup@4.62.4)(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(supports-color@8.1.1)(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))':
     dependencies:
       '@joshwooding/vite-plugin-react-docgen-typescript': 0.7.0(typescript@6.0.3)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
       '@rollup/pluginutils': 5.4.0(rollup@4.62.4)
-      '@storybook/builder-vite': 10.6.4(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
-      '@storybook/react': 10.6.4(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(supports-color@8.1.1)(typescript@6.0.3)
+      '@storybook/builder-vite': 10.6.3(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))
+      '@storybook/react': 10.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(supports-color@8.1.1)(typescript@6.0.3)
       empathic: 2.1.0
       magic-string: 1.4.3
       react: 19.3.0
       react-docgen: 8.0.4(supports-color@8.1.1)
       react-dom: 19.3.0(react@19.3.0)
       resolve: 1.22.12
-      storybook: 10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
+      storybook: 10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
       tsconfig-paths: 4.2.0
       vite: 8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1)
     optionalDependencies:
@@ -16058,15 +15954,15 @@ snapshots:
       - rollup
       - supports-color
 
-  '@storybook/react@10.6.4(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(supports-color@8.1.1)(typescript@6.0.3)':
+  '@storybook/react@10.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))(supports-color@8.1.1)(typescript@6.0.3)':
     dependencies:
       '@storybook/global': 5.0.0
-      '@storybook/react-dom-shim': 10.6.4(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))
+      '@storybook/react-dom-shim': 10.6.3(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0))
       react: 19.3.0
       react-docgen: 8.0.4(supports-color@8.1.1)
       react-docgen-typescript: 2.4.0(typescript@6.0.3)
       react-dom: 19.3.0(react@19.3.0)
-      storybook: 10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
+      storybook: 10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0)
     optionalDependencies:
       '@types/react': 19.3.0
       '@types/react-dom': 19.3.0(@types/react@19.3.0)
@@ -16230,12 +16126,6 @@ snapshots:
     transitivePeerDependencies:
       - react-dom
 
-  '@tanstack/react-virtual@3.14.22(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
-    dependencies:
-      '@tanstack/virtual-core': 3.19.7
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
-
   '@tanstack/react-virtual@3.14.23(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@tanstack/virtual-core': 3.19.8
@@ -16254,8 +16144,6 @@ snapshots:
   '@tanstack/table-core@9.3.1':
     dependencies:
       '@tanstack/store': 0.11.2
-
-  '@tanstack/virtual-core@3.19.7': {}
 
   '@tanstack/virtual-core@3.19.8': {}
 
@@ -21429,13 +21317,6 @@ snapshots:
       react-native-reanimated: 4.7.1(react-native-worklets@0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
       use-latest-callback: 0.2.6(react@19.3.0)
 
-  react-native-gesture-handler@3.1.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0):
-    dependencies:
-      '@types/react-test-renderer': 19.1.0
-      invariant: 2.2.4
-      react: 19.3.0
-      react-native: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
-
   react-native-gesture-handler@3.3.0(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0):
     dependencies:
       '@types/react-test-renderer': 19.1.0
@@ -22107,7 +21988,7 @@ snapshots:
       es-errors: 1.3.0
       internal-slot: 1.1.0
 
-  storybook@10.6.4(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0):
+  storybook@10.6.3(@types/react@19.3.0)(prettier@3.9.6)(react@19.3.0):
     dependencies:
       '@storybook/global': 5.0.0
       '@storybook/icons': 2.2.0(react@19.3.0)

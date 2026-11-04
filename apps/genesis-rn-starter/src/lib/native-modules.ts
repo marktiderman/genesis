@@ -9,7 +9,7 @@
  * ThreadPage's composer. To fall back to plain
  * React Native for one, delete its line, its import below and its package.
  */
-import DateTimePicker from "@expo/ui/community/datetime-picker";
+import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { FlashList } from "@shopify/flash-list";
 import * as GlassEffect from "expo-glass-effect";
 import { Image } from "expo-image";
