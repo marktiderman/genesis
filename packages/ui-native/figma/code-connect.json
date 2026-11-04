@@ -6,6 +6,7 @@
     "NativeAvatar",
     "NativeBadge",
     "NativeBanner",
+    "NativeBulkBar",
     "NativeButton",
     "NativeCard",
     "NativeCheckbox",
@@ -46,12 +47,14 @@
     "NativeSegmentedControl",
     "NativeSelect",
     "NativeSeparator",
+    "NativeShareSheet",
     "NativeSheet",
     "NativeSkeleton",
     "NativeSlider",
     "NativeStepper",
     "NativeSwipeRow",
     "NativeSwitch",
+    "NativeTabBar",
     "NativeTabs",
     "NativeText",
     "NativeTextarea",
@@ -64,7 +67,9 @@
     "ScreenContainer",
     "ThreadPage"
   ],
-  "notYet": [],
+  "notYet": [
+    "NativeWhatsNewSheet"
+  ],
   "composed": [
     "SettingsPage",
     "SettingsSubPage",

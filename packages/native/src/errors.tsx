@@ -8,7 +8,7 @@
 import { Component, type ComponentType, type ErrorInfo, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { NativeButton, NativeEmptyState } from "@marktiderman/genesis-ui-native/components";
-import { classifyError } from "@marktiderman/genesis-core/errors";
+import { classifyError, reportError } from "@marktiderman/genesis-core/errors";
 import { toError } from "./boot";
 
 declare const __DEV__: boolean | undefined;
@@ -31,41 +31,75 @@ export interface FatalScreenProps {
   retry: () => void;
 }
 
-/** The default fatal screen: what went wrong and "Try again". */
-export function FatalScreen({ error, retry }: FatalScreenProps) {
+/** Which fatal screen: the app's, one screen's, or the last-resort plain one. */
+export type FatalScreenKind = "app" | "screen" | "plain";
+
+export interface FatalScreenViewProps {
+  error: Error;
+  /** Clears the error and renders again (a screen's retry may be async, as Expo Router's is). */
+  retry: () => void | Promise<void>;
+  /**
+   * `app` (default): the app hit a problem, "Try again" remounts it. `screen`: one screen failed
+   * and the rest of the app still works (the screen boundary's default). `plain`: React Native
+   * primitives only, no theme, no context, nothing that can itself fail; shown when the providers
+   * could not start, or when the `fatal` slot threw.
+   */
+  kind?: FatalScreenKind;
+}
+
+const runRetry = (retry: FatalScreenViewProps["retry"], source: string) => () => {
+  void Promise.resolve(retry()).catch((e: unknown) => reportError(e, source));
+};
+
+/**
+ * The fatal screen: what went wrong and "Try again", for the whole app, one screen, or (with
+ * `kind="plain"`) the last resort that needs nothing above it.
+ */
+export function FatalScreen({ error, retry, kind = "app" }: FatalScreenViewProps) {
+  if (kind === "plain") {
+    return (
+      <View testID="genesis-fatal-plain" style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 12 }}>
+        <Text accessibilityRole="header" style={{ fontSize: 17, fontWeight: "600" }}>
+          Something went wrong
+        </Text>
+        <Text style={{ textAlign: "center" }}>{errorDetails(error) ?? "Try again, and if it keeps happening, close and reopen the app."}</Text>
+        <Pressable accessibilityRole="button" onPress={() => void retry()} testID="genesis-fatal-plain-retry" style={{ padding: 12 }}>
+          <Text style={{ fontSize: 17 }}>Try again</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  const screen = kind === "screen";
   return (
     <NativeEmptyState
       variant="error"
-      title="Something went wrong"
-      body="The app hit a problem. Try again, and if it keeps happening, close and reopen the app."
+      title={screen ? "This screen hit a problem" : "Something went wrong"}
+      body={
+        screen
+          ? "The rest of the app still works. Try again, or go back."
+          : "The app hit a problem. Try again, and if it keeps happening, close and reopen the app."
+      }
       details={errorDetails(error)}
       primaryAction={
-        <NativeButton onPress={retry} testID="genesis-fatal-retry">
+        <NativeButton
+          onPress={screen ? runRetry(retry, "native:screen-retry") : () => void retry()}
+          testID={screen ? "genesis-screen-error-retry" : "genesis-fatal-retry"}
+        >
           Try again
         </NativeButton>
       }
-      testID="genesis-fatal"
+      testID={screen ? "genesis-screen-error" : "genesis-fatal"}
     />
   );
 }
 
 /**
- * The last-resort fatal screen: React Native primitives only, no theme, no
- * context, nothing that can itself fail. Shown when the providers could not
- * start, or when the `fatal` slot threw.
+ * The last-resort fatal screen.
+ *
+ * @deprecated Use `<FatalScreen kind="plain" />`; this name goes at the next major.
  */
-export function PlainFatalScreen({ error, retry }: FatalScreenProps) {
-  return (
-    <View testID="genesis-fatal-plain" style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 12 }}>
-      <Text accessibilityRole="header" style={{ fontSize: 17, fontWeight: "600" }}>
-        Something went wrong
-      </Text>
-      <Text style={{ textAlign: "center" }}>{errorDetails(error) ?? "Try again, and if it keeps happening, close and reopen the app."}</Text>
-      <Pressable accessibilityRole="button" onPress={retry} testID="genesis-fatal-plain-retry" style={{ padding: 12 }}>
-        <Text style={{ fontSize: 17 }}>Try again</Text>
-      </Pressable>
-    </View>
-  );
+export function PlainFatalScreen(props: FatalScreenProps) {
+  return <FatalScreen {...props} kind="plain" />;
 }
 
 export interface ErrorReport {

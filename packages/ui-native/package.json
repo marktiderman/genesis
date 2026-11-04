@@ -327,6 +327,30 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#gallery"
         },
         {
+          "need": "a bottom tab bar with any number of tabs",
+          "use": "NativeTabBar (past max, the last slot is More, which opens a NativeSheet)",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "actions on the rows a list has selected",
+          "use": "NativeBulkBar",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "sharing a published page's link, with a QR code",
+          "use": "NativeShareSheet with url, renderQr and onCopy",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a what's new sheet after an update",
+          "use": "NativeWhatsNewSheet",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
           "need": "a rank or tier label (Gold, Level 3) in a brand accent",
           "use": "NativeTierBadge with tone set to a key of the brand's accents",
           "import": "@marktiderman/genesis-ui-native",

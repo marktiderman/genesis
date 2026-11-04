@@ -346,3 +346,12 @@ export type { NativeGalleryCardProps } from "./gallery-card";
 
 export { NativeLiveIndicator } from "./live-indicator";
 export type { NativeLiveIndicatorProps, NativeLiveIndicatorState, NativeLiveIndicatorVariant } from "./live-indicator";
+
+export { NativeTabBar } from "./tab-bar";
+export type { NativeTabBarItem, NativeTabBarProps } from "./tab-bar";
+export { NativeBulkBar } from "./bulk-bar";
+export type { NativeBulkAction, NativeBulkBarProps } from "./bulk-bar";
+export { NativeShareSheet } from "./share-sheet";
+export type { NativeShareSheetProps } from "./share-sheet";
+export { NativeWhatsNewSheet } from "./whats-new-sheet";
+export type { NativeWhatsNewNote, NativeWhatsNewSheetProps } from "./whats-new-sheet";

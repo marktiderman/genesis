@@ -248,3 +248,23 @@ export function resolveNavigation<T>(
     params,
   };
 }
+
+/**
+ * Most slots a phone bottom tab bar shows before the rest go under "More".
+ *
+ * @stability Beta
+ */
+export const TAB_BAR_MAX = 5;
+
+/**
+ * A phone bottom tab bar's split: up to `max` items fit; beyond that, the first `max - 1` show
+ * and the rest go under "More" in the last slot. Pure, so the web `TabBar`, AppShell's phone
+ * bottom nav and genesis-ui-native's `NativeTabBar` all split the same way.
+ *
+ * @stability Beta
+ */
+export function splitTabBarItems<T>(items: readonly T[], max: number = TAB_BAR_MAX): { shown: T[]; more: T[] } {
+  const slots = Math.max(1, max);
+  if (items.length <= slots) return { shown: [...items], more: [] };
+  return { shown: items.slice(0, slots - 1), more: items.slice(slots - 1) };
+}
