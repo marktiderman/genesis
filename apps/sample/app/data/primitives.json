@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 163
+      "count": 165
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 91
+      "count": 99
     }
   },
   "primitives": [
@@ -876,13 +876,94 @@
       ]
     },
     {
+      "slug": "bulk-bar",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/bulk-bar.tsx",
+      "stability": "beta",
+      "summary": "BulkBar — the selection action bar: how many are selected, select all, the bulk actions,\nand Clear. The twin of genesis-ui's `DataBulkBar`, with the same props; it renders nothing\nwhile nothing is selected. On the phone it sits at the bottom of the screen, above the tab\nbar: render it after the list, inside the screen (not over the tab bar).",
+      "primaryComponent": "NativeBulkBar",
+      "components": [
+        {
+          "name": "NativeBulkBar",
+          "summary": "",
+          "props": [
+            {
+              "name": "actions",
+              "type": "NativeBulkAction[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onClearSelection",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onToggleAll",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "selected",
+              "type": "Set<string>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "totalCount",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Merged onto the bar."
+            },
+            {
+              "name": "clearLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Clear",
+              "description": "Default \"Clear\"."
+            },
+            {
+              "name": "selectedLabel",
+              "type": "((count: number) => string)",
+              "required": false,
+              "defaultValue": "(count) => `${count} selected`",
+              "description": "\"{count} selected\". Default English."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-bulk-bar",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "button",
       "aliases": [],
       "surface": "native",
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/button.tsx",
       "stability": "stable",
-      "summary": "Button — primary touch target. Variants: default, secondary, outline, ghost, destructive.",
+      "summary": "Button — primary touch target. Variants: default, secondary, outline, ghost, destructive,\ngradient (the brand's `gradients.primary` from the nearest `GenesisThemeProvider`, else the\nprimary).\nIt answers a touch with `usePressFeedback`: what's inside shrinks a little while held (or dims\nunder Reduce Motion), the same as every Genesis pressable. The background stays still. Layout\nclasses in `className` (`justify-start`, `gap-3`, `flex-col`) apply to what's inside.",
       "primaryComponent": "NativeButton",
       "components": [
         {
@@ -946,11 +1027,25 @@
               "description": ""
             },
             {
+              "name": "ref",
+              "type": "Ref<ReactNativeElement>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The pressable (React 19 passes `ref` as a prop)."
+            },
+            {
               "name": "size",
               "type": "\"sm\" | \"md\" | \"lg\" | null",
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "style",
+              "type": "StyleProp<ViewStyle>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Styles for the pressable, after the classes: colors or sizes from a theme object."
             },
             {
               "name": "testID",
@@ -968,7 +1063,7 @@
             },
             {
               "name": "variant",
-              "type": "\"default\" | \"secondary\" | \"outline\" | \"ghost\" | \"destructive\" | null",
+              "type": "\"default\" | \"secondary\" | \"outline\" | \"ghost\" | \"destructive\" | \"gradient\" | null",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -1257,6 +1352,101 @@
       ]
     },
     {
+      "slug": "choice-card",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/choice-card.tsx",
+      "stability": "beta",
+      "summary": "NativeChoiceCard — one selectable option drawn as a card: an indicator\n(a radio circle, or a checkbox square with `multiple`), an optional\n`media` slot (a thumbnail, an icon), a title and a description.\n\nThe whole card is the press target (at least 44pt high) and reads as one\nradio or checkbox to VoiceOver and TalkBack, named \"title, description\".\nSelected, the border and indicator take the primary colour and the card a\nlight primary wash; `invalid` draws the border in the destructive colour\n(and says \"Needs an answer\"). Controlled: the parent owns `selected`.\n\nUse a column of them for a question with pictures or explanations per\noption; for a plain list of words use NativeRadioGroup or NativeChipGroup.",
+      "primaryComponent": "NativeChoiceCard",
+      "components": [
+        {
+          "name": "NativeChoiceCard",
+          "summary": "",
+          "props": [
+            {
+              "name": "onPress",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "selected",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A second line under the title, muted."
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": ""
+            },
+            {
+              "name": "hint",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Extra accessibility hint, such as \"Option 2 of 4\"."
+            },
+            {
+              "name": "invalid",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The question still needs an answer: a destructive border and hint."
+            },
+            {
+              "name": "media",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Slot left of the text: a thumbnail (NativeImage), an icon."
+            },
+            {
+              "name": "multiple",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "A checkbox (several can be chosen) rather than a radio."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-choice-card",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "combobox",
       "aliases": [],
       "surface": "native",
@@ -1351,7 +1541,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/composer-bar.tsx",
       "stability": "beta",
-      "summary": "NativeComposerBar — the bar you write a message in: an input that grows\nwith what you type (up to `maxLines`, then scrolls), a send button, and\nslots beside and above it. ThreadPage's composer; chat, comments and AI\nprompts build on it too.\n\n- **Modes:** `modes` with a `tone` each (\"Reply\" / \"Internal note\"). The\n  picker sits above the input, and an `internal` tone edges the bar and\n  the input in the theme's `warning` role, so a staff-only note never\n  reads like a reply (the send button keeps the tint: text on `warning`\n  would fail contrast). The row it sends carries the same tone (ThreadPage).\n- **Slots:** `leading` (attach), `trailing` (beside send: an emoji button),\n  `above` (a reply preview, attachments waiting to send), `idleAction` (in\n  Send's place while there's nothing to send: a hold-to-record mic) and\n  `replaceInput` (instead of `leading` and the input: a recording's\n  waveform). Attachments with no text: pass `empty={false}`.\n- **More ways to send:** `sendActions` (\"Schedule\"). Touch and hold Send:\n  one action runs, several open a menu. Each is also an accessibility\n  action on Send.\n- **Keyboard:** the bar doesn't move itself. Put it under a keyboard-aware\n  container (ThreadPage does, with `GenesisModules.keyboardAvoidingView`);\n  the list above it dismisses the keyboard interactively on a drag.\n- **Accessibility:** send and the mode picker are 44pt targets, the input\n  is labelled by its placeholder (and says when it writes an internal\n  note), Sending is announced, and the input stays editable while a\n  message sends (the keyboard stays up).",
+      "summary": "NativeComposerBar — the bar you write a message in: an input that grows\nwith what you type (up to `maxLines`, then scrolls), a send button, and\nslots beside and above it. ThreadPage's composer; chat, comments and AI\nprompts build on it too.\n\n- **Modes:** `modes` with a `tone` each (\"Reply\" / \"Internal note\"). The\n  picker sits above the input, and an `internal` tone edges the bar and\n  the input in the theme's `warning` role, so a staff-only note never\n  reads like a reply (the send button keeps the tint: text on `warning`\n  would fail contrast). The row it sends carries the same tone (ThreadPage).\n- **Slots:** `leading` (attach), `trailing` (beside send: an emoji button),\n  `above` (a reply preview, attachments waiting to send), `idleAction` (in\n  Send's place while there's nothing to send: a hold-to-record mic) and\n  `replaceInput` (instead of `leading` and the input: a recording's\n  waveform). Attachments with no text: pass `hasContent`.\n- **More ways to send:** `sendActions` (\"Schedule\"). Touch and hold Send:\n  one action runs, several open a menu. Each is also an accessibility\n  action on Send.\n- **Keyboard:** the bar doesn't move itself. Put it under a keyboard-aware\n  container (ThreadPage does, with `GenesisModules.keyboardAvoidingView`);\n  the list above it dismisses the keyboard interactively on a drag.\n- **Accessibility:** send and the mode picker are 44pt targets, the input\n  is labelled by its placeholder (and says when it writes an internal\n  note), Sending is announced, and the input stays editable while a\n  message sends (the keyboard stays up).",
       "primaryComponent": "NativeComposerBar",
       "components": [
         {
@@ -1398,14 +1588,14 @@
               "type": "boolean",
               "required": false,
               "defaultValue": "true",
-              "description": "The input takes text (default). When false, nothing sends and the input reads as disabled."
+              "description": "The input takes text (default). When false, Send is off and the input reads as disabled.\n`idleAction` is the app's, so disable it too."
             },
             {
-              "name": "empty",
+              "name": "hasContent",
               "type": "boolean",
               "required": false,
               "defaultValue": null,
-              "description": "Whether there's nothing to send. By default, a blank `value`; pass `false` when attachments\nare waiting and no text is needed."
+              "description": "Whether there's something to send. By default, a `value` that isn't blank; pass `true` when\nattachments are waiting and no text is needed, and `false` while `replaceInput` is showing."
             },
             {
               "name": "idleAction",
@@ -1448,6 +1638,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Ways to send (\"Reply\", \"Internal note\"). Two or more show the picker."
+            },
+            {
+              "name": "modesLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Send as",
+              "description": "The picker's name, to VoiceOver. Default \"Send as\"."
             },
             {
               "name": "onModeChange",
@@ -1539,6 +1736,66 @@
           "name": "ComposerTone",
           "summary": "How a composer mode reads. The same tones as a message.",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "context-menu",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/context-menu.tsx",
+      "stability": "beta",
+      "summary": "NativeContextMenu — what a long press opens: a short list of actions in a\nsheet that fits them, with Cancel, instead of the system `Alert`. It's the\nsame on iOS and Android, a row of its own for each action (44pt, a destructive\none in the theme's `destructive`), and opening it taps `medium`.\n\nControlled, like `NativeSheet`: keep `open` in your screen and set it from\n`onLongPress`. Offer the same actions as accessibility actions on the\npressable too (`accessibilityActions`), since VoiceOver doesn't long press.\n\nAn action runs once, and once the sheet has gone: iOS won't present an alert\nor another modal over one that's still dismissing.",
+      "primaryComponent": "NativeContextMenu",
+      "components": [
+        {
+          "name": "NativeContextMenu",
+          "summary": "",
+          "props": [
+            {
+              "name": "actions",
+              "type": "readonly NativeContextMenuAction[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onOpenChange",
+              "type": "(open: boolean) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "cancelLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Cancel",
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "context-menu",
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Over the actions: what they act on."
+            }
+          ]
         }
       ]
     },
@@ -2248,7 +2505,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/gallery-grid.tsx",
       "stability": "beta",
-      "summary": "NativeGalleryGrid — photos in rows: justified (each row scaled to fill the\nwidth, as in a photo library) or a fixed-column grid (square tiles by\ndefault, or each item's own shape with `aspectRatio=\"item\"`).\n\nRows come from the pure `justifyRows`, so the same items pack the same way\nas the web `GalleryGrid`, with the same defaults (`GALLERY_DEFAULTS`) and\nthe same props, `onItemPress` in place of the web's `onItemClick` (as\n`NativeResourcePage` pairs with `ResourcePage`). The container width comes\nfrom `onLayout`; until it is measured nothing is drawn. The rows are a\nvirtualized `FlatList` (the grid scrolls itself; `header` and `footer` go\nabove and below), so a long gallery mounts only what's near the screen and\n`loadMore` fires when scrolling nears the end, for \"load more\". Don't put\nit inside a ScrollView: it fills its parent (`flex-1`), and nested it would\ndraw every row and fire `loadMore` at once. Put what goes above or below\nit in `header` and `footer`. Tiles are\n`NativeImage` over a `bg-muted` placeholder sized from the item's ratio (so\nrows don't reflow while the picture loads), tappable when `onItemPress` is\ngiven (or when selecting); `renderItem` replaces the tile's content and\n`renderBadges` overlays its top-left.\n\nSelection (`selected` + `onSelectionChange`) toggles an id per press, in\nplace of `onItemPress` (as on web), and rings the chosen tiles. `groupBy`\nlays each group out separately under a header.",
+      "summary": "NativeGalleryGrid — photos in rows: justified (each row scaled to fill the\nwidth, as in a photo library) or a fixed-column grid (square tiles by\ndefault, or each item's own shape with `aspectRatio=\"item\"`).\n\nRows come from the pure `justifyRows`, so the same items pack the same way\nas the web `GalleryGrid`, with the same defaults (`GALLERY_DEFAULTS`) and\nthe same props, `onItemPress` in place of the web's `onItemClick` (as\n`NativeResourcePage` pairs with `ResourcePage`). The first paint lays out\nat the window width, and `onLayout` corrects it to the container's. The rows are a\nvirtualized `FlatList` (the grid scrolls itself; `header` and `footer` go\nabove and below), so a long gallery mounts only what's near the screen and\n`loadMore` fires when scrolling nears the end, for \"load more\". Don't put\nit inside a ScrollView: it fills its parent (`flex-1`), and nested it would\ndraw every row and fire `loadMore` at once. Put what goes above or below\nit in `header` and `footer`. Tiles are\n`NativeImage` over a `bg-muted` placeholder sized from the item's ratio (so\nrows don't reflow while the picture loads), tappable when `onItemPress` is\ngiven (or when selecting); `renderItem` replaces the tile's content and\n`renderBadges` overlays its top-left.\n\nSelection (`selected` + `onSelectionChange`) toggles an id per press, in\nplace of `onItemPress` (as on web), and rings the chosen tiles. `groupBy`\nlays each group out separately under a header.",
       "primaryComponent": "NativeGalleryGrid",
       "components": [
         {
@@ -2282,6 +2539,13 @@
               "required": false,
               "defaultValue": "GALLERY_DEFAULTS.columns",
               "description": "Grid layout only: tiles per row. Default 3."
+            },
+            {
+              "name": "contentInsetAdjustmentBehavior",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "automatic",
+              "description": "iOS: how the list insets under a large-title or translucent header. Default `\"automatic\"`, so the first row starts below the header."
             },
             {
               "name": "footer",
@@ -2928,7 +3192,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/inbox-page.tsx",
       "stability": "beta",
-      "summary": "InboxPage — a list of conversations or tickets: unread state, a time, a\npreview line, swipe actions, pull to refresh, paging and an empty state.\n\nGeneric: the rows are whatever the app has (support reports, direct\nmessages, an idea board). Data and actions come in as props; the layout\ndraws them the platform's way. On iOS it is the Settings app's inset\ngrouped style, like `SettingsPage`: the page is `groupedBackground`, the\nrows one rounded group on `surface` with hairline separators that start at\nthe text. On Android rows are full width.\n\nSwipe actions: each row's `swipeActions` are always reachable without a\ngesture library, as VoiceOver / TalkBack custom actions and on long press\n(a menu). For the swipe itself, fill the `swipeable` slot with your\ngesture-handler wrapper (`ReanimatedSwipeable` from\nreact-native-gesture-handler, an optional peer); it receives the actions\nand the row.\n\nRows: `avatar` puts a picture of who it is between the unread dot and the\ntext (an unread count shows at the end of the row, as in Mail); `leading`\nreplaces the dot.\n\nSlots: `row`, `swipeable`, `header` (above the group), `footer` (below it,\nthe paging spinner by default) and `empty`. `slots` swaps a part for your\ncomponent (same props), `slotProps` feeds the default more props, `null`\ndrops it.\n\nHeader: `getInboxPageStackOptions()` for `<Stack.Screen options>`.",
+      "summary": "InboxPage — a list of conversations or tickets: unread state, a time, a\npreview line, swipe actions, pull to refresh, paging and an empty state.\n\nGeneric: the rows are whatever the app has (support reports, direct\nmessages, an idea board). Data and actions come in as props; the layout\ndraws them the platform's way. On iOS it is the Settings app's inset\ngrouped style, like `SettingsPage`: the page is `groupedBackground`, the\nrows one rounded group on `surface` with hairline separators that start at\nthe text. On Android rows are full width.\n\nSwipe actions: each row's `swipeActions` are always reachable without a\ngesture library, as VoiceOver / TalkBack custom actions and on long press\n(`NativeContextMenu`). The swipe itself is `NativeSwipeRow`, once the app\npasses `GenesisModules.swipeable` (`ReanimatedSwipeable` from\nreact-native-gesture-handler, an optional peer), with each action's `side`.\nThe `swipeable` slot takes your own wrapper instead; it receives the actions\nand the row.\n\nRows: `avatar` puts a picture of who it is between the unread dot and the\ntext (an unread count shows at the end of the row, as in Mail); `leading`\nreplaces the dot.\n\nSlots: `row`, `swipeable`, `header` (above the group), `footer` (below it,\nthe paging spinner by default) and `empty`. `slots` swaps a part for your\ncomponent (same props), `slotProps` feeds the default more props, `null`\ndrops it.\n\nHeader: `getInboxPageStackOptions()` for `<Stack.Screen options>`.",
       "primaryComponent": "InboxPage",
       "components": [
         {
@@ -3169,7 +3433,7 @@
         },
         {
           "name": "showInboxActions",
-          "summary": "Opens a row's actions as a menu (long press).",
+          "summary": "Opens a row's actions as the system alert. `InboxPage` now opens `NativeContextMenu`; `NativeResourceView`\nstill uses this.",
           "props": []
         },
         {
@@ -3237,13 +3501,27 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/inline-alert.tsx",
       "stability": "beta",
-      "summary": "InlineAlert + Banner — non-blocking system messaging.\n\nNativeInlineAlert: contextual message that lives inline with related\ncontent (e.g., between form fields).\n\nNativeBanner: top-of-screen system message (e.g., \"You're offline\").\nPersists until the user dismisses or the condition clears. Use\nsparingly — for transient confirmation use <NativeToast>; for\nblocking issues use <NativeDialog>.\n\nBoth share variants: info / success / warning / destructive.",
+      "summary": "InlineAlert + Banner — non-blocking system messaging.\n\nNativeInlineAlert: contextual message that lives inline with related\ncontent (e.g., between form fields).\n\nNativeBanner: top-of-screen system message (e.g., \"You're offline\").\nPersists until the user dismisses or the condition clears. Use\nsparingly — for transient confirmation use <NativeToast>; for\nblocking issues use <NativeDialog>.\n\nBoth share variants: info / success / warning / destructive. Under the\ndescription, `children` takes any content (an error summary's list of\nlinks, a status line) and `actions` a row of buttons (\"Retry\", \"Review\"),\nso neither has to be drawn by hand around the alert.",
       "primaryComponent": "NativeInlineAlert",
       "components": [
         {
           "name": "NativeInlineAlert",
           "summary": "",
           "props": [
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A row of buttons under the content (NativeButton size=\"sm\")."
+            },
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Content under the description (a list of the fields to fix, a status line)."
+            },
             {
               "name": "className",
               "type": "string",
@@ -3299,6 +3577,20 @@
           "name": "NativeBanner",
           "summary": "",
           "props": [
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A row of buttons under the content (NativeButton size=\"sm\")."
+            },
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Content under the description (a list of the fields to fix, a status line)."
+            },
             {
               "name": "className",
               "type": "string",
@@ -3393,6 +3685,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "ref",
+              "type": "Ref<_TextInputInstance>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The underlying TextInput (React 19 passes `ref` as a prop)."
             }
           ]
         }
@@ -6057,7 +6356,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/progress.tsx",
       "stability": "stable",
-      "summary": "Progress — determinate horizontal progress indicator.",
+      "summary": "Progress — determinate horizontal progress indicator.\n\nThe fill is `bg-primary` and the track `bg-muted`. `indicatorColor` and\n`trackColor` take a colour value (a theme role from `useThemeRoles`, a\nbrand's tint) for a package or screen that styles without NativeWind\nclasses; they win over the class props.",
       "primaryComponent": "NativeProgress",
       "components": [
         {
@@ -6079,6 +6378,27 @@
               "description": "Indicator color class. Defaults to bg-primary"
             },
             {
+              "name": "indicatorColor",
+              "type": "____ColorValue_Internal",
+              "required": false,
+              "defaultValue": null,
+              "description": "The fill's colour as a value (a theme role, a brand tint); wins over `indicatorClassName`."
+            },
+            {
+              "name": "indicatorStyle",
+              "type": "ViewStyle",
+              "required": false,
+              "defaultValue": null,
+              "description": "Indicator style, for colors from a theme object rather than classes. Wins over the classes."
+            },
+            {
+              "name": "style",
+              "type": "ViewStyle",
+              "required": false,
+              "defaultValue": null,
+              "description": "Track style, for colors from a theme object rather than classes. Wins over the classes."
+            },
+            {
               "name": "testID",
               "type": "string",
               "required": false,
@@ -6091,6 +6411,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Track color class. Defaults to bg-muted"
+            },
+            {
+              "name": "trackColor",
+              "type": "____ColorValue_Internal",
+              "required": false,
+              "defaultValue": null,
+              "description": "The track's colour as a value; wins over `trackClassName`."
             },
             {
               "name": "value",
@@ -6197,7 +6524,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/rating.tsx",
       "stability": "beta",
-      "summary": "NativeRating — a row of stars showing a score out of `max`, read-only or\ntappable.\n\nWithout `onChange` (or with `readOnly`) it is one image for screen readers\n(\"3 of 5 stars\"). With it, each star is a radio in a radiogroup, so\nVoiceOver and TalkBack read the chosen one and the rest as options;\npressing the current value clears the rating (`nextRating`). Filled stars\ndraw in the `warning` role (what `text-warning` resolves to), empty ones in\nthe muted foreground. Same props as the web `Rating`.",
+      "summary": "NativeRating — a row of stars showing a score out of `max`, read-only or\ntappable.\n\nWithout `onChange` (or with `readOnly`) it is one image for screen readers\n(\"3 of 5 stars\"). With it, each star is a radio in a radiogroup, so\nVoiceOver and TalkBack read the chosen one and the rest as options;\npressing the current value clears the rating (`nextRating`) unless\n`clearable` is false. Filled stars draw in the `warning` role (what\n`text-warning` resolves to), or the brand's tint with `tone=\"primary\"`;\nempty ones in the muted foreground. `size=\"touch\"` gives each star a 44pt\ntarget, for a form. Same props as the web `Rating`.",
       "primaryComponent": "NativeRating",
       "components": [
         {
@@ -6222,6 +6549,20 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "clearable",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Pressing the chosen star clears it to 0. Default true; false for a required answer."
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The stars can't be pressed, and read as disabled."
             },
             {
               "name": "getLabel",
@@ -6263,7 +6604,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": "md",
-              "description": "Default \"md\"."
+              "description": "Default \"md\". `touch` is a 44pt target around a large star, for a form."
             },
             {
               "name": "testID",
@@ -6271,6 +6612,13 @@
               "required": false,
               "defaultValue": "native-rating",
               "description": ""
+            },
+            {
+              "name": "tone",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "warning",
+              "description": "The chosen stars' colour: the `warning` role (default) or the brand's tint."
             }
           ]
         }
@@ -7201,6 +7549,94 @@
       ]
     },
     {
+      "slug": "share-sheet",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/share-sheet.tsx",
+      "stability": "beta",
+      "summary": "ShareSheet — sharing one published page (a form, a course, a worksheet) from the phone: its\nlink with Copy and the system share sheet, and a QR code to show someone across the desk.\nThe twin of genesis-ui's `ShareDialog`: the host passes the link and how to draw a QR code\n(`renderQr`, the same approach as the web; Genesis bundles no QR library), so nothing native\nis added. Copy goes through `onCopy` (pass expo-clipboard's `setStringAsync`); without it,\nCopy opens the system share sheet, which has Copy.",
+      "primaryComponent": "NativeShareSheet",
+      "components": [
+        {
+          "name": "NativeShareSheet",
+          "summary": "",
+          "props": [
+            {
+              "name": "onOpenChange",
+              "type": "(open: boolean) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "url",
+              "type": "string | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "The public link; null while it is still loading."
+            },
+            {
+              "name": "description",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": "Anyone with the link can open it.",
+              "description": "Default \"Anyone with the link can open it.\""
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Its name, sent with the link to the system share sheet."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": "page",
+              "description": "What it is, in the default title and buttons: \"page\" (default), \"form\", \"course\"."
+            },
+            {
+              "name": "onCopy",
+              "type": "((text: string) => void | Promise<void>)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Copies text (expo-clipboard's `setStringAsync`). Default: the system share sheet."
+            },
+            {
+              "name": "renderQr",
+              "type": "((url: string) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Draws a QR code for a link. None hides the QR code."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-share-sheet",
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": "`Share your ${noun}`",
+              "description": "Default \"Share your {noun}\"."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "sheet",
       "aliases": [],
       "surface": "native",
@@ -7261,6 +7697,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Index of initial snap point, with `@gorhom/bottom-sheet` only. Default 0."
+            },
+            {
+              "name": "onDismissed",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The sheet has finished going, where the platform says so (iOS's modal, the library): another modal can present now."
             },
             {
               "name": "snapPoints",
@@ -7617,6 +8060,38 @@
       ]
     },
     {
+      "slug": "swipe-row",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/swipe-row.tsx",
+      "stability": "beta",
+      "summary": "NativeSwipeRow — a row with actions behind a swipe: Archive to one side,\nDelete to the other (each action's `side`, trailing by default).\n\nThe gesture is the app's `GenesisModules.swipeable` (react-native-gesture-\nhandler's `ReanimatedSwipeable`, an optional peer). Without it, the row draws\nas it is, so an action must always be reachable another way too: `InboxPage`\nputs them in the accessibility actions and on long press. The buttons behind\nthe row are hidden from VoiceOver for that reason (a screen reader doesn't\nswipe), and a swipe that opens taps `medium` through `useHaptics`.",
+      "primaryComponent": "NativeSwipeRow",
+      "components": [
+        {
+          "name": "NativeSwipeRow",
+          "summary": "",
+          "props": [
+            {
+              "name": "actions",
+              "type": "readonly InboxSwipeAction[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "swipe-row",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "switch",
       "aliases": [],
       "surface": "native",
@@ -7649,6 +8124,73 @@
               "type": "((checked: boolean) => void)",
               "required": false,
               "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "tab-bar",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/tab-bar.tsx",
+      "stability": "beta",
+      "summary": "TabBar — a bottom tab bar with any number of tabs.\n\nBuilt on NativeTabs (each slot is a NativeTabsTrigger). Up to `max` (5) tabs show; past that,\nthe first four show and the fifth slot is \"More\", which opens a NativeSheet with the rest.\nThe twin of genesis-ui's `TabBar` (the same props, and the same split as AppShell's phone\nbottom nav). For an Expo Router app's own tabs, the router's tab bar comes first; this is for\na bar the screen owns (tabs that aren't routes) or a router `tabBar` render.",
+      "primaryComponent": "NativeTabBar",
+      "components": [
+        {
+          "name": "NativeTabBar",
+          "summary": "",
+          "props": [
+            {
+              "name": "items",
+              "type": "readonly NativeTabBarItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onChange",
+              "type": "(key: string) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The current tab's key."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "max",
+              "type": "number",
+              "required": false,
+              "defaultValue": "5",
+              "description": "Slots before \"More\" takes the last. Default 5."
+            },
+            {
+              "name": "moreLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "More",
+              "description": "\"More\" (the last slot's label and the sheet's title)."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-tab-bar",
               "description": ""
             }
           ]
@@ -7731,6 +8273,13 @@
               "description": ""
             },
             {
+              "name": "accessibilityLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Its accessible name, when its children don't say it all (a badge's count, say)."
+            },
+            {
               "name": "className",
               "type": "string",
               "required": false,
@@ -7802,6 +8351,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "ref",
+              "type": "Ref<ReactNativeElement>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The underlying Text (React 19 passes `ref` as a prop)."
             }
           ]
         }
@@ -7848,6 +8404,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "ref",
+              "type": "Ref<_TextInputInstance>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The underlying TextInput (React 19 passes `ref` as a prop)."
             },
             {
               "name": "rows",
@@ -8006,7 +8569,7 @@
               "type": "((id: string) => void)",
               "required": false,
               "defaultValue": null,
-              "description": "The row couldn't be found (deleted, out of reach). The list goes back to the newest row first."
+              "description": "No row answers to this id once `onLoadUntil` has settled, or it failed. The list goes back to the newest row first."
             },
             {
               "name": "onLoadEarlier",
@@ -8152,6 +8715,27 @@
               "description": ""
             },
             {
+              "name": "error",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The read failed and there are no messages: the empty slot shows `errorTitle` / `errorBody` instead."
+            },
+            {
+              "name": "errorBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Check your connection and try again.",
+              "description": ""
+            },
+            {
+              "name": "errorTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Couldn't load this conversation",
+              "description": ""
+            },
+            {
               "name": "firstUnreadId",
               "type": "string | null",
               "required": false,
@@ -8271,6 +8855,13 @@
               "description": "Load earlier pages until the message is held; resolve false when it can't be found."
             },
             {
+              "name": "onRetry",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A \"Try again\" button with `error`."
+            },
+            {
               "name": "readAt",
               "type": "string | Date | null",
               "required": false,
@@ -8282,6 +8873,13 @@
               "type": "string",
               "required": false,
               "defaultValue": "Read",
+              "description": ""
+            },
+            {
+              "name": "retryLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Try again",
               "description": ""
             },
             {
@@ -8345,6 +8943,80 @@
           "name": "readReceiptFor",
           "summary": "The newest of my messages the other side has read, or null. Events and undelivered messages never count.",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "tier-badge",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/tier-badge.tsx",
+      "stability": "beta",
+      "summary": "NativeTierBadge — a rank or tier label (\"Gold\", \"Level 3\"), with an optional\nleading icon and a tone from the brand's `accents`.\n\n`tone` names a brand accent, read from the nearest `GenesisThemeProvider`\n(`theme.tokens.accents`): the accent is the border and a 15% tint behind\nthe text, and the text stays the foreground colour, so it reads at AA\nwhatever the accent. Without a tone, a provider or such an accent, it is\nthe secondary chip.",
+      "primaryComponent": "NativeTierBadge",
+      "components": [
+        {
+          "name": "NativeTierBadge",
+          "summary": "",
+          "props": [
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The rank or tier, as shown (\"Gold\")."
+            },
+            {
+              "name": "accessibilityLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What a screen reader says. Default: the label."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "icon",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Leading icon, by Genesis icon name."
+            },
+            {
+              "name": "size",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "md",
+              "description": "`sm` for a list row, `md` (default) for a header."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "textClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "tone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A key of the brand's `accents` (`\"gold\"`). Unset: neutral."
+            }
+          ]
         }
       ]
     },
@@ -8844,6 +9516,80 @@
           "name": "DEFAULT_MAX_PAGES",
           "summary": "Pages kept loaded by default (cursor paging).",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "whats-new-sheet",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/whats-new-sheet.tsx",
+      "stability": "beta",
+      "summary": "WhatsNewSheet — release notes in a sheet, shown once and closed with \"Got it\".\n\nThe one sheet behind genesis-native's updates block (`WhatsNewSheet`) and genesis-product's\n`ProductWhatsNew`: each maps its own notes onto `NativeWhatsNewNote` and renders this.",
+      "primaryComponent": "NativeWhatsNewSheet",
+      "components": [
+        {
+          "name": "NativeWhatsNewSheet",
+          "summary": "",
+          "props": [
+            {
+              "name": "dismiss",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Close and remember."
+            },
+            {
+              "name": "notes",
+              "type": "readonly N[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "doneLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Got it",
+              "description": "Default \"Got it\"."
+            },
+            {
+              "name": "learnMoreLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Learn more",
+              "description": "Default \"Learn more\"."
+            },
+            {
+              "name": "noteTestID",
+              "type": "((key: string) => string)",
+              "required": false,
+              "defaultValue": "(key) => `${testID}-${key}`",
+              "description": "A note's testID. Default `{testID}-{key}`."
+            },
+            {
+              "name": "onOpenNote",
+              "type": "((note: N) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "\"Learn more\" on a note with a `url`: the sheet closes (and is remembered), then this opens it."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-whats-new",
+              "description": "The sheet's; each note is `{testID}-{key}`, Done `{testID}-done`, Learn more `{testID}-open-{key}`."
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": "What's new",
+              "description": "Default \"What's new\"."
+            }
+          ]
         }
       ]
     },
@@ -10092,12 +10838,12 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/components/ui/button.tsx",
       "stability": "stable",
-      "summary": "Button — primary interactive control. Variants: default, secondary,\noutline, ghost, destructive, link.\n\nOverloaded on `asChild`: see {@link ButtonProps} for the default\n`<button>` mode and {@link ButtonAsChildProps} for Slot composition. The\n`ButtonProps` signature is declared LAST on purpose —\n`React.ComponentProps<typeof Button>` infers from the final call\nsignature, so reordering these two silently changes what that resolves to\nfor every consumer.",
+      "summary": "Button — primary interactive control. Variants: default, secondary,\noutline, ghost, destructive, link, gradient (the brand's `gradients.primary`,\nelse the primary).\n\nOverloaded on `asChild`: see {@link ButtonProps} for the default\n`<button>` mode and {@link ButtonAsChildProps} for Slot composition. The\n`ButtonProps` signature is declared LAST on purpose —\n`React.ComponentProps<typeof Button>` infers from the final call\nsignature, so reordering these two silently changes what that resolves to\nfor every consumer.",
       "primaryComponent": "Button",
       "components": [
         {
           "name": "Button",
-          "summary": "Button — primary interactive control. Variants: default, secondary,\noutline, ghost, destructive, link.\n\nOverloaded on `asChild`: see {@link ButtonProps} for the default\n`<button>` mode and {@link ButtonAsChildProps} for Slot composition. The\n`ButtonProps` signature is declared LAST on purpose —\n`React.ComponentProps<typeof Button>` infers from the final call\nsignature, so reordering these two silently changes what that resolves to\nfor every consumer.",
+          "summary": "Button — primary interactive control. Variants: default, secondary,\noutline, ghost, destructive, link, gradient (the brand's `gradients.primary`,\nelse the primary).\n\nOverloaded on `asChild`: see {@link ButtonProps} for the default\n`<button>` mode and {@link ButtonAsChildProps} for Slot composition. The\n`ButtonProps` signature is declared LAST on purpose —\n`React.ComponentProps<typeof Button>` infers from the final call\nsignature, so reordering these two silently changes what that resolves to\nfor every consumer.",
           "props": [
             {
               "name": "asChild",
@@ -10157,7 +10903,7 @@
             },
             {
               "name": "variant",
-              "type": "\"default\" | \"destructive\" | \"outline\" | \"secondary\" | \"ghost\" | \"link\" | null",
+              "type": "\"default\" | \"destructive\" | \"outline\" | \"secondary\" | \"ghost\" | \"link\" | \"gradient\" | null",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -10207,7 +10953,7 @@
           "props": [
             {
               "name": "buttonVariant",
-              "type": "\"default\" | \"destructive\" | \"outline\" | \"secondary\" | \"ghost\" | \"link\" | null",
+              "type": "\"default\" | \"destructive\" | \"outline\" | \"secondary\" | \"ghost\" | \"link\" | \"gradient\" | null",
               "required": false,
               "defaultValue": "ghost",
               "description": ""
@@ -10380,7 +11126,7 @@
             },
             {
               "name": "variant",
-              "type": "\"link\" | \"default\" | \"destructive\" | \"outline\" | \"secondary\" | \"ghost\" | null",
+              "type": "\"link\" | \"default\" | \"destructive\" | \"outline\" | \"secondary\" | \"ghost\" | \"gradient\" | null",
               "required": false,
               "defaultValue": "outline",
               "description": ""
@@ -10435,7 +11181,7 @@
             },
             {
               "name": "variant",
-              "type": "\"link\" | \"default\" | \"destructive\" | \"outline\" | \"secondary\" | \"ghost\" | null",
+              "type": "\"link\" | \"default\" | \"destructive\" | \"outline\" | \"secondary\" | \"ghost\" | \"gradient\" | null",
               "required": false,
               "defaultValue": "outline",
               "description": ""
@@ -12174,12 +12920,12 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/components/resource/chip.tsx",
       "stability": "stable",
-      "summary": "A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges).",
+      "summary": "A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges).\nWith `onSelectedChange` it is a filter chip that toggles `selected`.",
       "primaryComponent": "Chip",
       "components": [
         {
           "name": "Chip",
-          "summary": "A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges).",
+          "summary": "A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges).\nWith `onSelectedChange` it is a filter chip that toggles `selected`.",
           "props": [
             {
               "name": "tone",
@@ -12196,11 +12942,32 @@
               "description": ""
             },
             {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "A pressable chip that can't be pressed now."
+            },
+            {
               "name": "icon",
               "type": "ReactNode",
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "onSelectedChange",
+              "type": "((selected: boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Makes the chip pressable: called with the new state when it is pressed."
+            },
+            {
+              "name": "selected",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "On or off, as `NativeChip` in a `NativeChipGroup`: with `onSelectedChange` the chip is a\ntoggle button (`aria-pressed`, Enter and Space), drawn with a ring while on."
             },
             {
               "name": "testID",
@@ -13287,10 +14054,10 @@
             },
             {
               "name": "sortOptions",
-              "type": "{ value: string; label: string; }[]",
+              "type": "{ value: string; label: string; nulls?: \"first\" | \"last\" | undefined; }[]",
               "required": true,
               "defaultValue": null,
-              "description": ""
+              "description": "`value` is `field:asc` or `field:desc`. `nulls` says where rows with no value go on that sort (server-driven lists)."
             },
             {
               "name": "canSaveViews",
@@ -16227,7 +16994,7 @@
       "subpath": "@marktiderman/genesis-ui/patterns",
       "filePath": "packages/ui/src/components/patterns/messaging/inbox-layout.tsx",
       "stability": "beta",
-      "summary": "InboxLayout — the 3-pane inbox on the web: views (Mine, Unassigned, All), a\nlist of conversations, the open thread, and a context sidebar (who it's\nfrom, properties, linked work).\n\nIt only positions its panes: fill them with `InboxViews`, `InboxPage` and\n`ThreadPage` (or the app's own), and keep which conversation is open where\nthe app keeps it, its router's URL param. On narrow screens it shows one\npane at a time, like the phone: the list, or the thread with a Back button\n(`onBack`) when `threadOpen`. The views rail shows from `lg` up.\n\nThe context sidebar toggles: controlled (`contextOpen` /\n`onContextOpenChange`), or on its own, remembered per viewer under\n`contextStorageKey`. From `xl` up it sits beside the thread; below that, it\nopens as a sheet over it, only when the toggle asks.\n\nKeyboard (`shortcuts`): each key is a callback the app can leave out. They\nwork only while focus is inside the layout, and never while typing in a\nfield or inside a dialog, menu, list box, grid or tree. j / k: next and\nprevious conversation; r: reply; n: internal note; e: solve or close;\na: assign; Escape: back. To let people turn single-key shortcuts off\n(WCAG 2.1.4), keep a setting and pass `shortcuts={undefined}` when it's off.\n\nOn the server, and in the first render on the client, the layout is narrow\nand the sidebar at its default, so hydration matches; the viewport and the\nremembered setting apply right after.",
+      "summary": "InboxLayout — the 3-pane inbox on the web: views (Mine, Unassigned, All), a\nlist of conversations, the open thread, and a context sidebar (who it's\nfrom, properties, linked work).\n\nIt only positions its panes: fill them with `InboxViews`, `InboxPage` and\n`ThreadPage` (or the app's own), and keep which conversation is open where\nthe app keeps it, its router's URL param. On narrow screens it shows one\npane at a time, like the phone: the list, or the thread with a Back button\n(`onBack`) when `threadOpen`. The views rail shows from `lg` up; below that,\na button over the list (with `activeViewLabel`) opens the same views in a\nsheet, which closes when one is chosen.\n\nThe context sidebar toggles: controlled (`contextOpen` /\n`onContextOpenChange`), or on its own, remembered per viewer under\n`contextStorageKey`. From `xl` up it sits beside the thread; below that, it\nopens as a sheet over it, only when the toggle asks. The toggle sits in a row\nover the thread; to put it in your own header and spend no row on it from\n`md` up, pass `thread` as a function: it gets `{ contextToggle }`.\n\nKeyboard (`shortcuts`): each key is a callback the app can leave out. They\nwork only while focus is inside the layout, and never while typing in a\nfield or inside a dialog, menu, list box, grid or tree. j / k: next and\nprevious conversation; r: reply; n: internal note; e: solve or close;\na: assign; Escape: back. To let people turn single-key shortcuts off\n(WCAG 2.1.4), keep a setting and pass `shortcuts={undefined}` when it's off.\n\nOn the server, and in the first render on the client, the layout is narrow\nand the sidebar at its default, so hydration matches; the viewport and the\nremembered setting apply right after.\n\nTailwind has to see this package's classes: import\n`@marktiderman/genesis-ui/styles.css`, or add\n`@source \"../node_modules/@marktiderman/genesis-ui/dist\";` to your CSS.",
       "primaryComponent": "InboxLayout",
       "components": [
         {
@@ -16240,6 +17007,13 @@
               "required": true,
               "defaultValue": null,
               "description": "The list of conversations (an `InboxPage`)."
+            },
+            {
+              "name": "activeViewLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The chosen view's name, on that button (\"Mine\")."
             },
             {
               "name": "className",
@@ -16313,10 +17087,10 @@
             },
             {
               "name": "thread",
-              "type": "ReactNode",
+              "type": "ReactNode | ((parts: { contextToggle: ReactNode; }) => ReactNode)",
               "required": false,
               "defaultValue": null,
-              "description": "The open conversation (a `ThreadPage`), or what shows when none is open."
+              "description": "The open conversation (a `ThreadPage`), or what shows when none is open. As a function, it gets\nthe Details toggle to place in its own header (a `headerRegion`), and the layout's row over the\nthread is only for Back, on narrow screens."
             },
             {
               "name": "threadOpen",
@@ -16330,7 +17104,7 @@
               "type": "ReactNode",
               "required": false,
               "defaultValue": null,
-              "description": "The views rail (`InboxViews`). Hidden below `lg`."
+              "description": "The views rail (`InboxViews`) from `lg` up, and a sheet from a button over the list below it."
             }
           ]
         }
@@ -16343,7 +17117,7 @@
       "subpath": "@marktiderman/genesis-ui/patterns",
       "filePath": "packages/ui/src/components/patterns/messaging/inbox-page.tsx",
       "stability": "beta",
-      "summary": "InboxPage — a list of conversations on the web: rows with an unread dot or\ncount, a short time (`9:41`, `Yesterday`, a weekday, a date), a two-line\npreview and a status line, paging, and loading, error and empty states.\n\nThe web twin of ui-native's `InboxPage`, with the same props and slots, on\nthe shared conversation contract (`@marktiderman/genesis-core/conversation`):\nthe same `InboxItem[]` renders on both. Each row's `swipeActions` (a swipe on\nthe phone) are a \"More\" menu on the row here, so they're always reachable\nby mouse, keyboard and screen reader. A `selected` row is the conversation\nopen beside the list (`InboxLayout`), marked `aria-current`.\n\nKeyboard: the rows are one tab stop, which stays on the row you were last on;\nUp and Down (or j and k) move between rows, Enter opens one, and Right\nreaches a row's \"More\" menu (Left comes back). Anything the app puts in a\nrow's `trailing` is its own tab stop. A custom `row` slot spreads `rowProps`\non its focusable element to keep this.\n\nSlots: `row`, `header` (above the list), `footer` (below it), `empty`.",
+      "summary": "InboxPage — a list of conversations on the web: rows with an unread dot or\ncount, a short time (`9:41`, `Yesterday`, a weekday, a date), a two-line\npreview and a status line, paging, and loading, error and empty states.\n\nThe web twin of ui-native's `InboxPage`, with the same props and slots, on\nthe shared conversation contract (`@marktiderman/genesis-core/conversation`):\nthe same `InboxItem[]` renders on both. Each row's `swipeActions` (a swipe on\nthe phone) are a \"More\" menu on the row here, so they're always reachable\nby mouse, keyboard and screen reader. A `selected` row is the conversation\nopen beside the list (`InboxLayout`), marked `aria-current`.\n\nKeyboard: the rows are one tab stop, which stays on the row you were last on;\nUp and Down (or j and k) move between rows, Home and End go to the first and\nlast, Enter opens one, and Right\nreaches a row's \"More\" menu (Left comes back). Anything the app puts in a\nrow's `trailing` is its own tab stop. A custom `row` slot spreads `rowProps`\non its focusable element to keep this.\n\nSlots: `row`, `header` (above the list), `footer` (below it), `empty`.\n\nTailwind has to see this package's classes: import\n`@marktiderman/genesis-ui/styles.css`, or add\n`@source \"../node_modules/@marktiderman/genesis-ui/dist\";` to your CSS.",
       "primaryComponent": "InboxPage",
       "components": [
         {
@@ -18562,6 +19336,27 @@
               "description": ""
             },
             {
+              "name": "clearable",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Re-clicking the chosen star clears it to 0. Default true; false for a required answer."
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The stars can't be chosen, and read as disabled."
+            },
+            {
+              "name": "getItemProps",
+              "type": "((value: number) => { \"aria-describedby\"?: string; onClick?: (() => void); }) | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "More on a star's radio: its `aria-describedby`, a click of your own."
+            },
+            {
               "name": "getLabel",
               "type": "((value: number, max: number) => string)",
               "required": false,
@@ -18601,7 +19396,14 @@
               "type": "enum",
               "required": false,
               "defaultValue": "md",
-              "description": "Star size. Default `md`."
+              "description": "Star size. Default `md`. `touch` is a 44px target around a large star, for a form."
+            },
+            {
+              "name": "tone",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "warning",
+              "description": "The chosen stars' colour. Default `warning`."
             }
           ]
         }
@@ -25330,6 +26132,73 @@
       ]
     },
     {
+      "slug": "tab-bar",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/layout",
+      "filePath": "packages/ui/src/components/layout/tab-bar.tsx",
+      "stability": "beta",
+      "summary": "A bottom tab bar for a phone-width web screen, the twin of genesis-ui-native's\n`NativeTabBar`: any number of items, and past `max` (5) the last slot is \"More\", which opens\na bottom sheet with the rest. AppShell's own phone bottom nav (links, from its nav items)\nsplits with the same `splitTabBarItems` (genesis-core/navigation); use `TabBar` for a bar of your own (a screen with\ntabs that aren't routes). It is not fixed: place it.",
+      "primaryComponent": "TabBar",
+      "components": [
+        {
+          "name": "TabBar",
+          "summary": "A bottom tab bar for a phone-width web screen, the twin of genesis-ui-native's\n`NativeTabBar`: any number of items, and past `max` (5) the last slot is \"More\", which opens\na bottom sheet with the rest. AppShell's own phone bottom nav (links, from its nav items)\nsplits with the same `splitTabBarItems` (genesis-core/navigation); use `TabBar` for a bar of your own (a screen with\ntabs that aren't routes). It is not fixed: place it.",
+          "props": [
+            {
+              "name": "items",
+              "type": "readonly TabBarItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onChange",
+              "type": "(key: string) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The current tab's key."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The nav's accessible name. Default the shell's \"Primary navigation\"."
+            },
+            {
+              "name": "max",
+              "type": "number",
+              "required": false,
+              "defaultValue": "5",
+              "description": "Slots before \"More\" takes the last. Default 5."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "tab-bar",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "table",
       "aliases": [],
       "surface": "web",
@@ -25606,6 +26475,13 @@
               "description": "Above the first row, before the \"Load earlier\" button: what the thread is about."
             },
             {
+              "name": "jumpId",
+              "type": "((row: T) => string | null)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The id `jumpTo` names a row by, when it isn't the row's key: a message keyed by the id the\nclient gave it and gone to by the server's id. `null` for a row that can't be gone to.\n`keyExtractor` by default. Pass a stable function (module scope, or `useCallback`)."
+            },
+            {
               "name": "jumpTo",
               "type": "string | null",
               "required": false,
@@ -25652,7 +26528,7 @@
               "type": "((id: string) => void)",
               "required": false,
               "defaultValue": null,
-              "description": "The row couldn't be found. The list goes back to the newest row first."
+              "description": "No row answers to this id once `onLoadUntil` has settled, or it failed. The reader stays where they are."
             },
             {
               "name": "onLoadEarlier",
@@ -25707,7 +26583,7 @@
       "subpath": "@marktiderman/genesis-ui/patterns",
       "filePath": "packages/ui/src/components/patterns/messaging/thread-page.tsx",
       "stability": "beta",
-      "summary": "ThreadPage — one conversation on the web: messages oldest first, a composer\nat the bottom, attachments, a read receipt, earlier pages, going to a\nmessage, the first unread, events between messages, and send states.\n\nThe web twin of ui-native's `ThreadPage`, with the same props and slots, on\nthe shared conversation contract (`@marktiderman/genesis-core/conversation`):\nthe same `ThreadMessage[]` and `ThreadComposer` render on both. Built from\nthe web atoms `ThreadList` and `ComposerBar`, so an app can take this whole\nor build its own thread from the same parts.\n\nIt fills its container (a flex column of full height): put it in a page, a\npane of `InboxLayout`, or the chat dock. Mine are on the trailing side in\n`primary`, theirs on the leading side on `muted`; an internal note\n(`tone: \"internal\"`) is edged in `warning` and says so to a screen reader.\n\nData: rows arrive as props and the page never fetches. A row's send state is\ndata (`sending`, `pending`, `paused`, `failed`, `conflict`) with `onRetry` /\n`onDiscard`. Read-only: `composer={null}`, with an optional `closedNotice`.\n\nSlots: `message`, `event`, `attachment`, `readReceipt`, `unreadDivider`,\n`composer`, `composerAccessory`, `headerRegion` (pinned above the list),\n`header` (scrolls above the first message), `earlier` and `empty`.",
+      "summary": "ThreadPage — one conversation on the web: messages oldest first, a composer\nat the bottom, attachments, a read receipt, earlier pages, going to a\nmessage, the first unread, events between messages, and send states.\n\nThe web twin of ui-native's `ThreadPage`, with the same props and slots, on\nthe shared conversation contract (`@marktiderman/genesis-core/conversation`):\nthe same `ThreadMessage[]` and `ThreadComposer` render on both. Built from\nthe web atoms `ThreadList` and `ComposerBar`, so an app can take this whole\nor build its own thread from the same parts.\n\nIt fills its container (a flex column of full height): put it in a page, a\npane of `InboxLayout`, or the chat dock. Mine are on the trailing side in\n`primary`, theirs on the leading side on `muted`; an internal note\n(`tone: \"internal\"`) is edged in `warning` and says so to a screen reader.\n\nData: rows arrive as props and the page never fetches. A row's send state is\ndata (`sending`, `pending`, `paused`, `failed`, `conflict`) with `onRetry` /\n`onDiscard`. Read-only: `composer={null}`, with an optional `closedNotice`.\n\nSlots: `message`, `event`, `attachment`, `readReceipt`, `unreadDivider`,\n`composer`, `composerAccessory`, `headerRegion` (pinned above the list),\n`header` (scrolls above the first message), `earlier` and `empty`.\n\nTailwind has to see this package's classes: import\n`@marktiderman/genesis-ui/styles.css`, or add\n`@source \"../node_modules/@marktiderman/genesis-ui/dist\";` to your CSS.",
       "primaryComponent": "ThreadPage",
       "components": [
         {
@@ -25771,6 +26647,27 @@
               "description": ""
             },
             {
+              "name": "error",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The read failed and there are no messages: the empty slot shows `errorTitle` / `errorBody` instead."
+            },
+            {
+              "name": "errorBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Check your connection and try again.",
+              "description": ""
+            },
+            {
+              "name": "errorTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Couldn't load this conversation",
+              "description": ""
+            },
+            {
               "name": "firstUnreadId",
               "type": "string | null",
               "required": false,
@@ -25831,7 +26728,7 @@
               "type": "((id: string) => void)",
               "required": false,
               "defaultValue": null,
-              "description": "A `jumpTo` message couldn't be found (the list goes back to the newest)."
+              "description": "A `jumpTo` message couldn't be found (the reader stays where they are). Default: a screen reader hears `labels.messageGone`."
             },
             {
               "name": "onLoadEarlier",
@@ -25848,6 +26745,13 @@
               "description": ""
             },
             {
+              "name": "onRetry",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A \"Try again\" button with `error`."
+            },
+            {
               "name": "readAt",
               "type": "string | Date | null",
               "required": false,
@@ -25859,6 +26763,13 @@
               "type": "string",
               "required": false,
               "defaultValue": "Read",
+              "description": ""
+            },
+            {
+              "name": "retryLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Try again",
               "description": ""
             },
             {
@@ -25895,6 +26806,59 @@
               "required": false,
               "defaultValue": "false",
               "description": "Fresher rows are on their way (the cache showed first): a quiet \"Updating…\" line."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "tier-badge",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/ui/tier-badge.tsx",
+      "stability": "stable",
+      "summary": "",
+      "primaryComponent": "TierBadge",
+      "components": [
+        {
+          "name": "TierBadge",
+          "summary": "",
+          "props": [
+            {
+              "name": "label",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": "The rank or tier, as shown (\"Gold\")."
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Leading icon (a lucide icon, sized by the badge)."
+            },
+            {
+              "name": "size",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "md",
+              "description": "`sm` for a list row, `md` (default) for a header."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Stable test/automation selector (emitted as `data-testid`)."
+            },
+            {
+              "name": "tone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A key of the brand's `accents` (`\"gold\"`). Unset: neutral."
             }
           ]
         }
@@ -26177,7 +27141,7 @@
             },
             {
               "name": "variant",
-              "type": "\"link\" | \"default\" | \"destructive\" | \"outline\" | \"secondary\" | \"ghost\" | null",
+              "type": "\"link\" | \"default\" | \"destructive\" | \"outline\" | \"secondary\" | \"ghost\" | \"gradient\" | null",
               "required": false,
               "defaultValue": "ghost",
               "description": ""

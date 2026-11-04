@@ -1,5 +1,13 @@
 # @marktiderman/genesis-supabase
 
+## 0.14.1
+
+### Patch Changes
+
+- fa9d095: `cleanRoute` drops the query and fragment with one search, so a route made of many `#` characters no longer takes quadratic time. The support intake function's copy of the contract matches.
+- Updated dependencies [5813132]
+  - @marktiderman/genesis-features@0.8.2
+
 ## 0.14.0
 
 ### Minor Changes

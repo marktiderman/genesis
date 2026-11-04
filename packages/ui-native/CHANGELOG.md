@@ -1,5 +1,72 @@
 # @marktiderman/genesis-ui-native
 
+## 3.9.0
+
+### Minor Changes
+
+- fcf81d4: Opt-in brand roles, backward compatible: `CanonicalBrand` gains optional `dark` (dark-mode roles that `brandRoleVariables`, `resolveTokens` and sites themes resolve from), `signal`, `accents` (`--brand-accent-<name>`, `theme.accents`), `gradients.primary` (`--brand-gradient-primary`, `theme.buttonGradient`) and `typography.display` (`--font-display`, `--font-weight-display`, `--font-numeric-display`, `theme.display`). New `brandExtraVariables`, `brandGradientCss` and `useOptionalTheme`. `Button` / `NativeButton` gain `variant="gradient"` (falls back to the primary), and new `TierBadge` / `NativeTierBadge` take a tone from `accents`. A brand that sets none of these renders exactly as before.
+- b53d341: genesis-chat's web `ChatThread` and `ChatInbox` now sit on genesis-ui's `ThreadPage` and `InboxPage`, with chat's rows and composer in their slots. Their props are unchanged.
+
+  - `ThreadMessage` takes an optional `jumpId`: the id `jumpTo` names a message by, when that isn't its `id`. Both `ThreadPage`s honour it, and web `ThreadList` takes `jumpId`, as `NativeThreadList` already does.
+  - Web `InboxPage`: Home and End go to the first and last rows. Web `ThreadList` no longer chains its scroll to the page around it.
+  - What a chat reader sees change on the web: the pill says "Jump to latest" whenever they've scrolled up, instead of "New messages" only when one arrived. A message of yours from another device no longer pulls them to the bottom; what they send here still does. A jump that can't load says the load failed, not that the message is gone. Inbox rows have dividers, and are one tab stop that moves with the arrow keys, instead of one stop each. `ChatInbox` shows cached rows when a refresh fails, instead of the error. A screen reader hears "Loading" while a thread's first page loads, instead of "Loading messages".
+  - Test ids: `genesis-chat-scroller` is `genesis-chat-thread-page-messages`, `genesis-chat-announcer` is `genesis-chat-thread-page-messages-announcer`, `genesis-chat-new-pill` is `genesis-chat-thread-page-jump-latest`, and `genesis-chat-thread-loading` is `genesis-chat-thread-page-messages-loading`.
+
+  Chat now needs genesis-core 2.13.0 and genesis-ui 2.32.0.
+
+- cff9c4c: `NativeComposerBar`'s `empty` is now `hasContent`, with the opposite sense: pass `hasContent` when attachments are waiting and no text is needed (it was `empty={false}`). No alias: `empty` shipped one release ago and nothing uses it. `genesis upgrade` rewrites it (the `genesis-ui-native-3-8-composer-has-content` codemod); by hand, `empty={false}` becomes `hasContent` and `empty` becomes `hasContent={false}`. The bar's other props from that release now have tests.
+
+  genesis-chat's native `ChatComposer` now sits on `NativeComposerBar`, with the same props and test ids, so it takes the bar's sizes (a 44pt input) and press feedback. Its schedule action on Send is named `schedule` instead of `longpress`, with a new `scheduleHoldHint` in the copy. An app that gave haptics to both Genesis and chat gets one tap on send. Chat now needs genesis-ui-native 3.8.0.
+
+- 3d601c8: What building a support inbox on the layouts asked for. Nothing changes for an app that doesn't use these.
+
+  - `InboxLayout`: below `lg`, a button over the list opens `views` in a sheet (`activeViewLabel` names the chosen one). `thread` can be a function that gets `{ contextToggle }` to place the Details toggle in its own header, and then no row is spent on it from `md` up. A `thread` element keeps the row as before.
+  - `ThreadAttachment` takes `kind` (`image`, the default, or `file`) and `name`. A file shows its name and opens `uri`: on the web, http(s) with its host beside the name, or a `blob:` as a download; on the phone, http(s), and a local file only on your own message.
+  - `ThreadPage`, web and native: `error`, `errorTitle`, `errorBody`, `onRetry` and `retryLabel`. The `empty` slot gets `actionLabel` and `onAction`.
+  - `ThreadComposer` carries `modesLabel`, and `NativeComposerBar` takes it too, as `ComposerBar` does.
+  - The web layouts' docs and genesis-ui's README say what Tailwind needs to see the package's classes.
+
+- 76294ce: `NativeButton` answers a touch through `usePressFeedback`, like every Genesis pressable: what's inside it shrinks a little while held, or dims under Reduce Motion, and the background stays still. Its `haptic` prop and each size's gap are unchanged. What's inside now sits a level down, so layout classes in `className` (`justify-*`, `items-*`, `gap-*`, `flex-row`, `flex-col`) are applied there too; other classes stay on the button.
+
+  `sentBubbleColor(roles)` (genesis-ui-native/hooks) names the colour of a message you sent, in one place, for `ThreadPage` and genesis-chat's bubble. It's still `tint`, so nothing changes on screen.
+
+  genesis-chat's native haptics play through `playHaptic`, and `ChatNativeProvider` uses the module the app gave Genesis when it gave chat none, so it's passed once. What plays at each moment is unchanged.
+
+- f342c0d: `NativeSwipeRow`: a row's actions behind a swipe, on the app's `GenesisModules.swipeable` (`ReanimatedSwipeable`); without the module, just the row. `InboxSwipeAction` takes `side` (`leading` or `trailing`, the default). `InboxPage`'s `swipeable` slot defaults to it.
+
+  `NativeContextMenu`: what a long press opens, a sheet of actions with Cancel. An action runs once, after the sheet has gone. `InboxPage` (one menu for the page, `<testID>-menu`) and `NativeComposerBar`'s `sendActions` open it instead of the system alert. `NativeSheet` takes `onDismissed`. `NativeResourceView` still uses `showInboxActions`.
+
+- 3a5703c: A sort can say where empty values go: `nulls: "first" | "last"` on `SortParam`, a view's `orderBy`, a link's `orderBy` and each of `slotProps.filters.sortOptions`. The Supabase provider passes it to both offset and cursor paging, and a cursor made for another placement is refused. Unset, nothing changes.
+
+  `useResource`'s `update` now fails when the provider returns no row (`DataWriteError` with outcome `forbidden`), in every mutation mode, before the write counts as committed. The Supabase provider already threw; this reaches a custom provider that returned `{ data: null }`. ResourceView's board no longer checks this itself.
+
+  A failed board move is no longer logged to the console as well as shown on the board, and a conflict the board's sheet shows no longer reaches the screen's `resourceOptions.onError`.
+
+  `usePersistedUiState`'s follow-ups: `createLocalStorageAdapter` warns once per key and operation rather than on every render, DataTable's column move writes to the current key when `columnOrderKey` changes, and AppShell's Reset clears its stored options.
+
+- 70d4ff4: New `NativeChoiceCard`: one selectable option as a card (a radio, or a checkbox with `multiple`; a `media` slot for a thumbnail or icon; title and description; `invalid` for an unanswered question), read as one radio or checkbox by VoiceOver and TalkBack. `NativeInlineAlert` and `NativeBanner` take `children` (content under the description) and `actions` (a row of buttons). `NativeProgress` takes `indicatorColor` and `trackColor` as colour values, for a screen or package that styles without NativeWind. `NativeRating` matches the web `Rating`: `size="touch"` (a 44pt target per star), `tone="primary"` (the brand's tint), `clearable={false}` and `disabled`.
+- 4ed8ce4: New `NativeTabBar` (on NativeTabs; past five tabs the fifth slot is "More", a NativeSheet with the rest; it splits with genesis-core's `splitTabBarItems` and names a badged tab with its count), `NativeBulkBar` (the twin of the web `DataBulkBar`), `NativeShareSheet` (the twin of `ShareDialog`: link, Copy through `onCopy`, the system share sheet with the link sent once per platform, and the host's `renderQr`; no new dependency) and `NativeWhatsNewSheet` (the one "what's new" sheet genesis-native and genesis-product now render). `NativeTabsTrigger` takes `accessibilityLabel`.
+
+### Patch Changes
+
+- 200b7fd: `NativeButton` keeps a caller's `accessibilityState.busy` when `loading` is not set, so a screen reader hears "busy". The form's Button and answer field drop the primitives' fixed height and boxed-field classes, so they grow with the text size and keep the answer line; a long answer no longer takes `NativeTextarea`'s default four lines.
+
+  `NativeProgress` takes `style` and `indicatorStyle`, for colors from a theme object. The form's progress bar uses them, so it keeps the form theme's `tint` on `fill`, and the inner bar is hidden from screen readers, so they hear one progress bar. The form's text parts set their own line height so the ending check, the progress label and the required mark draw at their size.
+
+  `NativeButton` types `style` and `ref`, and `NativeText`, `NativeInput` and `NativeTextarea` type `ref` (React 19 passes it as a prop), so a caller passes them without a cast.
+
+- 34fb7ab: NativeGalleryGrid draws on the first paint (at the window width, corrected by `onLayout`) and sets `contentInsetAdjustmentBehavior="automatic"` (a new prop), so under an iOS large-title header the first row starts below the title instead of under it.
+- 29554ef: Jumping to a row in a thread, settled.
+
+  - `useThreadJump` returns `cancel()`, which drops a jump the reader has taken over from.
+  - `NativeThreadList`: the reader's touch wins. A drag during a jump cancels the tries still queued (also the second try at the newest row) and a jump still loading, so nothing snaps back.
+  - `ThreadList` (web): a wheel, a touch, the scroll keys or the scrollbar drop a jump still loading. A row landing no longer takes focus from a field the reader is typing in. A jump that fails leaves the reader where they are; `NativeThreadList` still goes back to the newest, because FlatList may not have been placed yet.
+  - `ThreadPage` (web): with `onJumpFailed`, the app says what happened, as on native. Without it, a screen reader hears `labels.messageGone`.
+  - `NativeThreadList` and `ThreadList`: following new rows comes back on after a jump that moved nothing (a short thread).
+  - A row is gone when, once `onLoadUntil` has settled or failed, no row answers to its id. What's drawn counts, not what a cache holds: a jump to a message another view has cached, but this thread doesn't draw, loads and then says it's gone. A deleted message's tombstone is a row, so it's found.
+  - genesis-chat, web and native: a load that failed says so, and no longer also says the message is gone. A jump whose first page failed waits: it says the read failed and goes ahead when the rows come.
+  - For the record, from the release that added `jumpId`: `<testID>-earlier-loading` on chat's list became `<testID>-list-earlier-loading`.
+
 ## 3.8.0
 
 ### Minor Changes

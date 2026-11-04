@@ -1,5 +1,47 @@
 # @marktiderman/genesis-chat
 
+## 0.10.0
+
+### Minor Changes
+
+- b79bf9e: On the web, images, video and voice notes from outside the app's storage now show as file links naming their host, for every app on chat's web UI: they no longer render inline. A stored file that doesn't sign has no URL. A reader's browser loads none of these until they open the link.
+- b53d341: genesis-chat's web `ChatThread` and `ChatInbox` now sit on genesis-ui's `ThreadPage` and `InboxPage`, with chat's rows and composer in their slots. Their props are unchanged.
+
+  - `ThreadMessage` takes an optional `jumpId`: the id `jumpTo` names a message by, when that isn't its `id`. Both `ThreadPage`s honour it, and web `ThreadList` takes `jumpId`, as `NativeThreadList` already does.
+  - Web `InboxPage`: Home and End go to the first and last rows. Web `ThreadList` no longer chains its scroll to the page around it.
+  - What a chat reader sees change on the web: the pill says "Jump to latest" whenever they've scrolled up, instead of "New messages" only when one arrived. A message of yours from another device no longer pulls them to the bottom; what they send here still does. A jump that can't load says the load failed, not that the message is gone. Inbox rows have dividers, and are one tab stop that moves with the arrow keys, instead of one stop each. `ChatInbox` shows cached rows when a refresh fails, instead of the error. A screen reader hears "Loading" while a thread's first page loads, instead of "Loading messages".
+  - Test ids: `genesis-chat-scroller` is `genesis-chat-thread-page-messages`, `genesis-chat-announcer` is `genesis-chat-thread-page-messages-announcer`, `genesis-chat-new-pill` is `genesis-chat-thread-page-jump-latest`, and `genesis-chat-thread-loading` is `genesis-chat-thread-page-messages-loading`.
+
+  Chat now needs genesis-core 2.13.0 and genesis-ui 2.32.0.
+
+- cff9c4c: `NativeComposerBar`'s `empty` is now `hasContent`, with the opposite sense: pass `hasContent` when attachments are waiting and no text is needed (it was `empty={false}`). No alias: `empty` shipped one release ago and nothing uses it. `genesis upgrade` rewrites it (the `genesis-ui-native-3-8-composer-has-content` codemod); by hand, `empty={false}` becomes `hasContent` and `empty` becomes `hasContent={false}`. The bar's other props from that release now have tests.
+
+  genesis-chat's native `ChatComposer` now sits on `NativeComposerBar`, with the same props and test ids, so it takes the bar's sizes (a 44pt input) and press feedback. Its schedule action on Send is named `schedule` instead of `longpress`, with a new `scheduleHoldHint` in the copy. An app that gave haptics to both Genesis and chat gets one tap on send. Chat now needs genesis-ui-native 3.8.0.
+
+- 76294ce: `NativeButton` answers a touch through `usePressFeedback`, like every Genesis pressable: what's inside it shrinks a little while held, or dims under Reduce Motion, and the background stays still. Its `haptic` prop and each size's gap are unchanged. What's inside now sits a level down, so layout classes in `className` (`justify-*`, `items-*`, `gap-*`, `flex-row`, `flex-col`) are applied there too; other classes stay on the button.
+
+  `sentBubbleColor(roles)` (genesis-ui-native/hooks) names the colour of a message you sent, in one place, for `ThreadPage` and genesis-chat's bubble. It's still `tint`, so nothing changes on screen.
+
+  genesis-chat's native haptics play through `playHaptic`, and `ChatNativeProvider` uses the module the app gave Genesis when it gave chat none, so it's passed once. What plays at each moment is unchanged.
+
+### Patch Changes
+
+- 6ab77d0: Migration 0005 tightens attachment paths: only an attachment in storage has one. Genesis's clients are unaffected. Run `genesis migrate` to pick it up; it needs nothing from your app. It keeps any paths it clears in `genesis_chat.attachment_paths_cleared`, for the service role: they contain user ids, and account deletion doesn't touch that table, so look at it once and drop it (the migration's header says how).
+- d1cb2b8: A docked panel's `render` is told whether it's in view (`{ visible }`), so it can pause what mustn't happen out of sight, as a docked conversation does with marking read.
+- 29554ef: Jumping to a row in a thread, settled.
+
+  - `useThreadJump` returns `cancel()`, which drops a jump the reader has taken over from.
+  - `NativeThreadList`: the reader's touch wins. A drag during a jump cancels the tries still queued (also the second try at the newest row) and a jump still loading, so nothing snaps back.
+  - `ThreadList` (web): a wheel, a touch, the scroll keys or the scrollbar drop a jump still loading. A row landing no longer takes focus from a field the reader is typing in. A jump that fails leaves the reader where they are; `NativeThreadList` still goes back to the newest, because FlatList may not have been placed yet.
+  - `ThreadPage` (web): with `onJumpFailed`, the app says what happened, as on native. Without it, a screen reader hears `labels.messageGone`.
+  - `NativeThreadList` and `ThreadList`: following new rows comes back on after a jump that moved nothing (a short thread).
+  - A row is gone when, once `onLoadUntil` has settled or failed, no row answers to its id. What's drawn counts, not what a cache holds: a jump to a message another view has cached, but this thread doesn't draw, loads and then says it's gone. A deleted message's tombstone is a row, so it's found.
+  - genesis-chat, web and native: a load that failed says so, and no longer also says the message is gone. A jump whose first page failed waits: it says the read failed and goes ahead when the rows come.
+  - For the record, from the release that added `jumpId`: `<testID>-earlier-loading` on chat's list became `<testID>-list-earlier-loading`.
+
+- Updated dependencies [5813132]
+  - @marktiderman/genesis-features@0.8.2
+
 ## 0.9.0
 
 ### Minor Changes

@@ -1,5 +1,16 @@
 # @marktiderman/genesis-product
 
+## 0.2.0
+
+### Minor Changes
+
+- 0fd6a4c: One `FatalScreen` with `kind: "app" | "screen" | "plain"`; `ScreenErrorScreen` and `PlainFatalScreen` are deprecated wrappers (the doctor's `deprecated-import` flags them). `WhatsNewSheet` and genesis-product's `ProductWhatsNewSheet` both render genesis-ui-native's `NativeWhatsNewSheet`; `ProductWhatsNewSheet` is deprecated. Both packages now need genesis-ui-native 3.8 or later.
+
+### Patch Changes
+
+- Updated dependencies [5813132]
+  - @marktiderman/genesis-features@0.8.2
+
 ## 0.1.1
 
 ### Patch Changes
