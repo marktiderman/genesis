@@ -6,8 +6,8 @@ import type { CSSProperties } from "react";
 // The tone names a key of the brand's `accents`; the story sets two so the
 // tinted look shows without a brand that defines them.
 const ACCENTS = {
-  "--brand-accent-gold": "#d4a017",
-  "--brand-accent-silver": "#8a94a6",
+  "--brand-accent-gold": "hsl(var(--warning))",
+  "--brand-accent-silver": "hsl(var(--muted-foreground))",
 } as CSSProperties;
 
 const meta: Meta<typeof TierBadge> = {
