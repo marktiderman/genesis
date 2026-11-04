@@ -94,7 +94,8 @@ describe("new question types in <Form>", () => {
     expect(radios.map((r) => r.getAttribute("aria-label"))).toEqual(["1 of 5", "2 of 5", "3 of 5", "4 of 5", "5 of 5"]);
     fireEvent.click(radios[3]!);
     expect(answers(engine).stars).toBe(4);
-    expect(group.querySelectorAll("svg.fill-primary").length).toBe(4);
+    expect(group.querySelectorAll("svg.fill-current").length).toBe(4);
+    expect(radios[3]!.className).toContain("text-primary");
   });
 
   it("NPS keeps its default end labels", () => {

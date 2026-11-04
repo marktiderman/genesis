@@ -11,9 +11,10 @@
  *
  * Swipe actions: each row's `swipeActions` are always reachable without a
  * gesture library, as VoiceOver / TalkBack custom actions and on long press
- * (a menu). For the swipe itself, fill the `swipeable` slot with your
- * gesture-handler wrapper (`ReanimatedSwipeable` from
- * react-native-gesture-handler, an optional peer); it receives the actions
+ * (`NativeContextMenu`). The swipe itself is `NativeSwipeRow`, once the app
+ * passes `GenesisModules.swipeable` (`ReanimatedSwipeable` from
+ * react-native-gesture-handler, an optional peer), with each action's `side`.
+ * The `swipeable` slot takes your own wrapper instead; it receives the actions
  * and the row.
  *
  * Rows: `avatar` puts a picture of who it is between the unread dot and the
@@ -29,7 +30,7 @@
  *
  * @stability Beta
  */
-import { Fragment, useState, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useState, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { Alert, FlatList, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -38,7 +39,9 @@ import { NativeEmptyState } from "../components/empty-state";
 import { NativeText } from "../components/text";
 import { NativeButton } from "../components/button";
 import { NativeBadge } from "../components/badge";
+import { NativeContextMenu } from "../components/context-menu";
 import { NativeRefreshControl } from "../components/refresh-control";
+import { NativeSwipeRow } from "../components/swipe-row";
 import { NativeLoadingState } from "../components/loading-state";
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
 import { formatInboxTime, type InboxItem, type InboxSwipeAction } from "@marktiderman/genesis-core/conversation";
@@ -102,6 +105,9 @@ export function getInboxPageStackOptions(props: ScreenHeaderProps & { headerTitl
   });
 }
 
+/** Opens the page's one actions menu for a row. */
+const OpenRowMenu = createContext<(row: InboxPageSlotMap["row"]) => void>(() => undefined);
+
 /** The row's leading padding, the unread dot's column, an avatar's default size and its gap to the text. */
 const ROW_PADDING = 16;
 const LEADING_WIDTH = 18;
@@ -139,6 +145,9 @@ export function InboxPage({
 }: InboxPageProps) {
   const colors = useThemeRoles();
   const clock = now();
+  // One menu for the page: its row stays set while the sheet goes, so its words don't vanish first.
+  const [menuRow, setMenuRow] = useState<InboxPageSlotMap["row"] | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const rows: InboxPageSlotMap["row"][] = items.map((item, index) => ({
     ...item,
     testID: item.testID ?? `${testID}-row-${item.id}`,
@@ -201,6 +210,12 @@ export function InboxPage({
 
   return (
     <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
+      <OpenRowMenu.Provider
+        value={(row) => {
+          setMenuRow(row);
+          setMenuOpen(true);
+        }}
+      >
       <FlatList
         testID={`${testID}-list`}
         data={rows}
@@ -221,23 +236,20 @@ export function InboxPage({
           return (
             <Fragment>
               {actions.length && slots.swipeable !== null
-                ? renderSlot(PassThroughSwipeable, slots.swipeable, { actions, testID: `${row.testID}-swipe`, children: content }, slotProps.swipeable)
+                ? renderSlot(NativeSwipeRow, slots.swipeable, { actions, testID: `${row.testID}-swipe`, children: content }, slotProps.swipeable)
                 : content}
             </Fragment>
           );
         }}
       />
+      </OpenRowMenu.Provider>
+      {menuRow ? <NativeContextMenu open={menuOpen} onOpenChange={setMenuOpen} title={menuRow.title} actions={menuRow.swipeActions ?? []} testID={`${testID}-menu`} /> : null}
     </SafeAreaView>
   );
 }
 
 function EmptyPart(_props: InboxPageSlotMap["header"]) {
   return null;
-}
-
-/** The default `swipeable`: no gesture, just the row (its actions are on long press and in the accessibility actions). */
-function PassThroughSwipeable({ children }: InboxPageSlotMap["swipeable"]) {
-  return <>{children}</>;
 }
 
 function SectionTitle({ title, testID }: { title: string; testID: string }) {
@@ -259,7 +271,10 @@ function SectionTitle({ title, testID }: { title: string; testID: string }) {
   );
 }
 
-/** Opens a row's actions as a menu (long press). */
+/**
+ * Opens a row's actions as the system alert. `InboxPage` now opens `NativeContextMenu`; `NativeResourceView`
+ * still uses this.
+ */
 export function showInboxActions(title: string, actions: InboxSwipeAction[], cancelLabel = "Cancel"): void {
   Alert.alert(title, undefined, [
     ...actions.map((a) => ({ text: a.label, style: a.destructive ? ("destructive" as const) : ("default" as const), onPress: a.onPress })),
@@ -271,6 +286,7 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
   const colors = useThemeRoles();
   const ios = Platform.OS === "ios";
   const [pressed, setPressed] = useState(false);
+  const openMenu = useContext(OpenRowMenu);
   const actions = row.swipeActions ?? [];
   const radius = iosGroupRadius();
   const unreadLabel = row.unreadCount && row.unreadCount > 0 ? `${row.unreadCount} unread` : row.unread ? "Unread" : null;
@@ -303,7 +319,7 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
         accessibilityActions={actions.map((a) => ({ name: a.id, label: a.label }))}
         onAccessibilityAction={(event) => actions.find((a) => a.id === event.nativeEvent.actionName)?.onPress()}
         onPress={row.onPress}
-        onLongPress={actions.length ? () => showInboxActions(row.title, actions) : undefined}
+        onLongPress={actions.length ? () => openMenu(row) : undefined}
         onPressIn={() => setPressed(true)}
         onPressOut={() => setPressed(false)}
         style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: ROW_PADDING, paddingVertical: 11, minHeight: 60, backgroundColor: (pressed && row.onPress) || row.selected ? colors.fill : undefined }}

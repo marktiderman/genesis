@@ -220,7 +220,9 @@ describe("doctor: genesis-eslint-config", () => {
   it("warns when the config loads it without the plugin installed", () => {
     const migrated = read(path.join(PACKAGES, "..", "apps", "genesis-rn-starter"), "eslint.config.js");
     expect(check(makeApp({ "eslint.config.js": migrated, "package.json": nativePackage() }))).toMatchObject([{ rule: "genesis-eslint-config", file: "package.json", subject: "eslint-plugin-testing-library" }]);
-    expect(check(makeApp({ "eslint.config.js": migrated, "package.json": nativePackage({ "eslint-plugin-testing-library": "^7.16.2" }) }))).toEqual([]);
+    // Listed but not installed (the codemod edits package.json, nothing more): the lint can't load yet.
+    expect(check(makeApp({ "eslint.config.js": migrated, "package.json": nativePackage({ "eslint-plugin-testing-library": "^7.16.2" }), "pnpm-lock.yaml": "" }))).toMatchObject([{ rule: "genesis-eslint-config", file: "package.json", message: expect.stringContaining("run pnpm install") }]);
+    expect(check(makeApp({ "eslint.config.js": migrated, "package.json": nativePackage({ "eslint-plugin-testing-library": "^7.16.2" }), "node_modules/eslint-plugin-testing-library/package.json": "{}" }))).toEqual([]);
   });
 
   it("leaves web apps and apps without a flat config alone", () => {

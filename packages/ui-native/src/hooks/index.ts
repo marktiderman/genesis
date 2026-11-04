@@ -13,7 +13,7 @@ export { useHaptics, playHaptic, type HapticKind, type GenesisHapticsModule } fr
 export { usePressFeedback, type PressFeedbackOptions, type PressFeedback } from "./use-press-feedback";
 export { useMotion, animateMotion, motionSpring, motionTiming, type UseMotionOptions, type MotionHow, type MotionSpringConfig, type MotionTimingConfig } from "./use-motion";
 export { useThemeMode, type ThemeMode } from "./use-theme-mode";
-export { useThemeRoles, type ThemeRoleColors, type UseThemeRolesOptions } from "./use-theme-roles";
+export { useThemeRoles, type ThemeRoleColors, type UseThemeRolesOptions, sentBubbleColor } from "./use-theme-roles";
 export {
   BrandExtensionsProvider,
   useGenesisExtension,

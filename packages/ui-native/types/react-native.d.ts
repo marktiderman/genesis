@@ -602,4 +602,14 @@ declare module "lucide-react-native" {
   export const Maximize: ComponentType<IconProps>;
   export const Radio: ComponentType<IconProps>;
   export const Settings2: ComponentType<IconProps>;
+  // Editing, lists and sharing (the Figma library's icon set).
+  export const ArrowUpDown: ComponentType<IconProps>;
+  export const GripVertical: ComponentType<IconProps>;
+  export const LayoutGrid: ComponentType<IconProps>;
+  export const Link: ComponentType<IconProps>;
+  export const List: ComponentType<IconProps>;
+  export const Redo2: ComponentType<IconProps>;
+  export const Table: ComponentType<IconProps>;
+  export const Undo2: ComponentType<IconProps>;
+  export const Upload: ComponentType<IconProps>;
 }

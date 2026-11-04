@@ -25,7 +25,7 @@ so on) are needed only by the components that use them.
 | `@marktiderman/genesis-ui/data` | `ResourceView`, `RecordView`, `DataPageShell`, `ResourcePage` |
 | `@marktiderman/genesis-ui/hooks/*` | The hooks behind the patterns |
 | `@marktiderman/genesis-ui/router/react-router`, `/router/tanstack-router` | Link and navigation adapters |
-| `@marktiderman/genesis-ui/styles.css` | The component styles |
+| `@marktiderman/genesis-ui/styles.css` | The component styles, and the `@source` that lets Tailwind see the package's classes. Without it, add `@source "../node_modules/@marktiderman/genesis-ui/dist";` |
 
 ## Quick start
 

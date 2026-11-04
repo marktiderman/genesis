@@ -2,14 +2,16 @@
  * useThreadJump — going to one row of a thread (a search result, a pinned
  * message, the first unread): load earlier pages until the row is held, then
  * scroll to it and highlight it for two seconds. A row that can't be found
- * says so.
+ * says so: a row is gone when, once `loadUntil` has settled (or failed), no
+ * row answers to its id. What counts is what's drawn, not what a cache holds.
  *
  * Promoted from genesis-chat's `useJumpToMessage` (G4), generalised from
  * chat's sequence numbers to row ids. It's a state machine driven by the
  * rows, not a one-shot: a target set before the first page has loaded waits
  * for `loading` to end, a row that arrives a render or two after `loadUntil`
  * resolves is still found, and going to the same id again (after `null`)
- * goes again.
+ * goes again. `cancel()` drops a jump the reader has taken over from: whatever
+ * it was waiting on, it won't scroll or report the row gone.
  *
  * @stability Beta
  */
@@ -30,7 +32,7 @@ export interface UseThreadJumpOptions {
   onStart?: (() => void) | undefined;
   /** Scrolled to it (say so to VoiceOver). */
   onLanded?: ((id: string) => void) | undefined;
-  /** It isn't there (go back to where the thread was). */
+  /** No row answers to it once `loadUntil` has settled, or `loadUntil` failed (go back to where the thread was). */
   onGone?: ((id: string) => void) | undefined;
 }
 
@@ -106,5 +108,11 @@ export function useThreadJump({ target, has, loading = false, loadUntil, scrollT
     void latest.current.loadUntil(id).then(settle, settle);
   }, [pending, loading, has, go]);
 
-  return { highlightedId, jumping: pending !== null };
+  const cancel = useCallback(() => {
+    if (goneTimer.current) clearTimeout(goneTimer.current);
+    armed.current = null;
+    setPending(null);
+  }, [goneTimer]);
+
+  return { highlightedId, jumping: pending !== null, cancel };
 }
