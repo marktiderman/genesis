@@ -1,0 +1,27 @@
+.changeset/forms-native-primitive-sizing.md
+  s_e63e2ce0535b22::t_148635d2e293b9 1-6
+packages/forms-native/src/__tests__/primitives.test.tsx
+  s_e63e2ce0535b22::t_7930f6d2f1c649 38
+packages/forms-native/src/parts.tsx
+  s_e63e2ce0535b22::t_f44dfd703b2fa3 44-45
+packages/forms-native/src/renderers/text.tsx
+  s_e63e2ce0535b22::t_e35357aa55c896 70-71
+packages/ui-native/src/components/button.tsx
+  s_e63e2ce0535b22::t_81a41927d34bac 128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "200b7fd2543dddf03c7d46827d9749d26b586559",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
