@@ -19,3 +19,4 @@ export * from "./intake";
 export * from "./copy";
 export * from "./block";
 export * from "./help-pages";
+export type { HelpAnswerResponse, HelpAskState } from "./help-ask";

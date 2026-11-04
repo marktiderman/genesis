@@ -21,7 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { NativeButton } from "@marktiderman/genesis-ui-native/components";
 import { defineSupportBlock, supportPaths, SUPPORT_BLOCK_ID, type SupportPaths } from "../block";
 import { createSupportClient, type SupportClient, type SupportSupabase } from "../client";
-import type { HelpAiResult } from "../help-ask";
+import type { HelpAnswerResponse } from "../help-ask";
 import type { SupportChatClient } from "../chat";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { composeCollectors, createContextCollector, type ContextCollector, type ScreenshotContentType } from "../record";
@@ -58,8 +58,10 @@ export interface SupportOptions {
    * workspace, or a function that reads it now. Left out, the app's own.
    */
   tenantId?: string | null | (() => string | null);
-  /** Runs the AI answer task on your server. Without it (or with the tenant's AI off) search is all there is. See the README. */
-  askAi?: (questionId: string) => Promise<HelpAiResult>;
+  /** Calls your endpoint for `answerHelpQuestion`, with the person's token: a plain `fetch`, as this is made outside React. Without it (or with the tenant's AI off) search is all there is. */
+  askAi?: (questionId: string) => Promise<HelpAnswerResponse>;
+  /** The person hasn't agreed to share with the AI's vendor: opens your screen for that. */
+  onAiConsent?: () => void;
   /** `Platform.OS`. Default from React Native. */
   platform?: string;
   /** The version signature sent with each report (`useVersionSignature().short`, or a function that reads it). */

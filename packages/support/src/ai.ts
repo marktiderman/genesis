@@ -5,13 +5,17 @@
  * of support that imports genesis-ai, an optional peer: install it (and `zod`) to use this subpath.
  * Server only: register the task with `createAiHandler` and call it by id from the client.
  *
- * Everything is read as the person (`ctx.db` is their own Supabase client, so row level security
- * applies). The client sends only the id of a question it kept with `client.askHelp`. Give
- * `defineAi` your `safety` protocol: the task hands it what the person wrote, before any model.
+ * Everything is read as the person (`ctx.db` is their own Supabase client). The client sends only
+ * the id of a question it kept with `client.askHelp`. `answerHelpQuestion` runs the task and records
+ * what came of it with a service-role client, so nobody can write an answer of their own. `defineAi`
+ * needs your `safety` protocol: the task won't run without one, and it sees what the person wrote
+ * before any model, even when no article matches.
  */
-import { defineTask, GuardrailError, type AiContext, type TaskDefinition } from "@marktiderman/genesis-ai";
+import { defineTask, GuardrailError, type Ai, type AiContext, type TaskDefinition } from "@marktiderman/genesis-ai";
+import { runTask } from "@marktiderman/genesis-ai/server";
 // `zod/v4` is Zod 4 in both Zod 3.25+ and Zod 4, so apps on either can install this.
 import { z } from "zod/v4";
+import type { HelpAnswerResponse } from "./help-ask";
 
 /** The task's id, for `useAiTask`. */
 export const HELP_ANSWER_TASK = "support.help-answer";
@@ -19,6 +23,7 @@ export const HELP_ANSWER_TASK = "support.help-answer";
 export const HELP_ANSWER_FEATURE = "support-helpdesk-ai";
 
 const MAX_ARTICLES = 5;
+const MAX_ANSWER_CHARS = 4000;
 /** Enough of one article to answer from, bounding what a call can cost. */
 const MAX_ARTICLE_CHARS = 8000;
 
@@ -56,9 +61,10 @@ export const HELP_AI_REFUSALS = {
 } as const;
 
 const args = z.object({ questionId: z.uuid() });
+// Plain types: not every vendor's structured output takes length limits. answerHelpQuestion clips.
 const output = z.object({
-  answer: z.string().max(4000),
-  citations: z.array(z.uuid()).max(MAX_ARTICLES),
+  answer: z.string(),
+  citations: z.array(z.string()),
   confident: z.boolean(),
 });
 
@@ -81,6 +87,7 @@ export function supportHelpAnswerTask(options: HelpAnswerTaskOptions = {}): Task
     feature: options.feature ?? HELP_ANSWER_FEATURE,
     model: options.model ?? "default",
     maxTokens: 800,
+    safetyRequired: true,
     args,
     ...(options.can ? { can: options.can } : {}),
     ...(options.consent ? { consent: options.consent } : {}),
@@ -89,16 +96,16 @@ export function supportHelpAnswerTask(options: HelpAnswerTaskOptions = {}): Task
       if (asked.error) throw new Error(`support.help-answer: reading the question failed (${asked.error.code ?? "?"})`);
       const row = asked.data as { tenant_id: string; question: string; outcome: string } | null;
       if (!row) throw new GuardrailError(HELP_AI_REFUSALS.notYours, "forbidden");
-      if (row.outcome !== "asked") throw new GuardrailError(HELP_AI_REFUSALS.answered, "invalid_input");
       // The tenant can have turned it off since the question was kept.
       const on = await ctx.db.rpc("support_ai_enabled", { tenant: row.tenant_id });
       if (on.error) throw new Error(`support.help-answer: reading the switch failed (${on.error.code ?? "?"})`);
       if (on.data !== true) throw new GuardrailError(HELP_AI_REFUSALS.off, "forbidden");
+      // Once: the same id can't run the model twice.
+      const claimed = await ctx.db.rpc("support_claim_question", { question: questionId });
+      if (claimed.error) throw new GuardrailError(HELP_AI_REFUSALS.answered, "invalid_input");
       const found = await ctx.db.rpc("support_search_articles", { tenant: row.tenant_id, query: row.question, max_rows: MAX_ARTICLES });
       if (found.error) throw new Error(`support.help-answer: searching failed (${found.error.code ?? "?"})`);
       const hits = (found.data ?? []) as { id: string }[];
-      // Nothing to answer from: no model call, no cost.
-      if (hits.length === 0) throw new GuardrailError(HELP_AI_REFUSALS.noArticles, "invalid_input");
       const articles: LoadedHelpQuestion["articles"] = [];
       for (const hit of hits) {
         const read = await ctx.db.rpc("support_help_article", { tenant: row.tenant_id, article: hit.id });
@@ -110,14 +117,66 @@ export function supportHelpAnswerTask(options: HelpAnswerTaskOptions = {}): Task
         ctx.layer("article", `${article.title}\n${body}`, [article.id]);
         articles.push({ id: article.id, title: unfence(article.title), body });
       }
-      if (articles.length === 0) throw new GuardrailError(HELP_AI_REFUSALS.noArticles, "invalid_input");
       ctx.layer("question", row.question, [questionId]);
       return { question: unfence(row.question), articles };
     },
     system: SYSTEM,
-    prompt: ({ question, articles }) =>
-      `<articles>\n${articles.map((a) => `<article id="${a.id}" title="${a.title.replace(/"/g, "'")}">\n${a.body}\n</article>`).join("\n")}\n</articles>\n<question>\n${question}\n</question>`,
+    // After the safety check, which has to see what they wrote even when no article matches. Nothing to answer from: no model call, no cost.
+    prompt: ({ question, articles }) => {
+      if (articles.length === 0) throw new GuardrailError(HELP_AI_REFUSALS.noArticles, "invalid_input");
+      return `<articles>\n${articles.map((a) => `<article id="${a.id}" title="${a.title.replace(/"/g, "'")}">\n${a.body}\n</article>`).join("\n")}\n</articles>\n<question>\n${question}\n</question>`;
+    },
     output,
     safetyText: ({ question }) => question,
   });
+}
+
+/** A service-role client: the part `answerHelpQuestion` records with. */
+export interface HelpAiAdmin {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rpc: (fn: "support_record_answer", args: Record<string, unknown>) => any;
+}
+
+/**
+ * Runs the help center's answer task for a question and records what came of it, for your endpoint:
+ *
+ *   export const POST = async (req) => {
+ *     const user = await userFrom(req);
+ *     if (!user) return new Response(null, { status: 401 });
+ *     const { questionId } = await req.json();
+ *     return Response.json(await answerHelpQuestion(ai, { questionId, context: { tenantId: user.tenantId, personId: user.id, db: supabaseAs(req) }, admin: serviceClient }));
+ *   };
+ *
+ * The call is budgeted to the question's tenant, whatever `context.tenantId` says. Only the
+ * person's own question runs. Never answers with anything that isn't kept.
+ */
+export async function answerHelpQuestion(
+  ai: Ai,
+  input: { questionId: string; context: AiContext<HelpAiDb>; admin: HelpAiAdmin; task?: ReturnType<typeof supportHelpAnswerTask> },
+): Promise<HelpAnswerResponse> {
+  const { questionId, context, admin } = input;
+  if (!args.safeParse({ questionId }).success) return { status: "none" };
+  const asked = await context.db.from("help_questions").select("tenant_id").eq("id", questionId).eq("user_id", context.personId).maybeSingle();
+  const row = asked.data as { tenant_id: string } | null;
+  if (asked.error || !row) return { status: "none" };
+  const record = async (outcome: string, answer: string | null = null, articleIds: readonly string[] = []) => {
+    const saved = await admin.rpc("support_record_answer", { question: questionId, outcome, answer, article_ids: [...articleIds] });
+    return saved.error ? null : (saved.data as string);
+  };
+  const result = await runTask(ai, input.task ?? supportHelpAnswerTask(), { questionId }, { ...context, tenantId: row.tenant_id });
+  if (result.ok) {
+    const answer = result.output.answer.trim().slice(0, MAX_ANSWER_CHARS);
+    const articleIds = result.output.citations.slice(0, MAX_ARTICLES);
+    if (result.output.confident && answer && articleIds.length > 0 && (await record("answered", answer, articleIds)) === "answered") return { status: "answered", answer, articleIds };
+    await record("no_answer");
+    return { status: "none" };
+  }
+  if (result.outcome === "safety_routed") {
+    await record("safety_routed");
+    return { status: "safety", response: result.safety?.response ?? null };
+  }
+  // Before the task took the question: they can agree, and ask again.
+  if (result.outcome === "no_consent") return { status: "needs_consent" };
+  await record("no_answer");
+  return { status: "none" };
 }

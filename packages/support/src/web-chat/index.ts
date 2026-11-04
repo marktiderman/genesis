@@ -18,4 +18,4 @@ export { SupportStaffThread, type SupportStaffThreadProps } from "./staff-thread
 export { SupportAgentInbox, supportInboxKeys, type SupportAgentInboxProps } from "./agent-inbox";
 export { SupportMessenger, SupportMessengerLauncher, supportMessengerKeys, type MessengerSpace, type SupportMessengerLauncherProps, type SupportMessengerProps } from "./messenger";
 export { SupportHelpCenterAdmin, type SupportHelpCenterAdminProps } from "./help-admin";
-export type { HelpAiResult, HelpAskState } from "../help-ask";
+export type { HelpAnswerResponse, HelpAskState } from "../help-ask";

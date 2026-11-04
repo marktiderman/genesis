@@ -59,7 +59,7 @@ export interface FeedbackRecord {
   attachments?: FeedbackAttachment[];
   /**
    * The tenant it goes to (migration 0004), over the client's `tenantId` option: a messenger that
-   * knows whose help desk it is. Left out, the client's option, else the app's own.
+   * knows whose help desk it is. Null is the app's own. Left out, the client's option, else the app's own.
    */
   tenantId?: string | null | undefined;
 }

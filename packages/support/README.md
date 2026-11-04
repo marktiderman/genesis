@@ -249,9 +249,11 @@ on.
 **The messenger.** `<SupportMessenger>` is Home (greeting, article search, the latest conversation),
 Messages and Help. A first message becomes a ticket in the tenant, and the reply arrives live.
 `<SupportMessengerLauncher>` is a button with the unread count that opens it in the chat dock when
-the app has `ChatDockProvider`, else in a sheet. On the phone: `useMessengerHome`, `useHelpCenter`,
-`useHelpArticle` with `HelpArticleBody`, and `useStartConversation`, at the block's routes, with
-`tenantId` and `askAi` given to `createSupport`.
+the app has `ChatDockProvider`, else in a sheet. The dock's windows sit bottom-right, so there use
+`position="bottom-left"`, or `"inline"` and place it yourself. On the phone: `useMessengerHome`,
+`useHelpCenter`, `useHelpArticle` with `HelpArticleBody`, and `useStartConversation`, at the block's
+routes, with `tenantId` and `askAi` given to `createSupport`. Home and the help center open the help
+route with `?q=` or `?collection=`: read them there and pass `initialQuery` and `collectionId`.
 
 ```tsx
 import { SupportMessengerLauncher } from "@marktiderman/genesis-support/web-chat";
@@ -270,28 +272,46 @@ a public help center, `helpCenterPages({ collections, articles })` gives genesis
 to the tenant's site and publish.
 
 **AI answers** are off until a tenant opts in, with an enabled `support-helpdesk-ai` row in
-`tenant_features`. The AI answers only from that tenant's published articles and cites them; an
+`tenant_features`. That's the reverse of most features, where no row means on, so show it as off in
+your Settings when there's no row. A tenant admin can turn it on, and it spends that tenant's AI
+budget (`genesis_ai.set_budget`). The person asks for an answer after searching; only then do their
+words go to the vendor. The AI answers only from that tenant's published articles and cites them; an
 answer that cites anything else isn't kept, and every outcome offers a person.
 
-1. Register the task (server only). Give `defineAi` your `safety` protocol: the task hands it what the
-   person wrote, before any model. Install `@marktiderman/genesis-ai` and `zod`.
+1. Give `defineAi` your `safety` protocol, which sees what the person wrote before any model: the task
+   won't run without one. Install `@marktiderman/genesis-ai` and `zod`.
+2. Serve the answer from your server. It runs the task as the person and records what came of it with
+   a service-role client, so nobody can write an answer of their own, and spends the question's
+   tenant's budget.
 
    ```ts
-   import { createAiHandler } from "@marktiderman/genesis-ai/server";
    import type { Ai } from "@marktiderman/genesis-ai";
-   import { supportHelpAnswerTask } from "@marktiderman/genesis-support/ai";
+   import { answerHelpQuestion, type HelpAiAdmin, type HelpAiDb } from "@marktiderman/genesis-support/ai";
 
    declare const ai: Ai;
+   declare const serviceClient: HelpAiAdmin;
+   declare function userFrom(req: Request): Promise<{ id: string; tenantId: string; db: HelpAiDb } | null>;
 
-   export const POST = createAiHandler({ ai, tasks: [supportHelpAnswerTask()], context: async () => null });
+   export async function POST(req: Request) {
+     const user = await userFrom(req);
+     if (!user) return new Response(null, { status: 401 });
+     const { questionId } = (await req.json()) as { questionId: string };
+     return Response.json(await answerHelpQuestion(ai, { questionId, context: { tenantId: user.tenantId, personId: user.id, db: user.db }, admin: serviceClient }));
+   }
    ```
 
-2. Pass `askAi` to the messenger: `askAi={(questionId) => run({ questionId })}`, with `run` from
-   `useAiTask(HELP_ANSWER_TASK)`.
+3. Pass `askAi` to the messenger, or to `createSupport` on the phone, as a plain call to it, with the
+   person's token where it needs one:
+   `(questionId) => fetch(url, { method: "POST", headers, body: JSON.stringify({ questionId }) }).then((r) => r.json())`.
+4. People agree to share with the vendor first (genesis-ai's consent), unless your terms cover it:
+   `supportHelpAnswerTask({ consent: "terms" })`, passed as `task`. Until they agree, the messenger
+   says so and offers a person; `onAiConsent` opens your screen for agreeing. The consent check comes
+   first in genesis-ai's pipeline, so without consent the safety protocol doesn't run: the person
+   sees the consent message and the way to a person.
 
 A resolution is a question whose person said the answer helped: `help_questions.outcome = 'resolved'`,
-readable by the tenant's agents, beside genesis-ai's usage row for each call. The person's own click
-records it, so it's a count of what people said, not a billing record.
+readable by the tenant's agents, beside genesis-ai's usage row for each call. It's what people said,
+counted, not a billing record.
 
 ## Email tickets (the `support-email` block)
 
@@ -424,6 +444,8 @@ its own help desk and your app runs its own support the same way. With the suppo
 - No agent inbox or article editor on the phone yet: `SupportAgentInbox` and
   `SupportHelpCenterAdmin` are web only. Without the support-chat block, staff work through the
   database functions.
+- Collections can be added and deleted in `SupportHelpCenterAdmin`; to rename or reorder one, call
+  `client.saveHelpCollection`. Search leaves out common English words only.
 - Articles are plain text, with no images or formatting. A messenger's person is signed in: there's
   no anonymous or signed-token identity yet.
 - The agent inbox shows a ticket's latest 200 messages, and its queues refresh on a timer, not live.

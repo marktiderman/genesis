@@ -7,7 +7,7 @@
 -- client of tb; c3 an agent of ta; e5 an agent of tb; f6 the app's staff; g7 a client of tc.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(57);
+select plan(70);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -98,6 +98,10 @@ select throws_ok($$ select public.support_save_article(null, '00000000-0000-4000
                  'a slug has a shape');
 select throws_ok($$ select public.support_save_article(null, '00000000-0000-4000-8000-0000000000a0', null, 'empty', 'Empty', null, '  ', 'published') $$, '23514', null,
                  'nothing is published with no words');
+select throws_ok($$ select public.support_save_article(null, '00000000-0000-4000-8000-0000000000a0', null, 'empty', 'Empty', null, E'\n\t\n', 'published') $$, '23514', null,
+                 '... whitespace of any kind isn''t words');
+select throws_ok($$ select public.support_save_article(null, '00000000-0000-4000-8000-0000000000a0', null, '11111111-1111-4111-8111-111111111111', 'Id', null, 'Words', 'draft') $$, '23514', null,
+                 'a slug can''t be an id');
 select throws_ok($$ select public.support_save_article(pg_temp.id('pub'), null, null, 'reset-password', 'Stale', null, 'Words', 'published', '2000-01-01') $$, '40001', null,
                  'a save that started from an older copy is refused');
 
@@ -122,6 +126,8 @@ select is((select count(*)::int from public.support_help_articles(pg_temp.tenant
 select is((select count(*)::int from public.support_help_articles(pg_temp.tenant('ta'), null, true)), 1, '... and asking for drafts shows them none');
 select is((select count(*)::int from public.help_articles where id = pg_temp.id('draft')), 0, '... nor does the table');
 select is((select count(*)::int from public.support_help_article(pg_temp.tenant('ta'), 'secret-plan')), 0, '... nor a draft by its slug');
+select is((select count(*)::int from public.support_help_article(pg_temp.tenant('ta'), pg_temp.id('draft')::text)), 0, '... nor by its id');
+select is((select count(*)::int from public.support_help_article(pg_temp.tenant('tb'), pg_temp.id('tb-art')::text)), 0, 'nor any article of another business');
 select is((select title from public.support_help_article(pg_temp.tenant('ta'), pg_temp.id('pub')::text)), 'Reset your password', 'one by id');
 select is((select count(*)::int from public.help_articles where tenant_id = pg_temp.tenant('tb')), 0, 'a client reads no other business''s article');
 select is((select count(*)::int from public.support_help_articles(pg_temp.tenant('tb'))), 0, '... through the function either');
@@ -147,6 +153,8 @@ select is((select title from public.support_search_articles(pg_temp.tenant('ta')
 select is((select title from public.support_search_articles(pg_temp.tenant('ta'), 'passw')), 'Reset your password', 'so does the start of a word');
 select lives_ok($$ select * from public.support_search_articles(pg_temp.tenant('ta'), 'a'':* & !''b | ( <-> \') $$, 'punctuation is only words, never query syntax');
 select is((select count(*)::int from public.support_search_articles(pg_temp.tenant('ta'), '   ')), 0, 'nothing typed finds nothing');
+select is((select count(*)::int from public.support_search_articles(pg_temp.tenant('ta'), 'is it the of to and an')), 0, 'common words find nothing');
+select is((select count(*)::int from public.support_search_articles(pg_temp.tenant('ta'), 'pass word')), 0, 'only the last word matches by its start');
 select is((select count(*)::int from public.support_search_articles(pg_temp.tenant('tb'), 'password')), 0, 'search stays in the reader''s tenants');
 
 -- AI answers ------------------------------------------------------------------------------------
@@ -163,17 +171,31 @@ select throws_ok($$ select public.support_ask('00000000-0000-4000-8000-000000000
 select pg_temp.sign_in('a1');
 insert into ids select 'q1', public.support_ask(pg_temp.tenant('ta'), 'How do I reset my password?');
 insert into ids select 'q2', public.support_ask(pg_temp.tenant('ta'), 'Something else');
-select throws_ok($$ select public.support_record_answer(pg_temp.id('q1'), 'Elsewhere', array[pg_temp.id('tb-art')]) $$, '22023', null, 'an answer can''t cite another tenant''s article');
-select throws_ok($$ select public.support_record_answer(pg_temp.id('q1'), 'Unpublished', array[pg_temp.id('draft')]) $$, '22023', null, '... nor a draft');
+select ok(not has_function_privilege('authenticated', 'public.support_record_answer(uuid, text, text, uuid[])', 'execute'), 'nobody signed in records an answer: only the server does');
 select throws_ok($$ select public.support_close_question(pg_temp.id('q1'), 'resolved') $$, '22023', null, 'nothing resolves before it''s answered');
-select is(public.support_record_answer(pg_temp.id('q1'), 'Open Settings.', array[pg_temp.id('pub')]), 'answered', 'an answer that cites its article is kept');
-select is(public.support_record_answer(pg_temp.id('q2'), 'A guess', '{}'), 'no_answer', 'an answer with no citation isn''t');
+select pg_temp.sign_in('b2');
+select throws_ok($$ select public.support_claim_question(pg_temp.id('q1')) $$, '42501', null, 'someone else can''t take a question');
+select pg_temp.sign_in('a1');
+select lives_ok($$ select public.support_claim_question(pg_temp.id('q1')) $$, 'the task takes it');
+select throws_ok($$ select public.support_claim_question(pg_temp.id('q1')) $$, '22023', null, 'once: the same id can''t run the model twice');
+reset role;
+select throws_ok($$ select public.support_record_answer(pg_temp.id('q1'), 'answered', 'Elsewhere', array[pg_temp.id('tb-art')]) $$, '22023', null, 'an answer can''t cite another tenant''s article');
+select throws_ok($$ select public.support_record_answer(pg_temp.id('q1'), 'answered', 'Unpublished', array[pg_temp.id('draft')]) $$, '22023', null, '... nor a draft');
+select is(public.support_record_answer(pg_temp.id('q1'), 'answered', 'Open Settings.', array[pg_temp.id('pub')]), 'answered', 'an answer that cites its article is kept');
+select throws_ok($$ select public.support_record_answer(pg_temp.id('q1'), 'answered', 'Again', array[pg_temp.id('pub')]) $$, '22023', null, 'a kept answer stays');
+select is(public.support_record_answer(pg_temp.id('q2'), 'answered', 'A guess', '{}'), 'no_answer', 'an answer with no citation isn''t kept');
+insert into public.help_questions (tenant_id, user_id, question) values (pg_temp.tenant('ta'), pg_temp.person('a1'), 'Something hard to read');
+insert into ids select 'q3', id from public.help_questions where question = 'Something hard to read';
+select is(public.support_record_answer(pg_temp.id('q3'), 'safety_routed'), 'safety_routed', 'a safety route is recorded');
+select is((select question from public.help_questions where id = pg_temp.id('q3')), '(not kept)', '... without what they wrote');
+set local role authenticated;
+select pg_temp.sign_in('a1');
 select lives_ok($$ select public.support_close_question(pg_temp.id('q1'), 'resolved') $$, 'it helped');
 select is((select outcome from public.help_questions where id = pg_temp.id('q1')), 'resolved', 'a resolution is recorded');
 select pg_temp.sign_in('b2');
 select is((select count(*)::int from public.help_questions), 0, 'someone else reads no question');
 select pg_temp.sign_in('c3');
-select is((select count(*)::int from public.help_questions), 2, 'the tenant''s agents read its questions');
+select is((select count(*)::int from public.help_questions), 3, 'the tenant''s agents read its questions');
 
 reset role;
 select * from finish();

@@ -4413,9 +4413,10 @@
       },
       "extends": "support-feedback",
       "requires": [
-        "support-feedback"
+        "support-feedback",
+        "support-chat"
       ],
-      "reviewedAt": "2026-11-03",
+      "reviewedAt": "2026-11-04",
       "links": {
         "code": [
           "packages/support/migrations/0004_genesis_support_tickets.sql",
@@ -4434,6 +4435,56 @@
         "docs": [
           "packages/support/README.md",
           "docs/adr/0015-tickets-and-tenancy.md"
+        ]
+      },
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer",
+        "end user"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "support-helpdesk-ai",
+      "name": "Help desk AI answers",
+      "summary": "An optional AI answer in the help desk's messenger: off until a tenant opts in (an enabled row in tenant_features, unlike most features, where no row means on), asked for by the person, answering only from the tenant's published articles and citing them, after the app's safety protocol, and always offering a person. answerHelpQuestion runs it on the app's server and records what came of it; a resolution is the person saying it helped.",
+      "category": "Support",
+      "status": "building",
+      "claimedBy": "mark",
+      "kind": "pattern",
+      "keywords": [
+        "ai answers",
+        "help center",
+        "knowledge base",
+        "fin",
+        "ai first responder"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-support/ai",
+        "native": "@marktiderman/genesis-support/ai"
+      },
+      "extends": "support-helpdesk",
+      "requires": [
+        "support-helpdesk"
+      ],
+      "reviewedAt": "2026-11-04",
+      "links": {
+        "code": [
+          "packages/support/src/ai.ts",
+          "packages/support/src/help-ask.ts"
+        ],
+        "docs": [
+          "packages/support/README.md"
         ]
       },
       "owner": "mark",

@@ -9,10 +9,12 @@
 --     Anon reads nothing here: a public help center is pages on the app's site (helpCenterPages).
 --   public.help_questions
 --     A question put to the AI: what was asked, what it answered, the articles it cited, and how it
---     ended (`resolved` or `handed_off`). Resolved questions are the usage count for answers.
+--     ended. `resolved` means the person said the answer helped: the usage count for answers. What
+--     a safety protocol routed elsewhere isn't kept. Only the server records an answer.
 --
 -- AI answers are off until a tenant opts in, the app's own tenant included: an enabled
--- `support-helpdesk-ai` row in genesis-supabase 0004's tenant_features. The model runs in the app's
+-- `support-helpdesk-ai` row in genesis-supabase 0004's tenant_features. Unlike 0004's usual reading,
+-- no row means off here, because each answer spends the tenant's AI budget. The model runs in the app's
 -- server, through genesis-ai (`supportHelpAnswerTask`); an answer is kept only when it cites published
 -- articles of the question's tenant.
 --
@@ -24,7 +26,7 @@
 create table public.help_collections (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
-  title text not null constraint help_collections_title check (char_length(btrim(title)) between 1 and 120 and title !~ '[\r\n]'),
+  title text not null constraint help_collections_title check (title ~ '\S' and char_length(btrim(title)) <= 120 and title !~ '[\r\n]'),
   description text constraint help_collections_description check (char_length(description) <= 400),
   position integer not null default 0,
   created_at timestamptz not null default now(),
@@ -36,12 +38,12 @@ create table public.help_articles (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
   collection_id uuid,
-  slug text not null constraint help_articles_slug check (char_length(slug) <= 80 and slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
-  title text not null constraint help_articles_title check (char_length(btrim(title)) between 1 and 90 and title !~ '[\r\n]'),
+  slug text not null constraint help_articles_slug check (char_length(slug) <= 80 and slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and slug !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),
+  title text not null constraint help_articles_title check (title ~ '\S' and char_length(btrim(title)) <= 90 and title !~ '[\r\n]'),
   summary text constraint help_articles_summary check (char_length(summary) <= 200),
   body text not null default '' constraint help_articles_body check (char_length(body) <= 100000),
   status text not null default 'draft' constraint help_articles_status check (status in ('draft', 'published')),
-  constraint help_articles_published_has_words check (status <> 'published' or btrim(body) <> ''),
+  constraint help_articles_published_has_words check (status <> 'published' or body ~ '\S'),
   published_at timestamptz,
   created_by uuid references auth.users (id) on delete set null,
   updated_by uuid references auth.users (id) on delete set null,
@@ -64,10 +66,10 @@ create table public.help_questions (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
   user_id uuid not null references auth.users (id) on delete cascade,
-  question text not null constraint help_questions_question check (char_length(question) between 1 and 2000),
+  question text not null constraint help_questions_question check (question ~ '\S' and char_length(question) <= 2000),
   answer text constraint help_questions_answer check (char_length(answer) <= 8000),
   article_ids uuid[] not null default '{}',
-  outcome text not null default 'asked' constraint help_questions_outcome check (outcome in ('asked', 'answered', 'no_answer', 'resolved', 'handed_off')),
+  outcome text not null default 'asked' constraint help_questions_outcome check (outcome in ('asked', 'answering', 'answered', 'no_answer', 'safety_routed', 'resolved', 'handed_off')),
   ticket_id uuid references public.tickets (id) on delete set null,
   created_at timestamptz not null default now(),
   answered_at timestamptz,
@@ -111,64 +113,121 @@ create policy help_questions_read on public.help_questions
   for select to authenticated
   using (user_id = (select auth.uid()) or public.support_is_agent(tenant_id));
 
--- Reads: as the caller, so row security decides ---------------------------------------------
+-- Reads: named functions that check the tenant once, so a list doesn't run the check per row ------
+
+-- May the signed-in person read here at all, and as an agent? The app's own tenant when none is named.
+create or replace function private.genesis_support_help_access(tenant uuid, out resolved uuid, out agent boolean, out readable boolean)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  resolved := coalesce(tenant, private.genesis_support_default_tenant_id());
+  agent := private.genesis_support_agent(resolved, auth.uid());
+  readable := agent or public.support_help_readable(resolved);
+end;
+$$;
+
+revoke execute on function private.genesis_support_help_access(uuid) from public, anon, authenticated;
 
 create or replace function public.support_help_collections(tenant uuid default null)
 returns table (id uuid, title text, description text, position_in_list integer)
-language sql
+language plpgsql
 stable
+security definer
 set search_path = ''
 as $$
-  select c.id, c.title, c.description, c.position
-    from public.help_collections c
-   where c.tenant_id = coalesce(tenant, public.support_default_tenant())
-   order by c.position, c.title, c.id
+declare
+  access record := private.genesis_support_help_access(tenant);
+begin
+  if not access.readable then
+    return;
+  end if;
+  return query
+    select c.id, c.title, c.description, c.position
+      from public.help_collections c
+     where c.tenant_id = access.resolved
+     order by c.position, c.title, c.id;
+end;
 $$;
 
--- A tenant's articles, without their bodies. Drafts only when asked, for an agent's list.
+-- A tenant's articles, without their bodies. Drafts only when asked, and only for an agent.
 create or replace function public.support_help_articles(tenant uuid default null, collection uuid default null, include_drafts boolean default false)
 returns table (id uuid, collection_id uuid, slug text, title text, summary text, status text, published_at timestamptz, updated_at timestamptz)
-language sql
+language plpgsql
 stable
+security definer
 set search_path = ''
 as $$
-  select a.id, a.collection_id, a.slug, a.title, a.summary, a.status, a.published_at, a.updated_at
-    from public.help_articles a
-   where a.tenant_id = coalesce(tenant, public.support_default_tenant())
-     and (collection is null or a.collection_id = collection)
-     and (include_drafts or a.status = 'published')
-   order by a.title, a.id
-   limit 500
+declare
+  access record := private.genesis_support_help_access(tenant);
+begin
+  if not access.readable then
+    return;
+  end if;
+  return query
+    select a.id, a.collection_id, a.slug, a.title, a.summary, a.status, a.published_at, a.updated_at
+      from public.help_articles a
+     where a.tenant_id = access.resolved
+       and (collection is null or a.collection_id = collection)
+       and (a.status = 'published' or (include_drafts and access.agent))
+     order by a.title, a.id
+     limit 500;
+end;
 $$;
 
 -- One article, by its slug or id. What the caller can't read isn't there.
 create or replace function public.support_help_article(tenant uuid default null, article text default null)
 returns table (id uuid, collection_id uuid, slug text, title text, summary text, body text, status text, published_at timestamptz, updated_at timestamptz)
-language sql
+language plpgsql
 stable
+security definer
 set search_path = ''
 as $$
-  select a.id, a.collection_id, a.slug, a.title, a.summary, a.body, a.status, a.published_at, a.updated_at
-    from public.help_articles a
-   where a.tenant_id = coalesce(tenant, public.support_default_tenant())
-     and (a.slug = article or a.id::text = article)
-   limit 1
+declare
+  access record := private.genesis_support_help_access(tenant);
+  by_id uuid := case when article ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then article::uuid end;
+begin
+  if not access.readable then
+    return;
+  end if;
+  return query
+    select a.id, a.collection_id, a.slug, a.title, a.summary, a.body, a.status, a.published_at, a.updated_at
+      from public.help_articles a
+     where a.tenant_id = access.resolved
+       and (a.status = 'published' or access.agent)
+       and (case when by_id is not null then a.id = by_id else a.slug = article end);
+end;
 $$;
 
--- Published articles for what someone typed: any of its words, the start of a word counting, so a
--- whole question finds its article. Best match first. Language-neutral ('simple'), as chat's search is.
+-- Published articles for what someone typed: any of its words, best match first, so a whole question
+-- finds its article. The last word may still be being typed, so its start counts. Common English
+-- words and single letters don't count: they'd match nearly everything. Language-neutral otherwise
+-- ('simple'), as chat's search is.
 create or replace function public.support_search_articles(tenant uuid default null, query text default null, max_rows integer default 10)
 returns table (id uuid, collection_id uuid, slug text, title text, summary text, rank real)
 language plpgsql
 stable
+security definer
 set search_path = ''
 as $$
 declare
+  access record := private.genesis_support_help_access(tenant);
   q tsquery;
   terms text;
 begin
-  select string_agg(quote_literal(w) || ':*', ' | ') into terms
-    from unnest(tsvector_to_array(to_tsvector('simple'::regconfig, left(coalesce(query, ''), 500)))) as w;
+  if not access.readable then
+    return;
+  end if;
+  with words as (
+    select t.lexeme, (select max(n) from unnest(t.positions) as n) as at
+      from unnest(to_tsvector('simple'::regconfig, left(coalesce(query, ''), 500))) as t(lexeme, positions, weights)
+  )
+  select string_agg(quote_literal(w.lexeme) || case when w.at = (select max(a.at) from words a) then ':*' else '' end, ' | ') into terms
+    from words w
+   where char_length(w.lexeme) > 1
+     and w.lexeme <> all (array['an','and','are','as','at','be','but','by','can','could','did','do','does','for','from','get','give','had','has','have','how','if','in','into','is','it','its','me','my','no','not','of','on','or','our','please','should','so','some','than','that','the','their','them','then','there','these','they','this','to','us','was','we','were','what','when','where','which','who','why','will','with','would','you','your']);
   if terms is null then
     return;
   end if;
@@ -176,7 +235,7 @@ begin
   return query
     select a.id, a.collection_id, a.slug, a.title, a.summary, ts_rank(a.search, q)
       from public.help_articles a
-     where a.tenant_id = coalesce(tenant, public.support_default_tenant())
+     where a.tenant_id = access.resolved
        and a.status = 'published'
        and a.search @@ q
      order by ts_rank(a.search, q) desc, a.title, a.id
@@ -366,7 +425,7 @@ begin
   if me is null or not public.support_ai_enabled(resolved) then
     raise exception 'support_ask: AI answers aren''t on here' using errcode = '42501';
   end if;
-  if words = '' or char_length(words) > 2000 then
+  if words !~ '\S' or char_length(words) > 2000 then
     raise exception 'support_ask: a question is 1 to 2000 characters' using errcode = '22023';
   end if;
   perform private.genesis_support_rate_limit(me, 'question', 30, interval '1 hour');
@@ -375,10 +434,32 @@ begin
 end;
 $$;
 
--- Keep the answer to the person's own open question. It has to cite published articles of the
--- question's tenant, so an answer from anywhere else is refused (22023); no citations or no words
--- means there was no answer.
-create or replace function public.support_record_answer(question uuid, answer text default null, article_ids uuid[] default '{}')
+-- The AI task takes the person's question to answer it, once: a question id can't run the model
+-- twice, so support_ask's limit is the limit on model calls.
+create or replace function public.support_claim_question(question uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  q public.help_questions;
+begin
+  select * into q from public.help_questions h where h.id = $1 for update;
+  if q.id is null or q.user_id is distinct from auth.uid() then
+    raise exception 'support_claim_question: not your question' using errcode = '42501';
+  end if;
+  if q.outcome <> 'asked' then
+    raise exception 'support_claim_question: already taken' using errcode = '22023';
+  end if;
+  update public.help_questions h set outcome = 'answering' where h.id = $1;
+end;
+$$;
+
+-- The server keeps what came of a question (answerHelpQuestion, with a service-role client). An
+-- answer has to cite published articles of the question's tenant, or it's refused (22023); no
+-- citations or no words means no answer. What a safety protocol routed elsewhere isn't kept.
+create or replace function public.support_record_answer(question uuid, outcome text, answer text default null, article_ids uuid[] default '{}')
 returns text
 language plpgsql
 security definer
@@ -390,13 +471,17 @@ declare
   words text := btrim(coalesce(answer, ''));
 begin
   select * into q from public.help_questions h where h.id = $1 for update;
-  if q.id is null or q.user_id is distinct from auth.uid() then
-    raise exception 'support_record_answer: not your question' using errcode = '42501';
+  if q.id is null or q.outcome not in ('asked', 'answering') then
+    raise exception 'support_record_answer: no open question' using errcode = '22023';
   end if;
-  if q.outcome <> 'asked' then
-    raise exception 'support_record_answer: already answered' using errcode = '22023';
+  if $2 = 'safety_routed' then
+    update public.help_questions h set outcome = 'safety_routed', question = '(not kept)', answered_at = clock_timestamp() where h.id = $1;
+    return 'safety_routed';
   end if;
-  if words = '' or cardinality(cited) = 0 then
+  if $2 not in ('answered', 'no_answer') then
+    raise exception 'support_record_answer: unknown outcome' using errcode = '22023';
+  end if;
+  if $2 = 'no_answer' or words !~ '\S' or cardinality(cited) = 0 then
     update public.help_questions h set outcome = 'no_answer', answered_at = clock_timestamp() where h.id = $1;
     return 'no_answer';
   end if;
@@ -431,6 +516,7 @@ begin
   end if;
   if support_close_question.outcome not in ('resolved', 'handed_off')
      or q.outcome in ('resolved', 'handed_off')
+     or q.outcome = 'safety_routed' and support_close_question.outcome = 'resolved'
      or (support_close_question.outcome = 'resolved' and q.outcome <> 'answered') then
     raise exception 'support_close_question: it can''t end that way now' using errcode = '22023';
   end if;
@@ -454,13 +540,13 @@ grant select, insert, update, delete on table public.help_collections, public.he
 revoke execute on function public.support_help_readable(uuid) from public, anon;
 grant execute on function public.support_help_readable(uuid) to authenticated, service_role;
 revoke execute on function public.support_help_collections(uuid) from public, anon;
-grant execute on function public.support_help_collections(uuid) to authenticated, service_role;
+grant execute on function public.support_help_collections(uuid) to authenticated;
 revoke execute on function public.support_help_articles(uuid, uuid, boolean) from public, anon;
-grant execute on function public.support_help_articles(uuid, uuid, boolean) to authenticated, service_role;
+grant execute on function public.support_help_articles(uuid, uuid, boolean) to authenticated;
 revoke execute on function public.support_help_article(uuid, text) from public, anon;
-grant execute on function public.support_help_article(uuid, text) to authenticated, service_role;
+grant execute on function public.support_help_article(uuid, text) to authenticated;
 revoke execute on function public.support_search_articles(uuid, text, integer) from public, anon;
-grant execute on function public.support_search_articles(uuid, text, integer) to authenticated, service_role;
+grant execute on function public.support_search_articles(uuid, text, integer) to authenticated;
 revoke execute on function public.support_save_collection(uuid, uuid, text, text, integer) from public, anon;
 grant execute on function public.support_save_collection(uuid, uuid, text, text, integer) to authenticated;
 revoke execute on function public.support_delete_collection(uuid) from public, anon;
@@ -473,7 +559,9 @@ revoke execute on function public.support_ai_enabled(uuid) from public, anon;
 grant execute on function public.support_ai_enabled(uuid) to authenticated, service_role;
 revoke execute on function public.support_ask(uuid, text) from public, anon;
 grant execute on function public.support_ask(uuid, text) to authenticated;
-revoke execute on function public.support_record_answer(uuid, text, uuid[]) from public, anon;
-grant execute on function public.support_record_answer(uuid, text, uuid[]) to authenticated;
+revoke execute on function public.support_claim_question(uuid) from public, anon;
+grant execute on function public.support_claim_question(uuid) to authenticated;
+revoke execute on function public.support_record_answer(uuid, text, text, uuid[]) from public, anon, authenticated;
+grant execute on function public.support_record_answer(uuid, text, text, uuid[]) to service_role;
 revoke execute on function public.support_close_question(uuid, text, uuid) from public, anon;
 grant execute on function public.support_close_question(uuid, text, uuid) to authenticated;

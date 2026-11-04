@@ -166,6 +166,16 @@ describe("definitions", () => {
     ).toThrow(/not an alias/);
   });
 
+  it("checkTasks refuses a task that needs a safety protocol when there's none", () => {
+    const store = memoryStore();
+    const vendors = [{ id: "anthropic", model: (id: string) => ({ modelId: id, provider: "anthropic.messages" }) }];
+    const needs = defineTask({ ...echo, safetyRequired: true });
+    const without = defineAi({ vendors, models: { default: { model: "claude-haiku-5-5" } }, store, gate: () => true });
+    const withIt = defineAi({ vendors, models: { default: { model: "claude-haiku-5-5" } }, store, gate: () => true, safety: () => null });
+    expect(() => checkTasks(without, [needs])).toThrow(/needs a safety protocol/);
+    expect(() => checkTasks(withIt, [needs])).not.toThrow();
+  });
+
   it("checkTasks refuses a task whose model lacks what it needs, at startup", () => {
     const store = memoryStore();
     const vendors = [{ id: "anthropic", model: (id: string) => ({ modelId: id, provider: "anthropic.messages" }) }];

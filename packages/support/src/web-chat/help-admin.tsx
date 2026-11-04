@@ -93,7 +93,7 @@ interface EditorProps {
   onError: ((error: unknown) => void) | undefined;
 }
 
-/** Keyed by article and its saved copy, so it never shows the last one's words. */
+/** Keyed by article, so it never shows the last one's words. */
 function Editor({ client, tenantId, article, collections, copy, onSaved, onDeleted, onError }: EditorProps) {
   const ids = { title: useId(), slug: useId(), summary: useId(), body: useId(), collection: useId(), status: useId() };
   const [title, setTitle] = useState(article?.title ?? "");
@@ -106,6 +106,13 @@ function Editor({ client, tenantId, article, collections, copy, onSaved, onDelet
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ failed: boolean; text: string } | null>(null);
   const shownSlug = slugTouched ? slug : slugFrom(title);
+  // The copy these edits started from: moved only by this editor's own save, so another agent's is noticed.
+  const base = useRef(article?.updatedAt ?? null);
+  const adopt = useRef(false);
+  if (adopt.current && article && article.updatedAt !== base.current) {
+    base.current = article.updatedAt;
+    adopt.current = false;
+  }
 
   const save = (e: FormEvent) => {
     e.preventDefault();
@@ -113,7 +120,7 @@ function Editor({ client, tenantId, article, collections, copy, onSaved, onDelet
     setSaving(true);
     setMessage(null);
     required(client.saveHelpArticle)({
-      ...(article ? { id: article.id, expectedUpdatedAt: article.updatedAt } : { tenantId }),
+      ...(article ? { id: article.id, expectedUpdatedAt: base.current } : { tenantId }),
       collectionId: collection === NONE ? null : collection,
       slug: shownSlug,
       title: title.trim(),
@@ -123,6 +130,7 @@ function Editor({ client, tenantId, article, collections, copy, onSaved, onDelet
     })
       .then((id) => {
         setMessage({ failed: false, text: copy.helpAdmin.saved });
+        adopt.current = true;
         onSaved(id);
       })
       .catch((error: unknown) => {
@@ -285,6 +293,16 @@ export function SupportHelpCenterAdmin({ client, tenantId = null, articleId, onA
       });
   };
 
+  const removeCollection = (id: string) => {
+    setCollectionFailed(false);
+    required(client.deleteHelpCollection)(id)
+      .then(refresh)
+      .catch((error: unknown) => {
+        setCollectionFailed(true);
+        report.current?.(error);
+      });
+  };
+
   const header = (
     <div className="flex flex-col gap-2 border-b p-3">
       <Button onClick={() => onArticleChange(NEW)} data-testid="genesis-support-help-new">
@@ -301,6 +319,18 @@ export function SupportHelpCenterAdmin({ client, tenantId = null, articleId, onA
           {copy.helpAdmin.addCollection}
         </Button>
       </form>
+      {(collections.data ?? []).length ? (
+        <ul aria-label={copy.helpAdmin.collection} className="flex flex-wrap gap-1 text-sm">
+          {(collections.data ?? []).map((c) => (
+            <li key={c.id} className="flex items-center gap-1 rounded-md border pl-2">
+              {c.title}
+              <Button type="button" variant="ghost" size="sm" aria-label={`${copy.helpAdmin.delete}: ${c.title}`} onClick={() => removeCollection(c.id)} data-testid={`genesis-support-help-delete-collection-${c.id}`}>
+                {copy.helpAdmin.delete}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {collectionFailed ? (
         <p role="alert" className="text-sm text-destructive">
           {copy.helpAdmin.failed}
@@ -319,7 +349,7 @@ export function SupportHelpCenterAdmin({ client, tenantId = null, articleId, onA
       </div>
     ) : opening && article.data ? (
       <Editor
-        key={`${article.data.id}:${article.data.updatedAt}`}
+        key={article.data.id}
         client={client}
         tenantId={tenantId}
         article={article.data}

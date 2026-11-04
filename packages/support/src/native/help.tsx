@@ -3,9 +3,12 @@
  * support's screens. Messages and a conversation are `useSupportInbox` and `useSupportThread`.
  *
  *   const home = useMessengerHome();              → <InboxPage {...home} />
- *   const help = useHelpCenter({ collectionId }); → <InboxPage {...help} />
+ *   const help = useHelpCenter({ collectionId, initialQuery }); → <InboxPage {...help} />
  *   const article = useHelpArticle(slug);         → <HelpArticleBody {...article} />
  *   const start = useStartConversation();         → <ThreadPage {...start} />
+ *
+ * Home and the help center open `paths.help` with `?q=` (a search) or `?collection=`: the route reads
+ * them (`useLocalSearchParams`) and passes `initialQuery` and `collectionId`, and keys the screen on them.
  */
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { ScrollView, View } from "react-native";
@@ -36,13 +39,27 @@ export interface HelpAnswerCardProps {
   copy: SupportCopy;
   onArticle: (slug: string) => void;
   onTicket: (ticketId: string) => void;
+  /** The person's words so far: an offer to ask, before anything goes to the AI. */
+  query: string;
+  onConsent?: (() => void) | undefined;
 }
 
 /** The AI's answer, or that it has none, always with the way to a person. */
-export function HelpAnswerCard({ ask, titles, copy, onArticle, onTicket }: HelpAnswerCardProps) {
+export function HelpAnswerCard({ ask, titles, copy, onArticle, onTicket, query, onConsent }: HelpAnswerCardProps) {
   const { state } = ask;
   const [failed, setFailed] = useState(false);
-  if (state.phase === "idle") return null;
+  if (state.phase === "idle") {
+    return query ? (
+      <View style={{ gap: 4 }}>
+        <NativeButton size="sm" variant="outline" onPress={() => void ask.ask(query)} testID="genesis-support-help-ai-ask">
+          {copy.messenger.aiAsk}
+        </NativeButton>
+        <NativeText preset="caption" className="text-muted-foreground">
+          {copy.messenger.aiAskHint}
+        </NativeText>
+      </View>
+    ) : null;
+  }
   if (state.phase === "asking") {
     return (
       <View accessibilityLiveRegion="polite" testID="genesis-support-help-ai-asking" style={{ padding: 16 }}>
@@ -71,7 +88,7 @@ export function HelpAnswerCard({ ask, titles, copy, onArticle, onTicket }: HelpA
           })}
         </>
       ) : (
-        <NativeText accessibilityLiveRegion="polite">{state.message ?? copy.messenger.aiNoAnswer}</NativeText>
+        <NativeText accessibilityLiveRegion="polite">{state.safety ? (state.response ?? copy.messenger.aiSafety) : state.needsConsent ? copy.messenger.aiNeedsConsent : copy.messenger.aiNoAnswer}</NativeText>
       )}
       {state.phase === "answered" && state.helped ? (
         <NativeText preset="body-sm" className="text-muted-foreground">{copy.messenger.aiThanks}</NativeText>
@@ -80,6 +97,11 @@ export function HelpAnswerCard({ ask, titles, copy, onArticle, onTicket }: HelpA
           {state.phase === "answered" ? (
             <NativeButton size="sm" variant="outline" onPress={() => void ask.helped()} testID="genesis-support-help-ai-helped">
               {copy.messenger.aiHelped}
+            </NativeButton>
+          ) : null}
+          {state.phase === "none" && state.needsConsent && onConsent ? (
+            <NativeButton size="sm" variant="outline" onPress={onConsent} testID="genesis-support-help-ai-consent">
+              {copy.messenger.aiConsent}
             </NativeButton>
           ) : null}
           <NativeButton size="sm" onPress={person} testID="genesis-support-help-ai-person">
@@ -101,7 +123,7 @@ export function useMessengerHome(options: { greeting?: string } = {}): ListProps
   const navigate = block.options.navigate;
   const tenantId = useTenant();
   const [query, setQuery] = useState("");
-  const tickets = useQuery({ queryKey: key("tickets", tenantId), queryFn: () => client.myReports({ tenantId }) });
+  const tickets = useQuery({ queryKey: key("tickets", tenantId), queryFn: () => required(client.ticketsInTenant)({ tenantId }) });
   const articles = useQuery({ queryKey: key("articles", tenantId, null), queryFn: () => required(client.helpArticles)({ tenantId }) });
   const latest = tickets.data?.[0];
   const items: InboxItem[] = [
@@ -200,11 +222,10 @@ export function useHelpCenter(options: { collectionId?: string | null; initialQu
         onSubmit={(typed) => {
           const next = typed.trim();
           setQuery(next);
-          if (aiOn && next) void ask.ask(next);
-          else ask.reset();
+          ask.reset();
         }}
       />
-      {aiOn ? <HelpAnswerCard ask={ask} titles={titles} copy={copy} onArticle={(slug) => navigate(paths.article(slug))} onTicket={(id) => navigate(paths.thread(id))} /> : null}
+      {aiOn ? <HelpAnswerCard ask={ask} query={query} onConsent={block.options.onAiConsent} titles={titles} copy={copy} onArticle={(slug) => navigate(paths.article(slug))} onTicket={(id) => navigate(paths.thread(id))} /> : null}
     </View>
   );
   return {

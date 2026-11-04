@@ -192,7 +192,7 @@ export function defineSupportHelpdeskBlock(options: { basePath?: string; require
       ],
       migrations: [{ package: "@marktiderman/genesis-support", file: "migrations/0010_genesis_support_help_center.sql", test: "migrations/tests/0010_genesis_support_help_center.test.sql" }],
       privacy: {
-        notes: ["With AI answers on, a person's question and the answer are kept with their account, and the question and the tenant's published articles go to the AI vendor. People agree first, unless the app's terms cover it."],
+        notes: ["With AI answers on, a question the person chooses to ask and its answer are kept with their account and readable by the tenant's agents, and the question and the tenant's published articles go to the AI vendor. People agree first, unless the app's terms cover it. A question the app's safety protocol routes elsewhere isn't kept."],
       },
     },
   });

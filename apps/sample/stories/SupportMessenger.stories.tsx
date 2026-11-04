@@ -2,7 +2,7 @@ import * as React from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { HelpArticle, SupportClient, SupportReply, Ticket } from "@marktiderman/genesis-support";
-import { SupportHelpCenterAdmin, SupportMessenger, SupportMessengerLauncher, type HelpAiResult } from "@marktiderman/genesis-support/web-chat";
+import { SupportHelpCenterAdmin, SupportMessenger, SupportMessengerLauncher, type HelpAnswerResponse } from "@marktiderman/genesis-support/web-chat";
 
 const meta: Meta = {
   title: "Modules/Support/SupportMessenger",
@@ -73,6 +73,7 @@ function sampleClient(): SupportClient {
   const replies: SupportReply[] = [{ id: "r1", reportId: "t1", body: "It's under Settings, then Billing. Anything else?", fromStaff: true, mine: false, createdAt: at(30) }];
   const client: Partial<SupportClient> = {
     myReports: async () => [TICKET],
+    ticketsInTenant: async () => [TICKET],
     report: async (id) => (id === "t1" ? TICKET : { ...TICKET, id, unread: false }),
     thread: async (id) => ({ mode: "chat", conversationId: `conv-${id}` }),
     replies: async (id) => (id === "t1" ? replies : []),
@@ -90,7 +91,6 @@ function sampleClient(): SupportClient {
     searchHelp: async (query) => articles.filter((a) => a.status === "published" && (a.title + a.body).toLowerCase().includes(query.toLowerCase().split(" ")[0] ?? "")),
     helpAiEnabled: async () => true,
     askHelp: async () => "q1",
-    recordHelpAnswer: async (_id, _answer, ids) => (ids.length ? "answered" : "no_answer"),
     closeHelpQuestion: async () => undefined,
     saveHelpArticle: async (input) => input.id ?? "new",
     saveHelpCollection: async () => "new",
@@ -99,9 +99,10 @@ function sampleClient(): SupportClient {
   return client as SupportClient;
 }
 
-const askAi = async (): Promise<HelpAiResult> => ({
-  ok: true,
-  output: { answer: "Open Settings, then Billing. Each invoice has a Download button beside it.", citations: [ARTICLES[0]!.id], confident: true },
+const askAi = async (): Promise<HelpAnswerResponse> => ({
+  status: "answered",
+  answer: "Open Settings, then Billing. Each invoice has a Download button beside it.",
+  articleIds: [ARTICLES[0]!.id],
 });
 
 function Providers({ children }: { children: React.ReactNode }) {

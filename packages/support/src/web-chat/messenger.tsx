@@ -34,7 +34,7 @@ import {
 import { useOptionalChatDock, type ResolveUser } from "@marktiderman/genesis-chat/web";
 import { reportHeading, SupportError, type HelpArticleSummary, type HelpSearchHit, type SupportClient, type Ticket } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
-import { useHelpAsk, type HelpAiResult, type UseHelpAsk } from "../help-ask";
+import { useHelpAsk, type HelpAnswerResponse, type UseHelpAsk } from "../help-ask";
 import type { FeedbackContext } from "../record";
 import { ThreadFileAttachment, ThreadFilesContext, threadAttachments, threadFiles } from "./thread-files";
 
@@ -55,14 +55,18 @@ export const supportMessengerKeys = {
 export interface SupportMessengerProps {
   /** A support client, made with the `chat` option for live threads. */
   client: SupportClient;
-  /** Whose help desk: the viewer's current workspace. Left out or null, the app's own. */
+  /** Whose help desk: the viewer's current workspace. Null is the app's own. Left out, the client's `tenantId`, else the app's own. */
   tenantId?: string | null;
   /** Which spaces to offer, in order. Default Home, Messages, Help. */
   spaces?: readonly MessengerSpace[];
   /** Over the search on Home. Default the copy's "How can we help?". */
   greeting?: string;
-  /** Runs the AI answer task on your server, `useAiTask(HELP_ANSWER_TASK).run({ questionId })`. Without it, or with the tenant's AI off, search is all there is. */
-  askAi?: (questionId: string) => Promise<HelpAiResult>;
+  /** Calls your endpoint for `answerHelpQuestion` (`/ai`). Without it, or with the tenant's AI off, search is all there is. */
+  askAi?: (questionId: string) => Promise<HelpAnswerResponse>;
+  /** The person hasn't agreed to share with the AI's vendor: opens your screen for that. Without it, they're told and offered a person. */
+  onAiConsent?: () => void;
+  /** Whether it's in front of the person. False pauses marking read (`SupportMessengerLauncher` sets it when the dock minimizes it). Default true. */
+  active?: boolean;
   /** Names who replies. Default "Support", so people don't learn agents' names unless you say. */
   resolveUser?: ResolveUser;
   /** What's sent with a new message: the page they're on, the app's version. Default the path of the page. */
@@ -95,7 +99,7 @@ function required<T>(method: T | undefined): NonNullable<T> {
 
 interface Shared {
   client: SupportClient;
-  tenantId: string | null;
+  tenantId: string | null | undefined;
   copy: SupportCopy;
   go: (screen: Screen) => void;
   here: Screen;
@@ -140,16 +144,16 @@ function SearchForm({ copy, initial, onSearch }: { copy: SupportCopy; initial: s
   );
 }
 
-function Home({ client, tenantId, copy, go, here, report, greeting, onSearch }: Shared & { greeting: string | undefined; onSearch: (query: string) => void }) {
-  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(tenantId), queryFn: () => client.myReports({ tenantId }) });
-  const articles = useQuery({ queryKey: supportMessengerKeys.articles(tenantId, null), queryFn: () => required(client.helpArticles)({ tenantId }) });
+function Home({ client, tenantId, copy, go, here, report, greeting, onSearch }: Shared & { greeting: string | undefined; onSearch: ((query: string) => void) | null }) {
+  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(tenantId ?? null), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }) });
+  const articles = useQuery({ queryKey: supportMessengerKeys.articles(tenantId ?? null, null), queryFn: () => required(client.helpArticles)(tenantId === undefined ? {} : { tenantId }) });
   useReported(tickets.error, report);
   useReported(articles.error, report);
   const latest = tickets.data?.[0];
   return (
     <div data-testid="genesis-support-messenger-home" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
       <h2 className="text-lg font-semibold">{greeting ?? copy.messenger.greeting}</h2>
-      <SearchForm copy={copy} initial="" onSearch={onSearch} />
+      {onSearch ? <SearchForm copy={copy} initial="" onSearch={onSearch} /> : null}
       <Button onClick={() => go({ name: "compose", from: here })} data-testid="genesis-support-messenger-new">
         {copy.messenger.newMessage}
       </Button>
@@ -180,7 +184,7 @@ function Home({ client, tenantId, copy, go, here, report, greeting, onSearch }: 
 }
 
 function Messages({ client, tenantId, copy, go, here, report }: Shared) {
-  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(tenantId), queryFn: () => client.myReports({ tenantId }) });
+  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(tenantId ?? null), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }) });
   useReported(tickets.error, report);
   const items = useMemo(() => ticketItems(tickets.data ?? [], copy, (id) => go({ name: "ticket", id, from: here })), [tickets.data, copy, go, here]);
   return (
@@ -211,11 +215,21 @@ function Messages({ client, tenantId, copy, go, here, report }: Shared) {
 }
 
 /** The AI's answer, or that it has none, always with the way to a person. */
-function AnswerCard({ ask, titles, copy, go, here, report }: { ask: UseHelpAsk; titles: ReadonlyMap<string, { slug: string; title: string }> } & Pick<Shared, "copy" | "go" | "here" | "report">) {
+function AnswerCard({ ask, query, titles, onConsent, copy, go, here, report }: { ask: UseHelpAsk; query: string; titles: ReadonlyMap<string, { slug: string; title: string }>; onConsent: (() => void) | undefined } & Pick<Shared, "copy" | "go" | "here" | "report">) {
   const { state } = ask;
   const [failed, setFailed] = useState(false);
   const [handing, setHanding] = useState(false);
-  if (state.phase === "idle") return null;
+  if (state.phase === "idle") {
+    // The person's choice: their words go to the AI's vendor only when they ask.
+    return query ? (
+      <div className="flex flex-col gap-1">
+        <Button variant="outline" onClick={() => void ask.ask(query)} data-testid="genesis-support-messenger-ai-ask">
+          {copy.messenger.aiAsk}
+        </Button>
+        <p className="text-xs text-muted-foreground">{copy.messenger.aiAskHint}</p>
+      </div>
+    ) : null;
+  }
   if (state.phase === "asking") {
     return (
       <div role="status" data-testid="genesis-support-messenger-ai-asking" className="flex flex-col gap-2 rounded-md border p-3">
@@ -247,7 +261,7 @@ function AnswerCard({ ask, titles, copy, go, here, report }: { ask: UseHelpAsk; 
         </>
       ) : (
         <p role="status" className="whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">
-          {state.message ?? copy.messenger.aiNoAnswer}
+          {state.safety ? (state.response ?? copy.messenger.aiSafety) : state.needsConsent ? copy.messenger.aiNeedsConsent : copy.messenger.aiNoAnswer}
         </p>
       )}
       {state.phase === "answered" && state.helped ? (
@@ -259,6 +273,11 @@ function AnswerCard({ ask, titles, copy, go, here, report }: { ask: UseHelpAsk; 
           {state.phase === "answered" ? (
             <Button size="sm" variant="secondary" onClick={() => void ask.helped()} data-testid="genesis-support-messenger-ai-helped">
               {copy.messenger.aiHelped}
+            </Button>
+          ) : null}
+          {state.phase === "none" && state.needsConsent && onConsent ? (
+            <Button size="sm" variant="secondary" onClick={onConsent} data-testid="genesis-support-messenger-ai-consent">
+              {copy.messenger.aiConsent}
             </Button>
           ) : null}
           <Button size="sm" variant={state.phase === "answered" ? "outline" : "default"} disabled={handing} onClick={person} data-testid="genesis-support-messenger-ai-person">
@@ -305,10 +324,11 @@ function Help({
   onSearch,
   ask,
   aiOn,
-}: Shared & { query: string; onSearch: (query: string) => void; ask: UseHelpAsk; aiOn: boolean }) {
-  const collections = useQuery({ queryKey: supportMessengerKeys.collections(tenantId), queryFn: () => required(client.helpCollections)({ tenantId }) });
-  const articles = useQuery({ queryKey: supportMessengerKeys.articles(tenantId, null), queryFn: () => required(client.helpArticles)({ tenantId }) });
-  const hits = useQuery({ queryKey: supportMessengerKeys.search(tenantId, query), queryFn: () => required(client.searchHelp)(query, { tenantId }), enabled: Boolean(query) });
+  onConsent,
+}: Shared & { query: string; onSearch: (query: string) => void; ask: UseHelpAsk; aiOn: boolean; onConsent: (() => void) | undefined }) {
+  const collections = useQuery({ queryKey: supportMessengerKeys.collections(tenantId ?? null), queryFn: () => required(client.helpCollections)(tenantId === undefined ? {} : { tenantId }) });
+  const articles = useQuery({ queryKey: supportMessengerKeys.articles(tenantId ?? null, null), queryFn: () => required(client.helpArticles)(tenantId === undefined ? {} : { tenantId }) });
+  const hits = useQuery({ queryKey: supportMessengerKeys.search(tenantId ?? null, query), queryFn: () => required(client.searchHelp)(query, tenantId === undefined ? {} : { tenantId }), enabled: Boolean(query) });
   useReported(collections.error, report);
   useReported(articles.error, report);
   useReported(hits.error, report);
@@ -330,7 +350,7 @@ function Help({
     <div data-testid="genesis-support-messenger-help" className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-col gap-3 p-3">
         <SearchForm copy={copy} initial={query} onSearch={onSearch} />
-        {aiOn ? <AnswerCard ask={ask} titles={titles} copy={copy} go={go} here={here} report={report} /> : null}
+        {aiOn ? <AnswerCard ask={ask} query={query} titles={titles} onConsent={onConsent} copy={copy} go={go} here={here} report={report} /> : null}
       </div>
       {query ? (
         <InboxPage
@@ -368,7 +388,7 @@ function Help({
 }
 
 function Collection({ client, tenantId, copy, go, here, report, id }: Shared & { id: string }) {
-  const articles = useQuery({ queryKey: supportMessengerKeys.articles(tenantId, id), queryFn: () => required(client.helpArticles)({ tenantId, collectionId: id }) });
+  const articles = useQuery({ queryKey: supportMessengerKeys.articles(tenantId ?? null, id), queryFn: () => required(client.helpArticles)({ ...(tenantId === undefined ? {} : { tenantId }), collectionId: id }) });
   useReported(articles.error, report);
   return (
     <InboxPage
@@ -387,7 +407,7 @@ function Collection({ client, tenantId, copy, go, here, report, id }: Shared & {
 }
 
 function Article({ client, tenantId, copy, go, here, report, slug }: Shared & { slug: string }) {
-  const article = useQuery({ queryKey: supportMessengerKeys.article(tenantId, slug), queryFn: () => required(client.helpArticle)(slug, { tenantId }) });
+  const article = useQuery({ queryKey: supportMessengerKeys.article(tenantId ?? null, slug), queryFn: () => required(client.helpArticle)(slug, tenantId === undefined ? {} : { tenantId }) });
   useReported(article.error, report);
   if (article.isPending) {
     return (
@@ -436,9 +456,9 @@ function Compose({ client, tenantId, copy, go, report, context, from }: Shared &
     setSending(true);
     setFailed(false);
     client
-      .submit({ type: "question", message: words, context: context(), tenantId })
+      .submit({ type: "question", message: words, context: context(), ...(tenantId === undefined ? {} : { tenantId }) })
       .then(({ id: ticket }) => {
-        void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(tenantId) });
+        void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(tenantId ?? null) });
         // Back from the thread goes where they started, not to this form.
         go({ name: "ticket", id: ticket, from });
       })
@@ -470,7 +490,7 @@ function Compose({ client, tenantId, copy, go, report, context, from }: Shared &
 const threadSlots = { attachment: ThreadFileAttachment };
 
 /** A person's conversation. Keyed by ticket, so a draft never follows them to another one. */
-function Conversation({ client, tenantId, copy, report, id, resolveUser }: Shared & { id: string; resolveUser: ResolveUser | undefined }) {
+function Conversation({ client, tenantId, copy, report, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -484,25 +504,25 @@ function Conversation({ client, tenantId, copy, report, id, resolveUser }: Share
   const refresh = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.replies(id) });
     void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.ticket(id) });
-    void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(tenantId) });
+    void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(tenantId ?? null) });
   }, [queryClient, id, tenantId]);
   useEffect(() => client.subscribe(id, refresh), [client, id, refresh]);
 
   // Read while it's in front of them: as it shows, as something new arrives, and on coming back.
   const latest = replies.isFetchedAfterMount && !replies.isError && replies.data ? (replies.data[replies.data.length - 1]?.id ?? "none") : null;
   useEffect(() => {
-    if (latest === null) return;
+    if (latest === null || !active) return;
     const read = () => {
       if (document.visibilityState !== "visible") return;
       client
         .markRead(id)
-        .then(() => queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(tenantId) }))
+        .then(() => queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(tenantId ?? null) }))
         .catch((error: unknown) => report(error));
     };
     read();
     document.addEventListener("visibilitychange", read);
     return () => document.removeEventListener("visibilitychange", read);
-  }, [client, id, latest, tenantId, queryClient, report]);
+  }, [client, id, latest, active, tenantId, queryClient, report]);
 
   const shown = useMemo(() => (replies.data ?? []).filter((r) => !r.internal), [replies.data]);
   const files = useMemo(() => threadFiles(shown, copy), [shown, copy]);
@@ -563,7 +583,7 @@ function Conversation({ client, tenantId, copy, report, id, resolveUser }: Share
         readLabel={copy.thread.read}
         labels={{ you: copy.thread.you }}
         slots={threadSlots}
-        closedNotice={copy.thread.closed}
+        {...(CLOSED.has(t.status) ? { closedNotice: copy.thread.closed } : {})}
         composer={
           CLOSED.has(t.status) || (replies.isError && !replies.data)
             ? null
@@ -598,8 +618,12 @@ function useReported(error: unknown, report: (error: unknown) => void) {
   }, [error, report]);
 }
 
-/** The messenger: Home, Messages and Help, in whatever holds it. */
-export function SupportMessenger({ client, tenantId = null, spaces = SPACES, greeting, askAi, resolveUser, context = defaultContext, copy: copyOverrides, onError, className }: SupportMessengerProps) {
+/** The messenger: Home, Messages and Help, in whatever holds it. Another tenant is another messenger: nothing carries over. */
+export function SupportMessenger(props: SupportMessengerProps) {
+  return <Messenger key={props.tenantId ?? ""} {...props} />;
+}
+
+function Messenger({ client, tenantId, spaces = SPACES, greeting, askAi, onAiConsent, active = true, resolveUser, context = defaultContext, copy: copyOverrides, onError, className }: SupportMessengerProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
   const first = spaces[0] ?? "home";
   const [screen, setScreen] = useState<Screen>({ name: "space", space: first });
@@ -608,8 +632,8 @@ export function SupportMessenger({ client, tenantId = null, spaces = SPACES, gre
   errors.current = onError;
   const report = useCallback((error: unknown) => errors.current?.(error), []);
   const ai = useQuery({
-    queryKey: supportMessengerKeys.ai(tenantId),
-    queryFn: () => required(client.helpAiEnabled)({ tenantId }),
+    queryKey: supportMessengerKeys.ai(tenantId ?? null),
+    queryFn: () => required(client.helpAiEnabled)(tenantId === undefined ? {} : { tenantId }),
     enabled: Boolean(askAi && spaces.includes("help")),
     staleTime: 5 * 60_000,
   });
@@ -620,9 +644,8 @@ export function SupportMessenger({ client, tenantId = null, spaces = SPACES, gre
 
   const search = (next: string) => {
     setQuery(next);
-    if (spaces.includes("help")) setScreen({ name: "space", space: "help" });
-    if (aiOn && next) void ask.ask(next);
-    else ask.reset();
+    setScreen({ name: "space", space: "help" });
+    ask.reset();
   };
 
   let body: ReactNode;
@@ -630,18 +653,18 @@ export function SupportMessenger({ client, tenantId = null, spaces = SPACES, gre
     case "space":
       body =
         screen.space === "home" ? (
-          <Home {...shared} greeting={greeting} onSearch={search} />
+          <Home {...shared} greeting={greeting} onSearch={spaces.includes("help") ? search : null} />
         ) : screen.space === "messages" ? (
           <Messages {...shared} />
         ) : (
-          <Help {...shared} query={query} onSearch={search} ask={ask} aiOn={aiOn} />
+          <Help {...shared} query={query} onSearch={search} ask={ask} aiOn={aiOn} onConsent={onAiConsent} />
         );
       break;
     case "compose":
       body = <Compose {...shared} context={context} from={screen.from} />;
       break;
     case "ticket":
-      body = <Conversation key={screen.id} {...shared} id={screen.id} resolveUser={resolveUser} />;
+      body = <Conversation key={screen.id} {...shared} id={screen.id} resolveUser={resolveUser} active={active} />;
       break;
     case "collection":
       body = <Collection {...shared} id={screen.id} />;
@@ -686,8 +709,9 @@ export function SupportMessenger({ client, tenantId = null, spaces = SPACES, gre
   );
 }
 
-export interface SupportMessengerLauncherProps extends SupportMessengerProps {
-  position?: "bottom-right" | "bottom-left";
+export interface SupportMessengerLauncherProps extends Omit<SupportMessengerProps, "active"> {
+  /** Floating in a corner, or `inline`, where you put it (your nav, a help menu). In an app with a chat dock, whose windows sit bottom-right, use `bottom-left` or `inline`. */
+  position?: "bottom-right" | "bottom-left" | "inline";
   /** The button's words. Default the copy's "Help". */
   label?: string;
   /** Opens the app's own help page from the dock's expand button. */
@@ -697,26 +721,30 @@ export interface SupportMessengerLauncherProps extends SupportMessengerProps {
 }
 
 const PANEL_ID = "genesis-support-messenger";
-const POSITIONS = { "bottom-right": "fixed bottom-4 right-4 z-50", "bottom-left": "fixed bottom-4 left-4 z-50" } as const;
+const POSITIONS = { "bottom-right": "fixed bottom-4 right-4 z-50", "bottom-left": "fixed bottom-4 left-4 z-50", inline: "" } as const;
 
 /** A button with the unread count that opens the messenger: in the chat dock when there is one, else a sheet. */
 export function SupportMessengerLauncher({ position = "bottom-right", label, onExpand, refreshInterval = 60_000, ...messenger }: SupportMessengerLauncherProps) {
-  const { client, tenantId = null } = messenger;
+  const { client, tenantId } = messenger;
   const copy = useMemo(() => resolveSupportCopy(messenger.copy), [messenger.copy]);
   const dock = useOptionalChatDock();
   const [sheet, setSheet] = useState(false);
-  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(tenantId), queryFn: () => client.myReports({ tenantId }), refetchInterval: refreshInterval });
+  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(tenantId ?? null), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }), refetchInterval: refreshInterval });
   const unread = (tickets.data ?? []).filter((t) => t.unread).length;
   const title = label ?? copy.messenger.title;
 
   // The dock holds the panel's `render` as it was: one stable function, reading the latest props.
   const latest = useRef(messenger);
   latest.current = messenger;
-  const render = useCallback(() => <SupportMessenger {...latest.current} />, []);
+  // A new function when the tenant changes, so the dock draws the new one; `state` is absent on a dock from before it passed one.
+  const render = useCallback((state?: { visible: boolean }) => <SupportMessenger {...latest.current} tenantId={tenantId} active={state?.visible ?? true} />, [tenantId]);
   const updatePanel = dock?.updatePanel;
   useEffect(() => {
-    updatePanel?.(PANEL_ID, { unread });
-  }, [updatePanel, unread]);
+    updatePanel?.(PANEL_ID, { unread, render });
+  }, [updatePanel, unread, render]);
+
+  // In the dock, its own bar is the way back to it.
+  if (dock?.items.some((item) => item.id === PANEL_ID)) return null;
 
   const open = () => {
     if (dock) dock.openPanel({ id: PANEL_ID, title, render, unread, icon: <MessageCircle className="size-4" aria-hidden />, ...(onExpand ? { onExpand } : {}) });
@@ -725,7 +753,7 @@ export function SupportMessengerLauncher({ position = "bottom-right", label, onE
   return (
     <>
       <Button
-        className={cn(POSITIONS[position], "relative")}
+        className={POSITIONS[position]}
         onClick={open}
         aria-haspopup="dialog"
         aria-label={unread > 0 ? fill(copy.messenger.openWithUnread, { count: unread }) : title}

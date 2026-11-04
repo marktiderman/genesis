@@ -83,7 +83,7 @@
   },
   "peerDependencies": {
     "@marktiderman/genesis-ai": "workspace:>=0.1.0 <1.0.0",
-    "@marktiderman/genesis-chat": "workspace:>=0.1.0 <1.0.0",
+    "@marktiderman/genesis-chat": "workspace:>=0.9.0 <1.0.0",
     "@marktiderman/genesis-native": "workspace:>=0.1.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:>=2.9.0 <4.0.0",
@@ -428,7 +428,7 @@
           "Turn a tenant's help desk on with an enabled support-helpdesk row in tenant_features, and make its agents with client.setAgent. The app's own tenant is always on.",
           "Web: render SupportMessengerLauncher for people, and SupportAgentInbox and SupportHelpCenterAdmin at routes of your own, from @marktiderman/genesis-support/web-chat.",
           "Phone: use useMessengerHome, useHelpCenter, useHelpArticle and useStartConversation from @marktiderman/genesis-support/native at the block's routes.",
-          "AI answers, optional and off by default: register supportHelpAnswerTask from @marktiderman/genesis-support/ai with createAiHandler, give defineAi your safety protocol, pass askAi to the messenger, and enable support-helpdesk-ai in tenant_features for each tenant that opts in.",
+          "AI answers, optional and off by default: give defineAi your safety protocol, serve answerHelpQuestion from @marktiderman/genesis-support/ai at an endpoint of yours, pass askAi to the messenger, and enable support-helpdesk-ai in tenant_features for each tenant that opts in.",
           "A public help center: pass helpCenterPages' pages to your site (genesis-sites) and publish it."
         ]
       },

@@ -143,6 +143,7 @@ export function defineTask<Args, L extends Loaded, Out = { text: string }, Db = 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tasks of every shape
 export function checkTasks(ai: Ai, tasks: readonly TaskDefinition<any, any, any, any>[]): void {
   for (const task of tasks) {
+    if (task.safetyRequired && !ai.config.safety) throw new Error(`checkTasks: ${task.id} needs a safety protocol: pass \`safety\` to defineAi.`);
     const needs = new Set<Capability>(task.needs ?? []);
     if (task.output !== "text") needs.add("structuredOutput");
     const alias = ai.alias(task.model);
