@@ -5,7 +5,7 @@ import { Star } from "lucide-react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import { cn } from "../../utils";
 
-export interface RatingProps {
+export interface RatingProps extends Omit<React.ComponentPropsWithoutRef<"div">, "onChange" | "defaultValue" | "dir" | "children"> {
   /** Current value, 0..`max`. Fractions are rounded for display. */
   value: number;
   /** Number of stars. Default 5. */
@@ -15,8 +15,16 @@ export interface RatingProps {
    * read-only and renders as a single `img` named "N of M stars".
    */
   onChange?: (value: number) => void;
-  /** Star size. Default `md`. */
-  size?: "sm" | "md" | "lg";
+  /** Star size. Default `md`. `touch` is a 44px target around a large star, for a form. */
+  size?: "sm" | "md" | "lg" | "touch";
+  /** The chosen stars' colour. Default `warning`. */
+  tone?: "warning" | "primary";
+  /** Re-clicking the chosen star clears it to 0. Default true; false for a required answer. */
+  clearable?: boolean;
+  /** The stars can't be chosen, and read as disabled. */
+  disabled?: boolean;
+  /** More on a star's radio: its `aria-describedby`, a click of your own. */
+  getItemProps?: (value: number) => { "aria-describedby"?: string | undefined; onClick?: (() => void) | undefined };
   /** Accessible name for the control (or the image, when read-only). */
   label?: string;
   /** Read-only even with `onChange` present (e.g. while saving). */
@@ -30,6 +38,12 @@ const STAR_SIZE: Record<NonNullable<RatingProps["size"]>, string> = {
   sm: "size-4",
   md: "size-5",
   lg: "size-6",
+  touch: "size-8",
+};
+
+const TONE: Record<NonNullable<RatingProps["tone"]>, { on: string; hover: string }> = {
+  warning: { on: "text-warning", hover: "hover:text-warning" },
+  primary: { on: "text-primary", hover: "hover:text-primary" },
 };
 
 /**
@@ -69,7 +83,12 @@ export function Rating({
   label,
   readOnly = false,
   getLabel,
+  tone = "warning",
+  clearable = true,
+  disabled = false,
+  getItemProps,
   className,
+  ...rootProps
 }: RatingProps) {
   const count = Math.max(1, Math.floor(max));
   const current = clamp(value, count);
@@ -86,6 +105,7 @@ export function Rating({
   const describe = (v: number) => (getLabel ? getLabel(v, count) : `${v} of ${count} stars`);
   const name = describe(current);
   const starClass = STAR_SIZE[size];
+  const colour = TONE[tone];
 
   const stars = Array.from({ length: count }, (_, i) => i + 1);
 
@@ -103,7 +123,7 @@ export function Rating({
             aria-hidden="true"
             className={cn(
               starClass,
-              n <= current ? "fill-current text-warning" : "text-muted-foreground",
+              n <= current ? cn("fill-current", colour.on) : "text-muted-foreground",
             )}
           />
         ))}
@@ -115,8 +135,10 @@ export function Rating({
     <RadioGroupPrimitive.Root
       ref={groupRef}
       {...(dir ? { dir } : {})}
-      aria-label={label ?? "Rating"}
+      {...rootProps}
+      {...(rootProps["aria-labelledby"] ? {} : { "aria-label": label ?? "Rating" })}
       data-slot="rating"
+      disabled={disabled}
       orientation="horizontal"
       loop={false}
       // Nothing chosen yet: "" leaves every radio unchecked (the first star is the tab stop).
@@ -125,10 +147,11 @@ export function Rating({
         const next = clamp(Number(v), count);
         if (next !== current) onChange(next);
       }}
-      className={cn("inline-flex items-center gap-0.5", className)}
+      className={cn("inline-flex items-center gap-0.5", size === "touch" && "flex-wrap gap-1", className)}
     >
       {stars.map((n) => {
         const filled = n <= current;
+        const { onClick: onItemClick, ...itemProps } = getItemProps?.(n) ?? {};
         return (
           <RadioGroupPrimitive.Item
             key={n}
@@ -136,12 +159,16 @@ export function Rating({
             aria-label={describe(n)}
             data-value={n}
             // Re-clicking the chosen star clears it; Radix leaves a checked radio as it is.
+            {...itemProps}
             onClick={() => {
-              if (nextRating(current, n) === 0) onChange(0);
+              if (clearable && nextRating(current, n) === 0) onChange(0);
+              onItemClick?.();
             }}
             className={cn(
-              "inline-flex items-center justify-center rounded-sm transition-colors hover:text-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 motion-reduce:transition-none",
-              filled ? "text-warning" : "text-muted-foreground",
+              "inline-flex items-center justify-center rounded-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 motion-reduce:transition-none",
+              colour.hover,
+              size === "touch" && "size-11 rounded-md hover:bg-accent",
+              filled ? colour.on : "text-muted-foreground",
             )}
           >
             <Star aria-hidden="true" className={cn(starClass, filled && "fill-current")} />
