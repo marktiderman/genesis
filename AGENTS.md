@@ -20,6 +20,11 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
   extend, then invent, and invent in the app before Genesis. Slots, variants and configuration
   are config; recreating something that exists, or should, is the custom code we remove. Cite
   the principle IDs (G1–G6) in reviews.
+- Design lives in Figma: the library file and one file per consumer app. A new screen, flow or
+  visible change is designed on the app file's Proposals page and approved by the maintainer
+  before its code is written, from library instances where they exist (a plain frame only for a
+  written-up library gap); `docs/FIGMA-GUIDELINES.md` has the setup and the
+  rules, `docs/DESIGN-LIBRARY.md` the library's internals.
 - Work tracked outside this repo is referenced only by its id (`Closes <ID>`): never write what
   the card is, or which app it's for, in a commit, PR or comment.
 
@@ -88,6 +93,19 @@ is written here when a contract ships. Don't open a PR here that only proposes a
 Why: PRs sat with stale red checks, unanswered reviews and branches drifting from their base
 whenever nobody owned them.
 
+### Adversarial review gate
+
+Every PR into a staging batch (`staging/**`) carries the check "Adversarial review"
+(`.github/workflows/review-gate.yml`). It passes only while the PR has the label `review: approved`.
+
+- An independent adversarial reviewer, never the PR's author, reviews the latest head and posts a
+  formal GitHub review with its findings: `gh pr review <n> --approve` or `--request-changes`.
+- The reviewer adds `review: approved` once every high or medium finding is fixed or declined with
+  a reason. Never approve or label your own PR.
+- A new commit removes the label, so every push needs a review of the new head. Claude review
+  (`claude-code-review.yml`) also re-runs on every push.
+- The author turns on Auto-fix for every PR it opens.
+
 ## Releasing, and how apps get a release
 
 - **Release:** the maintainer merges the batch's release PR into `main`; the Release workflow
@@ -105,7 +123,7 @@ whenever nobody owned them.
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 156 features (26 planned, 73 building, 22 beta, 27 live, 1 deprecated, 7 retired).
+Every feature is in `features.ts`: 157 features (26 planned, 74 building, 22 beta, 27 live, 1 deprecated, 7 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

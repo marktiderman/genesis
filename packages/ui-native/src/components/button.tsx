@@ -1,11 +1,19 @@
 /**
- * Button — primary touch target. Variants: default, secondary, outline, ghost, destructive.
+ * Button — primary touch target. Variants: default, secondary, outline, ghost, destructive,
+ * gradient (the brand's `gradients.primary` from the nearest `GenesisThemeProvider`, else the
+ * primary).
+ * It answers a touch with `usePressFeedback`: what's inside shrinks a little while held (or dims
+ * under Reduce Motion), the same as every Genesis pressable. The background stays still. Layout
+ * classes in `className` (`justify-start`, `gap-3`, `flex-col`) apply to what's inside.
  *
  * @stability Stable
  */
 import { type VariantProps, cva } from "class-variance-authority";
-import { ActivityIndicator, Pressable, Text, type AccessibilityState } from "react-native";
-import { useHaptics, type HapticKind } from "../hooks/use-haptics";
+import type { ComponentRef, Ref } from "react";
+import { ActivityIndicator, Animated, Pressable, Text, View, type AccessibilityState, type StyleProp, type ViewStyle } from "react-native";
+import { brandGradientCss, useOptionalTheme } from "@marktiderman/genesis-design-system";
+import type { HapticKind } from "../hooks/use-haptics";
+import { usePressFeedback } from "../hooks/use-press-feedback";
 import { cn } from "../utils";
 
 const buttonVariants = cva(
@@ -18,6 +26,7 @@ const buttonVariants = cva(
         outline: "border border-input bg-transparent",
         ghost: "bg-transparent",
         destructive: "bg-destructive",
+        gradient: "bg-primary",
       },
       size: {
         sm: "h-9 px-3 gap-1.5",
@@ -40,6 +49,7 @@ const buttonTextVariants = cva("font-medium text-center", {
       outline: "text-foreground",
       ghost: "text-foreground",
       destructive: "text-destructive-foreground",
+      gradient: "text-primary-foreground",
     },
     size: {
       sm: "text-sm",
@@ -52,6 +62,19 @@ const buttonTextVariants = cva("font-medium text-center", {
     size: "md",
   },
 });
+
+/** How what's inside is laid out: the same gap per size as the button's own. */
+const contentVariants = cva("flex-row items-center justify-center", {
+  variants: { size: { sm: "gap-1.5", md: "gap-2", lg: "gap-2" } },
+  defaultVariants: { size: "md" },
+});
+
+/** A caller's classes that lay out the button's content, which now sits a level inside it. */
+const contentClasses = (className: string | undefined) =>
+  className
+    ?.split(/\s+/)
+    .filter((c) => /^(flex-(row|col)|justify-|items-|gap-)/.test(c))
+    .join(" ");
 
 export interface NativeButtonProps
   extends VariantProps<typeof buttonVariants> {
@@ -72,6 +95,10 @@ export interface NativeButtonProps
    * when the press counts, except `select`, which ticks on press-in as `usePressFeedback` does. Default none.
    */
   haptic?: HapticKind | undefined;
+  /** Styles for the pressable, after the classes: colors or sizes from a theme object. */
+  style?: StyleProp<ViewStyle> | undefined;
+  /** The pressable (React 19 passes `ref` as a prop). */
+  ref?: Ref<ComponentRef<typeof View>> | undefined;
 }
 
 function NativeButton({
@@ -85,18 +112,22 @@ function NativeButton({
   loading,
   accessibilityState,
   haptic,
+  style,
   ...props
 }: NativeButtonProps) {
   const isDisabled = disabled || loading;
-  const play = useHaptics();
-  const press =
-    haptic && haptic !== "select" && onPress
-      ? () => {
-          play(haptic);
-          onPress();
-        }
-      : onPress;
-  const tick = haptic === "select" && onPress ? () => play("select") : undefined;
+  const theme = useOptionalTheme();
+  // React Native 0.80+ paints a CSS gradient as `experimental_backgroundImage`; older versions
+  // ignore it and the `bg-primary` underneath shows.
+  const gradient = variant === "gradient" && theme ? brandGradientCss(theme.brand) : undefined;
+  const gradientStyle = gradient ? ({ experimental_backgroundImage: gradient } as ViewStyle) : undefined;
+  const feedback = usePressFeedback({ haptic: onPress ? (haptic ?? false) : false, disabled: Boolean(isDisabled) });
+  const press = onPress
+    ? () => {
+        feedback.confirm();
+        onPress();
+      }
+    : undefined;
 
   return (
     <Pressable
@@ -106,34 +137,42 @@ function NativeButton({
         className
       )}
       onPress={press}
-      onPressIn={tick}
+      onPressIn={feedback.onPressIn}
+      onPressOut={feedback.onPressOut}
       disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading }}
+      accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading ?? accessibilityState?.busy }}
       {...props}
+      // The brand gradient under the caller's own style, not replaced by it.
+      style={gradientStyle ? (style ? [gradientStyle, style] : gradientStyle) : style}
     >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={
-            variant === "outline" || variant === "ghost"
-              ? undefined
-              : "white"
-          }
-        />
-      ) : null}
-      {typeof children === "string" ? (
-        <Text
-          className={cn(
-            buttonTextVariants({ variant, size }),
-            textClassName
+      {/* Inside the Pressable, which keeps the button's size and classes: a wrapper would lose a `flex-1`. */}
+      <Animated.View style={[{ flexGrow: 1 }, feedback.style]}>
+        <View className={cn(contentVariants({ size }), contentClasses(className))}>
+          {loading ? (
+            <ActivityIndicator
+              size="small"
+              color={
+                variant === "outline" || variant === "ghost"
+                  ? undefined
+                  : "white"
+              }
+            />
+          ) : null}
+          {typeof children === "string" ? (
+            <Text
+              className={cn(
+                buttonTextVariants({ variant, size }),
+                textClassName
+              )}
+            >
+              {children}
+            </Text>
+          ) : (
+            children
           )}
-        >
-          {children}
-        </Text>
-      ) : (
-        children
-      )}
+        </View>
+      </Animated.View>
     </Pressable>
   );
 }

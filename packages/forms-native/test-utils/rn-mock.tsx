@@ -54,6 +54,7 @@ type InputProps = {
   accessibilityRole?: string;
   accessibilityState?: { disabled?: boolean };
   keyboardType?: string;
+  numberOfLines?: number;
   returnKeyType?: string;
   inputAccessoryViewID?: string;
   textContentType?: string;
@@ -74,6 +75,7 @@ export const TextInput = React.forwardRef<HTMLInputElement, InputProps>(function
     "aria-describedby": props.accessibilityHint,
     "data-testid": props.testID,
     "data-keyboard": props.keyboardType,
+    "data-lines": props.numberOfLines,
     "data-return-key": props.returnKeyType,
     "data-accessory-id": props.inputAccessoryViewID,
     "data-content-type": props.textContentType,

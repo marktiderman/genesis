@@ -16,7 +16,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Pressable, View } from "react-native";
 import { NativeAvatar, NativeText } from "@marktiderman/genesis-ui-native/components";
-import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import { sentBubbleColor, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { summarizeReactions } from "../core/thread";
 import type { ChatLinkPreview, ChatMessage, PendingFile } from "../core/types";
 import type { ChatAttachmentKind } from "../react/index";
@@ -269,7 +269,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const quoted = quote && repliedTo ? repliedTo : null;
   // A message that is only app attachments the slot drew nothing for has nothing to show or read.
   const invisible = Boolean(message && !message.deletedAt && !body && !attachments.length && !preview && !quote && !moderation && cards.length && !shownCards.length);
-  const bubbleColor = mine ? colors.tint : colors.surface;
+  const bubbleColor = mine ? sentBubbleColor(colors) : colors.surface;
   const fg = mine ? "text-primary-foreground" : undefined;
   const textStyle = mine ? { fontSize: 17, lineHeight: 22 } : { fontSize: 17, lineHeight: 22, color: colors.label };
 

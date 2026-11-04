@@ -14,7 +14,7 @@
  */
 
 export { GenesisThemeProvider, type GenesisThemeProviderProps } from "./provider";
-export { useTheme } from "./use-theme";
+export { useOptionalTheme, useTheme } from "./use-theme";
 export {
   resolveTokens,
   type ResolvedColorScale,

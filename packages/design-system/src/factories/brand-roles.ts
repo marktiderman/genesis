@@ -24,15 +24,23 @@
  *     darkest neutral reads better on it as its foreground; the ring is the
  *     primary when it reaches 3:1 on the background, the text color otherwise
  *   - neutral 100 → secondary, muted, accent; 500 → muted foreground (or the
- *     first darker stop that reads at 4.5:1 on the background, else the text
- *     color); 200 → border, input
+ *     first darker stop that reads at 4.5:1 on both the background and the
+ *     muted fill it also sits on, else the text color); 200 → border, input
  *   - status → destructive (error), success, warning, info
  *   - radius.lg (else radius.DEFAULT) → radius, in both modes: every
  *     `rounded-*` step is a multiple of it, so `"0"` is square everywhere
  *
- * Dark mode: a brand declares no dark-mode colors, so dark mode is the Genesis
- * dark theme, except the primary, which is the brand's accent when it reaches
- * 4.5:1 on the dark background.
+ * Dark mode, without `brand.dark`: the Genesis dark theme, except the
+ * primary, which is the brand's accent when it reaches 4.5:1 on the dark
+ * background. With `brand.dark` (opt-in), each role it sets replaces the
+ * Genesis dark value, as the light block does for light mode:
+ *
+ *   - dark.surface → background, card, popover; dark.text → foreground pairs
+ *   - dark.accent → primary as given, with `dark.primaryForeground` (else the
+ *     readable one of white and the darkest neutral) as its foreground
+ *   - dark.neutral 800 → secondary, muted, accent; 400 → muted foreground;
+ *     700 → border, input
+ *   - dark.status → destructive, success, warning, info
  *
  * Colors that aren't `#rgb`/`#rrggbb` are left at the Genesis value.
  *
@@ -127,6 +135,26 @@ function overlay(brand: CanonicalBrand, mode: Mode, out: Record<string, string>)
   };
 
   if (mode === "dark") {
+    const dark = brand.dark;
+    if (dark) {
+      // The brand's own dark roles, over the Genesis dark theme.
+      const dn = (stop: string) => hex(dark.neutral?.[stop]);
+      set(["background", "card", "popover"], hex(dark.surface?.DEFAULT));
+      set(["foreground", "card-foreground", "popover-foreground"], hex(dark.text?.DEFAULT));
+      set(["secondary", "muted", "accent"], dn("800"));
+      set(["muted-foreground"], dn("400"));
+      set(["border", "input"], dn("700"));
+      set(["destructive"], hex(dark.status?.error?.DEFAULT));
+      set(["success"], hex(dark.status?.success?.DEFAULT));
+      set(["warning"], hex(dark.status?.warning?.DEFAULT));
+      set(["info"], hex(dark.status?.info?.DEFAULT));
+      const own = hex(dark.accent?.DEFAULT);
+      const page = read("background");
+      if (own) primaryWith(own, page, read("foreground"));
+      else if (accent && contrast(accent, page) >= 4.5) primaryWith(accent, page, read("foreground"));
+      set(["primary-foreground", "sidebar-primary-foreground"], hex(dark.primaryForeground));
+      return;
+    }
     // No dark-mode colors in a brand: the Genesis dark theme, with the brand's accent where it reads.
     const page = read("background");
     if (accent && contrast(accent, page) >= 4.5) primaryWith(accent, page, read("foreground"));
@@ -140,9 +168,12 @@ function overlay(brand: CanonicalBrand, mode: Mode, out: Record<string, string>)
   if (accent) primaryWith(accent, background ?? read("background"), foreground ?? read("foreground"));
 
   set(["secondary", "muted", "accent"], neutral("100"));
-  // Muted text: the first neutral from 500 down that reads at 4.5:1 on the page, else the text color.
+  // Muted text: the first neutral from 500 down that reads at 4.5:1 on the page and on the muted
+  // fill (a segmented control's unselected label, a muted row), else the text color.
   const page = read("background");
-  const readable = (rgb: [number, number, number] | null) => rgb !== null && contrast(rgb, page) >= 4.5;
+  const mutedFill = read("muted");
+  const readable = (rgb: [number, number, number] | null) =>
+    rgb !== null && contrast(rgb, page) >= 4.5 && contrast(rgb, mutedFill) >= 4.5;
   const mutedText = ["500", "600", "700", "800", "900"].map(neutral).find(readable);
   set(["muted-foreground"], mutedText ?? (brand.neutral?.["500"] ? read("foreground") : null));
   set(["border", "input"], neutral("200"));
@@ -197,4 +228,52 @@ function brandRadius(brand: CanonicalBrand, platform: "native" | "web"): string 
   const bounds = platform === "native" ? clampBounds(value) : undefined;
   if (bounds) return `${bounds.min}rem`;
   return value === "0" ? "0px" : value;
+}
+
+/**
+ * The opt-in brand variables, per mode, for what has no Genesis role: each is
+ * set only when the brand sets its field, so a brand without them gets an
+ * empty map.
+ *
+ *   - `accents.<name>` → `--brand-accent-<name>` (the colour as given)
+ *   - `gradients.primary` → `--brand-gradient-primary` (`linear-gradient(…)`),
+ *     what `Button variant="gradient"` paints
+ *   - `signal` / `dark.signal` → `--brand-signal`
+ *   - `typography.display` → `--font-display` (the stack), `--font-weight-display`,
+ *     `--font-numeric-display` (`tabular-nums` / `proportional-nums`)
+ *
+ * `themeFromBrand` adds them to `variables`, `tailwindFromBrand` to its CSS and
+ * the NativeWind preset to `:root`.
+ *
+ * @stability Beta
+ */
+export function brandExtraVariables(brand: CanonicalBrand, options: BrandRoleVariablesOptions = {}): BrandRoleVariables {
+  const platform = options.platform ?? "native";
+  const merged = applyOverrides(brand, brand.platformOverrides?.[platform]);
+  const both: Record<string, string> = {};
+  for (const [name, colour] of Object.entries(merged.accents ?? {})) {
+    if (typeof colour === "string" && colour) both[`--brand-accent-${name}`] = colour;
+  }
+  const gradient = brandGradientCss(merged);
+  if (gradient) both["--brand-gradient-primary"] = gradient;
+  const display = merged.typography?.display;
+  if (display?.family?.length) both["--font-display"] = fontStack(display.family);
+  if (display?.weight) both["--font-weight-display"] = display.weight;
+  if (display?.numeric) both["--font-numeric-display"] = display.numeric === "tabular" ? "tabular-nums" : "proportional-nums";
+  const light = { ...both };
+  const dark = { ...both };
+  if (merged.signal) light["--brand-signal"] = dark["--brand-signal"] = merged.signal;
+  if (merged.dark?.signal) dark["--brand-signal"] = merged.dark.signal;
+  return { light, dark };
+}
+
+/** `gradients.primary` as CSS (`linear-gradient(135deg, #a, #b)`), or undefined. */
+export function brandGradientCss(brand: CanonicalBrand): string | undefined {
+  const g = brand.gradients?.primary;
+  if (!g?.from || !g.to) return undefined;
+  return `linear-gradient(${g.angle ?? 135}deg, ${g.from}, ${g.to})`;
+}
+
+function fontStack(stack: readonly string[]): string {
+  return stack.map((entry) => (entry.includes(" ") ? `"${entry}"` : entry)).join(", ");
 }

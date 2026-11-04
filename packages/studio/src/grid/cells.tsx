@@ -20,8 +20,17 @@ import type { FieldSchema } from "@marktiderman/genesis-core/schema";
 import { cn } from "@marktiderman/genesis-ui/utils";
 import { displayText } from "../values";
 
-/** An icon for the field's type, as Airtable shows in each column header. */
-export function FieldIcon({ field, isKey }: { field: FieldSchema; isKey?: boolean }) {
+export interface FieldIconProps {
+  field: FieldSchema;
+  isKey?: boolean;
+}
+
+/**
+ * An icon for the field's type, as Airtable shows in each column header.
+ *
+ * @stability Beta
+ */
+export function FieldIcon({ field, isKey }: FieldIconProps) {
   const className = "h-3.5 w-3.5";
   if (isKey) return <KeyRound className={className} />;
   if (field.array) return <List className={className} />;
@@ -65,7 +74,18 @@ export function pillTint(value: string, choices: readonly string[] = []): string
   return PILL_TINTS[index % PILL_TINTS.length]!;
 }
 
-export function Pill({ value, tint, className }: { value: string; tint: string; className?: string }) {
+export interface PillProps {
+  value: string;
+  tint: string;
+  className?: string;
+}
+
+/**
+ * A value drawn as a tinted pill.
+ *
+ * @stability Beta
+ */
+export function Pill({ value, tint, className }: PillProps) {
   return (
     <span className={cn("inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-xs text-foreground", tint, className)}>
       {value}

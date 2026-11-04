@@ -9,7 +9,10 @@
  * sparingly — for transient confirmation use <NativeToast>; for
  * blocking issues use <NativeDialog>.
  *
- * Both share variants: info / success / warning / destructive.
+ * Both share variants: info / success / warning / destructive. Under the
+ * description, `children` takes any content (an error summary's list of
+ * links, a status line) and `actions` a row of buttons ("Retry", "Review"),
+ * so neither has to be drawn by hand around the alert.
  *
  * @stability Beta
  */
@@ -30,6 +33,10 @@ interface BaseProps {
   icon?: React.ReactNode;
   /** When provided, renders an "✕" dismiss button with this label. */
   onDismiss?: () => void;
+  /** Content under the description (a list of the fields to fix, a status line). */
+  children?: React.ReactNode;
+  /** A row of buttons under the content (NativeButton size="sm"). */
+  actions?: React.ReactNode;
   className?: string;
   testID?: string;
 }
@@ -48,6 +55,24 @@ const titleClasses: Record<NativeInlineAlertVariant, string> = {
   destructive: "text-destructive",
 };
 
+/** The alert's content and actions slots, under the description. */
+function AlertExtras({ children, actions, testID }: { children?: React.ReactNode; actions?: React.ReactNode; testID?: string | undefined }) {
+  return (
+    <>
+      {children ? (
+        <View testID={testID ? `${testID}-content` : undefined} className="mt-2">
+          {children}
+        </View>
+      ) : null}
+      {actions ? (
+        <View testID={testID ? `${testID}-actions` : undefined} className="mt-3 flex-row flex-wrap gap-2">
+          {actions}
+        </View>
+      ) : null}
+    </>
+  );
+}
+
 export interface NativeInlineAlertProps extends BaseProps {}
 
 export function NativeInlineAlert({
@@ -56,6 +81,8 @@ export function NativeInlineAlert({
   description,
   icon,
   onDismiss,
+  children,
+  actions,
   className,
   testID,
 }: NativeInlineAlertProps) {
@@ -81,6 +108,9 @@ export function NativeInlineAlert({
             {description}
           </Text>
         ) : null}
+        <AlertExtras testID={testID} actions={actions}>
+          {children}
+        </AlertExtras>
       </View>
       {onDismiss ? (
         <Pressable
@@ -106,6 +136,8 @@ export function NativeBanner({
   description,
   icon,
   onDismiss,
+  children,
+  actions,
   className,
   testID,
 }: NativeBannerProps) {
@@ -132,6 +164,9 @@ export function NativeBanner({
             {description}
           </Text>
         ) : null}
+        <AlertExtras testID={testID} actions={actions}>
+          {children}
+        </AlertExtras>
       </View>
       {onDismiss ? (
         <Pressable

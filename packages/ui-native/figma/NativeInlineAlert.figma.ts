@@ -6,11 +6,15 @@ const instance = figma.selectedInstance
 
 const title = instance.getString('Title')
 const description = instance.getString('Description')
+const showContent = instance.getBoolean('Show content')
+const showActions = instance.getBoolean('Show actions')
 const variant = instance.getEnum('variant', { info: 'info', success: 'success', warning: 'warning', destructive: 'destructive' })
 
 export default {
-  example: figma.code`<NativeInlineAlert variant="${variant}" title="${title}"${description ? figma.code` description="${description}"` : ''} />`,
-  imports: ['import { NativeInlineAlert } from "@marktiderman/genesis-ui-native"'],
+  example: figma.code`<NativeInlineAlert variant="${variant}" title="${title}"${description ? figma.code` description="${description}"` : ''}${showActions ? figma.code` actions={<NativeButton size="sm" variant="outline" onPress={retry}>Try again</NativeButton>}` : ''}${showContent ? figma.code`>
+  {content}
+</NativeInlineAlert>` : ' />'}`,
+  imports: [`import { NativeInlineAlert${showActions ? ', NativeButton' : ''} } from "@marktiderman/genesis-ui-native"`],
   id: 'native-inline-alert',
   metadata: { nestable: true },
 }

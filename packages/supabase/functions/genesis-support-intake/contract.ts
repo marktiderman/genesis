@@ -141,7 +141,9 @@ function privateSegment(segment: string): string | null {
  */
 export function cleanRoute(route: string | null | undefined): string | undefined {
   if (typeof route !== "string") return undefined;
-  const path = route.replace(/[?#].*$/, "").trim();
+  // A plain search, not a regex: `[?#].*$` retries at every `#` and goes quadratic on `###…`.
+  const cut = route.search(/[?#]/);
+  const path = (cut === -1 ? route : route.slice(0, cut)).trim();
   if (!path) return undefined;
   const safe = path
     .split("/")

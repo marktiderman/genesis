@@ -32,6 +32,15 @@ export type ParseResult =
 const isObject = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);
 
+/** A value for a message. `String` throws on objects whose `toString` isn't callable, and parseForm never throws. */
+const show = (v: unknown): string => {
+  try {
+    return String(v);
+  } catch {
+    return typeof v;
+  }
+};
+
 const isInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
 
 const ORDERING: ReadonlySet<string> = new Set<Operator>(["lt", "lte", "gt", "gte"]);
@@ -199,7 +208,7 @@ export function parseForm(input: unknown): ParseResult {
       optionalBoolean(block.identifying, `${path}.identifying`);
       const validKey = name(block.key, `${path}.key`, "A field key");
       if (typeof block.type !== "string" || !getFieldType(block.type)) {
-        issue(`${path}.type`, `Unknown field type "${String(block.type)}".`);
+        issue(`${path}.type`, `Unknown field type "${show(block.type)}".`);
       }
       if (block.props !== undefined) {
         const from = isObject(block.props) ? block.props.optionsFrom : undefined;
@@ -287,7 +296,7 @@ export function parseForm(input: unknown): ParseResult {
         kindProps(getFieldType(block.type)?.checkProps, block.props ?? {}, `${path}.props`);
       }
       if (validKey) {
-        if (keys.has(block.key as string)) issue(`${path}.key`, `Duplicate key "${String(block.key)}".`);
+        if (keys.has(block.key as string)) issue(`${path}.key`, `Duplicate key "${show(block.key)}".`);
         keys.set(block.key as string, block.id);
       }
       fieldTypes.set(block.id, typeof block.type === "string" ? block.type : "");
@@ -402,11 +411,11 @@ export function parseForm(input: unknown): ParseResult {
     if (o === undefined) return;
     if (!isObject(o)) return issue(path, "An operand must be an object.");
     if ("field" in o) {
-      if (typeof o.field !== "string" || !fieldTypes.has(o.field)) return issue(path, `No field "${String(o.field)}".`);
+      if (typeof o.field !== "string" || !fieldTypes.has(o.field)) return issue(path, `No field "${show(o.field)}".`);
       reads.push(o.field);
     } else if ("hidden" in o) {
       if (typeof o.hidden !== "string" || !hiddenNames.has(o.hidden)) {
-        issue(path, `No hidden input "${String(o.hidden)}".`);
+        issue(path, `No hidden input "${show(o.hidden)}".`);
       }
     } else if (!("value" in o) || !isJson(o.value)) {
       issue(path, "An operand needs a `field`, a `hidden` input or a JSON `value`.");
@@ -500,7 +509,7 @@ export function parseForm(input: unknown): ParseResult {
     let inclusive = false;
     if (rule.effect === "jump") {
       if (typeof rule.from !== "string" || !ids.has(rule.from)) {
-        issue(`${path}.from`, `No block "${String(rule.from)}".`);
+        issue(`${path}.from`, `No block "${show(rule.from)}".`);
       } else if (pageBreaks.has(rule.from)) {
         issue(`${path}.from`, "A jump can't start at a page break; use the block before it.");
       } else {
@@ -509,10 +518,10 @@ export function parseForm(input: unknown): ParseResult {
       }
       if (isObject(rule.to)) {
         if (typeof rule.to.ending !== "string" || !endingIds.has(rule.to.ending)) {
-          issue(`${path}.to`, `No ending "${String(rule.to.ending)}".`);
+          issue(`${path}.to`, `No ending "${show(rule.to.ending)}".`);
         }
       } else if (typeof rule.to !== "string" || !ids.has(rule.to)) {
-        issue(`${path}.to`, `No block "${String(rule.to)}".`);
+        issue(`${path}.to`, `No block "${show(rule.to)}".`);
       } else if (pageBreaks.has(rule.to)) {
         issue(`${path}.to`, "A jump can't land on a page break; jump to the first block after it.");
       } else if (at !== undefined && (order.get(rule.to) ?? 0) <= (order.get(at) ?? 0)) {
@@ -520,7 +529,7 @@ export function parseForm(input: unknown): ParseResult {
       }
     } else if (rule.effect === "show" || rule.effect === "hide") {
       if (typeof rule.target !== "string" || !ids.has(rule.target)) {
-        issue(`${path}.target`, `No block "${String(rule.target)}".`);
+        issue(`${path}.target`, `No block "${show(rule.target)}".`);
       } else at = rule.target;
     } else {
       issue(`${path}.effect`, "Must be show, hide or jump.");

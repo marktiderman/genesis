@@ -52,7 +52,7 @@ export function copyOwned(root: string, lock: GenesisLock, write: OwnedWrite, dr
 }
 
 export type RefreshOutcome =
-  | { path: string; outcome: "unchanged" | "updated" | "merged" | "conflict" | "kept-deleted" | "gone-upstream" | "kept-mine" | "refused" | "deferred" | "resolved"; detail?: string };
+  | { path: string; outcome: "unchanged" | "updated" | "merged" | "conflict" | "kept-deleted" | "gone-upstream" | "kept-mine" | "refused" | "deferred" | "resolved" | "repository"; detail?: string };
 
 const CLI = "@marktiderman/genesis-cli";
 
@@ -112,8 +112,10 @@ export interface RefreshInput {
   path: string;
   /** The package's current text (substitutions applied), or null when it no longer ships it. */
   theirs: string | null;
-  /** The text the lock's checksum was taken from, when it can still be read. */
+  /** The text the app's file last took (the caller checks it against the lock), when it can still be read. */
   base: string | null;
+  /** The base is the version the last `.genesis-next` held, taken as worked in because the file changed since. */
+  baseIsPending?: boolean;
   version?: string;
 }
 
@@ -135,7 +137,7 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
   if (theirsSha === entry.sha256) return { path: input.path, outcome: "unchanged" };
   const record = (sha: string) => {
     // Written again: neither pending nor deleted any more.
-    const { pending: _settled, deleted: _back, ...rest } = entry;
+    const { pending: _settled, pendingMine: _was, deleted: _back, ...rest } = entry;
     lock.files[input.path] = { ...rest, sha256: sha, ...(input.version ? { version: input.version } : {}) };
   };
   if (mine === null) {
@@ -150,30 +152,32 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
   // Both changed.
   const next = `${input.path}.genesis-next`;
   const existingNext = readApp(root, next);
-  // Resolved since the last run: the .genesis-next it left is gone, and the package still ships
-  // that version. The app's file is the resolution; that version becomes the base.
+  // Resolved since the last run: the .genesis-next it left is gone, the package still ships that
+  // version, and the app's file has changed since. The file is the resolution; that version becomes
+  // the base. Gone with the file unchanged isn't a resolution (.genesis-next is never committed, so
+  // a teammate's clone has none): it's written again below. A lock from before pendingMine can't tell.
   if (entry.pending === theirsSha) {
-    if (existingNext === null) {
-      const { pending: _done, ...rest } = entry;
+    if (existingNext !== null) return { path: input.path, outcome: "kept-mine", detail: `waiting for you: resolve ${next} into your file, then delete it` };
+    if (mineSha !== entry.pendingMine) {
+      const { pending: _done, pendingMine: _was, ...rest } = entry;
       lock.files[input.path] = { ...rest, sha256: theirsSha, ...(input.version ? { version: input.version } : {}) };
-      return { path: input.path, outcome: "resolved", detail: "your file is kept as the resolution of the last upgrade" };
+      return { path: input.path, outcome: "resolved", detail: `your file is kept as the resolution of the last upgrade because it changed since; if that was unrelated, compare with ${entry.source}` };
     }
-    return { path: input.path, outcome: "kept-mine", detail: `waiting for you: resolve ${next} into your file, then delete it` };
   }
   // A .genesis-next someone may be working through is never replaced with different text.
   const writeNext = (text: string): string | null => {
     if (existingNext !== null && existingNext !== text) return `${next} is already there with other text; resolve it (and delete it) first`;
     write(next, text);
-    lock.files[input.path] = { ...entry, pending: theirsSha };
+    lock.files[input.path] = { ...entry, pending: theirsSha, pendingMine: mineSha };
     return null;
   };
-  if (!options.keepMine && input.base !== null && sha256(input.base) === entry.sha256) {
+  if (!options.keepMine && input.base !== null) {
     const merged = mergeThreeWay(mine, input.base, input.theirs);
     if (merged?.clean) {
       write(input.path, merged.text);
       // The new base is the package's text: the app's edits stay on top of it.
       record(theirsSha);
-      return { path: input.path, outcome: "merged", detail: "your edits kept on top of the new version" };
+      return { path: input.path, outcome: "merged", detail: input.baseIsPending ? `merged on the version the last .genesis-next held, because this file changed since; if that was unrelated, compare with ${entry.source}` : "your edits kept on top of the new version" };
     }
     if (merged) {
       const blocked = writeNext(merged.text);

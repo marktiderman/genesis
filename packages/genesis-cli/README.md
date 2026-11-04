@@ -494,14 +494,20 @@ doesn't fit, is a warning.
    downgraded.
 2. Runs a codemod only when a release declares a breaking change it fixes: the registry in
    `src/upgrade/codemods.ts` names the package and the first version that breaks, and a codemod
-   runs when a package moves across it. A major move (or a 0.x minor) without one is listed so you
-   read its changelog. `genesis codemod` lists them and `genesis codemod <id> [--dry-run]` runs
+   runs when a package moves across it. A major move (or a 0.x minor) without one is listed with
+   a link to its changelog (read from the Genesis repository) and the major changes in it, or a
+   note that it lists none of its own and moved with its dependencies (a peer's break can still
+   reach you). When the changelog can't be read, or doesn't reach that version, the link alone. A
+   codemod covers a major only when it was declared for that major. `genesis codemod` lists them and `genesis codemod <id> [--dry-run]` runs
    one by hand, for an app that moved its versions some other way:
 
    | Codemod | Runs when | Changes |
    | --- | --- | --- |
    | `genesis-core-2-scope-names` | genesis-core crosses 2.0.0 | Genesis API usage only, never an app's own names that match (a view field means one inside `defineView(…)` or an object typed `ViewDefinition`/`ViewField`; the prop means an attribute of `<NativeResourceView>` or a key of an object typed `NativeResourceViewProps`; each with the name imported from Genesis): a view field's `timeZone: "practice"` → `"scope"`, NativeResourceView's `practiceTimeZone` (attribute or object key) → `scopeTimeZone`, `resolveZone("practice", …)` → `"scope"`, and DisplayTimeZones' `practice` (a `{ viewer, practice }` object's key, `.practice` on a value from `useDisplayTimeZones()` or typed `DisplayTimeZones`) → `scope`. `scope={{ practiceId }}` needs nothing (it is the app's own key in ResourceScope's open slot); when a file reads `scope.practiceId` and nothing declares it, the codemod prints the one-line `ResourceScope` augmentation that types it. The doctor's `removed-scope-name` rule finds what it would rewrite. |
    | `genesis-cli-eslint-config` | genesis-cli crosses 1.20.0 | An ESLint flat config (`eslint.config.{js,mjs,cjs,ts,mts,cts}`) that doesn't load [`@marktiderman/genesis-cli/eslint`](#lint-rules) yet: adds the import (`require` or `import`, as the file is written) and spreads `genesis("native")` (an app with `expo` or `react-native`) or `genesis("web")` last into the array it exports, or into the array or arguments of the `defineConfig(…)` / `tseslint.config(…)` call it exports. A native app gets `eslint-plugin-testing-library` in its devDependencies when it's missing. A config that already loads the export is left alone; one it can't edit safely (built in a variable or a function, or exported twice) is left as it is, and it prints the two lines to add. A config that still inlines the starter's RNTL rules gets the spread and a note to delete the old block. Started from an older CLI, the upgrade doesn't have this codemod (see "Upgrading the CLI itself" below); the doctor's `genesis-eslint-config` then reports the app, and `genesis codemod genesis-cli-eslint-config` runs it. |
+   | `genesis-ui-native-3-8-composer-has-content` | genesis-ui-native crosses 3.8.0 | Inside each `<NativeComposerBar …>` tag: `empty={false}` → `hasContent`, `empty` and `empty={true}` → `hasContent={false}`, and `empty={expr}` → `hasContent={!(expr)}`. A spread can't be read, so its `empty` is left to the type error. |
+   | `genesis-ui-overlays-fit-the-phone` | genesis-ui crosses 2.31.0 | The doctor's `ui/overlays-fit-the-phone`: in files that import genesis-ui, drops a `max-h-[…vh]` of 80 or more from `DialogContent`, `AlertDialogContent` and `SheetContent` when the tag has no other cap, no height of its own and isn't a bottom sheet, and moves anything else in `vh` to `dvh`. See [the migration guide](https://github.com/marktiderman/genesis/blob/main/docs/MIGRATION.md). |
+   | `genesis-ui-native-haptics` | genesis-ui-native crosses 3.7.0 | The doctor's `haptics-use-genesis`: turns calls on `import * as Haptics from "expo-haptics"` into `playHaptic(Haptics, "light")`, and prints the files with calls it can't name. See [the migration guide](https://github.com/marktiderman/genesis/blob/main/docs/MIGRATION.md). |
 3. Reinstalls. With pnpm, a release younger than the app's `minimumReleaseAge` is installed in
    loose mode and pnpm pins it in `minimumReleaseAgeExclude`, in the pnpm-workspace.yaml pnpm reads
    (the nearest one at or above the app, but never above the repository's top level, else beside
@@ -550,11 +556,45 @@ doesn't fit, is a warning.
    new package migrations are listed (run `genesis migrate`). In an app whose database files live
    elsewhere, nothing under `supabase/` is refreshed or added and no migrations are listed: the
    summary says to run `genesis upgrade` in that app.
-4. Runs `genesis doctor` and prints a summary; `--pr` commits to `genesis-upgrade/<version>`,
+4. Regenerates what comes from the installed packages, and the pull request carries it: the agent
+   guide (`genesis agents`), when the app has it, and `features build`, when it has a registry.
+   `--no-agents` and `--no-features-build` turn them off; a failure is a warning in the summary.
+   And names each export the release added that the app builds by hand, with the swap to make,
+   before the doctor's `shadowed-export` reports it. That swap isn't mechanical, so it's named and
+   not made.
+5. Runs `genesis doctor` and prints a summary (a changed file the repository ignores stays out of
+   the `--pr` commit, and the summary names it); `--pr` commits to `genesis-upgrade/<version>`,
    pushes and opens a pull request with `gh`. It checks first, before writing anything, that the
    tree is clean, a branch is checked out and the branch name is free; it commits the lockfile
    (found up to the repository's root), never `.genesis-next` files. `--dry-run` changes nothing,
    and shows the refresh against the packages installed now.
+
+It starts only with the app's dependencies installed, when it needs them: an app with owned files
+merges your edits against the installed versions, so without them it stops, changes nothing and
+gives the install command. (With no owned files, the upgrade's own install is enough, unless you
+pass `--no-install` or `--dry-run` and the doctor is on.)
+
+**An app in a sub-folder of its repository.** Set `"appFolder"` at the top of
+`genesis.config.json` to the app's folder from the repository root:
+
+```json
+{ "appFolder": "mobile" }
+```
+
+- `.eas/workflows/*.yml` are written with their `paths` from the repository root (`mobile/src/**`,
+  `mobile/app.json`), which is how EAS reads them. Otherwise that's an edit on every line of the
+  list, which conflicts with each template change and leaves a `.genesis-next` each release. A
+  lock with no `REPLACE_WITH_APP_FOLDER` substitution gets `src` as the code folder. Turning the
+  setting on keeps the edits you have, but can't move them: a file with other edits and paths
+  still from the app's folder merges with those paths as they were, and the summary warns and
+  names them, to prefix by hand. A lockfile above the app stays an edit of yours, and an
+  unprefixed line for it is right, so it's never named.
+- `.github/workflows` is left to the repository: GitHub reads only the root's, a file that holds
+  the rest of its CI too, so nothing is written, merged or left beside it. A template's change is
+  named once in the summary (your copy passes `working-directory: mobile`; see docs/APP-CI.md),
+  and the doctor's `lock-files` doesn't ask for the file here.
+
+A conflict in a workflow in an app below its repository's root says to set it.
 
 `--version <v>` is upgrade's own option: `genesis upgrade --version 2.30.0` upgrades to 2.30.0
 (the CLI's own version is `genesis --version`, before any command). Since genesis-cli 1.18.0;
@@ -562,8 +602,9 @@ doesn't fit, is a warning.
 
 **Upgrading the CLI itself.** The upgrade runs in the CLI that started it. It moves the app's
 `@marktiderman/genesis-cli` dependency with the rest, but it doesn't restart in the new CLI: the
-codemods, the owned-file refresh and the doctor of this run are the installed CLI's, so a
-codemod the new release added doesn't run. To upgrade with the release's own CLI, start it
+codemods, the owned-file refresh, the agent guide and the doctor of this run are the installed
+CLI's, so a codemod the new release added doesn't run, and the new CLI's doctor can report
+`agent-guide-stale` until you run `genesis agents`. To upgrade with the release's own CLI, start it
 through npx:
 
 ```bash
@@ -577,7 +618,8 @@ dependencies.
 entry may only write where its kind of source goes (a template to `eas.json`, `.eas/`, `.maestro/`
 or `.github/workflows/`, a function file to `supabase/functions/<name>/`, a pgTAP test to
 `supabase/tests/database/`, a skill to `.claude/skills/`), never a migration and never `.git`;
-substitutions may only replace the starter's own names. A pgTAP test waits while its block has
+substitutions may only replace the starter's own names, each with a plain name, and
+`REPLACE_WITH_APP_FOLDER`, with a plain relative folder (`src`, `apps/web`). A pgTAP test waits while its block has
 new migrations to copy.
 
 ## Lint rules
@@ -750,6 +792,7 @@ Upgrading Genesis upgrades the checks.
 | Option | |
 | --- | --- |
 | `--strict` | Fail on warnings too. `info` findings never fail. |
+| `--verbose` | List the Genesis components no file imports, not only their count. |
 | `--json` | Print `{ ok, genesis, errors, warnings, infos, findings, unused }`; each finding has its `level` (`error`, `warn` or `info`). Build output is captured, not streamed. |
 | `--build` | After the checks, run `doctor.build` commands, or the app's `typecheck` then `build` scripts. A build that itself runs the doctor doesn't recurse. |
 | `-c, --config <path>` | Config file. Default: `genesis.config.json`, then the `genesis` key of package.json. |
@@ -757,7 +800,7 @@ Upgrading Genesis upgrades the checks.
 | `--print-genesis` | Print the components, tokens, raw tags, palette and companion packages' components read from Genesis, and exit. |
 | `--base <ref>` | The git ref change checks compare against: the packages pack's change gate and the [ratchet](#the-ratchet) (`newOnly` rules report files unchanged since the merge base as `info`). |
 
-Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Genesis not installed or not built).
+Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Genesis not installed or not built). With the app's dependencies not installed, the message gives the install command.
 
 ### Rules
 
@@ -785,6 +828,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `removed-scope-name` | error | A "practice" name genesis-core 2 removed, in a file that imports a Genesis package: a view field's `timeZone: "practice"` (a string value in a view definition), NativeResourceView's `practiceTimeZone`, `resolveZone("practice", …)`, or DisplayTimeZones' `practice`. `defineView` refuses the first when the view loads and the rest are type errors; this lists them in CI. `genesis codemod genesis-core-2-scope-names` rewrites every one. It reads only Genesis API usage, the same shapes the codemod rewrites (see its row above); comments and an app's own `practice` settings, props and `resolveZone` are skipped. |
 | `deprecated-import` | warn | A named import of a Genesis export tagged `@deprecated` (or `@stability Deprecated`) in its published declarations. It goes at the next major; the message carries the tag's advice. Ratcheted by default: under `--base`, files that didn't change report it as `info`, so an upgrade never fails strict CI on untouched files. |
 | `beta-import` | info | A named import of an export tagged `@stability Beta` or `Experimental`, which may still change in a minor. Info by default since most of Genesis is beta; set it to `warn` in `rules` to see it in CI. |
+| `figma-routes` | info | Runs only when genesis.config.json has a `figma` block: [genesis figma:routes](#genesis-figmaroutes) as findings. A configured page the file doesn't have, a route with no frame, navigation with no hotspot and a `// figma:` id that isn't the route's frame are `info`, `warn` under `--strict`; frames with no route, hotspots to them and navigation that isn't a string literal are always `info`, by design. Never `error`. Invalid JSON or a bad `figma` block in genesis.config.json is one `warn` naming the file. Without `FIGMA_ACCESS_TOKEN`, or when the API can't be read or doesn't answer within 30 seconds, one `info` notice. The Vite plugin and `genesis upgrade` skip it (it reads the network). |
 | `scope-practice-id` | info | `scope.practiceId` read with no `ResourceScope` augmentation in the app (declaration files included). It still works, as the app's own key in the open slot, but reads as `unknown`; the message gives the one-line augmentation. Never fails, `--strict` included. |
 | `stale-exception` | warn | An `allow` entry that no longer matches anything, or a `packageRules` entry that names no rule an installed package declares (a typo there would change nothing). An id in the namespace of a package with a `plugin` isn't checked, since a plugin's ids aren't known until it reports. |
 | `package-rules-invalid` | warn | An installed or local package's `genesis.doctor` declaration (or its plugin) that doesn't validate: its rules don't run; the rest of the doctor does. Read forward-compatibly, since a package can be newer than the CLI: an unknown key is ignored, and a `prefer` rule or primitive that doesn't validate is skipped on its own, each with this warning. An unknown key on a `prefer` rule itself or in its `unless` could narrow where it applies, so that rule is skipped whole rather than run wider; an unknown key in `forbid` is only dropped. It is never an error, so a package upgrade can't break an app's build. See [Package rules](#package-rules). |
@@ -797,8 +841,8 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `allow-grew` | error | Under `--base`: an `allow` entry (its rule, file and match) that the doctor settings at the merge base didn't have. The list only shrinks. Rewording a `reason` is fine. The base's settings are found as the doctor finds them (genesis.config.json's `doctor`, else package.json's `genesis.doctor`), so moving them between the two compares as usual; when the base had none (adopting the doctor), nothing is compared. |
 | `rules-weakened` | error | Under `--base`, comparing the app's settings with the base's only (never with a rule's own level, which a package upgrade may change): a rule the base's `rules` or `packageRules` set that this branch sets lower, a rule newly set to `off`, or an `exclude` glob a `packageRules` entry gained. A new entry at any other level isn't compared, so pinning a rule its package raised is fine; an entry renamed with its rule counts as new. `files` isn't compared. Not compared when the base had no doctor settings. |
 
-It also prints **Available but unused**: the Genesis components no file imports, and a
-**Primitives** line: how many rules the installed packages declare (`genesis catalog` lists
+It also prints **Available but unused**: how many Genesis components no file imports (`--verbose`
+lists them, `--json` always does), and a **Primitives** line: how many rules the installed packages declare (`genesis catalog` lists
 them). Check both before building something.
 
 The route rules (`hand-rolled-sub-nav`, `resource-workspace`, `page-layout`) read the routes
@@ -1209,6 +1253,93 @@ if (!result.ok) throw new Error(formatReport(result));
    the local Vite plugin import with `@marktiderman/genesis-cli/vite`.
 4. Run `genesis doctor`, fix or `allow` what it reports (it checks `raw-color` in code as well
    as CSS, and `raw-tag` only in JSX files), then delete the old script.
+## genesis figma:routes
+
+A read-only check that an app's Figma app file covers its routes, so CI reports the drift and an
+agent closes it (through the Figma MCP; this command never writes to Figma). The file layout it
+expects is in [docs/FIGMA-GUIDELINES.md](../../docs/FIGMA-GUIDELINES.md): frames named by route,
+`<route> · <state>` for a state, and a `Proposals` page.
+
+```json
+{ "figma": { "file": "<file key>", "pages": { "web": "<page name>", "native": "<page name>" }, "proposalsPage": "Proposals" } }
+```
+
+`figma` goes at the top of genesis.config.json. `file` is the key from the file's URL; `pages`
+names the page holding each platform's route frames (one or both); `proposalsPage` defaults to
+`Proposals`. The token comes from `FIGMA_ACCESS_TOKEN` (a personal access token with read access
+to the file). It is sent only as the `X-Figma-Token` header, never printed or written; nothing is
+cached.
+
+| Option | |
+| --- | --- |
+| `--json` | Print the report as JSON. |
+| `--strict` | Exit 1 when anything is missing: a page the config names that the file doesn't have, a route with no frame, navigation with no hotspot, a mismatched `// figma:` id. Frames with no route, hotspots to them and navigation the check can't read are reported but never fail it, by design: they are drift for a designer to sort, not gaps in what the app ships. |
+| `-d, --dir <dir>` | The app's folder (default: cwd). |
+
+Exit codes: `0` reported, `1` gaps under `--strict`, `2` the check couldn't run (no `figma` block,
+genesis.config.json isn't valid JSON, no token, the API refused or didn't answer within 30 seconds).
+The same check runs in `genesis doctor` as the `figma-routes` rule.
+
+**Routes.** Expo Router under `src/app`, else `app` (platform `native`): a file is its route,
+`(group)` folders kept as written, `index` naming its folder (`(tabs)/index.tsx` is `(tabs)`), and
+`_layout` and `+`-files (`+not-found`, `+native-intent`, `+html`, `+api`) left out. TanStack
+Router file routes under `src/routes` (platform `web`): dots and folders are segments, `$id`
+params and `{-$section}` optional segments kept as written, `.lazy` files folded into their
+route, `__root`, `route.tsx` and `-private` files left out. The root page is `index`.
+
+**Navigation.** String literals only: `router.push("…")`, `router.replace("…")`,
+`router.navigate("…")`, `<Link href="…">`, `<Link to="…">` and `navigate({ to: "…" })`, in
+`src/` and `app/`. A target is matched to a route by URL: groups and pathless `_x` segments
+dropped, params match any segment, an Expo catch-all `[...rest]` (and a TanStack `$` splat)
+matches the rest of the path, optional segments may be absent. Only navigation in a route file
+is checked against that route's frame. A template literal with `${…}` or a `{ pathname, params }`
+object can't be resolved to a route, so in a route file it is listed as not checked (`info`)
+rather than matched.
+
+**Figma.** `GET /v1/files/:key?depth=2` gives the pages and their top-level frames;
+sections on those pages are read with `GET /v1/files/:key/nodes?ids=…&depth=1` for the frames
+inside them. Each route frame's tree is then read with `GET /v1/files/:key/nodes?ids=…`, and a
+hotspot is any node in it with `interactions[].actions[]` of `type: "NODE"` and a
+`destinationId` (any `navigation` except `CHANGE_TO`, which swaps a variant), or with the older
+`transitionNodeID`. A frame matches a route when its name before ` · ` is the route as written
+(`(tabs)/settings`) or names the same URL (`settings`).
+
+**The report.** A summary (routes, route frames, covered routes and percent, hotspots, missing),
+then: routes with no frame; frames on a route page with no route (move them to Proposals, or add
+the route); the Proposals page's frames by section; navigation in a route file whose screen has a
+frame but no hotspot to the target's frame; hotspots whose destination frame has no route;
+`// figma:` ids that don't match; and navigation that isn't a string literal (not checked).
+
+```text
+Figma route coverage (file FAKEfileKEY123): 7 routes, 6 frames, 4 covered (57%), 3 hotspots, 6 missing
+
+Routes with no frame (3)
+  platform  route             file
+  --------  ----------------  -------------------------------
+  native    items/[id]        src/app/items/[id].tsx
+  web       admin/decks       src/routes/admin/decks.tsx
+  web       docs/{-$section}  src/routes/docs.{-$section}.tsx
+
+Navigation with no hotspot (2)
+  from    to                      at
+  ------  ----------------------  --------------------------
+  (tabs)  items/[id] (no frame)   src/app/(tabs)/index.tsx:6
+  index   admin/decks (no frame)  src/routes/index.tsx:6
+```
+
+### Linking a route to its frame
+
+A route file may name its frame's node id in a comment on one of its first five lines, so an
+agent can jump from the route to the frame:
+
+```tsx
+// figma: 12:345
+export default function Settings() { … }
+```
+
+`12-345` (as a URL writes it) works too. The check reports a comment whose id isn't one of the
+frames named for that route (the frame was replaced, or the comment was copied).
+
 ## genesis upstream
 
 What an app needed from Genesis and didn't find goes in `docs/genesis-upstream.md` (or

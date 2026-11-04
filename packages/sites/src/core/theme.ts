@@ -211,11 +211,13 @@ interface ModeColours {
 }
 
 function modeColours(brand: CanonicalBrand, mode: "light" | "dark"): ModeColours {
-  const n = brand.neutral;
   const light = mode === "light";
-  const background = (light ? brand.surface.light : brand.surface.dark) ?? brand.surface.DEFAULT;
-  const foreground = (light ? brand.text.light : brand.text.dark) ?? brand.text.DEFAULT;
-  const primary = (light ? brand.accent.light : brand.accent.dark) ?? brand.accent.DEFAULT;
+  // A brand's opt-in dark roles (`brand.dark`) win in dark mode.
+  const own = light ? undefined : brand.dark;
+  const n = { ...brand.neutral, ...(own?.neutral ?? {}) };
+  const background = own?.surface?.DEFAULT ?? (light ? brand.surface.light : brand.surface.dark) ?? brand.surface.DEFAULT;
+  const foreground = own?.text?.DEFAULT ?? (light ? brand.text.light : brand.text.dark) ?? brand.text.DEFAULT;
+  const primary = own?.accent?.DEFAULT ?? (light ? brand.accent.light : brand.accent.dark) ?? brand.accent.DEFAULT;
   const muted = light ? (n["100"] ?? mix(background, -0.04)) : (n["800"] ?? mix(background, 0.08));
   // One step darker (lighter in dark mode) than shadcn's default, so quiet copy reaches 4.5:1 on a muted band too.
   const mutedForeground = light ? (n["600"] ?? mix(foreground, 0.3)) : (n["400"] ?? mix(foreground, -0.3));
@@ -224,6 +226,7 @@ function modeColours(brand: CanonicalBrand, mode: "light" | "dark"): ModeColours
   // reaches 4.5:1 (white or black always does, at worst about 4.58:1).
   let primaryForeground = readableOn(primary, "#ffffff", n["900"] ?? "#09090b");
   if (contrastRatio(primary, primaryForeground) < 4.5) primaryForeground = readableOn(primary, "#ffffff", "#000000");
+  if (own?.primaryForeground) primaryForeground = own.primaryForeground;
   const ring = contrastRatio(primary, background) >= 3 ? primary : foreground;
   return { background, foreground, muted, mutedForeground, primary, primaryForeground, ring, border };
 }

@@ -16,19 +16,29 @@
  *    With Bun, bun.lock first drops nested copies of Genesis packages the root's version now
  *    satisfies (Bun keeps them across installs, so the app would run two copies) and the
  *    workspaces of overlays the upgrade deleted (blocks/bun-lock.ts), and the summary says to reinstall.
- * 4. The doctor, then a summary, or with `--pr` a branch, a commit and a pull request.
+ * 4. What's generated from the installed packages: the agent guide (when the app has it) and
+ *    `features build` (when it has a registry), and the exports the release gained that the app
+ *    builds by hand, named ahead of the doctor's `shadowed-export`.
+ * 5. The doctor, then a summary, or with `--pr` a branch, a commit and a pull request.
+ *
+ * It starts only with the app's dependencies installed: the installed packages are the base an
+ * edited owned file merges against, and without them every edit would land in a .genesis-next.
  *
  * An app whose database files live elsewhere (genesis.config.json `supabase`) plans no
  * migrations and neither refreshes nor adds files under supabase/: the summary says where to
  * run genesis upgrade for them. Lock entries under supabase/ are left as they are.
  */
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
-import { agentsFragment, ownedWrites, pinGenesisImports, sourceMigrations } from "../blocks/add.js";
+import { agentsFragment, ownedWrites, pinGenesisImports, registryFile, sourceMigrations } from "../blocks/add.js";
 import { mergeFragment } from "../blocks/agents.js";
-import { catalogBlocks, findBlock, packageDir, packageVersion } from "../blocks/discover.js";
+import { appFolderOf, folderSubstitutions, isRepositoryWorkflow, renderOwned, unprefixedTemplatePaths } from "../blocks/app-folder.js";
+import { catalogBlocks, findBlock, installedGenesis, packageDir, packageVersion } from "../blocks/discover.js";
+import { isPlainFolder } from "../doctor/config.js";
+import { agentGuideState, writeAgentGuide } from "../doctor/primitives.js";
+import { clearPackageRulesCache, discoverPackages } from "../doctor/package-rules.js";
 import { appBlocksSwitchedOff, blockOfSource, switchedOffNote } from "../blocks/starter-features.js";
 import { readApp, readPackageFile, replaceApp, sha256 } from "../blocks/files.js";
 import { APP_FOLDER_PLACEHOLDER, starterIdentity } from "../blocks/init-native.js";
@@ -40,11 +50,13 @@ import { localPackageNames } from "../blocks/local.js";
 import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
 import { starterDir, templatesDir } from "../blocks/templates.js";
 import { bumpPackageJson, bumpSummary, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
-import { codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
+import { breakLines, fetchChangelog, type ChangelogReader } from "./changelog.js";
+import { codemodInstallNote, codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
+import { componentValues, handBuiltSwaps, swapLines, type HandBuiltSwap } from "./new-exports.js";
 import { applyOverlayPlans, gitUpstream, overlayChecklist, planOverlays, type OverlayLockEdit, type OverlayPlan, type UpstreamSource } from "./overlays.js";
 import { BUN_LOCK, readBunLock, removeBunLockEntries, staleNestedEntries, type StaleNestedEntry } from "../blocks/bun-lock.js";
 
-export interface ReleaseLookup {
+export interface ReleaseLookup extends ChangelogReader {
   /** The umbrella's version and versions.json for a version or dist-tag. */
   release(target: string): { version: string; packages: Record<string, string> };
   /** npm `latest` of a package the umbrella doesn't list, or null. */
@@ -66,6 +78,10 @@ export interface UpgradeOptions {
    */
   dedupe?: boolean | ((root: string) => void);
   doctor?: boolean;
+  /** Regenerate the agent guide after, when the app has it (default true). */
+  agents?: boolean;
+  /** Run `features build` after, when the app has a registry (default true). */
+  featuresBuild?: boolean;
   /** Leave every owned file the app changed as it is (the new text goes to .genesis-next), without merging. */
   keepMine?: boolean;
   /** Open a pull request. */
@@ -92,6 +108,8 @@ export interface UpgradeReport {
   /** Locked blocks left out because their starter.config.ts switch is off, with why. */
   switchedOff: string[];
   newMigrations: string[];
+  /** Exports the release gained that the app builds by hand, each a swap to make. */
+  swaps: HandBuiltSwap[];
   doctor: "passed" | "failed" | "not run";
   files: string[];
   summary: string;
@@ -156,7 +174,26 @@ export function npmLookup(cwd: string): ReleaseLookup {
       }
       return latest.get(name)!;
     },
+    changelog: fetchChangelog,
   };
+}
+
+/** Stops before anything is written when the app's dependencies aren't installed: a clear way on, not a failure further down. */
+function checkInstalled(root: string, options: Pick<UpgradeOptions, "install" | "doctor" | "dryRun">): void {
+  // Needed for the merge bases, or for a doctor no install will come before.
+  const noInstall = options.install === false || options.dryRun;
+  if (!Object.keys(readLock(root).files).length && !(noInstall && options.doctor !== false)) return;
+  const text = readApp(root, "package.json");
+  if (text === null) return;
+  let pkg: Record<string, Record<string, string> | undefined>;
+  try {
+    pkg = JSON.parse(text) as typeof pkg;
+  } catch {
+    return; // The bump reports a package.json it can't read.
+  }
+  const declared = ["dependencies", "devDependencies", "optionalDependencies"].some((s) => Object.keys(pkg[s] ?? {}).some((name) => name.startsWith("@marktiderman/genesis")));
+  if (!declared || installedGenesis(root).size) return;
+  throw new Error(`This app's dependencies aren't installed: package.json lists Genesis packages, but none is in node_modules. Run \`${shellLine(installCommand(detectPackageManager(root)))}\`, then genesis upgrade again. Nothing was changed. (The upgrade merges your edits to owned files against the installed versions, and the doctor reads them.)`);
 }
 
 function readText(file: string): string | null {
@@ -189,6 +226,13 @@ function gitTopLevel(root: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** The app's folder from the repository's root ("" at the root), or null outside git. */
+function folderBelowTopLevel(root: string): string | null {
+  const real = realpathSync(root);
+  const top = gitTopLevel(real);
+  return top === null ? null : path.relative(top, real).split(path.sep).join("/");
 }
 
 const inside = (dir: string, file: string) => {
@@ -295,6 +339,7 @@ function sourceText(root: string, source: string, substitutions: Record<string, 
 export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport> {
   const root = path.resolve(options.root);
   const log = options.log ?? (() => {});
+  checkInstalled(root, options);
   const lookup = options.lookup ?? npmLookup(root);
   const release = options.manifest
     ? (JSON.parse(readFileSync(path.resolve(options.manifest), "utf8")) as { version: string; packages: Record<string, string> })
@@ -347,12 +392,34 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   const lock = readLock(root);
   const home = databaseElsewhere(root);
   checkSubstitutions(lock.substitutions);
+  const appFolder = appFolderOf(root);
+  const written = folderSubstitutions(lock.substitutions, appFolder);
+  const ownedText = (file: string, source: string) => {
+    const text = sourceText(root, source, written);
+    return text === null ? null : renderOwned(file, text, appFolder);
+  };
   const bases = new Map<string, string>();
+  const basesFromPending = new Set<string>();
   for (const [file, entry] of Object.entries(lock.files)) {
     if (ownedKeyProblem(file, entry.source, localPackageNames(root))) continue;
-    const text = sourceText(root, entry.source, lock.substitutions);
-    if (text !== null && sha256(text) === entry.sha256) bases.set(file, text);
+    const text = ownedText(file, entry.source);
+    if (text === null) continue;
+    // The lock's checksum is of this text, or of it before `appFolder` was set.
+    const was = sourceText(root, entry.source, lock.substitutions);
+    const taken = [sha256(text), ...(was === null ? [] : [sha256(was)])];
+    // Or the last upgrade's .genesis-next was worked in and deleted, with no run in between: that
+    // version is what the app's file was resolved against. Its being gone isn't enough (it's never
+    // committed), so the app's file must have changed since it was written.
+    const mine = entry.pending && entry.pendingMine && taken.includes(entry.pending) && readApp(root, `${file}.genesis-next`) === null ? readApp(root, file) : null;
+    const resolved = mine !== null && sha256(mine) !== entry.pendingMine;
+    if (taken.includes(entry.sha256)) bases.set(file, text);
+    else if (resolved) {
+      bases.set(file, text);
+      basesFromPending.add(file);
+    }
   }
+  // The export names before the install, to see which ones the release adds.
+  const valuesBefore = options.dryRun ? null : componentValues(root);
 
   const files = new Set<string>();
   const lockEdits: OverlayLockEdit[] = [];
@@ -370,6 +437,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     codemodRuns.push({ id: mod.id, files: changed });
     for (const f of changed) files.add(f);
   }
+  const codemodNeedsInstall = options.install === false ? codemodInstallNote(root, codemodRuns.flatMap((c) => c.files), Boolean(options.dryRun)) : null;
 
   // Bun keeps a nested copy of a Genesis package across installs even once the root's version
   // satisfies its parent, so drop those first (against the versions the release moves the root to).
@@ -446,7 +514,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   // then owned files, skills a block gained, and fragments.
   const added: string[] = [];
   const newMigrations: string[] = [];
-  const warnings: string[] = [...excludeWarnings];
+  const warnings: string[] = [...excludeWarnings, ...(codemodNeedsInstall ? [codemodNeedsInstall] : [])];
   const manifests = [];
   // A block whose starter.config.ts switch is off is left out: no migrations planned, no files refreshed or added.
   const catalog = catalogBlocks();
@@ -495,13 +563,37 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       continue;
     }
     const problem = ownedKeyProblem(file, entry.source, localPackageNames(root));
-    const theirs = problem ? null : sourceText(root, entry.source, lock.substitutions);
+    const theirs = problem ? null : ownedText(file, entry.source);
     const dir = problem ? null : packageDir(root, parseSource(entry.source).package);
     const version = dir ? packageVersion(dir) : undefined;
-    const outcome = refreshOwned(root, lock, { path: file, theirs, base: bases.get(file) ?? null, ...(version ? { version } : {}) }, { ...(options.dryRun ? { dryRun: true } : {}), ...(options.keepMine ? { keepMine: true } : {}) });
+    // GitHub reads workflows from the repository's root, in a file that holds the rest of its CI:
+    // nothing is written or merged, the template's change is only named, once.
+    if (appFolder && !problem && isRepositoryWorkflow(file)) {
+      if (theirs !== null && sha256(theirs) !== entry.sha256) {
+        lock.files[file] = { ...entry, sha256: sha256(theirs), ...(version ? { version } : {}) };
+        refreshed.push({ path: file, outcome: "repository", detail: `the template changed; your copy is in the repository's own .github/workflows (with working-directory: ${appFolder}), so compare it with ${entry.source}` });
+      } else refreshed.push({ path: file, outcome: "unchanged" });
+      continue;
+    }
+    const outcome = refreshOwned(root, lock, { path: file, theirs, base: bases.get(file) ?? null, ...(basesFromPending.has(file) ? { baseIsPending: true } : {}), ...(version ? { version } : {}) }, { ...(options.dryRun ? { dryRun: true } : {}), ...(options.keepMine ? { keepMine: true } : {}) });
     refreshed.push(outcome);
+    if (appFolder && outcome.outcome !== "updated" && !problem) {
+      const template = sourceText(root, entry.source, written);
+      const mine = template === null ? null : readApp(root, file);
+      const stale = mine === null ? [] : unprefixedTemplatePaths(root, file, mine, template!, appFolder);
+      if (stale.length) warnings.push(`${file} keeps your edits, so these paths are still from the app's folder and never match: ${stale.join(", ")}. Start them with ${appFolder}/ by hand.`);
+    }
     if (outcome.outcome === "updated" || outcome.outcome === "merged") files.add(file);
     if ((outcome.outcome === "conflict" || outcome.outcome === "kept-mine") && !outcome.detail?.includes("already there")) next.add(`${file}.genesis-next`);
+  }
+  // A workflow edited only for the app's folder conflicts on every template change: say what ends that.
+  const folderInRepo = appFolder ? null : folderBelowTopLevel(root);
+  if (folderInRepo && refreshed.some((r) => (r.outcome === "conflict" || r.outcome === "kept-mine") && /^\.(?:eas|github)\/workflows\//.test(r.path))) {
+    warnings.push(`This app sits in ${folderInRepo}/ in its repository. Set "appFolder": "${folderInRepo}" in genesis.config.json, and the next upgrade writes the EAS workflows' paths from the repository root, so they stop conflicting.`);
+  }
+  if (appFolder) {
+    const actual = folderBelowTopLevel(root);
+    if (actual !== null && actual !== appFolder) warnings.push(`genesis.config.json says "appFolder": "${appFolder}", but this app is at ${actual || "the repository's root"}.`);
   }
   const functionsLeft: string[] = [];
   for (const manifest of manifests) {
@@ -537,23 +629,63 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     if (readApp(root, LOCK_FILE) !== before) files.add(LOCK_FILE);
   }
 
-  // 4. The doctor.
+  // 4. What's generated from the packages now installed, and what the release added that the app hand-builds.
+  const generated = new Set<string>();
+  if (!options.dryRun) {
+    clearPackageRulesCache();
+    if (options.agents !== false) {
+      try {
+        const packages = discoverPackages(root);
+        const state = agentGuideState(root, packages);
+        // An app that hasn't adopted the guide is left alone, as the doctor leaves it; `genesis agents` adopts it.
+        if (state.skill !== "missing" || state.agents !== "missing") {
+          const broken = packages.filter((p) => p.error);
+          if (broken.length) warnings.push(`The agent guide wasn't regenerated: ${broken.map((p) => p.error).join("; ")}`);
+          else for (const f of writeAgentGuide(root, packages)) generated.add(f);
+        }
+      } catch (err) {
+        warnings.push(`genesis agents failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    if (options.featuresBuild !== false && registryFile(root)) {
+      try {
+        const { runFeaturesBuild } = await import("../features.js");
+        for (const f of await runFeaturesBuild({ dir: root })) generated.add(f);
+      } catch (err) {
+        warnings.push(`features build failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  }
+  for (const f of generated) files.add(f);
+  const swaps = handBuiltSwaps(root, valuesBefore);
+  if (swaps.length) log(["", `This release adds exports the app builds by hand; genesis doctor's shadowed-export reports each:`, ...swapLines(swaps), ""].join("\n"));
+
+  // 5. The doctor.
   let doctor: UpgradeReport["doctor"] = "not run";
+  let doctorProblem: string | undefined;
   if (options.doctor !== false) {
     try {
       const { runDoctor, formatReport } = await import("../doctor/index.js");
-      const result = await runDoctor({ root });
+      const result = await runDoctor({ root, figma: false });
       log(formatReport(result));
       doctor = result.ok ? "passed" : "failed";
     } catch (err) {
-      log(`genesis doctor couldn't run: ${err instanceof Error ? err.message : String(err)}`);
+      doctorProblem = err instanceof Error ? err.message : String(err);
+      log(`genesis doctor couldn't run: ${doctorProblem}`);
       doctor = "failed";
     }
   }
 
+  // `git add` refuses an ignored path by name, which would stop --pr part way through.
+  const ignored = options.pr && !options.dryRun ? gitIgnored(root, [...files, ...lockfilesFor(root)]) : [];
+  for (const f of ignored) files.delete(f);
+
   const lines = [bumpSummary(release.version, changes, skipped)];
+  if (ignored.length) lines.push("", `Changed but gitignored, so not in the pull request: ${ignored.join(", ")}.`);
   if (codemodRuns.length) lines.push("", "Codemods:", "", ...codemodRuns.map((c) => `- ${c.id}${c.files.length ? `: ${c.files.join(", ")}` : ""}`));
-  if (breaks.length) lines.push("", "Major moves with no codemod (read their changelogs):", "", ...breaks.map((b) => `- \`${b.name}\` ${b.from} → ${b.to}`));
+  if (breaks.length) lines.push("", "Major moves with no codemod:", "", ...(await breakLines(root, breaks, lookup)));
+  if (swaps.length) lines.push("", "New exports this app builds by hand (`shadowed-export` reports each until it's swapped or renamed):", "", ...swapLines(swaps));
+  if (generated.size) lines.push("", `Regenerated from the installed packages: ${[...generated].join(", ")}.`);
   const touched = refreshed.filter((r) => r.outcome !== "unchanged");
   if (touched.length || added.length) {
     lines.push("", options.dryRun ? "Files Genesis owns (against the packages installed now; a real run compares with the new versions after the install):" : "Files Genesis owns:", "", ...touched.map((r) => `- ${r.path}: ${r.outcome}${r.detail ? ` (${r.detail})` : ""}`), ...added.map((a) => `- ${a}: added`));
@@ -576,10 +708,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   }
   lines.push(...overlayChecklist(overlays));
   if (warnings.length) lines.push("", "Warnings:", "", ...warnings.map((w) => `- ${w}`));
-  lines.push("", `\`genesis doctor\` ${doctor === "not run" ? "was not run" : doctor} after the upgrade.`);
+  lines.push("", doctorProblem ? `\`genesis doctor\` couldn't run after the upgrade: ${doctorProblem}` : `\`genesis doctor\` ${doctor === "not run" ? "was not run" : doctor} after the upgrade.`);
   const summary = lines.join("\n");
 
-  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, switchedOff, newMigrations, doctor, files: [...files].sort(), summary, overlays, ...(bunLock ? { bunLock } : {}) };
+  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, switchedOff, newMigrations, swaps, doctor, files: [...files].sort(), summary, overlays, ...(bunLock ? { bunLock } : {}) };
   if (options.pr && !options.dryRun && files.size) report.pr = openPullRequest(root, release.version, report, prBase!);
   return report;
 }
@@ -588,24 +720,43 @@ const SUBSTITUTION_VALUE = /^[A-Za-z0-9][A-Za-z0-9 .+-]{0,59}$/;
 
 /**
  * The lock's substitutions rename templates, so only the starter's own values
- * (read from the starter this CLI ships) and the app-folder placeholder may be
- * replaced, each with a plain name.
+ * (read from the starter this CLI ships), each with a plain name, and the EAS
+ * workflows' app-folder placeholder, with a plain relative path, may be replaced.
  */
-function checkSubstitutions(substitutions: Record<string, string> | undefined): void {
+export function checkSubstitutions(substitutions: Record<string, string> | undefined): void {
   if (!substitutions || !Object.keys(substitutions).length) return;
-  let allowed: string[];
+  let names: string[];
   try {
     const was = starterIdentity(readFileSync(path.join(starterDir(), "starter.config.ts"), "utf8"));
-    // And the EAS workflows' app-folder placeholder, which init fills with the app's code folder.
-    allowed = [was.name, was.slug, was.scheme, was.bundleId, APP_FOLDER_PLACEHOLDER];
+    names = [was.name, was.slug, was.scheme, was.bundleId];
   } catch {
-    allowed = [];
+    names = [];
   }
   for (const [from, to] of Object.entries(substitutions)) {
-    if (!allowed.includes(from) || !SUBSTITUTION_VALUE.test(to)) {
+    if (from === APP_FOLDER_PLACEHOLDER) {
+      if (!isPlainFolder(to)) throw new Error(`genesis.lock.json: the substitution ${from} → ${JSON.stringify(to)} isn't a plain folder inside the repository (src, or apps/web); fix the lock by hand.`);
+    } else if (!names.includes(from) || !SUBSTITUTION_VALUE.test(to)) {
       throw new Error(`genesis.lock.json: the substitution ${JSON.stringify(from)} → ${JSON.stringify(to)} isn't one of the starter's names with a plain value; fix the lock by hand.`);
     }
   }
+}
+
+/** The lockfiles a pull request carries, app-relative: possibly in a folder above the app (a workspace), up to the repository's root. */
+function lockfilesFor(root: string): string[] {
+  const top = gitTopLevel(root);
+  const lockfiles: string[] = [];
+  for (let dir = realpathSync(root); ; dir = path.dirname(dir)) {
+    for (const f of ["pnpm-lock.yaml", "bun.lock", "bun.lockb", "package-lock.json", "yarn.lock"]) if (existsSync(path.join(dir, f))) lockfiles.push(path.relative(realpathSync(root), path.join(dir, f)));
+    if (lockfiles.length || dir === top || path.dirname(dir) === dir) break;
+  }
+  return lockfiles;
+}
+
+/** Those of `files` git ignores (a tracked file never counts: `git add` takes it). */
+function gitIgnored(root: string, files: readonly string[]): string[] {
+  if (!files.length) return [];
+  const result = spawnSync("git", ["check-ignore", "--stdin", "-z"], { cwd: root, input: files.join("\0"), encoding: "utf8" });
+  return result.status === 0 ? result.stdout.split("\0").filter(Boolean) : [];
 }
 
 /** Before anything is written: a --pr run needs a clean tree, a branch to start from, and a free branch name. */
@@ -631,14 +782,9 @@ function openPullRequest(root: string, version: string, report: UpgradeReport, b
   const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   const branch = `genesis-upgrade/${version}`;
   git("switch", "-c", branch);
-  // The lockfile may be in a folder above the app (a workspace), up to the repository's root.
-  const top = git("rev-parse", "--show-toplevel");
-  const lockfiles: string[] = [];
-  for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
-    for (const f of ["pnpm-lock.yaml", "bun.lock", "bun.lockb", "package-lock.json", "yarn.lock"]) if (existsSync(path.join(dir, f))) lockfiles.push(path.relative(root, path.join(dir, f)));
-    if (lockfiles.length || dir === top || path.dirname(dir) === dir) break;
-  }
-  const paths = [...report.files.filter((f) => existsSync(path.join(root, f))), ...lockfiles];
+  const lockfiles = lockfilesFor(root);
+  const ignoredLocks = gitIgnored(root, lockfiles);
+  const paths = [...report.files.filter((f) => existsSync(path.join(root, f))), ...lockfiles.filter((f) => !ignoredLocks.includes(f))];
   git("add", "--", ...paths);
   // What the overlay rebase deleted (a file gone upstream, or the whole overlay), staged as deletions.
   const overlayDirs = report.overlays.filter((o) => !o.skipped && !o.conflicts.length && (o.remove || [...o.writes.values()].includes(null))).map((o) => o.rel);

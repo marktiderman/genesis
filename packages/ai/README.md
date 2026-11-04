@@ -230,6 +230,8 @@ const moderator = {
 };
 ```
 
+`consent: "terms"` sends the words to that vendor from someone who hasn't agreed. A safety protocol can run for such a person (genesis-support's `answerHelpQuestion` does), so use it there only when your terms cover it; with `consent: "person"` the wrapped call refuses instead.
+
 ## Status
 
 P1 of [docs/AI.md](../../docs/AI.md): the pipeline, vendors, BYOK, the store, the schema, the

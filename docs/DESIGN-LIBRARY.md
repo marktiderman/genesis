@@ -5,6 +5,8 @@ system's CSS variables and whose components are genesis-ui-native's exports, a B
 with one mode per consumer app, and Code Connect templates that show a designer the Genesis
 call for the component they selected. Feature: `figma-design-library` in `features.ts`.
 
+Working practice for agents (app files, gaps, publishing, the MCP) is in [FIGMA-GUIDELINES.md](FIGMA-GUIDELINES.md).
+
 ## One library file
 
 The library is a single Figma file, **Genesis**. It holds two kinds of things.
@@ -61,6 +63,18 @@ in px, and the full light and dark role maps for reference. Add the primitives a
 Figma from the `brand` entries; when a brand changes in code, regenerate and update the mode. The mode is derived; the
 brand file is the source, as it is for the theme CSS.
 
+**A brand's own dark mode, accents, gradient and display face.** Four optional brand fields
+reach the library the same way. `dark` sets the dark surface, foreground, primary, primary
+foreground, neutrals, status and signal; the script writes them as `-dark` variables in Brand
+(`brand/background-dark`, `brand/foreground-dark`, `brand/primary-foreground-dark`,
+`brand/signal-dark`, `brand/signal-foreground-dark`, beside `brand/primary-dark`), and the Color
+collection's dark modes alias them, so a brand without `dark` keeps the Genesis dark values.
+`accents` (a name → colour map) is what `TierBadge` / `NativeTierBadge` take as `tone`.
+`gradients.primary` becomes `brand/gradient-from`, `brand/gradient-to` and
+`brand/gradient-angle`, which the `gradient` variant of Button and NativeButton paints (the
+primary when unset). `typography.display` adds `brand/font-display-weight` and
+`brand/font-display-numeric` beside `brand/font-display`.
+
 An app's Figma file **subscribes** to the Genesis library and sets its pages to its Brand mode.
 Nothing is copied: a change to a component or a token in the library reaches every app's file as
 a library update, and a brand change is a change to one mode. Designing a new app means a new
@@ -107,11 +121,74 @@ The templates folder is not shipped: `packages/ui-native/package.json` `files` l
 
 ### The ratchet: `pnpm check:code-connect`
 
-`scripts/check-code-connect.mjs` covers two packages: genesis-ui-native (the `Native*`
-components and the page layouts) and genesis-ui for the web (its PascalCase exports, minus
-sub-parts, typography, auto-layout primitives and cell formatters). Each package keeps its own
-allowlist beside its templates: `packages/ui-native/figma/code-connect.json` and
-`packages/ui/figma/code-connect.json`. `--list <package>` prints the discovered names.
+`scripts/check-code-connect.mjs` covers genesis-ui-native, genesis-ui, genesis-chat, and the
+genesis-native, genesis-notifications, genesis-product, genesis-forms-native, genesis-forms-web,
+genesis-sites and genesis-studio packages below. The first three: genesis-ui-native (the `Native*`
+components and the page layouts), genesis-ui for the web (its PascalCase exports, minus
+sub-parts, typography, auto-layout primitives and cell formatters), and genesis-chat (the
+PascalCase exports of `/native` and `/web`, minus hooks, providers and the non-visual
+`ChatAutoRetry` and `ChatErrorBoundary`). Each keeps its own allowlist beside its templates:
+`packages/ui-native/figma/code-connect.json`, `packages/ui/figma/code-connect.json`, and for chat
+one per entry point, `packages/chat/figma/native/` and `packages/chat/figma/web/` (both export a
+`ChatComposer`, a `ChatTopicBar` and more under the same name, so each is checked as its own
+package: `chat-native`, `chat-web`). `--list <package>` prints the discovered names.
+
+Chat's components are on the library pages **Chat · Native** and **Chat · Web**. The native ones
+nest the Messages page's primitives (`Msg/Bubble`, `Msg/Tapback`, `Msg/TapbackBar`,
+`Msg/RecordCard`, `NativeComposerBar`, `NativeZoomablePhoto`) as exposed instances rather than
+redrawing them. Chat's screens, sheets of library parts and dispatchers (`ChatInboxScreen`,
+`ChatPanel`, `ChatDock`, `MessageAttachments` on the web) are `composed`.
+
+Three more packages follow the same pattern, each with its own allowlist:
+
+- **genesis-native** (`native`, `packages/native/figma/`), page **Native · App**: the PascalCase
+  exports of `.`, `/push` and `/updates`, minus the app plumbing (roots, boundaries, gates, error
+  classes, `GenesisNativeApp` and its trivial `BootScreen`). The three error fallbacks are one
+  component set, `FatalScreen`, with a `kind` variant (`app`, `screen`, `plain`); the templates
+  for `FatalScreen`, `ScreenErrorScreen` and `PlainFatalScreen` each point at their variant.
+  `NotificationSettings` is `composed` (a SettingsPage of library rows).
+- **genesis-notifications** (`notifications-web`, `notifications-native`,
+  `packages/notifications/figma/{web,native}/`), page **Notifications**, grouped by platform. Its
+  entry points declare their components in the index itself, so the check reads
+  `export function Name(` there. `NotificationRowView` and `NotificationBell` are library
+  components; the feeds, preference tables and admin tables are `composed`. The React Email parts
+  (`./email`) are not app UI and are not read.
+- **genesis-product** (`product`, `packages/product/figma/`), page **Product**: `VoteButton`,
+  `ProductWhatsNewSheet` (separate from genesis-native's `WhatsNewSheet`: product notes, with a
+  Learn more per note) and `RoadmapDetailSheet`; the screens and the store wrapper are `composed`.
+
+Four more cover the forms, sites and the data studio:
+
+- **genesis-forms-native** (`forms-native`, `packages/forms-native/figma/`), page **Forms · Native**:
+  its PascalCase exports minus contexts and ChoiceRow's parts (`Indicator`, `OptionImage`). The
+  package draws with genesis-ui-native's primitives (`NativeButton`, `NativeText`, `NativeInput`,
+  `NativeProgress`), colored from its own form theme, so its components are drawn to its own
+  styles (bound to the Color variables). Its `Button` and `FieldChrome` are named `FormsNative/Button` and
+  `FormsNative/FieldChrome` in Figma, apart from genesis-ui's `Button` and forms-web's
+  `FieldChrome`. `FormFocus` (the whole screen), `NativeFieldRenderer` and `ContentStep`
+  (dispatchers) are `composed`.
+- **genesis-forms-web** (`forms-web`, `packages/forms-web/figma/`), page **Forms · Web**: `FieldChrome`,
+  the header, brand, progress, navigation, ending and error-summary slots (`FormsWeb/…` in Figma)
+  and the field renderers are library components with templates; `Form` is `composed`.
+- **genesis-sites** (`sites`, `packages/sites/figma/`), page **Sites**: a section is a
+  `defineSection` constant (data in a page document), not a component export, so the ratchet
+  keys on the section's `type` string, read from the file each `*Section` in
+  `src/sections/index.ts` is imported from: `hero`, `rich-text`… with templates `hero.figma.ts`.
+  Each section is one 1440-wide component set with its variants as the `variant` option and a
+  preset as sample content. Its template emits the `SectionNode` an app writes into a page
+  (`{ id, type, v, variant, props }`), not JSX, since that is how sites use sections. Beside
+  them, the shared parts the index re-exports (`SectionBand`, `SectionIntro`, `SectionTitle`,
+  `ItemTitle`, `ButtonLink`, `TextLink`, `SiteImage`, `SiteFormHeader`) have JSX templates; the
+  zod schemas exported under PascalCase names (`Anchor`, `IconName`) and the screen-reader-only
+  `HiddenTitle` are excluded.
+- **genesis-studio** (`studio`, `packages/studio/figma/`), page **Studio**: the toolbar parts,
+  panels, views, record panel, dialogs, `FieldIcon` and `Pill` (`Studio/…` in Figma) have
+  templates; `DataStudio` is `composed`.
+
+Except forms-web's `DefaultEnding` (its title and description), these templates are a fixed
+example, a bare `<X {...props} />` or sample values: they clear the ratchet but map no Figma
+properties yet, so Dev Mode shows the import and not the props. "Required" means a template
+exists, not that its properties are mapped.
 
 ```json
 { "required": ["NativeAvatar"], "notYet": ["NativeRangeSlider", "…"], "composed": ["SettingsPage", "…"] }

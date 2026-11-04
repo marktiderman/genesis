@@ -88,10 +88,112 @@ describe("ThreadPage (web)", () => {
     expect(Element.prototype.scrollTo).toHaveBeenCalled();
   });
 
+  it("goes to a row by jumpId when its id is the client's, and highlights it", async () => {
+    const rows: ThreadMessage[] = [
+      { id: "c1", jumpId: "m1", body: "first", mine: false, timestamp: "2026-10-01T09:00:00Z" },
+      { id: "c2", jumpId: "m2", body: "second", mine: true, timestamp: "2026-10-01T09:01:00Z" },
+    ];
+    const onJumpFailed = vi.fn();
+    render(<ThreadPage testID="t" messages={rows} composer={composer()} jumpTo="m2" onJumpFailed={onJumpFailed} />);
+    await waitFor(() => expect(screen.getByTestId("t-message-c2").className).toMatch(/ring-2/));
+    expect(Element.prototype.scrollTo).toHaveBeenCalled();
+    expect(onJumpFailed).not.toHaveBeenCalled();
+  });
+
+  it("follows the bottom again after a jump that moved nothing (a short thread)", async () => {
+    render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="2" />);
+    await waitFor(() => expect(screen.getByTestId("t-jump-latest")).toBeTruthy());
+    // Everything's on screen, so no scroll event says so: the list looks for itself.
+    await waitFor(() => expect(screen.queryByTestId("t-jump-latest")).toBeNull(), { timeout: 2000 });
+  });
+
   it("says when a message to go to can't be found", async () => {
     const onJumpFailed = vi.fn();
     render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="gone" onLoadUntil={async () => false} onJumpFailed={onJumpFailed} />);
     await waitFor(() => expect(onJumpFailed).toHaveBeenCalledWith("gone"), { timeout: 2000 });
+  });
+
+  describe("a jump that doesn't land", () => {
+    const status = () => screen.getAllByRole("status").map((el) => el.textContent).join("");
+
+    it("tells a screen reader itself only when the app didn't take it on", async () => {
+      const { unmount } = render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="gone" onLoadUntil={async () => false} labels={{ messageGone: "Not here" }} />);
+      await waitFor(() => expect(status()).toContain("Not here"), { timeout: 2000 });
+      unmount();
+      const onJumpFailed = vi.fn();
+      render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="gone" onLoadUntil={async () => false} onJumpFailed={onJumpFailed} labels={{ messageGone: "Not here" }} />);
+      await waitFor(() => expect(onJumpFailed).toHaveBeenCalled(), { timeout: 2000 });
+      await act(async () => void (await new Promise((r) => setTimeout(r, 100))));
+      expect(status()).not.toContain("Not here");
+    });
+
+    it("leaves the reader where they are", async () => {
+      vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(() => 2000);
+      vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(() => 500);
+      const onJumpFailed = vi.fn();
+      const { rerender } = render(<ThreadPage testID="t" messages={messages} composer={composer()} onLoadUntil={async () => false} onJumpFailed={onJumpFailed} />);
+      const log = screen.getByRole("log");
+      log.scrollTop = 300;
+      fireEvent.scroll(log);
+      rerender(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="gone" onLoadUntil={async () => false} onJumpFailed={onJumpFailed} />);
+      await waitFor(() => expect(onJumpFailed).toHaveBeenCalled(), { timeout: 2000 });
+      expect(log.scrollTop).toBe(300);
+      expect(screen.getByTestId("t-jump-latest")).toBeTruthy();
+    });
+  });
+
+  describe("the reader during a jump", () => {
+    it.each([
+      ["a wheel", (log: HTMLElement) => fireEvent.wheel(log)],
+      ["a touch", (log: HTMLElement) => fireEvent.touchMove(log)],
+      ["a key", (log: HTMLElement) => fireEvent.keyDown(log, { key: "PageUp" })],
+      ["the scrollbar", (log: HTMLElement) => fireEvent.pointerDown(log)],
+    ])("%s drops a jump still loading: the row arriving doesn't move the list", async (_name, move) => {
+      let resolve: (v: boolean) => void = () => undefined;
+      const onLoadUntil = vi.fn(() => new Promise<boolean>((r) => (resolve = r)));
+      const onJumpFailed = vi.fn();
+      const older = { id: "old", body: "older", mine: false, timestamp: "2026-10-01T08:00:00Z" };
+      const { rerender } = render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="old" onLoadUntil={onLoadUntil} onJumpFailed={onJumpFailed} />);
+      await waitFor(() => expect(onLoadUntil).toHaveBeenCalled());
+      move(screen.getByRole("log"));
+      await act(async () => resolve(true));
+      vi.mocked(Element.prototype.scrollTo).mockClear();
+      rerender(<ThreadPage testID="t" messages={[older, ...messages]} composer={composer()} jumpTo="old" onLoadUntil={onLoadUntil} onJumpFailed={onJumpFailed} />);
+      await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+      expect(Element.prototype.scrollTo).not.toHaveBeenCalled();
+      expect(screen.getByTestId("t-message-old").className).not.toMatch(/ring-2/);
+      expect(onJumpFailed).not.toHaveBeenCalled();
+    });
+
+    it("loads earlier pages again once it has dropped the jump", async () => {
+      const onLoadEarlier = vi.fn();
+      const onLoadUntil = vi.fn(() => new Promise<boolean>(() => undefined));
+      render(<ThreadPage testID="t" messages={messages} composer={composer()} hasEarlier onLoadEarlier={onLoadEarlier} jumpTo="old" onLoadUntil={onLoadUntil} />);
+      await waitFor(() => expect(onLoadUntil).toHaveBeenCalled());
+      const log = screen.getByRole("log");
+      log.scrollTop = 0;
+      fireEvent.scroll(log);
+      expect(onLoadEarlier).not.toHaveBeenCalled();
+      fireEvent.wheel(log);
+      await act(async () => {});
+      fireEvent.scroll(log);
+      expect(onLoadEarlier).toHaveBeenCalledTimes(1);
+    });
+
+    it("doesn't take focus from a field the reader is typing in", async () => {
+      const { rerender } = render(<ThreadPage testID="t" messages={messages} composer={composer()} />);
+      const input = screen.getByTestId("t-composer-input");
+      input.focus();
+      rerender(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="2" />);
+      await waitFor(() => expect(screen.getByTestId("t-message-2").className).toMatch(/ring-2/));
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("focuses the row it landed on otherwise", async () => {
+      render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="2" />);
+      await waitFor(() => expect(screen.getByTestId("t-message-2").className).toMatch(/ring-2/));
+      expect(document.activeElement?.getAttribute("data-row-id")).toBe("2");
+    });
   });
 
   it("keeps the place when earlier messages arrive above", () => {
@@ -422,8 +524,130 @@ describe("InboxPage (web)", () => {
   });
 });
 
+describe("InboxPage (web): Home and End", () => {
+  it("go to the first and last rows", () => {
+    const items: InboxItem[] = [{ id: "a", title: "A" }, { id: "b", title: "B" }, { id: "c", title: "C" }];
+    render(<InboxPage testID="i" items={items} />);
+    const first = screen.getByTestId("i-row-a");
+    first.focus();
+    fireEvent.keyDown(first, { key: "End" });
+    expect(document.activeElement).toBe(screen.getByTestId("i-row-c"));
+    fireEvent.keyDown(screen.getByTestId("i-row-c"), { key: "Home" });
+    expect(document.activeElement).toBe(first);
+  });
+});
+
+describe("ThreadPage (web): files, errors and the modes' name", () => {
+  const withFile = (attachment: Partial<NonNullable<ThreadMessage["attachments"]>[number]>): ThreadMessage[] => [
+    { id: "1", body: "See attached", mine: false, timestamp: "2026-10-01T09:00:00Z", attachments: [{ id: "f", kind: "file", uri: "https://example.test/a.pdf", name: "a.pdf", ...attachment }] },
+  ];
+
+  it("shows a file by name, as a link to it", () => {
+    render(<ThreadPage testID="t" messages={withFile({})} composer={null} />);
+    const link = screen.getByTestId("t-attachment-f");
+    expect(link.tagName).toBe("A");
+    expect(link.getAttribute("href")).toBe("https://example.test/a.pdf");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.textContent).toContain("a.pdf");
+    expect(link.textContent).toContain("example.test");
+    expect(link.hasAttribute("download")).toBe(false);
+  });
+
+  it("downloads a blob: file under its name, with no host to show", () => {
+    render(<ThreadPage testID="t" messages={withFile({ uri: "blob:https://example.test/1" })} composer={null} />);
+    const link = screen.getByTestId("t-attachment-f");
+    expect(link.getAttribute("download")).toBe("a.pdf");
+    expect(link.textContent).toBe("a.pdf");
+  });
+
+  it("never links a file to a script, and onPress takes over", () => {
+    const onPress = vi.fn();
+    const { rerender } = render(<ThreadPage testID="t" messages={withFile({ uri: "javascript:alert(1)" })} composer={null} />);
+    expect(screen.getByTestId("t-attachment-f").tagName).toBe("SPAN");
+    rerender(<ThreadPage testID="t" messages={withFile({ onPress })} composer={null} />);
+    fireEvent.click(screen.getByTestId("t-attachment-f"));
+    expect(onPress).toHaveBeenCalled();
+  });
+
+  it("still draws an image by default", () => {
+    render(<ThreadPage testID="t" messages={[{ id: "1", body: "", mine: false, timestamp: "2026-10-01T09:00:00Z", attachments: [{ id: "i", uri: "https://example.test/a.png" }] }]} composer={null} />);
+    expect(screen.getByTestId("t-attachment-i").querySelector("img")).toBeTruthy();
+  });
+
+  it("has an error state, with Try again", () => {
+    const onRetry = vi.fn();
+    const { rerender } = render(<ThreadPage testID="t" messages={[]} composer={null} error onRetry={onRetry} />);
+    expect(screen.getByTestId("t-error").textContent).toContain("Couldn't load this conversation");
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(onRetry).toHaveBeenCalled();
+    expect(screen.queryByTestId("t-empty")).toBeNull();
+    rerender(<ThreadPage testID="t" messages={[]} composer={null} error errorTitle="Oops" errorBody="Later" />);
+    expect(screen.getByTestId("t-error").textContent).toContain("Oops");
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
+  it("shows the rows it has even with error", () => {
+    render(<ThreadPage testID="t" messages={messages} composer={null} error />);
+    expect(screen.queryByTestId("t-error")).toBeNull();
+    expect(screen.getByTestId("t-message-1")).toBeTruthy();
+  });
+
+  it("names the mode picker from the composer", () => {
+    render(<ThreadPage testID="t" messages={messages} composer={composer({ modesLabel: "Envoyer comme", modes: [{ id: "a", label: "A" }, { id: "b", label: "B" }] } as never)} />);
+    expect(screen.getByTestId("t-composer-modes").getAttribute("aria-label")).toBe("Envoyer comme");
+  });
+});
+
+describe("InboxLayout: views when narrow, and the toggle's row", () => {
+  const wide = (min: number) =>
+    vi.spyOn(window, "matchMedia").mockImplementation((q: string) => ({ matches: Number(/(\d+)px/.exec(q)?.[1] ?? 0) <= min, media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as MediaQueryList);
+
+  it("opens the views in a sheet from a button naming the chosen one, and closes on a choice", async () => {
+    wide(400);
+    const onSelect = vi.fn();
+    render(<InboxLayout testID="l" views={<InboxViews views={[{ id: "mine", label: "Mine" }]} onSelect={onSelect} />} activeViewLabel="Mine" list={<p>L</p>} />);
+    expect(screen.getByTestId("l-views-open").textContent).toContain("Mine");
+    fireEvent.click(screen.getByTestId("l-views-open"));
+    const sheet = await screen.findByTestId("l-views-sheet");
+    fireEvent.click(sheet.querySelector('[data-testid="inbox-views-mine"]')!);
+    expect(onSelect).toHaveBeenCalledWith("mine");
+    await waitFor(() => expect(screen.queryByTestId("l-views-sheet")).toBeNull());
+  });
+
+  it("keeps the toggle's row for a thread element, at any width", () => {
+    wide(800);
+    render(<InboxLayout testID="l" list={<p>L</p>} thread={<p>T</p>} context={<p>C</p>} onBack={vi.fn()} threadOpen />);
+    const toggle = screen.getByTestId("l-toggle-context");
+    expect(toggle.parentElement!.className).toContain("border-b");
+    expect(toggle.parentElement!.className).not.toContain("md:hidden");
+    expect(toggle.className).toContain("ml-auto");
+  });
+
+  it("hides Back from md up by class, so a server-rendered desktop page never shows it", () => {
+    wide(400);
+    render(<InboxLayout testID="l" list={<p>L</p>} thread={<p>T</p>} onBack={vi.fn()} threadOpen />);
+    expect(screen.getByTestId("l-back").className).toContain("md:hidden");
+  });
+
+  it("hands the toggle to a thread that places it", () => {
+    wide(800);
+    render(<InboxLayout testID="l" list={<p>L</p>} context={<p>C</p>} thread={({ contextToggle }) => <header data-testid="mine">{contextToggle}</header>} threadOpen />);
+    expect(screen.getByTestId("mine").contains(screen.getByTestId("l-toggle-context"))).toBe(true);
+    expect(screen.getAllByTestId("l-toggle-context")).toHaveLength(1);
+  });
+
+  it("spends no row from md up when the thread places the toggle, and only Back on a phone", () => {
+    wide(400);
+    render(<InboxLayout testID="l" list={<p>L</p>} context={<p>C</p>} onBack={vi.fn()} thread={({ contextToggle }) => <header>{contextToggle}</header>} threadOpen />);
+    const row = screen.getByTestId("l-back").parentElement!;
+    expect(row.className).toContain("md:hidden");
+    expect(row.contains(screen.getByTestId("l-toggle-context"))).toBe(false);
+  });
+});
+
 describe("InboxLayout", () => {
   it("shows the list or the open thread on narrow screens, with Back", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation((q: string) => ({ matches: false, media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as MediaQueryList);
     const onBack = vi.fn();
     const { rerender } = render(<InboxLayout testID="l" views={<p>Views</p>} list={<p>List</p>} thread={<p>Thread</p>} context={<p>Ctx</p>} onBack={onBack} />);
     expect(screen.getByTestId("l-list").className).toMatch(/(^|\s)flex(\s|$)/);

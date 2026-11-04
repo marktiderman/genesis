@@ -30,6 +30,12 @@ export interface OwnedFile {
    */
   pending?: string;
   /**
+   * The checksum of the app's file when `<file>.genesis-next` was written. A `.genesis-next` isn't
+   * committed, so its being gone proves nothing (a teammate's clone, say); the file having changed
+   * since is what shows that version was worked in.
+   */
+  pendingMine?: string;
+  /**
    * The app deleted this file on purpose (set by hand). `genesis upgrade` never brings a deleted
    * owned file back either way; the marker tells the doctor's `lock-files` rule the deletion is
    * meant, so it stops warning that a locked file is missing.

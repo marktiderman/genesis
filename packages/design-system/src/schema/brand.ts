@@ -274,6 +274,67 @@ export interface CanonicalBrand {
    * adds none.
    */
   designSystem?: DesignSystemChoice;
+
+  /**
+   * Optional signal colour (badges, counts, the unread dot). Unset: the
+   * primary, as before.
+   */
+  signal?: string;
+
+  /**
+   * Optional dark-mode colours. Without it dark mode is the Genesis dark
+   * theme with the brand's accent as primary where it reads; with it, each
+   * role the block sets is the dark theme's value (`surface` → background,
+   * card, popover; `text` → foreground; `accent` → primary; and so on), and
+   * the roles it leaves out keep the Genesis dark value. See
+   * {@link BrandDarkRoles}.
+   */
+  dark?: BrandDarkRoles;
+
+  /**
+   * Optional named accent colours (`{ gold: "#d4a017", trail: "#0d9488" }`),
+   * for an app's programme, mode or tier colours. Emitted as
+   * `--brand-accent-<name>` on web and `theme.accents` on native; nothing in
+   * Genesis reads them except `TierBadge`'s `tone`.
+   */
+  accents?: Record<string, string>;
+
+  /**
+   * Optional brand gradients. `primary` is what `Button` /
+   * `NativeButton` `variant="gradient"` paints; without it that variant is
+   * the primary colour. See {@link BrandGradient}.
+   */
+  gradients?: { primary?: BrandGradient };
+}
+
+/**
+ * A brand's dark-mode colours: the same role keys as the light ones
+ * (`surface`, `text` for the foreground, `accent` for the primary, `neutral`,
+ * `status`, `signal`), plus `primaryForeground` when the computed text on the
+ * primary isn't the one wanted. Every key is optional.
+ */
+export interface BrandDarkRoles {
+  /** Background, card and popover (`DEFAULT`). */
+  surface?: ColorScale;
+  /** Foreground: body text and its card / popover pairs (`DEFAULT`). */
+  text?: ColorScale;
+  /** Primary (`DEFAULT`), used as is: no contrast fallback. */
+  accent?: ColorScale;
+  /** Text on the primary. Unset: white or the darkest neutral, whichever reads. */
+  primaryForeground?: string;
+  /** Neutral ramp in dark mode: 800 → secondary / muted, 400 → muted foreground, 700 → border. */
+  neutral?: Record<string, string>;
+  /** Status colours in dark mode. */
+  status?: Partial<Record<"success" | "warning" | "error" | "info", ColorScale>>;
+  /** Signal colour in dark mode. */
+  signal?: string;
+}
+
+/** A two-stop linear gradient: `from` → `to`, at `angle` degrees (CSS, default 135). */
+export interface BrandGradient {
+  from: string;
+  to: string;
+  angle?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +366,23 @@ export interface TypographyTokens {
   lineHeight?: Record<string, string>;
   /** Font weights — string-numeric (`"400"`, `"700"`). */
   fontWeight?: Record<string, string>;
+  /**
+   * Optional display face for headlines and numerals, without changing body
+   * text: `--font-display` / `--font-weight-display` on web, the `display`
+   * text role on native. Unset: `fontFamily.display` when given, else the
+   * body face.
+   */
+  display?: DisplayTypography;
+}
+
+/** A brand's display face. */
+export interface DisplayTypography {
+  /** Font stack, `[head, ...fallbacks]` like `fontFamily` entries. */
+  family?: string[];
+  /** Numeric-hundreds weight (`"700"`). */
+  weight?: string;
+  /** `"tabular"` for numerals that line up (scores, timers). Default proportional. */
+  numeric?: "tabular" | "proportional";
 }
 
 // ---------------------------------------------------------------------------
@@ -433,6 +511,11 @@ const ALLOWED_TOP_LEVEL_KEYS = new Set([
   "gradient",
   "platformOverrides",
   "designSystem",
+  // Opt-in brand roles.
+  "signal",
+  "dark",
+  "accents",
+  "gradients",
 ]);
 
 const ALLOWED_STATUS_KEYS = new Set([
@@ -610,6 +693,64 @@ function validateTypography(value: unknown, path: string): string[] {
           );
         }
       }
+    }
+  }
+  return errors;
+}
+
+const isText = (v: unknown): v is string => typeof v === "string" && v.length > 0;
+
+/** Validate the opt-in roles: `signal`, `dark`, `accents`, `gradients`, `typography.display`. */
+function validateBrandRoles(b: Record<string, unknown>): string[] {
+  const errors: string[] = [];
+  if (b.signal !== undefined && !isText(b.signal)) errors.push("brand.signal: expected non-empty string");
+  if (b.dark !== undefined) {
+    if (!isPlainObject(b.dark)) errors.push("brand.dark: expected object");
+    else {
+      const allowed = new Set(["surface", "text", "accent", "primaryForeground", "neutral", "status", "signal"]);
+      for (const [k, v] of Object.entries(b.dark)) {
+        if (!allowed.has(k)) errors.push(`brand.dark.${k}: unknown property`);
+        else if (k === "surface" || k === "text" || k === "accent") {
+          if (!isColorScale(v)) errors.push(`brand.dark.${k}: expected ColorScale`);
+        } else if (k === "neutral") {
+          if (!isPlainObject(v) || !Object.values(v).every(isText)) errors.push("brand.dark.neutral: expected object map of strings");
+        } else if (k === "status") {
+          if (!isPlainObject(v)) errors.push("brand.dark.status: expected object");
+          else
+            for (const [sk, sv] of Object.entries(v)) {
+              if (!ALLOWED_STATUS_KEYS.has(sk)) errors.push(`brand.dark.status.${sk}: unknown property`);
+              else if (!isColorScale(sv)) errors.push(`brand.dark.status.${sk}: expected ColorScale`);
+            }
+        } else if (!isText(v)) errors.push(`brand.dark.${k}: expected non-empty string`);
+      }
+    }
+  }
+  if (b.accents !== undefined) {
+    if (!isPlainObject(b.accents)) errors.push("brand.accents: expected object map of colours");
+    else
+      for (const [k, v] of Object.entries(b.accents)) {
+        if (!/^[a-z][a-zA-Z0-9-]*$/.test(k)) errors.push(`brand.accents.${k}: key must start with a lowercase letter (letters, digits, -)`);
+        if (!isText(v)) errors.push(`brand.accents.${k}: expected non-empty string`);
+      }
+  }
+  if (b.gradients !== undefined) {
+    if (!isPlainObject(b.gradients)) errors.push("brand.gradients: expected object");
+    else
+      for (const [k, g] of Object.entries(b.gradients)) {
+        if (k !== "primary") errors.push(`brand.gradients.${k}: unknown property (only "primary")`);
+        else if (!isPlainObject(g) || !isText(g.from) || !isText(g.to) || Object.keys(g).some((k) => k !== "from" && k !== "to" && k !== "angle")) errors.push("brand.gradients.primary: expected { from, to, angle? }");
+        else if (g.angle !== undefined && (typeof g.angle !== "number" || !Number.isFinite(g.angle))) errors.push("brand.gradients.primary.angle: expected finite number (degrees)");
+      }
+  }
+  const display = isPlainObject(b.typography) ? b.typography.display : undefined;
+  if (display !== undefined) {
+    if (!isPlainObject(display)) errors.push("brand.typography.display: expected object");
+    else {
+      const unknown = Object.keys(display).filter((k) => k !== "family" && k !== "weight" && k !== "numeric");
+      if (unknown.length) errors.push(`brand.typography.display: unknown key ${unknown.join(", ")}`);
+      if (display.family !== undefined && (!Array.isArray(display.family) || display.family.length === 0 || !display.family.every(isText))) errors.push("brand.typography.display.family: expected string[] (font family stack)");
+      if (display.weight !== undefined && (typeof display.weight !== "string" || !FONT_WEIGHT_PATTERN.test(display.weight))) errors.push('brand.typography.display.weight: expected numeric-hundreds string (e.g. "700")');
+      if (display.numeric !== undefined && display.numeric !== "tabular" && display.numeric !== "proportional") errors.push('brand.typography.display.numeric: expected "tabular" or "proportional"');
     }
   }
   return errors;
@@ -931,6 +1072,8 @@ export function validateBrand(input: unknown, options: BrandValidationOptions = 
       )
     );
   }
+
+  errors.push(...validateBrandRoles(b));
 
   if (b.designSystem !== undefined) {
     errors.push(...validateDesignSystemChoice(b.designSystem, "brand.designSystem"));

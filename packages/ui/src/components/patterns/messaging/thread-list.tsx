@@ -23,7 +23,13 @@
  * The list is a `role="log"` region with live announcements off, so a page of
  * earlier messages isn't read out; `announce(row)` names a new row at the
  * bottom to say politely (someone else's message). ThreadPage passes one.
- * Reduce Motion scrolls without animating.
+ * Reduce Motion scrolls without animating. The reader's own scrolling (a
+ * wheel, a touch, the keys, the scrollbar) drops a jump still waiting on its
+ * load, and a row landing doesn't take focus from a field they're typing in.
+ *
+ * A row is gone when, once `onLoadUntil` has settled, no row answers to its
+ * id. The list knows only its rows: a row that's drawn (a deleted message's
+ * tombstone) is there, and whatever isn't drawn isn't, whatever a cache holds.
  *
  * @stability Beta
  */
@@ -35,6 +41,9 @@ import { Skeleton } from "../../ui/skeleton";
 
 /** Pixels from the bottom that still count as "at the bottom". */
 export const THREAD_AT_BOTTOM_PX = 120;
+
+/** After a jump lands, when to look whether it left the reader at the bottom (a later scroll event corrects it). */
+const LANDED_LOOK_MS = 450;
 
 export interface ThreadListHandle {
   /** Go to the newest row (after a send: what you send is what you look at next). */
@@ -68,9 +77,15 @@ export interface ThreadListProps<T> {
   renderEarlier?: ((props: { loading: boolean; onPress: () => void; label: string; testID: string }) => React.ReactNode) | undefined;
   /** Go to this row, loading earlier pages with `onLoadUntil` until it's here. A new id, or the same one after `null`, goes again. */
   jumpTo?: string | null | undefined;
+  /**
+   * The id `jumpTo` names a row by, when it isn't the row's key: a message keyed by the id the
+   * client gave it and gone to by the server's id. `null` for a row that can't be gone to.
+   * `keyExtractor` by default. Pass a stable function (module scope, or `useCallback`).
+   */
+  jumpId?: ((row: T) => string | null | undefined) | undefined;
   /** Load earlier pages until the row is held; resolve false when it can't be found. */
   onLoadUntil?: ((id: string) => Promise<boolean>) | undefined;
-  /** The row couldn't be found. The list goes back to the newest row first. */
+  /** No row answers to this id once `onLoadUntil` has settled, or it failed. The reader stays where they are. */
   onJumpFailed?: ((id: string) => void) | undefined;
   /** Whether the reader is at the bottom, as it changes (to show a "new messages" pill, say). */
   onAtBottomChange?: ((atBottom: boolean) => void) | undefined;
@@ -107,6 +122,10 @@ function centerRow(scroller: HTMLElement, row: HTMLElement, smooth: boolean) {
   else scroller.scrollTop = top;
 }
 
+const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "]);
+/** A field the reader is typing in: a row landing doesn't take focus from it. */
+const typingIn = (el: Element | null) => el instanceof HTMLElement && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
+
 const nearBottom = (el: HTMLElement) => el.scrollTop + el.clientHeight >= el.scrollHeight - THREAD_AT_BOTTOM_PX;
 
 type Before = { conversationId: string | null; firstId: string | null; lastId: string | null; height: number; top: number; anchorId: string | null; anchorOffset: number };
@@ -125,6 +144,7 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
     earlierLabel = "Load earlier messages",
     renderEarlier,
     jumpTo,
+    jumpId,
     onLoadUntil,
     onJumpFailed,
     onAtBottomChange,
@@ -304,29 +324,48 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
   }, [hasRows, showingLoading, record]);
 
   // Built from the row ids only, so a parent re-rendering (typing in the composer, or rows derived in render) doesn't restart a jump's wait.
-  const idsKey = data.map((row) => keyExtractor(row)).join("\u0000");
+  const idOf = jumpId ?? keyExtractor;
+  const idsKey = data
+    .map((row) => idOf(row))
+    .filter(Boolean)
+    .join("\u0000");
   const has = React.useMemo(() => {
     const ids = new Set(idsKey ? idsKey.split("\u0000") : []);
     return (id: string) => ids.has(id);
   }, [idsKey]);
-  const { highlightedId, jumping } = useThreadJump({
+  const landedLook = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => {
+    if (landedLook.current) clearTimeout(landedLook.current);
+  }, []);
+  const { highlightedId, jumping, cancel: cancelJump } = useThreadJump({
     target: jumpTo,
     has,
     loading,
     loadUntil: onLoadUntil,
     scrollTo: (id) => {
-      const el = scroller.current?.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(id)}"]`);
+      // By the row's key, which is what's on the element.
+      const row = latest.current.data.find((r) => idOf(r) === id);
+      const el = row !== undefined ? rowEl(latest.current.keyExtractor(row)) : null;
       if (el && scroller.current) centerRow(scroller.current, el, !prefersReducedMotion());
-      el?.focus({ preventScroll: true });
+      if (!typingIn(document.activeElement)) el?.focus({ preventScroll: true });
     },
     onStart: () => setAtBottom(false),
+    onLanded: () => {
+      // A jump to a row already in view moves nothing, so no scroll event says where the list is.
+      if (landedLook.current) clearTimeout(landedLook.current);
+      landedLook.current = setTimeout(() => {
+        if (scroller.current) setAtBottom(nearBottom(scroller.current));
+      }, LANDED_LOOK_MS);
+    },
     onGone: (id) => {
-      setAtBottom(true);
-      toBottom(false);
+      // Nothing moved: the reader stays where they are.
+      if (scroller.current) setAtBottom(nearBottom(scroller.current));
       latest.current.onJumpFailed?.(id);
     },
   });
   jumpingRef.current = jumping;
+  // Input events, not scroll events: those are the list's own moves too.
+  const readerScrolled = jumping ? cancelJump : undefined;
 
   // Near the top: load earlier rows (not while jumping: its own pages are loading).
   const canLoad = hasEarlier && !loadingEarlier && !jumping && Boolean(onLoadEarlier);
@@ -394,7 +433,16 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
       aria-label={label}
       aria-busy={loadingEarlier || undefined}
       onScroll={onScroll}
-      className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-2 [overflow-anchor:none] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", className)}
+      onWheel={readerScrolled}
+      onTouchMove={readerScrolled}
+      onPointerDown={(e) => {
+        // The scrollbar: a press on the list itself, not on a row.
+        if (e.target === e.currentTarget) readerScrolled?.();
+      }}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && SCROLL_KEYS.has(e.key)) readerScrolled?.();
+      }}
+      className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 py-2 [overflow-anchor:none] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", className)}
     >
       {header}
       <div ref={topSentinel} aria-hidden />
@@ -416,7 +464,7 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
         <div ref={content} className="mt-auto flex flex-col">
           {data.map((row, index) => {
             const id = keyExtractor(row);
-            return <Row key={id} id={id} row={row} index={index} highlighted={id === highlightedId} renderItem={renderItem as RowProps["renderItem"]} />;
+            return <Row key={id} id={id} row={row} index={index} highlighted={highlightedId !== null && idOf(row) === highlightedId} renderItem={renderItem as RowProps["renderItem"]} />;
           })}
         </div>
       )}

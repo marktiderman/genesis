@@ -21,6 +21,10 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // The brand's `gradients.primary` (`--brand-gradient-primary`) over the primary: a brand
+        // without one leaves the variable unset, the image is `none` and the button is `default`.
+        gradient:
+          "bg-primary bg-[image:var(--brand-gradient-primary)] text-primary-foreground hover:opacity-90",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -135,7 +139,8 @@ export interface ButtonAsChildProps
 
 /**
  * Button — primary interactive control. Variants: default, secondary,
- * outline, ghost, destructive, link.
+ * outline, ghost, destructive, link, gradient (the brand's `gradients.primary`,
+ * else the primary).
  *
  * Overloaded on `asChild`: see {@link ButtonProps} for the default
  * `<button>` mode and {@link ButtonAsChildProps} for Slot composition. The

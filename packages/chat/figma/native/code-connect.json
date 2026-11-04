@@ -1,0 +1,40 @@
+{
+  "required": [
+    "MessageBubble",
+    "VoiceNotePlayer",
+    "VoiceTranscript",
+    "MessageAttachments",
+    "ChatComposer",
+    "MessageActionsSheet",
+    "ChatEmojiPicker",
+    "ChatStartButton",
+    "ChatAccessError",
+    "ChatIconButton",
+    "ModerationMarker",
+    "SearchSnippet",
+    "ChatAwayLine",
+    "CardError",
+    "ChatVideoPlayer",
+    "ChatVideoRecorder",
+    "VideoUploadTray",
+    "ChatLinkPreviewCard",
+    "ChatAttachmentCard",
+    "ChatTopicBar",
+    "ChatScheduledBar",
+    "ChatPhotoViewer"
+  ],
+  "notYet": [],
+  "composed": [
+    "ChatInboxScreen",
+    "ChatThreadScreen",
+    "ChatSearchScreen",
+    "ChatAvailabilityScreen",
+    "ChatStartSheet",
+    "ChatScheduleSheet",
+    "ChatScheduledList",
+    "ChatBroadcastSheet",
+    "ChatEmojiPickerSheet",
+    "ChatMediaViewer",
+    "AppAttachment"
+  ]
+}

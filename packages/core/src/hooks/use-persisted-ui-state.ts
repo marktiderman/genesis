@@ -11,7 +11,9 @@
  * - Never writes `initial`: a default stays a default, so changing it later reaches everyone who
  *   hasn't chosen. `set(undefined)` clears the stored value back to the default.
  * - Forgiving: a stored value `parse` refuses falls back to `initial`, and a write storage won't
- *   keep (quota, private mode, a no-op adapter) still applies for this hook's lifetime.
+ *   keep (quota, private mode, a no-op adapter) still applies for this hook's lifetime. Only for
+ *   this hook: with nothing stored, another hook on the key can't see it, so the two can disagree
+ *   until this hook successfully stores or clears the key.
  * - Optional: a `null` key is plain state that isn't stored, for a component whose persistence
  *   the caller turns on with a key prop.
  *

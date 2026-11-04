@@ -67,6 +67,16 @@
           "type": "object",
           "description": "Font weights — string-numeric (\"400\", \"700\").",
           "additionalProperties": { "type": "string", "pattern": "^[1-9]00$" }
+        },
+        "display": {
+          "type": "object",
+          "description": "Optional display face for headlines and numerals, without changing body text.",
+          "additionalProperties": false,
+          "properties": {
+            "family": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+            "weight": { "type": "string", "pattern": "^[1-9]00$" },
+            "numeric": { "enum": ["tabular", "proportional"] }
+          }
         }
       }
     },
@@ -97,6 +107,53 @@
       "properties": {
         "web": { "$ref": "#/$defs/PlatformOverridable" },
         "native": { "$ref": "#/$defs/PlatformOverridable" }
+      }
+    },
+    "signal": { "type": "string", "minLength": 1, "description": "Optional signal colour (badges, counts, unread). Unset: the primary." },
+    "dark": {
+      "type": "object",
+      "description": "Optional dark-mode colours: each role set replaces the Genesis dark value.",
+      "additionalProperties": false,
+      "properties": {
+        "surface": { "$ref": "#/$defs/ColorScale" },
+        "text": { "$ref": "#/$defs/ColorScale" },
+        "accent": { "$ref": "#/$defs/ColorScale" },
+        "primaryForeground": { "type": "string", "minLength": 1 },
+        "neutral": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+        "status": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "success": { "$ref": "#/$defs/ColorScale" },
+            "warning": { "$ref": "#/$defs/ColorScale" },
+            "error": { "$ref": "#/$defs/ColorScale" },
+            "info": { "$ref": "#/$defs/ColorScale" }
+          }
+        },
+        "signal": { "type": "string", "minLength": 1 }
+      }
+    },
+    "accents": {
+      "type": "object",
+      "description": "Optional named accent colours, emitted as --brand-accent-<name> (web) and theme.accents (native).",
+      "patternProperties": { "^[a-z][a-zA-Z0-9-]*$": { "type": "string", "minLength": 1 } },
+      "additionalProperties": false
+    },
+    "gradients": {
+      "type": "object",
+      "description": "Optional brand gradients. `primary` is what Button variant=\"gradient\" paints.",
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "type": "object",
+          "required": ["from", "to"],
+          "additionalProperties": false,
+          "properties": {
+            "from": { "type": "string", "minLength": 1 },
+            "to": { "type": "string", "minLength": 1 },
+            "angle": { "type": "number" }
+          }
+        }
       }
     },
     "designSystem": {

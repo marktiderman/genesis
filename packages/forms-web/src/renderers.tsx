@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Checkbox } from "@marktiderman/genesis-ui/checkbox";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Label } from "@marktiderman/genesis-ui/label";
+import { Rating } from "@marktiderman/genesis-ui/patterns";
 import { RadioGroup, RadioGroupItem } from "@marktiderman/genesis-ui/radio-group";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { cn } from "@marktiderman/genesis-ui/utils";
@@ -76,7 +77,12 @@ function useDeliberatePick(onAdvance: (() => void) | undefined) {
 
 // ── Renderers ────────────────────────────────────────────────────────────────
 
-function TextField(
+/**
+ * The renderer for typed text answers (short, long, email, phone, URL).
+ *
+ * @stability Beta
+ */
+export function TextField(
   props: FieldRendererProps & {
     type?: string;
     multiline?: boolean;
@@ -250,7 +256,12 @@ function EndLabels({ inputId, low, high }: { inputId: string; low?: string | und
   );
 }
 
-function ScaleField(props: FieldRendererProps) {
+/**
+ * The renderer for a rating scale, NPS or star rating.
+ *
+ * @stability Beta
+ */
+export function ScaleField(props: FieldRendererProps) {
   const { binding, inputId } = props;
   const max = typeof binding.field.props?.max === "number" ? binding.field.props.max : 5;
   const values = scaleValues(binding.field.type, max);
@@ -263,7 +274,7 @@ function ScaleField(props: FieldRendererProps) {
   if (stars) {
     return (
       <FieldChrome props={props}>
-        <StarRadioGroup props={props} values={values} value={value} onValueChange={onValueChange} describe={describe} />
+        <StarRating props={props} max={values[values.length - 1] ?? 5} value={typeof binding.value === "number" ? binding.value : 0} onChange={binding.setValue} describe={describe} />
         <EndLabels inputId={inputId} low={low} high={high} />
       </FieldChrome>
     );
@@ -277,69 +288,48 @@ function ScaleField(props: FieldRendererProps) {
   );
 }
 
-function StarIcon({ filled }: { filled: boolean }) {
+/**
+ * A rating drawn as stars: genesis-ui's `Rating`, in the primary colour with 44px targets. A required
+ * answer, so a second click on the chosen star keeps it (and advances), and each is named "3 of 5".
+ */
+function StarRating({
+  props,
+  max,
+  value,
+  onChange,
+  describe,
+}: {
+  props: FieldRendererProps;
+  max: number;
+  value: number;
+  onChange: (value: number) => void;
+  describe: (index: number) => string | undefined;
+}) {
+  const pick = useDeliberatePick(props.onAdvance);
   return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className={cn("size-8 transition-colors motion-reduce:transition-none", filled ? "fill-primary text-primary" : "fill-transparent text-muted-foreground")}
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" />
-    </svg>
+    <Rating
+      {...groupAria(props)}
+      {...pick.rootProps}
+      value={value}
+      max={max}
+      onChange={onChange}
+      size="touch"
+      tone="primary"
+      clearable={false}
+      getLabel={(n, of) => `${n} of ${of}`}
+      getItemProps={(n) => ({ "aria-describedby": describe(n - 1), onClick: pick.onItemClick })}
+      className="justify-start"
+      data-gf-stars=""
+    />
   );
 }
 
 /**
- * A rating drawn as stars. Still a real `radiogroup` (one radio per star,
- * named "3 of 5"); the stars up to the chosen one are filled.
+ * The renderer for a yes or no question.
+ *
+ * @stability Beta
  */
-function StarRadioGroup({
-  props,
-  values,
-  value,
-  onValueChange,
-  describe,
-}: {
-  props: FieldRendererProps;
-  values: number[];
-  value: string;
-  onValueChange: (value: string) => void;
-  describe: (index: number) => string | undefined;
-}) {
-  const pick = useDeliberatePick(props.onAdvance);
-  const chosen = value === "" ? 0 : Number(value);
-  const max = values[values.length - 1] ?? 5;
-  return (
-    <RadioGroup
-      {...groupAria(props)}
-      {...pick.rootProps}
-      value={value}
-      onValueChange={onValueChange}
-      className="flex flex-wrap justify-start gap-1"
-      data-gf-stars=""
-    >
-      {values.map((n, i) => (
-        <div key={n} className="relative">
-          <RadioGroupItem
-            value={String(n)}
-            aria-label={`${n} of ${max}`}
-            aria-describedby={describe(i)}
-            onClick={pick.onItemClick}
-            className="peer size-11 aspect-auto rounded-md border-0 bg-transparent shadow-none hover:bg-accent data-[state=checked]:bg-transparent [&_svg]:hidden"
-          />
-          <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center peer-disabled:opacity-50">
-            <StarIcon filled={n <= chosen} />
-          </span>
-        </div>
-      ))}
-    </RadioGroup>
-  );
-}
-
-function YesNoField(props: FieldRendererProps) {
+export function YesNoField(props: FieldRendererProps) {
   const { binding } = props;
   const current = binding.value === true ? "yes" : binding.value === false ? "no" : "";
   return (
@@ -611,7 +601,12 @@ function useSearchable(props: FieldRendererProps): boolean {
   return isSearchable(props.binding.field);
 }
 
-function SingleChoiceField(props: FieldRendererProps) {
+/**
+ * The renderer for a single choice: a list of options, or a search when there are many.
+ *
+ * @stability Beta
+ */
+export function SingleChoiceField(props: FieldRendererProps) {
   return useSearchable(props) ? <SearchableSingleField {...props} /> : <SingleChoiceList {...props} />;
 }
 
@@ -680,7 +675,12 @@ function SingleChoiceList(props: FieldRendererProps) {
   );
 }
 
-function MultiChoiceField(props: FieldRendererProps) {
+/**
+ * The renderer for a multiple choice: a list of options, or a search when there are many.
+ *
+ * @stability Beta
+ */
+export function MultiChoiceField(props: FieldRendererProps) {
   return useSearchable(props) ? <SearchableMultiField {...props} /> : <MultiChoiceList {...props} />;
 }
 
@@ -778,8 +778,10 @@ function controlAria(props: FieldRendererProps) {
  * phone's own picker on touch devices. Over more options than
  * `SEARCHABLE_OPTION_COUNT` (or with `props.searchable: true`) it is a
  * searchable list instead, which also shows descriptions and pictures.
+ *
+ * @stability Beta
  */
-function DropdownField(props: FieldRendererProps) {
+export function DropdownField(props: FieldRendererProps) {
   return useSearchable(props) ? <SearchableSingleField {...props} /> : <DropdownSelect {...props} />;
 }
 
@@ -840,8 +842,10 @@ function DropdownSelect(props: FieldRendererProps) {
  * A number, typed as text with the decimal keypad: what was typed is kept
  * while it is not a number yet ("-", "1."), and stored as a number once it is.
  * Text that never becomes a number is kept as text, so validation says so.
+ *
+ * @stability Beta
  */
-function NumberField(props: FieldRendererProps) {
+export function NumberField(props: FieldRendererProps) {
   const { binding } = props;
   const { min, max, step } = numberLimits(binding.field);
   const line = useLineClass();
@@ -881,8 +885,12 @@ function NumberField(props: FieldRendererProps) {
   );
 }
 
-/** A calendar day from the browser's own date picker, stored as `YYYY-MM-DD`. */
-function DateField(props: FieldRendererProps) {
+/**
+ * A calendar day from the browser's own date picker, stored as `YYYY-MM-DD`.
+ *
+ * @stability Beta
+ */
+export function DateField(props: FieldRendererProps) {
   const { binding } = props;
   const { min, max } = dateLimits(binding.field);
   const line = useLineClass();
@@ -904,8 +912,10 @@ function DateField(props: FieldRendererProps) {
 /**
  * One checkbox to agree to something. The question is the legend; the
  * checkbox's own words are `props.text` ("I agree to the terms"), else "I agree".
+ *
+ * @stability Beta
  */
-function ConsentField(props: FieldRendererProps) {
+export function ConsentField(props: FieldRendererProps) {
   const { binding, inputId } = props;
   const text = typeof binding.field.props?.text === "string" && binding.field.props.text.trim() ? binding.field.props.text : "I agree";
   const look = useChoiceLook(inputId, 1);

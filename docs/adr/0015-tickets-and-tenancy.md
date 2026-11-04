@@ -1,6 +1,6 @@
 # ADR 0015: Support tickets, with tenants
 
-- Status: proposed (2026-11-03)
+- Status: accepted (2026-11-04: shipped in genesis-support 0.5.0)
 - Date: 2026-11-03
 - Features: `support-helpdesk`, `support-feedback`, `support-chat`, `support-email`
 - Related: ADR 0007 (tenancy), ADR 0009 (one resource contract), ADR 0011 (email tickets),
@@ -88,4 +88,11 @@ Genesis already has what tenancy needs: a bare `tenant_id` on its tables (ADR 00
   the old name is a view. Realtime subscriptions on `support_reports` move to `tickets`.
 - The client keeps the old table names this release; the next minor moves it to `tickets`, drops
   the views and renames `report_id`.
-- The agent inbox, the messenger and a help center build on this, in later changes.
+- The agent inbox, the messenger and a help center build on this, each its own migration.
+
+## Later decisions
+
+- **Help center articles live in genesis-support**, in `public.help_articles` with the ticket's
+  tenant and access rule, not in genesis-sites: sites have no tenants, a site publishes as one
+  release while an article goes live alone, and the messenger and the AI read articles under the
+  person's own row security. A public help center is pages made from them for the tenant's site.

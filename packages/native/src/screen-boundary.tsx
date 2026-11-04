@@ -18,9 +18,8 @@
  * genesis-core. Outside Expo Router, wrap a subtree in `<ScreenErrorBoundary>`.
  */
 import { useEffect, useMemo, useRef, type ComponentType, type ReactNode } from "react";
-import { NativeButton, NativeEmptyState } from "@marktiderman/genesis-ui-native/components";
 import { reportError } from "@marktiderman/genesis-core/errors";
-import { errorDetails, GenesisErrorBoundary, type ErrorReport, type FatalScreenProps, type OnError } from "./errors";
+import { FatalScreen, GenesisErrorBoundary, type ErrorReport, type FatalScreenProps, type OnError } from "./errors";
 
 /** What Expo Router gives a route's `ErrorBoundary`: the error, and `retry` to render the route again. */
 export interface ScreenErrorProps {
@@ -28,29 +27,22 @@ export interface ScreenErrorProps {
   retry: () => Promise<void>;
 }
 
-/** The default screen fallback: the screen hit a problem, and "Try again". @stability Beta */
-export function ScreenErrorScreen({ error, retry }: ScreenErrorProps) {
-  return (
-    <NativeEmptyState
-      variant="error"
-      title="This screen hit a problem"
-      body="The rest of the app still works. Try again, or go back."
-      details={errorDetails(error)}
-      primaryAction={
-        <NativeButton onPress={() => void Promise.resolve(retry()).catch((e: unknown) => reportError(e, "native:screen-retry"))} testID="genesis-screen-error-retry">
-          Try again
-        </NativeButton>
-      }
-      testID="genesis-screen-error"
-    />
-  );
+/**
+ * The default screen fallback: the screen hit a problem, and "Try again".
+ *
+ * @deprecated Use `<FatalScreen kind="screen" />`; this name goes at the next major.
+ */
+export function ScreenErrorScreen(props: ScreenErrorProps) {
+  return <FatalScreen {...props} kind="screen" />;
 }
+
+const ScreenFallback = (props: ScreenErrorProps) => <FatalScreen {...props} kind="screen" />;
 
 const reportThroughCore = (error: Error, report: ErrorReport) =>
   reportError(error, { source: report.source, fatal: report.fatal, ...(report.tags ? { tags: report.tags } : {}) });
 
 export interface ScreenErrorBoundaryOptions {
-  /** What to show. Default `ScreenErrorScreen`. */
+  /** What to show. Default `<FatalScreen kind="screen" />`. */
   fallback?: ComponentType<ScreenErrorProps>;
   /** Where the error goes. Default `reportError` from genesis-core (the observability block, when it is on). */
   onError?: OnError;
@@ -65,7 +57,7 @@ export interface ScreenErrorBoundaryOptions {
  * @stability Beta
  */
 export function createScreenErrorBoundary(options: ScreenErrorBoundaryOptions = {}): ComponentType<ScreenErrorProps> {
-  const Fallback = options.fallback ?? ScreenErrorScreen;
+  const Fallback = options.fallback ?? ScreenFallback;
   const onError = options.onError ?? reportThroughCore;
   function GenesisScreenErrorBoundary(props: ScreenErrorProps) {
     const reported = useRef<Error | null>(null);
@@ -99,7 +91,7 @@ export interface ScreenErrorBoundaryProps {
  * @stability Beta
  */
 export function ScreenErrorBoundary({ children, fallback, onError, resetKey }: ScreenErrorBoundaryProps) {
-  const Screen = fallback ?? ScreenErrorScreen;
+  const Screen = fallback ?? ScreenFallback;
   // The boundary's retry is synchronous; the screen's (Expo Router's shape) returns a promise.
   const Fallback = useMemo(
     () =>

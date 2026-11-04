@@ -20,6 +20,7 @@ const meta: Meta<typeof Button> = {
         "secondary",
         "outline",
         "ghost",
+        "gradient",
         "destructive",
         "link",
       ],
@@ -40,6 +41,7 @@ export const Default: Story = { args: { variant: "default" } };
 export const Secondary: Story = { args: { variant: "secondary" } };
 export const Outline: Story = { args: { variant: "outline" } };
 export const Ghost: Story = { args: { variant: "ghost" } };
+export const Gradient: Story = { args: { variant: "gradient" } };
 export const Destructive: Story = { args: { variant: "destructive" } };
 
 export const Sizes: Story = {
