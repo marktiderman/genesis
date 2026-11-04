@@ -1,0 +1,25 @@
+packages/ui-native/src/icon-names.ts
+  s_109ad08c59054b::t_1d2f108e4a654d 10,22,32,36-37,42-43,59,67,71,73-74
+packages/ui-native/src/icons/lucide.ts
+  s_109ad08c59054b::t_1d2f108e4a654d 15,26,32,36,41-43,47-48,60,68,71-72,75-76,87,99,109,113-114,119-120,136,144,148,150-151
+.changeset/native-icon-names-figma-sync.md
+  s_109ad08c59054b::t_5df2cc678bac8f 1-5
+packages/ui-native/figma/NativeIcon.figma.ts
+  s_109ad08c59054b::t_5df2cc678bac8f 4-6,10-30,33-35,38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2ccdd11db7baa881401f4425e84c722d6016408d",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
