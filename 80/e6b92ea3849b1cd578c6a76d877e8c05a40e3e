@@ -1,0 +1,49 @@
+packages/ui/src/components/layout/AppShell.tsx
+  s_9613ab470e300c::t_969de6a099b5eb 51
+packages/ui/src/components/layout/index.ts
+  s_9613ab470e300c::t_962b1ab853d438 73
+packages/ui-native/src/components/tab-bar.tsx
+  s_9613ab470e300c::t_2d0d646d006c61 14
+  s_9613ab470e300c::t_b46d0bfefa5d42 67,73
+  s_9613ab470e300c::t_bf21144654a819 83
+.changeset/ui-chip-selected-tab-bar.md
+  s_9613ab470e300c::t_1818abf330f83e 5
+packages/ui-native/src/components/tabs.tsx
+  s_9613ab470e300c::t_e78c67191cf28c 78-79
+packages/ui/src/components/layout/__tests__/tab-bar.test.tsx
+  s_9613ab470e300c::t_f5b2047bc4bf9f 3
+packages/ui-native/src/components/share-sheet.tsx
+  s_9613ab470e300c::t_ee798c8a5b4714 11-12,60-67,70-71
+packages/core/src/navigation.ts
+  s_9613ab470e300c::t_1ace41b7606d9e 251-270
+packages/core/src/__tests__/navigation-tab-bar.test.ts
+  s_9613ab470e300c::t_1ace41b7606d9e 1-15
+packages/ui-native/src/components/index.ts
+  s_9613ab470e300c::t_d2ff657a989592 348
+packages/ui/src/components/layout/tab-bar.tsx
+  s_9613ab470e300c::t_42b0c4eca5dd36 5,11-13
+  s_9613ab470e300c::t_29c876fca0cf29 42
+  s_9613ab470e300c::t_5aec41a12df827 72
+.changeset/core-split-tab-bar-items.md
+  s_9613ab470e300c::t_1ace41b7606d9e 1-5
+.changeset/ui-native-tab-bar-bulk-share.md
+  s_9613ab470e300c::t_38579432010a64 5
+packages/ui-native/src/components/__tests__/tab-bar.test.tsx
+  s_9613ab470e300c::t_d1d1f6776bad09 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "80e6b92ea3849b1cd578c6a76d877e8c05a40e3e",
+  "prompts": {},
+  "sessions": {
+    "s_9613ab470e300c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df308523-d2f5-4e93-bef7-0f444d7d1772",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
