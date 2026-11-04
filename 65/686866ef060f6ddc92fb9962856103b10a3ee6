@@ -1,0 +1,105 @@
+packages/genesis-cli/src/upgrade/codemods.ts
+  s_b9ce29ee4fad7a::t_be38664040c01e 7,9
+  s_b9ce29ee4fad7a::t_2fb233e800666b 137
+  s_b9ce29ee4fad7a::t_678f7a7c37bd6e 11
+  s_b9ce29ee4fad7a::t_b328814fb5657e 16-17
+packages/genesis-cli/src/doctor/rules.ts
+  s_b9ce29ee4fad7a::t_83e1afb1c4ac94 241
+  s_b9ce29ee4fad7a::t_0b61b8fade1d60 250
+packages/genesis-cli/src/upgrade/app-scripts.ts
+  s_b9ce29ee4fad7a::t_b88acc36f296a5 1-23
+packages/genesis-cli/src/upgrade/index.ts
+  s_b9ce29ee4fad7a::t_3e5230c1f7cff9 395-400,404-412,414-415
+  s_b9ce29ee4fad7a::t_c4cf0ee6d141f6 53,55
+  s_b9ce29ee4fad7a::t_65b128f84f16df 81-84
+  s_b9ce29ee4fad7a::t_0d8b6bdcdba6df 111-112
+  s_b9ce29ee4fad7a::t_f46633742caac2 704-705,707,709,712,714,717-719
+  s_b9ce29ee4fad7a::t_f8d5a13cc71d39 558,561-569
+  s_b9ce29ee4fad7a::t_e2a148c16efea0 695
+  s_b9ce29ee4fad7a::t_0c758ff470001f 575-583
+  s_b9ce29ee4fad7a::t_e80a8d22c3257c 182-185
+  s_b9ce29ee4fad7a::t_2b33111476fbfd 59
+  s_b9ce29ee4fad7a::t_9f57bba29c59e8 35,37-41
+  s_b9ce29ee4fad7a::t_1dbd78680a9b34 342
+  s_b9ce29ee4fad7a::t_eca654aa170d50 19-25
+  s_b9ce29ee4fad7a::t_d51152158fd6f2 618-649,651,659-660,667-669
+  s_b9ce29ee4fad7a::t_b8fba2a5b2ae0c 177,181,186-196
+  s_b9ce29ee4fad7a::t_092197c795986a 197,231-237
+  s_b9ce29ee4fad7a::t_9fb24aa1ba2ac0 692
+  s_b9ce29ee4fad7a::t_50f958b128d782 198
+packages/genesis-cli/test/upgrade-friction.test.ts
+  s_b9ce29ee4fad7a::t_46ce5f924e0f5b 17
+  s_b9ce29ee4fad7a::t_6088ab5c52a14c 109
+  s_b9ce29ee4fad7a::t_6b3e7d1eff556d 1
+  s_b9ce29ee4fad7a::t_edaceea912de73 116
+  s_b9ce29ee4fad7a::t_72ec5ed09df18f 2-16,18-108,110-115,117-432
+packages/genesis-cli/test/shared-database.test.ts
+  s_b9ce29ee4fad7a::t_25bfe5fdda5df6 102
+  s_b9ce29ee4fad7a::t_f1313355fb45aa 119
+packages/genesis-cli/src/doctor/genesis.ts
+  s_b9ce29ee4fad7a::t_975fb61b5d0dbf 11
+  s_b9ce29ee4fad7a::t_08940b9a2b2e7d 103-115
+  s_b9ce29ee4fad7a::t_958623f4524dfa 72
+packages/genesis-cli/README.md
+  s_b9ce29ee4fad7a::t_eb359f35b74ebb 507-508
+  s_b9ce29ee4fad7a::t_878074efe99a3b 497-500
+  s_b9ce29ee4fad7a::t_6f624d34665d66 569-592
+  s_b9ce29ee4fad7a::t_19cc99dd3e6d9f 788
+  s_b9ce29ee4fad7a::t_8031813e3a9da1 557-563
+  s_b9ce29ee4fad7a::t_5d7e6741ea036d 796
+  s_b9ce29ee4fad7a::t_d3b8cc6f72c091 836-837
+  s_b9ce29ee4fad7a::t_66bdc97e82a94d 614-615
+docs/MIGRATION.md
+  s_b9ce29ee4fad7a::t_e9e86a1b369077 14-28
+packages/genesis-cli/src/doctor/index.ts
+  s_b9ce29ee4fad7a::t_c8eb4a11fcb3b8 311-312
+  s_b9ce29ee4fad7a::t_9222f05a911fe5 321
+packages/genesis-cli/src/doctor/primitives.ts
+  s_b9ce29ee4fad7a::t_7284a7bbc5112d 36
+.changeset/upgrade-doctor-friction.md
+  s_b9ce29ee4fad7a::t_c368823bae2030 1-15
+packages/genesis-cli/src/upgrade/new-exports.ts
+  s_b9ce29ee4fad7a::t_3b286c24000cc4 1-51
+packages/genesis-cli/src/doctor/lock-files.ts
+  s_b9ce29ee4fad7a::t_81c18feaf50712 26
+  s_b9ce29ee4fad7a::t_d56aadd2802776 146-147
+  s_b9ce29ee4fad7a::t_ae316724e244c0 101-106
+packages/genesis-cli/src/doctor/config.ts
+  s_b9ce29ee4fad7a::t_b1e3bc61cb8bf6 137-138
+  s_b9ce29ee4fad7a::t_eec7ce97edf8cb 275-292
+  s_b9ce29ee4fad7a::t_88d1853106a5d8 269
+packages/genesis-cli/src/upgrade/doctor-rule-codemods.ts
+  s_b9ce29ee4fad7a::t_c28736bc3e5640 8-9
+  s_b9ce29ee4fad7a::t_1a2471251bd9f2 1-7,10-108
+packages/genesis-cli/src/blocks/app-folder.ts
+  s_b9ce29ee4fad7a::t_7e2454d8ef45df 1-61
+packages/genesis-cli/src/cli.ts
+  s_b9ce29ee4fad7a::t_a2160cab0dcf4b 203
+  s_b9ce29ee4fad7a::t_248cdb9e37dee2 590
+  s_b9ce29ee4fad7a::t_b4f4dd21a32450 209
+  s_b9ce29ee4fad7a::t_d0e384bcbe4b0e 597-598,602
+  s_b9ce29ee4fad7a::t_3fd537792787cc 219
+  s_b9ce29ee4fad7a::t_337394a402bf18 611-612
+packages/genesis-cli/src/blocks/owned.ts
+  s_b9ce29ee4fad7a::t_9d1131e5473f11 170
+  s_b9ce29ee4fad7a::t_68ae8f4ea96022 55
+  s_b9ce29ee4fad7a::t_cc422776e758b3 115
+packages/genesis-cli/src/upgrade/changelog.ts
+  s_b9ce29ee4fad7a::t_e60f5cf013a3be 1-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "65686866ef060f6ddc92fb9962856103b10a3ee6",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
