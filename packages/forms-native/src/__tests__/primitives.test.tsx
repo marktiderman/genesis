@@ -3,7 +3,14 @@ import { createRef, type ComponentRef } from "react";
 import type { View } from "react-native";
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { Button, DefaultProgress, FormThemeProvider } from "../index";
+import { Button, DefaultEnding, DefaultHeader, DefaultProgress, FormThemeProvider } from "../index";
+
+/** The shim keeps RN styles as JSON on `data-style`; arrays are flattened. */
+function styleOf(el: Element): Record<string, unknown> {
+  const raw: unknown = JSON.parse((el as HTMLElement).dataset["style"] ?? "{}");
+  const parts = (Array.isArray(raw) ? raw.flat(Infinity) : [raw]) as Record<string, unknown>[];
+  return Object.assign({}, ...parts.filter(Boolean));
+}
 
 /** The form's parts draw with genesis-ui-native's primitives and keep their own contract. */
 describe("forms on ui-native primitives", () => {
@@ -47,5 +54,30 @@ describe("forms on ui-native primitives", () => {
     const bar = screen.getByTestId("form-progress");
     expect(bar.textContent).toContain("Question 2 of 4");
     expect(bar.querySelectorAll("[role=progressbar]").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("DefaultProgress colors the bar from the form theme, so a host tint reaches it", () => {
+    render(
+      <FormThemeProvider theme={{ tint: "#ff0000", fill: "#00ff00" }}>
+        <DefaultProgress step={3} total={4} />
+      </FormThemeProvider>,
+    );
+    const track = screen.getByTestId("form-progress-bar");
+    const indicator = track.firstElementChild as HTMLElement;
+    expect(styleOf(track).backgroundColor).toBe("#00ff00");
+    expect(styleOf(indicator)).toMatchObject({ backgroundColor: "#ff0000", width: "50%" });
+  });
+
+  it("text parts set their own line height, and the required mark inherits the note's size", () => {
+    render(
+      <FormThemeProvider>
+        <DefaultHeader title="T" showTitle={false} requiredNote="Required" />
+        <DefaultEnding title="Done" focusRef={() => {}} />
+      </FormThemeProvider>,
+    );
+    expect(styleOf(screen.getByText("✓"))).toMatchObject({ fontSize: 30, lineHeight: 36 });
+    // A plain Text, so it inherits the note's 13pt instead of NativeText's text-base.
+    const star = screen.getByText("*", { exact: false });
+    expect(star.className ?? "").not.toMatch(/text-base|leading-6/);
   });
 });

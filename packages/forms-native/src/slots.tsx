@@ -140,7 +140,7 @@ export function DefaultHeader({ title, showTitle, description, requiredNote }: H
       {description ? <NativeText style={s.headerDescription}>{description}</NativeText> : null}
       {requiredNote ? (
         <NativeText style={s.headerNote}>
-          <NativeText style={s.required}>* </NativeText>
+          <Text style={s.required}>* </Text>
           {requiredNote}
         </NativeText>
       ) : null}
@@ -186,7 +186,7 @@ export function DefaultProgress({ step, total, testID = "form" }: ProgressSlotPr
       accessibilityValue={{ min: 0, max: total, now: step, text: label }}
       testID={`${testID}-progress`}
     >
-      <NativeProgress value={percent} className="h-1" />
+      <NativeProgress value={percent} style={s.progressTrack} indicatorStyle={s.progressFill} testID={`${testID}-progress-bar`} />
       <Text style={s.progressText}>{label}</Text>
     </View>
   );
