@@ -32,6 +32,8 @@ export {
 } from "./boot";
 export {
   FatalScreen,
+  type FatalScreenKind,
+  type FatalScreenViewProps,
   PlainFatalScreen,
   GenesisErrorBoundary,
   installGlobalErrorHandler,

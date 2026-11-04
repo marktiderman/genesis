@@ -49,7 +49,6 @@ import { BootProvider, createBoot, type BootOptions, type BootStatus, type BootS
 import {
   FatalScreen,
   GenesisErrorBoundary,
-  PlainFatalScreen,
   defaultErrorUtils,
   defaultRejectionTracker,
   installGlobalErrorHandler,
@@ -248,6 +247,8 @@ export function BootScreen(_props: BootScreenProps) {
 }
 
 const PassThrough: ComponentType<SignedOutProps> = ({ children }) => <>{children}</>;
+/** The last-resort fallback: nothing above it has to work. */
+const PlainFallback = (props: FatalScreenProps) => <FatalScreen {...props} kind="plain" />;
 
 // The web provider's types don't list the native-only prop; Metro resolves the native provider.
 const ThemeProvider = GenesisThemeProvider as ComponentType<{
@@ -274,7 +275,7 @@ export function GenesisNativeApp(props: GenesisNativeAppProps) {
   return (
     <GenesisErrorBoundary
       key={rootKey}
-      fallback={PlainFatalScreen}
+      fallback={PlainFallback}
       onError={(e, r) => {
         reportToBlocks(blocksRef.current, e, r);
         try {
@@ -501,7 +502,7 @@ function Shell(props: GenesisNativeAppProps) {
       const s = withBlockSlots(blocks.slots, latest.current.slots);
       return (
         // A `fatal` slot that throws falls back to the plain screen.
-        <GenesisErrorBoundary fallback={PlainFatalScreen} onError={onError} onRetry={fallbackProps.retry}>
+        <GenesisErrorBoundary fallback={PlainFallback} onError={onError} onRetry={fallbackProps.retry}>
           {renderSlot(FatalScreen, s?.fatal, fallbackProps, sp?.fatal)}
         </GenesisErrorBoundary>
       );
