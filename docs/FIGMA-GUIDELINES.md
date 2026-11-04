@@ -105,10 +105,15 @@ is written. The maintainer approves designs, not pull requests, for product deci
    options with a recommendation.
 3. **Approve.** The maintainer says "approved" (in chat or as a Figma comment on the note frame).
    The agent records it where Figma keeps it: it marks the proposal's section **Ready for dev**
-   (Dev Mode status) with the message `Approved <date> by <maintainer>`, which notifies viewers
-   and fires the `DEV_MODE_STATUS_UPDATE` webhook; it renames the section
-   `Proposal · Approved · <slug>`, replaces the live frames with the approved ones (same names,
-   so links hold; the entry hotspots become permanent), and writes the date in the note. A
+   (Dev Mode status) with the message `Approved <date> by <maintainer>`. Figma notifies people
+   who have opened the file in Dev Mode on a Full or Dev seat, and fires the
+   `DEV_MODE_STATUS_UPDATE` webhook where one is registered for the file (none is yet; the
+   route-coverage check reads statuses by polling). It renames the section
+   `Proposal · Approved · <slug>` and promotes the frames: a changed screen's proposal copy is
+   renamed to the route name and takes the live frame's place (the old frame is deleted after
+   every reaction that targeted it is repointed to the new one, so links hold); a new screen's
+   frame is renamed from `<slug>/<route>` to `<route>` and moved into the live rows; the entry
+   hotspots become permanent. The date goes in the note. A
    rejected proposal's section is renamed `Proposal · Dropped · <slug>`, its entry hotspots are
    removed, and it is deleted a month later. An agent never sets the status without an approval it can
    quote. On a plan without the "Completed" status, `Built` is the section move alone.
