@@ -828,7 +828,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `removed-scope-name` | error | A "practice" name genesis-core 2 removed, in a file that imports a Genesis package: a view field's `timeZone: "practice"` (a string value in a view definition), NativeResourceView's `practiceTimeZone`, `resolveZone("practice", …)`, or DisplayTimeZones' `practice`. `defineView` refuses the first when the view loads and the rest are type errors; this lists them in CI. `genesis codemod genesis-core-2-scope-names` rewrites every one. It reads only Genesis API usage, the same shapes the codemod rewrites (see its row above); comments and an app's own `practice` settings, props and `resolveZone` are skipped. |
 | `deprecated-import` | warn | A named import of a Genesis export tagged `@deprecated` (or `@stability Deprecated`) in its published declarations. It goes at the next major; the message carries the tag's advice. Ratcheted by default: under `--base`, files that didn't change report it as `info`, so an upgrade never fails strict CI on untouched files. |
 | `beta-import` | info | A named import of an export tagged `@stability Beta` or `Experimental`, which may still change in a minor. Info by default since most of Genesis is beta; set it to `warn` in `rules` to see it in CI. |
-| `figma-routes` | info | Runs only when genesis.config.json has a `figma` block: [genesis figma:routes](#genesis-figmaroutes) as findings. A route with no frame, navigation with no hotspot and a `// figma:` id that isn't the route's frame are `info`, `warn` under `--strict`; frames with no route and hotspots to them are always `info`. Never `error`. Without `FIGMA_ACCESS_TOKEN`, or when the API can't be read, one `info` notice. The Vite plugin and `genesis upgrade` skip it (it reads the network). |
+| `figma-routes` | info | Runs only when genesis.config.json has a `figma` block: [genesis figma:routes](#genesis-figmaroutes) as findings. A configured page the file doesn't have, a route with no frame, navigation with no hotspot and a `// figma:` id that isn't the route's frame are `info`, `warn` under `--strict`; frames with no route, hotspots to them and navigation that isn't a string literal are always `info`, by design. Never `error`. Invalid JSON or a bad `figma` block in genesis.config.json is one `warn` naming the file. Without `FIGMA_ACCESS_TOKEN`, or when the API can't be read or doesn't answer within 30 seconds, one `info` notice. The Vite plugin and `genesis upgrade` skip it (it reads the network). |
 | `scope-practice-id` | info | `scope.practiceId` read with no `ResourceScope` augmentation in the app (declaration files included). It still works, as the app's own key in the open slot, but reads as `unknown`; the message gives the one-line augmentation. Never fails, `--strict` included. |
 | `stale-exception` | warn | An `allow` entry that no longer matches anything, or a `packageRules` entry that names no rule an installed package declares (a typo there would change nothing). An id in the namespace of a package with a `plugin` isn't checked, since a plugin's ids aren't known until it reports. |
 | `package-rules-invalid` | warn | An installed or local package's `genesis.doctor` declaration (or its plugin) that doesn't validate: its rules don't run; the rest of the doctor does. Read forward-compatibly, since a package can be newer than the CLI: an unknown key is ignored, and a `prefer` rule or primitive that doesn't validate is skipped on its own, each with this warning. An unknown key on a `prefer` rule itself or in its `unless` could narrow where it applies, so that rule is skipped whole rather than run wider; an unknown key in `forbid` is only dropped. It is never an error, so a package upgrade can't break an app's build. See [Package rules](#package-rules). |
@@ -1273,11 +1273,12 @@ cached.
 | Option | |
 | --- | --- |
 | `--json` | Print the report as JSON. |
-| `--strict` | Exit 1 when anything is missing (a route with no frame, navigation with no hotspot, a mismatched `// figma:` id). |
+| `--strict` | Exit 1 when anything is missing: a page the config names that the file doesn't have, a route with no frame, navigation with no hotspot, a mismatched `// figma:` id. Frames with no route, hotspots to them and navigation the check can't read are reported but never fail it, by design: they are drift for a designer to sort, not gaps in what the app ships. |
 | `-d, --dir <dir>` | The app's folder (default: cwd). |
 
 Exit codes: `0` reported, `1` gaps under `--strict`, `2` the check couldn't run (no `figma` block,
-no token, the API refused). The same check runs in `genesis doctor` as the `figma-routes` rule.
+genesis.config.json isn't valid JSON, no token, the API refused or didn't answer within 30 seconds).
+The same check runs in `genesis doctor` as the `figma-routes` rule.
 
 **Routes.** Expo Router under `src/app`, else `app` (platform `native`): a file is its route,
 `(group)` folders kept as written, `index` naming its folder (`(tabs)/index.tsx` is `(tabs)`), and
@@ -1289,7 +1290,11 @@ route, `__root`, `route.tsx` and `-private` files left out. The root page is `in
 **Navigation.** String literals only: `router.push("…")`, `router.replace("…")`,
 `router.navigate("…")`, `<Link href="…">`, `<Link to="…">` and `navigate({ to: "…" })`, in
 `src/` and `app/`. A target is matched to a route by URL: groups and pathless `_x` segments
-dropped, params match any segment, optional segments may be absent.
+dropped, params match any segment, an Expo catch-all `[...rest]` (and a TanStack `$` splat)
+matches the rest of the path, optional segments may be absent. Only navigation in a route file
+is checked against that route's frame. A template literal with `${…}` or a `{ pathname, params }`
+object can't be resolved to a route, so in a route file it is listed as not checked (`info`)
+rather than matched.
 
 **Figma.** `GET /v1/files/:key?depth=2` gives the pages and their top-level frames;
 sections on those pages are read with `GET /v1/files/:key/nodes?ids=…&depth=1` for the frames
@@ -1302,8 +1307,8 @@ hotspot is any node in it with `interactions[].actions[]` of `type: "NODE"` and 
 **The report.** A summary (routes, route frames, covered routes and percent, hotspots, missing),
 then: routes with no frame; frames on a route page with no route (move them to Proposals, or add
 the route); the Proposals page's frames by section; navigation in a route file whose screen has a
-frame but no hotspot to the target's frame; hotspots whose destination frame has no route; and
-`// figma:` ids that don't match.
+frame but no hotspot to the target's frame; hotspots whose destination frame has no route;
+`// figma:` ids that don't match; and navigation that isn't a string literal (not checked).
 
 ```text
 Figma route coverage (file FAKEfileKEY123): 7 routes, 6 frames, 4 covered (57%), 3 hotspots, 6 missing

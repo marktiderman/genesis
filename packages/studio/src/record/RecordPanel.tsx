@@ -63,6 +63,8 @@ function versionOf(schema: ResourceSchema, row: Record<string, unknown> | undefi
 /**
  * One record, in a side panel: its fields as a form, the records it links to
  * and from, and its audit history. The URL names it, so the link copies.
+ *
+ * @stability Beta
  */
 export function RecordPanel(props: RecordPanelProps) {
   const { provider, sessionKey, schema, id } = props;

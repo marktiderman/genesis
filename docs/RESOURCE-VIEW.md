@@ -187,6 +187,10 @@ export const brandsView = defineView(contracts["public.brands"], {
 - **Presets carry filters as well as columns.** `presets: { short: { filter: { term: "short" }, columns: "compact" } }` (a column preset by name) show as tabs (team or private, short- or long-term, this quarter).
 - **Grouping:** `groupBy: "owner_id"`. NativeResourceView shows the groups as sections, sorted on
   the server. On the web, group headers with counts are **Planned** ([`resource-view-shaping`](../features.ts)).
+- **Empty values in a sort:** `orderBy: { field: "rating", direction: "desc", nulls: "last" }` keeps rows
+  with no value below the rated ones; unset, the store decides, and Postgres puts them first on a
+  descending sort. Each of a screen's own sort options in the filters slot takes the same `nulls`,
+  as does `resourceOptions.defaultSort`, and a header sort on the default's field and direction keeps it.
 - **Order:** `orderBy: { field: "rank", direction: "asc" }` is the default sort. Drag to reorder
   with `manual: true` (keyboard pick-up, the Move menu, the rank written through the provider) is
   **Planned** ([`resource-view-shaping`](../features.ts)): today `manual` is accepted and ignored.
@@ -693,7 +697,8 @@ export const tasksView = defineView(contracts["public.tasks"], {
   the board has gone is shown as a toast. While a card's move
   is saving the card is dimmed and a second move of it is turned away, so it is never sent from
   the column it is leaving. The screen's `resourceOptions` `invalidates`, `onError` and
-  `onUpdateSuccess` apply to a move; a move is always pessimistic.
+  `onUpdateSuccess` apply to a move; a move is always pessimistic. A failed move shows on the board
+  and isn't logged as well, and a conflict the sheet shows doesn't reach `onError`.
 - **Order within a column** follows `orderBy`. Dragging to reorder inside a column, which writes
   the order field with the column in one update, is **Planned**
   ([`resource-view-shaping`](../features.ts)), with `orderBy.manual`.

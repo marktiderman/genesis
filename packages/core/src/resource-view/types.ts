@@ -141,6 +141,8 @@ export interface ViewLink {
 export interface LinkOrder {
   field: string;
   direction?: "asc" | "desc";
+  /** Where rows with no value go. Unset, the store decides. */
+  nulls?: "first" | "last";
 }
 
 /** A link's picker, resolved: what to list, what names a row, and the filters to send. */
@@ -157,7 +159,7 @@ export interface ResolvedLink {
    * The order the picker lists rows in (`link.orderBy`, or the linked view's `orderBy` for
    * `"view"`), then the key. Undefined: by the naming field, then the key.
    */
-  readonly orderBy?: { readonly field: string; readonly direction: "asc" | "desc" } | undefined;
+  readonly orderBy?: { readonly field: string; readonly direction: "asc" | "desc"; readonly nulls?: "first" | "last" | undefined } | undefined;
   /**
    * The filters a picker sends: the linked view's scope keys from `scope` (as its own lists apply
    * them), its preset's filter, then the link's own `filter` for these form values.
@@ -416,8 +418,11 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   gallery?: ViewGallery<FieldNameOf<C>>;
   /** Group rows under headers by this field. */
   groupBy?: FieldNameOf<C>;
-  /** Default order; `manual: true` turns on drag to reorder, writing this field. */
-  orderBy?: { field: FieldNameOf<C>; direction?: "asc" | "desc"; manual?: boolean };
+  /**
+   * Default order; `manual: true` turns on drag to reorder, writing this field. `nulls` says where
+   * rows with no value go (unset, the store decides: Postgres puts them first on a descending sort).
+   */
+  orderBy?: { field: FieldNameOf<C>; direction?: "asc" | "desc"; nulls?: "first" | "last"; manual?: boolean };
   /** Bumped when stored preferences (saved views, column order) change shape. */
   version?: number;
 }

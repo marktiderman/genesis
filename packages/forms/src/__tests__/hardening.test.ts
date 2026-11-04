@@ -391,6 +391,11 @@ describe("11 and A. parseForm on hostile input", () => {
     expect(!result.ok && result.issues[0]?.message).toMatch(/nested too deeply/);
   });
 
+  it("names a value that can't be turned into a string without throwing", () => {
+    const result = parseForm({ blocks: [{ kind: "field", id: "a", type: { toString: "" } }] });
+    expect(!result.ok && result.issues.some((i) => /Unknown field type "object"/.test(i.message))).toBe(true);
+  });
+
   test.prop([fc.jsonValue({ maxDepth: 6 })], { numRuns: 300 })("arbitrary JSON never throws", (value) => {
     parseForm(value);
   });

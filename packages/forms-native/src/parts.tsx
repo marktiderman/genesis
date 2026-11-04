@@ -1,6 +1,7 @@
 /** Small parts the layout and renderers share. */
 import { forwardRef, type ComponentRef, type ForwardRefExoticComponent, type ReactNode, type RefAttributes } from "react";
-import { Pressable, Text, type View } from "react-native";
+import { Text, type View } from "react-native";
+import { NativeButton } from "@marktiderman/genesis-ui-native/components";
 import { useFormStyles } from "./styles";
 
 export interface ButtonProps {
@@ -16,7 +17,15 @@ export interface ButtonProps {
   icon?: ReactNode;
 }
 
-/** A button drawn from the theme: at least 48 points tall, and it grows with the text size. */
+const VARIANT = { primary: "default", secondary: "secondary", plain: "ghost" } as const;
+
+/**
+ * A form's button: genesis-ui-native's `NativeButton` (its press feedback and accessibility), sized
+ * for a form (at least 48 points tall, growing with the text size) and colored from the form's
+ * theme, so a host's `tint` still applies.
+ *
+ * @stability Beta
+ */
 export const Button: ForwardRefExoticComponent<ButtonProps & RefAttributes<ComponentRef<typeof View>>> = forwardRef<ComponentRef<typeof View>, ButtonProps>(function Button(
   { children, onPress, variant = "primary", disabled, busy, accessibilityLabel, accessibilityHint, testID, icon },
   ref,
@@ -24,26 +33,23 @@ export const Button: ForwardRefExoticComponent<ButtonProps & RefAttributes<Compo
   const s = useFormStyles();
   const off = !!disabled || !!busy;
   return (
-    <Pressable
+    <NativeButton
       ref={ref}
-      testID={testID}
+      style={[s.button, variant === "secondary" ? s.buttonSecondary : variant === "plain" ? s.buttonPlain : null, off ? s.buttonDisabled : null]}
+      variant={VARIANT[variant]}
+      // The size variant's fixed height would cap `s.button`'s minHeight: the button grows with the text size.
+      className="h-auto"
+      {...(testID !== undefined ? { testID } : {})}
       onPress={onPress}
       disabled={off}
-      accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? children}
-      accessibilityHint={accessibilityHint}
+      {...(accessibilityHint !== undefined ? { accessibilityHint } : {})}
       accessibilityState={{ disabled: off, busy: !!busy }}
-      style={({ pressed }) => [
-        s.button,
-        variant === "secondary" ? s.buttonSecondary : variant === "plain" ? s.buttonPlain : null,
-        off ? s.buttonDisabled : null,
-        pressed ? s.optionPressed : null,
-      ]}
     >
       {icon}
       <Text style={[s.buttonText, variant === "secondary" ? s.buttonSecondaryText : variant === "plain" ? s.buttonPlainText : null]}>
         {children}
       </Text>
-    </Pressable>
+    </NativeButton>
   );
 });

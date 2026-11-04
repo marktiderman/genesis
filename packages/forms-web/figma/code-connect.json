@@ -1,7 +1,26 @@
 {
   "required": [
+    "ConsentField",
+    "DateField",
+    "DefaultBrand",
+    "DefaultEnding",
+    "DefaultErrorSummary",
+    "DefaultHeader",
+    "DefaultNavigation",
+    "DefaultProgress",
+    "DropdownField",
     "FieldChrome",
-    "DefaultEnding"
+    "ListField",
+    "MediaNotesField",
+    "MultiChoiceField",
+    "NumberField",
+    "PhotoField",
+    "ScaleField",
+    "SingleChoiceField",
+    "TableField",
+    "TextField",
+    "TextHighlightsField",
+    "YesNoField"
   ],
   "notYet": [],
   "composed": [

@@ -25,6 +25,9 @@ import type { DataRow } from "./types";
  * - `unauthenticated`: no signed-in user, or the session expired.
  * - `error`: anything else. The edit did not commit.
  */
+/** `DataWriteError.code` when a write came back with no row: `useResource`'s `update` sets it. */
+export const NO_ROWS_MATCHED = "GENESIS_NO_ROWS";
+
 export type WriteOutcome =
   | "conflict"
   | "gone"

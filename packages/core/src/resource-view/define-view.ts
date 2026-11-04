@@ -424,7 +424,11 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       problems.push(...galleryProblems(fields, gallery));
     }
   }
-  if (definition.orderBy) known(definition.orderBy.field, "orderBy");
+  if (definition.orderBy) {
+    known(definition.orderBy.field, "orderBy");
+    const { nulls } = definition.orderBy as { nulls?: unknown };
+    if (nulls !== undefined && nulls !== "first" && nulls !== "last") problems.push(`orderBy.nulls is "first" or "last", not ${String(nulls)}`);
+  }
   for (const [name, preset] of Object.entries(presets)) {
     if (preset.columns && preset.columns !== "default" && !own(columnLists, preset.columns)) {
       problems.push(`presets.${name} uses columns "${preset.columns}", which isn't defined`);

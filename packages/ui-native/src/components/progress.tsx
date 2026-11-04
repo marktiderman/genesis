@@ -8,7 +8,7 @@
  *
  * @stability Stable
  */
-import { View, type ColorValue } from "react-native";
+import { View, type ColorValue, type ViewStyle } from "react-native";
 import { cn } from "../utils";
 
 export interface NativeProgressProps {
@@ -23,6 +23,10 @@ export interface NativeProgressProps {
   indicatorColor?: ColorValue;
   /** The track's colour as a value; wins over `trackClassName`. */
   trackColor?: ColorValue;
+  /** Track style, for colors from a theme object rather than classes. Wins over the classes. */
+  style?: ViewStyle;
+  /** Indicator style, for colors from a theme object rather than classes. Wins over the classes. */
+  indicatorStyle?: ViewStyle;
   testID?: string;
 }
 
@@ -33,6 +37,8 @@ function NativeProgress({
   indicatorClassName,
   indicatorColor,
   trackColor,
+  style,
+  indicatorStyle,
   ...props
 }: NativeProgressProps) {
   const safeValue = Number.isFinite(value) ? value : 0;
@@ -48,12 +54,13 @@ function NativeProgress({
       accessibilityRole="progressbar"
       accessibilityLabel={`${clampedValue}% complete`}
       accessibilityValue={{ min: 0, max: 100, now: clampedValue }}
-      style={trackColor === undefined ? undefined : { backgroundColor: trackColor }}
       {...props}
+      style={{ ...style, ...(trackColor === undefined ? {} : { backgroundColor: trackColor }) }}
     >
       <View
         className={cn("h-full rounded-full bg-primary", indicatorClassName)}
         style={{
+          ...indicatorStyle,
           width: `${clampedValue}%`,
           ...(indicatorColor === undefined ? {} : { backgroundColor: indicatorColor }),
         }}

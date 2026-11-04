@@ -25,6 +25,7 @@ export { keyFields, encodeRecordKey, decodeRecordKey } from "./keys";
 export {
   DataWriteError,
   isDataWriteError,
+  NO_ROWS_MATCHED,
   type WriteOutcome,
   type DataWriteErrorOptions,
 } from "./write-outcome";
