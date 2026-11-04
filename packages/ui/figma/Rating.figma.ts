@@ -5,10 +5,11 @@
 import figma from 'figma'
 const instance = figma.selectedInstance
 
-const size = instance.getEnum('size', { sm: 'sm', md: 'md', lg: 'lg' })
+const size = instance.getEnum('size', { sm: 'sm', md: 'md', lg: 'lg', touch: 'touch' })
+const tone = instance.getEnum('tone', { warning: 'warning', primary: 'primary' })
 
 export default {
-  example: figma.code`<Rating value={value} onChange={setValue} size="${size}" />`,
+  example: figma.code`<Rating value={value} onChange={setValue} size="${size}"${tone === 'primary' ? ' tone="primary"' : ''} />`,
   imports: ['import { Rating } from "@marktiderman/genesis-ui"'],
   id: 'rating',
   metadata: { nestable: true },
