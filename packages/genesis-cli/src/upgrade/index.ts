@@ -399,6 +399,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     return text === null ? null : renderOwned(file, text, appFolder);
   };
   const bases = new Map<string, string>();
+  const basesFromPending = new Set<string>();
   for (const [file, entry] of Object.entries(lock.files)) {
     if (ownedKeyProblem(file, entry.source, localPackageNames(root))) continue;
     const text = ownedText(file, entry.source);
@@ -411,7 +412,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     // committed), so the app's file must have changed since it was written.
     const mine = entry.pending && entry.pendingMine && taken.includes(entry.pending) && readApp(root, `${file}.genesis-next`) === null ? readApp(root, file) : null;
     const resolved = mine !== null && sha256(mine) !== entry.pendingMine;
-    if (taken.includes(entry.sha256) || resolved) bases.set(file, text);
+    if (taken.includes(entry.sha256)) bases.set(file, text);
+    else if (resolved) {
+      bases.set(file, text);
+      basesFromPending.add(file);
+    }
   }
   // The export names before the install, to see which ones the release adds.
   const valuesBefore = options.dryRun ? null : componentValues(root);
@@ -570,12 +575,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       } else refreshed.push({ path: file, outcome: "unchanged" });
       continue;
     }
-    const outcome = refreshOwned(root, lock, { path: file, theirs, base: bases.get(file) ?? null, ...(version ? { version } : {}) }, { ...(options.dryRun ? { dryRun: true } : {}), ...(options.keepMine ? { keepMine: true } : {}) });
+    const outcome = refreshOwned(root, lock, { path: file, theirs, base: bases.get(file) ?? null, ...(basesFromPending.has(file) ? { baseIsPending: true } : {}), ...(version ? { version } : {}) }, { ...(options.dryRun ? { dryRun: true } : {}), ...(options.keepMine ? { keepMine: true } : {}) });
     refreshed.push(outcome);
     if (appFolder && outcome.outcome !== "updated" && !problem) {
       const template = sourceText(root, entry.source, written);
       const mine = template === null ? null : readApp(root, file);
-      const stale = mine === null ? [] : unprefixedTemplatePaths(file, mine, template!, appFolder);
+      const stale = mine === null ? [] : unprefixedTemplatePaths(root, file, mine, template!, appFolder);
       if (stale.length) warnings.push(`${file} keeps your edits, so these paths are still from the app's folder and never match: ${stale.join(", ")}. Start them with ${appFolder}/ by hand.`);
     }
     if (outcome.outcome === "updated" || outcome.outcome === "merged") files.add(file);

@@ -16,14 +16,30 @@ const VH_CLASS = /(^|[\s"'`{])((?:[\w-]+:)*)(max-h|min-h|h)-\[(\d+(?:\.\d+)?)vh\
 /** At or above this, a `max-h` is the "fit the screen" Genesis's overlays already do; below it, a size someone chose. */
 const CHOSEN_CAP_BELOW = 80;
 
+const OWN_HEIGHT = /(?:^|[\s"'`{:])h-[\w[]/;
+const BOTTOM_SHEET = /\bside=(?:\{\s*)?["']bottom["']/;
+const ANY_MAX_H = /(?:^|[\s"'`{:])max-h-([^\s"'`}]+)/g;
+
+/** A `max-h` can go only when the tag has nothing it works with: every cap in it is screen-sized, it has no height of its own, and it isn't a bottom sheet. */
+function capsOnlyFitTheScreen(tag: string): boolean {
+  if (OWN_HEIGHT.test(tag) || BOTTOM_SHEET.test(tag)) return false;
+  return [...tag.matchAll(ANY_MAX_H)].every((m) => {
+    const vh = /^\[(\d+(?:\.\d+)?)vh\]$/.exec(m[1]!);
+    return vh !== null && Number(vh[1]) >= CHOSEN_CAP_BELOW;
+  });
+}
+
 /**
  * `ui/overlays-fit-the-phone`: Genesis's dialogs and sheets already cap themselves to the screen, so
- * a `max-h-[…vh]` that only says that goes. A shorter cap, a set height or a minimum keeps its size
- * in `dvh`, which follows the mobile browser's bars. Only an opening tag with one of these changes.
+ * a tag's `max-h-[…vh]` that only says that goes. Anything else keeps its size in `dvh`, which follows
+ * the mobile browser's bars: a shorter cap and any cap beside it (`max-h-[60vh] md:max-h-[90vh]`), a
+ * cap with a height of its own or on a bottom sheet, a set height, a minimum. Only an opening tag
+ * with one of these changes.
  */
 export function rewriteOverlayHeights(text: string): string {
   return text.replace(OVERLAY_TAG, (tag) => {
-    const next = tag.replace(VH_CLASS, (_all, lead: string, variants: string, kind: string, size: string) => (kind === "max-h" && Number(size) >= CHOSEN_CAP_BELOW ? lead : `${lead}${variants}${kind}-[${size}dvh]`));
+    const drop = capsOnlyFitTheScreen(tag);
+    const next = tag.replace(VH_CLASS, (_all, lead: string, variants: string, kind: string, size: string) => (kind === "max-h" && drop ? lead : `${lead}${variants}${kind}-[${size}dvh]`));
     if (next === tag) return tag;
     return next.replace(/\bclassName=(["'])([^"']*)\1/, (_all, quote: string, classes: string) => `className=${quote}${classes.trim().replace(/\s+/g, " ")}${quote}`).replace(/\s+className=(["'])\1/, "");
   });
@@ -33,7 +49,7 @@ export const overlaysFitThePhone: Codemod = {
   id: "genesis-ui-overlays-fit-the-phone",
   package: "@marktiderman/genesis-ui",
   version: "2.31.0",
-  description: "In Genesis's DialogContent, AlertDialogContent and SheetContent, drops a max-h-[…vh] of 80 or more (they cap themselves to the screen) and moves a shorter cap or a set height to dvh.",
+  description: "In Genesis's DialogContent, AlertDialogContent and SheetContent, drops a screen-sized max-h-[…vh] of 80 or more (they cap themselves to the screen) and moves anything else in vh to dvh.",
   run({ root, dryRun, log }) {
     const changed: string[] = [];
     for (const rel of appScripts(root).filter((f) => /\.[jt]sx$/.test(f))) {

@@ -114,6 +114,8 @@ export interface RefreshInput {
   theirs: string | null;
   /** The text the app's file last took (the caller checks it against the lock), when it can still be read. */
   base: string | null;
+  /** The base is the version the last `.genesis-next` held, taken as worked in because the file changed since. */
+  baseIsPending?: boolean;
   version?: string;
 }
 
@@ -159,7 +161,7 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
     if (mineSha !== entry.pendingMine) {
       const { pending: _done, pendingMine: _was, ...rest } = entry;
       lock.files[input.path] = { ...rest, sha256: theirsSha, ...(input.version ? { version: input.version } : {}) };
-      return { path: input.path, outcome: "resolved", detail: "your file is kept as the resolution of the last upgrade" };
+      return { path: input.path, outcome: "resolved", detail: `your file is kept as the resolution of the last upgrade because it changed since; if that was unrelated, compare with ${entry.source}` };
     }
   }
   // A .genesis-next someone may be working through is never replaced with different text.
@@ -175,7 +177,7 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
       write(input.path, merged.text);
       // The new base is the package's text: the app's edits stay on top of it.
       record(theirsSha);
-      return { path: input.path, outcome: "merged", detail: "your edits kept on top of the new version" };
+      return { path: input.path, outcome: "merged", detail: input.baseIsPending ? `merged on the version the last .genesis-next held, because this file changed since; if that was unrelated, compare with ${entry.source}` : "your edits kept on top of the new version" };
     }
     if (merged) {
       const blocked = writeNext(merged.text);

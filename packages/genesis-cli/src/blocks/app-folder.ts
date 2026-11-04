@@ -7,9 +7,12 @@
  * - GitHub reads workflows only from the repository's own `.github/workflows`, a file that also
  *   holds the rest of the repository's CI, so the templates for it are never refreshed there.
  */
+import { existsSync } from "node:fs";
+import * as path from "node:path";
 import { readGenesisConfig } from "../doctor/config.js";
 import { APP_FOLDER_PLACEHOLDER } from "./init-native.js";
 
+const LOCKFILES = new Set(["pnpm-lock.yaml", "yarn.lock", "package-lock.json", "bun.lock", "bun.lockb"]);
 const EAS_WORKFLOW = /^\.eas\/workflows\/[^/]+\.ya?ml$/;
 const PATH_ITEM = /^(\s*-\s*)(["']?)([^"'#\s]+)\2(\s*(?:#.*)?)$/;
 const INLINE_PATHS = /^(\s*(?:#\s*)?paths:\s*\[)(.*)(\]\s*)$/;
@@ -39,14 +42,20 @@ function fromRepositoryRoot(entry: string, folder: string): string {
 /**
  * The template's paths the app's file still has from the app's folder. A merge can't fix these: the
  * base and the new text both carry the prefix, so an unprefixed line reads as the app's own edit.
- * Paths the app added itself aren't the template's, so they're never named. Comments don't count.
+ * Paths the app added itself aren't the template's, so they're never named. Comments don't count,
+ * and neither does a lockfile's line unless that lockfile is in the app's folder: at the repository
+ * root (a workspace), the unprefixed line is the right one.
  */
-export function unprefixedTemplatePaths(rel: string, mine: string, template: string, folder: string | null): string[] {
+export function unprefixedTemplatePaths(root: string, rel: string, mine: string, template: string, folder: string | null): string[] {
   const rendered = renderOwned(rel, template, folder).split("\n");
   const lines = new Set(mine.split("\n"));
+  const lockfileElsewhere = (line: string) => {
+    const name = PATH_ITEM.exec(line)?.[3];
+    return name !== undefined && LOCKFILES.has(name) && !existsSync(path.join(root, name));
+  };
   return template
     .split("\n")
-    .filter((line, i) => line !== rendered[i] && !/^\s*#/.test(line) && lines.has(line))
+    .filter((line, i) => line !== rendered[i] && !/^\s*#/.test(line) && lines.has(line) && !lockfileElsewhere(line))
     .map((line) => line.trim());
 }
 

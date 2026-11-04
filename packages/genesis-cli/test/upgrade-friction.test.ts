@@ -191,6 +191,38 @@ describe("an app in a sub-folder of its repository", () => {
     expect((await upgrade(root, next(YML()))).summary).not.toContain("Start them with");
   });
 
+  it("doesn't tell an app with its lockfile at the repository root to prefix that line, and does when the lockfile is in the app", async () => {
+    const withLock = YML('      - "pnpm-lock.yaml"\n');
+    const mine = (folderLines: string) => raw(withLock).replace('      - "src/**"\n      - "app.json"\n      - "eas.json"\n', folderLines).replace("on:\n", "# my note\non:\n");
+    const atRoot = app(mine('      - "mobile/src/**"\n      - "mobile/app.json"\n      - "mobile/eas.json"\n'));
+    writeTree(path.dirname(atRoot), { "pnpm-lock.yaml": "" });
+    fakePackage(atRoot, CLI, { version: "1.0.0" }, { [`dist/${TEMPLATE}`]: withLock, "dist/templates/ci/app-ci.yml": "ci: 1\n" });
+    const lock = readLock(atRoot);
+    lock.files[FILE]!.sha256 = sha256(raw(withLock));
+    writeLock(atRoot, lock);
+    const report = await upgrade(atRoot, next(withLock));
+    expect(read(atRoot, FILE)).toContain('      - "pnpm-lock.yaml"\n');
+    expect(report.summary).not.toContain("Start them with");
+
+    const inApp = app(mine('      - "mobile/src/**"\n      - "mobile/app.json"\n      - "mobile/eas.json"\n'));
+    writeTree(inApp, { "pnpm-lock.yaml": "" });
+    fakePackage(inApp, CLI, { version: "1.0.0" }, { [`dist/${TEMPLATE}`]: withLock, "dist/templates/ci/app-ci.yml": "ci: 1\n" });
+    const inAppLock = readLock(inApp);
+    inAppLock.files[FILE]!.sha256 = sha256(raw(withLock));
+    writeLock(inApp, inAppLock);
+    const named = await runUpgrade({ root: inApp, lookup: release({ [CLI]: "1.2.0" }), install: (r) => next(withLock)(r), dedupe: false, doctor: false });
+    expect(named.summary).toContain('- "pnpm-lock.yaml". Start them with mobile/ by hand.');
+  });
+
+  it("says what a merge on the pending version rests on, since an unrelated change counts", async () => {
+    const root = app(inMobile(YML()), {});
+    await upgrade(root, next(YML('      - "global.css"\n')));
+    rmSync(path.join(root, `${FILE}.genesis-next`));
+    writeTree(root, { [FILE]: `${inMobile(YML())}# unrelated\n` });
+    const report = await upgrade(root, next(YML('      - "global.css"\n').replace("# Paths are the app's.", "# Paths are from here.")), "1.3.0");
+    expect(report.refreshed.find((r) => r.path === FILE)).toMatchObject({ outcome: "merged", detail: expect.stringContaining(`because this file changed since; if that was unrelated, compare with ${CLI}:${TEMPLATE}`) });
+  });
+
   it("doesn't count a lock from before pendingMine as resolved", async () => {
     const root = app(inMobile(YML()), {});
     await upgrade(root, next(YML('      - "global.css"\n')));
@@ -513,6 +545,16 @@ describe("genesis-ui-overlays-fit-the-phone", () => {
   it("drops a screen-sized max-h, keeps a chosen cap or set height in dvh, and satisfies the rule", () => {
     const cases: [string, string][] = [
       ['<DialogContent className="max-h-[50vh] overflow-y-auto">', '<DialogContent className="max-h-[50dvh] overflow-y-auto">'],
+      // A cap beside another keeps the pair's meaning at every size.
+      ['<DialogContent className="max-h-[60vh] md:max-h-[90vh]">', '<DialogContent className="max-h-[60dvh] md:max-h-[90dvh]">'],
+      ['<DialogContent className="max-h-[90vh] md:max-h-96">', '<DialogContent className="max-h-[90dvh] md:max-h-96">'],
+      // Both only fit the screen.
+      ['<DialogContent className="max-h-[85vh] md:max-h-[90vh] p-2">', '<DialogContent className="p-2">'],
+      // A height of its own, or a bottom sheet: the cap is doing something.
+      ['<DialogContent className="h-[60vh] max-h-[90vh]">', '<DialogContent className="h-[60dvh] max-h-[90dvh]">'],
+      ['<DialogContent className="sm:h-[500px] max-h-[90vh]">', '<DialogContent className="sm:h-[500px] max-h-[90dvh]">'],
+      ['<SheetContent side="bottom" className="max-h-[85vh]">', '<SheetContent side="bottom" className="max-h-[85dvh]">'],
+      ["<SheetContent side={'bottom'} className=\"max-h-[85vh]\">", "<SheetContent side={'bottom'} className=\"max-h-[85dvh]\">"],
       ['<DialogContent className="max-h-[85vh] overflow-y-auto">', '<DialogContent className="overflow-y-auto">'],
       ['<DialogContent className="max-h-[85vh]">', "<DialogContent>"],
       ['<SheetContent side="right" className="w-96 sm:max-h-[90.5vh] p-4">', '<SheetContent side="right" className="w-96 p-4">'],
