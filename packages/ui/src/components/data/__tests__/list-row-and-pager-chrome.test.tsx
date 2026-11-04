@@ -32,6 +32,12 @@ describe("DataTable pinned pager", () => {
     expect(classes(pager)).toEqual(expect.arrayContaining(["sticky", "bottom-0", "bg-card", "rounded-b-lg"]));
     expect(classes(pager).some((c) => c.startsWith("bg-") && c.includes("/"))).toBe(false);
   });
+
+  it("wraps its controls, so it can't push a phone's page wider than the screen", () => {
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} />);
+    const controls = screen.getByTestId("data-table-pager").querySelector(":scope > div")!;
+    expect(classes(controls)).toContain("flex-wrap");
+  });
 });
 
 describe("ResourcePage default list row", () => {
