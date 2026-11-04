@@ -11,9 +11,8 @@ const showFields = instance.getBoolean('Show fields')
 
 export default {
   example: figma.code`<ConflictSheet
-  conflict={conflict}
-  noun="session"${showFields ? '' : `
-  // conflict.fields is empty: the sheet says both versions are the same`}
+  ${showFields ? 'conflict={conflict}' : 'conflict={{ ...conflict, fields: [] }}'}
+  noun="session"
   onKeepMine={() => save({ version: conflict.currentVersion })}
   onTakeTheirs={reload}
   onDismiss={() => setConflict(null)}
