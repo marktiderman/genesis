@@ -1,0 +1,41 @@
+.changeset/ui-native-tab-bar-bulk-share.md
+  s_109ad08c59054b::t_4ea3ab90f1b15e 1-5
+packages/ui-native/types/react-native.d.ts
+  s_109ad08c59054b::t_b71aa31c931b58 87-88,424-430
+packages/ui-native/src/components/tab-bar.tsx
+  s_109ad08c59054b::t_d16efe731d9ba5 1-141
+packages/ui-native/src/components/__tests__/share-sheet.test.tsx
+  s_109ad08c59054b::t_6eb9774c1c5af6 1-45
+packages/ui-native/src/components/__tests__/tab-bar.test.tsx
+  s_109ad08c59054b::t_457be0c873f1d9 1-50
+packages/ui-native/src/components/share-sheet.tsx
+  s_109ad08c59054b::t_c79ad069062c89 1-120
+packages/ui-native/src/components/__tests__/bulk-bar.test.tsx
+  s_109ad08c59054b::t_15832cb307d31d 1-21,23-36
+  s_109ad08c59054b::t_3c567c0aa65135 22
+packages/ui-native/src/components/bulk-bar.tsx
+  s_109ad08c59054b::t_6a573fee4f9fac 1-91
+packages/ui-native/src/components/whats-new-sheet.tsx
+  s_109ad08c59054b::t_297570c534a497 1-37,40-49,51-59,61-89
+  s_109ad08c59054b::t_e1d9e644c921a7 38-39,50,60
+packages/ui-native/src/components/__tests__/whats-new-sheet.test.tsx
+  s_109ad08c59054b::t_81385cb60047c6 1-29
+packages/ui-native/src/components/index.ts
+  s_109ad08c59054b::t_e1d9e644c921a7 347-355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4ed8ce49ac88c9ef889583960094768c52a2cb2a",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
