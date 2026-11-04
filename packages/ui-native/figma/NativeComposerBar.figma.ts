@@ -21,6 +21,7 @@ if (leadingSwap && leadingSwap.type === 'INSTANCE') leading = leadingSwap.execut
 let trailing
 if (trailingSwap && trailingSwap.type === 'INSTANCE') trailing = trailingSwap.executeTemplate().example
 const mode = instance.getEnum('mode', { text: 'text', voice: 'voice' })
+// The library's variant is still called `empty`; in code it's the opposite, `hasContent`.
 const empty = instance.getEnum('empty', { true: true, false: false })
 const sending = instance.getEnum('sending', { false: false, true: true })
 
@@ -34,7 +35,7 @@ export default {
   modes={modes}
   mode="${mode}"
   onModeChange={setMode}${empty === false ? `
-  empty={false}` : ''}${sending ? `
+  hasContent` : ''}${sending ? `
   sending` : ''}${disabled ? `
   disabled` : ''}${showLeading && leading ? figma.code`
   leading={${leading}}` : ''}${showTrailing && trailing ? figma.code`

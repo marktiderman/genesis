@@ -132,7 +132,7 @@ describe("ChatThreadScreen scheduled send", () => {
     await waitFor(() => expect(input.hasAttribute("disabled")).toBe(false));
     fireEvent.change(input, { target: { value: "see you tomorrow" } });
     const send = screen.getByTestId("t-composer-send");
-    expect(send.getAttribute("data-a11y-actions")).toBe("longpress"); // VoiceOver's way to it
+    expect(send.getAttribute("data-a11y-actions")).toBe("schedule"); // VoiceOver's way to it
     fireEvent.contextMenu(send);
     fireEvent.click(await screen.findByTestId("t-schedule-pick-0"));
     await waitFor(() => expect(called(client, "schedule")).toHaveLength(1));

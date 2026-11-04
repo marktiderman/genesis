@@ -37,6 +37,8 @@ export type MessageTone = "default" | "internal";
 export interface ThreadMessage {
   /** Stays the same across refreshes, or the list jumps. */
   id: string;
+  /** The id `jumpTo` names it by, when that isn't `id`: a message kept by the id the client gave it and gone to by the server's. Default `id`. */
+  jumpId?: string;
   /** `event`: a centred line between messages ("Sam was assigned"); `body` is its text. Default `message`. */
   kind?: "message" | "event";
   body: string;
