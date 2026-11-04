@@ -1,5 +1,160 @@
 # @marktiderman/genesis-ui-native
 
+## 3.6.0
+
+### Minor Changes
+
+- 9765abf: A save that meets someone else's change now asks the person instead of only showing an error: their value beside yours, then "Keep mine" or "Take theirs". Features: data-offline.
+
+  - **genesis-core:**
+    - `writeConflict(error, mine, { changed?, view? })` turns a `conflict` `DataWriteError` into a `WriteConflict`: `theirs`, `mine`, the `fields` this person changed that differ from theirs (a field their row doesn't carry counts as different), and `currentVersion`. Empty values, numbers and their text, dates and object key order compare as a person would.
+    - `WriteState` (`pending`, `sending`, `paused`, `failed`, `conflict`) is the one shape for where a write stands.
+    - `useResourceForm` returns `conflict`, `keepMine()`, `takeTheirs()` and `dismissConflict()`. What the person typed stays on the form until they save or take theirs, across an optimistic save's refetch too. Keep mine sends this person's changes at the version the conflict reported, with their values for every other field, and rejects with the reason if it fails for anything but a new conflict. After take theirs, the next save is checked against their version.
+    - `ExecuteWriteArgs.expectedVersion` names the version a write is checked against.
+  - **genesis-ui:** `ConflictSheet`, from `/data`. `ResourceForm` (every layout, and after an optimistic save closed it, without a second toast) and `RecordView`'s settings sections open it on a conflict. It hides keep mine when there's no version to save at. New `conflict` messages.
+  - **genesis-ui-native:** `NativeConflictSheet`, from `/data`, announced as it opens. `NativeResourceForm` and `NativeRecordView`'s settings sections open it on a conflict; its words come from `messages.conflict`.
+  - **genesis-studio:** the record panel's edit conflict opens `ConflictSheet` (theirs beside yours) instead of replacing what was typed. Its genesis-core floor is now 2.11: upgrade genesis-core with genesis-studio.
+
+- 00ac05c: `GalleryGrid` and `NativeGalleryGrid` take ResourceView's names: `loadMore` (was `onNearEnd`) and `groupBy` (was `getGroup`). The old names still work and are deprecated.
+
+  An item with no image (`src: ""`) draws a neutral 4:3 tile showing its `alt` and `caption`, instead of an empty picture. It stays clickable and selectable, and its accessible name is unchanged. ResourceView's gallery grid uses this for records without an image.
+
+- dcf2b4f: The gallery primitives on the phone, with the web's props and defaults:
+
+  - **`NativeGalleryGrid`:** `onItemPress`, as `NativeResourcePage` pairs with the web's `onItemClick`. The rows are a virtualized list with `header` and `footer`, and `onNearEnd` fires as scrolling nears the end.
+  - **`NativeLightbox`:** the one photo viewer.
+    - Pinch or double-tap to zoom; paging is off while zoomed.
+    - Pull down to close, with the backdrop fading.
+    - Tap to show or hide the top bar and caption.
+    - An adjustable pager for VoiceOver and TalkBack.
+    - `renderMedia` for videos, and `labels`.
+    - The gestures are built from genesis-chat's photo viewer (`NativeZoomablePhoto` and the `lightbox*` helpers). genesis-chat still has its own viewer for now; it moves onto this one in a follow-up, which removes chat's copy.
+  - **`NativeGalleryCard`, `NativeLiveIndicator`, `NativeRating`.**
+  - **Icon names:** clapperboard, folder-plus, maximize, settings-2, aperture, radio and star.
+
+  Features: media-gallery, rating
+
+- dc3b617: Motion tokens, defined once for web and native. genesis-design-system adds `resolveMotion(level, { reducedMotion })` with the shared durations, easings and springs (also at `@marktiderman/genesis-design-system/tokens/motion`), and its design systems now emit their `--ds-dur-*` and `--ds-ease-*` variables from it (the same values, plus `--ds-dur-fast`, `--ds-dur-base` and `--ds-ease-decelerate`). genesis-ui-native adds `useMotion({ level })` and `animateMotion()` (JS thread; under Reduce Motion it returns the final value), plus the worklet-safe `motionSpring()` and `motionTiming(motion, duration, Easing)`, which build Reanimated configs (under Reduce Motion, zero durations and stiff, critically damped springs); Drawer, Toast and Skeleton read their durations from them, unchanged. A new doctor rule, `motion-uses-tokens`, warns on new code that writes a non-zero duration or spring as a number literal in an animation config (Reanimated, React Native `Animated`, and Reanimated layout animations).
+
+  Features: motion-kit
+
+- 00ac05c: Gallery mode for lists. A view's `gallery` block (`defineView`: `image`, `width`, `height`, `caption`, `alt`, `rowHeight`) makes `mode="grid"` a photo per row in justified rows, in place of cards: ResourceView draws it with GalleryGrid, NativeResourceView with NativeGalleryGrid, and both pack the rows with genesis-core's `justifyRows`. A screen's `gallery` prop overrides the block or adds one. Pressing a photo opens the row as a card does; paging, search, the peek and the table and list views are unchanged, and a screen's own `slots.grid` still wins. `view.galleryItem(row)` gives the row as a `GalleryItem` (an empty `src` when it has no image, drawn as a placeholder), and `galleryProblems` checks a block. A ResourcePage grid slot can opt in to its open handler with a static `opensItems = true`, as the gallery does; other grid slots get exactly what they did before.
+- e8b47fb: ThreadPage is rebuilt on two new atoms that apps can also use on their own.
+
+  **`NativeThreadList`** is a bottom-anchored conversation list:
+  - oldest first, not inverted;
+  - holds its place while earlier messages load, both by themselves near the top and with the "Load earlier" button;
+  - follows the newest message only while you're at the bottom;
+  - goes to a message (`jumpTo`, with `onLoadUntil`) and announces it;
+  - uses FlashList v2's chat mode when the app passed `list`, else FlatList.
+
+  **`NativeComposerBar`** is the composer:
+  - grows as you type, up to `maxLines`;
+  - has a 44pt send button, which shows its label when no icon set is available;
+  - takes `modes` with a tone, where `internal` tints the bar;
+  - has `leading`, `trailing` and `above` slots.
+
+  ThreadPage adds:
+  - event rows (`kind: "event"`);
+  - `loading` (a skeleton), `updating` (an "Updating…" line), `firstUnreadId`, and `jumpTo` with `onLoadUntil` (through the new `useThreadJump`, promoted from chat's jump: it waits for the first page, highlights the message, and says when one can't be found);
+  - the send states `pending`, `paused` and `conflict`, with `onDiscard`;
+  - message `tone` (`MessageTone`; an internal note says so to VoiceOver), composer `modes`, `sendingLabel`, `above` and `trailing`, and a "Jump to latest" pill;
+  - the slots `event`, `unreadDivider` and `headerRegion`.
+
+  `GenesisModules` takes `keyboardAvoidingView` (react-native-keyboard-controller's), which ThreadPage uses with `automaticOffset`, so the composer follows the keyboard frame by frame wherever the page sits. The starter passes it. The optional peer react-native-keyboard-controller is now `>=1.21.0` (for `automaticOffset`).
+
+  **Upgrading an existing ThreadPage screen:** if your app sets up react-native-keyboard-controller (the native shell's `keyboardProvider` and `keyboardScroll`), also pass its `KeyboardAvoidingView` as `keyboardAvoidingView` in your Genesis modules, as the starter does (`apps/genesis-rn-starter/src/lib/native-modules.ts`). Without it the composer falls back to React Native's `KeyboardAvoidingView`, and a development warning says so. genesis-chat's `ChatThreadScreen` uses the same module when chat's own `keyboardAvoidingView` isn't passed, so you pass it once.
+
+  **Behaviour changes for existing ThreadPage screens:**
+  - ThreadPage no longer uses the app's `KeyboardScrollProvider` (a virtualized list can't sit inside a scroll view). It sits in the keyboard module (with `automaticOffset`; `keyboardVerticalOffset` is extra space there), or React Native's `KeyboardAvoidingView` (`keyboardVerticalOffset` defaults to 100 on iOS, as before; on Android its `behavior` is now `height`, so the composer clears the keyboard under edge-to-edge), under the testID `<testID>-keyboard`. The `-scroll` and `-kav` testIDs are gone.
+  - A new message scrolls into view only when you're at the bottom; up the thread, a "Jump to latest" pill shows instead (it used to always scroll to the newest).
+  - `header` now renders above the "Load earlier" button, in the list.
+  - `ThreadMessage.status` takes three more values (`pending`, `paused`, `conflict`): a custom `slots.message` with an exhaustive `switch` on it needs the new cases.
+  - The composer's input stays editable while a message sends (the keyboard stays up); a second send is still blocked.
+  - Earlier pages also load by themselves near the top, so `onLoadEarlier` can fire without a tap.
+  - With FlashList, rows are recycled, so state inside a custom `slots.message` component must be keyed by the message.
+  - The default send button is now a 44pt round button (it was a small "Send" button).
+  - Read receipts skip messages that are pending, paused or in conflict.
+  - Discard is offered for a pending, paused, failed or conflicted message, not one that's sending.
+  - Dragging the list dismisses the keyboard interactively on iOS and on drag on Android.
+  - `jumpTo={null}` cancels a jump in progress.
+
+  genesis-chat's own `threadListMode`, `nearBottom`, `AT_BOTTOM_POINTS` and `useJumpToMessage` are deprecated in favour of these; ChatThreadScreen moves onto NativeThreadList next, and the copies go then.
+
+  A new doctor rule, `threads-use-thread-list` (warn, native, newOnly), flags a hand-built inverted or bottom-started FlatList/FlashList in a screen that doesn't render ThreadPage, NativeThreadList or ChatThreadScreen.
+
+  Features: inbox-thread
+
+### Patch Changes
+
+- 00ac05c: The justified gallery layout has one home: `@marktiderman/genesis-core/gallery` exports `GalleryItem`, `GALLERY_DEFAULTS`, `GalleryTileAspect`, `justifyRows`, `galleryItemRatio`, `DEFAULT_GALLERY_RATIO` and the `JustifiedRow`/`JustifiedTile` types. genesis-ui and genesis-ui-native re-export them under the same names, so existing imports keep working, and the native copy (with the test that kept it in step) is gone.
+- 00ac05c: A placeholder tile (an item with no image) in a gallery that isn't clickable or selectable is named for screen readers as an image, by its `alt`, then its `caption`.
+- e36e6d8: `NativeLightbox` and `NativeGalleryGrid` follow-ups:
+
+  - With `renderMedia`, the pages are no longer one VoiceOver element, so controls inside them (a video player's) can be reached. The counter in the top bar is the adjustable pager instead.
+  - `zoomable={false}` turns zoom off while pull-down-to-close stays on. `NativeZoomablePhoto` takes `zoomable`.
+  - When a parent doesn't take the page a swipe asks for, the pager scrolls back to `index`.
+  - `NativeGalleryGrid`'s docs say not to nest it in a ScrollView; put content in `header` and `footer` instead.
+
+- 00ac05c: `Lightbox` and `NativeLightbox` show no "1 / 1" counter for a single picture.
+- 3784e9e: Motion tokens, following triage's review.
+  - Drawer, Toast and Skeleton read their durations and Reduce Motion through `useMotion`, the same path every other motion takes.
+  - Toast's entrance uses the `decelerate` easing token (the same cubic ease-out curve as before).
+  - The `motion-uses-tokens` doctor rule checks every file: mentioning a motion helper no longer exempts a file. Its pattern is held to test fixtures.
+
+  The public `GenesisReanimatedModule` type (what an app passes as `GenesisModules.reanimated`) gains two optional members, `withSpring` and `Easing.bezier`. Both are optional, so an app passing an older module, or a test fake, still type-checks.
+
+- 00ac05c: `RecordView`'s and `NativeRecordView`'s settings sections save through the resource's write path (`useResource`'s `update` with `{ expectedVersion }`) rather than calling the provider directly. The version a save starts from is unchanged: the row the edit started on, and after a save, the version that save left. What changes is that the version a save commits now goes into every cached copy of the row, and a save sent while another of the same record is in flight is checked against the version that one commits. So a board move or list edit of the record right after a settings save is no longer refused as a conflict with that save.
+
+  Features: data-offline
+
+- eb441f9: Versioned writes: two people editing the same record no longer silently overwrite each other. The second save, made on the copy read before the first, comes back as a `conflict`. Features: data-offline.
+
+  - **genesis-core, Supabase provider:** a resource's `version: { field, kind: "integer" | "timestamp" }` rule checks every update and delete against `expectedVersion` (`where id = … and version = …`).
+    - When no row matches, the row is read back. At another version it's `conflict`, with `error.current` and `error.currentVersion`; at the same version it's `forbidden`; when it isn't visible it's `gone`.
+    - The submitted version is never written.
+    - `capabilities(resource)` reports `versionedWrites: true` and the new `version` (`VersionField`).
+    - An `update` override gets `{ expectedVersion }` as a third argument when a version is checked; overrides called without one are unchanged.
+    - Recycle-bin tables check the version before the delete.
+  - **genesis-core, hooks:**
+    - `useResource` and `useResourceForm` send the version of the row the change was made on, through `SendContext.expectedVersion`: an edit form's opened record (`ExecuteWriteArgs.base`), else the row cached when the write was made. A write made behind another on the same record is checked against the version that one committed at.
+    - After a save they put the new version into every cached copy, so a second edit is checked against it.
+    - A resource without the rule, a row that wasn't read first, or a provider without capabilities is sent unchecked, as before. A versioned resource whose rows don't carry the version column is reported once through `reportError`.
+    - A timestamp version is compared as an instant (to the microsecond), and a conflict's `error.current` is read through the resource's `source` and `select`.
+  - **genesis-ui, genesis-ui-native:** `RecordView`'s settings sections send the version of the row as it was when the person started editing.
+  - **genesis-supabase:** migration `0019_genesis_version_bump.sql` (with a pgTAP test), the `versioned-writes` block and `versionedWritesBlock`. `genesis_version_bump('col')` advances the column by one on every update, whatever the update wrote, and refuses a column that isn't an integer.
+
+- 00ac05c: Web messaging, review follow-ups.
+
+  - **genesis-ui:**
+    - `ThreadPage` and `InboxPage` show times once hydrated, in the viewer's time zone, so server-rendered HTML matches.
+    - The thread's log is a tab stop, so keyboard users can scroll it. "Jump to latest" moves focus to the log before it goes away.
+    - Rows don't re-render on each keystroke in the composer.
+    - `InboxPage.onEndReached` asks once per page, and the new `hasMore={false}` stops it.
+    - The README lists the props that are web only.
+  - **genesis-ui-native:** `InboxPage` marks a `selected` row (filled, and `selected` to a screen reader), as the web does.
+  - **genesis-chat and genesis-support:** the docs of chat's web thread, inbox and composer, and of support's web-chat threads, name their move onto genesis-ui's components (feature `inbox-thread`). No behaviour change.
+
+  Features: inbox-thread
+
+- 00ac05c: Messaging layouts for the web, on one conversation contract shared with native.
+
+  - **genesis-core:** a new `@marktiderman/genesis-core/conversation` subpath with the contract the messaging layouts share:
+    - `ThreadMessage`, `ThreadMessageStatus`, `MessageTone`, `ThreadAttachment`;
+    - `ThreadComposer`, `ComposerMode`, `ComposerTone`;
+    - `ThreadLabels` and `DEFAULT_THREAD_LABELS`;
+    - `InboxItem` (with a new optional `selected`) and `InboxSwipeAction`;
+    - `readReceiptFor`, `formatInboxTime`, `formatMessageTime` and `isDelivered`;
+    - `useThreadJump`, moved here from genesis-ui-native.
+  - **genesis-ui:** `ThreadPage`, `ThreadList`, `ComposerBar`, `InboxPage` and `InboxLayout` (three panes: views, list, thread, context).
+    - **`ThreadPage`:** `conversationId` (a new conversation opens afresh). It announces only someone else's new message, and stays at the bottom as content resizes.
+    - **`InboxViews`:** the views rail.
+    - **`InboxPage`:** controlled `selectedId` and `onSelect`.
+    - **`InboxLayout`:** a context sidebar that toggles, can remember its state, and becomes a sheet below `xl`, plus optional keyboard `shortcuts` that stay off while typing. They take the same props and slots as genesis-ui-native's, so one description renders on web and phone. The composer sends on Enter, or on Cmd/Ctrl+Enter with `sendOn="mod-enter"`. Inbox rows move with the arrow keys or j/k, and a row's actions become a "More" menu.
+  - **genesis-ui-native:** its ThreadPage and InboxPage types, `readReceiptFor`, `formatInboxTime` and `useThreadJump` now come from genesis-core and are re-exported unchanged.
+
+  Features: inbox-thread
+
 ## 3.5.1
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @marktiderman/genesis-cli
 
+## 1.21.0
+
+### Minor Changes
+
+- 01213f6: A block's migration can name, in `needs`, a hook the app must define before it runs (`{ "function": "private.genesis_viewer_people", "how": "…" }`). `genesis add`, `migrate` and `upgrade` warn when they would copy such a migration into an app whose migrations don't define that function. Before, `supabase db push` was the first place this failed. genesis-chat's 0004 declares its tenancy hook this way.
+- 57b6286: A block's migration can declare `runsBefore` (another block's migration that reads what it creates). When both are new in the same `genesis add`, `migrate` or `upgrade` run, it's copied first, with its package's earlier migrations, so it gets the earlier timestamp. A migration's `needs` is no longer satisfied by a function definition inside a SQL comment.
+
 ## 1.20.0
 
 ### Minor Changes

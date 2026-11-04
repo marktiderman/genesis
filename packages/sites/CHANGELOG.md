@@ -1,5 +1,11 @@
 # @marktiderman/genesis-sites
 
+## 0.5.3
+
+### Patch Changes
+
+- 00ac05c: Text links (footer, cards) are 44px tall on a touch screen, up from 24px.
+
 ## 0.5.2
 
 ### Patch Changes
