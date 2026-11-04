@@ -11,6 +11,23 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## `persistOffline` replaces `persistQueries`: lists open instantly from the device — `@marktiderman/genesis-core` (`/offline`), `@marktiderman/genesis-native` (deprecation; **minor**)
+
+🟡 **Action recommended.** `persistQueries` (genesis-native `/persist`) saves the allowed queries to
+async storage as one blob. It's deprecated and stays until the next major. `persistOffline` keeps
+each record once, per person and workspace, in SQLite on the phone and IndexedDB on the web, and
+restores lists and records before the screens first render.
+
+| Before | After |
+| --- | --- |
+| `persist={persistQueries({ storage: AsyncStorage, keys: ["tasks"], buster })}` on `GenesisNativeApp` | `persist={persistOffline({ cache: sqliteLocalCache({ db }), resources: ["tasks"], buster })}`, both from `@marktiderman/genesis-native/offline`, with `db` from expo-sqlite's `openDatabaseSync` |
+| No device cache on the web | `<GenesisProvider persist={persistOffline({ cache: indexedDbLocalCache(), resources, buster })} persistScope={cacheScope(user.id, workspaceKey)}>` (`@marktiderman/genesis-core/offline`) |
+
+Keep `resources` to what may sit on a device unencrypted. The first start after the switch begins
+with an empty cache, and the old blob is no longer read: remove it with `AsyncStorage.removeItem("genesis-query-cache")`.
+
+---
+
 ## A feature's `kind` replaces `layer` — `@marktiderman/genesis-features` 0.8, `@marktiderman/genesis-cli` (deprecation; **minor**)
 
 🟡 **Action recommended.** In your `features.ts`, rename each feature's `layer:` to `kind:` (same

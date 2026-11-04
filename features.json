@@ -552,6 +552,62 @@
       "flags": []
     },
     {
+      "id": "resource-view-gallery",
+      "name": "Gallery mode for lists",
+      "summary": "A view's `gallery` block (defineView: the image field, its width and height fields, a caption and alt field, the row height) makes ResourceView's and NativeResourceView's `mode=\"grid\"` a photo per row in justified rows, drawn by GalleryGrid / NativeGalleryGrid, in place of cards. A screen's `gallery` overrides the block or adds one. The layout is genesis-core's `justifyRows` (`@marktiderman/genesis-core/gallery`), one copy for both platforms; paging, search, the peek and the table and list views stay the list's.",
+      "status": "building",
+      "claimedBy": "mark",
+      "kind": "pattern",
+      "keywords": [
+        "gallery",
+        "photos",
+        "images",
+        "justified",
+        "masonry",
+        "grid",
+        "photo grid"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native"
+      },
+      "extends": "resource-page",
+      "requires": [
+        "media-gallery"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A ResourceView or NativeResourceView with mode=\"grid\" over a view with a gallery block shows a photo per row with an image, in justified rows that pack the same on both platforms.",
+        "Pressing a photo opens the row, as pressing a card does; the table and list views are unchanged.",
+        "A gallery block naming a field that isn't one, or of the wrong type, is refused by defineView with every mistake named."
+      ],
+      "reviewedAt": "2026-11-03",
+      "links": {
+        "code": [
+          "packages/core/src/gallery/index.ts",
+          "packages/ui/src/components/data/resource-view/ResourceGallery.tsx",
+          "packages/ui-native/src/data/resource-view/NativeResourceView.tsx"
+        ],
+        "docs": [
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "resource-view-board",
       "name": "Board mode for lists",
       "summary": "A view's `board` block (defineView: the field, the column order from its choices, card fields, work-in-progress limits) and ResourceView's `mode=\"board\"` show a view's rows as cards in a column per value, each column paged on its own, with a move written as the resource's own update through the provider (a versioned resource's check applies). KanbanBoard draws it and useBoardColumns loads it; Studio's board uses the same two. Order within a column follows the view's orderBy; reordering within a column is planned with resource-view-shaping.",
@@ -865,6 +921,9 @@
     {
       "id": "data-offline",
       "name": "Offline-first data",
+      "aliases": [
+        "offline-sync"
+      ],
       "summary": "Data that works offline: an edit made on a stale copy is refused as a conflict instead of overwriting someone else's (versioned writes in the Supabase provider and the version-bump trigger); views that open from the device and writes that are never lost follow in later slices.",
       "category": "Data",
       "status": "building",
@@ -4462,7 +4521,7 @@
     {
       "id": "inbox-thread",
       "name": "Inbox and thread",
-      "summary": "Conversations between people: an inbox with unread counts and a live thread with paging, optimistic send and read state, on web and native. Native layouts InboxPage (unread dot or count, time, preview, swipe actions also reachable as accessibility actions and on long press, pull to refresh, paging, empty state) and ThreadPage (a bottom-anchored list that holds its place while earlier messages load, follows the newest only at the bottom, goes to a message and marks the first unread; events between messages; send states as data, including pending, paused and conflict; a refreshing line; a growing composer with modes such as an internal note, following the keyboard through GenesisModules.keyboardAvoidingView) are in genesis-ui-native, built from the atoms NativeThreadList and NativeComposerBar, in SettingsPage's iOS inset style. Web layouts and live (realtime) updates are not built.",
+      "summary": "Conversations between people: an inbox with unread counts and a live thread with paging, optimistic send and read state, on web and native. Native layouts InboxPage (unread dot or count, time, preview, swipe actions also reachable as accessibility actions and on long press, pull to refresh, paging, empty state) and ThreadPage (a bottom-anchored list that holds its place while earlier messages load, follows the newest only at the bottom, goes to a message and marks the first unread; events between messages; send states as data, including pending, paused and conflict; a refreshing line; a growing composer with modes such as an internal note, following the keyboard through GenesisModules.keyboardAvoidingView) are in genesis-ui-native, built from the atoms NativeThreadList and NativeComposerBar, in SettingsPage's iOS inset style. On the web, genesis-ui has the same layouts with the same props (ThreadPage, ThreadList, ComposerBar, InboxPage) plus InboxLayout, a three-pane inbox, all on the shared contract in genesis-core/conversation. Live (realtime) updates are the app's or chat's. Next: genesis-chat's data-wired screens (web ChatThread, ChatInbox, ChatComposer; native ChatThreadScreen) and genesis-support's web-chat threads (SupportStaffThread, SupportReportThread, which wrap ChatThread) move their rendering onto these layouts; chat's copies of the list helpers are deprecated until then.",
       "category": "Social",
       "status": "building",
       "claimedBy": "mark",
@@ -4482,10 +4541,11 @@
       ],
       "platforms": {
         "native": "building",
-        "web": "idea"
+        "web": "building"
       },
       "entry": {
-        "native": "@marktiderman/genesis-ui-native"
+        "native": "@marktiderman/genesis-ui-native",
+        "web": "@marktiderman/genesis-ui"
       },
       "requires": [
         "native-layouts"
@@ -4512,10 +4572,13 @@
           "packages/ui-native/src/layouts/inbox-page.tsx",
           "packages/ui-native/src/layouts/thread-page.tsx",
           "packages/ui-native/src/components/thread-list.tsx",
-          "packages/ui-native/src/components/composer-bar.tsx"
+          "packages/ui-native/src/components/composer-bar.tsx",
+          "packages/ui/src/components/patterns/messaging",
+          "packages/core/src/conversation"
         ],
         "docs": [
-          "packages/ui-native/README.md"
+          "packages/ui-native/README.md",
+          "packages/ui/README.md"
         ]
       },
       "owner": "mark",
@@ -6184,31 +6247,6 @@
         "web",
         "native",
         "server"
-      ],
-      "audience": [
-        "developer"
-      ],
-      "visibility": "internal",
-      "access": "all",
-      "flags": []
-    },
-    {
-      "id": "offline-sync",
-      "name": "Offline sync",
-      "summary": "A local store on device with a write queue that syncs when the connection returns.",
-      "category": "Data",
-      "status": "idea",
-      "kind": "provider",
-      "keywords": [
-        "offline",
-        "sqlite",
-        "sync",
-        "queue",
-        "local first"
-      ],
-      "owner": "mark",
-      "apps": [
-        "native"
       ],
       "audience": [
         "developer"

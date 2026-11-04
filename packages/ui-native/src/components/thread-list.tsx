@@ -34,7 +34,7 @@ import { AccessibilityInfo, FlatList, Platform, Pressable, View } from "react-na
 import { useGenesisModules } from "../native-modules";
 import { useReducedMotion } from "../hooks/use-reduced-motion";
 import { useThemeRoles } from "../hooks/use-theme-roles";
-import { useThreadJump } from "../hooks/use-thread-jump";
+import { useThreadJump } from "@marktiderman/genesis-core/conversation";
 import { NativeSkeleton } from "./skeleton";
 import { NativeText } from "./text";
 

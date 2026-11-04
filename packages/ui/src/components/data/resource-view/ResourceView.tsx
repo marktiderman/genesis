@@ -5,7 +5,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import { useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
-import { plural, rowPicture, type ResourceView as View } from "@marktiderman/genesis-core/resource-view";
+import { plural, rowPicture, type ResourceView as View, type ViewGallery } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
 import { useDisplayCell } from "./display";
@@ -14,6 +14,7 @@ import type { ViewModeDefault } from "../../../hooks/use-view-preference";
 import { ResourceCalendar, type ResourceCalendarOptions } from "./ResourceCalendar";
 import { ResourceBoard, type ResourceBoardOptions, type ResourceBoardProps } from "./ResourceBoard";
 import { RowAvatar } from "./RowAvatar";
+import { galleryGridSlot } from "./ResourceGallery";
 import { useViewDetailFields, useViewListParams, type Filter } from "./view-list";
 import { useViewFormFields } from "./view-form";
 
@@ -78,6 +79,11 @@ export type ResourceViewProps<T extends Row = Row> = ResourceViewOptions &
      * limits) and adds what it can't hold (`onSelect`, `renderCard`, `onMoveError`).
      */
     board?: ResourceBoardOptions<T>;
+    /**
+     * With `mode="grid"`: overrides the view's `gallery` block (its image, size and caption fields,
+     * the row height), or turns the grid into a gallery for a view without one.
+     */
+    gallery?: Partial<ViewGallery>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
     view: View<ResourceContract<any>, T & DataRow>;
   };
@@ -121,7 +127,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
   const {
     // preset, filter and scoped are read by useViewListParams; taken out here so they aren't passed on.
     view, layout = "page", columns: columnPreset, preset: _preset, filter: _filter, scoped: _scoped, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
-    calendar: _calendar, board: _board,
+    calendar: _calendar, board: _board, gallery: screenGallery,
     noun: screenNoun, nounPlural: screenNounPlural, formTitles: screenFormTitles, countFormat: screenCountFormat,
     ...rest
   } = props;
@@ -200,6 +206,13 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
       `ResourceView(${view.resource}): tree needs every row on the client; pagination="${rest.pagination}" can't page a tree. Leave pagination unset.`,
     );
   }
+  // A gallery block draws the grid view as photos. The screen's own grid slot still wins.
+  const galleryKey = JSON.stringify(screenGallery ?? null);
+  const gallerySlot = useMemo(
+    () => (view.definition.gallery || screenGallery?.image ? galleryGridSlot<T>(view, screenGallery) : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the override by value, not identity
+    [view, galleryKey],
+  );
   const searchFields = rest.searchFields ?? (view.labelField ? [view.labelField] : undefined);
   return {
     resource: view.resource,
@@ -245,6 +258,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     ...(copy?.empty?.body ? { emptyDescription: copy.empty.body } : {}),
     ...(searchFields ? { searchFields } : {}),
     ...rest,
+    ...(gallerySlot && rest.slots?.grid === undefined ? { slots: { ...rest.slots, grid: gallerySlot } } : {}),
     // The app's `clipCells` and `sizeColumns` under the screen's own table props, which win.
     ...(listDefaults.clipCells || listDefaults.sizeColumns
       ? {

@@ -157,6 +157,7 @@
     "class-variance-authority": "^0.7.1"
   },
   "devDependencies": {
+    "@tanstack/react-query": "^5.105.0",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@vitest/coverage-v8": "^5.0.5",
@@ -283,6 +284,12 @@
           "use": "NativeRating",
           "import": "@marktiderman/genesis-ui-native/components",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "a photo gallery over a list (a photo per record, in justified rows)",
+          "use": "the view's gallery block (defineView) rendered by <NativeResourceView mode=\"grid\">; NativeGalleryGrid for photos that aren't records (attachments, uploads)",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#gallery"
         }
       ]
     }

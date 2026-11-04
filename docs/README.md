@@ -8,6 +8,9 @@
 - [`RESOURCE-VIEW.md`](./RESOURCE-VIEW.md): one description per resource. `defineView` and
   `<ResourceView>` for lists, `defineRecordView` and `<RecordView>` for one record, the same view on
   the phone, scope, guards and the security model. Read this before building a data screen.
+- [`MOBILE.md`](./MOBILE.md): the mobile contract. What every web primitive does on a phone (the
+  shell's drawer and bar, lists, dialogs and sheets, forms, 44px targets, safe areas, reduced
+  motion), what an app still owes, and the tests and doctor rule that keep it.
 - [`component-reference.md`](./component-reference.md) — auto-generated catalogue of every
   export of every entry point of every published package. Regenerate with
   `pnpm gen:component-reference`. The same data drives the package pages at

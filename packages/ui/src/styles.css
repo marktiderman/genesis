@@ -9,3 +9,22 @@
  *   @import "@marktiderman/genesis-ui/styles.css";
  */
 @source "./";
+
+/*
+ * Reduced motion, for everything genesis-ui draws: when the person has asked their device for
+ * less motion, nothing slides, zooms or fades in. Animations and transitions still run, but in an
+ * instant, so code waiting on `animationend` (Radix's open and close) carries on. A spinner keeps
+ * turning: it says something is happening, and that matters more than its motion.
+ */
+@media (prefers-reduced-motion: reduce) {
+  @layer base {
+    *:not(.animate-spin),
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

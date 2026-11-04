@@ -37,6 +37,8 @@ export { Switch } from "./components/ui/switch";
 export { SettingsRow, type SettingsRowProps } from "./components/patterns/settings-row";
 export { SortableList, type SortableListProps, type SortableListItemContext, type SortableListReorder } from "./components/patterns/sortable-list";
 export { ToggleRow, type ToggleRowProps } from "./components/patterns/toggle-row";
+// Messaging: ThreadPage, ThreadList, ComposerBar, InboxPage and InboxLayout, on the shared conversation contract.
+export * from "./components/patterns/messaging";
 export {
   AuthForm,
   AUTH_PROVIDER_NAMES,

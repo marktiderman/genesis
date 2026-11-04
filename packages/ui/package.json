@@ -44,7 +44,7 @@
     "clean": "rm -rf dist",
     "check:exports": "node ../../scripts/check-exports-resolve.mjs",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests-exact.json",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests-exact.json",
     "typecheck:strict": "tsc -p tsconfig.strict.json"
   },
   "exports": {
@@ -441,7 +441,7 @@
     "@radix-ui/react-switch": "^1.1.0",
     "@radix-ui/react-toggle": "^1.1.0",
     "@radix-ui/react-toggle-group": "^1.1.0",
-    "@tanstack/react-query": "^5.104.5",
+    "@tanstack/react-query": "^5.105.0",
     "@tanstack/react-router": "1.170.46",
     "@testing-library/react": "^16.3.2",
     "@tiptap/core": "3.32.0",
@@ -449,6 +449,7 @@
     "@tiptap/pm": "3.32.0",
     "@tiptap/react": "3.32.0",
     "@tiptap/starter-kit": "3.32.0",
+    "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "date-fns": "^4.1.0",
@@ -566,6 +567,24 @@
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordview",
           "why": "One record's header, actions, sections, child lists and settings come from its record view description, the same on web and phone. Builders (BuilderLayout) are exempt."
+        },
+        {
+          "id": "overlays-fit-the-phone",
+          "need": "a dialog or sheet that fits a phone screen",
+          "level": "warn",
+          "platform": "web",
+          "newOnly": true,
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "forbid": {
+            "pattern": "<(?:Dialog|AlertDialog|Sheet)Content\\b[^>]*?\\b(?:max-h|h)-\\[\\d+(?:\\.\\d+)?vh\\]"
+          },
+          "use": "DialogContent's mobileLayout (\"sheet\", \"fullscreen\" or \"center\"); every dialog and sheet already caps itself to the screen, scrolls inside and pads for the safe areas",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/MOBILE.md",
+          "why": "A height in vh on a dialog or sheet is measured against the browser's largest viewport, so on a phone the toolbar or keyboard cuts off its bottom, and the Save button with it. The primitives size themselves in dvh, inside the safe areas; a screen that sets its own height undoes that."
         }
       ],
       "primitives": [
@@ -615,6 +634,12 @@
           "import": "@marktiderman/genesis-ui/rich-text"
         },
         {
+          "need": "a conversation or an inbox on the web",
+          "use": "ThreadPage and InboxPage (InboxLayout for three panes), or ThreadList and ComposerBar to build your own",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md#messaging-threadpage-inboxpage-and-inboxlayout"
+        },
+        {
           "need": "a photo gallery (a wall of images, justified rows or a grid)",
           "use": "GalleryGrid, with GalleryCard for media-first cards",
           "import": "@marktiderman/genesis-ui",
@@ -631,6 +656,12 @@
           "use": "Rating",
           "import": "@marktiderman/genesis-ui",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md"
+        },
+        {
+          "need": "a photo gallery over a list (a photo per record, in justified rows)",
+          "use": "the view's gallery block (defineView) rendered by <ResourceView mode=\"grid\">; GalleryGrid for photos that aren't records (attachments, uploads)",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#gallery"
         }
       ]
     }

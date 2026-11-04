@@ -4,6 +4,11 @@
  * the title (the other person's name in a two-person conversation), a one-line
  * preview, the time, an unread count, an @ when you were mentioned, and muted
  * and pinned marks. Arrow keys move between rows.
+ *
+ * Moving onto genesis-ui (feature `inbox-thread`): its scrolling, list and composer are the same
+ * behaviour as genesis-ui's `InboxPage`, which were promoted from here. This screen keeps its data
+ * wiring (the chat client, realtime, read state) and moves its rendering onto `InboxPage` with chat's
+ * builder; until then fix behaviour in both places.
  */
 import { useRef, type KeyboardEvent } from "react";
 import { AtSign, BellOff, MessageSquare, Pin } from "lucide-react";

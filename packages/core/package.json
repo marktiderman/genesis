@@ -56,6 +56,10 @@
       "types": "./dist/schema/index.d.ts",
       "import": "./dist/schema/index.js"
     },
+    "./offline": {
+      "types": "./dist/offline/index.d.ts",
+      "import": "./dist/offline/index.js"
+    },
     "./slots": {
       "types": "./dist/slots.d.ts",
       "import": "./dist/slots.js"
@@ -80,9 +84,17 @@
       "types": "./dist/resource/index.d.ts",
       "import": "./dist/resource/index.js"
     },
+    "./gallery": {
+      "types": "./dist/gallery/index.d.ts",
+      "import": "./dist/gallery/index.js"
+    },
     "./resource-view": {
       "types": "./dist/resource-view/index.d.ts",
       "import": "./dist/resource-view/index.js"
+    },
+    "./conversation": {
+      "types": "./dist/conversation/index.d.ts",
+      "import": "./dist/conversation/index.js"
     },
     "./urls": {
       "types": "./dist/urls.d.ts",
@@ -117,10 +129,11 @@
   },
   "devDependencies": {
     "@hookform/resolvers": "^6.0.0",
-    "@tanstack/react-query": "^5.104.5",
+    "@tanstack/react-query": "^5.105.0",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "fake-indexeddb": "6.2.5",
     "happy-dom": "^21.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -676,19 +676,30 @@ export const tasksView = defineView(contracts["public.tasks"], {
   the board says so. Cards are in the view's `orderBy` order.
 - **Moving a card** works by mouse, by touch on its handle, from the keyboard and from its "Move
   to…" menu (`KanbanBoard`), and is announced. It is the resource's own `update(id, { [field]: value })`
-  (`useResource`, pessimistic), so the provider's write rules apply. Once versioned writes ship
-  (genesis#656, feature `data-offline`, not released yet), a move on a resource with a `version`
-  rule will carry the version the card was read at, so a card someone else changed is refused,
-  not overwritten. A move needs the field to be writable in the view's edit form, and both the
+  (`useResource`, pessimistic), so the provider's write rules apply. On a resource with a
+  `version` rule a move carries the version the card was read at, so a card someone else changed
+  is refused, not overwritten. A move needs the field to be writable in the view's edit form, and both the
   view's update guard and the screen's own `can` (`edit`) to allow the row: a card either refuses
-  has no handle or menu and can't be dragged. A refusal from the server (or a conflict) leaves the
-  card where it was and shows why above the board, or goes to `onMoveError`. While a card's move
+  has no handle or menu and can't be dragged. A refusal from the server leaves the card where it
+  was and shows why above the board, or goes to `onMoveError`.
+- **A move someone else got to first** (a conflict) opens `ConflictSheet` with their column and
+  yours: **Keep my version** sends the move again at the version their change left, through the
+  resource's own `update` (`{ expectedVersion }`), so a move right after it is checked against the
+  version it saved (a newer conflict shows the sheet again; any other failure, including a save
+  that changed no row, shows in the sheet), and **Take their
+  version**, or closing the sheet, leaves the card where their row puts it. Either way the sheet
+  closes at once and the card moves when the board's columns refetch, a moment later. With `onMoveError` the
+  screen gets the conflict instead, and the sheet doesn't open. A conflict that comes back after
+  the board has gone is shown as a toast. While a card's move
   is saving the card is dimmed and a second move of it is turned away, so it is never sent from
   the column it is leaving. The screen's `resourceOptions` `invalidates`, `onError` and
   `onUpdateSuccess` apply to a move; a move is always pessimistic.
 - **Order within a column** follows `orderBy`. Dragging to reorder inside a column, which writes
   the order field with the column in one update, is **Planned**
   ([`resource-view-shaping`](../features.ts)), with `orderBy.manual`.
+- **Columns past the edge.** The columns scroll sideways, and a fade at either edge shows there
+  are more columns that way, in either reading direction. The fade is the page's background; a
+  board on another surface (a card) sets `--board-edge` to that surface's colour.
 - **No toolbar.** Like the calendar, a board has no search box or filter bar of its own: its rows
   are the view's scope, the screen's `filter` and the preset's. A screen that wants a search puts
   it in its own header and passes the result as `filter`.
@@ -706,6 +717,46 @@ const board = useBoardColumns({ provider, resource: "tasks", field: "stage", val
 ```
 
 On the phone, a board on `NativeResourceView` is **Planned** ([`resource-view-board`](../features.ts)).
+
+## Gallery
+
+<!-- api: ResourceViewProps, NativeResourceViewProps<any>, ViewGallery, ResourceView<any> -->
+
+A view's `gallery` block says how its rows show as photos: `mode="grid"` then draws a photo per
+row in justified rows, in place of cards, on the web (GalleryGrid) and on a phone
+(NativeGalleryGrid). The rows pack the same on both, because the layout is one function in
+genesis-core (`justifyRows` from `@marktiderman/genesis-core/gallery`).
+
+```ts
+export const photosView = defineView(contracts["public.photos"], {
+  scope: ["album_id"],
+  gallery: { image: "url", width: "width", height: "height", caption: "taken_at", rowHeight: 200 },
+});
+```
+
+```tsx
+<ResourceView view={photosView} mode="grid" />
+<NativeResourceView view={photosView} mode="grid" onRowPress={(p) => router.push(`/photos/${p.id}`)} />
+<ResourceView view={assetsView} mode="grid" gallery={{ image: "thumbnail_url" }} />
+```
+
+- **The block** (`ViewGallery`, field names only): `image` (a text field holding the image's URL),
+  `width` and `height` (number fields with its size in pixels, both or neither; without them a
+  photo packs as 4:3), `caption`, `alt` (default the row's label), and `rowHeight` (the target row
+  height, default 180). `defineView` checks every name and type, and names every mistake at once.
+- **A screen's `gallery`** overrides the block's settings, or turns grid mode into a gallery for a
+  view without one.
+- **What stays the list's:** paging, search, filters, the peek and the table and list views. Only
+  the grid view changes, through ResourcePage's grid slot, so a screen's own `slots.grid` still
+  wins. Pressing a photo opens the row as pressing a card does (the peek, or `onRowPress`).
+- **A row without an image** is a placeholder tile (its `GalleryItem` has an empty `src`) showing
+  its label and caption, so the gallery draws every row the count says.
+- `view.galleryItem(row)` is the row as a `GalleryItem` (its key as `id`), for a screen that hands
+  the same photos to a `Lightbox`. A row without an image comes back with an empty `src`: leave
+  those out of what a viewer pages through (`items.filter((item) => item.src)`), as there's
+  nothing to show full screen.
+- **Not yet:** selecting photos, and a pull to refresh on the phone's gallery. GalleryGrid stays
+  the component for photos that aren't records (a message's attachments, a form's uploads).
 
 ## Security model
 

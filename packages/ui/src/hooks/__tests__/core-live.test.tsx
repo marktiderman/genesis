@@ -36,7 +36,7 @@ function setup(rows: Row[] = [
   const unsubscribe = vi.fn();
   let serverRows = rows;
   const provider: DataProvider = {
-    getList: vi.fn(async () => ({ data: serverRows, total: serverRows.length })),
+    getList: vi.fn(async () => ({ data: serverRows, total: serverRows.length })) as DataProvider["getList"],
     getOne: vi.fn(async (_r, { id }) => ({ data: serverRows.find((r) => r.id === id) ?? { id, title: "?" } })) as DataProvider["getOne"],
     getMany: vi.fn(async () => ({ data: [] })),
     create: vi.fn(async (_r, { data }) => ({ data: { id: "new", ...(data as object) } })) as DataProvider["create"],

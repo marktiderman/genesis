@@ -21,12 +21,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { BaseRecord, DataRow } from "@marktiderman/genesis-core";
 import { personTimeZone } from "@marktiderman/genesis-core/dates";
 import { scopeClock, useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
-import type { RowPicture } from "@marktiderman/genesis-core/resource-view";
+import type { GalleryItem } from "@marktiderman/genesis-core/gallery";
+import type { RowPicture, ViewGallery } from "@marktiderman/genesis-core/resource-view";
 import { NativeAvatar } from "../../components/avatar";
 import { NativeBadge } from "../../components/badge";
 import { NativeImage } from "../../components/image";
 import { NativeButton } from "../../components/button";
 import { NativeEmptyState } from "../../components/empty-state";
+import { NativeGalleryGrid } from "../../components/gallery-grid";
 import { NativeInlineAlert } from "../../components/inline-alert";
 import { NativeListItem } from "../../components/list-item";
 import { NativeLoadingState } from "../../components/loading-state";
@@ -121,6 +123,12 @@ export interface NativeResourceViewProps<T extends Row = Row> extends NativeReso
   mode?: NativeResourceViewMode;
   /** Columns in grid mode (React Native's FlatList name). Default 2. */
   numColumns?: number;
+  /**
+   * With `mode="grid"`: overrides the view's `gallery` block, or adds one. With a gallery, grid mode
+   * draws a photo per row in justified rows (NativeGalleryGrid, the web's layout) in place of
+   * cards; a row without an image is a placeholder tile, and a press opens the row as a card's does.
+   */
+  gallery?: Partial<ViewGallery>;
   /**
    * Draws each row (list) or card (grid) yourself, as the web's `renderCard`. Spread
    * `card.pressableProps` on your Pressable for the press, long press and accessibility; the
@@ -460,6 +468,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     searchable,
     mode = "list",
     numColumns: columnsProp,
+    gallery: screenGallery,
     renderCard,
     scopeTimeZone: _zone,
     testID = "native-resource-view",
@@ -692,42 +701,80 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
   const { formFields } = state;
   const createFields = useMemo(() => formFields("create"), [formFields]);
   const editFields = useMemo(() => formFields("edit"), [formFields]);
+  // A gallery block draws grid mode as photos: every loaded row, in order (no image: a placeholder).
+  const galleryKey = JSON.stringify(screenGallery ?? null);
+  const photos = useMemo(() => {
+    if (!grid || !(view.definition.gallery || screenGallery?.image)) return null;
+    const byId = new Map<string, T>();
+    const items: GalleryItem[] = [];
+    for (const section of state.sections) {
+      for (const row of section.data) {
+        const photo = view.galleryItem(row as never, screenGallery);
+        if (!photo) continue;
+        byId.set(photo.id, row);
+        items.push(photo);
+      }
+    }
+    return { items, byId };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the override by value, not identity
+  }, [grid, view, galleryKey, state.sections]);
+  const galleryRowHeight = screenGallery?.rowHeight ?? view.definition.gallery?.rowHeight;
   const peekActions = peek ? actionsFor(peek, handlers) : [];
   const editLoading = sheet?.mode === "edit" && editRow.data === undefined && !editRow.isError;
 
   return (
     <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
-      <SectionList<T, NativeResourceSection<T>>
-        testID={`${testID}-list`}
-        // Grid mode hands the list lines of cards in place of rows; everything else is the same list.
-        sections={grid ? (gridSections as unknown as NativeResourceSection<T>[]) : state.sections}
-        keyExtractor={grid ? (gridKey as unknown as (row: T) => string) : keyExtractor}
-        renderItem={grid ? (renderGridLine as unknown as typeof renderItem) : renderItem}
-        renderSectionHeader={renderSectionHeader}
-        // Rows read their item and actions besides `sections`; they change only with the view,
-        // the bin capability or the words, never per keystroke.
-        extraData={actionsFor}
-        stickySectionHeadersEnabled={false}
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
-        ListHeaderComponent={listHeader}
-        ListEmptyComponent={empty}
-        ListFooterComponent={
-          state.loadingMore ? (
-            <NativeLoadingState fullScreen={false} size="small" label={messages.list.loadingMore} testID={`${testID}-more`} />
-          ) : null
-        }
-        contentContainerStyle={{ flexGrow: 1, paddingBottom: 32 }}
-        onEndReached={state.hasMore ? state.loadMore : undefined}
-        onEndReachedThreshold={0.5}
-        // maxPages drops pages from the front; reaching the top loads them back, and the rows on
-        // screen keep their place while they're added above (VirtualizedList's onStartReached and
-        // ScrollView's maintainVisibleContentPosition, both inherited by SectionList).
-        onStartReached={state.hasPrevious ? state.loadPrevious : undefined}
-        onStartReachedThreshold={0.5}
-        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
-        refreshControl={<NativeRefreshControl testID={`${testID}-refresh`} refreshing={state.refreshing} onRefresh={() => void state.refresh()} />}
-      />
+      {photos ? (
+        <NativeGalleryGrid
+          testID={`${testID}-gallery`}
+          items={photos.items}
+          {...(galleryRowHeight !== undefined ? { rowHeight: galleryRowHeight } : {})}
+          onItemPress={(photo) => {
+            const row = photos.byId.get(photo.id);
+            if (row) press(row);
+          }}
+          header={
+            <>
+              {listHeader}
+              {photos.items.length === 0 ? empty : null}
+            </>
+          }
+          footer={state.loadingMore ? <NativeLoadingState fullScreen={false} size="small" label={messages.list.loadingMore} testID={`${testID}-more`} /> : null}
+          {...(state.hasMore ? { loadMore: state.loadMore } : {})}
+        />
+      ) : (
+        <SectionList<T, NativeResourceSection<T>>
+          testID={`${testID}-list`}
+          // Grid mode hands the list lines of cards in place of rows; everything else is the same list.
+          sections={grid ? (gridSections as unknown as NativeResourceSection<T>[]) : state.sections}
+          keyExtractor={grid ? (gridKey as unknown as (row: T) => string) : keyExtractor}
+          renderItem={grid ? (renderGridLine as unknown as typeof renderItem) : renderItem}
+          renderSectionHeader={renderSectionHeader}
+          // Rows read their item and actions besides `sections`; they change only with the view,
+          // the bin capability or the words, never per keystroke.
+          extraData={actionsFor}
+          stickySectionHeadersEnabled={false}
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={empty}
+          ListFooterComponent={
+            state.loadingMore ? (
+              <NativeLoadingState fullScreen={false} size="small" label={messages.list.loadingMore} testID={`${testID}-more`} />
+            ) : null
+          }
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 32 }}
+          onEndReached={state.hasMore ? state.loadMore : undefined}
+          onEndReachedThreshold={0.5}
+          // maxPages drops pages from the front; reaching the top loads them back, and the rows on
+          // screen keep their place while they're added above (VirtualizedList's onStartReached and
+          // ScrollView's maintainVisibleContentPosition, both inherited by SectionList).
+          onStartReached={state.hasPrevious ? state.loadPrevious : undefined}
+          onStartReachedThreshold={0.5}
+          maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+          refreshControl={<NativeRefreshControl testID={`${testID}-refresh`} refreshing={state.refreshing} onRefresh={() => void state.refresh()} />}
+        />
+      )}
 
       <NativeSheet open={peek !== null} onOpenChange={(open) => (open ? undefined : setPeekId(null))} testID={`${testID}-peek`}>
         {peek ? (

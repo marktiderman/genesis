@@ -274,7 +274,7 @@ top of them. That is the Genesis way at company scale. What each actually does:
 
 | Shared layer | Who, and what they do | Lesson for Genesis | Genesis today |
 |---|---|---|---|
-| **Sync and live data** | Linear: local-first object graph in IndexedDB with ordered server deltas. Figma: LiveGraph, live queries filtered by the viewer's permissions. | Live data with permissions applied, once. | Query cache, Realtime in chat and notifications, forms' offline outbox. `offline-sync` is an idea. |
+| **Sync and live data** | Linear: local-first object graph in IndexedDB with ordered server deltas. Figma: LiveGraph, live queries filtered by the viewer's permissions. | Live data with permissions applied, once. | Query cache, Realtime in chat and notifications, forms' offline outbox. `data-offline` is building. |
 | **Commands** | Linear, Superhuman, Raycast: one action definition behind the palette, shortcuts and menus. Raycast's extension commands double as AI tools. | Declare actions once; derive the palette, shortcuts, menus and tools. | Pieces in `core` and `ui` (M3). |
 | **One AI layer** | Linear started similar-issue and triage features on small models (GPT-4o mini, Gemini 2.0 Flash), found quality fell short, and moved to larger models (GPT-5, Gemini 2.5 Pro) with an agentic step. Cursor trains its own models for high-volume work (Tab, apply) and, since Cursor 2.0, its own Composer agent model, alongside frontier models. | **Measure quality, then pay for it where it matters**, and keep the model choice in one place so that move is cheap. | None ([AI.md](./AI.md)). |
 | **One retrieval layer** | Linear rebuilt search as one semantic backend under similar issues, triage and search. Cursor indexes code by content hash, incrementally, and only returns what the client can prove it holds. | One permission-aware search serves search, "similar", AI context and triage. | Chat's `search_messages` (full text, permission-aware) is the seed. |
@@ -310,7 +310,7 @@ the box:
 | Search | 🟡 chat's permission-aware full-text search; nothing general, nothing semantic |
 | Command palette and shortcuts | 🟡 palette, hotkey and nav tree; no shared actions (M3) |
 | Undo, optimistic updates | ✅ `core` mutation modes: optimistic and undoable |
-| Offline and presence | 🟡 forms outbox, chat typing; `offline-sync` is an idea |
+| Offline and presence | 🟡 forms outbox, chat typing; `data-offline` is building |
 | **AI: model layer, usage, admin, consent** | ❌ ([AI.md](./AI.md)) |
 | Agent readiness: MCP server, AGENTS.md, skills | 🟡 AGENTS.md and skills ship; no app MCP server |
 | Marketing, SEO, blog, changelog | ✅ `sites`, `product` |

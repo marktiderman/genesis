@@ -8,6 +8,11 @@
  * With topics, a topic bar filters it; when the other person is away or outside
  * their hours a banner says so; search (in the header) jumps to a message,
  * loading earlier ones as needed; links get preview cards.
+ *
+ * Moving onto genesis-ui (feature `inbox-thread`): its scrolling, list and composer are the same
+ * behaviour as genesis-ui's `ThreadPage`, which were promoted from here. This screen keeps its data
+ * wiring (the chat client, realtime, read state) and moves its rendering onto `ThreadPage` with chat's
+ * builder; until then fix behaviour in both places.
  */
 import {
   useCallback,
@@ -70,6 +75,23 @@ import type { ResolveUser } from "./format";
 import { ChatSearch } from "./search";
 import { ChatTopicBar } from "./topics";
 import { QUICK_REACTIONS, ThreadContext, type ThreadContextValue } from "./thread-context";
+
+
+/**
+ * Centre a message in the thread by scrolling the thread alone. `scrollIntoView` would also scroll
+ * every scrollable ancestor (an inbox's other panes, the page), moving things the reader didn't.
+ * The same as genesis-ui's ThreadList, which chat's thread moves onto.
+ */
+function centerRow(scroller: HTMLElement, row: HTMLElement, smooth: boolean) {
+  const delta = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top - (scroller.clientHeight - row.offsetHeight) / 2;
+  const top = Math.max(0, scroller.scrollTop + delta);
+  if (smooth && typeof scroller.scrollTo === "function") scroller.scrollTo({ top, behavior: "smooth" });
+  else scroller.scrollTop = top;
+}
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 export interface ChatThreadHeaderProps {
   conversationId: string;
@@ -352,7 +374,7 @@ export function ChatThread({
     if (initialised.current !== conversationId) {
       initialised.current = conversationId;
       const unread = state.firstUnreadId ? document.getElementById(`genesis-chat-msg-${state.firstUnreadId}`) : null;
-      if (unread && typeof unread.scrollIntoView === "function") unread.scrollIntoView({ block: "center" });
+      if (unread) centerRow(el, unread, false);
       else scrollToBottom();
       return;
     }
@@ -407,7 +429,7 @@ export function ChatThread({
       toast.info("That message is further up", { description: "Scroll up to load it." });
       return;
     }
-    if (typeof el.scrollIntoView === "function") el.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (scroller.current) centerRow(scroller.current, el, !prefersReducedMotion());
     setHighlightedId(id);
     setTimeout(() => setHighlightedId((h) => (h === id ? null : h)), 1600);
   }, []);

@@ -842,6 +842,12 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
             return { record: res.data, audit: res.audit };
           },
           committed: async (result) => {
+            // The next save from this form is checked against the version this one left, not the
+            // record it opened with (a form that stays open after a save, such as a native sheet).
+            if (action === "edit" && mountedRef.current && result && typeof result === "object") {
+              const saved = result as BaseRecord;
+              setRebased((prev) => ({ ...((prev ?? effectiveData ?? {}) as BaseRecord), ...saved }));
+            }
             // Clear draft on successful save
             if (autosaveEnabled && action === "create") {
               try {

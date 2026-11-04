@@ -97,11 +97,13 @@ describe("ChatPhotoViewer", () => {
     const modal = screen.getByTestId("v");
     expect(modal.getAttribute("data-presentation-style")).toBe("overFullScreen");
     expect(modal.getAttribute("data-presentation-style")).not.toBe("pageSheet");
-    expect(screen.getByTestId("v-counter").textContent).toBe("Photo 2 of 2");
-    const pager = screen.getByTestId("v-pager");
+    // genesis-ui-native's NativeLightbox: a "2 / 2" counter for the eye, and the pager reads chat's words.
+    expect(screen.getByTestId("v-counter").textContent).toBe("2 / 2");
+    const pager = screen.getByTestId("v-pager-a11y");
     expect(pager.getAttribute("aria-label")).toBe("Photo, b.jpg");
-    expect(screen.getByTestId("v-photo-0")).toBeTruthy();
-    expect(screen.getByTestId("v-photo-1")).toBeTruthy();
+    expect(pager.getAttribute("aria-valuetext")).toBe("Photo 2 of 2");
+    expect(screen.getByTestId("v-photo-a")).toBeTruthy();
+    expect(screen.getByTestId("v-photo-b")).toBeTruthy();
   });
 
   it("closes from its Close button", () => {
@@ -145,6 +147,22 @@ describe("ChatPhotoViewer", () => {
     await act(async () => fireEvent.click(screen.getByTestId("v-save")));
     expect(saveToLibraryAsync).not.toHaveBeenCalled();
     expect(screen.getByTestId("v-notice").textContent).toMatch(/Settings/);
+  });
+
+  it("opens again without the last opening's notice", async () => {
+    const modules = { mediaLibrary: { requestPermissionsAsync: async () => ({ granted: true }), saveToLibraryAsync: vi.fn(async () => undefined) }, downloadFile: async () => "file:///x.jpg" };
+    const photos = [{ key: "a", uri: "https://x.test/a.jpg", alt: "Photo, a.jpg" }];
+    const ui = (p: typeof photos | null) => (
+      <ChatNativeProvider modules={modules}>
+        <ChatPhotoViewer photos={p} onClose={vi.fn()} testID="v" />
+      </ChatNativeProvider>
+    );
+    const { rerender } = render(ui(photos));
+    await act(async () => fireEvent.click(screen.getByTestId("v-save")));
+    expect(screen.getByTestId("v-notice")).toBeTruthy();
+    rerender(ui(null));
+    rerender(ui([...photos]));
+    expect(screen.queryByTestId("v-notice")).toBeNull();
   });
 
   it("ChatMediaViewer, for one picture, is the same full-screen viewer", () => {
@@ -201,7 +219,8 @@ describe("ChatThreadScreen", () => {
     fireEvent.click(second);
     const modal = await screen.findByTestId("t-viewer");
     expect(modal.getAttribute("data-presentation-style")).toBe("overFullScreen");
-    expect(screen.getByTestId("t-viewer-counter").textContent).toBe("Photo 2 of 3");
+    expect(screen.getByTestId("t-viewer-counter").textContent).toBe("2 / 3");
+    expect(screen.getByTestId("t-viewer-pager-a11y").getAttribute("aria-valuetext")).toBe("Photo 2 of 3");
     fireEvent.click(screen.getByTestId("t-viewer-close"));
     await waitFor(() => expect(screen.queryByTestId("t-viewer")).toBeNull());
   });

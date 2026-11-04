@@ -198,4 +198,10 @@ describe("InboxPage", () => {
     expect(screen.getByTestId("inbox-row-a").getAttribute("aria-label")).toMatch(/^2 unread, Sam, Morning crew/);
     expect(screen.getByTestId("inbox-row-b").getAttribute("aria-label")).not.toContain("Ignored");
   });
+
+  it("marks a selected row (the conversation open beside the list), as the web does", () => {
+    render(<InboxPage testID="inbox" items={[{ id: "s", title: "Sam", selected: true, onPress: () => {} }, { id: "t", title: "Tia", onPress: () => {} }]} />);
+    expect(screen.getByTestId("inbox-row-s").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("inbox-row-t").getAttribute("aria-selected")).toBeNull();
+  });
 });

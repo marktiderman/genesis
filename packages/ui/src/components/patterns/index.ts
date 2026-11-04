@@ -52,6 +52,9 @@ export {
   type AuthSignInMethod,
 } from "./auth-form";
 
+// Messaging: ThreadPage, ThreadList, ComposerBar (and InboxPage, InboxLayout) on the shared conversation contract.
+export * from "./messaging";
+
 // Gallery / media patterns.
 export { GALLERY_DEFAULTS, type GalleryItem, type GalleryTileAspect } from "./gallery-types";
 export { Rating, nextRating, type RatingProps } from "./rating";

@@ -240,6 +240,16 @@ const conflict = writeConflict(error, { title: "Mine" });
 // conflict?.fields is ["title"]; send "keep mine" with expectedVersion: conflict.currentVersion.
 ```
 
+Outside a form, send "keep mine" with `useResource`'s `update(id, data, { expectedVersion })`
+(`UpdateOptions`), from a `useResource` in pessimistic mode (the default): a conflict then rejects
+`update` itself, so the screen can show the sheet again. In optimistic and undoable modes `update`
+has already resolved, and a conflict goes to `onError` instead. It goes through the resource's write path like any update: queued behind another
+write of the row, its committed version put into every cached copy, the screen's `onError` and
+invalidations applied. So the next change of that row is checked against it. Calling
+`provider.update` directly skips all of that, and a change made right after it would conflict with
+the save it just made. `ResourceView`'s board sends its "keep mine" this way, and `RecordView`'s
+settings sections (web and native) send every save this way, at the version the edit started on.
+
 `WriteState` (`pending`, `sending`, `paused`, `failed`, `conflict`) is the one shape for showing
 where a write stands, on a row or a form.
 
@@ -451,6 +461,66 @@ steps.setSorts([{ field: "stage", order: "desc" }]); // setSort(one) replaces th
 - **A row shows once.** A row that moved into a later page while the user
   scrolled (its sort value changed, or rows were added before it) is shown
   where it first appeared, not twice.
+
+## Open from the device (`/offline`)
+
+Lists and records a person has already seen open at once from the device, before the network
+answers, and then refresh as usual. `persistOffline` keeps the reads of the resources you list,
+each record stored once, in a `LocalCache`, and puts them back into the QueryClient before the
+screens first render:
+
+```tsx
+import { GenesisProvider } from "@marktiderman/genesis-core";
+import { cacheScope, indexedDbLocalCache, persistOffline } from "@marktiderman/genesis-core/offline";
+
+// Once, outside your components: the provider keeps the first one it's given.
+const persist = persistOffline({ cache: indexedDbLocalCache(), resources: ["tasks", "people"], buster: "2026.11.1" });
+
+// userId: undefined while the session loads, null once nobody is signed in.
+export function Root({ provider, userId }: { provider: DataProvider; userId: string | null | undefined }) {
+  return (
+    <GenesisProvider provider={provider} persist={persist} persistScope={userId ? cacheScope(userId) : userId}>
+      <App />
+    </GenesisProvider>
+  );
+}
+```
+
+- **Opt in per resource.** Only the listed resources' reads are written. Keeping data on a
+  device is a decision: leave out anything that shouldn't sit there unencrypted.
+- **Whose cache.** `cacheScope(userId, workspaceKey)` keys every bucket to the person and the
+  workspace they're in, so another person's reads, or another workspace's, are never restored.
+- **A device is one person's.** Restoring someone deletes every other person's reads first, and
+  `persistScope={null}` (nobody signed in) deletes them all. So a session that ended outside the
+  app (it expired, or was signed out elsewhere) leaves nothing on a shared device for the next
+  person. While the session is still loading, pass `undefined`: nothing is restored, saved or
+  deleted. When the scope arrives, the lists on screen are read again, and only reads made once
+  it's known are saved: nothing the client held or was reading before is trusted to be this
+  person's, so no change of person, workspace or provider mount carries reads over. Infinite
+  lists start again from their first page. Change `persistScope` only once the data provider's
+  session has: a scope must never name a person before requests are made as them. A sign-out
+  also calls off a restore still reading.
+- **`ViewerScope` keeps them.** Inside this provider, a `ViewerScope` whose first viewer is
+  `persistScope`'s user keeps the restored reads instead of emptying the cache.
+- **Only what the server said.** A read is kept when a fetch comes back, never an optimistic
+  change or a live hint's merge, which the next fetch confirms or undoes.
+- **Fresh after.** A restored read carries the time it was fetched, so a screen refetches it once
+  it's stale (the client's `staleTime`), like any cached read, and it never replaces a newer read
+  already in the client. The first render waits at most 400 ms for the device; a slow device read
+  doesn't hold the app, and nothing waits on the server.
+- **One shape per row.** Reads of whole rows (no `select`) share one stored copy of each record;
+  a newer read replaces it, so a field the server stops returning is gone, and a record that
+  comes back empty is deleted. A projected read (`select`) is kept as it came.
+- **Expiry and size.** `maxAge` (default 7 days) drops older reads and `maxReads` (default 200)
+  keeps only the most recently fetched; each start deletes the rest and the rows nothing refers
+  to. A different `buster` (your app version), or a bucket that can't be read, discards it.
+- **Client-only.** In a server-rendered app, give `persistScope` after hydration (`undefined` on the
+  server and the first client render): the screens render at once and restore in the background.
+- **Adapters.** `indexedDbLocalCache()` on the web (`persist: true` asks the browser to keep the
+  storage; off by default, since some browsers ask the person, so the browser may evict it, and
+  it's rebuilt from the server), `sqliteLocalCache({ db })`
+  on the phone (genesis-native `/offline`), and `memoryLocalCache()` for tests. Each implements
+  `LocalCache`, and a wipe loses nothing but speed.
 
 ## Live updates (realtime)
 
@@ -737,6 +807,21 @@ import { readinessChip, readinessOf } from "@marktiderman/genesis-core/resource"
 
 readinessChip(readinessOf(findings, { emptyCode: "no-lessons" }), { empty: "Add a lesson" });
 // → { label: "Add a lesson", tone: "muted" }
+```
+
+## Conversations (`/conversation`)
+
+The contract web and native messaging layouts share: `ThreadMessage` (with `kind`, `status`, `tone`),
+`ThreadComposer` and `ComposerMode`, `ThreadLabels` with `DEFAULT_THREAD_LABELS`, `InboxItem`, and
+`readReceiptFor`, `formatInboxTime` and `formatMessageTime`. genesis-ui's and genesis-ui-native's
+`ThreadPage` and `InboxPage` render the same data. `useThreadJump` is the jump to one row: it
+waits for the first page, loads until the row is held, highlights it and says when it can't be found.
+
+```ts
+import { readReceiptFor, type ThreadMessage } from "@marktiderman/genesis-core/conversation";
+
+const rows: ThreadMessage[] = [{ id: "m1", body: "Hi", mine: true, timestamp: "2026-11-03T09:00:00Z" }];
+const receiptOn = readReceiptFor(rows, "2026-11-03T09:05:00Z"); // "m1"
 ```
 
 ## Days and time zones (`/dates`)

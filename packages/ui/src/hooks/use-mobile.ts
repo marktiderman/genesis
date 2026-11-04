@@ -1,30 +1,42 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 const MOBILE_BREAKPOINT = 768;
 const MOBILE_QUERY = `(max-width: ${MOBILE_BREAKPOINT - 1}px)`;
 
-function subscribe(onChange: () => void): () => void {
-  const mql = window.matchMedia(MOBILE_QUERY);
-  mql.addEventListener("change", onChange);
-  return () => mql.removeEventListener("change", onChange);
-}
-
-function getSnapshot(): boolean {
-  return window.matchMedia(MOBILE_QUERY).matches;
-}
+const canMatch = () => typeof window !== "undefined" && typeof window.matchMedia === "function";
 
 /**
- * The server has no viewport, so it renders desktop. React hydrates against
- * this same `false` and only then re-renders with the viewport's answer, so a
- * phone's first client render matches the server's HTML.
+ * Whether a media query matches, as it changes. The server has no viewport, so
+ * it renders `serverValue`; React hydrates against that same value and only
+ * then re-renders with the viewport's answer, so the first client render
+ * matches the server's HTML.
  */
-function getServerSnapshot(): boolean {
-  return false;
+export function useMediaQuery(query: string, serverValue = false): boolean {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      if (!canMatch()) return () => {};
+      const mql = window.matchMedia(query);
+      mql.addEventListener?.("change", onChange);
+      return () => mql.removeEventListener?.("change", onChange);
+    },
+    [query],
+  );
+  const getSnapshot = useCallback(() => (canMatch() ? window.matchMedia(query).matches : serverValue), [query, serverValue]);
+  return useSyncExternalStore(subscribe, getSnapshot, () => serverValue);
 }
 
-/** Whether the viewport is narrower than the mobile breakpoint (768px). */
+/** Whether the viewport is narrower than the mobile breakpoint (768px). The server renders desktop. */
 export function useIsMobile(): boolean {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return useMediaQuery(MOBILE_QUERY, false);
+}
+
+const noSubscribe = () => () => {};
+/**
+ * False on the server and during hydration, true after: for output that depends on where it runs
+ * (a time in the viewer's zone, "Yesterday"), so the server's HTML and the first render agree.
+ */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(noSubscribe, () => true, () => false);
 }

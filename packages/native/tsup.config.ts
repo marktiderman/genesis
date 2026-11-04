@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     persist: "src/persist.ts",
+    offline: "src/offline/sqlite-local-cache.ts",
     updates: "src/updates/index.ts",
     push: "src/push/index.ts",
     "push-payload": "src/push/payload.ts",

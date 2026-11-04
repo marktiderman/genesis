@@ -105,23 +105,28 @@ From the outside in:
    network is back, and stale queries refetch on reconnect. Offline, saved
    data stays on screen; a query with nothing saved is `pending` with
    `isPaused` (show "offline", not a spinner); a mutation fails at once (no
-   retries by default). With `persist`, the query-key roots you list are saved to the
-   phone for 24 hours (`maxAge`), discarded when `buster` (your app version)
-   changes, and **scoped to the signed-in user**: the user id is part of what
-   is saved, a cache saved for anyone else is deleted instead of restored, and
-   the cache (in memory and on disk) is cleared whenever the user changes:
-   sign-out, a session that ended while the app was closed, an account switch.
+   retries by default). With `persist`, the reads of the resources you list are kept
+   on the phone, **per record**, in SQLite, and restored before the screens first
+   render, so lists and records open at once and then refresh. They're kept for 7
+   days (`maxAge`), discarded when `buster` (your app version) changes, and
+   **scoped to the signed-in user**: another user's are never restored, and the cache
+   (in memory and on disk) is cleared whenever the user changes: sign-out, a session
+   that ended while the app was closed, an account switch. Only reads that came back
+   from the provider are kept, never an unsaved change.
 
    ```ts
-   import { persistQueries } from "@marktiderman/genesis-native/persist";
-   export const persist = persistQueries({ storage: AsyncStorage, keys: ["clients", "me"], buster: version });
+   import * as SQLite from "expo-sqlite";
+   import { persistOffline, sqliteLocalCache } from "@marktiderman/genesis-native/offline";
+
+   const db = SQLite.openDatabaseSync("genesis-offline.db");
+   export const persist = persistOffline({ cache: sqliteLocalCache({ db }), resources: ["clients", "me"], buster: version });
    ```
 
-   Persistence is its own entry point: an app that saves nothing doesn't need
-   `@tanstack/query-persist-client-core` or
-   `@tanstack/query-async-storage-persister`. If you do, install them at the
-   same version as your `@tanstack/react-query`: they pin `@tanstack/query-core`
-   exactly, and two copies of it don't share a cache.
+   List only resources whose rows may sit on the phone unencrypted (the OS keeps app
+   storage private, but the app doesn't encrypt it). The device cache is its own entry
+   point (`/offline`): an app that keeps nothing doesn't need expo-sqlite.
+   `persistQueries` (`/persist`, one AsyncStorage blob) is **deprecated**: see
+   docs/MIGRATION.md.
 
    Pass `lifecycle={{ appState: AppState, netInfo: NetInfo }}` to refetch on
    focus and follow the network.
@@ -832,7 +837,8 @@ a set-up mistake, found at launch.
 `createBoot` + `BootProvider` + `useBoot`; `GenesisErrorBoundary` +
 `installGlobalErrorHandler` + `installRejectionTracker` + `FatalScreen` +
 `PlainFatalScreen`; `createNativeQueryClient` + `connectQueryLifecycle`, and
-`createQueryPersistence` / `persistQueries` from `/persist`;
+`persistOffline` + `sqliteLocalCache` from `/offline` (and the deprecated
+`createQueryPersistence` / `persistQueries` from `/persist`);
 `createSessionStore` + `SessionProvider` + `useSession` + `AuthGate`;
 `normalizeLink`; `createLinkHold` + `useHeldLink`.
 

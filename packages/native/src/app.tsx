@@ -116,8 +116,8 @@ export interface GenesisNativeAppProps {
   provider?: DataProvider;
   queryClient?: NativeQueryClientOptions;
   /**
-   * Save queries to the phone: `persistQueries({ storage, keys, buster })`
-   * from `@marktiderman/genesis-native/persist`. The saved cache belongs to
+   * Keep reads on the phone: `persistOffline({ cache: sqliteLocalCache({ db }), resources, buster })`
+   * from `@marktiderman/genesis-native/offline`. The saved cache belongs to
    * one user: it is restored only for that user and cleared when the user
    * changes (sign-out, a session that ended while the app was closed, an
    * account switch).
@@ -523,7 +523,9 @@ function Shell(props: GenesisNativeAppProps) {
     if (bootState.status === "failed" && bootState.error) onError(bootState.error, { fatal: true, source: "boot" });
   }, [bootState.status, bootState.error]);
   useEffect(() => {
-    if (bootState.status === "ready" && persistence) return persistence.subscribe(sessionState.userId ?? "");
+    // The screens mount, and start reading, before this effect runs: their reads are this person's
+    // (the client is emptied whenever the person changes), so they're saved too.
+    if (bootState.status === "ready" && persistence) return persistence.subscribe(sessionState.userId ?? "", { adopt: Boolean(sessionState.userId) });
   }, [bootState.status, persistence, sessionState.userId]);
   useEffect(() => {
     const utils = errorUtils ?? defaultErrorUtils();

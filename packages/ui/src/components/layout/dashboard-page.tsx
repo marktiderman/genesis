@@ -128,7 +128,9 @@ export const DashboardPage = React.forwardRef<
       {stats ? (
         // `align` is left unset on purpose: grid items already stretch, and
         // `Grid` deliberately emits nothing for the defaults CSS supplies.
-        <Grid cols={statColumns} gap="lg">
+        // Two stat cards side by side on a phone (Grid starts at one column): a number and its
+        // label fit in half the width, and a stack of single cards fills the first screen.
+        <Grid cols={statColumns} gap="lg" className={statColumns && statColumns > 1 ? "grid-cols-2" : undefined}>
           {stats}
         </Grid>
       ) : null}

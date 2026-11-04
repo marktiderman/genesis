@@ -652,7 +652,7 @@ describe("ResourceView screen words merge with the view's", () => {
     copy: { form: { createTitle: "Set a goal", editTitle: "Change the goal" }, count: { one: "{count} goal set", other: "{count} goals set" } },
   });
   const props = (screen: Partial<Parameters<typeof useResourceViewProps>[0]>) =>
-    renderHook(() => useResourceViewProps({ view: v, ...screen }), { wrapper: wrap(provider()) }).result.current;
+    renderHook(() => useResourceViewProps({ ...screen, view: v } as Parameters<typeof useResourceViewProps<Goal>>[0]), { wrapper: wrap(provider()) }).result.current;
 
   it("derives the plural from a screen noun given without one", () => {
     expect(props({ noun: "task" })).toMatchObject({ noun: "task", nounPlural: "tasks" });
@@ -673,7 +673,7 @@ describe("ResourceView screen words merge with the view's", () => {
       copy: { form: { createSubmit: "Set it", createDescription: "One goal at a time.", editDescription: "Keep it short." } },
     });
     const of = (screen: Partial<Parameters<typeof useResourceViewProps>[0]>) =>
-      renderHook(() => useResourceViewProps({ view: worded, ...screen }), { wrapper: wrap(provider()) }).result.current;
+      renderHook(() => useResourceViewProps({ ...screen, view: worded } as Parameters<typeof useResourceViewProps<Goal>>[0]), { wrapper: wrap(provider()) }).result.current;
     expect(of({}).formTitles).toEqual({ createSubmit: "Set it", createDescription: "One goal at a time.", editDescription: "Keep it short." });
     expect(of({ formTitles: { createSubmit: "Go", editSubmit: "Update" } }).formTitles).toEqual({
       createSubmit: "Go",
@@ -698,8 +698,8 @@ describe("ResourceView follows the viewer's scope", () => {
     );
     return wrapper;
   }
-  const filters = (props: ReturnType<typeof useResourceViewProps>) =>
-    (props.resourceOptions?.defaultFilters ?? []).map((f) => [f.field, f.operator, f.value]);
+  const filters = (props: ReturnType<typeof useResourceViewProps<Brand>>) =>
+    (props.resourceOptions?.defaultFilters ?? []).map((f) => [f.field, f.operator, "value" in f ? f.value : undefined]);
 
   it("filters by the view's scope keys and starts new rows in the scope, with no screen code", async () => {
     const { result } = renderHook(() => useResourceViewProps({ view }), { wrapper: inScope({ practiceId: "p1" }) });
