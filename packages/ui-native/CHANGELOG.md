@@ -1,5 +1,11 @@
 # @marktiderman/genesis-ui-native
 
+## 3.8.0
+
+### Minor Changes
+
+- 2ccdd11: NativeIcon gains ten semantic names (undo, redo, grid, table, list, sort, upload, eye, grip, link), matching the icons added to the Figma library; the NativeIcon Code Connect template now translates the library's lucide icon names to semantic names.
+
 ## 3.7.0
 
 ### Minor Changes
