@@ -1,0 +1,19 @@
+scripts/figma-brand-modes.mts
+  s_109ad08c59054b::t_cced1bb16c55ba 21-26,30-38,51-62,97-98,127-130,139-141,146-155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f7efa1d6de7e2b07e3ffad4dc68bb1a42bb9be3f",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
