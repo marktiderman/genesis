@@ -1,0 +1,68 @@
+.changeset/upgrade-doctor-friction.md
+  s_b9ce29ee4fad7a::t_2e399e06369dc2 10
+  s_b9ce29ee4fad7a::t_7588cc815518e1 3
+  s_b9ce29ee4fad7a::t_574803b61091a2 17-18
+packages/genesis-cli/src/upgrade/codemods.ts
+  s_b9ce29ee4fad7a::t_9c7af929d3fc90 140-145
+  s_b9ce29ee4fad7a::t_1df1f46f7bb538 132
+  s_b9ce29ee4fad7a::t_7deb7a59c81a54 9
+docs/MIGRATION.md
+  s_b9ce29ee4fad7a::t_2db286fb16b58e 25
+  s_b9ce29ee4fad7a::t_46d6c3bec066b0 41-45
+packages/genesis-cli/README.md
+  s_b9ce29ee4fad7a::t_a8dd85e2430c26 603-605
+  s_b9ce29ee4fad7a::t_77e94a6eba715c 587-589
+  s_b9ce29ee4fad7a::t_b01511d006fa3f 508-509
+packages/genesis-cli/src/upgrade/index.ts
+  s_b9ce29ee4fad7a::t_051f8e0223d680 575-580
+  s_b9ce29ee4fad7a::t_959a48ce465b0d 780
+  s_b9ce29ee4fad7a::t_d04de7fdc6f19e 54
+  s_b9ce29ee4fad7a::t_a297c4d28cf8f0 675
+  s_b9ce29ee4fad7a::t_48e549cb3b3028 739-749
+  s_b9ce29ee4fad7a::t_25b7db875e5616 435
+  s_b9ce29ee4fad7a::t_5054131021696f 512
+  s_b9ce29ee4fad7a::t_90b5e7dbde8464 37
+packages/genesis-cli/src/cli.ts
+  s_b9ce29ee4fad7a::t_02a1fe30d9923b 640-641
+  s_b9ce29ee4fad7a::t_1ac3de61e4dba8 631
+packages/genesis-cli/src/doctor/eslint-config.ts
+  s_b9ce29ee4fad7a::t_c7dc90c627ed02 13,15
+  s_b9ce29ee4fad7a::t_06956f29f616e8 46-53
+packages/genesis-cli/test/eslint-config.test.ts
+  s_b9ce29ee4fad7a::t_8d583708fa7e66 223-225
+packages/genesis-cli/test/init-native.test.ts
+  s_b9ce29ee4fad7a::t_c0b8e3a97573c5 117-118
+packages/genesis-cli/src/blocks/owned.ts
+  s_b9ce29ee4fad7a::t_b732aafd501b64 153-156,158-159
+packages/native/src/persist.ts
+  s_b9ce29ee4fad7a::t_156e3bc11dcaf0 45
+  s_b9ce29ee4fad7a::t_6238d384e7fadf 89
+packages/genesis-cli/test/upgrade-friction.test.ts
+  s_b9ce29ee4fad7a::t_674ed8003b9459 19
+  s_b9ce29ee4fad7a::t_9f81441726207d 276,278
+  s_b9ce29ee4fad7a::t_423dfbf60c653e 303
+  s_b9ce29ee4fad7a::t_c6f5dbb41a369e 357-385
+  s_b9ce29ee4fad7a::t_b4e6486966f112 163-193
+packages/genesis-cli/src/blocks/app-folder.ts
+  s_b9ce29ee4fad7a::t_4f149541c9a127 39-52
+packages/native/README.md
+  s_b9ce29ee4fad7a::t_e6902149b59d99 128-129,131
+packages/genesis-cli/test/shared-database.test.ts
+  s_b9ce29ee4fad7a::t_c0b8e3a97573c5 135-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "55e8ba5e6efc36fcbb4eadf8ca6d8a32cd2eb37d",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
