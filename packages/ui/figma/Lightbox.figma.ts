@@ -6,6 +6,7 @@ import figma from 'figma'
 const instance = figma.selectedInstance
 
 const title = instance.getString('Title')
+const showActions = instance.getBoolean('Show actions')
 
 export default {
   example: figma.code`<Lightbox
@@ -14,9 +15,10 @@ export default {
   items={items}
   index={index}
   onIndexChange={setIndex}
-  title="${title}"
+  title="${title}"${showActions ? `
+  renderActions={(item) => <Rating value={ratings[item.id] ?? 0} onChange={(v) => rate(item, v)} size="sm" />}` : ''}
 />`,
-  imports: ['import { Lightbox } from "@marktiderman/genesis-ui"'],
+  imports: [`import { Lightbox${showActions ? ', Rating' : ''} } from "@marktiderman/genesis-ui"`],
   id: 'lightbox',
   metadata: { nestable: false },
 }

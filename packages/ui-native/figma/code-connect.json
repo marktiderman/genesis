@@ -12,6 +12,7 @@
     "NativeCheckbox",
     "NativeChip",
     "NativeChipGroup",
+    "NativeChoiceCard",
     "NativeCombobox",
     "NativeComposerBar",
     "NativeContextMenu",
@@ -67,7 +68,6 @@
     "ThreadPage"
   ],
   "notYet": [
-    "NativeChoiceCard",
     "NativeWhatsNewSheet"
   ],
   "composed": [
