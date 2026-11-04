@@ -1,0 +1,27 @@
+packages/ui/src/components/resource/chip.tsx
+  s_109ad08c59054b::t_3003875b60706b 7,13-29,36-43,45-47,50-53,55,57-69
+packages/ui/src/components/resource/__tests__/chip.test.tsx
+  s_109ad08c59054b::t_39e133a0c3ce76 1-51
+apps/sample/stories/Chip.stories.tsx
+  s_109ad08c59054b::t_7004665d72fa19 1-48
+packages/ui/figma/Chip.figma.ts
+  s_109ad08c59054b::t_d36d58c3c21fb0 8,13
+packages/ui/src/components/resource/index.ts
+  s_109ad08c59054b::t_b4d30ae9869548 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "31230a0d685b15c721d05ab609ac2b535963f41d",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
