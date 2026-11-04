@@ -1,0 +1,29 @@
+packages/ui-native/figma/NativeChoiceCard.figma.ts
+  s_9613ab470e300c::t_1b4fbd38d26677 1-31
+packages/ui-native/figma/code-connect.json
+  s_9613ab470e300c::t_9173c1eeecb641 15
+packages/ui-native/figma/NativeInlineAlert.figma.ts
+  s_9613ab470e300c::t_9173c1eeecb641 9-10,14-17
+packages/ui-native/figma/NativeRating.figma.ts
+  s_9613ab470e300c::t_9173c1eeecb641 8-9,12
+packages/ui-native/figma/NativeBanner.figma.ts
+  s_9613ab470e300c::t_9173c1eeecb641 9-10,14-17
+packages/ui/figma/Lightbox.figma.ts
+  s_9613ab470e300c::t_2180926d1c071a 9,18-19,21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c42325bfb8fdd3484809666152a6cb47404de1d4",
+  "prompts": {},
+  "sessions": {
+    "s_9613ab470e300c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df308523-d2f5-4e93-bef7-0f444d7d1772",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
