@@ -8,7 +8,8 @@
  * components, checks each template's shape, and ratchets: a component is `required` (its
  * template must exist and be well-formed), `notYet` (reported, not failing) or `composed` (a
  * screen assembled from library components, no template by design) in
- * packages/<package>/figma/code-connect.json (one allowlist per package: ui-native and ui).
+ * packages/<package>/figma/code-connect.json (one allowlist per package: ui-native and ui; chat has
+ * one per entry point, packages/chat/figma/{native,web}/code-connect.json).
  * Promote a component by moving it to `required` once its Figma node exists and its template is
  * published (docs/DESIGN-LIBRARY.md).
  *
@@ -34,6 +35,9 @@
  *     typography names, the Stack/Grid/Split/Container auto-layout primitives and the
  *     cell-formatter factories (WEB_EXCLUDED). The deprecated /data aliases (AppShell,
  *     PageHeader) are `export const`, not re-exports, so each component is counted once.
+ *
+ *   - genesis-chat: packages/chat/src/native/index.ts and packages/chat/src/web/index.ts, each on
+ *     its own: PascalCase value exports minus hooks, providers, constants and CHAT_EXCLUDED.
  *
  * What a template must have, as its first three lines (Code Connect CLI v2, parserless):
  *   // url=<the Figma node>
@@ -90,6 +94,19 @@ export const PACKAGES = [
     ].map((file) => ({ file, rule: "web" })),
     figmaDir: "packages/ui/figma",
   },
+  // genesis-chat: the phone renderers (/native, on genesis-ui-native) and the web ones (/web, on
+  // genesis-ui) export several components under the same name (ChatComposer, ChatTopicBar), so
+  // each entry point has its own Figma folder and allowlist under packages/chat/figma/.
+  {
+    name: "chat-native",
+    indexes: [{ file: "packages/chat/src/native/index.ts", rule: "chat" }],
+    figmaDir: "packages/chat/figma/native",
+  },
+  {
+    name: "chat-web",
+    indexes: [{ file: "packages/chat/src/web/index.ts", rule: "chat" }],
+    figmaDir: "packages/chat/figma/web",
+  },
 ];
 const allowlistOf = (pkg) => `${pkg.figmaDir}/code-connect.json`;
 
@@ -121,6 +138,9 @@ const WEB_EXCLUDED = new Set([
   "Stack", "Grid", "Split", "Container",
   "DateCell", "NumberCell", "CurrencyCell", "BadgeCell",
 ]);
+
+/** Chat exports that render no design of their own: a retry effect and an error boundary. */
+const CHAT_EXCLUDED = new Set(["ChatAutoRetry", "ChatErrorBoundary"]);
 
 const isPascal = (name) => /^[A-Z][a-z][A-Za-z0-9]*$/.test(name); // excludes ALL_CAPS constants
 const isHookOrProvider = (name) => /^use[A-Z]/.test(name) || /Provider$/.test(name);
@@ -185,6 +205,18 @@ export function webComponentsFromIndexes(sources) {
     (!WEB_NOT_SUBPARTS.has(name) &&
       [...all].some((p) => p !== name && name.startsWith(p) && WEB_SUBPART_SUFFIXES.includes(name.slice(p.length))));
   return [...all].filter((n) => !WEB_EXCLUDED.has(n) && !isSubpart(n));
+}
+
+/**
+ * Visual components of a genesis-chat entry point: PascalCase value exports, minus hooks,
+ * providers, constants and the non-visual exports in CHAT_EXCLUDED.
+ */
+export function chatComponentsFromIndex(source) {
+  const out = new Set();
+  for (const names of exportStatements(source)) {
+    for (const name of names) if (isPascal(name) && !isHookOrProvider(name) && !CHAT_EXCLUDED.has(name)) out.add(name);
+  }
+  return [...out];
 }
 
 /**
@@ -254,6 +286,7 @@ export function discoverComponents(root, pkg = PACKAGES[0]) {
   for (const { file, rule } of pkg.indexes) {
     if (rule === "native") out.push(...componentsFromIndex(read(file)));
     else if (rule === "layouts") out.push(...layoutsFromIndex(read(file)));
+    else if (rule === "chat") out.push(...chatComponentsFromIndex(read(file)));
   }
   if (web.length) out.push(...webComponentsFromIndexes(web.map((i) => read(i.file))));
   return out;

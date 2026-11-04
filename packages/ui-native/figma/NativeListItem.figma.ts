@@ -14,13 +14,24 @@ if (leading && leading.type === 'INSTANCE') {
   leadingCode = leading.executeTemplate().example
 }
 const value = instance.getString('Value')
-const accessory = instance.getEnum('accessory', { chevron: 'chevron', switch: 'switch', value: 'value', none: 'none' })
+const accessory = instance.getEnum('accessory', {
+  chevron: 'chevron',
+  switch: 'switch',
+  value: 'value',
+  none: 'none',
+  button: 'button',
+  check: 'check',
+})
 
 let trailing = ''
 if (accessory === 'value') trailing = figma.code`
   trailing={<NativeText preset="body-sm">${value}</NativeText>}`
 else if (accessory === 'switch') trailing = figma.code`
   trailing={<NativeSwitch checked={on} onCheckedChange={setOn} />}`
+else if (accessory === 'button') trailing = figma.code`
+  trailing={<NativeButton size="sm" variant="outline" onPress={onAction}>Join</NativeButton>}`
+else if (accessory === 'check') trailing = figma.code`
+  trailing={<NativeIcon name="success" label="Selected" />}`
 
 export default {
   example: figma.code`<NativeListItem
@@ -29,7 +40,7 @@ export default {
   leading={${leadingCode}}` : ''}${trailing}${accessory === 'chevron' ? '\n  showChevron' : ''}
   onPress={() => {}}
 />`,
-  imports: ['import { NativeListItem, NativeText, NativeSwitch } from "@marktiderman/genesis-ui-native"'],
+  imports: ['import { NativeListItem, NativeText, NativeSwitch, NativeButton, NativeIcon } from "@marktiderman/genesis-ui-native"'],
   id: 'native-list-item',
   metadata: { nestable: true },
 }
