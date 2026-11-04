@@ -15,6 +15,7 @@
  *   npx @marktiderman/genesis-cli add <block> [--dry-run] [--yes] [--no-install]
  *   npx @marktiderman/genesis-cli migrate [--dry-run] [--forward]
  *   npx @marktiderman/genesis-cli upgrade [--version <v>] [--dry-run] [--pr]
+ *   npx @marktiderman/genesis-cli figma:routes [--json] [--strict]
  */
 import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
@@ -384,6 +385,26 @@ featureOptions(
   const what = term ? `"${term}"` : "those filters";
   console.log(hits.length ? hits.map(formatFeature).join("\n\n") : `No feature matches ${what}. If this is new work, add it to the registry first (an idea is enough).`);
 });
+
+program
+  .command("figma:routes")
+  .description("Report drift between this app's routes and its Figma app file (read-only; genesis.config.json figma block, FIGMA_ACCESS_TOKEN)")
+  .option("--json", "Print the report as JSON", false)
+  .option("--strict", "Exit 1 when a route, hotspot or figma: id is missing", false)
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .action(async (opts: { json: boolean; strict: boolean; dir: string }) => {
+    const figma = await import("./figma/routes.js");
+    try {
+      const report = await figma.checkFigmaRoutes({ root: path.resolve(opts.dir) });
+      console.log(opts.json ? JSON.stringify(report, null, 2) : figma.formatCoverage(report));
+      process.exitCode = opts.strict && report.summary.missing > 0 ? 1 : 0;
+    } catch (err) {
+      // Exit 2: the check couldn't run (no config, no token, the API refused), as opposed to finding gaps.
+      if (opts.json) console.log(JSON.stringify({ ok: false, error: (err as Error).message }, null, 2));
+      else console.error(`✗ ${(err as Error).message}`);
+      process.exitCode = 2;
+    }
+  });
 
 const upstream = program.command("upstream").description("The app's register of what it needed from Genesis (docs/genesis-upstream.md)");
 
