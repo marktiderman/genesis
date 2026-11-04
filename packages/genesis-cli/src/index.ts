@@ -62,3 +62,19 @@ export {
   type DoctorResult,
   type Finding,
 } from "./doctor/index.js";
+export {
+  appNavTargets,
+  appRoutes,
+  checkFigmaRoutes,
+  compare as compareFigmaRoutes,
+  formatCoverage,
+  readFigma,
+  readFigmaConfig,
+  validateFigmaConfig,
+  FigmaConfigError,
+  type AppRoute,
+  type CoverageReport,
+  type FigmaConfig,
+  type FigmaFacts,
+  type NavTarget,
+} from "./figma/routes.js";

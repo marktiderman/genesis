@@ -13,6 +13,7 @@
     "NativeChipGroup",
     "NativeCombobox",
     "NativeComposerBar",
+    "NativeContextMenu",
     "NativeDatePicker",
     "NativeDialog",
     "NativeDrawer",
@@ -49,6 +50,7 @@
     "NativeSkeleton",
     "NativeSlider",
     "NativeStepper",
+    "NativeSwipeRow",
     "NativeSwitch",
     "NativeTabs",
     "NativeText",
@@ -68,8 +70,6 @@
     "NativeWhatsNewSheet"
   ],
   "composed": [
-    "NativeSwipeRow",
-    "NativeContextMenu",
     "SettingsPage",
     "SettingsSubPage",
     "NotificationsPage",
