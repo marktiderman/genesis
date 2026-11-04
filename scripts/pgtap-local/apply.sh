@@ -9,6 +9,8 @@ P="psql -v ON_ERROR_STOP=1 -q -U ${PGUSER:-postgres}"
 DB=${PGDATABASE_TEST:-genesis_pgtap}
 $P -d postgres -c "drop database if exists $DB" >/dev/null 2>&1; $P -d postgres -c "create database $DB" >/dev/null || exit 1
 $P -d $DB -f "$here/supabase-stubs.sql" >/dev/null || exit 1
+# The wider stand-ins (vault, pg_cron, pg_net, more of auth), for the packages that need them.
+if [ -n "${PGTAP_APP_STUBS:-}" ]; then $P -d $DB -f "$here/supabase-stubs-app.sql" >/dev/null 2>&1 || { echo "FAIL supabase-stubs-app.sql"; exit 1; }; fi
 for f in "$@"; do
   case $f in *0004_genesis_support_tickets*)
     $P -d $DB -c "create or replace function private.genesis_support_default_tenant() returns uuid language sql stable set search_path = '' as \$\$ select '00000000-0000-4000-8000-00000000000f'::uuid \$\$;" >/dev/null ;;

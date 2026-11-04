@@ -202,6 +202,21 @@ jobs:
           tar -xzf actionlint.tgz actionlint
           ./actionlint -color
 
+  # Every package's pgTAP, each suite on a fresh Postgres database over Supabase-shaped stubs
+  # (scripts/pgtap-local). A test file in no suite fails this job.
+  package-pgtap:
+    name: Package pgTAP
+    if: github.head_ref != 'changeset-release/main' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run the suites
+        run: bash scripts/pgtap-local/docker.sh
+
   storybook-browser-tests:
     name: Storybook browser tests
     # Version-packages PRs only bump versions and changelogs; the code already passed CI on the release PR.

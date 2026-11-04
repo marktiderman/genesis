@@ -1,9 +1,19 @@
-# Local pgTAP for package migrations
+# pgTAP for package migrations
 
-Genesis CI doesn't run the packages' pgTAP suites. These scripts run them on a plain local Postgres
-(16 tested) with pgTAP installed, over `supabase-stubs.sql`: just enough of Supabase's `auth` and
-`storage` schemas and roles. It isn't a Supabase stack. For an app's full suite, use
-`supabase test db` or the `supabase/postgres` image.
+CI's `Package pgTAP` job runs every package's pgTAP with `docker.sh`. These scripts run them on a
+plain Postgres (17 in CI, 16 also tested) with pgTAP installed, over `supabase-stubs.sql`: just
+enough of Supabase's `auth` and `storage` schemas and roles. It isn't a Supabase stack. For an
+app's full suite, use `supabase test db` or the `supabase/postgres` image.
+
+```sh
+scripts/pgtap-local/docker.sh                  # all suites, on a throwaway Postgres in Docker
+scripts/pgtap-local/docker.sh helpdesk chat    # some of them
+```
+
+`suites.sh` lists the suites: each one's migrations, in the order an app applies them, and its
+tests. **A new migration or test goes in it**: a test file in no suite fails the job.
+
+To run one file against a Postgres of your own:
 
 ```sh
 export PGHOST=/path/to/socket PGPORT=5432          # any Postgres with pgtap
