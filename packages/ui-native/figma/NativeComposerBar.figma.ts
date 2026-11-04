@@ -13,8 +13,13 @@ const disabled = instance.getBoolean('disabled')
 const showAbove = instance.getBoolean('Show above')
 const showLeading = instance.getBoolean('Show leading')
 const showTrailing = instance.getBoolean('Show trailing')
-const leading = instance.getInstanceSwap('leading')
-const trailing = instance.getInstanceSwap('trailing')
+const leadingSwap = instance.getInstanceSwap('leading')
+const trailingSwap = instance.getInstanceSwap('trailing')
+// A swap is an instance handle; its own template renders the code that goes in the slot.
+let leading
+if (leadingSwap && leadingSwap.type === 'INSTANCE') leading = leadingSwap.executeTemplate().example
+let trailing
+if (trailingSwap && trailingSwap.type === 'INSTANCE') trailing = trailingSwap.executeTemplate().example
 const mode = instance.getEnum('mode', { text: 'text', voice: 'voice' })
 const empty = instance.getEnum('empty', { true: true, false: false })
 const sending = instance.getEnum('sending', { false: false, true: true })
@@ -31,8 +36,8 @@ export default {
   onModeChange={setMode}${empty === false ? `
   empty={false}` : ''}${sending ? `
   sending` : ''}${disabled ? `
-  disabled` : ''}${showLeading ? figma.code`
-  leading={${leading}}` : ''}${showTrailing ? figma.code`
+  disabled` : ''}${showLeading && leading ? figma.code`
+  leading={${leading}}` : ''}${showTrailing && trailing ? figma.code`
   trailing={${trailing}}` : ''}${showAbove ? `
   above={/* what sits above the input: a reply preview, attachments */}` : ''}
 />`,
