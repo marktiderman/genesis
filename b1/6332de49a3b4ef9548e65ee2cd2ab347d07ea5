@@ -1,0 +1,19 @@
+docs/FIGMA-GUIDELINES.md
+  s_109ad08c59054b::t_b091c8aafeae78 93-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b16332de49a3b4ef9548e65ee2cd2ab347d07ea5",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
