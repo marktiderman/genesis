@@ -1,0 +1,25 @@
+packages/ui/figma/ConflictSheet.figma.ts
+  s_109ad08c59054b::t_0438fbadbc5567 1-24
+packages/ui/figma/code-connect.json
+  s_109ad08c59054b::t_0438fbadbc5567 28,123
+packages/ui-native/figma/code-connect.json
+  s_109ad08c59054b::t_0438fbadbc5567 15,22-23,31,33,40-41,56,60,62,64
+packages/ui-native/figma/NativeRangeSlider.figma.ts
+  s_109ad08c59054b::t_0438fbadbc5567 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f267a1415d1c5fb1f32fcfe6f84aa345e4ee43dd",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
