@@ -3,6 +3,7 @@
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { GenesisModulesProvider } from "@marktiderman/genesis-ui-native/components";
 import { ChatComposer } from "../composer";
 import { ChatNativeProvider } from "../context";
 import type { ChatNativeModules } from "../modules";
@@ -44,6 +45,33 @@ describe("ChatComposer", () => {
     expect(onSend).toHaveBeenCalledWith({ input: { body: "hello", replyToId: null, mentions: [] }, files: [] });
     expect(haptics.impactAsync).toHaveBeenCalledWith("l");
     await waitFor(() => expect((screen.getByTestId("cmp-input") as HTMLInputElement).value).toBe(""));
+  });
+
+  it("taps once when the app gave haptics to both Genesis and chat", () => {
+    const fake = () => ({ impactAsync: vi.fn(async () => undefined), selectionAsync: vi.fn(async () => undefined), notificationAsync: vi.fn(async () => undefined), ImpactFeedbackStyle: { Light: "l", Medium: "m" }, NotificationFeedbackType: { Success: "s", Warning: "w", Error: "e" } });
+    const chat = fake();
+    const genesis = fake();
+    render(
+      <GenesisModulesProvider modules={{ haptics: genesis } as never}>
+        <ChatNativeProvider modules={{ haptics: chat } as unknown as ChatNativeModules}>
+          <Harness />
+        </ChatNativeProvider>
+      </GenesisModulesProvider>,
+    );
+    fireEvent.change(screen.getByTestId("cmp-input"), { target: { value: "hello" } });
+    fireEvent.click(screen.getByTestId("cmp-send"));
+    expect(genesis.impactAsync).toHaveBeenCalledTimes(1);
+    expect(chat.impactAsync).not.toHaveBeenCalled();
+  });
+
+  it("sits on NativeComposerBar: Send waits while access loads, with the input read-only", () => {
+    render(
+      <ChatNativeProvider>
+        <Harness canPost={null as unknown as boolean} />
+      </ChatNativeProvider>,
+    );
+    expect(screen.getByTestId("cmp-input").hasAttribute("disabled")).toBe(true);
+    expect(screen.getByTestId("cmp-send").getAttribute("aria-disabled")).toBe("true");
   });
 
   it("restores the thread's draft", async () => {

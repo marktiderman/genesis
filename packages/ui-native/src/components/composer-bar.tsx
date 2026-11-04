@@ -13,7 +13,7 @@
  *   `above` (a reply preview, attachments waiting to send), `idleAction` (in
  *   Send's place while there's nothing to send: a hold-to-record mic) and
  *   `replaceInput` (instead of `leading` and the input: a recording's
- *   waveform). Attachments with no text: pass `empty={false}`.
+ *   waveform). Attachments with no text: pass `hasContent`.
  * - **More ways to send:** `sendActions` ("Schedule"). Touch and hold Send:
  *   one action runs, several open a menu. Each is also an accessibility
  *   action on Send.
@@ -62,10 +62,10 @@ export interface NativeComposerBarProps {
   trailing?: ReactNode;
   above?: ReactNode;
   /**
-   * Whether there's nothing to send. By default, a blank `value`; pass `false` when attachments
-   * are waiting and no text is needed.
+   * Whether there's something to send. By default, a `value` that isn't blank; pass `true` when
+   * attachments are waiting and no text is needed, and `false` while `replaceInput` is showing.
    */
-  empty?: boolean;
+  hasContent?: boolean;
   /** Takes Send's place (the same 44pt spot) while there's nothing to send and nothing sending: a hold-to-record mic. */
   idleAction?: ReactNode;
   /** Shown instead of `leading` and the input (a recording in progress). Label it yourself: it's one region to VoiceOver. */
@@ -119,7 +119,7 @@ export function NativeComposerBar({
   leading,
   trailing,
   above,
-  empty,
+  hasContent,
   idleAction,
   replaceInput,
   sendActions,
@@ -135,7 +135,7 @@ export function NativeComposerBar({
   const hasIcon = Boolean(symbol || icons?.["arrow-up"]);
   const current = modes?.find((m) => m.id === mode) ?? modes?.[0];
   const internal = current?.tone === "internal";
-  const blank = empty ?? !value.trim();
+  const blank = !(hasContent ?? value.trim().length > 0);
   const canSend = !blank && !disabled && !sending && editable;
   const actions = sendActions?.length ? sendActions : null;
   const idle = idleAction != null && blank && !sending;
