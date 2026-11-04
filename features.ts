@@ -2767,19 +2767,19 @@ export const features = defineFeatures({
 
   "motion-kit": {
     name: "Motion and feel",
-    summary: "Motion defined once for web and native: shared durations, easings and springs (genesis-design-system's resolveMotion), read as the design system's CSS variables on web and through useMotion, animateMotion and the worklet-safe motionSpring and motionTiming (Reanimated) on native, where Reduce Motion holds everything still.",
+    summary: "Motion defined once for web and native: shared durations, easings and springs (genesis-design-system's resolveMotion), read as the design system's CSS variables on web and through useMotion, animateMotion and the worklet-safe motionSpring and motionTiming (Reanimated) on native, where Reduce Motion holds everything still. On the phone, haptics named once (useHaptics, through GenesisModules.haptics) and press feedback (usePressFeedback: shrink while held, spring back, dim under Reduce Motion), used by the composer's send; NativeButton takes a haptic.",
     category: "Design system",
     status: "building",
     claimedBy: "claude",
     kind: "token",
-    keywords: ["animation", "motion", "springs", "easing", "duration", "reduce motion", "micro-interactions"],
+    keywords: ["animation", "motion", "springs", "easing", "duration", "reduce motion", "micro-interactions", "haptics", "press feedback"],
     owner: "mark",
     apps: ["native", "web"],
     audience: ["developer"],
     visibility: "internal",
     entry: { web: "@marktiderman/genesis-design-system", native: "@marktiderman/genesis-ui-native" },
     requires: ["design-systems"],
-    links: { code: ["packages/design-system/src/tokens/motion.ts", "packages/ui-native/src/hooks/use-motion.ts"] },
+    links: { code: ["packages/design-system/src/tokens/motion.ts", "packages/ui-native/src/hooks/use-motion.ts", "packages/ui-native/src/hooks/use-haptics.ts", "packages/ui-native/src/hooks/use-press-feedback.ts"] },
   },
   "ai-providers": {
     name: "AI core",

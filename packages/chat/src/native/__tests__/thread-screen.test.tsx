@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 // @feat:chat
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { forwardRef, useImperativeHandle, type ReactNode } from "react";
+import { AccessibilityInfo } from "react-native";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider, NativeToastProvider } from "@marktiderman/genesis-ui-native/components";
 import type { ChatClient } from "../../core/client";
@@ -97,6 +98,43 @@ describe("ChatThreadScreen's list", () => {
     expect(list.last().onEndReached).toBeUndefined();
     // "Load earlier" sits at the top, over the oldest message.
     expect(list.last().ListHeaderComponent).toBeTruthy();
+  });
+});
+
+/** A list that also takes the thread's scroll calls through its ref. */
+function scrollingList() {
+  const seen: Record<string, unknown>[] = [];
+  const scrollToIndex = vi.fn();
+  const List = forwardRef<unknown, Record<string, unknown>>(function List(props, ref) {
+    seen.push(props);
+    useImperativeHandle(ref, () => ({ scrollToIndex, scrollToEnd: vi.fn(), scrollToOffset: vi.fn() }));
+    return null;
+  });
+  return { List, scrollToIndex, last: () => seen.at(-1)! };
+}
+
+describe("ChatThreadScreen's jump to a message", () => {
+  const messages = [msg(1, SAM, "2026-10-24T10:00:00Z"), msg(2, ME, "2026-10-24T10:01:00Z"), msg(3, SAM, "2026-10-24T10:02:00Z")];
+
+  it("goes to a message by its server id (rows are keyed by client id), centred, and says whose it is", async () => {
+    const announce = vi.fn();
+    (AccessibilityInfo as { announceForAccessibility?: unknown }).announceForAccessibility = announce;
+    const list = scrollingList();
+    render(wrap(fakeClient(messages, 3), list.List, <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m2", seq: 2 }} />));
+    await waitFor(() => expect(list.scrollToIndex).toHaveBeenCalled());
+    const { index, viewPosition } = list.scrollToIndex.mock.calls.at(-1)![0] as { index: number; viewPosition: number };
+    const row = (list.last().data as ThreadRow[])[index]!;
+    expect(row.key).toBe("c:c2");
+    expect(row.type === "message" && row.item.type === "message" ? row.item.message.id : null).toBe("m2");
+    expect(viewPosition).toBe(0.5);
+    expect(announce).toHaveBeenCalledWith("Message from You: body 2");
+  });
+
+  it("says so when the message isn't there and there's no seq to load back to", async () => {
+    const list = scrollingList();
+    render(wrap(fakeClient(messages, 3), list.List, <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m9" }} />));
+    expect(await screen.findByText("That message isn't here any more", {}, { timeout: 2000 })).toBeTruthy();
+    expect(list.scrollToIndex).not.toHaveBeenCalled();
   });
 });
 

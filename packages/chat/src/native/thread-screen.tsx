@@ -1,21 +1,19 @@
 /**
  * @feat:chat
- * One conversation: a list oldest first, top to bottom, the order it reads in
- * with VoiceOver (FlashList's bottom-anchored chat mode when the app gave it,
- * else FlatList), that opens at the newest message, follows new ones while
- * you are at the bottom, goes to the bottom when you send, and keeps its
- * place while earlier ones load at the top; day separators, the "New messages" line,
+ * One conversation, on genesis-ui-native's `NativeThreadList`: oldest first,
+ * top to bottom, the order it reads in with VoiceOver (FlashList's
+ * bottom-anchored chat mode when the app gave it, else FlatList), opening at
+ * the newest message, following new ones while you are at the bottom, going
+ * to the bottom when you send, and keeping its place while earlier ones load
+ * at the top; day separators, the "New messages" line,
  * grouped bubbles with names and avatars in groups, who is typing or
  * recording, retry and delete on a send that failed, the long-press sheet and
  * swipe to reply, a message's photos in the full-screen viewer, and the composer above
  * the keyboard (or, when your role couldn't be read, Retry). Render it as the screen's only content, under the
  * navigator's header with `useChatThreadStackOptions` (an opaque bar).
  *
- * Not inverted: FlashList 2 keeps the first visible row in place when rows
- * change and only follows new rows at the bottom (`autoscrollToBottomThreshold`;
- * it declares `autoscrollToTopThreshold` but never reads it), so in an inverted list a new message
- * at index 0 was pushed under the composer. Inverted, VoiceOver also read
- * each day's heading after its messages.
+ * A row is keyed by the message's client id (it keeps its row when the
+ * server's copy lands) and gone to by the server's id (`jumpId`).
  *
  * Organising: a topic bar when the conversation has topics (the list shows the topic chosen; a
  * closed one takes no posts from members), the away line under the header, scheduled send
@@ -23,9 +21,9 @@
  * message (a search result), and moderation's markers.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
-import { AccessibilityInfo, FlatList, KeyboardAvoidingView, Platform, Pressable, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
+import { KeyboardAvoidingView, Platform, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { NativeEmptyState, NativeSkeleton, NativeText, useGenesisModules, useToast } from "@marktiderman/genesis-ui-native/components";
+import { NativeEmptyState, NativeText, NativeThreadList, useGenesisModules, useToast, type NativeThreadListHandle, type ThreadRowInfo } from "@marktiderman/genesis-ui-native/components";
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { activityLine } from "../core/thread";
 import type { ChatMessage, PendingFile } from "../core/types";
@@ -40,7 +38,7 @@ import { ChatAwayLine, useAwayLine } from "./availability";
 import { fill } from "./copy";
 import { ChatScheduledBar, ChatScheduleSheet, useScheduleSend } from "./schedule-sheet";
 import { canManageTopics, ChatTopicBar, topicClosedFor } from "./topics";
-import { rowIndexOf, useJumpToMessage, type JumpTarget } from "./use-jump";
+import type { JumpTarget } from "./use-jump";
 import type { MessageActionId } from "./actions";
 import { ChatComposer } from "./composer";
 import { composerDisabledReason, filesFromAssets, replyTargetFor } from "./composer-state";
@@ -102,34 +100,9 @@ export interface ChatThreadScreenSlots {
   attachment?: ChatAttachmentSlot | null;
 }
 
-/** The list props chat passes; FlashList v2 and FlatList both take them. */
-interface ChatListProps {
-  ref?: unknown;
-  data: readonly ThreadRow[];
-  renderItem: (info: { item: ThreadRow; index: number }) => React.ReactElement | null;
-  keyExtractor: (row: ThreadRow) => string;
-  getItemType?: (row: ThreadRow) => string;
-  inverted?: boolean;
-  onStartReached?: () => void;
-  onStartReachedThreshold?: number;
-  ListHeaderComponent?: React.ReactElement | null;
-  ListFooterComponent?: React.ReactElement | null;
-  keyboardShouldPersistTaps?: "handled";
-  keyboardDismissMode?: "interactive" | "on-drag";
-  contentContainerStyle?: Record<string, unknown>;
-  maintainVisibleContentPosition?: Record<string, unknown>;
-  onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  scrollEventThrottle?: number;
-  onContentSizeChange?: (width: number, height: number) => void;
-  onLayout?: (e: LayoutChangeEvent) => void;
-  extraData?: unknown;
-  onScrollToIndexFailed?: (info: { index: number; averageItemLength: number }) => void;
-  testID?: string;
-}
-
 /**
  * Points from the bottom that still count as "at the bottom" (FlatList, which follows by hand).
- * @deprecated Promoted to genesis-ui-native as `THREAD_AT_BOTTOM_POINTS`. ChatThreadScreen moves onto NativeThreadList with its builder (feature `inbox-thread`); this copy is removed then.
+ * @deprecated Use genesis-ui-native's `THREAD_AT_BOTTOM_POINTS`. ChatThreadScreen is on NativeThreadList; this copy is removed in a later minor.
  */
 export const AT_BOTTOM_POINTS = 120;
 
@@ -139,7 +112,7 @@ export const AT_BOTTOM_POINTS = 120;
  * a screen of it, keeps the first visible row in place when earlier ones load
  * at the top). FlatList: keeps its place when earlier rows load at the top;
  * the screen follows new rows itself (`followsByHand`).
- * @deprecated Promoted to genesis-ui-native as `threadListMode` (which anchors FlatList past the header, `minIndexForVisible: 1`). ChatThreadScreen moves onto NativeThreadList with its builder (feature `inbox-thread`); this copy is removed then.
+ * @deprecated Use genesis-ui-native's `threadListMode` (which anchors FlatList past the header, `minIndexForVisible: 1`). ChatThreadScreen is on NativeThreadList; this copy is removed in a later minor.
  */
 export function threadListMode(flash: boolean, reducedMotion: boolean): { followsByHand: boolean; maintainVisibleContentPosition: Record<string, unknown> } {
   if (flash) {
@@ -153,7 +126,7 @@ export function threadListMode(flash: boolean, reducedMotion: boolean): { follow
 
 /**
  * Whether a scroll position is at (or near) the bottom of its content.
- * @deprecated Promoted to genesis-ui-native as `threadNearBottom`. ChatThreadScreen moves onto NativeThreadList with its builder (feature `inbox-thread`); this copy is removed then.
+ * @deprecated Use genesis-ui-native's `threadNearBottom`. ChatThreadScreen is on NativeThreadList; this copy is removed in a later minor.
  */
 export function nearBottom(m: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } }, slack = AT_BOTTOM_POINTS): boolean {
   return m.contentOffset.y + m.layoutMeasurement.height >= m.contentSize.height - slack;
@@ -190,30 +163,9 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const colors = useThemeRoles();
   const reducedMotion = useReducedMotion();
   const genesis = useGenesisModules();
-  const List = (genesis.list ?? FlatList) as unknown as ComponentType<ChatListProps>;
-  const mode = threadListMode(Boolean(genesis.list), reducedMotion);
-  const listRef = useRef<{
-    scrollToEnd?: (o?: { animated?: boolean }) => void;
-    scrollToIndex?: (o: { index: number; animated?: boolean; viewPosition?: number }) => void;
-    scrollToOffset?: (o: { offset: number; animated?: boolean }) => void;
-  } | null>(null);
-  // FlatList follows by hand: at the bottom (or not yet scrolled), new rows and a shorter list keep it there.
-  const atBottom = useRef(true);
-  // FlatList opens at the top and is moved to the bottom a frame later: until it has been, the top
-  // isn't "reached" (it would load an earlier page on every open).
-  const placed = useRef(!mode.followsByHand);
-  const toBottom = useCallback(
-    (animated: boolean) => {
-      const go = (a: boolean) => listRef.current?.scrollToEnd?.({ animated: a && !reducedMotion });
-      requestAnimationFrame(() => {
-        go(animated);
-        placed.current = true;
-      });
-      // Once more after the new row has its size (FlashList measures it after the first pass).
-      if (animated) setTimeout(() => go(true), 180);
-    },
-    [reducedMotion],
-  );
+  const listRef = useRef<NativeThreadListHandle | null>(null);
+  // What you send is what you look at next, wherever the list was.
+  const toNewest = useCallback(() => listRef.current?.scrollToEnd({ animated: true }), []);
   const composer = useChatComposer(conversationId, threadRootId, userId);
   const { setReply } = composer;
   const [actionsFor, setActionsFor] = useState<ChatMessage | null>(null);
@@ -344,53 +296,31 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   );
   const observer = conv.role === "observer";
   const { loadUntil } = conv;
-  // The message being gone to, for FlatList's retry once it has measured that far (by id: rows may have moved).
-  const jumpingTo = useRef<{ id: string; tries: number } | null>(null);
-  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (retryTimer.current) clearTimeout(retryTimer.current);
-  }, []);
-  const rowsNow = useRef(rows);
-  rowsNow.current = rows;
-  const { highlightedId, jumping } = useJumpToMessage({
-    target: jumpTo,
-    rows,
-    loading: conv.isLoading,
-    has: useCallback((id: string) => byId.has(id), [byId]),
-    loadUntil,
-    scrollTo: (index, id) => {
-      jumpingTo.current = { id, tries: 0 };
-      const scroll = (at: number) => listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion, viewPosition: 0.5 });
-      requestAnimationFrame(() => scroll(index));
-      // Once more after the first layout: with the message already loaded (the thread was opened
-      // before), the jump runs on the first frame, and FlashList's start-at-the-bottom placement,
-      // which comes after it, would win and leave the thread at the bottom.
-      if (retryTimer.current) clearTimeout(retryTimer.current);
-      retryTimer.current = setTimeout(() => {
-        const at = rowIndexOf(rowsNow.current, id);
-        if (at >= 0) scroll(at);
-      }, 250);
+  // A jump names the server's message id; its seq says how far back to load.
+  const jumpSeq = jumpTo?.seq;
+  const jumpMessageId = jumpTo?.messageId ?? null;
+  const onLoadUntil = useCallback(
+    (id: string) => {
+      if (id !== jumpMessageId || jumpSeq == null) return Promise.resolve(false);
+      return loadUntil(jumpSeq).catch(() => {
+        fail();
+        return false;
+      });
     },
-    onStart: () => {
-      atBottom.current = false;
-      placed.current = true;
+    [jumpMessageId, jumpSeq, loadUntil, fail],
+  );
+  const jumpAnnouncement = useCallback(
+    (row: ThreadRow) => {
+      const m = row.type === "message" && row.item.type === "message" ? row.item.message : null;
+      return m ? fill(copy.jumpedTo, { name: nameOf(m.senderId), text: attachmentPreview(displayBody(m.body), m.attachments[0], attachmentKinds, Boolean(m.deletedAt)) }) : "";
     },
-    onLanded: (id) => {
-      const m = byId.get(id);
-      if (m) AccessibilityInfo.announceForAccessibility?.(fill(copy.jumpedTo, { name: nameOf(m.senderId), text: attachmentPreview(displayBody(m.body), m.attachments[0], attachmentKinds, Boolean(m.deletedAt)) }));
-    },
-    onGone: () => {
-      toast.show({ title: copy.messageGone });
-      // Back to where the thread opens: the newest messages.
-      atBottom.current = true;
-      toBottom(false);
-    },
-    onError: fail,
-  });
+    [copy.jumpedTo, nameOf, attachmentKinds],
+  );
+  const onJumpFailed = useCallback(() => toast.show({ title: copy.messageGone }), [toast, copy.messageGone]);
   const reattachable = useCallback((files: readonly PendingFile[]) => files.every((f) => !f.lost || f.kind === "image" || f.kind === "video"), []);
 
   const renderItem = useCallback(
-    ({ item: row }: { item: ThreadRow }) => {
+    (row: ThreadRow, { highlighted }: ThreadRowInfo) => {
       if (row.type === "day") return <DaySeparator label={row.label} testID={`${testID}-day-${row.key}`} />;
       if (row.type === "unread") return <UnreadDivider label={copy.newMessages} testID={`${testID}-unread`} />;
       const m = row.item.type === "message" ? row.item.message : null;
@@ -412,7 +342,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           onToggleReaction={allowed ? react : undefined}
           onOpenImage={onOpenImage}
           observer={observer}
-          highlighted={Boolean(m && m.id === highlightedId)}
+          highlighted={highlighted}
           linkPreview={m ? previewToShow(previews[m.id]) : null}
           linkPreviewImages={linkPreviewImages}
           attachmentKinds={attachmentKinds}
@@ -423,7 +353,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
         />
       );
     },
-    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, attachmentSlot, cardActionTimeoutMs, observer, highlightedId],
+    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, attachmentSlot, cardActionTimeoutMs, observer],
   );
 
   // ---- Video messages ----
@@ -452,10 +382,9 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
     (video: RecordedVideo) => {
       videoUploads.start({ conversationId, userId, video, extra: { replyToId: replyNow, threadRootId }, send: outbox.send, videoUpload, prepared: takePrepared(), openFile: modules.openFile });
       if (replyNow) setReply(null);
-      atBottom.current = true;
-      toBottom(true);
+      toNewest();
     },
-    [conversationId, userId, replyNow, threadRootId, outbox, videoUpload, takePrepared, modules.openFile, setReply, toBottom],
+    [conversationId, userId, replyNow, threadRootId, outbox, videoUpload, takePrepared, modules.openFile, setReply, toNewest],
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
@@ -485,7 +414,6 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
     ? { behavior: "translate-with-padding", keyboardVerticalOffset: offset }
     : { behavior: Platform.OS === "ios" ? "padding" : undefined, keyboardVerticalOffset: offset };
 
-  const empty = !conv.isLoading && rows.length === 0;
   return (
     <ChatPeopleScope userIds={peopleIds}>
       <SafeAreaView ref={rootRef as never} onLayout={measureTop} testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
@@ -495,64 +423,26 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           ) : null}
           <ChatAwayLine text={awayLine} testID={`${testID}-away`} />
           <View style={{ flex: 1 }}>
-            {conv.isLoading ? (
-              <LoadingThread testID={`${testID}-loading`} />
-            ) : empty ? (
-              <View style={{ flex: 1, justifyContent: "center" }}>
-                <NativeEmptyState variant="first-run" title={copy.threadEmptyTitle} body={currentTopic?.closedAt ? copy.topicClosedNotice : copy.threadEmptyBody} testID={`${testID}-empty`} />
-              </View>
-            ) : (
-              <List
-                ref={listRef}
-                testID={`${testID}-list`}
-                data={rows}
-                renderItem={renderItem}
-                keyExtractor={(row) => row.key}
-                getItemType={(row) => (row.type === "message" ? (row.mine ? "mine" : "theirs") : row.type)}
-                onStartReached={() => {
-                  // Not while going to a message: its pages are loading, and new rows would move it.
-                  if (placed.current && !jumping && conv.hasEarlier && !conv.loadingEarlier) void conv.loadEarlier();
-                }}
-                onStartReachedThreshold={0.5}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="interactive"
-                contentContainerStyle={{ paddingVertical: 8 }}
-                maintainVisibleContentPosition={mode.maintainVisibleContentPosition}
-                extraData={highlightedId}
-                onScrollToIndexFailed={({ index, averageItemLength }) => {
-                  // FlatList hasn't measured that far up yet: get near it, then try again (three times at most).
-                  listRef.current?.scrollToOffset?.({ offset: Math.max(0, index * averageItemLength - 200), animated: false });
-                  const target = jumpingTo.current;
-                  if (!target || target.tries >= 3) return;
-                  target.tries += 1;
-                  if (retryTimer.current) clearTimeout(retryTimer.current);
-                  retryTimer.current = setTimeout(() => {
-                    const at = rowIndexOf(rowsNow.current, target.id);
-                    if (at >= 0) listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion, viewPosition: 0.5 });
-                  }, 250);
-                }}
-                {...(mode.followsByHand
-                  ? {
-                      scrollEventThrottle: 32,
-                      onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-                        atBottom.current = nearBottom(e.nativeEvent);
-                      },
-                      onContentSizeChange: () => {
-                        if (atBottom.current) toBottom(false);
-                      },
-                      onLayout: () => {
-                        if (atBottom.current) toBottom(false);
-                      },
-                    }
-                  : {})}
-                ListHeaderComponent={
-                  conv.hasEarlier ? (
-                    <EarlierAnchor loading={conv.loadingEarlier} label={copy.loadEarlier} onPress={() => void conv.loadEarlier()} testID={`${testID}-earlier`} />
-                  ) : null
-                }
-                ListFooterComponent={activity ? <ActivityLine text={activity} testID={`${testID}-activity`} /> : null}
-              />
-            )}
+            <NativeThreadList<ThreadRow>
+              ref={listRef}
+              testID={`${testID}-list`}
+              data={rows}
+              keyExtractor={threadRowKey}
+              jumpId={threadRowMessageId}
+              getItemType={threadRowType}
+              renderItem={renderItem}
+              loading={conv.isLoading}
+              hasEarlier={conv.hasEarlier}
+              onLoadEarlier={() => void conv.loadEarlier()}
+              loadingEarlier={conv.loadingEarlier}
+              earlierLabel={copy.loadEarlier}
+              jumpTo={jumpMessageId}
+              onLoadUntil={onLoadUntil}
+              jumpAnnouncement={jumpAnnouncement}
+              onJumpFailed={onJumpFailed}
+              footer={activity ? <ActivityLine text={activity} testID={`${testID}-activity`} /> : null}
+              empty={<NativeEmptyState variant="first-run" title={copy.threadEmptyTitle} body={currentTopic?.closedAt ? copy.topicClosedNotice : copy.threadEmptyBody} testID={`${testID}-empty`} />}
+            />
           </View>
           {scheduling && !threadRootId ? <ChatScheduledBar conversationId={conversationId} testID={`${testID}-scheduled`} /> : null}
           <VideoUploadTray conversationId={conversationId} userId={userId} testID={`${testID}-video-uploads`} />
@@ -569,9 +459,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
             role={conv.role}
             onSend={({ input, files }) => {
               void conv.send(input, files).catch(fail);
-              // What you send is what you look at next, wherever the list was.
-              atBottom.current = true;
-              toBottom(true);
+              toNewest();
             }}
             signalTyping={conv.signalTyping}
             signalRecording={conv.signalRecording}
@@ -640,34 +528,7 @@ function ActivityLine({ text, testID }: { text: string; testID: string }) {
   );
 }
 
-function EarlierAnchor({ loading, label, onPress, testID }: { loading: boolean; label: string; onPress: () => void; testID: string }) {
-  const colors = useThemeRoles();
-  return (
-    <View style={{ alignItems: "center", paddingVertical: 12 }}>
-      {loading ? (
-        <View testID={`${testID}-loading`} style={{ gap: 8, alignItems: "center" }}>
-          <NativeSkeleton width={180} height={14} />
-          <NativeSkeleton width={120} height={14} />
-        </View>
-      ) : (
-        <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: 16 }}>
-          <NativeText preset="label" style={{ color: colors.tint }}>
-            {label}
-          </NativeText>
-        </Pressable>
-      )}
-    </View>
-  );
-}
-
-function LoadingThread({ testID }: { testID: string }) {
-  return (
-    <View testID={testID} style={{ flex: 1, justifyContent: "flex-end", padding: 16, gap: 10 }}>
-      <NativeSkeleton width={200} height={36} className="rounded-2xl" />
-      <View style={{ alignItems: "flex-end" }}>
-        <NativeSkeleton width={160} height={36} className="rounded-2xl" />
-      </View>
-      <NativeSkeleton width={240} height={36} className="rounded-2xl" />
-    </View>
-  );
-}
+const threadRowKey = (row: ThreadRow) => row.key;
+/** A message row is gone to by the server's id; a day heading, the unread line and a message still sending can't be. */
+const threadRowMessageId = (row: ThreadRow) => (row.type === "message" && row.item.type === "message" ? row.item.message.id : null);
+const threadRowType = (row: ThreadRow) => (row.type === "message" ? (row.mine ? "mine" : "theirs") : row.type);

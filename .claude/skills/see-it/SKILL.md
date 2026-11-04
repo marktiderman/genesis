@@ -48,6 +48,15 @@ These are notes, not steps. Try things, and add what you learn here.
   and an on-page timer ("first rows in 25 ms" beside "1516 ms") made the instant-lists preview
   (#689) clear at a glance. A Restart button that remounts with a fresh QueryClient stood in for
   relaunching the app.
+- **A phone screen runs in the browser through react-native-web.** The chat thread preview (slice 2
+  of the chat work) rendered the real `ChatThreadScreen` this way. In the copied config, alias
+  `react-native` to a small file that re-exports `react-native-web` and stubs `PlatformColor`,
+  `react-native-safe-area-context` to a shim on react-native-web's `View` (with
+  `SafeAreaInsetsContext`), `nativewind` to `packages/ui-native/test-utils/nativewind-mock.ts`, and
+  `@marktiderman/genesis-ui-native/*` to `packages/ui-native/dist/*/index.js` (apps/sample doesn't
+  depend on it). Add `define: { __DEV__: "false", global: "globalThis" }` and the `.web.*`
+  extensions. It's FlatList, not FlashList, and no native modules. Driving it found a jump bug the
+  unit tests had missed.
 - **Keep it out of the repo.** Build from a scratch folder and move it out when you've published.
   Only this skill is committed.
 

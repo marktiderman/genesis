@@ -42,8 +42,6 @@ function toDom<T extends AnyProps>(
     onLongPress?: () => void;
     onLayout?: (e: unknown) => void;
   };
-  void onPressIn;
-  void onPressOut;
   void pointerEvents;
   void hitSlop;
   void collapsable;
@@ -52,6 +50,9 @@ function toDom<T extends AnyProps>(
   void accessibilityLiveRegion;
 
   const out: Record<string, unknown> = { ...rest, children };
+  // Press-in and press-out as pointer down and up, so a test can hold a press (fireEvent.pointerDown).
+  if (onPressIn) out["onPointerDown"] = onPressIn;
+  if (onPressOut) out["onPointerUp"] = onPressOut;
   if (testID !== undefined) out["data-testid"] = testID;
   if (accessibilityLabel !== undefined) out["aria-label"] = accessibilityLabel;
   if (accessibilityHint !== undefined) out["aria-describedby"] = accessibilityHint;

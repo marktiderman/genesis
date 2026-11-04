@@ -12,6 +12,7 @@
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import { FlashList } from "@shopify/flash-list";
 import * as GlassEffect from "expo-glass-effect";
+import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
 import { SymbolView } from "expo-symbols";
@@ -32,4 +33,6 @@ export const nativeModules: GenesisModules = {
   navigation: { ThemeProvider, DefaultTheme, DarkTheme },
   // ThreadPage's composer follows the keyboard frame by frame.
   keyboardAvoidingView: KeyboardAvoidingView,
+  // expo-haptics, once: useHaptics(), playHaptic and NativeButton's `haptic` play through it.
+  haptics: Haptics as unknown as GenesisModules["haptics"],
 };

@@ -124,6 +124,69 @@ describe("NativeThreadList", () => {
     expect(announce).toHaveBeenCalledWith("second");
   });
 
+  it("goes to a row by its jumpId when that isn't its key, and highlights it", async () => {
+    const { List, calls } = recordingList();
+    type Sent = { key: string; serverId: string | null; text: string };
+    const sent: Sent[] = [
+      { key: "c:1", serverId: "m1", text: "first" },
+      { key: "c:2", serverId: "m2", text: "second" },
+      { key: "d:3", serverId: null, text: "Today" },
+    ];
+    render(
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <NativeThreadList<Sent>
+          testID="l"
+          data={sent}
+          keyExtractor={(r) => r.key}
+          jumpId={(r) => r.serverId}
+          renderItem={(r, { highlighted }) => <span data-testid={`row-${r.key}`} data-highlighted={String(highlighted)}>{r.text}</span>}
+          jumpTo="m2"
+        />
+      </GenesisModulesProvider>,
+    );
+    await waitFor(() => expect(calls.scrollToIndex).toHaveBeenCalledWith(expect.objectContaining({ index: 1 })));
+    await waitFor(() => expect(screen.getByTestId("row-c:2").getAttribute("data-highlighted")).toBe("true"));
+    expect(screen.getByTestId("row-c:1").getAttribute("data-highlighted")).toBe("false");
+  });
+
+  it("doesn't take its own scroll to a row for coming back to the bottom (which would follow the bottom again and leave the row)", async () => {
+    const { List, calls } = recordingList();
+    const onAtBottomChange = vi.fn();
+    render(
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} jumpTo="a" onAtBottomChange={onAtBottomChange} />
+      </GenesisModulesProvider>,
+    );
+    await waitFor(() => expect(calls.scrollToIndex).toHaveBeenCalled());
+    expect(onAtBottomChange).toHaveBeenLastCalledWith(false);
+    // The jump's scroll starts where the list was, at the bottom: its first events say so.
+    const scroll = calls.props.at(-1)!.onScroll as (e: unknown) => void;
+    act(() => scroll({ nativeEvent: { contentOffset: { y: 1500 }, contentSize: { height: 2000 }, layoutMeasurement: { height: 500 } } }));
+    expect(onAtBottomChange).not.toHaveBeenCalledWith(true);
+  });
+
+  it("counts the reader's own drag straight away, even while the list is settling from a jump", async () => {
+    const { List, calls } = recordingList();
+    const onAtBottomChange = vi.fn();
+    render(
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} jumpTo="c" onAtBottomChange={onAtBottomChange} />
+      </GenesisModulesProvider>,
+    );
+    await waitFor(() => expect(calls.scrollToIndex).toHaveBeenCalled());
+    const props = calls.props.at(-1)!;
+    const scroll = props.onScroll as (e: unknown) => void;
+    // Inside the settling window: the list's own movement is ignored...
+    act(() => scroll({ nativeEvent: { contentOffset: { y: 1500 }, contentSize: { height: 2000 }, layoutMeasurement: { height: 500 } } }));
+    expect(onAtBottomChange).not.toHaveBeenCalledWith(true);
+    // ...but a reader who takes hold and reaches the bottom counts at once.
+    act(() => (props.onScrollBeginDrag as () => void)());
+    act(() => scroll({ nativeEvent: { contentOffset: { y: 1500 }, contentSize: { height: 2000 }, layoutMeasurement: { height: 500 } } }));
+    expect(onAtBottomChange).toHaveBeenLastCalledWith(true);
+    act(() => scroll({ nativeEvent: { contentOffset: { y: 0 }, contentSize: { height: 2000 }, layoutMeasurement: { height: 500 } } }));
+    expect(onAtBottomChange).toHaveBeenLastCalledWith(false);
+  });
+
   it("loads until a row it doesn't hold, and says when it can't be found", async () => {
     const { List } = recordingList();
     const onLoadUntil = vi.fn(async () => false);
