@@ -443,7 +443,8 @@ export function compare(config: FigmaConfig, routes: AppRoute[], targets: NavTar
 
   const wantedPages = [...Object.values(config.pages), config.proposalsPage];
   // A page the config names that the file lacks is a gap: with no route page, nothing on it is checked.
-  const missingPages = wantedPages.filter((p) => !figma.pages.includes(p));
+  // The Proposals page is optional now that proposals live in route-page sections.
+  const missingPages = wantedPages.filter((p) => p !== config.proposalsPage && !figma.pages.includes(p));
   const uncheckedNavigation = dynamicTargets.filter((t) => routes.some((r) => r.file === t.file));
   return {
     file: config.file,
@@ -496,7 +497,7 @@ export function formatCoverage(r: CoverageReport): string {
   };
   if (r.missingPages.length) lines.push("", `Pages not in the file: ${r.missingPages.join(", ")}`);
   table("Routes with no frame", ["platform", "route", "file"], r.routesWithoutFrame.map((x) => [x.platform, x.route, x.file]));
-  table("Frames with no route (move to Proposals, or add the route)", ["page", "frame", "id"], r.framesWithoutRoute.map((f) => [f.page, f.name, f.id]));
+  table("Frames with no route (put them in a Proposal section, or add the route)", ["page", "frame", "id"], r.framesWithoutRoute.map((f) => [f.page, f.name, f.id]));
   table("Navigation with no hotspot", ["from", "to", "at"], r.missingHotspots.map((m) => [m.from, `${m.to}${m.targetHasFrame ? "" : " (no frame)"}`, `${m.file}:${m.line}`]));
   table("Hotspots to a frame with no route", ["from", "to"], r.deadHotspots.map((d) => [d.from.name, d.to.name]));
   table("figma: ids that don't match the route's frame", ["route", "comment", "frames"], r.idMismatches.map((m) => [m.route, m.figmaId!, m.frames.join(", ") || "none"]));
