@@ -1,0 +1,71 @@
+packages/forms-native/figma/NumberField.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/code-connect.json
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-32
+packages/forms-native/figma/DefaultHeader.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-14
+packages/forms-native/figma/ConsentField.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/ChoiceRow.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-14
+packages/forms-native/figma/MultiChoiceField.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/CalculatedField.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/Button.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-14
+packages/forms-native/figma/DefaultErrorSummary.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/DefaultProgress.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/SingleChoiceField.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/DefaultEnding.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-13
+packages/forms-web/figma/code-connect.json
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-10
+packages/forms-native/figma/DefaultNotice.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-13
+packages/forms-native/figma/FieldChrome.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-14
+packages/forms-web/figma/DefaultEnding.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-13
+packages/forms-native/figma/DefaultNavigation.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-23
+packages/forms-native/figma/AnswerInput.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-13
+packages/forms-native/figma/DateField.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/DefaultBrand.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/PhotoField.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/studio/figma/code-connect.json
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-7
+packages/forms-web/figma/FieldChrome.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-14
+packages/forms-native/figma/ScaleField.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/YesNoField.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/DefaultStatus.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+packages/forms-native/figma/TextField.figma.ts
+  s_109ad08c59054b::t_d0bc6dfcef9550 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "04dceaad60171ab19e48bf91f6b57744f99a09ff",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
