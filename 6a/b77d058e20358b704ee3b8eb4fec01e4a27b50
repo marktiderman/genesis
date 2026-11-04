@@ -1,0 +1,27 @@
+packages/chat/package.json
+  s_b9ce29ee4fad7a::t_b3eef96e26c4b6 256-259
+.changeset/chat-attachment-paths.md
+  s_b9ce29ee4fad7a::t_b3eef96e26c4b6 1-5
+packages/chat/migrations/tests/0005_genesis_chat_attachment_paths.test.sql
+  s_b9ce29ee4fad7a::t_db22f1a1c3d177 1-99
+packages/chat/README.md
+  s_b9ce29ee4fad7a::t_1293cf12f9d05b 14
+packages/chat/migrations/0005_genesis_chat_attachment_paths.sql
+  s_b9ce29ee4fad7a::t_962b807eb03749 1-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6ab77d058e20358b704ee3b8eb4fec01e4a27b50",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
