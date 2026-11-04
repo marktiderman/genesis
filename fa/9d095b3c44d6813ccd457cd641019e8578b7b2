@@ -1,0 +1,21 @@
+packages/support/src/contract.ts
+  s_e63e2ce0535b22::t_4faecf8ee139be 144-146
+.changeset/support-clean-route-linear.md
+  s_e63e2ce0535b22::t_734b07be52421a 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fa9d095b3c44d6813ccd457cd641019e8578b7b2",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
