@@ -197,6 +197,8 @@ export type {
 export { NativeLabel } from "./label";
 export type { NativeLabelProps } from "./label";
 
+export { NativeChoiceCard } from "./choice-card";
+export type { NativeChoiceCardProps } from "./choice-card";
 export { NativeRadioGroup, NativeRadioGroupItem } from "./radio-group";
 export type {
   NativeRadioGroupProps,
@@ -319,7 +321,7 @@ export { justifyRows, galleryItemRatio, DEFAULT_GALLERY_RATIO } from "./gallery-
 export type { JustifiedRow, JustifiedTile } from "./gallery-layout";
 
 export { NativeRating, nextRating } from "./rating";
-export type { NativeRatingProps, NativeRatingSize } from "./rating";
+export type { NativeRatingProps, NativeRatingSize, NativeRatingTone } from "./rating";
 
 export { NativeGalleryGrid } from "./gallery-grid";
 export type { NativeGalleryGridProps, NativeGalleryLayout } from "./gallery-grid";

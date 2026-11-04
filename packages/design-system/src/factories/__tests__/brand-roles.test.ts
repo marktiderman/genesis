@@ -99,6 +99,15 @@ describe("brandRoleVariables", () => {
     expect(contrast(muted, hex("#6f6357"))).toBeLessThan(1.05); // neutral 600, not 500
   });
 
+  it("also needs muted text to read at 4.5:1 on the muted fill, not just the page", () => {
+    // Zinc 500 is 4.83:1 on white but 4.40:1 on zinc 100 (an unselected segment's label): 600 wins.
+    // genesis.css agrees (the test above), so the default theme passes too.
+    const { light } = brandRoleVariables(genesisBrand);
+    const muted = hslToRgb(light["--muted-foreground"]!);
+    expect(contrast(muted, hslToRgb(light["--muted"]!))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(muted, hex("#52525b"))).toBeLessThan(1.05); // zinc 600
+  });
+
   it("matches genesis.css for the Genesis brand (to rounding), so the default look doesn't move", () => {
     const genesis = themeVariables(GENESIS_THEME_BRAND);
     const roles = brandRoleVariables(genesisBrand);

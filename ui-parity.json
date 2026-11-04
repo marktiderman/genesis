@@ -87,6 +87,7 @@
     "AuthBranding": "A part of AuthScreen; the web's AuthPage takes the same fields as its branding block.",
     "InboxPage": "The web inbox is genesis-chat's (packages/chat/src/web/inbox.tsx), not a genesis-ui layout.",
     "NativeBanner": "notYet: a full-width system banner; the web uses Alert.",
+    "NativeChoiceCard": "notYet: a selectable option card (radio or checkbox with media); the web form draws its own choice options, and a ChoiceCard export would be the twin.",
     "NativeChipGroup": "notYet: a group of selectable chips; the web lays out Chips itself.",
     "NativeCombobox": "notYet: the web builds a combobox from Command in a Popover; a Combobox export would be the twin.",
     "NativeSwipeRow": "A swipe is a touch gesture; the web's InboxPage puts a row's swipeActions in a More menu.",

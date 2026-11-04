@@ -24,8 +24,8 @@
  *     darkest neutral reads better on it as its foreground; the ring is the
  *     primary when it reaches 3:1 on the background, the text color otherwise
  *   - neutral 100 → secondary, muted, accent; 500 → muted foreground (or the
- *     first darker stop that reads at 4.5:1 on the background, else the text
- *     color); 200 → border, input
+ *     first darker stop that reads at 4.5:1 on both the background and the
+ *     muted fill it also sits on, else the text color); 200 → border, input
  *   - status → destructive (error), success, warning, info
  *   - radius.lg (else radius.DEFAULT) → radius, in both modes: every
  *     `rounded-*` step is a multiple of it, so `"0"` is square everywhere
@@ -140,9 +140,12 @@ function overlay(brand: CanonicalBrand, mode: Mode, out: Record<string, string>)
   if (accent) primaryWith(accent, background ?? read("background"), foreground ?? read("foreground"));
 
   set(["secondary", "muted", "accent"], neutral("100"));
-  // Muted text: the first neutral from 500 down that reads at 4.5:1 on the page, else the text color.
+  // Muted text: the first neutral from 500 down that reads at 4.5:1 on the page and on the muted
+  // fill (a segmented control's unselected label, a muted row), else the text color.
   const page = read("background");
-  const readable = (rgb: [number, number, number] | null) => rgb !== null && contrast(rgb, page) >= 4.5;
+  const mutedFill = read("muted");
+  const readable = (rgb: [number, number, number] | null) =>
+    rgb !== null && contrast(rgb, page) >= 4.5 && contrast(rgb, mutedFill) >= 4.5;
   const mutedText = ["500", "600", "700", "800", "900"].map(neutral).find(readable);
   set(["muted-foreground"], mutedText ?? (brand.neutral?.["500"] ? read("foreground") : null));
   set(["border", "input"], neutral("200"));
