@@ -436,7 +436,7 @@ export function compare(config: FigmaConfig, routes: AppRoute[], targets: NavTar
   for (const h of figma.hotspots) {
     const from = byId.get(h.from);
     const to = byId.get(h.to);
-    if (from && to && platformOf(to.page) && !framed.has(to.id)) deadHotspots.push({ from, to });
+    if (from && to && platformOf(to.page) && !inProposal(to) && !framed.has(to.id)) deadHotspots.push({ from, to });
   }
 
   const idMismatches = routes.filter((r) => r.figmaId && !framesFor(r).some((f) => f.id === r.figmaId)).map((r) => ({ ...r, frames: framesFor(r).map((f) => f.id) }));

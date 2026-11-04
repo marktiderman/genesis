@@ -157,8 +157,9 @@ describe("checkFigmaRoutes", () => {
       { id: "1:1", name: "(tabs)/invite", page: "App", section: "Proposal · Draft · invite", route: "(tabs)/invite" },
       { id: "1:2", name: "other", page: "App", route: "other" },
     ];
-    const report = compare(config, [], [], { pages: ["App"], frames, hotspots: [] } as never);
+    const report = compare(config, [], [], { pages: ["App"], frames, hotspots: [{ from: "1:2", to: "1:1" }] } as never);
     expect(report.framesWithoutRoute.map((f) => f.name)).toEqual(["other"]);
+    expect(report.deadHotspots).toEqual([]);
     expect(Object.keys(report.proposals)).toEqual(["Proposal · Draft · invite"]);
   });
 
