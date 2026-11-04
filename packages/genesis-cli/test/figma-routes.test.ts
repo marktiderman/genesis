@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,10 +7,14 @@ import {
   appNavTargets,
   appRoutes,
   checkFigmaRoutes,
+  compare,
   destinations,
+  dynamicNavTargets,
   figmaIdOf,
   formatCoverage,
   navTargets,
+  readFigma,
+  readFigmaConfig,
   routeMatches,
   validateFigmaConfig,
   FigmaConfigError,
@@ -57,6 +62,15 @@ describe("routes", () => {
     expect(routeMatches("(tabs)/settings", "/settings?tab=1")).toBe(true);
   });
 
+  it("matches an Expo catch-all [...rest] to one or more segments", () => {
+    expect(routeMatches("docs/[...slug]", "/docs/a")).toBe(true);
+    expect(routeMatches("docs/[...slug]", "/docs/a/b/c")).toBe(true);
+    expect(routeMatches("docs/[...slug]", "/docs")).toBe(false);
+    expect(routeMatches("(app)/[...rest]/edit", "/a/b/edit")).toBe(true);
+    expect(routeMatches("(app)/[...rest]/edit", "/a/b")).toBe(false);
+    expect(routeMatches("items/[id]", "/items/a/b")).toBe(false);
+  });
+
   it("reads the figma: comment in the first lines only", () => {
     expect(figmaIdOf("// figma: 12:34\nx")).toBe("12:34");
     expect(figmaIdOf("// figma: 12-34")).toBe("12:34");
@@ -79,6 +93,25 @@ describe("navigation targets", () => {
       '<Link href="https://example.com">x</Link>',
     ].join("\n");
     expect(navTargets(code, "x.tsx").map((t) => t.target)).toEqual(["/a", "/b", "/c", "/e", "/f", "/g", "/h"]);
+  });
+
+  it("finds template-literal and { pathname } navigation as unchecked", () => {
+    const code = [
+      'router.push("/a");',
+      "router.push(`/d/${id}`);",
+      'router.replace({ pathname: "/items/[id]", params: { id } });',
+      "<Link href={`/e/${id}`}>e</Link>",
+      '<Link href={{ pathname: "/f/[id]", params: { id } }}>f</Link>',
+      "navigate({ to: `/g/${id}` });",
+      "router.push(`/plain`);",
+    ].join("\n");
+    expect(dynamicNavTargets(code, "x.tsx").map((t) => `${t.line} ${t.target}`)).toEqual([
+      "2 `/d/${id}`",
+      '3 { pathname: "/items/[id]", params: { id }',
+      "4 `/e/${id}`",
+      '5 { pathname: "/f/[id]", params: { id }',
+      "6 `/g/${id}`",
+    ]);
   });
 
   it("finds them across the app", () => {
@@ -118,6 +151,32 @@ describe("checkFigmaRoutes", () => {
     expect(formatCoverage(report)).toMatchSnapshot();
   });
 
+  it("counts a configured page the file doesn't have as missing, so --strict fails with no routes", () => {
+    const config = validateFigmaConfig({ file: "abc", pages: { web: "Web" } });
+    const report = compare(config, [], [], { pages: ["Proposals"], frames: [], hotspots: [] });
+    expect(report.missingPages).toEqual(["Web"]);
+    expect(report.summary.missing).toBe(1);
+  });
+
+  it("reports unresolvable navigation in a route file as unchecked, not missing", () => {
+    const config = validateFigmaConfig({ file: "abc", pages: { native: "App" } });
+    const routes = [{ route: "(tabs)", platform: "native" as const, file: "src/app/(tabs)/index.tsx" }];
+    const dynamic = [
+      { file: "src/app/(tabs)/index.tsx", line: 3, target: "`/items/${id}`" },
+      { file: "src/components/x.tsx", line: 1, target: "`/x/${id}`" },
+    ];
+    const report = compare(config, routes, [], { pages: ["App", "Proposals"], frames: [], hotspots: [] }, dynamic);
+    expect(report.uncheckedNavigation.map((t) => t.target)).toEqual(["`/items/${id}`"]);
+    expect(report.summary.missing).toBe(1);
+  });
+
+  it("gives up on a stalled Figma API with a clear error", async () => {
+    const stalled: FetchLike = (_url, init) =>
+      new Promise((_resolve, reject) => init.signal?.addEventListener("abort", () => reject(init.signal!.reason)));
+    const config = validateFigmaConfig({ file: "abc", pages: { web: "Web" } });
+    await expect(readFigma(config, "t", stalled, 20)).rejects.toThrow(/Figma API \/v1\/files\/abc didn't answer within/);
+  });
+
   it("needs a token", async () => {
     await expect(checkFigmaRoutes({ root: APP, token: "", fetch: recorded })).rejects.toThrow(/FIGMA_ACCESS_TOKEN/);
   });
@@ -130,6 +189,20 @@ describe("the figma-routes doctor rule", () => {
     await checkFigmaRoutesRule({ root: APP, strict, report: (f: FindingInput) => found.push(f) } as unknown as DoctorContext);
     return found;
   };
+
+  it("names the file when genesis.config.json isn't valid JSON", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "figma-routes-"));
+    try {
+      writeFileSync(path.join(dir, "genesis.config.json"), '{ "figma": { "file": "abc", }');
+      expect(() => readFigmaConfig(dir)).toThrow(FigmaConfigError);
+      expect(() => readFigmaConfig(dir)).toThrow(/genesis\.config\.json isn't valid JSON/);
+      const found: FindingInput[] = [];
+      await checkFigmaRoutesRule({ root: dir, strict: false, report: (f: FindingInput) => found.push(f) } as unknown as DoctorContext);
+      expect(found).toEqual([expect.objectContaining({ rule: "figma-routes", level: "warn", message: expect.stringContaining("isn't valid JSON") })]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
   it("is one info notice without a token", async () => {
     vi.stubEnv("FIGMA_ACCESS_TOKEN", "");

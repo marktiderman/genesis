@@ -77,7 +77,12 @@ function useDeliberatePick(onAdvance: (() => void) | undefined) {
 
 // ── Renderers ────────────────────────────────────────────────────────────────
 
-function TextField(
+/**
+ * The renderer for typed text answers (short, long, email, phone, URL).
+ *
+ * @stability Beta
+ */
+export function TextField(
   props: FieldRendererProps & {
     type?: string;
     multiline?: boolean;
@@ -251,7 +256,12 @@ function EndLabels({ inputId, low, high }: { inputId: string; low?: string | und
   );
 }
 
-function ScaleField(props: FieldRendererProps) {
+/**
+ * The renderer for a rating scale, NPS or star rating.
+ *
+ * @stability Beta
+ */
+export function ScaleField(props: FieldRendererProps) {
   const { binding, inputId } = props;
   const max = typeof binding.field.props?.max === "number" ? binding.field.props.max : 5;
   const values = scaleValues(binding.field.type, max);
@@ -314,7 +324,12 @@ function StarRating({
   );
 }
 
-function YesNoField(props: FieldRendererProps) {
+/**
+ * The renderer for a yes or no question.
+ *
+ * @stability Beta
+ */
+export function YesNoField(props: FieldRendererProps) {
   const { binding } = props;
   const current = binding.value === true ? "yes" : binding.value === false ? "no" : "";
   return (
@@ -586,7 +601,12 @@ function useSearchable(props: FieldRendererProps): boolean {
   return isSearchable(props.binding.field);
 }
 
-function SingleChoiceField(props: FieldRendererProps) {
+/**
+ * The renderer for a single choice: a list of options, or a search when there are many.
+ *
+ * @stability Beta
+ */
+export function SingleChoiceField(props: FieldRendererProps) {
   return useSearchable(props) ? <SearchableSingleField {...props} /> : <SingleChoiceList {...props} />;
 }
 
@@ -655,7 +675,12 @@ function SingleChoiceList(props: FieldRendererProps) {
   );
 }
 
-function MultiChoiceField(props: FieldRendererProps) {
+/**
+ * The renderer for a multiple choice: a list of options, or a search when there are many.
+ *
+ * @stability Beta
+ */
+export function MultiChoiceField(props: FieldRendererProps) {
   return useSearchable(props) ? <SearchableMultiField {...props} /> : <MultiChoiceList {...props} />;
 }
 
@@ -753,8 +778,10 @@ function controlAria(props: FieldRendererProps) {
  * phone's own picker on touch devices. Over more options than
  * `SEARCHABLE_OPTION_COUNT` (or with `props.searchable: true`) it is a
  * searchable list instead, which also shows descriptions and pictures.
+ *
+ * @stability Beta
  */
-function DropdownField(props: FieldRendererProps) {
+export function DropdownField(props: FieldRendererProps) {
   return useSearchable(props) ? <SearchableSingleField {...props} /> : <DropdownSelect {...props} />;
 }
 
@@ -815,8 +842,10 @@ function DropdownSelect(props: FieldRendererProps) {
  * A number, typed as text with the decimal keypad: what was typed is kept
  * while it is not a number yet ("-", "1."), and stored as a number once it is.
  * Text that never becomes a number is kept as text, so validation says so.
+ *
+ * @stability Beta
  */
-function NumberField(props: FieldRendererProps) {
+export function NumberField(props: FieldRendererProps) {
   const { binding } = props;
   const { min, max, step } = numberLimits(binding.field);
   const line = useLineClass();
@@ -856,8 +885,12 @@ function NumberField(props: FieldRendererProps) {
   );
 }
 
-/** A calendar day from the browser's own date picker, stored as `YYYY-MM-DD`. */
-function DateField(props: FieldRendererProps) {
+/**
+ * A calendar day from the browser's own date picker, stored as `YYYY-MM-DD`.
+ *
+ * @stability Beta
+ */
+export function DateField(props: FieldRendererProps) {
   const { binding } = props;
   const { min, max } = dateLimits(binding.field);
   const line = useLineClass();
@@ -879,8 +912,10 @@ function DateField(props: FieldRendererProps) {
 /**
  * One checkbox to agree to something. The question is the legend; the
  * checkbox's own words are `props.text` ("I agree to the terms"), else "I agree".
+ *
+ * @stability Beta
  */
-function ConsentField(props: FieldRendererProps) {
+export function ConsentField(props: FieldRendererProps) {
   const { binding, inputId } = props;
   const text = typeof binding.field.props?.text === "string" && binding.field.props.text.trim() ? binding.field.props.text : "I agree";
   const look = useChoiceLook(inputId, 1);

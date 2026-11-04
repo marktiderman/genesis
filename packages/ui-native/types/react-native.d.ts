@@ -12,6 +12,9 @@ declare module "react-native" {
     [key: string]: any;
   }
 
+  /** A style, or a nested list of them with gaps, as react-native's own `StyleProp`. */
+  export type StyleProp<T> = T | ReadonlyArray<StyleProp<T>> | null | undefined | false;
+
   export interface ImageStyle {
     [key: string]: any;
   }
@@ -185,7 +188,7 @@ declare module "react-native" {
   }
 
   export interface PressableProps {
-    style?: ViewStyle | ViewStyle[] | ((state: { pressed: boolean }) => ViewStyle | ViewStyle[]);
+    style?: StyleProp<ViewStyle> | ((state: { pressed: boolean }) => StyleProp<ViewStyle>);
     className?: string;
     onPress?: (e: GestureResponderEvent) => void;
     onLongPress?: () => void;

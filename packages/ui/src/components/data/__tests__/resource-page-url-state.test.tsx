@@ -209,6 +209,34 @@ describe('ResourcePage urlState with pagination="server"', () => {
     fireEvent.click(screen.getByTestId("resource-page-next"));
     await waitFor(() => expect(log.at(-1)).toEqual({ url: "page=2", replace: true }));
   });
+
+  it("keeps the default sort's empty-values placement when a link holds that sort", async () => {
+    const provider = createMockProvider({ posts });
+    const getList = vi.spyOn(provider, "getList");
+    const { useAdapter } = memoryAdapter("sort=title:desc");
+    function Linked() {
+      const searchParams = useAdapter();
+      return (
+        <GenesisProvider provider={provider}>
+          <ResourcePage
+            resource="posts"
+            title="Posts"
+            columns={["title"]}
+            pagination="server"
+            detail="none"
+            keyboardNavigation={false}
+            resourceOptions={{ defaultSort: { field: "title", order: "desc", nulls: "last" } }}
+            urlState={searchParams}
+          />
+        </GenesisProvider>
+      );
+    }
+    render(<Linked />);
+    await waitFor(() => expect(screen.getByText("Post 30")).toBeTruthy());
+    const sorts = getList.mock.calls.map(([, params]) => JSON.stringify(params?.sort));
+    expect(sorts.length).toBeGreaterThan(0);
+    for (const sort of sorts) expect(sort).toContain('"nulls":"last"');
+  });
 });
 
 describe("ResourcePage urlState follow-ups", () => {

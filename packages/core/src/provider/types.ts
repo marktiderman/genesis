@@ -36,6 +36,11 @@ export interface PaginationParam {
 export interface SortParam {
   field: string;
   order: "asc" | "desc";
+  /**
+   * Where rows with no value go. Unset, the store decides: Postgres puts them last ascending and
+   * first descending, so a "highest first" list opens with its empty rows. Say `"last"` for those.
+   */
+  nulls?: "first" | "last";
 }
 
 /**

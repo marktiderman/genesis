@@ -1535,7 +1535,7 @@ export function AppShell({
               size="sm"
               className="h-8 w-full text-xs"
               onClick={() => {
-                setUserOverrides({});
+                setUserOverrides(undefined);
                 // Hand the sidebar back to the page defaults too.
                 setUserCollapsed(undefined);
               }}

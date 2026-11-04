@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, isDataWriteError, resourceKeys, useCapabilities, useDataProvider, useResource, useViewer, useWrite, writeConflict, type BaseRecord, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
+import { DataWriteError, isDataWriteError, NO_ROWS_MATCHED, resourceKeys, useCapabilities, useDataProvider, useResource, useViewer, useWrite, writeConflict, type BaseRecord, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
 import { sameFormValue, type Allowed, type ResolvedFormField, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../../layout/sub-nav";
@@ -328,19 +328,17 @@ function SettingsForm({
       // Through the resource's write path (`update` with `expectedVersion`), not the provider
       // directly: a save made while another of this record is still in flight is checked against
       // the version that one commits, and the version this one commits goes into every cached copy.
-      let saved: DataRow | null | undefined;
       try {
-        saved = await update(recordView.recordId(row), data as Partial<DataRow & BaseRecord>, version != null ? { expectedVersion: String(version) } : undefined);
+        return await update(recordView.recordId(row), data as Partial<DataRow & BaseRecord>, version != null ? { expectedVersion: String(version) } : undefined);
       } catch (error) {
+        // A write that matched no rows is a refusal, in the workspace's words.
+        if (isDataWriteError(error) && error.code === NO_ROWS_MATCHED) {
+          throw new DataWriteError("forbidden", fillMessage(m.workspace.notChanged, { noun: view.noun }), { code: NO_ROWS_MATCHED });
+        }
         const found = writeConflict(error, data);
         if (found && isDataWriteError(error) && error.current) setConflict({ conflict: found, values, row: error.current });
         throw error;
       }
-      // A write that matched no rows is a refusal, never a silent success.
-      if (saved === null || saved === undefined) {
-        throw new DataWriteError("forbidden", fillMessage(m.workspace.notChanged, { noun: view.noun }));
-      }
-      return saved;
     },
     // The edits stay until the row shows them (the effect below), so a saved value doesn't flash
     // back to the old one while the record refetches.

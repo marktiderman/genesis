@@ -80,3 +80,23 @@ describe("useResource().update with expectedVersion", () => {
     expect(update).toHaveBeenLastCalledWith("tasks", expect.objectContaining({ expectedVersion: "1" }));
   });
 });
+
+describe("useResource().update that matches no rows", () => {
+  for (const mode of ["pessimistic", "optimistic"] as const) {
+    it(`fails instead of passing silently, in ${mode} mode`, async () => {
+      const { update, wrapper } = setup();
+      const onError = vi.fn();
+      const onUpdateSuccess = vi.fn();
+      const { result } = renderHook(() => useResource("tasks", { mutationMode: mode, onError, onUpdateSuccess }), { wrapper });
+      await vi.waitFor(() => expect(result.current.list.data?.data).toHaveLength(1));
+      update.mockImplementationOnce(async () => ({ data: null }) as never);
+      await act(async () => {
+        const write = result.current.update("t1", { stage: "done" }, { expectedVersion: "2" });
+        if (mode === "pessimistic") await expect(write).rejects.toMatchObject({ outcome: "forbidden" });
+        else await write;
+      });
+      await vi.waitFor(() => expect(onError.mock.calls[0]?.[0]).toMatchObject({ outcome: "forbidden" }));
+      expect(onUpdateSuccess).not.toHaveBeenCalled();
+    });
+  }
+});

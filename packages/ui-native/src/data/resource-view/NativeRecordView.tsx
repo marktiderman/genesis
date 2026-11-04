@@ -12,7 +12,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, isDataWriteError, resourceKeys, useCapabilities, useDataProvider, useResource, useViewer, writeConflict, type BaseRecord, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
+import { DataWriteError, isDataWriteError, NO_ROWS_MATCHED, resourceKeys, useCapabilities, useDataProvider, useResource, useViewer, writeConflict, type BaseRecord, type DataRow, type ResourceContract, type WriteConflict } from "@marktiderman/genesis-core";
 import { readinessChip, type ReadinessLabels } from "@marktiderman/genesis-core/resource";
 import { sameFormValue, type Allowed, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
@@ -559,12 +559,6 @@ function SettingsGroup({
       // directly: a save made while another of this record is in flight is checked against the
       // version that one commits, and the version this one commits goes into every cached copy.
       const saved = await update(recordView.recordId(row), data as Partial<DataRow & BaseRecord>, version != null ? { expectedVersion: String(version) } : undefined);
-      // A write that matched no rows is a refusal, never a silent success.
-      if (saved === null || saved === undefined) {
-        lastFailure.current = fill(words.notChanged, { noun: view.noun });
-        setRefusal(lastFailure.current);
-        return "failed";
-      }
       // The next edit builds on this save's version, even before the record refetches.
       if (versionField && saved[versionField] != null) editBase.current = { ...(editBase.current ?? row), [versionField]: saved[versionField] };
       setConflict(null);
@@ -576,7 +570,8 @@ function SettingsGroup({
         setConflict({ conflict: found, values, row: error.current, message: error.message });
         return "conflict";
       }
-      lastFailure.current = refusalMessage(error, words.failed);
+      // A write that matched no rows is a refusal, in this screen's words.
+      lastFailure.current = isDataWriteError(error) && error.code === NO_ROWS_MATCHED ? fill(words.notChanged, { noun: view.noun }) : refusalMessage(error, words.failed);
       setRefusal(lastFailure.current);
       return "failed";
     } finally {

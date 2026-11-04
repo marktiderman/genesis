@@ -1,6 +1,11 @@
 export {
   Form,
+  DefaultBrand,
   DefaultEnding,
+  DefaultErrorSummary,
+  DefaultHeader,
+  DefaultNavigation,
+  DefaultProgress,
   PROGRESS_DELAY_MS,
   CLASSIC_PROGRESS_DELAY_MS,
   type BrandSlotProps,
@@ -16,7 +21,24 @@ export {
 } from "./Form";
 export { themeCss, themeColors, type FormTheme, type ThemeColors } from "./theme";
 export { useFormPresentation, type FormPresentation, type FormPresentationValue } from "./presentation";
-export { builtInRenderers, defaultRegistry, describedBy, FieldChrome, type FieldChromeProps } from "./renderers";
+export {
+  builtInRenderers,
+  ConsentField,
+  DateField,
+  defaultRegistry,
+  describedBy,
+  DropdownField,
+  FieldChrome,
+  MultiChoiceField,
+  NumberField,
+  ScaleField,
+  SingleChoiceField,
+  TextField,
+  YesNoField,
+  type FieldChromeProps,
+} from "./renderers";
+export { ListField, MediaNotesField, TableField, TextHighlightsField } from "./structured";
+export { PhotoField } from "./photo";
 export {
   UploadContext,
   useUpload,

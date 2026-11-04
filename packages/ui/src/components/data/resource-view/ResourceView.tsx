@@ -278,7 +278,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
       ...resourceOptions,
       ...(defaultFilters.length ? { defaultFilters } : {}),
       ...(orderBy && !resourceOptions?.defaultSort
-        ? { defaultSort: { field: orderBy.field, order: orderBy.direction ?? "asc" } }
+        ? { defaultSort: { field: orderBy.field, order: orderBy.direction ?? "asc", ...(orderBy.nulls ? { nulls: orderBy.nulls } : {}) } }
         : {}),
     },
   } as ResourcePageProps<T>;
