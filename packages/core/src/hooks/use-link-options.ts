@@ -120,7 +120,7 @@ export function useLinkOptions(target: LinkTarget, options: UseLinkOptionsOption
     return by === field || !IDENTIFIER.test(field) ? [first] : [first, { field, order: "asc" }];
   };
   const sortBy = orderField ?? naming;
-  const sortKey = sortBy ? `${sortBy}:${orderField ? orderDirection : "asc"}` : undefined;
+  const sortKey = sortBy ? `${sortBy}:${orderField ? orderDirection : "asc"}:${(orderField && orderNulls) || ""}` : undefined;
   const sorts = sortBy ? sortsFor(sortBy, orderField ? orderDirection : "asc", orderField ? orderNulls : undefined) : undefined;
   const [sortedBy, setSortedBy] = useState<string | undefined>(sortKey);
   const list = useInfiniteResource<BaseRecord>(target.resource, {
@@ -138,9 +138,9 @@ export function useLinkOptions(target: LinkTarget, options: UseLinkOptionsOption
   const { setSorts, setSearch } = list;
   useEffect(() => {
     if (!sortBy) return;
-    setSorts(sortsFor(sortBy, orderField ? orderDirection : "asc"));
+    setSorts(sortsFor(sortBy, orderField ? orderDirection : "asc", orderField ? orderNulls : undefined));
     setSortedBy(sortKey);
-    // sortsFor reads only `field`; sortKey follows sortBy and the direction.
+    // sortsFor reads only `field`; sortKey follows sortBy, the direction and where empty values go.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortKey, field, setSorts]);
   useEffect(() => {
