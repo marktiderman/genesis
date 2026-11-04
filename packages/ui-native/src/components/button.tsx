@@ -125,7 +125,7 @@ function NativeButton({
       onPressOut={feedback.onPressOut}
       disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading }}
+      accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading ?? accessibilityState?.busy }}
       {...props}
     >
       {/* Inside the Pressable, which keeps the button's size and classes: a wrapper would lose a `flex-1`. */}

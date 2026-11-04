@@ -67,6 +67,8 @@ export function AnswerInput({
     <Input
       {...pass}
       testID={props.inputId}
+      // Drop the boxed field's classes (fixed height, border, fill, padding): `s.input` draws the answer line.
+      inputClassName="h-auto rounded-none border-0 bg-transparent px-0 py-0"
       value={value}
       onChangeText={onChangeText}
       editable={!locked}

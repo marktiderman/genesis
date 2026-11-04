@@ -41,6 +41,8 @@ export const Button: ForwardRefExoticComponent<ButtonProps & RefAttributes<Compo
     <NativeButton
       {...pass}
       variant={VARIANT[variant]}
+      // The size variant's fixed height would cap `s.button`'s minHeight: the button grows with the text size.
+      className="h-auto"
       {...(testID !== undefined ? { testID } : {})}
       onPress={onPress}
       disabled={off}

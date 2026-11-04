@@ -35,6 +35,7 @@ describe("forms on ui-native primitives", () => {
       fireEvent.click(screen.getByTestId("b"));
     });
     expect(onPress).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("b").getAttribute("aria-busy")).toBe("true");
   });
 
   it("DefaultProgress draws a NativeProgress inside one labelled progress bar", () => {
