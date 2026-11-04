@@ -1,5 +1,63 @@
 # @marktiderman/genesis-chat
 
+## 0.8.0
+
+### Minor Changes
+
+- fc40349: The chat dock. `@marktiderman/genesis-chat/web` adds `ChatDockProvider`, `useChatDock` and `ChatDock`: conversations that stay open while people move around the app.
+
+  - **Wide screens:** up to three windows bottom-right, or as many as fit, with the rest behind a "+N" menu. Each window is a thread and composer that minimizes to a bar with its unread count. Opening a fourth replaces the one used longest ago.
+  - **Narrow screens:** one side sheet with a keyboard-navigable switcher, and an unread bubble.
+  - **Expand** opens the conversation on the app's Messages page.
+  - **Panels:** `openPanel` opens anything else in the dock, such as a help desk messenger, and `updatePanel` keeps its unread count live.
+  - **Out of sight:** a minimized window or a hidden tab keeps its thread mounted, with read-marking paused. A draft survives minimizing, and nothing is marked read behind the viewer's back.
+  - **Focus:** opening a window focuses its composer. Escape minimizes and leaves focus on the window's bar.
+  - **Restoring:** open conversations are kept per signed-in person and restored after hydration, so server-rendered pages don't mismatch. `forgetChatDock` clears them on sign-out.
+
+  `ChatThread` takes `markRead` (default true) and `autoFocus`.
+
+  `AppShell` takes a `dock` slot, fixed bottom-right outside the scrolling page and lifted clear of the phone's bottom bar. That's where `ChatDock` goes.
+
+- 00ac05c: Chat's photos open in the gallery's viewer, so there's one photo viewer across the app.
+
+  - On the phone, `ChatPhotoViewer` (and `ChatMediaViewer`) is genesis-ui-native's `NativeLightbox`: pinch and double-tap zoom, pull down to close, an adjustable pager for VoiceOver and TalkBack. It keeps chat's words and its Save and Share buttons. Its props are unchanged, and each opening starts without the last one's notice. The counter reads "2 / 3" (the pager still says "Photo 2 of 3"), and some inner test IDs follow NativeLightbox's: `-pager-a11y` and `-photo-<key>`.
+  - On the web, a message's photos open in genesis-ui's `Lightbox`. It stops at the first and last photo instead of wrapping around, and a photo still uploading isn't in it. The dialog's `data-testid="genesis-chat-lightbox"` is gone: find it by its `dialog` role, or the `genesis-chat-lightbox` class.
+  - Deprecated, removed in a later minor: the web `Lightbox` export, and the native gesture helpers `shouldDismiss`, `pinchScale`, `panLimit`, `DISMISS_DISTANCE`, `DISMISS_VELOCITY` and `MAX_ZOOM`. Use `Lightbox` from `@marktiderman/genesis-ui`, and the `lightbox*` helpers and `LIGHTBOX_*` constants from `@marktiderman/genesis-ui-native/components`.
+  - Needs genesis-ui 2.31.0 and genesis-ui-native 3.6.0, the same release, which carries the single-picture counter fix.
+
+- 519ad06: Migration 0004: every conversation belongs to a tenant. `conversations.tenant_id` is required, and tenancy comes from the app's `private.genesis_viewer_people` hook (as genesis-supabase 0016 documents).
+
+  - Starting a conversation needs a tenant everyone in it shares. A registered subject's tenant comes first, then the single tenant they share; `startConversation(…, { tenantId })` picks one when they share several. People who share no tenant can't start one, unless the kind is registered with `p_cross_tenant => true`: then the conversation takes the starter's tenant, so that tenant's erase or export includes it, and the kind may have no observers.
+  - `add_members` adds only people of the conversation's tenant.
+  - A direct conversation is one per pair per tenant.
+  - `genesis_chat.register_subject(kind, type, resolver, aliases)` registers a record type with a resolver that names its tenant. `ensure_conversation` and `start_conversation` take the tenant from that resolver, or from a function named `private.genesis_chat_resolve_<type>(text)` when the type isn't registered, or from `p_tenant_id`. An alias is an older name for the same type, and calls using it reach the same conversations.
+  - A kind's observer check is asked only about people of the conversation's tenant, and never about anyone who is or was a member of it. So whoever opened a ticket never reads its internal notes, even if they are staff too. A kind whose staff serve every tenant (a help desk) registers with `p_observer_tenant_gate => false` (or, registered before 0004, defines `private.genesis_chat_ungated_<kind>()` returning true), so its check is asked about anyone who isn't a member. Registering a kind again without the argument keeps its gate.
+
+  `ChatConversation.tenantId` is new.
+
+  Upgrading: define the hook before applying 0004. A single-tenant app returns its one tenant id, as in the README's example, and `genesis add`, `migrate` and `upgrade` warn when the hook is missing. The migration fills in the tenant of existing conversations (from the subject's resolver, then the tenant every member shares, then the starter's, then the first member's), and stops if it can't place one. The last two can pick a tenant not every member shares, so check those conversations after upgrading. Replace your copies of the 0001–0003 pgTAP tests with this release's. If you use genesis-support's chat, apply its 0006 in the same release: it's copied before chat's 0004.
+
+### Patch Changes
+
+- 681af42: The chat dock's open windows are shorter: at most 26rem tall, and never more than 60% of the screen's height, so the page under them stays in view. They were 32rem.
+- e8b47fb: genesis-chat's native `threadListMode`, `nearBottom`, `AT_BOTTOM_POINTS` and `useJumpToMessage` are deprecated: genesis-ui-native's `threadListMode`, `threadNearBottom`, `THREAD_AT_BOTTOM_POINTS` and `useThreadJump` replace them, and ChatThreadScreen moves onto NativeThreadList next. `ChatThreadScreen` now also uses the app's `GenesisModules.keyboardAvoidingView` when chat's own `keyboardAvoidingView` isn't passed, so the module is passed once. Nothing else changes.
+
+  Features: inbox-thread
+
+- 00ac05c: The web thread centres a message (the first unread when it opens, or one a reply quote jumps to) by scrolling its own message list only. Before, `scrollIntoView` also scrolled the panes and page around it, as in an inbox with a list beside the thread. The jump is instant when the reader prefers reduced motion.
+- 00ac05c: Web messaging, review follow-ups.
+
+  - **genesis-ui:**
+    - `ThreadPage` and `InboxPage` show times once hydrated, in the viewer's time zone, so server-rendered HTML matches.
+    - The thread's log is a tab stop, so keyboard users can scroll it. "Jump to latest" moves focus to the log before it goes away.
+    - Rows don't re-render on each keystroke in the composer.
+    - `InboxPage.onEndReached` asks once per page, and the new `hasMore={false}` stops it.
+    - The README lists the props that are web only.
+  - **genesis-ui-native:** `InboxPage` marks a `selected` row (filled, and `selected` to a screen reader), as the web does.
+  - **genesis-chat and genesis-support:** the docs of chat's web thread, inbox and composer, and of support's web-chat threads, name their move onto genesis-ui's components (feature `inbox-thread`). No behaviour change.
+
+  Features: inbox-thread
+
 ## 0.7.0
 
 ### Minor Changes
