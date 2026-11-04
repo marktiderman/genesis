@@ -1,0 +1,35 @@
+packages/chat/figma/native/VoiceTranscript.figma.ts
+  s_109ad08c59054b::t_68b2b8e0a5d550 7
+packages/chat/figma/web/GenericAttachment.figma.ts
+  s_109ad08c59054b::t_68b2b8e0a5d550 8
+packages/chat/figma/native/ChatAwayLine.figma.ts
+  s_109ad08c59054b::t_68b2b8e0a5d550 9
+packages/chat/figma/native/ModerationMarker.figma.ts
+  s_109ad08c59054b::t_6dc72eee66f18b 7,10
+packages/chat/figma/native/ChatVideoPlayer.figma.ts
+  s_109ad08c59054b::t_68b2b8e0a5d550 15
+packages/chat/figma/native/CardError.figma.ts
+  s_109ad08c59054b::t_68b2b8e0a5d550 10
+packages/chat/figma/web/ChatAttachmentCard.figma.ts
+  s_109ad08c59054b::t_68b2b8e0a5d550 13-15
+packages/chat/figma/web/ChatEmojiPicker.figma.ts
+  s_109ad08c59054b::t_68b2b8e0a5d550 8
+packages/chat/figma/web/VoiceNote.figma.ts
+  s_109ad08c59054b::t_68b2b8e0a5d550 13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "704d077faa21a00eaa41dd9307aeedb9ad71aa26",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
