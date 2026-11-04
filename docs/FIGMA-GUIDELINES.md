@@ -98,8 +98,12 @@ is written. The maintainer approves designs, not pull requests, for product deci
    starting point's name. Iterate there: every round is an edit to those frames, never a second
    copy. Questions for the maintainer go as numbered options with a recommendation.
 3. **Approve.** The maintainer says "approved" (in chat or as a Figma comment on the note frame).
-   The agent moves the frames to `Approved`, replaces the live frames on the route page with the
-   approved ones (same names, so links hold), and records the approval date in the note.
+   The agent records it where Figma keeps it: it marks the proposal's section **Ready for dev**
+   (Dev Mode status) with the message `Approved <date> by <maintainer>`, which notifies viewers
+   and fires the `DEV_MODE_STATUS_UPDATE` webhook; it then moves the frames to `Approved`,
+   replaces the live frames on the route page with the approved ones (same names, so links hold),
+   and writes the date in the note. An agent never sets the status without an approval it can
+   quote. On a plan without the "Completed" status, `Built` is the section move alone.
 4. **Build.** Only now does code start. The implementation PR links the approved frames (file,
    page, node ids) in its body, is built from the same library components, and its preview (the
    repo's `see-it` page) is checked against the frames before it is marked ready. Code that departs
@@ -107,9 +111,12 @@ is written. The maintainer approves designs, not pull requests, for product deci
 5. **Close.** When the PR merges, the proposal frames move to `Built` with the PR link in the note;
    a quarter later the `Built` section is emptied (the route page is the record).
 
-What skips the gate: bug fixes with no visible change, copy fixes, and changes the maintainer
-has already decided in writing. What never skips it: a new screen, a new flow, a layout change, a
-new component, or anything a user would notice.
+**Scope of the gate.** Through the gate: a new screen, a new flow, a layout change, or a new
+library component. Code-first, with the repo's `see-it` preview as the review: bug fixes, copy
+fixes, a new state built from existing components, and small visible tweaks; the agent updates
+the route frame after the merge so the file stays true. A change the maintainer has already
+decided in writing is code-first too. When unsure, it is a proposal; a small team keeps the
+gate narrow so proposals don't go stale.
 
 ### The Proposals page
 
@@ -117,6 +124,24 @@ Every app file has a `Proposals` page with four sections, left to right: `Draft`
 `Approved`, `Built`. Frames keep their route names inside a slug prefix; the library's Brand and
 Color modes are set on each frame as on the route pages. Nothing on this page is detached or
 local; a gap is a plain `<App>/Name` frame and a line in the note.
+
+**Definition of ready.** A proposal goes to `In review` only when its note lists, and its
+frames show:
+
+- the default state, plus empty, loading and error for any screen that loads data;
+- every interactive state the flow reaches (open menus, selected rows, validation);
+- final copy, not placeholder text;
+- phone and web frames where the route exists on both;
+- accessibility notes: focus order, labels for icon-only controls, contrast checked in Light and
+  Dark;
+- the Genesis gaps it needs.
+
+Anything missing is written in the note as "not designed: …", so the reviewer decides with eyes
+open and the builder doesn't invent it.
+
+**Sections.** Each proposal is its own section (named by slug) inside `Draft` / `In review` /
+`Approved` / `Built`, and route pages group frames into sections by area (a zone, a tab, a
+record type). Dev Mode status is set on the section, so one status covers a proposal.
 
 ### Code Connect keeps the two in step
 
