@@ -35,7 +35,8 @@ export interface NativeTierBadgeProps {
 /** `#rrggbb` + alpha (0–1) → `#rrggbbaa`; anything else is returned as is. */
 function withAlpha(colour: string, alpha: number): string {
   const full = /^#([0-9a-f]{3})$/i.test(colour) ? `#${[...colour.slice(1)].map((c) => c + c).join("")}` : colour;
-  if (!/^#[0-9a-f]{6}$/i.test(full)) return colour;
+  // A colour that can't take an alpha here (rgb(), hsl(), a name) gets no tint, so the text stays readable.
+  if (!/^#[0-9a-f]{6}$/i.test(full)) return "transparent";
   return `${full}${Math.round(alpha * 255).toString(16).padStart(2, "0")}`;
 }
 

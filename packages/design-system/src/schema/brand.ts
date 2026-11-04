@@ -738,7 +738,7 @@ function validateBrandRoles(b: Record<string, unknown>): string[] {
     else
       for (const [k, g] of Object.entries(b.gradients)) {
         if (k !== "primary") errors.push(`brand.gradients.${k}: unknown property (only "primary")`);
-        else if (!isPlainObject(g) || !isText(g.from) || !isText(g.to)) errors.push("brand.gradients.primary: expected { from, to, angle? }");
+        else if (!isPlainObject(g) || !isText(g.from) || !isText(g.to) || Object.keys(g).some((k) => k !== "from" && k !== "to" && k !== "angle")) errors.push("brand.gradients.primary: expected { from, to, angle? }");
         else if (g.angle !== undefined && (typeof g.angle !== "number" || !Number.isFinite(g.angle))) errors.push("brand.gradients.primary.angle: expected finite number (degrees)");
       }
   }
@@ -746,6 +746,8 @@ function validateBrandRoles(b: Record<string, unknown>): string[] {
   if (display !== undefined) {
     if (!isPlainObject(display)) errors.push("brand.typography.display: expected object");
     else {
+      const unknown = Object.keys(display).filter((k) => k !== "family" && k !== "weight" && k !== "numeric");
+      if (unknown.length) errors.push(`brand.typography.display: unknown key ${unknown.join(", ")}`);
       if (display.family !== undefined && (!Array.isArray(display.family) || display.family.length === 0 || !display.family.every(isText))) errors.push("brand.typography.display.family: expected string[] (font family stack)");
       if (display.weight !== undefined && (typeof display.weight !== "string" || !FONT_WEIGHT_PATTERN.test(display.weight))) errors.push('brand.typography.display.weight: expected numeric-hundreds string (e.g. "700")');
       if (display.numeric !== undefined && display.numeric !== "tabular" && display.numeric !== "proportional") errors.push('brand.typography.display.numeric: expected "tabular" or "proportional"');

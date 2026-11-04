@@ -126,7 +126,8 @@ export function brandMode(brand: CanonicalBrand): BrandMode {
   const fontSans = head(families.sans) ?? GENESIS_FONTS.sans;
   const display = brand.typography?.display;
   const signal = brand.signal ?? primary;
-  const signalDark = brand.dark?.signal ?? dark.primary;
+  // Same fallback as brandExtraVariables: dark.signal, then signal, then the dark primary.
+  const signalDark = brand.dark?.signal ?? brand.signal ?? dark.primary;
   const gradient = brand.gradients?.primary;
   return {
     name: brand.name,
@@ -147,7 +148,7 @@ export function brandMode(brand: CanonicalBrand): BrandMode {
       "brand/foreground-dark": dark.foreground,
       "brand/primary-foreground-dark": dark["primary-foreground"],
       "brand/signal-dark": signalDark,
-      "brand/signal-foreground-dark": brand.dark?.signal ? readableOn(signalDark) : dark["primary-foreground"],
+      "brand/signal-foreground-dark": brand.dark?.signal || brand.signal ? readableOn(signalDark) : dark["primary-foreground"],
       "brand/font-display-weight": Number(display?.weight ?? 700),
       "brand/font-display-numeric": display?.numeric ?? "proportional",
       "brand/gradient-from": gradient?.from ?? primary,

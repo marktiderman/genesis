@@ -269,8 +269,10 @@ function stripAlpha(color: string): string {
 function angleVectors(degrees: number): { start: { x: number; y: number }; end: { x: number; y: number } } {
   const rad = (degrees * Math.PI) / 180;
   const round = (n: number) => Math.round(n * 1000) / 1000;
-  const dx = Math.sin(rad) / 2;
-  const dy = -Math.cos(rad) / 2;
+  // CSS sizes the gradient line to reach the corners: half-length (|sin| + |cos|) / 2 of the box.
+  const half = (Math.abs(Math.sin(rad)) + Math.abs(Math.cos(rad))) / 2;
+  const dx = Math.sin(rad) * half;
+  const dy = -Math.cos(rad) * half;
   return { start: { x: round(0.5 - dx), y: round(0.5 - dy) }, end: { x: round(0.5 + dx), y: round(0.5 + dy) } };
 }
 
