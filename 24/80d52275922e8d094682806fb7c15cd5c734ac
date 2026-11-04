@@ -1,0 +1,109 @@
+packages/chat/figma/native/VideoUploadTray.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/native/ChatVideoRecorder.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+.github/workflows/code-connect.yml
+  s_109ad08c59054b::t_e5fbf3e51b4669 17,26
+packages/chat/figma/web/ChatComposer.figma.ts
+  s_109ad08c59054b::t_e111600918e538 8
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-7,9-12
+packages/chat/figma/web/ChatVideoRecorder.figma.ts
+  s_109ad08c59054b::t_feac998adc2584 8
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-7,9-12
+packages/chat/figma/web/ChatMarkdown.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/native/ChatAccessError.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-13
+packages/chat/figma/web/ChatEmojiPicker.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/web/SearchSnippet.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/web/code-connect.json
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-34
+packages/chat/figma/native/ChatIconButton.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-13
+packages/chat/figma/web/VideoAttachment.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/native/SearchSnippet.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/native/ChatAwayLine.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-13
+packages/chat/figma/native/ModerationMarker.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-13
+packages/chat/figma/native/code-connect.json
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-40
+packages/chat/figma/native/VoiceNotePlayer.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-13
+packages/chat/figma/web/MessageRow.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/web/ImageGrid.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/native/MessageAttachments.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-13
+packages/chat/figma/native/ChatEmojiPicker.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/web/VoiceNote.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-21
+packages/chat/figma/native/MessageActionsSheet.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-18
+packages/chat/figma/native/CardError.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-14
+packages/chat/figma/web/Lightbox.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-7,9-12
+  s_109ad08c59054b::t_e111600918e538 8
+packages/chat/figma/web/ChatScheduleMenu.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/native/ChatLinkPreviewCard.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-14
+packages/chat/figma/web/FileChip.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-13
+packages/chat/figma/web/ChatTopicBar.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-13
+packages/chat/figma/native/ChatPhotoViewer.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/native/ChatVideoPlayer.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-21
+packages/chat/figma/native/VoiceTranscript.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-14
+packages/chat/figma/native/ChatScheduledBar.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/web/ChatAttachmentCard.figma.ts
+  s_109ad08c59054b::t_feac998adc2584 15
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-14,16-21
+packages/chat/figma/web/ChatLinkPreview.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-14
+packages/chat/figma/native/ChatAttachmentCard.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-13
+figma.config.json
+  s_109ad08c59054b::t_50556b1e137290 3
+packages/chat/figma/web/GenericAttachment.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/web/ChatVideoPlayer.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-13
+packages/chat/figma/native/ChatTopicBar.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-13
+packages/chat/figma/native/ChatStartButton.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/web/ChatAwayBanner.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-12
+packages/chat/figma/native/MessageBubble.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-24
+packages/chat/figma/native/ChatComposer.figma.ts
+  s_109ad08c59054b::t_ff24973e2fa8e8 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2480d52275922e8d094682806fb7c15cd5c734ac",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
