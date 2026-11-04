@@ -9,7 +9,8 @@
  * template must exist and be well-formed), `notYet` (reported, not failing) or `composed` (a
  * screen assembled from library components, no template by design) in
  * packages/<package>/figma/code-connect.json (one allowlist per package: ui-native and ui; chat has
- * one per entry point, packages/chat/figma/{native,web}/code-connect.json).
+ * one per entry point, packages/chat/figma/{native,web}/code-connect.json, and so has
+ * notifications; native and product have one each).
  * Promote a component by moving it to `required` once its Figma node exists and its template is
  * published (docs/DESIGN-LIBRARY.md).
  *
@@ -38,6 +39,13 @@
  *
  *   - genesis-chat: packages/chat/src/native/index.ts and packages/chat/src/web/index.ts, each on
  *     its own: PascalCase value exports minus hooks, providers, constants and CHAT_EXCLUDED.
+ *   - genesis-native: src/index.ts, src/push/index.ts and src/updates/index.ts: PascalCase value
+ *     exports minus hooks, providers, constants and the app plumbing (roots, boundaries, gates,
+ *     error classes, GenesisNativeApp, BootScreen).
+ *   - genesis-notifications: src/web/index.tsx and src/native/index.tsx declare their components
+ *     in the index itself (`export function Name(`), so those declarations are read, each entry
+ *     point on its own. The React Email parts (./email) are not app UI and are not read.
+ *   - genesis-product: src/native/index.ts, PascalCase value exports minus hooks and constants.
  *
  * What a template must have, as its first three lines (Code Connect CLI v2, parserless):
  *   // url=<the Figma node>
@@ -107,6 +115,29 @@ export const PACKAGES = [
     indexes: [{ file: "packages/chat/src/web/index.ts", rule: "chat" }],
     figmaDir: "packages/chat/figma/web",
   },
+  {
+    name: "native",
+    indexes: ["packages/native/src/index.ts", "packages/native/src/push/index.ts", "packages/native/src/updates/index.ts"].map(
+      (file) => ({ file, rule: "app" }),
+    ),
+    figmaDir: "packages/native/figma",
+  },
+  // genesis-notifications: the web and native entry points each have their own folder, like chat.
+  {
+    name: "notifications-native",
+    indexes: [{ file: "packages/notifications/src/native/index.tsx", rule: "declared" }],
+    figmaDir: "packages/notifications/figma/native",
+  },
+  {
+    name: "notifications-web",
+    indexes: [{ file: "packages/notifications/src/web/index.tsx", rule: "declared" }],
+    figmaDir: "packages/notifications/figma/web",
+  },
+  {
+    name: "product",
+    indexes: [{ file: "packages/product/src/native/index.ts", rule: "pascal" }],
+    figmaDir: "packages/product/figma",
+  },
 ];
 const allowlistOf = (pkg) => `${pkg.figmaDir}/code-connect.json`;
 
@@ -141,6 +172,11 @@ const WEB_EXCLUDED = new Set([
 
 /** Chat exports that render no design of their own: a retry effect and an error boundary. */
 const CHAT_EXCLUDED = new Set(["ChatAutoRetry", "ChatErrorBoundary"]);
+
+/** Exports that are app plumbing, not a design: roots, boundaries, gates, error classes. */
+const isPlumbing = (name) => /(Root|Boundary|Gate|Error)$/.test(name);
+/** genesis-native: the plumbing plus the provider root and its trivial default boot slot. */
+const isAppPlumbing = (name) => isPlumbing(name) || name === "GenesisNativeApp" || name === "BootScreen";
 
 const isPascal = (name) => /^[A-Z][a-z][A-Za-z0-9]*$/.test(name); // excludes ALL_CAPS constants
 const isHookOrProvider = (name) => /^use[A-Z]/.test(name) || /Provider$/.test(name);
@@ -219,6 +255,35 @@ export function chatComponentsFromIndex(source) {
   return [...out];
 }
 
+/** PascalCase value exports of one index, minus hooks, providers, constants and `skip`. */
+export function pascalComponentsFromIndex(source, skip = () => false) {
+  const out = new Set();
+  for (const names of exportStatements(source)) {
+    for (const name of names) if (isPascal(name) && !isHookOrProvider(name) && !skip(name)) out.add(name);
+  }
+  return [...out];
+}
+
+/** genesis-native: PascalCase value exports minus the app plumbing. */
+export function appComponentsFromIndex(source) {
+  return pascalComponentsFromIndex(source, isAppPlumbing);
+}
+
+/**
+ * Components declared in the index file itself (`export function Name(`), as genesis-notifications
+ * writes its web and native entry points, minus hooks, providers and the plumbing.
+ */
+export function declaredComponentsFromIndex(source) {
+  const out = new Set();
+  const re = /^export\s+function\s+([A-Z]\w*)\s*[(<]/gm;
+  let m;
+  while ((m = re.exec(source))) {
+    const name = m[1];
+    if (isPascal(name) && !isHookOrProvider(name) && !isPlumbing(name)) out.add(name);
+  }
+  return [...out];
+}
+
 /**
  * Checks one template's three leading directives. Returns the problems (empty when fine), or
  * `null` when the file does not exist.
@@ -287,6 +352,10 @@ export function discoverComponents(root, pkg = PACKAGES[0]) {
     if (rule === "native") out.push(...componentsFromIndex(read(file)));
     else if (rule === "layouts") out.push(...layoutsFromIndex(read(file)));
     else if (rule === "chat") out.push(...chatComponentsFromIndex(read(file)));
+    else if (rule === "app") out.push(...appComponentsFromIndex(read(file)));
+    else if (rule === "declared") out.push(...declaredComponentsFromIndex(read(file)));
+    else if (rule === "pascal") out.push(...pascalComponentsFromIndex(read(file)));
+    else if (rule !== "web") throw new Error(`${file}: unknown rule ${rule}`);
   }
   if (web.length) out.push(...webComponentsFromIndexes(web.map((i) => read(i.file))));
   return out;

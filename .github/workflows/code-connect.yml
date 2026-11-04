@@ -15,6 +15,9 @@ on:
       - "packages/ui-native/figma/**"
       - "packages/ui/figma/**"
       - "packages/chat/figma/**"
+      - "packages/native/figma/**"
+      - "packages/notifications/figma/**"
+      - "packages/product/figma/**"
       - "scripts/check-code-connect.mjs"
       - ".github/workflows/code-connect.yml"
   pull_request:
@@ -24,6 +27,9 @@ on:
       - "packages/ui-native/figma/**"
       - "packages/ui/figma/**"
       - "packages/chat/figma/**"
+      - "packages/native/figma/**"
+      - "packages/notifications/figma/**"
+      - "packages/product/figma/**"
       - "scripts/check-code-connect.mjs"
       - ".github/workflows/code-connect.yml"
   workflow_dispatch:

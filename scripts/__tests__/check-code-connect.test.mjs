@@ -9,8 +9,11 @@ import {
   FIGMA_DIR,
   LAYOUTS_INDEX,
   PACKAGES,
+  appComponentsFromIndex,
   chatComponentsFromIndex,
   checkCodeConnect,
+  declaredComponentsFromIndex,
+  pascalComponentsFromIndex,
   componentsFromIndex,
   layoutsFromIndex,
   templateProblems,
@@ -244,7 +247,16 @@ describe("web sub-part rule", () => {
 describe("two-package layout", () => {
   it("checks each package against its own allowlist and names the package", () => {
     const [native, web] = PACKAGES;
-    expect(PACKAGES.map((p) => p.name)).toEqual(["ui-native", "ui", "chat-native", "chat-web"]);
+    expect(PACKAGES.map((p) => p.name)).toEqual([
+      "ui-native",
+      "ui",
+      "chat-native",
+      "chat-web",
+      "native",
+      "notifications-native",
+      "notifications-web",
+      "product",
+    ]);
     expect(web.figmaDir).toBe("packages/ui/figma");
     const root = make({ notYet: ALL, sources: [] });
     const write = (rel, text) => {
@@ -306,5 +318,50 @@ describe("chat entry points", () => {
     fs.rmSync(`${root}/packages/chat/figma/web/ChatComposer.figma.ts`);
     expect(checkCodeConnect(root, chat[1]).failures).toEqual(["ChatComposer: required, but packages/chat/figma/web/ChatComposer.figma.ts is missing"]);
     expect(checkCodeConnect(root, chat[0]).failures).toEqual([]);
+  });
+});
+
+describe("genesis-native, genesis-notifications and genesis-product", () => {
+  it("native: PascalCase exports minus roots, boundaries, gates, errors, the app and its boot slot", () => {
+    const source = `
+export { GenesisNativeApp, BootScreen, useBoot, type BootScreenProps } from "./app";
+export { FatalScreen, PlainFatalScreen, GenesisErrorBoundary, NativeAppError } from "./errors";
+export { ScreenErrorScreen, ScreenErrorBoundary, createScreenErrorBoundary } from "./screen-boundary";
+export { AuthGate, SessionProvider, PushRoot } from "./session";
+export { UpdateBanner, WhatsNewSheet, BEFORE_RELOAD_TIMEOUT_MS } from "./updates";
+`;
+    expect(appComponentsFromIndex(source)).toEqual(["FatalScreen", "PlainFatalScreen", "ScreenErrorScreen", "UpdateBanner", "WhatsNewSheet"]);
+  });
+
+  it("notifications: reads components declared in the index with export function", () => {
+    const source = `
+export { useNotifications } from "../react";
+function Hidden() { return null; }
+export function NotificationRowView({ item }: FeedRowProps) { return null; }
+export function NotificationBell(props: NotificationBellProps) { return null; }
+export function useUnreadCount() { return 0; }
+export function NotificationsProvider() { return null; }
+export function PushBackendError() { return null; }
+export function relative(at: string) { return at; }
+`;
+    expect(declaredComponentsFromIndex(source)).toEqual(["NotificationRowView", "NotificationBell"]);
+  });
+
+  it("product: PascalCase exports minus hooks, constants and helpers; export * is ignored", () => {
+    const source = `
+export { haptic, type HapticsLike } from "./haptics";
+export { PRODUCT_COPY, type ProductCopy } from "./copy";
+export { useIdeaBoard, IdeaBoardScreen, VoteButton, type IdeaBoard } from "./idea-board";
+export * from "../index";
+`;
+    expect(pascalComponentsFromIndex(source)).toEqual(["IdeaBoardScreen", "VoteButton"]);
+  });
+
+  it("gives each new package its own Figma folder", () => {
+    const dirs = Object.fromEntries(PACKAGES.map((p) => [p.name, p.figmaDir]));
+    expect(dirs.native).toBe("packages/native/figma");
+    expect(dirs["notifications-native"]).toBe("packages/notifications/figma/native");
+    expect(dirs["notifications-web"]).toBe("packages/notifications/figma/web");
+    expect(dirs.product).toBe("packages/product/figma");
   });
 });
