@@ -132,7 +132,8 @@ describe("genesis init --template native --beside <web-app>", () => {
     const doctor = await runDoctor({ root: mobile, contracts: false });
     expect(doctor.errors).toBe(0);
     expect(doctor.ok).toBe(true);
-    const warnings = doctor.findings.filter((f) => f.level !== "info");
+    // The symlinked node_modules is the starter's, and the workspace hoists this plugin above it, where an app's own install wouldn't.
+    const warnings = doctor.findings.filter((f) => f.level !== "info" && f.subject !== "eslint-plugin-testing-library");
     expect(warnings.map((f) => f.rule)).toEqual(["eas-placeholder", "eas-placeholder", "eas-placeholder"]);
     expect(doctor.findings.filter((f) => ["lock-files", "database-elsewhere"].includes(f.rule) || f.rule.startsWith("migration-"))).toEqual([]);
   });

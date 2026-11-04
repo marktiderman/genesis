@@ -628,7 +628,7 @@ program
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--dry-run", "List the files it would change; change nothing", false)
   .action(async (id: string | undefined, opts: { dir: string; dryRun: boolean }) => {
-    const { CODEMODS, codemodById } = await import("./upgrade/codemods.js");
+    const { CODEMODS, codemodById, codemodInstallNote } = await import("./upgrade/codemods.js");
     if (!id) {
       for (const mod of CODEMODS) console.log(`${mod.id}  (${mod.package} ${mod.version})\n  ${mod.description}`);
       return;
@@ -637,6 +637,8 @@ program
     if (!mod) throw new Error(`No codemod "${id}". Run genesis codemod to list them.`);
     const changed = await mod.run({ root: path.resolve(opts.dir), dryRun: opts.dryRun, log: (m) => console.log(m) });
     console.log(changed.length ? `${opts.dryRun ? "Would change" : "✔ Changed"} ${changed.length} file${changed.length === 1 ? "" : "s"}:\n${changed.map((f) => `  ${f}`).join("\n")}` : "Nothing to change.");
+    const note = codemodInstallNote(path.resolve(opts.dir), changed, opts.dryRun);
+    if (note) console.log(`! ${note}`);
   });
 
 program.parseAsync(process.argv).catch((err: unknown) => {

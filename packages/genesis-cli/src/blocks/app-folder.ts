@@ -36,6 +36,20 @@ function fromRepositoryRoot(entry: string, folder: string): string {
   return `${negated ? "!" : ""}${body === folder || body.startsWith(`${folder}/`) ? body : `${folder}/${body}`}`;
 }
 
+/**
+ * The template's paths the app's file still has from the app's folder. A merge can't fix these: the
+ * base and the new text both carry the prefix, so an unprefixed line reads as the app's own edit.
+ * Paths the app added itself aren't the template's, so they're never named. Comments don't count.
+ */
+export function unprefixedTemplatePaths(rel: string, mine: string, template: string, folder: string | null): string[] {
+  const rendered = renderOwned(rel, template, folder).split("\n");
+  const lines = new Set(mine.split("\n"));
+  return template
+    .split("\n")
+    .filter((line, i) => line !== rendered[i] && !/^\s*#/.test(line) && lines.has(line))
+    .map((line) => line.trim());
+}
+
 /** An owned file's text as this app has it: an EAS workflow's `paths` start at the repository root. */
 export function renderOwned(rel: string, text: string, folder: string | null): string {
   if (!folder || !EAS_WORKFLOW.test(rel)) return text;

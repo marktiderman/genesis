@@ -505,8 +505,8 @@ doesn't fit, is a warning.
    | --- | --- | --- |
    | `genesis-core-2-scope-names` | genesis-core crosses 2.0.0 | Genesis API usage only, never an app's own names that match (a view field means one inside `defineView(…)` or an object typed `ViewDefinition`/`ViewField`; the prop means an attribute of `<NativeResourceView>` or a key of an object typed `NativeResourceViewProps`; each with the name imported from Genesis): a view field's `timeZone: "practice"` → `"scope"`, NativeResourceView's `practiceTimeZone` (attribute or object key) → `scopeTimeZone`, `resolveZone("practice", …)` → `"scope"`, and DisplayTimeZones' `practice` (a `{ viewer, practice }` object's key, `.practice` on a value from `useDisplayTimeZones()` or typed `DisplayTimeZones`) → `scope`. `scope={{ practiceId }}` needs nothing (it is the app's own key in ResourceScope's open slot); when a file reads `scope.practiceId` and nothing declares it, the codemod prints the one-line `ResourceScope` augmentation that types it. The doctor's `removed-scope-name` rule finds what it would rewrite. |
    | `genesis-cli-eslint-config` | genesis-cli crosses 1.20.0 | An ESLint flat config (`eslint.config.{js,mjs,cjs,ts,mts,cts}`) that doesn't load [`@marktiderman/genesis-cli/eslint`](#lint-rules) yet: adds the import (`require` or `import`, as the file is written) and spreads `genesis("native")` (an app with `expo` or `react-native`) or `genesis("web")` last into the array it exports, or into the array or arguments of the `defineConfig(…)` / `tseslint.config(…)` call it exports. A native app gets `eslint-plugin-testing-library` in its devDependencies when it's missing. A config that already loads the export is left alone; one it can't edit safely (built in a variable or a function, or exported twice) is left as it is, and it prints the two lines to add. A config that still inlines the starter's RNTL rules gets the spread and a note to delete the old block. Started from an older CLI, the upgrade doesn't have this codemod (see "Upgrading the CLI itself" below); the doctor's `genesis-eslint-config` then reports the app, and `genesis codemod genesis-cli-eslint-config` runs it. |
-   | `genesis-ui-overlays-fit-the-phone` | genesis-ui crosses 2.31.0 | The doctor's `ui/overlays-fit-the-phone`: in files that import genesis-ui, drops a `max-h-[…vh]` of 80 or more from `DialogContent`, `AlertDialogContent` and `SheetContent`, and moves a shorter cap, a set height or a minimum to `dvh`. See docs/MIGRATION.md. |
-   | `genesis-ui-native-haptics` | genesis-ui-native crosses 3.7.0 | The doctor's `haptics-use-genesis`: turns calls on `import * as Haptics from "expo-haptics"` into `playHaptic(Haptics, "light")`, and prints the files with calls it can't name. See docs/MIGRATION.md. |
+   | `genesis-ui-overlays-fit-the-phone` | genesis-ui crosses 2.31.0 | The doctor's `ui/overlays-fit-the-phone`: in files that import genesis-ui, drops a `max-h-[…vh]` of 80 or more from `DialogContent`, `AlertDialogContent` and `SheetContent`, and moves a shorter cap, a set height or a minimum to `dvh`. See [the migration guide](https://github.com/marktiderman/genesis/blob/main/docs/MIGRATION.md). |
+   | `genesis-ui-native-haptics` | genesis-ui-native crosses 3.7.0 | The doctor's `haptics-use-genesis`: turns calls on `import * as Haptics from "expo-haptics"` into `playHaptic(Haptics, "light")`, and prints the files with calls it can't name. See [the migration guide](https://github.com/marktiderman/genesis/blob/main/docs/MIGRATION.md). |
 3. Reinstalls. With pnpm, a release younger than the app's `minimumReleaseAge` is installed in
    loose mode and pnpm pins it in `minimumReleaseAgeExclude`, in the pnpm-workspace.yaml pnpm reads
    (the nearest one at or above the app, but never above the repository's top level, else beside
@@ -584,7 +584,9 @@ pass `--no-install` or `--dry-run` and the doctor is on.)
   `mobile/app.json`), which is how EAS reads them. Otherwise that's an edit on every line of the
   list, which conflicts with each template change and leaves a `.genesis-next` each release. A
   lock with no `REPLACE_WITH_APP_FOLDER` substitution gets `src` as the code folder. Turning the
-  setting on merges into the edits you have. A lockfile above the app stays an edit of yours.
+  setting on keeps the edits you have, but can't move them: a file with other edits and paths
+  still from the app's folder merges with those paths as they were, and the summary warns and
+  names them, to prefix by hand. A lockfile above the app stays an edit of yours.
 - `.github/workflows` is left to the repository: GitHub reads only the root's, a file that holds
   the rest of its CI too, so nothing is written, merged or left beside it. A template's change is
   named once in the summary (your copy passes `working-directory: mobile`; see docs/APP-CI.md),
@@ -598,8 +600,9 @@ A conflict in a workflow in an app below its repository's root says to set it.
 
 **Upgrading the CLI itself.** The upgrade runs in the CLI that started it. It moves the app's
 `@marktiderman/genesis-cli` dependency with the rest, but it doesn't restart in the new CLI: the
-codemods, the owned-file refresh and the doctor of this run are the installed CLI's, so a
-codemod the new release added doesn't run. To upgrade with the release's own CLI, start it
+codemods, the owned-file refresh, the agent guide and the doctor of this run are the installed
+CLI's, so a codemod the new release added doesn't run, and the new CLI's doctor can report
+`agent-guide-stale` until you run `genesis agents`. To upgrade with the release's own CLI, start it
 through npx:
 
 ```bash

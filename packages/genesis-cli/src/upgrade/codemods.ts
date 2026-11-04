@@ -6,6 +6,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
+import { detectPackageManager, installCommand, shellLine } from "../blocks/pm.js";
 import { appScripts } from "./app-scripts.js";
 import { compareVersions } from "./bump-core.mjs";
 import { hapticsUseGenesis, overlaysFitThePhone } from "./doctor-rule-codemods.js";
@@ -128,13 +129,19 @@ export const genesisEslintConfig: Codemod = {
       json.devDependencies = Object.fromEntries(sorted ? dev.sort(([a], [b]) => a.localeCompare(b)) : dev);
       changed.push("package.json");
       if (!dryRun) writeFileSync(pkgFile, `${JSON.stringify(json, null, indent)}${raw.endsWith("\n") ? "\n" : ""}`);
-      log(`  package.json: added ${TESTING_LIBRARY}@${TESTING_LIBRARY_RANGE} to devDependencies (Genesis's native lint rules use it); install to fetch it.`);
+      log(`  package.json: added ${TESTING_LIBRARY}@${TESTING_LIBRARY_RANGE} to devDependencies (Genesis's native lint rules use it).`);
     }
     return changed;
   },
 };
 
 export const CODEMODS: readonly Codemod[] = [scopeNeutralNames, genesisEslintConfig, overlaysFitThePhone, hapticsUseGenesis];
+
+/** What's left after a codemod that edited package.json, which never installs anything itself; null when nothing is. */
+export function codemodInstallNote(root: string, changed: readonly string[], dryRun: boolean): string | null {
+  if (dryRun || !changed.includes("package.json")) return null;
+  return `Not installed yet: package.json changed and nothing was installed. Run \`${shellLine(installCommand(detectPackageManager(root)))}\`; until then, what it added isn't there (the lint can't load its config, say).`;
+}
 
 /** A registered codemod by id, for `genesis codemod <id>`. */
 export function codemodById(id: string, registry: readonly Codemod[] = CODEMODS): Codemod | undefined {

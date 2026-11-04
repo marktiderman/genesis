@@ -34,7 +34,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { agentsFragment, ownedWrites, pinGenesisImports, registryFile, sourceMigrations } from "../blocks/add.js";
 import { mergeFragment } from "../blocks/agents.js";
-import { appFolderOf, folderSubstitutions, isRepositoryWorkflow, renderOwned } from "../blocks/app-folder.js";
+import { appFolderOf, folderSubstitutions, isRepositoryWorkflow, renderOwned, unprefixedTemplatePaths } from "../blocks/app-folder.js";
 import { catalogBlocks, findBlock, installedGenesis, packageDir, packageVersion } from "../blocks/discover.js";
 import { isPlainFolder } from "../doctor/config.js";
 import { agentGuideState, writeAgentGuide } from "../doctor/primitives.js";
@@ -51,7 +51,7 @@ import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run,
 import { starterDir, templatesDir } from "../blocks/templates.js";
 import { bumpPackageJson, bumpSummary, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { breakLines, fetchChangelog, type ChangelogReader } from "./changelog.js";
-import { codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
+import { codemodInstallNote, codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
 import { componentValues, handBuiltSwaps, swapLines, type HandBuiltSwap } from "./new-exports.js";
 import { applyOverlayPlans, gitUpstream, overlayChecklist, planOverlays, type OverlayLockEdit, type OverlayPlan, type UpstreamSource } from "./overlays.js";
 import { BUN_LOCK, readBunLock, removeBunLockEntries, staleNestedEntries, type StaleNestedEntry } from "../blocks/bun-lock.js";
@@ -432,6 +432,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     codemodRuns.push({ id: mod.id, files: changed });
     for (const f of changed) files.add(f);
   }
+  const codemodNeedsInstall = options.install === false ? codemodInstallNote(root, codemodRuns.flatMap((c) => c.files), Boolean(options.dryRun)) : null;
 
   // Bun keeps a nested copy of a Genesis package across installs even once the root's version
   // satisfies its parent, so drop those first (against the versions the release moves the root to).
@@ -508,7 +509,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   // then owned files, skills a block gained, and fragments.
   const added: string[] = [];
   const newMigrations: string[] = [];
-  const warnings: string[] = [...excludeWarnings];
+  const warnings: string[] = [...excludeWarnings, ...(codemodNeedsInstall ? [codemodNeedsInstall] : [])];
   const manifests = [];
   // A block whose starter.config.ts switch is off is left out: no migrations planned, no files refreshed or added.
   const catalog = catalogBlocks();
@@ -571,6 +572,12 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     }
     const outcome = refreshOwned(root, lock, { path: file, theirs, base: bases.get(file) ?? null, ...(version ? { version } : {}) }, { ...(options.dryRun ? { dryRun: true } : {}), ...(options.keepMine ? { keepMine: true } : {}) });
     refreshed.push(outcome);
+    if (appFolder && outcome.outcome !== "updated" && !problem) {
+      const template = sourceText(root, entry.source, written);
+      const mine = template === null ? null : readApp(root, file);
+      const stale = mine === null ? [] : unprefixedTemplatePaths(file, mine, template!, appFolder);
+      if (stale.length) warnings.push(`${file} keeps your edits, so these paths are still from the app's folder and never match: ${stale.join(", ")}. Start them with ${appFolder}/ by hand.`);
+    }
     if (outcome.outcome === "updated" || outcome.outcome === "merged") files.add(file);
     if ((outcome.outcome === "conflict" || outcome.outcome === "kept-mine") && !outcome.detail?.includes("already there")) next.add(`${file}.genesis-next`);
   }
@@ -665,7 +672,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   }
 
   // `git add` refuses an ignored path by name, which would stop --pr part way through.
-  const ignored = options.pr && !options.dryRun ? gitIgnored(root, [...files]) : [];
+  const ignored = options.pr && !options.dryRun ? gitIgnored(root, [...files, ...lockfilesFor(root)]) : [];
   for (const f of ignored) files.delete(f);
 
   const lines = [bumpSummary(release.version, changes, skipped)];
@@ -729,6 +736,17 @@ export function checkSubstitutions(substitutions: Record<string, string> | undef
   }
 }
 
+/** The lockfiles a pull request carries, app-relative: possibly in a folder above the app (a workspace), up to the repository's root. */
+function lockfilesFor(root: string): string[] {
+  const top = gitTopLevel(root);
+  const lockfiles: string[] = [];
+  for (let dir = realpathSync(root); ; dir = path.dirname(dir)) {
+    for (const f of ["pnpm-lock.yaml", "bun.lock", "bun.lockb", "package-lock.json", "yarn.lock"]) if (existsSync(path.join(dir, f))) lockfiles.push(path.relative(realpathSync(root), path.join(dir, f)));
+    if (lockfiles.length || dir === top || path.dirname(dir) === dir) break;
+  }
+  return lockfiles;
+}
+
 /** Those of `files` git ignores (a tracked file never counts: `git add` takes it). */
 function gitIgnored(root: string, files: readonly string[]): string[] {
   if (!files.length) return [];
@@ -759,13 +777,7 @@ function openPullRequest(root: string, version: string, report: UpgradeReport, b
   const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
   const branch = `genesis-upgrade/${version}`;
   git("switch", "-c", branch);
-  // The lockfile may be in a folder above the app (a workspace), up to the repository's root.
-  const top = git("rev-parse", "--show-toplevel");
-  const lockfiles: string[] = [];
-  for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
-    for (const f of ["pnpm-lock.yaml", "bun.lock", "bun.lockb", "package-lock.json", "yarn.lock"]) if (existsSync(path.join(dir, f))) lockfiles.push(path.relative(root, path.join(dir, f)));
-    if (lockfiles.length || dir === top || path.dirname(dir) === dir) break;
-  }
+  const lockfiles = lockfilesFor(root);
   const ignoredLocks = gitIgnored(root, lockfiles);
   const paths = [...report.files.filter((f) => existsSync(path.join(root, f))), ...lockfiles.filter((f) => !ignoredLocks.includes(f))];
   git("add", "--", ...paths);

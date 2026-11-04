@@ -16,7 +16,7 @@ import { GenesisConfigError, readGenesisConfig } from "../src/doctor/config.js";
 import { formatReport, runDoctor } from "../src/doctor/index.js";
 import { SKILL_PATH } from "../src/doctor/primitives.js";
 import { breakingEntries, breakLines } from "../src/upgrade/changelog.js";
-import { CODEMODS, codemodsFor, uncoveredBreaks } from "../src/upgrade/codemods.js";
+import { CODEMODS, codemodInstallNote, codemodsFor, uncoveredBreaks } from "../src/upgrade/codemods.js";
 import { hapticsUseGenesis, overlaysFitThePhone, rewriteHaptics, rewriteOverlayHeights } from "../src/upgrade/doctor-rule-codemods.js";
 import { checkSubstitutions, runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
 import { expoApp, fakePackage, linkWorkspacePackage, makeApp, PACKAGES, read, snapshot, tempDir, writeTree } from "./blocks-helpers.js";
@@ -160,6 +160,37 @@ describe("an app in a sub-folder of its repository", () => {
     expect(report.summary).not.toContain(`${FILE}: merged`);
   });
 
+  it("with the same version still shipped, doesn't take a missing .genesis-next as resolved unless the file changed", async () => {
+    const root = app(inMobile(YML()), {});
+    await upgrade(root, next(YML('      - "global.css"\n')));
+    const mine = read(root, FILE);
+    const held = readLock(root).files[FILE]!;
+    rmSync(path.join(root, `${FILE}.genesis-next`));
+    const again = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: false, doctor: false });
+    expect(again.refreshed.find((r) => r.path === FILE)).toMatchObject({ outcome: "kept-mine" });
+    expect(read(root, `${FILE}.genesis-next`)).toContain("global.css");
+    expect(read(root, FILE)).toBe(mine);
+    expect(readLock(root).files[FILE]!.sha256).toBe(held.sha256);
+    // Now really worked in.
+    rmSync(path.join(root, `${FILE}.genesis-next`));
+    writeTree(root, { [FILE]: inMobile(YML('      - "global.css"\n')) });
+    const resolved = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: false, doctor: false });
+    expect(resolved.refreshed.find((r) => r.path === FILE)).toMatchObject({ outcome: "resolved" });
+    expect(readLock(root).files[FILE]!.pendingMine).toBeUndefined();
+  });
+
+  it("warns when the setting can't move a file's paths: other edits kept, the template's paths still from the app's folder", async () => {
+    const root = app(raw(YML()).replace("on:\n", "# my note\non:\n").replace('      - "eas.json"\n', '      - "eas.json"\n      - "shared/**"\n'));
+    const report = await upgrade(root, next(YML()));
+    expect(report.refreshed.find((r) => r.path === FILE)).toMatchObject({ outcome: "merged" });
+    expect(read(root, FILE)).toContain('- "src/**"');
+    expect(report.summary).toContain(`- "src/**", - "app.json", - "eas.json". Start them with mobile/ by hand.`);
+    // The app's own path isn't the template's, and prefixed lines say nothing.
+    expect(report.summary).not.toContain("shared/**");
+    writeTree(root, { [FILE]: inMobile(YML()).replace("on:\n", "# my note\non:\n") });
+    expect((await upgrade(root, next(YML()))).summary).not.toContain("Start them with");
+  });
+
   it("doesn't count a lock from before pendingMine as resolved", async () => {
     const root = app(inMobile(YML()), {});
     await upgrade(root, next(YML('      - "global.css"\n')));
@@ -242,8 +273,9 @@ describe("what's generated from the packages", () => {
     const root = expoApp({
       "package.json": JSON.stringify({ name: "a", dependencies: { [UI]: "^1.0.0" } }),
       [SKILL_PATH]: "old\n",
-      ".gitignore": "node_modules\nfeatures.json\n.claude/\n",
+      ".gitignore": "node_modules\nfeatures.json\n.claude/\npnpm-lock.yaml\n",
       "AGENTS.md": "# Notes\n",
+      "pnpm-lock.yaml": "",
     });
     packages(root);
     uiPackage(root, "1.0.0", ["Button"]);
@@ -268,6 +300,7 @@ describe("what's generated from the packages", () => {
       expect(report.summary).toContain(`Changed but gitignored, so not in the pull request: `);
       expect(report.summary).toContain("features.json");
       expect(report.summary).toContain(SKILL_PATH);
+      expect(report.summary).toMatch(/not in the pull request: [^\n]*pnpm-lock\.yaml/);
       expect(report.files).not.toContain("features.json");
     } finally {
       process.env.PATH = was;
@@ -318,6 +351,35 @@ describe("dependencies not installed", () => {
     fakePackage(root, "@marktiderman/genesis-fixture", {});
     const report = await runUpgrade({ root, lookup: release({}), install: false });
     expect(report.summary).toContain("`genesis doctor` couldn't run after the upgrade");
+  });
+});
+
+describe("what a message points at", () => {
+  it("the persistQueries deprecation links the guide by URL and says it can take a native build", () => {
+    const source = readFileSync(path.join(PACKAGES, "native", "src", "persist.ts"), "utf8");
+    const tags = [...source.matchAll(/^ \* @deprecated (.*)$/gm)].map((m) => m[1]!);
+    expect(tags).toHaveLength(2);
+    for (const tag of tags) {
+      expect(tag).toContain("https://github.com/marktiderman/genesis/blob/main/docs/MIGRATION.md");
+      expect(tag).toContain("can't ship as an OTA update");
+      expect(tag).not.toContain("(docs/MIGRATION.md)");
+    }
+    expect(readFileSync(path.join(PACKAGES, "..", "docs", "MIGRATION.md"), "utf8")).toContain("can't always ship as an OTA update");
+  });
+
+  it("a codemod that edited package.json says nothing was installed, with the command", () => {
+    const root = makeApp({ "pnpm-lock.yaml": "" });
+    expect(codemodInstallNote(root, ["eslint.config.js", "package.json"], false)).toMatch(/^Not installed yet.*`pnpm install`/);
+    expect(codemodInstallNote(root, ["package.json"], true)).toBeNull();
+    expect(codemodInstallNote(root, ["eslint.config.js"], false)).toBeNull();
+  });
+
+  it("an upgrade with --no-install says so too", async () => {
+    const root = makeApp({ "package.json": JSON.stringify({ name: "a", dependencies: { [UI]: "^1.0.0" } }), "yarn.lock": "" });
+    const mod = { id: "x", package: UI, version: "1.1.0", description: "x", run: () => ["package.json"] };
+    const report = await runUpgrade({ root, lookup: release({ [UI]: "1.2.0" }), install: false, doctor: false, codemods: [mod] });
+    expect(report.summary).toContain("Not installed yet");
+    expect(report.summary).toContain("`yarn install`");
   });
 });
 

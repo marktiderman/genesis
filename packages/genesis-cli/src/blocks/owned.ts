@@ -150,15 +150,17 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
   // Both changed.
   const next = `${input.path}.genesis-next`;
   const existingNext = readApp(root, next);
-  // Resolved since the last run: the .genesis-next it left is gone, and the package still ships
-  // that version. The app's file is the resolution; that version becomes the base.
+  // Resolved since the last run: the .genesis-next it left is gone, the package still ships that
+  // version, and the app's file has changed since. The file is the resolution; that version becomes
+  // the base. Gone with the file unchanged isn't a resolution (.genesis-next is never committed, so
+  // a teammate's clone has none): it's written again below. A lock from before pendingMine can't tell.
   if (entry.pending === theirsSha) {
-    if (existingNext === null) {
+    if (existingNext !== null) return { path: input.path, outcome: "kept-mine", detail: `waiting for you: resolve ${next} into your file, then delete it` };
+    if (mineSha !== entry.pendingMine) {
       const { pending: _done, pendingMine: _was, ...rest } = entry;
       lock.files[input.path] = { ...rest, sha256: theirsSha, ...(input.version ? { version: input.version } : {}) };
       return { path: input.path, outcome: "resolved", detail: "your file is kept as the resolution of the last upgrade" };
     }
-    return { path: input.path, outcome: "kept-mine", detail: `waiting for you: resolve ${next} into your file, then delete it` };
   }
   // A .genesis-next someone may be working through is never replaced with different text.
   const writeNext = (text: string): string | null => {
