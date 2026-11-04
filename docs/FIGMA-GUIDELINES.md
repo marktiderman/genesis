@@ -12,6 +12,11 @@ Connect, the ratchet); this page is the working practice on top of it.
 | **One app file per consumer app** | That app's screens, built from library instances in the app's Brand mode. Named `<App> · App`. | The app's own sessions. |
 | **Exploration files** | Drafts, mood boards, old designs. Read for intent; never built against. | Anyone; mark them superseded once an app file exists. |
 
+**One Figma file per repository.** The Genesis repository's file is the library; each consumer
+app's repository has exactly one app file. An exploration file is folded into the app file (as a
+page) and archived once the app file exists; two live files for one repo is the sprawl this rule
+removes.
+
 An app file never defines its own colours, text styles or components: it enables the library
 (Assets → Libraries) and sets variable modes on its frames. If something an app needs is missing
 from the library, that is a **gap**, not a reason for a local component (see "Gaps").
