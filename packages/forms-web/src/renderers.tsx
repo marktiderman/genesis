@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Checkbox } from "@marktiderman/genesis-ui/checkbox";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Label } from "@marktiderman/genesis-ui/label";
+import { Rating } from "@marktiderman/genesis-ui/patterns";
 import { RadioGroup, RadioGroupItem } from "@marktiderman/genesis-ui/radio-group";
 import { Textarea } from "@marktiderman/genesis-ui/textarea";
 import { cn } from "@marktiderman/genesis-ui/utils";
@@ -263,7 +264,7 @@ function ScaleField(props: FieldRendererProps) {
   if (stars) {
     return (
       <FieldChrome props={props}>
-        <StarRadioGroup props={props} values={values} value={value} onValueChange={onValueChange} describe={describe} />
+        <StarRating props={props} max={values[values.length - 1] ?? 5} value={typeof binding.value === "number" ? binding.value : 0} onChange={binding.setValue} describe={describe} />
         <EndLabels inputId={inputId} low={low} high={high} />
       </FieldChrome>
     );
@@ -277,65 +278,39 @@ function ScaleField(props: FieldRendererProps) {
   );
 }
 
-function StarIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className={cn("size-8 transition-colors motion-reduce:transition-none", filled ? "fill-primary text-primary" : "fill-transparent text-muted-foreground")}
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z" />
-    </svg>
-  );
-}
-
 /**
- * A rating drawn as stars. Still a real `radiogroup` (one radio per star,
- * named "3 of 5"); the stars up to the chosen one are filled.
+ * A rating drawn as stars: genesis-ui's `Rating`, in the primary colour with 44px targets. A required
+ * answer, so a second click on the chosen star keeps it (and advances), and each is named "3 of 5".
  */
-function StarRadioGroup({
+function StarRating({
   props,
-  values,
+  max,
   value,
-  onValueChange,
+  onChange,
   describe,
 }: {
   props: FieldRendererProps;
-  values: number[];
-  value: string;
-  onValueChange: (value: string) => void;
+  max: number;
+  value: number;
+  onChange: (value: number) => void;
   describe: (index: number) => string | undefined;
 }) {
   const pick = useDeliberatePick(props.onAdvance);
-  const chosen = value === "" ? 0 : Number(value);
-  const max = values[values.length - 1] ?? 5;
   return (
-    <RadioGroup
+    <Rating
       {...groupAria(props)}
       {...pick.rootProps}
       value={value}
-      onValueChange={onValueChange}
-      className="flex flex-wrap justify-start gap-1"
+      max={max}
+      onChange={onChange}
+      size="touch"
+      tone="primary"
+      clearable={false}
+      getLabel={(n, of) => `${n} of ${of}`}
+      getItemProps={(n) => ({ "aria-describedby": describe(n - 1), onClick: pick.onItemClick })}
+      className="justify-start"
       data-gf-stars=""
-    >
-      {values.map((n, i) => (
-        <div key={n} className="relative">
-          <RadioGroupItem
-            value={String(n)}
-            aria-label={`${n} of ${max}`}
-            aria-describedby={describe(i)}
-            onClick={pick.onItemClick}
-            className="peer size-11 aspect-auto rounded-md border-0 bg-transparent shadow-none hover:bg-accent data-[state=checked]:bg-transparent [&_svg]:hidden"
-          />
-          <span aria-hidden="true" className="pointer-events-none absolute inset-0 flex items-center justify-center peer-disabled:opacity-50">
-            <StarIcon filled={n <= chosen} />
-          </span>
-        </div>
-      ))}
-    </RadioGroup>
+    />
   );
 }
 

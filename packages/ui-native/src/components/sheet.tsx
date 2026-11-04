@@ -61,6 +61,8 @@ export interface NativeSheetProps {
    * `snapPoints` is ignored. Default false.
    */
   fitContent?: boolean;
+  /** The sheet has finished going, where the platform says so (iOS's modal, the library): another modal can present now. */
+  onDismissed?: () => void;
   children: ReactNode;
   testID?: string;
 }
@@ -167,6 +169,7 @@ function LibrarySheet({
   initialSnapIndex = 0,
   disableBackdropDismiss = false,
   fitContent = false,
+  onDismissed,
   testID,
   children,
 }: NativeSheetProps & { library: NativeSheetLibrary }) {
@@ -176,6 +179,8 @@ function LibrarySheet({
   const wanted = useRef(open);
   const onOpenChangeRef = useRef(onOpenChange);
   onOpenChangeRef.current = onOpenChange;
+  const onDismissedRef = useRef(onDismissed);
+  onDismissedRef.current = onDismissed;
 
   // Child refs are attached before this runs, so the first render presents too.
   useEffect(() => {
@@ -193,6 +198,7 @@ function LibrarySheet({
       wanted.current = false;
       onOpenChangeRef.current(false);
     }
+    onDismissedRef.current?.();
   }, []);
   const backdrop = useCallback(
     (p: Record<string, unknown>) => (
@@ -255,7 +261,7 @@ function useReduceMotionAnswer(): boolean | null {
  * and a panel at the bottom, drawn under the system bars. `fitContent` on iOS: the same bottom
  * panel, kept above the keyboard.
  */
-function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, fitContent = false, testID, children }: NativeSheetProps) {
+function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, fitContent = false, onDismissed, testID, children }: NativeSheetProps) {
   const reducedMotion = useReduceMotionAnswer();
   const roles = useThemeRoles();
   const requestClose = () => {
@@ -275,6 +281,7 @@ function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, fitCon
         allowSwipeDismissal={!disableBackdropDismiss}
         backdropColor={roles.background}
         onRequestClose={requestClose}
+        onDismiss={onDismissed}
       >
         <SafeAreaProvider>
           <SheetBody
@@ -297,6 +304,7 @@ function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, fitCon
       statusBarTranslucent
       navigationBarTranslucent
       onRequestClose={requestClose}
+      onDismiss={onDismissed}
     >
       <SafeAreaProvider>
         <KeyboardPanel ios={ios}>

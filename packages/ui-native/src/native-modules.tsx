@@ -33,6 +33,7 @@
  * | `datePicker` (@expo/ui)        | NativeDatePicker, NativeTimePicker       | @react-native-community/datetimepicker |
  * | `keyboardAvoidingView` (react-native-keyboard-controller's `KeyboardAvoidingView`) | ThreadPage: the composer follows the keyboard frame by frame (`translate-with-padding`) | React Native `KeyboardAvoidingView` |
  * | `haptics` (expo-haptics) | useHaptics, usePressFeedback, NativeComposerBar (send) | no haptics |
+ * | `swipeable` (react-native-gesture-handler's `ReanimatedSwipeable`) | NativeSwipeRow, InboxPage: the swipe to a row's actions | the actions on long press and as accessibility actions |
  * | `navigation` (React Navigation's theming: from `expo-router` in an Expo Router app, which bundles its own copy; `@react-navigation/native` otherwise) | GenesisNativeApp: headers and tab bars in the brand's light and dark colors | React Navigation's default (light) theme |
  *
  * The props below are written structurally (no import of the optional
@@ -196,7 +197,22 @@ export interface GenesisModules {
   keyboardAvoidingView?: KeyboardAvoidingLike;
   /** expo-haptics (`import * as Haptics from "expo-haptics"`): `useHaptics`, `usePressFeedback`, and the primitives that answer a touch. Without it, no haptics. */
   haptics?: GenesisHapticsModule;
+  /** react-native-gesture-handler's `ReanimatedSwipeable`: NativeSwipeRow and InboxPage's rows. Without it, no swipe; the actions stay on long press. */
+  swipeable?: GenesisSwipeableComponent;
 }
+
+/** The props NativeSwipeRow passes; `ReanimatedSwipeable` takes them, and its ref has `close()`. */
+export type GenesisSwipeableComponent = ComponentType<{
+  ref?: unknown;
+  testID?: string;
+  friction?: number;
+  overshootLeft?: boolean;
+  overshootRight?: boolean;
+  onSwipeableWillOpen?: () => void;
+  renderLeftActions?: () => ReactNode;
+  renderRightActions?: () => ReactNode;
+  children?: ReactNode;
+}>;
 
 const EMPTY: GenesisModules = Object.freeze({});
 const GenesisModulesContext = createContext<GenesisModules>(EMPTY);

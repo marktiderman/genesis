@@ -22,6 +22,10 @@
  * `composer`, `composerAccessory`, `headerRegion` (pinned above the list),
  * `header` (scrolls above the first message), `earlier` and `empty`.
  *
+ * Tailwind has to see this package's classes: import
+ * `@marktiderman/genesis-ui/styles.css`, or add
+ * `@source "../node_modules/@marktiderman/genesis-ui/dist";` to your CSS.
+ *
  * @stability Beta
  */
 import * as React from "react";
@@ -35,7 +39,7 @@ import {
   type ThreadLabels,
   type ThreadMessage,
 } from "@marktiderman/genesis-core/conversation";
-import { MessagesSquare } from "lucide-react";
+import { FileText, MessagesSquare } from "lucide-react";
 import { cn } from "../../../utils";
 import { useHydrated } from "../../../hooks/use-mobile";
 import { Button } from "../../ui/button";
@@ -56,7 +60,7 @@ export type ThreadPageSlotMap = {
   headerRegion: { testID: string };
   header: { testID: string };
   earlier: { loading: boolean; onPress: () => void; label: string; testID: string };
-  empty: { title: string; body: string; testID: string };
+  empty: { title: string; body: string; actionLabel?: string | undefined; onAction?: (() => void) | undefined; testID: string };
 };
 
 export interface ThreadPageProps {
@@ -87,6 +91,13 @@ export interface ThreadPageProps {
   onJumpFailed?: (id: string) => void;
   /** The first page is loading: a skeleton instead of the empty state, and a jump waits for it. */
   loading?: boolean;
+  /** The read failed and there are no messages: the empty slot shows `errorTitle` / `errorBody` instead. */
+  error?: boolean;
+  errorTitle?: string;
+  errorBody?: string;
+  /** A "Try again" button with `error`. */
+  onRetry?: () => void;
+  retryLabel?: string;
   /** Fresher rows are on their way (the cache showed first): a quiet "Updating…" line. */
   updating?: boolean;
   /** Which key sends. Default `enter` (Shift+Enter for a new line). Native ignores it. */
@@ -135,6 +146,11 @@ export function ThreadPage({
   onLoadUntil,
   onJumpFailed,
   loading = false,
+  error = false,
+  errorTitle = "Couldn't load this conversation",
+  errorBody = "Check your connection and try again.",
+  onRetry,
+  retryLabel = "Try again",
   updating = false,
   sendOn,
   emptyTitle,
@@ -263,7 +279,9 @@ export function ThreadPage({
           empty={renderSlot(
             DefaultEmpty,
             slots.empty,
-            { title: emptyTitle ?? "No messages yet", body: emptyBody ?? "Write the first one below.", testID: `${testID}-empty` },
+            error
+              ? { title: errorTitle, body: errorBody, actionLabel: onRetry ? retryLabel : undefined, onAction: onRetry, testID: `${testID}-error` }
+              : { title: emptyTitle ?? "No messages yet", body: emptyBody ?? "Write the first one below.", testID: `${testID}-empty` },
             slotProps.empty,
           )}
         />
@@ -305,10 +323,10 @@ function DefaultEarlier({ loading, onPress, label, testID }: ThreadPageSlotMap["
   );
 }
 
-function DefaultEmpty({ title, body, testID }: ThreadPageSlotMap["empty"]) {
+function DefaultEmpty({ title, body, actionLabel, onAction, testID }: ThreadPageSlotMap["empty"]) {
   return (
     <div data-testid={testID}>
-      <EmptyState icon={MessagesSquare} title={title} description={body} />
+      <EmptyState icon={MessagesSquare} title={title} description={body} action={actionLabel && onAction ? <Button onClick={onAction}>{actionLabel}</Button> : undefined} />
     </div>
   );
 }
@@ -403,7 +421,53 @@ const DefaultMessage = React.memo(function DefaultMessage(message: ThreadPageSlo
   );
 });
 
-function DefaultAttachment({ uri, width, height, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
+/** What a file attachment may link to: never a script. */
+const OPENABLE = /^(https?|blob):/i;
+
+/** Where a link goes, so a name can't pass for somewhere else. */
+function hostOf(uri: string): string | null {
+  if (!/^https?:/i.test(uri)) return null;
+  try {
+    return new URL(uri).host;
+  } catch {
+    return null;
+  }
+}
+
+function FileAttachment({ uri, name, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
+  const label = name ?? accessibilityLabel ?? "Attachment";
+  const host = onPress ? null : hostOf(uri);
+  const body = (
+    <>
+      <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+      <span className="truncate">{label}</span>
+      {host ? <span className="shrink-0 text-xs text-muted-foreground">{host}</span> : null}
+    </>
+  );
+  const look = "flex min-h-11 max-w-60 items-center gap-2 rounded-xl border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  if (onPress) {
+    return (
+      <button type="button" data-testid={testID} onClick={onPress} aria-label={accessibilityLabel} className={cn(look, "hover:bg-muted/60")}>
+        {body}
+      </button>
+    );
+  }
+  return OPENABLE.test(uri) ? (
+    <a data-testid={testID} href={uri} target="_blank" rel="noopener noreferrer" download={/^blob:/i.test(uri) ? label : undefined} aria-label={accessibilityLabel} className={cn(look, "hover:bg-muted/60")}>
+      {body}
+    </a>
+  ) : (
+    <span data-testid={testID} className={look}>
+      {body}
+    </span>
+  );
+}
+
+function DefaultAttachment(attachment: ThreadPageSlotMap["attachment"]) {
+  return attachment.kind === "file" ? <FileAttachment {...attachment} /> : <ImageAttachment {...attachment} />;
+}
+
+function ImageAttachment({ uri, width, height, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
   const ratio = width && height ? width / height : 0.6;
   const img = <img src={uri} alt={accessibilityLabel ?? "Attachment"} width={160} height={Math.round(160 / ratio)} loading="lazy" className="rounded-xl object-cover" />;
   return onPress ? (

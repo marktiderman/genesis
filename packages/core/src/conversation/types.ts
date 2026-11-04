@@ -16,8 +16,12 @@ import type { ReactNode } from "react";
 
 export interface ThreadAttachment {
   id: string;
-  /** An image URI (a signed URL, a file:// path). */
+  /** `image` shows the picture; `file` shows its name, and opens `uri`. Default `image`. */
+  kind?: "image" | "file";
+  /** An image URI, or a file's link (a signed URL, a file:// path). */
   uri: string;
+  /** A file's name, as shown. */
+  name?: string;
   width?: number;
   height?: number;
   accessibilityLabel?: string;
@@ -85,6 +89,8 @@ export interface ThreadComposer {
   maxLines?: number;
   /** Ways to send ("Reply", "Internal note"); two or more show the picker. */
   modes?: readonly ComposerMode[];
+  /** The picker's name, to a screen reader. Default "Send as". */
+  modesLabel?: string;
   mode?: string;
   onModeChange?: (id: string) => void;
 }
@@ -138,6 +144,8 @@ export interface InboxSwipeAction {
   onPress: () => void;
   /** Destructive tone (delete, leave). */
   destructive?: boolean;
+  /** Which side of the row a swipe uncovers it from, on the phone. Default `trailing`. */
+  side?: "leading" | "trailing";
 }
 
 export interface InboxItem {

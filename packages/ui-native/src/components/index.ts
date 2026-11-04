@@ -307,6 +307,10 @@ export {
 export type { NativeThreadListProps, NativeThreadListHandle, ThreadRowInfo } from "./thread-list";
 export { NativeComposerBar } from "./composer-bar";
 export type { NativeComposerBarProps, ComposerMode, ComposerTone, ComposerSendAction } from "./composer-bar";
+export { NativeSwipeRow } from "./swipe-row";
+export type { NativeSwipeRowProps } from "./swipe-row";
+export { NativeContextMenu } from "./context-menu";
+export type { NativeContextMenuProps, NativeContextMenuAction } from "./context-menu";
 
 // --- Gallery and media primitives ---
 

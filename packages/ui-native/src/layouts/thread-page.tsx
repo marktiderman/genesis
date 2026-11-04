@@ -45,12 +45,14 @@
  */
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { AccessibilityInfo, Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
+import { AccessibilityInfo, Image, KeyboardAvoidingView, Linking, Platform, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useThemeRoles } from "../hooks/use-theme-roles";
+import { sentBubbleColor, useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
 import { useKeyboardScroll } from "./keyboard";
 import { NativeEmptyState } from "../components/empty-state";
+import { NativeButton } from "../components/button";
+import { NativeIcon } from "../components/icon";
 import { NativeText } from "../components/text";
 import { NativeComposerBar, type ComposerMode } from "../components/composer-bar";
 import { NativeThreadList, type NativeThreadListHandle, type ThreadRowInfo } from "../components/thread-list";
@@ -84,7 +86,7 @@ export type ThreadPageSlotMap = {
   headerRegion: { testID: string };
   header: { testID: string };
   earlier: { loading: boolean; onPress: () => void; label: string; testID: string };
-  empty: { title: string; body: string; testID: string };
+  empty: { title: string; body: string; actionLabel?: string | undefined; onAction?: (() => void) | undefined; testID: string };
 };
 
 export interface ThreadPageProps extends ScreenHeaderProps {
@@ -117,6 +119,13 @@ export interface ThreadPageProps extends ScreenHeaderProps {
   onJumpFailed?: (id: string) => void;
   /** The first page is loading: a skeleton instead of the empty state, and a jump waits for it. */
   loading?: boolean;
+  /** The read failed and there are no messages: the empty slot shows `errorTitle` / `errorBody` instead. */
+  error?: boolean;
+  errorTitle?: string;
+  errorBody?: string;
+  /** A "Try again" button with `error`. */
+  onRetry?: () => void;
+  retryLabel?: string;
   /** Fresher rows are on their way (the cache showed first): a quiet "Updating…" line under the header region, announced once. */
   updating?: boolean;
   /**
@@ -188,6 +197,11 @@ export function ThreadPage({
   onLoadUntil,
   onJumpFailed,
   loading = false,
+  error = false,
+  errorTitle = "Couldn't load this conversation",
+  errorBody = "Check your connection and try again.",
+  onRetry,
+  retryLabel = "Try again",
   updating = false,
   keyboardVerticalOffset,
   emptyTitle,
@@ -334,7 +348,9 @@ export function ThreadPage({
             empty={renderSlot(
               DefaultEmpty,
               slots.empty,
-              { title: emptyTitle ?? "No messages yet", body: emptyBody ?? "Write the first one below.", testID: `${testID}-empty` },
+              error
+                ? { title: errorTitle, body: errorBody, actionLabel: onRetry ? retryLabel : undefined, onAction: onRetry, testID: `${testID}-error` }
+                : { title: emptyTitle ?? "No messages yet", body: emptyBody ?? "Write the first one below.", testID: `${testID}-empty` },
               slotProps.empty,
             )}
           />
@@ -373,8 +389,22 @@ function DefaultEarlierButton({ loading, onPress, label, testID }: ThreadPageSlo
   );
 }
 
-function DefaultEmpty({ title, body, testID }: ThreadPageSlotMap["empty"]) {
-  return <NativeEmptyState variant="first-run" title={title} body={body} testID={testID} />;
+function DefaultEmpty({ title, body, actionLabel, onAction, testID }: ThreadPageSlotMap["empty"]) {
+  return (
+    <NativeEmptyState
+      variant="first-run"
+      title={title}
+      body={body}
+      testID={testID}
+      primaryAction={
+        actionLabel && onAction ? (
+          <NativeButton onPress={onAction} testID={`${testID}-action`}>
+            {actionLabel}
+          </NativeButton>
+        ) : undefined
+      }
+    />
+  );
 }
 
 function DefaultUnreadDivider({ label, testID }: ThreadPageSlotMap["unreadDivider"]) {
@@ -455,7 +485,7 @@ const DefaultMessage = memo(function DefaultMessage(message: ThreadPageSlotMap["
           paddingHorizontal: 14,
           paddingVertical: 8,
           borderRadius: 18,
-          backgroundColor: internal ? colors.surface : message.mine ? colors.tint : colors.surface,
+          backgroundColor: internal ? colors.surface : message.mine ? sentBubbleColor(colors) : colors.surface,
           borderWidth: internal || message.highlighted ? 2 : 0,
           borderColor: internal ? colors.warning : colors.tint,
           opacity: waiting ? 0.6 : 1,
@@ -479,7 +509,36 @@ const DefaultMessage = memo(function DefaultMessage(message: ThreadPageSlotMap["
   );
 });
 
-function DefaultAttachment({ id, uri, width, height, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
+/** What a file attachment may open: the web, and a file on this phone only when you sent it. */
+const OPENABLE = /^https?:/i;
+const OPENABLE_IF_MINE = /^(file|content):/i;
+
+function FileAttachment({ uri, name, accessibilityLabel, onPress, mine, testID }: ThreadPageSlotMap["attachment"]) {
+  const colors = useThemeRoles();
+  const label = name ?? accessibilityLabel ?? "Attachment";
+  const open = onPress ?? (OPENABLE.test(uri) || (mine && OPENABLE_IF_MINE.test(uri)) ? () => void Linking.openURL(uri).catch(() => undefined) : undefined);
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole={open ? "link" : undefined}
+      accessibilityLabel={accessibilityLabel ?? label}
+      onPress={open}
+      disabled={!open}
+      style={{ flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, maxWidth: 240, paddingHorizontal: 12, borderRadius: 12, backgroundColor: mine ? colors.fill : colors.surface }}
+    >
+      <NativeIcon name="file" size={18} color={colors.secondaryLabel} />
+      <NativeText numberOfLines={1} style={{ flexShrink: 1, color: colors.label, fontSize: 15, lineHeight: 20 }}>
+        {label}
+      </NativeText>
+    </Pressable>
+  );
+}
+
+function DefaultAttachment(attachment: ThreadPageSlotMap["attachment"]) {
+  return attachment.kind === "file" ? <FileAttachment {...attachment} /> : <ImageAttachment {...attachment} />;
+}
+
+function ImageAttachment({ id, uri, width, height, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
   const { image: ExpoImage } = useGenesisModules();
   const ratio = width && height ? width / height : 0.6;
   const w = 140;
