@@ -1,0 +1,9 @@
+{
+  "required": [],
+  "notYet": [],
+  "composed": [
+    "NotificationsFeed",
+    "ChannelPreferences",
+    "NotificationPreferences"
+  ]
+}

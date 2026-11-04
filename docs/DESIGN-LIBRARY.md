@@ -107,7 +107,8 @@ The templates folder is not shipped: `packages/ui-native/package.json` `files` l
 
 ### The ratchet: `pnpm check:code-connect`
 
-`scripts/check-code-connect.mjs` covers three packages: genesis-ui-native (the `Native*`
+`scripts/check-code-connect.mjs` covers genesis-ui-native, genesis-ui, genesis-chat, and the
+genesis-native, genesis-notifications and genesis-product packages below. The first three: genesis-ui-native (the `Native*`
 components and the page layouts), genesis-ui for the web (its PascalCase exports, minus
 sub-parts, typography, auto-layout primitives and cell formatters), and genesis-chat (the
 PascalCase exports of `/native` and `/web`, minus hooks, providers and the non-visual
@@ -122,6 +123,24 @@ nest the Messages page's primitives (`Msg/Bubble`, `Msg/Tapback`, `Msg/TapbackBa
 `Msg/RecordCard`, `NativeComposerBar`, `NativeZoomablePhoto`) as exposed instances rather than
 redrawing them. Chat's screens, sheets of library parts and dispatchers (`ChatInboxScreen`,
 `ChatPanel`, `ChatDock`, `MessageAttachments` on the web) are `composed`.
+
+Three more packages follow the same pattern, each with its own allowlist:
+
+- **genesis-native** (`native`, `packages/native/figma/`), page **Native · App**: the PascalCase
+  exports of `.`, `/push` and `/updates`, minus the app plumbing (roots, boundaries, gates, error
+  classes, `GenesisNativeApp` and its trivial `BootScreen`). The three error fallbacks are one
+  component set, `FatalScreen`, with a `kind` variant (`app`, `screen`, `plain`); the templates
+  for `FatalScreen`, `ScreenErrorScreen` and `PlainFatalScreen` each point at their variant.
+  `NotificationSettings` is `composed` (a SettingsPage of library rows).
+- **genesis-notifications** (`notifications-web`, `notifications-native`,
+  `packages/notifications/figma/{web,native}/`), page **Notifications**, grouped by platform. Its
+  entry points declare their components in the index itself, so the check reads
+  `export function Name(` there. `NotificationRowView` and `NotificationBell` are library
+  components; the feeds, preference tables and admin tables are `composed`. The React Email parts
+  (`./email`) are not app UI and are not read.
+- **genesis-product** (`product`, `packages/product/figma/`), page **Product**: `VoteButton`,
+  `ProductWhatsNewSheet` (separate from genesis-native's `WhatsNewSheet`: product notes, with a
+  Learn more per note) and `RoadmapDetailSheet`; the screens and the store wrapper are `composed`.
 
 ```json
 { "required": ["NativeAvatar"], "notYet": ["NativeRangeSlider", "…"], "composed": ["SettingsPage", "…"] }
