@@ -1,0 +1,53 @@
+packages/chat/src/web/thread.tsx
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 12-14,23,26,28,55,59,61,74,221-328,388,438-443,445-449,451-478,483-490,493-500,509,515,519,524,529,531-548,587,688-735
+packages/chat/src/__tests__/web.test.tsx
+  s_b9ce29ee4fad7a::t_5825bab571e300 235-265,363
+  s_b9ce29ee4fad7a::t_86cd1006395675 9
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 192,206-234,296-297,343-362
+  s_b9ce29ee4fad7a::t_788a21155992f2 364
+packages/core/src/conversation/types.ts
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 40-41
+.changeset/chat-web-on-thread-page.md
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 1-15
+packages/ui/src/components/patterns/messaging/thread-page.tsx
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 115,250
+packages/ui-native/src/layouts/__tests__/thread-page.test.tsx
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 229-248
+features.ts
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 2015
+packages/ui-native/src/layouts/thread-page.tsx
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 158,328
+packages/chat/src/web/inbox.tsx
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 6,8-10,12,14-15,62-63,67-90,93-106,111-115,118-131,133-138,147,155,158,163,165,169,172,191-193
+packages/chat/src/web/composer.tsx
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 10-11
+packages/ui/src/components/patterns/messaging/thread-list.tsx
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 78-83,141,321-325,340-342,428,450
+packages/chat/package.json
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 100-101
+features.json
+  s_b9ce29ee4fad7a::t_87469d4f6f5f17 4575
+packages/ui/src/components/patterns/messaging/inbox-page.tsx
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 14-15,194
+packages/chat/src/web/bubble.tsx
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 67-68,144,170
+packages/ui/src/components/patterns/__tests__/messaging.test.tsx
+  s_b9ce29ee4fad7a::t_e1138e3e4b3ae3 91-102,444-454
+  s_b9ce29ee4fad7a::t_0b55a40c368b4a 455-456
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b53d34164e5ac0e935a79e071dcbd61ad0d31af4",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
