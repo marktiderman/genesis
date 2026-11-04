@@ -12,7 +12,11 @@ const VIEWS: { kind: StudioViewKind; label: string; icon: typeof Table2; unavail
   { kind: "calendar", label: "Calendar", icon: CalendarDays, unavailable: "A calendar needs a date field." },
 ];
 
-/** The left column: how to look at this table, and the views you've saved. */
+/**
+ * The left column: how to look at this table, and the views you've saved.
+ *
+ * @stability Beta
+ */
 export function ViewsPanel({
   view,
   available,
@@ -115,7 +119,11 @@ export function ViewsPanel({
   );
 }
 
-/** Table tabs across the top, as Airtable shows a base's tables. */
+/**
+ * Table tabs across the top, as Airtable shows a base's tables.
+ *
+ * @stability Beta
+ */
 export function TableTabs({
   resources,
   selected,

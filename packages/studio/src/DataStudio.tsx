@@ -1049,7 +1049,12 @@ const OUTCOME_LABEL = {
   delete: { saved: "Deleted", not_saved: "Not deleted" },
 } as const;
 
-function ActivityPanel({ entries, onUndo }: { entries: StudioActivity[]; onUndo?: (entry: StudioActivity) => void }) {
+/**
+ * The studio's activity panel: recent changes, with undo.
+ *
+ * @stability Beta
+ */
+export function ActivityPanel({ entries, onUndo }: { entries: StudioActivity[]; onUndo?: (entry: StudioActivity) => void }) {
   return (
     <details aria-label="This session's edits" className="group rounded-lg border bg-card" data-testid="studio-activity">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium group-open:border-b">

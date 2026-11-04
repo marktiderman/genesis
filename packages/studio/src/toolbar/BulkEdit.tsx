@@ -17,7 +17,11 @@ export interface BulkEditDialogProps {
   onApply: (data: Record<string, unknown>) => Promise<BulkResult>;
 }
 
-/** Set one field on every selected row: all of them change, or none do. */
+/**
+ * Set one field on every selected row: all of them change, or none do.
+ *
+ * @stability Beta
+ */
 export function BulkEditDialog({ schema, count, open, onOpenChange, onApply }: BulkEditDialogProps) {
   const fields = schema.fields.filter((f) => f.permissions?.update && !f.references);
   const [field, setField] = useState(fields[0]?.name ?? "");

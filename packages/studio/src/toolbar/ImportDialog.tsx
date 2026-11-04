@@ -22,6 +22,8 @@ export interface ImportDialogProps {
  * every row against the database with a dry run, then add them all in one
  * transaction. Nothing is coerced or dropped: a value that won't convert is
  * listed, with the database's reason, before anything is kept.
+ *
+ * @stability Beta
  */
 export function ImportDialog({ provider, schema, onImported }: ImportDialogProps) {
   const [open, setOpen] = useState(false);

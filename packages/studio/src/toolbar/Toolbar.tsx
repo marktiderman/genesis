@@ -28,7 +28,11 @@ function fromDraft(d: FilterDraft): FilterParam {
     : ({ field: d.field, operator: d.operator } as FilterParam);
 }
 
-/** Filters by field, with the operators that fit each field's type. */
+/**
+ * Filters by field, with the operators that fit each field's type.
+ *
+ * @stability Beta
+ */
 export function FilterBuilder({
   fields,
   filters,
@@ -152,7 +156,11 @@ export function FilterBuilder({
   );
 }
 
-/** Sort by several fields, first one first. */
+/**
+ * Sort by several fields, first one first.
+ *
+ * @stability Beta
+ */
 export function SortBuilder({
   fields,
   sorts,
@@ -215,7 +223,11 @@ export function SortBuilder({
   );
 }
 
-/** Group rows by a field with few distinct values. */
+/**
+ * Group rows by a field with few distinct values.
+ *
+ * @stability Beta
+ */
 export function GroupPicker({
   fields,
   group,
@@ -244,6 +256,11 @@ export function GroupPicker({
   );
 }
 
+/**
+ * The studio toolbar's export button, with its progress.
+ *
+ * @stability Beta
+ */
 export function ExportButton({ onExport, busy, progress }: { onExport: () => void; busy: boolean; progress: number }) {
   return (
     <Button type="button" variant="ghost" size="sm" onClick={onExport} disabled={busy} testID="studio-export" aria-label="Export CSV" title="Export CSV">
@@ -253,6 +270,11 @@ export function ExportButton({ onExport, busy, progress }: { onExport: () => voi
   );
 }
 
+/**
+ * The studio toolbar's new row button, disabled with a reason when not allowed.
+ *
+ * @stability Beta
+ */
 export function NewRowButton({ allowed, reason, onClick }: { allowed: boolean; reason?: string; onClick: () => void }) {
   return (
     <Button type="button" size="sm" onClick={onClick} disabled={!allowed} title={allowed ? undefined : reason} testID="studio-new-row">
@@ -269,7 +291,11 @@ const VIEW_UNAVAILABLE: Partial<Record<ViewKind, string>> = {
   calendar: "A calendar needs a date or timestamp field.",
 };
 
-/** Switch between the table, the spreadsheet grid, a board and a calendar. */
+/**
+ * Switch between the table, the spreadsheet grid, a board and a calendar.
+ *
+ * @stability Beta
+ */
 export function ViewSwitch({
   view,
   onChange,
@@ -301,7 +327,11 @@ export function ViewSwitch({
   );
 }
 
-/** Which field lays out the board or the calendar. */
+/**
+ * Which field lays out the board or the calendar.
+ *
+ * @stability Beta
+ */
 export function ViewFieldPicker({
   label,
   fields,
@@ -329,7 +359,11 @@ export function ViewFieldPicker({
   );
 }
 
-/** Which fields the grid shows. */
+/**
+ * Which fields the grid shows.
+ *
+ * @stability Beta
+ */
 export function HideFields({
   fields,
   hidden,
@@ -374,7 +408,11 @@ export function HideFields({
   );
 }
 
-/** Search every text field, as you type. */
+/**
+ * Search every text field, as you type.
+ *
+ * @stability Beta
+ */
 export function SearchBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <div className="relative">
