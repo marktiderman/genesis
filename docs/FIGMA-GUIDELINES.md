@@ -88,28 +88,36 @@ variant the component doesn't have.
 A new idea or a change to an existing screen is designed and approved in Figma before any code
 is written. The maintainer approves designs, not pull requests, for product decisions.
 
-1. **Propose.** On the app file's `Proposals` page, in the `Draft` section, build the screens
-   from library instances: one frame per route or state, named `<slug>/<route>` (for a change to an
-   existing screen, a copy of that frame with the change applied, next to the current one). Wire
-   the frames into a clickable flow (reactions) so the idea can be walked, and set a flow starting
-   point named after the slug. A short note frame beside them states the goal, what changes, and
-   any Genesis gap it needs (plain `<App>/Name` frames for those).
-2. **Review.** Move the frames to `In review` and tell the maintainer the Present link and the
-   starting point's name. Iterate there: every round is an edit to those frames, never a second
-   copy. Questions for the maintainer go as numbered options with a recommendation.
+1. **Propose.** On the route page the feature belongs to, in a section named
+   `Proposal · Draft · <slug>` below the live rows, build the screens from library instances: one
+   frame per route or state, named `<slug>/<route>` (for a change to an existing screen, a copy of
+   that frame with the change applied). Wire the frames into the live prototype: the live frames
+   where the feature would appear get hotspots into the proposal, and the proposal's tabs, nav
+   and back controls return to the live frames, so the maintainer walks the app as built and
+   arrives at the new screens in context. Prototype links can't cross pages, which is why the
+   section sits on the route page and not on a page of its own. A short note frame in the section
+   states the goal, what changes, and any Genesis gap it needs (plain `<App>/Name` frames for
+   those).
+2. **Review.** Rename the section `Proposal · In review · <slug>` and tell the maintainer the
+   app's own Present link and where to go in it; add a flow starting point named after the slug
+   only when the proposal has no natural entry from the live screens. Iterate there: every round
+   is an edit to those frames, never a second copy. Questions for the maintainer go as numbered
+   options with a recommendation.
 3. **Approve.** The maintainer says "approved" (in chat or as a Figma comment on the note frame).
    The agent records it where Figma keeps it: it marks the proposal's section **Ready for dev**
    (Dev Mode status) with the message `Approved <date> by <maintainer>`, which notifies viewers
-   and fires the `DEV_MODE_STATUS_UPDATE` webhook; it then moves the frames to `Approved`,
-   replaces the live frames on the route page with the approved ones (same names, so links hold),
-   and writes the date in the note. An agent never sets the status without an approval it can
+   and fires the `DEV_MODE_STATUS_UPDATE` webhook; it renames the section
+   `Proposal · Approved · <slug>`, replaces the live frames with the approved ones (same names,
+   so links hold; the entry hotspots become permanent), and writes the date in the note. A
+   rejected proposal's section is renamed `Proposal · Dropped · <slug>`, its entry hotspots are
+   removed, and it is deleted a month later. An agent never sets the status without an approval it can
    quote. On a plan without the "Completed" status, `Built` is the section move alone.
 4. **Build.** Only now does code start. The implementation PR links the approved frames (file,
    page, node ids) in its body, is built from the same library components, and its preview (the
    repo's `see-it` page) is checked against the frames before it is marked ready. Code that departs
    from the approved design goes back to step 2, not into the PR.
-5. **Close.** When the PR merges, the proposal frames move to `Built` with the PR link in the note;
-   a quarter later the `Built` section is emptied (the route page is the record).
+5. **Close.** When the PR merges, the section is renamed `Proposal · Built · <slug>` with the PR
+   link in the note; a quarter later it is deleted (the route page is the record).
 
 **Scope of the gate.** Through the gate: a new screen, a new flow, a layout change, or a new
 library component. Code-first, with the repo's `see-it` preview as the review: bug fixes, copy
@@ -118,12 +126,14 @@ the route frame after the merge so the file stays true. A change the maintainer 
 decided in writing is code-first too. When unsure, it is a proposal; a small team keeps the
 gate narrow so proposals don't go stale.
 
-### The Proposals page
+### Proposal sections
 
-Every app file has a `Proposals` page with four sections, left to right: `Draft`, `In review`,
-`Approved`, `Built`. Frames keep their route names inside a slug prefix; the library's Brand and
-Color modes are set on each frame as on the route pages. Nothing on this page is detached or
-local; a gap is a plain `<App>/Name` frame and a line in the note.
+A proposal is a section on its route page, named `Proposal · <status> · <slug>` with status
+`Draft`, `In review`, `Approved`, `Built` or `Dropped`, placed below the live rows. Frames keep
+their route names inside the slug prefix; the library's Brand and Color modes are set on each
+frame as on the live ones. Nothing in a proposal is detached or local; a gap is a plain
+`<App>/Name` frame and a line in the note. The app's prototype is one persistent thing: live
+frames plus the proposals plugged into them.
 
 **Definition of ready.** A proposal goes to `In review` only when its note lists, and its
 frames show:
@@ -139,9 +149,9 @@ frames show:
 Anything missing is written in the note as "not designed: …", so the reviewer decides with eyes
 open and the builder doesn't invent it.
 
-**Sections.** Each proposal is its own section (named by slug) inside `Draft` / `In review` /
-`Approved` / `Built`, and route pages group frames into sections by area (a zone, a tab, a
-record type). Dev Mode status is set on the section, so one status covers a proposal.
+**Sections.** Route pages group live frames into sections by area (a zone, a tab, a record
+type), and each proposal is its own section as above. Dev Mode status is set on the section, so
+one status covers a proposal.
 
 ### Code Connect keeps the two in step
 
