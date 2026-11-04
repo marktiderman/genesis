@@ -4,12 +4,17 @@
  * upgrade` runs a codemod only when that package moves across that version,
  * and `genesis codemod <id>` runs one by hand.
  */
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
+import { detectPackageManager, installCommand, shellLine } from "../blocks/pm.js";
+import { appScripts } from "./app-scripts.js";
 import { compareVersions } from "./bump-core.mjs";
+import { hapticsUseGenesis, overlaysFitThePhone } from "./doctor-rule-codemods.js";
 import { addGenesisLint, appPlatform, findEslintConfig, hasTestingLibrary, inlinesRntlRules, manualLines, readPackageJson, TESTING_LIBRARY, TESTING_LIBRARY_RANGE, usesGenesisLint } from "./eslint-config.js";
 import { augmentsResourceScope, IMPORTS_GENESIS, PRACTICE_ID_AUGMENTATION, readsPracticeId, rewriteScopeNames } from "./scope-names.js";
 import type { BumpChange } from "./bump-core.mjs";
+
+export { appScripts };
 
 export interface CodemodContext {
   root: string;
@@ -28,27 +33,6 @@ export interface Codemod {
   description: string;
   /** Change the app; returns the app-relative files it changed. */
   run(context: CodemodContext): Promise<string[]> | string[];
-}
-
-const SKIP_DIRS = new Set(["node_modules", "dist", "build", ".git", ".next", ".output", ".turbo", ".expo", "coverage", "ios", "android"]);
-const SCRIPT = /\.(?:[cm]?[jt]sx?)$/;
-const MAX_BYTES = 2 * 1024 * 1024;
-
-/** The app's script files (tests and declarations included: they use the same names), app-relative and sorted. */
-export function appScripts(root: string): string[] {
-  const out: string[] = [];
-  const walk = (dir: string) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-      const abs = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (!SKIP_DIRS.has(entry.name)) walk(abs);
-      } else if (entry.isFile() && SCRIPT.test(entry.name) && statSync(abs).size <= MAX_BYTES) {
-        out.push(path.relative(root, abs).split(path.sep).join("/"));
-      }
-    }
-  };
-  walk(root);
-  return out;
 }
 
 /**
@@ -145,13 +129,19 @@ export const genesisEslintConfig: Codemod = {
       json.devDependencies = Object.fromEntries(sorted ? dev.sort(([a], [b]) => a.localeCompare(b)) : dev);
       changed.push("package.json");
       if (!dryRun) writeFileSync(pkgFile, `${JSON.stringify(json, null, indent)}${raw.endsWith("\n") ? "\n" : ""}`);
-      log(`  package.json: added ${TESTING_LIBRARY}@${TESTING_LIBRARY_RANGE} to devDependencies (Genesis's native lint rules use it); install to fetch it.`);
+      log(`  package.json: added ${TESTING_LIBRARY}@${TESTING_LIBRARY_RANGE} to devDependencies (Genesis's native lint rules use it).`);
     }
     return changed;
   },
 };
 
-export const CODEMODS: readonly Codemod[] = [scopeNeutralNames, genesisEslintConfig];
+export const CODEMODS: readonly Codemod[] = [scopeNeutralNames, genesisEslintConfig, overlaysFitThePhone, hapticsUseGenesis];
+
+/** What's left after a codemod that edited package.json, which never installs anything itself; null when nothing is. */
+export function codemodInstallNote(root: string, changed: readonly string[], dryRun: boolean): string | null {
+  if (dryRun || !changed.includes("package.json")) return null;
+  return `Not installed yet: package.json changed and nothing was installed. Run \`${shellLine(installCommand(detectPackageManager(root)))}\`; until then, what it added isn't there (the lint can't load its config, say).`;
+}
 
 /** A registered codemod by id, for `genesis codemod <id>`. */
 export function codemodById(id: string, registry: readonly Codemod[] = CODEMODS): Codemod | undefined {
@@ -173,5 +163,9 @@ export function uncoveredBreaks(changes: readonly BumpChange[], registry: readon
     const [a, b] = bare(v).split(".").map(Number);
     return a === 0 ? `0.${b}` : String(a);
   };
-  return changes.filter((c) => major(c.from) !== major(c.to) && codemodsFor([c], registry).length === 0);
+  // A codemod covers a major only when it was declared for it: its version starts the major moved to.
+  // One declared at a minor fixes that minor's rule, and says nothing about the major's breaks.
+  const startsMajor = (v: string) => (bare(v).split(".").map(Number)[0] === 0 ? bare(v).split(".")[2] === "0" : /^\d+\.0\.0$/.test(bare(v)));
+  const covers = (mod: Codemod, c: BumpChange) => startsMajor(mod.version) && major(mod.version) === major(c.to);
+  return changes.filter((c) => major(c.from) !== major(c.to) && !codemodsFor([c], registry).some((mod) => covers(mod, c)));
 }
