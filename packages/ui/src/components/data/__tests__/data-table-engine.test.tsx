@@ -242,6 +242,23 @@ describe("DataTable remembers choices under its existing keys", () => {
     expect(name.style.width).toBe("321px");
   });
 
+  it("saves a dragged column's width under dt-resize- when the drag ends", () => {
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} resizeKey="drag" columnVisibility={false} />);
+    const name = screen.getByRole("columnheader", { name: /name/i });
+    const handle = name.querySelector<HTMLElement>(".cursor-col-resize")!;
+    handle.setPointerCapture = () => {};
+    const start = Number.parseInt(name.style.width || "150", 10);
+    fireEvent.pointerDown(handle, { clientX: 100, pointerId: 1 });
+    act(() => {
+      handle.dispatchEvent(Object.assign(new Event("pointermove"), { clientX: 140 }));
+    });
+    act(() => {
+      handle.dispatchEvent(new Event("pointerup"));
+    });
+    const saved = JSON.parse(localStorage.getItem("dt-resize-drag") ?? "null") as Record<string, number> | null;
+    expect(saved?.name).toBe(start + 40);
+  });
+
   it("writes a moved column to dt-order-, and never writes the defaults on load", () => {
     render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} columnOrderKey="fresh" columnVisibilityKey="fresh" resizeKey="fresh" />);
     expect(localStorage.getItem("dt-order-fresh")).toBeNull();

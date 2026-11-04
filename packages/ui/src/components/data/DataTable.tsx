@@ -558,6 +558,12 @@ function ResizeHandle({
 }) {
   const startX = useRef(0);
   const [isResizing, setIsResizing] = useState(false);
+  // The drag's listeners live from pointerdown to pointerup; read the latest callbacks through refs,
+  // so the end of a drag sees the widths the drag produced (a closure from pointerdown saw none).
+  const onResizeRef = useRef(onResize);
+  const onResizeEndRef = useRef(onResizeEnd);
+  onResizeRef.current = onResize;
+  onResizeEndRef.current = onResizeEnd;
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -572,19 +578,19 @@ function ResizeHandle({
       const onMove = (ev: PointerEvent) => {
         const delta = ev.clientX - startX.current;
         startX.current = ev.clientX;
-        onResize(delta);
+        onResizeRef.current(delta);
       };
       const onUp = () => {
         target.removeEventListener("pointermove", onMove);
         target.removeEventListener("pointerup", onUp);
         setIsResizing(false);
         document.body.style.cursor = "";
-        onResizeEnd?.();
+        onResizeEndRef.current?.();
       };
       target.addEventListener("pointermove", onMove);
       target.addEventListener("pointerup", onUp);
     },
-    [onResize, onResizeEnd],
+    [],
   );
 
   return (
@@ -751,6 +757,8 @@ export function DataTable<T>({
     NUMBER_MAP_FORMAT,
   );
   const [liveWidths, setLiveWidths] = useState<Record<string, number> | null>(null);
+  const liveWidthsRef = useRef(liveWidths);
+  liveWidthsRef.current = liveWidths;
   const colWidths = liveWidths ?? savedWidths ?? columnWidths;
 
   const handleResize = useCallback(
@@ -765,10 +773,11 @@ export function DataTable<T>({
   );
 
   const handleResizeEnd = useCallback(() => {
-    if (!liveWidths) return;
-    setSavedWidths(liveWidths);
+    const widths = liveWidthsRef.current;
+    if (!widths) return;
+    setSavedWidths(widths);
     setLiveWidths(null);
-  }, [liveWidths, setSavedWidths]);
+  }, [setSavedWidths]);
 
   const pinWidth = (key: string) => colWidths[key] ?? PINNED_WIDTH;
   const pinned: Record<string, { side: "left" | "right"; offset: number }> = {};
