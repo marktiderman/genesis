@@ -3,9 +3,10 @@
 // component=MessageRow
 import figma from 'figma'
 const instance = figma.selectedInstance
+const highlighted = instance.getBoolean('Highlighted')
 
 export default {
-  example: figma.code`<MessageRow item={item} startsGroup={startsGroup} />`,
+  example: figma.code`<MessageRow item={item} startsGroup={startsGroup}${highlighted ? ' highlighted' : ''} />`,
   imports: ['import { MessageRow } from "@marktiderman/genesis-chat/web"'],
   id: 'chat-web-message-row',
   metadata: { nestable: false },
