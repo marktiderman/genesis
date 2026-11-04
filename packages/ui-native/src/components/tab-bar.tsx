@@ -11,22 +11,13 @@
  */
 import { useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
+import { splitTabBarItems, TAB_BAR_MAX } from "@marktiderman/genesis-core/navigation";
 import { cn } from "../utils";
 import { NativeBadge } from "./badge";
 import { NativeIcon } from "./icon";
 import { NativeSheet } from "./sheet";
 import { NativeTabs, NativeTabsTrigger } from "./tabs";
 import { NativeText } from "./text";
-
-/** Most slots the bar shows before the rest go under "More". */
-export const NATIVE_TAB_BAR_MAX = 5;
-
-/** Up to `max` fit; beyond, the first `max - 1` show and the rest go under "More". */
-export function splitNativeTabBarItems<T>(items: readonly T[], max: number = NATIVE_TAB_BAR_MAX): { shown: T[]; more: T[] } {
-  const slots = Math.max(1, max);
-  if (items.length <= slots) return { shown: [...items], more: [] };
-  return { shown: items.slice(0, slots - 1), more: items.slice(slots - 1) };
-}
 
 /** One tab in a `NativeTabBar`. */
 export interface NativeTabBarItem {
@@ -73,13 +64,13 @@ export function NativeTabBar({
   items,
   value,
   onChange,
-  max = NATIVE_TAB_BAR_MAX,
+  max = TAB_BAR_MAX,
   moreLabel = "More",
   className,
   testID = "native-tab-bar",
 }: NativeTabBarProps) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const { shown, more } = splitNativeTabBarItems(items, max);
+  const { shown, more } = splitTabBarItems(items, max);
   const moreActive = more.some((item) => item.key === value);
   return (
     <NativeTabs defaultValue={value} value={value} onValueChange={onChange} testID={testID}>
@@ -89,6 +80,7 @@ export function NativeTabBar({
             key={item.key}
             value={item.key}
             testID={`${testID}-${item.key}`}
+            accessibilityLabel={typeof item.badge === "string" || typeof item.badge === "number" ? `${item.label} (${item.badge})` : item.label}
             className="min-h-[49px] rounded-none bg-transparent px-1 py-1 shadow-none"
           >
             <Slot item={item} active={item.key === value} />

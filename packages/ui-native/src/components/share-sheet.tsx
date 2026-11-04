@@ -8,8 +8,8 @@
  *
  * @stability Beta
  */
-import { useState, type ReactNode } from "react";
-import { Share, Text, View } from "react-native";
+import { useEffect, useState, type ReactNode } from "react";
+import { Platform, Share, Text, View } from "react-native";
 import { NativeButton, buttonTextVariants } from "./button";
 import { NativeIcon } from "./icon";
 import { NativeSheet } from "./sheet";
@@ -57,11 +57,18 @@ export function NativeShareSheet({
   testID = "native-share-sheet",
 }: NativeShareSheetProps) {
   const [copied, setCopied] = useState(false);
-  const share = (link: string) =>
-    void Share.share(name ? { message: link, url: link, title: name } : { message: link, url: link }).catch(() => undefined);
+  // A new link hasn't been copied yet.
+  useEffect(() => setCopied(false), [url]);
+  // iOS sends `message` and `url` both (Messages and Mail would show the link twice) and
+  // Android reads only `message`: send the link once, in the field each platform uses.
+  const share = (link: string) => {
+    const content = Platform.OS === "ios" ? { url: link } : { message: link };
+    void Share.share(name ? { ...content, title: name } : content).catch(() => undefined);
+  };
   const copy = (link: string) => {
     if (!onCopy) return share(link);
-    void Promise.resolve(onCopy(link)).then(
+    // onCopy runs inside the executor, so a synchronous throw also falls back to the share sheet.
+    void new Promise<void>((resolve) => resolve(onCopy(link))).then(
       () => setCopied(true),
       () => share(link),
     );

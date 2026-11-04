@@ -75,6 +75,8 @@ export interface NativeTabsTriggerProps {
   value: string;
   children: React.ReactNode;
   disabled?: boolean;
+  /** Its accessible name, when its children don't say it all (a badge's count, say). */
+  accessibilityLabel?: string;
   testID?: string;
 }
 

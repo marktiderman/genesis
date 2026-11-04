@@ -48,7 +48,7 @@ import {
 import { cn } from "../../utils";
 import { useIsMobile } from "../../hooks/use-mobile";
 import { useUiMessages } from "../../messages";
-import { splitTabBarItems, TAB_BAR_MAX } from "./tab-bar";
+import { splitTabBarItems, TAB_BAR_MAX } from "@marktiderman/genesis-core/navigation";
 import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
 import {
   DefaultLink,

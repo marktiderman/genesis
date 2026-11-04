@@ -345,7 +345,7 @@ export type { NativeGalleryCardProps } from "./gallery-card";
 export { NativeLiveIndicator } from "./live-indicator";
 export type { NativeLiveIndicatorProps, NativeLiveIndicatorState, NativeLiveIndicatorVariant } from "./live-indicator";
 
-export { NativeTabBar, splitNativeTabBarItems, NATIVE_TAB_BAR_MAX } from "./tab-bar";
+export { NativeTabBar } from "./tab-bar";
 export type { NativeTabBarItem, NativeTabBarProps } from "./tab-bar";
 export { NativeBulkBar } from "./bulk-bar";
 export type { NativeBulkAction, NativeBulkBarProps } from "./bulk-bar";

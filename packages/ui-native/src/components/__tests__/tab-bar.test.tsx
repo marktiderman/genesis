@@ -2,7 +2,7 @@ import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Text } from "react-native";
-import { NativeTabBar, splitNativeTabBarItems, type NativeTabBarItem } from "../tab-bar";
+import { NativeTabBar, type NativeTabBarItem } from "../tab-bar";
 
 const items = (n: number): NativeTabBarItem[] =>
   Array.from({ length: n }, (_, i) => ({ key: `t${i + 1}`, label: `Tab ${i + 1}`, icon: <Text>*</Text> }));
@@ -16,13 +16,6 @@ function Bar({ n, max }: { n: number; max?: number }) {
     </>
   );
 }
-
-describe("splitNativeTabBarItems", () => {
-  it("splits as the web TabBar does", () => {
-    expect(splitNativeTabBarItems([1, 2, 3, 4, 5])).toEqual({ shown: [1, 2, 3, 4, 5], more: [] });
-    expect(splitNativeTabBarItems([1, 2, 3, 4, 5, 6, 7])).toEqual({ shown: [1, 2, 3, 4], more: [5, 6, 7] });
-  });
-});
 
 describe("NativeTabBar", () => {
   it("shows up to five tabs and switches between them", () => {

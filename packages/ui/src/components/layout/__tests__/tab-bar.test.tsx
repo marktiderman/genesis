@@ -1,17 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { splitTabBarItems, TabBar, type TabBarItem } from "../tab-bar";
+import { TabBar, type TabBarItem } from "../tab-bar";
 
 const items = (n: number): TabBarItem[] =>
   Array.from({ length: n }, (_, i) => ({ key: `t${i + 1}`, label: `Tab ${i + 1}`, icon: <svg /> }));
-
-describe("splitTabBarItems", () => {
-  it("keeps up to max, and past it shows max - 1 with the rest under More", () => {
-    expect(splitTabBarItems([1, 2, 3, 4, 5]).more).toEqual([]);
-    expect(splitTabBarItems([1, 2, 3, 4, 5, 6])).toEqual({ shown: [1, 2, 3, 4], more: [5, 6] });
-    expect(splitTabBarItems([1, 2, 3, 4], 3)).toEqual({ shown: [1, 2], more: [3, 4] });
-  });
-});
 
 describe("TabBar", () => {
   it("shows every tab when they fit, and marks the current one", () => {

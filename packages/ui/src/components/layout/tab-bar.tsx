@@ -2,23 +2,15 @@
 
 import { useState, type ReactNode } from "react";
 import { Ellipsis } from "lucide-react";
+import { splitTabBarItems, TAB_BAR_MAX } from "@marktiderman/genesis-core/navigation";
 import { Badge } from "../ui/badge";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "../ui/sheet";
 import { cn } from "../../utils";
 import { useUiMessages } from "../../messages";
 
-/** Most slots a phone bottom bar shows before the rest go under "More". */
-export const TAB_BAR_MAX = 5;
-
-/**
- * The bar's split: up to `max` items fit; beyond that, the first `max - 1` show and the rest
- * go under "More" in the last slot. AppShell's phone bottom nav and `TabBar` share it (and
- * genesis-ui-native's `NativeTabBar` splits the same way).
- */
-export function splitTabBarItems<T>(items: readonly T[], max: number = TAB_BAR_MAX): { shown: T[]; more: T[] } {
-  const slots = Math.max(1, max);
-  if (items.length <= slots) return { shown: [...items], more: [] };
-  return { shown: items.slice(0, slots - 1), more: items.slice(slots - 1) };
+/** A badge a screen reader can say: a count or a word; anything else stays visual. */
+function badgeLabel(label: string, badge: ReactNode): string | undefined {
+  return typeof badge === "string" || typeof badge === "number" ? `${label} (${badge})` : undefined;
 }
 
 /** One tab in a `TabBar`. */
@@ -47,7 +39,7 @@ export interface TabBarProps {
  * A bottom tab bar for a phone-width web screen, the twin of genesis-ui-native's
  * `NativeTabBar`: any number of items, and past `max` (5) the last slot is "More", which opens
  * a bottom sheet with the rest. AppShell's own phone bottom nav (links, from its nav items)
- * splits with the same `splitTabBarItems`; use `TabBar` for a bar of your own (a screen with
+ * splits with the same `splitTabBarItems` (genesis-core/navigation); use `TabBar` for a bar of your own (a screen with
  * tabs that aren't routes). It is not fixed: place it.
  *
  * @stability Beta
@@ -77,6 +69,7 @@ export function TabBar({ items, value, onChange, max = TAB_BAR_MAX, label, class
               type="button"
               onClick={() => onChange(item.key)}
               aria-current={active ? "page" : undefined}
+              aria-label={badgeLabel(item.label, item.badge)}
               className={itemClass(active)}
               data-testid={`${testID}-${item.key}`}
             >
