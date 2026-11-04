@@ -6,7 +6,7 @@
 -- People: a1 and b2 talk directly and share a file; e5 and d4 talk directly, and aren't in it.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(18);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c0' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -94,6 +94,18 @@ select throws_ok($$ select * from genesis_chat.attachment_paths_cleared $$, '425
 select pg_temp.sign_in('b2');
 select ok(genesis_chat.can_read_object(pg_temp.file('ab', 'a1', 'photo.jpg'), pg_temp.person('a1')::text, now() - interval '2 days'),
           'and the member''s own access is unchanged');
+
+-- What the migration clears, on rows the check would now refuse.
+reset role;
+insert into genesis_chat.attachments (message_id, conversation_id, position, kind, provider, path, url, transcript)
+values (pg_temp.v('older'), pg_temp.v('ed'), 1, 'voice', 'none', 'x/y/voice.m4a', null, 'words'),
+       (pg_temp.v('older'), pg_temp.v('ed'), 2, 'link', 'external', 'x/y/link.jpg', 'https://example.test/keep', null);
+select is(genesis_chat.clear_paths_outside_storage(), 3, 'the backfill clears every path outside storage');
+select is((select count(*)::int from genesis_chat.attachments where provider <> 'storage' and path is not null), 0, 'and leaves none');
+select is((select transcript from genesis_chat.attachments where message_id = pg_temp.v('older') and kind = 'voice'), null, 'a cleared voice row loses its transcript');
+select is((select url from genesis_chat.attachments where message_id = pg_temp.v('older') and kind = 'link'), 'https://example.test/keep', 'a link keeps its url');
+select is((select count(*)::int from genesis_chat.attachment_paths_cleared where message_id = pg_temp.v('older')), 3, 'and each is on record');
+select ok(exists (select 1 from genesis_chat.attachments where provider = 'storage' and path = pg_temp.file('ab', 'a1', 'photo.jpg')), 'a file in storage keeps its path');
 
 select * from finish();
 rollback;

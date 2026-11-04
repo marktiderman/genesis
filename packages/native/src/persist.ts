@@ -42,7 +42,7 @@ export interface QueryPersistenceOptions extends PersistQueriesOptions {
 /**
  * Save the allowlisted queries to async storage and restore them, with a max age, an app-version buster and a user scope.
  *
- * @deprecated Use `persistOffline` with `sqliteLocalCache` from `@marktiderman/genesis-native/offline`: it keeps each record once, per person and workspace (docs/MIGRATION.md). Removed in the next major.
+ * @deprecated Use `persistOffline` with `sqliteLocalCache` from `@marktiderman/genesis-native/offline`: it keeps each record once, per person and workspace. It needs expo-sqlite, a native module, so unless the app's builds already have it the switch takes a new native build and can't ship as an OTA update (https://github.com/marktiderman/genesis/blob/main/docs/MIGRATION.md). Removed in the next major.
  */
 export function createQueryPersistence({
   queryClient,
@@ -86,7 +86,7 @@ export function createQueryPersistence({
 /**
  * `createQueryPersistence` for `GenesisNativeApp`'s `persist` prop, which supplies the client.
  *
- * @deprecated Use `persistOffline({ cache: sqliteLocalCache({ db }), resources, buster })` from `@marktiderman/genesis-native/offline` (docs/MIGRATION.md). Removed in the next major.
+ * @deprecated Use `persistOffline({ cache: sqliteLocalCache({ db }), resources, buster })` from `@marktiderman/genesis-native/offline`. It needs expo-sqlite, a native module, so unless the app's builds already have it the switch takes a new native build and can't ship as an OTA update (https://github.com/marktiderman/genesis/blob/main/docs/MIGRATION.md). Removed in the next major.
  */
 export function persistQueries(options: PersistQueriesOptions): (queryClient: QueryClient) => QueryPersistence {
   return (queryClient) => createQueryPersistence({ ...options, queryClient });

@@ -18,6 +18,20 @@ describe("rewriteComposerBarEmpty", () => {
     expect(rewriteComposerBarEmpty(text)).toBe(text);
   });
 
+  it("touches only the bar's own attribute, not nested JSX or strings", () => {
+    const text = `<NativeComposerBar above={<Empty empty={false} />} leading={<Row empty />} placeholder="an empty box" trailing={{ empty: true }} empty={false} />`;
+    expect(rewriteComposerBarEmpty(text)).toBe(`<NativeComposerBar above={<Empty empty={false} />} leading={<Row empty />} placeholder="an empty box" trailing={{ empty: true }} hasContent />`);
+  });
+
+  it("negates an expression with braces in it, and rewrites two bars", () => {
+    expect(rewriteComposerBarEmpty(`<NativeComposerBar empty={check({ a: 1 })} />\n<NativeComposerBar empty />`)).toBe(`<NativeComposerBar hasContent={!(check({ a: 1 }))} />\n<NativeComposerBar hasContent={false} />`);
+  });
+
+  it("leaves a bar with no empty as it is", () => {
+    const text = `<NativeComposerBar value={v} onSend={() => send()} />`;
+    expect(rewriteComposerBarEmpty(text)).toBe(text);
+  });
+
   it("is registered for the release that breaks it", () => {
     const mod = codemodById("genesis-ui-native-3-8-composer-has-content");
     expect(mod?.package).toBe("@marktiderman/genesis-ui-native");

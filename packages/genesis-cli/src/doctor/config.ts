@@ -134,6 +134,8 @@ export interface GenesisConfigFile {
   privacy?: GenesisPrivacy;
   /** Set only when the database files live elsewhere (see {@link GenesisSupabase}). */
   supabase?: GenesisSupabase;
+  /** Where this app sits in its repository (`mobile`), when that isn't the root: see {@link validateAppFolder}. */
+  appFolder?: string;
 }
 
 export interface LoadedConfig {
@@ -264,9 +266,28 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
     const supabase = validateSupabase(raw.supabase, file);
     if (supabase !== true) out.supabase = supabase;
   }
+  if (raw.appFolder !== undefined) out.appFolder = validateAppFolder(raw.appFolder, file);
   // localPackages is read and validated by blocks/local.ts where it's used (doctor, add, migrate);
   // the Expo config plugin loads this file too and must not pull the CLI's block code in.
   return out;
+}
+
+const PLAIN_FOLDER = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,59}(?:\/[A-Za-z0-9_][A-Za-z0-9_.-]{0,59}){0,7}$/;
+
+/** A plain relative folder (`src`, `apps/web`): no `..`, not absolute, and nothing a YAML string would need escaped. */
+export function isPlainFolder(value: string): boolean {
+  return PLAIN_FOLDER.test(value) && !value.split("/").includes("..");
+}
+
+/**
+ * Check the top-level `appFolder` setting: the app's folder from the repository root (`"mobile"`).
+ * `genesis upgrade` writes the EAS workflows' `paths` from the repository root with it, and leaves
+ * `.github/workflows` to the repository (blocks/app-folder.ts).
+ */
+export function validateAppFolder(raw: unknown, source = "config"): string {
+  const norm = typeof raw === "string" ? raw.replace(/^\.\//, "").replace(/\/+$/, "") : "";
+  if (!isPlainFolder(norm)) throw new GenesisConfigError(`${source}: "appFolder" must be the app's folder from the repository root, such as "mobile" or "apps/phone" (got ${JSON.stringify(raw)})`);
+  return norm;
 }
 
 /** Check the top-level `supabase` setting: `true`, `false` or `{ "app": "<relative folder>" }`. */

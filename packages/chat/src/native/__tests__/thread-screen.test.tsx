@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @feat:chat
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { forwardRef, useImperativeHandle, type ReactNode } from "react";
 import { AccessibilityInfo } from "react-native";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -174,6 +174,22 @@ describe("ChatThreadScreen's jump when it can't load back", () => {
     expect(list.scrollToIndex).not.toHaveBeenCalled();
     await act(async () => void (await qc.refetchQueries()));
     await waitFor(() => expect(list.scrollToIndex).toHaveBeenCalled());
+    expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
+  });
+
+  it("keeps a deep link through a failed first page even with a message of yours waiting to send", async () => {
+    const list = scrollingList();
+    const client = fakeClient([msg(1, SAM, "2026-10-24T10:00:00Z"), msg(2, ME, "2026-10-24T10:01:00Z")], 3);
+    (client.messages as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("offline"));
+    (client as unknown as { send: unknown }).send = vi.fn(() => new Promise(() => undefined));
+    render(wrap(client, list.List, <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m2" }} testID="t" />));
+    await screen.findByText(chatNativeCopy.actionFailed, {}, { timeout: 2000 });
+    const input = await screen.findByTestId("t-composer-input");
+    await waitFor(() => expect(input.hasAttribute("disabled")).toBe(false));
+    fireEvent.change(input, { target: { value: "Still here" } });
+    fireEvent.click(screen.getByTestId("t-composer-send"));
+    await waitFor(() => expect((list.last().data as ThreadRow[] | undefined)?.some((r) => r.type === "message")).toBe(true));
+    await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
     expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
   });
 

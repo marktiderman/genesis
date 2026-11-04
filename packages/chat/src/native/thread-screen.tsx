@@ -299,8 +299,9 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   // A jump names the server's message id; its seq says how far back to load.
   const jumpSeq = jumpTo?.seq;
   // Not while the first page has failed: there's nothing to look in, so the message isn't known to be
-  // gone. The reader hears the read failed, and the jump goes ahead when the rows come.
-  const firstPageFailed = Boolean(conv.error) && rows.length === 0;
+  // gone. The reader hears the read failed, and the jump goes ahead when the rows come. Messages, not
+  // rows: a saved outbox row is drawn even when nothing could be read.
+  const firstPageFailed = Boolean(conv.error) && conv.messages.length === 0;
   const jumpMessageId = firstPageFailed ? null : (jumpTo?.messageId ?? null);
   const jumpBlocked = firstPageFailed && Boolean(jumpTo);
   useEffect(() => {
