@@ -48,6 +48,7 @@ import {
 import { cn } from "../../utils";
 import { useIsMobile } from "../../hooks/use-mobile";
 import { useUiMessages } from "../../messages";
+import { splitTabBarItems, TAB_BAR_MAX } from "./tab-bar";
 import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
 import {
   DefaultLink,
@@ -253,8 +254,6 @@ function dialogOpen(): boolean {
 
 /** md breakpoint: the desktop sidebar only exists at this width and up. */
 const DESKTOP_QUERY = "(min-width: 768px)";
-/** Most slots the phone bottom bar shows before the rest go under "More". */
-const MOBILE_BOTTOM_SLOTS = 5;
 
 /**
  * @stability Beta
@@ -1433,10 +1432,9 @@ export function AppShell({
   // A phone bar holds five slots at most (the back item counts as one), so each keeps a
   // readable label and a wide target. Past that, the last slot is "More", which opens the
   // rest in a bottom sheet.
-  const bottomSlots = MOBILE_BOTTOM_SLOTS - (backTarget ? 1 : 0);
-  const bottomOverflows = bottomItems.length > bottomSlots;
-  const bottomShown = bottomOverflows ? bottomItems.slice(0, bottomSlots - 1) : bottomItems;
-  const bottomMore = bottomOverflows ? bottomItems.slice(bottomSlots - 1) : [];
+  // The same split as TabBar's (and NativeTabBar's).
+  const { shown: bottomShown, more: bottomMore } = splitTabBarItems(bottomItems, TAB_BAR_MAX - (backTarget ? 1 : 0));
+  const bottomOverflows = bottomMore.length > 0;
   const bottomItemActive = (item: (typeof bottomItems)[number]) =>
     bottomCurrent ? item === bottomCurrent : itemIsActive(item, activePath, isActive);
   const moreActive = bottomMore.some(bottomItemActive);

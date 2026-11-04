@@ -70,6 +70,7 @@ export {
   type WorkspaceSwitcherSlots,
   type WorkspaceSwitcherVariant,
 } from "./workspace-switcher";
+export { TabBar, splitTabBarItems, TAB_BAR_MAX, type TabBarItem, type TabBarProps } from "./tab-bar";
 export { PageHeader, type PageHeaderProps, type PageHeaderOptions } from "./PageHeader";
 // FRAMEWORK.md migration step 8. Each takes its content as props/children and
 // binds to nothing; the record-bound counterpart to `DetailPage` is
