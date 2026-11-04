@@ -358,6 +358,10 @@
       "types": "./dist/components/ui/textarea.d.ts",
       "import": "./dist/components/ui/textarea.js"
     },
+    "./tier-badge": {
+      "types": "./dist/components/ui/tier-badge.d.ts",
+      "import": "./dist/components/ui/tier-badge.js"
+    },
     "./toggle": {
       "types": "./dist/components/ui/toggle.d.ts",
       "import": "./dist/components/ui/toggle.js"
@@ -662,6 +666,12 @@
           "use": "the view's gallery block (defineView) rendered by <ResourceView mode=\"grid\">; GalleryGrid for photos that aren't records (attachments, uploads)",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#gallery"
+        },
+        {
+          "need": "a rank or tier label (Gold, Level 3) in a brand accent",
+          "use": "TierBadge with tone set to a key of the brand's accents",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
         }
       ]
     }

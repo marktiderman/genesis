@@ -61,6 +61,18 @@ in px, and the full light and dark role maps for reference. Add the primitives a
 Figma from the `brand` entries; when a brand changes in code, regenerate and update the mode. The mode is derived; the
 brand file is the source, as it is for the theme CSS.
 
+**A brand's own dark mode, accents, gradient and display face.** Four optional brand fields
+reach the library the same way. `dark` sets the dark surface, foreground, primary, primary
+foreground, neutrals, status and signal; the script writes them as `-dark` variables in Brand
+(`brand/background-dark`, `brand/foreground-dark`, `brand/primary-foreground-dark`,
+`brand/signal-dark`, `brand/signal-foreground-dark`, beside `brand/primary-dark`), and the Color
+collection's dark modes alias them, so a brand without `dark` keeps the Genesis dark values.
+`accents` (a name → colour map) is what `TierBadge` / `NativeTierBadge` take as `tone`.
+`gradients.primary` becomes `brand/gradient-from`, `brand/gradient-to` and
+`brand/gradient-angle`, which the `gradient` variant of Button and NativeButton paints (the
+primary when unset). `typography.display` adds `brand/font-display-weight` and
+`brand/font-display-numeric` beside `brand/font-display`.
+
 An app's Figma file **subscribes** to the Genesis library and sets its pages to its Brand mode.
 Nothing is copied: a change to a component or a token in the library reaches every app's file as
 a library update, and a brand change is a change to one mode. Designing a new app means a new
