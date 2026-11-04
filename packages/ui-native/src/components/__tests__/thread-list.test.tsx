@@ -124,6 +124,31 @@ describe("NativeThreadList", () => {
     expect(announce).toHaveBeenCalledWith("second");
   });
 
+  it("goes to a row by its jumpId when that isn't its key, and highlights it", async () => {
+    const { List, calls } = recordingList();
+    type Sent = { key: string; serverId: string | null; text: string };
+    const sent: Sent[] = [
+      { key: "c:1", serverId: "m1", text: "first" },
+      { key: "c:2", serverId: "m2", text: "second" },
+      { key: "d:3", serverId: null, text: "Today" },
+    ];
+    render(
+      <GenesisModulesProvider modules={{ list: List as never }}>
+        <NativeThreadList<Sent>
+          testID="l"
+          data={sent}
+          keyExtractor={(r) => r.key}
+          jumpId={(r) => r.serverId}
+          renderItem={(r, { highlighted }) => <span data-testid={`row-${r.key}`} data-highlighted={String(highlighted)}>{r.text}</span>}
+          jumpTo="m2"
+        />
+      </GenesisModulesProvider>,
+    );
+    await waitFor(() => expect(calls.scrollToIndex).toHaveBeenCalledWith(expect.objectContaining({ index: 1 })));
+    await waitFor(() => expect(screen.getByTestId("row-c:2").getAttribute("data-highlighted")).toBe("true"));
+    expect(screen.getByTestId("row-c:1").getAttribute("data-highlighted")).toBe("false");
+  });
+
   it("loads until a row it doesn't hold, and says when it can't be found", async () => {
     const { List } = recordingList();
     const onLoadUntil = vi.fn(async () => false);

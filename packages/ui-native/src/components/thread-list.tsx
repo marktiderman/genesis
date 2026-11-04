@@ -112,6 +112,12 @@ export interface NativeThreadListProps<T> {
   renderEarlier?: (props: { loading: boolean; onPress: () => void; label: string; testID: string }) => ReactNode;
   /** Go to this row, loading earlier pages with `onLoadUntil` until it's here. A new id, or the same one after `null`, goes again. */
   jumpTo?: string | null;
+  /**
+   * The id `jumpTo` names a row by, when it isn't the row's key: a message keyed by the id the
+   * phone gave it (so it keeps its row when the server's copy lands) and gone to by the server's
+   * id. `null` for a row that can't be gone to (a day heading). `keyExtractor` by default.
+   */
+  jumpId?: (row: T) => string | null | undefined;
   /** Load earlier pages until the row is held; resolve false when it can't be found. */
   onLoadUntil?: (id: string) => Promise<boolean>;
   /** What VoiceOver says on arriving at `jumpTo`. */
@@ -175,6 +181,7 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     earlierLabel = "Load earlier messages",
     renderEarlier,
     jumpTo,
+    jumpId,
     onLoadUntil,
     jumpAnnouncement,
     onJumpFailed,
@@ -214,9 +221,11 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
     const pending = timers.current;
     return () => pending.forEach(clearTimeout);
   }, []);
-  const latest = useRef({ data, keyExtractor, jumpAnnouncement, onJumpFailed, onAtBottomChange });
-  latest.current = { data, keyExtractor, jumpAnnouncement, onJumpFailed, onAtBottomChange };
-  const indexOf = useCallback((id: string) => latest.current.data.findIndex((row) => latest.current.keyExtractor(row) === id), []);
+  const idOf = jumpId ?? keyExtractor;
+  const latest = useRef({ data, idOf, jumpAnnouncement, onJumpFailed, onAtBottomChange });
+  latest.current = { data, idOf, jumpAnnouncement, onJumpFailed, onAtBottomChange };
+  // The row a jump names, by `jumpId` (the key by default).
+  const indexOf = useCallback((id: string) => latest.current.data.findIndex((row) => latest.current.idOf(row) === id), []);
 
   const setAtBottom = useCallback((v: boolean) => {
     if (atBottom.current === v) return;
@@ -310,8 +319,8 @@ function NativeThreadListInner<T>(props: NativeThreadListProps<T>, ref: React.Fo
   );
 
   const renderListItem = useCallback(
-    ({ item, index }: { item: unknown; index: number }) => renderItem(item as T, { index, highlighted: highlightedId !== null && keyExtractor(item as T) === highlightedId }),
-    [highlightedId, keyExtractor, renderItem],
+    ({ item, index }: { item: unknown; index: number }) => renderItem(item as T, { index, highlighted: highlightedId !== null && idOf(item as T) === highlightedId }),
+    [highlightedId, idOf, renderItem],
   );
   const listKey = useCallback((row: unknown) => keyExtractor(row as T), [keyExtractor]);
   const listItemType = useMemo(() => (getItemType ? (row: unknown) => getItemType(row as T) : undefined), [getItemType]);

@@ -12,7 +12,10 @@ export interface JumpTarget {
   seq?: number;
 }
 
-/** The row a message is drawn in, or -1. */
+/**
+ * The row a message is drawn in, or -1.
+ * @deprecated NativeThreadList finds a row by `jumpId`. Removed in a later minor, with `useJumpToMessage`.
+ */
 export function rowIndexOf(rows: readonly ThreadRow[], messageId: string): number {
   return rows.findIndex((r) => r.type === "message" && r.item.type === "message" && r.item.message.id === messageId);
 }
@@ -39,7 +42,7 @@ export interface UseJumpOptions {
 type Pending = JumpTarget & { phase: "new" | "loading" | "loaded" };
 
 /**
- * @deprecated Promoted to genesis-ui-native as `useThreadJump`. ChatThreadScreen moves onto NativeThreadList with its builder (feature `inbox-thread`); this copy is removed then.
+ * @deprecated Use genesis-ui-native's `NativeThreadList` (`jumpTo`, `jumpId`, `onLoadUntil`), or `useThreadJump` for a list of your own. ChatThreadScreen is on NativeThreadList; this copy is removed in a later minor.
  */
 export function useJumpToMessage({ target, rows, loading, has, loadUntil, scrollTo, onStart, onLanded, onGone, onError }: UseJumpOptions) {
   const [pending, setPending] = useState<Pending | null>(target ? { ...target, phase: "new" } : null);
