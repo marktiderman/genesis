@@ -5,7 +5,7 @@ import figma from 'figma'
 const instance = figma.selectedInstance
 
 export default {
-  example: figma.code`<GenericAttachment attachment={attachment} url={url} />`,
+  example: figma.code`<GenericAttachment attachment={attachment} url={url} message={message} mine={mine} />`,
   imports: ['import { GenericAttachment } from "@marktiderman/genesis-chat/web"'],
   id: 'chat-web-generic-attachment',
   metadata: { nestable: true },

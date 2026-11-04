@@ -10,10 +10,9 @@ const tone = instance.getEnum('tone', { default: 'default', primary: 'primary' }
 
 export default {
   example: figma.code`<ChatAttachmentCard
-  title="${title}"
-  subtitle="${subtitle}"
-  action={{ label: "${action}", onPress: open }}${tone === 'primary' ? '
-  tone="primary"' : ''}
+  title={${JSON.stringify(title)}}
+  subtitle={${JSON.stringify(subtitle)}}
+  action={{ label: ${JSON.stringify(action)}, onPress: open }}${tone === 'primary' ? '\n  tone="primary"' : ''}
 />`,
   imports: ['import { ChatAttachmentCard } from "@marktiderman/genesis-chat/web"'],
   id: 'chat-web-chat-attachment-card',

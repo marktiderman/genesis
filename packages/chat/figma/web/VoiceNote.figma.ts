@@ -10,10 +10,7 @@ export default {
   example: figma.code`<VoiceNote
   src={url}
   durationMs={attachment.durationMs}
-  waveform={attachment.waveform}${showTranscript ? '
-  transcript={attachment.transcript}
-  transcriptStatus={attachment.transcriptStatus}' : ''}${tone === 'primary' ? '
-  tone="primary"' : ''}
+  waveform={attachment.waveform}${showTranscript ? '\n  transcript={attachment.transcript}\n  transcriptStatus={attachment.transcriptStatus}' : ''}${tone === 'primary' ? '\n  tone="primary"' : ''}
 />`,
   imports: ['import { VoiceNote } from "@marktiderman/genesis-chat/web"'],
   id: 'chat-web-voice-note',

@@ -7,7 +7,7 @@ const text = instance.getString('Text')
 const mine = instance.getEnum('mine', { false: false, true: true })
 
 export default {
-  example: figma.code`<CardError text="${text}" mine={${mine ? 'true' : 'false'}} />`,
+  example: figma.code`<CardError text={${JSON.stringify(text)}} mine={${mine ? 'true' : 'false'}} />`,
   imports: ['import { CardError } from "@marktiderman/genesis-chat/native"'],
   id: 'chat-native-card-error',
   metadata: { nestable: true },
