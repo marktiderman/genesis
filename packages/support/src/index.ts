@@ -18,3 +18,4 @@ export * from "./chat";
 export * from "./intake";
 export * from "./copy";
 export * from "./block";
+export * from "./help-pages";

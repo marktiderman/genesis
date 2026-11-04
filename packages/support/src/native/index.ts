@@ -21,6 +21,8 @@ export {
   type SupportOptions,
 } from "./support";
 export { FeedbackForm, type FeedbackFormProps } from "./feedback-form";
+export { HelpAnswerCard, HelpArticleBody, useHelpArticle, useHelpCenter, useMessengerHome, useStartConversation, type HelpAnswerCardProps } from "./help";
+export type { HelpAiResult, HelpAskState } from "../help-ask";
 export { ScreenshotAnnotator, strokeDots, boxOf, type ScreenshotAnnotatorProps } from "./annotator";
 export { useSupportInbox, useSupportThread, useSupportConversation, useIdeaBoard, useShippedIdeas, VoteButton, SendFeedbackButton } from "./screens";
 export { listenForShake, type AccelerometerLike, type AccelerometerMeasurement, type CaptureOptions, type ShakeOptions, type ViewShotLike } from "./modules";

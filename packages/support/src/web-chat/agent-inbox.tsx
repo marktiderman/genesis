@@ -30,7 +30,6 @@ import {
   type InboxItem,
   type InboxPageProps,
   type InboxShortcuts,
-  type ThreadAttachment,
   type ThreadMessage,
   type ThreadPageProps,
   type ThreadPageSlotMap,
@@ -41,6 +40,7 @@ import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides }
 import { isSitePath } from "../routes";
 import { supportWebKeys } from "./report-thread";
 import { TicketControls } from "./staff-thread";
+import { ThreadFileAttachment, ThreadFilesContext, threadAttachments, threadFiles } from "./thread-files";
 
 /** The agent inbox's query keys, under genesis-support's root. */
 export const supportInboxKeys = {
@@ -110,8 +110,6 @@ interface PaneValue {
   failed: boolean;
   onStatus: (status: AgentTicket["status"]) => void;
   onAssign: (userId: string | null) => void;
-  /** What a reply's file is, by attachment id: ThreadPage's own attachment draws images only. */
-  files: ReadonlyMap<string, { image: boolean; name: string | null }>;
 }
 
 const PaneContext = createContext<PaneValue | null>(null);
@@ -135,34 +133,9 @@ function TicketHeaderRegion({ testID }: ThreadPageSlotMap["headerRegion"]) {
   );
 }
 
-function TicketAttachment({ id, uri, accessibilityLabel, testID }: ThreadPageSlotMap["attachment"]) {
-  const pane = useContext(PaneContext);
-  const file = pane?.files.get(id);
-  return (
-    <a data-testid={testID} href={uri} target="_blank" rel="noreferrer noopener" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      {file?.image === false ? (
-        <span className="inline-block rounded-xl border px-3 py-2 text-sm underline underline-offset-2">{file.name ?? pane?.copy.agentInbox.openFile}</span>
-      ) : (
-        <img src={uri} alt={accessibilityLabel ?? pane?.copy.thread.screenshot ?? ""} loading="lazy" className="h-40 w-auto rounded-xl object-cover" />
-      )}
-    </a>
-  );
-}
-
 /** The requester's name: their person, or for an email ticket who it says it's from. */
 const requesterOf = (ticket: AgentTicket, resolveUser: ResolveUser, copy: SupportCopy) =>
   ticket.userId ? resolveUser(ticket.userId).name : (ticket.requesterName ?? ticket.requesterEmail ?? copy.agentInbox.emailSender);
-
-/** Only web addresses open from a thread: a file's URL comes from a message. */
-const isWebUrl = (url: string | null): url is string => Boolean(url && /^https?:\/\//i.test(url));
-
-const hostOf = (url: string | null) => {
-  try {
-    return url ? new URL(url).host : "";
-  } catch {
-    return "";
-  }
-};
 
 interface PaneProps {
   client: SupportClient;
@@ -176,7 +149,7 @@ interface PaneProps {
 
 const NOTE = "note";
 const REPLY = "reply";
-const paneSlots = { headerRegion: TicketHeaderRegion, attachment: TicketAttachment };
+const paneSlots = { headerRegion: TicketHeaderRegion, attachment: ThreadFileAttachment };
 
 /** The open ticket's thread. Keyed by ticket, so a draft never follows you to another one. */
 function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError }: PaneProps) {
@@ -244,20 +217,7 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
     ],
     [ticket.id, ticket.message, ticket.createdAt, replies.data, replies.isError, resolveUser, requester, copy],
   );
-  // A file from outside this app's storage is a link naming its host: the requester chose that
-  // address, so the agent's browser doesn't load it until they ask.
-  const files = useMemo(() => {
-    const map = new Map<string, { image: boolean; name: string | null }>();
-    for (const r of replies.data ?? [])
-      for (const a of r.attachments ?? []) {
-        const stored = Boolean(a.path);
-        map.set(a.id, {
-          image: stored && (a.kind === "image" || Boolean(a.mime?.startsWith("image/"))),
-          name: stored ? a.name : `${a.name ?? copy.agentInbox.openFile} (${hostOf(a.url)})`,
-        });
-      }
-    return map;
-  }, [replies.data, copy]);
+  const files = useMemo(() => threadFiles(replies.data ?? [], copy), [replies.data, copy]);
   // Never the requester, who can't handle their own ticket; always whoever has it now, so the picker shows them.
   const assignable = useMemo(() => {
     if (!agents) return undefined;
@@ -304,11 +264,11 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
     failed: changeFailed,
     onStatus: (status) => void change(client.setStatus(ticket.id, status)),
     onAssign: (userId) => void change(client.assign(ticket.id, userId)),
-    files,
   };
 
   return (
     <PaneContext.Provider value={pane}>
+      <ThreadFilesContext.Provider value={files}>
       <ThreadPage
         conversationId={ticket.id}
         messages={messages}
@@ -349,14 +309,13 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
             : {}),
         }}
       />
+      </ThreadFilesContext.Provider>
     </PaneContext.Provider>
   );
 }
 
 function toMessage(r: SupportReply, resolveUser: ResolveUser, requester: string, copy: SupportCopy): ThreadMessage {
-  const attachments: ThreadAttachment[] = (r.attachments ?? [])
-    .filter((a) => isWebUrl(a.url))
-    .map((a) => ({ id: a.id, uri: a.url as string, ...(a.width ? { width: a.width } : {}), ...(a.height ? { height: a.height } : {}), accessibilityLabel: a.name ?? copy.thread.file }));
+  const attachments = threadAttachments(r, copy);
   // On support_replies no author is readable: to an agent, "mine" is support's side.
   const mine = r.authorId !== undefined ? r.mine : r.fromStaff;
   const authorName = mine ? undefined : r.authorId ? resolveUser(r.authorId).name : r.fromStaff ? copy.thread.support : requester;

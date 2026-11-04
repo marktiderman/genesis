@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { NativeButton } from "@marktiderman/genesis-ui-native/components";
 import { defineSupportBlock, supportPaths, SUPPORT_BLOCK_ID, type SupportPaths } from "../block";
 import { createSupportClient, type SupportClient, type SupportSupabase } from "../client";
+import type { HelpAiResult } from "../help-ask";
 import type { SupportChatClient } from "../chat";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { composeCollectors, createContextCollector, type ContextCollector, type ScreenshotContentType } from "../record";
@@ -52,6 +53,13 @@ export interface SupportOptions {
   chat?: SupportChatClient;
   /** Opens a path (expo-router's `router.push`). */
   navigate: (href: string) => void;
+  /**
+   * The tenant the messenger's tickets and articles belong to: usually the viewer's current
+   * workspace, or a function that reads it now. Left out, the app's own.
+   */
+  tenantId?: string | null | (() => string | null);
+  /** Runs the AI answer task on your server. Without it (or with the tenant's AI off) search is all there is. See the README. */
+  askAi?: (questionId: string) => Promise<HelpAiResult>;
   /** `Platform.OS`. Default from React Native. */
   platform?: string;
   /** The version signature sent with each report (`useVersionSignature().short`, or a function that reads it). */
@@ -126,7 +134,7 @@ export function useUnreadReplies(): number {
 export function createSupport(options: SupportOptions): SupportBlock {
   const copy = resolveSupportCopy(options.copy);
   const paths = supportPaths(options.basePath);
-  const client = createSupportClient(options.supabase, { chat: options.chat });
+  const client = createSupportClient(options.supabase, { chat: options.chat, ...(options.tenantId !== undefined ? { tenantId: options.tenantId } : {}) });
   const platform = options.platform ?? Platform.OS;
   let route: string | null = null;
   let pending: PendingFeedback | null = null;
