@@ -46,7 +46,7 @@ const template = (name, { url = "https://www.figma.com/design/abcdefghijklmnopqr
   `// url=${url}\n// source=${source}\n// component=${component}\nimport figma from 'figma'\nexport default { example: figma.code\`<${name} />\` }\n`;
 
 /** A throwaway checkout with the two indexes, the allowlist, and the given templates. */
-function fixture({ required = [], notYet = [], templates = {}, sources = [] }) {
+function fixture({ required = [], notYet = [], composed, templates = {}, sources = [] }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "code-connect-"));
   const write = (rel, text) => {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
@@ -54,7 +54,7 @@ function fixture({ required = [], notYet = [], templates = {}, sources = [] }) {
   };
   write(COMPONENTS_INDEX, componentsIndex);
   write(LAYOUTS_INDEX, layoutsIndex);
-  write(ALLOWLIST, JSON.stringify({ required, notYet }));
+  write(ALLOWLIST, JSON.stringify(composed ? { required, notYet, composed } : { required, notYet }));
   for (const rel of sources) write(rel, "export {};\n");
   for (const [name, text] of Object.entries(templates)) write(`${FIGMA_DIR}/${name}.figma.ts`, text);
   return root;
@@ -124,7 +124,9 @@ describe("check-code-connect", () => {
     });
     const { failures } = checkCodeConnect(root);
     expect(failures).toContain(`${ALLOWLIST}: NativeOldThing is not a visual component exported from ui-native; remove it`);
-    expect(failures).toContain(`SettingsPage: exported from ui-native but in neither list of ${ALLOWLIST}; add it to "notYet" (or "required" with its template)`);
+    expect(failures).toContain(
+      `SettingsPage: exported from ui-native but in no list of ${ALLOWLIST}; add it to "notYet" (or "required" with its template, or "composed" for a screen assembled from library components)`,
+    );
     const both = make({
       required: ["NativeAvatar"],
       notYet: ALL,
@@ -132,6 +134,40 @@ describe("check-code-connect", () => {
       templates: { NativeAvatar: template("NativeAvatar") },
     });
     expect(checkCodeConnect(both).failures).toEqual([`${ALLOWLIST}: NativeAvatar is in both "required" and "notYet"`]);
+  });
+
+  it("accepts a composed screen without a template, counts it apart, and fails one that has a template or is listed twice", () => {
+    const composedList = ["SettingsPage", "AuthForm", "AppleSignInButton"];
+    const clean = make({
+      required: ["NativeAvatar"],
+      notYet: ALL.filter((n) => n !== "NativeAvatar" && !composedList.includes(n)),
+      composed: composedList,
+      sources: ["packages/ui-native/src/components/NativeAvatar.tsx"],
+      templates: { NativeAvatar: template("NativeAvatar") },
+    });
+    const result = checkCodeConnect(clean);
+    expect(result.failures).toEqual([]);
+    expect(result.composed).toEqual(composedList);
+    expect(result.missing).toHaveLength(ALL.length - 1 - composedList.length);
+    expect(result.missing).not.toContain("SettingsPage");
+
+    const withTemplate = make({
+      required: [],
+      notYet: ALL.filter((n) => !composedList.includes(n)),
+      composed: composedList,
+      sources: ["packages/ui-native/src/layouts/settings-page.tsx"],
+      templates: { SettingsPage: template("SettingsPage", { source: "packages/ui-native/src/layouts/settings-page.tsx" }) },
+    });
+    expect(checkCodeConnect(withTemplate).failures).toEqual([
+      `SettingsPage: has a template but is "composed" in ${ALLOWLIST}; a composed screen has no template by design, so move it to "required" or delete the template`,
+    ]);
+
+    const twice = make({
+      required: [],
+      notYet: ALL.filter((n) => !composedList.includes(n) || n === "AuthForm"),
+      composed: composedList,
+    });
+    expect(checkCodeConnect(twice).failures).toEqual([`${ALLOWLIST}: AuthForm is in both "notYet" and "composed"`]);
   });
 
   it("checks the three leading directives: order, a source that exists, a component equal to the file name", () => {
@@ -222,7 +258,7 @@ describe("two-package layout", () => {
     expect(components).toContain("Card");
     expect(failures).toContain("packages/ui/figma/code-connect.json: Gone is not a visual component exported from ui; remove it");
     expect(failures).toContain(
-      'Dialog: exported from ui but in neither list of packages/ui/figma/code-connect.json; add it to "notYet" (or "required" with its template)',
+      'Dialog: exported from ui but in no list of packages/ui/figma/code-connect.json; add it to "notYet" (or "required" with its template, or "composed" for a screen assembled from library components)',
     );
   });
 });

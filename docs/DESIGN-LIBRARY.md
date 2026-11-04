@@ -114,15 +114,22 @@ allowlist beside its templates: `packages/ui-native/figma/code-connect.json` and
 `packages/ui/figma/code-connect.json`. `--list <package>` prints the discovered names.
 
 ```json
-{ "required": ["NativeAvatar"], "notYet": ["NativeButton", "NativeCard", "…"] }
+{ "required": ["NativeAvatar"], "notYet": ["NativeRangeSlider", "…"], "composed": ["SettingsPage", "…"] }
 ```
 
 - A **required** component must have a template with the three directives, a `source` that
   exists and a `component` equal to the file name; otherwise the check fails.
 - A **notYet** component is listed in the output and does not fail. The library does not have
   its node yet, so no template is written for it.
+- A **composed** export is a screen assembled from library components (a settings page, an
+  auth form, a sign-in button row) rather than a component of its own: a designer builds it in
+  Figma from the components' instances, and Dev Mode already shows each instance's Genesis
+  call, so it has no node and no template by design. It is counted apart in the output
+  ("N composed, no template by design") and is not debt. Move a name out of `composed` when
+  the library gives it a component of its own (into `notYet` until its template exists) or when
+  a template is written for it anyway (into `required`): a `composed` name with a template fails.
 - Every component is in exactly one list, and a name that is no longer exported fails: the
-  allowlist only shrinks towards `required`.
+  allowlist only shrinks towards `required` and `composed`.
 
 To promote a component once its Figma node exists: write `packages/ui-native/figma/<Name>.figma.ts`
 with the three directives (the `url` is the node's link from Figma), publish it, run
