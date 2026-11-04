@@ -112,6 +112,7 @@ const WEB_THREAD_LABELS: Partial<ThreadLabels> = {
 };
 
 const messageKey = (m: ThreadMessage) => m.id;
+const messageJumpId = (m: ThreadMessage) => m.jumpId ?? m.id;
 // Someone else's message arriving at the bottom is said politely; yours and events aren't.
 const announceMessage = (m: ThreadMessage) => (m.mine || m.kind === "event" || !m.body ? null : m.authorName ? `${m.authorName}: ${m.body}` : m.body);
 const NO_SLOTS: Slots<ThreadPageSlotMap> = {};
@@ -246,6 +247,7 @@ export function ThreadPage({
           earlierLabel={earlierLabel}
           renderEarlier={(p) => renderSlot(DefaultEarlier, slots.earlier, { ...p, testID: `${testID}-earlier` }, slotProps.earlier)}
           jumpTo={jumpTo}
+          jumpId={messageJumpId}
           onLoadUntil={onLoadUntil}
           onJumpFailed={(id) => {
             // Cleared first, so the same failure twice is said twice.

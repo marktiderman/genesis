@@ -75,6 +75,12 @@ export interface ThreadListProps<T> {
   renderEarlier?: ((props: { loading: boolean; onPress: () => void; label: string; testID: string }) => React.ReactNode) | undefined;
   /** Go to this row, loading earlier pages with `onLoadUntil` until it's here. A new id, or the same one after `null`, goes again. */
   jumpTo?: string | null | undefined;
+  /**
+   * The id `jumpTo` names a row by, when it isn't the row's key: a message keyed by the id the
+   * client gave it and gone to by the server's id. `null` for a row that can't be gone to.
+   * `keyExtractor` by default. Pass a stable function (module scope, or `useCallback`).
+   */
+  jumpId?: ((row: T) => string | null | undefined) | undefined;
   /** Load earlier pages until the row is held; resolve false when it can't be found. */
   onLoadUntil?: ((id: string) => Promise<boolean>) | undefined;
   /** No row answers to this id once `onLoadUntil` has settled, or it failed. The list goes back to the newest row first. */
@@ -132,6 +138,7 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
     earlierLabel = "Load earlier messages",
     renderEarlier,
     jumpTo,
+    jumpId,
     onLoadUntil,
     onJumpFailed,
     onAtBottomChange,
@@ -311,7 +318,11 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
   }, [hasRows, showingLoading, record]);
 
   // Built from the row ids only, so a parent re-rendering (typing in the composer, or rows derived in render) doesn't restart a jump's wait.
-  const idsKey = data.map((row) => keyExtractor(row)).join("\u0000");
+  const idOf = jumpId ?? keyExtractor;
+  const idsKey = data
+    .map((row) => idOf(row))
+    .filter(Boolean)
+    .join("\u0000");
   const has = React.useMemo(() => {
     const ids = new Set(idsKey ? idsKey.split("\u0000") : []);
     return (id: string) => ids.has(id);
@@ -326,7 +337,9 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
     loading,
     loadUntil: onLoadUntil,
     scrollTo: (id) => {
-      const el = scroller.current?.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(id)}"]`);
+      // By the row's key, which is what's on the element.
+      const row = latest.current.data.find((r) => idOf(r) === id);
+      const el = row !== undefined ? rowEl(latest.current.keyExtractor(row)) : null;
       if (el && scroller.current) centerRow(scroller.current, el, !prefersReducedMotion());
       el?.focus({ preventScroll: true });
     },
@@ -412,7 +425,7 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
       aria-label={label}
       aria-busy={loadingEarlier || undefined}
       onScroll={onScroll}
-      className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto px-3 py-2 [overflow-anchor:none] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", className)}
+      className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 py-2 [overflow-anchor:none] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", className)}
     >
       {header}
       <div ref={topSentinel} aria-hidden />
@@ -434,7 +447,7 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
         <div ref={content} className="mt-auto flex flex-col">
           {data.map((row, index) => {
             const id = keyExtractor(row);
-            return <Row key={id} id={id} row={row} index={index} highlighted={id === highlightedId} renderItem={renderItem as RowProps["renderItem"]} />;
+            return <Row key={id} id={id} row={row} index={index} highlighted={highlightedId !== null && idOf(row) === highlightedId} renderItem={renderItem as RowProps["renderItem"]} />;
           })}
         </div>
       )}

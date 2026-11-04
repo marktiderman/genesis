@@ -3,16 +3,16 @@
  * The inbox: your conversations, newest first, each a button with an avatar,
  * the title (the other person's name in a two-person conversation), a one-line
  * preview, the time, an unread count, an @ when you were mentioned, and muted
- * and pinned marks. Arrow keys move between rows.
+ * and pinned marks. Arrow keys, j and k, Home and End move between rows.
  *
- * Moving onto genesis-ui (feature `inbox-thread`): its scrolling, list and composer are the same
- * behaviour as genesis-ui's `InboxPage`, which were promoted from here. This screen keeps its data
- * wiring (the chat client, realtime, read state) and moves its rendering onto `InboxPage` with chat's
- * builder; until then fix behaviour in both places.
+ * On genesis-ui's `InboxPage`, which owns the list, its keyboard and its loading, empty and error
+ * states. This screen keeps its data wiring (the chat client, realtime, read state) and draws chat's
+ * row in the `row` slot.
  */
-import { useRef, type KeyboardEvent } from "react";
+import { useMemo, type ComponentProps } from "react";
 import { AtSign, BellOff, MessageSquare, Pin } from "lucide-react";
-import { Badge, Button, EmptyState, Skeleton, UserAvatar, cn } from "@marktiderman/genesis-ui";
+import { Badge, Button, EmptyState, InboxPage, UserAvatar, cn, type InboxPageSlotMap } from "@marktiderman/genesis-ui";
+import type { InboxItem } from "@marktiderman/genesis-core/conversation";
 import { renderSlot, type SlotOverride } from "@marktiderman/genesis-core/slots";
 import type { ChatInboxItem } from "../core/types";
 import { useChat, useInbox, type ChatAttachmentKind } from "../react/index";
@@ -59,94 +59,83 @@ export function inboxTitle(item: ChatInboxItem, resolveUser: ResolveUser, fallba
   return fallback?.(item) ?? "Conversation";
 }
 
+const formatTime = (date: Date) => relativeTime(date.toISOString());
+
 export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = false, fallbackTitle, slots, className, ...rest }: ChatInboxProps) {
   const { userId: me, attachmentKinds } = useChat();
   const { items, isLoading, error, refetch } = useInbox({ kind, archived });
-  const list = useRef<HTMLUListElement>(null);
-
-  // Rows are native buttons (Tab reaches each); the arrows are added here
-  // because no Radix primitive is a list of buttons with vertical roving focus.
-  const onKeyDown = (e: KeyboardEvent<HTMLUListElement>) => {
-    const buttons = Array.from(list.current?.querySelectorAll<HTMLButtonElement>("button[data-inbox-row]") ?? []);
-    const at = buttons.indexOf(document.activeElement as HTMLButtonElement);
-    const to =
-      e.key === "ArrowDown" ? Math.min(buttons.length - 1, at + 1) : e.key === "ArrowUp" ? Math.max(0, at - 1) : e.key === "Home" ? 0 : e.key === "End" ? buttons.length - 1 : -2;
-    if (to === -2 || buttons.length === 0) return;
-    e.preventDefault();
-    buttons[to < 0 ? 0 : to]?.focus();
-  };
-
-  if (isLoading) {
-    return (
-      <div className={cn("flex flex-col", className)} aria-busy aria-label="Loading conversations" data-testid="genesis-chat-inbox-loading">
-        {Array.from({ length: 6 }, (_, i) => (
-          <div key={i} className="flex items-center gap-3 px-3 py-3">
-            <Skeleton className="size-10 shrink-0 rounded-full" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-3.5 w-2/5" />
-              <Skeleton className="h-3 w-4/5" />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={className}>
-        <EmptyState
-          icon={MessageSquare}
-          title="Couldn't load your conversations"
-          description="Check your connection and try again."
-          action={
-            <Button type="button" variant="outline" onClick={() => void refetch()}>
-              Try again
-            </Button>
-          }
-        />
-      </div>
-    );
-  }
-
-  if (items.length === 0) {
-    return <div className={className}>{renderSlot(DefaultEmpty, slots?.empty, { archived })}</div>;
-  }
+  const rows = useMemo<ChatInboxRow[]>(
+    () =>
+      items.map((item) => {
+        const title = inboxTitle(item, resolveUser, fallbackTitle);
+        const last = item.lastMessage;
+        let preview = last ? attachmentPreview(last.body, last.attachment, attachmentKinds, last.deleted) : "";
+        if (last && last.kind !== "system" && !last.deleted && last.senderId) {
+          if (last.senderId === me) preview = `You: ${preview}`;
+          else if (!item.otherUserId && item.memberCount > 2) preview = `${resolveUser(last.senderId).name}: ${preview}`;
+        }
+        const timestamp = item.lastMessageAt ?? last?.createdAt;
+        return {
+          id: item.conversationId,
+          title,
+          preview,
+          unreadCount: item.unread,
+          ...(timestamp ? { timestamp } : {}),
+          chat: item,
+          avatarUrl: item.otherUserId ? resolveUser(item.otherUserId).avatarUrl : undefined,
+        };
+      }),
+    [items, me, resolveUser, fallbackTitle, attachmentKinds],
+  );
+  const label = rest["aria-label"] ?? "Conversations";
 
   return (
-    <nav aria-label={rest["aria-label"] ?? "Conversations"} className={cn("min-h-0", className)} data-testid="genesis-chat-inbox">
-      <ul ref={list} className="flex flex-col" onKeyDown={onKeyDown}>
-        {items.map((item) => (
-          <li key={item.conversationId}>
-            <InboxRow item={item} me={me} kinds={attachmentKinds} resolveUser={resolveUser} fallbackTitle={fallbackTitle} selected={item.conversationId === selectedId} onSelect={onSelect} />
-          </li>
-        ))}
-      </ul>
+    <nav aria-label={label} className={cn("flex min-h-0 flex-col", className)}>
+      <InboxPage
+        testID="genesis-chat-inbox"
+        items={rows}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        loading={isLoading}
+        error={Boolean(error) && rows.length === 0}
+        label={label}
+        loadingLabel="Loading conversations"
+        formatTime={formatTime}
+        slots={INBOX_SLOTS}
+        slotProps={{ empty: { override: slots?.empty, archived, onRetry: () => void refetch(), failed: Boolean(error) } as Partial<InboxPageSlotMap["empty"]> }}
+      />
     </nav>
   );
 }
 
-interface InboxRowProps {
-  item: ChatInboxItem;
-  me: string;
-  kinds?: Record<string, ChatAttachmentKind>;
-  resolveUser: ResolveUser;
-  fallbackTitle?: (item: ChatInboxItem) => string;
-  selected: boolean;
-  onSelect: (id: string) => void;
+/** What chat adds to InboxPage's row, carried on the row itself. */
+interface ChatInboxRow extends InboxItem {
+  preview: string;
+  chat: ChatInboxItem;
+  avatarUrl: string | null | undefined;
 }
 
-function InboxRow({ item, me, kinds, resolveUser, fallbackTitle, selected, onSelect }: InboxRowProps) {
-  const title = inboxTitle(item, resolveUser, fallbackTitle);
-  const other = item.otherUserId ? resolveUser(item.otherUserId) : null;
-  const last = item.lastMessage;
-  const unread = item.unread > 0;
-  let preview = last ? attachmentPreview(last.body, last.attachment, kinds, last.deleted) : "";
-  if (last && last.kind !== "system" && !last.deleted && last.senderId) {
-    if (last.senderId === me) preview = `You: ${preview}`;
-    else if (!item.otherUserId && item.memberCount > 2) preview = `${resolveUser(last.senderId).name}: ${preview}`;
+function InboxEmpty({ override, archived, onRetry, failed }: InboxPageSlotMap["empty"] & { override?: SlotOverride<ChatInboxEmptyProps>; archived: boolean; onRetry: () => void; failed: boolean }) {
+  if (failed) {
+    return (
+      <EmptyState
+        icon={MessageSquare}
+        title="Couldn't load your conversations"
+        description="Check your connection and try again."
+        action={
+          <Button type="button" variant="outline" onClick={onRetry}>
+            Try again
+          </Button>
+        }
+      />
+    );
   }
-  const time = relativeTime(item.lastMessageAt ?? last?.createdAt);
+  return <>{renderSlot(DefaultEmpty, override, { archived })}</>;
+}
+
+function InboxRow(row: InboxPageSlotMap["row"] & ChatInboxRow) {
+  const { chat: item, title, preview, timeLabel, selected, onPress, rowProps, testID, avatarUrl } = row;
+  const unread = item.unread > 0;
   const count = item.unread >= 99 ? "99+" : String(item.unread);
   const label = [
     title,
@@ -155,7 +144,7 @@ function InboxRow({ item, me, kinds, resolveUser, fallbackTitle, selected, onSel
     item.muted ? "muted" : null,
     item.pinned ? "pinned" : null,
     preview || null,
-    time || null,
+    timeLabel || null,
   ]
     .filter(Boolean)
     .join(", ");
@@ -163,24 +152,24 @@ function InboxRow({ item, me, kinds, resolveUser, fallbackTitle, selected, onSel
   return (
     <button
       type="button"
-      data-inbox-row
+      {...rowProps}
       aria-current={selected ? "true" : undefined}
       aria-label={label}
-      onClick={() => onSelect(item.conversationId)}
+      onClick={onPress}
       className={cn(
         "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         selected && "bg-accent",
       )}
-      data-testid={`genesis-chat-inbox-row-${item.conversationId}`}
+      data-testid={testID}
     >
-      <UserAvatar name={title} src={other?.avatarUrl} className="shrink-0" />
+      <UserAvatar name={title} src={avatarUrl} className="shrink-0" />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5" aria-hidden>
         <span className="flex items-center gap-2">
           <span className={cn("min-w-0 flex-1 truncate text-sm", unread ? "font-semibold text-foreground" : "font-medium text-foreground")}>{title}</span>
-          <span className={cn("shrink-0 text-xs tabular-nums", unread && !item.muted ? "font-medium text-primary" : "text-muted-foreground")}>{time}</span>
+          <span className={cn("shrink-0 text-xs tabular-nums", unread && !item.muted ? "font-medium text-primary" : "text-muted-foreground")}>{timeLabel}</span>
         </span>
         <span className="flex items-center gap-1.5">
-          <span className={cn("min-w-0 flex-1 truncate text-sm", unread ? "text-foreground" : "text-muted-foreground")}>{preview || " "}</span>
+          <span className={cn("min-w-0 flex-1 truncate text-sm", unread ? "text-foreground" : "text-muted-foreground")}>{preview || " "}</span>
           {item.pinned ? <Pin className="size-3.5 shrink-0 text-muted-foreground" /> : null}
           {item.muted ? <BellOff className="size-3.5 shrink-0 text-muted-foreground" /> : null}
           {item.mentioned ? (
@@ -199,3 +188,6 @@ function InboxRow({ item, me, kinds, resolveUser, fallbackTitle, selected, onSel
   );
 }
 
+// Module scope: a new slot each render would remount every row. The row carries chat's fields
+// itself, which InboxPage hands on; its own types don't know them.
+const INBOX_SLOTS = { row: InboxRow, empty: InboxEmpty } as unknown as NonNullable<ComponentProps<typeof InboxPage>["slots"]>;

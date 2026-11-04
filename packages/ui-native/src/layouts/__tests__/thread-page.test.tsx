@@ -226,3 +226,23 @@ describe("ThreadPage", () => {
     expect(getThreadPageStackOptions({ headerTitle: "Report" })).toEqual({ title: "Report" });
   });
 });
+
+describe("ThreadPage's jumpId", () => {
+  it("goes to a message by jumpId when its id is the client's", async () => {
+    const onJumpFailed = vi.fn();
+    render(
+      <ThreadPage
+        testID="jump"
+        messages={[
+          { id: "c1", jumpId: "m1", body: "first", mine: false, timestamp: "2026-10-01T09:00:00Z" },
+          { id: "c2", jumpId: "m2", body: "second", mine: true, timestamp: "2026-10-01T09:01:00Z" },
+        ]}
+        composer={null}
+        jumpTo="m2"
+        onJumpFailed={onJumpFailed}
+      />,
+    );
+    await new Promise((r) => setTimeout(r, 500));
+    expect(onJumpFailed).not.toHaveBeenCalled();
+  });
+});

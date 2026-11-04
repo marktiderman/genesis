@@ -9,10 +9,9 @@
  * their hours a banner says so; search (in the header) jumps to a message,
  * loading earlier ones as needed; links get preview cards.
  *
- * Moving onto genesis-ui (feature `inbox-thread`): its scrolling, list and composer are the same
- * behaviour as genesis-ui's `ThreadPage`, which were promoted from here. This screen keeps its data
- * wiring (the chat client, realtime, read state) and moves its rendering onto `ThreadPage` with chat's
- * builder; until then fix behaviour in both places.
+ * On genesis-ui's `ThreadPage`, which owns the scrolling, the list, going to a message and the pill
+ * back to the newest. This screen keeps its data wiring (the chat client, realtime, read state) and
+ * draws chat's rows and composer in the page's slots.
  */
 import {
   useCallback,
@@ -21,11 +20,12 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentProps,
   type ComponentType,
   type DragEvent,
-  type ReactNode,
+  type Ref,
 } from "react";
-import { ArrowDown, ArrowLeft, ImagePlus, MessageSquare, Pin, Search } from "lucide-react";
+import { ArrowLeft, ImagePlus, MessageSquare, Pin, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,13 +51,14 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  Skeleton,
-  Spinner,
   Textarea,
+  ThreadPage,
   UserAvatar,
   cn,
   toast,
+  type ThreadPageSlotMap,
 } from "@marktiderman/genesis-ui";
+import type { ThreadMessage } from "@marktiderman/genesis-core/conversation";
 import { renderSlot, type SlotOverride } from "@marktiderman/genesis-core/slots";
 import { ChatError } from "../core/client";
 import { extractLinks } from "../core/extras";
@@ -70,28 +71,12 @@ import { MessageRow, plainText } from "./bubble";
 import { ChatAwayBanner } from "./availability";
 import type { LinkPreviewImages } from "./cards";
 import { ChatErrorBoundary } from "./error-boundary";
-import { ChatComposer, type ChatComposerHandle } from "./composer";
+import { ChatComposer, type ChatComposerHandle, type ChatComposerProps } from "./composer";
 import type { ResolveUser } from "./format";
 import { ChatSearch } from "./search";
 import { ChatTopicBar } from "./topics";
 import { QUICK_REACTIONS, ThreadContext, type ThreadContextValue } from "./thread-context";
 
-
-/**
- * Centre a message in the thread by scrolling the thread alone. `scrollIntoView` would also scroll
- * every scrollable ancestor (an inbox's other panes, the page), moving things the reader didn't.
- * The same as genesis-ui's ThreadList, which chat's thread moves onto.
- */
-function centerRow(scroller: HTMLElement, row: HTMLElement, smooth: boolean) {
-  const delta = row.getBoundingClientRect().top - scroller.getBoundingClientRect().top - (scroller.clientHeight - row.offsetHeight) / 2;
-  const top = Math.max(0, scroller.scrollTop + delta);
-  if (smooth && typeof scroller.scrollTo === "function") scroller.scrollTo({ top, behavior: "smooth" });
-  else scroller.scrollTop = top;
-}
-
-function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
 
 export interface ChatThreadHeaderProps {
   conversationId: string;
@@ -233,6 +218,114 @@ function DefaultEmpty({ canPost }: ChatThreadEmptyProps) {
   return <EmptyState icon={MessageSquare} title="No messages yet" description={canPost ? "Say hello." : undefined} />;
 }
 
+/** What chat adds to a ThreadPage row, carried on the row itself: the page hands it on to the slot. */
+interface ChatThreadRow extends ThreadMessage {
+  item: ThreadItem;
+  startsGroup: boolean;
+  /** Heads a new day. */
+  day: string | null;
+  firstUnread: boolean;
+}
+
+function ChatRowSlot(row: ChatThreadRow & { highlighted?: boolean }) {
+  return (
+    // ThreadPage spaces and insets its own bubbles; chat's row does both itself.
+    <div className="-mx-3 -my-1">
+      {row.day ? (
+        <div className="sticky top-1 z-10 flex justify-center py-2" role="separator" aria-label={row.day}>
+          <span className="rounded-full border bg-background/95 px-3 py-0.5 text-xs font-medium text-muted-foreground shadow-sm">{row.day}</span>
+        </div>
+      ) : null}
+      {row.firstUnread ? (
+        <div className="my-2 flex items-center gap-2 px-4" role="separator" aria-label="New messages" data-testid="genesis-chat-new-line">
+          <span className="h-px flex-1 bg-primary/40" />
+          <span className="text-xs font-semibold text-primary">New</span>
+          <span className="h-px flex-1 bg-primary/40" />
+        </div>
+      ) : null}
+      <ChatErrorBoundary
+        fallback={
+          <p className="px-4 py-1 text-xs italic text-muted-foreground" role="note" data-testid="genesis-chat-row-error">
+            This message couldn't be shown.
+          </p>
+        }
+      >
+        <MessageRow item={row.item} startsGroup={row.startsGroup} highlighted={Boolean(row.highlighted)} />
+      </ChatErrorBoundary>
+    </div>
+  );
+}
+
+interface ChatComposerSlotExtras {
+  chatComposer: ChatComposerProps;
+  composerRef: Ref<ChatComposerHandle>;
+  /** "Sam is typing…" */
+  live: string | null;
+}
+
+function ChatComposerSlot({ onSend, chatComposer, composerRef, live }: ThreadPageSlotMap["composer"] & ChatComposerSlotExtras) {
+  return (
+    <>
+      <div className="h-5 px-4 text-xs italic text-muted-foreground" data-testid="genesis-chat-activity">
+        {live ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-flex gap-0.5" aria-hidden>
+              <span className="size-1 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
+              <span className="size-1 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
+              <span className="size-1 animate-bounce rounded-full bg-muted-foreground" />
+            </span>
+            {live}
+          </span>
+        ) : null}
+      </div>
+      {/* ThreadPage's onSend goes to the newest message: what you send is what you look at next. */}
+      <ChatComposer {...chatComposer} ref={composerRef} onSent={onSend} />
+    </>
+  );
+}
+
+interface ChatEmptySlotExtras {
+  override: SlotOverride<ChatThreadEmptyProps> | undefined;
+  conversationId: string;
+  canPost: boolean;
+  failed: string | null;
+  onRetry: () => void;
+}
+
+function ChatEmptySlot({ override, conversationId, canPost, failed, onRetry }: ThreadPageSlotMap["empty"] & ChatEmptySlotExtras) {
+  if (failed) {
+    return (
+      <EmptyState
+        icon={MessageSquare}
+        title="Couldn't load this conversation"
+        description={failed}
+        action={
+          <Button type="button" variant="outline" onClick={onRetry}>
+            Try again
+          </Button>
+        }
+      />
+    );
+  }
+  return <>{renderSlot(DefaultEmpty, override, { conversationId, canPost })}</>;
+}
+
+// Module scope: a new slot each render would remount every row. The extras chat's slots take come
+// through the row and `slotProps`, which the page's own types don't know.
+const THREAD_SLOTS = {
+  message: ChatRowSlot,
+  event: ChatRowSlot,
+  // Chat's row draws it, under the day heading.
+  unreadDivider: null,
+  composer: ChatComposerSlot,
+  empty: ChatEmptySlot,
+} as unknown as NonNullable<ComponentProps<typeof ThreadPage>["slots"]>;
+
+// Chat's composer keeps its own text and sends for itself.
+const THREAD_COMPOSER = { value: "", onChangeText: () => undefined, onSend: () => undefined };
+const GONE = "That message isn't here any more";
+const THREAD_LABELS = { messageGone: GONE };
+
 export function ChatThread({
   conversationId,
   resolveUser,
@@ -276,12 +369,9 @@ export function ChatThread({
 
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<ChatMessage | null>(null);
   const [reporting, setReporting] = useState<ChatMessage | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [newCount, setNewCount] = useState(0);
-  const [announcement, setAnnouncement] = useState("");
   const composer = useRef<ChatComposerHandle | null>(null);
   useEffect(() => {
     if (!autoFocus) return;
@@ -294,8 +384,8 @@ export function ChatThread({
   useEffect(() => {
     setReplyTo(null);
     setEditingId(null);
-    setNewCount(0);
     setChosenTopic(null);
+    setJump(null);
   }, [conversationId]);
 
   const topics = topicsState.topics;
@@ -345,97 +435,69 @@ export function ChatThread({
     return awaySummary(people) ? people : null;
   }, [availability, otherUserId, members, me, avail, resolveUser]);
 
-  // ---- scrolling ------------------------------------------------------------
-  const scroller = useRef<HTMLDivElement>(null);
-  const content = useRef<HTMLDivElement>(null);
-  const atBottom = useRef(true);
-  const initialised = useRef<string | null>(null);
-  const edges = useRef<{ first: string | null; last: string | null }>({ first: null, last: null });
-  const anchor = useRef<{ height: number; top: number } | null>(null);
-
-  const scrollToBottom = useCallback((smooth = false) => {
-    const el = scroller.current;
-    if (!el) return;
-    if (smooth && typeof el.scrollTo === "function") el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-    else el.scrollTop = el.scrollHeight;
-    atBottom.current = true;
-    setNewCount(0);
-  }, []);
-
+  // Someone who just posted has stopped typing: their last signal no longer counts, and the line
+  // above the composer is worked out again now.
+  const lastItem = items[items.length - 1];
+  const lastKey = lastItem ? itemKey(lastItem) : null;
+  const seenLast = useRef(lastKey);
+  const [, noteArrival] = useState(0);
   useLayoutEffect(() => {
-    const el = scroller.current;
-    if (!el || items.length === 0) return;
-    const first = itemKey(items[0]!);
-    const lastItem = items[items.length - 1]!;
-    const last = itemKey(lastItem);
-    const prev = edges.current;
-    edges.current = { first, last };
+    if (lastKey === seenLast.current) return;
+    seenLast.current = lastKey;
+    if (lastItem?.type === "message" && lastItem.message.kind !== "system" && lastItem.message.senderId && lastItem.message.senderId !== me) {
+      arrived.current.set(lastItem.message.senderId, Date.now());
+      noteArrival((n) => n + 1);
+    }
+  }, [lastKey, lastItem, me]);
 
-    if (initialised.current !== conversationId) {
-      initialised.current = conversationId;
-      const unread = state.firstUnreadId ? document.getElementById(`genesis-chat-msg-${state.firstUnreadId}`) : null;
-      if (unread) centerRow(el, unread, false);
-      else scrollToBottom();
-      return;
-    }
-    if (anchor.current && first !== prev.first) {
-      el.scrollTop = el.scrollHeight - anchor.current.height + anchor.current.top;
-      anchor.current = null;
-    }
-    if (last !== prev.last) {
-      const mine = itemSender(lastItem) === me;
-      if (atBottom.current || mine) scrollToBottom();
-      else setNewCount((n) => n + 1);
-      if (!mine && lastItem.type === "message" && lastItem.message.kind !== "system") {
-        const m = lastItem.message;
-        if (m.senderId) arrived.current.set(m.senderId, Date.now());
-        setAnnouncement(`${m.senderId ? resolveUser(m.senderId).name : "Someone"}: ${previewText(m.body, m.attachments[0]?.kind ?? null, Boolean(m.deletedAt))}`);
-      }
-    }
-  }, [items, conversationId, me, resolveUser, scrollToBottom, state.firstUnreadId]);
-
-  const hasItems = items.length > 0;
-  // Photos and previews that load later grow the thread: stay at the bottom if you were there.
-  useEffect(() => {
-    const el = content.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => {
-      if (atBottom.current && scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [hasItems]);
+  // ---- rows -----------------------------------------------------------------
+  const firstUnreadId = state.firstUnreadId;
+  const rows = useMemo<ChatThreadRow[]>(
+    () =>
+      items.map((item, i) => {
+        const message = item.type === "message" ? item.message : null;
+        const sender = itemSender(item);
+        return {
+          // The client's id, so a message that lands keeps its row; a jump names the server's.
+          id: itemKey(item),
+          ...(message ? { jumpId: message.id } : {}),
+          ...(message?.kind === "system" ? { kind: "event" as const } : {}),
+          // Plain text: only the list's announcement reads it, and the slot draws the row.
+          body: message ? previewText(message.body, message.attachments[0]?.kind ?? null, Boolean(message.deletedAt)) : "",
+          mine: sender === me,
+          ...(sender && sender !== me ? { authorName: resolveUser(sender).name } : {}),
+          timestamp: itemTime(item),
+          item,
+          startsGroup: startsGroup(items, i),
+          day: startsDay(items, i) ? dayLabel(itemTime(item)) : null,
+          firstUnread: message !== null && message.id === firstUnreadId,
+        };
+      }),
+    [items, me, resolveUser, firstUnreadId],
+  );
+  const firstUnreadRow = rows.find((r) => r.firstUnread)?.id ?? null;
 
   const { hasEarlier, loadingEarlier, loadEarlier } = state;
   const loadOlder = useCallback(() => {
-    const el = scroller.current;
-    if (!el || !hasEarlier || loadingEarlier) return;
-    anchor.current = { height: el.scrollHeight, top: el.scrollTop };
     void loadEarlier().catch((e) => toast.error(errorText(e)));
-  }, [hasEarlier, loadingEarlier, loadEarlier]);
+  }, [loadEarlier]);
 
-  const onScroll = () => {
-    const el = scroller.current;
-    if (!el) return;
-    const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    atBottom.current = bottom;
-    if (bottom && newCount) setNewCount(0);
-    if (el.scrollTop < 200) loadOlder();
-  };
-
-  const jumpTo = useCallback((id: string) => {
-    const el = document.getElementById(`genesis-chat-msg-${id}`);
-    if (!el) {
-      toast.info("That message is further up", { description: "Scroll up to load it." });
-      return;
-    }
-    if (scroller.current) centerRow(scroller.current, el, !prefersReducedMotion());
-    setHighlightedId(id);
-    setTimeout(() => setHighlightedId((h) => (h === id ? null : h)), 1600);
+  // ---- going to a message ---------------------------------------------------
+  // Cleared first, so going to the same message again goes again.
+  const [jump, setJump] = useState<{ messageId: string; seq?: number } | null>(null);
+  const goTo = useCallback((target: { messageId: string; seq?: number }) => {
+    setJump(null);
+    requestAnimationFrame(() => setJump(target));
   }, []);
 
-  // A message to reach: loads earlier pages until it is here (leaving a topic it isn't in), then scrolls to it.
-  type Jump = { messageId: string; seq?: number; phase: "new" | "loading" | "loaded" };
+  const jumpTo = useCallback(
+    (id: string) => {
+      if (byId.has(id)) goTo({ messageId: id });
+      else toast.info("That message is further up", { description: "Scroll up to load it." });
+    },
+    [byId, goTo],
+  );
+
   /**
    * A reply in a thread isn't on this timeline: open its thread (onOpenThread, scrolled to the
    * reply) and come here to the thread's first message; without onOpenThread, just to that.
@@ -444,50 +506,46 @@ export function ChatThread({
     (target: { messageId: string; seq?: number; threadRootId?: string | null }) => {
       const root = target.threadRootId;
       if (!root || root === threadRootId || root === target.messageId) {
-        setPendingJump({ messageId: target.messageId, seq: target.seq, phase: "new" });
+        goTo({ messageId: target.messageId, ...(target.seq != null ? { seq: target.seq } : {}) });
         return;
       }
       void chatClient.message(root).then(
         (m) => {
           if (!m) {
-            toast.info("That message isn't here any more");
+            toast.info(GONE);
             return;
           }
           onOpenThread?.(m, target.seq != null ? { jumpTo: { messageId: target.messageId, seq: target.seq } } : undefined);
-          setPendingJump({ messageId: m.id, seq: m.seq, phase: "new" });
+          goTo({ messageId: m.id, seq: m.seq });
         },
         (e) => toast.error(errorText(e)),
       );
     },
-    [chatClient, onOpenThread, threadRootId],
+    [chatClient, goTo, onOpenThread, threadRootId],
   );
-  const [pendingJump, setPendingJump] = useState<Jump | null>(jumpToProp && !jumpToProp.threadRootId ? { ...jumpToProp, phase: "new" } : null);
   useEffect(() => {
     if (jumpToProp) reach(jumpToProp);
   }, [jumpToProp?.messageId, jumpToProp?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const { loadUntil } = state;
-  useEffect(() => {
-    if (!pendingJump || state.isLoading) return;
-    const { messageId, seq, phase } = pendingJump;
-    if (byId.has(messageId)) {
-      setPendingJump(null);
-      // After the rows it needs have rendered.
-      requestAnimationFrame(() => jumpTo(messageId));
-      return;
-    }
-    if (phase === "loading") return;
-    if (phase === "loaded" || seq == null) {
-      setPendingJump(null);
-      toast.info("That message isn't here any more");
-      return;
-    }
-    setPendingJump({ messageId, seq, phase: "loading" });
-    const settle = () => setPendingJump((p) => (p && p.messageId === messageId ? { ...p, phase: "loaded" } : p));
-    void loadUntil(seq).then(settle, (e) => {
-      toast.error(errorText(e));
-      settle();
-    });
-  }, [pendingJump, byId, state.isLoading, loadUntil, jumpTo]);
+  // A load that failed has said so: the message isn't known to be gone.
+  const jumpLoadFailed = useRef(false);
+  const onLoadUntil = useCallback(
+    (id: string) => {
+      jumpLoadFailed.current = false;
+      if (jump?.messageId !== id || jump.seq == null) return Promise.resolve(false);
+      return loadUntil(jump.seq).catch((e) => {
+        jumpLoadFailed.current = true;
+        toast.error(errorText(e));
+        return false;
+      });
+    },
+    [jump, loadUntil],
+  );
+  const onJumpFailed = useCallback(() => {
+    if (jumpLoadFailed.current) jumpLoadFailed.current = false;
+    else toast.info(GONE);
+  }, []);
 
   const openHit = useCallback(
     (hit: ChatSearchHit) => {
@@ -526,7 +584,7 @@ export function ChatThread({
     emojibaseUrl,
     linkPreviewImages,
     linkPreviewProxyUrl,
-    highlightedId,
+    highlightedId: null,
     editingId,
     reply: (m) => {
       setReplyTo(m);
@@ -581,76 +639,6 @@ export function ChatThread({
 
   // ---- render ---------------------------------------------------------------
   const pinnedMessage = pinIds.length ? byId.get(pinIds[pinIds.length - 1]!) : undefined;
-  let body: ReactNode;
-  if (state.isLoading) {
-    body = (
-      <div className="flex flex-col gap-3 p-4" aria-busy aria-label="Loading messages" data-testid="genesis-chat-thread-loading">
-        {[40, 60, 30, 50].map((w, i) => (
-          <Skeleton key={i} className={cn("h-9 rounded-2xl", i % 2 ? "self-end" : "self-start")} style={{ width: `${w}%` }} />
-        ))}
-      </div>
-    );
-  } else if (state.error && items.length === 0) {
-    body = (
-      <EmptyState
-        icon={MessageSquare}
-        title="Couldn't load this conversation"
-        description={errorText(state.error)}
-        action={
-          <Button type="button" variant="outline" onClick={() => void state.refetch()}>
-            Try again
-          </Button>
-        }
-      />
-    );
-  } else if (items.length === 0) {
-    body = renderSlot(DefaultEmpty, slots?.empty, { conversationId, canPost });
-  } else {
-    body = (
-      <div ref={content} className="flex min-h-full flex-col justify-end pb-2 pt-1">
-        {hasEarlier ? (
-          <div className="flex justify-center py-2">
-            {loadingEarlier ? (
-              <Spinner size="sm" aria-label="Loading earlier messages" />
-            ) : (
-              <Button type="button" variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={loadOlder}>
-                Load earlier messages
-              </Button>
-            )}
-          </div>
-        ) : null}
-        {items.map((item, i) => {
-          const id = item.type === "message" ? item.message.id : null;
-          return (
-            <div key={itemKey(item)}>
-              {startsDay(items, i) ? (
-                <div className="sticky top-1 z-10 flex justify-center py-2" role="separator" aria-label={dayLabel(itemTime(item))}>
-                  <span className="rounded-full border bg-background/95 px-3 py-0.5 text-xs font-medium text-muted-foreground shadow-sm">{dayLabel(itemTime(item))}</span>
-                </div>
-              ) : null}
-              {id && id === state.firstUnreadId ? (
-                <div className="my-2 flex items-center gap-2 px-4" role="separator" aria-label="New messages" data-testid="genesis-chat-new-line">
-                  <span className="h-px flex-1 bg-primary/40" />
-                  <span className="text-xs font-semibold text-primary">New</span>
-                  <span className="h-px flex-1 bg-primary/40" />
-                </div>
-              ) : null}
-              <ChatErrorBoundary
-                fallback={
-                  <p className="px-4 py-1 text-xs italic text-muted-foreground" role="note" data-testid="genesis-chat-row-error">
-                    This message couldn't be shown.
-                  </p>
-                }
-              >
-                <MessageRow item={item} startsGroup={startsGroup(items, i)} />
-              </ChatErrorBoundary>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
   return (
     <ThreadContext.Provider value={ctx}>
       <section
@@ -697,21 +685,54 @@ export function ChatThread({
         ) : null}
 
         <div className="relative min-h-0 flex-1">
-          {/* A plain scroller, not ScrollArea: the thread sets scrollTop to keep your place as earlier messages load, and needs the element that scrolls. */}
-          <div ref={scroller} onScroll={onScroll} className="h-full overflow-y-auto overscroll-contain" role="log" aria-live="off" aria-label="Messages" data-testid="genesis-chat-scroller">
-            {body}
-          </div>
-          {newCount > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              className="absolute bottom-3 left-1/2 h-8 -translate-x-1/2 rounded-full shadow-md"
-              onClick={() => scrollToBottom(true)}
-              data-testid="genesis-chat-new-pill"
-            >
-              New messages <ArrowDown />
-            </Button>
-          ) : null}
+          <ThreadPage
+            testID="genesis-chat-thread-page"
+            conversationId={conversationId}
+            messages={rows}
+            composer={THREAD_COMPOSER}
+            hasEarlier={hasEarlier}
+            onLoadEarlier={loadOlder}
+            loadingEarlier={loadingEarlier}
+            firstUnreadId={firstUnreadRow}
+            jumpTo={jump?.messageId ?? null}
+            onLoadUntil={onLoadUntil}
+            onJumpFailed={onJumpFailed}
+            loading={state.isLoading}
+            labels={THREAD_LABELS}
+            slots={THREAD_SLOTS}
+            slotProps={
+              {
+                composer: {
+                  live,
+                  composerRef: composer,
+                  chatComposer: {
+                    conversation: state,
+                    replyTo,
+                    onCancelReply: () => setReplyTo(null),
+                    resolveUser,
+                    placeholder: currentTopic ? `Message #${currentTopic.title}` : placeholder,
+                    topic: topic ?? null,
+                    disabledReason: topicClosed ? "This topic is closed" : null,
+                    scheduling,
+                    emojibaseUrl,
+                    accessory: renderSlot(EmptyAccessory, slots?.composerAccessory, {
+                      conversationId,
+                      insertText: (t) => composer.current?.insertText(t),
+                      addFiles: (f) => composer.current?.addFiles(f),
+                    }),
+                  },
+                },
+                empty: {
+                  override: slots?.empty,
+                  conversationId,
+                  canPost,
+                  failed: state.error ? errorText(state.error) : null,
+                  onRetry: () => void state.refetch(),
+                },
+              } as NonNullable<ComponentProps<typeof ThreadPage>["slotProps"]>
+            }
+            className="h-full"
+          />
           {dragging ? (
             <div className="pointer-events-none absolute inset-2 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-primary">
               <ImagePlus className="size-6" aria-hidden />
@@ -719,40 +740,6 @@ export function ChatThread({
             </div>
           ) : null}
         </div>
-
-        <div className="h-5 px-4 text-xs italic text-muted-foreground" data-testid="genesis-chat-activity">
-          {live ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-flex gap-0.5" aria-hidden>
-                <span className="size-1 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
-                <span className="size-1 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
-                <span className="size-1 animate-bounce rounded-full bg-muted-foreground" />
-              </span>
-              {live}
-            </span>
-          ) : null}
-        </div>
-        <div className="sr-only" aria-live="polite" aria-atomic="true" data-testid="genesis-chat-announcer">
-          {announcement}
-        </div>
-
-        <ChatComposer
-          ref={composer}
-          conversation={state}
-          replyTo={replyTo}
-          onCancelReply={() => setReplyTo(null)}
-          resolveUser={resolveUser}
-          placeholder={currentTopic ? `Message #${currentTopic.title}` : placeholder}
-          topic={topic ?? null}
-          disabledReason={topicClosed ? "This topic is closed" : null}
-          scheduling={scheduling}
-          emojibaseUrl={emojibaseUrl}
-          accessory={renderSlot(EmptyAccessory, slots?.composerAccessory, {
-            conversationId,
-            insertText: (t) => composer.current?.insertText(t),
-            addFiles: (f) => composer.current?.addFiles(f),
-          })}
-        />
       </section>
 
       {search && !threadRootId ? (

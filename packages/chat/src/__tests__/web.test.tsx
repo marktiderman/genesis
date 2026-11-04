@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { toast } from "@marktiderman/genesis-ui";
 import { ChatProvider } from "../react";
 import { ChatComposer, ChatInbox, ChatThread, VoiceNote, createMemoryChatClient, type MemoryChatClient, type MemoryConversationSeed } from "../web";
 
@@ -188,7 +189,7 @@ describe("ChatThread", () => {
     HTMLElement.prototype.scrollIntoView = intoView;
     try {
       mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
-      const scroller = await screen.findByTestId("genesis-chat-scroller");
+      const scroller = await screen.findByTestId("genesis-chat-thread-page-messages");
       const scrollTo = vi.fn();
       scroller.scrollTo = scrollTo as unknown as typeof scroller.scrollTo;
       fireEvent.click(await screen.findByTestId("genesis-chat-reply-quote"));
@@ -200,6 +201,66 @@ describe("ChatThread", () => {
       HTMLElement.prototype.scrollIntoView = original;
       window.matchMedia = originalMatchMedia;
     }
+  });
+
+  it("sits on ThreadPage: a landed message keeps its row, and the pill goes back to the newest", async () => {
+    const client = createMemoryChatClient({ me: ME, conversations: [group()] });
+    mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
+    const input = await screen.findByTestId("genesis-chat-input");
+    const release = client.holdNextSend();
+    fireEvent.change(input, { target: { value: "Keep my row" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    const pending = await screen.findByTestId("genesis-chat-pending-sending");
+    const row = pending.closest("[data-row-id]");
+    expect(row).not.toBeNull();
+    release();
+    await waitFor(() => expect(screen.queryByTestId("genesis-chat-pending-sending")).toBeNull());
+    // The same element: the row wasn't remounted when the server's copy landed.
+    expect(screen.getByText("Keep my row").closest("[data-row-id]")).toBe(row);
+  });
+
+  it("goes to the same message twice: a second click on the quote highlights it again", async () => {
+    const client = createMemoryChatClient({
+      me: ME,
+      conversations: [group({ messages: [...group().messages!, { id: "m6", senderId: SAM, body: "Yes!", replyToId: "m3", createdAt: at(7) }] })],
+    });
+    mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
+    fireEvent.click(await screen.findByTestId("genesis-chat-reply-quote"));
+    await waitFor(() => expect(document.querySelector("#genesis-chat-msg-m3 .ring-2")).not.toBeNull());
+    await waitFor(() => expect(document.querySelector("#genesis-chat-msg-m3 .ring-2")).toBeNull(), { timeout: 3000 });
+    fireEvent.click(screen.getByTestId("genesis-chat-reply-quote"));
+    await waitFor(() => expect(document.querySelector("#genesis-chat-msg-m3 .ring-2")).not.toBeNull());
+  });
+
+  describe("a jump that doesn't land", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it("says a load failed, not that the message is gone", async () => {
+      const client = createMemoryChatClient({ me: ME, conversations: [group()] });
+      const real = client.messages.bind(client);
+      vi.spyOn(client, "messages").mockImplementationOnce(async (...args) => ({ ...(await real(...args)), hasEarlier: true })).mockRejectedValue(new Error("offline"));
+      const error = vi.spyOn(toast, "error");
+      const info = vi.spyOn(toast, "info");
+      mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} jumpTo={{ messageId: "nope", seq: 0 }} />);
+      await waitFor(() => expect(error).toHaveBeenCalledWith("offline"));
+      await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+      expect(info).not.toHaveBeenCalled();
+    });
+
+    it("says it's gone when the thread has loaded and no row answers", async () => {
+      const client = createMemoryChatClient({ me: ME, conversations: [group()] });
+      const info = vi.spyOn(toast, "info");
+      mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} jumpTo={{ messageId: "nope", seq: 0 }} />);
+      await waitFor(() => expect(info).toHaveBeenCalledWith("That message isn't here any more"));
+    });
+
+    it("finds a deleted message: its tombstone is a row", async () => {
+      const client = createMemoryChatClient({ me: ME, conversations: [group()] });
+      const info = vi.spyOn(toast, "info");
+      mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} jumpTo={{ messageId: "m4" }} />);
+      await waitFor(() => expect(document.querySelector("#genesis-chat-msg-m4 .ring-2")).not.toBeNull());
+      expect(info).not.toHaveBeenCalled();
+    });
   });
 
   it("says why you can't post when only admins can", async () => {
@@ -232,8 +293,8 @@ describe("ChatThread", () => {
     act(() => client.activity("c1", LEE, "typing"));
     await waitFor(() => expect(screen.getByTestId("genesis-chat-activity").textContent).toContain("Lee is typing…"));
     act(() => void client.receive("c1", LEE, "Coming now"));
-    await waitFor(() => expect(screen.getByTestId("genesis-chat-announcer").textContent).toBe("Lee: Coming now"));
-    expect(screen.getByTestId("genesis-chat-announcer").getAttribute("aria-live")).toBe("polite");
+    await waitFor(() => expect(screen.getByTestId("genesis-chat-thread-page-messages-announcer").textContent).toContain("Lee: Coming now"));
+    expect(screen.getByTestId("genesis-chat-thread-page-messages-announcer").getAttribute("aria-live")).toBe("polite");
   });
 });
 
@@ -277,6 +338,28 @@ describe("ChatInbox", () => {
       </QueryClientProvider>,
     );
     expect((await screen.findByTestId("genesis-chat-inbox-row-d1")).textContent).toContain("Check-in");
+  });
+
+  it("sits on InboxPage: Home and End move too, and a failed read offers Try again", async () => {
+    const client = createMemoryChatClient({
+      me: ME,
+      conversations: [
+        { id: "d1", members: [{ userId: ME }, { userId: SAM }], messages: [{ senderId: SAM, body: "One", createdAt: at(10) }] },
+        { id: "d2", members: [{ userId: ME }, { userId: LEE }], messages: [{ senderId: LEE, body: "Two", createdAt: at(9) }] },
+      ],
+    });
+    mount(client, <ChatInbox resolveUser={resolveUser} onSelect={() => undefined} />);
+    const first = await screen.findByTestId("genesis-chat-inbox-row-d1");
+    first.focus();
+    fireEvent.keyDown(first, { key: "End" });
+    expect(document.activeElement).toBe(screen.getByTestId("genesis-chat-inbox-row-d2"));
+    cleanup();
+
+    const failing = createMemoryChatClient({ me: ME, conversations: [] });
+    vi.spyOn(failing, "inbox").mockRejectedValue(new Error("offline"));
+    mount(failing, <ChatInbox resolveUser={resolveUser} onSelect={() => undefined} />);
+    expect(await screen.findByText("Couldn't load your conversations")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
   it("shows an empty state when there are none", async () => {

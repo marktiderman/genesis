@@ -88,6 +88,18 @@ describe("ThreadPage (web)", () => {
     expect(Element.prototype.scrollTo).toHaveBeenCalled();
   });
 
+  it("goes to a row by jumpId when its id is the client's, and highlights it", async () => {
+    const rows: ThreadMessage[] = [
+      { id: "c1", jumpId: "m1", body: "first", mine: false, timestamp: "2026-10-01T09:00:00Z" },
+      { id: "c2", jumpId: "m2", body: "second", mine: true, timestamp: "2026-10-01T09:01:00Z" },
+    ];
+    const onJumpFailed = vi.fn();
+    render(<ThreadPage testID="t" messages={rows} composer={composer()} jumpTo="m2" onJumpFailed={onJumpFailed} />);
+    await waitFor(() => expect(screen.getByTestId("t-message-c2").className).toMatch(/ring-2/));
+    expect(Element.prototype.scrollTo).toHaveBeenCalled();
+    expect(onJumpFailed).not.toHaveBeenCalled();
+  });
+
   it("follows the bottom again after a jump that moved nothing (a short thread)", async () => {
     render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="2" />);
     await waitFor(() => expect(screen.getByTestId("t-jump-latest")).toBeTruthy());
@@ -426,6 +438,19 @@ describe("InboxPage (web)", () => {
     rerender(<InboxPage testID="i" items={[]} emptyTitle="No reports" emptyActionLabel="Send feedback" onEmptyAction={onAction} />);
     fireEvent.click(screen.getByRole("button", { name: "Send feedback" }));
     expect(onAction).toHaveBeenCalled();
+  });
+});
+
+describe("InboxPage (web): Home and End", () => {
+  it("go to the first and last rows", () => {
+    const items: InboxItem[] = [{ id: "a", title: "A" }, { id: "b", title: "B" }, { id: "c", title: "C" }];
+    render(<InboxPage testID="i" items={items} />);
+    const first = screen.getByTestId("i-row-a");
+    first.focus();
+    fireEvent.keyDown(first, { key: "End" });
+    expect(document.activeElement).toBe(screen.getByTestId("i-row-c"));
+    fireEvent.keyDown(screen.getByTestId("i-row-c"), { key: "Home" });
+    expect(document.activeElement).toBe(first);
   });
 });
 
