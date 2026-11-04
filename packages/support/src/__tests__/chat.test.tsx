@@ -174,6 +174,7 @@ describe("the support client's thread", () => {
     expect(block.contributes?.migrations).toEqual([
       { package: "@marktiderman/genesis-support", file: "migrations/0005_genesis_support_chat_on_tickets.sql", test: "migrations/tests/0001_genesis_support_chat.test.sql" },
       { package: "@marktiderman/genesis-support", file: "migrations/0006_genesis_support_chat_tenants.sql", test: "migrations/tests/0006_genesis_support_chat_tenants.test.sql" },
+      { package: "@marktiderman/genesis-support", file: "migrations/0009_genesis_support_inbox.sql", test: "migrations/tests/0009_genesis_support_inbox.test.sql" },
     ]);
   });
 });

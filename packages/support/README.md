@@ -186,6 +186,41 @@ person never sees. The report stays the record (type, status, message, screensho
    it shows, for a sheet or dialog; it turns `reportHeading` on) and `plainChatTitle` (title the
    conversation "Report" rather than the report's title).
 
+**The agent inbox** (`genesis add support-chat` copies migration 0009). `<SupportAgentInbox>` is a
+tenant's whole help desk inbox on genesis-ui's `InboxLayout`, `InboxViews`, `InboxPage` and
+`ThreadPage`: the views Mine, Unassigned and All, the tickets, the open ticket's thread with reply
+and internal note, its status and assignee, and a details panel. Keep the open ticket in your
+router; the inbox only needs a TanStack `QueryClientProvider` and a support client made with the
+`chat` option.
+
+```tsx
+import { SupportAgentInbox } from "@marktiderman/genesis-support/web-chat";
+import type { SupportClient } from "@marktiderman/genesis-support";
+
+declare const support: SupportClient;
+declare const workspaceId: string;
+declare const ticketId: string | null;
+declare const navigate: (to: string) => void;
+declare const people: Map<string, string>;
+declare const agents: { id: string; name: string }[];
+
+export const inbox = (
+  <SupportAgentInbox
+    client={support}
+    tenantId={workspaceId} // leave out for the app's own tickets
+    ticketId={ticketId}
+    onTicketChange={(id) => navigate(id ? `/help/inbox/${id}` : "/help/inbox")}
+    resolveUser={(id) => ({ name: people.get(id) ?? "Someone" })}
+    agents={agents} // { id: login, name }: who a ticket can be given to
+    context={(ticket) => <p>{ticket.userId}</p>} // your own cards in the details panel
+  />
+);
+```
+
+Only a tenant's agents get in: `client.agentTickets`, `agentTicket` and `agentTicketCounts` read
+through `support_agent_tickets` and `support_agent_ticket_counts`, which refuse anyone else. An
+agent's own ticket isn't in their queue, since another agent answers it.
+
 Kept in step by the migration: the report's status and the conversation's (open and submitted
 are open, in_progress pending, addressed solved, wont_fix closed; a status set in chat moves the
 report the same way), the report's reply times and read state from messages and
@@ -331,9 +366,12 @@ its own help desk and your app runs its own support the same way. With the suppo
 
 ## Not yet
 
-- No agent inbox (operator queue) screen yet; it comes on genesis-chat's inbox. With the support-chat block, `SupportStaffThread` is one
-  report for staff on the web; list reports with `genesis_chat.observed('support')` or a tool of
-  yours. Without it, staff work through the database functions.
+- No agent inbox on the phone yet: `SupportAgentInbox` is web only. Without the support-chat block,
+  staff work through the database functions.
+- The agent inbox shows a ticket's latest 200 messages, and its queues refresh on a timer, not live.
+  An open ticket's thread is live.
+- The agent inbox doesn't list who can be assigned: pass `agents`, with each agent's login. Agent
+  rows hold a tenant's person records, and only the app can map those to logins.
 - Without the support-chat block there are no live updates: the thread re-reads every 30 seconds
   while open.
 - No ratings, no web idea board, no notification when an idea ships.

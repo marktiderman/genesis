@@ -78,6 +78,27 @@ export interface SupportReport {
 /** A ticket: a request from someone outside the team, owed a reply (ADR 0015). The new name for {@link SupportReport}. */
 export type Ticket = SupportReport;
 
+/** An agent's queues (migration 0009): `mine` and `unassigned` hold open tickets, `all` every ticket. */
+export type TicketInboxView = "mine" | "unassigned" | "all";
+
+/** A ticket in an agent's queue. `unread` here means a message from the requester no agent has read. */
+export interface AgentTicket extends Ticket {
+  tenantId: string;
+  severity: string | null;
+  /** `email` for an email ticket; null when the support-email block isn't installed or it came from the app. */
+  channel: string | null;
+  conversationId: string | null;
+  /** Who has it, a login, or null for nobody. */
+  assigneeId: string | null;
+  /** The latest of when it was sent and its last reply: what the queue sorts on, and the paging cursor. */
+  activityAt: string;
+  /** The latest words the requester can see. Never an internal note. */
+  preview: string;
+}
+
+/** How many tickets each queue holds. */
+export type AgentTicketCounts = Record<TicketInboxView, number>;
+
 /** An agent's role in a tenant: `admin` also manages the tenant's agents. */
 export type TicketAgentRole = "agent" | "admin";
 
@@ -88,6 +109,8 @@ export interface SupportReply {
   fromStaff: boolean;
   /** Written by the signed-in person. */
   mine: boolean;
+  /** Who wrote it, on genesis-chat (support-chat block). Never on support_replies, where staff stay anonymous. */
+  authorId?: string | null;
   createdAt: string;
   /** A staff-only internal note (support-chat block; staff only ever read them). Always false on support_replies. */
   internal?: boolean;
@@ -136,6 +159,15 @@ export interface SupportClient extends FeedbackSink {
   myTickets?(options?: { limit?: number }): Promise<Ticket[]>;
   /** Does the signed-in person handle tickets in this tenant (an agent, a tenant admin)? Needs migration 0004. */
   isAgent?(tenantId: string): Promise<boolean>;
+  /**
+   * Agents: a queue of a tenant's tickets, latest activity first. A null or missing tenant is the
+   * app's own. Refused (`42501`) unless the signed-in person is an agent there. Needs migration 0009.
+   */
+  agentTickets?(options?: { tenantId?: string | null; view?: TicketInboxView; before?: Pick<AgentTicket, "activityAt" | "id"> | null; limit?: number }): Promise<AgentTicket[]>;
+  /** Agents: one ticket of the tenant's queue, or null. Needs migration 0009. */
+  agentTicket?(id: string, options?: { tenantId?: string | null }): Promise<AgentTicket | null>;
+  /** Agents: how many tickets each queue holds. Needs migration 0009. */
+  agentTicketCounts?(options?: { tenantId?: string | null }): Promise<AgentTicketCounts>;
   /** Tenant admins: make a tenant's person an agent or agent admin, or remove them (`null`). Needs migration 0004. */
   setAgent?(tenantId: string, personId: string, role: TicketAgentRole | null): Promise<void>;
   report(id: string): Promise<SupportReport | null>;
@@ -278,6 +310,20 @@ function toReport(r: Row): SupportReport {
   return { ...report, unread: isUnread(report) };
 }
 
+function toAgentTicket(r: Row): AgentTicket {
+  return {
+    ...toReport(r),
+    tenantId: String(r["tenant_id"]),
+    severity: (r["severity"] as string | null) ?? null,
+    channel: (r["channel"] as string | null) ?? null,
+    conversationId: (r["conversation_id"] as string | null) ?? null,
+    assigneeId: (r["assignee_id"] as string | null) ?? null,
+    activityAt: String(r["activity_at"]),
+    preview: String(r["preview"] ?? ""),
+    unread: r["agent_unread"] === true,
+  };
+}
+
 function toIdea(r: Row, mine: ReadonlySet<string>, voted: ReadonlySet<string>): SupportIdea {
   return {
     id: String(r["id"]),
@@ -360,6 +406,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       body: m.body,
       fromStaff: m.senderRole === "observer",
       mine: Boolean(userId) && m.senderId === userId,
+      authorId: m.senderId,
       createdAt: m.createdAt,
       internal: m.visibility === "observers",
       seq: m.seq,
@@ -524,6 +571,23 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     },
     async setAgent(tenantId, personId, role) {
       must("setAgent", await supabase.rpc("support_set_agent", { tenant: tenantId, person: personId, role }));
+    },
+
+    async agentTickets({ tenantId = null, view = "all", before = null, limit = 50 } = {}) {
+      const rows = must<Row[]>(
+        "agentTickets",
+        await supabase.rpc("support_agent_tickets", { tenant: tenantId, inbox_view: view, before_at: before?.activityAt ?? null, before_id: before?.id ?? null, max_rows: limit }),
+      );
+      return (rows ?? []).map(toAgentTicket);
+    },
+    async agentTicket(id, { tenantId = null } = {}) {
+      const rows = must<Row[]>("agentTicket", await supabase.rpc("support_agent_tickets", { tenant: tenantId, only_id: id }));
+      return rows?.[0] ? toAgentTicket(rows[0]) : null;
+    },
+    async agentTicketCounts({ tenantId = null } = {}) {
+      const rows = must<Row[]>("agentTicketCounts", await supabase.rpc("support_agent_ticket_counts", { tenant: tenantId }));
+      const row = rows?.[0];
+      return { mine: Number(row?.["mine"] ?? 0), unassigned: Number(row?.["unassigned"] ?? 0), all: Number(row?.["all_tickets"] ?? 0) };
     },
 
     async verify(reportId, fixed, note) {
