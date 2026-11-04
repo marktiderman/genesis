@@ -7,3 +7,5 @@ ChatThreadScreen is built on genesis-ui-native's `NativeThreadList`: the same ol
 Test IDs under the list moved with it: `<testID>-earlier` is now `<testID>-list-earlier`, and `<testID>-loading` is now `<testID>-list-loading`. Update any end-to-end flows that tap or wait on them.
 
 Deprecated, to be removed in a later minor: `useJumpToMessage` and `rowIndexOf` (use NativeThreadList's `jumpTo`/`jumpId`, or `useThreadJump`), and `threadListMode`, `nearBottom` and `AT_BOTTOM_POINTS` (use genesis-ui-native's `threadListMode`, `threadNearBottom` and `THREAD_AT_BOTTOM_POINTS`).
+
+Needs genesis-ui-native 3.7.0 or later (for NativeThreadList's `jumpId`): chat's peer range for it now starts there.
