@@ -144,7 +144,7 @@ function NativeButton({
       accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading ?? accessibilityState?.busy }}
       {...props}
       // The brand gradient under the caller's own style, not replaced by it.
-      style={gradientStyle ? [gradientStyle, style] : style}
+      style={gradientStyle ? (style ? [gradientStyle, style] : gradientStyle) : style}
     >
       {/* Inside the Pressable, which keeps the button's size and classes: a wrapper would lose a `flex-1`. */}
       <Animated.View style={[{ flexGrow: 1 }, feedback.style]}>
