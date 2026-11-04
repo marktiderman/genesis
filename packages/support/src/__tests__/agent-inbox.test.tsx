@@ -60,6 +60,40 @@ describe("the client's read path", () => {
     expect(rpcs.map((r) => r.fn)).toContain("support_mark_read");
   });
 
+  it("takes a file's URL from signing when it has a path, never from what the message carries", async () => {
+    const { client } = fakeSupabase({ rpc: (fn) => (fn === "support_chat_conversation" ? { data: "c1", error: null } : { data: null, error: null }) });
+    const file = { kind: "image", mime: "image/png", name: "a.png", width: null, height: null, durationMs: null };
+    const chat = {
+      messages: vi.fn(async () => ({
+        hasEarlier: false,
+        messages: [
+          {
+            id: "m",
+            seq: 1,
+            senderId: "u1",
+            senderRole: "member",
+            kind: "text",
+            body: "See",
+            visibility: "everyone",
+            createdAt: "2026-11-03T10:00:00Z",
+            deletedAt: null,
+            attachments: [
+              { ...file, id: "signed", path: "ok/a.png", url: null },
+              { ...file, id: "unsigned", path: "nope", url: "https://elsewhere.test/a.png" },
+              { ...file, id: "outside", path: null, url: "https://elsewhere.test/b.png" },
+            ],
+          },
+        ],
+      })),
+      fileUrls: vi.fn(async () => ({ "ok/a.png": "https://signed.test/a.png" })),
+    };
+    const [reply] = await createSupportClient(client, { chat: chat as never }).replies("t1");
+    const byId = Object.fromEntries((reply?.attachments ?? []).map((a) => [a.id, a]));
+    expect(byId["signed"]).toMatchObject({ url: "https://signed.test/a.png", stored: true });
+    expect(byId["unsigned"]).toMatchObject({ url: null, stored: false });
+    expect(byId["outside"]).toMatchObject({ url: "https://elsewhere.test/b.png", stored: false });
+  });
+
   it("reads one ticket and the counts", async () => {
     const { client, rpcs } = fakeSupabase({
       rpc: (fn) => (fn === "support_agent_ticket_counts" ? { data: [{ inbox_view: "mine", tickets: 1 }, { inbox_view: "unassigned", tickets: 2 }, { inbox_view: "all", tickets: 3 }], error: null } : { data: [], error: null }),
@@ -273,6 +307,31 @@ describe("SupportAgentInbox", () => {
     expect(picker.textContent).toContain("Kit");
   });
 
+  it("shows only a stored picture as a picture", async () => {
+    const file = { kind: "image", mime: "image/png", width: null, height: null, durationMs: null };
+    show(
+      fakeClient({
+        replies: vi.fn(async () => [
+          reply({
+            id: "m1",
+            body: "See",
+            authorId: "u1",
+            attachments: [
+              { ...file, id: "in", path: "ok/a.png", name: "a.png", url: "https://signed.test/a.png", stored: true },
+              { ...file, id: "out", path: null, name: "b.png", url: "https://elsewhere.test/b.png", stored: false },
+            ],
+          }),
+        ]),
+      }),
+      { ticketId: "t1" },
+    );
+    const inside = await screen.findByTestId("genesis-support-agent-thread-attachment-in");
+    expect(inside.querySelector("img")).not.toBeNull();
+    const outside = screen.getByTestId("genesis-support-agent-thread-attachment-out");
+    expect(outside.querySelector("img")).toBeNull();
+    expect(outside.textContent).toBe("b.png (elsewhere.test)");
+  });
+
   it("has no note mode without chat", async () => {
     show(fakeClient({ thread: vi.fn(async () => ({ mode: "replies" as const, conversationId: null })) }), { ticketId: "t1" });
     await screen.findByRole("textbox");
@@ -280,7 +339,7 @@ describe("SupportAgentInbox", () => {
   });
 
   it("opens a non-image file as a link, and never a non-web address", async () => {
-    const attachment = { kind: "file", path: null, mime: "application/pdf", width: null, height: null, durationMs: null };
+    const attachment = { kind: "file", path: null, stored: false, mime: "application/pdf", width: null, height: null, durationMs: null };
     show(
       fakeClient({
         replies: vi.fn(async () => [

@@ -18,6 +18,11 @@ describe("the conversation contract", () => {
     expect(readReceiptFor(messages, null)).toBeNull();
   });
 
+  it("never puts the receipt on an internal note, which the other side can't see", () => {
+    const withNote: ThreadMessage[] = [...messages, { id: "n", body: "note", mine: true, tone: "internal", timestamp: at("2026-10-24T09:20:00Z") }];
+    expect(readReceiptFor(withNote, "2026-10-24T09:30:00Z")).toBe("3");
+  });
+
   it("counts only sent (or unmarked) messages as delivered", () => {
     expect(isDelivered({ ...messages[0]! })).toBe(true);
     for (const status of ["sending", "pending", "paused", "failed", "conflict"] as const) expect(isDelivered({ ...messages[0]!, status })).toBe(false);

@@ -218,7 +218,8 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
 
   // Reading it, while it's in front of someone: when it shows, when something new arrives, and when
   // they come back to the tab. The read state is the team's, so a hidden tab mustn't clear it.
-  const latest = replies.data ? (replies.data[replies.data.length - 1]?.id ?? "none") : null;
+  // Only what was just read: cached replies, or a refresh that failed, aren't what they're looking at.
+  const latest = replies.isFetchedAfterMount && !replies.isError && replies.data ? (replies.data[replies.data.length - 1]?.id ?? "none") : null;
   useEffect(() => {
     if (latest === null) return;
     const read = () => {
@@ -250,7 +251,7 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
     const map = new Map<string, { image: boolean; name: string | null }>();
     for (const r of replies.data ?? [])
       for (const a of r.attachments ?? []) {
-        const stored = Boolean(a.path);
+        const stored = a.stored;
         map.set(a.id, {
           image: stored && (a.kind === "image" || Boolean(a.mime?.startsWith("image/"))),
           name: stored ? a.name : `${a.name ?? copy.agentInbox.openFile} (${hostOf(a.url)})`,
