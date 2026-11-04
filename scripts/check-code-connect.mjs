@@ -48,9 +48,8 @@
  *   - genesis-product: src/native/index.ts, PascalCase value exports minus hooks and constants.
  *   - genesis-forms-native and genesis-forms-web: src/index.ts, PascalCase value exports minus
  *     hooks, providers, constants, React contexts (`*Context`) and the ChoiceRow parts (Indicator,
- *     OptionImage). forms-web's slots and field renderers are file-private: they are drawn in
- *     Figma but are not counted until they are exported.
- *   - genesis-studio: src/index.ts, the same rule (DataStudio only; its parts are private).
+ *     OptionImage). forms-web exports its slots and field renderers, each with a template.
+ *   - genesis-studio: src/index.ts, the same rule (DataStudio and the toolbar, panels and views it is built from).
  *   - genesis-sites: src/sections/index.ts. A section is a `defineSection` constant, not a
  *     component export, so the section's `type` string (read from the file each `*Section` is
  *     imported from) is the name: hero, rich-text… (template `hero.figma.ts`). Beside them, the

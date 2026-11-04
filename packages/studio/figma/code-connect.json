@@ -1,6 +1,29 @@
 {
-  "required": [],
-  "notYet": [],
+  "required": [
+    "ActivityPanel",
+    "BulkEditDialog",
+    "CalendarView",
+    "ExportButton",
+    "FieldIcon",
+    "FilterBuilder",
+    "GroupPicker",
+    "HideFields",
+    "ImportDialog",
+    "KanbanView",
+    "NewRowButton",
+    "Pill",
+    "RecordPanel",
+    "RelationPicker",
+    "SearchBox",
+    "SheetView",
+    "SortBuilder",
+    "TableTabs",
+    "ViewSwitch",
+    "ViewsPanel"
+  ],
+  "notYet": [
+    "ViewFieldPicker"
+  ],
   "composed": [
     "DataStudio"
   ]

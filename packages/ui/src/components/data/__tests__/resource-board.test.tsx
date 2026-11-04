@@ -155,6 +155,30 @@ describe("ResourceView mode=board", () => {
     await waitFor(() => expect(onUpdateSuccess).toHaveBeenCalledWith(expect.objectContaining({ id: "a", stage: "done" })));
   });
 
+  it("reports a failed move once: on the board, not in the console as well", async () => {
+    const refused = vi.fn(async () => {
+      throw new Error("Not today.");
+    });
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const rows = ROWS.map((r) => ({ ...r }));
+    render(<ResourceView view={view} mode="board" />, { wrapper: wrap(provider(rows, refused as never)) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Move Write brief" }), { button: 0, ctrlKey: false, pointerType: "mouse" });
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Done" }));
+    });
+    expect((await screen.findByTestId("resource-board-refusal")).textContent).toBe("Not today.");
+    expect(logged.mock.calls.filter(([message]) => String(message).includes("[useResource]"))).toEqual([]);
+  });
+
+  it("sends the view's orderBy, with where its empty values go, to every column", async () => {
+    const ordered = defineView(tasks, { fields: { stage: { labels: { todo: "To do" } } }, board: { field: "stage" }, orderBy: { field: "due_on", direction: "desc", nulls: "last" } });
+    const p = provider(ROWS.map((r) => ({ ...r })));
+    render(<ResourceView view={ordered} mode="board" />, { wrapper: wrap(p) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    expect(JSON.stringify(vi.mocked(p.getList).mock.calls[0]![1])).toContain('{"field":"due_on","order":"desc","nulls":"last"}');
+  });
+
   it("turns away a second move of a card while its first is saving", async () => {
     let settle!: () => void;
     const rows = ROWS.map((r) => ({ ...r }));

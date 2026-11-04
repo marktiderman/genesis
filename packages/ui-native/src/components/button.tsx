@@ -9,7 +9,8 @@
  * @stability Stable
  */
 import { type VariantProps, cva } from "class-variance-authority";
-import { ActivityIndicator, Animated, Pressable, Text, View, type AccessibilityState, type ViewStyle } from "react-native";
+import type { ComponentRef, Ref } from "react";
+import { ActivityIndicator, Animated, Pressable, Text, View, type AccessibilityState, type StyleProp, type ViewStyle } from "react-native";
 import { brandGradientCss, useOptionalTheme } from "@marktiderman/genesis-design-system";
 import type { HapticKind } from "../hooks/use-haptics";
 import { usePressFeedback } from "../hooks/use-press-feedback";
@@ -94,6 +95,10 @@ export interface NativeButtonProps
    * when the press counts, except `select`, which ticks on press-in as `usePressFeedback` does. Default none.
    */
   haptic?: HapticKind | undefined;
+  /** Styles for the pressable, after the classes: colors or sizes from a theme object. */
+  style?: StyleProp<ViewStyle> | undefined;
+  /** The pressable (React 19 passes `ref` as a prop). */
+  ref?: Ref<ComponentRef<typeof View>> | undefined;
 }
 
 function NativeButton({
@@ -107,6 +112,7 @@ function NativeButton({
   loading,
   accessibilityState,
   haptic,
+  style,
   ...props
 }: NativeButtonProps) {
   const isDisabled = disabled || loading;
@@ -135,9 +141,10 @@ function NativeButton({
       onPressOut={feedback.onPressOut}
       disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading }}
-      style={gradientStyle}
+      accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading ?? accessibilityState?.busy }}
       {...props}
+      // The brand gradient under the caller's own style, not replaced by it.
+      style={gradientStyle ? [gradientStyle, style] : style}
     >
       {/* Inside the Pressable, which keeps the button's size and classes: a wrapper would lose a `flex-1`. */}
       <Animated.View style={[{ flexGrow: 1 }, feedback.style]}>

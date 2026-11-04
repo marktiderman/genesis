@@ -60,7 +60,7 @@ function formField(
             valueField: link.field,
             ...(link.labelField ? { labelField: link.labelField } : {}),
             ...(link.searchFields ? { searchFields: [...link.searchFields] } : {}),
-            ...(order ? { orderBy: { field: order.field, direction: order.direction } } : {}),
+            ...(order ? { orderBy: { field: order.field, direction: order.direction, ...(order.nulls ? { nulls: order.nulls } : {}) } } : {}),
             keys: "row" as const,
             filters: (values: Readonly<Record<string, unknown>>) => [...link.filters(scope, values), ...held],
             ...(f.missingLabel ? { missingLabel: f.missingLabel } : {}),

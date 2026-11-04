@@ -162,7 +162,12 @@ function HeaderImage({ image, className }: { image: { src: string; alt: string }
   );
 }
 
-function DefaultHeader({ title, description, image, requiredNote, className }: HeaderSlotProps) {
+/**
+ * The form's default header slot: title, description, image and the required note.
+ *
+ * @stability Beta
+ */
+export function DefaultHeader({ title, description, image, requiredNote, className }: HeaderSlotProps) {
   const { presentation, layout } = useFormPresentation();
   if (presentation === "page" && layout === "focus") {
     // A quiet line above the first question: the question is the headline.
@@ -213,7 +218,12 @@ function initials(name: string): string {
     .join("");
 }
 
-function DefaultBrand({ name, logo, className }: BrandSlotProps) {
+/**
+ * The form's default brand slot: a logo, or the name's initials, beside the name.
+ *
+ * @stability Beta
+ */
+export function DefaultBrand({ name, logo, className }: BrandSlotProps) {
   return (
     <div className={cn("flex min-w-0 items-center gap-2.5", className)} data-gf-brand="">
       {typeof logo === "string" ? (
@@ -235,7 +245,12 @@ function DefaultBrand({ name, logo, className }: BrandSlotProps) {
   );
 }
 
-function DefaultProgress({ step, total, className }: ProgressSlotProps) {
+/**
+ * The form's default progress slot: the step on the respondent's path, as a bar.
+ *
+ * @stability Beta
+ */
+export function DefaultProgress({ step, total, className }: ProgressSlotProps) {
   const { presentation } = useFormPresentation();
   const page = presentation === "page";
   if (!total) return null;
@@ -304,7 +319,12 @@ function ChevronLeftIcon() {
   );
 }
 
-function DefaultNavigation({
+/**
+ * The form's default navigation slot: Back, and Next or Send.
+ *
+ * @stability Beta
+ */
+export function DefaultNavigation({
   canGoBack,
   isLast,
   busy,
@@ -424,7 +444,12 @@ function focusErrorTarget(event: MouseEvent<HTMLAnchorElement>) {
   (control ?? target).focus();
 }
 
-function DefaultErrorSummary({ count, errors, className }: ErrorSummarySlotProps) {
+/**
+ * The form's default error summary slot: each answer that needs attention, linked to its question.
+ *
+ * @stability Beta
+ */
+export function DefaultErrorSummary({ count, errors, className }: ErrorSummarySlotProps) {
   const titleId = useId();
   return (
     // `<Form>` focuses the element marked data-gf-error-summary after a failed submit.
