@@ -1,0 +1,21 @@
+packages/ui/src/components/data/resource-view/ResourceBoard.tsx
+  s_e63e2ce0535b22::t_742218db5eae56 9,242-243
+packages/ui/src/components/data/use-resource-table.ts
+  s_e63e2ce0535b22::t_ab79b4f84c0ced 190
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9736ef95ff23d9639fc4daab96ec8947101524f9",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
