@@ -12,7 +12,7 @@ create table if not exists auth.users (
   raw_app_meta_data jsonb default '{}', raw_user_meta_data jsonb default '{}', created_at timestamptz default now(),
   deleted_at timestamptz, banned_until timestamptz, email_confirmed_at timestamptz);
 create or replace function auth.uid() returns uuid language sql stable as $$
-  select nullif(coalesce(current_setting('request.jwt.claim.sub', true), (nullif(current_setting('request.jwt.claims', true),'')::jsonb ->> 'sub')), '')::uuid $$;
+  select coalesce(nullif(current_setting('request.jwt.claim.sub', true), ''), (nullif(current_setting('request.jwt.claims', true),'')::jsonb ->> 'sub'))::uuid $$;
 create or replace function auth.role() returns text language sql stable as $$
   select coalesce(current_setting('request.jwt.claim.role', true), (nullif(current_setting('request.jwt.claims', true),'')::jsonb ->> 'role')) $$;
 create or replace function auth.jwt() returns jsonb language sql stable as $$
@@ -33,4 +33,8 @@ create or replace function realtime.topic() returns text language sql stable as 
 create or replace function realtime.send(payload jsonb, event text, topic text, private boolean default true) returns void language sql as $$ select null::void $$;
 grant usage on schema realtime to anon, authenticated, service_role;
 grant usage on schema public to anon, authenticated, service_role;
-alter default privileges in schema public grant all on tables to service_role;
+-- Supabase's default grants: what a migration creates is open to these roles until it revokes it,
+-- so a test that anon can't reach something means the migration closed it.
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;

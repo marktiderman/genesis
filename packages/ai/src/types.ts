@@ -151,6 +151,8 @@ export interface TaskDefinition<Args = unknown, L extends Loaded = Loaded, Out =
   output: "text" | AiSchema<Out>;
   /** The text the safety protocol reads (what the person wrote). Omit for tasks that read none. */
   safetyText?: ((loaded: L) => string) | undefined;
+  /** The task mustn't run without the app's safety protocol: `checkTasks` fails, and a call stops as `off`. */
+  safetyRequired?: boolean | undefined;
   guardrails?: { input?: Guardrail[] | undefined; output?: Guardrail[] | undefined } | undefined;
   /**
    * `person` (default): the person must have agreed to the vendor. `terms`: the app's terms or

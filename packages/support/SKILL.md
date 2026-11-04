@@ -29,6 +29,13 @@ migration of your own, and set the Edge Functions' secrets.
 | The web: the feedback panel and floating launcher | `@marktiderman/genesis-support/web` |
 | The record, `ContextCollector` and `FeedbackSink` seams | `@marktiderman/genesis-support` |
 
+## The help desk
+
+`genesis add support-helpdesk`. From `/web-chat`: `SupportMessengerLauncher` or `SupportMessenger`
+for people, `SupportAgentInbox` for agents, `SupportHelpCenterAdmin` for articles. From `/native`:
+`useMessengerHome`, `useHelpCenter`, `useHelpArticle`, `useStartConversation`. From `/ai`:
+`supportHelpAnswerTask`. See the README's "The help desk".
+
 ## Rules
 
 - Pass the block to `<GenesisNativeApp blocks>`; Settings gets its rows through the block, and
