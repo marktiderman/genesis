@@ -49,8 +49,13 @@ export function validateFigmaConfig(raw: unknown, source = "genesis.config.json"
 export function readFigmaConfig(root: string): FigmaConfig | null {
   const file = path.join(root, "genesis.config.json");
   if (!existsSync(file)) return null;
-  const raw = JSON.parse(readFileSync(file, "utf8")) as { figma?: unknown };
-  return raw.figma === undefined ? null : validateFigmaConfig(raw.figma, file);
+  let raw: { figma?: unknown } | null;
+  try {
+    raw = JSON.parse(readFileSync(file, "utf8")) as { figma?: unknown } | null;
+  } catch (err) {
+    throw new FigmaConfigError(`${file} isn't valid JSON: ${(err as Error).message}`);
+  }
+  return raw?.figma === undefined ? null : validateFigmaConfig(raw.figma, file);
 }
 
 // ---------------------------------------------------------------- routes
@@ -151,7 +156,8 @@ function withId(r: AppRoute, file: string): AppRoute {
 
 /**
  * The URL a route answers, as matcher segments: groups `(x)` and pathless `_x` segments dropped,
- * params (`$id`, `[id]`) as `*`, optional `{-$x}` as `?`.
+ * params (`$id`, `[id]`) as `*`, an Expo catch-all `[...rest]` as `**` (one or more segments),
+ * optional `{-$x}` as `?`.
  */
 function urlSegments(route: string): string[] {
   return route
@@ -159,7 +165,7 @@ function urlSegments(route: string): string[] {
     .split("/")
     .filter((s) => s && s !== "index" && !/^\(.*\)$/.test(s) && !/^_/.test(s))
     .map((s) => s.replace(/_$/, ""))
-    .map((s) => (/^\{-\$.*\}$/.test(s) ? "?" : /^\$|^\[.*\]$/.test(s) ? "*" : s));
+    .map((s) => (/^\{-\$.*\}$/.test(s) ? "?" : /^\[\.\.\..+\]$/.test(s) ? "**" : /^\$|^\[.*\]$/.test(s) ? "*" : s));
 }
 
 /** Does the route (as written) answer the URL `target` (a literal path)? */
@@ -176,6 +182,10 @@ export function routeMatches(route: string, target: string): boolean {
     const p = pattern[i]!;
     if (p === "?") return go(i + 1, j) || (j < url.length && go(i + 1, j + 1));
     if (j === url.length) return false;
+    if (p === "**") {
+      for (let k = j + 1; k <= url.length; k++) if (go(i + 1, k)) return true;
+      return false;
+    }
     return (p === "*" || p === url[j]) && go(i + 1, j + 1);
   };
   return go(0, 0);
@@ -202,6 +212,30 @@ const NAV_PATTERNS = [
   new RegExp(String.raw`\bnavigate\(\s*\{[^}]*?\bto\s*:\s*` + STR, "g"),
 ];
 
+/**
+ * Navigation the check can't resolve to a route: a template literal with `${…}` and a
+ * `{ pathname, params }` object. `target` is the expression as written (shortened).
+ */
+const DYNAMIC_PATTERNS = [
+  new RegExp(String.raw`\brouter\.(?:push|replace|navigate)\(\s*` + "(`[^`\\n]*\\$\\{[^`\\n]*`)", "g"),
+  new RegExp(String.raw`<Link\b[^>]*?\b(?:href|to)=\{\s*` + "(`[^`\\n]*\\$\\{[^`\\n]*`)", "g"),
+  new RegExp(String.raw`\bnavigate\(\s*\{[^}]*?\bto\s*:\s*` + "(`[^`\\n]*\\$\\{[^`\\n]*`)", "g"),
+  new RegExp(String.raw`\brouter\.(?:push|replace|navigate)\(\s*(\{[^}\n]*?\bpathname\b[^}\n]*\}?)`, "g"),
+  new RegExp(String.raw`<Link\b[^>]*?\bhref=\{(\{[^}\n]*?\bpathname\b[^}\n]*\}?)`, "g"),
+];
+
+/** Navigation the check can't resolve (see DYNAMIC_PATTERNS): reported as unchecked, never matched. */
+export function dynamicNavTargets(code: string, file: string): NavTarget[] {
+  const out: NavTarget[] = [];
+  for (const re of DYNAMIC_PATTERNS) {
+    for (const m of code.matchAll(re)) {
+      const raw = m[1]!.trim();
+      out.push({ file, line: code.slice(0, m.index).split("\n").length, target: raw.length > 60 ? `${raw.slice(0, 57)}...` : raw });
+    }
+  }
+  return out.sort((a, b) => a.line - b.line);
+}
+
 /** Navigation targets the code names as string literals. */
 export function navTargets(code: string, file: string): NavTarget[] {
   const out: NavTarget[] = [];
@@ -219,6 +253,12 @@ export function navTargets(code: string, file: string): NavTarget[] {
 export function appNavTargets(root: string): NavTarget[] {
   const files = [...new Set([...walk(path.join(root, "src")), ...walk(path.join(root, "app"))])];
   return files.flatMap((f) => navTargets(readFileSync(f, "utf8"), path.relative(root, f).split(path.sep).join("/")));
+}
+
+/** Every navigation in the app's code the check can't resolve (`dynamicNavTargets`). */
+export function appDynamicNavTargets(root: string): NavTarget[] {
+  const files = [...new Set([...walk(path.join(root, "src")), ...walk(path.join(root, "app"))])];
+  return files.flatMap((f) => dynamicNavTargets(readFileSync(f, "utf8"), path.relative(root, f).split(path.sep).join("/")));
 }
 
 // ---------------------------------------------------------------- Figma
@@ -256,9 +296,12 @@ export interface FigmaFacts {
   hotspots: Hotspot[];
 }
 
-export type FetchLike = (url: string, init: { headers: Record<string, string> }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
+export type FetchLike = (url: string, init: { headers: Record<string, string>; signal?: AbortSignal }) => Promise<{ ok: boolean; status: number; json(): Promise<unknown> }>;
 
 export const FIGMA_API = "https://api.figma.com";
+
+/** How long one Figma API request may take before the check gives up (doctor must not hang). */
+export const FIGMA_TIMEOUT_MS = 30_000;
 
 function splitName(name: string): { route: string; state?: string } {
   const i = name.indexOf(" · ");
@@ -278,11 +321,18 @@ export function destinations(node: FigmaNode, out = new Set<string>()): Set<stri
 const SCREEN_TYPES = new Set(["FRAME", "COMPONENT", "COMPONENT_SET", "INSTANCE"]);
 
 /** Read pages, frames and prototype links. The token goes in a header and nowhere else. */
-export async function readFigma(config: FigmaConfig, token: string, fetchImpl: FetchLike = fetch as unknown as FetchLike): Promise<FigmaFacts> {
+export async function readFigma(config: FigmaConfig, token: string, fetchImpl: FetchLike = fetch as unknown as FetchLike, timeoutMs = FIGMA_TIMEOUT_MS): Promise<FigmaFacts> {
   const get = async (p: string): Promise<unknown> => {
-    const res = await fetchImpl(`${FIGMA_API}${p}`, { headers: { "X-Figma-Token": token } });
-    if (!res.ok) throw new Error(`Figma API ${p.split("?")[0]} answered ${res.status}${res.status === 403 ? " (check FIGMA_ACCESS_TOKEN and its access to the file)" : ""}`);
-    return res.json();
+    const where = p.split("?")[0];
+    try {
+      const res = await fetchImpl(`${FIGMA_API}${p}`, { headers: { "X-Figma-Token": token }, signal: AbortSignal.timeout(timeoutMs) });
+      if (!res.ok) throw new Error(`Figma API ${where} answered ${res.status}${res.status === 403 ? " (check FIGMA_ACCESS_TOKEN and its access to the file)" : ""}`);
+      return await res.json();
+    } catch (err) {
+      const name = (err as Error | undefined)?.name;
+      if (name === "TimeoutError" || name === "AbortError") throw new Error(`Figma API ${where} didn't answer within ${Math.round(timeoutMs / 1000)}s`);
+      throw err;
+    }
   };
   const nodes = async (ids: string[], depth?: number): Promise<FigmaNode[]> => {
     const out: FigmaNode[] = [];
@@ -344,9 +394,11 @@ export interface CoverageReport {
   missingHotspots: MissingHotspot[];
   deadHotspots: { from: Frame; to: Frame }[];
   idMismatches: (AppRoute & { frames: string[] })[];
+  /** Navigation in a route file the check can't resolve (a template literal, a `{ pathname }` object): not checked. */
+  uncheckedNavigation: NavTarget[];
 }
 
-export function compare(config: FigmaConfig, routes: AppRoute[], targets: NavTarget[], figma: FigmaFacts): CoverageReport {
+export function compare(config: FigmaConfig, routes: AppRoute[], targets: NavTarget[], figma: FigmaFacts, dynamicTargets: NavTarget[] = []): CoverageReport {
   const platformOf = (page: string): Platform | undefined => (config.pages.web === page ? "web" : config.pages.native === page ? "native" : undefined);
   const routeFrames = figma.frames.filter((f) => platformOf(f.page));
   const framesFor = (r: AppRoute) => routeFrames.filter((f) => platformOf(f.page) === r.platform && (sameScreen(f.route, r.route) || (r.route === "index" && f.route === "/")));
@@ -386,6 +438,9 @@ export function compare(config: FigmaConfig, routes: AppRoute[], targets: NavTar
   const idMismatches = routes.filter((r) => r.figmaId && !framesFor(r).some((f) => f.id === r.figmaId)).map((r) => ({ ...r, frames: framesFor(r).map((f) => f.id) }));
 
   const wantedPages = [...Object.values(config.pages), config.proposalsPage];
+  // A page the config names that the file lacks is a gap: with no route page, nothing on it is checked.
+  const missingPages = wantedPages.filter((p) => !figma.pages.includes(p));
+  const uncheckedNavigation = dynamicTargets.filter((t) => routes.some((r) => r.file === t.file));
   return {
     file: config.file,
     summary: {
@@ -394,15 +449,16 @@ export function compare(config: FigmaConfig, routes: AppRoute[], targets: NavTar
       covered: covered.length,
       coveredPercent: routes.length ? Math.round((covered.length / routes.length) * 100) : 100,
       hotspots: figma.hotspots.length,
-      missing: routesWithoutFrame.length + missingHotspots.length + idMismatches.length,
+      missing: missingPages.length + routesWithoutFrame.length + missingHotspots.length + idMismatches.length,
     },
-    missingPages: wantedPages.filter((p) => !figma.pages.includes(p)),
+    missingPages,
     routesWithoutFrame,
     framesWithoutRoute,
     proposals,
     missingHotspots,
     deadHotspots,
     idMismatches,
+    uncheckedNavigation,
   };
 }
 
@@ -421,7 +477,7 @@ export async function checkFigmaRoutes(options: CheckOptions): Promise<CoverageR
   const token = options.token ?? process.env.FIGMA_ACCESS_TOKEN;
   if (!token) throw new FigmaConfigError("FIGMA_ACCESS_TOKEN isn't set");
   const figma = await readFigma(config, token, options.fetch);
-  return compare(config, appRoutes(options.root), appNavTargets(options.root), figma);
+  return compare(config, appRoutes(options.root), appNavTargets(options.root), figma, appDynamicNavTargets(options.root));
 }
 
 /** The report as text: a summary line, then one table per kind of finding. */
@@ -440,6 +496,7 @@ export function formatCoverage(r: CoverageReport): string {
   table("Navigation with no hotspot", ["from", "to", "at"], r.missingHotspots.map((m) => [m.from, `${m.to}${m.targetHasFrame ? "" : " (no frame)"}`, `${m.file}:${m.line}`]));
   table("Hotspots to a frame with no route", ["from", "to"], r.deadHotspots.map((d) => [d.from.name, d.to.name]));
   table("figma: ids that don't match the route's frame", ["route", "comment", "frames"], r.idMismatches.map((m) => [m.route, m.figmaId!, m.frames.join(", ") || "none"]));
+  table("Navigation not checked (not a string literal)", ["at", "target"], r.uncheckedNavigation.map((t) => [`${t.file}:${t.line}`, t.target]));
   table("Proposals", ["section", "frame", "id"], Object.entries(r.proposals).flatMap(([sec, fs]) => fs.map((f) => [sec, f.name, f.id])));
   return lines.join("\n");
 }
@@ -448,10 +505,12 @@ export function formatCoverage(r: CoverageReport): string {
 export function coverageFindings(r: CoverageReport, strict: boolean): { level: "info" | "warn"; file: string; line?: number; message: string; subject: string }[] {
   const gap = strict ? ("warn" as const) : ("info" as const);
   return [
+    ...r.missingPages.map((p) => ({ level: gap, file: `figma:${p}`, message: `the Figma file has no page "${p}" (named in genesis.config.json figma)`, subject: p })),
     ...r.routesWithoutFrame.map((x) => ({ level: gap, file: x.file, message: `route ${x.route} has no ${x.platform} frame in the Figma file`, subject: x.route })),
     ...r.missingHotspots.map((m) => ({ level: gap, file: m.file, line: m.line, message: `navigates to ${m.to}, but the ${m.from} frame has no hotspot to it${m.targetHasFrame ? "" : " (and it has no frame)"}`, subject: m.to })),
     ...r.idMismatches.map((m) => ({ level: gap, file: m.file, line: 1, message: `// figma: ${m.figmaId} isn't the frame named ${m.route} (${m.frames.join(", ") || "none"})`, subject: m.route })),
     ...r.framesWithoutRoute.map((f) => ({ level: "info" as const, file: `figma:${f.page}`, message: `frame "${f.name}" (${f.id}) has no route: move it to Proposals, or add the route`, subject: f.route })),
     ...r.deadHotspots.map((d) => ({ level: "info" as const, file: `figma:${d.from.page}`, message: `"${d.from.name}" links to "${d.to.name}", which has no route`, subject: d.to.route })),
+    ...r.uncheckedNavigation.map((t) => ({ level: "info" as const, file: t.file, line: t.line, message: `navigation to ${t.target} isn't a string literal, so it isn't checked against the Figma file`, subject: t.target })),
   ];
 }
