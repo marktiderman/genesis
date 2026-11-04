@@ -36,24 +36,10 @@ import { reportHeading, SupportError, type HelpArticleSummary, type HelpSearchHi
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { useHelpAsk, type HelpAnswerResponse, type UseHelpAsk } from "../help-ask";
 import type { FeedbackContext } from "../record";
-import { ThreadFileAttachment, ThreadFilesContext, threadAttachments, threadFiles } from "./thread-files";
+import { scopeOf, useResolvedTenant } from "./tenant";
+import { threadAttachments } from "./thread-files";
 
 export type MessengerSpace = "home" | "messages" | "help";
-
-/**
- * What a messenger's data belongs to, for its query keys: the client it reads through and the
- * tenant it names, so two clients, or the app's own and the client's option, never share a cache.
- */
-const clientIds = new WeakMap<SupportClient, number>();
-let nextClientId = 1;
-function scopeOf(client: SupportClient, tenantId: string | null | undefined): string {
-  let id = clientIds.get(client);
-  if (id === undefined) {
-    id = nextClientId++;
-    clientIds.set(client, id);
-  }
-  return `${id}:${tenantId === undefined ? "client-option" : (tenantId ?? "app")}`;
-}
 
 export const supportMessengerKeys = {
   all: ["genesis-support", "messenger"] as const,
@@ -114,7 +100,7 @@ function required<T>(method: T | undefined): NonNullable<T> {
 
 interface Shared {
   client: SupportClient;
-  tenantId: string | null | undefined;
+  tenantId: string | null;
   scope: string;
   copy: SupportCopy;
   go: (screen: Screen) => void;
@@ -161,8 +147,8 @@ function SearchForm({ copy, initial, onSearch }: { copy: SupportCopy; initial: s
 }
 
 function Home({ client, tenantId, scope, copy, go, here, report, greeting, onSearch }: Shared & { greeting: string | undefined; onSearch: ((query: string) => void) | null }) {
-  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(scope), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }) });
-  const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, null), queryFn: () => required(client.helpArticles)(tenantId === undefined ? {} : { tenantId }) });
+  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(scope), queryFn: () => required(client.ticketsInTenant)({ tenantId }) });
+  const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, null), queryFn: () => required(client.helpArticles)({ tenantId }) });
   useReported(tickets.error, report);
   useReported(articles.error, report);
   const latest = tickets.data?.[0];
@@ -200,7 +186,7 @@ function Home({ client, tenantId, scope, copy, go, here, report, greeting, onSea
 }
 
 function Messages({ client, tenantId, scope, copy, go, here, report }: Shared) {
-  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(scope), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }) });
+  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(scope), queryFn: () => required(client.ticketsInTenant)({ tenantId }) });
   useReported(tickets.error, report);
   const items = useMemo(() => ticketItems(tickets.data ?? [], copy, (id) => go({ name: "ticket", id, from: here })), [tickets.data, copy, go, here]);
   return (
@@ -348,9 +334,9 @@ function Help({
   aiOn,
   onConsent,
 }: Shared & { query: string; onSearch: (query: string) => void; ask: UseHelpAsk; aiOn: boolean; onConsent: (() => void) | undefined }) {
-  const collections = useQuery({ queryKey: supportMessengerKeys.collections(scope), queryFn: () => required(client.helpCollections)(tenantId === undefined ? {} : { tenantId }) });
-  const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, null), queryFn: () => required(client.helpArticles)(tenantId === undefined ? {} : { tenantId }) });
-  const hits = useQuery({ queryKey: supportMessengerKeys.search(scope, query), queryFn: () => required(client.searchHelp)(query, tenantId === undefined ? {} : { tenantId }), enabled: Boolean(query) });
+  const collections = useQuery({ queryKey: supportMessengerKeys.collections(scope), queryFn: () => required(client.helpCollections)({ tenantId }) });
+  const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, null), queryFn: () => required(client.helpArticles)({ tenantId }) });
+  const hits = useQuery({ queryKey: supportMessengerKeys.search(scope, query), queryFn: () => required(client.searchHelp)(query, { tenantId }), enabled: Boolean(query) });
   useReported(collections.error, report);
   useReported(articles.error, report);
   useReported(hits.error, report);
@@ -410,7 +396,7 @@ function Help({
 }
 
 function Collection({ client, tenantId, scope, copy, go, here, report, id }: Shared & { id: string }) {
-  const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, id), queryFn: () => required(client.helpArticles)({ ...(tenantId === undefined ? {} : { tenantId }), collectionId: id }) });
+  const articles = useQuery({ queryKey: supportMessengerKeys.articles(scope, id), queryFn: () => required(client.helpArticles)({ tenantId, collectionId: id }) });
   useReported(articles.error, report);
   return (
     <InboxPage
@@ -429,7 +415,7 @@ function Collection({ client, tenantId, scope, copy, go, here, report, id }: Sha
 }
 
 function Article({ client, tenantId, scope, copy, go, here, report, slug }: Shared & { slug: string }) {
-  const article = useQuery({ queryKey: supportMessengerKeys.article(scope, slug), queryFn: () => required(client.helpArticle)(slug, tenantId === undefined ? {} : { tenantId }) });
+  const article = useQuery({ queryKey: supportMessengerKeys.article(scope, slug), queryFn: () => required(client.helpArticle)(slug, { tenantId }) });
   useReported(article.error, report);
   if (article.isPending) {
     return (
@@ -478,7 +464,7 @@ function Compose({ client, tenantId, scope, copy, go, report, context, from }: S
     setSending(true);
     setFailed(false);
     client
-      .submit({ type: "question", message: words, context: context(), ...(tenantId === undefined ? {} : { tenantId }) })
+      .submit({ type: "question", message: words, context: context(), tenantId })
       .then(({ id: ticket }) => {
         void queryClient.invalidateQueries({ queryKey: supportMessengerKeys.tickets(scope) });
         // Back from the thread goes where they started, not to this form.
@@ -508,8 +494,6 @@ function Compose({ client, tenantId, scope, copy, go, report, context, from }: S
     </form>
   );
 }
-
-const threadSlots = { attachment: ThreadFileAttachment };
 
 /** A person's conversation. Keyed by ticket, so a draft never follows them to another one. */
 function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
@@ -547,10 +531,10 @@ function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, 
   }, [client, id, latest, active, scope, queryClient, report]);
 
   const shown = useMemo(() => (replies.data ?? []).filter((r) => !r.internal), [replies.data]);
-  const files = useMemo(() => threadFiles(shown, copy), [shown, copy]);
+  const threadFailed = replies.isError && !replies.data;
   const t = ticket.data;
   const messages = useMemo<ThreadMessage[]>(() => {
-    if (!t) return [];
+    if (!t || threadFailed) return [];
     return [
       // The ticket's own words come first: they aren't a message in its conversation.
       { id: t.id, body: t.message, mine: true, timestamp: t.createdAt },
@@ -559,9 +543,8 @@ function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, 
         const name = r.mine ? undefined : resolveUser && r.authorId ? resolveUser(r.authorId).name : copy.thread.support;
         return { id: r.id, body: r.body, mine: r.mine, ...(name ? { authorName: name } : {}), timestamp: r.createdAt, ...(attachments.length ? { attachments } : {}) };
       }),
-      ...(replies.isError && !replies.data ? [{ id: "thread-failed", kind: "event" as const, body: copy.agentInbox.threadErrorTitle, mine: false, timestamp: t.createdAt }] : []),
     ];
-  }, [t, shown, replies.isError, replies.data, resolveUser, copy]);
+  }, [t, threadFailed, shown, resolveUser, copy]);
 
   if (ticket.isPending) {
     return (
@@ -595,8 +578,7 @@ function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, 
       .finally(() => setSending(false));
   };
   return (
-    <ThreadFilesContext.Provider value={files}>
-      <ThreadPage
+    <ThreadPage
         conversationId={id}
         testID="genesis-support-messenger-thread"
         messages={messages}
@@ -604,10 +586,13 @@ function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, 
         readAt={t.staffReadAt}
         readLabel={copy.thread.read}
         labels={{ you: copy.thread.you }}
-        slots={threadSlots}
+        error={threadFailed}
+        errorTitle={copy.agentInbox.threadErrorTitle}
+        errorBody={copy.messenger.errorBody}
+        onRetry={() => void replies.refetch()}
         {...(CLOSED.has(t.status) ? { closedNotice: copy.thread.closed } : {})}
         composer={
-          CLOSED.has(t.status) || (replies.isError && !replies.data)
+          CLOSED.has(t.status) || threadFailed
             ? null
             : {
                 value: draft,
@@ -630,7 +615,6 @@ function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, 
               }
         }
       />
-    </ThreadFilesContext.Provider>
   );
 }
 
@@ -642,11 +626,14 @@ function useReported(error: unknown, report: (error: unknown) => void) {
 
 /** The messenger: Home, Messages and Help, in whatever holds it. Another tenant is another messenger: nothing carries over. */
 export function SupportMessenger(props: SupportMessengerProps) {
-  return <Messenger key={scopeOf(props.client, props.tenantId)} {...props} />;
+  const tenant = useResolvedTenant(props.client, props.tenantId);
+  if (!tenant.ready) return <Skeleton data-testid="genesis-support-messenger-loading" className="h-64 w-full" />;
+  return <Messenger key={scopeOf(props.client, tenant.tenantId)} {...props} tenantId={tenant.tenantId} />;
 }
 
-function Messenger({ client, tenantId, spaces = SPACES, greeting, askAi, onAiConsent, active = true, resolveUser, context = defaultContext, copy: copyOverrides, onError, className }: SupportMessengerProps) {
+function Messenger({ client, tenantId: tenantProp, spaces = SPACES, greeting, askAi, onAiConsent, active = true, resolveUser, context = defaultContext, copy: copyOverrides, onError, className }: SupportMessengerProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
+  const tenantId = tenantProp ?? null;
   const scope = scopeOf(client, tenantId);
   const first = spaces[0] ?? "home";
   const [screen, setScreen] = useState<Screen>({ name: "space", space: first });
@@ -656,7 +643,7 @@ function Messenger({ client, tenantId, spaces = SPACES, greeting, askAi, onAiCon
   const report = useCallback((error: unknown) => errors.current?.(error), []);
   const ai = useQuery({
     queryKey: supportMessengerKeys.ai(scope),
-    queryFn: () => required(client.helpAiEnabled)(tenantId === undefined ? {} : { tenantId }),
+    queryFn: () => required(client.helpAiEnabled)({ tenantId }),
     enabled: Boolean(askAi && spaces.includes("help")),
     staleTime: 5 * 60_000,
   });
@@ -748,12 +735,13 @@ const POSITIONS = { "bottom-right": "fixed bottom-4 right-4 z-50", "bottom-left"
 
 /** A button with the unread count that opens the messenger: in the chat dock when there is one, else a sheet. */
 export function SupportMessengerLauncher({ position = "bottom-right", label, onExpand, refreshInterval = 60_000, ...messenger }: SupportMessengerLauncherProps) {
-  const { client, tenantId } = messenger;
+  const { client } = messenger;
+  const { ready, tenantId } = useResolvedTenant(client, messenger.tenantId);
   const copy = useMemo(() => resolveSupportCopy(messenger.copy), [messenger.copy]);
   const dock = useOptionalChatDock();
   const [sheet, setSheet] = useState(false);
   const scope = scopeOf(client, tenantId);
-  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(scope), queryFn: () => required(client.ticketsInTenant)(tenantId === undefined ? {} : { tenantId }), refetchInterval: refreshInterval });
+  const tickets = useQuery({ queryKey: supportMessengerKeys.tickets(scope), queryFn: () => required(client.ticketsInTenant)({ tenantId }), enabled: ready, refetchInterval: refreshInterval });
   const unread = (tickets.data ?? []).filter((t) => t.unread).length;
   const title = label ?? copy.messenger.title;
 

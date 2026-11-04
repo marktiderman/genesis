@@ -7,7 +7,7 @@
 -- client of tb; c3 an agent of ta; e5 an agent of tb; f6 the app's staff; g7 a client of tc.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(74);
+select plan(89);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -28,7 +28,8 @@ create function pg_temp.id(n text) returns uuid language sql stable as $$ select
 insert into auth.users (id, aud, role, email, instance_id)
 select pg_temp.person(n), 'authenticated', 'authenticated', 'genesis-help-' || n || '@example.test',
        '00000000-0000-0000-0000-000000000000'
-from unnest(array['a1', 'b2', 'c3', 'e5', 'f6', 'a7']) n;
+from unnest(array['a1', 'b2', 'c3', 'e5', 'f6', 'a7', 'a8', 'a9']) n;
+update auth.users set is_anonymous = true where id = pg_temp.person('a9');
 
 create or replace function private.genesis_support_default_tenant() returns uuid
 language sql stable set search_path = '' as $$ select '00000000-0000-4000-8000-00000000000f'::uuid $$;
@@ -36,6 +37,8 @@ create or replace function private.genesis_viewer_people(viewer uuid)
 returns table (tenant_id uuid, person_id uuid) language sql stable set search_path = '' as $$
   select t.tenant_id, viewer from (values
     ('00000000-0000-4000-8000-0000000004a1'::uuid, '00000000-0000-4000-8000-0000000000a0'::uuid),
+    ('00000000-0000-4000-8000-0000000004a8', '00000000-0000-4000-8000-0000000000a0'),
+    ('00000000-0000-4000-8000-0000000004a9', '00000000-0000-4000-8000-0000000000a0'),
     ('00000000-0000-4000-8000-0000000004c3', '00000000-0000-4000-8000-0000000000a0'),
     ('00000000-0000-4000-8000-0000000004b2', '00000000-0000-4000-8000-0000000000b0'),
     ('00000000-0000-4000-8000-0000000004e5', '00000000-0000-4000-8000-0000000000b0'),
@@ -59,6 +62,11 @@ insert into public.tenant_features (tenant_id, feature_id, enabled, reason) valu
   (pg_temp.tenant('ta'), 'support-helpdesk', true, 'test'),
   (pg_temp.tenant('tb'), 'support-helpdesk', true, 'test')
 on conflict (tenant_id, feature_id) do update set enabled = true;
+
+-- genesis-ai's budgets, for an app without it, and none set yet.
+create schema if not exists genesis_ai;
+create table if not exists genesis_ai.budgets (scope text primary key, monthly_usd numeric);
+delete from genesis_ai.budgets;
 
 -- Shape and access ----------------------------------------------------------------------------
 
@@ -146,6 +154,13 @@ set local role authenticated;
 select pg_temp.sign_in('a7');
 select is((select count(*)::int from public.support_help_articles(pg_temp.tenant('tc'))), 0, 'a help desk that''s off shows its people nothing');
 
+select pg_temp.sign_in('c3');
+insert into ids select 'col2', public.support_save_collection(null, pg_temp.tenant('ta'), 'Short lived');
+insert into ids select 'in2', (public.support_save_article(null, pg_temp.tenant('ta'), pg_temp.id('col2'), 'in-short-lived', 'In short lived', null, 'Words', 'draft')).saved_id;
+select lives_ok($$ select public.support_delete_collection(pg_temp.id('col2')) $$, 'deleting a collection');
+select is((select collection_id from public.help_articles where id = pg_temp.id('in2')), null, '... leaves its articles, in none');
+
+select pg_temp.sign_in('a1');
 -- Search --------------------------------------------------------------------------------------
 
 select pg_temp.sign_in('a1');
@@ -165,7 +180,32 @@ select ok(not public.support_ai_enabled(), '... the app''s own tenant included')
 reset role;
 insert into public.tenant_features (tenant_id, feature_id, enabled, reason) values (pg_temp.tenant('ta'), 'support-helpdesk-ai', true, 'test');
 set local role authenticated;
-select ok(public.support_ai_enabled(pg_temp.tenant('ta')), 'a tenant opts in');
+select ok(not public.support_ai_enabled(pg_temp.tenant('ta')), 'opting in isn''t enough without a budget');
+select throws_ok($$ select public.support_ask('00000000-0000-4000-8000-0000000000a0', 'How do I reset it?') $$, '42501', null, '... nobody can ask yet');
+reset role;
+insert into genesis_ai.budgets (scope, monthly_usd) values ('tenant:' || pg_temp.tenant('ta'), null);
+insert into genesis_ai.budgets (scope, monthly_usd) values ('default', 50);
+set local role authenticated;
+select ok(not public.support_ai_enabled(pg_temp.tenant('ta')), 'a tenant''s row with no monthly limit is no limit, whatever the default says');
+reset role;
+delete from genesis_ai.budgets where scope = 'tenant:' || pg_temp.tenant('ta');
+set local role authenticated;
+select ok(public.support_ai_enabled(pg_temp.tenant('ta')), 'a default budget will do');
+reset role;
+delete from genesis_ai.budgets where scope = 'default';
+insert into genesis_ai.budgets (scope, monthly_usd) values ('tenant:' || pg_temp.tenant('ta'), 50);
+set local role authenticated;
+select ok(public.support_ai_enabled(pg_temp.tenant('ta')), 'a tenant opts in, with its own budget');
+select pg_temp.sign_in('a9');
+select ok(not public.support_ai_enabled(pg_temp.tenant('ta')), 'an anonymous sign-in has no AI');
+select throws_ok($$ select public.support_ask('00000000-0000-4000-8000-0000000000a0', 'Spend it') $$, '42501', null, '... and can''t ask');
+select pg_temp.sign_in('a8');
+select is((select count(*)::int from generate_series(1, 30) as n, lateral public.support_ask(pg_temp.tenant('ta'), 'One of many ' || n)), 30, 'thirty questions in an hour');
+select throws_ok($$ select public.support_ask('00000000-0000-4000-8000-0000000000a0', 'One more') $$, 'GS429', null, '... and no more');
+reset role;
+delete from public.help_questions where question like 'One of many%';
+set local role authenticated;
+select pg_temp.sign_in('a1');
 select pg_temp.sign_in('b2');
 select throws_ok($$ select public.support_ask('00000000-0000-4000-8000-0000000000a0', 'Let me in') $$, '42501', null, 'someone of another tenant can''t ask there');
 select pg_temp.sign_in('a1');
@@ -173,6 +213,8 @@ insert into ids select 'q1', public.support_ask(pg_temp.tenant('ta'), 'How do I 
 insert into ids select 'q2', public.support_ask(pg_temp.tenant('ta'), 'Something else');
 select ok(not has_function_privilege('authenticated', 'public.support_record_answer(uuid, text, text, uuid[])', 'execute'), 'nobody signed in records an answer: only the server does');
 select throws_ok($$ select public.support_close_question(pg_temp.id('q1'), 'resolved') $$, '22023', null, 'nothing resolves before it''s answered');
+select pg_temp.sign_in('c3');
+select is((select count(*)::int from public.help_questions where id = pg_temp.id('q1')), 0, 'agents don''t read a question nothing has come of yet');
 select pg_temp.sign_in('b2');
 select throws_ok($$ select public.support_claim_question(pg_temp.id('q1')) $$, '42501', null, 'someone else can''t take a question');
 select pg_temp.sign_in('a1');
@@ -193,6 +235,13 @@ select is((select question from public.help_questions where id = pg_temp.id('q2'
 insert into public.help_questions (tenant_id, user_id, question) values (pg_temp.tenant('ta'), pg_temp.person('a1'), 'Before agreeing');
 select is(public.support_record_answer((select id from public.help_questions where question = 'Before agreeing'), 'no_consent'), 'no_consent', 'a question asked before agreeing');
 select is((select count(*)::int from public.help_questions where question = 'Before agreeing'), 0, '... isn''t kept');
+insert into public.help_questions (tenant_id, user_id, question, created_at) values (pg_temp.tenant('ta'), pg_temp.person('a1'), 'Long stuck', now() - interval '2 days');
+insert into public.help_questions (tenant_id, user_id, question) values (pg_temp.tenant('ta'), pg_temp.person('a1'), 'Just asked');
+select ok(not has_function_privilege('authenticated', 'public.support_purge_stuck_questions(interval)', 'execute'), 'only the server purges');
+select is(public.support_purge_stuck_questions(), 1, 'a stuck question is purged');
+select is((select count(*)::int from public.help_questions where question = 'Long stuck'), 0, '... with its words');
+select is((select count(*)::int from public.help_questions where question = 'Just asked'), 1, 'but not one just asked');
+delete from public.help_questions where question = 'Just asked';
 set local role authenticated;
 select pg_temp.sign_in('a1');
 select lives_ok($$ select public.support_close_question(pg_temp.id('q1'), 'resolved') $$, 'it helped');
@@ -200,7 +249,7 @@ select is((select outcome from public.help_questions where id = pg_temp.id('q1')
 select pg_temp.sign_in('b2');
 select is((select count(*)::int from public.help_questions), 0, 'someone else reads no question');
 select pg_temp.sign_in('c3');
-select is((select count(*)::int from public.help_questions), 4, 'the tenant''s agents read its questions');
+select is((select count(*)::int from public.help_questions), 5, 'the tenant''s agents read what came of its questions');
 
 reset role;
 select * from finish();

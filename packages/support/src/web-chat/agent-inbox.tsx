@@ -19,11 +19,6 @@ import {
   InboxLayout,
   InboxPage,
   InboxViews,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Skeleton,
   ThreadPage,
   cn,
@@ -40,7 +35,8 @@ import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides }
 import { isSitePath } from "../routes";
 import { supportWebKeys } from "./report-thread";
 import { TicketControls } from "./staff-thread";
-import { ThreadFileAttachment, ThreadFilesContext, threadAttachments, threadFiles } from "./thread-files";
+import { scopeOf, useResolvedTenant } from "./tenant";
+import { threadAttachments } from "./thread-files";
 
 /** The agent inbox's query keys, under genesis-support's root. */
 export const supportInboxKeys = {
@@ -54,7 +50,7 @@ export const supportInboxKeys = {
 export interface SupportAgentInboxProps {
   /** A support client, made with the `chat` option for internal notes and live threads. */
   client: SupportClient;
-  /** Whose help desk: the viewer's current workspace. Left out or null, the app's own tickets. */
+  /** Whose help desk: the viewer's current workspace. Null is the app's own. Left out, the client's `tenantId`, else the app's own. */
   tenantId?: string | null;
   /** The open ticket, from the app's router. */
   ticketId: string | null;
@@ -108,6 +104,8 @@ interface PaneValue {
   copy: SupportCopy;
   agents?: readonly { id: string; name: string }[] | undefined;
   failed: boolean;
+  /** The layout's Details button, in the thread's own header. */
+  contextToggle: ReactNode;
   onStatus: (status: AgentTicket["status"]) => void;
   onAssign: (userId: string | null) => void;
 }
@@ -119,7 +117,10 @@ function TicketHeaderRegion({ testID }: ThreadPageSlotMap["headerRegion"]) {
   if (!pane) return null;
   return (
     <div data-testid={testID} className="flex flex-col gap-3 border-b p-4">
-      <h2 className="text-base font-semibold [overflow-wrap:anywhere]">{reportHeading(pane.ticket)}</h2>
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="text-base font-semibold [overflow-wrap:anywhere]">{reportHeading(pane.ticket)}</h2>
+        {pane.contextToggle}
+      </div>
       <TicketControls
         status={pane.ticket.status}
         assignee={pane.ticket.assigneeId}
@@ -143,16 +144,17 @@ interface PaneProps {
   resolveUser: ResolveUser;
   agents?: readonly { id: string; name: string }[] | undefined;
   slots?: ThreadPageProps["slots"] | undefined;
+  contextToggle: ReactNode;
   copy: SupportCopy;
   onError?: ((error: unknown) => void) | undefined;
 }
 
 const NOTE = "note";
 const REPLY = "reply";
-const paneSlots = { headerRegion: TicketHeaderRegion, attachment: ThreadFileAttachment };
+const paneSlots = { headerRegion: TicketHeaderRegion };
 
 /** The open ticket's thread. Keyed by ticket, so a draft never follows you to another one. */
-function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError }: PaneProps) {
+function TicketPane({ client, ticket, resolveUser, agents, slots, contextToggle, copy, onError }: PaneProps) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<string>(REPLY);
@@ -209,16 +211,11 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
 
   const requester = requesterOf(ticket, resolveUser, copy);
   // The ticket's own words come first: they aren't a message in its conversation.
+  const threadFailed = replies.isError && !replies.data;
   const messages = useMemo<ThreadMessage[]>(
-    () => [
-      { id: ticket.id, body: ticket.message, mine: false, authorName: requester, timestamp: ticket.createdAt },
-      ...(replies.data ?? []).map((r) => toMessage(r, resolveUser, requester, copy)),
-      // A thread that didn't load says so: the ticket's words alone would read as nothing said since.
-      ...(replies.isError && !replies.data ? [{ id: "thread-failed", kind: "event" as const, body: copy.agentInbox.threadErrorTitle, mine: false, timestamp: ticket.createdAt }] : []),
-    ],
-    [ticket.id, ticket.message, ticket.createdAt, replies.data, replies.isError, resolveUser, requester, copy],
+    () => (threadFailed ? [] : [{ id: ticket.id, body: ticket.message, mine: false, authorName: requester, timestamp: ticket.createdAt }, ...(replies.data ?? []).map((r) => toMessage(r, resolveUser, requester, copy))]),
+    [threadFailed, ticket.id, ticket.message, ticket.createdAt, replies.data, resolveUser, requester, copy],
   );
-  const files = useMemo(() => threadFiles(replies.data ?? [], copy), [replies.data, copy]);
   // Never the requester, who can't handle their own ticket; always whoever has it now, so the picker shows them.
   const assignable = useMemo(() => {
     if (!agents) return undefined;
@@ -227,7 +224,6 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
     return current && !list.some((a) => a.id === current) ? [{ id: current, name: resolveUser(current).name }, ...list] : list;
   }, [agents, ticket.userId, ticket.assigneeId, resolveUser]);
   const threadSlots = useMemo(() => ({ ...paneSlots, ...slots }), [slots]);
-  const threadFailed = replies.isError && !replies.data;
 
   const change = (work: Promise<unknown>) =>
     work
@@ -263,17 +259,21 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
     copy,
     agents: assignable,
     failed: changeFailed,
+    contextToggle,
     onStatus: (status) => void change(client.setStatus(ticket.id, status)),
     onAssign: (userId) => void change(client.assign(ticket.id, userId)),
   };
 
   return (
     <PaneContext.Provider value={pane}>
-      <ThreadFilesContext.Provider value={files}>
       <ThreadPage
         conversationId={ticket.id}
         messages={messages}
         loading={replies.isPending}
+        error={threadFailed}
+        errorTitle={copy.agentInbox.threadErrorTitle}
+        errorBody={copy.agentInbox.errorBody}
+        onRetry={() => void replies.refetch()}
         readAt={ticket.userReadAt}
         readLabel={copy.thread.read}
         labels={{ you: copy.thread.you, internal: copy.thread.internalNote }}
@@ -288,6 +288,7 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
           placeholder: mode === NOTE ? copy.agentInbox.notePlaceholder : copy.thread.placeholder,
           sendLabel: copy.thread.send,
           sendingLabel: copy.feedback.sending,
+          modesLabel: copy.agentInbox.modesLabel,
           // Notes need the conversation: without chat, only a reply.
           ...(live
             ? {
@@ -310,7 +311,6 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, copy, onError 
             : {}),
         }}
       />
-      </ThreadFilesContext.Provider>
     </PaneContext.Provider>
   );
 }
@@ -387,8 +387,14 @@ function TicketDetails({ client, ticket, resolveUser, context, copy }: Pick<Pane
   );
 }
 
-/** A tenant's help desk inbox: its queues, the open ticket's thread and its details. */
-export function SupportAgentInbox({
+/** A tenant's help desk inbox: its queues, the open ticket's thread and its details. Another tenant is a fresh inbox. */
+export function SupportAgentInbox(props: SupportAgentInboxProps) {
+  const tenant = useResolvedTenant(props.client, props.tenantId);
+  if (!tenant.ready) return <Skeleton className="h-64 w-full" />;
+  return <AgentInbox key={scopeOf(props.client, tenant.tenantId)} {...props} tenantId={tenant.tenantId} />;
+}
+
+function AgentInbox({
   client,
   tenantId = null,
   ticketId,
@@ -476,6 +482,7 @@ export function SupportAgentInbox({
     <InboxLayout
       className={cn("h-full", className)}
       testID="genesis-support-agent-inbox"
+      activeViewLabel={copy.agentInbox.views[view]}
       threadOpen={Boolean(ticketId)}
       onBack={() => onTicketChange(null)}
       {...(contextStorageKey ? { contextStorageKey } : {})}
@@ -502,23 +509,6 @@ export function SupportAgentInbox({
       list={
         <InboxPage
           testID="genesis-support-agent-list"
-          // The views rail shows from lg up: below that, the same choice over the list.
-          header={
-            <div className="border-b p-2 lg:hidden">
-              <Select value={view} onValueChange={(value) => setView(value as TicketInboxView)}>
-                <SelectTrigger aria-label={copy.agentInbox.viewLabel} data-testid="genesis-support-agent-view-picker">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {views.map((id) => (
-                    <SelectItem key={id} value={id}>
-                      {copy.agentInbox.views[id]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          }
           items={items}
           selectedId={ticketId}
           onSelect={(id) => onTicketChange(id)}
@@ -539,9 +529,9 @@ export function SupportAgentInbox({
           {...(slots?.list ? { slots: slots.list } : {})}
         />
       }
-      thread={
+      thread={({ contextToggle }) =>
         ticket ? (
-          <TicketPane key={ticket.id} client={client} ticket={ticket} resolveUser={resolveUser} agents={agents} slots={slots?.thread} copy={copy} onError={onError} />
+          <TicketPane key={ticket.id} contextToggle={contextToggle} client={client} ticket={ticket} resolveUser={resolveUser} agents={agents} slots={slots?.thread} copy={copy} onError={onError} />
         ) : ticketId && open.isPending ? (
           <div className="flex flex-col gap-3 p-4" aria-busy="true" data-testid="genesis-support-agent-thread-loading">
             <Skeleton className="h-16 w-full" />

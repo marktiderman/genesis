@@ -173,7 +173,7 @@ export interface SupportReply {
 export interface SupportReplyAttachment extends Omit<SupportChatAttachment, "url"> {
   /** A signed URL (or the attachment's own https URL); null when it couldn't be signed. */
   url: string | null;
-  /** The URL is a signed one from this app's storage. False: an address from outside it. */
+  /** The URL is a signed one from this app's storage. False: an address from outside it, which loads nothing until asked. */
   stored: boolean;
 }
 
@@ -208,6 +208,8 @@ export interface SupportClient extends FeedbackSink {
   myReports(options?: { limit?: number; tenantId?: string | null }): Promise<SupportReport[]>;
   /** The signed-in person's tickets, newest first (the new name for `myReports`). Needs migration 0004. */
   myTickets?(options?: { limit?: number; tenantId?: string | null }): Promise<Ticket[]>;
+  /** The tenant calls go to when none is named: the client's `tenantId` as it is now, else null, the app's own. */
+  currentTenant?(): Promise<string | null>;
   /** Their tickets in one help desk: the tenant given, else the client's `tenantId`, else the app's own. Needs migration 0004. */
   ticketsInTenant?(options?: { limit?: number; tenantId?: string | null }): Promise<Ticket[]>;
   /** Does the signed-in person handle tickets in this tenant (an agent, a tenant admin)? Needs migration 0004. */
@@ -699,6 +701,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       return { mine: count("mine"), unassigned: count("unassigned"), all: count("all") };
     },
 
+    currentTenant: () => scope(undefined),
     async ticketsInTenant({ limit = 50, tenantId } = {}) {
       const tenant = (await scope(tenantId)) ?? must<string>("ticketsInTenant", await supabase.rpc("support_default_tenant"));
       return client.myReports({ limit, tenantId: tenant });

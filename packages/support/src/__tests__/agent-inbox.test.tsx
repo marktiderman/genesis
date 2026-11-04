@@ -329,7 +329,7 @@ describe("SupportAgentInbox", () => {
     expect(inside.querySelector("img")).not.toBeNull();
     const outside = screen.getByTestId("genesis-support-agent-thread-attachment-out");
     expect(outside.querySelector("img")).toBeNull();
-    expect(outside.textContent).toBe("b.png (elsewhere.test)");
+    expect(outside.textContent).toContain("b.png (elsewhere.test)");
   });
 
   it("has no note mode without chat", async () => {
@@ -357,8 +357,9 @@ describe("SupportAgentInbox", () => {
       { ticketId: "t1" },
     );
     const link = await screen.findByTestId("genesis-support-agent-thread-attachment-pdf");
-    expect(link.getAttribute("href")).toBe("https://files.test/invoice.pdf");
-    expect(link.textContent).toBe("invoice.pdf (files.test)");
+    const anchor = link.tagName === "A" ? link : link.querySelector("a");
+    expect(anchor?.getAttribute("href")).toBe("https://files.test/invoice.pdf");
+    expect(link.textContent).toContain("invoice.pdf (files.test)");
     expect(link.querySelector("img")).toBeNull();
     expect(screen.queryByTestId("genesis-support-agent-thread-attachment-bad")).toBeNull();
   });

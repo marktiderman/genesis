@@ -9,10 +9,10 @@ vi.mock("@marktiderman/genesis-ai/server", () => ({ runTask: run }));
 const QUESTION = "33333333-3333-4333-8333-333333333333";
 const ARTICLE = "11111111-1111-4111-8111-111111111111";
 
-const db = () => {
+const db = (outcome = "asked") => {
   const builder: Record<string, unknown> = {};
   for (const op of ["select", "eq"]) builder[op] = () => builder;
-  builder["maybeSingle"] = async () => ({ data: { tenant_id: "ta" }, error: null });
+  builder["maybeSingle"] = async () => ({ data: { tenant_id: "ta", question: "How do I reset?", outcome }, error: null });
   return { from: vi.fn(() => builder), rpc: vi.fn() };
 };
 const admin = (answer: () => { data: unknown; error: unknown } = () => ({ data: "answered", error: null })) => ({
@@ -20,7 +20,8 @@ const admin = (answer: () => { data: unknown; error: unknown } = () => ({ data: 
 });
 const ok = (output: unknown) => ({ ok: true, output });
 const AI = { config: { safety: () => null } };
-const answer = (_ai: unknown, keeper: ReturnType<typeof admin>) => answerHelpQuestion(AI as never, { questionId: QUESTION, context: { tenantId: "session", personId: "me", db: db() as never }, admin: keeper });
+const answer = (_ai: unknown, keeper: ReturnType<typeof admin>, onError?: (error: unknown) => void, outcome = "asked", ai: unknown = AI) =>
+  answerHelpQuestion(ai as never, { questionId: QUESTION, context: { tenantId: "session", personId: "me", db: db(outcome) as never }, admin: keeper, ...(onError ? { onError } : {}) });
 
 describe("answerHelpQuestion", () => {
   beforeEach(() => run.mockReset());
@@ -71,6 +72,39 @@ describe("answerHelpQuestion", () => {
     const keeper = admin();
     expect(await answer({}, keeper)).toEqual({ status: "none" });
     expect(keeper.rpc).not.toHaveBeenCalled();
+  });
+
+  it("gives the fixed line to a retry of what the protocol already took", async () => {
+    const keeper = admin();
+    expect(await answer({}, keeper, undefined, "safety_routed")).toEqual({ status: "safety", response: null });
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("gives the loser of a double submit the protocol's words", async () => {
+    const { HELP_AI_REFUSALS } = await import("../ai");
+    run.mockResolvedValue({ ok: false, outcome: "invalid_input", message: HELP_AI_REFUSALS.answered });
+    const keeper = admin();
+    const ai = { config: { safety: () => ({ category: "crisis", response: "Please call." }) } };
+    expect(await answer({}, keeper, undefined, "answering", ai)).toEqual({ status: "safety", response: "Please call." });
+    expect(keeper.rpc).not.toHaveBeenCalled();
+  });
+
+  it("never hands onError the request, which holds the prompt", async () => {
+    run.mockResolvedValue({ ok: false, outcome: "over_budget", message: "Used up." });
+    const error = Object.assign(new Error("Bad request"), { requestBodyValues: { messages: ["their words"] } });
+    const keeper = { rpc: vi.fn(async () => Promise.reject(error)) };
+    const onError = vi.fn();
+    expect(await answer({}, keeper as never, onError)).toEqual({ status: "none" });
+    const reported = onError.mock.calls[0]?.[0] as Error;
+    expect(reported.message).toBe("Bad request");
+    expect(Object.getOwnPropertyNames(reported)).not.toContain("requestBodyValues");
+  });
+
+  it("ends at none when the first read throws", async () => {
+    const onError = vi.fn();
+    const throwing = { from: () => { throw new Error("offline"); }, rpc: vi.fn() };
+    expect(await answerHelpQuestion(AI as never, { questionId: QUESTION, context: { tenantId: "t", personId: "me", db: throwing as never }, admin: admin(), onError })).toEqual({ status: "none" });
+    expect(onError).toHaveBeenCalled();
   });
 
   it("still gives a safety route's words when recording it fails", async () => {

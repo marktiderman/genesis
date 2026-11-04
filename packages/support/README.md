@@ -271,15 +271,22 @@ body is plain text, and a blank line starts a paragraph. Anon reads nothing thro
 a public help center, `helpCenterPages({ collections, articles })` gives genesis-sites pages to add
 to the tenant's site and publish.
 
-**AI answers** are off until a tenant opts in, with an enabled `support-helpdesk-ai` row in
-`tenant_features`. That's the reverse of most features, where no row means on, so show it as off in
+**AI answers have never run against a real model.** Keep them off: a tenant shouldn't turn them on
+until a live run passes success, refusal, schema miss and safety route.
+
+They're off until a tenant opts in, with an enabled `support-helpdesk-ai` row in `tenant_features`
+and a monthly budget, its own or the `default` (`genesis_ai.set_budget`). Without a limit genesis-ai
+admits every call, so neither counts alone, and a tenant on its own key still needs a budget row.
+Anonymous sign-ins can't ask. That's the reverse of most features, where no row means on, so show it as off in
 your Settings when there's no row. A tenant admin can turn it on, and it spends that tenant's AI
-budget (`genesis_ai.set_budget`). The person asks for an answer after searching; only then do their
+budget. The person asks for an answer after searching; only then do their
 words go to the vendor. The AI answers only from that tenant's published articles and cites them; an
 answer that cites anything else isn't kept, and every outcome offers a person.
 
-1. Give `defineAi` your `safety` protocol, which sees what the person wrote before any model: the task
-   won't run without one. Install `@marktiderman/genesis-ai` and `zod`.
+1. Give `defineAi` your `safety` protocol, which sees what the person wrote before any model: nothing
+   runs without one. It runs even when they haven't agreed to share with the vendor, so keep it local
+   (patterns), or put a model it calls through `wrap` with `consent: "person"`, which refuses without
+   their agreement and counts as no route. Install `@marktiderman/genesis-ai` and `zod`.
 2. Serve the answer from your server. It runs the task as the person and records what came of it with
    a service-role client, so nobody can write an answer of their own, and spends the question's
    tenant's budget.
@@ -309,10 +316,10 @@ answer that cites anything else isn't kept, and every outcome offers a person.
    `(questionId) => fetch(url, { method: "POST", headers, body: JSON.stringify({ questionId }) }).then((r) => r.json())`.
 4. People agree to share with the vendor first (genesis-ai's consent), unless your terms cover it:
    `supportHelpAnswerTask({ consent: "terms" })`, passed as `task`. Until they agree, the messenger
-   says so and offers a person; `onAiConsent` opens your screen for agreeing. The consent check comes
-   first in genesis-ai's pipeline, so without consent the safety protocol doesn't run: the person
-   sees the consent message and the way to a person. Their words aren't kept meanwhile; once they've
-   agreed, "Ask again" asks anew.
+   says so and offers a person; `onAiConsent` opens your screen for agreeing. Their words aren't kept
+   meanwhile; once they've agreed, "Ask again" asks anew.
+5. Run `support_purge_stuck_questions()` daily with the service role: a server that stops mid-answer
+   leaves a question unfinished, with the person's words, which agents can't read.
 
 A resolution is a question whose person said the answer helped: `help_questions.outcome = 'resolved'`,
 readable by the tenant's agents, beside genesis-ai's usage row for each call. It's what people said,

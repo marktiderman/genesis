@@ -9,8 +9,10 @@
  * Everything is read as the person (`ctx.db` is their own Supabase client). The client sends only
  * the id of a question it kept with `client.askHelp`. `answerHelpQuestion` runs the task and records
  * what came of it with a service-role client, so nobody can write an answer of their own. `defineAi`
- * needs your `safety` protocol: the task won't run without one, and it sees what the person wrote
- * before any model, even when no article matches.
+ * needs your `safety` protocol: nothing runs without one, and it sees what the person wrote before
+ * any model, even when no article matches or they haven't agreed to share with the vendor. So keep it
+ * local (patterns), or put a model it calls through `wrap` with `consent: "person"`, which refuses
+ * without their agreement; only your terms can justify `consent: "terms"` there.
  */
 import { defineTask, GuardrailError, type Ai, type AiContext, type TaskDefinition } from "@marktiderman/genesis-ai";
 import { runTask } from "@marktiderman/genesis-ai/server";
@@ -103,7 +105,8 @@ export function supportHelpAnswerTask(options: HelpAnswerTaskOptions = {}): Task
       if (on.data !== true) throw new GuardrailError(HELP_AI_REFUSALS.off, "forbidden");
       // Once: the same id can't run the model twice.
       const claimed = await ctx.db.rpc("support_claim_question", { question: questionId });
-      if (claimed.error) throw new GuardrailError(HELP_AI_REFUSALS.answered, "invalid_input");
+      if (claimed.error?.code === "22023") throw new GuardrailError(HELP_AI_REFUSALS.answered, "invalid_input");
+      if (claimed.error) throw new Error(`support.help-answer: taking the question failed (${claimed.error.code ?? "?"})`);
       // A failed read means fewer articles, not an error: the safety check still has to see this.
       const found = await ctx.db.rpc("support_search_articles", { tenant: row.tenant_id, query: row.question, max_rows: MAX_ARTICLES });
       const hits = (found.error ? [] : (found.data ?? [])) as { id: string }[];
@@ -131,6 +134,16 @@ export function supportHelpAnswerTask(options: HelpAnswerTaskOptions = {}): Task
   });
 }
 
+const NOT_KEPT = "(not kept)";
+
+/** A vendor's error can carry the whole request, prompt included: `onError` gets its name and message. */
+function withoutThePrompt(error: unknown): unknown {
+  if (!(error instanceof Error)) return error;
+  const clean = new Error(error.message);
+  clean.name = error.name;
+  return clean;
+}
+
 /** A service-role client: the part `answerHelpQuestion` records with. */
 export interface HelpAiAdmin {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -155,31 +168,55 @@ export async function answerHelpQuestion(
   ai: Ai,
   input: { questionId: string; context: AiContext<HelpAiDb>; admin: HelpAiAdmin; task?: ReturnType<typeof supportHelpAnswerTask>; onError?: (error: unknown) => void },
 ): Promise<HelpAnswerResponse> {
-  const { questionId, context, admin, onError } = input;
+  const { questionId, context, admin } = input;
+  const report = (error: unknown) => input.onError?.(withoutThePrompt(error));
   if (!args.safeParse({ questionId }).success) return { status: "none" };
-  const asked = await context.db.from("help_questions").select("tenant_id").eq("id", questionId).eq("user_id", context.personId).maybeSingle();
-  const row = asked.data as { tenant_id: string } | null;
-  if (asked.error || !row) return { status: "none" };
-  const record = async (outcome: string, answer: string | null = null, articleIds: readonly string[] = []): Promise<string | null> => {
+  let row: { tenant_id: string; question: string; outcome: string } | null;
+  try {
+    const asked = await context.db.from("help_questions").select("tenant_id, question, outcome").eq("id", questionId).eq("user_id", context.personId).maybeSingle();
+    if (asked.error) report(asked.error);
+    row = asked.error ? null : (asked.data as typeof row);
+  } catch (error) {
+    report(error);
+    return { status: "none" };
+  }
+  if (!row) return { status: "none" };
+  const { question, tenant_id: tenantId, outcome } = row;
+  const record = async (next: string, answer: string | null = null, articleIds: readonly string[] = []): Promise<string | null> => {
     try {
-      const saved = await admin.rpc("support_record_answer", { question: questionId, outcome, answer, article_ids: [...articleIds] });
-      if (saved.error) onError?.(saved.error);
+      const saved = await admin.rpc("support_record_answer", { question: questionId, outcome: next, answer, article_ids: [...articleIds] });
+      if (saved.error) report(saved.error);
       return saved.error ? null : (saved.data as string);
     } catch (error) {
-      onError?.(error);
+      report(error);
       return null;
     }
   };
   // No protocol, no answer, even on a genesis-ai from before tasks could require one.
-  if (!ai.config.safety) {
+  const safety = ai.config.safety;
+  if (!safety) {
     await record("no_answer");
     return { status: "none" };
   }
+  // A retry of what the protocol already took: its words weren't kept, so the fixed line shows.
+  if (outcome === "safety_routed") return { status: "safety", response: null };
+  const budgeted = { ...context, tenantId };
+  // For a stop before the pipeline reached the protocol, or a call that lost the question to another.
+  const routed = async (): Promise<HelpAnswerResponse | null> => {
+    if (question === NOT_KEPT) return null;
+    try {
+      const route = await safety(question, budgeted);
+      return route ? { status: "safety", response: route.response?.trim() || null } : null;
+    } catch (error) {
+      report(error);
+      return null;
+    }
+  };
   let result;
   try {
-    result = await runTask(ai, input.task ?? supportHelpAnswerTask(), { questionId }, { ...context, tenantId: row.tenant_id });
+    result = await runTask(ai, input.task ?? supportHelpAnswerTask(), { questionId }, budgeted);
   } catch (error) {
-    onError?.(error);
+    report(error);
     await record("no_answer");
     return { status: "none" };
   }
@@ -194,13 +231,14 @@ export async function answerHelpQuestion(
     await record("safety_routed");
     return { status: "safety", response: result.safety?.response?.trim() || null };
   }
-  // They can agree and ask again. Their words aren't kept meanwhile.
+  // They haven't agreed to share with the vendor, but the protocol is the app's own, and comes first.
   if (result.outcome === "no_consent") {
-    await record("no_consent");
-    return { status: "needs_consent" };
+    const route = await routed();
+    await record(route ? "safety_routed" : "no_consent");
+    return route ?? { status: "needs_consent" };
   }
-  // Another call has this question (a retry, a double submit): that one records what comes of it.
-  if (result.message === HELP_AI_REFUSALS.answered) return { status: "none" };
+  // Another call has this question (a retry, a double submit), and records what comes of it.
+  if (result.message === HELP_AI_REFUSALS.answered) return (await routed()) ?? { status: "none" };
   await record("no_answer");
   return { status: "none" };
 }

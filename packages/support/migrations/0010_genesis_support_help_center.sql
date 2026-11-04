@@ -15,7 +15,9 @@
 --
 -- AI answers are off until a tenant opts in, the app's own tenant included: an enabled
 -- `support-helpdesk-ai` row in genesis-supabase 0004's tenant_features. Unlike 0004's usual reading,
--- no row means off here, because each answer spends the tenant's AI budget. The model runs in the app's
+-- no row means off here, because each answer spends the tenant's AI budget. It also needs a budget
+-- with a monthly limit (genesis-ai's, the tenant's or the `default`): without one, genesis-ai admits
+-- every call. Anonymous sign-ins can't ask. The model runs in the app's
 -- server, through genesis-ai (`supportHelpAnswerTask`); an answer is kept only when it cites published
 -- articles of the question's tenant.
 --
@@ -56,8 +58,8 @@ create table public.help_articles (
     || setweight(to_tsvector('simple'::regconfig, body), 'C')
   ) stored,
   unique (tenant_id, slug),
-  -- A collection of the same tenant; deleting it leaves its articles without one.
-  foreign key (tenant_id, collection_id) references public.help_collections (tenant_id, id) on delete set null (collection_id)
+  -- A collection of the same tenant. support_delete_collection takes its articles out of it first.
+  foreign key (tenant_id, collection_id) references public.help_collections (tenant_id, id)
 );
 
 create index help_articles_search_idx on public.help_articles using gin (search);
@@ -112,7 +114,7 @@ create policy help_articles_read on public.help_articles
 
 create policy help_questions_read on public.help_questions
   for select to authenticated
-  using (user_id = (select auth.uid()) or public.support_is_agent(tenant_id));
+  using (user_id = (select auth.uid()) or (outcome not in ('asked', 'answering') and public.support_is_agent(tenant_id)));
 
 -- Reads: named functions that check the tenant once, so a list doesn't run the check per row ------
 
@@ -293,6 +295,7 @@ begin
   if not private.genesis_support_agent(owner_tenant, auth.uid()) then
     raise exception 'support_delete_collection: only an agent of this tenant' using errcode = '42501';
   end if;
+  update public.help_articles a set collection_id = null where a.collection_id = collection;
   delete from public.help_collections c where c.id = collection;
 end;
 $$;
@@ -376,7 +379,9 @@ $$;
 
 -- AI answers --------------------------------------------------------------------------------
 
--- Has this tenant opted in? Off without tenant_features, and for the app's own tenant until it does.
+-- Has this tenant opted in, with a limit on what it can spend? Off without tenant_features or
+-- genesis-ai's budgets, and for the app's own tenant until it does. The budget read is the one
+-- genesis_ai.begin_call makes: the tenant's own row, else the default.
 create or replace function private.genesis_support_ai_on(tenant uuid)
 returns boolean
 language plpgsql
@@ -388,9 +393,15 @@ begin
   if tenant is null or to_regclass('public.tenant_features') is null then
     return false;
   end if;
+  if to_regclass('genesis_ai.budgets') is null then
+    return false;
+  end if;
   return private.genesis_support_helpdesk_on(tenant)
      and exists (select 1 from public.tenant_features f
-                  where f.tenant_id = tenant and f.feature_id = 'support-helpdesk-ai' and f.enabled);
+                  where f.tenant_id = tenant and f.feature_id = 'support-helpdesk-ai' and f.enabled)
+     and coalesce((select b.monthly_usd is not null from genesis_ai.budgets b
+                    where b.scope in ('tenant:' || tenant::text, 'default')
+                    order by b.scope = 'default' limit 1), false);
 end;
 $$;
 
@@ -403,7 +414,8 @@ stable
 security definer
 set search_path = ''
 as $$
-  select public.support_help_readable(coalesce(tenant, private.genesis_support_default_tenant_id()))
+  select not public.support_is_anonymous()
+     and public.support_help_readable(coalesce(tenant, private.genesis_support_default_tenant_id()))
      and private.genesis_support_ai_on(coalesce(tenant, private.genesis_support_default_tenant_id()))
 $$;
 
@@ -509,6 +521,25 @@ begin
 end;
 $$;
 
+-- Questions nobody finished (a server that stopped mid-answer) lose their words after a day. Service
+-- role, on a schedule of yours. Returns how many.
+create or replace function public.support_purge_stuck_questions(older_than interval default interval '1 day')
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  purged integer;
+begin
+  update public.help_questions h
+     set outcome = 'no_answer', question = '(not kept)', answered_at = clock_timestamp()
+   where h.outcome in ('asked', 'answering') and h.created_at <= now() - older_than;
+  get diagnostics purged = row_count;
+  return purged;
+end;
+$$;
+
 -- How it ended: `resolved` (the answer helped) or `handed_off` (to a person, with their ticket).
 create or replace function public.support_close_question(question uuid, outcome text, ticket uuid default null)
 returns void
@@ -568,6 +599,8 @@ revoke execute on function public.support_ai_enabled(uuid) from public, anon;
 grant execute on function public.support_ai_enabled(uuid) to authenticated, service_role;
 revoke execute on function public.support_ask(uuid, text) from public, anon;
 grant execute on function public.support_ask(uuid, text) to authenticated;
+revoke execute on function public.support_purge_stuck_questions(interval) from public, anon, authenticated;
+grant execute on function public.support_purge_stuck_questions(interval) to service_role;
 revoke execute on function public.support_claim_question(uuid) from public, anon;
 grant execute on function public.support_claim_question(uuid) to authenticated;
 revoke execute on function public.support_record_answer(uuid, text, text, uuid[]) from public, anon, authenticated;

@@ -314,17 +314,18 @@ describe("SupportMessenger", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const one = fakeClient();
     const two = fakeClient();
+    Object.assign(one, { currentTenant: vi.fn(async () => "option-tenant") });
     const view = (client: SupportClient, tenantId?: string | null) => (
       <QueryClientProvider client={queryClient}>
         <SupportMessenger client={client} {...(tenantId === undefined ? {} : { tenantId })} />
       </QueryClientProvider>
     );
     const { rerender } = render(view(one));
-    await waitFor(() => expect(one.ticketsInTenant).toHaveBeenCalledWith({}));
+    await waitFor(() => expect(one.ticketsInTenant).toHaveBeenCalledWith({ tenantId: "option-tenant" }));
     rerender(view(one, null));
     await waitFor(() => expect(one.ticketsInTenant).toHaveBeenCalledWith({ tenantId: null }));
     rerender(view(two));
-    await waitFor(() => expect(two.ticketsInTenant).toHaveBeenCalled());
+    await waitFor(() => expect(two.ticketsInTenant).toHaveBeenCalledWith({ tenantId: null }));
   });
 
   it("starts afresh on another tenant", async () => {
@@ -518,6 +519,41 @@ describe("answerHelpQuestion, on the real pipeline", () => {
     expect(safety).toHaveBeenCalledTimes(1);
     expect(result).toEqual({ status: "none" });
     expect(keeper.rpc).toHaveBeenCalledWith("support_record_answer", expect.objectContaining({ outcome: "no_answer" }));
+  });
+
+  it("still routes a crisis message from someone who hasn't agreed, and keeps nothing", async () => {
+    const safety = vi.fn(() => ({ category: "crisis", response: "Please call the line." }));
+    const ai = await setup({ safety });
+    const keeper = admin();
+    expect(await answerHelpQuestion(ai, { questionId: QUESTION, context: context(database()), admin: keeper })).toEqual({ status: "safety", response: "Please call the line." });
+    expect(safety).toHaveBeenCalledWith("How do I reset?", expect.objectContaining({ tenantId: "ta" }));
+    expect(keeper.rpc).toHaveBeenCalledWith("support_record_answer", expect.objectContaining({ outcome: "safety_routed" }));
+  });
+
+  it("sends nothing to a vendor without consent when the protocol calls a model through wrap", async () => {
+    const { wrap, memoryStore } = await import("@marktiderman/genesis-ai/server");
+    const vendorCall = vi.fn(async () => ({ value: { category: "crisis" }, usage: { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0 } }));
+    const { defineAi } = await import("@marktiderman/genesis-ai");
+    let ai: ReturnType<typeof defineAi>;
+    const safety = async (text: string) => {
+      const classify = wrap(ai, vendorCall as never, { id: "safety.classify", vendor: "fake", feature: "f", operation: "moderation", consent: "person", context: () => ({ tenantId: "ta", personId: "me", db: null }) } as never);
+      await (classify as (text: string) => Promise<unknown>)(text);
+      return { category: "crisis", response: "Never reached" };
+    };
+    ai = defineAi({
+      vendors: [{ id: "fake", model: (modelId: string) => ({ modelId, provider: "fake" }) } as never],
+      models: { default: { model: "fake-model" } },
+      modelRecords: { "fake-model": { id: "fake-model", vendor: "fake", capabilities: ["structuredOutput"] } as never },
+      store: memoryStore(),
+      gate: () => true,
+      safety: safety as never,
+    });
+    const onError = vi.fn();
+    const keeper = admin();
+    expect(await answerHelpQuestion(ai, { questionId: QUESTION, context: context(database()), admin: keeper, onError })).toEqual({ status: "needs_consent" });
+    expect(vendorCall).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalled();
+    expect(keeper.rpc).toHaveBeenCalledWith("support_record_answer", expect.objectContaining({ outcome: "no_consent" }));
   });
 
   it("won't run without a safety protocol", async () => {

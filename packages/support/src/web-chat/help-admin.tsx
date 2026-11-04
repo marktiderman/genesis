@@ -34,6 +34,7 @@ import {
 } from "@marktiderman/genesis-ui";
 import { SupportError, type HelpArticle, type HelpArticleStatus, type HelpCollection, type SupportClient } from "../client";
 import { resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
+import { scopeOf, useResolvedTenant } from "./tenant";
 
 export interface SupportHelpCenterAdminProps {
   client: SupportClient;
@@ -244,7 +245,13 @@ function Editor({ client, tenantArg, article, collections, copy, onSaved, onDele
 }
 
 /** A tenant's help center, for its agents. */
-export function SupportHelpCenterAdmin({ client, tenantId, articleId, onArticleChange, copy: copyOverrides, onError, className }: SupportHelpCenterAdminProps) {
+export function SupportHelpCenterAdmin(props: SupportHelpCenterAdminProps) {
+  const tenant = useResolvedTenant(props.client, props.tenantId);
+  if (!tenant.ready) return <Skeleton className="h-64 w-full" />;
+  return <HelpCenterAdmin key={scopeOf(props.client, tenant.tenantId)} {...props} tenantId={tenant.tenantId} />;
+}
+
+function HelpCenterAdmin({ client, tenantId, articleId, onArticleChange, copy: copyOverrides, onError, className }: SupportHelpCenterAdminProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
   const queryClient = useQueryClient();
   const collectionId = useId();
@@ -253,8 +260,8 @@ export function SupportHelpCenterAdmin({ client, tenantId, articleId, onArticleC
   const report = useRef(onError);
   report.current = onError;
 
-  const scope = tenantId === undefined ? "client-option" : (tenantId ?? "app");
-  const tenantArg = tenantId === undefined ? {} : { tenantId };
+  const scope = scopeOf(client, tenantId ?? null);
+  const tenantArg = { tenantId: tenantId ?? null };
   const list = useQuery({ queryKey: keys.list(scope), queryFn: () => required(client.helpArticles)({ ...tenantArg, includeDrafts: true }) });
   const collections = useQuery({ queryKey: keys.collections(scope), queryFn: () => required(client.helpCollections)(tenantArg) });
   const opening = articleId && articleId !== NEW ? articleId : null;
