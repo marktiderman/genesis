@@ -6,8 +6,8 @@
  * Rows come from the pure `justifyRows`, so the same items pack the same way
  * as the web `GalleryGrid`, with the same defaults (`GALLERY_DEFAULTS`) and
  * the same props, `onItemPress` in place of the web's `onItemClick` (as
- * `NativeResourcePage` pairs with `ResourcePage`). The container width comes
- * from `onLayout`; until it is measured nothing is drawn. The rows are a
+ * `NativeResourcePage` pairs with `ResourcePage`). The first paint lays out
+ * at the window width, and `onLayout` corrects it to the container's. The rows are a
  * virtualized `FlatList` (the grid scrolls itself; `header` and `footer` go
  * above and below), so a long gallery mounts only what's near the screen and
  * `loadMore` fires when scrolling nears the end, for "load more". Don't put
@@ -26,7 +26,7 @@
  * @stability Beta
  */
 import { useMemo, useState, type ReactNode } from "react";
-import { FlatList, Pressable, Text, View, type LayoutChangeEvent } from "react-native";
+import { Dimensions, FlatList, Pressable, Text, View, type FlatListProps, type LayoutChangeEvent } from "react-native";
 import { cn } from "../utils";
 import { galleryItemRatio, justifyRows } from "./gallery-layout";
 import { GALLERY_DEFAULTS, type GalleryItem, type GalleryTileAspect } from "./gallery-types";
@@ -67,6 +67,8 @@ export interface NativeGalleryGridProps {
   groupBy?: (item: GalleryItem) => string;
   /** @deprecated Use `groupBy`. */
   getGroup?: (item: GalleryItem) => string;
+  /** iOS: how the list insets under a large-title or translucent header. Default `"automatic"`, so the first row starts below the header. */
+  contentInsetAdjustmentBehavior?: FlatListProps<unknown>["contentInsetAdjustmentBehavior"];
   className?: string;
   testID?: string;
 }
@@ -116,12 +118,15 @@ export function NativeGalleryGrid({
   footer,
   groupBy: groupByProp,
   getGroup,
+  contentInsetAdjustmentBehavior = "automatic",
   className,
   testID = "native-gallery-grid",
 }: NativeGalleryGridProps) {
   const loadMore = loadMoreProp ?? onNearEnd;
   const groupBy = groupByProp ?? getGroup;
-  const [width, setWidth] = useState(0);
+  // Start from the window width so the list mounts on the first paint (iOS applies the
+  // large-title content inset only to a scroll view present at mount); onLayout corrects it.
+  const [width, setWidth] = useState(() => Dimensions.get("window").width);
   const onLayout = (e: LayoutChangeEvent) => {
     const next = e.nativeEvent.layout.width;
     if (next !== width) setWidth(next);
@@ -269,6 +274,7 @@ export function NativeGalleryGrid({
       {width > 0 ? (
         <FlatList
           testID={`${testID}-list`}
+          contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior}
           data={lines}
           keyExtractor={(line) => line.key}
           renderItem={renderLine}

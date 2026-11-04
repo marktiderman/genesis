@@ -10,9 +10,8 @@ import {
   NativeButton,
   NativeEmptyState,
   NativeGlassSurface,
-  NativeSheet,
-  NativeSheetScrollView,
   NativeText,
+  NativeWhatsNewSheet,
   useLiquidGlass,
 } from "@marktiderman/genesis-ui-native/components";
 import type { ReleaseNote } from "./policy";
@@ -133,27 +132,16 @@ export interface WhatsNewProps {
   dismiss: () => void;
 }
 
-/** The release notes for this version, once, in a sheet. */
+/**
+ * The release notes for this version, once, in a sheet: the updates block's slot, drawn by
+ * genesis-ui-native's `NativeWhatsNewSheet` (the same sheet genesis-product's uses).
+ */
 export function WhatsNewSheet({ notes, dismiss }: WhatsNewProps) {
   return (
-    <NativeSheet open onOpenChange={(open) => (open ? undefined : dismiss())} testID="genesis-whats-new">
-      {/* The notes scroll once they pass the sheet's height. */}
-      <NativeSheetScrollView contentContainerClassName="gap-4 p-6">
-        <NativeText preset="h3" accessibilityRole="header">
-          What's new
-        </NativeText>
-        {notes.map((note) => (
-          <View key={note.version} className="gap-1" testID={`genesis-whats-new-${note.version}`}>
-            <NativeText preset="label">{note.title ?? `Version ${note.version}`}</NativeText>
-            <NativeText preset="body-sm" className="text-muted-foreground">
-              {note.body}
-            </NativeText>
-          </View>
-        ))}
-        <NativeButton onPress={dismiss} testID="genesis-whats-new-done">
-          Got it
-        </NativeButton>
-      </NativeSheetScrollView>
-    </NativeSheet>
+    <NativeWhatsNewSheet
+      notes={notes.map((note) => ({ key: note.version, title: note.title ?? `Version ${note.version}`, body: note.body }))}
+      dismiss={dismiss}
+      testID="genesis-whats-new"
+    />
   );
 }

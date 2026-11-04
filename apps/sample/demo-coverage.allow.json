@@ -5,7 +5,6 @@
   "web/brand-theme": "Applies a brand's tokens: shown by every page's theme.",
   "web/carousel": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/cell-formatters": "Cell renderers inside the data tables on /items, /tasks and /orders.",
-  "web/chip": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/command": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/command-palette": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/confirm-delete-dialog": "The delete confirmation inside the list screens.",
