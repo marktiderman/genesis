@@ -16,6 +16,8 @@ describe("TierBadge", () => {
     expect(badge.textContent).toBe("Gold");
     expect(badge.getAttribute("data-tone")).toBe("gold");
     expect(badge.style.borderColor).toContain("--brand-accent-gold");
+    // Regression: a tone the brand does not define must still be the secondary chip underneath.
+    expect(badge.className).toContain("bg-secondary");
     expect(screen.getByTestId("i").parentElement?.getAttribute("aria-hidden")).toBe("true");
   });
 

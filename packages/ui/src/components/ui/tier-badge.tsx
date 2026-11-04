@@ -26,27 +26,34 @@ export interface TierBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 export function TierBadge({ label, tone, icon, size = "md", testID, className, style, ...props }: TierBadgeProps) {
-  const accent = tone ? `var(--brand-accent-${tone}, hsl(var(--secondary)))` : undefined;
+  // CSS can't tell whether the brand defines `--brand-accent-<tone>`, so every badge starts as
+  // the secondary chip and the accent only paints over it: each accent use falls back to
+  // transparent (border, tint) or the text colour (icon), which leaves the secondary chip
+  // whenever the brand has no such accent.
+  const accent = tone ? `--brand-accent-${tone}` : undefined;
   return (
     <span
       data-slot="tier-badge"
       data-tone={tone}
       data-testid={testID}
       className={cn(
-        "inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-full border font-semibold text-foreground [&_svg]:shrink-0",
+        "inline-flex w-fit items-center gap-1 whitespace-nowrap rounded-full border border-transparent bg-secondary font-semibold text-secondary-foreground [&_svg]:shrink-0",
         size === "sm" ? "px-2 py-0.5 text-xs [&_svg]:size-3" : "px-2.5 py-1 text-sm [&_svg]:size-3.5",
-        !accent && "border-transparent bg-secondary text-secondary-foreground",
         className
       )}
       style={
         accent
-          ? { borderColor: accent, backgroundColor: `color-mix(in srgb, ${accent} 15%, transparent)`, ...style }
+          ? {
+              borderColor: `var(${accent}, transparent)`,
+              backgroundImage: `linear-gradient(color-mix(in srgb, var(${accent}, transparent) 15%, transparent), color-mix(in srgb, var(${accent}, transparent) 15%, transparent))`,
+              ...style,
+            }
           : style
       }
       {...props}
     >
       {icon ? (
-        <span aria-hidden="true" className="inline-flex" style={accent ? { color: accent } : undefined}>
+        <span aria-hidden="true" className="inline-flex" style={accent ? { color: `var(${accent}, currentColor)` } : undefined}>
           {icon}
         </span>
       ) : null}
