@@ -11,6 +11,21 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## New doctor findings from release 2026-11-03/a — what to do about each
+
+🟡 **Action recommended.** These landed on existing code, and an app may have allowed them to take
+the release. Run the codemods, handle the other two by hand, then remove the `doctor.allow` entries
+(`stale-exception` names the ones left).
+
+| Finding | Fix | How |
+| --- | --- | --- |
+| `ui/overlays-fit-the-phone` | **Codemod:** `genesis codemod genesis-ui-overlays-fit-the-phone` | In files that import `@marktiderman/genesis-ui`, drops a `max-h-[…vh]` of 80 or more from `DialogContent`, `AlertDialogContent` and `SheetContent` (they cap themselves to the screen and scroll inside) when the tag has no other cap, no height of its own and isn't a bottom sheet, and moves anything else in `vh` to `dvh`. A tag with `>` in a prop (an arrow function before `className`) is left for you, and the rule still reports it. A long form may want `mobileLayout="fullscreen"`. |
+| `haptics-use-genesis` | **Codemod:** `genesis codemod genesis-ui-native-haptics` | In files with `import * as Haptics from "expo-haptics"`, turns each call into `playHaptic(Haptics, "light")`, which works anywhere and never throws. It prints the files it can't finish: a `Soft` or `Rigid` style or one in a variable (Genesis's kinds are light, medium, heavy, select, success, warning and error), a call chained with `.then` or `.catch`, and named imports. Inside a component, `useHaptics()` is the shorter form, with expo-haptics passed once as `GenesisModules.haptics`. |
+| `shadowed-export` (`GalleryCard`, `Lightbox`) | **By hand.** No codemod | A hand-built component rarely has the same props, states or markup as the Genesis one, so the swap needs someone to compare them. Replace yours with the Genesis export where it fits, extend it with its slots and variants where it nearly does, or rename yours if it's a different thing. `genesis upgrade` names each one a release adds. |
+| `deprecated-import` on `persistQueries` | **By hand.** No codemod | The switch opens a database the app has to create, moves from query keys to resource names, starts from an empty cache and needs a decision about what may sit on the device. expo-sqlite is a native module too, so it can need a new native build. See the next section. It's ratcheted (under `--base`, unchanged files report it as `info`) and stays until the next major. |
+
+---
+
 ## `persistOffline` replaces `persistQueries`: lists open instantly from the device — `@marktiderman/genesis-core` (`/offline`), `@marktiderman/genesis-native` (deprecation; **minor**)
 
 🟡 **Action recommended.** `persistQueries` (genesis-native `/persist`) saves the allowed queries to
@@ -22,6 +37,11 @@ restores lists and records before the screens first render.
 | --- | --- |
 | `persist={persistQueries({ storage: AsyncStorage, keys: ["tasks"], buster })}` on `GenesisNativeApp` | `persist={persistOffline({ cache: sqliteLocalCache({ db }), resources: ["tasks"], buster })}`, both from `@marktiderman/genesis-native/offline`, with `db` from expo-sqlite's `openDatabaseSync` |
 | No device cache on the web | `<GenesisProvider persist={persistOffline({ cache: indexedDbLocalCache(), resources, buster })} persistScope={cacheScope(user.id, workspaceKey)}>` (`@marktiderman/genesis-core/offline`) |
+
+**On the phone this can't always ship as an OTA update.** `sqliteLocalCache` needs expo-sqlite, a
+native module. If the app's installed builds don't include it, add it and make a new native build,
+and let that reach people before an update that calls `openDatabaseSync`: on an older build, the
+module isn't there. The web path needs no such step.
 
 Keep `resources` to what may sit on a device unencrypted. The first start after the switch begins
 with an empty cache, and the old blob is no longer read: remove it with `AsyncStorage.removeItem("genesis-query-cache")`.

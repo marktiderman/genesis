@@ -8,6 +8,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
+import { detectPackageManager, installCommand, shellLine } from "../blocks/pm.js";
 import { DoctorConfigError } from "./config.js";
 import type { CompanionPackage, DoctorConfig, GenesisFacts } from "./types.js";
 
@@ -68,7 +69,7 @@ export function uiPackageFor(config: DoctorConfig): string {
 export function loadGenesis(root: string, config: DoctorConfig): GenesisFacts {
   const uiPackage = uiPackageFor(config);
   const pkg = readPackageExports(root, uiPackage);
-  if (!pkg) throw new DoctorConfigError(`${uiPackage} is not installed here. Install it, or set doctor.uiPackage.`);
+  if (!pkg) throw new DoctorConfigError(notInstalled(root, uiPackage));
   const { dir: uiDir, exports: exportNames, values, components } = pkg;
 
   // ---- Tokens, from the theme stylesheets ----
@@ -97,6 +98,19 @@ export function loadGenesis(root: string, config: DoctorConfig): GenesisFacts {
     palette: loadPalette(root),
     companions: loadCompanions(root, config, uiPackage),
   };
+}
+
+/** Why the component package can't be read: the app's dependencies aren't installed, or it isn't one of them. */
+function notInstalled(root: string, uiPackage: string): string {
+  let declared = false;
+  try {
+    const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")) as Record<string, Record<string, string> | undefined>;
+    declared = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"].some((s) => pkg[s]?.[uiPackage] !== undefined);
+  } catch {
+    // No package.json: the sentence below still holds.
+  }
+  if (!declared) return `${uiPackage} is not installed here and isn't in this app's package.json. Add it, or set doctor.uiPackage.`;
+  return `${uiPackage} is in package.json but not installed, so this app's dependencies aren't installed. Run \`${shellLine(installCommand(detectPackageManager(root)))}\`, then run this again.`;
 }
 
 /** The installed `componentPackages` other than `uiPackage`. One that isn't installed or built is skipped. */

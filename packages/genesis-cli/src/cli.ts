@@ -200,12 +200,13 @@ program
   .description("Check this app against the installed Genesis: components, tokens, imports, colors, plus the app's own rules")
   .option("--strict", "Fail on warnings too", false)
   .option("--json", "Print the report as JSON", false)
+  .option("--verbose", "List the Genesis components no file imports (otherwise only their count)", false)
   .option("--build", "Also run the app's typecheck and build (doctor.build, or its typecheck/build scripts)", false)
   .option("-c, --config <path>", "Config file (default: genesis.config.json, then package.json \"genesis\")")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--print-genesis", "Print the components, tokens and raw tags read from Genesis, and exit", false)
   .option("--base <ref>", "The git ref change checks compare against (the packages pack's change gate, and the ratchet: newOnly rules report unchanged files as info), e.g. origin/main")
-  .action(async (opts: { strict: boolean; json: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean; base?: string }) => {
+  .action(async (opts: { strict: boolean; json: boolean; verbose: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean; base?: string }) => {
     const doctor = await import("./doctor/index.js");
     const root = path.resolve(opts.dir);
     try {
@@ -215,7 +216,7 @@ program
         return;
       }
       const result = await doctor.runDoctor({ root, configPath: opts.config, strict: opts.strict, build: opts.build, quietBuild: opts.json, ...(opts.base ? { base: opts.base } : {}) });
-      console.log(opts.json ? JSON.stringify(doctor.toJson(result), null, 2) : doctor.formatReport(result));
+      console.log(opts.json ? JSON.stringify(doctor.toJson(result), null, 2) : doctor.formatReport(result, { verbose: opts.verbose }));
       process.exitCode = result.ok ? 0 : 1;
     } catch (err) {
       // Exit 2: the doctor could not run (bad config, Genesis not installed), as opposed to finding problems.
@@ -586,17 +587,19 @@ program
 
 program
   .command("upgrade")
-  .description("Move every @marktiderman/genesis* dependency to one Genesis release, refresh the files Genesis owns, run codemods and the doctor")
+  .description("Move every @marktiderman/genesis* dependency to one Genesis release, refresh the files Genesis owns and what's generated, run codemods and the doctor")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--version <v>", "The @marktiderman/genesis release: an exact version or a dist-tag", "latest")
   .option("--manifest <file>", "Read the release from this versions.json instead of npm")
   .option("--dry-run", "Report the bump, and owned files compared with the packages installed now; change nothing", false)
   .option("--no-install", "Don't reinstall after the bump")
   .option("--no-doctor", "Don't run genesis doctor after")
+  .option("--no-agents", "Don't regenerate the agent guide (genesis agents) after")
+  .option("--no-features-build", "Don't run features build after")
   .option("--keep-mine", "Never merge an owned file you changed; write the new text to .genesis-next", false)
   .option("--pr", "Commit to a genesis-upgrade/<version> branch, push it and open a pull request", false)
   .option("--genesis-repo <url>", "The Genesis git repository whose <package>@<version> tags overlays are rebased from (default: the public one)")
-  .action(async (opts: { dir: string; version: string; manifest?: string; dryRun: boolean; install: boolean; doctor: boolean; keepMine: boolean; pr: boolean; genesisRepo?: string }) => {
+  .action(async (opts: { dir: string; version: string; manifest?: string; dryRun: boolean; install: boolean; doctor: boolean; agents: boolean; featuresBuild: boolean; keepMine: boolean; pr: boolean; genesisRepo?: string }) => {
     const { runUpgrade } = await import("./upgrade/index.js");
     const report = await runUpgrade({
       root: path.resolve(opts.dir),
@@ -605,6 +608,8 @@ program
       dryRun: opts.dryRun,
       install: opts.install,
       doctor: opts.doctor,
+      agents: opts.agents,
+      featuresBuild: opts.featuresBuild,
       keepMine: opts.keepMine,
       pr: opts.pr,
       ...(opts.genesisRepo ? { genesisRepo: opts.genesisRepo } : {}),
@@ -623,7 +628,7 @@ program
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--dry-run", "List the files it would change; change nothing", false)
   .action(async (id: string | undefined, opts: { dir: string; dryRun: boolean }) => {
-    const { CODEMODS, codemodById } = await import("./upgrade/codemods.js");
+    const { CODEMODS, codemodById, codemodInstallNote } = await import("./upgrade/codemods.js");
     if (!id) {
       for (const mod of CODEMODS) console.log(`${mod.id}  (${mod.package} ${mod.version})\n  ${mod.description}`);
       return;
@@ -632,6 +637,8 @@ program
     if (!mod) throw new Error(`No codemod "${id}". Run genesis codemod to list them.`);
     const changed = await mod.run({ root: path.resolve(opts.dir), dryRun: opts.dryRun, log: (m) => console.log(m) });
     console.log(changed.length ? `${opts.dryRun ? "Would change" : "✔ Changed"} ${changed.length} file${changed.length === 1 ? "" : "s"}:\n${changed.map((f) => `  ${f}`).join("\n")}` : "Nothing to change.");
+    const note = codemodInstallNote(path.resolve(opts.dir), changed, opts.dryRun);
+    if (note) console.log(`! ${note}`);
   });
 
 program.parseAsync(process.argv).catch((err: unknown) => {
