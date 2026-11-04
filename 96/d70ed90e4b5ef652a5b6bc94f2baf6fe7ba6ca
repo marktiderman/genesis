@@ -1,0 +1,76 @@
+scripts/pgtap-local/suites.sh
+  s_b9ce29ee4fad7a::t_005924f825ba28 2-3,20-21,36
+packages/support/src/__tests__/messenger.test.tsx
+  s_b9ce29ee4fad7a::t_b93d695a8865ab 1-393
+packages/support/src/web-chat/help-admin.tsx
+  s_b9ce29ee4fad7a::t_65bb76d2fd7cfe 1-368
+docs/adr/0015-tickets-and-tenancy.md
+  s_b9ce29ee4fad7a::t_e7d84269025585 3,91-98
+packages/support/README.md
+  s_b9ce29ee4fad7a::t_e7d84269025585 243-295,424-428
+packages/support/src/web-chat/messenger.tsx
+  s_b9ce29ee4fad7a::t_005924f825ba28 214,246,278,283-291,315-316,333,492
+features.ts
+  s_b9ce29ee4fad7a::t_e7d84269025585 1941,1953
+packages/support/src/native/help.tsx
+  s_b9ce29ee4fad7a::t_8496d76911786e 49,63,77,260,279
+  s_b9ce29ee4fad7a::t_d0a500e348c23d 1-48,50-60,62,64-76,78-125,127-259,261-269,271-278,280-329
+  s_b9ce29ee4fad7a::t_5dd858346fa82e 61,126,270
+scripts/__tests__/help-center-pages.test.mjs
+  s_b9ce29ee4fad7a::t_e9167c6d0e1517 1-11,13-31
+  s_b9ce29ee4fad7a::t_0d23844c0d4a17 12
+packages/support/SKILL.md
+  s_b9ce29ee4fad7a::t_e7d84269025585 32-38
+packages/support/src/web-chat/agent-inbox.tsx
+  s_b9ce29ee4fad7a::t_005924f825ba28 194-195
+packages/support/src/__tests__/native-help.test.tsx
+  s_b9ce29ee4fad7a::t_e6e82ef2a62e24 1-81
+packages/support/src/web-chat/thread-files.tsx
+  s_b9ce29ee4fad7a::t_005924f825ba28 2-3,33
+features.json
+  s_b9ce29ee4fad7a::t_ae89af9f3e4e4e 4389,4426-4432
+apps/sample/stories/SupportMessenger.stories.tsx
+  s_b9ce29ee4fad7a::t_cf6a66251ed4bd 1-153
+.changeset/support-messenger-help-center.md
+  s_b9ce29ee4fad7a::t_e7d84269025585 1-5
+.changeset/read-receipt-not-on-notes.md
+  s_b9ce29ee4fad7a::t_38a09c9e1c5f16 1-5
+packages/core/src/__tests__/conversation-format.test.ts
+  s_b9ce29ee4fad7a::t_d41a6d45825c7c 21-25
+packages/core/src/conversation/format.ts
+  s_b9ce29ee4fad7a::t_d4c8d0a151fc51 20
+packages/support/migrations/tests/0009_genesis_support_inbox.test.sql
+  s_b9ce29ee4fad7a::t_f43ca9e815a499 11,211,215-225
+packages/support/src/__tests__/agent-inbox.test.tsx
+  s_b9ce29ee4fad7a::t_f3a435b8facfd7 63-96,310-334,342
+packages/support/src/client.ts
+  s_b9ce29ee4fad7a::t_e92e9d2d8bb4ad 176-177,514-518
+packages/support/src/web-chat/staff-thread.tsx
+  s_b9ce29ee4fad7a::t_b986f3ad2cb101 10,140-147
+pnpm-lock.yaml
+  s_b9ce29ee4fad7a::t_312edd8975e1d5 1768-1770,1816-1818
+scripts/pgtap-local/README.md
+  s_b9ce29ee4fad7a::t_496319b5f7e199 3,14-16
+scripts/pgtap-local/supabase-stubs.sql
+  s_b9ce29ee4fad7a::t_9c66e5d9a5cb21 36-40
+scripts/pgtap-local/upgrade-check.test.sql
+  s_b9ce29ee4fad7a::t_35f5cf21eb3374 1-17
+scripts/pgtap-local/upgrade-seed.sql
+  s_b9ce29ee4fad7a::t_1efe47814038b9 1-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "96d70ed90e4b5ef652a5b6bc94f2baf6fe7ba6ca",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
