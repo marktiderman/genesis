@@ -18,13 +18,24 @@
  *               "brand/font-display": "Inter",
  *               "brand/signal": "#4f46e5", "brand/signal-foreground": "#ffffff",
  *               "brand/link": "#4f46e5", "brand/sent-bubble": "#4f46e5",
- *               "brand/sent-bubble-foreground": "#ffffff", "brand/unread": "#4f46e5" },
+ *               "brand/sent-bubble-foreground": "#ffffff", "brand/unread": "#4f46e5",
+ *               "brand/background-dark": "#09090b", "brand/foreground-dark": "#fafafa",
+ *               "brand/primary-foreground-dark": "#ffffff", "brand/signal-dark": "#7b75eb",
+ *               "brand/signal-foreground-dark": "#ffffff", "brand/font-display-weight": 700,
+ *               "brand/font-display-numeric": "proportional", "brand/gradient-from": "#4f46e5",
+ *               "brand/gradient-to": "#4f46e5", "brand/gradient-angle": 135 },
  *      roles: { light: { background: "#ffffff", … }, dark: { … } } }]
  *
  * `brand/primary-dark` is the primary in dark mode: the accent when it reads at 4.5:1 on the
- * dark background, else the Genesis dark primary (what `brandRoleVariables` does). The signal,
- * link, bubble and unread roles have no CanonicalBrand field; the library's convention is the
- * primary, which this prints, and a brand that wants another colour sets it in Figma. Every
+ * dark background, else the Genesis dark primary (what `brandRoleVariables` does), or the brand's
+ * own `dark.accent`. The other `-dark` variables are the dark theme's background, foreground,
+ * text on the primary and signal: the Genesis dark values unless the brand sets `dark` (opt-in),
+ * so the Color collection's dark modes alias them and a brand without `dark` looks as before.
+ * `brand/signal` is `brand.signal`, else the primary; the link, bubble and unread roles have no
+ * CanonicalBrand field and follow the primary. The display face is `typography.display.family`
+ * (else `fontFamily.display`, else the sans face), with its weight (FLOAT, default 700) and
+ * numerals ("tabular" / "proportional"). `brand/gradient-*` is `gradients.primary` (what the
+ * Button's gradient variant paints), defaulting to the primary at 135 degrees. Every
  * other Color role stays on the Genesis neutrals, which is why they are under `roles`, not
  * `brand`. Role names drop the `--` prefix; `--radius` is converted to px (16px per rem).
  * Fonts are the head of each `typography.fontFamily` stack after the brand's native
@@ -36,6 +47,18 @@ import path from "node:path";
 import { brandRoleVariables, type CanonicalBrand } from "../packages/design-system/dist/index.js";
 
 const GENESIS_FONTS = { sans: "Inter", display: "Inter" };
+
+function luminance(hex: string): number {
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
+}
+
+/** White or black, whichever reads better on `hex` (`#rrggbb`). */
+function readableOn(hex: string): string {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return "#ffffff";
+  const l = luminance(hex);
+  return (1.05 / (l + 0.05)) >= ((l + 0.05) / 0.05) ? "#ffffff" : "#000000";
+}
 
 function isBrand(value: unknown): value is CanonicalBrand {
   return !!value && typeof value === "object" && "name" in value && "neutral" in value && "accent" in value;
@@ -71,8 +94,8 @@ function head(stack: unknown): string | undefined {
 export interface BrandMode {
   name: string;
   radius: number;
-  /** One entry per variable of the library's Brand collection. */
-  brand: Record<string, string>;
+  /** One entry per variable of the library's Brand collection (numbers are FLOAT variables). */
+  brand: Record<string, string | number>;
   /** The full theme role maps, as hex, for reference. */
   roles: { light: Record<string, string>; dark: Record<string, string> };
 }
@@ -101,6 +124,10 @@ export function brandMode(brand: CanonicalBrand): BrandMode {
   const primary = light.primary;
   const onPrimary = light["primary-foreground"];
   const fontSans = head(families.sans) ?? GENESIS_FONTS.sans;
+  const display = brand.typography?.display;
+  const signal = brand.signal ?? primary;
+  const signalDark = brand.dark?.signal ?? dark.primary;
+  const gradient = brand.gradients?.primary;
   return {
     name: brand.name,
     radius: lengthToPx(roles.light["--radius"]) ?? 10,
@@ -109,13 +136,23 @@ export function brandMode(brand: CanonicalBrand): BrandMode {
       "brand/primary-foreground": onPrimary,
       "brand/primary-dark": dark.primary,
       "brand/font-sans": fontSans,
-      "brand/font-display": head(families.display) ?? fontSans,
-      "brand/signal": primary,
-      "brand/signal-foreground": onPrimary,
+      "brand/font-display": head(display?.family) ?? head(families.display) ?? fontSans,
+      "brand/signal": signal,
+      "brand/signal-foreground": brand.signal ? readableOn(signal) : onPrimary,
       "brand/link": primary,
       "brand/sent-bubble": primary,
       "brand/sent-bubble-foreground": onPrimary,
       "brand/unread": primary,
+      "brand/background-dark": dark.background,
+      "brand/foreground-dark": dark.foreground,
+      "brand/primary-foreground-dark": dark["primary-foreground"],
+      "brand/signal-dark": signalDark,
+      "brand/signal-foreground-dark": brand.dark?.signal ? readableOn(signalDark) : dark["primary-foreground"],
+      "brand/font-display-weight": Number(display?.weight ?? 700),
+      "brand/font-display-numeric": display?.numeric ?? "proportional",
+      "brand/gradient-from": gradient?.from ?? primary,
+      "brand/gradient-to": gradient?.to ?? primary,
+      "brand/gradient-angle": gradient?.angle ?? 135,
     },
     roles: { light, dark },
   };
