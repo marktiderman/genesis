@@ -1,0 +1,33 @@
+scripts/__tests__/check-code-connect.test.mjs
+  s_109ad08c59054b::t_83c5494b553bdc 374-430
+  s_109ad08c59054b::t_18a908056f5cdd 17-18
+  s_109ad08c59054b::t_dd7a4e8f0917e4 261-264
+  s_109ad08c59054b::t_691a71936202bf 431
+scripts/check-code-connect.mjs
+  s_109ad08c59054b::t_43f6c6f515a682 416-420
+  s_109ad08c59054b::t_8a9fefa3fa0c03 151-170
+  s_109ad08c59054b::t_1bfd585ef10d9d 49-58
+  s_109ad08c59054b::t_c98e06b5cdf041 206-210
+  s_109ad08c59054b::t_9818d17205c1e3 307-328
+  s_109ad08c59054b::t_3dd83dce0c449e 329
+figma.config.json
+  s_109ad08c59054b::t_d9864079bb303e 9-13
+.github/workflows/code-connect.yml
+  s_109ad08c59054b::t_8c179c07f9baf7 21-24,37-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "975967c4deb23dc38451faa0ca9cf4a17240c61c",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
