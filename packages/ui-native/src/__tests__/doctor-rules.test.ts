@@ -58,3 +58,23 @@ describe("threads-use-thread-list", () => {
     (code) => expect(re.test(code)).toBe(false),
   );
 });
+
+describe("haptics-use-genesis", () => {
+  const { re } = rule("haptics-use-genesis");
+
+  it.each([
+    ["Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)"],
+    ["void Haptics.selectionAsync()"],
+    ["await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)"],
+    ['import { impactAsync, ImpactFeedbackStyle } from "expo-haptics";'],
+    ["import {\n  selectionAsync,\n} from 'expo-haptics'"],
+  ])("flags %s", (code) => expect(re.test(code)).toBe(true));
+
+  it.each([
+    ['import * as Haptics from "expo-haptics";\nconst modules = { haptics: Haptics };'],
+    ["haptics.impactAsync(as(styles.Light))"],
+    ['const play = useHaptics(); play("light")'],
+    ['<NativeButton haptic="success" onPress={save}>Save</NativeButton>'],
+    ['import { impactAsync } from "./my-haptics";'],
+  ])("leaves %s alone", (code) => expect(re.test(code)).toBe(false));
+});

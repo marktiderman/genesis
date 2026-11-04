@@ -37,6 +37,7 @@ import { lucideIcons } from "@marktiderman/genesis-ui-native/icons/lucide";
 | `symbol` | `expo-symbols` | `NativeIcon` on iOS (SF Symbols), and the drill-in chevron of `NativeListItem` | `icons` |
 | `icons` | `lucide-react-native` 0.475+, through `lucideIcons` from `/icons/lucide` | `NativeIcon` on Android and web, and as the SF Symbol's fallback | an empty space of the icon's size, and a development warning |
 | `datePicker` | `@expo/ui` (`@expo/ui/community/datetime-picker`) | `NativeDatePicker`, `NativeTimePicker`: SwiftUI on iOS, a Jetpack Compose dialog on Android | `@react-native-community/datetimepicker`, else a read-only label |
+| `haptics` | `expo-haptics` (`import * as`) | `useHaptics`, `usePressFeedback`, `NativeButton haptic`, `NativeComposerBar` (a light tap on send) | no haptics |
 
 Glass is drawn only on iOS when both `isLiquidGlassAvailable()` (built with the iOS 26 SDK, running
 iOS 26) and `isGlassEffectAPIAvailable()` (the API exists at run time) are true, and Reduce
@@ -195,6 +196,47 @@ The doctor's `motion-uses-tokens` rule warns on new code that writes a non-zero 
 a number literal in the config of `withTiming`, `withSpring`, `Animated.timing` or `Animated.spring`,
 or in a Reanimated layout animation's `.duration()` / `.damping()` / `.stiffness()`. A named
 constant, a config held in a variable, and a first argument containing parentheses aren't caught.
+
+## Haptics and press feedback
+
+Pass `expo-haptics` once (`import * as Haptics from "expo-haptics"`, as `modules.haptics`), then name
+the feel you want: `light`, `medium`, `heavy` (a tap), `select` (a tick as a choice changes), or
+`success`, `warning`, `error`. `useHaptics()` returns a function that plays one through the app's
+module; it never throws or rejects, and without the module it does nothing. `NativeButton` takes a
+`haptic` that plays when it's pressed, and `NativeComposerBar` taps `light` when a message sends.
+Reduce Motion doesn't turn haptics off (it's about what moves on screen); iOS's own System Haptics
+setting does.
+
+`usePressFeedback({ haptic })` is how a pressable of your own answers a touch: it shrinks a little
+while held (the motion tokens' `press` duration) and springs back on release (`snappy`), or dims
+under Reduce Motion. `select` ticks on press-in; any other haptic plays when you call `confirm()`
+from `onPress`, so a press cancelled by a scroll stays quiet.
+
+```tsx
+import type { ReactNode } from "react";
+import { Animated, Pressable } from "react-native";
+import { usePressFeedback } from "@marktiderman/genesis-ui-native";
+
+function Card({ onOpen, children }: { onOpen: () => void; children: ReactNode }) {
+  const press = usePressFeedback({ haptic: "light" });
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      onPress={() => {
+        press.confirm();
+        onOpen();
+      }}
+    >
+      <Animated.View style={press.style}>{children}</Animated.View>
+    </Pressable>
+  );
+}
+```
+
+The doctor's `haptics-use-genesis` rule warns on new code that calls `Haptics.impactAsync`,
+`selectionAsync` or `notificationAsync` itself, or imports them from `expo-haptics` by name.
 
 ## Inbox and thread: `InboxPage` and `ThreadPage`
 

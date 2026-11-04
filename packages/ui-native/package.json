@@ -223,6 +223,24 @@
           "why": "Motion is defined once, and Reduce Motion is honoured in one place; a duration or spring written as a number drifts from the rest of the app."
         },
         {
+          "id": "haptics-use-genesis",
+          "need": "a haptic on the phone",
+          "level": "warn",
+          "platform": "native",
+          "newOnly": true,
+          "files": [
+            "**/*.tsx",
+            "**/*.ts"
+          ],
+          "forbid": {
+            "pattern": "(?:\\bHaptics\\.(?:impactAsync|selectionAsync|notificationAsync)\\(|\\bimport\\s*\\{[^}]*\\b(?:impactAsync|selectionAsync|notificationAsync)\\b[^}]*\\}\\s*from\\s*[\"']expo-haptics[\"'])"
+          },
+          "use": "useHaptics() (or a NativeButton's `haptic`, usePressFeedback for a pressable of your own), with expo-haptics passed once as GenesisModules.haptics",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#haptics-and-press-feedback",
+          "why": "Haptics are named once (light, select, success…) and go through one module that never throws; a direct expo-haptics call picks its own styles and breaks where the module isn't installed."
+        },
+        {
           "id": "threads-use-thread-list",
           "need": "a conversation's message list on the phone",
           "level": "warn",

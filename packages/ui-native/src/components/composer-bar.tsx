@@ -22,10 +22,11 @@
  * @stability Beta
  */
 import { useEffect, type ReactNode } from "react";
-import { AccessibilityInfo, ActivityIndicator, Dimensions, Platform, Pressable, TextInput, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Animated, Dimensions, Platform, Pressable, TextInput, View } from "react-native";
 import type { ComposerMode } from "@marktiderman/genesis-core/conversation";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
+import { usePressFeedback } from "../hooks/use-press-feedback";
 import { NativeIcon } from "./icon";
 import { NativeText } from "./text";
 
@@ -87,6 +88,7 @@ export function NativeComposerBar({
   const internal = current?.tone === "internal";
   const blank = !value.trim();
   const canSend = !blank && !disabled && !sending;
+  const sendPress = usePressFeedback({ haptic: "light", scale: 0.9, disabled: !canSend });
   // A multiline input grows with its text by itself; this caps it, after which it scrolls.
   // Lines grow with the person's text size (Dynamic Type, Android font scale).
   const fontScale = Dimensions.get("window").fontScale || 1;
@@ -174,13 +176,19 @@ export function NativeComposerBar({
             <ActivityIndicator />
           </View>
         ) : (
+          <Animated.View style={sendPress.style}>
           <Pressable
             testID={`${testID}-send`}
             accessibilityRole="button"
             accessibilityLabel={sendLabel}
             accessibilityState={{ disabled: !canSend }}
             disabled={!canSend}
-            onPress={onSend}
+            onPressIn={sendPress.onPressIn}
+            onPressOut={sendPress.onPressOut}
+            onPress={() => {
+              sendPress.confirm();
+              onSend();
+            }}
             style={{ minWidth: 44, height: 44, paddingHorizontal: hasIcon ? 0 : 14, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: canSend ? colors.tint : colors.fill }}
           >
             {hasIcon ? (
@@ -191,6 +199,7 @@ export function NativeComposerBar({
               </NativeText>
             )}
           </Pressable>
+          </Animated.View>
         )}
       </View>
     </View>

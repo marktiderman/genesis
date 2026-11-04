@@ -5,6 +5,7 @@
  */
 import { type VariantProps, cva } from "class-variance-authority";
 import { ActivityIndicator, Pressable, Text, type AccessibilityState } from "react-native";
+import { useHaptics, type HapticKind } from "../hooks/use-haptics";
 import { cn } from "../utils";
 
 const buttonVariants = cva(
@@ -66,6 +67,8 @@ export interface NativeButtonProps
   accessibilityHint?: string;
   /** Merged with the button's own `disabled` and `busy`: `{ selected: true }` for a vote cast, a filter on. */
   accessibilityState?: AccessibilityState;
+  /** A haptic when the press counts (`light` for a vote, `success` for a save), through `GenesisModules.haptics`. Default none. */
+  haptic?: HapticKind | undefined;
 }
 
 function NativeButton({
@@ -78,9 +81,18 @@ function NativeButton({
   disabled,
   loading,
   accessibilityState,
+  haptic,
   ...props
 }: NativeButtonProps) {
   const isDisabled = disabled || loading;
+  const play = useHaptics();
+  const press =
+    haptic && onPress
+      ? () => {
+          play(haptic);
+          onPress();
+        }
+      : onPress;
 
   return (
     <Pressable
@@ -89,7 +101,7 @@ function NativeButton({
         isDisabled && "opacity-50",
         className
       )}
-      onPress={onPress}
+      onPress={press}
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading }}
