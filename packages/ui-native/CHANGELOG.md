@@ -1,5 +1,18 @@
 # @marktiderman/genesis-ui-native
 
+## 3.7.0
+
+### Minor Changes
+
+- ab4c52d: Haptics and press feedback. `GenesisModules.haptics` takes `expo-haptics` (`import * as`), and `useHaptics()` plays a named haptic through it (`light`, `medium`, `heavy`, `select`, `success`, `warning`, `error`; `playHaptic(module, kind)` outside React): it never throws or rejects, and without the module it does nothing. `usePressFeedback({ haptic })` gives a pressable of your own the shared feel: it shrinks while held on the motion tokens' `press` duration and springs back on `snappy`, or dims under Reduce Motion, with `select` ticking on press-in and other haptics playing on `confirm()` from `onPress`. `NativeButton` takes an optional `haptic` (`select` ticks on press-in, as in `usePressFeedback`), and `NativeComposerBar`'s send button now presses in and taps `light` when a message sends (with the module given). A new doctor rule, `haptics-use-genesis`, warns on new code (not tests) that calls expo-haptics' `impactAsync`, `selectionAsync` or `notificationAsync` directly.
+
+  Features: motion-kit
+
+- 01549d8: NativeComposerBar takes `sendActions`, `idleAction`, `replaceInput`, `onSelectionChange`, `editable` and `empty`, so a chat composer can sit on it.
+- 1148741: NativeThreadList: `jumpId`, the id `jumpTo` names a row by when that isn't the row's key. A message keyed by the id the phone gave it (so it keeps its row when the server's copy lands) can now be gone to by the server's id; return `null` for a row that can't be gone to. `keyExtractor` stays the default.
+
+  Fixed: on FlatList (no FlashList module), going to a row scrolled straight back to the bottom. The jump's own scroll starts at the bottom, so its first scroll events read as "at the bottom", which turned following back on. The list now ignores its own scroll events until it settles, each try at the row restarts that, the check for "landed at the bottom" waits until then, and a reader who takes hold of the list (a drag) ends that at once, so their scrolling counts.
+
 ## 3.6.0
 
 ### Minor Changes
