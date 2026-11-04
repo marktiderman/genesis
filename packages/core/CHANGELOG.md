@@ -1,5 +1,88 @@
 # @marktiderman/genesis-core
 
+## 2.11.0
+
+### Minor Changes
+
+- 9765abf: A save that meets someone else's change now asks the person instead of only showing an error: their value beside yours, then "Keep mine" or "Take theirs". Features: data-offline.
+
+  - **genesis-core:**
+    - `writeConflict(error, mine, { changed?, view? })` turns a `conflict` `DataWriteError` into a `WriteConflict`: `theirs`, `mine`, the `fields` this person changed that differ from theirs (a field their row doesn't carry counts as different), and `currentVersion`. Empty values, numbers and their text, dates and object key order compare as a person would.
+    - `WriteState` (`pending`, `sending`, `paused`, `failed`, `conflict`) is the one shape for where a write stands.
+    - `useResourceForm` returns `conflict`, `keepMine()`, `takeTheirs()` and `dismissConflict()`. What the person typed stays on the form until they save or take theirs, across an optimistic save's refetch too. Keep mine sends this person's changes at the version the conflict reported, with their values for every other field, and rejects with the reason if it fails for anything but a new conflict. After take theirs, the next save is checked against their version.
+    - `ExecuteWriteArgs.expectedVersion` names the version a write is checked against.
+  - **genesis-ui:** `ConflictSheet`, from `/data`. `ResourceForm` (every layout, and after an optimistic save closed it, without a second toast) and `RecordView`'s settings sections open it on a conflict. It hides keep mine when there's no version to save at. New `conflict` messages.
+  - **genesis-ui-native:** `NativeConflictSheet`, from `/data`, announced as it opens. `NativeResourceForm` and `NativeRecordView`'s settings sections open it on a conflict; its words come from `messages.conflict`.
+  - **genesis-studio:** the record panel's edit conflict opens `ConflictSheet` (theirs beside yours) instead of replacing what was typed. Its genesis-core floor is now 2.11: upgrade genesis-core with genesis-studio.
+
+- 00ac05c: The justified gallery layout has one home: `@marktiderman/genesis-core/gallery` exports `GalleryItem`, `GALLERY_DEFAULTS`, `GalleryTileAspect`, `justifyRows`, `galleryItemRatio`, `DEFAULT_GALLERY_RATIO` and the `JustifiedRow`/`JustifiedTile` types. genesis-ui and genesis-ui-native re-export them under the same names, so existing imports keep working, and the native copy (with the test that kept it in step) is gone.
+- 00ac05c: Lists and records open at once from the device, then refresh. Features: data-offline.
+
+  - **genesis-core, new `/offline` entry:** the `LocalCache` contract with `memoryLocalCache` and `indexedDbLocalCache` (the web, plain IndexedDB), and `persistOffline({ cache, resources, buster, maxAge? })`.
+    - It keeps the listed resources' reads, each record stored once.
+    - It saves only reads a fetch returned, never an optimistic change.
+    - It restores them into the QueryClient marked with when they were fetched, so screens refetch, and never over a newer read.
+    - Buckets are keyed to the person and workspace with `cacheScope(userId, workspace)`. A device is one person's: restoring someone deletes everyone else's reads, and a start with nobody signed in deletes them all.
+    - A newer read replaces a stored row, a record that comes back empty is deleted, and each start deletes expired reads and the rows nothing refers to.
+  - **genesis-core, `GenesisProvider`:** new `persist` and `persistScope` props (`undefined` while the session loads, `null` once nobody is signed in). Saved reads are restored before the first render, which waits at most 400 ms, and new reads are saved as they arrive. A `ViewerScope` inside keeps them for the restored person.
+  - **genesis-native, new `/offline` entry:** `sqliteLocalCache({ db })` on expo-sqlite, plus `persistOffline` and `cacheScope`, for `GenesisNativeApp`'s `persist`. Its genesis-core floor is 2.12.
+  - **Deprecated:** `persistQueries` and `createQueryPersistence` (`/persist`). Use `persistOffline` with `sqliteLocalCache` (docs/MIGRATION.md). They're removed in the next major.
+  - **TanStack Query:** the workspace resolves one `@tanstack/query-core`, and `check:single-query-core` (in `lint:genesis`) keeps it that way.
+
+- 992b788: Board mode for lists: `<ResourceView view={tasksView} mode="board" />` shows a view's rows as cards in a column per value of one field, and moving a card writes that field.
+
+  - **genesis-core:** a view's `board` block (`ViewBoard`): `field` (an enum or a yes/no field), `columns` (which values, in order; default the field's choices, then "No value" when it can be empty), `cardFields` and `limits` (work-in-progress limits by value). `defineView` checks every name and value; `boardProblems` and `boardChoices` check a screen's overrides the same way. `view.column(name)` resolves one field as a column preset would, for a card's fields.
+  - **genesis-ui:** `mode="board"` on ResourceView, drawn by the new `ResourceBoard` (`board={…}` overrides the view's block and adds `onSelect`, `renderCard`, `onMoveError`, `perPage`). Each column is one paged `getList` under core's list keys, inside the viewer's scope and the screen's filters. A move is the resource's own `update(id, { [field]: value })`, so the provider's write rules apply and a versioned resource's check refuses a stale move; a refused move leaves the card where it was and says why. `useBoardColumns` is the loader on its own, for boards over rows that aren't one view's. `KanbanColumn.limit` shows a column's count against its limit ("4 / 3") and says when it's over. The `lists-use-resource-view` doctor rule also accepts a KanbanBoard fed by `useBoardColumns`, and `genesis catalog` points a board at `mode="board"`.
+  - **genesis-studio:** the board loads through `useBoardColumns`, the same loader ResourceView's board uses. No change in what it shows.
+
+  Features: resource-view-board
+
+- 00ac05c: Gallery mode for lists. A view's `gallery` block (`defineView`: `image`, `width`, `height`, `caption`, `alt`, `rowHeight`) makes `mode="grid"` a photo per row in justified rows, in place of cards: ResourceView draws it with GalleryGrid, NativeResourceView with NativeGalleryGrid, and both pack the rows with genesis-core's `justifyRows`. A screen's `gallery` prop overrides the block or adds one. Pressing a photo opens the row as a card does; paging, search, the peek and the table and list views are unchanged, and a screen's own `slots.grid` still wins. `view.galleryItem(row)` gives the row as a `GalleryItem` (an empty `src` when it has no image, drawn as a placeholder), and `galleryProblems` checks a block. A ResourcePage grid slot can opt in to its open handler with a static `opensItems = true`, as the gallery does; other grid slots get exactly what they did before.
+- 00ac05c: `useResource`'s `update(id, data, { expectedVersion })` (`UpdateOptions`) checks a write against the version given instead of the cached row's: "keep mine" after a conflict, at `WriteConflict.currentVersion`. It goes through the resource's write path like any update, so its committed version is what the next change of the row is checked against.
+
+  ResourceView's board sends "Keep my version" this way. Before, it called the provider directly, and a move made right after it came back as a false conflict against the save it had just made. A "keep mine" save that changed no row now shows as a refusal in the sheet. The board's edge fades work right to left, and a board on another surface sets `--board-edge` to match it.
+
+  Features: resource-view-board, data-offline
+
+- eb441f9: Versioned writes: two people editing the same record no longer silently overwrite each other. The second save, made on the copy read before the first, comes back as a `conflict`. Features: data-offline.
+
+  - **genesis-core, Supabase provider:** a resource's `version: { field, kind: "integer" | "timestamp" }` rule checks every update and delete against `expectedVersion` (`where id = … and version = …`).
+    - When no row matches, the row is read back. At another version it's `conflict`, with `error.current` and `error.currentVersion`; at the same version it's `forbidden`; when it isn't visible it's `gone`.
+    - The submitted version is never written.
+    - `capabilities(resource)` reports `versionedWrites: true` and the new `version` (`VersionField`).
+    - An `update` override gets `{ expectedVersion }` as a third argument when a version is checked; overrides called without one are unchanged.
+    - Recycle-bin tables check the version before the delete.
+  - **genesis-core, hooks:**
+    - `useResource` and `useResourceForm` send the version of the row the change was made on, through `SendContext.expectedVersion`: an edit form's opened record (`ExecuteWriteArgs.base`), else the row cached when the write was made. A write made behind another on the same record is checked against the version that one committed at.
+    - After a save they put the new version into every cached copy, so a second edit is checked against it.
+    - A resource without the rule, a row that wasn't read first, or a provider without capabilities is sent unchecked, as before. A versioned resource whose rows don't carry the version column is reported once through `reportError`.
+    - A timestamp version is compared as an instant (to the microsecond), and a conflict's `error.current` is read through the resource's `source` and `select`.
+  - **genesis-ui, genesis-ui-native:** `RecordView`'s settings sections send the version of the row as it was when the person started editing.
+  - **genesis-supabase:** migration `0019_genesis_version_bump.sql` (with a pgTAP test), the `versioned-writes` block and `versionedWritesBlock`. `genesis_version_bump('col')` advances the column by one on every update, whatever the update wrote, and refuses a column that isn't an integer.
+
+- 00ac05c: Messaging layouts for the web, on one conversation contract shared with native.
+
+  - **genesis-core:** a new `@marktiderman/genesis-core/conversation` subpath with the contract the messaging layouts share:
+    - `ThreadMessage`, `ThreadMessageStatus`, `MessageTone`, `ThreadAttachment`;
+    - `ThreadComposer`, `ComposerMode`, `ComposerTone`;
+    - `ThreadLabels` and `DEFAULT_THREAD_LABELS`;
+    - `InboxItem` (with a new optional `selected`) and `InboxSwipeAction`;
+    - `readReceiptFor`, `formatInboxTime`, `formatMessageTime` and `isDelivered`;
+    - `useThreadJump`, moved here from genesis-ui-native.
+  - **genesis-ui:** `ThreadPage`, `ThreadList`, `ComposerBar`, `InboxPage` and `InboxLayout` (three panes: views, list, thread, context).
+    - **`ThreadPage`:** `conversationId` (a new conversation opens afresh). It announces only someone else's new message, and stays at the bottom as content resizes.
+    - **`InboxViews`:** the views rail.
+    - **`InboxPage`:** controlled `selectedId` and `onSelect`.
+    - **`InboxLayout`:** a context sidebar that toggles, can remember its state, and becomes a sheet below `xl`, plus optional keyboard `shortcuts` that stay off while typing. They take the same props and slots as genesis-ui-native's, so one description renders on web and phone. The composer sends on Enter, or on Cmd/Ctrl+Enter with `sendOn="mod-enter"`. Inbox rows move with the arrow keys or j/k, and a row's actions become a "More" menu.
+  - **genesis-ui-native:** its ThreadPage and InboxPage types, `readReceiptFor`, `formatInboxTime` and `useThreadJump` now come from genesis-core and are re-exported unchanged.
+
+  Features: inbox-thread
+
+### Patch Changes
+
+- 00ac05c: `useResource` no longer logs a conflict as a failed mutation (the caller shows it). A form that stays open after a save checks its next save against the version that save left, instead of reporting its own save as someone else's change. A conflict that comes back after `ResourceForm` closed (a route change during the undo delay) is toasted, since no sheet is left to show it.
+- 00ac05c: `view.galleryItem`'s docs say a row without an image (an empty `src`) is left out of a Lightbox's items: the grid draws it as a placeholder, a viewer has nothing to show.
+
 ## 2.10.0
 
 ### Minor Changes

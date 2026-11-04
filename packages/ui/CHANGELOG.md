@@ -1,5 +1,160 @@
 # @marktiderman/genesis-ui
 
+## 2.31.0
+
+### Minor Changes
+
+- fc40349: The chat dock. `@marktiderman/genesis-chat/web` adds `ChatDockProvider`, `useChatDock` and `ChatDock`: conversations that stay open while people move around the app.
+
+  - **Wide screens:** up to three windows bottom-right, or as many as fit, with the rest behind a "+N" menu. Each window is a thread and composer that minimizes to a bar with its unread count. Opening a fourth replaces the one used longest ago.
+  - **Narrow screens:** one side sheet with a keyboard-navigable switcher, and an unread bubble.
+  - **Expand** opens the conversation on the app's Messages page.
+  - **Panels:** `openPanel` opens anything else in the dock, such as a help desk messenger, and `updatePanel` keeps its unread count live.
+  - **Out of sight:** a minimized window or a hidden tab keeps its thread mounted, with read-marking paused. A draft survives minimizing, and nothing is marked read behind the viewer's back.
+  - **Focus:** opening a window focuses its composer. Escape minimizes and leaves focus on the window's bar.
+  - **Restoring:** open conversations are kept per signed-in person and restored after hydration, so server-rendered pages don't mismatch. `forgetChatDock` clears them on sign-out.
+
+  `ChatThread` takes `markRead` (default true) and `autoFocus`.
+
+  `AppShell` takes a `dock` slot, fixed bottom-right outside the scrolling page and lifted clear of the phone's bottom bar. That's where `ChatDock` goes.
+
+- 9765abf: A save that meets someone else's change now asks the person instead of only showing an error: their value beside yours, then "Keep mine" or "Take theirs". Features: data-offline.
+
+  - **genesis-core:**
+    - `writeConflict(error, mine, { changed?, view? })` turns a `conflict` `DataWriteError` into a `WriteConflict`: `theirs`, `mine`, the `fields` this person changed that differ from theirs (a field their row doesn't carry counts as different), and `currentVersion`. Empty values, numbers and their text, dates and object key order compare as a person would.
+    - `WriteState` (`pending`, `sending`, `paused`, `failed`, `conflict`) is the one shape for where a write stands.
+    - `useResourceForm` returns `conflict`, `keepMine()`, `takeTheirs()` and `dismissConflict()`. What the person typed stays on the form until they save or take theirs, across an optimistic save's refetch too. Keep mine sends this person's changes at the version the conflict reported, with their values for every other field, and rejects with the reason if it fails for anything but a new conflict. After take theirs, the next save is checked against their version.
+    - `ExecuteWriteArgs.expectedVersion` names the version a write is checked against.
+  - **genesis-ui:** `ConflictSheet`, from `/data`. `ResourceForm` (every layout, and after an optimistic save closed it, without a second toast) and `RecordView`'s settings sections open it on a conflict. It hides keep mine when there's no version to save at. New `conflict` messages.
+  - **genesis-ui-native:** `NativeConflictSheet`, from `/data`, announced as it opens. `NativeResourceForm` and `NativeRecordView`'s settings sections open it on a conflict; its words come from `messages.conflict`.
+  - **genesis-studio:** the record panel's edit conflict opens `ConflictSheet` (theirs beside yours) instead of replacing what was typed. Its genesis-core floor is now 2.11: upgrade genesis-core with genesis-studio.
+
+- 00ac05c: `GalleryGrid` and `NativeGalleryGrid` take ResourceView's names: `loadMore` (was `onNearEnd`) and `groupBy` (was `getGroup`). The old names still work and are deprecated.
+
+  An item with no image (`src: ""`) draws a neutral 4:3 tile showing its `alt` and `caption`, instead of an empty picture. It stays clickable and selectable, and its accessible name is unchanged. ResourceView's gallery grid uses this for records without an image.
+
+- dcf2b4f: Gallery primitives in the patterns tier, with the same props and defaults as their native twins (`GALLERY_DEFAULTS`):
+
+  - **`GalleryGrid`:** justified rows or a fixed-column grid. Grid tiles are square by default; `aspectRatio` sets a ratio, or `"item"` uses each photo's own. Off-screen rows skip layout.
+  - **`GalleryCard`:** a cover with overlaid badges and actions. A clickable card is named by its title and described by its subtitle and badges.
+  - **`Lightbox`:** a full-screen viewer with prev/next, a counter, a caption and keyboard control.
+    - `renderMedia(item, index)` replaces a picture with a video or a compare view.
+    - A picture with no `alt` is named by its position.
+    - At an end, focus moves to the other arrow.
+    - `labels` changes its words.
+  - **`LiveIndicator`:** a pulsing live pill.
+  - **`Rating`:** read-only, or chosen on Radix's `RadioGroup`; re-clicking the chosen star clears it.
+
+  Features: media-gallery, rating
+
+- 00ac05c: Board mode: a move that meets someone else's change opens `ConflictSheet`, showing their column beside yours. **Keep my version** sends the move again at the version their change left; **Take their version** (or closing the sheet) leaves the card where their row puts it. A screen with `onMoveError` still gets the conflict itself, and the sheet doesn't open. A conflict that comes back after the board has gone (a route change mid-save) is toasted rather than dropped. The board's columns scroll inside a strip, and a fade at either edge shows when there are more columns that way.
+
+  Features: resource-view-board
+
+- 80a52f2: Board mode, from its review:
+
+  - A move narrows by the screen's own `can` as well as the view's guard, and the screen's `resourceOptions` (`invalidates`, `onError`, `onUpdateSuccess`) apply to it. A move stays pessimistic.
+  - A card either guard refuses has no handle or menu and can't be dragged (the new `KanbanBoard` `canMoveItem`), instead of being refused after the drop.
+  - While a card's move is saving the card is dimmed and a second move of it is turned away, so it is never sent from the column it is leaving.
+  - A yes/no board filters its columns by `true` and `false`, not the strings (`useBoardColumns` `toValue`).
+  - A row that shows on two loaded pages of a column is drawn once (`useBoardColumns` `getKey`). Studio's board passes it too.
+  - A bad screen `board={…}` override warns in development and shows the view's own block, instead of throwing.
+
+  Features: resource-view-board
+
+- 992b788: Board mode for lists: `<ResourceView view={tasksView} mode="board" />` shows a view's rows as cards in a column per value of one field, and moving a card writes that field.
+
+  - **genesis-core:** a view's `board` block (`ViewBoard`): `field` (an enum or a yes/no field), `columns` (which values, in order; default the field's choices, then "No value" when it can be empty), `cardFields` and `limits` (work-in-progress limits by value). `defineView` checks every name and value; `boardProblems` and `boardChoices` check a screen's overrides the same way. `view.column(name)` resolves one field as a column preset would, for a card's fields.
+  - **genesis-ui:** `mode="board"` on ResourceView, drawn by the new `ResourceBoard` (`board={…}` overrides the view's block and adds `onSelect`, `renderCard`, `onMoveError`, `perPage`). Each column is one paged `getList` under core's list keys, inside the viewer's scope and the screen's filters. A move is the resource's own `update(id, { [field]: value })`, so the provider's write rules apply and a versioned resource's check refuses a stale move; a refused move leaves the card where it was and says why. `useBoardColumns` is the loader on its own, for boards over rows that aren't one view's. `KanbanColumn.limit` shows a column's count against its limit ("4 / 3") and says when it's over. The `lists-use-resource-view` doctor rule also accepts a KanbanBoard fed by `useBoardColumns`, and `genesis catalog` points a board at `mode="board"`.
+  - **genesis-studio:** the board loads through `useBoardColumns`, the same loader ResourceView's board uses. No change in what it shows.
+
+  Features: resource-view-board
+
+- 00ac05c: Gallery mode for lists. A view's `gallery` block (`defineView`: `image`, `width`, `height`, `caption`, `alt`, `rowHeight`) makes `mode="grid"` a photo per row in justified rows, in place of cards: ResourceView draws it with GalleryGrid, NativeResourceView with NativeGalleryGrid, and both pack the rows with genesis-core's `justifyRows`. A screen's `gallery` prop overrides the block or adds one. Pressing a photo opens the row as a card does; paging, search, the peek and the table and list views are unchanged, and a screen's own `slots.grid` still wins. `view.galleryItem(row)` gives the row as a `GalleryItem` (an empty `src` when it has no image, drawn as a placeholder), and `galleryProblems` checks a block. A ResourcePage grid slot can opt in to its open handler with a static `opensItems = true`, as the gallery does; other grid slots get exactly what they did before.
+- 00ac05c: Touch screens and reduced motion:
+  - **44px targets on touch screens.** Buttons of every size, tab triggers, inputs, select triggers, select options and menu items are now at least 44px on a touch screen (a coarse pointer). A mouse keeps the compact sizes. The sizes are `min-` sizes, so a screen's own `h-8 w-8` icon button grows on touch too.
+  - **No zoom on focus.** Inputs and textareas keep 16px text on a touch screen, an iPad included, so iOS Safari no longer zooms in on focus; only a mouse gets 14px from `md` up.
+  - **Reduced motion.** `styles.css` stops every animation and transition when the person asks their device for less motion. Spinners still turn.
+  - **DashboardPage.** Two stat cards side by side on a phone, not one per row.
+  - **SettingsPage.** On a phone the section links are one compact row of 44px links that scrolls sideways, instead of a full list that filled the first screen. The sticky rail starts at `navAt`, and a section that is jumped to clears the phone header.
+  - **New doctor rule.** `ui/overlays-fit-the-phone` warns when an app sizes a dialog or sheet in `vh`.
+  - **Contract doc.** `docs/MOBILE.md` is the mobile contract.
+- 00ac05c: Messaging layouts for the web, on one conversation contract shared with native.
+
+  - **genesis-core:** a new `@marktiderman/genesis-core/conversation` subpath with the contract the messaging layouts share:
+    - `ThreadMessage`, `ThreadMessageStatus`, `MessageTone`, `ThreadAttachment`;
+    - `ThreadComposer`, `ComposerMode`, `ComposerTone`;
+    - `ThreadLabels` and `DEFAULT_THREAD_LABELS`;
+    - `InboxItem` (with a new optional `selected`) and `InboxSwipeAction`;
+    - `readReceiptFor`, `formatInboxTime`, `formatMessageTime` and `isDelivered`;
+    - `useThreadJump`, moved here from genesis-ui-native.
+  - **genesis-ui:** `ThreadPage`, `ThreadList`, `ComposerBar`, `InboxPage` and `InboxLayout` (three panes: views, list, thread, context).
+    - **`ThreadPage`:** `conversationId` (a new conversation opens afresh). It announces only someone else's new message, and stays at the bottom as content resizes.
+    - **`InboxViews`:** the views rail.
+    - **`InboxPage`:** controlled `selectedId` and `onSelect`.
+    - **`InboxLayout`:** a context sidebar that toggles, can remember its state, and becomes a sheet below `xl`, plus optional keyboard `shortcuts` that stay off while typing. They take the same props and slots as genesis-ui-native's, so one description renders on web and phone. The composer sends on Enter, or on Cmd/Ctrl+Enter with `sendOn="mod-enter"`. Inbox rows move with the arrow keys or j/k, and a row's actions become a "More" menu.
+  - **genesis-ui-native:** its ThreadPage and InboxPage types, `readReceiptFor`, `formatInboxTime` and `useThreadJump` now come from genesis-core and are re-exported unchanged.
+
+  Features: inbox-thread
+
+### Patch Changes
+
+- 00ac05c: `useResource` no longer logs a conflict as a failed mutation (the caller shows it). A form that stays open after a save checks its next save against the version that save left, instead of reporting its own save as someone else's change. A conflict that comes back after `ResourceForm` closed (a route change during the undo delay) is toasted, since no sheet is left to show it.
+- 00ac05c: The justified gallery layout has one home: `@marktiderman/genesis-core/gallery` exports `GalleryItem`, `GALLERY_DEFAULTS`, `GalleryTileAspect`, `justifyRows`, `galleryItemRatio`, `DEFAULT_GALLERY_RATIO` and the `JustifiedRow`/`JustifiedTile` types. genesis-ui and genesis-ui-native re-export them under the same names, so existing imports keep working, and the native copy (with the test that kept it in step) is gone.
+- 00ac05c: A placeholder tile (an item with no image) in a gallery that isn't clickable or selectable is named for screen readers as an image, by its `alt`, then its `caption`.
+- 00ac05c: `Lightbox` and `NativeLightbox` show no "1 / 1" counter for a single picture.
+- 00ac05c: `RecordView`'s and `NativeRecordView`'s settings sections save through the resource's write path (`useResource`'s `update` with `{ expectedVersion }`) rather than calling the provider directly. The version a save starts from is unchanged: the row the edit started on, and after a save, the version that save left. What changes is that the version a save commits now goes into every cached copy of the row, and a save sent while another of the same record is in flight is checked against the version that one commits. So a board move or list edit of the record right after a settings save is no longer refused as a conflict with that save.
+
+  Features: data-offline
+
+- 976a058: Board mode: two moves of one card sent before the board re-renders (a fast Alt+→ Alt+→) no longer both go through; the second is turned away while the first saves. `KanbanBoard`'s `canMoveItem` is documented as whether an item can be moved at all; a move that should wait is refused from `onMoveItem`, so keyboard focus stays on the card's handle.
+- 00ac05c: `useResource`'s `update(id, data, { expectedVersion })` (`UpdateOptions`) checks a write against the version given instead of the cached row's: "keep mine" after a conflict, at `WriteConflict.currentVersion`. It goes through the resource's write path like any update, so its committed version is what the next change of the row is checked against.
+
+  ResourceView's board sends "Keep my version" this way. Before, it called the provider directly, and a move made right after it came back as a false conflict against the save it had just made. A "keep mine" save that changed no row now shows as a refusal in the sheet. The board's edge fades work right to left, and a board on another surface sets `--board-edge` to match it.
+
+  Features: resource-view-board, data-offline
+
+- eb441f9: Versioned writes: two people editing the same record no longer silently overwrite each other. The second save, made on the copy read before the first, comes back as a `conflict`. Features: data-offline.
+
+  - **genesis-core, Supabase provider:** a resource's `version: { field, kind: "integer" | "timestamp" }` rule checks every update and delete against `expectedVersion` (`where id = … and version = …`).
+    - When no row matches, the row is read back. At another version it's `conflict`, with `error.current` and `error.currentVersion`; at the same version it's `forbidden`; when it isn't visible it's `gone`.
+    - The submitted version is never written.
+    - `capabilities(resource)` reports `versionedWrites: true` and the new `version` (`VersionField`).
+    - An `update` override gets `{ expectedVersion }` as a third argument when a version is checked; overrides called without one are unchanged.
+    - Recycle-bin tables check the version before the delete.
+  - **genesis-core, hooks:**
+    - `useResource` and `useResourceForm` send the version of the row the change was made on, through `SendContext.expectedVersion`: an edit form's opened record (`ExecuteWriteArgs.base`), else the row cached when the write was made. A write made behind another on the same record is checked against the version that one committed at.
+    - After a save they put the new version into every cached copy, so a second edit is checked against it.
+    - A resource without the rule, a row that wasn't read first, or a provider without capabilities is sent unchecked, as before. A versioned resource whose rows don't carry the version column is reported once through `reportError`.
+    - A timestamp version is compared as an instant (to the microsecond), and a conflict's `error.current` is read through the resource's `source` and `select`.
+  - **genesis-ui, genesis-ui-native:** `RecordView`'s settings sections send the version of the row as it was when the person started editing.
+  - **genesis-supabase:** migration `0019_genesis_version_bump.sql` (with a pgTAP test), the `versioned-writes` block and `versionedWritesBlock`. `genesis_version_bump('col')` advances the column by one on every update, whatever the update wrote, and refuses a column that isn't an integer.
+
+- 00ac05c: Web messaging, review follow-ups.
+
+  - **genesis-ui:**
+    - `ThreadPage` and `InboxPage` show times once hydrated, in the viewer's time zone, so server-rendered HTML matches.
+    - The thread's log is a tab stop, so keyboard users can scroll it. "Jump to latest" moves focus to the log before it goes away.
+    - Rows don't re-render on each keystroke in the composer.
+    - `InboxPage.onEndReached` asks once per page, and the new `hasMore={false}` stops it.
+    - The README lists the props that are web only.
+  - **genesis-ui-native:** `InboxPage` marks a `selected` row (filled, and `selected` to a screen reader), as the web does.
+  - **genesis-chat and genesis-support:** the docs of chat's web thread, inbox and composer, and of support's web-chat threads, name their move onto genesis-ui's components (feature `inbox-thread`). No behaviour change.
+
+  Features: inbox-thread
+
+- Updated dependencies [00ac05c]
+- Updated dependencies [9765abf]
+- Updated dependencies [00ac05c]
+- Updated dependencies [00ac05c]
+- Updated dependencies [00ac05c]
+- Updated dependencies [992b788]
+- Updated dependencies [00ac05c]
+- Updated dependencies [00ac05c]
+- Updated dependencies [eb441f9]
+- Updated dependencies [00ac05c]
+  - @marktiderman/genesis-core@2.11.0
+
 ## 2.30.0
 
 ### Minor Changes
