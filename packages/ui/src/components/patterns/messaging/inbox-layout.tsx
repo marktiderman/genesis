@@ -14,9 +14,9 @@
  * The context sidebar toggles: controlled (`contextOpen` /
  * `onContextOpenChange`), or on its own, remembered per viewer under
  * `contextStorageKey`. From `xl` up it sits beside the thread; below that, it
- * opens as a sheet over it, only when the toggle asks. From `md` up the toggle
- * floats at the thread's top right and takes no row of its own. To put it in
- * your own header, pass `thread` as a function: it gets `{ contextToggle }`.
+ * opens as a sheet over it, only when the toggle asks. The toggle sits in a row
+ * over the thread; to put it in your own header and spend no row on it from
+ * `md` up, pass `thread` as a function: it gets `{ contextToggle }`.
  *
  * Keyboard (`shortcuts`): each key is a callback the app can leave out. They
  * work only while focus is inside the layout, and never while typing in a
@@ -69,7 +69,8 @@ export interface InboxLayoutProps {
   list: React.ReactNode;
   /**
    * The open conversation (a `ThreadPage`), or what shows when none is open. As a function, it gets
-   * the Details toggle to place in its own header (a `headerRegion`), and the layout adds none.
+   * the Details toggle to place in its own header (a `headerRegion`), and the layout's row over the
+   * thread is only for Back, on narrow screens.
    */
   thread?: React.ReactNode | ((parts: { contextToggle: React.ReactNode }) => React.ReactNode);
   /** Beside the thread from `xl` up, a sheet below: who it's from, its properties, linked work. */
@@ -93,7 +94,6 @@ export interface InboxLayoutProps {
 }
 
 const XL_QUERY = "(min-width: 1280px)";
-const MD_QUERY = "(min-width: 768px)";
 
 /** The remembered context panel, stored as "1" / "0" under `contextStorageKey`. */
 const OPEN_FORMAT = { parse: (raw: string) => raw === "1", serialize: (open: boolean) => (open ? "1" : "0") };
@@ -122,7 +122,6 @@ export function InboxLayout({
   testID = "inbox-layout",
 }: InboxLayoutProps) {
   const wide = useMediaQuery(XL_QUERY, false);
-  const twoPanes = useMediaQuery(MD_QUERY, false);
   const [viewsOpen, setViewsOpen] = React.useState(false);
   // The remembered setting (usePersistedUiState: SSR-safe, and it still works for this visit when
   // storage is off). Without a key, it lasts this visit.
@@ -157,7 +156,7 @@ export function InboxLayout({
     <Button
       variant="ghost"
       size="sm"
-      className="size-11"
+      className={typeof thread === "function" ? "size-11" : "ml-auto size-11"}
       aria-pressed={wide ? contextOpen : sheetOpen}
       aria-label={toggleLabel}
       onClick={toggle}
@@ -194,18 +193,18 @@ export function InboxLayout({
         aria-label={labels.thread ?? "Conversation"}
         className={cn("relative min-h-0 min-w-0 flex-1 flex-col md:flex", threadOpen ? "flex" : "hidden")}
       >
-        {!twoPanes && (onBack || (contextToggle && !placesToggle)) ? (
-          <div className="flex items-center border-b p-1">
+        {onBack || (contextToggle && !placesToggle) ? (
+          // With the toggle placed by the thread, only Back is left here, which is narrow screens' alone.
+          <div className={cn("flex items-center border-b p-1", placesToggle && "md:hidden")}>
             {onBack ? (
-              <Button variant="ghost" size="sm" onClick={onBack} data-testid={`${testID}-back`} className="h-11">
+              <Button variant="ghost" size="sm" onClick={onBack} data-testid={`${testID}-back`} className="h-11 md:hidden">
                 <ChevronLeft className="size-4" aria-hidden />
                 {labels.back ?? "Back"}
               </Button>
             ) : null}
-            {placesToggle ? null : <div className="ml-auto">{contextToggle}</div>}
+            {placesToggle ? null : contextToggle}
           </div>
         ) : null}
-        {twoPanes && contextToggle && !placesToggle ? <div className="absolute right-1 top-1 z-10 rounded-md bg-background/80">{contextToggle}</div> : null}
         <div className="flex min-h-0 flex-1 flex-col">{typeof thread === "function" ? thread({ contextToggle }) : thread}</div>
       </section>
       {context && contextOpen && wide ? (

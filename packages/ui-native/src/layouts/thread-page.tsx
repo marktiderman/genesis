@@ -509,13 +509,14 @@ const DefaultMessage = memo(function DefaultMessage(message: ThreadPageSlotMap["
   );
 });
 
-/** What a file attachment may open: never a script or an app's own scheme. */
-const OPENABLE = /^(https?|file|content):/i;
+/** What a file attachment may open: the web, and a file on this phone only when you sent it. */
+const OPENABLE = /^https?:/i;
+const OPENABLE_IF_MINE = /^(file|content):/i;
 
 function FileAttachment({ uri, name, accessibilityLabel, onPress, mine, testID }: ThreadPageSlotMap["attachment"]) {
   const colors = useThemeRoles();
   const label = name ?? accessibilityLabel ?? "Attachment";
-  const open = onPress ?? (OPENABLE.test(uri) ? () => void Linking.openURL(uri).catch(() => undefined) : undefined);
+  const open = onPress ?? (OPENABLE.test(uri) || (mine && OPENABLE_IF_MINE.test(uri)) ? () => void Linking.openURL(uri).catch(() => undefined) : undefined);
   return (
     <Pressable
       testID={testID}

@@ -62,4 +62,13 @@ describe("NativeButton haptic", () => {
     expect(timing).not.toHaveBeenCalled();
     timing.mockRestore();
   });
+
+  it("keeps each size's gap, and lets a caller's layout classes reach what's inside", () => {
+    render(<NativeButton testID="b" size="sm" className="w-full justify-start"><i data-testid="in" /></NativeButton>);
+    const content = screen.getByTestId("in").parentElement!;
+    expect(content.className).toContain("gap-1.5");
+    expect(content.className).toContain("justify-start");
+    expect(content.className).not.toContain("w-full");
+    expect(screen.getByTestId("b").className).toContain("w-full");
+  });
 });

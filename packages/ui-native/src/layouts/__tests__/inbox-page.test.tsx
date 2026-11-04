@@ -102,11 +102,11 @@ describe("InboxPage", () => {
     fireEvent.contextMenu(row);
     await act(async () => {});
     expect(Alert.alert).not.toHaveBeenCalled();
-    expect(screen.getByTestId("inbox-row-x-menu-title").textContent).toBe("Thread");
-    expect(screen.getByTestId("inbox-row-x-menu-action-read").textContent).toBe("Mark read");
-    expect(screen.getByTestId("inbox-row-x-menu-action-delete").textContent).toBe("Delete");
-    expect(screen.getByTestId("inbox-row-x-menu-cancel")).toBeTruthy();
-    fireEvent.click(screen.getByTestId("inbox-row-x-menu-action-read"));
+    expect(screen.getByTestId("inbox-menu-title").textContent).toBe("Thread");
+    expect(screen.getByTestId("inbox-menu-action-read").textContent).toBe("Mark read");
+    expect(screen.getByTestId("inbox-menu-action-delete").textContent).toBe("Delete");
+    expect(screen.getByTestId("inbox-menu-cancel")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("inbox-menu-action-read"));
     await waitFor(() => expect(markRead).toHaveBeenCalled());
   });
 

@@ -251,6 +251,18 @@ describe("ThreadPage: files, errors and the modes' name", () => {
     open.mockRestore();
   });
 
+  it("opens a local file only on your own message", () => {
+    const open = vi.spyOn(Linking, "openURL").mockResolvedValue(true as never);
+    const local = (mine: boolean): ThreadMessage[] => [{ ...withFile("file:///a.pdf")[0]!, mine }];
+    const { rerender } = render(<ThreadPage testID="t" messages={local(false)} composer={null} />);
+    fireEvent.click(screen.getByTestId("t-attachment-f"));
+    expect(open).not.toHaveBeenCalled();
+    rerender(<ThreadPage testID="t" messages={local(true)} composer={null} />);
+    fireEvent.click(screen.getByTestId("t-attachment-f"));
+    expect(open).toHaveBeenCalledWith("file:///a.pdf");
+    open.mockRestore();
+  });
+
   it("has an error state, with Try again", () => {
     const onRetry = vi.fn();
     render(<ThreadPage testID="t" messages={[]} composer={null} error onRetry={onRetry} />);

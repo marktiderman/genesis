@@ -8,8 +8,8 @@
  * `onLongPress`. Offer the same actions as accessibility actions on the
  * pressable too (`accessibilityActions`), since VoiceOver doesn't long press.
  *
- * An action runs once the sheet has gone, because iOS won't present an alert or
- * another modal over one that's still dismissing.
+ * An action runs once, and once the sheet has gone: iOS won't present an alert
+ * or another modal over one that's still dismissing.
  *
  * @stability Beta
  */
@@ -37,26 +37,43 @@ export interface NativeContextMenuProps {
   testID?: string;
 }
 
-/** How long iOS's sheet takes to go before another modal can be presented. */
-const IOS_DISMISS_MS = 350;
+/** If iOS never says the sheet has gone (Modal's `onDismiss` can be skipped), run the action after this. */
+const IOS_DISMISS_FALLBACK_MS = 600;
 
 export function NativeContextMenu({ open, onOpenChange, actions, title, cancelLabel = "Cancel", testID = "context-menu" }: NativeContextMenuProps) {
   const colors = useThemeRoles();
   const play = useHaptics();
   const opened = useRef(false);
+  // What was tapped, until the sheet has gone. Taken once: a second tap, or the fallback after onDismiss, finds nothing.
+  const tapped = useRef<(() => void) | null>(null);
+  const ran = useRef(false);
+  const fallback = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (open && !opened.current) play("medium");
+    if (open && !opened.current) {
+      play("medium");
+      ran.current = false;
+    }
     opened.current = open;
   }, [open, play]);
 
+  const runTapped = () => {
+    if (fallback.current) clearTimeout(fallback.current);
+    fallback.current = null;
+    const action = tapped.current;
+    tapped.current = null;
+    action?.();
+  };
   const run = (action: NativeContextMenuAction) => {
+    if (ran.current) return;
+    ran.current = true;
+    tapped.current = action.onPress;
     onOpenChange(false);
-    if (Platform.OS === "ios") setTimeout(action.onPress, IOS_DISMISS_MS);
-    else action.onPress();
+    if (Platform.OS === "ios") fallback.current = setTimeout(runTapped, IOS_DISMISS_FALLBACK_MS);
+    else runTapped();
   };
 
   return (
-    <NativeSheet open={open} onOpenChange={onOpenChange} fitContent testID={testID}>
+    <NativeSheet open={open} onOpenChange={onOpenChange} fitContent onDismissed={runTapped} testID={testID}>
       <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
         {title ? (
           <NativeText testID={`${testID}-title`} accessibilityRole="header" numberOfLines={2} style={{ paddingVertical: 8, color: colors.secondaryLabel, fontSize: 13, lineHeight: 18, textAlign: "center" }}>

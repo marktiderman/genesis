@@ -548,6 +548,15 @@ describe("ThreadPage (web): files, errors and the modes' name", () => {
     expect(link.tagName).toBe("A");
     expect(link.getAttribute("href")).toBe("https://example.test/a.pdf");
     expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.textContent).toContain("a.pdf");
+    expect(link.textContent).toContain("example.test");
+    expect(link.hasAttribute("download")).toBe(false);
+  });
+
+  it("downloads a blob: file under its name, with no host to show", () => {
+    render(<ThreadPage testID="t" messages={withFile({ uri: "blob:https://example.test/1" })} composer={null} />);
+    const link = screen.getByTestId("t-attachment-f");
+    expect(link.getAttribute("download")).toBe("a.pdf");
     expect(link.textContent).toBe("a.pdf");
   });
 
@@ -605,18 +614,19 @@ describe("InboxLayout: views when narrow, and the toggle's row", () => {
     await waitFor(() => expect(screen.queryByTestId("l-views-sheet")).toBeNull());
   });
 
-  it("spends no row on the toggle from md up, and floats it", () => {
+  it("keeps the toggle's row for a thread element, at any width", () => {
     wide(800);
     render(<InboxLayout testID="l" list={<p>L</p>} thread={<p>T</p>} context={<p>C</p>} onBack={vi.fn()} threadOpen />);
-    expect(screen.queryByTestId("l-back")).toBeNull();
-    expect(screen.getByTestId("l-toggle-context").parentElement!.className).toContain("absolute");
+    const toggle = screen.getByTestId("l-toggle-context");
+    expect(toggle.parentElement!.className).toContain("border-b");
+    expect(toggle.parentElement!.className).not.toContain("md:hidden");
+    expect(toggle.className).toContain("ml-auto");
   });
 
-  it("keeps the row for Back and the toggle on a phone", () => {
+  it("hides Back from md up by class, so a server-rendered desktop page never shows it", () => {
     wide(400);
-    render(<InboxLayout testID="l" list={<p>L</p>} thread={<p>T</p>} context={<p>C</p>} onBack={vi.fn()} threadOpen />);
-    expect(screen.getByTestId("l-back")).toBeTruthy();
-    expect(screen.getByTestId("l-toggle-context").parentElement!.className).not.toContain("absolute");
+    render(<InboxLayout testID="l" list={<p>L</p>} thread={<p>T</p>} onBack={vi.fn()} threadOpen />);
+    expect(screen.getByTestId("l-back").className).toContain("md:hidden");
   });
 
   it("hands the toggle to a thread that places it", () => {
@@ -624,6 +634,14 @@ describe("InboxLayout: views when narrow, and the toggle's row", () => {
     render(<InboxLayout testID="l" list={<p>L</p>} context={<p>C</p>} thread={({ contextToggle }) => <header data-testid="mine">{contextToggle}</header>} threadOpen />);
     expect(screen.getByTestId("mine").contains(screen.getByTestId("l-toggle-context"))).toBe(true);
     expect(screen.getAllByTestId("l-toggle-context")).toHaveLength(1);
+  });
+
+  it("spends no row from md up when the thread places the toggle, and only Back on a phone", () => {
+    wide(400);
+    render(<InboxLayout testID="l" list={<p>L</p>} context={<p>C</p>} onBack={vi.fn()} thread={({ contextToggle }) => <header>{contextToggle}</header>} threadOpen />);
+    const row = screen.getByTestId("l-back").parentElement!;
+    expect(row.className).toContain("md:hidden");
+    expect(row.contains(screen.getByTestId("l-toggle-context"))).toBe(false);
   });
 });
 

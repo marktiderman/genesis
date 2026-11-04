@@ -424,12 +424,24 @@ const DefaultMessage = React.memo(function DefaultMessage(message: ThreadPageSlo
 /** What a file attachment may link to: never a script. */
 const OPENABLE = /^(https?|blob):/i;
 
+/** Where a link goes, so a name can't pass for somewhere else. */
+function hostOf(uri: string): string | null {
+  if (!/^https?:/i.test(uri)) return null;
+  try {
+    return new URL(uri).host;
+  } catch {
+    return null;
+  }
+}
+
 function FileAttachment({ uri, name, accessibilityLabel, onPress, testID }: ThreadPageSlotMap["attachment"]) {
   const label = name ?? accessibilityLabel ?? "Attachment";
+  const host = onPress ? null : hostOf(uri);
   const body = (
     <>
       <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       <span className="truncate">{label}</span>
+      {host ? <span className="shrink-0 text-xs text-muted-foreground">{host}</span> : null}
     </>
   );
   const look = "flex min-h-11 max-w-60 items-center gap-2 rounded-xl border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -441,7 +453,7 @@ function FileAttachment({ uri, name, accessibilityLabel, onPress, testID }: Thre
     );
   }
   return OPENABLE.test(uri) ? (
-    <a data-testid={testID} href={uri} target="_blank" rel="noopener noreferrer" aria-label={accessibilityLabel} className={cn(look, "hover:bg-muted/60")}>
+    <a data-testid={testID} href={uri} target="_blank" rel="noopener noreferrer" download={/^blob:/i.test(uri) ? label : undefined} aria-label={accessibilityLabel} className={cn(look, "hover:bg-muted/60")}>
       {body}
     </a>
   ) : (
