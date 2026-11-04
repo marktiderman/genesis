@@ -1,0 +1,51 @@
+# The "Adversarial review" check: runs on every pull request into a staging batch
+# (`staging/**`), so no pull request merges into the batch (auto-merge included) until an
+# independent reviewer has reviewed its latest commit. The release PR from a batch into main is
+# the maintainer's to merge and isn't gated here.
+#
+# The reviewer (triage: a session that didn't write the code) runs the adversarial review, posts
+# the verdict and findings on the PR, and when every finding is answered adds the label
+# `review: approved`. That label is what passes this check. Any new commit takes the label off
+# again, so the check fails until the new head is reviewed too.
+name: Adversarial review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled, ready_for_review]
+    branches: ['staging/**']
+
+permissions:
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: review-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    name: Adversarial review
+    runs-on: ubuntu-latest
+    steps:
+      - name: A new commit needs a new review
+        if: "${{ github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'review: approved') }}"
+        run: |
+          gh pr edit "$PR" --repo "$REPO" --remove-label "review: approved"
+          gh pr comment "$PR" --repo "$REPO" --body "New commits since the review: \`review: approved\` is removed until the latest head is reviewed."
+          echo "::error::New commits since the review. Review the latest head, then label the PR 'review: approved'."
+          exit 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+      - name: Reviewed?
+        if: "${{ !(github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'review: approved')) }}"
+        run: |
+          if [ "$APPROVED" = "true" ]; then
+            echo "Reviewed: the PR carries 'review: approved'."
+          else
+            echo "::error::Waiting for an independent adversarial review. The reviewer adds 'review: approved' when every finding is answered."
+            exit 1
+          fi
+        env:
+          APPROVED: "${{ contains(github.event.pull_request.labels.*.name, 'review: approved') }}"
