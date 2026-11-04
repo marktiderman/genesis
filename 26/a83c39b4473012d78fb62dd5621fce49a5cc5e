@@ -1,0 +1,69 @@
+packages/genesis-cli/src/upgrade/codemods.ts
+  s_b9ce29ee4fad7a::t_6abf545492e7d0 7,9-10,12,17-18,132,190-196,218-222
+packages/genesis-cli/README.md
+  s_b9ce29ee4fad7a::t_6abf545492e7d0 497-501,509-510,559-566,572-598,605-607,621-622,795,803,843-844
+.changeset/upgrade-doctor-friction.md
+  s_b9ce29ee4fad7a::t_7492d955a08979 1-19
+docs/MIGRATION.md
+  s_b9ce29ee4fad7a::t_ac91f036b7670a 14-28,41-45
+packages/genesis-cli/src/blocks/app-folder.ts
+  s_b9ce29ee4fad7a::t_19765abab32029 1-84
+packages/genesis-cli/src/blocks/lock.ts
+  s_b9ce29ee4fad7a::t_b09457aab79bd6 32-37
+packages/genesis-cli/src/blocks/owned.ts
+  s_b9ce29ee4fad7a::t_11592a0e2f530c 55,115,117-118,140,155-158,160-162,164,171,174,180
+packages/genesis-cli/src/cli.ts
+  s_b9ce29ee4fad7a::t_924cc4321535b6 203,209,219,590,597-598,602,611-612,631,640-641
+packages/genesis-cli/src/doctor/config.ts
+  s_b9ce29ee4fad7a::t_3339924bd9dffa 137-138,269,275-292
+packages/genesis-cli/src/doctor/eslint-config.ts
+  s_b9ce29ee4fad7a::t_ed29f10407b51f 13,15,46-53
+packages/genesis-cli/src/doctor/genesis.ts
+  s_b9ce29ee4fad7a::t_716d83c165b439 11,72,103-115
+packages/genesis-cli/src/doctor/index.ts
+  s_b9ce29ee4fad7a::t_f8f0431ac36148 311-312,321
+packages/genesis-cli/src/doctor/lock-files.ts
+  s_b9ce29ee4fad7a::t_0e2e7dd587e66f 26,101-106,146-147
+packages/genesis-cli/src/doctor/primitives.ts
+  s_b9ce29ee4fad7a::t_d24270457e414a 36
+packages/genesis-cli/src/doctor/rules.ts
+  s_b9ce29ee4fad7a::t_f43d447e8181ef 241,250
+packages/genesis-cli/src/upgrade/app-scripts.ts
+  s_b9ce29ee4fad7a::t_13ee988d7b2bb4 1-23
+packages/genesis-cli/src/upgrade/changelog.ts
+  s_b9ce29ee4fad7a::t_e966fd617bdd5c 1-88
+packages/genesis-cli/src/upgrade/doctor-rule-codemods.ts
+  s_b9ce29ee4fad7a::t_73754e94ae15c8 1-138
+packages/genesis-cli/src/upgrade/index.ts
+  s_b9ce29ee4fad7a::t_1836daf2cff521 19-25,31,35,37-41,53-55,59,81-84,111-112,177,181-198,231-237,342,395-400,402,405-419,421-422,440,517,566,569-578,580-585,589-597,632-663,665,673-674,679-682,684,686-688,711,714,723-724,726,728,731,733,736-738,744-761,785-787
+packages/genesis-cli/src/upgrade/new-exports.ts
+  s_b9ce29ee4fad7a::t_7aa6495f52f2b6 1-51
+packages/genesis-cli/test/eslint-config.test.ts
+  s_b9ce29ee4fad7a::t_403fc5fbf5d390 223-225
+packages/genesis-cli/test/init-native.test.ts
+  s_b9ce29ee4fad7a::t_8250e2d3ed8ba6 117-118
+packages/genesis-cli/test/shared-database.test.ts
+  s_b9ce29ee4fad7a::t_66d3054249f3c4 102,119,135-136
+packages/genesis-cli/test/upgrade-friction.test.ts
+  s_b9ce29ee4fad7a::t_b93c75476ab82f 1-650
+packages/native/README.md
+  s_b9ce29ee4fad7a::t_ff8a24e1dc6db3 128-129,131
+packages/native/src/persist.ts
+  s_b9ce29ee4fad7a::t_560786567fef8b 45,89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "26a83c39b4473012d78fb62dd5621fce49a5cc5e",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
