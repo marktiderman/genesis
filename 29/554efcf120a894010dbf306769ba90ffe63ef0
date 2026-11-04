@@ -1,0 +1,34 @@
+packages/ui/src/components/patterns/__tests__/messaging.test.tsx
+  s_b9ce29ee4fad7a::t_724b6d05777f75 91-97
+packages/chat/src/native/thread-screen.tsx
+  s_b9ce29ee4fad7a::t_487bbcd0d374fb 302-303,306,309,323-326
+packages/ui/src/components/patterns/messaging/thread-list.tsx
+  s_b9ce29ee4fad7a::t_487bbcd0d374fb 28-31,43-45,80,319-322,334-340
+packages/chat/src/native/__tests__/thread-screen.test.tsx
+  s_b9ce29ee4fad7a::t_487bbcd0d374fb 142-147,149,151-157,159-161
+  s_b9ce29ee4fad7a::t_b4ee25bdc271d1 12,148,150,158
+packages/ui-native/src/components/__tests__/thread-list.test.tsx
+  s_b9ce29ee4fad7a::t_487bbcd0d374fb 190-282
+packages/ui-native/src/components/thread-list.tsx
+  s_b9ce29ee4fad7a::t_487bbcd0d374fb 25-30,131,163,220-221,249,256,276,278,294-308,323,368-371,373-374,378-380,383,386,391,394,436-437
+.changeset/thread-jump-settled.md
+  s_b9ce29ee4fad7a::t_487bbcd0d374fb 1-14
+packages/core/src/conversation/use-thread-jump.ts
+  s_b9ce29ee4fad7a::t_487bbcd0d374fb 5-6,34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "29554efcf120a894010dbf306769ba90ffe63ef0",
+  "prompts": {},
+  "sessions": {
+    "s_b9ce29ee4fad7a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d0078c80-8dc2-4019-b242-04d3f185ab69",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
