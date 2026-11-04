@@ -253,6 +253,10 @@
                 "how": "every conversation is in a tenant from chat 0004. Add a migration before it that defines private.genesis_viewer_people(viewer uuid) returns table (tenant_id uuid, person_id uuid): one row per tenant the login is in (a single-tenant app returns its one tenant id; a personal record's tenant can be its own id). See genesis-supabase 0016's header."
               }
             ]
+          },
+          {
+            "file": "migrations/0005_genesis_chat_attachment_paths.sql",
+            "test": "migrations/tests/0005_genesis_chat_attachment_paths.test.sql"
           }
         ],
         "install": [
