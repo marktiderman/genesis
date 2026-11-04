@@ -1,0 +1,41 @@
+.changeset/chat-attachment-paths.md
+  s_9f5223ae296ea4::t_71464759b36f4b 6
+apps/genesis-rn-starter/README.md
+  s_9f5223ae296ea4::t_4fc3f9bb40b2a9 185
+apps/genesis-rn-starter/supabase/migrations/20261025000090_genesis_chat_attachment_paths.sql
+  s_9f5223ae296ea4::t_f9996d8c32730a 1,6-13,15-18,32-54,56
+apps/genesis-rn-starter/supabase/tests/database/genesis_chat_attachment_paths.test.sql
+  s_9f5223ae296ea4::t_ed72a0a0b57127 9,98-109
+packages/chat/migrations/0005_genesis_chat_attachment_paths.sql
+  s_9f5223ae296ea4::t_9cf84616400a9d 1,6-13,15-18,32-54,56
+packages/chat/migrations/tests/0005_genesis_chat_attachment_paths.test.sql
+  s_9f5223ae296ea4::t_fc39344d062c79 9,98-109
+packages/chat/src/__tests__/web.test.tsx
+  s_9f5223ae296ea4::t_c31756137915b2 299-323
+packages/chat/src/native/__tests__/thread-screen.test.tsx
+  s_9f5223ae296ea4::t_3d85153d931849 4,180-195
+packages/chat/src/native/thread-screen.tsx
+  s_9f5223ae296ea4::t_1d294edb179216 302-304
+packages/chat/src/web/thread.tsx
+  s_9f5223ae296ea4::t_831eddcbcf6472 529-530
+packages/genesis-cli/src/upgrade/codemods.ts
+  s_9f5223ae296ea4::t_3d0a615b40d8f3 138-142,148-149,151-183,185-186,191-200
+packages/genesis-cli/test/codemod-composer-has-content.test.ts
+  s_9f5223ae296ea4::t_99e03296dbec59 21-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eaed6f02aa143256caa6420346a1ecf67d3757a1",
+  "prompts": {},
+  "sessions": {
+    "s_9f5223ae296ea4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ac37a3b786f2cb965",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
