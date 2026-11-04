@@ -15,7 +15,19 @@ import type { UseThemeReturn } from "./theme";
  * Read the active theme from the nearest `<GenesisThemeProvider>`.
  *
  * Returns `{ brand, mode, setMode, tokens }` — same shape on every
- * platform. See `./theme.ts` for the full type.
+ * platform. See `./theme.ts` for the full type. Null outside a provider.
+ *
+ * @stability Beta
+ */
+export function useOptionalTheme(): UseThemeReturn | null {
+  return useContext(GenesisThemeContext);
+}
+
+/**
+ * The theme, or throws outside a `<GenesisThemeProvider>`. A primitive that
+ * should still render without one uses {@link useOptionalTheme}.
+ *
+ * @stability Stable
  */
 export function useTheme(): UseThemeReturn {
   const ctx = useContext(GenesisThemeContext);

@@ -28,6 +28,9 @@ export {
   type TypographyTokens,
   type ShadowToken,
   type GradientToken,
+  type BrandDarkRoles,
+  type BrandGradient,
+  type DisplayTypography,
   type PlatformOverridable,
   type BrandValidationOptions,
   type BrandContrastFinding,
@@ -64,9 +67,10 @@ export {
   debugBrandPreset,
   type TailwindBrandOutput,
   type NativeBrandOutput,
+  type NativeDisplayText,
   type BrandFactoryOptions,
 } from "./factories/from-brand";
-export { brandRoleVariables, type BrandRoleVariables, type BrandRoleVariablesOptions } from "./factories/brand-roles";
+export { brandExtraVariables, brandGradientCss, brandRoleVariables, type BrandRoleVariables, type BrandRoleVariablesOptions } from "./factories/brand-roles";
 
 // Brand-genesis OOTB fallback. The sibling brand presets that used to live
 // here were stripped in
@@ -85,6 +89,7 @@ export {
   GenesisThemeProvider,
   type GenesisThemeProviderProps,
   useTheme,
+  useOptionalTheme,
   resolveTokens,
   type ResolvedColorScale,
   type ResolvedThemeMode,

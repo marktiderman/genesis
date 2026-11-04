@@ -80,7 +80,7 @@ import type {
   GradientToken,
   ShadowToken,
 } from "../schema/brand";
-import { brandRoleVariables } from "./brand-roles";
+import { brandExtraVariables, brandRoleVariables } from "./brand-roles";
 import { applyOverrides } from "./overrides";
 import { clampBounds } from "../schema/brand";
 import { resolveChoices, type DesignSystem } from "../design-systems/define";
@@ -160,6 +160,12 @@ export interface NativeBrandOutput {
     shadow: Record<string, NativeShadowStyle>;
     /** Stops + locations for `expo-linear-gradient`. */
     gradient: Record<string, NativeGradientStops>;
+    /** The brand's named `accents` (`{ gold: "#d4a017" }`); empty when it sets none. */
+    accents: Record<string, string>;
+    /** The `display` text role, when the brand sets `typography.display`: family head, weight, numerals. */
+    display?: NativeDisplayText;
+    /** `gradients.primary` as stops, when the brand sets it: what `NativeButton variant="gradient"` paints. */
+    buttonGradient?: NativeGradientStops;
   };
   /**
    * The design system's part, when one applies (`options.designSystem`, or
@@ -181,6 +187,13 @@ export interface NativeShadowStyle {
   shadowRadius: number;
   shadowOpacity: number;
   elevation: number;
+}
+
+/** The `display` text role on native: spread into a `Text` style. */
+export interface NativeDisplayText {
+  fontFamily?: string;
+  fontWeight?: string;
+  fontVariant?: Array<"tabular-nums" | "proportional-nums">;
 }
 
 /** Native gradient — feed straight into `<LinearGradient colors locations />`. */
@@ -250,6 +263,15 @@ function stripAlpha(color: string): string {
   const m = color.match(/rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*[\d.]+\s*\)/);
   if (m) return `rgb(${m[1]}, ${m[2]}, ${m[3]})`;
   return color;
+}
+
+/** A CSS angle (0deg points up, clockwise) → start/end points in the unit box. */
+function angleVectors(degrees: number): { start: { x: number; y: number }; end: { x: number; y: number } } {
+  const rad = (degrees * Math.PI) / 180;
+  const round = (n: number) => Math.round(n * 1000) / 1000;
+  const dx = Math.sin(rad) / 2;
+  const dy = -Math.cos(rad) / 2;
+  return { start: { x: round(0.5 - dx), y: round(0.5 - dy) }, end: { x: round(0.5 + dx), y: round(0.5 + dy) } };
 }
 
 /** Map CSS gradient direction → expo-linear-gradient start/end vectors. */
@@ -459,6 +481,12 @@ export function tailwindFromBrand(
     }
   }
 
+  // ---- Opt-in brand variables (accents, primary gradient, display, signal) ----
+
+  for (const [name, value] of Object.entries(brandExtraVariables(merged, { platform: "web" }).light)) {
+    lines.push(themeLine(name, value));
+  }
+
   // Build the fontSize preset entries. When a matching lineHeight exists for
   // the same key, emit the v3-style tuple form `[size, { lineHeight }]` so
   // consumers using the JS preset get the same line-height pairing the CSS
@@ -577,8 +605,9 @@ export function themeFromBrand(
   // classes read (`bg-primary` is `hsl(var(--primary))`), then the brand's
   // `--color-*` scale variables.
   const roles = brandRoleVariables(merged);
-  const lightVars: Record<string, string> = { ...roles.light };
-  const darkVars: Record<string, string> = { ...roles.dark };
+  const extra = brandExtraVariables(merged);
+  const lightVars: Record<string, string> = { ...roles.light, ...extra.light };
+  const darkVars: Record<string, string> = { ...roles.dark, ...extra.dark };
 
   // Neutral.
   for (const [stop, hex] of Object.entries(merged.neutral)) {
@@ -683,6 +712,29 @@ export function themeFromBrand(
     }
   }
 
+  const themeAccents: Record<string, string> = {};
+  for (const [name, colour] of Object.entries(merged.accents ?? {})) {
+    if (typeof colour === "string" && colour) themeAccents[name] = colour;
+  }
+  const displayToken = merged.typography?.display;
+  const themeDisplay: NativeDisplayText | undefined = displayToken
+    ? {
+        ...(displayToken.family?.[0] ? { fontFamily: displayToken.family[0] } : {}),
+        ...(displayToken.weight ? { fontWeight: displayToken.weight } : {}),
+        ...(displayToken.numeric ? { fontVariant: [displayToken.numeric === "tabular" ? "tabular-nums" as const : "proportional-nums" as const] } : {}),
+      }
+    : undefined;
+  const primaryGradient = merged.gradients?.primary;
+  const buttonGradient: NativeGradientStops | undefined =
+    primaryGradient?.from && primaryGradient.to
+      ? {
+          colors: [primaryGradient.from, primaryGradient.to],
+          locations: [0, 1],
+          direction: `${primaryGradient.angle ?? 135}deg`,
+          ...angleVectors(primaryGradient.angle ?? 135),
+        }
+      : undefined;
+
   const design = designSystemFor(merged, options.designSystem);
   if (design) {
     Object.assign(lightVars, design.variables.light);
@@ -703,6 +755,9 @@ export function themeFromBrand(
       fontFamily: themeFontFamily,
       shadow: themeShadow,
       gradient: themeGradient,
+      accents: themeAccents,
+      ...(themeDisplay ? { display: themeDisplay } : {}),
+      ...(buttonGradient ? { buttonGradient } : {}),
     },
   };
 }
