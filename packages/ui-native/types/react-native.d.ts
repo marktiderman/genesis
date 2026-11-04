@@ -84,6 +84,8 @@ declare module "react-native" {
     className?: string;
     children?: React.ReactNode;
     numberOfLines?: number;
+    /** The text can be selected and copied. */
+    selectable?: boolean;
     accessible?: boolean;
     accessibilityRole?: string;
     accessibilityLabel?: string;
@@ -419,6 +421,13 @@ declare module "react-native" {
     userInterfaceStyle?: "light" | "dark" | "unspecified";
   }
 
+  /** The system share sheet. */
+  export const Share: {
+    share(
+      content: { message?: string; url?: string; title?: string },
+      options?: { dialogTitle?: string; subject?: string },
+    ): Promise<{ action: string; activityType?: string | null }>;
+  };
   export const Linking: {
     openURL(url: string): Promise<void>;
     canOpenURL(url: string): Promise<boolean>;
