@@ -299,10 +299,14 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   // A jump names the server's message id; its seq says how far back to load.
   const jumpSeq = jumpTo?.seq;
   const jumpMessageId = jumpTo?.messageId ?? null;
+  // A load that failed has said so: the message isn't known to be gone.
+  const jumpLoadFailed = useRef(false);
   const onLoadUntil = useCallback(
     (id: string) => {
+      jumpLoadFailed.current = false;
       if (id !== jumpMessageId || jumpSeq == null) return Promise.resolve(false);
       return loadUntil(jumpSeq).catch(() => {
+        jumpLoadFailed.current = true;
         fail();
         return false;
       });
@@ -316,7 +320,10 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
     },
     [copy.jumpedTo, nameOf, attachmentKinds],
   );
-  const onJumpFailed = useCallback(() => toast.show({ title: copy.messageGone }), [toast, copy.messageGone]);
+  const onJumpFailed = useCallback(() => {
+    if (jumpLoadFailed.current) jumpLoadFailed.current = false;
+    else toast.show({ title: copy.messageGone });
+  }, [toast, copy.messageGone]);
   const reattachable = useCallback((files: readonly PendingFile[]) => files.every((f) => !f.lost || f.kind === "image" || f.kind === "video"), []);
 
   const renderItem = useCallback(

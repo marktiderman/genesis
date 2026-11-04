@@ -88,6 +88,13 @@ describe("ThreadPage (web)", () => {
     expect(Element.prototype.scrollTo).toHaveBeenCalled();
   });
 
+  it("follows the bottom again after a jump that moved nothing (a short thread)", async () => {
+    render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="2" />);
+    await waitFor(() => expect(screen.getByTestId("t-jump-latest")).toBeTruthy());
+    // Everything's on screen, so no scroll event says so: the list looks for itself.
+    await waitFor(() => expect(screen.queryByTestId("t-jump-latest")).toBeNull(), { timeout: 2000 });
+  });
+
   it("says when a message to go to can't be found", async () => {
     const onJumpFailed = vi.fn();
     render(<ThreadPage testID="t" messages={messages} composer={composer()} jumpTo="gone" onLoadUntil={async () => false} onJumpFailed={onJumpFailed} />);

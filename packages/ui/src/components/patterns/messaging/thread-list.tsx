@@ -25,6 +25,10 @@
  * bottom to say politely (someone else's message). ThreadPage passes one.
  * Reduce Motion scrolls without animating.
  *
+ * A row is gone when, once `onLoadUntil` has settled, no row answers to its
+ * id. The list knows only its rows: a row that's drawn (a deleted message's
+ * tombstone) is there, and whatever isn't drawn isn't, whatever a cache holds.
+ *
  * @stability Beta
  */
 import * as React from "react";
@@ -35,6 +39,9 @@ import { Skeleton } from "../../ui/skeleton";
 
 /** Pixels from the bottom that still count as "at the bottom". */
 export const THREAD_AT_BOTTOM_PX = 120;
+
+/** After a jump lands, when to look whether it left the reader at the bottom (a later scroll event corrects it). */
+const LANDED_LOOK_MS = 450;
 
 export interface ThreadListHandle {
   /** Go to the newest row (after a send: what you send is what you look at next). */
@@ -70,7 +77,7 @@ export interface ThreadListProps<T> {
   jumpTo?: string | null | undefined;
   /** Load earlier pages until the row is held; resolve false when it can't be found. */
   onLoadUntil?: ((id: string) => Promise<boolean>) | undefined;
-  /** The row couldn't be found. The list goes back to the newest row first. */
+  /** No row answers to this id once `onLoadUntil` has settled, or it failed. The list goes back to the newest row first. */
   onJumpFailed?: ((id: string) => void) | undefined;
   /** Whether the reader is at the bottom, as it changes (to show a "new messages" pill, say). */
   onAtBottomChange?: ((atBottom: boolean) => void) | undefined;
@@ -309,6 +316,10 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
     const ids = new Set(idsKey ? idsKey.split("\u0000") : []);
     return (id: string) => ids.has(id);
   }, [idsKey]);
+  const landedLook = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => {
+    if (landedLook.current) clearTimeout(landedLook.current);
+  }, []);
   const { highlightedId, jumping } = useThreadJump({
     target: jumpTo,
     has,
@@ -320,6 +331,13 @@ function ThreadListInner<T>(props: ThreadListProps<T>, ref: React.ForwardedRef<T
       el?.focus({ preventScroll: true });
     },
     onStart: () => setAtBottom(false),
+    onLanded: () => {
+      // A jump to a row already in view moves nothing, so no scroll event says where the list is.
+      if (landedLook.current) clearTimeout(landedLook.current);
+      landedLook.current = setTimeout(() => {
+        if (scroller.current) setAtBottom(nearBottom(scroller.current));
+      }, LANDED_LOOK_MS);
+    },
     onGone: (id) => {
       setAtBottom(true);
       toBottom(false);

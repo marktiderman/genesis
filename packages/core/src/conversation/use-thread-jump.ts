@@ -2,7 +2,8 @@
  * useThreadJump — going to one row of a thread (a search result, a pinned
  * message, the first unread): load earlier pages until the row is held, then
  * scroll to it and highlight it for two seconds. A row that can't be found
- * says so.
+ * says so: a row is gone when, once `loadUntil` has settled (or failed), no
+ * row answers to its id. What counts is what's drawn, not what a cache holds.
  *
  * Promoted from genesis-chat's `useJumpToMessage` (G4), generalised from
  * chat's sequence numbers to row ids. It's a state machine driven by the
@@ -30,7 +31,7 @@ export interface UseThreadJumpOptions {
   onStart?: (() => void) | undefined;
   /** Scrolled to it (say so to VoiceOver). */
   onLanded?: ((id: string) => void) | undefined;
-  /** It isn't there (go back to where the thread was). */
+  /** No row answers to it once `loadUntil` has settled, or `loadUntil` failed (go back to where the thread was). */
   onGone?: ((id: string) => void) | undefined;
 }
 

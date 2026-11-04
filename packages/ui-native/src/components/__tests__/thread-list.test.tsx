@@ -187,6 +187,99 @@ describe("NativeThreadList", () => {
     expect(onAtBottomChange).toHaveBeenLastCalledWith(false);
   });
 
+  describe("the reader's touch during a jump", () => {
+    afterEach(() => vi.useRealTimers());
+    const tick = async (ms: number) => act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
+
+    it.each(["onScrollBeginDrag", "onMomentumScrollBegin"])("%s cancels the queued try, so nothing snaps back", async (event) => {
+      vi.useFakeTimers();
+      const { List, calls } = recordingList();
+      render(
+        <GenesisModulesProvider modules={{ list: List as never }}>
+          <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} jumpTo="a" />
+        </GenesisModulesProvider>,
+      );
+      await tick(20);
+      expect(calls.scrollToIndex).toHaveBeenCalledTimes(1);
+      act(() => (calls.props.at(-1)![event] as () => void)());
+      await tick(1000);
+      expect(calls.scrollToIndex).toHaveBeenCalledTimes(1);
+    });
+
+    it("cancels the retries of a row FlatList hadn't measured", async () => {
+      vi.useFakeTimers();
+      const { List, calls } = recordingList();
+      render(
+        <GenesisModulesProvider modules={{ list: List as never }}>
+          <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} jumpTo="a" />
+        </GenesisModulesProvider>,
+      );
+      await tick(20);
+      const props = calls.props.at(-1)!;
+      const failed = props.onScrollToIndexFailed as (i: { index: number; averageItemLength: number }) => void;
+      act(() => failed({ index: 0, averageItemLength: 50 }));
+      expect(calls.scrollToOffset).toHaveBeenCalledTimes(1);
+      act(() => (props.onScrollBeginDrag as () => void)());
+      const before = calls.scrollToIndex.mock.calls.length;
+      await tick(1000);
+      expect(calls.scrollToIndex).toHaveBeenCalledTimes(before);
+      // Too late to help: a failure reported after the touch doesn't move the list either.
+      act(() => failed({ index: 0, averageItemLength: 50 }));
+      expect(calls.scrollToOffset).toHaveBeenCalledTimes(1);
+    });
+
+    it("cancels the second try at the newest row", async () => {
+      vi.useFakeTimers();
+      const { List, calls } = recordingList();
+      const ref = createRef<NativeThreadListHandle>();
+      render(
+        <GenesisModulesProvider modules={{ list: List as never }}>
+          <NativeThreadList ref={ref} testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} />
+        </GenesisModulesProvider>,
+      );
+      act(() => ref.current!.scrollToEnd({ animated: true }));
+      await tick(20);
+      expect(calls.scrollToEnd).toHaveBeenCalledTimes(1);
+      act(() => (calls.props.at(-1)!.onScrollBeginDrag as () => void)());
+      await tick(500);
+      expect(calls.scrollToEnd).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("following after a jump in a short thread", () => {
+    afterEach(() => vi.useRealTimers());
+
+    it("comes back on when the list never reported a scroll (nothing moved)", async () => {
+      vi.useFakeTimers();
+      const { List } = recordingList();
+      const onAtBottomChange = vi.fn();
+      render(
+        <GenesisModulesProvider modules={{ list: List as never }}>
+          <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} jumpTo="b" onAtBottomChange={onAtBottomChange} />
+        </GenesisModulesProvider>,
+      );
+      await act(async () => void (await vi.advanceTimersByTimeAsync(20)));
+      expect(onAtBottomChange).toHaveBeenLastCalledWith(false);
+      await act(async () => void (await vi.advanceTimersByTimeAsync(1000)));
+      expect(onAtBottomChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it("stays off when the jump left the reader up the thread", async () => {
+      vi.useFakeTimers();
+      const { List, calls } = recordingList();
+      const onAtBottomChange = vi.fn();
+      render(
+        <GenesisModulesProvider modules={{ list: List as never }}>
+          <NativeThreadList testID="l" data={rows} keyExtractor={(r) => r.id} renderItem={renderRow} jumpTo="a" onAtBottomChange={onAtBottomChange} />
+        </GenesisModulesProvider>,
+      );
+      await act(async () => void (await vi.advanceTimersByTimeAsync(20)));
+      act(() => (calls.props.at(-1)!.onScroll as (e: unknown) => void)({ nativeEvent: { contentOffset: { y: 100 }, contentSize: { height: 2000 }, layoutMeasurement: { height: 500 } } }));
+      await act(async () => void (await vi.advanceTimersByTimeAsync(1000)));
+      expect(onAtBottomChange).not.toHaveBeenCalledWith(true);
+    });
+  });
+
   it("loads until a row it doesn't hold, and says when it can't be found", async () => {
     const { List } = recordingList();
     const onLoadUntil = vi.fn(async () => false);

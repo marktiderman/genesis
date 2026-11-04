@@ -9,6 +9,7 @@ import { GenesisModulesProvider, NativeToastProvider } from "@marktiderman/genes
 import type { ChatClient } from "../../core/client";
 import type { ChatMessage } from "../../core/types";
 import { ChatProvider } from "../../react/index";
+import { chatNativeCopy } from "../copy";
 import { ChatNativeProvider } from "../context";
 import type { ThreadRow } from "../rows";
 import { nearBottom, ChatThreadScreen, threadListMode } from "../thread-screen";
@@ -135,6 +136,26 @@ describe("ChatThreadScreen's jump to a message", () => {
     render(wrap(fakeClient(messages, 3), list.List, <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m9" }} />));
     expect(await screen.findByText("That message isn't here any more", {}, { timeout: 2000 })).toBeTruthy();
     expect(list.scrollToIndex).not.toHaveBeenCalled();
+  });
+});
+
+describe("ChatThreadScreen's jump when it can't load back", () => {
+  it("says the load failed, not that the message is gone", async () => {
+    const list = scrollingList();
+    const client = fakeClient([msg(5, SAM, "2026-10-24T10:00:00Z")], 5);
+    (client.messages as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ messages: [msg(5, SAM, "2026-10-24T10:00:00Z")], hasEarlier: true }).mockRejectedValue(new Error("offline"));
+    render(wrap(client, list.List, <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m2", seq: 2 }} />));
+    expect(await screen.findByText(chatNativeCopy.actionFailed, {}, { timeout: 2000 })).toBeTruthy();
+    await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+    expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
+  });
+
+  it("finds a deleted message: its tombstone is a row", async () => {
+    const list = scrollingList();
+    const deleted = { ...msg(2, SAM, "2026-10-24T10:01:00Z"), deletedAt: "2026-10-24T11:00:00Z" } as ChatMessage;
+    render(wrap(fakeClient([msg(1, SAM, "2026-10-24T10:00:00Z"), deleted], 3), list.List, <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m2", seq: 2 }} />));
+    await waitFor(() => expect(list.scrollToIndex).toHaveBeenCalled());
+    expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
   });
 });
 
