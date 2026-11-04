@@ -232,8 +232,13 @@
             "**/*.tsx",
             "**/*.ts"
           ],
+          "exclude": [
+            "**/__tests__/**",
+            "**/*.test.ts",
+            "**/*.test.tsx"
+          ],
           "forbid": {
-            "pattern": "(?:\\bHaptics\\.(?:impactAsync|selectionAsync|notificationAsync)\\(|\\bimport\\s*\\{[^}]*\\b(?:impactAsync|selectionAsync|notificationAsync)\\b[^}]*\\}\\s*from\\s*[\"']expo-haptics[\"'])"
+            "pattern": "(?:\\bimport\\s*\\*\\s*as\\s+(\\w+)\\s+from\\s*[\"']expo-haptics[\"'][\\s\\S]*?\\b\\1\\??\\.(?:impactAsync|selectionAsync|notificationAsync)\\(|\\bHaptics\\??\\.(?:impactAsync|selectionAsync|notificationAsync)\\(|\\bimport\\s*\\{[^}]*\\b(?:impactAsync|selectionAsync|notificationAsync)\\b[^}]*\\}\\s*from\\s*[\"']expo-haptics[\"'])"
           },
           "use": "useHaptics() (or a NativeButton's `haptic`, usePressFeedback for a pressable of your own), with expo-haptics passed once as GenesisModules.haptics",
           "import": "@marktiderman/genesis-ui-native",

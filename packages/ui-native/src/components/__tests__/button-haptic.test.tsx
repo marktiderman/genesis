@@ -25,6 +25,19 @@ describe("NativeButton haptic", () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
+  it("ticks select on press-in, as usePressFeedback does", () => {
+    const haptics = fake();
+    render(
+      <GenesisModulesProvider modules={{ haptics }}>
+        <NativeButton testID="b" haptic="select" onPress={() => {}}>Week</NativeButton>
+      </GenesisModulesProvider>,
+    );
+    fireEvent.pointerDown(screen.getByTestId("b"));
+    expect(haptics.selectionAsync).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId("b"));
+    expect(haptics.selectionAsync).toHaveBeenCalledTimes(1);
+  });
+
   it("plays none without the prop", () => {
     const haptics = fake();
     render(

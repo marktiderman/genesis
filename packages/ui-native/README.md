@@ -203,7 +203,7 @@ Pass `expo-haptics` once (`import * as Haptics from "expo-haptics"`, as `modules
 the feel you want: `light`, `medium`, `heavy` (a tap), `select` (a tick as a choice changes), or
 `success`, `warning`, `error`. `useHaptics()` returns a function that plays one through the app's
 module; it never throws or rejects, and without the module it does nothing. `NativeButton` takes a
-`haptic` that plays when it's pressed, and `NativeComposerBar` taps `light` when a message sends.
+`haptic` that plays when it's pressed (`select` on press-in), and `NativeComposerBar` taps `light` when a message sends.
 Reduce Motion doesn't turn haptics off (it's about what moves on screen); iOS's own System Haptics
 setting does.
 
@@ -235,8 +235,10 @@ function Card({ onOpen, children }: { onOpen: () => void; children: ReactNode })
 }
 ```
 
-The doctor's `haptics-use-genesis` rule warns on new code that calls `Haptics.impactAsync`,
-`selectionAsync` or `notificationAsync` itself, or imports them from `expo-haptics` by name.
+The doctor's `haptics-use-genesis` rule warns on new code that calls `impactAsync`,
+`selectionAsync` or `notificationAsync` itself: on its `expo-haptics` namespace import (`Haptics.`,
+or whatever it's named), or imported by name. Handing the module to `GenesisModules` is fine, and
+tests are left alone.
 
 ## Inbox and thread: `InboxPage` and `ThreadPage`
 

@@ -6258,7 +6258,7 @@
     {
       "id": "motion-kit",
       "name": "Motion and feel",
-      "summary": "Motion defined once for web and native: shared durations, easings and springs (genesis-design-system's resolveMotion), read as the design system's CSS variables on web and through useMotion, animateMotion and the worklet-safe motionSpring and motionTiming (Reanimated) on native, where Reduce Motion holds everything still. On the phone, haptics named once (useHaptics, through GenesisModules.haptics) and press feedback (usePressFeedback: shrink while held, spring back, dim under Reduce Motion), used by NativeButton and the composer's send.",
+      "summary": "Motion defined once for web and native: shared durations, easings and springs (genesis-design-system's resolveMotion), read as the design system's CSS variables on web and through useMotion, animateMotion and the worklet-safe motionSpring and motionTiming (Reanimated) on native, where Reduce Motion holds everything still. On the phone, haptics named once (useHaptics, through GenesisModules.haptics) and press feedback (usePressFeedback: shrink while held, spring back, dim under Reduce Motion), used by the composer's send; NativeButton takes a haptic.",
       "category": "Design system",
       "status": "building",
       "claimedBy": "claude",

@@ -67,7 +67,10 @@ export interface NativeButtonProps
   accessibilityHint?: string;
   /** Merged with the button's own `disabled` and `busy`: `{ selected: true }` for a vote cast, a filter on. */
   accessibilityState?: AccessibilityState;
-  /** A haptic when the press counts (`light` for a vote, `success` for a save), through `GenesisModules.haptics`. Default none. */
+  /**
+   * A haptic through `GenesisModules.haptics` (`light` for a vote, `success` for a save): it plays
+   * when the press counts, except `select`, which ticks on press-in as `usePressFeedback` does. Default none.
+   */
   haptic?: HapticKind | undefined;
 }
 
@@ -87,12 +90,13 @@ function NativeButton({
   const isDisabled = disabled || loading;
   const play = useHaptics();
   const press =
-    haptic && onPress
+    haptic && haptic !== "select" && onPress
       ? () => {
           play(haptic);
           onPress();
         }
       : onPress;
+  const tick = haptic === "select" && onPress ? () => play("select") : undefined;
 
   return (
     <Pressable
@@ -102,6 +106,7 @@ function NativeButton({
         className
       )}
       onPress={press}
+      onPressIn={tick}
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading }}

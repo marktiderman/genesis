@@ -177,28 +177,28 @@ export function NativeComposerBar({
           </View>
         ) : (
           <Animated.View style={sendPress.style}>
-          <Pressable
-            testID={`${testID}-send`}
-            accessibilityRole="button"
-            accessibilityLabel={sendLabel}
-            accessibilityState={{ disabled: !canSend }}
-            disabled={!canSend}
-            onPressIn={sendPress.onPressIn}
-            onPressOut={sendPress.onPressOut}
-            onPress={() => {
-              sendPress.confirm();
-              onSend();
-            }}
-            style={{ minWidth: 44, height: 44, paddingHorizontal: hasIcon ? 0 : 14, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: canSend ? colors.tint : colors.fill }}
-          >
-            {hasIcon ? (
-              <NativeIcon name="arrow-up" size={20} color={canSend ? colors.background : colors.tertiaryLabel} />
-            ) : (
-              <NativeText preset="label" className={canSend ? "text-primary-foreground" : undefined} style={canSend ? undefined : { color: colors.tertiaryLabel }}>
-                {sendLabel}
-              </NativeText>
-            )}
-          </Pressable>
+            <Pressable
+              testID={`${testID}-send`}
+              accessibilityRole="button"
+              accessibilityLabel={sendLabel}
+              accessibilityState={{ disabled: !canSend }}
+              disabled={!canSend}
+              onPressIn={sendPress.onPressIn}
+              onPressOut={sendPress.onPressOut}
+              onPress={() => {
+                sendPress.confirm();
+                onSend();
+              }}
+              style={{ minWidth: 44, height: 44, paddingHorizontal: hasIcon ? 0 : 14, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: canSend ? colors.tint : colors.fill }}
+            >
+              {hasIcon ? (
+                <NativeIcon name="arrow-up" size={20} color={canSend ? colors.background : colors.tertiaryLabel} />
+              ) : (
+                <NativeText preset="label" className={canSend ? "text-primary-foreground" : undefined} style={canSend ? undefined : { color: colors.tertiaryLabel }}>
+                  {sendLabel}
+                </NativeText>
+              )}
+            </Pressable>
           </Animated.View>
         )}
       </View>
