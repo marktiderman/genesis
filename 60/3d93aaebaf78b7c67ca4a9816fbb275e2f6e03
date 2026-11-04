@@ -1,0 +1,25 @@
+packages/design-system/src/schema/brand.ts
+  s_9613ab470e300c::t_6c26b1df5e3b9b 741,749-750
+packages/ui-native/src/components/tier-badge.tsx
+  s_9613ab470e300c::t_6c26b1df5e3b9b 38-39
+scripts/figma-brand-modes.mts
+  s_9613ab470e300c::t_6c26b1df5e3b9b 129-130,151
+packages/design-system/src/factories/from-brand.ts
+  s_9613ab470e300c::t_6c26b1df5e3b9b 272-275
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "603d93aaebaf78b7c67ca4a9816fbb275e2f6e03",
+  "prompts": {},
+  "sessions": {
+    "s_9613ab470e300c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df308523-d2f5-4e93-bef7-0f444d7d1772",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
