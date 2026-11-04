@@ -1,8 +1,6 @@
 {
   "required": [
     "FatalScreen",
-    "ScreenErrorScreen",
-    "PlainFatalScreen",
     "PushPromptSheet",
     "WhatsNewSheet",
     "ForceUpgradeScreen",
@@ -11,6 +9,8 @@
   ],
   "notYet": [],
   "composed": [
-    "NotificationSettings"
+    "NotificationSettings",
+    "ScreenErrorScreen",
+    "PlainFatalScreen"
   ]
 }
