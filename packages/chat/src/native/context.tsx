@@ -8,6 +8,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { usePeople } from "../react/index";
 import { resolveChatCopy, type ChatNativeCopy, type ChatNativeCopyOverrides } from "./copy";
+import { useGenesisModules } from "@marktiderman/genesis-ui-native/components";
 import type { ChatNativeModules } from "./modules";
 
 export interface ChatPerson {
@@ -37,9 +38,15 @@ export interface ChatNativeProviderProps {
 
 /** Inside `ChatProvider` (from `/react`). Optional: without it there are no native extras and people are "Someone". */
 export function ChatNativeProvider({ modules = EMPTY_MODULES, copy, getPerson, children }: ChatNativeProviderProps) {
+  const { haptics: genesisHaptics } = useGenesisModules();
   const value = useMemo<ChatNativeContextValue>(
-    () => ({ modules, copy: resolveChatCopy(copy), person: (id) => (id && getPerson ? getPerson(id) : undefined) }),
-    [modules, copy, getPerson],
+    () => ({
+      // Chat's own haptics module, else the one the app gave Genesis, so it's passed once.
+      modules: modules.haptics || !genesisHaptics ? modules : { ...modules, haptics: genesisHaptics },
+      copy: resolveChatCopy(copy),
+      person: (id) => (id && getPerson ? getPerson(id) : undefined),
+    }),
+    [modules, genesisHaptics, copy, getPerson],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

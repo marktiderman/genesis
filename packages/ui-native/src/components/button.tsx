@@ -1,11 +1,14 @@
 /**
  * Button — primary touch target. Variants: default, secondary, outline, ghost, destructive.
+ * It answers a touch with `usePressFeedback`: what's inside shrinks a little while held (or dims
+ * under Reduce Motion), the same as every Genesis pressable.
  *
  * @stability Stable
  */
 import { type VariantProps, cva } from "class-variance-authority";
-import { ActivityIndicator, Pressable, Text, type AccessibilityState } from "react-native";
-import { useHaptics, type HapticKind } from "../hooks/use-haptics";
+import { ActivityIndicator, Animated, Pressable, Text, type AccessibilityState } from "react-native";
+import type { HapticKind } from "../hooks/use-haptics";
+import { usePressFeedback } from "../hooks/use-press-feedback";
 import { cn } from "../utils";
 
 const buttonVariants = cva(
@@ -88,15 +91,13 @@ function NativeButton({
   ...props
 }: NativeButtonProps) {
   const isDisabled = disabled || loading;
-  const play = useHaptics();
-  const press =
-    haptic && haptic !== "select" && onPress
-      ? () => {
-          play(haptic);
-          onPress();
-        }
-      : onPress;
-  const tick = haptic === "select" && onPress ? () => play("select") : undefined;
+  const feedback = usePressFeedback({ haptic: onPress ? (haptic ?? false) : false, disabled: Boolean(isDisabled) });
+  const press = onPress
+    ? () => {
+        feedback.confirm();
+        onPress();
+      }
+    : undefined;
 
   return (
     <Pressable
@@ -106,34 +107,38 @@ function NativeButton({
         className
       )}
       onPress={press}
-      onPressIn={tick}
+      onPressIn={feedback.onPressIn}
+      onPressOut={feedback.onPressOut}
       disabled={isDisabled}
       accessibilityRole="button"
       accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading }}
       {...props}
     >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={
-            variant === "outline" || variant === "ghost"
-              ? undefined
-              : "white"
-          }
-        />
-      ) : null}
-      {typeof children === "string" ? (
-        <Text
-          className={cn(
-            buttonTextVariants({ variant, size }),
-            textClassName
-          )}
-        >
-          {children}
-        </Text>
-      ) : (
-        children
-      )}
+      {/* Inside the Pressable, which keeps the button's size and classes: a wrapper would lose a `flex-1`. */}
+      <Animated.View style={[{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }, feedback.style]}>
+        {loading ? (
+          <ActivityIndicator
+            size="small"
+            color={
+              variant === "outline" || variant === "ghost"
+                ? undefined
+                : "white"
+            }
+          />
+        ) : null}
+        {typeof children === "string" ? (
+          <Text
+            className={cn(
+              buttonTextVariants({ variant, size }),
+              textClassName
+            )}
+          >
+            {children}
+          </Text>
+        ) : (
+          children
+        )}
+      </Animated.View>
     </Pressable>
   );
 }

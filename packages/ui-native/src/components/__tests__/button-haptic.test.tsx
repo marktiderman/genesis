@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Animated } from "react-native";
 import { describe, expect, it, vi } from "vitest";
 import { GenesisModulesProvider } from "../../native-modules";
 import { NativeButton } from "../button";
@@ -48,5 +49,17 @@ describe("NativeButton haptic", () => {
     fireEvent.click(screen.getByTestId("b"));
     expect(haptics.impactAsync).not.toHaveBeenCalled();
     expect(haptics.notificationAsync).not.toHaveBeenCalled();
+  });
+
+  it("answers a touch through usePressFeedback, and not when disabled", () => {
+    const timing = vi.spyOn(Animated, "timing");
+    const { rerender } = render(<NativeButton testID="b" onPress={vi.fn()}>Save</NativeButton>);
+    fireEvent.pointerDown(screen.getByTestId("b"));
+    expect(timing).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ toValue: 0.97 }));
+    timing.mockClear();
+    rerender(<NativeButton testID="b" onPress={vi.fn()} disabled>Save</NativeButton>);
+    fireEvent.pointerDown(screen.getByTestId("b"));
+    expect(timing).not.toHaveBeenCalled();
+    timing.mockRestore();
   });
 });

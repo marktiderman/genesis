@@ -47,7 +47,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type Component
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { AccessibilityInfo, Image, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useThemeRoles } from "../hooks/use-theme-roles";
+import { sentBubbleColor, useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
 import { useKeyboardScroll } from "./keyboard";
 import { NativeEmptyState } from "../components/empty-state";
@@ -455,7 +455,7 @@ const DefaultMessage = memo(function DefaultMessage(message: ThreadPageSlotMap["
           paddingHorizontal: 14,
           paddingVertical: 8,
           borderRadius: 18,
-          backgroundColor: internal ? colors.surface : message.mine ? colors.tint : colors.surface,
+          backgroundColor: internal ? colors.surface : message.mine ? sentBubbleColor(colors) : colors.surface,
           borderWidth: internal || message.highlighted ? 2 : 0,
           borderColor: internal ? colors.warning : colors.tint,
           opacity: waiting ? 0.6 : 1,

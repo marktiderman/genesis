@@ -64,6 +64,20 @@ describe("ChatComposer", () => {
     expect(chat.impactAsync).not.toHaveBeenCalled();
   });
 
+  it("uses the module the app gave Genesis when it gave chat none, and still taps once", () => {
+    const genesis = { impactAsync: vi.fn(async () => undefined), selectionAsync: vi.fn(async () => undefined), notificationAsync: vi.fn(async () => undefined), ImpactFeedbackStyle: { Light: "l", Medium: "m" }, NotificationFeedbackType: { Success: "s", Warning: "w", Error: "e" } };
+    render(
+      <GenesisModulesProvider modules={{ haptics: genesis } as never}>
+        <ChatNativeProvider>
+          <Harness />
+        </ChatNativeProvider>
+      </GenesisModulesProvider>,
+    );
+    fireEvent.change(screen.getByTestId("cmp-input"), { target: { value: "hello" } });
+    fireEvent.click(screen.getByTestId("cmp-send"));
+    expect(genesis.impactAsync).toHaveBeenCalledTimes(1);
+  });
+
   it("sits on NativeComposerBar: while access loads, a restored draft can't be sent and the input is read-only", async () => {
     const drafts = memoryDraftStorage();
     await drafts.setItem(draftKey("u1", "c1"), JSON.stringify({ text: "half written" }));

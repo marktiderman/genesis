@@ -6,7 +6,7 @@
  *
  *   import * as Audio from "expo-audio";                    // voice notes
  *   import * as ImagePicker from "expo-image-picker";       // photos and videos
- *   import * as Haptics from "expo-haptics";                // send and record
+ *   import * as Haptics from "expo-haptics";                // send and record (Genesis's module is used when this is left out)
  *   import * as Clipboard from "expo-clipboard";            // copy, paste a picture
  *   import { KeyboardAvoidingView } from "react-native-keyboard-controller";
  *   import AsyncStorage from "@react-native-async-storage/async-storage"; // drafts
@@ -22,6 +22,7 @@
  * The shapes follow the SDK 58 packages' own type declarations.
  */
 import type { ComponentType, ReactNode } from "react";
+import { playHaptic, type HapticKind } from "@marktiderman/genesis-ui-native/hooks";
 
 /** `RecorderState` from expo-audio (`recorder.getStatus()`). */
 export interface RecorderStateLike {
@@ -255,23 +256,17 @@ export interface ChatNativeModules {
 
 export type HapticEvent = "send" | "record-start" | "record-lock" | "record-cancel" | "select" | "error";
 
+/** What each of chat's moments plays, in genesis-ui-native's vocabulary. */
+const HAPTIC_KIND: Record<HapticEvent, HapticKind> = {
+  send: "light",
+  "record-lock": "light",
+  "record-start": "medium",
+  select: "select",
+  error: "error",
+  "record-cancel": "warning",
+};
+
 /** Plays a haptic when the app gave expo-haptics; never throws. */
 export function haptic(haptics: HapticsLike | undefined, event: HapticEvent): void {
-  if (!haptics) return;
-  try {
-    const style = (s: unknown) => s as never;
-    const p =
-      event === "send" || event === "record-lock"
-        ? haptics.impactAsync(style(haptics.ImpactFeedbackStyle.Light))
-        : event === "record-start"
-          ? haptics.impactAsync(style(haptics.ImpactFeedbackStyle.Medium))
-          : event === "select"
-            ? haptics.selectionAsync()
-            : haptics.notificationAsync(
-                style(event === "error" ? haptics.NotificationFeedbackType.Error : haptics.NotificationFeedbackType.Warning),
-              );
-    void p?.catch?.(() => undefined);
-  } catch {
-    // A haptic is never worth an error.
-  }
+  playHaptic(haptics, HAPTIC_KIND[event]);
 }
