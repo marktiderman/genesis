@@ -400,7 +400,11 @@ export interface CoverageReport {
 
 export function compare(config: FigmaConfig, routes: AppRoute[], targets: NavTarget[], figma: FigmaFacts, dynamicTargets: NavTarget[] = []): CoverageReport {
   const platformOf = (page: string): Platform | undefined => (config.pages.web === page ? "web" : config.pages.native === page ? "native" : undefined);
-  const routeFrames = figma.frames.filter((f) => platformOf(f.page));
+  // A `Proposal · <status> · <slug>` section on a route page is a proposal, not a live screen
+  // (docs/FIGMA-GUIDELINES.md, "Proposal sections"): it sits beside the live rows so its
+  // prototype links can reach them.
+  const inProposal = (f: Frame) => /^Proposal\s*·/.test(f.section ?? "");
+  const routeFrames = figma.frames.filter((f) => platformOf(f.page) && !inProposal(f));
   const framesFor = (r: AppRoute) => routeFrames.filter((f) => platformOf(f.page) === r.platform && (sameScreen(f.route, r.route) || (r.route === "index" && f.route === "/")));
   const byId = new Map(figma.frames.map((f) => [f.id, f]));
   const framed = new Set(routes.flatMap((r) => framesFor(r).map((f) => f.id)));
@@ -409,7 +413,7 @@ export function compare(config: FigmaConfig, routes: AppRoute[], targets: NavTar
   const routesWithoutFrame = routes.filter((r) => framesFor(r).length === 0);
   const framesWithoutRoute = routeFrames.filter((f) => !framed.has(f.id));
   const proposals: Record<string, Frame[]> = {};
-  for (const f of figma.frames.filter((x) => x.page === config.proposalsPage)) (proposals[f.section ?? "(no section)"] ??= []).push(f);
+  for (const f of figma.frames.filter((x) => x.page === config.proposalsPage || (platformOf(x.page) && inProposal(x)))) (proposals[f.section ?? "(no section)"] ??= []).push(f);
 
   const missingHotspots: MissingHotspot[] = [];
   const seen = new Set<string>();
