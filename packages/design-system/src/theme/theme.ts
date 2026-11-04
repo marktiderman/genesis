@@ -11,7 +11,7 @@
  */
 
 import { isColorScale } from "../schema/brand";
-import type { CanonicalBrand, ColorScale } from "../schema/brand";
+import type { BrandGradient, CanonicalBrand, ColorScale, DisplayTypography } from "../schema/brand";
 
 /**
  * The mode prop accepted by {@link GenesisThemeProvider}, and the value
@@ -72,6 +72,12 @@ export interface ResolvedTokens {
    * requires consumer-side declaration merging on `BrandExtensions`.
    */
   extensions?: Record<string, ResolvedColorScale>;
+  /** The brand's named `accents`, when it sets them. */
+  accents?: Record<string, string>;
+  /** `gradients.primary`, when the brand sets it. */
+  gradients?: { primary?: BrandGradient };
+  /** `typography.display`, when the brand sets it: the `display` text role. */
+  display?: DisplayTypography;
 }
 
 /**
@@ -130,18 +136,23 @@ export function resolveTokens(
     return { ...scale };
   };
 
+  // In dark mode a brand's opt-in `dark` roles win over its light scales.
+  const dark = mode === "dark" ? brand.dark : undefined;
   const tokens: ResolvedTokens = {
-    neutral: { ...brand.neutral },
-    surface: pickScale(brand.surface),
-    text: pickScale(brand.text),
-    accent: pickScale(brand.accent),
+    neutral: { ...brand.neutral, ...(dark?.neutral ?? {}) },
+    surface: pickScale(dark?.surface ?? brand.surface),
+    text: pickScale(dark?.text ?? brand.text),
+    accent: pickScale(dark?.accent ?? brand.accent),
     status: {
-      success: pickScale(brand.status.success),
-      warning: pickScale(brand.status.warning),
-      error: pickScale(brand.status.error),
-      info: pickScale(brand.status.info),
+      success: pickScale(dark?.status?.success ?? brand.status.success),
+      warning: pickScale(dark?.status?.warning ?? brand.status.warning),
+      error: pickScale(dark?.status?.error ?? brand.status.error),
+      info: pickScale(dark?.status?.info ?? brand.status.info),
     },
   };
+  if (brand.accents) tokens.accents = { ...brand.accents };
+  if (brand.gradients?.primary) tokens.gradients = { primary: { ...brand.gradients.primary } };
+  if (brand.typography?.display) tokens.display = { ...brand.typography.display };
 
   if (brand.spacing) tokens.spacing = { ...brand.spacing };
   if (brand.radius) tokens.radius = { ...brand.radius };

@@ -37,5 +37,6 @@ function mergeTypography(
     fontSize: { ...(base?.fontSize ?? {}), ...(override?.fontSize ?? {}) },
     lineHeight: { ...(base?.lineHeight ?? {}), ...(override?.lineHeight ?? {}) },
     fontWeight: { ...(base?.fontWeight ?? {}), ...(override?.fontWeight ?? {}) },
+    ...(base?.display || override?.display ? { display: { ...(base?.display ?? {}), ...(override?.display ?? {}) } } : {}),
   };
 }

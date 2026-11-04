@@ -355,6 +355,12 @@
           "use": "NativeWhatsNewSheet",
           "import": "@marktiderman/genesis-ui-native",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a rank or tier label (Gold, Level 3) in a brand accent",
+          "use": "NativeTierBadge with tone set to a key of the brand's accents",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
         }
       ]
     }

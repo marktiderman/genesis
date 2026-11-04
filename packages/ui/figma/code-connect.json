@@ -107,6 +107,7 @@
     "Tabs",
     "Textarea",
     "ThumbnailCell",
+    "TierBadge",
     "Toaster",
     "Toggle",
     "ToggleGroup",

@@ -128,6 +128,8 @@ export type { NativeRefreshControlProps } from "./refresh-control";
 
 export { NativeBadge, badgeVariants, badgeTextVariants } from "./badge";
 export type { NativeBadgeProps } from "./badge";
+export { NativeTierBadge } from "./tier-badge";
+export type { NativeTierBadgeProps } from "./tier-badge";
 
 export { NativeInput } from "./input";
 export type { NativeInputProps } from "./input";

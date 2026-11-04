@@ -10,7 +10,7 @@ const label = instance.getString('Label')
 const loading = instance.getBoolean('loading')
 const disabled = instance.getBoolean('disabled')
 const variant = instance.getEnum('variant', {
-  default: 'default', secondary: 'secondary', outline: 'outline', ghost: 'ghost', destructive: 'destructive',
+  default: 'default', secondary: 'secondary', outline: 'outline', ghost: 'ghost', destructive: 'destructive', gradient: 'gradient',
 })
 const size = instance.getEnum('size', { sm: 'sm', md: 'md', lg: 'lg' })
 

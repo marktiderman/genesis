@@ -40,7 +40,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { genesisPreset } from "./tailwind";
 import { GENESIS_THEME_BRAND, tailwindColorVariables, themeVariables } from "../tokens/theme-css";
-import { brandRoleVariables } from "../factories/brand-roles";
+import { brandExtraVariables, brandRoleVariables } from "../factories/brand-roles";
 import { isColorScale, type CanonicalBrand } from "../schema/brand";
 import { kebab } from "../factories/from-brand";
 
@@ -84,7 +84,9 @@ export interface GenesisNativewindPresetOptions {
  * @stability Beta
  */
 export function createGenesisNativewindPreset(options: GenesisNativewindPresetOptions = {}) {
-  const variables = options.brand ? brandRoleVariables(options.brand) : themeVariables(GENESIS_THEME_BRAND);
+  const roles = options.brand ? brandRoleVariables(options.brand) : themeVariables(GENESIS_THEME_BRAND);
+  const extra = options.brand ? brandExtraVariables(options.brand) : { light: {}, dark: {} };
+  const variables = { light: { ...roles.light, ...extra.light }, dark: { ...roles.dark, ...extra.dark } };
   const extensions = options.brand ? extensionColors(options.brand) : {};
   return {
     theme: {

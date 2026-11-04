@@ -1,6 +1,7 @@
 // UI Primitives
 export { Button, type ButtonProps, type ButtonAsChildProps } from "./components/ui/button";
 export { Badge, type BadgeProps } from "./components/ui/badge";
+export { TierBadge, type TierBadgeProps } from "./components/ui/tier-badge";
 export {
   StatusBadge,
   statusBadgeVariants,

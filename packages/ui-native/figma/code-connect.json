@@ -60,6 +60,7 @@
     "NativeText",
     "NativeTextarea",
     "NativeThreadList",
+    "NativeTierBadge",
     "NativeTimePicker",
     "NativeToggle",
     "NativeTooltip",
