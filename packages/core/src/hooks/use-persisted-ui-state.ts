@@ -12,10 +12,12 @@
  *   hasn't chosen. `set(undefined)` clears the stored value back to the default.
  * - Forgiving: a stored value `parse` refuses falls back to `initial`, and a write storage won't
  *   keep (quota, private mode, a no-op adapter) still applies for this hook's lifetime.
+ * - Optional: a `null` key is plain state that isn't stored, for a component whose persistence
+ *   the caller turns on with a key prop.
  *
  * @stability Beta
  */
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useStorage } from "../provider/context";
 
 export interface PersistedUiStateOptions<T> {
@@ -47,7 +49,7 @@ const jsonParse = <T,>(raw: string): T | undefined => {
 const serverSnapshot = (): null => null;
 
 export function usePersistedUiState<T>(
-  key: string,
+  key: string | null,
   initial: T,
   options: PersistedUiStateOptions<T> = {},
 ): [T, (next: T | undefined | ((current: T) => T | undefined)) => void] {
@@ -56,6 +58,7 @@ export function usePersistedUiState<T>(
 
   const subscribe = useCallback(
     (onChange: () => void) => {
+      if (key === null) return () => undefined;
       let set = listeners.get(key);
       if (!set) listeners.set(key, (set = new Set()));
       set.add(onChange);
@@ -72,6 +75,7 @@ export function usePersistedUiState<T>(
     [key],
   );
   const getSnapshot = useCallback(() => {
+    if (key === null) return null;
     try {
       return storage.getItem(key);
     } catch {
@@ -84,14 +88,25 @@ export function usePersistedUiState<T>(
   // don't run on every render.
   const stored = useMemo(() => (raw === null ? undefined : parse(raw)), [raw, parse]);
 
-  // A write storage didn't keep, held for this hook's lifetime. `null` is "cleared".
-  const [unsaved, setUnsaved] = useState<{ value: T } | null | undefined>(undefined);
-  const value = unsaved === undefined ? (stored === undefined ? initial : stored) : unsaved === null ? initial : unsaved.value;
+  // A write storage didn't keep, held for this hook's lifetime and only for the key it was made
+  // under: a new key reads its own stored value. `value: undefined` is "cleared".
+  const [unsavedState, setUnsavedState] = useState<{ key: string | null; value: T | undefined } | undefined>(undefined);
+  const unsaved = unsavedState && unsavedState.key === key ? unsavedState : undefined;
+  const value = unsaved === undefined ? (stored === undefined ? initial : stored) : unsaved.value === undefined ? initial : unsaved.value;
+  // The latest value, for a function update: two updates in one tick (before a re-render) each
+  // build on the one before, as useState's do.
+  const latest = useRef(value);
+  latest.current = value;
 
   const set = useCallback(
     (next: T | undefined | ((current: T) => T | undefined)) => {
-      const resolved = typeof next === "function" ? (next as (current: T) => T | undefined)(value) : next;
+      const resolved = typeof next === "function" ? (next as (current: T) => T | undefined)(latest.current) : next;
+      latest.current = resolved === undefined ? initial : resolved;
       let kept = false;
+      if (key === null) {
+        setUnsavedState({ key, value: resolved });
+        return;
+      }
       try {
         if (resolved === undefined) {
           storage.removeItem(key);
@@ -104,10 +119,12 @@ export function usePersistedUiState<T>(
       } catch {
         kept = false;
       }
-      setUnsaved(kept ? undefined : resolved === undefined ? null : { value: resolved });
+      setUnsavedState(kept ? undefined : { key, value: resolved });
       notify(key);
     },
-    [storage, key, serialize, value],
+    // `initial` only matters when a write clears the value; read through a ref, it would be
+    // stale after a re-render with a new default, so it's a dependency like the rest.
+    [storage, key, serialize, initial],
   );
 
   return [value, set];

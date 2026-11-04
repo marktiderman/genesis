@@ -28,6 +28,7 @@
  * @stability Beta
  */
 import * as React from "react";
+import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
 import { ChevronLeft, PanelRight } from "lucide-react";
 import { cn } from "../../../utils";
 import { useMediaQuery } from "../../../hooks/use-mobile";
@@ -80,15 +81,8 @@ export interface InboxLayoutProps {
 
 const XL_QUERY = "(min-width: 1280px)";
 
-function readStored(key: string | undefined, fallback: boolean): boolean {
-  if (!key) return fallback;
-  try {
-    const v = window.localStorage.getItem(key);
-    return v === null ? fallback : v === "1";
-  } catch {
-    return fallback;
-  }
-}
+/** The remembered context panel, stored as "1" / "0" under `contextStorageKey`. */
+const OPEN_FORMAT = { parse: (raw: string) => raw === "1", serialize: (open: boolean) => (open ? "1" : "0") };
 
 const typing = (el: EventTarget | null) =>
   el instanceof HTMLElement &&
@@ -113,23 +107,12 @@ export function InboxLayout({
   testID = "inbox-layout",
 }: InboxLayoutProps) {
   const wide = useMediaQuery(XL_QUERY, false);
-  const [ownOpen, setOwnOpen] = React.useState(defaultContextOpen);
-  // The remembered setting is read after hydration, so the server's HTML and the first render agree.
-  React.useEffect(() => {
-    if (contextStorageKey) setOwnOpen(readStored(contextStorageKey, defaultContextOpen));
-  }, [contextStorageKey, defaultContextOpen]);
+  // The remembered setting (usePersistedUiState: SSR-safe, and it still works for this visit when
+  // storage is off). Without a key, it lasts this visit.
+  const [ownOpen, setOwnOpen] = usePersistedUiState(contextStorageKey ?? null, defaultContextOpen, OPEN_FORMAT);
   const contextOpen = contextOpenProp ?? ownOpen;
   const setContextOpen = (open: boolean) => {
-    if (contextOpenProp === undefined) {
-      setOwnOpen(open);
-      if (contextStorageKey) {
-        try {
-          window.localStorage.setItem(contextStorageKey, open ? "1" : "0");
-        } catch {
-          // Storage can be off (a private window): the toggle still works for this visit.
-        }
-      }
-    }
+    if (contextOpenProp === undefined) setOwnOpen(open);
     onContextOpenChange?.(open);
   };
 

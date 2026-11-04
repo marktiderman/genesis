@@ -21,6 +21,7 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { TreeNode } from "@marktiderman/genesis-core/resource-view";
+import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
 import {
   Table,
   TableBody,
@@ -148,7 +149,7 @@ export interface DataTableProps<T> {
   emptyMessage?: string;
   /** Enable column visibility toggle dropdown */
   columnVisibility?: boolean | undefined;
-  /** localStorage key for persisting column visibility */
+  /** Storage key for remembering column visibility (the app's storage adapter; localStorage on the web). */
   columnVisibilityKey?: string | undefined;
   /** Enable column resizing via drag */
   resizableColumns?: boolean | undefined;
@@ -160,7 +161,7 @@ export interface DataTableProps<T> {
   pageSizeOptions?: number[] | undefined;
   /** Sticky header on scroll */
   stickyHeader?: boolean | undefined;
-  /** localStorage key for persisting column resize widths */
+  /** Storage key for remembering column widths (the app's storage adapter; localStorage on the web). */
   resizeKey?: string | undefined;
   /** Make the first column sticky when scrolling horizontally */
   stickyFirstColumn?: boolean | undefined;
@@ -205,7 +206,7 @@ export interface DataTableProps<T> {
    * `columnOrderKey`, and "Reset to defaults" in the Columns menu restores it.
    */
   reorderableColumns?: boolean;
-  /** localStorage key for the user's column order. */
+  /** Storage key for the user's column order (the app's storage adapter; localStorage on the web). */
   columnOrderKey?: string;
   /**
    * The header sort, controlled: the first entry is the primary sort, later
@@ -252,26 +253,43 @@ export interface DataTableTree<T> {
 }
 
 /** One column of a `DataTable` header sort. */
+// How DataTable's remembered choices are stored. A value of the wrong shape (a hand edit, an
+// older format) reads as none, so the table falls back to its columns' defaults.
+const NO_MAP: Record<string, boolean> = {};
+const jsonOf = (raw: string): unknown => {
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return undefined;
+  }
+};
+const isMapOf = (value: unknown, type: "boolean" | "number"): boolean =>
+  !!value && typeof value === "object" && !Array.isArray(value) && Object.values(value).every((v) => typeof v === type);
+const BOOLEAN_MAP_FORMAT = {
+  parse: (raw: string) => {
+    const value = jsonOf(raw);
+    return isMapOf(value, "boolean") ? (value as Record<string, boolean>) : undefined;
+  },
+};
+const NUMBER_MAP_FORMAT = {
+  parse: (raw: string) => {
+    const value = jsonOf(raw);
+    return isMapOf(value, "number") ? (value as Record<string, number>) : undefined;
+  },
+};
+// Only a list of column keys is an order; anything else is ignored.
+const KEY_LIST_FORMAT = {
+  parse: (raw: string) => {
+    const value = jsonOf(raw);
+    return Array.isArray(value) && value.every((k) => typeof k === "string") ? (value as string[]) : undefined;
+  },
+};
+
 export interface DataTableSort {
   key: string;
   dir: "asc" | "desc";
 }
 
-/** localStorage writes that never throw (Safari private mode, quota, blocked storage). */
-function storeSet(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // a remembered preference is a convenience; losing it is fine
-  }
-}
-function storeRemove(key: string) {
-  try {
-    localStorage.removeItem(key);
-  } catch {
-    // as above
-  }
-}
 
 /** Row height estimate per density, for virtualization. */
 const ROW_HEIGHT: Record<Density, number> = { compact: 33, comfortable: 41, spacious: 49 };
@@ -642,115 +660,39 @@ export function DataTable<T>({
   );
 
   // ── Column visibility ──
-  // SSR-safe: start from column defaults, restore localStorage after mount,
-  // and only persist once hydrated — otherwise the defaults write would wipe
-  // saved prefs on every full page load.
-  const [visibleCols, setVisibleCols] = useState<Record<string, boolean>>(
-    () => {
-      const initial: Record<string, boolean> = {};
-      columns.forEach((c) => {
-        initial[c.key] = c.defaultVisible !== false;
-      });
-      return initial;
-    },
+  // The user's choices, stored under `dt-vis-<columnVisibilityKey>` (usePersistedUiState: SSR-safe,
+  // and the defaults are never written, so a full page load can't wipe saved choices), laid over
+  // each column's default. A column the saved map doesn't name takes its default, so a new column
+  // shows up.
+  const [savedVisibility, setSavedVisibility] = usePersistedUiState<Record<string, boolean>>(
+    columnVisibilityKey ? `dt-vis-${columnVisibilityKey}` : null,
+    NO_MAP,
+    BOOLEAN_MAP_FORMAT,
   );
-  const [visibilityHydrated, setVisibilityHydrated] = useState(false);
+  const visibleCols = useMemo(() => {
+    const merged: Record<string, boolean> = {};
+    for (const c of columns) merged[c.key] = savedVisibility[c.key] ?? c.defaultVisible !== false;
+    return merged;
+  }, [columns, savedVisibility]);
 
-  useEffect(() => {
-    if (!columnVisibilityKey) {
-      setVisibilityHydrated(true);
-      return;
-    }
-    try {
-      const saved = localStorage.getItem(`dt-vis-${columnVisibilityKey}`);
-      if (saved) {
-        const parsed = JSON.parse(saved) as Record<string, boolean>;
-        setVisibleCols((prev) => {
-          const next = { ...prev };
-          for (const [k, v] of Object.entries(parsed)) {
-            if (k in next || columns.some((c) => c.key === k)) {
-              next[k] = v;
-            }
-          }
-          // Keep defaults for any column not in the saved map
-          columns.forEach((c) => {
-            if (!(c.key in next)) next[c.key] = c.defaultVisible !== false;
-          });
-          return next;
-        });
-      }
-    } catch {
-      // ignore corrupt prefs
-    }
-    setVisibilityHydrated(true);
-    // Intentionally once-per-mount for this key (columns keys are stable)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnVisibilityKey]);
-
-  useEffect(() => {
-    if (!visibilityHydrated || !columnVisibilityKey) return;
-    storeSet(
-      `dt-vis-${columnVisibilityKey}`,
-      JSON.stringify(visibleCols),
-    );
-  }, [visibleCols, columnVisibilityKey, visibilityHydrated]);
-
-  const toggleColumnVisibility = useCallback((key: string) => {
-    setVisibleCols((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
-
-  const resetColumnVisibility = useCallback(() => {
-    const defaults: Record<string, boolean> = {};
-    columns.forEach((c) => {
-      defaults[c.key] = c.defaultVisible !== false;
-    });
-    setVisibleCols(defaults);
-    setColOrder(null);
-    if (columnVisibilityKey) {
-      storeRemove(`dt-vis-${columnVisibilityKey}`);
-    }
-  }, [columns, columnVisibilityKey]);
-
-  // Sync new columns that aren't in saved state
-  useEffect(() => {
-    setVisibleCols((prev) => {
-      const updated = { ...prev };
-      let changed = false;
-      columns.forEach((c) => {
-        if (!(c.key in updated)) {
-          updated[c.key] = c.defaultVisible !== false;
-          changed = true;
-        }
-      });
-      return changed ? updated : prev;
-    });
-  }, [columns]);
+  const toggleColumnVisibility = useCallback(
+    (key: string) => setSavedVisibility({ ...visibleCols, [key]: !visibleCols[key] }),
+    [visibleCols, setSavedVisibility],
+  );
 
   // ── Column order (drag a header, or Alt+←/→ on its button) ──
   // Keys in the user's order; columns it doesn't name keep their place at
   // the end, so a new column still shows up.
-  const [colOrder, setColOrder] = useState<string[] | null>(null);
-  const [orderHydrated, setOrderHydrated] = useState(false);
-  useEffect(() => {
-    if (columnOrderKey) {
-      try {
-        const saved = localStorage.getItem(`dt-order-${columnOrderKey}`);
-        const parsed: unknown = saved ? JSON.parse(saved) : null;
-        // Only a list of column keys is an order; anything else is ignored.
-        if (Array.isArray(parsed) && parsed.every((k) => typeof k === "string")) {
-          setColOrder(parsed);
-        }
-      } catch {
-        // ignore corrupt prefs
-      }
-    }
-    setOrderHydrated(true);
-  }, [columnOrderKey]);
-  useEffect(() => {
-    if (!orderHydrated || !columnOrderKey) return;
-    if (colOrder) storeSet(`dt-order-${columnOrderKey}`, JSON.stringify(colOrder));
-    else storeRemove(`dt-order-${columnOrderKey}`);
-  }, [colOrder, columnOrderKey, orderHydrated]);
+  const [colOrder, setColOrder] = usePersistedUiState<string[] | null>(
+    columnOrderKey ? `dt-order-${columnOrderKey}` : null,
+    null,
+    KEY_LIST_FORMAT,
+  );
+  // Back to the columns' own visibility and order.
+  const resetColumnVisibility = useCallback(() => {
+    setSavedVisibility(undefined);
+    setColOrder(undefined);
+  }, [setSavedVisibility, setColOrder]);
   const orderedColumns = useMemo(() => {
     if (!colOrder) return columns;
     const rank = new Map(colOrder.map((k, i) => [k, i]));
@@ -792,44 +734,42 @@ export function DataTable<T>({
   ];
 
   // ── Column resizing ──
-  const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
-    // Restore from localStorage if resizeKey is provided
-    if (resizeKey) {
-      try {
-        const saved = localStorage.getItem(`dt-resize-${resizeKey}`);
-        if (saved) return JSON.parse(saved);
-      } catch {
-        // ignore
-      }
-    }
-    // Initialize from column widths that name pixels (a class name like
-    // "w-48" or "12rem" is not a pixel count, so it is left to CSS).
+  // Widths named in pixels by the columns ("w-48" or "12rem" is left to CSS); the user's own,
+  // stored under `dt-resize-<resizeKey>`, replace them. A drag changes `liveWidths` and saves
+  // only when it ends.
+  const columnWidths = useMemo(() => {
     const initial: Record<string, number> = {};
     columns.forEach((c) => {
       const px = pxWidth(c.width);
       if (px) initial[c.key] = px;
     });
     return initial;
-  });
+  }, [columns]);
+  const [savedWidths, setSavedWidths] = usePersistedUiState<Record<string, number> | null>(
+    resizeKey ? `dt-resize-${resizeKey}` : null,
+    null,
+    NUMBER_MAP_FORMAT,
+  );
+  const [liveWidths, setLiveWidths] = useState<Record<string, number> | null>(null);
+  const colWidths = liveWidths ?? savedWidths ?? columnWidths;
 
   const handleResize = useCallback(
     (key: string, delta: number, minWidth: number) => {
-      setColWidths((prev) => {
-        const current = prev[key] || 150;
-        return { ...prev, [key]: Math.max(minWidth, current + delta) };
+      setLiveWidths((prev) => {
+        const base = prev ?? colWidths;
+        const current = base[key] || 150;
+        return { ...base, [key]: Math.max(minWidth, current + delta) };
       });
     },
-    [],
+    [colWidths],
   );
 
   const handleResizeEnd = useCallback(() => {
-    if (resizeKey) {
-      storeSet(`dt-resize-${resizeKey}`, JSON.stringify(colWidths));
-    }
-  }, [resizeKey, colWidths]);
+    if (!liveWidths) return;
+    setSavedWidths(liveWidths);
+    setLiveWidths(null);
+  }, [liveWidths, setSavedWidths]);
 
-  // Pinned columns: each one's offset from its edge, after the checkbox
-  // (left) or actions (right) column, which pin with them.
   const pinWidth = (key: string) => colWidths[key] ?? PINNED_WIDTH;
   const pinned: Record<string, { side: "left" | "right"; offset: number }> = {};
   {

@@ -101,6 +101,17 @@ describe("usePersistedUiState", () => {
     expect(storage.getItem("count")).toBeNull();
   });
 
+  it("two function updates in one tick both apply, as useState's do", () => {
+    const storage = createMemoryStorageAdapter();
+    const { result } = renderHook(() => usePersistedUiState<string[]>("list", []), { wrapper: wrap(storage) });
+    act(() => {
+      result.current[1]((list) => [...list, "a"]);
+      result.current[1]((list) => [...list, "b"]);
+    });
+    expect(result.current[0]).toEqual(["a", "b"]);
+    expect(JSON.parse(storage.getItem("list")!)).toEqual(["a", "b"]);
+  });
+
   it("falls back to the default for a value it can't read or won't accept", () => {
     const storage = createMemoryStorageAdapter();
     storage.setItem("broken", "{not json");
@@ -133,10 +144,34 @@ describe("usePersistedUiState", () => {
     expect(storage.getItem("legacy:collapsed")).toBe("0");
   });
 
+  it("is plain state with a null key: nothing read or written", () => {
+    const storage = createMemoryStorageAdapter();
+    storage.setItem("null", "\"stored\"");
+    const { result } = renderHook(() => usePersistedUiState<string>(null, "a"), { wrapper: wrap(storage) });
+    expect(result.current[0]).toBe("a");
+    act(() => result.current[1]("b"));
+    expect(result.current[0]).toBe("b");
+    expect(storage.getItem("null")).toBe("\"stored\"");
+  });
+
   it("keeps a value storage refused for this hook's lifetime", () => {
     const { result } = renderHook(() => usePersistedUiState("x", "a"), { wrapper: wrap(createNoopStorageAdapter()) });
     act(() => result.current[1]("b"));
     expect(result.current[0]).toBe("b");
+  });
+
+  it("reads the new key's own value when the key changes, never the last key's unsaved one", () => {
+    const storage = createMemoryStorageAdapter();
+    storage.setItem("page-b", "\"b-stored\"");
+    const { result, rerender } = renderHook(({ key }) => usePersistedUiState<string>(key, "default"), {
+      wrapper: wrap(storage),
+      initialProps: { key: null as string | null },
+    });
+    act(() => result.current[1]("typed on a page with no key"));
+    rerender({ key: "page-b" });
+    expect(result.current[0]).toBe("b-stored");
+    rerender({ key: "page-c" });
+    expect(result.current[0]).toBe("default");
   });
 
   it("keeps a value when storage throws on write", () => {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useSyncExternalStore } from "react";
-import { useStorage } from "@marktiderman/genesis-core";
+import { useCallback } from "react";
+import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
 import type { ViewMode } from "../components/patterns/view-toggle";
 import { useIsMobile } from "./use-mobile";
 
@@ -41,24 +41,13 @@ function isViewMode(value: unknown): value is ViewMode {
  * phone switches to its mobile default right after hydration — the same
  * contract as `useIsMobile`, so there is no hydration mismatch.
  */
-// Same-tab subscribers: a choice made by one hook instance reaches every
-// other instance reading the same key (two lists of one resource, a header
-// toggle and a page body). Other tabs arrive through the `storage` event.
-const listeners = new Set<() => void>();
-
-function subscribe(onChange: () => void): () => void {
-  listeners.add(onChange);
-  window.addEventListener("storage", onChange);
-  return () => {
-    listeners.delete(onChange);
-    window.removeEventListener("storage", onChange);
-  };
-}
-
-/** The server has no stored preference; hydrate against the default. */
-function getServerSnapshot(): null {
-  return null;
-}
+// usePersistedUiState keeps every hook on a key in step (two lists of one resource, a header
+// toggle and a page body) and other tabs too, reads storage SSR-safely, and holds a choice
+// storage didn't keep for the hook's lifetime. Values are the mode as plain text.
+const MODE_FORMAT = {
+  parse: (raw: string) => (isViewMode(raw) ? raw : undefined),
+  serialize: (mode: ViewMode | undefined) => mode ?? "",
+};
 
 /**
  * Storage keys. Earlier versions wrote the DEFAULT to `genesis-view-<key>`
@@ -76,36 +65,11 @@ export function useViewPreference(
   key: string,
   defaultMode: ViewModeDefault = "grid",
 ): [ViewMode, (mode: ViewMode) => void] {
-  const storage = useStorage();
-  const storageKey = choiceKey(key);
   const isMobile = useIsMobile();
   const responsive = typeof defaultMode !== "string";
-
-  // `useSyncExternalStore` rather than a `useState` initializer: the server
-  // renders with no stored value, so reading storage during the client's
-  // first render would mismatch the server's HTML. React hydrates against
-  // `getServerSnapshot` and then re-renders with the stored choice; a
-  // client-only render reads storage directly, with no flash.
-  const getSnapshot = useCallback(
-    () => storage.getItem(storageKey),
-    [storage, storageKey],
-  );
-  const getLegacySnapshot = useCallback(
-    () => (responsive ? null : storage.getItem(legacyKey(key))),
-    [storage, key, responsive],
-  );
-  const stored = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const legacy = useSyncExternalStore(
-    subscribe,
-    getLegacySnapshot,
-    getServerSnapshot,
-  );
-  // `undefined` = the user has not chosen; fall through to the default.
-  const chosen = isViewMode(stored)
-    ? stored
-    : isViewMode(legacy)
-      ? legacy
-      : undefined;
+  const [chosen, setChosen] = usePersistedUiState<ViewMode | undefined>(choiceKey(key), undefined, MODE_FORMAT);
+  // The legacy key is read only for a plain default (see the storage keys above), never written.
+  const [legacy] = usePersistedUiState<ViewMode | undefined>(responsive ? null : legacyKey(key), undefined, MODE_FORMAT);
 
   const fallback = !responsive
     ? defaultMode
@@ -113,25 +77,7 @@ export function useViewPreference(
         ? defaultMode.mobile
         : defaultMode.desktop;
 
-  // Holds a choice storage did not keep (quota, private mode, a no-op
-  // adapter), so it still applies for this hook's lifetime. Adapters
-  // swallow write errors, so the write is checked by reading it back.
-  const [unsaved, setUnsaved] = useState<ViewMode | undefined>(undefined);
+  const setMode = useCallback((mode: ViewMode) => setChosen(mode), [setChosen]);
 
-  const setMode = useCallback(
-    (mode: ViewMode) => {
-      let saved: string | null = null;
-      try {
-        storage.setItem(storageKey, mode);
-        saved = storage.getItem(storageKey);
-      } catch {
-        saved = null;
-      }
-      setUnsaved(saved === mode ? undefined : mode);
-      for (const listener of listeners) listener();
-    },
-    [storage, storageKey],
-  );
-
-  return [unsaved ?? chosen ?? fallback, setMode];
+  return [chosen ?? legacy ?? fallback, setMode];
 }
