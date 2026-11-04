@@ -25,6 +25,7 @@
     "Command",
     "CommandPalette",
     "ConfirmDeleteDialog",
+    "ConflictSheet",
     "ContextMenu",
     "DashboardPage",
     "DataBulkBar",
@@ -119,7 +120,5 @@
     "WizardForm",
     "WorkspaceSwitcher"
   ],
-  "notYet": [
-    "ConflictSheet"
-  ]
+  "notYet": []
 }
