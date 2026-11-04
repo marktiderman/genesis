@@ -22,9 +22,9 @@ function measure(el: HTMLElement, width: number) {
 }
 
 describe("NativeGalleryGrid", () => {
-  it("draws nothing until the container is measured, then a tile per item", () => {
+  it("draws on the first paint (regression: an iOS large-title inset needs the list at mount), then a tile per item", () => {
     render(<NativeGalleryGrid items={items} testID="g" />);
-    expect(screen.queryByTestId("g-item-p0")).toBeNull();
+    expect(screen.getByTestId("g-item-p0")).toBeTruthy();
     measure(screen.getByTestId("g"), 600);
     expect(screen.getAllByTestId(/^g-item-/)).toHaveLength(5);
   });
