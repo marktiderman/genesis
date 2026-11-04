@@ -1,0 +1,25 @@
+packages/ui/src/components/data/__tests__/resource-page-url-state.test.tsx
+  s_e63e2ce0535b22::t_1660aafef10f5c 212-239
+packages/core/src/hooks/use-persisted-ui-state.ts
+  s_e63e2ce0535b22::t_df56e5c0c5714d 16
+packages/ui/src/components/data/use-resource-table.ts
+  s_e63e2ce0535b22::t_f4f687a702f521 188-197
+packages/ui/src/hooks/use-resource-page.ts
+  s_e63e2ce0535b22::t_289baac3a726cd 326,328
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "793abd28d38ac98ce7be614d84369ab2ede5a54a",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
