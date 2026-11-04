@@ -1,0 +1,51 @@
+packages/design-system/src/index.native.ts
+  s_109ad08c59054b::t_8eb47d9f95b732 40-42,77,80,90
+packages/design-system/src/factories/from-brand.ts
+  s_109ad08c59054b::t_d20f16ee115aa1 268-276,734
+  s_109ad08c59054b::t_e7912cc37adea4 83,163-168,192-198,484-489,608-610,715-733,735-737,758-760
+packages/design-system/src/index.ts
+  s_109ad08c59054b::t_8eb47d9f95b732 31-33,70,73,92
+packages/design-system/src/schema/brand.ts
+  s_109ad08c59054b::t_c90f82ca9fbfd6 277-337,369-385,514-518,701-756,1074
+  s_109ad08c59054b::t_19bba2f487167f 1075
+packages/design-system/schema/brand.schema.json
+  s_109ad08c59054b::t_53d9b980a783eb 70-79,112-158
+packages/sites/src/core/theme.ts
+  s_109ad08c59054b::t_58d1146b818939 215-220,229
+.changeset/brand-dark-roles.md
+  s_109ad08c59054b::t_1dd1b60d65d69b 1-8
+packages/design-system/src/factories/brand-roles.ts
+  s_109ad08c59054b::t_5fd9a4b7e0598f 33-43,138-157,229-276
+packages/design-system/src/presets/nativewind.ts
+  s_109ad08c59054b::t_8eb47d9f95b732 43,87-89
+packages/design-system/src/theme/index.web.ts
+  s_109ad08c59054b::t_8eb47d9f95b732 17
+packages/design-system/src/theme/use-theme.ts
+  s_109ad08c59054b::t_4ab000940e1200 18-20
+  s_109ad08c59054b::t_8eb47d9f95b732 22-30
+  s_109ad08c59054b::t_d8539597bdf130 21
+packages/design-system/src/factories/__tests__/brand-opt-in-roles.test.ts
+  s_109ad08c59054b::t_04eaca290cae97 1-132
+packages/design-system/src/factories/overrides.ts
+  s_109ad08c59054b::t_5fd9a4b7e0598f 40
+packages/design-system/src/theme/index.native.ts
+  s_109ad08c59054b::t_8eb47d9f95b732 16
+packages/design-system/src/theme/theme.ts
+  s_109ad08c59054b::t_8eb47d9f95b732 14,75-80,139-140,142-145,147-150,153-155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fcf81d4a3307453b7a257f263edf64b133855149",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
