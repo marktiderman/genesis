@@ -141,10 +141,12 @@ export function SupportStaffThread({ staff, onError, ...props }: SupportStaffThr
   report.current = onError;
   // Chat marks what's read as it shows, but a ticket with no messages has no place to move: this marks the ticket itself.
   const { client, reportId } = props;
+  const loaded = useQuery({ queryKey: supportWebKeys.report(reportId), queryFn: () => client.report(reportId) });
+  const shown = loaded.isFetchedAfterMount && !loaded.isError && Boolean(loaded.data);
   useEffect(() => {
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    if (!shown || (typeof document !== "undefined" && document.visibilityState !== "visible")) return;
     client.markRead(reportId, { ticket: true }).catch((error: unknown) => report.current?.(error));
-  }, [client, reportId]);
+  }, [client, reportId, shown]);
   return (
     <ReportThreadShell
       {...props}

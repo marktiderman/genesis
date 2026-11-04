@@ -76,8 +76,8 @@ export interface ChatDockPanel {
   /** Opening the same id again brings that window back rather than adding a second. */
   id: string;
   title: string;
-  /** Its body, filling the window under the dock's title bar. */
-  render: () => ReactNode;
+  /** Its body, filling the window under the dock's title bar. `visible`: it stays mounted when minimized, so pause what mustn't happen out of sight (marking read). */
+  render: (state: { visible: boolean }) => ReactNode;
   /** In place of the avatar in the title bar. */
   icon?: ReactNode;
   /** Unread count on the bar and the bubble. */
@@ -649,7 +649,7 @@ function DockItemView({ item, inbox, resolveUser, threadProps, labels, inSheet, 
           toggleRef={toggleRef}
         />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" hidden={!visible} data-testid="genesis-chat-dock-panel">
-          {item.render()}
+          {item.render({ visible })}
         </div>
       </>
     );

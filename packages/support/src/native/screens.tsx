@@ -130,7 +130,7 @@ export function useSupportConversation(reportId: string): { mode: SupportThreadI
 /** What a reply's files add to its text where the thread can only show photos. */
 function fileLabels(reply: SupportReply, copy: ReturnType<typeof useSupport>["copy"]): string[] {
   return (reply.attachments ?? [])
-    .filter((a) => a.kind !== "image")
+    .filter((a) => a.kind !== "image" || !a.stored)
     .map((a) => (a.kind === "voice" ? copy.thread.voiceNote : a.kind === "video" ? copy.thread.video : a.name || copy.thread.file));
 }
 
@@ -203,7 +203,7 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
         authorName: reply.fromStaff ? copy.thread.support : undefined,
         timestamp: reply.createdAt,
         attachments: (reply.attachments ?? [])
-          .filter((a) => a.kind === "image" && a.url)
+          .filter((a) => a.kind === "image" && a.stored && a.url)
           .map((a) => ({ id: a.id, uri: a.url!, width: a.width ?? undefined, height: a.height ?? undefined, accessibilityLabel: copy.thread.screenshot })),
       }));
     const pending: ThreadMessage[] = send.isPending && send.variables ? [{ id: "sending", body: send.variables, mine: true, timestamp: new Date().toISOString(), status: "sending" }] : [];

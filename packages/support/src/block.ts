@@ -21,6 +21,14 @@ export interface SupportPaths {
   thread: (id: string) => string;
   ideas: string;
   shipped: string;
+  /** The messenger's Home (the support-helpdesk block). */
+  home: string;
+  /** Start a conversation (the support-helpdesk block). */
+  newMessage: string;
+  /** The help center (the support-helpdesk block). */
+  help: string;
+  /** One article: `article(slug)`. */
+  article: (slug: string) => string;
 }
 
 export function supportPaths(basePath = "/support"): SupportPaths {
@@ -31,6 +39,10 @@ export function supportPaths(basePath = "/support"): SupportPaths {
     thread: (id) => `${base}/${encodeURIComponent(id)}`,
     ideas: `${base}/ideas`,
     shipped: `${base}/shipped`,
+    home: `${base}/home`,
+    newMessage: `${base}/message`,
+    help: `${base}/help`,
+    article: (slug) => `${base}/help/${encodeURIComponent(slug)}`,
   };
 }
 
@@ -152,6 +164,35 @@ export function defineSupportEmailBlock(options: { requires?: readonly string[] 
         notes: [
           "Keeps each support email's addresses, subject, text, Message-IDs and SPF/DKIM/DMARC results with its ticket; attachments are listed by name, type and size, not stored. Deleting a ticket deletes its emails.",
         ],
+      },
+    },
+  });
+}
+
+/** The help desk block's id: the messenger, the help center and its AI answers, with the agent inbox. */
+export const SUPPORT_HELPDESK_BLOCK_ID = "support-helpdesk" as const;
+
+/**
+ * The support-helpdesk block: what a tenant's help desk adds to support and its chat threads. It
+ * brings migration `0010_genesis_support_help_center.sql`. Its screens are components and hooks the
+ * app routes to: `SupportMessengerLauncher`, `SupportAgentInbox` and `SupportHelpCenterAdmin` on the
+ * web (`/web-chat`), the messenger's hooks on the phone (`/native`).
+ */
+export function defineSupportHelpdeskBlock(options: { basePath?: string; requires?: readonly string[] } = {}) {
+  const paths = supportPaths(options.basePath);
+  return defineBlock({
+    id: SUPPORT_HELPDESK_BLOCK_ID,
+    requires: options.requires ?? [SUPPORT_BLOCK_ID, SUPPORT_CHAT_BLOCK_ID],
+    contributes: {
+      routes: [
+        { path: paths.home, description: "the messenger's Home: search, the latest conversation, articles", signedIn: true },
+        { path: paths.newMessage, description: "start a conversation with support", signedIn: true },
+        { path: paths.help, description: "the help center", signedIn: true },
+        { path: `${paths.help}/[slug]`, description: "one help article", signedIn: true },
+      ],
+      migrations: [{ package: "@marktiderman/genesis-support", file: "migrations/0010_genesis_support_help_center.sql", test: "migrations/tests/0010_genesis_support_help_center.test.sql" }],
+      privacy: {
+        notes: ["With AI answers on, a question the person chooses to ask and its answer are kept with their account and readable by the tenant's agents, and the question and the tenant's published articles go to the AI vendor. People agree first, unless the app's terms cover it. A question the app's safety protocol routes elsewhere isn't kept."],
       },
     },
   });

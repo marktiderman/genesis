@@ -223,6 +223,25 @@ describe("useSupportThread on genesis-chat", () => {
     expect(fake.calls.some((c) => c.table === "support_replies")).toBe(false);
   });
 
+  it("shows only a signed picture as a picture, and names any other by words", async () => {
+    const file = { kind: "image", mime: "image/png", width: null, height: null, durationMs: null };
+    const chat = fakeChat([
+      message({ id: "m1", seq: 1, senderId: STAFF, senderRole: "observer", body: "See", attachments: [{ ...file, id: "in", path: "p/1.png", url: null, name: "in.png" }, { ...file, id: "out", path: null, url: "https://elsewhere.test/b.png", name: "out.png" }] }),
+    ]);
+    const { wrap } = harness(chat, withBlock());
+    let seen: ReturnType<typeof useSupportThread> | null = null;
+    function Thread() {
+      const thread = useSupportThread(REPORT);
+      seen = thread;
+      return <ThreadPage {...thread} />;
+    }
+    render(wrap(<Thread />));
+    await waitFor(() => expect(seen!.messages.some((m) => m.id === "m1")).toBe(true));
+    const row = seen!.messages.find((m) => m.id === "m1")!;
+    expect(row.attachments?.map((a) => a.id)).toEqual(["in"]);
+    expect(row.body).toContain("out.png");
+  });
+
   it("stays on support_replies, polled, without the block", async () => {
     const chat = fakeChat();
     const { wrap } = harness(chat, withoutBlock);

@@ -131,6 +131,7 @@ export function defineTask<Args, L extends Loaded, Out = { text: string }, Db = 
   if (!TASK_ID.test(task.id)) throw new Error(`defineTask: "${task.id}" is not a valid task id (lowercase, dots or dashes).`);
   if (!Number.isInteger(task.version) || task.version < 1) throw new Error(`defineTask ${task.id}: version must be a positive integer.`);
   if (!Number.isInteger(task.maxTokens) || task.maxTokens < 1) throw new Error(`defineTask ${task.id}: maxTokens must be a positive integer.`);
+  if (task.safetyRequired && !task.safetyText) throw new Error(`defineTask ${task.id}: safetyRequired needs safetyText, the words the protocol reads.`);
   if (task.spec !== undefined && task.spec !== AI_SPEC) throw new Error(`defineTask ${task.id}: spec ${String(task.spec)} isn't supported (this genesis-ai reads spec ${AI_SPEC}).`);
   return Object.freeze({ ...task, spec: AI_SPEC });
 }
@@ -143,6 +144,7 @@ export function defineTask<Args, L extends Loaded, Out = { text: string }, Db = 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- tasks of every shape
 export function checkTasks(ai: Ai, tasks: readonly TaskDefinition<any, any, any, any>[]): void {
   for (const task of tasks) {
+    if (task.safetyRequired && !ai.config.safety) throw new Error(`checkTasks: ${task.id} needs a safety protocol: pass \`safety\` to defineAi.`);
     const needs = new Set<Capability>(task.needs ?? []);
     if (task.output !== "text") needs.add("structuredOutput");
     const alias = ai.alias(task.model);

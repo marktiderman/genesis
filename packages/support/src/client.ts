@@ -78,6 +78,50 @@ export interface SupportReport {
 /** A ticket: a request from someone outside the team, owed a reply (ADR 0015). The new name for {@link SupportReport}. */
 export type Ticket = SupportReport;
 
+/** A help center's collection (migration 0010). */
+export interface HelpCollection {
+  id: string;
+  title: string;
+  description: string | null;
+  position: number;
+}
+
+export type HelpArticleStatus = "draft" | "published";
+
+/** An article in a list: everything but its words. */
+export interface HelpArticleSummary {
+  id: string;
+  collectionId: string | null;
+  slug: string;
+  title: string;
+  summary: string | null;
+  status: HelpArticleStatus;
+  publishedAt: string | null;
+  updatedAt: string;
+}
+
+/** A whole article. Its body is plain text: blank lines part its paragraphs. */
+export interface HelpArticle extends HelpArticleSummary {
+  body: string;
+}
+
+/** An article search found, best first. */
+export type HelpSearchHit = Pick<HelpArticleSummary, "id" | "collectionId" | "slug" | "title" | "summary">;
+
+/** What an agent saves. No `id` makes a new one. `expectedUpdatedAt`: the copy the editor started from (a newer one is refused, `40001`). */
+export interface HelpArticleInput {
+  id?: string | null;
+  /** The tenant of a new article. Null is the app's own; left out, the client's `tenantId`, else the app's own. An article never changes tenant. */
+  tenantId?: string | null;
+  collectionId?: string | null;
+  slug: string;
+  title: string;
+  summary?: string | null;
+  body: string;
+  status: HelpArticleStatus;
+  expectedUpdatedAt?: string | null;
+}
+
 /** An agent's queues (migration 0009): `mine` and `unassigned` hold open tickets, `all` every ticket. */
 export type TicketInboxView = "mine" | "unassigned" | "all";
 
@@ -129,7 +173,7 @@ export interface SupportReply {
 export interface SupportReplyAttachment extends Omit<SupportChatAttachment, "url"> {
   /** A signed URL (or the attachment's own https URL); null when it couldn't be signed. */
   url: string | null;
-  /** The URL is a signed one from this app's storage. False: an address from outside it. */
+  /** The URL is a signed one from this app's storage. False: an address from outside it, which loads nothing until asked. */
   stored: boolean;
 }
 
@@ -160,10 +204,14 @@ export interface SupportIdea {
 }
 
 export interface SupportClient extends FeedbackSink {
-  /** The signed-in person's reports, newest first. */
-  myReports(options?: { limit?: number }): Promise<SupportReport[]>;
+  /** The signed-in person's reports, newest first, in every tenant. `tenantId`: only that tenant's (migration 0004). */
+  myReports(options?: { limit?: number; tenantId?: string | null }): Promise<SupportReport[]>;
   /** The signed-in person's tickets, newest first (the new name for `myReports`). Needs migration 0004. */
-  myTickets?(options?: { limit?: number }): Promise<Ticket[]>;
+  myTickets?(options?: { limit?: number; tenantId?: string | null }): Promise<Ticket[]>;
+  /** The tenant calls go to when none is named: the client's `tenantId` as it is now, else null, the app's own. */
+  currentTenant?(): Promise<string | null>;
+  /** Their tickets in one help desk: the tenant given, else the client's `tenantId`, else the app's own. Needs migration 0004. */
+  ticketsInTenant?(options?: { limit?: number; tenantId?: string | null }): Promise<Ticket[]>;
   /** Does the signed-in person handle tickets in this tenant (an agent, a tenant admin)? Needs migration 0004. */
   isAgent?(tenantId: string): Promise<boolean>;
   /**
@@ -175,6 +223,28 @@ export interface SupportClient extends FeedbackSink {
   agentTicket?(id: string, options?: { tenantId?: string | null }): Promise<AgentTicket | null>;
   /** Agents: how many tickets each queue holds. Needs migration 0009. */
   agentTicketCounts?(options?: { tenantId?: string | null }): Promise<AgentTicketCounts>;
+  /** A help center's collections, in their order (migration 0010). Null is the app's own tenant; left out, the client's `tenantId`, else the app's own. The same for every help center call. */
+  helpCollections?(options?: { tenantId?: string | null }): Promise<HelpCollection[]>;
+  /** Its articles, without their bodies. `includeDrafts` is for an agent's list; others get published ones either way. */
+  helpArticles?(options?: { tenantId?: string | null; collectionId?: string | null; includeDrafts?: boolean }): Promise<HelpArticleSummary[]>;
+  /** One article by its slug or id, or null when the signed-in person can't read it. */
+  helpArticle?(slugOrId: string, options?: { tenantId?: string | null }): Promise<HelpArticle | null>;
+  /** Published articles for what someone typed, best first. */
+  searchHelp?(query: string, options?: { tenantId?: string | null; limit?: number }): Promise<HelpSearchHit[]>;
+  /** Agents: save an article; returns its id and the copy's time, for `expectedUpdatedAt` next. */
+  saveHelpArticle?(input: HelpArticleInput): Promise<{ id: string; updatedAt: string }>;
+  /** Agents: delete an article. */
+  deleteHelpArticle?(id: string): Promise<void>;
+  /** Agents: save a collection (no `id` makes a new one); returns its id. */
+  saveHelpCollection?(input: { id?: string | null; tenantId?: string | null; title: string; description?: string | null; position?: number }): Promise<string>;
+  /** Agents: delete a collection; its articles stay, in none. */
+  deleteHelpCollection?(id: string): Promise<void>;
+  /** Can the signed-in person ask this tenant's AI? Off until the tenant opts in. */
+  helpAiEnabled?(options?: { tenantId?: string | null }): Promise<boolean>;
+  /** Keeps a question for the AI and returns its id, which is all the client sends your endpoint (`answerHelpQuestion`). */
+  askHelp?(question: string, options?: { tenantId?: string | null }): Promise<string>;
+  /** How it ended: the answer helped (the usage count), or it went to a person, with their ticket. */
+  closeHelpQuestion?(questionId: string, outcome: "resolved" | "handed_off", ticketId?: string | null): Promise<void>;
   /** Tenant admins: make a tenant's person an agent or agent admin, or remove them (`null`). Needs migration 0004. */
   setAgent?(tenantId: string, personId: string, role: TicketAgentRole | null): Promise<void>;
   report(id: string): Promise<SupportReport | null>;
@@ -339,6 +409,24 @@ function toAgentTicket(r: Row): AgentTicket {
   };
 }
 
+const toCollection = (r: Row): HelpCollection => ({
+  id: String(r["id"]),
+  title: String(r["title"] ?? ""),
+  description: (r["description"] as string | null) ?? null,
+  position: Number(r["position_in_list"] ?? 0),
+});
+
+const toArticleSummary = (r: Row): HelpArticleSummary => ({
+  id: String(r["id"]),
+  collectionId: (r["collection_id"] as string | null) ?? null,
+  slug: String(r["slug"] ?? ""),
+  title: String(r["title"] ?? ""),
+  summary: (r["summary"] as string | null) ?? null,
+  status: r["status"] as HelpArticleStatus,
+  publishedAt: (r["published_at"] as string | null) ?? null,
+  updatedAt: String(r["updated_at"]),
+});
+
 function toIdea(r: Row, mine: ReadonlySet<string>, voted: ReadonlySet<string>): SupportIdea {
   return {
     id: String(r["id"]),
@@ -377,6 +465,10 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
   const bucket = options.bucket ?? SUPPORT_BUCKET;
   const signedUrlSeconds = options.signedUrlSeconds ?? 3600;
   const randomId = options.randomId ?? defaultRandomId;
+
+  /** The tenant a call is for: the one given (null is the app's own), else the client's option. */
+  const scope = async (given: string | null | undefined): Promise<string | null> =>
+    given !== undefined ? given : ((typeof options.tenantId === "function" ? await options.tenantId() : options.tenantId) ?? null);
 
   const me = async (): Promise<string | null> => {
     const { data } = await supabase.auth.getSession();
@@ -438,7 +530,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       const userId = await me();
       if (!userId) throw new SupportError("Sign in to send feedback.", "42501", "submit");
       const context = sanitizeContext(record.context);
-      const tenantId = typeof options.tenantId === "function" ? await options.tenantId() : options.tenantId;
+      const tenantId = await scope(record.tenantId);
       const row = must<Row>(
         "submit",
         await supabase
@@ -488,13 +580,12 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       return { id, attachmentsDropped: dropped };
     },
 
-    async myReports({ limit = 50 } = {}) {
+    async myReports({ limit = 50, tenantId } = {}) {
       const userId = await me();
       if (!userId) return [];
-      const rows = must<Row[]>(
-        "myReports",
-        await supabase.from("support_reports").select(REPORT_COLUMNS).eq("user_id", userId).order("created_at", { ascending: false }).limit(limit),
-      );
+      let query = supabase.from("support_reports").select(REPORT_COLUMNS).eq("user_id", userId);
+      if (tenantId) query = query.eq("tenant_id", tenantId);
+      const rows = must<Row[]>("myReports", await query.order("created_at", { ascending: false }).limit(limit));
       return rows.map(toReport);
     },
 
@@ -608,6 +699,75 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       const rows = must<Row[]>("agentTicketCounts", await supabase.rpc("support_agent_ticket_counts", { tenant: tenantId }));
       const count = (view: TicketInboxView) => Number((rows ?? []).find((r) => r["inbox_view"] === view)?.["tickets"] ?? 0);
       return { mine: count("mine"), unassigned: count("unassigned"), all: count("all") };
+    },
+
+    currentTenant: () => scope(undefined),
+    async ticketsInTenant({ limit = 50, tenantId } = {}) {
+      const tenant = (await scope(tenantId)) ?? must<string>("ticketsInTenant", await supabase.rpc("support_default_tenant"));
+      return client.myReports({ limit, tenantId: tenant });
+    },
+    async helpCollections({ tenantId } = {}) {
+      return (must<Row[]>("helpCollections", await supabase.rpc("support_help_collections", { tenant: await scope(tenantId) })) ?? []).map(toCollection);
+    },
+    async helpArticles({ tenantId, collectionId = null, includeDrafts = false } = {}) {
+      return (must<Row[]>("helpArticles", await supabase.rpc("support_help_articles", { tenant: await scope(tenantId), collection: collectionId, include_drafts: includeDrafts })) ?? []).map(toArticleSummary);
+    },
+    async helpArticle(slugOrId, { tenantId } = {}) {
+      const row = (must<Row[]>("helpArticle", await supabase.rpc("support_help_article", { tenant: await scope(tenantId), article: slugOrId })) ?? [])[0];
+      return row ? { ...toArticleSummary(row), body: String(row["body"] ?? "") } : null;
+    },
+    async searchHelp(query, { tenantId, limit = 10 } = {}) {
+      return (must<Row[]>("searchHelp", await supabase.rpc("support_search_articles", { tenant: await scope(tenantId), query, max_rows: limit })) ?? []).map((r) => {
+        const { id, collectionId, slug, title, summary } = toArticleSummary(r);
+        return { id, collectionId, slug, title, summary };
+      });
+    },
+    async saveHelpArticle(input) {
+      const saved = must<Row | Row[]>(
+        "saveHelpArticle",
+        await supabase.rpc("support_save_article", {
+            article: input.id ?? null,
+            tenant: await scope(input.tenantId),
+            collection: input.collectionId ?? null,
+            slug: input.slug,
+            title: input.title,
+            summary: input.summary ?? null,
+            body: input.body,
+            status: input.status,
+            expected_updated_at: input.expectedUpdatedAt ?? null,
+        }),
+      );
+      const row = (Array.isArray(saved) ? saved[0] : saved) as Row;
+      return { id: String(row["saved_id"]), updatedAt: String(row["saved_at"]) };
+    },
+    async deleteHelpArticle(id) {
+      must("deleteHelpArticle", await supabase.rpc("support_delete_article", { article: id }));
+    },
+    async saveHelpCollection(input) {
+      return String(
+        must(
+          "saveHelpCollection",
+          await supabase.rpc("support_save_collection", {
+            collection: input.id ?? null,
+            tenant: await scope(input.tenantId),
+            title: input.title,
+            description: input.description ?? null,
+            list_position: input.position ?? 0,
+          }),
+        ),
+      );
+    },
+    async deleteHelpCollection(id) {
+      must("deleteHelpCollection", await supabase.rpc("support_delete_collection", { collection: id }));
+    },
+    async helpAiEnabled({ tenantId } = {}) {
+      return must<boolean | null>("helpAiEnabled", await supabase.rpc("support_ai_enabled", { tenant: await scope(tenantId) })) === true;
+    },
+    async askHelp(question, { tenantId } = {}) {
+      return String(must("askHelp", await supabase.rpc("support_ask", { tenant: await scope(tenantId), question })));
+    },
+    async closeHelpQuestion(questionId, outcome, ticketId = null) {
+      must("closeHelpQuestion", await supabase.rpc("support_close_question", { question: questionId, outcome, ticket: ticketId }));
     },
 
     async verify(reportId, fixed, note) {
