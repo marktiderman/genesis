@@ -447,7 +447,9 @@ export function SupportAgentInbox({
   // Every failed read, for the app's reporting.
   const reported = useRef(onError);
   reported.current = onError;
-  for (const error of [list.error, counts.error, open.error]) useReport(error, reported);
+  useReport(list.error, reported);
+  useReport(counts.error, reported);
+  useReport(open.error, reported);
 
   const tickets = useMemo(() => list.data?.pages.flat() ?? [], [list.data]);
   const refused = isRefused(list.error);
