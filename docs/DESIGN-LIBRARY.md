@@ -108,7 +108,8 @@ The templates folder is not shipped: `packages/ui-native/package.json` `files` l
 ### The ratchet: `pnpm check:code-connect`
 
 `scripts/check-code-connect.mjs` covers genesis-ui-native, genesis-ui, genesis-chat, and the
-genesis-native, genesis-notifications and genesis-product packages below. The first three: genesis-ui-native (the `Native*`
+genesis-native, genesis-notifications, genesis-product, genesis-forms-native, genesis-forms-web,
+genesis-sites and genesis-studio packages below. The first three: genesis-ui-native (the `Native*`
 components and the page layouts), genesis-ui for the web (its PascalCase exports, minus
 sub-parts, typography, auto-layout primitives and cell formatters), and genesis-chat (the
 PascalCase exports of `/native` and `/web`, minus hooks, providers and the non-visual
@@ -141,6 +142,37 @@ Three more packages follow the same pattern, each with its own allowlist:
 - **genesis-product** (`product`, `packages/product/figma/`), page **Product**: `VoteButton`,
   `ProductWhatsNewSheet` (separate from genesis-native's `WhatsNewSheet`: product notes, with a
   Learn more per note) and `RoadmapDetailSheet`; the screens and the store wrapper are `composed`.
+
+Four more cover the forms, sites and the data studio:
+
+- **genesis-forms-native** (`forms-native`, `packages/forms-native/figma/`), page **Forms · Native**:
+  its PascalCase exports minus contexts and ChoiceRow's parts (`Indicator`, `OptionImage`). The
+  package draws with raw React Native and its own form theme, not genesis-ui-native, so its
+  components are drawn to its own styles (bound to the Color variables) rather than nesting
+  `Native*` instances. Its `Button` and `FieldChrome` are named `FormsNative/Button` and
+  `FormsNative/FieldChrome` in Figma, apart from genesis-ui's `Button` and forms-web's
+  `FieldChrome`. `FormFocus` (the whole screen), `NativeFieldRenderer` and `ContentStep`
+  (dispatchers) are `composed`.
+- **genesis-forms-web** (`forms-web`, `packages/forms-web/figma/`), page **Forms · Web**: `FieldChrome`
+  and `DefaultEnding` (`FormsWeb/…` in Figma) are library components; `Form` is `composed`. The
+  header, brand, progress, navigation and error-summary slots and the field renderers are
+  file-private, so they are drawn on the page (respondents see them, and they nest genesis-ui's
+  Button, Input, Select, RadioGroup, Checkbox and Progress) but have no template and are not in
+  the ratchet. The page's private note lists them; export one to promote it.
+- **genesis-sites** (`sites`, `packages/sites/figma/`), page **Sites**: a section is a
+  `defineSection` constant (data in a page document), not a component export, so the ratchet
+  keys on the section's `type` string, read from the file each `*Section` in
+  `src/sections/index.ts` is imported from: `hero`, `rich-text`… with templates `hero.figma.ts`.
+  Each section is one 1440-wide component set with its variants as the `variant` option and a
+  preset as sample content. Its template emits the `SectionNode` an app writes into a page
+  (`{ id, type, v, variant, props }`), not JSX, since that is how sites use sections. Beside
+  them, the shared parts the index re-exports (`SectionBand`, `SectionIntro`, `SectionTitle`,
+  `ItemTitle`, `ButtonLink`, `TextLink`, `SiteImage`, `SiteFormHeader`) have JSX templates; the
+  zod schemas exported under PascalCase names (`Anchor`, `IconName`) and the screen-reader-only
+  `HiddenTitle` are excluded.
+- **genesis-studio** (`studio`, `packages/studio/figma/`), page **Studio**: its one export,
+  `DataStudio`, is `composed`. Its toolbar, views, record panel and dialogs are private, drawn on
+  the page as `Studio/…` components with no template, like forms-web's.
 
 ```json
 { "required": ["NativeAvatar"], "notYet": ["NativeRangeSlider", "…"], "composed": ["SettingsPage", "…"] }
