@@ -94,7 +94,9 @@ What makes the app prototype feel live, all with library instances:
   bottom padding for the tab bar and status strip; the screen-container instance has its root
   and content-area fills cleared (the frame itself carries `background`) and sits above the
   content in z-order with the status strip on top; the frame has `overflowDirection = VERTICAL`,
-  `clipsContent`, and `numberOfFixedChildren = 2` so the bars stay put while content scrolls.
+  `clipsContent`, and `numberOfFixedChildren` set to every child except the content (bars,
+  status strip, overlays) so they stay put while content scrolls. A list screen holds enough
+  sample rows to run clearly past the viewport in `Typical` and `Full`, so scrolling is real.
   Web: the content frame over the shell's main region has `clipsContent` and
   `overflowDirection = VERTICAL`, so it scrolls inside a fixed sidebar and header. A screen shorter
   than the viewport simply doesn't scroll.
