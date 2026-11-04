@@ -1,0 +1,30 @@
+packages/forms-native/src/slots.tsx
+  s_109ad08c59054b::t_81d501106b64e0 9,136,138,140,142-143,145,166,168,170,189,217,221-222,256,258
+  s_109ad08c59054b::t_f8fccf1c9c3a7b 219
+packages/forms-native/src/parts.tsx
+  s_109ad08c59054b::t_81d501106b64e0 3-4,20-28,35-39,41-44,48,55
+packages/forms-native/src/renderers/text.tsx
+  s_109ad08c59054b::t_81d501106b64e0 7-8,63-65,67-68,152,199,201
+packages/forms-native/vitest.config.ts
+  s_109ad08c59054b::t_81d501106b64e0 27
+.changeset/forms-native-on-primitives.md
+  s_109ad08c59054b::t_f53ec22800bbfd 1-5
+packages/forms-native/src/__tests__/primitives.test.tsx
+  s_109ad08c59054b::t_f983a6ff7ef1f8 1-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4dc7aed77bc04a5bde476ed64d3b4f49dfa47bf5",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
