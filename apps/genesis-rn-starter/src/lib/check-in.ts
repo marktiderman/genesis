@@ -13,6 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
+import { playHaptic, type GenesisHapticsModule } from "@marktiderman/genesis-ui-native/hooks";
 import * as ImagePicker from "expo-image-picker";
 import {
   createDraftStore,
@@ -78,8 +79,9 @@ NetInfo.addEventListener((state) => checkInOutbox.setOnline(state.isConnected !=
 export const checkInPhotos = createCheckInPhotos(ImagePicker.launchImageLibraryAsync as LaunchLibrary, stubUpload(Crypto.randomUUID));
 
 /** A pick, a sent check-in and a refused step, felt. */
+const haptics = Haptics as unknown as GenesisHapticsModule;
 export const checkInHaptics: FormHaptics = {
-  selection: () => void Haptics.selectionAsync(),
-  success: () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
-  error: () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+  selection: () => playHaptic(haptics, "select"),
+  success: () => playHaptic(haptics, "success"),
+  error: () => playHaptic(haptics, "error"),
 };
