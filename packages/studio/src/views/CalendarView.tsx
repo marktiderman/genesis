@@ -32,6 +32,8 @@ export interface CalendarViewProps {
  * One request per month grid (a `gte`/`lt` range on the field covering the month's whole weeks,
  * so the days shown from the months either side are filled too, with the table's filters, search
  * and sort), up to 200 rows. A timestamp shows on the day it falls in the viewer's time zone.
+ *
+ * @stability Beta
  */
 export function CalendarView({
   provider,

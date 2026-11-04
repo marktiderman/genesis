@@ -3,7 +3,7 @@
  *
  * @stability Stable
  */
-import { View } from "react-native";
+import { View, type ViewStyle } from "react-native";
 import { cn } from "../utils";
 
 export interface NativeProgressProps {
@@ -14,6 +14,10 @@ export interface NativeProgressProps {
   trackClassName?: string;
   /** Indicator color class. Defaults to bg-primary */
   indicatorClassName?: string;
+  /** Track style, for colors from a theme object rather than classes. Wins over the classes. */
+  style?: ViewStyle;
+  /** Indicator style, for colors from a theme object rather than classes. Wins over the classes. */
+  indicatorStyle?: ViewStyle;
   testID?: string;
 }
 
@@ -22,6 +26,7 @@ function NativeProgress({
   value = 0,
   trackClassName,
   indicatorClassName,
+  indicatorStyle,
   ...props
 }: NativeProgressProps) {
   const safeValue = Number.isFinite(value) ? value : 0;
@@ -41,7 +46,7 @@ function NativeProgress({
     >
       <View
         className={cn("h-full rounded-full bg-primary", indicatorClassName)}
-        style={{ width: `${clampedValue}%` }}
+        style={{ ...indicatorStyle, width: `${clampedValue}%` }}
       />
     </View>
   );
