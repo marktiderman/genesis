@@ -14,6 +14,8 @@ import {
   checkCodeConnect,
   declaredComponentsFromIndex,
   pascalComponentsFromIndex,
+  formsComponentsFromIndex,
+  sitesComponentsFromIndex,
   componentsFromIndex,
   layoutsFromIndex,
   templateProblems,
@@ -256,6 +258,10 @@ describe("two-package layout", () => {
       "notifications-native",
       "notifications-web",
       "product",
+      "forms-native",
+      "forms-web",
+      "sites",
+      "studio",
     ]);
     expect(web.figmaDir).toBe("packages/ui/figma");
     const root = make({ notYet: ALL, sources: [] });
@@ -363,5 +369,63 @@ export * from "../index";
     expect(dirs["notifications-native"]).toBe("packages/notifications/figma/native");
     expect(dirs["notifications-web"]).toBe("packages/notifications/figma/web");
     expect(dirs.product).toBe("packages/product/figma");
+  });
+});
+
+describe("genesis-forms-native, -forms-web, -sites and -studio", () => {
+  it("forms: PascalCase exports minus hooks, providers, constants, contexts and ChoiceRow's parts", () => {
+    const source = `
+export { Form, DefaultEnding, PROGRESS_DELAY_MS, type FormProps } from "./Form";
+export { FormThemeProvider, useFormTheme } from "./theme";
+export { UploadContext, useUpload } from "./upload";
+export { ChoiceRow, FieldChrome, Indicator, OptionImage, questionLabel } from "./chrome";
+export { Button, type ButtonProps } from "./parts";
+`;
+    expect(formsComponentsFromIndex(source)).toEqual(["Form", "DefaultEnding", "ChoiceRow", "FieldChrome", "Button"]);
+  });
+
+  it("sites: section type strings from the defineSection each *Section comes from, then the shared parts", () => {
+    const index = `
+import { registerBuiltInSection } from "../core/registry";
+import { heroSection } from "./hero";
+import { richTextSection } from "./rich-text";
+export { heroSection, richTextSection };
+export { formatTime, WEEKDAYS, type Weekday } from "./schedule";
+export { ICONS, IconName, Anchor, ButtonLink, SectionBand, HiddenTitle, resolveHref } from "./shared";
+export { SiteFormHeader, siteFormSlots } from "./form-header";
+`;
+    const files = {
+      "./hero": `export const heroSection = defineSection({\n  type: "hero",\n  version: 1,\n});`,
+      "./rich-text": `export const richTextSection = defineSection({ type: "rich-text", version: 1 });`,
+    };
+    expect(sitesComponentsFromIndex(index, (rel) => files[rel])).toEqual(["hero", "rich-text", "ButtonLink", "SectionBand", "SiteFormHeader"]);
+    expect(() => sitesComponentsFromIndex(`import { oddSection } from "./odd";`, () => "export const oddSection = {};")).toThrow(/defineSection/);
+  });
+
+  it("sites: reads the section files beside the index in a checkout", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "code-connect-sites-"));
+    const write = (rel, text) => {
+      fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+      fs.writeFileSync(path.join(root, rel), text);
+    };
+    const sites = PACKAGES.find((p) => p.name === "sites");
+    write("packages/sites/src/sections/index.ts", `import { ctaSection } from "./cta";\nexport { ButtonLink } from "./shared";\n`);
+    write("packages/sites/src/sections/cta.tsx", `export const ctaSection = defineSection({ type: "cta" });`);
+    write("packages/sites/figma/code-connect.json", JSON.stringify({ required: [], notYet: ["cta", "ButtonLink"], composed: [] }));
+    try {
+      const result = checkCodeConnect(root, sites);
+      expect(result.components).toEqual(["cta", "ButtonLink"]);
+      expect(result.failures).toEqual([]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("gives each package its own Figma folder", () => {
+    const dirs = Object.fromEntries(PACKAGES.map((p) => [p.name, p.figmaDir]));
+    expect(dirs["forms-native"]).toBe("packages/forms-native/figma");
+    expect(dirs["forms-web"]).toBe("packages/forms-web/figma");
+    expect(dirs.sites).toBe("packages/sites/figma");
+    expect(dirs.studio).toBe("packages/studio/figma");
   });
 });
