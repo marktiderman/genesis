@@ -1,0 +1,13 @@
+{
+  "required": [
+    "VoteButton",
+    "ProductWhatsNewSheet",
+    "RoadmapDetailSheet"
+  ],
+  "notYet": [],
+  "composed": [
+    "IdeaBoardScreen",
+    "RoadmapScreen",
+    "ProductWhatsNew"
+  ]
+}

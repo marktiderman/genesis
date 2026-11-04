@@ -1,0 +1,16 @@
+{
+  "required": [
+    "FatalScreen",
+    "ScreenErrorScreen",
+    "PlainFatalScreen",
+    "PushPromptSheet",
+    "WhatsNewSheet",
+    "ForceUpgradeScreen",
+    "MaintenanceScreen",
+    "UpdateBanner"
+  ],
+  "notYet": [],
+  "composed": [
+    "NotificationSettings"
+  ]
+}

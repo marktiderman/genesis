@@ -1,0 +1,88 @@
+{
+  "/v1/files/FAKEfileKEY123?depth=2": {
+    "name": "Sample app",
+    "document": {
+      "id": "0:0",
+      "name": "Document",
+      "type": "DOCUMENT",
+      "children": [
+        { "id": "0:1", "name": "Cover", "type": "CANVAS", "children": [{ "id": "0:2", "name": "Cover", "type": "FRAME" }] },
+        {
+          "id": "1:0",
+          "name": "Sample",
+          "type": "CANVAS",
+          "children": [
+            { "id": "1:10", "name": "(tabs)", "type": "FRAME" },
+            { "id": "1:11", "name": "(tabs)/settings", "type": "FRAME" },
+            { "id": "1:12", "name": "(tabs)/settings · empty", "type": "FRAME" },
+            { "id": "1:13", "name": "old/screen", "type": "FRAME" }
+          ]
+        },
+        {
+          "id": "2:0",
+          "name": "Sample · Web",
+          "type": "CANVAS",
+          "children": [
+            { "id": "2:10", "name": "index", "type": "FRAME" },
+            { "id": "2:11", "name": "courses/$courseId", "type": "FRAME" }
+          ]
+        },
+        {
+          "id": "3:0",
+          "name": "Proposals",
+          "type": "CANVAS",
+          "children": [
+            { "id": "3:1", "name": "Draft", "type": "SECTION" },
+            { "id": "3:5", "name": "In review", "type": "SECTION" }
+          ]
+        }
+      ]
+    }
+  },
+  "/v1/files/FAKEfileKEY123/nodes?ids=3%3A1%2C3%3A5&depth=1": {
+    "nodes": {
+      "3:1": { "document": { "id": "3:1", "name": "Draft", "type": "SECTION", "children": [{ "id": "3:2", "name": "invite/(tabs)/invite", "type": "FRAME" }, { "id": "3:3", "name": "Note", "type": "TEXT" }] } },
+      "3:5": { "document": { "id": "3:5", "name": "In review", "type": "SECTION", "children": [] } }
+    }
+  },
+  "/v1/files/FAKEfileKEY123/nodes?ids=1%3A10%2C1%3A11%2C1%3A12%2C1%3A13%2C2%3A10%2C2%3A11": {
+    "nodes": {
+      "1:10": {
+        "document": {
+          "id": "1:10",
+          "name": "(tabs)",
+          "type": "FRAME",
+          "children": [
+            {
+              "id": "1:20",
+              "name": "Settings button",
+              "type": "INSTANCE",
+              "interactions": [{ "trigger": { "type": "ON_CLICK" }, "actions": [{ "type": "NODE", "destinationId": "1:11", "navigation": "NAVIGATE", "transition": null }] }]
+            },
+            { "id": "1:21", "name": "Old link", "type": "INSTANCE", "transitionNodeID": "1:13", "interactions": [] },
+            {
+              "id": "1:22",
+              "name": "Toggle",
+              "type": "INSTANCE",
+              "interactions": [{ "trigger": { "type": "ON_CLICK" }, "actions": [{ "type": "NODE", "destinationId": "9:9", "navigation": "CHANGE_TO" }, { "type": "BACK" }] }]
+            }
+          ]
+        }
+      },
+      "1:11": { "document": { "id": "1:11", "name": "(tabs)/settings", "type": "FRAME", "children": [] } },
+      "1:12": { "document": { "id": "1:12", "name": "(tabs)/settings · empty", "type": "FRAME", "children": [] } },
+      "1:13": { "document": { "id": "1:13", "name": "old/screen", "type": "FRAME", "children": [] } },
+      "2:10": {
+        "document": {
+          "id": "2:10",
+          "name": "index",
+          "type": "FRAME",
+          "children": [
+            { "id": "2:20", "name": "Course card", "type": "FRAME", "interactions": [{ "trigger": { "type": "ON_CLICK" }, "actions": [{ "type": "NODE", "destinationId": "2:11", "navigation": "NAVIGATE" }] }] }
+          ]
+        }
+      },
+      "2:11": { "document": { "id": "2:11", "name": "courses/$courseId", "type": "FRAME", "children": [] } }
+    }
+  }
+}

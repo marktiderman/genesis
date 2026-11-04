@@ -666,7 +666,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   if (options.doctor !== false) {
     try {
       const { runDoctor, formatReport } = await import("../doctor/index.js");
-      const result = await runDoctor({ root });
+      const result = await runDoctor({ root, figma: false });
       log(formatReport(result));
       doctor = result.ok ? "passed" : "failed";
     } catch (err) {

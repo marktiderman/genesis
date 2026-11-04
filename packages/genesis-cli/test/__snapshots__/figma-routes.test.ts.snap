@@ -1,0 +1,38 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`checkFigmaRoutes > reports drift on the fixture 1`] = `
+"Figma route coverage (file FAKEfileKEY123): 7 routes, 6 frames, 4 covered (57%), 3 hotspots, 6 missing
+
+Routes with no frame (3)
+  platform  route             file
+  --------  ----------------  -------------------------------
+  native    items/[id]        src/app/items/[id].tsx
+  web       admin/decks       src/routes/admin/decks.tsx
+  web       docs/{-$section}  src/routes/docs.{-$section}.tsx
+
+Frames with no route (move to Proposals, or add the route) (1)
+  page    frame       id
+  ------  ----------  ----
+  Sample  old/screen  1:13
+
+Navigation with no hotspot (2)
+  from    to                      at
+  ------  ----------------------  --------------------------
+  (tabs)  items/[id] (no frame)   src/app/(tabs)/index.tsx:6
+  index   admin/decks (no frame)  src/routes/index.tsx:6
+
+Hotspots to a frame with no route (1)
+  from    to
+  ------  ----------
+  (tabs)  old/screen
+
+figma: ids that don't match the route's frame (1)
+  route            comment  frames
+  ---------------  -------  ----------
+  (tabs)/settings  1:99     1:11, 1:12
+
+Proposals (1)
+  section  frame                 id
+  -------  --------------------  ---
+  Draft    invite/(tabs)/invite  3:2"
+`;
