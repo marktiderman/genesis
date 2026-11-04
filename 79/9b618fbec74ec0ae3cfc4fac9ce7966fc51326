@@ -1,0 +1,261 @@
+.changeset/figma-routes-followups.md
+  s_e63e2ce0535b22::t_a37e805f67330a 1-5
+.changeset/forms-native-on-primitives.md
+  s_e63e2ce0535b22::t_cc19f373de3ef6 1-5
+.changeset/forms-native-primitive-sizing.md
+  s_e63e2ce0535b22::t_00fd8539a61efc 1-10
+.changeset/forms-parse-never-throws.md
+  s_e63e2ce0535b22::t_fbaa3d8e492b01 1-5
+.changeset/forms-web-exports-parts.md
+  s_e63e2ce0535b22::t_46361947dde0ac 1-5
+.changeset/sort-nulls-and-update-no-rows.md
+  s_e63e2ce0535b22::t_39c21d4995e47f 1-13
+.changeset/studio-exports-parts.md
+  s_e63e2ce0535b22::t_5c4f042b48c672 1-7
+.github/workflows/claude-code-review.yml
+  s_e63e2ce0535b22::t_a1f791c2e0127a 1-5,9,14,34,39-44,53-63,65-96
+.github/workflows/claude.yml
+  s_e63e2ce0535b22::t_9709daf8178ec0 50-56
+.github/workflows/review-gate.yml
+  s_e63e2ce0535b22::t_79c1796795d3e3 1-51
+AGENTS.md
+  s_e63e2ce0535b22::t_7d384d2bbee2d1 96-108
+docs/DESIGN-LIBRARY.md
+  s_e63e2ce0535b22::t_6d00fc58df6d15 164-166,170-172,184-191
+docs/RESOURCE-VIEW.md
+  s_e63e2ce0535b22::t_5b50c742ea10df 190-193,700-701
+packages/core/src/form-types.ts
+  s_e63e2ce0535b22::t_d19922d8f857f1 104
+packages/core/src/hooks/__tests__/update-expected-version.test.tsx
+  s_e63e2ce0535b22::t_c101297a0d88aa 83-102
+packages/core/src/hooks/__tests__/use-link-options.test.tsx
+  s_e63e2ce0535b22::t_63586b91e1816a 90-99
+packages/core/src/hooks/use-link-options.ts
+  s_e63e2ce0535b22::t_5ca05ed8dbbbdb 30,117-121,123-124,141,143
+packages/core/src/hooks/use-persisted-ui-state.ts
+  s_e63e2ce0535b22::t_39c537cc449ce0 14-16
+packages/core/src/hooks/use-resource.ts
+  s_e63e2ce0535b22::t_e4fbe46d33a869 30,367-371
+packages/core/src/provider/__tests__/supabase-multisort.test.ts
+  s_e63e2ce0535b22::t_01790934cf4bf1 60,64,86,126-128,132,241-263
+packages/core/src/provider/index.ts
+  s_e63e2ce0535b22::t_1b3e44daf2de7b 41
+packages/core/src/provider/mock-provider.ts
+  s_e63e2ce0535b22::t_901e6c2c50cc53 126-129
+packages/core/src/provider/supabase-provider.ts
+  s_e63e2ce0535b22::t_ae75d904e5160d 358-359,372-373,405,408,425,434-443,449-451,458-460,479-481,1032,1036-1038,1045,1062-1063,1065,1154,1157
+packages/core/src/provider/types.ts
+  s_e63e2ce0535b22::t_f0a21ea5a43f99 39-43
+packages/core/src/resource-view/define-view.ts
+  s_e63e2ce0535b22::t_c922d3b1f1fb60 427-431
+packages/core/src/resource-view/link.ts
+  s_e63e2ce0535b22::t_96b34f763a7d14 119-124
+packages/core/src/resource-view/types.ts
+  s_e63e2ce0535b22::t_bb50c193777c50 144-145,162,421-425
+packages/core/src/schema/index.ts
+  s_e63e2ce0535b22::t_2c3e64ef70cd33 28
+packages/core/src/schema/write-outcome.ts
+  s_e63e2ce0535b22::t_9c676f5901c27b 28-30
+packages/core/src/storage/adapters.ts
+  s_e63e2ce0535b22::t_11e9486c1f1ba2 5-12,19,28,36
+packages/forms-native/src/__tests__/kinds.test.tsx
+  s_e63e2ce0535b22::t_97d32fa02bce67 26-27
+packages/forms-native/src/__tests__/primitives.test.tsx
+  s_e63e2ce0535b22::t_c5566231c2da2f 1-85
+packages/forms-native/src/parts.tsx
+  s_e63e2ce0535b22::t_87227354d16f53 3-4,20-28,36,38-42,46,53
+packages/forms-native/src/renderers/text.tsx
+  s_e63e2ce0535b22::t_0060f8afb363d9 7-8,63-64,66,69-72,155,202,204
+packages/forms-native/src/slots.tsx
+  s_e63e2ce0535b22::t_f529b1368cbd8d 9,136,138,140,142,145,166,168,170,189-191,193,220,222,224-225,259,261
+packages/forms-native/src/styles.ts
+  s_e63e2ce0535b22::t_fb5542e9399624 22,25-29,37,44-45,136
+packages/forms-native/test-utils/rn-mock.tsx
+  s_e63e2ce0535b22::t_241da5199c2a84 57,78
+packages/forms-native/vitest.config.ts
+  s_e63e2ce0535b22::t_a661e47dabbb65 27
+packages/forms-web/figma/ConsentField.figma.ts
+  s_e63e2ce0535b22::t_325272c2cc327c 1-11
+packages/forms-web/figma/DateField.figma.ts
+  s_e63e2ce0535b22::t_3c014e5e020204 1-11
+packages/forms-web/figma/DefaultBrand.figma.ts
+  s_e63e2ce0535b22::t_fe7b71f909c5a5 1-11
+packages/forms-web/figma/DefaultErrorSummary.figma.ts
+  s_e63e2ce0535b22::t_cd44d04eb81f3a 1-11
+packages/forms-web/figma/DefaultHeader.figma.ts
+  s_e63e2ce0535b22::t_f00ae029e419db 1-11
+packages/forms-web/figma/DefaultNavigation.figma.ts
+  s_e63e2ce0535b22::t_2895ca381fec4e 1-11
+packages/forms-web/figma/DefaultProgress.figma.ts
+  s_e63e2ce0535b22::t_cd1a453943f6df 1-11
+packages/forms-web/figma/DropdownField.figma.ts
+  s_e63e2ce0535b22::t_3f438d80201be4 1-11
+packages/forms-web/figma/ListField.figma.ts
+  s_e63e2ce0535b22::t_48fac8a08fe127 1-11
+packages/forms-web/figma/MediaNotesField.figma.ts
+  s_e63e2ce0535b22::t_2702b53eafd9e0 1-11
+packages/forms-web/figma/MultiChoiceField.figma.ts
+  s_e63e2ce0535b22::t_a1b1367823e73b 1-11
+packages/forms-web/figma/NumberField.figma.ts
+  s_e63e2ce0535b22::t_553b632cfb5a97 1-11
+packages/forms-web/figma/PhotoField.figma.ts
+  s_e63e2ce0535b22::t_b79d9ab439c961 1-11
+packages/forms-web/figma/ScaleField.figma.ts
+  s_e63e2ce0535b22::t_87a84415fbc47c 1-11
+packages/forms-web/figma/SingleChoiceField.figma.ts
+  s_e63e2ce0535b22::t_ac62bf215bb312 1-11
+packages/forms-web/figma/TableField.figma.ts
+  s_e63e2ce0535b22::t_5b2b40d9a8c0c6 1-11
+packages/forms-web/figma/TextField.figma.ts
+  s_e63e2ce0535b22::t_5ca20dad5835c7 1-11
+packages/forms-web/figma/TextHighlightsField.figma.ts
+  s_e63e2ce0535b22::t_74e630dc3ceb31 1-11
+packages/forms-web/figma/YesNoField.figma.ts
+  s_e63e2ce0535b22::t_488cf0d5646d31 1-11
+packages/forms-web/figma/code-connect.json
+  s_e63e2ce0535b22::t_2f6f9ce347859a 3-11,13-23
+packages/forms-web/src/Form.tsx
+  s_e63e2ce0535b22::t_aa892d178f0848 165-170,221-226,248-253,322-327,447-452
+packages/forms-web/src/index.ts
+  s_e63e2ce0535b22::t_e28f3f18b72025 3,5-8,24-41
+packages/forms-web/src/photo.tsx
+  s_e63e2ce0535b22::t_d10921e1f2b5ff 108-113
+packages/forms-web/src/renderers.tsx
+  s_e63e2ce0535b22::t_77336183cd1524 80-85,259-264,327-332,604-609,678-683,781-782,784,845-846,848,888-893,915-916,918
+packages/forms-web/src/structured.tsx
+  s_e63e2ce0535b22::t_ba9cd22eb3465e 126-131,233-238,361-366,558-563
+packages/forms/src/__tests__/hardening.test.ts
+  s_e63e2ce0535b22::t_2e1937fcd44893 394-398
+packages/forms/src/parse.ts
+  s_e63e2ce0535b22::t_c1ddad82db4eb4 35-43,211,299,414,418,512,521,524,532
+packages/genesis-cli/README.md
+  s_e63e2ce0535b22::t_5c713e25dcdf6e 831,1276,1280-1281,1293-1297,1310-1311
+packages/genesis-cli/src/figma/routes.ts
+  s_e63e2ce0535b22::t_22c21c0f7a44ea 52-58,159-160,168,185-188,215-238,258-263,299,303-305,324,326-335,397-398,401,441-443,452,454,461,480,499,508,514
+packages/genesis-cli/test/figma-routes.test.ts
+  s_e63e2ce0535b22::t_e56d50608b1280 1-2,10,12,16-17,65-73,98-116,154-179,193-206
+packages/studio/figma/ActivityPanel.figma.ts
+  s_e63e2ce0535b22::t_12c6252b67577d 1-11
+packages/studio/figma/BulkEditDialog.figma.ts
+  s_e63e2ce0535b22::t_4c8c92bad98cab 1-11
+packages/studio/figma/CalendarView.figma.ts
+  s_e63e2ce0535b22::t_cde5fc2e876e9e 1-11
+packages/studio/figma/ExportButton.figma.ts
+  s_e63e2ce0535b22::t_609663bdb276c4 1-11
+packages/studio/figma/FieldIcon.figma.ts
+  s_e63e2ce0535b22::t_4892c46bc6ca2e 1-11
+packages/studio/figma/FilterBuilder.figma.ts
+  s_e63e2ce0535b22::t_78ce7336529396 1-11
+packages/studio/figma/GroupPicker.figma.ts
+  s_e63e2ce0535b22::t_8513bcdac82f7e 1-11
+packages/studio/figma/HideFields.figma.ts
+  s_e63e2ce0535b22::t_3ed569c8121e8a 1-11
+packages/studio/figma/ImportDialog.figma.ts
+  s_e63e2ce0535b22::t_db94fb713cb178 1-11
+packages/studio/figma/KanbanView.figma.ts
+  s_e63e2ce0535b22::t_dd97471dbcd413 1-11
+packages/studio/figma/NewRowButton.figma.ts
+  s_e63e2ce0535b22::t_855754609e4ccb 1-11
+packages/studio/figma/Pill.figma.ts
+  s_e63e2ce0535b22::t_8fafb84661daac 1-11
+packages/studio/figma/RecordPanel.figma.ts
+  s_e63e2ce0535b22::t_3cb4a670cdee71 1-11
+packages/studio/figma/RelationPicker.figma.ts
+  s_e63e2ce0535b22::t_07a8aeff23710c 1-11
+packages/studio/figma/SearchBox.figma.ts
+  s_e63e2ce0535b22::t_6230e118962a58 1-11
+packages/studio/figma/SheetView.figma.ts
+  s_e63e2ce0535b22::t_9be5ab026a6a91 1-11
+packages/studio/figma/SortBuilder.figma.ts
+  s_e63e2ce0535b22::t_79853f4b0a4359 1-11
+packages/studio/figma/TableTabs.figma.ts
+  s_e63e2ce0535b22::t_d4d29564bda7b3 1-11
+packages/studio/figma/ViewSwitch.figma.ts
+  s_e63e2ce0535b22::t_a7a3070add9791 1-11
+packages/studio/figma/ViewsPanel.figma.ts
+  s_e63e2ce0535b22::t_2eab46d082053a 1-11
+packages/studio/figma/code-connect.json
+  s_e63e2ce0535b22::t_ec461aff487a7f 2-26
+packages/studio/src/DataStudio.tsx
+  s_e63e2ce0535b22::t_b087873889679e 1052-1062
+packages/studio/src/grid/cells.tsx
+  s_e63e2ce0535b22::t_961f2613107208 23-33,77-88
+packages/studio/src/index.ts
+  s_e63e2ce0535b22::t_375caf768885f9 17-49
+packages/studio/src/record/RecordPanel.tsx
+  s_e63e2ce0535b22::t_7df24f6bb38ee9 66-67
+packages/studio/src/record/RelationPicker.tsx
+  s_e63e2ce0535b22::t_8fa9e68543a280 26-27
+packages/studio/src/sheet/SheetView.tsx
+  s_e63e2ce0535b22::t_c9bbb7f3c20300 49-50
+packages/studio/src/toolbar/BulkEdit.tsx
+  s_e63e2ce0535b22::t_8c78b3b82492a0 20-24
+packages/studio/src/toolbar/ImportDialog.tsx
+  s_e63e2ce0535b22::t_dd2485d9acfdb3 25-26
+packages/studio/src/toolbar/Toolbar.tsx
+  s_e63e2ce0535b22::t_ab7e2d5cf55187 31-41,46,161-171,176,230-240,245,265-276,285-296,312,317-328,350-361,367,384-394,399,435-445
+packages/studio/src/views/CalendarView.tsx
+  s_e63e2ce0535b22::t_3ca8980d5d1da4 35-36
+packages/studio/src/views/KanbanView.tsx
+  s_e63e2ce0535b22::t_b8609943419cb0 39-40
+packages/studio/src/workspace/ViewsPanel.tsx
+  s_e63e2ce0535b22::t_ab1dbbbfa6c76d 15-29,38,124,130-142
+packages/ui-native/src/components/button.tsx
+  s_e63e2ce0535b22::t_ddcaa3319f0242 12-13,98-101,115,144,146-147
+packages/ui-native/src/components/input.tsx
+  s_e63e2ce0535b22::t_edd4aca82ff3a7 6,16-17
+packages/ui-native/src/components/progress.tsx
+  s_e63e2ce0535b22::t_e84d9cfcb98a86 6,17-20,29,49
+packages/ui-native/src/components/text.tsx
+  s_e63e2ce0535b22::t_d70e143bd78829 7,39-40
+packages/ui-native/src/components/textarea.tsx
+  s_e63e2ce0535b22::t_6f1908a3ee5405 6,16-17
+packages/ui-native/src/data/resource-view/NativeRecordView.tsx
+  s_e63e2ce0535b22::t_09b56a38ce5d18 15,573-574
+packages/ui-native/src/data/resource-view/use-native-resource-view.ts
+  s_e63e2ce0535b22::t_9d4e6844c9c1d3 154,164
+packages/ui-native/types/react-native.d.ts
+  s_e63e2ce0535b22::t_2d6382edb1a708 15-17,189
+packages/ui/src/components/data/DataFilters.tsx
+  s_e63e2ce0535b22::t_97367fdb4d5f53 68-69
+packages/ui/src/components/data/DataTable.tsx
+  s_e63e2ce0535b22::t_ad7bf12d23b42d 287,294-295,725
+packages/ui/src/components/data/__tests__/resource-board-conflict.test.tsx
+  s_e63e2ce0535b22::t_686f58fdb75cc1 184-194
+packages/ui/src/components/data/__tests__/resource-board.test.tsx
+  s_e63e2ce0535b22::t_36416e803c5cab 158-181
+packages/ui/src/components/data/__tests__/resource-page-url-state.test.tsx
+  s_e63e2ce0535b22::t_971e74ddce3989 212-239
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_e63e2ce0535b22::t_f8abfaa14d3d8c 12,332,334-337
+packages/ui/src/components/data/resource-view/ResourceBoard.tsx
+  s_e63e2ce0535b22::t_6c99a5e3c9bb0e 9,129,142-147,242-243,263
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_e63e2ce0535b22::t_d9575ca1a9dac1 281
+packages/ui/src/components/data/resource-view/view-form.ts
+  s_e63e2ce0535b22::t_172dba1772a236 63
+packages/ui/src/components/data/use-resource-table.ts
+  s_e63e2ce0535b22::t_f43a0a0e83d5db 188-197,202,389,393-399,829-834,839,847-848
+packages/ui/src/components/layout/AppShell.tsx
+  s_e63e2ce0535b22::t_c4542c7762523c 1540
+packages/ui/src/hooks/use-resource-page.ts
+  s_e63e2ce0535b22::t_ecb0a9f44b3461 267-269,326,328
+scripts/check-code-connect.mjs
+  s_e63e2ce0535b22::t_ebc3c678907f66 51-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "799b618fbec74ec0ae3cfc4fac9ce7966fc51326",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
