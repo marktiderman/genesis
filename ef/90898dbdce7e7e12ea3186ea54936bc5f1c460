@@ -1,0 +1,21 @@
+packages/native/figma/code-connect.json
+  s_e63e2ce0535b22::t_28c29a2d02d4ab 12-14
+packages/native/figma/FatalScreen.figma.ts
+  s_e63e2ce0535b22::t_670cef4eb5b053 1,4-5,7-20,23-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ef90898dbdce7e7e12ea3186ea54936bc5f1c460",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
