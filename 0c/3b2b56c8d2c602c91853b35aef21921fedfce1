@@ -1,0 +1,55 @@
+packages/forms-web/src/index.ts
+  s_109ad08c59054b::t_d986abc67734fe 3,5-8,24-41
+packages/studio/src/views/CalendarView.tsx
+  s_109ad08c59054b::t_9cace0bea8558d 35-36
+packages/forms-web/src/renderers.tsx
+  s_109ad08c59054b::t_ee787c78fff0d6 80-85,259-264,327-332,604-609,678-683,781-782,784,845-846,848,888-893,915-916,918
+packages/studio/src/DataStudio.tsx
+  s_109ad08c59054b::t_9cace0bea8558d 1052-1057
+packages/studio/src/grid/cells.tsx
+  s_109ad08c59054b::t_9cace0bea8558d 23-27,72-76
+packages/studio/src/toolbar/BulkEdit.tsx
+  s_109ad08c59054b::t_9cace0bea8558d 20-24
+packages/studio/src/workspace/ViewsPanel.tsx
+  s_109ad08c59054b::t_9cace0bea8558d 15-19,122-126
+packages/studio/src/index.ts
+  s_109ad08c59054b::t_5d6fa190b933d4 17-29
+packages/studio/src/toolbar/ImportDialog.tsx
+  s_109ad08c59054b::t_9cace0bea8558d 25-26
+packages/studio/src/record/RelationPicker.tsx
+  s_109ad08c59054b::t_9cace0bea8558d 26-27
+.changeset/studio-exports-parts.md
+  s_109ad08c59054b::t_e2a1ba73db3e38 1-5
+.changeset/forms-web-exports-parts.md
+  s_109ad08c59054b::t_a8cefc420cf340 1-5
+packages/studio/src/sheet/SheetView.tsx
+  s_109ad08c59054b::t_9cace0bea8558d 49-50
+packages/forms-web/src/Form.tsx
+  s_109ad08c59054b::t_f42de1006aca7d 165-170,221-226,248-253,322-327,447-452
+packages/studio/src/views/KanbanView.tsx
+  s_109ad08c59054b::t_9cace0bea8558d 39-40
+packages/studio/src/toolbar/Toolbar.tsx
+  s_109ad08c59054b::t_3d71429e512f86 31-35,159-163,226-230,259-263,273-277,294-298,330-334,362-366,411-415
+packages/studio/src/record/RecordPanel.tsx
+  s_109ad08c59054b::t_9cace0bea8558d 66-67
+packages/forms-web/src/photo.tsx
+  s_109ad08c59054b::t_7436853c3f2052 108-113
+packages/forms-web/src/structured.tsx
+  s_109ad08c59054b::t_a1573cf04715fb 126-131,233-238,361-366,558-563
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0c3b2b56c8d2c602c91853b35aef21921fedfce1",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
