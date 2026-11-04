@@ -1258,7 +1258,8 @@ if (!result.ok) throw new Error(formatReport(result));
 A read-only check that an app's Figma app file covers its routes, so CI reports the drift and an
 agent closes it (through the Figma MCP; this command never writes to Figma). The file layout it
 expects is in [docs/FIGMA-GUIDELINES.md](../../docs/FIGMA-GUIDELINES.md): frames named by route,
-`<route> · <state>` for a state, and a `Proposals` page.
+`<route> · <state>` for a state, and proposals in `Proposal · <status> · <slug>` sections on
+their route page (an older `Proposals` page is still read).
 
 ```json
 { "figma": { "file": "<file key>", "pages": { "web": "<page name>", "native": "<page name>" }, "proposalsPage": "Proposals" } }
@@ -1305,8 +1306,9 @@ hotspot is any node in it with `interactions[].actions[]` of `type: "NODE"` and 
 (`(tabs)/settings`) or names the same URL (`settings`).
 
 **The report.** A summary (routes, route frames, covered routes and percent, hotspots, missing),
-then: routes with no frame; frames on a route page with no route (move them to Proposals, or add
-the route); the Proposals page's frames by section; navigation in a route file whose screen has a
+then: routes with no frame; frames on a route page with no route, outside a proposal section (put
+them in one, or add the route); proposals by section, from the route pages' `Proposal ·`
+sections and the Proposals page; navigation in a route file whose screen has a
 frame but no hotspot to the target's frame; hotspots whose destination frame has no route;
 `// figma:` ids that don't match; and navigation that isn't a string literal (not checked).
 

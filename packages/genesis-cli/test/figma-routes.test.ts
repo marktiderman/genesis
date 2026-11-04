@@ -151,6 +151,19 @@ describe("checkFigmaRoutes", () => {
     expect(formatCoverage(report)).toMatchSnapshot();
   });
 
+  it("reads a Proposal section on a route page as a proposal, not as frames without a route", () => {
+    const config = validateFigmaConfig({ file: "abc", pages: { native: "App" } });
+    const frames = [
+      { id: "1:1", name: "(tabs)/invite", page: "App", section: "Proposal · Draft · invite", route: "(tabs)/invite" },
+      { id: "1:2", name: "other", page: "App", route: "other" },
+    ];
+    const report = compare(config, [], [], { pages: ["App"], frames, hotspots: [{ from: "1:2", to: "1:1" }] } as never);
+    expect(report.framesWithoutRoute.map((f) => f.name)).toEqual(["other"]);
+    expect(report.deadHotspots).toEqual([]);
+    expect(report.missingPages).toEqual([]);
+    expect(Object.keys(report.proposals)).toEqual(["Proposal · Draft · invite"]);
+  });
+
   it("counts a configured page the file doesn't have as missing, so --strict fails with no routes", () => {
     const config = validateFigmaConfig({ file: "abc", pages: { web: "Web" } });
     const report = compare(config, [], [], { pages: ["Proposals"], frames: [], hotspots: [] });

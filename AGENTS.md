@@ -21,10 +21,12 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
   are config; recreating something that exists, or should, is the custom code we remove. Cite
   the principle IDs (G1–G6) in reviews.
 - Design lives in Figma: the library file and one file per consumer app. A new screen, flow or
-  visible change is designed on the app file's Proposals page and approved by the maintainer
-  before its code is written, from library instances where they exist (a plain frame only for a
-  written-up library gap); `docs/FIGMA-GUIDELINES.md` has the setup and the
-  rules, `docs/DESIGN-LIBRARY.md` the library's internals.
+  layout change is designed as a proposal section on its route page in the app file, wired into
+  the live prototype (a new library component, on its page in the library file), and approved by the maintainer before its code is written, from
+  library instances where they exist (a plain frame only for a written-up library gap); fixes,
+  copy, new states from existing components and small tweaks go code-first.
+  `docs/FIGMA-GUIDELINES.md` has the setup and the rules, `docs/DESIGN-LIBRARY.md` the
+  library's internals.
 - Work tracked outside this repo is referenced only by its id (`Closes <ID>`): never write what
   the card is, or which app it's for, in a commit, PR or comment.
 
