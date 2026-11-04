@@ -6,6 +6,7 @@
  */
 import type { ComponentRef, ComponentType, ReactNode, Ref } from "react";
 import { Pressable, Text, View } from "react-native";
+import { NativeProgress, NativeText } from "@marktiderman/genesis-ui-native/components";
 import type { SubmissionStatus } from "./seams";
 import { Button } from "./parts";
 import { useFormStyles } from "./styles";
@@ -132,16 +133,16 @@ export function DefaultHeader({ title, showTitle, description, requiredNote }: H
   return (
     <View style={s.header}>
       {showTitle ? (
-        <Text style={s.headerTitle} accessibilityRole="header">
+        <NativeText style={s.headerTitle} accessibilityRole="header">
           {title}
-        </Text>
+        </NativeText>
       ) : null}
-      {description ? <Text style={s.headerDescription}>{description}</Text> : null}
+      {description ? <NativeText style={s.headerDescription}>{description}</NativeText> : null}
       {requiredNote ? (
-        <Text style={s.headerNote}>
-          <Text style={s.required}>* </Text>
+        <NativeText style={s.headerNote}>
+          <NativeText style={s.required}>* </NativeText>
           {requiredNote}
-        </Text>
+        </NativeText>
       ) : null}
     </View>
   );
@@ -162,11 +163,11 @@ export function DefaultBrand({ name, logo }: BrandSlotProps) {
   return (
     <View style={s.brandRow}>
       <View style={logo ? null : s.brandMark} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-        {logo ?? <Text style={s.brandInitials}>{initials(name)}</Text>}
+        {logo ?? <NativeText style={s.brandInitials}>{initials(name)}</NativeText>}
       </View>
-      <Text style={s.brandName} numberOfLines={2}>
+      <NativeText style={s.brandName} numberOfLines={2}>
         {name}
-      </Text>
+      </NativeText>
     </View>
   );
 }
@@ -185,9 +186,7 @@ export function DefaultProgress({ step, total, testID = "form" }: ProgressSlotPr
       accessibilityValue={{ min: 0, max: total, now: step, text: label }}
       testID={`${testID}-progress`}
     >
-      <View style={s.progressTrack}>
-        <View style={[s.progressFill, { width: `${percent}%` }]} />
-      </View>
+      <NativeProgress value={percent} className="h-1" />
       <Text style={s.progressText}>{label}</Text>
     </View>
   );
@@ -215,12 +214,12 @@ export function DefaultEnding({ title, description, actions, focusRef, testID = 
   return (
     <View style={s.ending} testID={`${testID}-ending`}>
       <View style={s.endingMark} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-        <Text style={s.endingCheck}>✓</Text>
+        <NativeText style={s.endingCheck}>✓</NativeText>
       </View>
-      <Text ref={focusRef} accessibilityRole="header" style={s.endingTitle}>
+      <NativeText {...({ ref: focusRef } as object)} accessibilityRole="header" style={s.endingTitle}>
         {title}
-      </Text>
-      {description ? <Text style={s.endingDescription}>{description}</Text> : null}
+      </NativeText>
+      {description ? <NativeText style={s.endingDescription}>{description}</NativeText> : null}
       {actions ? <View style={s.nav}>{actions}</View> : null}
     </View>
   );
@@ -254,9 +253,9 @@ export function DefaultErrorSummary({ count, errors, onSelect, focusRef, testID 
 export function DefaultNotice({ message, testID = "form" }: NoticeSlotProps) {
   const s = useFormStyles();
   return (
-    <Text style={[s.hint, { marginTop: 16 }]} testID={`${testID}-notice`}>
+    <NativeText style={[s.hint, { marginTop: 16 }]} testID={`${testID}-notice`}>
       {message}
-    </Text>
+    </NativeText>
   );
 }
 

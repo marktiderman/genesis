@@ -24,6 +24,7 @@ export default defineConfig({
       "react-native": path.resolve(import.meta.dirname, "test-utils/rn-mock.tsx"),
       "react-native-safe-area-context": path.join(uiNative, "test-utils/safe-area-mock.tsx"),
       nativewind: path.join(uiNative, "test-utils/nativewind-mock.ts"),
+      "@marktiderman/genesis-ui-native/components": path.join(uiNative, "src/components/index.ts"),
       "@marktiderman/genesis-ui-native/hooks": path.join(uiNative, "src/hooks/index.ts"),
       "@marktiderman/genesis-ui-native/layouts": path.join(uiNative, "src/layouts/index.ts"),
     },
