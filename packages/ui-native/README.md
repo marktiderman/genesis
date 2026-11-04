@@ -249,7 +249,8 @@ Two generic layouts for conversations (support tickets, direct messages, comment
   weekday, a date), a two-line preview and a status line; pull to refresh, `onEndReached` paging
   and an empty state with an optional action. Each row's `swipeActions` are always reachable as
   VoiceOver / TalkBack custom actions and on long press (a menu); for the swipe gesture itself,
-  fill the `swipeable` slot with react-native-gesture-handler's `ReanimatedSwipeable`. Slots:
+  pass react-native-gesture-handler's `ReanimatedSwipeable` as `GenesisModules.swipeable` (each action's
+  `side` picks where it sits), or fill the `swipeable` slot with your own. Slots:
   `row`, `swipeable`, `header`, `footer`, `empty`.
 - **`ThreadPage`**: one conversation, built from the two atoms below.
   - **The list:**
@@ -287,6 +288,8 @@ Two generic layouts for conversations (support tickets, direct messages, comment
   given and never fetches. FlashList v2's chat mode when the app passed `list`, else FlatList.
   `useThreadJump` is its jump on its own. The doctor's `threads-use-thread-list` rule warns on a
   hand-built inverted or bottom-started list.
+- **`NativeSwipeRow`** and **`NativeContextMenu`**: a row's actions behind a swipe, and what a long
+  press opens (a sheet with Cancel, not the system alert). `InboxPage` uses both.
 - **`NativeComposerBar`**: the composer on its own. It takes `leading`, `trailing` and `above`
   slots, and `modes`.
 

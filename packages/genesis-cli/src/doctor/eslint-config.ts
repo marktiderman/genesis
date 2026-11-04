@@ -10,7 +10,9 @@
  */
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
+import { detectPackageManager, installCommand, shellLine } from "../blocks/pm.js";
 import { appPlatform, findEslintConfig, hasTestingLibrary, readPackageJson, TESTING_LIBRARY, usesGenesisLint } from "../upgrade/eslint-config.js";
+import { findPackageDir } from "./genesis.js";
 import type { DoctorContext } from "./types.js";
 
 export function checkEslintConfig(ctx: DoctorContext): void {
@@ -40,6 +42,14 @@ export function checkEslintConfig(ctx: DoctorContext): void {
       file: "package.json",
       subject: TESTING_LIBRARY,
       message: `${file} loads Genesis's native lint rules, which need ${TESTING_LIBRARY}: add it to devDependencies (pnpm add -D ${TESTING_LIBRARY}), or the lint can't load its config`,
+    });
+  } else if (!findPackageDir(ctx.root, TESTING_LIBRARY)) {
+    ctx.report({
+      rule: "genesis-eslint-config",
+      level: "warn",
+      file: "package.json",
+      subject: TESTING_LIBRARY,
+      message: `lists ${TESTING_LIBRARY}, which ${file} needs, but it isn't installed, so the lint can't load its config: run ${shellLine(installCommand(detectPackageManager(ctx.root)))}`,
     });
   }
 }

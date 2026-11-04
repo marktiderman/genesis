@@ -105,7 +105,12 @@ function Tile({ name, preview, busy }: { name: string; preview: string | null; b
 
 let nextKey = 0;
 
-function PhotoField(props: FieldRendererProps) {
+/**
+ * The renderer for a photo answer: pick, preview and upload images.
+ *
+ * @stability Beta
+ */
+export function PhotoField(props: FieldRendererProps) {
   const { binding, inputId, engine } = props;
   const { field } = binding;
   const host = useUpload();

@@ -27,7 +27,7 @@ export interface LinkTarget {
    * The order rows are listed in (a `position`), then the key. Default: by the naming field, then
    * the key. A view's link passes its `orderBy` (`link.orderBy`, or the linked view's for `"view"`).
    */
-  orderBy?: { readonly field: string; readonly direction?: "asc" | "desc" | undefined } | undefined;
+  orderBy?: { readonly field: string; readonly direction?: "asc" | "desc" | undefined; readonly nulls?: "first" | "last" | undefined } | undefined;
 }
 
 export interface UseLinkOptionsOptions {
@@ -114,11 +114,14 @@ export function useLinkOptions(target: LinkTarget, options: UseLinkOptionsOption
   const ordered = target.orderBy && IDENTIFIER.test(target.orderBy.field) ? target.orderBy : undefined;
   const orderField = ordered?.field;
   const orderDirection = ordered?.direction === "desc" ? "desc" : "asc";
-  const sortsFor = (by: string, order: "asc" | "desc" = "asc"): SortParam[] =>
-    by === field || !IDENTIFIER.test(field) ? [{ field: by, order }] : [{ field: by, order }, { field, order: "asc" }];
+  const orderNulls = ordered?.nulls === "first" || ordered?.nulls === "last" ? ordered.nulls : undefined;
+  const sortsFor = (by: string, order: "asc" | "desc" = "asc", nulls?: "first" | "last"): SortParam[] => {
+    const first: SortParam = { field: by, order, ...(nulls ? { nulls } : {}) };
+    return by === field || !IDENTIFIER.test(field) ? [first] : [first, { field, order: "asc" }];
+  };
   const sortBy = orderField ?? naming;
-  const sortKey = sortBy ? `${sortBy}:${orderField ? orderDirection : "asc"}` : undefined;
-  const sorts = sortBy ? sortsFor(sortBy, orderField ? orderDirection : "asc") : undefined;
+  const sortKey = sortBy ? `${sortBy}:${orderField ? orderDirection : "asc"}:${(orderField && orderNulls) || ""}` : undefined;
+  const sorts = sortBy ? sortsFor(sortBy, orderField ? orderDirection : "asc", orderField ? orderNulls : undefined) : undefined;
   const [sortedBy, setSortedBy] = useState<string | undefined>(sortKey);
   const list = useInfiniteResource<BaseRecord>(target.resource, {
     ...(filters ? { defaultFilters: filters } : {}),
@@ -135,9 +138,9 @@ export function useLinkOptions(target: LinkTarget, options: UseLinkOptionsOption
   const { setSorts, setSearch } = list;
   useEffect(() => {
     if (!sortBy) return;
-    setSorts(sortsFor(sortBy, orderField ? orderDirection : "asc"));
+    setSorts(sortsFor(sortBy, orderField ? orderDirection : "asc", orderField ? orderNulls : undefined));
     setSortedBy(sortKey);
-    // sortsFor reads only `field`; sortKey follows sortBy and the direction.
+    // sortsFor reads only `field`; sortKey follows sortBy, the direction and where empty values go.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortKey, field, setSorts]);
   useEffect(() => {

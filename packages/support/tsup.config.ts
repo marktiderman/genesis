@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { index: "src/index.ts", web: "src/web/index.ts", "web-chat": "src/web-chat/index.ts", native: "src/native/index.ts", email: "src/email.ts" },
+  entry: { index: "src/index.ts", web: "src/web/index.ts", "web-chat": "src/web-chat/index.ts", native: "src/native/index.ts", email: "src/email.ts", ai: "src/ai.ts" },
   format: ["esm"],
   dts: true,
   sourcemap: true,
@@ -18,5 +18,6 @@ export default defineConfig({
     /^@marktiderman\/genesis-/,
     /^@tanstack\//,
     /^@supabase\//,
+    /^zod/,
   ],
 });

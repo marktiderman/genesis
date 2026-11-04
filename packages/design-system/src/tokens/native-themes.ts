@@ -19,7 +19,7 @@ export const nativeThemeLight = {
   "secondary": "#f4f4f5",
   "secondaryForeground": "#18181b",
   "muted": "#f4f4f5",
-  "mutedForeground": "#71717a",
+  "mutedForeground": "#52525b",
   "accent": "#f4f4f5",
   "accentForeground": "#18181b",
   "destructive": "#ef4444",

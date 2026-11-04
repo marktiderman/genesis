@@ -123,7 +123,12 @@ function excerpt(text: string, max = 40): string {
 
 // ── list ─────────────────────────────────────────────────────────────────────
 
-function ListField(props: FieldRendererProps) {
+/**
+ * The renderer for a list answer: entries added, removed and reordered.
+ *
+ * @stability Beta
+ */
+export function ListField(props: FieldRendererProps) {
   const { binding, inputId } = props;
   const field = binding.field;
   const { max, itemMaxLength } = listLimits(field);
@@ -225,7 +230,12 @@ function toRow(value: Json | undefined): Row {
   return Object.fromEntries(Object.entries(value).filter((e): e is [string, string] => typeof e[1] === "string"));
 }
 
-function TableField(props: FieldRendererProps) {
+/**
+ * The renderer for a table answer: rows of columns.
+ *
+ * @stability Beta
+ */
+export function TableField(props: FieldRendererProps) {
   const { binding, inputId } = props;
   const columns = tableColumns(binding.field);
   const { minRows, maxRows } = tableLimits(binding.field);
@@ -348,7 +358,12 @@ function toNote(value: Json): MediaNote {
   return { at: typeof value.at === "number" ? value.at : 0, text: typeof value.text === "string" ? value.text : "" };
 }
 
-function MediaNotesField(props: FieldRendererProps) {
+/**
+ * The renderer for notes pinned to moments in a recording.
+ *
+ * @stability Beta
+ */
+export function MediaNotesField(props: FieldRendererProps) {
   const { binding, inputId } = props;
   const media = useMediaTime();
   const maxNotes = typeof binding.field.props?.maxNotes === "number" ? binding.field.props.maxNotes : 20;
@@ -540,7 +555,12 @@ function textOffset(root: Node, node: Node, offset: number): number {
   return range.toString().length;
 }
 
-function TextHighlightsField(props: FieldRendererProps) {
+/**
+ * The renderer for highlights marked in a source text.
+ *
+ * @stability Beta
+ */
+export function TextHighlightsField(props: FieldRendererProps) {
   const { binding, inputId } = props;
   const hosted = useSourceText();
   const own = typeof binding.field.props?.text === "string" ? binding.field.props.text : "";

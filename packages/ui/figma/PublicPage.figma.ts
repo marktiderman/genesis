@@ -8,6 +8,12 @@ const maxWidth = instance.getEnum('maxWidth', { sm: 'sm', md: 'md', lg: 'lg', fu
 const title = instance.getString('Title')
 const description = instance.getString('Description')
 const showPoweredBy = instance.getBoolean('Show powered by')
+// "Content" is the page body: swap in any library component and its own example renders here.
+const content = instance.getInstanceSwap('Content')
+let contentCode
+if (content && content.type === 'INSTANCE') {
+  contentCode = content.executeTemplate().example
+}
 
 export default {
   example: figma.code`<PublicPage
@@ -16,7 +22,7 @@ export default {
   maxWidth="${maxWidth}"${showPoweredBy ? figma.code`
   poweredBy={poweredBy}` : ''}
 >
-  {children}
+  ${contentCode ?? '{children}'}
 </PublicPage>`,
   imports: ['import { PublicPage } from "@marktiderman/genesis-ui/layout"'],
   id: 'public-page',

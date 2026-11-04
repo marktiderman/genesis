@@ -303,6 +303,24 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
         },
         {
+          "need": "a row's actions behind a swipe on the phone",
+          "use": "NativeSwipeRow, on GenesisModules.swipeable",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "what a long press opens on the phone: a short list of actions",
+          "use": "NativeContextMenu",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "a selectable option card on the phone (radio or checkbox, with a picture or a description)",
+          "use": "NativeChoiceCard",
+          "import": "@marktiderman/genesis-ui-native/components",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
           "need": "a star rating on the phone",
           "use": "NativeRating",
           "import": "@marktiderman/genesis-ui-native/components",
@@ -313,6 +331,36 @@
           "use": "the view's gallery block (defineView) rendered by <NativeResourceView mode=\"grid\">; NativeGalleryGrid for photos that aren't records (attachments, uploads)",
           "import": "@marktiderman/genesis-ui-native",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#gallery"
+        },
+        {
+          "need": "a bottom tab bar with any number of tabs",
+          "use": "NativeTabBar (past max, the last slot is More, which opens a NativeSheet)",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "actions on the rows a list has selected",
+          "use": "NativeBulkBar",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "sharing a published page's link, with a QR code",
+          "use": "NativeShareSheet with url, renderQr and onCopy",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a what's new sheet after an update",
+          "use": "NativeWhatsNewSheet",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a rank or tier label (Gold, Level 3) in a brand accent",
+          "use": "NativeTierBadge with tone set to a key of the brand's accents",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
         }
       ]
     }

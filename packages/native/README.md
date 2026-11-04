@@ -125,8 +125,10 @@ From the outside in:
    List only resources whose rows may sit on the phone unencrypted (the OS keeps app
    storage private, but the app doesn't encrypt it). The device cache is its own entry
    point (`/offline`): an app that keeps nothing doesn't need expo-sqlite.
+   expo-sqlite is a native module: an app whose builds don't have it needs a new native build,
+   not an OTA update, to start using this.
    `persistQueries` (`/persist`, one AsyncStorage blob) is **deprecated**: see
-   docs/MIGRATION.md.
+   [the migration guide](https://github.com/marktiderman/genesis/blob/main/docs/MIGRATION.md).
 
    Pass `lifecycle={{ appState: AppState, netInfo: NetInfo }}` to refetch on
    focus and follow the network.

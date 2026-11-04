@@ -128,6 +128,8 @@ export type { NativeRefreshControlProps } from "./refresh-control";
 
 export { NativeBadge, badgeVariants, badgeTextVariants } from "./badge";
 export type { NativeBadgeProps } from "./badge";
+export { NativeTierBadge } from "./tier-badge";
+export type { NativeTierBadgeProps } from "./tier-badge";
 
 export { NativeInput } from "./input";
 export type { NativeInputProps } from "./input";
@@ -197,6 +199,8 @@ export type {
 export { NativeLabel } from "./label";
 export type { NativeLabelProps } from "./label";
 
+export { NativeChoiceCard } from "./choice-card";
+export type { NativeChoiceCardProps } from "./choice-card";
 export { NativeRadioGroup, NativeRadioGroupItem } from "./radio-group";
 export type {
   NativeRadioGroupProps,
@@ -307,6 +311,10 @@ export {
 export type { NativeThreadListProps, NativeThreadListHandle, ThreadRowInfo } from "./thread-list";
 export { NativeComposerBar } from "./composer-bar";
 export type { NativeComposerBarProps, ComposerMode, ComposerTone, ComposerSendAction } from "./composer-bar";
+export { NativeSwipeRow } from "./swipe-row";
+export type { NativeSwipeRowProps } from "./swipe-row";
+export { NativeContextMenu } from "./context-menu";
+export type { NativeContextMenuProps, NativeContextMenuAction } from "./context-menu";
 
 // --- Gallery and media primitives ---
 
@@ -315,7 +323,7 @@ export { justifyRows, galleryItemRatio, DEFAULT_GALLERY_RATIO } from "./gallery-
 export type { JustifiedRow, JustifiedTile } from "./gallery-layout";
 
 export { NativeRating, nextRating } from "./rating";
-export type { NativeRatingProps, NativeRatingSize } from "./rating";
+export type { NativeRatingProps, NativeRatingSize, NativeRatingTone } from "./rating";
 
 export { NativeGalleryGrid } from "./gallery-grid";
 export type { NativeGalleryGridProps, NativeGalleryLayout } from "./gallery-grid";
@@ -340,3 +348,12 @@ export type { NativeGalleryCardProps } from "./gallery-card";
 
 export { NativeLiveIndicator } from "./live-indicator";
 export type { NativeLiveIndicatorProps, NativeLiveIndicatorState, NativeLiveIndicatorVariant } from "./live-indicator";
+
+export { NativeTabBar } from "./tab-bar";
+export type { NativeTabBarItem, NativeTabBarProps } from "./tab-bar";
+export { NativeBulkBar } from "./bulk-bar";
+export type { NativeBulkAction, NativeBulkBarProps } from "./bulk-bar";
+export { NativeShareSheet } from "./share-sheet";
+export type { NativeShareSheetProps } from "./share-sheet";
+export { NativeWhatsNewSheet } from "./whats-new-sheet";
+export type { NativeWhatsNewNote, NativeWhatsNewSheetProps } from "./whats-new-sheet";

@@ -14,8 +14,7 @@
  *   <ProductWhatsNew store={whatsNew} />
  */
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { View } from "react-native";
-import { NativeButton, NativeSheet, NativeSheetScrollView, NativeText } from "@marktiderman/genesis-ui-native/components";
+import { NativeWhatsNewSheet } from "@marktiderman/genesis-ui-native/components";
 import type { ProductWhatsNew as ProductWhatsNewStore, ProductWhatsNewState, WhatsNewNote } from "../app";
 import { mergeCopy, type ProductCopyInput } from "./copy";
 
@@ -38,38 +37,32 @@ export interface ProductWhatsNewSheetProps {
   testID?: string;
 }
 
-export function ProductWhatsNewSheet({ notes, dismiss, onOpenNote, copy: input, testID = "product-whats-new" }: ProductWhatsNewSheetProps) {
+/**
+ * The sheet, in the product's copy: genesis-ui-native's `NativeWhatsNewSheet` with the notes'
+ * ids as keys.
+ *
+ * @deprecated Render `NativeWhatsNewSheet` from `@marktiderman/genesis-ui-native` (the one
+ * "what's new" sheet, also behind genesis-native's updates block), mapping each note to
+ * `{ key: note.id, title, body, url }`; `ProductWhatsNew` keeps working and renders it.
+ */
+export function ProductWhatsNewSheet(props: ProductWhatsNewSheetProps) {
+  return <WhatsNewSheetForProduct {...props} />;
+}
+
+function WhatsNewSheetForProduct({ notes, dismiss, onOpenNote, copy: input, testID = "product-whats-new" }: ProductWhatsNewSheetProps) {
   const copy = useMemo(() => mergeCopy(input), [input]);
+  const byKey = useMemo(() => new Map(notes.map((note) => [note.id, note])), [notes]);
   return (
-    <NativeSheet open onOpenChange={(open) => (open ? undefined : dismiss())} testID={testID}>
-      <NativeSheetScrollView contentContainerStyle={{ gap: 16, padding: 24 }}>
-        <NativeText preset="h3" accessibilityRole="header">
-          {copy.whatsNew.title}
-        </NativeText>
-        {notes.map((note) => (
-          <View key={note.id} style={{ gap: 4 }} testID={`${testID}-note-${note.id}`}>
-            <NativeText preset="label">{note.title}</NativeText>
-            {note.body ? (
-              <NativeText preset="body-sm" className="text-muted-foreground">
-                {note.body}
-              </NativeText>
-            ) : null}
-            {note.url && onOpenNote ? (
-              <NativeButton variant="ghost" size="sm" onPress={() => {
-                  // Closed first: the note's screen opens with "what's new" seen.
-                  dismiss();
-                  onOpenNote(note);
-                }} testID={`${testID}-open-${note.id}`}>
-                {copy.whatsNew.learnMore}
-              </NativeButton>
-            ) : null}
-          </View>
-        ))}
-        <NativeButton onPress={dismiss} testID={`${testID}-done`}>
-          {copy.whatsNew.done}
-        </NativeButton>
-      </NativeSheetScrollView>
-    </NativeSheet>
+    <NativeWhatsNewSheet
+      notes={notes.map((note) => ({ key: note.id, title: note.title, ...(note.body ? { body: note.body } : {}), ...(note.url ? { url: note.url } : {}) }))}
+      dismiss={dismiss}
+      {...(onOpenNote ? { onOpenNote: (note: { key: string }) => onOpenNote(byKey.get(note.key)!) } : {})}
+      title={copy.whatsNew.title}
+      doneLabel={copy.whatsNew.done}
+      learnMoreLabel={copy.whatsNew.learnMore}
+      testID={testID}
+      noteTestID={(key) => `${testID}-note-${key}`}
+    />
   );
 }
 
@@ -81,5 +74,5 @@ export interface ProductWhatsNewProps extends Omit<ProductWhatsNewSheetProps, "n
 export function ProductWhatsNew({ store, ...sheet }: ProductWhatsNewProps) {
   const state = useProductWhatsNew(store);
   if (state.status !== "showing") return null;
-  return <ProductWhatsNewSheet {...sheet} notes={state.notes} dismiss={store.dismiss} />;
+  return <WhatsNewSheetForProduct {...sheet} notes={state.notes} dismiss={store.dismiss} />;
 }

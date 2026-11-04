@@ -33,7 +33,7 @@ export interface PrimitiveRow {
 const CORE: PrimitiveRow[] = [
   {
     need: "anything, before building it",
-    use: "search what exists: `genesis features find <term>`, this catalog, and the doctor's \"Available but unused\" list",
+    use: "search what exists: `genesis features find <term>`, this catalog, and the \"Available but unused\" list in `genesis doctor --verbose`",
     docs: `${GENESIS_DOCS}/FRAMEWORK.md`,
     from: "genesis-cli",
   },

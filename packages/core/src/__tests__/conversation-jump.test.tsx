@@ -76,6 +76,39 @@ describe("useThreadJump", () => {
     expect(onGone).not.toHaveBeenCalled();
   });
 
+  describe("cancel", () => {
+    it("drops a jump waiting on its load: no scroll when the row arrives, nothing gone, and not jumping", async () => {
+      let resolve: (v: boolean) => void = () => {};
+      const loadUntil = vi.fn(() => new Promise<boolean>((r) => (resolve = r)));
+      const { result, rerender, scrollTo, onGone } = setup({ target: "old", ids: ["a"], loadUntil });
+      expect(result.current.jumping).toBe(true);
+      act(() => result.current.cancel());
+      expect(result.current.jumping).toBe(false);
+      await act(async () => resolve(true));
+      rerender({ target: "old", ids: ["old", "a"], loadUntil });
+      act(() => vi.advanceTimersByTime(JUMP_SETTLE_MS * 2));
+      expect(scrollTo).not.toHaveBeenCalled();
+      expect(onGone).not.toHaveBeenCalled();
+    });
+
+    it("drops a jump in its last moment before it's called gone", async () => {
+      const loadUntil = vi.fn(async () => false);
+      const { result, onGone } = setup({ target: "gone", ids: ["a"], loadUntil });
+      await act(async () => {});
+      act(() => result.current.cancel());
+      act(() => vi.advanceTimersByTime(JUMP_SETTLE_MS * 2));
+      expect(onGone).not.toHaveBeenCalled();
+    });
+
+    it("lets the same row be gone to again after null", () => {
+      const { result, rerender, scrollTo } = setup({ target: "old", ids: ["a"], loadUntil: () => new Promise(() => undefined) });
+      act(() => result.current.cancel());
+      rerender({ target: null, ids: ["old", "a"] });
+      rerender({ target: "old", ids: ["old", "a"] });
+      expect(scrollTo).toHaveBeenCalledWith("old");
+    });
+  });
+
   it("gives up on time in a busy thread, whatever rows keep arriving", async () => {
     const loadUntil = vi.fn(async () => false);
     const { rerender, onGone } = setup({ target: "old", ids: ["a"], loadUntil });

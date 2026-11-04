@@ -4,6 +4,7 @@
  * @stability Stable
  */
 import { type VariantProps, cva } from "class-variance-authority";
+import type { ComponentRef, Ref } from "react";
 import { Text as RNText, type TextProps } from "react-native";
 import { cn } from "../utils";
 
@@ -35,6 +36,8 @@ export interface NativeTextProps
     VariantProps<typeof textVariants> {
   /** NativeWind utility class string applied to the underlying Text. */
   className?: string;
+  /** The underlying Text (React 19 passes `ref` as a prop). */
+  ref?: Ref<ComponentRef<typeof RNText>> | undefined;
 }
 
 /**

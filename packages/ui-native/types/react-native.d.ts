@@ -12,6 +12,9 @@ declare module "react-native" {
     [key: string]: any;
   }
 
+  /** A style, or a nested list of them with gaps, as react-native's own `StyleProp`. */
+  export type StyleProp<T> = T | ReadonlyArray<StyleProp<T>> | null | undefined | false;
+
   export interface ImageStyle {
     [key: string]: any;
   }
@@ -84,6 +87,8 @@ declare module "react-native" {
     className?: string;
     children?: React.ReactNode;
     numberOfLines?: number;
+    /** The text can be selected and copied. */
+    selectable?: boolean;
     accessible?: boolean;
     accessibilityRole?: string;
     accessibilityLabel?: string;
@@ -183,7 +188,7 @@ declare module "react-native" {
   }
 
   export interface PressableProps {
-    style?: ViewStyle | ViewStyle[] | ((state: { pressed: boolean }) => ViewStyle | ViewStyle[]);
+    style?: StyleProp<ViewStyle> | ((state: { pressed: boolean }) => StyleProp<ViewStyle>);
     className?: string;
     onPress?: (e: GestureResponderEvent) => void;
     onLongPress?: () => void;
@@ -419,6 +424,13 @@ declare module "react-native" {
     userInterfaceStyle?: "light" | "dark" | "unspecified";
   }
 
+  /** The system share sheet. */
+  export const Share: {
+    share(
+      content: { message?: string; url?: string; title?: string },
+      options?: { dialogTitle?: string; subject?: string },
+    ): Promise<{ action: string; activityType?: string | null }>;
+  };
   export const Linking: {
     openURL(url: string): Promise<void>;
     canOpenURL(url: string): Promise<boolean>;

@@ -186,6 +186,43 @@ person never sees. The report stays the record (type, status, message, screensho
    it shows, for a sheet or dialog; it turns `reportHeading` on) and `plainChatTitle` (title the
    conversation "Report" rather than the report's title).
 
+**The agent inbox** (`genesis add support-chat` copies migration 0009). `<SupportAgentInbox>` is a
+tenant's whole help desk inbox on genesis-ui's `InboxLayout`, `InboxViews`, `InboxPage` and
+`ThreadPage`: the views Mine, Unassigned and All, the tickets, the open ticket's thread with reply
+and internal note, its status and assignee, and a details panel. Keep the open ticket in your
+router; the inbox only needs a TanStack `QueryClientProvider` and a support client made with the
+`chat` option. Point Tailwind at its classes as you do for genesis-ui (`@source
+"../node_modules/@marktiderman/genesis-support/dist";`), or the view picker meant for narrow screens
+also shows on wide ones.
+
+```tsx
+import { SupportAgentInbox } from "@marktiderman/genesis-support/web-chat";
+import type { SupportClient } from "@marktiderman/genesis-support";
+
+declare const support: SupportClient;
+declare const workspaceId: string;
+declare const ticketId: string | null;
+declare const navigate: (to: string) => void;
+declare const people: Map<string, string>;
+declare const agents: { id: string; name: string }[];
+
+export const inbox = (
+  <SupportAgentInbox
+    client={support}
+    tenantId={workspaceId} // leave out for the app's own tickets
+    ticketId={ticketId}
+    onTicketChange={(id) => navigate(id ? `/help/inbox/${id}` : "/help/inbox")}
+    resolveUser={(id) => ({ name: people.get(id) ?? "Someone" })}
+    agents={agents} // { id: login, name }: who a ticket can be given to
+    context={(ticket) => <p>{ticket.userId}</p>} // your own cards in the details panel
+  />
+);
+```
+
+Only a tenant's agents get in: `client.agentTickets`, `agentTicket` and `agentTicketCounts` read
+through `support_agent_tickets` and `support_agent_ticket_counts`, which refuse anyone else. An
+agent's own ticket isn't in their queue, since another agent answers it.
+
 Kept in step by the migration: the report's status and the conversation's (open and submitted
 are open, in_progress pending, addressed solved, wont_fix closed; a status set in chat moves the
 report the same way), the report's reply times and read state from messages and
@@ -202,6 +239,91 @@ mirror and moves the limit onto chat messages; then `support_replies` can go.
 One difference: a chat message carries its sender's id, so the person can learn which staff
 member answered (support_replies hid it). Name staff as "Support" in `resolveUser` (the web views
 do by default for the person).
+
+## The help desk (the `support-helpdesk` block)
+
+`genesis add support-helpdesk` copies `migrations/0010_genesis_support_help_center.sql`. It's on for a
+tenant once `support-helpdesk` is enabled for it in `tenant_features`; the app's own tenant is always
+on.
+
+**The messenger.** `<SupportMessenger>` is Home (greeting, article search, the latest conversation),
+Messages and Help. A first message becomes a ticket in the tenant, and the reply arrives live.
+`<SupportMessengerLauncher>` is a button with the unread count that opens it in the chat dock when
+the app has `ChatDockProvider`, else in a sheet. The dock's windows sit bottom-right, so there use
+`position="bottom-left"`, or `"inline"` and place it yourself. On the phone: `useMessengerHome`,
+`useHelpCenter`, `useHelpArticle` with `HelpArticleBody`, and `useStartConversation`, at the block's
+routes, with `tenantId` and `askAi` given to `createSupport`. Home and the help center open the help
+route with `?q=` or `?collection=`: read them there and pass `initialQuery` and `collectionId`.
+
+```tsx
+import { SupportMessengerLauncher } from "@marktiderman/genesis-support/web-chat";
+import type { SupportClient } from "@marktiderman/genesis-support";
+
+declare const support: SupportClient;
+declare const workspaceId: string;
+
+export const help = <SupportMessengerLauncher client={support} tenantId={workspaceId} />;
+```
+
+**The help center.** Articles are a tenant's own: collections, drafts, and published articles its
+people can read. Agents write them in `<SupportHelpCenterAdmin>`, or with `client.saveHelpArticle`. A
+body is plain text, and a blank line starts a paragraph. Anon reads nothing through the database: for
+a public help center, `helpCenterPages({ collections, articles })` gives genesis-sites pages to add
+to the tenant's site and publish.
+
+**AI answers have never run against a real model.** Keep them off: a tenant shouldn't turn them on
+until a live run passes success, refusal, schema miss and safety route.
+
+They're off until a tenant opts in, with an enabled `support-helpdesk-ai` row in `tenant_features`
+and a monthly budget, its own or the `default` (`genesis_ai.set_budget`). Without a limit genesis-ai
+admits every call, so neither counts alone, and a tenant on its own key still needs a budget row.
+Anonymous sign-ins can't ask. That's the reverse of most features, where no row means on, so show it as off in
+your Settings when there's no row. A tenant admin can turn it on, and it spends that tenant's AI
+budget. The person asks for an answer after searching; only then do their
+words go to the vendor. The AI answers only from that tenant's published articles and cites them; an
+answer that cites anything else isn't kept, and every outcome offers a person.
+
+1. Give `defineAi` your `safety` protocol, which sees what the person wrote before any model: nothing
+   runs without one. It runs even when they haven't agreed to share with the vendor, so keep it local
+   (patterns), or put a model it calls through `wrap` with `consent: "person"`, which refuses without
+   their agreement and counts as no route. Install `@marktiderman/genesis-ai` and `zod`.
+2. Serve the answer from your server. It runs the task as the person and records what came of it with
+   a service-role client, so nobody can write an answer of their own, and spends the question's
+   tenant's budget.
+
+   Don't register `supportHelpAnswerTask` with `createAiHandler`: that hands a client the task's raw
+   output and records nothing. `answerHelpQuestion` doesn't throw: failures end at no answer, and
+   reach `onError`.
+
+   ```ts
+   import type { Ai } from "@marktiderman/genesis-ai";
+   import { answerHelpQuestion, type HelpAiAdmin, type HelpAiDb } from "@marktiderman/genesis-support/ai";
+
+   declare const ai: Ai;
+   declare const serviceClient: HelpAiAdmin;
+   declare function userFrom(req: Request): Promise<{ id: string; tenantId: string; db: HelpAiDb } | null>;
+
+   export async function POST(req: Request) {
+     const user = await userFrom(req);
+     if (!user) return new Response(null, { status: 401 });
+     const { questionId } = (await req.json()) as { questionId: string };
+     return Response.json(await answerHelpQuestion(ai, { questionId, context: { tenantId: user.tenantId, personId: user.id, db: user.db }, admin: serviceClient }));
+   }
+   ```
+
+3. Pass `askAi` to the messenger, or to `createSupport` on the phone, as a plain call to it, with the
+   person's token where it needs one:
+   `(questionId) => fetch(url, { method: "POST", headers, body: JSON.stringify({ questionId }) }).then((r) => r.json())`.
+4. People agree to share with the vendor first (genesis-ai's consent), unless your terms cover it:
+   `supportHelpAnswerTask({ consent: "terms" })`, passed as `task`. Until they agree, the messenger
+   says so and offers a person; `onAiConsent` opens your screen for agreeing. Their words aren't kept
+   meanwhile; once they've agreed, "Ask again" asks anew.
+5. Run `support_purge_stuck_questions()` daily with the service role: a server that stops mid-answer
+   leaves a question unfinished, with the person's words, which agents can't read.
+
+A resolution is a question whose person said the answer helped: `help_questions.outcome = 'resolved'`,
+readable by the tenant's agents, beside genesis-ai's usage row for each call. It's what people said,
+counted, not a billing record.
 
 ## Email tickets (the `support-email` block)
 
@@ -331,9 +453,17 @@ its own help desk and your app runs its own support the same way. With the suppo
 
 ## Not yet
 
-- No agent inbox (operator queue) screen yet; it comes on genesis-chat's inbox. With the support-chat block, `SupportStaffThread` is one
-  report for staff on the web; list reports with `genesis_chat.observed('support')` or a tool of
-  yours. Without it, staff work through the database functions.
+- No agent inbox or article editor on the phone yet: `SupportAgentInbox` and
+  `SupportHelpCenterAdmin` are web only. Without the support-chat block, staff work through the
+  database functions.
+- Collections can be added and deleted in `SupportHelpCenterAdmin`; to rename or reorder one, call
+  `client.saveHelpCollection`. Search leaves out common English words only.
+- Articles are plain text, with no images or formatting. A messenger's person is signed in: there's
+  no anonymous or signed-token identity yet.
+- The agent inbox shows a ticket's latest 200 messages, and its queues refresh on a timer, not live.
+  An open ticket's thread is live.
+- The agent inbox doesn't list who can be assigned: pass `agents`, with each agent's login. Agent
+  rows hold a tenant's person records, and only the app can map those to logins.
 - Without the support-chat block there are no live updates: the thread re-reads every 30 seconds
   while open.
 - No ratings, no web idea board, no notification when an idea ships.

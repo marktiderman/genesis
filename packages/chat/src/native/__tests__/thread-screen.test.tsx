@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // @feat:chat
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { forwardRef, useImperativeHandle, type ReactNode } from "react";
 import { AccessibilityInfo } from "react-native";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +9,7 @@ import { GenesisModulesProvider, NativeToastProvider } from "@marktiderman/genes
 import type { ChatClient } from "../../core/client";
 import type { ChatMessage } from "../../core/types";
 import { ChatProvider } from "../../react/index";
+import { chatNativeCopy } from "../copy";
 import { ChatNativeProvider } from "../context";
 import type { ThreadRow } from "../rows";
 import { nearBottom, ChatThreadScreen, threadListMode } from "../thread-screen";
@@ -135,6 +136,69 @@ describe("ChatThreadScreen's jump to a message", () => {
     render(wrap(fakeClient(messages, 3), list.List, <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m9" }} />));
     expect(await screen.findByText("That message isn't here any more", {}, { timeout: 2000 })).toBeTruthy();
     expect(list.scrollToIndex).not.toHaveBeenCalled();
+  });
+});
+
+describe("ChatThreadScreen's jump when it can't load back", () => {
+  it("says the load failed, not that the message is gone", async () => {
+    const list = scrollingList();
+    const client = fakeClient([msg(5, SAM, "2026-10-24T10:00:00Z")], 5);
+    (client.messages as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ messages: [msg(5, SAM, "2026-10-24T10:00:00Z")], hasEarlier: true }).mockRejectedValue(new Error("offline"));
+    render(wrap(client, list.List, <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m2", seq: 2 }} />));
+    expect(await screen.findByText(chatNativeCopy.actionFailed, {}, { timeout: 2000 })).toBeTruthy();
+    await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+    expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
+  });
+
+  it("with a deep link and a first page that failed: says the read failed, never gone, and goes there once rows come", async () => {
+    const list = scrollingList();
+    const client = fakeClient([msg(1, SAM, "2026-10-24T10:00:00Z"), msg(2, ME, "2026-10-24T10:01:00Z")], 3);
+    (client.messages as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("offline"));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <GenesisModulesProvider modules={{ list: list.List as never }}>
+          <ChatProvider client={client} userId={ME}>
+            <NativeToastProvider>
+              <ChatNativeProvider>
+                <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m2" }} />
+              </ChatNativeProvider>
+            </NativeToastProvider>
+          </ChatProvider>
+        </GenesisModulesProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText(chatNativeCopy.actionFailed, {}, { timeout: 2000 })).toBeTruthy();
+    await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+    expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
+    expect(list.scrollToIndex).not.toHaveBeenCalled();
+    await act(async () => void (await qc.refetchQueries()));
+    await waitFor(() => expect(list.scrollToIndex).toHaveBeenCalled());
+    expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
+  });
+
+  it("keeps a deep link through a failed first page even with a message of yours waiting to send", async () => {
+    const list = scrollingList();
+    const client = fakeClient([msg(1, SAM, "2026-10-24T10:00:00Z"), msg(2, ME, "2026-10-24T10:01:00Z")], 3);
+    (client.messages as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("offline"));
+    (client as unknown as { send: unknown }).send = vi.fn(() => new Promise(() => undefined));
+    render(wrap(client, list.List, <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m2" }} testID="t" />));
+    await screen.findByText(chatNativeCopy.actionFailed, {}, { timeout: 2000 });
+    const input = await screen.findByTestId("t-composer-input");
+    await waitFor(() => expect(input.hasAttribute("disabled")).toBe(false));
+    fireEvent.change(input, { target: { value: "Still here" } });
+    fireEvent.click(screen.getByTestId("t-composer-send"));
+    await waitFor(() => expect((list.last().data as ThreadRow[] | undefined)?.some((r) => r.type === "message")).toBe(true));
+    await act(async () => void (await new Promise((r) => setTimeout(r, 600))));
+    expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
+  });
+
+  it("finds a deleted message: its tombstone is a row", async () => {
+    const list = scrollingList();
+    const deleted = { ...msg(2, SAM, "2026-10-24T10:01:00Z"), deletedAt: "2026-10-24T11:00:00Z" } as ChatMessage;
+    render(wrap(fakeClient([msg(1, SAM, "2026-10-24T10:00:00Z"), deleted], 3), list.List, <ChatThreadScreen conversationId={CONV} jumpTo={{ messageId: "m2", seq: 2 }} />));
+    await waitFor(() => expect(list.scrollToIndex).toHaveBeenCalled());
+    expect(screen.queryByText(chatNativeCopy.messageGone)).toBeNull();
   });
 });
 

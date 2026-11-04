@@ -23,7 +23,7 @@ export function generateLightTheme(config: ThemeConfig): Record<string, string> 
     "--secondary": "240 4.8% 95.9%",
     "--secondary-foreground": "240 5.9% 10%",
     "--muted": "240 4.8% 95.9%",
-    "--muted-foreground": "240 3.8% 46.1%",
+    "--muted-foreground": "240 5.2% 33.9%",
     "--accent": "240 4.8% 95.9%",
     "--accent-foreground": "240 5.9% 10%",
     "--destructive": "0 84.2% 60.2%",

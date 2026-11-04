@@ -141,6 +141,7 @@ async function prepare<Args, L extends Loaded, Out, Db>(
     if (!consented.get(primaryVendor)) return fail("no_consent", `This person hasn't agreed to sharing with ${primaryVendor}.`);
     targets = targets.filter((t) => consented.get(t.record.vendor));
   }
+  if (task.safetyRequired && !config.safety) return fail("off", "This task needs a safety protocol.");
   if (!(await config.gate(ctx as AiContext, task.feature))) return fail("off", "This feature is off here.");
   if (task.can && !(await task.can(ctx, args))) return fail("forbidden", "Not allowed for this person.");
 

@@ -13,7 +13,7 @@
  *   `above` (a reply preview, attachments waiting to send), `idleAction` (in
  *   Send's place while there's nothing to send: a hold-to-record mic) and
  *   `replaceInput` (instead of `leading` and the input: a recording's
- *   waveform). Attachments with no text: pass `empty={false}`.
+ *   waveform). Attachments with no text: pass `hasContent`.
  * - **More ways to send:** `sendActions` ("Schedule"). Touch and hold Send:
  *   one action runs, several open a menu. Each is also an accessibility
  *   action on Send.
@@ -27,12 +27,13 @@
  *
  * @stability Beta
  */
-import { useEffect, type ReactNode } from "react";
-import { AccessibilityInfo, ActivityIndicator, Alert, Animated, Dimensions, Platform, Pressable, TextInput, View } from "react-native";
+import { useEffect, useState, type ReactNode } from "react";
+import { AccessibilityInfo, ActivityIndicator, Animated, Dimensions, Platform, Pressable, TextInput, View } from "react-native";
 import type { ComposerMode } from "@marktiderman/genesis-core/conversation";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { useGenesisModules } from "../native-modules";
 import { usePressFeedback } from "../hooks/use-press-feedback";
+import { NativeContextMenu } from "./context-menu";
 import { NativeIcon } from "./icon";
 import { NativeText } from "./text";
 
@@ -55,6 +56,8 @@ export interface NativeComposerBarProps {
   maxLines?: number;
   /** Ways to send ("Reply", "Internal note"). Two or more show the picker. */
   modes?: readonly ComposerMode[];
+  /** The picker's name, to VoiceOver. Default "Send as". */
+  modesLabel?: string;
   /** The chosen mode's id. Default the first. */
   mode?: string;
   onModeChange?: (id: string) => void;
@@ -62,10 +65,10 @@ export interface NativeComposerBarProps {
   trailing?: ReactNode;
   above?: ReactNode;
   /**
-   * Whether there's nothing to send. By default, a blank `value`; pass `false` when attachments
-   * are waiting and no text is needed.
+   * Whether there's something to send. By default, a `value` that isn't blank; pass `true` when
+   * attachments are waiting and no text is needed, and `false` while `replaceInput` is showing.
    */
-  empty?: boolean;
+  hasContent?: boolean;
   /** Takes Send's place (the same 44pt spot) while there's nothing to send and nothing sending: a hold-to-record mic. */
   idleAction?: ReactNode;
   /** Shown instead of `leading` and the input (a recording in progress). Label it yourself: it's one region to VoiceOver. */
@@ -78,7 +81,10 @@ export interface NativeComposerBarProps {
   sendActionsHint?: string;
   /** Passed to the input (to insert at the cursor, say). */
   onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
-  /** The input takes text (default). When false, nothing sends and the input reads as disabled. */
+  /**
+   * The input takes text (default). When false, Send is off and the input reads as disabled.
+   * `idleAction` is the app's, so disable it too.
+   */
   editable?: boolean;
   testID?: string;
 }
@@ -89,14 +95,6 @@ export interface ComposerSendAction {
   label: string;
   onPress: () => void;
   destructive?: boolean;
-}
-
-function openSendActions(actions: readonly ComposerSendAction[], title: string | undefined) {
-  if (actions.length === 1) return actions[0]!.onPress();
-  Alert.alert(title ?? "", undefined, [
-    ...actions.map((a) => ({ text: a.label, style: a.destructive ? ("destructive" as const) : ("default" as const), onPress: a.onPress })),
-    { text: "Cancel", style: "cancel" as const },
-  ]);
 }
 
 const LINE = 22;
@@ -114,12 +112,13 @@ export function NativeComposerBar({
   maxLength,
   maxLines = 6,
   modes,
+  modesLabel = "Send as",
   mode,
   onModeChange,
   leading,
   trailing,
   above,
-  empty,
+  hasContent,
   idleAction,
   replaceInput,
   sendActions,
@@ -135,9 +134,10 @@ export function NativeComposerBar({
   const hasIcon = Boolean(symbol || icons?.["arrow-up"]);
   const current = modes?.find((m) => m.id === mode) ?? modes?.[0];
   const internal = current?.tone === "internal";
-  const blank = empty ?? !value.trim();
+  const blank = !(hasContent ?? value.trim().length > 0);
   const canSend = !blank && !disabled && !sending && editable;
   const actions = sendActions?.length ? sendActions : null;
+  const [menuOpen, setMenuOpen] = useState(false);
   const idle = idleAction != null && blank && !sending;
   const sendPress = usePressFeedback({ haptic: "light", scale: 0.9, disabled: !canSend });
   // A multiline input grows with its text by itself; this caps it, after which it scrolls.
@@ -163,7 +163,7 @@ export function NativeComposerBar({
       }}
     >
       {modes && modes.length > 1 ? (
-        <View testID={`${testID}-modes`} accessibilityRole="tablist" style={{ flexDirection: "row", gap: 4 }}>
+        <View testID={`${testID}-modes`} accessibilityRole="tablist" accessibilityLabel={modesLabel} style={{ flexDirection: "row", gap: 4 }}>
           {modes.map((m) => {
             const on = m.id === current?.id;
             return (
@@ -250,7 +250,7 @@ export function NativeComposerBar({
               accessibilityHint={actions ? sendActionsHint : undefined}
               accessibilityActions={actions && canSend ? actions.map((a) => ({ name: a.id, label: a.label })) : undefined}
               onAccessibilityAction={actions ? (e) => actions.find((a) => a.id === e.nativeEvent.actionName)?.onPress() : undefined}
-              onLongPress={actions ? () => openSendActions(actions, sendActionsTitle) : undefined}
+              onLongPress={actions ? () => (actions.length === 1 ? actions[0]!.onPress() : setMenuOpen(true)) : undefined}
               disabled={!canSend}
               onPressIn={sendPress.onPressIn}
               onPressOut={sendPress.onPressOut}
@@ -271,6 +271,7 @@ export function NativeComposerBar({
           </Animated.View>
         )}
       </View>
+      {actions && actions.length > 1 ? <NativeContextMenu open={menuOpen} onOpenChange={setMenuOpen} actions={actions} {...(sendActionsTitle ? { title: sendActionsTitle } : {})} testID={`${testID}-send-menu`} /> : null}
     </View>
   );
 }

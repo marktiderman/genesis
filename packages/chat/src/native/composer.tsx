@@ -7,10 +7,13 @@
  * The emoji button opens the full picker, which types where the cursor is.
  * With `onRecordVideo`, a camera button opens the video recorder. When the
  * person can't post, it says why instead of taking input.
+ *
+ * The bar is genesis-ui-native's `NativeComposerBar`; this adds what's chat's: the draft, the
+ * attachments and reply above it, the mic in Send's place and the recording in the input's.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PanResponder, Pressable, ScrollView, TextInput, View } from "react-native";
-import { NativeIcon, NativeImage, NativeListItem, NativeSheet, NativeText } from "@marktiderman/genesis-ui-native/components";
+import { PanResponder, Pressable, ScrollView, View } from "react-native";
+import { NativeComposerBar, NativeIcon, NativeImage, NativeListItem, NativeSheet, NativeText, useGenesisModules } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { CHAT_LIMITS, formatDuration, recordingLimitMs } from "../core/media";
 import type { LocalFile } from "../core/outbox";
@@ -94,6 +97,7 @@ function ComposerWithVoice(props: ChatComposerProps & { audio: ExpoAudioLike }) 
 function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, onSchedule, placeholder, voice, userId, testID = "chat-composer" }: ChatComposerProps & { voice: Voice | null }) {
   const { modules, copy } = useChatNative();
   const colors = useThemeRoles();
+  const genesis = useGenesisModules();
   const { state, dispatch } = composer;
   const [attachOpen, setAttachOpen] = useState(false);
   const [canPaste, setCanPaste] = useState(false);
@@ -122,7 +126,8 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, 
     if (!sendable) return;
     const payload = composer.take();
     if (!payload) return;
-    haptic(modules.haptics, "send");
+    // The bar taps when the app gave Genesis the module; chat's own covers an app that gave only chat.
+    if (!genesis.haptics) haptic(modules.haptics, "send");
     onSend(payload);
   };
 
@@ -175,15 +180,15 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, 
     }
   };
 
-  return (
-    <View testID={testID} style={{ backgroundColor: colors.groupedBackground, paddingHorizontal: 8, paddingTop: 6, paddingBottom: 6, gap: 6 }}>
+  const above = (
+    <>
       {notice ? (
-        <NativeText testID={`${testID}-notice`} accessibilityLiveRegion="polite" preset="caption" style={{ color: colors.destructive, paddingHorizontal: 8 }}>
+        <NativeText testID={`${testID}-notice`} accessibilityLiveRegion="polite" preset="caption" style={{ color: colors.destructive, paddingHorizontal: 4 }}>
           {notice}
         </NativeText>
       ) : null}
       {state.replyTo ? (
-        <View testID={`${testID}-reply`} style={{ flexDirection: "row", alignItems: "center", paddingLeft: 12, borderLeftWidth: 3, borderLeftColor: colors.tint, marginHorizontal: 4 }}>
+        <View testID={`${testID}-reply`} style={{ flexDirection: "row", alignItems: "center", paddingLeft: 12, borderLeftWidth: 3, borderLeftColor: colors.tint }}>
           <View style={{ flex: 1 }}>
             <NativeText preset="caption" style={{ color: colors.tint, fontWeight: "600" }}>
               {fill(copy.replyingTo, { name: state.replyTo.name })}
@@ -220,57 +225,44 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, 
           ))}
         </ScrollView>
       ) : null}
-      <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4 }}>
-        {recording && voice ? (
-          <RecordingBar voice={voice} testID={testID} />
-        ) : (
-          <>
-            {modules.imagePicker || modules.clipboard?.getImageAsync ? (
-              <IconButton testID={`${testID}-attach`} icon="plus" label={copy.attach} onPress={() => void openAttach()} color={colors.tint} disabled={!ready} />
-            ) : null}
-            {onRecordVideo ? (
-              <IconButton testID={`${testID}-video`} icon="video" label={copy.recordVideo} onPress={onRecordVideo} color={colors.tint} disabled={!ready} />
-            ) : null}
-            <TextInput
-              testID={`${testID}-input`}
-              value={state.text}
-              onChangeText={(text) => {
-                dispatch({ type: "text", text });
-                if (text) signalTyping?.();
-              }}
-              onSelectionChange={(e) => {
-                selection.current = e.nativeEvent.selection;
-              }}
-              placeholder={placeholder ?? copy.placeholder}
-              placeholderTextColor={colors.tertiaryLabel as string}
-              accessibilityLabel={placeholder ?? copy.placeholder}
-              editable={ready}
-              multiline
-              maxLength={CHAT_LIMITS.bodyChars}
-              style={{
-                flex: 1,
-                minHeight: 40,
-                maxHeight: 140,
-                paddingHorizontal: 14,
-                paddingTop: 10,
-                paddingBottom: 10,
-                borderRadius: 20,
-                fontSize: 17,
-                color: colors.label as string,
-                backgroundColor: colors.surface,
-              }}
-            />
-            <IconButton testID={`${testID}-emoji`} icon="smile" label={copy.addEmoji} onPress={() => setEmojiOpen(true)} color={colors.secondaryLabel} disabled={!ready} />
-          </>
-        )}
-        {sendable && !recording ? (
-          <IconButton testID={`${testID}-send`} icon="arrow-up" label={copy.send} onPress={send} onLongPress={onSchedule} longPressLabel={onSchedule ? copy.schedule : undefined} filled color={colors.tint} />
-        ) : voice ? (
-          <MicButton voice={voice} testID={testID} disabled={!ready} />
-        ) : (
-          <IconButton testID={`${testID}-send`} icon="arrow-up" label={copy.send} onPress={send} filled color={colors.tint} disabled />
-        )}
-      </View>
+    </>
+  );
+  const canAttach = Boolean(modules.imagePicker || modules.clipboard?.getImageAsync);
+
+  return (
+    <>
+      <NativeComposerBar
+        testID={testID}
+        value={state.text}
+        onChangeText={(text) => {
+          dispatch({ type: "text", text });
+          if (text) signalTyping?.();
+        }}
+        onSelectionChange={(e) => {
+          selection.current = e.nativeEvent.selection;
+        }}
+        onSend={send}
+        // A recording sends itself: until it ends, the mic keeps Send's place, even over a written draft.
+        hasContent={sendable && !recording}
+        editable={ready}
+        placeholder={placeholder ?? copy.placeholder}
+        sendLabel={copy.send}
+        maxLength={CHAT_LIMITS.bodyChars}
+        sendActions={onSchedule ? [{ id: "schedule", label: copy.schedule, onPress: onSchedule }] : undefined}
+        sendActionsHint={copy.scheduleHoldHint}
+        above={above}
+        leading={
+          canAttach || onRecordVideo ? (
+            <View style={{ flexDirection: "row" }}>
+              {canAttach ? <IconButton testID={`${testID}-attach`} icon="plus" label={copy.attach} onPress={() => void openAttach()} color={colors.tint} disabled={!ready} /> : null}
+              {onRecordVideo ? <IconButton testID={`${testID}-video`} icon="video" label={copy.recordVideo} onPress={onRecordVideo} color={colors.tint} disabled={!ready} /> : null}
+            </View>
+          ) : null
+        }
+        trailing={recording ? null : <IconButton testID={`${testID}-emoji`} icon="smile" label={copy.addEmoji} onPress={() => setEmojiOpen(true)} color={colors.secondaryLabel} disabled={!ready} />}
+        idleAction={voice ? <MicButton voice={voice} testID={testID} disabled={!ready} /> : null}
+        replaceInput={recording && voice ? <RecordingBar voice={voice} testID={testID} /> : null}
+      />
       <ChatEmojiPickerSheet open={emojiOpen} onClose={() => setEmojiOpen(false)} onSelect={insertEmoji} userId={userId} testID={`${testID}-emoji-sheet`} />
       <NativeSheet open={attachOpen} onOpenChange={setAttachOpen} testID={`${testID}-attach-sheet`}>
         <View>
@@ -285,7 +277,7 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, 
           ) : null}
         </View>
       </NativeSheet>
-    </View>
+    </>
   );
 }
 
@@ -294,24 +286,16 @@ function IconButton({
   label,
   onPress,
   color,
-  filled = false,
   disabled = false,
-  onLongPress,
-  longPressLabel,
   testID,
 }: {
-  icon: "plus" | "arrow-up" | "close" | "trash" | "mic" | "video" | "smile";
+  icon: "plus" | "close" | "trash" | "video" | "smile";
   label: string;
   onPress: () => void;
-  onLongPress?: () => void;
-  /** The long press as a VoiceOver / TalkBack action. */
-  longPressLabel?: string;
   color: unknown;
-  filled?: boolean;
   disabled?: boolean;
   testID: string;
 }) {
-  const colors = useThemeRoles();
   return (
     <Pressable
       testID={testID}
@@ -320,19 +304,9 @@ function IconButton({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={onLongPress ? 400 : undefined}
-      accessibilityActions={onLongPress && longPressLabel ? [{ name: "longpress", label: longPressLabel }] : undefined}
-      onAccessibilityAction={onLongPress ? (e) => e.nativeEvent.actionName === "longpress" && onLongPress() : undefined}
       style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.4 : 1 }}
     >
-      {filled ? (
-        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: color as string, alignItems: "center", justifyContent: "center" }}>
-          <NativeIcon name={icon} size={18} color={colors.surface} weight="semibold" />
-        </View>
-      ) : (
-        <NativeIcon name={icon} size={24} color={color as string} />
-      )}
+      <NativeIcon name={icon} size={24} color={color as string} />
     </Pressable>
   );
 }

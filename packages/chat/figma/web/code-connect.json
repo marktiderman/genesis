@@ -1,0 +1,34 @@
+{
+  "required": [
+    "MessageRow",
+    "VoiceNote",
+    "ChatMarkdown",
+    "ImageGrid",
+    "Lightbox",
+    "FileChip",
+    "VideoAttachment",
+    "GenericAttachment",
+    "ChatLinkPreview",
+    "ChatComposer",
+    "ChatTopicBar",
+    "ChatScheduleMenu",
+    "ChatAwayBanner",
+    "SearchSnippet",
+    "ChatAttachmentCard",
+    "ChatEmojiPicker",
+    "ChatVideoPlayer",
+    "ChatVideoRecorder"
+  ],
+  "notYet": [],
+  "composed": [
+    "ChatPanel",
+    "ChatInbox",
+    "ChatThread",
+    "ChatDock",
+    "ChatSearch",
+    "ChatBroadcast",
+    "ChatAvailabilitySettings",
+    "ChatScheduledList",
+    "MessageAttachments"
+  ]
+}

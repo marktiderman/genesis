@@ -87,6 +87,16 @@ describe("useLinkOptions: a caller's order", () => {
     await waitFor(() => expect(second.result.current.options).toHaveLength(1));
     expect(bad.getList.mock.calls[0]![1].sorts![0]).toEqual({ field: "full_name", order: "asc" });
   });
+
+  it("keeps where `orderBy` puts empty values on every request", async () => {
+    const { getList, wrapper } = setup([{ id: "a", full_name: "A" }]);
+    const { result } = renderHook(
+      () => useLinkOptions({ resource: "stages", labelField: "full_name", orderBy: { field: "position", direction: "desc", nulls: "last" } }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.options).toHaveLength(1));
+    for (const [, params] of getList.mock.calls) expect(params.sorts![0]).toEqual({ field: "position", order: "desc", nulls: "last" });
+  });
 });
 
 describe("useLinkOptions", () => {

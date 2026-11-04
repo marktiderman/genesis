@@ -11,7 +11,7 @@ replies, threads, reactions, read state, live updates and push.
 | `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast, and the chat dock. |
 | `/native` | Beta: screens and parts on genesis-ui-native (inbox, thread, search, availability), voice notes, photos and video, and the push block's glue. See "On native" below. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
-| `migrations/0001_genesis_chat.sql` … `0004_genesis_chat_tenants.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`; 0004 puts every conversation in a tenant (see Tenants). |
+| `migrations/0001_genesis_chat.sql` … `0005_genesis_chat_attachment_paths.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`; 0004 puts every conversation in a tenant (see Tenants). |
 
 ## On the web
 

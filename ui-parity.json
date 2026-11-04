@@ -2,7 +2,9 @@
   "$comment": "genesis-ui ↔ genesis-ui-native parity (scripts/check-ui-parity.mjs). A twin is X ↔ NativeX, or the same name; list the others in twins. Every component without a twin needs a reason: why it's platform-shaped, or `notYet:` and what's missing. Remove an entry once a twin exists: the check fails on stale ones.",
   "twins": {
     "AuthPage": "AuthScreen",
+    "DataBulkBar": "NativeBulkBar",
     "PageLoading": "NativeLoadingState",
+    "ShareDialog": "NativeShareSheet",
     "ToggleGroup": "NativeSegmentedControl"
   },
   "webOnly": {
@@ -21,9 +23,7 @@
     "Command": "A keyboard-driven command list for pointer-and-keyboard screens; a phone searches with NativeSearchBar or NativeCombobox.",
     "CommandPalette": "A desktop keyboard shortcut (⌘K) palette.",
     "ConfirmDeleteDialog": "A phone confirms a delete with the system alert, as NativeResourceView does.",
-    "ContextMenu": "Right-click menus are pointer-only; a phone uses long press and NativeDropdownMenu.",
     "DashboardPage": "notYet: a phone dashboard page isn't built; apps compose NativeHeaderCard and NativeListItem.",
-    "DataBulkBar": "notYet: selecting several rows on a phone list isn't built.",
     "DataGrid": "ResourcePage's grid/list switch; NativeResourceView draws rows and cards itself.",
     "DataList": "ResourcePage's list view; NativeResourceView's rows are the phone's.",
     "DataTable": "Tables don't fit a phone; NativeResourceView shows the same view as rows.",
@@ -62,7 +62,6 @@
     "ResponsesToolbar": "notYet: the responses toolbar on a phone.",
     "ScrollArea": "Custom-styled scrollbars are a desktop concern; a phone scrolls natively.",
     "Section": "A genesis-sites page section for marketing pages.",
-    "ShareDialog": "notYet: a phone shares with the system share sheet; a Genesis wrapper isn't built.",
     "SortableList": "notYet: drag to reorder on a phone list.",
     "Spinner": "An inline spinner; a phone uses ActivityIndicator, or NativeLoadingState for a screen.",
     "StatCard": "notYet: a stat tile on a phone.",
@@ -88,8 +87,10 @@
     "AuthBranding": "A part of AuthScreen; the web's AuthPage takes the same fields as its branding block.",
     "InboxPage": "The web inbox is genesis-chat's (packages/chat/src/web/inbox.tsx), not a genesis-ui layout.",
     "NativeBanner": "notYet: a full-width system banner; the web uses Alert.",
+    "NativeChoiceCard": "notYet: a selectable option card (radio or checkbox with media); the web form draws its own choice options, and a ChoiceCard export would be the twin.",
     "NativeChipGroup": "notYet: a group of selectable chips; the web lays out Chips itself.",
     "NativeCombobox": "notYet: the web builds a combobox from Command in a Popover; a Combobox export would be the twin.",
+    "NativeSwipeRow": "A swipe is a touch gesture; the web's InboxPage puts a row's swipeActions in a More menu.",
     "NativeComposerBar": "The web's composer is genesis-chat's (packages/chat/src/web/composer.tsx).",
     "NativeFullScreenModal": "A phone's full-screen modal (React Native Modal); the web uses Dialog or Lightbox.",
     "NativeGlassSurface": "iOS's glass material; the web has no equivalent.",
@@ -113,6 +114,7 @@
     "ScreenContainer": "A phone screen's safe areas and keyboard handling; the web's pages don't need them.",
     "SettingsSubPage": "A pushed settings screen in a stack; the web's SettingsPage shows sections on one page.",
     "SocialAuthRow": "A part of AuthScreen; the web's AuthForm draws its social row.",
-    "ThreadPage": "The web thread is genesis-chat's (packages/chat/src/web/thread.tsx), not a genesis-ui layout."
+    "ThreadPage": "The web thread is genesis-chat's (packages/chat/src/web/thread.tsx), not a genesis-ui layout.",
+    "NativeWhatsNewSheet": "notYet: a release's What's new sheet on the phone; the web has no What's new dialog yet."
   }
 }

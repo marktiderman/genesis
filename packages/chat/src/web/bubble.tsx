@@ -64,6 +64,8 @@ export interface MessageRowProps {
   item: ThreadItem;
   /** First of a run from one sender: the name and avatar show (others' messages, in groups). */
   startsGroup: boolean;
+  /** A jump just landed here (ThreadPage says so). */
+  highlighted?: boolean;
   className?: string;
 }
 
@@ -139,7 +141,7 @@ export function plainText(body: string): string {
   return body.replace(/@\[([^\]]+)\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
 }
 
-export function MessageRow({ item, startsGroup, className }: MessageRowProps) {
+export function MessageRow({ item, startsGroup, highlighted: highlightedProp, className }: MessageRowProps) {
   const ctx = useThreadContext();
   const keepFocus = useRef<(() => void) | null>(null);
   const pending = item.type === "pending" ? item.pending : null;
@@ -165,7 +167,7 @@ export function MessageRow({ item, startsGroup, className }: MessageRowProps) {
   const progress = pending ? pendingProgress(pending) : null;
   const editing = ctx.editingId === message.id;
   const reactions = pending ? [] : summarizeReactions(message, ctx.me);
-  const highlighted = ctx.highlightedId === message.id;
+  const highlighted = highlightedProp ?? ctx.highlightedId === message.id;
   const actionable = !pending && !deleted;
   const hidden = !deleted && message.moderation === "hidden";
   const flagged = !deleted && message.moderation === "flagged";

@@ -1,0 +1,32 @@
+{
+  "required": [
+    "Button",
+    "ChoiceRow",
+    "AnswerInput",
+    "FieldChrome",
+    "DefaultHeader",
+    "DefaultBrand",
+    "DefaultProgress",
+    "DefaultNavigation",
+    "DefaultEnding",
+    "DefaultErrorSummary",
+    "DefaultNotice",
+    "DefaultStatus",
+    "TextField",
+    "NumberField",
+    "DateField",
+    "SingleChoiceField",
+    "MultiChoiceField",
+    "YesNoField",
+    "ScaleField",
+    "ConsentField",
+    "CalculatedField",
+    "PhotoField"
+  ],
+  "notYet": [],
+  "composed": [
+    "FormFocus",
+    "NativeFieldRenderer",
+    "ContentStep"
+  ]
+}

@@ -60,6 +60,10 @@
     "./email": {
       "types": "./dist/email.d.ts",
       "import": "./dist/email.js"
+    },
+    "./ai": {
+      "types": "./dist/ai.d.ts",
+      "import": "./dist/ai.js"
     }
   },
   "files": [
@@ -78,7 +82,8 @@
     "@marktiderman/genesis-features": "workspace:^"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-chat": "workspace:>=0.1.0 <1.0.0",
+    "@marktiderman/genesis-ai": "workspace:>=0.1.0 <1.0.0",
+    "@marktiderman/genesis-chat": "workspace:>=0.9.0 <1.0.0",
     "@marktiderman/genesis-native": "workspace:>=0.1.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:>=2.9.0 <4.0.0",
@@ -87,9 +92,16 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-native": ">=0.76.0",
-    "react-native-safe-area-context": ">=4.0.0"
+    "react-native-safe-area-context": ">=4.0.0",
+    "zod": "^3.25.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
+    "@marktiderman/genesis-ai": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    },
     "@marktiderman/genesis-chat": {
       "optional": true
     },
@@ -125,6 +137,7 @@
     }
   },
   "devDependencies": {
+    "@marktiderman/genesis-ai": "workspace:^",
     "@marktiderman/genesis-chat": "workspace:^",
     "@marktiderman/genesis-native": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
@@ -139,7 +152,8 @@
     "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "zod": "^4.6.6"
   },
   "genesis": {
     "layer": "module",
@@ -150,7 +164,8 @@
       "summary": "Feedback with a marked-up screenshot, staff replies and an idea board with votes, in the app's own Supabase.",
       "blocks": [
         "support-feedback",
-        "support-chat"
+        "support-chat",
+        "support-helpdesk"
       ],
       "install": "genesis add support-feedback",
       "docs": "README.md",
@@ -361,13 +376,60 @@
                 "file": "migrations/0004_genesis_chat_tenants.sql"
               }
             ]
+          },
+          {
+            "file": "migrations/0009_genesis_support_inbox.sql",
+            "test": "migrations/tests/0009_genesis_support_inbox.test.sql"
           }
         ],
         "steps": [
           "Apply this block's migration after 0006_genesis_support.sql and genesis-chat's 0001 and 0002 (genesis add support-chat orders them). It gives every existing report its conversation and copies support_replies into it, with no push.",
           "Pass genesis-chat's client to support: createSupport({ ..., chat: createChatClient(supabase) }) on native, createSupportClient(supabase, { chat }) on the web. Without it, threads stay on support_replies.",
           "Web: render SupportReportThread (the person) or SupportStaffThread (staff: status, assignee, internal notes) from @marktiderman/genesis-support/web-chat under genesis-chat's ChatProvider.",
+          "Web agent inbox: render SupportAgentInbox from @marktiderman/genesis-support/web-chat at a route of your own, with the open ticket in its URL.",
           "Keep genesis-chat's runner going (push for replies). support_replies stays mirrored for one release, for older app builds; a later migration removes it."
+        ]
+      },
+      "support-helpdesk": {
+        "feature": {
+          "name": "Help desk",
+          "summary": "A help desk any tenant of the app can run: a messenger (Home, Messages, Help), a help center with optional AI answers that cite its articles and hand off to a person, and an agent inbox.",
+          "keywords": [
+            "help desk",
+            "messenger",
+            "help center",
+            "knowledge base",
+            "ai answers",
+            "agent inbox"
+          ],
+          "audience": [
+            "person",
+            "admin"
+          ]
+        },
+        "requires": [
+          "support-feedback",
+          "support-chat"
+        ],
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "packages": [
+          "@marktiderman/genesis-support"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0010_genesis_support_help_center.sql",
+            "test": "migrations/tests/0010_genesis_support_help_center.test.sql"
+          }
+        ],
+        "steps": [
+          "Turn a tenant's help desk on with an enabled support-helpdesk row in tenant_features, and make its agents with client.setAgent. The app's own tenant is always on.",
+          "Web: render SupportMessengerLauncher for people, and SupportAgentInbox and SupportHelpCenterAdmin at routes of your own, from @marktiderman/genesis-support/web-chat.",
+          "Phone: use useMessengerHome, useHelpCenter, useHelpArticle and useStartConversation from @marktiderman/genesis-support/native at the block's routes.",
+          "AI answers, optional and off by default: give defineAi your safety protocol, serve answerHelpQuestion from @marktiderman/genesis-support/ai at an endpoint of yours, pass askAi to the messenger, and enable support-helpdesk-ai in tenant_features for each tenant that opts in.",
+          "A public help center: pass helpCenterPages' pages to your site (genesis-sites) and publish it."
         ]
       },
       "support-email": {
@@ -453,7 +515,7 @@
             "**/__tests__/**"
           ],
           "forbid": {
-            "pattern": "\\.from\\(\\s*[\"'](?:tickets|ticket_attachments|ticket_agents|support_reports|support_attachments)[\"']"
+            "pattern": "\\.from\\(\\s*[\"'](?:tickets|ticket_attachments|ticket_agents|support_reports|support_attachments|help_articles|help_collections|help_questions)[\"']"
           },
           "use": "createSupportClient (myTickets, report, reply, setStatus, isAgent) or a named support function",
           "import": "@marktiderman/genesis-support",

@@ -181,6 +181,17 @@ describe("ResourceView mode=board: conflicts", () => {
     expect(update).toHaveBeenCalledTimes(2);
   });
 
+  it("doesn't hand the sheet's conflict to the app's onError", async () => {
+    const { rows, update } = conflicted();
+    const onError = vi.fn();
+    render(<ResourceView view={view} mode="board" resourceOptions={{ onError }} />, { wrapper: wrap(provider(rows, update as never)) });
+    await waitFor(() => expect(within(column("To do")).getByText("Write brief")).toBeTruthy());
+    raviMovesIt(rows);
+    await moveTo("Write brief", "Done");
+    await screen.findByTestId("resource-board-conflict");
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it("dims the card while keeping mine saves", async () => {
     const { rows, update } = conflicted();
     render(<ResourceView view={view} mode="board" />, { wrapper: wrap(provider(rows, update as never)) });

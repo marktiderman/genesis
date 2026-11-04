@@ -42,6 +42,7 @@ import { checkOverlays } from "./overlays.js";
 import { checkLockFiles } from "./lock-files.js";
 import { checkDatabaseHome } from "./database.js";
 import { checkEslintConfig } from "./eslint-config.js";
+import { checkFigmaRoutesRule } from "./figma-routes.js";
 import { existsSync } from "node:fs";
 import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
@@ -120,6 +121,8 @@ export interface RunDoctorOptions {
   changedFiles?: string[];
   /** Run the supabase pack's contract check (it reads the database). Default true; the Vite plugin (build and dev) passes false. */
   contracts?: boolean;
+  /** Run the figma-routes check (it reads the Figma file) when the config has a figma block. Default true; the Vite plugin passes false. */
+  figma?: boolean;
 }
 
 export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorResult> {
@@ -140,7 +143,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
 
   const raw: FindingInput[] = [];
   const ctx: DoctorContext = { root, files, genesis, config, packages, ...(options.base ? { base: options.base } : {}), ...(options.strict ? { strict: true } : {}), report: (f) => raw.push(f) };
-  for (const plugin of [...builtinChecks(config, { contracts: options.contracts ?? true }), ...packagePlugins, ...(patterns ? [patterns.plugin] : []), ...plugins]) {
+  for (const plugin of [...builtinChecks(config, { contracts: options.contracts ?? true, figma: options.figma ?? true }), ...packagePlugins, ...(patterns ? [patterns.plugin] : []), ...plugins]) {
     try {
       await plugin.check(ctx);
     } catch (err) {
@@ -217,7 +220,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
  * here plus its ids in BUILTIN_RULES (rules.ts); a pack's checks run only when
  * `packs` lists it.
  */
-export function builtinChecks(config: DoctorConfig, options: { contracts?: boolean } = {}): DoctorPlugin[] {
+export function builtinChecks(config: DoctorConfig, options: { contracts?: boolean; figma?: boolean } = {}): DoctorPlugin[] {
   const packs: Record<DoctorPack, DoctorPlugin> = {
     native: { name: "native", check: checkNativePack },
     supabase: { name: "supabase", check: checkSupabasePack },
@@ -248,6 +251,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "database-elsewhere", check: checkDatabaseHome },
     { name: "eslint-config", check: checkEslintConfig },
     ...(config.packs ?? []).map((p) => packs[p]),
+    ...(options.figma !== false ? [{ name: "figma-routes", check: checkFigmaRoutesRule }] : []),
     ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),
   ];
 }
@@ -308,8 +312,8 @@ function applyConfig(raw: FindingInput[], config: DoctorConfig, packageIds: Read
   return out.sort((x, y) => x.file.localeCompare(y.file) || x.line - y.line || x.rule.localeCompare(y.rule));
 }
 
-/** The human-readable report. */
-export function formatReport(result: DoctorResult): string {
+/** The human-readable report. `verbose` lists the components no file imports; otherwise only their count. */
+export function formatReport(result: DoctorResult, options: { verbose?: boolean } = {}): string {
   const g = result.genesis;
   const lines = [
     `Genesis doctor: ${g.uiPackage}@${g.uiVersion}, ${g.components.length} components, ${g.tokens.size} tokens, ` +
@@ -318,7 +322,7 @@ export function formatReport(result: DoctorResult): string {
   for (const f of result.findings) {
     lines.push(`${f.level.toUpperCase().padEnd(5)} ${f.file}${f.line ? `:${f.line}` : ""}  [${f.rule}] ${f.message}`);
   }
-  lines.push(`Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}`);
+  lines.push(options.verbose ? `Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}` : `Available but unused: ${result.unused.length} (genesis doctor --verbose lists them)`);
   lines.push(`Primitives: ${result.primitives.rules} rules from ${result.primitives.packages} packages; see genesis catalog`);
   const info = result.infos ? `, ${result.infos} info` : "";
   lines.push(result.ok ? `PASS (${result.warnings} warnings${info})` : `FAIL (${result.errors} errors, ${result.warnings} warnings${info})`);

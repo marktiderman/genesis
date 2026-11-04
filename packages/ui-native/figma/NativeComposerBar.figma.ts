@@ -21,7 +21,8 @@ if (leadingSwap && leadingSwap.type === 'INSTANCE') leading = leadingSwap.execut
 let trailing
 if (trailingSwap && trailingSwap.type === 'INSTANCE') trailing = trailingSwap.executeTemplate().example
 const mode = instance.getEnum('mode', { text: 'text', voice: 'voice' })
-const empty = instance.getEnum('empty', { true: true, false: false })
+const hasContent = instance.getEnum('hasContent', { true: true, false: false })
+const modesLabel = instance.getString('modesLabel')
 const sending = instance.getEnum('sending', { false: false, true: true })
 
 export default {
@@ -33,8 +34,9 @@ export default {
   sendLabel="${sendLabel}"` : ''}
   modes={modes}
   mode="${mode}"
-  onModeChange={setMode}${empty === false ? `
-  empty={false}` : ''}${sending ? `
+  onModeChange={setMode}${modesLabel && modesLabel !== 'Send as' ? figma.code`
+  modesLabel="${modesLabel}"` : ''}${hasContent ? `
+  hasContent` : ''}${sending ? `
   sending` : ''}${disabled ? `
   disabled` : ''}${showLeading && leading ? figma.code`
   leading={${leading}}` : ''}${showTrailing && trailing ? figma.code`

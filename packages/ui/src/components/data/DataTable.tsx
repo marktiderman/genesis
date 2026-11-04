@@ -252,7 +252,6 @@ export interface DataTableTree<T> {
   setExpanded: (id: string, open: boolean) => void;
 }
 
-/** One column of a `DataTable` header sort. */
 // How DataTable's remembered choices are stored. A value of the wrong shape (a hand edit, an
 // older format) reads as none, so the table falls back to its columns' defaults.
 const NO_MAP: Record<string, boolean> = {};
@@ -285,11 +284,14 @@ const KEY_LIST_FORMAT = {
   },
 };
 
+/** One column of a `DataTable` header sort. */
 export interface DataTableSort {
   key: string;
   dir: "asc" | "desc";
 }
 
+
+// Pinned columns and row heights.
 
 /** Row height estimate per density, for virtualization. */
 const ROW_HEIGHT: Record<Density, number> = { compact: 33, comfortable: 41, spacious: 49 };
@@ -720,7 +722,7 @@ export function DataTable<T>({
       keys.splice(at, 0, key);
       setColOrder(keys);
     },
-    [orderedColumns],
+    [orderedColumns, setColOrder],
   );
   const [dragKey, setDragKey] = useState<string | null>(null);
 
@@ -1438,7 +1440,8 @@ export function DataTable<T>({
               ? m.table.noRows
               : fillMessage(m.table.range, { from: showingFrom, to: showingTo, total: totalItems })}
           </span>
-          <div className="flex items-center gap-3">
+          {/* Wraps: touch targets grow on a coarse pointer, and a phone's width can't hold it all on one line. */}
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
             <div className="flex items-center gap-1.5">
               <span>{m.table.rows}</span>
               <Select

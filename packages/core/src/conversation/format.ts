@@ -17,7 +17,7 @@ export function readReceiptFor(messages: readonly ThreadMessage[], readAt: strin
   const read = toDate(readAt).getTime();
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]!;
-    if (m.kind !== "event" && m.mine && isDelivered(m) && toDate(m.timestamp).getTime() <= read) return m.id;
+    if (m.kind !== "event" && m.tone !== "internal" && m.mine && isDelivered(m) && toDate(m.timestamp).getTime() <= read) return m.id;
   }
   return null;
 }
