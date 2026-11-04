@@ -55,11 +55,15 @@
     "NativeToggle",
     "NativeTooltip",
     "ScreenContainer",
-    "ThreadPage"
+    "ThreadPage",
+    "NativeComposerBar",
+    "NativeThreadList",
+    "NativeZoomablePhoto"
   ],
   "notYet": [
-    "NativeRangeSlider",
-    "NativeZoomablePhoto",
+    "NativeRangeSlider"
+  ],
+  "composed": [
     "SettingsPage",
     "SettingsSubPage",
     "NotificationsPage",
@@ -67,8 +71,6 @@
     "AuthForm",
     "SocialAuthRow",
     "AuthBranding",
-    "AppleSignInButton",
-    "NativeThreadList",
-    "NativeComposerBar"
+    "AppleSignInButton"
   ]
 }

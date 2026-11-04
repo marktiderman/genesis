@@ -5,10 +5,12 @@
  * Every visual component genesis-ui-native and genesis-ui (web) export should have a Figma Code Connect template
  * in packages/<package>/figma/<Name>.figma.ts, so Figma's Dev Mode shows the Genesis call for
  * the component a designer selected instead of generic markup. This check lists the
- * components, checks each template's shape, and ratchets: a component is either `required`
- * (its template must exist and be well-formed) or `notYet` (reported, not failing) in
- * packages/<package>/figma/code-connect.json (one allowlist per package: ui-native and ui). Promote a component by moving it to `required`
- * once its Figma node exists and its template is published (docs/DESIGN-LIBRARY.md).
+ * components, checks each template's shape, and ratchets: a component is `required` (its
+ * template must exist and be well-formed), `notYet` (reported, not failing) or `composed` (a
+ * screen assembled from library components, no template by design) in
+ * packages/<package>/figma/code-connect.json (one allowlist per package: ui-native and ui).
+ * Promote a component by moving it to `required` once its Figma node exists and its template is
+ * published (docs/DESIGN-LIBRARY.md).
  *
  * Why: the Genesis Figma library is built component by component, after the code. Without a
  * list, a new export ships with no design counterpart and nobody notices; with a hard fail on
@@ -41,9 +43,9 @@
  * Exit codes:
  *   0 — every `required` component has a well-formed template, and the allowlist is in step
  *       with the exports (every component listed once, no stale names).
- *   1 — a `required` component is missing or malformed, a `notYet` component already has a
- *       template (promote it), a component is in neither or both lists, or a listed name is
- *       not a component any more.
+ *   1 — a `required` component is missing or malformed, a `notYet` or `composed` component
+ *       has a template (promote it, or it is a component after all), a component is in no list
+ *       or in two, or a listed name is not a component any more.
  *   2 — usage error.
  *
  * Usage:
@@ -228,14 +230,16 @@ export function templateProblems(root, name, figmaDir = FIGMA_DIR) {
 export function readAllowlist(root, pkg = PACKAGES[0]) {
   const allowlist = allowlistOf(pkg);
   const file = path.join(root, allowlist);
-  if (!fs.existsSync(file)) throw new Error(`${allowlist} is missing: {"required": [...], "notYet": [...]}`);
+  if (!fs.existsSync(file)) throw new Error(`${allowlist} is missing: {"required": [...], "notYet": [...], "composed": [...]}`);
   const json = JSON.parse(fs.readFileSync(file, "utf8"));
-  for (const key of ["required", "notYet"]) {
+  // `composed` is optional: the web allowlist and older fixtures have only the first two lists.
+  if (json.composed === undefined) json.composed = [];
+  for (const key of ["required", "notYet", "composed"]) {
     if (!Array.isArray(json[key]) || json[key].some((n) => typeof n !== "string")) {
       throw new Error(`${allowlist}: "${key}" must be an array of component names`);
     }
   }
-  return { required: json.required, notYet: json.notYet };
+  return { required: json.required, notYet: json.notYet, composed: json.composed };
 }
 
 /** The visual components one package exports, read from its indexes. */
@@ -257,29 +261,35 @@ export function discoverComponents(root, pkg = PACKAGES[0]) {
 
 /**
  * Runs the whole check for one package of a checkout (ui-native by default). Returns
- * { components, failures, missing, covered }: `failures` are the lines that make the check
- * exit 1; `missing` the notYet components without a template (reported only).
+ * { components, failures, missing, covered, composed }: `failures` are the lines that make the
+ * check exit 1; `missing` the notYet components without a template (reported only); `composed`
+ * the screens assembled from library components, which have no template by design.
  */
 export function checkCodeConnect(root, pkg = PACKAGES[0]) {
   const components = discoverComponents(root, pkg);
   const allowlist = allowlistOf(pkg);
-  const { required, notYet } = readAllowlist(root, pkg);
+  const lists = readAllowlist(root, pkg);
+  const { required, notYet } = lists;
   const failures = [];
   const missing = [];
   const covered = [];
+  const composed = [];
 
   const known = new Set(components);
-  for (const name of [...required, ...notYet]) {
+  for (const name of [...required, ...notYet, ...lists.composed]) {
     if (!known.has(name)) failures.push(`${allowlist}: ${name} is not a visual component exported from ${pkg.name}; remove it`);
   }
-  for (const name of required) {
-    if (notYet.includes(name)) failures.push(`${allowlist}: ${name} is in both "required" and "notYet"`);
+  const listNames = ["required", "notYet", "composed"];
+  for (const name of known) {
+    const inLists = listNames.filter((key) => lists[key].includes(name));
+    if (inLists.length > 1) failures.push(`${allowlist}: ${name} is in both ${inLists.map((k) => `"${k}"`).join(" and ")}`);
   }
   for (const name of components) {
     const isRequired = required.includes(name);
     const isNotYet = notYet.includes(name);
-    if (!isRequired && !isNotYet) {
-      failures.push(`${name}: exported from ${pkg.name} but in neither list of ${allowlist}; add it to "notYet" (or "required" with its template)`);
+    const isComposed = lists.composed.includes(name);
+    if (!isRequired && !isNotYet && !isComposed) {
+      failures.push(`${name}: exported from ${pkg.name} but in no list of ${allowlist}; add it to "notYet" (or "required" with its template, or "composed" for a screen assembled from library components)`);
       continue;
     }
     const problems = templateProblems(root, name, pkg.figmaDir);
@@ -288,14 +298,17 @@ export function checkCodeConnect(root, pkg = PACKAGES[0]) {
       else if (problems.length) failures.push(...problems);
       else covered.push(name);
     } else if (problems === null) {
-      missing.push(name);
+      if (isComposed) composed.push(name);
+      else missing.push(name);
     } else if (problems.length) {
       failures.push(...problems);
+    } else if (isComposed) {
+      failures.push(`${name}: has a template but is "composed" in ${allowlist}; a composed screen has no template by design, so move it to "required" or delete the template`);
     } else {
       failures.push(`${name}: has a template but is still "notYet" in ${allowlist}; move it to "required"`);
     }
   }
-  return { components, failures, missing, covered };
+  return { components, failures, missing, covered, composed };
 }
 
 function main(argv) {
@@ -333,8 +346,10 @@ function main(argv) {
       console.error(`check-code-connect [${pkg.name}]: ${err.message}`);
       return 2;
     }
-    const { components, failures, missing, covered } = result;
-    console.log(`check-code-connect [${pkg.name}]: ${components.length} visual components, ${covered.length} with a published template, ${missing.length} not yet.`);
+    const { components, failures, missing, covered, composed } = result;
+    console.log(
+      `check-code-connect [${pkg.name}]: ${components.length} visual components, ${covered.length} with a published template, ${missing.length} not yet, ${composed.length} composed, no template by design.`,
+    );
     if (missing.length) {
       console.log(`\nNo Code Connect template yet (${allowlistOf(pkg)} "notYet"):`);
       for (const name of missing) console.log(`  - ${name}  →  ${pkg.figmaDir}/${name}.figma.ts`);
