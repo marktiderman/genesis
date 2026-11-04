@@ -590,6 +590,7 @@ function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, 
         errorTitle={copy.agentInbox.threadErrorTitle}
         errorBody={copy.messenger.errorBody}
         onRetry={() => void replies.refetch()}
+        retryLabel={copy.agentInbox.retry}
         {...(CLOSED.has(t.status) ? { closedNotice: copy.thread.closed } : {})}
         composer={
           CLOSED.has(t.status) || threadFailed
@@ -627,6 +628,14 @@ function useReported(error: unknown, report: (error: unknown) => void) {
 /** The messenger: Home, Messages and Help, in whatever holds it. Another tenant is another messenger: nothing carries over. */
 export function SupportMessenger(props: SupportMessengerProps) {
   const tenant = useResolvedTenant(props.client, props.tenantId);
+  if (tenant.failed) {
+    const copy = resolveSupportCopy(props.copy);
+    return (
+      <div data-testid="genesis-support-messenger-failed">
+        <EmptyState title={copy.messenger.helpErrorTitle} description={copy.messenger.errorBody} />
+      </div>
+    );
+  }
   if (!tenant.ready) return <Skeleton data-testid="genesis-support-messenger-loading" className="h-64 w-full" />;
   return <Messenger key={scopeOf(props.client, tenant.tenantId)} {...props} tenantId={tenant.tenantId} />;
 }

@@ -113,6 +113,7 @@ export const supportCopy = {
     emptyTitle: { mine: "Nothing assigned to you", unassigned: "Nothing waiting", all: "No tickets yet" },
     emptyBody: "New tickets show up here.",
     errorTitle: "Couldn't load the tickets",
+    retry: "Try again",
     errorBody: "Check your connection and try again.",
     notAllowedTitle: "These tickets aren't yours to see",
     notAllowedBody: "Only this help desk's agents can open its tickets.",

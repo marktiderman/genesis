@@ -1,5 +1,5 @@
 ---
-"@marktiderman/genesis-chat": patch
+"@marktiderman/genesis-chat": minor
 ---
 
-On the web, a picture from outside the app's storage shows as a link naming its host, and a stored file that doesn't sign has no URL. A reader's browser loads nothing a sender chose until they ask.
+On the web, images, video and voice notes from outside the app's storage now show as file links naming their host, for every app on chat's web UI: they no longer render inline. A stored file that doesn't sign has no URL. A reader's browser loads none of these until they open the link.

@@ -25,14 +25,16 @@ export function scopeOf(client: SupportClient, tenantId: string | null): string 
 }
 
 /** `ready` is false until it's known: a screen doesn't read or write until then, or it could use the wrong tenant. */
-export function useResolvedTenant(client: SupportClient, tenantId: string | null | undefined): { ready: boolean; tenantId: string | null } {
+export function useResolvedTenant(client: SupportClient, tenantId: string | null | undefined): { ready: boolean; failed: boolean; tenantId: string | null } {
   const option = useQuery({
     queryKey: ["genesis-support", "tenant-option", idOf(client)],
     queryFn: async () => (client.currentTenant ? await client.currentTenant() : null),
     enabled: tenantId === undefined,
     staleTime: 0,
     refetchInterval: 30_000,
+    retry: false,
   });
-  if (tenantId !== undefined) return { ready: true, tenantId };
-  return { ready: option.data !== undefined, tenantId: option.data ?? null };
+  if (tenantId !== undefined) return { ready: true, failed: false, tenantId };
+  const ready = option.data !== undefined;
+  return { ready, failed: !ready && option.isError, tenantId: option.data ?? null };
 }

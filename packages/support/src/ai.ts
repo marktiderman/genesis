@@ -216,9 +216,11 @@ export async function answerHelpQuestion(
   try {
     result = await runTask(ai, input.task ?? supportHelpAnswerTask(), { questionId }, budgeted);
   } catch (error) {
+    // It may have stopped before the pipeline reached the protocol.
     report(error);
-    await record("no_answer");
-    return { status: "none" };
+    const route = await routed();
+    await record(route ? "safety_routed" : "no_answer");
+    return route ?? { status: "none" };
   }
   if (result.ok) {
     const answer = result.output.answer.trim().slice(0, MAX_ANSWER_CHARS);

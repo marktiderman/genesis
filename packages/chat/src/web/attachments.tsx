@@ -61,15 +61,15 @@ const hostOf = (url: string | null): string => {
 export function toAttachmentView(a: ChatAttachment, urls: Record<string, string>): AttachmentView {
   const signed = a.path ? (urls[a.path] ?? null) : null;
   const url = a.path ? signed : a.provider === "external" || a.kind === "link" ? a.url : null;
-  // A picture from outside storage is a link naming its host: whoever sent it chose that address,
-  // so a reader's browser loads nothing until they ask.
-  const outsidePicture = a.kind === "image" && !a.path && Boolean(url);
+  // Media from outside storage is a link naming its host: whoever sent it chose that address, so a
+  // reader's browser loads nothing until they ask.
+  const outsideMedia = (a.kind === "image" || a.kind === "video" || a.kind === "voice") && !a.path && Boolean(url);
   return {
     key: a.id,
-    kind: outsidePicture ? "file" : a.kind,
+    kind: outsideMedia ? "file" : a.kind,
     url,
     posterUrl: a.posterPath ? (urls[a.posterPath] ?? null) : null,
-    name: outsidePicture ? `${a.name ?? "Image"} (${hostOf(url)})` : a.name,
+    name: outsideMedia ? `${a.name ?? "File"} (${hostOf(url)})` : a.name,
     mime: a.mime,
     bytes: a.bytes,
     width: a.width,

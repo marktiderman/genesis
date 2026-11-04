@@ -17,6 +17,12 @@ describe("toAttachmentView", () => {
     expect(toAttachmentView(attachment({ provider: "external", url: "https://elsewhere.test/b.png" }), {})).toMatchObject({ kind: "file", url: "https://elsewhere.test/b.png", name: "a.png (elsewhere.test)" });
   });
 
+  it("does the same for video and voice from outside storage", () => {
+    for (const kind of ["video", "voice"] as const) {
+      expect(toAttachmentView(attachment({ kind, provider: "external", url: "https://elsewhere.test/b.mp4" }), {})).toMatchObject({ kind: "file", name: "a.png (elsewhere.test)" });
+    }
+  });
+
   it("gives a stored file that didn't sign no URL, whatever the message carries", () => {
     expect(toAttachmentView(attachment({ provider: "external", path: "x", url: "https://elsewhere.test/b.png" }), {})).toMatchObject({ url: null });
   });

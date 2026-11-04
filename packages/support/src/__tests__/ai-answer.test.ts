@@ -24,7 +24,9 @@ const answer = (_ai: unknown, keeper: ReturnType<typeof admin>, onError?: (error
   answerHelpQuestion(ai as never, { questionId: QUESTION, context: { tenantId: "session", personId: "me", db: db(outcome) as never }, admin: keeper, ...(onError ? { onError } : {}) });
 
 describe("answerHelpQuestion", () => {
-  beforeEach(() => run.mockReset());
+  beforeEach(() => {
+    run.mockReset();
+  });
 
   it("keeps a confident, cited answer, and spends the question's tenant's budget", async () => {
     run.mockResolvedValue(ok({ answer: " Open Settings. ", citations: [ARTICLE], confident: true }));
@@ -90,14 +92,21 @@ describe("answerHelpQuestion", () => {
   });
 
   it("never hands onError the request, which holds the prompt", async () => {
-    run.mockResolvedValue({ ok: false, outcome: "over_budget", message: "Used up." });
     const error = Object.assign(new Error("Bad request"), { requestBodyValues: { messages: ["their words"] } });
-    const keeper = { rpc: vi.fn(async () => Promise.reject(error)) };
+    run.mockRejectedValue(error);
     const onError = vi.fn();
-    expect(await answer({}, keeper as never, onError)).toEqual({ status: "none" });
+    expect(await answer({}, admin(), onError)).toEqual({ status: "none" });
     const reported = onError.mock.calls[0]?.[0] as Error;
     expect(reported.message).toBe("Bad request");
     expect(Object.getOwnPropertyNames(reported)).not.toContain("requestBodyValues");
+  });
+
+  it("still asks the protocol when the task fails before reaching it", async () => {
+    run.mockRejectedValue(new Error("Load failed"));
+    const keeper = admin();
+    const ai = { config: { safety: () => ({ category: "crisis", response: "Please call." }) } };
+    expect(await answer({}, keeper, undefined, "asked", ai)).toEqual({ status: "safety", response: "Please call." });
+    expect(keeper.rpc).toHaveBeenCalledWith("support_record_answer", expect.objectContaining({ outcome: "safety_routed" }));
   });
 
   it("ends at none when the first read throws", async () => {

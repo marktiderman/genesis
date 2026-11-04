@@ -274,6 +274,7 @@ function TicketPane({ client, ticket, resolveUser, agents, slots, contextToggle,
         errorTitle={copy.agentInbox.threadErrorTitle}
         errorBody={copy.agentInbox.errorBody}
         onRetry={() => void replies.refetch()}
+        retryLabel={copy.agentInbox.retry}
         readAt={ticket.userReadAt}
         readLabel={copy.thread.read}
         labels={{ you: copy.thread.you, internal: copy.thread.internalNote }}
@@ -390,6 +391,7 @@ function TicketDetails({ client, ticket, resolveUser, context, copy }: Pick<Pane
 /** A tenant's help desk inbox: its queues, the open ticket's thread and its details. Another tenant is a fresh inbox. */
 export function SupportAgentInbox(props: SupportAgentInboxProps) {
   const tenant = useResolvedTenant(props.client, props.tenantId);
+  if (tenant.failed) return <EmptyState title={resolveSupportCopy(props.copy).agentInbox.errorTitle} description={resolveSupportCopy(props.copy).agentInbox.errorBody} />;
   if (!tenant.ready) return <Skeleton className="h-64 w-full" />;
   return <AgentInbox key={scopeOf(props.client, tenant.tenantId)} {...props} tenantId={tenant.tenantId} />;
 }

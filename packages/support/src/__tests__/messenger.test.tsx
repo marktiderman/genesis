@@ -328,6 +328,13 @@ describe("SupportMessenger", () => {
     await waitFor(() => expect(two.ticketsInTenant).toHaveBeenCalledWith({ tenantId: null }));
   });
 
+  it("says so when the client's tenant can't be read, rather than loading for ever", async () => {
+    const client = fakeClient({ currentTenant: vi.fn(async () => Promise.reject(new Error("no workspace"))) });
+    render(<SupportMessenger client={client} />, { wrapper });
+    expect(await screen.findByTestId("genesis-support-messenger-failed")).toBeTruthy();
+    expect(client.ticketsInTenant).not.toHaveBeenCalled();
+  });
+
   it("starts afresh on another tenant", async () => {
     const client = fakeClient();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

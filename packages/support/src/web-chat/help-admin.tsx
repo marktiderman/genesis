@@ -247,6 +247,7 @@ function Editor({ client, tenantArg, article, collections, copy, onSaved, onDele
 /** A tenant's help center, for its agents. */
 export function SupportHelpCenterAdmin(props: SupportHelpCenterAdminProps) {
   const tenant = useResolvedTenant(props.client, props.tenantId);
+  if (tenant.failed) return <EmptyState title={resolveSupportCopy(props.copy).helpAdmin.errorTitle} description={resolveSupportCopy(props.copy).helpAdmin.errorBody} />;
   if (!tenant.ready) return <Skeleton className="h-64 w-full" />;
   return <HelpCenterAdmin key={scopeOf(props.client, tenant.tenantId)} {...props} tenantId={tenant.tenantId} />;
 }
