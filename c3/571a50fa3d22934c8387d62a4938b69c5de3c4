@@ -1,0 +1,70 @@
+packages/genesis-cli/test/fixtures/figma-routes/app/src/routes/admin/decks.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1
+packages/genesis-cli/src/doctor/figma-routes.ts
+  s_109ad08c59054b::t_36a4b0c9221c4c 1-29
+packages/genesis-cli/test/fixtures/figma-routes/app/src/routes/__root.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1
+packages/genesis-cli/src/vite.ts
+  s_109ad08c59054b::t_468b44590204ea 45,81
+packages/genesis-cli/src/doctor/rules.ts
+  s_109ad08c59054b::t_468b44590204ea 16-17
+packages/genesis-cli/test/figma-routes.test.ts
+  s_109ad08c59054b::t_aa42d5517a718b 110
+  s_109ad08c59054b::t_8476c07d8f6c49 1-109,111-153
+packages/genesis-cli/test/fixtures/figma-routes/app/src/app/+native-intent.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1-3
+packages/genesis-cli/test/fixtures/figma-routes/app/src/routes/admin/route.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1
+packages/genesis-cli/test/fixtures/figma-routes/app/src/routes/index.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1-8
+packages/genesis-cli/test/fixtures/figma-routes/app/src/routes/courses.$courseId.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1
+packages/genesis-cli/src/index.ts
+  s_109ad08c59054b::t_0f11c599fd0ef5 65-80
+packages/genesis-cli/test/fixtures/figma-routes/app/src/app/+not-found.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1-3
+packages/genesis-cli/test/fixtures/figma-routes/app/src/routes/docs.{-$section}.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1
+packages/genesis-cli/test/fixtures/figma-routes/app/genesis.config.json
+  s_109ad08c59054b::t_2c23190bc173d8 1-3
+packages/genesis-cli/src/cli.ts
+  s_109ad08c59054b::t_2c97f994841ef2 18,389-407
+  s_109ad08c59054b::t_971cffdc895a77 408
+packages/genesis-cli/src/upgrade/index.ts
+  s_109ad08c59054b::t_98b7a252264c82 669
+packages/genesis-cli/src/figma/routes.ts
+  s_109ad08c59054b::t_d3004ba521258e 1-450,452-457
+  s_109ad08c59054b::t_468b44590204ea 451
+packages/genesis-cli/test/fixtures/figma-routes/app/src/app/(tabs)/settings.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1-4
+packages/genesis-cli/src/doctor/index.ts
+  s_109ad08c59054b::t_468b44590204ea 45,124-125,146,223,254
+packages/genesis-cli/test/fixtures/figma-routes/app/src/app/(tabs)/_layout.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1-3
+packages/genesis-cli/test/fixtures/figma-routes/app/src/app/(tabs)/index.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1-7
+packages/genesis-cli/test/fixtures/figma-routes/app/src/app/items/[id].tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1-3
+packages/genesis-cli/test/fixtures/figma-routes/app/src/app/_layout.tsx
+  s_109ad08c59054b::t_2c23190bc173d8 1-3
+packages/genesis-cli/test/fixtures/figma-routes/figma.json
+  s_109ad08c59054b::t_084f28dd41a80d 1-88
+packages/genesis-cli/test/__snapshots__/figma-routes.test.ts.snap
+  s_109ad08c59054b::t_1ac4b060fb7289 1-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c3571a50fa3d22934c8387d62a4938b69c5de3c4",
+  "prompts": {},
+  "sessions": {
+    "s_109ad08c59054b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f38d416e-184d-4c3b-a621-ffb7a781b66f",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
