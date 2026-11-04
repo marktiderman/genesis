@@ -1,0 +1,27 @@
+packages/ui/figma/AccessibleIcon.figma.ts
+  s_9613ab470e300c::t_3ddcdeb1c4af3d 4,8
+packages/product/figma/VoteButton.figma.ts
+  s_9613ab470e300c::t_3ddcdeb1c4af3d 8
+packages/native/figma/ForceUpgradeScreen.figma.ts
+  s_9613ab470e300c::t_3ddcdeb1c4af3d 14
+packages/ui/figma/SummaryCard.figma.ts
+  s_9613ab470e300c::t_3ddcdeb1c4af3d 9
+packages/native/figma/MaintenanceScreen.figma.ts
+  s_9613ab470e300c::t_3ddcdeb1c4af3d 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6ffae6b9874b79c9e33ce16a1bfa2a714e167aab",
+  "prompts": {},
+  "sessions": {
+    "s_9613ab470e300c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df308523-d2f5-4e93-bef7-0f444d7d1772",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
