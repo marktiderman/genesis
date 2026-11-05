@@ -1,0 +1,33 @@
+.changeset/deploy-update-no-rollout.md
+  s_17abeeec19e155::t_71b2bca64ae655 1-5
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_9613ab470e300c::t_b1b954e89a29db 128-129,147-148
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_17abeeec19e155::t_65de256dfcb234 155-157
+templates/eas/workflows/deploy-production.yml
+  s_9613ab470e300c::t_57617b16f1ee6f 128-129,147-148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9f73b0197f1da668baac8308147f1f23a5c2e0fa",
+  "prompts": {},
+  "sessions": {
+    "s_17abeeec19e155": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ec08f101-2dae-4b4f-91a3-e9cf2e60c5c7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_9613ab470e300c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df308523-d2f5-4e93-bef7-0f444d7d1772",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
