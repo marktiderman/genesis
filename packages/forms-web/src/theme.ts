@@ -8,7 +8,8 @@ export interface FormTheme {
    * The accent colour, as `#rgb`, `#rrggbb` or `rgb(r, g, b)`, such as a
    * brand's colour. It is adjusted only as far as needed for contrast: at
    * least 3:1 against the page (light and dark), with text on it at least
-   * 4.5:1 (white or near-black, whichever reads better). Anything else is ignored.
+   * 4.5:1 (white or near-black, whichever reads better), and as text on the
+   * page (`--primary-text`) at least 4.5:1. Anything else is ignored.
    */
   accent?: string | undefined;
   /** A banner image URL shown over the form's title. */
@@ -21,6 +22,8 @@ export interface FormTheme {
 export interface ThemeColors {
   primary: string;
   primaryForeground: string;
+  /** The accent as text or an icon on the page (`--primary-text`), at least 4.5:1 with it. */
+  primaryText: string;
 }
 
 type Rgb = [number, number, number];
@@ -82,15 +85,17 @@ const WHITE_HSL = "0 0% 100%";
 const NEAR_BLACK_HSL = "240 10% 3.9%";
 
 const fmt = (h: number, s: number, l: number) => `${Math.round(h)} ${Math.round(s)}% ${Math.round(l * 10) / 10}%`;
+/** The colour as `fmt` emits it (rounded), so every contrast check is on what the browser renders. */
+const rendered = (h: number, s: number, l: number): Rgb => hslToRgb(Math.round(h), Math.round(s), Math.round(l * 10) / 10);
 
 function fit(h: number, s: number, l: number, page: Rgb, darken: boolean): ThemeColors {
   let light = l;
   // At least 3:1 with the page (WCAG 1.4.11: borders, icons, focus rings).
-  for (let i = 0; i < 100 && contrast(hslToRgb(h, s, light), page) < 3; i++) light = Math.max(0, Math.min(100, light + (darken ? -1 : 1)));
+  for (let i = 0; i < 100 && contrast(rendered(h, s, light), page) < 3; i++) light = Math.max(0, Math.min(100, light + (darken ? -1 : 1)));
   // Text on the accent at least 4.5:1: white or near-black, whichever is higher;
   // in the narrow middle where neither reaches it, lighten under near-black text.
   const best = () => {
-    const rgb = hslToRgb(h, s, light);
+    const rgb = rendered(h, s, light);
     const white = contrast(rgb, WHITE);
     const dark = contrast(rgb, NEAR_BLACK);
     return white >= dark ? { ratio: white, fg: WHITE_HSL } : { ratio: dark, fg: NEAR_BLACK_HSL };
@@ -98,9 +103,12 @@ function fit(h: number, s: number, l: number, page: Rgb, darken: boolean): Theme
   let pick = best();
   for (let i = 0; i < 100 && pick.ratio < 4.5; i++) {
     light = Math.min(100, light + 1);
-    pick = { ratio: contrast(hslToRgb(h, s, light), NEAR_BLACK), fg: NEAR_BLACK_HSL };
+    pick = { ratio: contrast(rendered(h, s, light), NEAR_BLACK), fg: NEAR_BLACK_HSL };
   }
-  return { primary: fmt(h, s, light), primaryForeground: pick.fg };
+  // The accent as text on the page at least 4.5:1 (WCAG 1.4.3), stepped on from the fill's lightness.
+  let text = light;
+  for (let i = 0; i < 100 && contrast(rendered(h, s, text), page) < 4.5; i++) text = Math.max(0, Math.min(100, text + (darken ? -1 : 1)));
+  return { primary: fmt(h, s, light), primaryForeground: pick.fg, primaryText: fmt(h, s, text) };
 }
 
 /**
@@ -119,6 +127,6 @@ export function themeColors(accent: string): { light: ThemeColors; dark: ThemeCo
 export function themeCss(theme: FormTheme | undefined, selector: string): string {
   const colors = theme?.accent ? themeColors(theme.accent) : null;
   if (!colors) return "";
-  const block = (c: ThemeColors) => `--primary: ${c.primary}; --primary-foreground: ${c.primaryForeground}; --ring: ${c.primary};`;
+  const block = (c: ThemeColors) => `--primary: ${c.primary}; --primary-foreground: ${c.primaryForeground}; --primary-text: ${c.primaryText}; --ring: ${c.primary};`;
   return `${selector} { ${block(colors.light)} }\n.dark ${selector}, ${selector}.dark { ${block(colors.dark)} }`;
 }
