@@ -1,5 +1,17 @@
 # @marktiderman/genesis
 
+## 0.10.19
+
+### Patch Changes
+
+- Updated dependencies [91be246]
+- Updated dependencies [4261fb1]
+- Updated dependencies [6996d4a]
+  - @marktiderman/genesis-forms-web@0.8.1
+  - @marktiderman/genesis-design-system@1.10.0
+  - @marktiderman/genesis-ui@2.32.1
+  - @marktiderman/genesis-ui-native@3.9.1
+
 ## 0.10.18
 
 ### Patch Changes

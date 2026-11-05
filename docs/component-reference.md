@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 715 components · 4406 other exports · 3675 standalone types across 200 entry points in 30 packages.
+**Totals:** 715 components · 4406 other exports · 3676 standalone types across 200 entry points in 30 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -11192,7 +11192,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WORKSPACE_SWITCHER_SEARCH_THRESHOLD`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | With `search="auto"`, past this many workspaces the menu opens with a search box. |
 | [`workspaceThemeStyle`](../packages/ui/src/components/layout/workspace-switcher.tsx) | function | Beta | The CSS variables for a workspace's brand (`workspace.theme.accent`): `--primary`, `--primary-foreground` and `--ring` pointed at an accessible shade of the accent, as `brandThemeStyle` does for a public page. Empty without a valid accen... |
 
-### Types (36)
+### Types (37)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -11201,6 +11201,7 @@ export type { AccessibleAccent };
 export type { AppShellOptions };
 export type { AuthPageBrandingProps };
 export type { AuthPageSlotMap };
+export type { BrandThemeStyleOptions };
 export type { BuilderLayoutSlotProps };
 export type { GenesisLinkProps };
 export type { LinkComponent };
