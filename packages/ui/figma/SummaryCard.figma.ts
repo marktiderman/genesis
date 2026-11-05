@@ -6,7 +6,7 @@ const instance = figma.selectedInstance
 
 const title = instance.getString('Title')
 const meta = instance.getString('Meta')
-const icon = instance.getInstanceSwap('Icon swap')
+const icon = instance.getInstanceSwap('Icon')
 let iconCode
 if (icon && icon.type === 'INSTANCE') {
   iconCode = icon.executeTemplate().example

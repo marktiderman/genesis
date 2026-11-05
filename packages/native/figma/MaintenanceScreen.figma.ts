@@ -5,7 +5,7 @@ import figma from 'figma'
 const instance = figma.selectedInstance
 
 export default {
-  example: figma.code`<MaintenanceScreen message={policy.message} retry={retry} retrying={${instance.getBoolean('retrying')}} />`,
+  example: figma.code`<MaintenanceScreen message={policy.message} retry={retry} retrying={${instance.getEnum('retrying', { false: 'false', true: 'true' })}} />`,
   imports: ['import { MaintenanceScreen } from "@marktiderman/genesis-native/updates"'],
   id: 'native-maintenance-screen',
   metadata: { nestable: false },

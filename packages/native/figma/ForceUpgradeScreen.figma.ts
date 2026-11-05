@@ -11,7 +11,7 @@ export default {
   storeUrl={storeUrl}
   openStore={openStore}
   retry={retry}
-  checking={${instance.getBoolean('checking')}}
+  checking={${instance.getEnum('checking', { false: 'false', true: 'true' })}}
 />`,
   imports: ['import { ForceUpgradeScreen } from "@marktiderman/genesis-native/updates"'],
   id: 'native-force-upgrade-screen',
