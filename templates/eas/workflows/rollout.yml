@@ -1,4 +1,5 @@
-# Promote or roll back a staged production update (one deploy-production.yml started).
+# Promote or roll back a staged production update: one published by hand with `--rollout-percentage`
+# (deploy-production.yml sends every merge's update to every install).
 #
 # Run it by hand, from git:
 #
