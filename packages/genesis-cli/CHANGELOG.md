@@ -1,5 +1,11 @@
 # @marktiderman/genesis-cli
 
+## 1.22.1
+
+### Patch Changes
+
+- 05e1fd8: `genesis figma:routes` reads a `Proposal · <status> · <slug>` section on a route page as a proposal, so its frames are no longer reported as frames without a route.
+
 ## 1.22.0
 
 ### Minor Changes
