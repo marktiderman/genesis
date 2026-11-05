@@ -1,0 +1,19 @@
+.changeset/deploy-on-merge-to-main.md
+  s_17abeeec19e155::t_0d1ed586345c8b 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "64f3b27e159ef1af7186d510d26aabe4a30c8180",
+  "prompts": {},
+  "sessions": {
+    "s_17abeeec19e155": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ec08f101-2dae-4b4f-91a3-e9cf2e60c5c7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
