@@ -79,7 +79,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { brandThemeStyle } from "./brand-theme";
+import { brandThemeStyle, type BrandThemeStyleOptions } from "./brand-theme";
 
 /** @stability Beta */
 export type WorkspaceSwitcherVariant = "sidebar" | "rail" | "bar";
@@ -162,12 +162,13 @@ export const DEFAULT_WORKSPACE_KIND_ICONS: Readonly<Partial<Record<WorkspaceKind
  * `--primary-foreground` and `--ring` pointed at an accessible shade of the accent, as
  * `brandThemeStyle` does for a public page. Empty without a valid accent. The switcher puts it on
  * each workspace's picture and row; an app can put the current workspace's on its shell to brand
- * everything inside.
+ * everything inside (pass `{ mode: "dark" }` when that shell renders dark, so `--primary-text`
+ * reads on the dark background).
  *
  * @stability Beta
  */
-export function workspaceThemeStyle(workspace: Pick<Workspace, "theme"> | undefined): CSSProperties {
-  return brandThemeStyle(workspace?.theme);
+export function workspaceThemeStyle(workspace: Pick<Workspace, "theme"> | undefined, options: BrandThemeStyleOptions = {}): CSSProperties {
+  return brandThemeStyle(workspace?.theme, options);
 }
 
 /**

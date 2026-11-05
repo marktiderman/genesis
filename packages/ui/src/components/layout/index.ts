@@ -120,6 +120,7 @@ export {
   toHslTriplet,
   MIN_TEXT_CONTRAST,
   type AccessibleAccent,
+  type BrandThemeStyleOptions,
   type PublicBrand,
   type Rgb,
 } from "./brand-theme";

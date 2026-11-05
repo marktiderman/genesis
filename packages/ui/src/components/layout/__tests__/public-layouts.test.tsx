@@ -311,6 +311,17 @@ describe("contrast fallback", () => {
     expect(brandThemeStyle({})).toEqual({});
   });
 
+  it("brandThemeStyle's --primary-text reads on the page in each mode", () => {
+    const darkPage = fromTriplet("240 10% 3.9%");
+    for (const accent of ["#FFC402", EMERALD, "#1e3a8a", INDIGO]) {
+      const light = brandThemeStyle({ accent }) as Record<string, string>;
+      const dark = brandThemeStyle({ accent }, { mode: "dark" }) as Record<string, string>;
+      expect(contrastRatio(fromTriplet(light["--primary-text"]!), WHITE), accent).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
+      expect(contrastRatio(fromTriplet(dark["--primary-text"]!), darkPage), accent).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
+      expect(dark["--primary"]).toBe(light["--primary"]);
+    }
+  });
+
   it("the emitted, rounded triplet reaches 4.5:1 across hues and lightness levels", () => {
     // Property-style sweep: every hue in 11-degree steps, several saturations,
     // lightness 0-100 in 1.3% steps (offsets chosen to hit awkward roundings),
