@@ -1,0 +1,177 @@
+docs/DESIGN-LIBRARY.md
+  s_9613ab470e300c::t_2ed60195964eb0 20
+  s_9613ab470e300c::t_8475f3c862cd3e 52-56
+packages/design-system/src/presets/__tests__/nativewind.test.ts
+  s_9613ab470e300c::t_a8fe645de8f0c1 17,20,23-27
+  s_9613ab470e300c::t_548b13a5a2def9 40
+packages/ui/src/components/data/calendar/EventCalendar.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 553,645,710
+packages/ui-native/src/components/tab-bar.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 56,123
+packages/design-system/src/factories/__tests__/brand-roles.test.ts
+  s_9613ab470e300c::t_96683a989786d8 170-174
+  s_9613ab470e300c::t_d1e15a13503476 207-208
+  s_9613ab470e300c::t_57a11eb95b3aa1 11
+  s_9613ab470e300c::t_254904bacd7366 155-169,175-206,209-211
+packages/ui/src/components/ui/button.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 23
+packages/ui-native/src/data/resource-view/NativeRecordView.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 798
+packages/ui/src/components/data/KanbanBoard.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 29
+packages/forms-web/src/searchable.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 45
+packages/design-system/src/tokens/theme-css.ts
+  s_9613ab470e300c::t_37b6f0180da07e 52-57
+  s_9613ab470e300c::t_1b5362dec37e86 225
+  s_9613ab470e300c::t_3553d47632b7a8 97-98
+  s_9613ab470e300c::t_f54886497b3f4d 95-96
+packages/forms-builder/src/questions.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 520
+packages/forms-web/src/renderers.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 429,443
+packages/ui/src/components/layout/__tests__/app-shell-mobile.test.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 267
+packages/chat/src/web/thread.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 242,682,739
+packages/ui/src/components/data/DataFilters.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 305
+packages/ui-native/src/components/search-bar.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 123
+packages/ui-native/src/layouts/notifications-page.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 142
+packages/forms-builder/src/flow.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 151
+packages/design-system/src/tokens/themes.ts
+  s_9613ab470e300c::t_f54886497b3f4d 23,58
+packages/design-system/src/schema/brand.ts
+  s_9613ab470e300c::t_c829773b5c0518 285-292
+  s_9613ab470e300c::t_af903917f36bf0 528
+  s_9613ab470e300c::t_081f09d824417a 720,724
+  s_9613ab470e300c::t_44834c68a0f4d5 335-336
+  s_9613ab470e300c::t_11ef254d120544 323-324
+  s_9613ab470e300c::t_426936a72a9fda 284
+packages/ui-native/src/components/chip-group.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 117
+packages/ui/src/components/ui/radio-group.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 30
+packages/chat/src/web/markdown.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 218,235-236
+packages/ui/src/components/patterns/messaging/thread-page.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 298,319,336
+packages/ui/src/components/patterns/__tests__/rating.test.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 179
+packages/forms-web/src/__tests__/question-types.test.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 98
+packages/ui/src/components/data/StatCard.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 8,59
+packages/ui-native/src/layouts/inbox-page.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 262
+.changeset/primary-text-role.md
+  s_9613ab470e300c::t_3a661ae63627d1 1-19
+  s_9613ab470e300c::t_b28b7c00e6d6b6 20
+packages/design-system/schema/brand.schema.json
+  s_9613ab470e300c::t_adde7623d669c9 113
+  s_9613ab470e300c::t_f2a23d6a161a82 123
+packages/ui/src/components/layout/sub-nav.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 120
+packages/forms-studio/src/PhotoAnswer.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 48
+packages/sites/src/core/theme.ts
+  s_9613ab470e300c::t_cb4a4ed9a5f540 209
+  s_9613ab470e300c::t_91a2c201545569 254
+  s_9613ab470e300c::t_f6cbad6b8ab297 276
+  s_9613ab470e300c::t_0cf6998fe09b1c 232-240
+packages/design-system/src/design-systems/tokens.ts
+  s_9613ab470e300c::t_f54886497b3f4d 171
+packages/ui/src/components/layout/AppShell.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 1929,1963,2009
+packages/forms-web/src/Form.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 402
+packages/ui/src/components/layout/PageHeader.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 542
+packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 152
+packages/ui/src/components/layout/__tests__/app-shell-navigation.test.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 220
+packages/ui-native/src/layouts/auth.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 366
+packages/ui/src/components/patterns/rating.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 46
+packages/ui-native/src/layouts/settings-page.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 242,272
+packages/design-system/src/schema/brand-contrast.ts
+  s_9613ab470e300c::t_196f92bb49de17 72
+packages/ui-native/src/components/stepper.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 60
+packages/chat/src/web/composer.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 373
+packages/ui-native/src/data/resource-view/display.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 169
+packages/support/src/web-chat/messenger.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 313
+packages/ui/src/components/layout/brand-theme.ts
+  s_9613ab470e300c::t_0b76b529eeb141 24
+  s_9613ab470e300c::t_f7e7d459cf2fd9 260
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 6
+packages/chat/src/web/bubble.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 288
+packages/forms-builder/src/logic.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 158
+packages/ui/src/components/rich-text/rich-text.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 71
+packages/ui-native/src/data/resource-view/NativeLinkPicker.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 185
+packages/sites/src/editor/publish-panel.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 78
+packages/chat/src/web/cards.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 113
+packages/ui/src/components/resource/ResourceSettingsPage.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 38
+packages/ui-native/src/layouts/nav-bar.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 61
+packages/forms-builder/src/settings.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 64,103
+packages/ui/src/components/layout/tab-bar.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 55,122
+packages/design-system/README.md
+  s_9613ab470e300c::t_0f411cfc5cf1b5 57-59
+  s_9613ab470e300c::t_a4eeb181b20cb5 45-56,60
+  s_9613ab470e300c::t_484df1be92c5ba 165
+packages/chat/src/web/inbox.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 169
+packages/ui-native/src/layouts/__tests__/settings-page-native-look.test.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 127
+packages/ui-native/src/components/inline-alert.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 53
+packages/design-system/src/factories/brand-roles.ts
+  s_9613ab470e300c::t_040ff9f07d4655 45-55
+  s_9613ab470e300c::t_6f84e42e54b0c0 198-238
+  s_9613ab470e300c::t_e6bbc59009b863 265-266
+packages/chat/src/web/voice-note.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 187
+packages/ui/src/components/data/DataTable.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 1563
+packages/ui/src/components/patterns/empty-state.tsx
+  s_9613ab470e300c::t_0fc9f4ef0c9aa0 174
+packages/sites/src/__tests__/__snapshots__/design-systems.test.ts.snap
+  s_9613ab470e300c::t_923cb47309c662 31,75,124,168,217,261,310,354,403,447,496,540,676,808,945,1077,1214,1346,1483,1615,1752,1884,2024,2159,2296,2428,2565,2697,2834,2966,3103,3235,3372,3504,3644,3779,3916,4048,4185,4317,4454,4586,4723,4855,4992,5124,5264,5399,5536,5668,5805,5937,6074,6206,6343,6475,6612,6744,6884,7019
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_9613ab470e300c::t_ebb8bcdaf2ed40 65,67,73,75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6996d4a7bb8a1dd8605e5e22baece563f1494973",
+  "prompts": {},
+  "sessions": {
+    "s_9613ab470e300c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df308523-d2f5-4e93-bef7-0f444d7d1772",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
