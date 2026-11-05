@@ -1674,7 +1674,7 @@ export const features = defineFeatures({
   },
   "eas-workflows": {
     name: "EAS release workflows",
-    summary: "EAS Workflows a native app owns, copied from templates/eas: pull request previews (fingerprint, repack a matching build or build one, an update on pr-<number>, a comment with the install QR code), a tag-started production deploy (a store build only when the native fingerprint changed, else a 10% over-the-air update, both behind an approval), a manual promote or roll back gated on failed launches, Maestro on a simulator build, and an eas.json whose profiles match the APP_VARIANT variants.",
+    summary: "EAS Workflows a native app owns, copied from templates/eas: pull request previews (fingerprint, repack a matching build or build one, an update on pr-<number>, a comment with the install QR code), a production deploy on every merge to main (a store build, submitted in the same run, only when the native fingerprint changed, else an over-the-air update to every install; main's protected merge is the approval), a manual promote or roll back for an update staged by hand, Maestro on a simulator build, and an eas.json whose profiles match the APP_VARIANT variants.",
     category: "Tooling",
     // Not run against a real EAS project yet: the files pass eas-cli's schema checks offline and
     // the starter's safety tests. Beta once a preview, a deploy and a rollout have run for real.
@@ -1690,7 +1690,7 @@ export const features = defineFeatures({
     visibility: "internal",
     acceptance: [
       "No pull request workflow can submit, publish to the production channel or use a production profile or environment.",
-      "Every store submission and every production update waits on a require-approval job, and production updates start below 100%.",
+      "The production deploy runs only on a push to main, with no require-approval job; its updates go to 100% (EAS allows one rollout at a time), and each store build is submitted in the run that built it.",
       "The starter's eas.json, workflows and rollout check are byte-identical to templates/eas.",
     ],
     reviewedAt: "2026-10-24",
