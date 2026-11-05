@@ -172,7 +172,7 @@ describe("themeColors keeps contrast", () => {
     return (x + 0.05) / (y + 0.05);
   };
 
-  for (const accent of ["#ffff00", "#fde68a", "#2563eb", "#111111", "#808080", "#0f0", "rgb(255, 120, 0)"]) {
+  for (const accent of ["#ffff00", "#fde68a", "#2563eb", "#111111", "#808080", "#0f0", "rgb(255, 120, 0)", "#a0f0ff", "#001e50"]) {
     it(`${accent}: 3:1 with the page, 4.5:1 for its text and as text, light and dark`, () => {
       const colors = themeColors(accent)!;
       const pages: [mode: "light" | "dark", page: number[]][] = [["light", [255, 255, 255]], ["dark", rgb("240 10% 3.9%")]];
@@ -180,7 +180,8 @@ describe("themeColors keeps contrast", () => {
         const c = colors[mode];
         expect(ratio(rgb(c.primary), page)).toBeGreaterThanOrEqual(2.95);
         expect(ratio(rgb(c.primary), rgb(c.primaryForeground))).toBeGreaterThanOrEqual(4.45);
-        expect(ratio(rgb(c.primaryText), page)).toBeGreaterThanOrEqual(4.45);
+        // No tolerance: the emitted (rounded) value itself must reach 4.5:1.
+        expect(ratio(rgb(c.primaryText), page)).toBeGreaterThanOrEqual(4.5);
       }
     });
   }
