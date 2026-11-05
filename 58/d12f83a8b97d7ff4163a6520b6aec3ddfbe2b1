@@ -1,0 +1,20 @@
+docs/DESIGN-LIBRARY.md
+  s_9245b89a6afa1a::t_1d665dc201b7a9 73-74,81
+  s_9245b89a6afa1a::t_e4c6a620fefeae 75-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "58d12f83a8b97d7ff4163a6520b6aec3ddfbe2b1",
+  "prompts": {},
+  "sessions": {
+    "s_9245b89a6afa1a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a40ad615-ea2e-4ff6-81eb-be652eb21413",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
