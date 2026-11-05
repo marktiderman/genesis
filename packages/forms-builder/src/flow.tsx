@@ -148,7 +148,7 @@ export const FlowMap = memo(function FlowMap({ def, findings }: { def: FormDefin
   const nodeClass = (blockId: string, ending = false) =>
     cn(
       "flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-opacity",
-      ending ? "border-primary/30 bg-primary/10 font-medium text-primary" : "bg-background",
+      ending ? "border-primary/30 bg-primary/10 font-medium text-primary-text" : "bg-background",
       unreachable.has(blockId) && "border-dashed border-warning text-muted-foreground",
       path && (path.blocks.has(blockId) || path.ending === blockId ? "ring-2 ring-primary" : "opacity-40"),
     );

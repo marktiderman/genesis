@@ -206,6 +206,7 @@ interface ModeColours {
   mutedForeground: string;
   primary: string;
   primaryForeground: string;
+  primaryText: string;
   ring: string;
   border: string;
 }
@@ -228,7 +229,15 @@ function modeColours(brand: CanonicalBrand, mode: "light" | "dark"): ModeColours
   if (contrastRatio(primary, primaryForeground) < 4.5) primaryForeground = readableOn(primary, "#ffffff", "#000000");
   if (own?.primaryForeground) primaryForeground = own.primaryForeground;
   const ring = contrastRatio(primary, background) >= 3 ? primary : foreground;
-  return { background, foreground, muted, mutedForeground, primary, primaryForeground, ring, border };
+  // The primary as text on the page (links, an active tab): the brand's own, else the primary where it
+  // reads at 4.5:1, else the primary mixed toward black (white in dark mode) until it does.
+  const ownText = light ? brand.primaryText : own?.primaryText;
+  let primaryText = ownText && HEX.test(ownText) ? ownText : primary;
+  if (primaryText === primary) {
+    for (let t = 0.02; contrastRatio(primaryText, background) < 4.5 && t <= 1; t += 0.02) primaryText = mix(primary, light ? -t : t);
+    if (contrastRatio(primaryText, background) < 4.5) primaryText = foreground;
+  }
+  return { background, foreground, muted, mutedForeground, primary, primaryForeground, primaryText, ring, border };
 }
 
 function roleVars(c: ModeColours): Record<string, string> {
@@ -242,6 +251,7 @@ function roleVars(c: ModeColours): Record<string, string> {
     "--popover-foreground": hsl(c.foreground),
     "--primary": hsl(c.primary),
     "--primary-foreground": hsl(c.primaryForeground),
+    "--primary-text": hsl(c.primaryText),
     "--secondary": hsl(c.muted),
     "--secondary-foreground": hsl(c.foreground),
     "--muted": hsl(c.muted),
@@ -263,6 +273,7 @@ function pairsFor(c: ModeColours, mode: "light" | "dark"): ThemePair[] {
     { name: "button and accent-band text on the primary colour", mode, foreground: c.primaryForeground, background: c.primary, minimum: 4.5 },
     { name: "text on an inverse band", mode, foreground: c.background, background: c.foreground, minimum: 4.5 },
     { name: "the focus ring on the page", mode, foreground: c.ring, background: c.background, minimum: 3 },
+    { name: "the primary colour as text on the page", mode, foreground: c.primaryText, background: c.background, minimum: 4.5 },
     // Non-text (1.4.11): the primary colour as a border or marker (a timetable chip, the picked day, a timeline's step).
     // Every such mark also has text or a shape (a chip names its type, a marker shows a dot), so it warns.
     { name: "the primary colour as a border or marker on the page", mode, foreground: c.primary, background: c.background, minimum: 3, severity: "warning" },

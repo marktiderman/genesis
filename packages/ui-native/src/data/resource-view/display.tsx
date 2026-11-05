@@ -166,7 +166,7 @@ function LinkText({ url, label }: { url: string; label: string }) {
   return (
     <Text
       accessibilityRole="link"
-      className="text-base text-primary underline"
+      className="text-base text-primary-text underline"
       onPress={() => void Linking.openURL(url)}
     >
       {label}

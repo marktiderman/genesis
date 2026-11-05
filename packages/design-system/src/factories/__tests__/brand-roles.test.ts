@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { brandRoleVariables } from "../brand-roles";
 import { tailwindFromBrand, themeFromBrand } from "../from-brand";
 import { genesisBrand } from "../../presets/brand-genesis";
-import { GENESIS_THEME_BRAND, themeVariables } from "../../tokens/theme-css";
+import { GENESIS_THEME_BRAND, renderThemeCss, tailwindColorVariables, themeVariables } from "../../tokens/theme-css";
 import type { CanonicalBrand } from "../../schema/brand";
 
 // Tints that would fail if read as modes: a light taupe text tint on a white surface tint.
@@ -150,5 +150,62 @@ describe("brandRoleVariables", () => {
     expect(brandRoleVariables(fluid).light["--radius"]).toBe("0.5rem");
     expect(brandRoleVariables(fluid, { platform: "web" }).light["--radius"]).toBe("0px");
     expect(themeFromBrand({ ...espresso, radius: { DEFAULT: "0" } }).variables.light["--radius"]).toBe("0px");
+  });
+});
+
+describe("--primary-text", () => {
+  const gold = (surface: string): CanonicalBrand => ({ ...genesisBrand, name: "gold", accent: { DEFAULT: "#FFC402" }, surface: { DEFAULT: surface } });
+  const hue = (triplet: string) => parseFloat(triplet.split(" ")[0]!);
+  const lightness = (triplet: string) => parseFloat(triplet.split(" ")[2]!);
+
+  it("is the primary for the Genesis brand, in both modes", () => {
+    const genesis = themeVariables(GENESIS_THEME_BRAND);
+    expect(genesis.light["--primary-text"]).toBe(genesis.light["--primary"]);
+    expect(genesis.dark["--primary-text"]).toBe(genesis.dark["--primary"]);
+    const roles = brandRoleVariables(genesisBrand);
+    expect(roles.light["--primary-text"]).toBe(roles.light["--primary"]);
+    expect(roles.dark["--primary-text"]).toBe(roles.dark["--primary"]);
+  });
+
+  it("follows --primary in the stylesheet, so an app that sets only --primary keeps its text colour", () => {
+    const css = renderThemeCss(GENESIS_THEME_BRAND, { sans: "a", display: "b", mono: "c" });
+    expect(css.match(/--primary-text: var\(--primary\);/g)).toHaveLength(2);
+  });
+
+  it.each(["#ffffff", "#f4f5fa"])("darkens a light gold accent until it reads at 4.5:1 on %s", (surface) => {
+    const { light } = brandRoleVariables(gold(surface));
+    const primary = light["--primary"]!;
+    const text = light["--primary-text"]!;
+    expect(contrast(hslToRgb(primary), hex(surface))).toBeLessThan(2);
+    expect(contrast(hslToRgb(text), hex(surface))).toBeGreaterThanOrEqual(4.5);
+    expect(hue(text)).toBe(hue(primary));
+    expect(lightness(text)).toBeLessThan(lightness(primary));
+    // The first step that reads: one point lighter doesn't.
+    const [h, s] = text.split(" ");
+    expect(contrast(hslToRgb(`${h} ${s} ${lightness(text) + 1}%`), hex(surface))).toBeLessThan(4.5);
+  });
+
+  it("keeps a primary that already reads (gold on the dark page)", () => {
+    const { dark } = brandRoleVariables(gold("#ffffff"));
+    expect(dark["--primary-text"]).toBe(dark["--primary"]);
+  });
+
+  it("lightens a dark primary on the dark page", () => {
+    const navy = brandRoleVariables({ ...genesisBrand, name: "navy", dark: { accent: { DEFAULT: "#1e3a8a" } } }).dark;
+    expect(contrast(hslToRgb(navy["--primary"]!), hslToRgb(navy["--background"]!))).toBeLessThan(4.5);
+    expect(contrast(hslToRgb(navy["--primary-text"]!), hslToRgb(navy["--background"]!))).toBeGreaterThanOrEqual(4.5);
+    expect(lightness(navy["--primary-text"]!)).toBeGreaterThan(lightness(navy["--primary"]!));
+    expect(hue(navy["--primary-text"]!)).toBe(hue(navy["--primary"]!));
+  });
+
+  it("takes the brand's own primaryText and dark.primaryText as given", () => {
+    const own = brandRoleVariables({ ...gold("#ffffff"), primaryText: "#7a5c00", dark: { primaryText: "#ffe08a" } });
+    expect(hslToRgb(own.light["--primary-text"]!)).toEqual(hex("#7a5c00"));
+    expect(hslToRgb(own.dark["--primary-text"]!)).toEqual(hex("#ffe08a"));
+  });
+
+  it("is a Tailwind color (text-primary-text) and in themeFromBrand's variables", () => {
+    expect(tailwindColorVariables()["primary-text"]).toBe("hsl(var(--primary-text))");
+    expect(themeFromBrand(gold("#ffffff")).variables.light["--primary-text"]).toBe(brandRoleVariables(gold("#ffffff")).light["--primary-text"]);
   });
 });

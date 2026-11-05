@@ -1560,7 +1560,7 @@ export function LinkCell({
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center gap-1 text-xs text-primary hover:underline max-w-[200px] truncate"
+      className="inline-flex items-center gap-1 text-xs text-primary-text hover:underline max-w-[200px] truncate"
     >
       {label || new URL(href).hostname}
       <ExternalLink className="h-3 w-3 shrink-0" />

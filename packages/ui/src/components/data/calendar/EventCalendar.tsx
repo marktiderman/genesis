@@ -550,7 +550,7 @@ function DayGrid<T>({ days, placed, today, monthOf, label, weekday, dayLabel, on
                   >
                     <div className="flex h-full flex-col gap-0.5 p-1">
                       <span
-                        className={cn("text-xs", day === today ? "font-bold text-primary" : outside ? "text-muted-foreground/60" : "text-muted-foreground")}
+                        className={cn("text-xs", day === today ? "font-bold text-primary-text" : outside ? "text-muted-foreground/60" : "text-muted-foreground")}
                         aria-hidden
                       >
                         {Number(day.slice(8))}
@@ -642,7 +642,7 @@ function Lanes<T>({ days, placed, lanes: given, today, label, laneHeader, unassi
                 key={d}
                 scope="col"
                 aria-current={d === today ? "date" : undefined}
-                className={cn("py-1 text-left text-xs font-medium", d === today ? "text-primary" : "text-muted-foreground")}
+                className={cn("py-1 text-left text-xs font-medium", d === today ? "text-primary-text" : "text-muted-foreground")}
               >
                 {weekday(d)} {Number(d.slice(8))}
               </th>
@@ -707,7 +707,7 @@ function Agenda<T>({ days, placed, showEmptyDays, today, longDay, nothing, item,
         const list = placed.get(day) ?? [];
         return (
           <li key={day} className="grid gap-1 px-3 py-2 sm:grid-cols-[10rem_1fr] print:break-inside-avoid print:px-0" data-day={day} data-testid={`${testID}-day`}>
-            <h4 className={cn("text-sm font-medium", day === today && "text-primary print:text-foreground")} aria-current={day === today ? "date" : undefined}>
+            <h4 className={cn("text-sm font-medium", day === today && "text-primary-text print:text-foreground")} aria-current={day === today ? "date" : undefined}>
               {longDay(day)}
             </h4>
             {list.length ? <ul className="space-y-0.5">{list.map(item)}</ul> : nothing && <p className="text-sm text-muted-foreground">{nothing}</p>}

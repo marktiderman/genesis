@@ -42,6 +42,17 @@
  *     700 → border, input
  *   - dark.status → destructive, success, warning, info
  *
+ * Primary text, in both modes, last: `--primary-text`, the primary as text
+ * or an icon on the page (a link, an active tab, a stat), what
+ * `text-primary-text` reads. A light primary (a gold on white) is a fine
+ * fill but unreadable text, so:
+ *
+ *   - `primaryText` (light) / `dark.primaryText` (dark) → as given
+ *   - else the primary, when it reaches 4.5:1 on the mode's background
+ *   - else the primary's hue, darkened (light mode) or lightened (dark mode)
+ *     one HSL lightness point at a time until it reaches 4.5:1 on the
+ *     background; the text color if no step does
+ *
  * Colors that aren't `#rgb`/`#rrggbb` are left at the Genesis value.
  *
  * @stability Beta
@@ -184,6 +195,47 @@ function overlay(brand: CanonicalBrand, mode: Mode, out: Record<string, string>)
   set(["info"], hex(brand.status?.info?.DEFAULT));
 }
 
+/** A triplet (`243 75% 59%`) as [r, g, b], as the browser renders it; null if it isn't one. */
+function tripletRgb(triplet: string | undefined): [number, number, number] | null {
+  const [h, s, l] = (triplet ?? "").split(" ").map((p) => parseFloat(p));
+  if (![h, s, l].every((n) => Number.isFinite(n))) return null;
+  return hslToRgb(h!, s!, l!);
+}
+
+/** `--primary-text`: the brand's own, else the primary where it reads as text, else its hue stepped until it does. */
+function setPrimaryText(brand: CanonicalBrand, mode: Mode, out: Record<string, string>): void {
+  const own = hex(mode === "dark" ? brand.dark?.primaryText : brand.primaryText);
+  if (own) {
+    out["--primary-text"] = hslTriplet(own);
+    return;
+  }
+  const page = tripletRgb(out["--background"]);
+  const stepped = page ? primaryTextTriplet(out["--primary"], page, mode) : null;
+  out["--primary-text"] = stepped ?? out["--foreground"]!;
+}
+
+/**
+ * The primary (an HSL triplet) as text on `page`: itself when it reads at
+ * 4.5:1, else its hue and saturation at the first lightness, one point
+ * darker (light mode) or lighter (dark mode) at a time, that does; null if
+ * none does. Each step is checked as its triplet renders.
+ */
+function primaryTextTriplet(primary: string | undefined, page: [number, number, number], mode: Mode): string | null {
+  const reads = (triplet: string) => {
+    const rgb = tripletRgb(triplet);
+    return rgb !== null && contrast(rgb, page) >= 4.5;
+  };
+  if (!primary || tripletRgb(primary) === null) return null;
+  if (reads(primary)) return primary;
+  const [h, s, l] = primary.split(" ");
+  const step = mode === "dark" ? 1 : -1;
+  for (let light = Math.round(parseFloat(l!)) + step; light >= 0 && light <= 100; light += step) {
+    const triplet = `${h} ${s} ${light}%`;
+    if (reads(triplet)) return triplet;
+  }
+  return null;
+}
+
 /** `243 75% 59%` components → [r, g, b] (0–255). */
 export function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   const sat = s / 100;
@@ -210,6 +262,8 @@ export function brandRoleVariables(brand: CanonicalBrand, options: BrandRoleVari
   const dark = { ...base.dark };
   overlay(merged, "light", light);
   overlay(merged, "dark", dark);
+  setPrimaryText(merged, "light", light);
+  setPrimaryText(merged, "dark", dark);
   const radius = brandRadius(merged, platform);
   if (radius !== undefined) light["--radius"] = dark["--radius"] = radius;
   return { light, dark };

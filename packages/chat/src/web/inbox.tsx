@@ -166,7 +166,7 @@ function InboxRow(row: InboxPageSlotMap["row"] & ChatInboxRow) {
       <span className="flex min-w-0 flex-1 flex-col gap-0.5" aria-hidden>
         <span className="flex items-center gap-2">
           <span className={cn("min-w-0 flex-1 truncate text-sm", unread ? "font-semibold text-foreground" : "font-medium text-foreground")}>{title}</span>
-          <span className={cn("shrink-0 text-xs tabular-nums", unread && !item.muted ? "font-medium text-primary" : "text-muted-foreground")}>{timeLabel}</span>
+          <span className={cn("shrink-0 text-xs tabular-nums", unread && !item.muted ? "font-medium text-primary-text" : "text-muted-foreground")}>{timeLabel}</span>
         </span>
         <span className="flex items-center gap-1.5">
           <span className={cn("min-w-0 flex-1 truncate text-sm", unread ? "text-foreground" : "text-muted-foreground")}>{preview || " "}</span>

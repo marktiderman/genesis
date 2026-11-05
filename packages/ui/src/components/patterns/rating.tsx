@@ -43,7 +43,7 @@ const STAR_SIZE: Record<NonNullable<RatingProps["size"]>, string> = {
 
 const TONE: Record<NonNullable<RatingProps["tone"]>, { on: string; hover: string }> = {
   warning: { on: "text-warning", hover: "hover:text-warning" },
-  primary: { on: "text-primary", hover: "hover:text-primary" },
+  primary: { on: "text-primary-text", hover: "hover:text-primary-text" },
 };
 
 /**

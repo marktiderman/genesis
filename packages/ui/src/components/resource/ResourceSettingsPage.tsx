@@ -35,7 +35,7 @@ export function SettingsSection({
     >
       <header className="flex gap-3 border-b border-border px-5 py-4">
         {icon ? (
-          <span className="mt-0.5 text-primary [&_svg]:size-5" aria-hidden>
+          <span className="mt-0.5 text-primary-text [&_svg]:size-5" aria-hidden>
             {icon}
           </span>
         ) : null}

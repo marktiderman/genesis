@@ -259,7 +259,7 @@ function SectionTitle({ title, testID }: { title: string; testID: string }) {
     <NativeText
       testID={testID}
       accessibilityRole="header"
-      className={ios ? "px-4 pb-1.5 pt-2" : "px-4 pb-2 pt-4 text-primary"}
+      className={ios ? "px-4 pb-1.5 pt-2" : "px-4 pb-2 pt-4 text-primary-text"}
       style={
         ios
           ? { marginHorizontal: IOS_GROUP_MARGIN, color: colors.secondaryLabel, fontSize: 13, lineHeight: 18, textTransform: "uppercase" }

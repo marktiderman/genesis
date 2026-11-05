@@ -120,7 +120,7 @@ export function NativeSearchBar({
           }}
           className="min-h-[44px] items-center justify-center px-2"
         >
-          <Text className="text-base text-primary">{cancelLabel}</Text>
+          <Text className="text-base text-primary-text">{cancelLabel}</Text>
         </Pressable>
       ) : null}
     </View>

@@ -539,7 +539,7 @@ export function PageHeader({
       <div className="flex items-center gap-3 min-w-0">
         {Icon && resolved.showIcon !== false ? (
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10">
-            <Icon className="h-5 w-5 text-primary" />
+            <Icon className="h-5 w-5 text-primary-text" />
           </div>
         ) : null}
         <div className="min-w-0">

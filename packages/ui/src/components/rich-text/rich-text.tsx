@@ -68,7 +68,7 @@ export const richTextClassName = cn(
   "[&_h4]:text-base [&_h4]:font-semibold [&_h4]:mt-4 first:[&_h4]:mt-0",
   "[&_ul]:list-disc [&_ol]:list-decimal [&_ul]:pl-6 [&_ol]:pl-6 [&_li]:my-1 [&_li>p]:m-0",
   "[&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_blockquote]:italic",
-  "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4",
+  "[&_a]:text-primary-text [&_a]:underline [&_a]:underline-offset-4",
   "[&_[data-video-embed]]:relative [&_[data-video-embed]]:aspect-video [&_[data-video-embed]]:w-full [&_[data-video-embed]]:overflow-hidden [&_[data-video-embed]]:rounded-md [&_[data-video-embed]]:bg-muted",
   "[&_[data-video-embed]_iframe]:absolute [&_[data-video-embed]_iframe]:inset-0 [&_[data-video-embed]_iframe]:h-full [&_[data-video-embed]_iframe]:w-full [&_[data-video-embed]_iframe]:border-0",
 );

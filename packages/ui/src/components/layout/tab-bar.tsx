@@ -52,7 +52,7 @@ export function TabBar({ items, value, onChange, max = TAB_BAR_MAX, label, class
   const itemClass = (active: boolean) =>
     cn(
       "flex min-h-11 flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-      active ? "text-primary" : "text-muted-foreground hover:text-foreground",
+      active ? "text-primary-text" : "text-muted-foreground hover:text-foreground",
     );
   return (
     <>
@@ -119,7 +119,7 @@ export function TabBar({ items, value, onChange, max = TAB_BAR_MAX, label, class
                       aria-current={active ? "page" : undefined}
                       className={cn(
                         "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors [&_svg]:size-5 [&_svg]:shrink-0",
-                        active ? "bg-accent text-primary" : "text-foreground hover:bg-accent hover:text-accent-foreground",
+                        active ? "bg-accent text-primary-text" : "text-foreground hover:bg-accent hover:text-accent-foreground",
                       )}
                       data-testid={`${testID}-${item.key}`}
                     >

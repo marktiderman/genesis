@@ -139,7 +139,7 @@ export function getNotificationsPageStackOptions(props: {
             hitSlop={8}
             className="min-h-[44px] justify-center px-3"
           >
-            <Text className="text-base text-primary">Mark all read</Text>
+            <Text className="text-base text-primary-text">Mark all read</Text>
           </Pressable>
         )
       : undefined);

@@ -285,7 +285,7 @@ export function MessageRow({ item, startsGroup, highlighted: highlightedProp, cl
                   disabled={!ctx.canPost}
                   className={cn(
                     "inline-flex h-6 items-center gap-1 rounded-full border bg-background px-2 text-xs shadow-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none",
-                    r.mine && "border-primary bg-primary/10 text-primary",
+                    r.mine && "border-primary bg-primary/10 text-primary-text",
                   )}
                   data-testid={`genesis-chat-reaction-${r.emoji}`}
                 >

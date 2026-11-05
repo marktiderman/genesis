@@ -69,6 +69,7 @@ const ROLE_PAIRS: readonly [string, string, number, string][] = [
   ["muted-foreground", "muted", AA, "muted text on the muted fill"],
   ["primary-foreground", "primary", AA, "text on the primary fill"],
   ["primary", "background", NON_TEXT, "the primary fill on the page"],
+  ["primary-text", "background", AA, "primary text on the page"],
   ["ring", "background", NON_TEXT, "the focus ring on the page"],
   ["secondary-foreground", "secondary", AA, "text on the secondary fill"],
   ["accent-foreground", "accent", AA, "text on the accent fill"],

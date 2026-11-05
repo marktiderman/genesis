@@ -182,7 +182,7 @@ function Option({
     >
       <Text className={muted ? "text-base text-muted-foreground" : "text-base text-foreground"}>{label}</Text>
       {selected ? (
-        <Text className="text-base text-primary" accessible={false}>
+        <Text className="text-base text-primary-text" accessible={false}>
           ✓
         </Text>
       ) : null}

@@ -45,7 +45,7 @@ function Photo({ photo, resolveUrl }: { photo: PhotoRef; resolveUrl: (ref: Photo
           href={resolved.url}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
+          className="inline-flex items-center gap-1 font-medium text-primary-text underline-offset-4 hover:underline"
         >
           Open <ExternalLink className="size-3" aria-hidden="true" />
           <span className="sr-only">{photo.name}</span>

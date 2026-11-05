@@ -168,6 +168,7 @@ function colorVars(r: ColorRoles, scrimAlpha: number): Record<string, string> {
     "--popover-foreground": hsl(r.ink),
     "--primary": hsl(r.accentFill),
     "--primary-foreground": hsl(r.onAccent),
+    "--primary-text": hsl(r.accentText),
     "--secondary": hsl(r.groundSunk),
     "--secondary-foreground": hsl(r.ink),
     "--muted": hsl(r.groundSunk),

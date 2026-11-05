@@ -155,7 +155,7 @@ export function valueForOperator(
 /** The inline picker pill of a rule sentence. */
 export const PILL = "h-8 w-auto max-w-64 gap-1.5 rounded-md border-input bg-muted/40 px-2.5 text-sm font-medium focus:ring-offset-0";
 /** A pill for where a jump goes: tinted like an ending, so the destination stands out. */
-const TARGET_PILL = cn(PILL, "border-primary/30 bg-primary/10 text-primary");
+const TARGET_PILL = cn(PILL, "border-primary/30 bg-primary/10 text-primary-text");
 
 const KIND: Record<LogicRule["effect"], { label: string; className: string; Icon: typeof ArrowRight }> = {
   jump: { label: "Jump", className: "bg-violet-500/10 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300", Icon: ArrowRight },

@@ -50,7 +50,7 @@ const variantClasses: Record<NativeInlineAlertVariant, string> = {
 
 const titleClasses: Record<NativeInlineAlertVariant, string> = {
   info: "text-foreground",
-  success: "text-primary",
+  success: "text-primary-text",
   warning: "text-warning",
   destructive: "text-destructive",
 };

@@ -58,7 +58,7 @@ export function NavBarSaveButton({
       <Text
         className={cn(
           "text-base font-semibold",
-          destructive ? "text-destructive" : "text-primary",
+          destructive ? "text-destructive" : "text-primary-text",
           isDisabled && "opacity-40"
         )}
       >
