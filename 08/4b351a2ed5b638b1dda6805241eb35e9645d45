@@ -1,0 +1,19 @@
+docs/NATIVE-RELEASE.md
+  s_17abeeec19e155::t_e8aa84957c99e5 4-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "084b351a2ed5b638b1dda6805241eb35e9645d45",
+  "prompts": {},
+  "sessions": {
+    "s_17abeeec19e155": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ec08f101-2dae-4b4f-91a3-e9cf2e60c5c7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
