@@ -286,7 +286,7 @@ export interface CanonicalBrand {
    * class): links, active tabs and stats on the page. Unset: the accent
    * where it reads at 4.5:1 on the background, else the accent's hue
    * darkened until it does, so a light accent (a gold on white) still
-   * reads. Set it to pick the exact shade. Dark mode: `dark.primaryText`.
+   * reads. Set it (`#rgb` / `#rrggbb`) to pick the exact shade. Dark mode: `dark.primaryText`.
    */
   primaryText?: string;
 
@@ -713,11 +713,14 @@ function validateTypography(value: unknown, path: string): string[] {
 
 const isText = (v: unknown): v is string => typeof v === "string" && v.length > 0;
 
+/** `#rgb` / `#rrggbb`: the colours the role resolver reads (`primaryText`). */
+const isHexColor = (v: unknown): v is string => typeof v === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(v);
+
 /** Validate the opt-in roles: `signal`, `dark`, `accents`, `gradients`, `typography.display`. */
 function validateBrandRoles(b: Record<string, unknown>): string[] {
   const errors: string[] = [];
   if (b.signal !== undefined && !isText(b.signal)) errors.push("brand.signal: expected non-empty string");
-  if (b.primaryText !== undefined && !isText(b.primaryText)) errors.push("brand.primaryText: expected non-empty string");
+  if (b.primaryText !== undefined && !isHexColor(b.primaryText)) errors.push("brand.primaryText: expected #rgb or #rrggbb");
   if (b.dark !== undefined) {
     if (!isPlainObject(b.dark)) errors.push("brand.dark: expected object");
     else {
@@ -735,6 +738,8 @@ function validateBrandRoles(b: Record<string, unknown>): string[] {
               if (!ALLOWED_STATUS_KEYS.has(sk)) errors.push(`brand.dark.status.${sk}: unknown property`);
               else if (!isColorScale(sv)) errors.push(`brand.dark.status.${sk}: expected ColorScale`);
             }
+        } else if (k === "primaryText") {
+          if (!isHexColor(v)) errors.push("brand.dark.primaryText: expected #rgb or #rrggbb");
         } else if (!isText(v)) errors.push(`brand.dark.${k}: expected non-empty string`);
       }
     }

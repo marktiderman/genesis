@@ -7,6 +7,7 @@
     "popover": { "$type": "color", "$value": "#ffffff" },
     "popover-foreground": { "$type": "color", "$value": "#09090b" },
     "primary-foreground": { "$type": "color", "$value": "#ffffff" },
+    "primary-text": { "$type": "color", "$value": "#4f46e5" },
     "secondary": { "$type": "color", "$value": "#f4f4f5" },
     "secondary-foreground": { "$type": "color", "$value": "#18181b" },
     "muted": { "$type": "color", "$value": "#f4f4f5" },

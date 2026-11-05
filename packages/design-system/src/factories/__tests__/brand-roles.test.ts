@@ -4,12 +4,17 @@
  * preset emits them; a scale's `light` / `dark` keys are emphasis tints and
  * never stand for light or dark mode.
  */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { nativeThemeDark, nativeThemeLight } from "../../tokens/native-themes";
 import { brandRoleVariables } from "../brand-roles";
 import { tailwindFromBrand, themeFromBrand } from "../from-brand";
 import { genesisBrand } from "../../presets/brand-genesis";
 import { GENESIS_THEME_BRAND, renderThemeCss, tailwindColorVariables, themeVariables } from "../../tokens/theme-css";
-import type { CanonicalBrand } from "../../schema/brand";
+import { validateBrand, type CanonicalBrand } from "../../schema/brand";
+import { generateDarkTheme, generateLightTheme } from "../../tokens/themes";
 
 // Tints that would fail if read as modes: a light taupe text tint on a white surface tint.
 const espresso: CanonicalBrand = {
@@ -167,6 +172,18 @@ describe("--primary-text", () => {
     expect(roles.dark["--primary-text"]).toBe(roles.dark["--primary"]);
   });
 
+  it("has the Genesis values in the DTCG themes (what the Figma library mirrors) and the native theme", () => {
+    const dtcg = (mode: string) =>
+      JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "tokens", "dtcg", "themes", `${mode}.json`), "utf-8")).theme["primary-text"].$value;
+    const genesis = themeVariables(GENESIS_THEME_BRAND);
+    // Within 3 per channel: the theme rounds the triplet to whole percents.
+    const near = (a: [number, number, number], b: [number, number, number]) => a.every((c, i) => Math.abs(c - b[i]!) <= 3);
+    expect(near(hex(dtcg("light")), hslToRgb(genesis.light["--primary-text"]!))).toBe(true);
+    expect(near(hex(dtcg("dark")), hslToRgb(genesis.dark["--primary-text"]!))).toBe(true);
+    expect(nativeThemeLight.primaryText).toBe(dtcg("light"));
+    expect(nativeThemeDark.primaryText).toBe(dtcg("dark"));
+  });
+
   it("follows --primary in the stylesheet, so an app that sets only --primary keeps its text colour", () => {
     const css = renderThemeCss(GENESIS_THEME_BRAND, { sans: "a", display: "b", mono: "c" });
     expect(css.match(/--primary-text: var\(--primary\);/g)).toHaveLength(2);
@@ -177,12 +194,36 @@ describe("--primary-text", () => {
     const primary = light["--primary"]!;
     const text = light["--primary-text"]!;
     expect(contrast(hslToRgb(primary), hex(surface))).toBeLessThan(2);
+    const muted = hslToRgb(light["--muted"]!);
     expect(contrast(hslToRgb(text), hex(surface))).toBeGreaterThanOrEqual(4.5);
+    // It also reads on the muted fill (a message bubble, a muted row).
+    expect(contrast(hslToRgb(text), muted)).toBeGreaterThanOrEqual(4.5);
     expect(hue(text)).toBe(hue(primary));
     expect(lightness(text)).toBeLessThan(lightness(primary));
-    // The first step that reads: one point lighter doesn't.
+    // The first step that reads on both: one point lighter doesn't.
     const [h, s] = text.split(" ");
-    expect(contrast(hslToRgb(`${h} ${s} ${lightness(text) + 1}%`), hex(surface))).toBeLessThan(4.5);
+    const lighter = hslToRgb(`${h} ${s} ${lightness(text) + 1}%`);
+    expect(Math.min(contrast(lighter, hex(surface)), contrast(lighter, muted))).toBeLessThan(4.5);
+  });
+
+  it("accepts only #rgb / #rrggbb for primaryText and dark.primaryText", () => {
+    expect(validateBrand({ ...gold("#ffffff"), primaryText: "#7a5c00", dark: { primaryText: "#fe8" } }).ok).toBe(true);
+    const bad = validateBrand({ ...gold("#ffffff"), primaryText: "oklch(0.5 0.1 80)", dark: { primaryText: "gold" } });
+    expect(bad.errors).toEqual(expect.arrayContaining(["brand.primaryText: expected #rgb or #rrggbb", "brand.dark.primaryText: expected #rgb or #rrggbb"]));
+  });
+
+  it("is readable in generateLightTheme / generateDarkTheme for a light primary", () => {
+    const config = { primary: { h: 46, s: 100, l: 50 }, radius: "0.5rem" };
+    const light = generateLightTheme(config);
+    expect(contrast(hslToRgb(light["--primary-text"]!), [255, 255, 255])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(hslToRgb(light["--primary-text"]!), hslToRgb(light["--muted"]!))).toBeGreaterThanOrEqual(4.5);
+    const dark = generateDarkTheme({ primary: { h: 224, s: 64, l: 20 }, radius: "0.5rem" });
+    expect(contrast(hslToRgb(dark["--primary-text"]!), hslToRgb(dark["--background"]!))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps a brand's own primaryText over a design system's accent text", () => {
+    const brand: CanonicalBrand = { ...gold("#ffffff"), primaryText: "#7a5c00", designSystem: { id: "crisp@1" } };
+    expect(hslToRgb(themeFromBrand(brand).variables.light["--primary-text"]!)).toEqual(hex("#7a5c00"));
   });
 
   it("keeps a primary that already reads (gold on the dark page)", () => {

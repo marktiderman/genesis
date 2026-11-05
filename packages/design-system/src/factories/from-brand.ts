@@ -741,6 +741,9 @@ export function themeFromBrand(
   if (design) {
     Object.assign(lightVars, design.variables.light);
     Object.assign(darkVars, design.variables.dark);
+    // A brand's own primary text wins over the engine's accent text, as everywhere else.
+    if (merged.primaryText && roles.light["--primary-text"]) lightVars["--primary-text"] = roles.light["--primary-text"];
+    if (merged.dark?.primaryText && roles.dark["--primary-text"]) darkVars["--primary-text"] = roles.dark["--primary-text"];
   }
 
   return {
