@@ -1,0 +1,26 @@
+packages/ui/figma/Dialog.figma.ts
+  s_13173ea07f3a3b::t_6e47a9d2246fa8 11-12
+  s_13173ea07f3a3b::t_c94cb218e37b38 20-21
+packages/ui/figma/AppShell.figma.ts
+  s_13173ea07f3a3b::t_6d05aa1654a557 4-5,11-13,21-23
+packages/ui-native/figma/NativeSegmentedControl.figma.ts
+  s_13173ea07f3a3b::t_f509b6ecc69af1 15
+packages/ui-native/figma/NativeTabs.figma.ts
+  s_13173ea07f3a3b::t_30c8f556407081 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "618195b9da8613f62e88911491711a1c1606e0db",
+  "prompts": {},
+  "sessions": {
+    "s_13173ea07f3a3b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8034997-03c4-4f00-87d4-55353483a646",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
