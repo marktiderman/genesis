@@ -1,0 +1,23 @@
+packages/forms-web/src/__tests__/question-types.test.tsx
+  s_e63e2ce0535b22::t_48d132ac32095b 145-146,176,183
+packages/forms-web/src/theme.ts
+  s_e63e2ce0535b22::t_48d132ac32095b 24-25,105-108,127
+.changeset/forms-primary-text.md
+  s_e63e2ce0535b22::t_b8ee4e8902b8e9 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "91be246c1ae8148244b2f953e0368a58038b682c",
+  "prompts": {},
+  "sessions": {
+    "s_e63e2ce0535b22": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ce1aec6a-bf18-4523-bb83-7350baafd256",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
