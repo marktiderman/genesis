@@ -1,4 +1,5 @@
-# Promote or roll back a staged production update (one deploy-production.yml started).
+# Promote or roll back a staged production update: one published by hand with `--rollout-percentage`
+# (deploy-production.yml sends every merge's update to every install).
 #
 # Run it by hand, from git:
 #
@@ -40,7 +41,7 @@ on:
       update_group_id:
         type: string
         required: true
-        description: One platform's update group from deploy-production.yml (its update job's log, or `eas update:list --branch production`).
+        description: One platform's update group you published by hand with `--rollout-percentage` (`eas update:list --branch production`). deploy-production.yml publishes at 100%, which has no rollout to promote or roll back.
       action:
         type: choice
         required: true

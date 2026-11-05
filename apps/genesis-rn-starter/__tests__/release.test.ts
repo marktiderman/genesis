@@ -40,20 +40,6 @@ function profile(name: string): (typeof easJson.build)[string] {
   return own.extends ? { ...profile(own.extends), ...own, ios: { ...profile(own.extends).ios, ...own.ios } } : own;
 }
 
-/**
- * Every job a job `needs`, directly or not. Only `needs`: a job runs only when what it needs
- * succeeded, while `after` also runs after a failure (a rejected approval).
- */
-function needed(jobs: Workflow["jobs"], id: string, seen = new Set<string>()): Set<string> {
-  for (const dep of jobs[id]?.needs ?? []) {
-    if (!seen.has(dep)) {
-      seen.add(dep);
-      needed(jobs, dep, seen);
-    }
-  }
-  return seen;
-}
-
 describe("templates", () => {
   // The starter's copies are the canonical templates' copies; `genesis upgrade` refreshes an
   // app's from templates/, so the two must not drift.
@@ -148,42 +134,34 @@ describe("EAS workflows", () => {
     expect(read(`.eas/workflows/${file}`)).not.toMatch(/expo_[A-Za-z0-9]{20,}|-----BEGIN/);
   });
 
-  it("every store submission and production update needs a person's approval", () => {
-    let checked = 0;
-    for (const file of workflowFiles) {
-      const { jobs } = workflow(file);
-      for (const [id, job] of Object.entries(jobs)) {
-        const production = job.type === "submit" || (job.type === "update" && job.params?.channel === "production");
-        if (!production) continue;
-        checked++;
-        const approvals = [...needed(jobs, id)].filter((dep) => jobs[dep]?.type === "require-approval");
-        expect(approvals, `${file} ${id}`).not.toEqual([]);
-      }
-    }
-    expect(checked).toBe(4);
-  });
-
-  it("the release approval isn't offered when a lookup or a build failed", () => {
-    const approval = workflow("deploy-production.yml").jobs.approve_release;
-    expect(approval?.needs).toEqual(["get_ios_build", "get_android_build"]);
-    expect(approval?.after).toEqual(["build_ios", "build_android"]);
-    expect(approval?.if).toBe("${{ after.build_ios.status != 'failure' && after.build_android.status != 'failure' }}");
-  });
-
-  it("deploy-production starts only from a pushed tag, and its updates start as a staged rollout", () => {
+  it("deploy-production runs on every merge to main, with no approval to wait on", () => {
     const { on, jobs } = workflow("deploy-production.yml");
     expect(Object.keys(on)).toEqual(["push"]);
-    expect(on.push).toEqual({ tags: ["v*.*.*"] });
+    expect(on.push).toEqual({ branches: ["main"] });
+    // main's merge is the approval: an approval job would hold every merge's release.
+    expect(Object.values(jobs).filter((j) => j.type === "require-approval")).toEqual([]);
+    // `eas workflow:run` starts any workflow: only a push to main may run the first job.
+    expect(jobs.fingerprint?.if).toBe("${{ github.event_name == 'push' && github.ref_name == 'main' }}");
+    for (const [id, job] of Object.entries(jobs)) if (id !== "fingerprint") expect(job.needs, id).toBeTruthy();
+    // One deploy at a time, and the running one always finishes: never cancel_in_progress.
+    const { concurrency } = parse(read(".eas/workflows/deploy-production.yml")) as { concurrency?: unknown };
+    expect(concurrency).toEqual({ group: "${{ workflow.filename }}-${{ github.ref }}" });
+  });
+
+  it("deploy-production updates every install, and submits each build in the run that made it", () => {
+    const { jobs } = workflow("deploy-production.yml");
     const updates = Object.values(jobs).filter((j) => j.type === "update");
     expect(updates).toHaveLength(2);
-    for (const job of updates) {
-      expect(job.params?.rollout_percentage).toBeGreaterThan(0);
-      expect(job.params?.rollout_percentage).toBeLessThan(100);
-    }
-    // An update only where a build with this fingerprint exists; a build only where none does.
+    // To every install: no rollout (a staged one would block the next merge's update, and EAS failed
+    // to publish one set to 100).
+    for (const job of updates) expect(job.params?.rollout_percentage).toBeUndefined();
+    // An update only where a build with this fingerprint exists; a build only where none does,
+    // and that build is submitted in the same run.
     for (const platform of ["ios", "android"]) {
       expect(jobs[`update_${platform}`]?.if).toBe(`\${{ needs.get_${platform}_build.outputs.build_id }}`);
       expect(jobs[`build_${platform}`]?.if).toBe(`\${{ !needs.get_${platform}_build.outputs.build_id }}`);
+      expect(jobs[`submit_${platform}`]?.needs).toEqual([`build_${platform}`]);
+      expect(jobs[`submit_${platform}`]?.params?.build_id).toBe(`\${{ needs.build_${platform}.outputs.build_id }}`);
     }
   });
 

@@ -42,6 +42,22 @@ corner scales from it: `rounded-sm` is 0.6×, `md` 0.8×, `lg` 1×, `xl` 1.4×
 (and `xs`, bare `rounded`, `2xl`, `3xl` the same way), on web and in the
 NativeWind preset. `"0"` is square everywhere.
 
+### Primary as text
+
+`primary` is a fill. The primary as text or an icon on the page (a link, an
+active tab, a stat) is its own role, `primary-text` (`--primary-text`, the
+`text-primary-text` class on web and in the NativeWind preset), declared in
+both modes for every brand. It is the primary when that reads at 4.5:1 on the
+mode's background; otherwise the primary's hue, darkened in light mode or
+lightened in dark mode one HSL lightness point at a time until it does (the
+text colour if no step does). A gold `#FFC402` accent is 1.6:1 on white, so
+its primary text is `#947100` (4.54:1); Genesis's indigo already reads, so its
+primary text is the primary. Set `primaryText` (and `dark.primaryText`) on the
+brand to choose the shade yourself. Genesis components colour text with
+`text-primary-text`, never `text-primary`. `themes/genesis.css` declares it as
+`var(--primary)`, so an app that sets only `--primary` in its own CSS keeps
+that colour for text; with a light primary, set `--primary-text` beside it.
+
 ### Contrast
 
 `validateBrand` (from the package entry) also checks contrast, against WCAG
@@ -146,7 +162,7 @@ A host reads each with its own value as the fallback:
 | `type` | `--ds-text-{eyebrow,sm,body,lead,h4,h3,h2,h1,display}` (a clamp each), `--ds-leading-*`, `--ds-display-{weight,tracking,case}`, `--ds-heading-{weight,tracking,case}`, `--ds-eyebrow-{weight,tracking,case}`. Weight, tracking and case follow the heading font's class (`FONT_CHOICES[id].class`). |
 | `space` | `--ds-section-y-{sm,md,lg}` (by density), `--ds-space-1` … `--ds-space-11` (4px base), `--ds-gutter`, `--ds-collapse-top` |
 | `shape` | `--ds-radius-{sm,md,lg,button,image}`, genesis-ui's `--radius` (so `rounded-xl` cards get `md`), `--radius-2xl`, `--ds-border-width`, `--ds-shadow-1…3` (ink-tinted; none in dark mode) |
-| `surfaces` | `--ds-ground`, `--ds-ground-raised`, `--ds-ground-sunk`, `--ds-ink`, `--ds-ink-quiet`, `--ds-border`, `--ds-input-border`, `--ds-accent-{fill,text,edge,tint}`, `--ds-on-{accent,tint,inverse}`, `--ds-inverse`, `--ds-focus`, `--ds-scrim-full`, `--ds-secondary-*`, and genesis-ui's roles (`--background`, `--primary`, `--muted-foreground`, … as HSL triplets) |
+| `surfaces` | `--ds-ground`, `--ds-ground-raised`, `--ds-ground-sunk`, `--ds-ink`, `--ds-ink-quiet`, `--ds-border`, `--ds-input-border`, `--ds-accent-{fill,text,edge,tint}`, `--ds-on-{accent,tint,inverse}`, `--ds-inverse`, `--ds-focus`, `--ds-scrim-full`, `--ds-secondary-*`, and genesis-ui's roles (`--background`, `--primary`, `--primary-text`, `--muted-foreground`, … as HSL triplets) |
 | `image` | `--ds-image-filter`, `--ds-image-grain` |
 | `motion` | `--ds-ease-{out,swift,in-out,decelerate}`, `--ds-dur-{press,fast,hover,base,ui,reveal,media}` (from `resolveMotion`; a host gates them with `prefers-reduced-motion`), `--ds-reveal` and `--ds-reveal-phone` (the keyframes to run, `ds-rise` or `ds-clip`, which the host's stylesheet defines), `--ds-reveal-distance`, `--ds-reveal-range`, `--ds-hover-lift` |
 

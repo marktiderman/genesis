@@ -184,7 +184,7 @@ export function VoiceNote({ src, durationMs, waveform, transcript, transcriptSta
         <div className={cn("pl-11 text-xs italic", primary ? "text-primary-foreground/80" : "text-muted-foreground")}>Transcribing…</div>
       ) : transcript ? (
         <Collapsible className="pl-11">
-          <CollapsibleTrigger className={cn("text-xs font-medium underline-offset-2 hover:underline", primary ? "text-primary-foreground" : "text-primary")}>
+          <CollapsibleTrigger className={cn("text-xs font-medium underline-offset-2 hover:underline", primary ? "text-primary-foreground" : "text-primary-text")}>
             Transcript
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-1 text-sm">{transcript}</CollapsibleContent>

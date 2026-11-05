@@ -53,7 +53,7 @@ function Slot({ item, active }: { item: Pick<NativeTabBarItem, "label" | "icon" 
           </View>
         ) : null}
       </View>
-      <Text numberOfLines={1} className={cn("text-xs font-medium", active ? "text-primary" : "text-muted-foreground")}>
+      <Text numberOfLines={1} className={cn("text-xs font-medium", active ? "text-primary-text" : "text-muted-foreground")}>
         {item.label}
       </Text>
     </View>
@@ -120,7 +120,7 @@ export function NativeTabBar({
                   className={cn("min-h-[44px] flex-row items-center gap-3 rounded-lg px-3", active && "bg-accent")}
                 >
                   {item.icon}
-                  <Text className={cn("flex-1 text-base font-medium", active ? "text-primary" : "text-foreground")}>{item.label}</Text>
+                  <Text className={cn("flex-1 text-base font-medium", active ? "text-primary-text" : "text-foreground")}>{item.label}</Text>
                   {item.badge != null ? <NativeBadge variant="secondary">{item.badge}</NativeBadge> : null}
                 </Pressable>
               );

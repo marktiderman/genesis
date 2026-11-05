@@ -370,7 +370,7 @@ export function ChatComposer({
       {replyTo ? (
         <div className="flex items-center gap-2 border-b px-3 py-2" data-testid="genesis-chat-reply-banner">
           <div className="min-w-0 flex-1 border-l-4 border-primary pl-2">
-            <div className="text-xs font-semibold text-primary">Replying to {replyName}</div>
+            <div className="text-xs font-semibold text-primary-text">Replying to {replyName}</div>
             <div className="truncate text-xs text-muted-foreground">{previewText(replyTo.body, replyTo.attachments[0]?.kind ?? null, Boolean(replyTo.deletedAt))}</div>
           </div>
           <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" onClick={onCancelReply} aria-label="Cancel reply">

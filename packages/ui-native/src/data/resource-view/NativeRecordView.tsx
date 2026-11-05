@@ -795,7 +795,7 @@ function Group({ title, children, testID }: { title?: string | undefined; childr
   return (
     <View testID={testID} style={{ gap: 6 }}>
       {title ? (
-        <NativeText preset="caption" accessibilityRole="header" className={ios ? "uppercase text-muted-foreground px-4" : "text-primary px-4"}>
+        <NativeText preset="caption" accessibilityRole="header" className={ios ? "uppercase text-muted-foreground px-4" : "text-primary-text px-4"}>
           {title}
         </NativeText>
       ) : null}

@@ -61,7 +61,7 @@ export function EndingsPanel({ def, apply, findings }: { def: FormDefinition; ap
             <li key={e.id} className="flex min-w-0 flex-col gap-1 rounded-xl border bg-card p-4 shadow-sm" data-testid={`builder-ending-${e.id}`}>
               <Editable readOnly={readOnly} className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <Flag className="size-4 shrink-0 text-primary" aria-hidden />
+                  <Flag className="size-4 shrink-0 text-primary-text" aria-hidden />
                   <div className="min-w-0 flex-1">
                   <TextRow
                     label="Title"
@@ -100,7 +100,7 @@ export function EndingsPanel({ def, apply, findings }: { def: FormDefinition; ap
                   onChange={(description) => apply((d) => updateEnding(d, e.id, { description }), `ending-desc:${e.id}`)}
                 />
               </Editable>
-              <p className="mt-auto px-1 pt-1 text-xs text-primary" data-testid={`builder-ending-used-${e.id}`}>
+              <p className="mt-auto px-1 pt-1 text-xs text-primary-text" data-testid={`builder-ending-used-${e.id}`}>
                 {usedBy(def, e.id, isDefault)}
               </p>
               {unreachable ? (

@@ -239,8 +239,8 @@ flows; [docs/NATIVE-RELEASE.md](../../docs/NATIVE-RELEASE.md) has the setup and 
 | --- | --- | --- |
 | `pr-preview.yml` | a pull request into `main` that changes the app, or one labeled `Preview` | Repack a preview build with the same fingerprint (or build one), publish an update to `pr-<number>`, comment the install link and QR code. iOS once `PREVIEW_IOS=true`. |
 | `e2e.yml` | by hand (Maestro needs a paid EAS plan) | The Maestro flows on an iOS simulator build. |
-| `deploy-production.yml` | a pushed `v*.*.*` tag | A store build where native code changed, else an update to `production` at 10%; both after a person approves. |
-| `rollout.yml` | by hand | Promote the staged update after a failed-launch check, or roll it back. |
+| `deploy-production.yml` | every merge to `main` | A store build (submitted in the same run) where native code changed, else an update to every `production` install. |
+| `rollout.yml` | by hand | Promote an update you staged by hand after a failed-launch check, or roll it back. |
 
 Profiles: `development`, `preview` and `production` build the `APP_VARIANT` of the same name on
 the channel of the same name; `e2e` is a development build for the simulator. Store ids in

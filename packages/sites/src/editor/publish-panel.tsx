@@ -75,7 +75,7 @@ function SeoFields({ siteName, pagePath, pageTitle, readOnly }: { siteName: stri
         Search and sharing for {pagePath}
       </h3>
       <div className="rounded-md border border-border p-3 text-sm" aria-label="Search result preview">
-        <p className="truncate text-primary">{title || pageTitle}</p>
+        <p className="truncate text-primary-text">{title || pageTitle}</p>
         <p className="truncate text-xs text-muted-foreground">
           {siteName} · {pagePath}
         </p>

@@ -57,7 +57,7 @@ export function NativeStepper({
                   className={cn(
                     "text-xs font-semibold",
                     isCompleted && "text-primary-foreground",
-                    isCurrent && "text-primary",
+                    isCurrent && "text-primary-text",
                     !isCompleted && !isCurrent && "text-muted-foreground"
                   )}
                 >

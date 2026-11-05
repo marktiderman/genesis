@@ -264,7 +264,7 @@ describe("AppShell phone bottom bar", () => {
 
   it("highlights More when the current page is one of the items under it", () => {
     renderShell(seven, "/data");
-    expect(screen.getByTestId("app-shell-mobile-more").className).toContain("text-primary");
+    expect(screen.getByTestId("app-shell-mobile-more").className).toContain("text-primary-text");
   });
 
   it("names the More button for screen readers when the current page is under it", () => {

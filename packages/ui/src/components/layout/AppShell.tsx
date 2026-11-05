@@ -1926,7 +1926,7 @@ export function AppShell({
                   aria-current={active && !bottomNotCurrent ? "page" : undefined}
                   className={cn(
                     "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors",
-                    active ? "text-primary" : "text-muted-foreground",
+                    active ? "text-primary-text" : "text-muted-foreground",
                   )}
                 >
                   {subNavOn && item.badge != null ? (
@@ -1960,7 +1960,7 @@ export function AppShell({
                 aria-label={moreActive && !bottomNotCurrent ? m.moreCurrent : undefined}
                 className={cn(
                   "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors",
-                  moreActive ? "text-primary" : "text-muted-foreground",
+                  moreActive ? "text-primary-text" : "text-muted-foreground",
                 )}
                 data-testid="app-shell-mobile-more"
               >
@@ -2006,7 +2006,7 @@ export function AppShell({
                         className={cn(
                           "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
                           active
-                            ? "bg-accent text-primary"
+                            ? "bg-accent text-primary-text"
                             : "text-foreground hover:bg-accent hover:text-accent-foreground",
                         )}
                       >

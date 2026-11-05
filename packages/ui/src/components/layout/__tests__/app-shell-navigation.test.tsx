@@ -217,7 +217,7 @@ describe("AppShell navigation tree", () => {
     expect(bottomBar().getAllByRole("link").map((a) => a.textContent)).toEqual(["Dashboard", "Clients"]);
     // The section stays highlighted; the current page is the contextual item, not this tab.
     const clients = bottomBar().getByRole("link", { name: "Clients" });
-    expect(clients.className).toContain("text-primary");
+    expect(clients.className).toContain("text-primary-text");
     expect(clients.getAttribute("aria-current")).toBeNull();
   });
 

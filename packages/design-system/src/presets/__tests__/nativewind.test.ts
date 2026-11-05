@@ -14,12 +14,17 @@ import { GENESIS_THEME_BRAND, fontFamiliesFromDtcg, renderThemeCss } from "../..
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const fonts = fontFamiliesFromDtcg(JSON.parse(readFileSync(join(pkgRoot, "tokens", "dtcg", "typography.json"), "utf-8")));
 
-/** `--name: value;` pairs of one block of genesis.css, fonts left out. */
+/** `--name: value;` pairs of one block of genesis.css, fonts left out, `var(--x)` resolved within the block. */
 function block(css: string, selector: string): Record<string, string> {
   const body = css.split(`${selector} {`)[1]!.split("}")[0]!;
-  return Object.fromEntries(
+  const vars: Record<string, string> = Object.fromEntries(
     [...body.matchAll(/(--[\w-]+):\s*([^;]+);/g)].filter(([, name]) => !name!.startsWith("--font-")).map(([, name, value]) => [name, value]),
   );
+  for (const [name, value] of Object.entries(vars)) {
+    const ref = /^var\((--[\w-]+)\)$/.exec(value);
+    if (ref) vars[name] = vars[ref[1]!]!;
+  }
+  return vars;
 }
 
 function base() {
@@ -32,7 +37,7 @@ describe("genesisNativewindPreset", () => {
   const colors = genesisNativewindPreset.theme.extend.colors as Record<string, unknown>;
 
   it("has the role colors the ui-native components use, from the theme variables", () => {
-    for (const key of ["primary", "primary-foreground", "background", "foreground", "input", "border", "destructive", "muted-foreground", "card", "ring"]) {
+    for (const key of ["primary", "primary-foreground", "primary-text", "background", "foreground", "input", "border", "destructive", "muted-foreground", "card", "ring"]) {
       expect(colors[key], key).toBe(`hsl(var(--${key}))`);
     }
     expect(colors.sidebar).toBe("hsl(var(--sidebar-background))");

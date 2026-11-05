@@ -363,7 +363,7 @@ export function ForgotPasswordLink({
       hitSlop={8}
       className="self-end"
     >
-      <Text className="text-sm font-medium text-primary">{label}</Text>
+      <Text className="text-sm font-medium text-primary-text">{label}</Text>
     </Pressable>
   );
 }

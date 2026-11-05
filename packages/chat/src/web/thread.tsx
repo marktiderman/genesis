@@ -239,7 +239,7 @@ function ChatRowSlot(row: ChatThreadRow & { highlighted?: boolean }) {
       {row.firstUnread ? (
         <div className="my-2 flex items-center gap-2 px-4" role="separator" aria-label="New messages" data-testid="genesis-chat-new-line">
           <span className="h-px flex-1 bg-primary/40" />
-          <span className="text-xs font-semibold text-primary">New</span>
+          <span className="text-xs font-semibold text-primary-text">New</span>
           <span className="h-px flex-1 bg-primary/40" />
         </div>
       ) : null}
@@ -679,7 +679,7 @@ export function ChatThread({
             className="flex items-center gap-2 border-b bg-muted/40 px-3 py-1.5 text-left text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             aria-label={`Pinned message: ${previewText(pinnedMessage.body, pinnedMessage.attachments[0]?.kind ?? null, Boolean(pinnedMessage.deletedAt))}. Show it`}
           >
-            <Pin className="size-3.5 shrink-0 text-primary" aria-hidden />
+            <Pin className="size-3.5 shrink-0 text-primary-text" aria-hidden />
             <span className="truncate">{previewText(pinnedMessage.body, pinnedMessage.attachments[0]?.kind ?? null, Boolean(pinnedMessage.deletedAt))}</span>
             {pinIds.length > 1 ? <span className="ml-auto shrink-0 text-muted-foreground">+{pinIds.length - 1}</span> : null}
           </button>
@@ -736,7 +736,7 @@ export function ChatThread({
             className="h-full"
           />
           {dragging ? (
-            <div className="pointer-events-none absolute inset-2 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-primary">
+            <div className="pointer-events-none absolute inset-2 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary bg-background/90 text-sm font-medium text-primary-text">
               <ImagePlus className="size-6" aria-hidden />
               Drop to attach
             </div>

@@ -239,7 +239,7 @@ function iosTrailingSeparatorInset(): boolean {
  * `secondaryLabel` on the page background. It sits over the group (same
  * margin) and is padded like a cell (`px-4`), so it lines up with the cell
  * text. Android: a Material list subheader in the brand's primary color
- * (`text-primary`, which follows the app's theme). Neither draws a band or a
+ * (`text-primary-text`, which follows the app's theme). Neither draws a band or a
  * rule. iOS reads uppercased text as written in capitals, so the label is the
  * title as written, and VoiceOver doesn't spell short words out.
  */
@@ -269,7 +269,7 @@ function DefaultSectionHeader({ title, testID }: SettingsPageSlotMap["sectionHea
     <NativeText
       testID={testID}
       accessibilityRole="header"
-      className="px-4 pb-2 pt-4 text-primary"
+      className="px-4 pb-2 pt-4 text-primary-text"
       style={{ fontSize: 14, lineHeight: 20, fontWeight: "500" }}
     >
       {title}

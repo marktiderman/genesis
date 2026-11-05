@@ -114,7 +114,7 @@ export function NativeChip({
         <Text
           className={cn(
             "text-sm",
-            isSelected ? "font-semibold text-primary" : "text-foreground"
+            isSelected ? "font-semibold text-primary-text" : "text-foreground"
           )}
         >
           {children}
