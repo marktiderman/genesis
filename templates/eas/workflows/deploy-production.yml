@@ -14,8 +14,9 @@
 #
 # Safety:
 # - A push to main is the only trigger, so a run always builds a commit in git, never a local
-#   folder. Don't add `workflow_dispatch` without `--ref` discipline: `eas workflow:run` without
-#   `--ref` uploads the working directory as it is on that machine.
+#   folder. `eas workflow:run` can start it anyway (and without `--ref` uploads the working
+#   directory), so the first job runs only for a push to main and a manual run does nothing.
+# - Runs are serialized (`concurrency`): two quick merges never publish out of order.
 # - Updates go to every install, not a staged share: EAS refuses a second rollout on the same
 #   channel, platform and runtime while one is in progress, so a staged update would make the next
 #   merge's update fail. To take one back, republish the update before it
@@ -35,9 +36,17 @@ on:
   push:
     branches: [main]
 
+# One deploy at a time. The running one always finishes (no cancel_in_progress); the newest merge
+# waits for it and EAS drops the runs in between, so an older merge never publishes last.
+concurrency:
+  group: ${{ workflow.filename }}-${{ github.ref }}
+
 jobs:
   fingerprint:
     name: Fingerprint
+    # Only a push to main. `eas workflow:run` starts any workflow whatever its `on` says, and
+    # without --ref it uploads a local folder; skipping here skips every job after it.
+    if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
     type: fingerprint
     environment: production
     env:

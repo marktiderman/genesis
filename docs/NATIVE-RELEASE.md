@@ -107,6 +107,9 @@ Nothing in the templates names a real account. Before the first run:
    (`eas submit --platform ios --id <build id> --profile production`).
 4. **To take an update back**, republish the update group before it:
    `eas update:republish --group <id>` (the ids are in `eas update:list --branch production`).
+   With no earlier update on that platform and runtime version, roll back to the build's embedded
+   update instead:
+   `eas update:roll-back-to-embedded --channel production --platform <ios|android> --runtime-version <version>`.
 
    Updates go to every install, not a staged share: EAS refuses to start a second rollout on the
    same channel, platform and runtime version while one is in progress, so a staged update would
@@ -143,8 +146,11 @@ and compare crash-free sessions with the update before it. Promote only if it is
   production or runs `eas update`/`eas submit`. EAS doesn't run `pull_request` workflows for
   pull requests from forks, so those environments' secrets stay with your own branches.
 - **Production starts from git.** `deploy-production.yml` runs only on a push to `main`, so it
-  builds a commit, never a folder. Run `rollout.yml` with `--ref`: `eas workflow:run` without
-  it uploads the working directory as it is, and nothing in the workflow can tell.
+  builds a commit, never a folder. `eas workflow:run` can start any workflow, so its first job
+  runs only when `github.event_name` is `push` on `main`: a manual run skips every job. Runs are
+  serialized (`concurrency`, without `cancel_in_progress`), so two quick merges never publish out
+  of order. Run `rollout.yml` with `--ref`: `eas workflow:run` without it uploads the working
+  directory as it is, and nothing in the workflow can tell.
 - **The merge into `main` is the approval.** Protect `main` (pull requests only, required checks,
   and only the people who may release can merge). Store builds go to TestFlight and a Play draft,
   never straight to release; each is submitted in the run that built it, so an update never goes

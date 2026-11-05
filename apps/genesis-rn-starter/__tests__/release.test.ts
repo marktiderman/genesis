@@ -140,6 +140,12 @@ describe("EAS workflows", () => {
     expect(on.push).toEqual({ branches: ["main"] });
     // main's merge is the approval: an approval job would hold every merge's release.
     expect(Object.values(jobs).filter((j) => j.type === "require-approval")).toEqual([]);
+    // `eas workflow:run` starts any workflow: only a push to main may run the first job.
+    expect(jobs.fingerprint?.if).toBe("${{ github.event_name == 'push' && github.ref_name == 'main' }}");
+    for (const [id, job] of Object.entries(jobs)) if (id !== "fingerprint") expect(job.needs, id).toBeTruthy();
+    // One deploy at a time, and the running one always finishes: never cancel_in_progress.
+    const { concurrency } = parse(read(".eas/workflows/deploy-production.yml")) as { concurrency?: unknown };
+    expect(concurrency).toEqual({ group: "${{ workflow.filename }}-${{ github.ref }}" });
   });
 
   it("deploy-production updates every install, and submits each build in the run that made it", () => {
