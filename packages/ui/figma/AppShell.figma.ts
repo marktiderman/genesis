@@ -1,13 +1,16 @@
 // url=https://www.figma.com/design/oxxjVBFCphWPA3Bbj1Ivzf/Genesis?node-id=59-224
 // source=packages/ui/src/components/layout/AppShell.tsx
 // component=AppShell
+// "Show secondary group" is the sidebar group (secondaryNavItems, up to 8 items in the
+// component); "Show rail footer" is the sidebar footer above the user (footer).
 import figma from 'figma'
 const instance = figma.selectedInstance
 
 const collapsed = instance.getEnum('collapsed', { false: 'false', true: 'true' })
 const density = instance.getEnum('density', { comfortable: 'comfortable', compact: 'compact' })
-const showSecondaryNav = instance.getBoolean('Show secondary nav')
-const showFooter = instance.getBoolean('Show footer')
+const showSecondary = instance.getBoolean('Show secondary group')
+const secondaryLabel = instance.getString('Secondary label')
+const showFooter = instance.getBoolean('Show rail footer')
 
 export default {
   example: figma.code`<AppShell
@@ -15,8 +18,9 @@ export default {
   navItems={navItems}
   collapsed={${collapsed}}
   onCollapsedChange={setCollapsed}
-  options={{ density: "${density}", showSecondaryNav: ${showSecondaryNav}, showFooter: ${showFooter} }}${showSecondaryNav ? figma.code`
-  secondaryNavItems={secondaryNavItems}` : ''}${showFooter ? figma.code`
+  options={{ density: "${density}", showSecondaryNav: ${showSecondary}, showFooter: ${showFooter} }}${showSecondary ? figma.code`
+  secondaryNavItems={secondaryNavItems}
+  secondaryNavLabel="${secondaryLabel}"` : ''}${showFooter ? figma.code`
   footer={footer}` : ''}
 >
   {children}

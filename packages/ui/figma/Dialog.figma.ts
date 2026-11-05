@@ -8,6 +8,8 @@ const mobileLayout = instance.getEnum('mobileLayout', { center: 'center', sheet:
 const title = instance.getString('Title')
 const description = instance.getString('Description')
 const showFooter = instance.getBoolean('Show footer')
+const showBody = instance.getBoolean('Show body')
+const showBodySlot = instance.getBoolean('Show body slot')
 
 export default {
   example: figma.code`<Dialog open={open} onOpenChange={setOpen}>
@@ -15,7 +17,8 @@ export default {
     <DialogHeader>
       <DialogTitle>${title}</DialogTitle>
       <DialogDescription>${description}</DialogDescription>
-    </DialogHeader>${showFooter ? `
+    </DialogHeader>${showBody || showBodySlot ? `
+    {children}` : ''}${showFooter ? `
     <DialogFooter>
       <Button onClick={() => setOpen(false)}>Done</Button>
     </DialogFooter>` : ''}

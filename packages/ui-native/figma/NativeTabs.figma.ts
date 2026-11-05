@@ -21,7 +21,7 @@ const badges = [
   instance.getBoolean('Show badge 4'),
   instance.getBoolean('Show badge 5'),
 ]
-const selected = instance.getEnum('selected', { '1': 0, '2': 1, '3': 2 })
+const selected = instance.getEnum('selected', { '1': 0, '2': 1, '3': 2, '4': 3, '5': 4 })
 const defaultValue = tabs[Math.min(selected, tabs.length - 1)]
 
 const trigger = (label: string, i: number) =>
