@@ -1,8 +1,8 @@
 # Native release
 
 How a Genesis native app goes from a pull request to the stores: EAS Workflows for previews,
-builds, store submissions and staged over-the-air updates, and Maestro smoke flows. The starter
-(`apps/genesis-rn-starter`) ships all of it; the canonical copies are in
+builds, store submissions and an over-the-air update on every merge to `main`, and Maestro smoke
+flows. The starter (`apps/genesis-rn-starter`) ships all of it; the canonical copies are in
 [`templates/eas/`](../templates/eas) and [`templates/maestro/`](../templates/maestro).
 
 | File | What it does |
