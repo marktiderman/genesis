@@ -142,6 +142,8 @@ describe("theme", () => {
     const css = document.querySelector("style")!.textContent!;
     expect(css).toContain(`[data-gf-theme="${id}"]`);
     expect(css).toMatch(/--primary: \d+ \d+% [\d.]+%/);
+    // Its text colour too, or `text-primary-text` inside the form would keep the app's.
+    expect(css).toMatch(/--primary-text: \d+ \d+% [\d.]+%/);
     expect(css).toContain(".dark");
     const img = screen.getByRole("img", { name: "The gym" }) as HTMLImageElement;
     expect(img.getAttribute("src")).toBe("/banner.jpg");
@@ -171,13 +173,14 @@ describe("themeColors keeps contrast", () => {
   };
 
   for (const accent of ["#ffff00", "#fde68a", "#2563eb", "#111111", "#808080", "#0f0", "rgb(255, 120, 0)"]) {
-    it(`${accent}: 3:1 with the page and 4.5:1 for its text, light and dark`, () => {
+    it(`${accent}: 3:1 with the page, 4.5:1 for its text and as text, light and dark`, () => {
       const colors = themeColors(accent)!;
       const pages: [mode: "light" | "dark", page: number[]][] = [["light", [255, 255, 255]], ["dark", rgb("240 10% 3.9%")]];
       for (const [mode, page] of pages) {
         const c = colors[mode];
         expect(ratio(rgb(c.primary), page)).toBeGreaterThanOrEqual(2.95);
         expect(ratio(rgb(c.primary), rgb(c.primaryForeground))).toBeGreaterThanOrEqual(4.45);
+        expect(ratio(rgb(c.primaryText), page)).toBeGreaterThanOrEqual(4.45);
       }
     });
   }
