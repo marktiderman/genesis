@@ -152,8 +152,9 @@ describe("EAS workflows", () => {
     const { jobs } = workflow("deploy-production.yml");
     const updates = Object.values(jobs).filter((j) => j.type === "update");
     expect(updates).toHaveLength(2);
-    // A staged update would make the next merge's update fail: EAS allows one rollout at a time.
-    for (const job of updates) expect(job.params?.rollout_percentage).toBe(100);
+    // To every install: no rollout (a staged one would block the next merge's update, and EAS failed
+    // to publish one set to 100).
+    for (const job of updates) expect(job.params?.rollout_percentage).toBeUndefined();
     // An update only where a build with this fingerprint exists; a build only where none does,
     // and that build is submitted in the same run.
     for (const platform of ["ios", "android"]) {
