@@ -10656,15 +10656,7 @@
         {
           "name": "brandThemeStyle",
           "summary": "The CSS variables for a brand's accent, for a page root's `style`. Empty\nwhen the brand has no valid accent, so the page keeps Genesis's primary.",
-          "props": [
-            {
-              "name": "accent",
-              "type": "string",
-              "required": false,
-              "defaultValue": null,
-              "description": "Accent colour: `#rgb`, `#rrggbb`, `rgb()`/`rgba()`, `hsl()`/`hsla()` or a\nbare token triplet like `\"160 84% 39%\"`. Alpha is ignored (the accent is\ntreated as opaque). Invalid or absent: Genesis's own primary."
-            }
-          ]
+          "props": []
         },
         {
           "name": "MIN_TEXT_CONTRAST",
@@ -29435,16 +29427,8 @@
       "components": [
         {
           "name": "workspaceThemeStyle",
-          "summary": "The CSS variables for a workspace's brand (`workspace.theme.accent`): `--primary`,\n`--primary-foreground` and `--ring` pointed at an accessible shade of the accent, as\n`brandThemeStyle` does for a public page. Empty without a valid accent. The switcher puts it on\neach workspace's picture and row; an app can put the current workspace's on its shell to brand\neverything inside.",
-          "props": [
-            {
-              "name": "theme",
-              "type": "WorkspaceTheme",
-              "required": false,
-              "defaultValue": null,
-              "description": "Its brand, for the switcher's picture and anything the app themes inside it."
-            }
-          ]
+          "summary": "The CSS variables for a workspace's brand (`workspace.theme.accent`): `--primary`,\n`--primary-foreground` and `--ring` pointed at an accessible shade of the accent, as\n`brandThemeStyle` does for a public page. Empty without a valid accent. The switcher puts it on\neach workspace's picture and row; an app can put the current workspace's on its shell to brand\neverything inside (pass `{ mode: \"dark\" }` when that shell renders dark, so `--primary-text`\nreads on the dark background).",
+          "props": []
         },
         {
           "name": "WorkspaceSwitcher",
