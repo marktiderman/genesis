@@ -1,16 +1,16 @@
 # Native release
 
 How a Genesis native app goes from a pull request to the stores: EAS Workflows for previews,
-builds, store submissions and staged over-the-air updates, and Maestro smoke flows. The starter
-(`apps/genesis-rn-starter`) ships all of it; the canonical copies are in
+builds, store submissions and an over-the-air update on every merge to `main`, and Maestro smoke
+flows. The starter (`apps/genesis-rn-starter`) ships all of it; the canonical copies are in
 [`templates/eas/`](../templates/eas) and [`templates/maestro/`](../templates/maestro).
 
 | File | What it does |
 | --- | --- |
 | `eas.json` | Build profiles `development` (a release build of the development variant, not a dev client: the starter has no `expo-dev-client`), `preview`, `e2e` (a development simulator build) and `production`, each with its `APP_VARIANT`, EAS environment and channel; app versions from EAS (`appVersionSource: remote`); store submission with placeholder ids. |
 | `.eas/workflows/pr-preview.yml` | A pull request into `main` that changes the app, or one labeled `Preview` ([Build cost](#build-cost)): fingerprint, then repack a preview build with the same fingerprint (or build one when native code changed), publish an update to the channel `pr-<number>`, and comment the install link and QR code. iOS only once `PREVIEW_IOS=true`. |
-| `.eas/workflows/deploy-production.yml` | A pushed `v*.*.*` tag: per platform, a new store build only when the native fingerprint changed, otherwise an over-the-air update to `production` at 10%. Both wait for a person's approval. |
-| `.eas/workflows/rollout.yml` | By hand: promote the staged update (after a failed-launch check) or roll it back. |
+| `.eas/workflows/deploy-production.yml` | Every merge to `main`: per platform, a new store build (submitted in the same run) only when the native fingerprint changed, otherwise an over-the-air update to every `production` install. |
+| `.eas/workflows/rollout.yml` | By hand: promote an update you staged by hand (after a failed-launch check) or roll it back. |
 | `.eas/workflows/e2e.yml` | By hand (Maestro needs a paid EAS plan): the Maestro flows on an iOS simulator build (repacked when the fingerprint matches). The `account` flow is left out until its secrets exist. |
 | `.eas/scripts/rollout-health.mjs` | The check `rollout.yml` runs before promoting. |
 | `.maestro/` | Smoke flows: launch, the sign-in screen, Settings' version row (after signing in). |
@@ -86,26 +86,35 @@ Nothing in the templates names a real account. Before the first run:
    (the starter turns channel switching on only in the development and preview variants, by their
    bundle id suffix, so a production build never can; it has no screen for it yet). Run `e2e.yml`
    by hand for the Maestro flows (`eas workflow:run e2e.yml --ref <branch>`).
-2. **Merge**, then tag the release: `git tag v1.4.0 && git push origin v1.4.0`. A release that
-   changes native code is a new store version: bump `version` in `app.config.ts` in the same
-   change. The version isn't part of the fingerprint, so a bump on its own starts no build, and a
-   native change without one uploads the old version string, which App Store Connect refuses once
-   that version is released (and the updates block's minimum versions compare it).
+2. **Merge into `main`.** That merge is the release: `main` takes pull requests only, from the
+   people allowed to merge into it, so nothing waits for a second approval. A merge that changes
+   native code is a new store version once it's released: bump `version` in `app.config.ts` in
+   the same change when you mean to release it. The version isn't part of the fingerprint, so a
+   bump on its own starts no build, and a native change without one uploads the old version
+   string, which App Store Connect refuses once that version is released (and the updates block's
+   minimum versions compare it).
 3. **deploy-production.yml** fingerprints the commit. Per platform:
-   - native code changed (no production build with this fingerprint): a store build. After
-     approval it goes to TestFlight and to Google Play's internal track as a draft. Releasing it
-     to the stores is still your step in App Store Connect and Play Console.
-   - JavaScript only: after approval, an update to the `production` channel for 10% of installs
-     on that runtime version, one update group per platform.
+   - native code changed (no production build with this fingerprint): a store build, submitted in
+     the same run to TestFlight and to Google Play's internal track as a draft. Releasing it to
+     the stores is still your step in App Store Connect and Play Console.
+   - JavaScript only: an update to the `production` channel for every install on that runtime
+     version, one update group per platform.
 
-   The approval isn't offered when a build failed, so one approval never ships half a release.
-   Before approving, check that the tag's commit is on `main`.
+   Each platform runs on its own: a failed Android build doesn't hold back the iOS update.
 
-   A production build whose approval was rejected, or whose submit failed, still matches its
-   fingerprint, so the next JavaScript-only tag sends an update to a binary nobody installed.
-   Submit that build by hand (`eas submit --platform ios --id <build id> --profile production`).
-4. **rollout.yml** raises the rollout (25, 50, 100) or rolls it back, once per platform's update
-   group:
+   A production build whose submit failed still matches its fingerprint, so the next
+   JavaScript-only merge sends an update to a binary nobody installed. Submit that build by hand
+   (`eas submit --platform ios --id <build id> --profile production`).
+4. **To take an update back**, republish the update group before it:
+   `eas update:republish --group <id>` (the ids are in `eas update:list --branch production`).
+   With no earlier update on that platform and runtime version, roll back to the build's embedded
+   update instead:
+   `eas update:roll-back-to-embedded --channel production --platform <ios|android> --runtime-version <version>`.
+
+   Updates go to every install, not a staged share: EAS refuses to start a second rollout on the
+   same channel, platform and runtime version while one is in progress, so a staged update would
+   make the next merge's update fail. To stage one anyway, publish it by hand with
+   `--rollout-percentage` and finish it with **rollout.yml** before the next merge:
 
    ```bash
    eas workflow:run rollout.yml --ref main --input update_group_id=<id> --input action=promote --input percentage=50
@@ -136,16 +145,19 @@ and compare crash-free sessions with the update before it. Promote only if it is
   custom job. A test in the starter (`__tests__/release.test.ts`) fails if one of them names
   production or runs `eas update`/`eas submit`. EAS doesn't run `pull_request` workflows for
   pull requests from forks, so those environments' secrets stay with your own branches.
-- **Production starts from git.** `deploy-production.yml` runs only on a pushed `v*.*.*` tag, so
-  it builds a commit, never a folder. Run `rollout.yml` with `--ref`: `eas workflow:run` without
-  it uploads the working directory as it is, and nothing in the workflow can tell.
-- **A person approves.** Every submit job and every production update `needs` a
-  `require-approval` job (the starter's test fails otherwise; `after` wouldn't do, since it also
-  runs after a rejection). Store builds go to TestFlight and a
-  Play draft, never straight to release.
-- **Staged, one at a time.** Production updates start at 10%. EAS refuses to start a second
-  rollout on the same channel, platform and runtime version while one is in progress, so finish or
-  roll back the first.
+- **Production starts from git.** `deploy-production.yml` runs only on a push to `main`, so it
+  builds a commit, never a folder. `eas workflow:run` can start any workflow, so its first job
+  runs only when `github.event_name` is `push` on `main`: a manual run skips every job. Runs are
+  serialized (`concurrency`, without `cancel_in_progress`), so two quick merges never publish out
+  of order. Run `rollout.yml` with `--ref`: `eas workflow:run` without it uploads the working
+  directory as it is, and nothing in the workflow can tell.
+- **The merge into `main` is the approval.** Protect `main` (pull requests only, required checks,
+  and only the people who may release can merge). Store builds go to TestFlight and a Play draft,
+  never straight to release; each is submitted in the run that built it, so an update never goes
+  to a build nobody has.
+- **One update at a time, to everyone.** Production updates go to every install; take one back by
+  republishing the update before it. A staged update blocks the next merge's update until it's
+  promoted or rolled back.
 - **No secrets in the files.** Tokens and test passwords are EAS environment secrets; the
   workflows pass inputs to shell steps only through `env`. The test fails on a secret-looking `env`
   key or a token in a workflow file.
@@ -159,7 +171,7 @@ run on each push. The templates start narrow; widen them in the app's copy when 
 | --- | --- | --- | --- |
 | `pr-preview.yml` | Pull requests into `main` whose changes touch the app's code folder, `app.json`, `app.config.*`, `eas.json`, `package.json` or a lockfile (pnpm, yarn, npm, bun); and any pull request labeled `Preview`. Android only. One run per branch at a time. | A docs-only or tooling-only pull request has nothing to install, and every push would otherwise repack (or build) both platforms. An iOS preview is an ad hoc build, which installs only on devices registered before it was built: with none, every iOS job fails. | Add branches or paths under `on.pull_request`, or delete both to run on every pull request. Turn iOS on with `PREVIEW_IOS=true` in the `preview` EAS environment after `eas device:create`. |
 | `e2e.yml` | Only by hand: `eas workflow:run e2e.yml --ref <branch>`. | Maestro jobs need a paid EAS plan, and each run is a simulator build or repack. | Once the plan includes Maestro, add the `pull_request` trigger in the file's header comment (into `main`, the app's paths and `.maestro/**`). |
-| `deploy-production.yml` | A pushed `v*.*.*` tag. | A store build only when the native fingerprint changed. | Not needed. |
+| `deploy-production.yml` | Every push to `main`. | A store build only when the native fingerprint changed. | Not needed. |
 | `rollout.yml` | Only by hand. | No build. | Not needed. |
 
 `pull_request_labeled` takes no `paths` in EAS's syntax, so adding the `Preview` label starts one
