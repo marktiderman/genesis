@@ -26,7 +26,7 @@ const statusColorMap: Record<ColumnStatus, { color: string; bgColor: string }> =
   success: { color: "text-success", bgColor: "bg-success/15" },
   info: { color: "text-info", bgColor: "bg-info/15" },
   destructive: { color: "text-destructive", bgColor: "bg-destructive/15" },
-  primary: { color: "text-primary", bgColor: "bg-primary/15" },
+  primary: { color: "text-primary-text", bgColor: "bg-primary/15" },
 };
 
 export interface KanbanColumn<T> {

@@ -42,7 +42,7 @@ function CheckMark({ on }: { on: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className={cn("size-4 shrink-0 text-primary", on ? "opacity-100" : "opacity-0")}
+      className={cn("size-4 shrink-0 text-primary-text", on ? "opacity-100" : "opacity-0")}
     >
       <path d="M20 6 9 17l-5-5" />
     </svg>

@@ -282,6 +282,15 @@ export interface CanonicalBrand {
   signal?: string;
 
   /**
+   * Optional primary as text (`--primary-text`, the `text-primary-text`
+   * class): links, active tabs and stats on the page. Unset: the accent
+   * where it reads at 4.5:1 on the background, else the accent's hue
+   * darkened until it does, so a light accent (a gold on white) still
+   * reads. Set it to pick the exact shade. Dark mode: `dark.primaryText`.
+   */
+  primaryText?: string;
+
+  /**
    * Optional dark-mode colours. Without it dark mode is the Genesis dark
    * theme with the brand's accent as primary where it reads; with it, each
    * role the block sets is the dark theme's value (`surface` → background,
@@ -311,7 +320,8 @@ export interface CanonicalBrand {
  * A brand's dark-mode colours: the same role keys as the light ones
  * (`surface`, `text` for the foreground, `accent` for the primary, `neutral`,
  * `status`, `signal`), plus `primaryForeground` when the computed text on the
- * primary isn't the one wanted. Every key is optional.
+ * primary isn't the one wanted, and `primaryText` when the computed primary
+ * as text on the page isn't. Every key is optional.
  */
 export interface BrandDarkRoles {
   /** Background, card and popover (`DEFAULT`). */
@@ -322,6 +332,8 @@ export interface BrandDarkRoles {
   accent?: ColorScale;
   /** Text on the primary. Unset: white or the darkest neutral, whichever reads. */
   primaryForeground?: string;
+  /** The primary as text on the dark page. Unset: the primary where it reads at 4.5:1, else its hue lightened until it does. */
+  primaryText?: string;
   /** Neutral ramp in dark mode: 800 → secondary / muted, 400 → muted foreground, 700 → border. */
   neutral?: Record<string, string>;
   /** Status colours in dark mode. */
@@ -513,6 +525,7 @@ const ALLOWED_TOP_LEVEL_KEYS = new Set([
   "designSystem",
   // Opt-in brand roles.
   "signal",
+  "primaryText",
   "dark",
   "accents",
   "gradients",
@@ -704,10 +717,11 @@ const isText = (v: unknown): v is string => typeof v === "string" && v.length > 
 function validateBrandRoles(b: Record<string, unknown>): string[] {
   const errors: string[] = [];
   if (b.signal !== undefined && !isText(b.signal)) errors.push("brand.signal: expected non-empty string");
+  if (b.primaryText !== undefined && !isText(b.primaryText)) errors.push("brand.primaryText: expected non-empty string");
   if (b.dark !== undefined) {
     if (!isPlainObject(b.dark)) errors.push("brand.dark: expected object");
     else {
-      const allowed = new Set(["surface", "text", "accent", "primaryForeground", "neutral", "status", "signal"]);
+      const allowed = new Set(["surface", "text", "accent", "primaryForeground", "primaryText", "neutral", "status", "signal"]);
       for (const [k, v] of Object.entries(b.dark)) {
         if (!allowed.has(k)) errors.push(`brand.dark.${k}: unknown property`);
         else if (k === "surface" || k === "text" || k === "accent") {

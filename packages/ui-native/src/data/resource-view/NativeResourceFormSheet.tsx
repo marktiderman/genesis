@@ -149,7 +149,7 @@ export function NativeResourceFormSheet({
           hitSlop={8}
           className="min-h-[44px] justify-center px-3"
         >
-          <Text className="text-base text-primary">{messages.common.cancel}</Text>
+          <Text className="text-base text-primary-text">{messages.common.cancel}</Text>
         </Pressable>
         <NativeText preset="body" accessibilityRole="header" className="font-semibold" numberOfLines={1}>
           {title}

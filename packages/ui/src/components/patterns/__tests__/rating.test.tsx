@@ -176,7 +176,7 @@ describe("Rating — a form's stars", () => {
 
   it("colours the chosen stars by tone", () => {
     render(<Rating value={2} onChange={vi.fn()} tone="primary" />);
-    expect(screen.getAllByRole("radio")[0]!.className).toContain("text-primary");
+    expect(screen.getAllByRole("radio")[0]!.className).toContain("text-primary-text");
     expect(screen.getAllByRole("radio")[0]!.className).not.toContain("text-warning");
   });
 

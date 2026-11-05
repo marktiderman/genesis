@@ -399,7 +399,7 @@ export function DefaultEnding({ title, description, actions, className }: Ending
       <div className={cn("flex flex-col items-center gap-4 text-center", className)}>
         <span
           aria-hidden="true"
-          className="mb-2 flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary"
+          className="mb-2 flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary-text"
         >
           <CheckIcon className="size-8" />
         </span>

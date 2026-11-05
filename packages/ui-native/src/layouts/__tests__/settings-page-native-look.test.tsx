@@ -124,7 +124,7 @@ describe("SettingsPage on Android (Material)", () => {
     render(<SettingsPage testID="s" sections={sections} />);
     const header = screen.getByTestId("s-section-account-header");
     expect(header.getAttribute("role")).toBe("header");
-    expect(header.className).toContain("text-primary");
+    expect(header.className).toContain("text-primary-text");
     expect(header.className).not.toMatch(/\bbg-|\bborder/);
     const style = styleOf(header);
     expect(style.textTransform).toBeUndefined();

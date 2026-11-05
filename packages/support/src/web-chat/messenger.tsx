@@ -310,7 +310,7 @@ function CitedArticles({ ids, copy, go, here, titles }: { ids: readonly string[]
           key={id}
           type="button"
           onClick={() => go({ name: "article", slug: titles.get(id)?.slug ?? id, from: here })}
-          className="min-h-11 text-left text-primary underline underline-offset-2"
+          className="min-h-11 text-left text-primary-text underline underline-offset-2"
           data-testid={`genesis-support-messenger-ai-source-${id}`}
         >
           {titles.get(id)?.title ?? copy.messenger.aiSources}

@@ -3,7 +3,7 @@ import type * as React from "react";
 /**
  * Brand theming for public pages: a host's brand object becomes CSS
  * variables on a page root, so every Genesis component inside it (a
- * `Button`, a focus ring, a link styled `text-primary`) picks up the accent
+ * `Button`, a focus ring, a link styled `text-primary-text`) picks up the accent
  * without knowing a brand exists.
  *
  * The accent is the one colour a public page takes from outside the token
@@ -21,7 +21,7 @@ import type * as React from "react";
  * - `--brand-accent`: the accent exactly as given. Decoration only.
  * - `--brand-accent-strong`: the accessible shade. Text and fills.
  * - `--brand-accent-foreground`: text on `--brand-accent-strong`.
- * - `--primary`, `--primary-foreground`, `--ring`: the Genesis tokens,
+ * - `--primary`, `--primary-foreground`, `--primary-text`, `--ring`: the Genesis tokens,
  *   pointed at the accessible shade, which is what makes nested components
  *   follow the brand.
  */
@@ -257,6 +257,7 @@ export function brandThemeStyle(brand: Pick<PublicBrand, "accent"> | undefined):
     "--brand-accent-foreground": foreground,
     "--primary": strong,
     "--primary-foreground": foreground,
+    "--primary-text": strong,
     "--ring": strong,
   } as React.CSSProperties;
 }

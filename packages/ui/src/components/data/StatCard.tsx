@@ -5,7 +5,7 @@ import { DefaultLink, type LinkComponent } from "../../navigation";
 export type StatCardColor = "primary" | "success" | "warning" | "info" | "destructive" | "muted";
 
 const colorMap: Record<StatCardColor, string> = {
-  primary: "text-primary",
+  primary: "text-primary-text",
   success: "text-success",
   warning: "text-warning",
   info: "text-info",
@@ -56,7 +56,7 @@ export function StatCard({
           className={cn(
             "mt-1 text-xs font-medium",
             trend.value >= 0
-              ? "text-primary"
+              ? "text-primary-text"
               : "text-destructive",
           )}
         >

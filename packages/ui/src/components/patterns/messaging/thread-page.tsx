@@ -295,7 +295,7 @@ export function ThreadPage({
               listRef.current?.focus();
               listRef.current?.scrollToEnd({ animated: true });
             }}
-            className="absolute bottom-3 left-1/2 h-11 -translate-x-1/2 rounded-full text-primary shadow-sm"
+            className="absolute bottom-3 left-1/2 h-11 -translate-x-1/2 rounded-full text-primary-text shadow-sm"
           >
             {labels.jumpToLatest}
           </Button>
@@ -316,7 +316,7 @@ function Nothing(_props: { testID: string }) {
 function DefaultEarlier({ loading, onPress, label, testID }: ThreadPageSlotMap["earlier"]) {
   return (
     <div className="flex justify-center py-2">
-      <Button variant="ghost" size="sm" data-testid={testID} onClick={onPress} disabled={loading} aria-busy={loading} className="rounded-full text-primary">
+      <Button variant="ghost" size="sm" data-testid={testID} onClick={onPress} disabled={loading} aria-busy={loading} className="rounded-full text-primary-text">
         {label}
       </Button>
     </div>
@@ -333,7 +333,7 @@ function DefaultEmpty({ title, body, actionLabel, onAction, testID }: ThreadPage
 
 function DefaultUnreadDivider({ label, testID }: ThreadPageSlotMap["unreadDivider"]) {
   return (
-    <div data-testid={testID} role="separator" aria-label={label} className="flex items-center gap-2 py-2 text-xs text-primary">
+    <div data-testid={testID} role="separator" aria-label={label} className="flex items-center gap-2 py-2 text-xs text-primary-text">
       <span className="h-px flex-1 bg-primary" aria-hidden />
       <span>{label}</span>
       <span className="h-px flex-1 bg-primary" aria-hidden />

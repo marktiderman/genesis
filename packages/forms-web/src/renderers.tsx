@@ -426,7 +426,7 @@ function ChoiceContent({
     <>
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute flex size-7 items-center justify-center text-xs font-bold text-primary group-has-[[data-state=checked]]/choice:text-primary-foreground"
+        className="pointer-events-none absolute flex size-7 items-center justify-center text-xs font-bold text-primary-text group-has-[[data-state=checked]]/choice:text-primary-foreground"
       >
         {KEYS[index] ?? ""}
       </span>
@@ -440,7 +440,7 @@ function ChoiceContent({
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden="true"
-        className="size-5 shrink-0 text-primary opacity-0 transition-opacity group-has-[[data-state=checked]]/choice:opacity-100 motion-reduce:transition-none"
+        className="size-5 shrink-0 text-primary-text opacity-0 transition-opacity group-has-[[data-state=checked]]/choice:opacity-100 motion-reduce:transition-none"
       >
         <path d="M20 6 9 17l-5-5" />
       </svg>

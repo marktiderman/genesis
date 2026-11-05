@@ -302,7 +302,7 @@ export function DataFilters({
                   <>
                     <div className="border-t my-1" />
                     <button
-                      className="w-full flex items-center gap-1.5 text-sm px-2 py-1.5 rounded hover:bg-accent text-primary"
+                      className="w-full flex items-center gap-1.5 text-sm px-2 py-1.5 rounded hover:bg-accent text-primary-text"
                       onClick={() => {
                         setViewsOpen(false);
                         setSaveDialogOpen(true);

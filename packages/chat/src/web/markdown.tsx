@@ -215,7 +215,7 @@ function renderNodes(nodes: MarkdownNode[], opts: RenderOptions): ReactNode[] {
             href={n.href}
             target="_blank"
             rel="noopener noreferrer"
-            className={cn("underline underline-offset-2", opts.tone === "primary" ? "text-primary-foreground" : "text-primary")}
+            className={cn("underline underline-offset-2", opts.tone === "primary" ? "text-primary-foreground" : "text-primary-text")}
           >
             {renderNodes(n.children, opts)}
           </a>
@@ -232,8 +232,8 @@ function renderNodes(nodes: MarkdownNode[], opts: RenderOptions): ReactNode[] {
               opts.tone === "primary"
                 ? "bg-primary-foreground/20 text-primary-foreground"
                 : mine
-                  ? "bg-primary/20 text-primary"
-                  : "bg-primary/10 text-primary",
+                  ? "bg-primary/20 text-primary-text"
+                  : "bg-primary/10 text-primary-text",
             )}
           >
             @{n.name}

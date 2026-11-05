@@ -110,7 +110,7 @@ export function ChatAttachmentCard({ title, subtitle, icon: Icon = ClipboardList
       className={cn("flex w-[min(20rem,100%)] items-center gap-3 rounded-lg p-2.5", primary ? "bg-primary-foreground/15" : "border bg-background", className)}
       data-testid="genesis-chat-attachment-card"
     >
-      <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-md", primary ? "bg-primary-foreground/20" : "bg-primary/10 text-primary")}>
+      <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-md", primary ? "bg-primary-foreground/20" : "bg-primary/10 text-primary-text")}>
         <Icon className="size-5" aria-hidden />
       </span>
       <span className="min-w-0 flex-1">

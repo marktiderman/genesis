@@ -49,6 +49,12 @@ interface ThemeVar {
   kind: VarKind;
   light: Value;
   dark: Value;
+  /**
+   * What the stylesheet declares instead of the value, in both modes, when it
+   * should follow another variable (`var(--primary)`). The variable maps
+   * (`themeVariables`) keep the resolved value.
+   */
+  css?: string;
 }
 
 interface ThemeSection {
@@ -86,6 +92,10 @@ export const THEME_SECTIONS: readonly ThemeSection[] = [
       color("popover-foreground", "240 10% 3.9%", "0 0% 98%"),
       color("primary", primary),
       color("primary-foreground", "0 0% 100%", "240 10% 3.9%"),
+      // The primary as text or an icon on the page (`text-primary-text`). The Genesis primary reads
+      // at 4.5:1 on both backgrounds, so it is the primary; a brand's is worked out by brandRoleVariables.
+      // The stylesheet points it at --primary, so an app that sets only --primary keeps its text colour.
+      { ...color("primary-text", primary), css: "var(--primary)" },
       color("secondary", "240 4.8% 95.9%", "240 3.7% 15.9%"),
       color("secondary-foreground", "240 5.9% 10%", "0 0% 98%"),
       color("muted", "240 4.8% 95.9%", "240 3.7% 15.9%"),
@@ -212,7 +222,7 @@ function resolve(value: Value, r: Resolved): string {
 function renderBlock(selector: string, mode: "light" | "dark", r: Resolved): string {
   const sections = THEME_SECTIONS.map((section) => {
     const comment = mode === "dark" ? section.darkComment ?? section.comment : section.comment;
-    const lines = section.vars.map((v) => `  --${v.name}: ${resolve(v[mode], r)};`);
+    const lines = section.vars.map((v) => `  --${v.name}: ${v.css ?? resolve(v[mode], r)};`);
     return comment ? [`  /* ${comment} */`, ...lines].join("\n") : lines.join("\n");
   });
   return `${selector} {\n${sections.join("\n\n")}\n}\n`;

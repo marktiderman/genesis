@@ -95,7 +95,7 @@ describe("new question types in <Form>", () => {
     fireEvent.click(radios[3]!);
     expect(answers(engine).stars).toBe(4);
     expect(group.querySelectorAll("svg.fill-current").length).toBe(4);
-    expect(radios[3]!.className).toContain("text-primary");
+    expect(radios[3]!.className).toContain("text-primary-text");
   });
 
   it("NPS keeps its default end labels", () => {

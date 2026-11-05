@@ -17,7 +17,7 @@ Tailwind or NativeWind:
 
 | Collection | Variables | Code |
 | --- | --- | --- |
-| Colour roles | `background`, `foreground`, `card`, `primary`, `primary-foreground`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, `success`, `warning`, `info`, the `sidebar-*` set | the roles `renderThemeCss` writes as `--<name>` in `themes/*.css` |
+| Colour roles | `background`, `foreground`, `card`, `primary`, `primary-foreground`, `primary-text`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`, `success`, `warning`, `info`, the `sidebar-*` set | the roles `renderThemeCss` writes as `--<name>` in `themes/*.css` |
 | Radius | `radius` (with the `sm`/`md`/`lg` steps) | `--radius` |
 | Spacing | the space scale | `--spacing-*` |
 | Typography | `font-sans`, `font-display`, `font-mono`, the size and weight steps | `--font-*`, `--text-*`, `--font-weight-*` |
@@ -49,7 +49,11 @@ brand-driven and stay on the Genesis neutrals where it is not, so a mode switch 
 component without a second set of role variables. Light and dark are modes of Color; brand is a
 mode of Brand; a page sets both. `primary` follows `brandRoleVariables`: the Light mode aliases
 `brand/primary`, the dark modes alias `brand/primary-dark`, which is the accent when it reads at
-4.5:1 on the dark background and the Genesis dark primary otherwise.
+4.5:1 on the dark background and the Genesis dark primary otherwise. `primary-text` is the
+primary as text or an icon on the page (links, an active tab, a stat): the primary where it
+reads at 4.5:1 on that mode's background, else the primary's hue darkened (light) or lightened
+(dark) until it does, or the brand's own `primaryText` / `dark.primaryText`. A fill is
+`primary`; text on the page is `primary-text`.
 
 A mode's values come from the brand file, by the same mapping the factories use:
 

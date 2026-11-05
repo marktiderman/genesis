@@ -517,7 +517,7 @@ function OutlineRow({
         <span
           className={cn(
             "flex size-7 shrink-0 items-center justify-center rounded-md border bg-background",
-            active ? "text-primary" : "text-muted-foreground",
+            active ? "text-primary-text" : "text-muted-foreground",
           )}
         >
           <BlockIcon block={block} config={config} className="size-3.5" />

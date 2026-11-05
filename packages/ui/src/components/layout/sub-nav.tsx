@@ -117,7 +117,7 @@ function BadgeChip({ badge, active }: { badge: string | number; active?: boolean
     <span
       className={cn(
         "inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-medium tabular-nums",
-        active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+        active ? "bg-primary/10 text-primary-text" : "bg-muted text-muted-foreground",
       )}
     >
       {badge}
