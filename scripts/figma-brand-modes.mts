@@ -14,7 +14,8 @@
  * Output shape:
  *   [{ name, radius: 10,
  *      brand: { "brand/primary": "#4f46e5", "brand/primary-foreground": "#ffffff",
- *               "brand/primary-dark": "#7b75eb", "brand/font-sans": "Inter",
+ *               "brand/primary-dark": "#7b75eb", "brand/primary-text": "#4f46e5",
+ *               "brand/primary-text-dark": "#7b75eb", "brand/font-sans": "Inter",
  *               "brand/font-display": "Inter",
  *               "brand/signal": "#4f46e5", "brand/signal-foreground": "#ffffff",
  *               "brand/link": "#4f46e5", "brand/sent-bubble": "#4f46e5",
@@ -28,7 +29,9 @@
  *
  * `brand/primary-dark` is the primary in dark mode: the accent when it reads at 4.5:1 on the
  * dark background, else the Genesis dark primary (what `brandRoleVariables` does), or the brand's
- * own `dark.accent`. The other `-dark` variables are the dark theme's background, foreground,
+ * own `dark.accent`. `brand/primary-text` is the primary as text on the light background (the
+ * primary when it reads at 4.5:1, else darkened), `brand/primary-text-dark` its dark-mode twin;
+ * the Color collection's `primary-text` aliases them. The other `-dark` variables are the dark theme's background, foreground,
  * text on the primary and signal: the Genesis dark values unless the brand sets `dark` (opt-in),
  * so the Color collection's dark modes alias them and a brand without `dark` looks as before.
  * `brand/signal` is `brand.signal`, else the primary; the link, bubble and unread roles have no
@@ -136,6 +139,8 @@ export function brandMode(brand: CanonicalBrand): BrandMode {
       "brand/primary": primary,
       "brand/primary-foreground": onPrimary,
       "brand/primary-dark": dark.primary,
+      "brand/primary-text": light["primary-text"] ?? primary,
+      "brand/primary-text-dark": dark["primary-text"] ?? dark.primary,
       "brand/font-sans": fontSans,
       "brand/font-display": head(display?.family) ?? head(families.display) ?? fontSans,
       "brand/signal": signal,

@@ -2,6 +2,7 @@
  * Theme generation utilities.
  * Produces CSS variable maps compatible with Shadcn/UI.
  */
+import { readablePrimaryText } from "../factories/brand-roles";
 
 export interface ThemeConfig {
   primary: { h: number; s: number; l: number };
@@ -20,7 +21,7 @@ export function generateLightTheme(config: ThemeConfig): Record<string, string> 
     "--popover-foreground": "240 10% 3.9%",
     "--primary": `${h} ${s}% ${l}%`,
     "--primary-foreground": "0 0% 100%",
-    "--primary-text": `${h} ${s}% ${l}%`,
+    "--primary-text": readablePrimaryText(`${h} ${s}% ${l}%`, ["0 0% 100%", "240 4.8% 95.9%"], "light") ?? "240 10% 3.9%",
     "--secondary": "240 4.8% 95.9%",
     "--secondary-foreground": "240 5.9% 10%",
     "--muted": "240 4.8% 95.9%",
@@ -55,7 +56,7 @@ export function generateDarkTheme(config: ThemeConfig): Record<string, string> {
     "--popover-foreground": "0 0% 98%",
     "--primary": `${h} ${s}% ${darkL}%`,
     "--primary-foreground": "240 10% 3.9%",
-    "--primary-text": `${h} ${s}% ${darkL}%`,
+    "--primary-text": readablePrimaryText(`${h} ${s}% ${darkL}%`, ["240 10% 3.9%"], "dark") ?? "0 0% 98%",
     "--secondary": "240 3.7% 15.9%",
     "--secondary-foreground": "0 0% 98%",
     "--muted": "240 3.7% 15.9%",

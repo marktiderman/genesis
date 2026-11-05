@@ -242,11 +242,41 @@ export function accessibleAccent(
   };
 }
 
+/** Genesis's dark background, `240 10% 3.9%`. */
+const DARK_BACKGROUND: Rgb = hslToRgb({ h: 240, s: 10, l: 3.9 });
+
+/**
+ * The accent as text on the dark background: its own (rounded) hue and
+ * saturation at the lowest lightness, from its own up in tenths, whose
+ * emitted triplet reaches `MIN_TEXT_CONTRAST`; white if none does.
+ */
+function accentTextOnDark(accent: Rgb): string {
+  const exact = rgbToHsl(accent);
+  const h = round(exact.h);
+  const s = round(exact.s);
+  for (let tenths = Math.round(round(exact.l) * 10); tenths <= 1000; tenths += 1) {
+    const candidate = { h, s, l: tenths / 10 };
+    if (emittedRatio(candidate, DARK_BACKGROUND) >= MIN_TEXT_CONTRAST) return tripletOf(candidate);
+  }
+  return toHslTriplet(WHITE);
+}
+
+/** @stability Beta */
+export interface BrandThemeStyleOptions {
+  /**
+   * The mode the styled root renders in. An inline style can't switch with
+   * `.dark`, so a root that renders dark passes `"dark"`: `--primary-text`
+   * is then the accent lightened until it reads on the dark background.
+   * Default `"light"`.
+   */
+  mode?: "light" | "dark";
+}
+
 /**
  * The CSS variables for a brand's accent, for a page root's `style`. Empty
  * when the brand has no valid accent, so the page keeps Genesis's primary.
  */
-export function brandThemeStyle(brand: Pick<PublicBrand, "accent"> | undefined): React.CSSProperties {
+export function brandThemeStyle(brand: Pick<PublicBrand, "accent"> | undefined, options: BrandThemeStyleOptions = {}): React.CSSProperties {
   const result = brand?.accent ? accessibleAccent(brand.accent) : null;
   if (!result) return {};
   const strong = result.strongTriplet;
@@ -257,7 +287,7 @@ export function brandThemeStyle(brand: Pick<PublicBrand, "accent"> | undefined):
     "--brand-accent-foreground": foreground,
     "--primary": strong,
     "--primary-foreground": foreground,
-    "--primary-text": strong,
+    "--primary-text": options.mode === "dark" ? accentTextOnDark(result.accent) : strong,
     "--ring": strong,
   } as React.CSSProperties;
 }

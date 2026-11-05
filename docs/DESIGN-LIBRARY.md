@@ -26,6 +26,14 @@ A role has a light and a dark mode in Figma, as it has in the CSS. A variable wi
 counterpart does not go in the library: add the token to `packages/design-system` first, then
 mirror it.
 
+The status badges are the one place the Color collection mirrors component classes rather than
+a `--<name>` role: `success-text`, `warning-text`, `info-text` and `destructive-text` (Light
+emerald-700, amber-800, blue-700, red-700; the dark modes emerald-300, amber-200, blue-300,
+red-300) and `success-tint`, `warning-tint`, `info-tint` and `destructive-tint` (the status
+colour at 15% in Light, 20% in the dark modes). They are the text and fill classes `badge.tsx`
+and `status-badge.tsx` use, and Badge, NativeBadge, Chip and StatusBadge in the library are
+bound to them.
+
 **Components** are named after genesis-ui-native exports: `NativeButton`, `NativeCard`,
 `SettingsPage`, `AuthScreen`. A component's React props are its Figma properties, with the same
 names and the same values (`variant`: `default`, `outline`, `ghost`; `size`: `sm`, `md`, `lg`).
@@ -42,7 +50,8 @@ for NativeWind, `brandRoleVariables` for the role values a theme provider sets a
 
 The library has one **Brand** collection with one mode per consumer app, named after the app's
 brand. It holds only the roles a brand drives (`brand/primary`, `brand/primary-foreground`,
-`brand/primary-dark`, `brand/signal`, `brand/link`, the chat bubble roles, `brand/font-sans`,
+`brand/primary-dark`, `brand/primary-text`, `brand/primary-text-dark`, `brand/signal`,
+`brand/link`, the chat bubble roles, `brand/font-sans`,
 `brand/font-display`), each aliased to a primitive in the **Primitives** collection
 (`<brand>/<colour>`). The **Color** collection's roles alias into Brand where a role is
 brand-driven and stay on the Genesis neutrals where it is not, so a mode switch recolours every
@@ -51,9 +60,15 @@ mode of Brand; a page sets both. `primary` follows `brandRoleVariables`: the Lig
 `brand/primary`, the dark modes alias `brand/primary-dark`, which is the accent when it reads at
 4.5:1 on the dark background and the Genesis dark primary otherwise. `primary-text` is the
 primary as text or an icon on the page (links, an active tab, a stat): the primary where it
-reads at 4.5:1 on that mode's background, else the primary's hue darkened (light) or lightened
-(dark) until it does, or the brand's own `primaryText` / `dark.primaryText`. A fill is
-`primary`; text on the page is `primary-text`.
+reads at 4.5:1 on that mode's background (and, in Light, on the muted fill), else the
+primary's hue darkened (light) or lightened (dark) until it does, or the brand's own
+`primaryText` / `dark.primaryText`. Its Light mode aliases `brand/primary-text`, the dark modes
+(Genesis's and each app's) `brand/primary-text-dark`. A fill is `primary`; text on the page is
+`primary-text`, and the library's text and icons that used `primary` now use it, except the
+native chat, thread, inbox and context-menu surfaces that colour text with the `tint` role,
+which still follow `primary` as the code does. In code, `themes/genesis.css` declares
+`--primary-text: var(--primary)` on `:root`, and that is resolved at the root: an app that
+overrides `--primary` on a nested element (a scoped theme) sets `--primary-text` beside it.
 
 A mode's values come from the brand file, by the same mapping the factories use:
 

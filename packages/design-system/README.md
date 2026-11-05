@@ -48,15 +48,20 @@ NativeWind preset. `"0"` is square everywhere.
 active tab, a stat) is its own role, `primary-text` (`--primary-text`, the
 `text-primary-text` class on web and in the NativeWind preset), declared in
 both modes for every brand. It is the primary when that reads at 4.5:1 on the
-mode's background; otherwise the primary's hue, darkened in light mode or
+mode's background (and, in light mode, on the muted fill messages and muted
+rows sit on); otherwise the primary's hue, darkened in light mode or
 lightened in dark mode one HSL lightness point at a time until it does (the
 text colour if no step does). A gold `#FFC402` accent is 1.6:1 on white, so
-its primary text is `#947100` (4.54:1); Genesis's indigo already reads, so its
-primary text is the primary. Set `primaryText` (and `dark.primaryText`) on the
-brand to choose the shade yourself. Genesis components colour text with
+its primary text is `#8a6a00` (5.07:1 on white, 4.6:1 on the muted fill);
+Genesis's indigo already reads, so its primary text is the primary. Set
+`primaryText` (and `dark.primaryText`, `#rgb` or `#rrggbb`) on the brand to
+choose the shade yourself. Genesis components colour text with
 `text-primary-text`, never `text-primary`. `themes/genesis.css` declares it as
 `var(--primary)`, so an app that sets only `--primary` in its own CSS keeps
 that colour for text; with a light primary, set `--primary-text` beside it.
+That fallback is resolved on `:root`: an app that overrides `--primary` on a
+nested element (a scoped theme: a form, a workspace, a section) must set
+`--primary-text` on the same element, or text inside keeps the root's primary.
 
 ### Contrast
 

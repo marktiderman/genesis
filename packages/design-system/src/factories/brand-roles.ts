@@ -48,10 +48,11 @@
  * fill but unreadable text, so:
  *
  *   - `primaryText` (light) / `dark.primaryText` (dark) → as given
- *   - else the primary, when it reaches 4.5:1 on the mode's background
+ *   - else the primary, when it reaches 4.5:1 on the mode's background (and,
+ *     in light mode, on the muted fill: a message bubble, a muted row)
  *   - else the primary's hue, darkened (light mode) or lightened (dark mode)
- *     one HSL lightness point at a time until it reaches 4.5:1 on the
- *     background; the text color if no step does
+ *     one HSL lightness point at a time until it does; the text color if no
+ *     step does
  *
  * Colors that aren't `#rgb`/`#rrggbb` are left at the Genesis value.
  *
@@ -209,21 +210,28 @@ function setPrimaryText(brand: CanonicalBrand, mode: Mode, out: Record<string, s
     out["--primary-text"] = hslTriplet(own);
     return;
   }
-  const page = tripletRgb(out["--background"]);
-  const stepped = page ? primaryTextTriplet(out["--primary"], page, mode) : null;
+  // Light mode: the page and the muted fill (a message bubble, a muted row) it also sits on, as
+  // muted-foreground is checked. Dark mode: the page, as the dark primary is.
+  const surfaces = mode === "light" ? [out["--background"], out["--muted"]] : [out["--background"]];
+  const stepped = readablePrimaryText(out["--primary"], surfaces, mode);
   out["--primary-text"] = stepped ?? out["--foreground"]!;
 }
 
 /**
- * The primary (an HSL triplet) as text on `page`: itself when it reads at
- * 4.5:1, else its hue and saturation at the first lightness, one point
- * darker (light mode) or lighter (dark mode) at a time, that does; null if
- * none does. Each step is checked as its triplet renders.
+ * The primary (an HSL triplet) as text on every one of `surfaces` (HSL
+ * triplets): itself when it reads at 4.5:1 on all of them, else its hue and
+ * saturation at the first lightness, one point darker (light mode) or
+ * lighter (dark mode) at a time, that does; null if none does. Each step is
+ * checked as its triplet renders. Surfaces that aren't triplets are skipped.
+ *
+ * @internal
  */
-function primaryTextTriplet(primary: string | undefined, page: [number, number, number], mode: Mode): string | null {
+export function readablePrimaryText(primary: string | undefined, surfaces: readonly (string | undefined)[], mode: "light" | "dark"): string | null {
+  const pages = surfaces.map(tripletRgb).filter((rgb): rgb is [number, number, number] => rgb !== null);
+  if (pages.length === 0) return null;
   const reads = (triplet: string) => {
     const rgb = tripletRgb(triplet);
-    return rgb !== null && contrast(rgb, page) >= 4.5;
+    return rgb !== null && pages.every((page) => contrast(rgb, page) >= 4.5);
   };
   if (!primary || tripletRgb(primary) === null) return null;
   if (reads(primary)) return primary;

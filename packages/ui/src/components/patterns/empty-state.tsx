@@ -171,7 +171,7 @@ export function NoSearchResults({
           <button
             type="button"
             onClick={onClear}
-            className="text-sm text-primary-text hover:text-primary-text/80 font-medium"
+            className="text-sm text-primary-text underline-offset-4 hover:underline font-medium"
           >
             Clear search
           </button>

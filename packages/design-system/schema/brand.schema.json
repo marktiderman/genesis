@@ -110,7 +110,7 @@
       }
     },
     "signal": { "type": "string", "minLength": 1, "description": "Optional signal colour (badges, counts, unread). Unset: the primary." },
-    "primaryText": { "type": "string", "minLength": 1, "description": "Optional primary as text on the page (--primary-text). Unset: the accent where it reads at 4.5:1 on the background, else its hue darkened until it does." },
+    "primaryText": { "type": "string", "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$", "description": "Optional primary as text on the page (--primary-text). Unset: the accent where it reads at 4.5:1 on the background, else its hue darkened until it does." },
     "dark": {
       "type": "object",
       "description": "Optional dark-mode colours: each role set replaces the Genesis dark value.",
@@ -120,7 +120,7 @@
         "text": { "$ref": "#/$defs/ColorScale" },
         "accent": { "$ref": "#/$defs/ColorScale" },
         "primaryForeground": { "type": "string", "minLength": 1 },
-        "primaryText": { "type": "string", "minLength": 1, "description": "The primary as text on the dark page. Unset: the primary where it reads at 4.5:1, else its hue lightened until it does." },
+        "primaryText": { "type": "string", "pattern": "^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$", "description": "The primary as text on the dark page. Unset: the primary where it reads at 4.5:1, else its hue lightened until it does." },
         "neutral": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
         "status": {
           "type": "object",
