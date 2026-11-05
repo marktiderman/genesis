@@ -400,7 +400,11 @@ export interface CoverageReport {
 
 export function compare(config: FigmaConfig, routes: AppRoute[], targets: NavTarget[], figma: FigmaFacts, dynamicTargets: NavTarget[] = []): CoverageReport {
   const platformOf = (page: string): Platform | undefined => (config.pages.web === page ? "web" : config.pages.native === page ? "native" : undefined);
-  const routeFrames = figma.frames.filter((f) => platformOf(f.page));
+  // A `Proposal · <status> · <slug>` section on a route page is a proposal, not a live screen
+  // (docs/FIGMA-GUIDELINES.md, "Proposal sections"): it sits beside the live rows so its
+  // prototype links can reach them.
+  const inProposal = (f: Frame) => /^Proposal\s*·/.test(f.section ?? "");
+  const routeFrames = figma.frames.filter((f) => platformOf(f.page) && !inProposal(f));
   const framesFor = (r: AppRoute) => routeFrames.filter((f) => platformOf(f.page) === r.platform && (sameScreen(f.route, r.route) || (r.route === "index" && f.route === "/")));
   const byId = new Map(figma.frames.map((f) => [f.id, f]));
   const framed = new Set(routes.flatMap((r) => framesFor(r).map((f) => f.id)));
@@ -409,7 +413,7 @@ export function compare(config: FigmaConfig, routes: AppRoute[], targets: NavTar
   const routesWithoutFrame = routes.filter((r) => framesFor(r).length === 0);
   const framesWithoutRoute = routeFrames.filter((f) => !framed.has(f.id));
   const proposals: Record<string, Frame[]> = {};
-  for (const f of figma.frames.filter((x) => x.page === config.proposalsPage)) (proposals[f.section ?? "(no section)"] ??= []).push(f);
+  for (const f of figma.frames.filter((x) => x.page === config.proposalsPage || (platformOf(x.page) && inProposal(x)))) (proposals[f.section ?? "(no section)"] ??= []).push(f);
 
   const missingHotspots: MissingHotspot[] = [];
   const seen = new Set<string>();
@@ -432,14 +436,15 @@ export function compare(config: FigmaConfig, routes: AppRoute[], targets: NavTar
   for (const h of figma.hotspots) {
     const from = byId.get(h.from);
     const to = byId.get(h.to);
-    if (from && to && platformOf(to.page) && !framed.has(to.id)) deadHotspots.push({ from, to });
+    if (from && to && platformOf(to.page) && !inProposal(to) && !framed.has(to.id)) deadHotspots.push({ from, to });
   }
 
   const idMismatches = routes.filter((r) => r.figmaId && !framesFor(r).some((f) => f.id === r.figmaId)).map((r) => ({ ...r, frames: framesFor(r).map((f) => f.id) }));
 
   const wantedPages = [...Object.values(config.pages), config.proposalsPage];
   // A page the config names that the file lacks is a gap: with no route page, nothing on it is checked.
-  const missingPages = wantedPages.filter((p) => !figma.pages.includes(p));
+  // The Proposals page is optional now that proposals live in route-page sections.
+  const missingPages = wantedPages.filter((p) => p !== config.proposalsPage && !figma.pages.includes(p));
   const uncheckedNavigation = dynamicTargets.filter((t) => routes.some((r) => r.file === t.file));
   return {
     file: config.file,
@@ -492,7 +497,7 @@ export function formatCoverage(r: CoverageReport): string {
   };
   if (r.missingPages.length) lines.push("", `Pages not in the file: ${r.missingPages.join(", ")}`);
   table("Routes with no frame", ["platform", "route", "file"], r.routesWithoutFrame.map((x) => [x.platform, x.route, x.file]));
-  table("Frames with no route (move to Proposals, or add the route)", ["page", "frame", "id"], r.framesWithoutRoute.map((f) => [f.page, f.name, f.id]));
+  table("Frames with no route (put them in a Proposal section, or add the route)", ["page", "frame", "id"], r.framesWithoutRoute.map((f) => [f.page, f.name, f.id]));
   table("Navigation with no hotspot", ["from", "to", "at"], r.missingHotspots.map((m) => [m.from, `${m.to}${m.targetHasFrame ? "" : " (no frame)"}`, `${m.file}:${m.line}`]));
   table("Hotspots to a frame with no route", ["from", "to"], r.deadHotspots.map((d) => [d.from.name, d.to.name]));
   table("figma: ids that don't match the route's frame", ["route", "comment", "frames"], r.idMismatches.map((m) => [m.route, m.figmaId!, m.frames.join(", ") || "none"]));

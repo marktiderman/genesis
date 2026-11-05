@@ -10,7 +10,7 @@ Routes with no frame (3)
   web       admin/decks       src/routes/admin/decks.tsx
   web       docs/{-$section}  src/routes/docs.{-$section}.tsx
 
-Frames with no route (move to Proposals, or add the route) (1)
+Frames with no route (put them in a Proposal section, or add the route) (1)
   page    frame       id
   ------  ----------  ----
   Sample  old/screen  1:13
