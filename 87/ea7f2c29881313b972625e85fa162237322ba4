@@ -1,0 +1,33 @@
+.changeset/config-environments.md
+  s_2b93d8bc42c448::t_43500b9737dc82 1-5
+docs/APP-CI.md
+  s_2b93d8bc42c448::t_560e1d7ef387a5 236-246
+features.ts
+  s_2b93d8bc42c448::t_cfc0f6e8f8ba34 1123
+packages/genesis-cli/src/doctor/config.ts
+  s_2b93d8bc42c448::t_95007af5bbebf0 139-172,304
+packages/genesis-cli/test/config-environments.test.ts
+  s_2b93d8bc42c448::t_41da69063efd4b 1-21
+scripts/__tests__/vercel-ignore-build.test.mjs
+  s_2b93d8bc42c448::t_d3989896560b0c 41,44,56-79
+templates/vercel/ignore-build.sh
+  s_2b93d8bc42c448::t_8a3d33a2bc3538 32-49
+features.json
+  s_2b93d8bc42c448::t_47565f9d37f893 2542-2543
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "87ea7f2c29881313b972625e85fa162237322ba4",
+  "prompts": {},
+  "sessions": {
+    "s_2b93d8bc42c448": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95d1e712-fa31-474d-880d-8eb808f30ed6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
