@@ -1278,7 +1278,9 @@ session: with no local `genesis` binary (before an install), the subagent simply
 them.
 
 `genesis agents --check` writes nothing and exits 1 when any of them is missing or stale (for CI);
-the doctor's `agent-guide-stale` rule warns the same way. `genesis agents --rules` checks the
+the doctor's `agent-guide-stale` rule warns the same way. A CLAUDE.md the app keeps without the
+import passes (the doctor notes it as info). A misnamed one, such as `claude.md` or a dangling
+link, fails until it's renamed, since `genesis agents` never writes over it. `genesis agents --rules` checks the
 repo against the agent rules of engagement a script can check. Run `genesis agents` after every
 Genesis upgrade.
 

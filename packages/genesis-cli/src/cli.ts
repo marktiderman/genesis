@@ -319,9 +319,11 @@ program
     }
     if (opts.check) {
       const state = doctor.agentGuideState(root, packages);
-      const bad = Object.entries(state).filter(([, v]) => v !== "ok");
+      // A CLAUDE.md that doesn't import AGENTS.md is the app's own choice (the doctor reports it as info), so it doesn't fail the check.
+      const bad = Object.entries(state).filter(([k, v]) => v !== "ok" && !(k === "claude" && v === "no-import"));
       if (bad.length) {
-        console.error(`✗ The agent guide is ${bad.map(([k, v]) => `${k === "skill" ? doctor.SKILL_PATH : k === "claude" ? "CLAUDE.md" : "AGENTS.md"} ${v}`).join(", ")}. Run \`genesis agents\` and commit the result.`);
+        const fix = state.claude === "misnamed" ? `For CLAUDE.md, ${doctor.MISNAMED_FIX}.` : "Run `genesis agents` and commit the result.";
+        console.error(`✗ The agent guide is ${bad.map(([k, v]) => `${k === "skill" ? doctor.SKILL_PATH : k === "claude" ? "CLAUDE.md" : "AGENTS.md"} ${v}`).join(", ")}. ${fix}`);
         process.exitCode = 1;
         return;
       }

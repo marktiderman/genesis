@@ -844,6 +844,16 @@ describe("primitives catalog and agent guide", () => {
     expect(writeAgentGuide(lower, discoverPackages(lower))).not.toContain("CLAUDE.md");
   });
 
+  it("calls a dangling CLAUDE.md link misnamed and says to fix it by hand, since genesis agents won't write over it", async () => {
+    const root = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    symlinkSync("nowhere.md", path.join(root, "CLAUDE.md"));
+    expect(writeAgentGuide(root, discoverPackages(root))).not.toContain("CLAUDE.md");
+    expect(agentGuideState(root, discoverPackages(root)).claude).toBe("misnamed");
+    const found = (await runDoctor({ root, config: {} })).findings.filter((f) => f.rule === "agent-guide-stale");
+    expect(found.map((f) => `${f.level} ${f.file}`)).toEqual(["warn CLAUDE.md"]);
+    expect(found[0]!.message).toContain("rename it to CLAUDE.md");
+  });
+
   it("doesn't ask for CLAUDE.md when the guide goes to a custom agents file", () => {
     const root = makeApp(null, widgets({ prefer: [LIST_RULE] }));
     expect(agentGuideState(root, discoverPackages(root), "AGENT_NOTES.md").claude).toBe("ok");

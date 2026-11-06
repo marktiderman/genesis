@@ -99,6 +99,7 @@ export {
   CLAUDE_IMPORT,
   writeAgentGuide,
   agentGuideState,
+  MISNAMED_FIX,
   SKILL_PATH,
   type PrimitiveRow,
 } from "./primitives.js";

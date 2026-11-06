@@ -631,37 +631,9 @@ jobs:
             npm) npm install && npm dedupe ;;
           esac
 
-      - name: genesis doctor
-        id: doctor
-        if: steps.bump.outputs.count != '0' && inputs.doctor
-        continue-on-error: true
-        working-directory: ${{ inputs.working-directory }}
-        run: |
-          set -uo pipefail
-          bin=''
-          dir=$(pwd -P)
-          while :; do
-            if [ -x "$dir/node_modules/.bin/genesis" ]; then bin=$dir/node_modules/.bin/genesis; break; fi
-            [ "$dir" = "$GITHUB_WORKSPACE" ] || [ "$dir" = / ] && break
-            dir=$(dirname -- "$dir")
-          done
-          if [ -z "$bin" ]; then
-            echo "@marktiderman/genesis-cli is not installed, so the doctor could not run." | tee "$RUNNER_TEMP/genesis-upgrade/doctor.txt"
-            exit 1
-          fi
-          "$bin" doctor 2>&1 | tee "$RUNNER_TEMP/genesis-upgrade/doctor.txt"
-
-      - name: Hand the doctor's output to the pull request job
-        if: steps.doctor.outcome == 'success' || steps.doctor.outcome == 'failure'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: ${{ steps.app.outputs.artifact }}
-          path: ${{ runner.temp }}/genesis-upgrade/doctor.txt
-          retention-days: 1
-          if-no-files-found: error
-
       # The agent guide is generated from the installed packages, so it changes with them. It's
-      # written here, where dependency code may run, and handed over as plain text files.
+      # written here, where dependency code may run, and handed over as plain text files. It runs
+      # before the doctor, so the doctor doesn't report agent-guide warnings this same PR fixes.
       - name: Regenerate the agent guide
         id: agents
         if: steps.bump.outputs.count != '0' && inputs.agents
@@ -697,6 +669,35 @@ jobs:
           include-hidden-files: true
           retention-days: 1
           if-no-files-found: ignore
+
+      - name: genesis doctor
+        id: doctor
+        if: steps.bump.outputs.count != '0' && inputs.doctor
+        continue-on-error: true
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set -uo pipefail
+          bin=''
+          dir=$(pwd -P)
+          while :; do
+            if [ -x "$dir/node_modules/.bin/genesis" ]; then bin=$dir/node_modules/.bin/genesis; break; fi
+            [ "$dir" = "$GITHUB_WORKSPACE" ] || [ "$dir" = / ] && break
+            dir=$(dirname -- "$dir")
+          done
+          if [ -z "$bin" ]; then
+            echo "@marktiderman/genesis-cli is not installed, so the doctor could not run." | tee "$RUNNER_TEMP/genesis-upgrade/doctor.txt"
+            exit 1
+          fi
+          "$bin" doctor 2>&1 | tee "$RUNNER_TEMP/genesis-upgrade/doctor.txt"
+
+      - name: Hand the doctor's output to the pull request job
+        if: steps.doctor.outcome == 'success' || steps.doctor.outcome == 'failure'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.app.outputs.artifact }}
+          path: ${{ runner.temp }}/genesis-upgrade/doctor.txt
+          retention-days: 1
+          if-no-files-found: error
 
       # Without a pull request (dry-run), the failure is reported here instead.
       - name: Report the doctor
