@@ -1,0 +1,33 @@
+packages/genesis-cli/test/doctor.test.ts
+  s_b016d44619be31::t_cbd3ebbb31607c 204-205
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_b016d44619be31::t_7c92f97126fde4 684-694
+.changeset/preview-standard.md
+  s_b016d44619be31::t_eb75a799f24eaf 5,7
+docs/APP-CI.md
+  s_b016d44619be31::t_6bfb349705c9a3 254-257
+packages/genesis-cli/README.md
+  s_b016d44619be31::t_4b63951216cddf 903,911-912,948,1149
+packages/genesis-cli/src/doctor/config.ts
+  s_b016d44619be31::t_937418cd225e09 182-183,185,495
+packages/genesis-cli/src/doctor/supabase.ts
+  s_b016d44619be31::t_76742f00862f58 296,344-345,347,368-369,377
+packages/genesis-cli/src/doctor/types.ts
+  s_b016d44619be31::t_cc1634b61d50fc 123-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1b0ab01d717d24631432c3de25a6711baff721dc",
+  "prompts": {},
+  "sessions": {
+    "s_b016d44619be31": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf384bfa-c5f0-48a0-aa59-f76730c9f0a5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
