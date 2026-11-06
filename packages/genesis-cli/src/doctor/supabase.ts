@@ -11,8 +11,8 @@
  * - migration-definer-search-path: a security definer function without a pinned search_path.
  * - migration-edited: a migration that already exists on the base ref was changed.
  * - exposed-schema-created-later: config.toml's `[api] schemas` (or `exposedSchemas`) names a
- *   schema only a migration creates, which a Supabase branch's Data API is pointed at before its
- *   migrations run.
+ *   schema only a migration creates (quiet when `automaticBranching` is false) or that none
+ *   creates; a Supabase branch's Data API is pointed at it before its migrations run.
  *
  * The SQL is read statement by statement with comments removed and string and
  * dollar-quoted bodies blanked, so text inside a function body never matches
@@ -293,7 +293,7 @@ export function checkSupabasePack(ctx: DoctorContext): void {
   checkViewInvoker(ctx, migrations, exposed);
   checkDefinerSearchPath(ctx, migrations);
   checkTestingKit(ctx, migrations);
-  checkExposedSchemasCreatedLater(ctx, dir, migrations, settings.exposedSchemas);
+  checkExposedSchemasCreatedLater(ctx, dir, migrations, settings.exposedSchemas, settings.automaticBranching !== false);
 }
 
 /**
@@ -341,9 +341,10 @@ export function apiSchemas(toml: string): { enabled: boolean; schemas: string[];
  * A Supabase branch applies config.toml's `[api]` section (its Configure step) before it runs the
  * migrations (Migrate), so a schema only a migration creates doesn't exist yet when the branch's
  * API is pointed at it, and the branch's health check fails. A schema no migration creates can't
- * be served by any database built from the migrations.
+ * be served by any database built from the migrations. `automaticBranching: false` (no branch per
+ * pull request) quiets the first case; the second is wrong whatever the branching.
  */
-function checkExposedSchemasCreatedLater(ctx: DoctorContext, dir: string, migrations: Migration[], configured: string[] | undefined): void {
+function checkExposedSchemasCreatedLater(ctx: DoctorContext, dir: string, migrations: Migration[], configured: string[] | undefined, branching: boolean): void {
   const created = new Map<string, { file: string; line: number }>();
   for (const { file, statements } of migrations) {
     for (const { sql, line } of statements) {
@@ -364,6 +365,8 @@ function checkExposedSchemasCreatedLater(ctx: DoctorContext, dir: string, migrat
   for (const { schema, file, line, where } of sources) {
     if (PLATFORM_SCHEMAS.has(schema)) continue;
     const by = created.get(schema);
+    // With automatic branching off, no branch boots on a database the migrations haven't built.
+    if (by && !branching) continue;
     ctx.report({
       rule: "exposed-schema-created-later",
       level: "warn",
@@ -371,7 +374,7 @@ function checkExposedSchemasCreatedLater(ctx: DoctorContext, dir: string, migrat
       ...(line ? { line } : {}),
       subject: schema,
       message: by
-        ? `${where} exposes ${schema}, which only a migration creates (${by.file}:${by.line}); a Supabase branch points its Data API at ${schema} before it runs migrations, so a fresh preview branch fails its health check. Turn off Supabase's automatic branching (Genesis docs/APP-CI.md, "Previews"), then allow this rule for ${schema} with that reason`
+        ? `${where} exposes ${schema}, which only a migration creates (${by.file}:${by.line}); a Supabase branch points its Data API at ${schema} before it runs migrations, so a fresh preview branch fails its health check. Turn off Supabase's automatic branching (Genesis docs/APP-CI.md, "Previews"), then set doctor.supabase.automaticBranching to false`
         : `${where} exposes ${schema}, which no migration creates, so a database built from the migrations can't serve it (a Supabase branch fails its health check); create it in a migration or stop exposing it`,
     });
   }

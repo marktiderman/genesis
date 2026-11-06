@@ -201,6 +201,8 @@ describe("config", () => {
     expect(() => validateConfig({ forbiddenImports: { "(": "x" } })).toThrow(/not a valid regular expression/);
     expect(() => validateConfig({ themeCss: 3 })).toThrow(/themeCss/);
     expect(() => validateConfig({ rawTags: { "a.b": "X" } })).toThrow(/not an HTML tag name/);
+    expect(() => validateConfig({ packs: ["supabase"], supabase: { automaticBranching: "no" } })).toThrow(/supabase\.automaticBranching must be true or false/);
+    expect(() => validateConfig({ packs: ["supabase"], supabase: { automaticBranching: false } })).not.toThrow();
   });
 
   it("reads genesis.config.json, then package.json genesis.doctor", async () => {

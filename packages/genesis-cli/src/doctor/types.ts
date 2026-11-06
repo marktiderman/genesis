@@ -120,6 +120,12 @@ export interface SupabasePackConfig {
    * tell new migrations from applied ones.
    */
   since?: string;
+  /**
+   * Whether Supabase's automatic branching (a branch per pull request) is on for this project.
+   * `false` records that it's off, so `exposed-schema-created-later` stops flagging a schema
+   * that a migration creates. Default: unknown, treated as on.
+   */
+  automaticBranching?: boolean;
 }
 
 /** The `doctor` block of genesis.config.json (or package.json `genesis.doctor`). */

@@ -279,8 +279,10 @@ after Migrate finishes, check it serves the schema before relying on it.
 `genesis doctor`'s supabase pack warns about this:
 [`exposed-schema-created-later`](../packages/genesis-cli/README.md) flags each schema in
 `[api] schemas` (or `exposedSchemas`) that only a migration creates, or that none does. Once
-automatic branching is off, record that with an `allow` entry for the schema and the reason. The
-rule is a warning, so an app that runs the doctor with `doctor-strict: true` fails until it does.
+automatic branching is off, record that in `genesis.config.json`:
+`"doctor": { "supabase": { "automaticBranching": false } }` (not an `allow` entry, which a doctor
+run with `--base` fails as `allow-grew`). The rule is a warning, so an app that runs the doctor with
+`doctor-strict: true` fails until it does.
 
 ### Native: EAS
 
