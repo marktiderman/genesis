@@ -189,19 +189,36 @@ export function skillDescription(text: string): string {
   return more.join(" ");
 }
 
+/** How many folders above the app the guide search looks, when no repo or workspace root stops it first. */
+const GUIDE_SEARCH_LEVELS = 4;
+
 /**
  * Where a package's guide sits at a path that stays put: `node_modules/<package>/SKILL.md` at the app
- * or, for a workspace that hoists dependencies, in a folder above it up to the repo root.
+ * or, for a workspace that hoists dependencies, in a folder above it, up to the repo root. The nearest
+ * copy is the one Node resolves; it counts only when it is the copy the app has (`p.dir`), so a
+ * hoisted copy of another version is never listed.
  */
-function stableGuidePath(root: string, name: string): string | null {
-  for (let dir = root; ; ) {
-    const file = path.join(dir, "node_modules", name, "SKILL.md");
-    if (existsSync(file)) return file;
+function stableGuidePath(root: string, p: DeclaringPackage): string | null {
+  const real = (f: string) => {
+    try {
+      return realpathSync(f);
+    } catch {
+      return null;
+    }
+  };
+  const want = real(p.dir);
+  for (let dir = root, level = 0; level <= GUIDE_SEARCH_LEVELS; level++) {
+    const found = path.join(dir, "node_modules", p.name);
+    if (existsSync(found)) {
+      const file = path.join(found, "SKILL.md");
+      return want !== null && real(found) === want && existsSync(file) ? file : null;
+    }
     if (existsSync(path.join(dir, ".git")) || existsSync(path.join(dir, "pnpm-workspace.yaml"))) return null;
     const up = path.dirname(dir);
     if (up === dir) return null;
     dir = up;
   }
+  return null;
 }
 
 /**
@@ -214,7 +231,7 @@ function stableGuidePath(root: string, name: string): string | null {
 export function packageGuides(root: string, packages: readonly DeclaringPackage[]): PackageGuide[] {
   const guides: PackageGuide[] = [];
   for (const p of packages) {
-    const stable = p.local ? path.join(p.dir, "SKILL.md") : stableGuidePath(root, p.name);
+    const stable = p.local ? path.join(p.dir, "SKILL.md") : stableGuidePath(root, p);
     const text = stable === null ? null : read(stable);
     if (stable === null || text === null) continue;
     const description = skillDescription(text);

@@ -323,7 +323,12 @@ program
       const bad: [string, string][] = Object.entries(state).filter(([k, v]) => v !== "ok" && !(k === "claude" && v === "no-import"));
       if (doctor.agentHooksState(root) === "stale") bad.push([doctor.SETTINGS_PATH, "has an older Genesis hook"]);
       if (bad.length) {
-        const fix = state.claude === "blocked" ? `For CLAUDE.md, ${doctor.BLOCKED_FIX}.` : "Run `genesis agents` and commit the result.";
+        const guideBad = bad.some(([k]) => k !== doctor.SETTINGS_PATH && k !== "claude");
+        const fix = [
+          ...(guideBad || state.claude === "missing" ? ["Run `genesis agents` and commit the result."] : []),
+          ...(state.claude === "blocked" ? [`For CLAUDE.md, ${doctor.BLOCKED_FIX}.`] : []),
+          ...(bad.some(([k]) => k === doctor.SETTINGS_PATH) ? ["Run `genesis agents --hooks` to update the hook."] : []),
+        ].join(" ");
         console.error(`✗ The agent guide is ${bad.map(([k, v]) => k === doctor.SETTINGS_PATH ? `${k} ${v}` : `${k === "skill" ? doctor.SKILL_PATH : k === "claude" ? "CLAUDE.md" : "AGENTS.md"} ${v}`).join(", ")}. ${fix}`);
         process.exitCode = 1;
         return;
@@ -331,9 +336,8 @@ program
       console.log("✔ The agent guide matches the installed Genesis packages.");
       return;
     }
-    // An app that already has the hooks gets them refreshed too, so an upgrade carries a changed hook command.
-    const hooks = opts.hooks || doctor.agentHooksState(root) !== "none";
-    const changed = [...doctor.writeAgentGuide(root, packages), ...(hooks ? doctor.writeAgentHooks(root) : [])];
+    // Settings are only written with --hooks: they're the app's own, so an older hook is flagged (doctor, --check), not rewritten.
+    const changed = [...doctor.writeAgentGuide(root, packages), ...(opts.hooks ? doctor.writeAgentHooks(root) : [])];
     console.log(changed.length ? `✔ Wrote ${changed.join(", ")}` : "= The agent guide is up to date.");
   });
 

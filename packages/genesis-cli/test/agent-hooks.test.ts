@@ -122,7 +122,7 @@ describe("genesis agents --hook (the CLI)", () => {
     expect(r.stderr).toContain("CLAUDE.md blocked");
     expect(r.stderr).toContain("rename or replace it");
   });
-  it.skipIf(!existsSync(cli))("fails --check on an older hook, and genesis agents refreshes it without --hooks", () => {
+  it.skipIf(!existsSync(cli))("fails --check on an older hook; a plain run leaves settings alone, --hooks updates it", () => {
     const root = app();
     expect(run(["agents", "--dir", root], root).status).toBe(0);
     mkdirSync(path.join(root, ".claude"), { recursive: true });
@@ -131,7 +131,10 @@ describe("genesis agents --hook (the CLI)", () => {
     const r = run(["agents", "--check", "--dir", root], root);
     expect(r.status).toBe(1);
     expect(r.stderr).toContain(".claude/settings.json has an older Genesis hook");
+    expect(r.stderr).toContain("genesis agents --hooks");
     expect(run(["agents", "--dir", root], root).status).toBe(0);
+    expect(agentHooksState(root)).toBe("stale");
+    expect(run(["agents", "--hooks", "--dir", root], root).status).toBe(0);
     expect(agentHooksState(root)).toBe("ok");
     expect(run(["agents", "--check", "--dir", root], root).status).toBe(0);
   });

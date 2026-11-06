@@ -843,6 +843,22 @@ describe("primitives catalog and agent guide", () => {
     expect(unlistedGuides(root, [pkg])).toEqual([]);
   });
 
+  it("doesn't list a hoisted guide of another version than the one the app resolved", () => {
+    const repo = mkdtempSync(path.join(tmpdir(), "genesis-hoisted-other-"));
+    writeFileSync(path.join(repo, "pnpm-workspace.yaml"), "packages: [apps/*]\n");
+    const hoisted = path.join(repo, "node_modules/@marktiderman/genesis-widgets");
+    mkdirSync(hoisted, { recursive: true });
+    writeFileSync(path.join(hoisted, "SKILL.md"), "---\nname: w\ndescription: Load before widgets v1.\n---\n");
+    const own = path.join(repo, "node_modules/.pnpm/@marktiderman+genesis-widgets@2.0.0/node_modules/@marktiderman/genesis-widgets");
+    mkdirSync(own, { recursive: true });
+    writeFileSync(path.join(own, "SKILL.md"), "---\nname: w\ndescription: Load before widgets v2.\n---\n");
+    const root = path.join(repo, "apps/web");
+    mkdirSync(root, { recursive: true });
+    const pkg = { name: "@marktiderman/genesis-widgets", version: "2.0.0", dir: own, namespace: "widgets", local: false, private: false, declaration: null };
+    expect(packageGuides(root, [pkg])).toEqual([]);
+    expect(unlistedGuides(root, [pkg])).toEqual([pkg.name]);
+  });
+
   it("reads a folded description from the frontmatter only, and keeps the whole Load before sentence", () => {
     expect(skillDescription("---\nname: x\ndescription: >-\n  Build things, e.g. widgets. Load before building\n  any widget screen, e.g. a list.\n---\n\ndescription: not this\n")).toBe(
       "Build things, e.g. widgets. Load before building any widget screen, e.g. a list.",

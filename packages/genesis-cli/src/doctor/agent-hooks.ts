@@ -113,7 +113,7 @@ export function writeAgentHooks(root: string): string[] {
 
 /**
  * Whether the app has Genesis's hook, and whether it's the current command: an app that adopted an
- * older one keeps it until `genesis agents` runs again. A settings file that can't be read is "none".
+ * older one keeps it until `genesis agents --hooks` runs again. A settings file that can't be read is "none".
  */
 export function agentHooksState(root: string): "none" | "ok" | "stale" {
   let settings: unknown;
@@ -134,6 +134,6 @@ export function agentHooksState(root: string): "none" | "ok" | "stale" {
 /** `agent-guide-stale`, for the hooks: an older Genesis hook command in `.claude/settings.json`. */
 export function checkAgentHooks(ctx: DoctorContext): void {
   if (agentHooksState(ctx.root) === "stale") {
-    ctx.report({ rule: "agent-guide-stale", level: "warn", file: SETTINGS_PATH, message: "has an older Genesis SubagentStart hook command; run genesis agents and commit the result" });
+    ctx.report({ rule: "agent-guide-stale", level: "warn", file: SETTINGS_PATH, message: "has an older Genesis SubagentStart hook command; run genesis agents --hooks and commit the result" });
   }
 }

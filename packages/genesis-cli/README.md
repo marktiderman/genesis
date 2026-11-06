@@ -1277,15 +1277,18 @@ rules and package guides (they start without CLAUDE.md or AGENTS.md), and `permi
 rules for `.env` files, which apply in cloud sessions too. The hook runs
 `genesis agents --hook subagent-start`, which prints the rules and guides and never fails a
 session: with no local `genesis` binary (before an install), the subagent simply starts without
-them. Once an app has the hook, a plain `genesis agents` keeps its command current.
+them. Settings are written only with `--hooks`, so a plain run never touches them; an older hook
+command is flagged instead (below), and `genesis agents --hooks` updates it.
 
 Package guides are listed only at paths that stay put: a local package's folder, or
-`node_modules/<package>/SKILL.md` at the app or a workspace folder above it, up to the repo root.
+`node_modules/<package>/SKILL.md` at the app or a workspace folder above it, up to the repo root,
+and only when that copy is the one the app resolved.
 A package reached only through the umbrella lives in pnpm's store, so its guide is left out, and
 the doctor names it (an info): add the package as a direct dependency to list its guide.
 
 `genesis agents --check` writes nothing and exits 1 when any of them is missing or stale (for CI);
-the doctor's `agent-guide-stale` rule warns the same way, and also for an older hook command. A
+the doctor's `agent-guide-stale` rule warns the same way, and also for an older hook command
+(fix it with `--hooks`). A
 CLAUDE.md the app keeps without the import, or a link to AGENTS.md, passes (the doctor notes a
 missing import as info). A CLAUDE.md that's blocked, by another case of the name such as
 `claude.md`, a dangling link or a folder, fails until it's fixed by hand, since `genesis agents`
