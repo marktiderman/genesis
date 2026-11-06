@@ -1,0 +1,27 @@
+.github/workflows/claude-code-review.yml
+  s_7511ffb1e334a0::t_6cfad9760aaff6 3-5,23,25-26
+.github/workflows/claude-review.yml
+  s_7511ffb1e334a0::t_91c1620ac08a6a 1-111
+AGENTS.md
+  s_7511ffb1e334a0::t_a590c2b5409dc4 108
+docs/APP-CI.md
+  s_7511ffb1e334a0::t_e956296db33db7 166-176
+templates/ci/claude-review.yml
+  s_7511ffb1e334a0::t_20f3312d287013 1-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cd854844894e959f27bde4873ead30990bfcefcc",
+  "prompts": {},
+  "sessions": {
+    "s_7511ffb1e334a0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a5e12b98-d50a-426e-8d97-c7d090eee4df",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
