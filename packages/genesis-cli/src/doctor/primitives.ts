@@ -185,6 +185,11 @@ function guidesSection(guides: readonly PackageGuide[]): string[] {
   ];
 }
 
+/** The rules every agent follows, for callers outside this file (the subagent hook). */
+export function agentRules(): readonly string[] {
+  return RULES;
+}
+
 /** `.claude/skills/genesis/SKILL.md`, generated. */
 export function renderSkill(rows: readonly PrimitiveRow[], guides: readonly PackageGuide[] = []): string {
   return [

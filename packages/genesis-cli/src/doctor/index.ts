@@ -93,6 +93,7 @@ export {
   renderSkill,
   renderAgentsBlock,
   packageGuides,
+  agentRules,
   CLAUDE_IMPORT,
   writeAgentGuide,
   agentGuideState,
@@ -356,3 +357,5 @@ export function genesisSummary(g: GenesisFacts) {
     companions: Object.fromEntries(g.companions.map((c) => [`${c.package}@${c.version}`, c.components])),
   };
 }
+
+export { subagentContext, subagentHookOutput, mergeAgentHooks, writeAgentHooks, SETTINGS_PATH, SUBAGENT_HOOK_COMMAND, DENY_RULES } from "./agent-hooks.js";

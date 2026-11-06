@@ -1119,6 +1119,7 @@ export const features = defineFeatures({
       "With --base, a newOnly rule reports unchanged files as info and changed files at its full level.",
       "genesis agents writes the skill and AGENTS.md block, and agent-guide-stale warns when they drift from the installed packages.",
       "genesis agents lists each installed package's SKILL.md path in the AGENTS.md block and writes CLAUDE.md (@AGENTS.md) when the app has none.",
+      "genesis agents --hooks writes a SubagentStart hook that gives Explore and Plan subagents the rules, and deny rules for .env files, keeping the app's own settings.",
     ],
     reviewedAt,
     links: { code: ["packages/genesis-cli/src/doctor/package-rules.ts", "packages/genesis-cli/src/doctor/primitives.ts", "packages/genesis-cli/src/doctor/ratchet.ts", "packages/genesis-cli/src/doctor/contracts.ts"] },

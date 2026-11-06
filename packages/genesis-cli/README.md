@@ -1267,6 +1267,12 @@ the app reads the same rules, matched to the versions the app has:
 - **`CLAUDE.md`** holding `@AGENTS.md`, only when the app has no `CLAUDE.md`. Reviewers and cloud
   project threads read CLAUDE.md, not AGENTS.md.
 
+`genesis agents --hooks` also writes two things into `.claude/settings.json`, keeping everything
+else there: a `SubagentStart` hook that hands Claude Code's Explore and Plan subagents the same
+rules and package guides (they start without CLAUDE.md or AGENTS.md), and `permissions.deny`
+rules for `.env` files, which apply in cloud sessions too. The hook runs
+`genesis agents --hook subagent-start`, which prints its output and never fails a session.
+
 `genesis agents --check` writes nothing and exits 1 when any of them is missing or stale (for CI);
 the doctor's `agent-guide-stale` rule warns the same way. `genesis agents --rules` checks the
 repo against the agent rules of engagement a script can check. Run `genesis agents` after every
