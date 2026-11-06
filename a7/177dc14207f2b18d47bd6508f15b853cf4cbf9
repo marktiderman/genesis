@@ -1,0 +1,43 @@
+.changeset/agents-followups.md
+  s_2b93d8bc42c448::t_643c3d3cc12897 1-8
+.changeset/agents-package-guides.md
+  s_2b93d8bc42c448::t_e8fc39d3ae9b57 5
+packages/genesis-cli/README.md
+  s_2b93d8bc42c448::t_7c59b58317d710 1280-1285,1288-1293
+packages/genesis-cli/src/cli.ts
+  s_2b93d8bc42c448::t_417f36d4c8da08 323-324,326-327,334-336
+packages/genesis-cli/src/doctor/agent-hooks.ts
+  s_2b93d8bc42c448::t_6572fb3a7ff87b 14,113-139
+packages/genesis-cli/src/doctor/index.ts
+  s_2b93d8bc42c448::t_35acfa7089276a 41,103-104,256,366
+packages/genesis-cli/src/doctor/primitives.ts
+  s_2b93d8bc42c448::t_3e146c62264282 13,192-206,209-212,217-219,227-232,352-355,357,359-378,386,427-432,436-437
+packages/genesis-cli/test/agent-hooks.test.ts
+  s_9245b89a6afa1a::t_9bd5374db95294 6,81-94,107,122-136
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_2b93d8bc42c448::t_9257f61bdd3694 3-4,29,830-843,861-873,876,880,883
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a7177dc14207f2b18d47bd6508f15b853cf4cbf9",
+  "prompts": {},
+  "sessions": {
+    "s_2b93d8bc42c448": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95d1e712-fa31-474d-880d-8eb808f30ed6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_9245b89a6afa1a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a40ad615-ea2e-4ff6-81eb-be652eb21413",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
