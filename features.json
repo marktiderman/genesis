@@ -2606,6 +2606,40 @@
       "flags": []
     },
     {
+      "id": "app-environments",
+      "name": "App environments and on-demand previews",
+      "summary": "An environments block in genesis.config.json (production, previews: on-demand | every-pr | off, the preview label and branch prefix) and genesis previews should-build, which Vercel's ignore-build script, EAS and Supabase branching read, replacing today's GENESIS_PREVIEW* environment variables with the same names and defaults.",
+      "category": "Tooling",
+      "status": "planned",
+      "horizon": "next",
+      "kind": "tool",
+      "keywords": [
+        "environments",
+        "preview",
+        "vercel",
+        "supabase branching",
+        "eas",
+        "should-build"
+      ],
+      "extends": "ci-templates",
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "reviewedAt": "2026-11-06",
+      "links": {
+        "docs": [
+          "docs/APP-CI.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "agent-rules",
       "name": "Agent rules of engagement",
       "summary": "How agent sessions and the owner work together: who owns what, how work is claimed, verified, reviewed and shipped through staging batches, each rule marked agreed, reported, practice or proposed (docs/agents/RULES.md); the ones a script can check run as genesis agents --rules.",

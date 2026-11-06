@@ -668,6 +668,17 @@ describe("supabase pack: exposed-schema-created-later", () => {
     expect(brief(off.findings, RULE)).toEqual([]);
     const none = await migration("create schema api;\n");
     expect(brief(none.findings, RULE)).toEqual([]);
+    // exposedSchemas (which the RLS and grants rules read too) doesn't bring it back while the API is off.
+    const offConfigured = await run(null, { ...SUPABASE, supabase: { since: "0", exposedSchemas: ["public", "api"] } }, {
+      "supabase/config.toml": '[api]\nenabled = false\nschemas = ["api"]\n',
+      [M]: "create schema api;\n",
+    });
+    expect(brief(offConfigured.findings, RULE)).toEqual([]);
+  });
+
+  it("reads a quoted schema name in create schema", async () => {
+    const r = await run(null, SUPABASE, { "supabase/config.toml": '[api]\nschemas = ["api"]\n', [M]: 'create schema if not exists "api";\n' });
+    expect(r.findings.find((f) => f.rule === RULE)?.message).toContain("only a migration creates");
   });
 
   it("is allowed with a reason, like any rule", async () => {

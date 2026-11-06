@@ -347,7 +347,7 @@ function checkExposedSchemasCreatedLater(ctx: DoctorContext, dir: string, migrat
   const created = new Map<string, { file: string; line: number }>();
   for (const { file, statements } of migrations) {
     for (const { sql, line } of statements) {
-      const m = /^create schema (?:if not exists )?([\w$]+)/.exec(sql);
+      const m = /^create schema (?:if not exists )?"?([\w$]+)"?/.exec(sql);
       if (m && m[1] !== "authorization" && !created.has(m[1])) created.set(m[1], { file, line });
     }
   }
@@ -356,7 +356,8 @@ function checkExposedSchemasCreatedLater(ctx: DoctorContext, dir: string, migrat
   const api = tomlText === null ? null : apiSchemas(tomlText);
   const sources: Array<{ schema: string; file: string; line?: number; where: string }> = [];
   if (api?.enabled) for (const schema of api.schemas) sources.push({ schema, file: tomlFile, line: api.line, where: `${tomlFile} [api] schemas` });
-  for (const schema of configured ?? []) {
+  // The Data API is off: nothing is served, whatever exposedSchemas says.
+  for (const schema of api?.enabled === false ? [] : configured ?? []) {
     const s = schema.toLowerCase();
     if (!sources.some((x) => x.schema === s)) sources.push({ schema: s, file: "genesis.config.json", where: "doctor.supabase.exposedSchemas" });
   }

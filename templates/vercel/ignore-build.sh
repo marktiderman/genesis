@@ -11,7 +11,10 @@
 #
 # Vercel runs this before every build: exit 0 skips the build, exit 1 builds.
 #
-# 1. Production (VERCEL_ENV=production, the production branch) always builds.
+# 1. Production (VERCEL_ENV=production, the production branch) always builds. So does a deploy
+#    with VERCEL_ENV unset (system variables not exposed: production can't be told from a preview,
+#    and production must never be skipped) and a custom environment (VERCEL_TARGET_ENV set to
+#    something other than preview, such as staging).
 # 2. GENESIS_PREVIEWS=off: no preview builds. GENESIS_PREVIEWS=every-pr: every preview builds.
 # 3. GENESIS_PREVIEWS=on-demand (the default) builds a preview only when one of these asks:
 #    - the branch starts with GENESIS_PREVIEW_BRANCH_PREFIX (default `preview/`);
@@ -46,6 +49,11 @@ skip() {
 }
 
 [ "${VERCEL_ENV:-}" = "production" ] && build "production"
+[ -z "${VERCEL_ENV:-}" ] && build "VERCEL_ENV unset: expose System Environment Variables to build previews on demand"
+case "${VERCEL_TARGET_ENV:-preview}" in
+  preview | production | development) ;;
+  *) build "custom environment ${VERCEL_TARGET_ENV}" ;;
+esac
 
 case "$previews" in
   off) skip "GENESIS_PREVIEWS=off" ;;
@@ -90,14 +98,13 @@ else
 fi
 
 # The labels' names, one per line, read with Node (which every Vercel build image has). A pull
-# request list (no number) is the open one for this branch, or none.
+# request list (no number) is every open pull request for this branch: a label on any of them counts.
 command -v node >/dev/null 2>&1 || skip "no opt-in (no node to read GitHub's answer)"
 names="$(printf '%s' "$body" | node -e '
   let s = "";
   process.stdin.on("data", (d) => (s += d)).on("end", () => {
-    let j = JSON.parse(s);
-    if (Array.isArray(j)) j = j[0] ?? {};
-    for (const l of j.labels ?? []) console.log(String(l.name ?? ""));
+    const j = JSON.parse(s);
+    for (const pr of Array.isArray(j) ? j : [j]) for (const l of pr?.labels ?? []) console.log(String(l.name ?? ""));
   });
 ' 2>/dev/null)" || skip "no opt-in (GitHub's answer wasn't the JSON expected)"
 want="$(lower "$label")"

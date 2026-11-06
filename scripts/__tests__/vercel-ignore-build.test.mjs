@@ -67,6 +67,21 @@ describe("templates/vercel/ignore-build.sh", () => {
     });
   });
 
+  describe("when it can't tell production from a preview", () => {
+    it("builds with VERCEL_ENV unset (system variables not exposed), so production is never skipped", () => {
+      const r = run({ ...PREVIEW, VERCEL_ENV: "" });
+      expect(r.decision).toBe("build");
+      expect(r.out).toContain("VERCEL_ENV unset");
+      const { VERCEL_ENV, ...unset } = PREVIEW;
+      expect(run(unset).decision).toBe("build");
+    });
+
+    it("builds a custom environment (VERCEL_TARGET_ENV), and treats preview as a preview", () => {
+      expect(run({ ...PREVIEW, VERCEL_TARGET_ENV: "staging" }).decision).toBe("build");
+      expect(run({ ...PREVIEW, VERCEL_TARGET_ENV: "preview" }).decision).toBe("skip");
+    });
+  });
+
   describe("GENESIS_PREVIEWS", () => {
     it("off skips even an opted-in preview", () => {
       const r = run({ ...PREVIEW, VERCEL_GIT_COMMIT_REF: "preview/x", VERCEL_GIT_COMMIT_MESSAGE: "x [preview]", GENESIS_PREVIEWS: "off" });
@@ -168,6 +183,10 @@ describe("templates/vercel/ignore-build.sh", () => {
       expect(r.curl).toContain("https://api.github.com/repos/acme/web/pulls");
       expect(r.curl).toContain("head=acme:feat/thing");
       expect(r.curl).toContain("state=open");
+    });
+
+    it("a label on any open pull request for the branch counts", () => {
+      expect(run({ ...PREVIEW, ...TOKEN }, { body: [labelled("bug"), labelled("preview")] }).decision).toBe("build");
     });
 
     it("no open pull request for the branch skips", () => {

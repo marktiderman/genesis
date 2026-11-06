@@ -174,16 +174,21 @@ database and pgTAP tests); what it doesn't get by default is a deployed copy.
 | previews | `on-demand` | `on-demand`, `every-pr`, `off` |
 | trigger | label `preview`, or a branch starting `preview/` | (web also takes `[preview]` in the commit message) |
 
-Today these are environment variables on each platform (below). A later `genesis.config.json`
-`environments` block and a `genesis previews should-build` command will read the same names and
-defaults, so moving them into config changes no behaviour.
+Today these are environment variables on each platform (below). **Planned**
+([`app-environments`](../features.ts)): a `genesis.config.json` `environments` block and a
+`genesis previews should-build` command that read the same names and defaults, so moving them into
+config changes no behaviour. Neither exists yet.
 
 ### Web: Vercel
 
 [`templates/vercel/ignore-build.sh`](../templates/vercel/ignore-build.sh) is Vercel's "Ignored
 Build Step" (exit 0 skips, exit 1 builds). Production (`VERCEL_ENV=production`) always builds. A
 preview builds only for a `preview/…` branch, a commit whose message has `[preview]`, or a pull
-request labelled `preview` (any case); everything else is skipped.
+request labelled `preview` (any case; before Vercel has the pull request's number, a label on any
+open pull request for the branch counts); everything else is skipped. Two cases always build,
+because production must never be skipped: a deploy without `VERCEL_ENV` (system variables not
+exposed, so production can't be told from a preview) and a custom environment
+(`VERCEL_TARGET_ENV` other than `preview`, such as `staging`).
 
 1. Copy it to `scripts/vercel-ignore-build.sh` in the app, and replace `GENESIS_SHA` in its header
    with the commit of the Genesis release you copied it from (as in [Which ref to
@@ -194,7 +199,8 @@ request labelled `preview` (any case); everything else is skipped.
    [overrides](https://vercel.com/docs/project-configuration/vercel-json#ignorecommand) the
    dashboard's **Settings → Git → Ignored Build Step**, so leave that one at its default.
 3. In the Vercel project, **Settings → Environment Variables**: keep **Automatically expose System
-   Environment Variables** on (the script reads `VERCEL_ENV` and `VERCEL_GIT_*`), and add, for the
+   Environment Variables** on (the script reads `VERCEL_ENV` and `VERCEL_GIT_*`; with it off,
+   every deploy builds), and add, for the
    **Preview** environment only:
 
    | Variable | Default | |
@@ -245,7 +251,8 @@ after Migrate finishes, check it serves the schema before relying on it.
 `genesis doctor`'s supabase pack warns about this:
 [`exposed-schema-created-later`](../packages/genesis-cli/README.md) flags each schema in
 `[api] schemas` (or `exposedSchemas`) that only a migration creates, or that none does. Once
-automatic branching is off, record that with an `allow` entry for the schema and the reason.
+automatic branching is off, record that with an `allow` entry for the schema and the reason. The
+rule is a warning, so an app that runs the doctor with `doctor-strict: true` fails until it does.
 
 ### Native: EAS
 
