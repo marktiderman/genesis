@@ -681,6 +681,17 @@ describe("supabase pack: exposed-schema-created-later", () => {
     expect(r.findings.find((f) => f.rule === RULE)?.message).toContain("only a migration creates");
   });
 
+  it("is quiet about a migration-created schema once automaticBranching is false, not about a missing one", async () => {
+    const off = { ...SUPABASE, supabase: { since: "0", automaticBranching: false } };
+    const r = await run("supabase-exposed-later", off);
+    expect(brief(r.findings, RULE)).toEqual([]);
+    const missing = await run(null, off, { "supabase/config.toml": '[api]\nschemas = ["reporting"]\n', [M]: "create table public.t (id int);\n" });
+    expect(brief(missing.findings, RULE)).toEqual([`${RULE} supabase/config.toml:2 reporting`]);
+    const on = await run("supabase-exposed-later", { ...SUPABASE, supabase: { since: "0", automaticBranching: true } });
+    expect(brief(on.findings, RULE)).toEqual([`${RULE} supabase/config.toml:9 api`]);
+    expect(on.findings.find((f) => f.rule === RULE)?.message).toContain("doctor.supabase.automaticBranching to false");
+  });
+
   it("is allowed with a reason, like any rule", async () => {
     const config: DoctorConfig = {
       ...SUPABASE,

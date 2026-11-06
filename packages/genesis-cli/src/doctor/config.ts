@@ -179,10 +179,10 @@ const PATTERN_KEYS = new Set(["id", "level", "files", "exclude", "forbid", "requ
 const PACKAGE_RULE_KEYS = new Set(["level", "files", "exclude", "reason"]);
 const CONTRACT_KEYS = new Set(["out", "schemas", "databaseEnv"]);
 const PACKS = new Set(["native", "supabase", "packages"]);
-/** Each pack's settings: key → "string", "path" (app-relative folder, normalized) or "list". */
-const PACK_KEYS: Record<string, Record<string, "string" | "path" | "list">> = {
+/** Each pack's settings: key → "string", "path" (app-relative folder, normalized), "list" or "boolean". */
+const PACK_KEYS: Record<string, Record<string, "string" | "path" | "list" | "boolean">> = {
   native: { routerRoot: "path" },
-  supabase: { migrations: "path", base: "string", exposedSchemas: "list", since: "string" },
+  supabase: { migrations: "path", base: "string", exposedSchemas: "list", since: "string", automaticBranching: "boolean" },
   packages: { base: "string" },
 };
 
@@ -492,6 +492,7 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
       if (!want) fail(`${pack}: unknown setting "${k}"`);
       if (want === "string" && typeof v !== "string") fail(`${pack}.${k} must be a string`);
       if (want === "list" && !isStringList(v)) fail(`${pack}.${k} must be a list of strings`);
+      if (want === "boolean" && typeof v !== "boolean") fail(`${pack}.${k} must be true or false`);
       if (want === "string" && !(v as string).trim()) fail(`${pack}.${k} must not be empty`);
       if (want === "path") (block as Record<string, unknown>)[k] = appPath(v, `${pack}.${k}`, fail);
     }

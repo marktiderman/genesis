@@ -900,7 +900,7 @@ result on its own):
   "doctor": {
     "packs": ["native", "supabase"],
     "native": { "routerRoot": "app" },
-    "supabase": { "migrations": "supabase/migrations", "base": "origin/main", "exposedSchemas": ["public"], "since": "20260101000000" }
+    "supabase": { "migrations": "supabase/migrations", "base": "origin/main", "exposedSchemas": ["public"], "since": "20260101000000", "automaticBranching": false }
   }
 }
 ```
@@ -908,6 +908,8 @@ result on its own):
 Pack rule ids are built-in ids, so `rules` and `allow` work on them as on any other rule.
 Folder settings (`routerRoot`, `migrations`) are app-relative: `./app/` is read as `app`, and
 an absolute path or one leaving the app is a config error. `exposedSchemas` compares lowercased.
+`automaticBranching` (true or false; unset counts as true) says whether Supabase makes a branch
+per pull request; `exposed-schema-created-later` reads it.
 
 **`native`**, for Expo apps on `@marktiderman/genesis-ui-native`. With the pack on, the core
 rules read the native package (unless `uiPackage` says otherwise) and the default scan is
@@ -943,7 +945,7 @@ bodies blanked, so text inside a function body never matches; the one exception 
 | `migration-testing-kit` | error | A migration that uses `genesis_testing`, genesis-supabase's pgTAP kit for test databases only (it signs in as anyone and resets roles). Keep it in `supabase/tests/database/000_genesis_testing.test.sql`. |
 | `contracts-stale` | error | With `doctor.contracts` (`{ out, schemas, databaseEnv }`, defaults `resources.genesis.ts`, the schemas the contract's own `// Source: Postgres (…)` line names (else `["public"]`), `DATABASE_URL`): the contract on disk isn't what `genesis introspect` would write from the database now (the same comparison as `introspect --check`). Without the environment variable it reports one `info` ("not checked") and never fails; a database it can't read is a warning, and a contract it can't generate (an invalid `labelField`, two tables with one name) is an error. The advice names the schemas and, when it isn't `DATABASE_URL`, `--database-env`. A contract whose `// Source:` line isn't Postgres (one written with `--openapi`) is reported as `info` ("not checked"); check it with `genesis introspect --openapi … --check`. Line endings don't count. The Vite plugin skips it in builds and the dev server, so a build never reads a live database: run it with `genesis doctor` in CI. |
 | `migration-view-rls` | error | A view in an exposed schema that runs as its owner once every migration has run: created without `with (security_invoker = true)`, replaced without it, or reset by `alter view … reset (security_invoker)`. A plain view reads past row level security on every table it selects from. `alter view … set (security_invoker = true)`, renames and drops are followed. A view that runs as its owner on purpose (it filters rows itself) takes an `allow` entry: `{ "rule": "migration-view-rls", "match": "public.profile_cards", "reason": "…" }`. |
-| `exposed-schema-created-later` | warn | A schema the Data API serves (`supabase/config.toml` `[api] schemas`, beside the migrations folder, or `exposedSchemas`) that a new Supabase database doesn't have before migrations run: anything but `public`, `graphql_public` and the platform's own schemas (`auth`, `storage`, `extensions`, `graphql`, `realtime`, `vault`). A Supabase branch applies `[api]` before it runs migrations, so a fresh preview branch's Data API points at a schema that doesn't exist yet and fails its health check; the message names the migration that creates it, or says none does. The fix is the Genesis preview standard: turn automatic branching off ([APP-CI.md, "Previews"](../../docs/APP-CI.md#previews)), then `allow` the schema with that reason: `{ "rule": "exposed-schema-created-later", "match": "api", "reason": "automatic branching off; previews on demand" }`. Quiet when `[api] enabled = false`. |
+| `exposed-schema-created-later` | warn | A schema the Data API serves (`supabase/config.toml` `[api] schemas`, beside the migrations folder, or `exposedSchemas`) that a new Supabase database doesn't have before migrations run: anything but `public`, `graphql_public` and the platform's own schemas (`auth`, `storage`, `extensions`, `graphql`, `realtime`, `vault`). A Supabase branch applies `[api]` before it runs migrations, so a fresh preview branch's Data API points at a schema that doesn't exist yet and fails its health check; the message names the migration that creates it, or says none does. The fix is the Genesis preview standard: turn automatic branching off ([APP-CI.md, "Previews"](../../docs/APP-CI.md#previews)), then record that with `"supabase": { "automaticBranching": false }`, which quiets the migration-created case (a schema no migration creates still warns). Use that, not an `allow` entry: under `--base` a new `allow` entry fails `allow-grew`. Quiet when `[api] enabled = false`. |
 
 **Which migrations are new.** In a git repo with the base ref, a migration is new when it was
 added, modified or is untracked since the merge base. `since` (a file name or timestamp prefix)
@@ -1144,7 +1146,7 @@ genesis doctor --strict --base origin/main
 | --- | --- | --- |
 | `packs` | | Opt-in rule packs: `"native"`, `"supabase"`. See [Rule packs](#rule-packs). |
 | `native` | | `{ routerRoot }` for the native pack. |
-| `supabase` | | `{ migrations, base, exposedSchemas, since }` for the supabase pack. |
+| `supabase` | | `{ migrations, base, exposedSchemas, since, automaticBranching }` for the supabase pack. |
 | `src` | `["src"]` (`["app", "src", "components"]` with the native pack) | Folders (or files) to scan. |
 | `extensions` | `.ts .tsx .js .jsx .mts .cts .css` | |
 | `ignore` | | Globs to skip, added to the defaults. `*` stays in a folder, `**` crosses folders, a trailing `/` means the whole folder. |
