@@ -1,0 +1,50 @@
+templates/vercel/ignore-build.sh
+  s_b016d44619be31::t_6c62c164022026 1-98
+  s_b016d44619be31::t_2e90e49819d33a 99-109
+scripts/__tests__/vercel-ignore-build.test.mjs
+  s_b016d44619be31::t_178a5288d846f1 1-225
+.changeset/preview-standard.md
+  s_b016d44619be31::t_90b19690290557 1-7
+docs/APP-CI.md
+  s_b016d44619be31::t_e585c2a2b6f0b2 4-5,166-257,287-290
+features.json
+  s_b016d44619be31::t_8e069e53903b26 2558,2569-2572,2587-2588,2597-2598
+features.ts
+  s_b016d44619be31::t_17b398b9be2188 1127,1131,1139,1149
+packages/genesis-cli/README.md
+  s_b016d44619be31::t_3924f8a8d7df4b 946
+packages/genesis-cli/src/doctor/rules.ts
+  s_b016d44619be31::t_1790d72c7b96c7 58
+packages/genesis-cli/src/doctor/supabase.ts
+  s_b016d44619be31::t_551899579b899b 13-15,296-376
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_b016d44619be31::t_d9e032a364ff72 17,619-685
+packages/genesis-cli/test/fixtures/doctor/rules/supabase-exposed-later/supabase/config.toml
+  s_b016d44619be31::t_e3a1d83c63841c 1-18
+packages/genesis-cli/test/fixtures/doctor/rules/supabase-exposed-later/supabase/migrations/20260101000000_init.sql
+  s_b016d44619be31::t_30fa72112243f9 1-2
+packages/genesis-cli/test/fixtures/doctor/rules/supabase-exposed-later/supabase/migrations/20260102000000_api.sql
+  s_b016d44619be31::t_81e99ca7937a0a 1-4
+packages/genesis-cli/test/fixtures/doctor/rules/supabase-exposed-ok/supabase/config.toml
+  s_b016d44619be31::t_8189c5ddb3cc67 1-10
+packages/genesis-cli/test/fixtures/doctor/rules/supabase-exposed-ok/supabase/migrations/20260101000000_init.sql
+  s_b016d44619be31::t_f9dd85e762ac2e 1-4
+templates/vercel/vercel.json
+  s_b016d44619be31::t_6f273a608167e7 1-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1f0b95f087a17cf50d5f16a83a372333424c7dff",
+  "prompts": {},
+  "sessions": {
+    "s_b016d44619be31": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf384bfa-c5f0-48a0-aa59-f76730c9f0a5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
