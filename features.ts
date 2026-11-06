@@ -1124,11 +1124,11 @@ export const features = defineFeatures({
   },
   "ci-templates": {
     name: "CI templates",
-    summary: "Reusable GitHub Actions workflows an app calls in a few lines: app-ci (install, typecheck, lint, test, doctor, features check), supabase-ci (doctor with the supabase pack, db start, pgTAP) and genesis-upgrade (moves every Genesis package to one release and opens a pull request), for pnpm, Bun or npm.",
+    summary: "Reusable GitHub Actions workflows an app calls in a few lines: app-ci (install, typecheck, lint, test, doctor, features check), supabase-ci (doctor with the supabase pack, db start, pgTAP) and genesis-upgrade (moves every Genesis package to one release and opens a pull request), for pnpm, Bun or npm; and a Vercel ignore-build script that builds previews only on request.",
     category: "Tooling",
     status: "building",
     kind: "tool",
-    keywords: ["ci", "github actions", "workflow", "reusable workflow", "upgrade", "dependabot", "pgtap"],
+    keywords: ["ci", "github actions", "workflow", "reusable workflow", "upgrade", "dependabot", "pgtap", "vercel", "preview", "ignored build step"],
     requires: ["cli-doctor", "feature-registry"],
     owner: "mark",
     apps: ["cli"],
@@ -1136,6 +1136,7 @@ export const features = defineFeatures({
     acceptance: [
       "An app's CI file of about 15 lines runs install, typecheck, lint, test, the doctor and the features check with pnpm, Bun or npm.",
       "genesis-upgrade moves every @marktiderman/genesis* dependency to the umbrella's versions.json and opens or updates one pull request.",
+      "With templates/vercel/ignore-build.sh, Vercel builds production always and a preview only for a preview/ branch, a [preview] commit or a preview-labelled pull request.",
     ],
     reviewedAt,
     links: {
@@ -1145,6 +1146,7 @@ export const features = defineFeatures({
         ".github/workflows/genesis-upgrade.yml",
         ".github/workflows/ci-templates-self-test.yml",
         "templates/ci",
+        "templates/vercel",
       ],
       docs: ["docs/APP-CI.md"],
     },

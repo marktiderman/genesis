@@ -10,6 +10,9 @@
  *   after every migration has run.
  * - migration-definer-search-path: a security definer function without a pinned search_path.
  * - migration-edited: a migration that already exists on the base ref was changed.
+ * - exposed-schema-created-later: config.toml's `[api] schemas` (or `exposedSchemas`) names a
+ *   schema only a migration creates, which a Supabase branch's Data API is pointed at before its
+ *   migrations run.
  *
  * The SQL is read statement by statement with comments removed and string and
  * dollar-quoted bodies blanked, so text inside a function body never matches
@@ -290,6 +293,87 @@ export function checkSupabasePack(ctx: DoctorContext): void {
   checkViewInvoker(ctx, migrations, exposed);
   checkDefinerSearchPath(ctx, migrations);
   checkTestingKit(ctx, migrations);
+  checkExposedSchemasCreatedLater(ctx, dir, migrations, settings.exposedSchemas);
+}
+
+/**
+ * Schemas a new Supabase database has before any migration runs (Postgres's own, and the ones the
+ * platform installs), so the Data API can serve them from the start.
+ */
+const PLATFORM_SCHEMAS = new Set(["public", "graphql_public", "graphql", "extensions", "storage", "auth", "realtime", "vault"]);
+
+/**
+ * The `[api]` table of a supabase/config.toml: whether the Data API is on, and its `schemas` list
+ * with the 1-based line it starts on. Read as text (Supabase's config is flat: no inline tables in
+ * `[api]`); comments are dropped.
+ */
+export function apiSchemas(toml: string): { enabled: boolean; schemas: string[]; line: number } | null {
+  const lines = toml.split("\n");
+  const start = lines.findIndex((l) => /^\s*\[api\]\s*(?:#.*)?$/.test(l));
+  if (start < 0) return null;
+  let end = lines.findIndex((l, i) => i > start && /^\s*\[/.test(l));
+  if (end < 0) end = lines.length;
+  /** A line without its comment (a `#` outside a "string"). */
+  const bare = (l: string) => {
+    let quoted = false;
+    for (let i = 0; i < l.length; i++) {
+      if (l[i] === '"' && l[i - 1] !== "\\") quoted = !quoted;
+      else if (l[i] === "#" && !quoted) return l.slice(0, i);
+    }
+    return l;
+  };
+  const body = lines.slice(start + 1, end).map(bare);
+  const enabled = !body.some((l) => /^\s*enabled\s*=\s*false\b/.test(l));
+  const at = body.findIndex((l) => /^\s*schemas\s*=/.test(l));
+  if (at < 0) return { enabled, schemas: [], line: start + 1 };
+  let list = "";
+  for (let i = at; i < body.length; i++) {
+    list += `${body[i]}\n`;
+    if (body[i].includes("]")) break;
+  }
+  const inner = /\[([\s\S]*?)\]/.exec(list)?.[1] ?? "";
+  const schemas = [...inner.matchAll(/"((?:[^"\\]|\\.)*)"|'([^']*)'/g)].map((m) => (m[1] ?? m[2]).trim().toLowerCase()).filter(Boolean);
+  return { enabled, schemas, line: start + at + 2 };
+}
+
+/**
+ * `exposed-schema-created-later`: every schema the Data API serves exists before the API starts.
+ * A Supabase branch applies config.toml's `[api]` section (its Configure step) before it runs the
+ * migrations (Migrate), so a schema only a migration creates doesn't exist yet when the branch's
+ * API is pointed at it, and the branch's health check fails. A schema no migration creates can't
+ * be served by any database built from the migrations.
+ */
+function checkExposedSchemasCreatedLater(ctx: DoctorContext, dir: string, migrations: Migration[], configured: string[] | undefined): void {
+  const created = new Map<string, { file: string; line: number }>();
+  for (const { file, statements } of migrations) {
+    for (const { sql, line } of statements) {
+      const m = /^create schema (?:if not exists )?([\w$]+)/.exec(sql);
+      if (m && m[1] !== "authorization" && !created.has(m[1])) created.set(m[1], { file, line });
+    }
+  }
+  const tomlFile = path.posix.join(path.posix.dirname(dir), "config.toml");
+  const tomlText = existsSync(path.join(ctx.root, tomlFile)) ? readFileSync(path.join(ctx.root, tomlFile), "utf8") : null;
+  const api = tomlText === null ? null : apiSchemas(tomlText);
+  const sources: Array<{ schema: string; file: string; line?: number; where: string }> = [];
+  if (api?.enabled) for (const schema of api.schemas) sources.push({ schema, file: tomlFile, line: api.line, where: `${tomlFile} [api] schemas` });
+  for (const schema of configured ?? []) {
+    const s = schema.toLowerCase();
+    if (!sources.some((x) => x.schema === s)) sources.push({ schema: s, file: "genesis.config.json", where: "doctor.supabase.exposedSchemas" });
+  }
+  for (const { schema, file, line, where } of sources) {
+    if (PLATFORM_SCHEMAS.has(schema)) continue;
+    const by = created.get(schema);
+    ctx.report({
+      rule: "exposed-schema-created-later",
+      level: "warn",
+      file,
+      ...(line ? { line } : {}),
+      subject: schema,
+      message: by
+        ? `${where} exposes ${schema}, which only a migration creates (${by.file}:${by.line}); a Supabase branch points its Data API at ${schema} before it runs migrations, so a fresh preview branch fails its health check. Turn off Supabase's automatic branching (Genesis docs/APP-CI.md, "Previews"), then allow this rule for ${schema} with that reason`
+        : `${where} exposes ${schema}, which no migration creates, so a database built from the migrations can't serve it (a Supabase branch fails its health check); create it in a migration or stop exposing it`,
+    });
+  }
 }
 
 /**
