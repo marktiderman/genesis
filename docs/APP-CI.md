@@ -163,6 +163,12 @@ The caller grants `contents: write` and `pull-requests: write`. With the default
   pushes. Pass a `token` secret (a fine-grained token or a GitHub App token with contents and pull
   requests write) to have CI run on it.
 
+
+**The agent guide comes along.** When the app has adopted it (`genesis agents` ran once), the
+upgrade regenerates the AGENTS.md block, `CLAUDE.md` and `.claude/skills/genesis/SKILL.md` for the
+new release in the same pull request, so the guide never lags the packages and `genesis agents
+--check` stays green. It runs in the read-only job; the job that pushes only copies those three
+text files. Set `agents: false` to leave them alone.
 ## claude-review
 
 Claude reviews each pull request against the app's own `CLAUDE.md` and `AGENTS.md`, so the reviewer
