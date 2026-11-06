@@ -24,6 +24,7 @@ import {
   validateConfig,
   validateDeclaration,
   writeAgentGuide,
+  packageGuides,
   type DoctorConfig,
   type DoctorContext,
   type Finding,
@@ -781,13 +782,14 @@ describe("primitives catalog and agent guide", () => {
 
   it("writes the skill and the AGENTS.md block, keeps the rest of AGENTS.md, and reports when they go stale", async () => {
     const root = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "AGENTS.md": "# Notes\n\nOur own rules.\n" });
-    expect(writeAgentGuide(root, discoverPackages(root))).toEqual([SKILL_PATH, "AGENTS.md"]);
+    expect(writeAgentGuide(root, discoverPackages(root))).toEqual([SKILL_PATH, "AGENTS.md", "CLAUDE.md"]);
     expect(writeAgentGuide(root, discoverPackages(root))).toEqual([]);
+    expect(readFileSync(path.join(root, "CLAUDE.md"), "utf8")).toBe("@AGENTS.md\n");
     const agents = readFileSync(path.join(root, "AGENTS.md"), "utf8");
     expect(agents).toContain("Our own rules.");
     expect(agents).toContain("<!-- genesis-primitives:start -->");
     expect(agents).toContain("| a list screen | `<WidgetView>` | `@marktiderman/genesis-widgets` |");
-    expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok" });
+    expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok", claude: "ok" });
     expect(brief((await runDoctor({ root, config: {} })).findings, "agent-guide-stale")).toEqual([]);
 
     // The package changes what it enforces: the guide no longer matches.
@@ -800,18 +802,39 @@ describe("primitives catalog and agent guide", () => {
     ]);
   });
 
+  it("points at each installed package's own SKILL.md, so the guide matches the installed version", () => {
+    const root = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    writeFileSync(
+      path.join(root, "node_modules/@marktiderman/genesis-widgets/SKILL.md"),
+      "---\nname: genesis-widgets\ndescription: Build widgets with genesis-widgets. Load before building any widget screen.\n---\n\n# Widgets\n",
+    );
+    const guides = packageGuides(root, discoverPackages(root));
+    expect(guides).toEqual([{ package: "@marktiderman/genesis-widgets", path: "node_modules/@marktiderman/genesis-widgets/SKILL.md", when: "Load before building any widget screen." }]);
+    writeAgentGuide(root, discoverPackages(root));
+    const agents = readFileSync(path.join(root, "AGENTS.md"), "utf8");
+    expect(agents).toContain("- `node_modules/@marktiderman/genesis-widgets/SKILL.md` (@marktiderman/genesis-widgets): Load before building any widget screen.");
+    expect(readFileSync(path.join(root, SKILL_PATH), "utf8")).toContain("### Package guides (they match the installed versions)");
+    expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok", claude: "ok" });
+  });
+
+  it("leaves an existing CLAUDE.md alone", () => {
+    const root = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "CLAUDE.md": "# Ours\n" });
+    expect(writeAgentGuide(root, discoverPackages(root))).toEqual([SKILL_PATH, "AGENTS.md"]);
+    expect(readFileSync(path.join(root, "CLAUDE.md"), "utf8")).toBe("# Ours\n");
+  });
+
   it("calls a lone end marker broken, writes nothing when it can't merge, and keeps AGENTS.md's line endings", async () => {
     const root = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "AGENTS.md": "# Notes\n\n<!-- genesis-primitives:end -->\n" });
     expect(agentGuideState(root, discoverPackages(root)).agents).toBe("broken");
     expect(() => writeAgentGuide(root, discoverPackages(root))).toThrow(/broken/);
     expect(existsSync(path.join(root, SKILL_PATH))).toBe(false);
-    expect(brief((await runDoctor({ root, config: {} })).findings, "agent-guide-stale")).toHaveLength(2);
+    expect(brief((await runDoctor({ root, config: {} })).findings, "agent-guide-stale")).toHaveLength(3);
 
     writeFileSync(path.join(root, "AGENTS.md"), "# Notes\r\n\r\nOur own rules.\r\n");
     writeAgentGuide(root, discoverPackages(root));
     const agents = readFileSync(path.join(root, "AGENTS.md"), "utf8");
     expect(agents.replace(/\r\n/g, "")).not.toContain("\n");
-    expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok" });
+    expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok", claude: "ok" });
     expect(writeAgentGuide(root, discoverPackages(root))).toEqual([]);
   });
 

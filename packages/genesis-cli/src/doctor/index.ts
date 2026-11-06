@@ -92,6 +92,8 @@ export {
   catalogTable,
   renderSkill,
   renderAgentsBlock,
+  packageGuides,
+  CLAUDE_IMPORT,
   writeAgentGuide,
   agentGuideState,
   SKILL_PATH,

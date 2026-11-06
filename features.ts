@@ -1118,6 +1118,7 @@ export const features = defineFeatures({
       "A published Genesis package without a declaration fails package-doctor-declaration.",
       "With --base, a newOnly rule reports unchanged files as info and changed files at its full level.",
       "genesis agents writes the skill and AGENTS.md block, and agent-guide-stale warns when they drift from the installed packages.",
+      "genesis agents lists each installed package's SKILL.md path in the AGENTS.md block and writes CLAUDE.md (@AGENTS.md) when the app has none.",
     ],
     reviewedAt,
     links: { code: ["packages/genesis-cli/src/doctor/package-rules.ts", "packages/genesis-cli/src/doctor/primitives.ts", "packages/genesis-cli/src/doctor/ratchet.ts", "packages/genesis-cli/src/doctor/contracts.ts"] },

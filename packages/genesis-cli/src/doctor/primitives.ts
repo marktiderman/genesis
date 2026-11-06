@@ -17,6 +17,14 @@ import type { DoctorContext } from "./types.js";
 
 const GENESIS_DOCS = "https://github.com/marktiderman/genesis/blob/main/docs";
 
+const read = (file: string) => (existsSync(file) ? readFileSync(file, "utf8") : null);
+
+/**
+ * The CLAUDE.md written when an app has none, so tools that read only CLAUDE.md (reviewers,
+ * cloud project threads) load the same AGENTS.md every other agent reads.
+ */
+export const CLAUDE_IMPORT = "@AGENTS.md\n";
+
 /** One row of the catalog. */
 export interface PrimitiveRow {
   need: string;
@@ -133,7 +141,7 @@ export const AGENTS_END = "<!-- genesis-primitives:end -->";
 
 /** The rules every agent follows, in both generated files. */
 const RULES = [
-  "Use the Genesis primitive for the need first: reuse, then extend, then invent (docs/FRAMEWORK.md, G1 to G6).",
+  `Use the Genesis primitive for the need first: reuse, then extend, then invent (G1 to G6 in ${GENESIS_DOCS}/FRAMEWORK.md).`,
   "Never copy an older screen as a template. Old screens predate the primitives; the doctor flags what they did.",
   "A list screen is a view (`defineView`) rendered by `ResourceView`; a record view is `RecordView`; on the phone, `NativeResourceView`.",
   "Screens never call the database client (`supabase.from`, `.rpc`) directly: reads go through a view or a named data function, writes through the resource's provider rules.",
@@ -141,8 +149,44 @@ const RULES = [
   "Run `genesis doctor` before you finish; it enforces these rules.",
 ];
 
+/** An installed package's own agent guide: its `SKILL.md`, which matches the installed version. */
+export interface PackageGuide {
+  package: string;
+  /** Relative to the app root, POSIX separators (usually under `node_modules/`). */
+  path: string;
+  /** When to read it, from the guide's `description`. */
+  when: string;
+}
+
+/** The `SKILL.md` each installed package ships, so agents read the version the app actually has. */
+export function packageGuides(root: string, packages: readonly DeclaringPackage[]): PackageGuide[] {
+  const guides: PackageGuide[] = [];
+  for (const p of packages) {
+    const file = path.join(p.dir, "SKILL.md");
+    const text = read(file);
+    if (text === null) continue;
+    const description = /^description:\s*(.+)$/m.exec(text)?.[1]?.trim().replace(/^["']|["']$/g, "") ?? "";
+    const load = /Load before [^.]*\./.exec(description)?.[0];
+    guides.push({ package: p.name, path: path.relative(root, file).split(path.sep).join("/"), when: load ?? description });
+  }
+  return guides.sort((a, b) => a.package.localeCompare(b.package));
+}
+
+/** The package guides as a short list, or nothing when no installed package ships one. */
+function guidesSection(guides: readonly PackageGuide[]): string[] {
+  if (!guides.length) return [];
+  return [
+    "### Package guides (they match the installed versions)",
+    "",
+    "Before using a package's primitives, read its guide:",
+    "",
+    ...guides.map((g) => `- \`${g.path}\` (${g.package}): ${g.when}`),
+    "",
+  ];
+}
+
 /** `.claude/skills/genesis/SKILL.md`, generated. */
-export function renderSkill(rows: readonly PrimitiveRow[]): string {
+export function renderSkill(rows: readonly PrimitiveRow[], guides: readonly PackageGuide[] = []): string {
   return [
     "---",
     "name: genesis",
@@ -155,6 +199,7 @@ export function renderSkill(rows: readonly PrimitiveRow[]): string {
     "",
     ...RULES.map((r) => `- ${r}`),
     "",
+    ...guidesSection(guides),
     "## What to use for each need",
     "",
     catalogTable(rows, { docs: true }),
@@ -165,7 +210,7 @@ export function renderSkill(rows: readonly PrimitiveRow[]): string {
 }
 
 /** The AGENTS.md block, generated (markers included). */
-export function renderAgentsBlock(rows: readonly PrimitiveRow[]): string {
+export function renderAgentsBlock(rows: readonly PrimitiveRow[], guides: readonly PackageGuide[] = []): string {
   return [
     AGENTS_START,
     "## Building with Genesis",
@@ -176,6 +221,7 @@ export function renderAgentsBlock(rows: readonly PrimitiveRow[]): string {
     "",
     ...RULES.map((r) => `- ${r}`),
     "",
+    ...guidesSection(guides),
     catalogTable(rows),
     AGENTS_END,
   ].join("\n");
@@ -211,18 +257,17 @@ export function currentAgentsBlock(agents: string | null): string | "broken" | n
   return agents.slice(span.start, span.end).replace(/\r\n/g, "\n");
 }
 
-const read = (file: string) => (existsSync(file) ? readFileSync(file, "utf8") : null);
-
 /** `genesis agents`: write the skill and the AGENTS.md block. Returns the files it changed. Writes nothing when AGENTS.md's block is broken. */
 export function writeAgentGuide(root: string, packages: readonly DeclaringPackage[], agentsFile = "AGENTS.md"): string[] {
   const rows = primitivesCatalog(packages);
+  const guides = packageGuides(root, packages);
   const changed: string[] = [];
   const agents = path.join(root, agentsFile);
   const before = read(agents);
   // Merge first: a broken block throws before either file is touched.
-  const after = mergeAgentsBlock(before, renderAgentsBlock(rows));
+  const after = mergeAgentsBlock(before, renderAgentsBlock(rows, guides));
   const skill = path.join(root, SKILL_PATH);
-  const skillText = renderSkill(rows);
+  const skillText = renderSkill(rows, guides);
   if (read(skill)?.replace(/\r\n/g, "\n") !== skillText) {
     mkdirSync(path.dirname(skill), { recursive: true });
     writeFileSync(skill, skillText);
@@ -232,6 +277,11 @@ export function writeAgentGuide(root: string, packages: readonly DeclaringPackag
     writeFileSync(agents, after);
     changed.push(agentsFile);
   }
+  const claude = path.join(root, "CLAUDE.md");
+  if (agentsFile === "AGENTS.md" && !existsSync(claude)) {
+    writeFileSync(claude, CLAUDE_IMPORT);
+    changed.push("CLAUDE.md");
+  }
   return changed;
 }
 
@@ -240,13 +290,15 @@ export function agentGuideState(
   root: string,
   packages: readonly DeclaringPackage[],
   agentsFile = "AGENTS.md",
-): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" | "broken" } {
+): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" | "broken"; claude: "ok" | "missing" } {
   const rows = primitivesCatalog(packages);
+  const guides = packageGuides(root, packages);
   const skill = read(path.join(root, SKILL_PATH))?.replace(/\r\n/g, "\n") ?? null;
   const block = currentAgentsBlock(read(path.join(root, agentsFile)));
   return {
-    skill: skill === null ? "missing" : skill === renderSkill(rows) ? "ok" : "stale",
-    agents: block === null || block === "broken" ? (block ?? "missing") : block === renderAgentsBlock(rows) ? "ok" : "stale",
+    skill: skill === null ? "missing" : skill === renderSkill(rows, guides) ? "ok" : "stale",
+    agents: block === null || block === "broken" ? (block ?? "missing") : block === renderAgentsBlock(rows, guides) ? "ok" : "stale",
+    claude: existsSync(path.join(root, "CLAUDE.md")) ? "ok" : "missing",
   };
 }
 
@@ -269,5 +321,8 @@ export function checkAgentGuide(ctx: DoctorContext): void {
       stale: `has a genesis-primitives block that doesn't match the installed Genesis packages; ${fix}`,
     }[state.agents];
     ctx.report({ rule: "agent-guide-stale", level: "warn", file: "AGENTS.md", message });
+  }
+  if (state.claude === "missing") {
+    ctx.report({ rule: "agent-guide-stale", level: "warn", file: "CLAUDE.md", message: `is missing, so reviewers and cloud project threads that read only CLAUDE.md never see AGENTS.md; ${fix} (it writes \`@AGENTS.md\`)` });
   }
 }

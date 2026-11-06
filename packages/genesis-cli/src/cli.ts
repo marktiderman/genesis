@@ -307,7 +307,7 @@ program
       const state = doctor.agentGuideState(root, packages);
       const bad = Object.entries(state).filter(([, v]) => v !== "ok");
       if (bad.length) {
-        console.error(`✗ The agent guide is ${bad.map(([k, v]) => `${k === "skill" ? doctor.SKILL_PATH : "AGENTS.md"} ${v}`).join(", ")}. Run \`genesis agents\` and commit the result.`);
+        console.error(`✗ The agent guide is ${bad.map(([k, v]) => `${k === "skill" ? doctor.SKILL_PATH : k === "claude" ? "CLAUDE.md" : "AGENTS.md"} ${v}`).join(", ")}. Run \`genesis agents\` and commit the result.`);
         process.exitCode = 1;
         return;
       }
