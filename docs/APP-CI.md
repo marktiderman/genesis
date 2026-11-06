@@ -233,6 +233,17 @@ after labelling push a commit or redeploy the latest one. A preview uses the Sup
 Vercel's Preview environment; point them at a Supabase preview branch only when the change needs
 its own database.
 
+
+**Set the app's defaults in `genesis.config.json`** instead of in each Vercel project:
+
+```json
+{ "environments": { "previews": "on-demand", "label": "preview", "branchPrefix": "preview/" } }
+```
+
+A variable set in the Vercel project (`GENESIS_PREVIEWS`, `GENESIS_PREVIEW_LABEL`,
+`GENESIS_PREVIEW_BRANCH_PREFIX`) still wins; with no file and no variables, the defaults above
+apply. An empty `label` or `branchPrefix` turns that check off. `genesis doctor` fails an unknown
+key or value in the block, so a typo can't silently do nothing.
 ### Database: Supabase
 
 Turn off Supabase's automatic branching, keep supabase-ci as the per-pull-request database check,

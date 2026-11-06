@@ -29,9 +29,24 @@
 # labelling. Vercel passes VERCEL_GIT_* only with "Automatically expose System Environment
 # Variables" on in the project's Environment Variables settings.
 
-previews="${GENESIS_PREVIEWS:-on-demand}"
-label="${GENESIS_PREVIEW_LABEL-preview}"  # set but empty: no label check
-prefix="${GENESIS_PREVIEW_BRANCH_PREFIX-preview/}"  # set but empty: no branch check
+# The app's own defaults can live in genesis.config.json's "environments" block:
+#   { "environments": { "previews": "every-pr", "label": "preview", "branchPrefix": "preview/" } }
+# A variable set in the Vercel project wins over the file; the file wins over the defaults here.
+config() {  # prints the value, __EMPTY__ for "", nothing when unset or unreadable
+  [ -f genesis.config.json ] && command -v node > /dev/null 2>&1 || return 0
+  node -e 'try { const v = ((JSON.parse(require("fs").readFileSync("genesis.config.json", "utf8")) || {}).environments || {})[process.argv[1]]; if (typeof v === "string") process.stdout.write(v === "" ? "__EMPTY__" : v) } catch {}' "$1" 2> /dev/null || true
+}
+setting() {  # $1 variable name, $2 config key, $3 default
+  if [ -n "${!1+set}" ]; then printf '%s' "${!1}"; return; fi
+  local v
+  v="$(config "$2")"
+  [ "$v" = "__EMPTY__" ] && return
+  printf '%s' "${v:-$3}"
+}
+previews="$(setting GENESIS_PREVIEWS previews on-demand)"
+[ -n "$previews" ] || previews=on-demand
+label="$(setting GENESIS_PREVIEW_LABEL label preview)"  # set but empty: no label check
+prefix="$(setting GENESIS_PREVIEW_BRANCH_PREFIX branchPrefix preview/)"  # set but empty: no branch check
 token="${GENESIS_PREVIEW_GITHUB_TOKEN:-}"
 api="${GENESIS_GITHUB_API_URL:-https://api.github.com}"
 

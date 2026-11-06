@@ -38,10 +38,10 @@ const PREVIEW = {
 };
 
 /** Run the script with `env` (and `body` as GitHub's answer); returns build/skip, the reason and curl's arguments. */
-function run(env, { body = "{}", path: PATH = BASE_PATH } = {}) {
+function run(env, { body = "{}", path: PATH = BASE_PATH, cwd } = {}) {
   writeFileSync(bodyFile, typeof body === "string" ? body : JSON.stringify(body, null, 2));
   writeFileSync(log, "");
-  const r = spawnSync("bash", [SCRIPT], { env: { PATH, HOME: dir, ...env }, encoding: "utf8" });
+  const r = spawnSync("bash", [SCRIPT], { env: { PATH, HOME: dir, ...env }, encoding: "utf8", ...(cwd ? { cwd } : {}) });
   return {
     decision: r.status === 1 ? "build" : r.status === 0 ? "skip" : `exit ${r.status}`,
     out: r.stdout + r.stderr,
@@ -53,6 +53,30 @@ const TOKEN = { GENESIS_PREVIEW_GITHUB_TOKEN: "t0ken" };
 const labelled = (...names) => ({ number: 7, labels: names.map((name) => ({ name, color: "fff" })), head: { repo: { name: "preview" } } });
 
 describe("templates/vercel/ignore-build.sh", () => {
+  describe("genesis.config.json environments", () => {
+    const app = (environments) => {
+      const d = mkdtempSync(path.join(dir, "app-"));
+      writeFileSync(path.join(d, "genesis.config.json"), JSON.stringify({ environments }));
+      return d;
+    };
+    it("takes previews from the file when no variable is set", () => {
+      expect(run(PREVIEW, { cwd: app({ previews: "every-pr" }) }).decision).toBe("build");
+      expect(run(PREVIEW, { cwd: app({ previews: "off" }) }).decision).toBe("skip");
+    });
+    it("lets a Vercel variable win over the file", () => {
+      expect(run({ ...PREVIEW, GENESIS_PREVIEWS: "off" }, { cwd: app({ previews: "every-pr" }) }).decision).toBe("skip");
+    });
+    it("takes the branch prefix from the file, and an empty one turns the branch check off", () => {
+      expect(run({ ...PREVIEW, VERCEL_GIT_COMMIT_REF: "try/thing" }, { cwd: app({ branchPrefix: "try/" }) }).decision).toBe("build");
+      expect(run({ ...PREVIEW, VERCEL_GIT_COMMIT_REF: "preview/thing" }, { cwd: app({ branchPrefix: "" }) }).decision).toBe("skip");
+    });
+    it("ignores a file that isn't JSON", () => {
+      const d = mkdtempSync(path.join(dir, "bad-"));
+      writeFileSync(path.join(d, "genesis.config.json"), "{ nope");
+      expect(run({ ...PREVIEW, VERCEL_GIT_COMMIT_REF: "preview/x" }, { cwd: d }).decision).toBe("build");
+    });
+  });
+
   it("is valid bash", () => {
     expect(spawnSync("bash", ["-n", SCRIPT]).status).toBe(0);
   });
