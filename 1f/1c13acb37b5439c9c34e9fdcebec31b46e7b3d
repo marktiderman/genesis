@@ -1,0 +1,43 @@
+packages/genesis-cli/test/agent-hooks.test.ts
+  s_2b93d8bc42c448::t_e4418cd6371096 1-56
+packages/genesis-cli/src/doctor/agent-hooks.ts
+  s_2b93d8bc42c448::t_34120c9ca8b52e 1-80
+.changeset/agents-subagent-hook.md
+  s_2b93d8bc42c448::t_d3cc03b12f8dcf 1-5
+features.json
+  s_00381d89cd9523::t_f90dafdd2b0d89 2541-2542
+features.ts
+  s_2b93d8bc42c448::t_325bd4774a61a6 1122
+packages/genesis-cli/README.md
+  s_2b93d8bc42c448::t_a47efb1d497c3a 1270-1275
+packages/genesis-cli/src/cli.ts
+  s_2b93d8bc42c448::t_23b3ca732acce0 281-282,284,286-297,331
+packages/genesis-cli/src/doctor/index.ts
+  s_2b93d8bc42c448::t_b5353f159b46ea 96,360-361
+packages/genesis-cli/src/doctor/primitives.ts
+  s_2b93d8bc42c448::t_bd38a404ae8213 188-192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1f1c13acb37b5439c9c34e9fdcebec31b46e7b3d",
+  "prompts": {},
+  "sessions": {
+    "s_00381d89cd9523": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "81f32feb-539c-4d9c-9fab-e3b621c0ca38",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2b93d8bc42c448": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95d1e712-fa31-474d-880d-8eb808f30ed6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
