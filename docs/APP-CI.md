@@ -163,6 +163,23 @@ The caller grants `contents: write` and `pull-requests: write`. With the default
   pushes. Pass a `token` secret (a fine-grained token or a GitHub App token with contents and pull
   requests write) to have CI run on it.
 
+
+**The agent guide comes along.** When the app has adopted it (`genesis agents` ran once), the
+upgrade regenerates the AGENTS.md block, `CLAUDE.md` and `.claude/skills/genesis/SKILL.md` for the
+new release in the same pull request, so the guide never lags the packages and `genesis agents
+--check` stays green. It runs in the read-only job; the job that pushes only copies those three
+text files. Set `agents: false` to leave them alone.
+## claude-review
+
+Claude reviews each pull request against the app's own `CLAUDE.md` and `AGENTS.md`, so the reviewer
+uses the same rules the app's coding agents follow. Run `genesis agents` first: it writes the
+Genesis guide into AGENTS.md and a `CLAUDE.md` holding `@AGENTS.md`. A change that breaks one of
+those rules is reported as important, with the rule quoted. Copy
+[`templates/ci/claude-review.yml`](../templates/ci/claude-review.yml); it needs the Claude GitHub
+app and the `CLAUDE_CODE_OAUTH_TOKEN` secret (`claude setup-token`). The template reviews when a
+pull request opens or leaves draft; add `synchronize` to review every push (each run is billed).
+Genesis itself calls the same workflow.
+
 ## Previews
 
 Genesis's standard: **production builds on every merge to `main`; previews are built on demand**,
@@ -216,6 +233,17 @@ after labelling push a commit or redeploy the latest one. A preview uses the Sup
 Vercel's Preview environment; point them at a Supabase preview branch only when the change needs
 its own database.
 
+
+**Set the app's defaults in `genesis.config.json`** instead of in each Vercel project:
+
+```json
+{ "environments": { "previews": "on-demand", "label": "preview", "branchPrefix": "preview/" } }
+```
+
+A variable set in the Vercel project (`GENESIS_PREVIEWS`, `GENESIS_PREVIEW_LABEL`,
+`GENESIS_PREVIEW_BRANCH_PREFIX`) still wins; with no file and no variables, the defaults above
+apply. An empty `label` or `branchPrefix` turns that check off. `genesis doctor` fails an unknown
+key or value in the block, so a typo can't silently do nothing.
 ### Database: Supabase
 
 Turn off Supabase's automatic branching, keep supabase-ci as the per-pull-request database check,

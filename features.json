@@ -2537,7 +2537,10 @@
         "A package that adds genesis.doctor rules has them enforced in every app that installs it, with no app config.",
         "A published Genesis package without a declaration fails package-doctor-declaration.",
         "With --base, a newOnly rule reports unchanged files as info and changed files at its full level.",
-        "genesis agents writes the skill and AGENTS.md block, and agent-guide-stale warns when they drift from the installed packages."
+        "genesis agents writes the skill and AGENTS.md block, and agent-guide-stale warns when they drift from the installed packages.",
+        "genesis agents lists each installed package's SKILL.md path in the AGENTS.md block and writes CLAUDE.md (@AGENTS.md) when the app has none.",
+        "genesis agents --hooks writes a SubagentStart hook that gives Explore and Plan subagents the rules, and deny rules for .env files, keeping the app's own settings.",
+        "genesis.config.json environments sets an app's preview defaults (previews, label, branchPrefix); a Vercel variable wins over it, and the doctor fails unknown keys."
       ],
       "reviewedAt": "2026-10-22",
       "links": {

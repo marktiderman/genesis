@@ -92,6 +92,10 @@ on:
         description: "Run genesis doctor after the install; a failure is reported on the pull request and fails the run"
         type: boolean
         default: true
+      agents:
+        description: "Regenerate the agent guide (genesis agents: the AGENTS.md block, CLAUDE.md, .claude/skills/genesis) in the same pull request, for an app that has adopted it"
+        type: boolean
+        default: true
       dry-run:
         description: "Bump, install and run the doctor, write the run summary, and push nothing"
         type: boolean
@@ -502,6 +506,7 @@ jobs:
       base: ${{ steps.base.outputs.branch }}
       sha: ${{ steps.base.outputs.sha }}
       doctor-artifact: ${{ steps.app.outputs.artifact }}
+      agents: ${{ steps.agents.outcome }}
     steps:
       - name: Check the trigger
         env:
@@ -655,6 +660,44 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+      # The agent guide is generated from the installed packages, so it changes with them. It's
+      # written here, where dependency code may run, and handed over as plain text files.
+      - name: Regenerate the agent guide
+        id: agents
+        if: steps.bump.outputs.count != '0' && inputs.agents
+        continue-on-error: true
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set -euo pipefail
+          bin=''
+          dir=$(pwd -P)
+          while :; do
+            if [ -x "$dir/node_modules/.bin/genesis" ]; then bin=$dir/node_modules/.bin/genesis; break; fi
+            [ "$dir" = "$GITHUB_WORKSPACE" ] || [ "$dir" = / ] && break
+            dir=$(dirname -- "$dir")
+          done
+          [ -n "$bin" ] || { echo "@marktiderman/genesis-cli is not installed, so the agent guide wasn't regenerated."; exit 1; }
+          # Only an app that has adopted the guide gets it refreshed; `genesis agents` adopts it.
+          if [ ! -f .claude/skills/genesis/SKILL.md ] && ! grep -qs 'genesis-primitives:start' AGENTS.md; then
+            echo "This app hasn't adopted the agent guide (run genesis agents once); nothing to refresh."
+            exit 0
+          fi
+          "$bin" agents
+          out=$RUNNER_TEMP/genesis-upgrade/agents
+          for f in AGENTS.md CLAUDE.md .claude/skills/genesis/SKILL.md; do
+            if [ -f "$f" ]; then mkdir -p "$out/$(dirname -- "$f")"; cp -- "$f" "$out/$f"; fi
+          done
+
+      - name: Hand the agent guide to the pull request job
+        if: steps.agents.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ steps.app.outputs.artifact }}-agents
+          path: ${{ runner.temp }}/genesis-upgrade/agents
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: ignore
+
       # Without a pull request (dry-run), the failure is reported here instead.
       - name: Report the doctor
         if: inputs.dry-run && steps.doctor.outcome == 'failure'
@@ -766,6 +809,36 @@ jobs:
         with:
           name: ${{ needs.bump.outputs.doctor-artifact }}
           path: ${{ runner.temp }}/genesis-upgrade-doctor
+
+      - name: Get the agent guide
+        id: agents
+        if: needs.bump.outputs.agents == 'success'
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ needs.bump.outputs.doctor-artifact }}-agents
+          path: ${{ runner.temp }}/genesis-upgrade-agents
+
+      # Data only: up to three text files, each copied to its own fixed path, never run.
+      - name: Put the agent guide in place
+        if: steps.agents.outcome == 'success'
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          set -euo pipefail
+          src=$RUNNER_TEMP/genesis-upgrade-agents
+          rel=$(realpath --relative-to="$GITHUB_WORKSPACE" "$(pwd -P)")
+          list=$RUNNER_TEMP/genesis-upgrade/files
+          # The list is written without a final newline; add one so appended paths start their own line.
+          if [ -s "$list" ] && [ -n "$(tail -c1 "$list")" ]; then echo >> "$list"; fi
+          for f in AGENTS.md CLAUDE.md .claude/skills/genesis/SKILL.md; do
+            s=$src/$f
+            if [ ! -f "$s" ] || [ -L "$s" ]; then continue; fi
+            if [ "$(wc -c < "$s")" -gt 1048576 ]; then echo "::warning title=genesis-upgrade::$f is over 1 MB; left out."; continue; fi
+            if [ -L "$f" ]; then echo "::warning title=genesis-upgrade::$f is a symlink here; left out."; continue; fi
+            mkdir -p -- "$(dirname -- "$f")"
+            cp -- "$s" "$f"
+            if [ "$rel" = "." ]; then echo "$f"; else echo "$rel/$f"; fi >> "$list"
+          done
 
       - name: Commit, push and open the pull request
         env:

@@ -278,9 +278,23 @@ program
   .option("--check", "Write nothing; exit 1 if either is missing or out of date (for CI)", false)
   .option("--rules", "Check the repo against the agent rules of engagement a script can check (docs/agents/RULES.md); exit 1 on a break", false)
   .option("--batch <pattern>", "With --rules: the branch pattern staging batches use in workflow filters", "staging/**")
+  .option("--hooks", "Also write the agent hooks into .claude/settings.json: the Genesis rules for Explore and Plan subagents, and deny rules for secret files", false)
+  .option("--hook <name>", "Run as a Claude Code hook and print its output (subagent-start); never fails")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
-  .action(async (opts: { check: boolean; rules: boolean; batch: string; dir: string }) => {
+  .action(async (opts: { check: boolean; rules: boolean; batch: string; dir: string; hooks: boolean; hook?: string }) => {
     const root = path.resolve(opts.dir);
+    if (opts.hook) {
+      // A hook must never break the session: any failure prints nothing and exits 0.
+      try {
+        if (opts.hook === "subagent-start") {
+          const doctor = await import("./doctor/index.js");
+          console.log(doctor.subagentHookOutput(root, doctor.discoverPackages(root)));
+        }
+      } catch {
+        /* fail open */
+      }
+      return;
+    }
     if (opts.rules && opts.check) return program.error("--rules checks the repo, --check the agent guide: run them one at a time");
     if (opts.rules) {
       if (!existsSync(path.join(root, "packages")) && !existsSync(path.join(root, ".github", "workflows"))) {
@@ -307,14 +321,14 @@ program
       const state = doctor.agentGuideState(root, packages);
       const bad = Object.entries(state).filter(([, v]) => v !== "ok");
       if (bad.length) {
-        console.error(`✗ The agent guide is ${bad.map(([k, v]) => `${k === "skill" ? doctor.SKILL_PATH : "AGENTS.md"} ${v}`).join(", ")}. Run \`genesis agents\` and commit the result.`);
+        console.error(`✗ The agent guide is ${bad.map(([k, v]) => `${k === "skill" ? doctor.SKILL_PATH : k === "claude" ? "CLAUDE.md" : "AGENTS.md"} ${v}`).join(", ")}. Run \`genesis agents\` and commit the result.`);
         process.exitCode = 1;
         return;
       }
       console.log("✔ The agent guide matches the installed Genesis packages.");
       return;
     }
-    const changed = doctor.writeAgentGuide(root, packages);
+    const changed = [...doctor.writeAgentGuide(root, packages), ...(opts.hooks ? doctor.writeAgentHooks(root) : [])];
     console.log(changed.length ? `✔ Wrote ${changed.join(", ")}` : "= The agent guide is up to date.");
   });
 

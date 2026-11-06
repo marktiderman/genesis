@@ -1,0 +1,111 @@
+# Claude code review (reusable): Anthropic's code-review plugin reviews a pull request against the
+# repo's CLAUDE.md and AGENTS.md (the Genesis guide that `genesis agents` writes), so every Genesis
+# app's reviewer measures with the same stick the app's coding agents follow.
+#
+# Call it from the app's workflow (templates/ci/claude-review.yml is a ready copy):
+#
+#   jobs:
+#     review:
+#       uses: marktiderman/genesis/.github/workflows/claude-review.yml@<commit sha> # @marktiderman/genesis@<version>
+#       secrets: inherit
+#
+# Needs the Claude GitHub app on the repo and the CLAUDE_CODE_OAUTH_TOKEN secret (`claude setup-token`).
+# Library usage is checked against current docs through Context7's MCP server.
+name: Claude code review (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      model:
+        description: "The model that reviews"
+        type: string
+        default: claude-opus-5-5
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+
+# Each job declares what it needs; nothing by default.
+permissions: {}
+
+jobs:
+  review:
+    # Drafts wait for ready_for_review; forks can't read the secret; bot PRs
+    # (the changesets version PR, Dependabot) aren't reviewed.
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type != 'Bot' && github.head_ref != 'changeset-release/main'
+    runs-on: ubuntu-latest
+    # ci.yml BILLING CONTRACT rule 3: every job is bounded.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write # lets a failed run delete its own Claude comments
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The whole history, so reviewers' git log and blame have context.
+          fetch-depth: 0
+
+      # When this run's review started, so a failed run can take back what it posted.
+      - id: started
+        run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - id: claude
+        uses: anthropics/claude-code-action@8041f1d17e0e7d2f2cfe35002962e9f26237c0bb # v1.0.263
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: https://github.com/anthropics/claude-code.git
+          plugins: code-review@claude-code-plugins
+          prompt: /code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}
+          # Bot status notes (deploys, coverage, skipped reviews) are noise to a reviewer.
+          exclude_comments_by_actor: "vercel[bot],coderabbitai[bot],supabase[bot],github-actions[bot],dependabot[bot]"
+          # The tools the code-review command declares (read the PR, post
+          # findings), plus what its reviewer subagents need: launching them
+          # (Task/Agent) and reading the checkout and CLAUDE.md (Read, Glob,
+          # Grep), plus the read-only git and gh calls its reviewers make to see
+          # history and context. Without those, subagent calls are denied and
+          # the review ends without a comment. Context7 (current library docs) checks
+          # each library API the diff uses; it runs keyless, on Context7's
+          # free rate limit.
+          claude_args: |
+            --model ${{ inputs.model }}
+            --mcp-config '{"mcpServers":{"context7":{"type":"http","url":"https://mcp.context7.com/mcp"}}}'
+            --allowedTools "Task,Agent,Read,Glob,Grep,mcp__context7,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(git status:*),Bash(git fetch:*),Bash(ls:*),Bash(gh api:*),Bash(gh pr checks:*),Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),mcp__github_inline_comment__create_inline_comment"
+            --append-system-prompt "Review against the rules in the repository root CLAUDE.md and AGENTS.md (in a Genesis app, the block between genesis-primitives markers is the Genesis guide: use the Genesis primitive first, reuse then extend then invent, G1 to G6 in docs/FRAMEWORK.md of marktiderman/genesis). A change that breaks one of those rules is an important finding: quote the rule and link the file it is in. Check library and framework usage against current documentation: for each library API the diff calls or configures (Supabase, Postgres, PostgREST, TanStack Router/Query/Start, React, Expo and React Native, Vite, Vitest, Tailwind, Genesis packages and others), use the Context7 tools (resolve-library-id, then query-docs) before flagging or clearing it, and tell every subagent to do the same. Flag usage that current docs show is wrong, deprecated or removed, and cite the Context7 source in the comment. The pull request's head is checked out with full history (origin/<base> is there to diff against). Shell commands: you are already in the repository root, so run each command on its own, with no cd and no chaining (&&, ;, |); only the listed gh and git commands and ls are allowed (use gh pr view and gh pr diff with no pipe; their output comes back whole). Read files with Read, Glob and Grep rather than cat or ls. Dependencies are not installed (no node_modules): for a library API, use Context7. Each run reviews the pull request's latest head: an earlier Claude review on this pull request does not make it ineligible. When there is one, review what changed since the commit it reviewed and do not repeat findings already posted. If Context7 fails or is rate-limited, say so in the review and continue without it. Pass these rules to every subagent."
+
+      # A review that was denied a tool can't have reviewed properly, yet the
+      # action still reports success. Fail instead, naming the denied tools
+      # (never their full inputs), so a missing permission shows as a red check.
+      # The review command skips a PR Claude has already commented on, so an
+      # incomplete run's comments are deleted too: a rerun then reviews again.
+      - name: Check Claude had every tool it needed
+        if: success() && steps.claude.outputs.execution_file != ''
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          STARTED: ${{ steps.started.outputs.at }}
+        run: |
+          denials=$(jq '[.[] | select(.type == "result")] | last | .permission_denials // [] | length' "$EXECUTION_FILE")
+          if [ "$denials" -gt 0 ]; then
+            echo "::error::Claude was denied $denials tool calls, so this review is incomplete. Allow these tools in --allowedTools:"
+            # A denied Bash call shows its first two words (e.g. "gh api"), never the rest.
+            jq -r '[.[] | select(.type == "result")] | last | .permission_denials[]
+              | if .tool_name == "Bash" then "Bash(" + ((.tool_input.command // "") | split(" ")[0:2] | join(" ")) + " …)" else .tool_name end' "$EXECUTION_FILE" | sort | uniq -c
+            for id in $(gh api "repos/$REPO/issues/$PR/comments" --paginate --jq ".[] | select(.user.login == \"claude[bot]\" and .created_at >= \"$STARTED\") | .id"); do
+              gh api -X DELETE "repos/$REPO/issues/comments/$id" >/dev/null && echo "Deleted this run's comment $id, so a rerun reviews again."
+            done
+            for id in $(gh api "repos/$REPO/pulls/$PR/comments" --paginate --jq ".[] | select(.user.login == \"claude[bot]\" and .created_at >= \"$STARTED\") | .id"); do
+              gh api -X DELETE "repos/$REPO/pulls/comments/$id" >/dev/null && echo "Deleted this run's inline comment $id."
+            done
+            exit 1
+          fi
+
+      # The action hides Claude's output; on failure, show only its final
+      # message (e.g. an auth or model error), never the tool transcript.
+      - name: Show Claude's error
+        if: failure() && steps.claude.outputs.execution_file != ''
+        env:
+          EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: jq -r '[.[] | select(.type == "result")] | last | .result // "No result message."' "$EXECUTION_FILE"

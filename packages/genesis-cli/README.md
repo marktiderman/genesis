@@ -1256,6 +1256,34 @@ if (!result.ok) throw new Error(formatReport(result));
    the local Vite plugin import with `@marktiderman/genesis-cli/vite`.
 4. Run `genesis doctor`, fix or `allow` what it reports (it checks `raw-color` in code as well
    as CSS, and `raw-tag` only in JSX files), then delete the old script.
+
+## genesis agents
+
+Writes the agent guide from the installed Genesis packages, so every coding agent and reviewer in
+the app reads the same rules, matched to the versions the app has:
+
+- **The AGENTS.md block** between `<!-- genesis-primitives:start -->` and
+  `<!-- genesis-primitives:end -->`: the rules, the catalog of what to use for each need, and the
+  path to each installed package's own `SKILL.md` at `node_modules/<package>/SKILL.md`, so it
+  matches the installed version (a package reached only through the umbrella, inside pnpm's store,
+  is left out: that path changes with unrelated dependency bumps). Text outside the markers is the app's own and is never touched.
+- **`.claude/skills/genesis/SKILL.md`**: the same rules and catalog as a skill.
+- **`CLAUDE.md`** holding `@AGENTS.md`, only when the app has no `CLAUDE.md`. Reviewers and cloud
+  project threads read CLAUDE.md, not AGENTS.md.
+
+`genesis agents --hooks` also writes two things into `.claude/settings.json`, keeping everything
+else there: a `SubagentStart` hook that hands Claude Code's Explore and Plan subagents the same
+rules and package guides (they start without CLAUDE.md or AGENTS.md), and `permissions.deny`
+rules for `.env` files, which apply in cloud sessions too. The hook runs
+`genesis agents --hook subagent-start`, which prints the rules and guides and never fails a
+session: with no local `genesis` binary (before an install), the subagent simply starts without
+them.
+
+`genesis agents --check` writes nothing and exits 1 when any of them is missing or stale (for CI);
+the doctor's `agent-guide-stale` rule warns the same way. `genesis agents --rules` checks the
+repo against the agent rules of engagement a script can check. Run `genesis agents` after every
+Genesis upgrade.
+
 ## genesis figma:routes
 
 A read-only check that an app's Figma app file covers its routes, so CI reports the drift and an
