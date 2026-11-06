@@ -1266,7 +1266,8 @@ the app reads the same rules, matched to the versions the app has:
   `<!-- genesis-primitives:end -->`: the rules, the catalog of what to use for each need, and the
   path to each installed package's own `SKILL.md` at `node_modules/<package>/SKILL.md`, so it
   matches the installed version (a package reached only through the umbrella, inside pnpm's store,
-  is left out: that path changes with unrelated dependency bumps). Text outside the markers is the app's own and is never touched.
+  is left out: that path changes with unrelated dependency bumps). Text outside the markers is the
+  app's own and is never touched.
 - **`.claude/skills/genesis/SKILL.md`**: the same rules and catalog as a skill.
 - **`CLAUDE.md`** holding `@AGENTS.md`, only when the app has no `CLAUDE.md`. Reviewers and cloud
   project threads read CLAUDE.md, not AGENTS.md.
