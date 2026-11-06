@@ -163,6 +163,17 @@ The caller grants `contents: write` and `pull-requests: write`. With the default
   pushes. Pass a `token` secret (a fine-grained token or a GitHub App token with contents and pull
   requests write) to have CI run on it.
 
+## claude-review
+
+Claude reviews each pull request against the app's own `CLAUDE.md` and `AGENTS.md`, so the reviewer
+uses the same rules the app's coding agents follow. Run `genesis agents` first: it writes the
+Genesis guide into AGENTS.md and a `CLAUDE.md` holding `@AGENTS.md`. A change that breaks one of
+those rules is reported as important, with the rule quoted. Copy
+[`templates/ci/claude-review.yml`](../templates/ci/claude-review.yml); it needs the Claude GitHub
+app and the `CLAUDE_CODE_OAUTH_TOKEN` secret (`claude setup-token`). The template reviews when a
+pull request opens or leaves draft; add `synchronize` to review every push (each run is billed).
+Genesis itself calls the same workflow.
+
 ## Previews
 
 Genesis's standard: **production builds on every merge to `main`; previews are built on demand**,

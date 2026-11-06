@@ -105,7 +105,7 @@ Every PR into a staging batch (`staging/**`) carries the check "Adversarial revi
 - The reviewer adds `review: approved` once every high or medium finding is fixed or declined with
   a reason. Never approve or label your own PR.
 - A new commit removes the label, so every push needs a review of the new head. Claude review
-  (`claude-code-review.yml`) also re-runs on every push.
+  (`claude-code-review.yml`, which calls the reusable `claude-review.yml` that apps call too) also re-runs on every push.
 - The author turns on Auto-fix for every PR it opens.
 
 ## Releasing, and how apps get a release
