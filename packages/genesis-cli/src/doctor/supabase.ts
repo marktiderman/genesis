@@ -11,8 +11,8 @@
  * - migration-definer-search-path: a security definer function without a pinned search_path.
  * - migration-edited: a migration that already exists on the base ref was changed.
  * - exposed-schema-created-later: config.toml's `[api] schemas` (or `exposedSchemas`) names a
- *   schema only a migration creates, which a Supabase branch's Data API is pointed at before its
- *   migrations run.
+ *   schema only a migration creates (quiet when `automaticBranching` is false) or that none
+ *   creates; a Supabase branch's Data API is pointed at it before its migrations run.
  *
  * The SQL is read statement by statement with comments removed and string and
  * dollar-quoted bodies blanked, so text inside a function body never matches
