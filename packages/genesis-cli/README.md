@@ -1266,7 +1266,8 @@ the app reads the same rules, matched to the versions the app has:
   `<!-- genesis-primitives:end -->`: the rules, the catalog of what to use for each need, and the
   path to each installed package's own `SKILL.md` at `node_modules/<package>/SKILL.md`, so it
   matches the installed version (a package reached only through the umbrella, inside pnpm's store,
-  is left out: that path changes with unrelated dependency bumps). Text outside the markers is the app's own and is never touched.
+  is left out: that path changes with unrelated dependency bumps). Text outside the markers is the
+  app's own and is never touched.
 - **`.claude/skills/genesis/SKILL.md`**: the same rules and catalog as a skill.
 - **`CLAUDE.md`** holding `@AGENTS.md`, only when the app has no `CLAUDE.md`. Reviewers and cloud
   project threads read CLAUDE.md, not AGENTS.md.
@@ -1277,14 +1278,23 @@ rules and package guides (they start without CLAUDE.md or AGENTS.md), and `permi
 rules for `.env` files, which apply in cloud sessions too. The hook runs
 `genesis agents --hook subagent-start`, which prints the rules and guides and never fails a
 session: with no local `genesis` binary (before an install), the subagent simply starts without
-them.
+them. Settings are written only with `--hooks`, so a plain run never touches them; an older hook
+command is flagged instead (below), and `genesis agents --hooks` updates it.
+
+Package guides are listed only at paths that stay put: a local package's folder, or
+`node_modules/<package>/SKILL.md` at the app or a workspace folder above it, up to the repo root,
+and only when that copy is the one the app resolved.
+A package reached only through the umbrella lives in pnpm's store, so its guide is left out, and
+the doctor names it (an info): add the package as a direct dependency to list its guide.
 
 `genesis agents --check` writes nothing and exits 1 when any of them is missing or stale (for CI);
-the doctor's `agent-guide-stale` rule warns the same way. A CLAUDE.md the app keeps without the
-import passes (the doctor notes it as info). A misnamed one, such as `claude.md` or a dangling
-link, fails until it's renamed, since `genesis agents` never writes over it. `genesis agents --rules` checks the
-repo against the agent rules of engagement a script can check. Run `genesis agents` after every
-Genesis upgrade.
+the doctor's `agent-guide-stale` rule warns the same way, and also for an older hook command
+(fix it with `--hooks`). A
+CLAUDE.md the app keeps without the import, or a link to AGENTS.md, passes (the doctor notes a
+missing import as info). A CLAUDE.md that's blocked, by another case of the name such as
+`claude.md`, a dangling link or a folder, fails until it's fixed by hand, since `genesis agents`
+never writes over it. `genesis agents --rules` checks the repo against the agent rules of
+engagement a script can check. Run `genesis agents` after every Genesis upgrade.
 
 ## genesis figma:routes
 

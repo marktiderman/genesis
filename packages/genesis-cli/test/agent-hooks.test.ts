@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { DENY_RULES, SUBAGENT_HOOK_COMMAND, mergeAgentHooks, subagentContext, subagentHookOutput, writeAgentHooks } from "../src/doctor/agent-hooks.js";
+import { DENY_RULES, SUBAGENT_HOOK_COMMAND, agentHooksState, mergeAgentHooks, subagentContext, subagentHookOutput, writeAgentHooks } from "../src/doctor/agent-hooks.js";
 
 const app = () => mkdtempSync(path.join(tmpdir(), "genesis-agent-hooks-"));
 
@@ -78,6 +78,20 @@ describe("agent hooks: settings shapes", () => {
   });
 });
 
+describe("agent hooks: an older command", () => {
+  const old = '"$CLAUDE_PROJECT_DIR"/node_modules/.bin/genesis agents --hook subagent-start 2>/dev/null || true';
+  it("tells none, current and an older command apart", () => {
+    const root = app();
+    expect(agentHooksState(root)).toBe("none");
+    writeAgentHooks(root);
+    expect(agentHooksState(root)).toBe("ok");
+    writeFileSync(path.join(root, ".claude/settings.json"), JSON.stringify({ hooks: { SubagentStart: [{ matcher: "Explore|Plan", hooks: [{ type: "command", command: old }] }] } }));
+    expect(agentHooksState(root)).toBe("stale");
+    writeAgentHooks(root);
+    expect(agentHooksState(root)).toBe("ok");
+  });
+});
+
 describe("genesis agents --hook (the CLI)", () => {
   const cli = path.join(path.dirname(new URL(import.meta.url).pathname), "../dist/cli.js");
   const run = (args: string[], cwd: string) => spawnSync(process.execPath, [cli, ...args], { cwd, encoding: "utf8" });
@@ -90,7 +104,7 @@ describe("genesis agents --hook (the CLI)", () => {
   it("points the hook at the project folder, so a session started in a subfolder still gets the guides", () => {
     expect(SUBAGENT_HOOK_COMMAND).toContain('--dir "$CLAUDE_PROJECT_DIR"');
   });
-  it.skipIf(!existsSync(cli))("--check names what's wrong, passes a CLAUDE.md the app keeps without the import, and says to rename a misnamed one", () => {
+  it.skipIf(!existsSync(cli))("--check names what's wrong, passes a CLAUDE.md the app keeps without the import, and says to replace a blocked one", () => {
     const root = app();
     expect(run(["agents", "--dir", root], root).status).toBe(0);
     expect(run(["agents", "--check", "--dir", root], root).status).toBe(0);
@@ -105,8 +119,24 @@ describe("genesis agents --hook (the CLI)", () => {
     symlinkSync("nowhere.md", path.join(root, "CLAUDE.md"));
     r = run(["agents", "--check", "--dir", root], root);
     expect(r.status).toBe(1);
-    expect(r.stderr).toContain("CLAUDE.md misnamed");
-    expect(r.stderr).toContain("rename it to CLAUDE.md");
+    expect(r.stderr).toContain("CLAUDE.md blocked");
+    expect(r.stderr).toContain("rename or replace it");
+  });
+  it.skipIf(!existsSync(cli))("fails --check on an older hook; a plain run leaves settings alone, --hooks updates it", () => {
+    const root = app();
+    expect(run(["agents", "--dir", root], root).status).toBe(0);
+    mkdirSync(path.join(root, ".claude"), { recursive: true });
+    const old = '"$CLAUDE_PROJECT_DIR"/node_modules/.bin/genesis agents --hook subagent-start 2>/dev/null || true';
+    writeFileSync(path.join(root, ".claude/settings.json"), JSON.stringify({ hooks: { SubagentStart: [{ matcher: "Explore|Plan", hooks: [{ type: "command", command: old }] }] } }));
+    const r = run(["agents", "--check", "--dir", root], root);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain(".claude/settings.json has an older Genesis hook");
+    expect(r.stderr).toContain("genesis agents --hooks");
+    expect(run(["agents", "--dir", root], root).status).toBe(0);
+    expect(agentHooksState(root)).toBe("stale");
+    expect(run(["agents", "--hooks", "--dir", root], root).status).toBe(0);
+    expect(agentHooksState(root)).toBe("ok");
+    expect(run(["agents", "--check", "--dir", root], root).status).toBe(0);
   });
   it.skipIf(!existsSync(cli))("prints nothing and exits 0 for a hook it doesn't know, so a session never breaks", () => {
     const root = app();

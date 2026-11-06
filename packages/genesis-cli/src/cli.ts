@@ -320,16 +320,23 @@ program
     if (opts.check) {
       const state = doctor.agentGuideState(root, packages);
       // A CLAUDE.md that doesn't import AGENTS.md is the app's own choice (the doctor reports it as info), so it doesn't fail the check.
-      const bad = Object.entries(state).filter(([k, v]) => v !== "ok" && !(k === "claude" && v === "no-import"));
+      const bad: [string, string][] = Object.entries(state).filter(([k, v]) => v !== "ok" && !(k === "claude" && v === "no-import"));
+      if (doctor.agentHooksState(root) === "stale") bad.push([doctor.SETTINGS_PATH, "has an older Genesis hook"]);
       if (bad.length) {
-        const fix = state.claude === "misnamed" ? `For CLAUDE.md, ${doctor.MISNAMED_FIX}.` : "Run `genesis agents` and commit the result.";
-        console.error(`✗ The agent guide is ${bad.map(([k, v]) => `${k === "skill" ? doctor.SKILL_PATH : k === "claude" ? "CLAUDE.md" : "AGENTS.md"} ${v}`).join(", ")}. ${fix}`);
+        const guideBad = bad.some(([k]) => k !== doctor.SETTINGS_PATH && k !== "claude");
+        const fix = [
+          ...(guideBad || state.claude === "missing" ? ["Run `genesis agents` and commit the result."] : []),
+          ...(state.claude === "blocked" ? [`For CLAUDE.md, ${doctor.BLOCKED_FIX}.`] : []),
+          ...(bad.some(([k]) => k === doctor.SETTINGS_PATH) ? ["Run `genesis agents --hooks` to update the hook."] : []),
+        ].join(" ");
+        console.error(`✗ The agent guide is ${bad.map(([k, v]) => k === doctor.SETTINGS_PATH ? `${k} ${v}` : `${k === "skill" ? doctor.SKILL_PATH : k === "claude" ? "CLAUDE.md" : "AGENTS.md"} ${v}`).join(", ")}. ${fix}`);
         process.exitCode = 1;
         return;
       }
       console.log("✔ The agent guide matches the installed Genesis packages.");
       return;
     }
+    // Settings are only written with --hooks: they're the app's own, so an older hook is flagged (doctor, --check), not rewritten.
     const changed = [...doctor.writeAgentGuide(root, packages), ...(opts.hooks ? doctor.writeAgentHooks(root) : [])];
     console.log(changed.length ? `✔ Wrote ${changed.join(", ")}` : "= The agent guide is up to date.");
   });
