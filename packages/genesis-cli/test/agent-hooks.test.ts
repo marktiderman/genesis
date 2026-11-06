@@ -54,3 +54,25 @@ describe("agent hooks", () => {
     expect(readFileSync(path.join(root, ".claude/settings.json"), "utf8")).toBe("{ not json");
   });
 });
+
+describe("agent hooks: settings shapes", () => {
+  it("keeps an app hook that shares an entry with Genesis's own", () => {
+    const merged = mergeAgentHooks({
+      hooks: { SubagentStart: [{ matcher: "Explore|Plan", hooks: [{ type: "command", command: "echo ours" }, { type: "command", command: SUBAGENT_HOOK_COMMAND }] }] },
+    });
+    expect(merged.hooks!.SubagentStart).toEqual([
+      { matcher: "Explore|Plan", hooks: [{ type: "command", command: "echo ours" }] },
+      { matcher: "Explore|Plan", hooks: [{ type: "command", command: SUBAGENT_HOOK_COMMAND }] },
+    ]);
+  });
+
+  it("refuses null, a list, or a malformed hooks or deny value, and leaves the file as it was", () => {
+    for (const bad of ["null", "[]", '{"hooks":{"SubagentStart":[{}]}}', '{"permissions":{"deny":"Read(./.env)"}}']) {
+      const root = app();
+      mkdirSync(path.join(root, ".claude"));
+      writeFileSync(path.join(root, ".claude/settings.json"), bad);
+      expect(() => writeAgentHooks(root)).toThrow(/fix it by hand/);
+      expect(readFileSync(path.join(root, ".claude/settings.json"), "utf8")).toBe(bad);
+    }
+  });
+});

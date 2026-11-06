@@ -39,21 +39,48 @@ export function subagentHookOutput(root: string, packages: readonly DeclaringPac
   return JSON.stringify({ hookSpecificOutput: { hookEventName: "SubagentStart", additionalContext: subagentContext(root, packages) } });
 }
 
+type HookEntry = { matcher?: string; hooks: { type: string; command?: string }[] };
 type Settings = {
-  hooks?: Record<string, { matcher?: string; hooks: { type: string; command?: string }[] }[]>;
+  hooks?: Record<string, HookEntry[]>;
   permissions?: { deny?: string[]; [k: string]: unknown };
   [k: string]: unknown;
 };
 
-const ownsEntry = (e: { hooks: { command?: string }[] }) => e.hooks.some((h) => h.command?.includes("genesis agents --hook"));
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+const isGenesisHook = (h: { command?: string }) => typeof h.command === "string" && h.command.includes("genesis agents --hook");
+
+/** Refuse a settings file whose shape we'd have to guess at, before anything is written. */
+export function checkSettingsShape(settings: unknown): asserts settings is Settings {
+  const fail = (msg: string): never => {
+    throw new Error(`${SETTINGS_PATH}: ${msg}; fix it by hand, then run genesis agents --hooks again.`);
+  };
+  if (!isObject(settings)) fail("must be a JSON object");
+  const s = settings as Record<string, unknown>;
+  if (s.hooks !== undefined) {
+    if (!isObject(s.hooks)) fail('"hooks" must be an object');
+    const start = (s.hooks as Record<string, unknown>)["SubagentStart"];
+    if (start !== undefined) {
+      if (!Array.isArray(start)) fail('"hooks.SubagentStart" must be a list');
+      for (const e of start as unknown[]) if (!isObject(e) || !Array.isArray(e.hooks) || !e.hooks.every(isObject)) fail('each "hooks.SubagentStart" entry needs a "hooks" list of objects');
+    }
+  }
+  if (s.permissions !== undefined) {
+    if (!isObject(s.permissions)) fail('"permissions" must be an object');
+    const deny = (s.permissions as Record<string, unknown>).deny;
+    if (deny !== undefined && (!Array.isArray(deny) || !deny.every((d) => typeof d === "string"))) fail('"permissions.deny" must be a list of strings');
+  }
+}
 
 /** The settings with Genesis's hook and deny rules in place; nothing of the app's own is removed. */
 export function mergeAgentHooks(settings: Settings): Settings {
+  checkSettingsShape(settings);
   const out: Settings = structuredClone(settings);
   const hooks = (out.hooks ??= {});
-  const entry = { matcher: SUBAGENT_MATCHER, hooks: [{ type: "command", command: SUBAGENT_HOOK_COMMAND }] };
-  const others = (hooks["SubagentStart"] ?? []).filter((e) => !ownsEntry(e));
-  hooks["SubagentStart"] = [...others, entry];
+  // Remove only Genesis's own hook commands; an app hook sharing an entry with one stays.
+  const others = (hooks["SubagentStart"] ?? [])
+    .map((e) => ({ ...e, hooks: e.hooks.filter((h) => !isGenesisHook(h)) }))
+    .filter((e) => e.hooks.length > 0);
+  hooks["SubagentStart"] = [...others, { matcher: SUBAGENT_MATCHER, hooks: [{ type: "command", command: SUBAGENT_HOOK_COMMAND }] }];
   const permissions = (out.permissions ??= {});
   const deny = permissions.deny ?? [];
   permissions.deny = [...deny, ...DENY_RULES.filter((r) => !deny.includes(r))];
@@ -64,14 +91,15 @@ export function mergeAgentHooks(settings: Settings): Settings {
 export function writeAgentHooks(root: string): string[] {
   const file = path.join(root, SETTINGS_PATH);
   const before = existsSync(file) ? readFileSync(file, "utf8") : null;
-  let current: Settings = {};
+  let current: unknown = {};
   if (before !== null) {
     try {
-      current = JSON.parse(before) as Settings;
+      current = JSON.parse(before);
     } catch {
       throw new Error(`${SETTINGS_PATH} isn't valid JSON; fix it by hand, then run genesis agents --hooks again.`);
     }
   }
+  checkSettingsShape(current);
   const after = `${JSON.stringify(mergeAgentHooks(current), null, 2)}\n`;
   if (before !== null && JSON.stringify(JSON.parse(before)) === JSON.stringify(JSON.parse(after))) return [];
   mkdirSync(path.dirname(file), { recursive: true });

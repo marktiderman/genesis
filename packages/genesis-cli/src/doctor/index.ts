@@ -93,6 +93,8 @@ export {
   renderSkill,
   renderAgentsBlock,
   packageGuides,
+  skillDescription,
+  type PackageGuide,
   agentRules,
   CLAUDE_IMPORT,
   writeAgentGuide,

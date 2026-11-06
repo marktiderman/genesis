@@ -10,7 +10,7 @@
  *   marked block in the app's AGENTS.md.
  * - `agent-guide-stale` warns when either no longer matches the installed packages.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { preferRules, type DeclaringPackage } from "./package-rules.js";
 import type { DoctorContext } from "./types.js";
@@ -24,6 +24,20 @@ const read = (file: string) => (existsSync(file) ? readFileSync(file, "utf8") : 
  * cloud project threads) load the same AGENTS.md every other agent reads.
  */
 export const CLAUDE_IMPORT = "@AGENTS.md\n";
+
+/** Whether anything sits at the path, a dangling link or another case of the name included, so a write never lands beside it. */
+function pathTaken(file: string): boolean {
+  try {
+    lstatSync(file);
+    return true;
+  } catch {
+    try {
+      return readdirSync(path.dirname(file)).some((n) => n.toLowerCase() === path.basename(file).toLowerCase());
+    } catch {
+      return false;
+    }
+  }
+}
 
 /** One row of the catalog. */
 export interface PrimitiveRow {
@@ -152,22 +166,44 @@ const RULES = [
 /** An installed package's own agent guide: its `SKILL.md`, which matches the installed version. */
 export interface PackageGuide {
   package: string;
-  /** Relative to the app root, POSIX separators (usually under `node_modules/`). */
+  /** Relative to the app root, POSIX separators: `node_modules/<package>/SKILL.md`, or a local package's own folder. */
   path: string;
   /** When to read it, from the guide's `description`. */
   when: string;
 }
 
-/** The `SKILL.md` each installed package ships, so agents read the version the app actually has. */
+/** The `description` in a SKILL.md's frontmatter, with a folded (`>`, `>-`) or literal (`|`) value joined into one line. */
+export function skillDescription(text: string): string {
+  const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1];
+  if (!fm) return "";
+  const lines = fm.split(/\r?\n/);
+  const i = lines.findIndex((l) => /^description:/.test(l));
+  if (i < 0) return "";
+  const first = lines[i]!.replace(/^description:\s*/, "").trim();
+  if (first && !/^[>|][+-]?$/.test(first)) return first.replace(/^["']|["']$/g, "");
+  const more: string[] = [];
+  for (const l of lines.slice(i + 1)) {
+    if (!/^\s+\S/.test(l)) break;
+    more.push(l.trim());
+  }
+  return more.join(" ");
+}
+
+/**
+ * The `SKILL.md` each installed package ships, so agents read the version the app actually has. Only
+ * paths that stay put are listed: `node_modules/<package>/SKILL.md` at the app root, or a local
+ * package's folder. A package reached only through the umbrella lives in pnpm's store under a path
+ * that changes with unrelated dependency bumps, so it's left out rather than going stale.
+ */
 export function packageGuides(root: string, packages: readonly DeclaringPackage[]): PackageGuide[] {
   const guides: PackageGuide[] = [];
   for (const p of packages) {
-    const file = path.join(p.dir, "SKILL.md");
-    const text = read(file);
+    const stable = p.local ? path.join(p.dir, "SKILL.md") : path.join(root, "node_modules", p.name, "SKILL.md");
+    const text = read(stable);
     if (text === null) continue;
-    const description = /^description:\s*(.+)$/m.exec(text)?.[1]?.trim().replace(/^["']|["']$/g, "") ?? "";
-    const load = /Load before [^.]*\./.exec(description)?.[0];
-    guides.push({ package: p.name, path: path.relative(root, file).split(path.sep).join("/"), when: load ?? description });
+    const description = skillDescription(text);
+    const at = description.indexOf("Load before");
+    guides.push({ package: p.name, path: path.relative(root, stable).split(path.sep).join("/"), when: at >= 0 ? description.slice(at) : description });
   }
   return guides.sort((a, b) => a.package.localeCompare(b.package));
 }
@@ -283,11 +319,19 @@ export function writeAgentGuide(root: string, packages: readonly DeclaringPackag
     changed.push(agentsFile);
   }
   const claude = path.join(root, "CLAUDE.md");
-  if (agentsFile === "AGENTS.md" && !existsSync(claude)) {
+  if (agentsFile === "AGENTS.md" && !pathTaken(claude)) {
     writeFileSync(claude, CLAUDE_IMPORT);
     changed.push("CLAUDE.md");
   }
   return changed;
+}
+
+/** The app's CLAUDE.md: missing (also a dangling link), present without importing AGENTS.md, or ok. */
+function claudeState(root: string): "ok" | "missing" | "no-import" {
+  const file = path.join(root, "CLAUDE.md");
+  const text = read(file);
+  if (text === null) return "missing";
+  return /^@AGENTS\.md\b/m.test(text) ? "ok" : "no-import";
 }
 
 /** What `agent-guide-stale` found: the generated files that are missing or differ. */
@@ -295,7 +339,7 @@ export function agentGuideState(
   root: string,
   packages: readonly DeclaringPackage[],
   agentsFile = "AGENTS.md",
-): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" | "broken"; claude: "ok" | "missing" } {
+): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" | "broken"; claude: "ok" | "missing" | "no-import" } {
   const rows = primitivesCatalog(packages);
   const guides = packageGuides(root, packages);
   const skill = read(path.join(root, SKILL_PATH))?.replace(/\r\n/g, "\n") ?? null;
@@ -303,13 +347,16 @@ export function agentGuideState(
   return {
     skill: skill === null ? "missing" : skill === renderSkill(rows, guides) ? "ok" : "stale",
     agents: block === null || block === "broken" ? (block ?? "missing") : block === renderAgentsBlock(rows, guides) ? "ok" : "stale",
-    claude: existsSync(path.join(root, "CLAUDE.md")) ? "ok" : "missing",
+    // Only the default AGENTS.md gets a CLAUDE.md written for it, so only then is a missing one reported.
+    claude: agentsFile !== "AGENTS.md" ? "ok" : claudeState(root),
   };
 }
 
 /**
- * `agent-guide-stale`: the generated skill or AGENTS.md block doesn't match the
- * installed packages, or one of the two is missing. An app with neither is left alone.
+ * `agent-guide-stale`: the generated skill or AGENTS.md block doesn't match the installed packages,
+ * one of the two is missing, or there's no CLAUDE.md (reviewers and cloud project threads read only
+ * CLAUDE.md). A CLAUDE.md that doesn't import AGENTS.md is an info. An app with neither generated
+ * file is left alone.
  */
 export function checkAgentGuide(ctx: DoctorContext): void {
   const state = agentGuideState(ctx.root, ctx.packages);
@@ -326,6 +373,9 @@ export function checkAgentGuide(ctx: DoctorContext): void {
       stale: `has a genesis-primitives block that doesn't match the installed Genesis packages; ${fix}`,
     }[state.agents];
     ctx.report({ rule: "agent-guide-stale", level: "warn", file: "AGENTS.md", message });
+  }
+  if (state.claude === "no-import") {
+    ctx.report({ rule: "agent-guide-stale", level: "info", file: "CLAUDE.md", message: "doesn't import AGENTS.md (`@AGENTS.md`), so reviewers and cloud project threads that read only CLAUDE.md don't see the Genesis guide" });
   }
   if (state.claude === "missing") {
     ctx.report({ rule: "agent-guide-stale", level: "warn", file: "CLAUDE.md", message: `is missing, so reviewers and cloud project threads that read only CLAUDE.md never see AGENTS.md; ${fix} (it writes \`@AGENTS.md\`)` });

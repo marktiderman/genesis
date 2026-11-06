@@ -25,6 +25,7 @@ import {
   validateDeclaration,
   writeAgentGuide,
   packageGuides,
+  skillDescription,
   type DoctorConfig,
   type DoctorContext,
   type Finding,
@@ -815,6 +816,37 @@ describe("primitives catalog and agent guide", () => {
     expect(agents).toContain("- `node_modules/@marktiderman/genesis-widgets/SKILL.md` (@marktiderman/genesis-widgets): Load before building any widget screen.");
     expect(readFileSync(path.join(root, SKILL_PATH), "utf8")).toContain("### Package guides (they match the installed versions)");
     expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok", claude: "ok" });
+  });
+
+  it("leaves out a guide whose only path is inside pnpm's store, since that path changes with unrelated bumps", () => {
+    const root = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    const store = path.join(root, "node_modules/.pnpm/@marktiderman+genesis-widgets@1.0.0/node_modules/@marktiderman/genesis-widgets");
+    mkdirSync(store, { recursive: true });
+    writeFileSync(path.join(store, "SKILL.md"), "---\nname: w\ndescription: Load before widgets.\n---\n");
+    const pkg = { ...discoverPackages(root)[0]!, dir: store };
+    expect(packageGuides(root, [pkg])).toEqual([]);
+  });
+
+  it("reads a folded description from the frontmatter only, and keeps the whole Load before sentence", () => {
+    expect(skillDescription("---\nname: x\ndescription: >-\n  Build things, e.g. widgets. Load before building\n  any widget screen, e.g. a list.\n---\n\ndescription: not this\n")).toBe(
+      "Build things, e.g. widgets. Load before building any widget screen, e.g. a list.",
+    );
+    expect(skillDescription("no frontmatter\ndescription: nope\n")).toBe("");
+  });
+
+  it("reports a CLAUDE.md that doesn't import AGENTS.md as info, and doesn't write beside a lowercase claude.md", async () => {
+    const root = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "CLAUDE.md": "# Ours\n" });
+    writeAgentGuide(root, discoverPackages(root));
+    expect(agentGuideState(root, discoverPackages(root)).claude).toBe("no-import");
+    const info = (await runDoctor({ root, config: {} })).findings.filter((f) => f.rule === "agent-guide-stale");
+    expect(info.map((f) => `${f.level} ${f.file}`)).toEqual(["info CLAUDE.md"]);
+    const lower = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "claude.md": "# ours\n" });
+    expect(writeAgentGuide(lower, discoverPackages(lower))).not.toContain("CLAUDE.md");
+  });
+
+  it("doesn't ask for CLAUDE.md when the guide goes to a custom agents file", () => {
+    const root = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    expect(agentGuideState(root, discoverPackages(root), "AGENT_NOTES.md").claude).toBe("ok");
   });
 
   it("leaves an existing CLAUDE.md alone", () => {
