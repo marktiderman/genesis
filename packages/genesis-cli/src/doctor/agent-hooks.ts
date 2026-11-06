@@ -15,8 +15,11 @@ import { agentRules, packageGuides } from "./primitives.js";
 
 export const SETTINGS_PATH = ".claude/settings.json";
 
-/** The command the hook runs. It fails open: with no install, the subagent simply starts without the rules. */
-export const SUBAGENT_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/node_modules/.bin/genesis agents --hook subagent-start 2>/dev/null || true';
+/**
+ * The command the hook runs. `--dir` points it at the app, so a session started in a subfolder still
+ * gets the package guides. It fails open: with no install, the subagent simply starts without the rules.
+ */
+export const SUBAGENT_HOOK_COMMAND = '"$CLAUDE_PROJECT_DIR"/node_modules/.bin/genesis agents --hook subagent-start --dir "$CLAUDE_PROJECT_DIR" 2>/dev/null || true';
 
 /** The subagents that start without CLAUDE.md, so they need the rules handed to them. */
 export const SUBAGENT_MATCHER = "Explore|Plan";

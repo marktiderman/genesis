@@ -326,11 +326,14 @@ export function writeAgentGuide(root: string, packages: readonly DeclaringPackag
   return changed;
 }
 
-/** The app's CLAUDE.md: missing (also a dangling link), present without importing AGENTS.md, or ok. */
-function claudeState(root: string): "ok" | "missing" | "no-import" {
+/**
+ * The app's CLAUDE.md: missing, misnamed (another case of the name, or a dangling link, which
+ * `genesis agents` won't write over), present without importing AGENTS.md, or ok.
+ */
+function claudeState(root: string): "ok" | "missing" | "misnamed" | "no-import" {
   const file = path.join(root, "CLAUDE.md");
   const text = read(file);
-  if (text === null) return "missing";
+  if (text === null) return pathTaken(file) ? "misnamed" : "missing";
   return /^@AGENTS\.md\b/m.test(text) ? "ok" : "no-import";
 }
 
@@ -339,7 +342,7 @@ export function agentGuideState(
   root: string,
   packages: readonly DeclaringPackage[],
   agentsFile = "AGENTS.md",
-): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" | "broken"; claude: "ok" | "missing" | "no-import" } {
+): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" | "broken"; claude: "ok" | "missing" | "misnamed" | "no-import" } {
   const rows = primitivesCatalog(packages);
   const guides = packageGuides(root, packages);
   const skill = read(path.join(root, SKILL_PATH))?.replace(/\r\n/g, "\n") ?? null;
@@ -380,4 +383,10 @@ export function checkAgentGuide(ctx: DoctorContext): void {
   if (state.claude === "missing") {
     ctx.report({ rule: "agent-guide-stale", level: "warn", file: "CLAUDE.md", message: `is missing, so reviewers and cloud project threads that read only CLAUDE.md never see AGENTS.md; ${fix} (it writes \`@AGENTS.md\`)` });
   }
+  if (state.claude === "misnamed") {
+    ctx.report({ rule: "agent-guide-stale", level: "warn", file: "CLAUDE.md", message: `can't be read: another case of the name (such as claude.md) or a dangling link is in its place, and genesis agents won't write over it; ${MISNAMED_FIX}` });
+  }
 }
+
+/** The fix for a misnamed CLAUDE.md, which `genesis agents` can't make itself. */
+export const MISNAMED_FIX = "rename it to CLAUDE.md (or remove the dangling link), then run genesis agents";

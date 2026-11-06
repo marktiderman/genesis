@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -86,6 +86,27 @@ describe("genesis agents --hook (the CLI)", () => {
     const r = run(["agents", "--hook", "subagent-start", "--dir", root], root);
     expect(r.status).toBe(0);
     expect(JSON.parse(r.stdout).hookSpecificOutput.hookEventName).toBe("SubagentStart");
+  });
+  it("points the hook at the project folder, so a session started in a subfolder still gets the guides", () => {
+    expect(SUBAGENT_HOOK_COMMAND).toContain('--dir "$CLAUDE_PROJECT_DIR"');
+  });
+  it.skipIf(!existsSync(cli))("--check names what's wrong, passes a CLAUDE.md the app keeps without the import, and says to rename a misnamed one", () => {
+    const root = app();
+    expect(run(["agents", "--dir", root], root).status).toBe(0);
+    expect(run(["agents", "--check", "--dir", root], root).status).toBe(0);
+    rmSync(path.join(root, "CLAUDE.md"));
+    let r = run(["agents", "--check", "--dir", root], root);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("CLAUDE.md missing");
+    expect(r.stderr).toContain("Run `genesis agents`");
+    writeFileSync(path.join(root, "CLAUDE.md"), "# Ours\n");
+    expect(run(["agents", "--check", "--dir", root], root).status).toBe(0);
+    rmSync(path.join(root, "CLAUDE.md"));
+    symlinkSync("nowhere.md", path.join(root, "CLAUDE.md"));
+    r = run(["agents", "--check", "--dir", root], root);
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("CLAUDE.md misnamed");
+    expect(r.stderr).toContain("rename it to CLAUDE.md");
   });
   it.skipIf(!existsSync(cli))("prints nothing and exits 0 for a hook it doesn't know, so a session never breaks", () => {
     const root = app();
