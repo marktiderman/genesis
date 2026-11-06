@@ -1,0 +1,21 @@
+.github/workflows/genesis-upgrade.yml
+  s_2b93d8bc42c448::t_df22c7b8b31a06 95-98,509,663-700,813-842
+docs/APP-CI.md
+  s_2b93d8bc42c448::t_30d9ef77939cdf 166-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2c7be695b98cad6cb3784abe3b15833474265de9",
+  "prompts": {},
+  "sessions": {
+    "s_2b93d8bc42c448": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "95d1e712-fa31-474d-880d-8eb808f30ed6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
