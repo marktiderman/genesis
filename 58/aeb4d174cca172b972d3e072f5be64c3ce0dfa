@@ -1,0 +1,35 @@
+.changeset/preview-standard.md
+  s_b016d44619be31::t_b292c5fba9c0d1 7-9
+AGENTS.md
+  s_b016d44619be31::t_32c547427f3f1b 128
+docs/APP-CI.md
+  s_b016d44619be31::t_4c564d424c6599 177-180,187-191,202-203,254-255
+features.json
+  s_b016d44619be31::t_761f0957845d8c 2608-2641
+features.ts
+  s_b016d44619be31::t_84ed582d4f9cb3 1154-1168
+packages/genesis-cli/src/doctor/supabase.ts
+  s_b016d44619be31::t_4e94c09e92c5be 350,359-360
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_b016d44619be31::t_ad81d918673a1b 671-681
+scripts/__tests__/vercel-ignore-build.test.mjs
+  s_b016d44619be31::t_8ed75dc5bd7f16 70-84,188-191
+templates/vercel/ignore-build.sh
+  s_b016d44619be31::t_8c323d1cdae9b6 14-17,52-56,101,106-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "58aeb4d174cca172b972d3e072f5be64c3ce0dfa",
+  "prompts": {},
+  "sessions": {
+    "s_b016d44619be31": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf384bfa-c5f0-48a0-aa59-f76730c9f0a5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
