@@ -1,6 +1,7 @@
 // @feat:doctor-package-rules
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -25,6 +26,7 @@ import {
   validateDeclaration,
   writeAgentGuide,
   packageGuides,
+  unlistedGuides,
   skillDescription,
   type DoctorConfig,
   type DoctorContext,
@@ -825,6 +827,20 @@ describe("primitives catalog and agent guide", () => {
     writeFileSync(path.join(store, "SKILL.md"), "---\nname: w\ndescription: Load before widgets.\n---\n");
     const pkg = { ...discoverPackages(root)[0]!, dir: store };
     expect(packageGuides(root, [pkg])).toEqual([]);
+    expect(unlistedGuides(root, [pkg])).toEqual([pkg.name]);
+  });
+
+  it("finds a guide hoisted to the workspace root, and stops at the repo root", () => {
+    const repo = mkdtempSync(path.join(tmpdir(), "genesis-hoisted-"));
+    writeFileSync(path.join(repo, "pnpm-workspace.yaml"), "packages: [apps/*]\n");
+    const hoisted = path.join(repo, "node_modules/@marktiderman/genesis-widgets");
+    mkdirSync(hoisted, { recursive: true });
+    writeFileSync(path.join(hoisted, "SKILL.md"), "---\nname: w\ndescription: Load before widgets.\n---\n");
+    const root = path.join(repo, "apps/web");
+    mkdirSync(root, { recursive: true });
+    const pkg = { name: "@marktiderman/genesis-widgets", version: "1.0.0", dir: hoisted, namespace: "widgets", local: false, private: false, declaration: null };
+    expect(packageGuides(root, [pkg])).toEqual([{ package: pkg.name, path: "../../node_modules/@marktiderman/genesis-widgets/SKILL.md", when: "Load before widgets." }]);
+    expect(unlistedGuides(root, [pkg])).toEqual([]);
   });
 
   it("reads a folded description from the frontmatter only, and keeps the whole Load before sentence", () => {
@@ -842,16 +858,29 @@ describe("primitives catalog and agent guide", () => {
     expect(info.map((f) => `${f.level} ${f.file}`)).toEqual(["info CLAUDE.md"]);
     const lower = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "claude.md": "# ours\n" });
     expect(writeAgentGuide(lower, discoverPackages(lower))).not.toContain("CLAUDE.md");
+    // The folder's real names are compared, so macOS and Linux agree.
+    expect(agentGuideState(lower, discoverPackages(lower)).claude).toBe("blocked");
   });
 
-  it("calls a dangling CLAUDE.md link misnamed and says to fix it by hand, since genesis agents won't write over it", async () => {
+  it("takes a CLAUDE.md linked to AGENTS.md as ok, and a CLAUDE.md folder as blocked", () => {
+    const linked = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    writeAgentGuide(linked, discoverPackages(linked));
+    rmSync(path.join(linked, "CLAUDE.md"));
+    symlinkSync("AGENTS.md", path.join(linked, "CLAUDE.md"));
+    expect(agentGuideState(linked, discoverPackages(linked)).claude).toBe("ok");
+    const folder = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    mkdirSync(path.join(folder, "CLAUDE.md"));
+    expect(agentGuideState(folder, discoverPackages(folder)).claude).toBe("blocked");
+  });
+
+  it("calls a dangling CLAUDE.md link blocked and says to fix it by hand, since genesis agents won't write over it", async () => {
     const root = makeApp(null, widgets({ prefer: [LIST_RULE] }));
     symlinkSync("nowhere.md", path.join(root, "CLAUDE.md"));
     expect(writeAgentGuide(root, discoverPackages(root))).not.toContain("CLAUDE.md");
-    expect(agentGuideState(root, discoverPackages(root)).claude).toBe("misnamed");
+    expect(agentGuideState(root, discoverPackages(root)).claude).toBe("blocked");
     const found = (await runDoctor({ root, config: {} })).findings.filter((f) => f.rule === "agent-guide-stale");
     expect(found.map((f) => `${f.level} ${f.file}`)).toEqual(["warn CLAUDE.md"]);
-    expect(found[0]!.message).toContain("rename it to CLAUDE.md");
+    expect(found[0]!.message).toContain("rename or replace it");
   });
 
   it("doesn't ask for CLAUDE.md when the guide goes to a custom agents file", () => {

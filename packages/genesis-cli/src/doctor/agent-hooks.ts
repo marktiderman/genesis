@@ -11,6 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import type { DeclaringPackage } from "./package-rules.js";
+import type { DoctorContext } from "./types.js";
 import { agentRules, packageGuides } from "./primitives.js";
 
 export const SETTINGS_PATH = ".claude/settings.json";
@@ -108,4 +109,31 @@ export function writeAgentHooks(root: string): string[] {
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, after);
   return [SETTINGS_PATH];
+}
+
+/**
+ * Whether the app has Genesis's hook, and whether it's the current command: an app that adopted an
+ * older one keeps it until `genesis agents` runs again. A settings file that can't be read is "none".
+ */
+export function agentHooksState(root: string): "none" | "ok" | "stale" {
+  let settings: unknown;
+  try {
+    settings = JSON.parse(readFileSync(path.join(root, SETTINGS_PATH), "utf8"));
+  } catch {
+    return "none";
+  }
+  const start = isObject(settings) && isObject(settings.hooks) ? settings.hooks["SubagentStart"] : undefined;
+  const commands = (Array.isArray(start) ? start : [])
+    .flatMap((e) => (isObject(e) && Array.isArray(e.hooks) ? e.hooks : []))
+    .filter((h): h is { command: string } => isObject(h) && isGenesisHook(h as { command?: string }))
+    .map((h) => h.command);
+  if (!commands.length) return "none";
+  return commands.every((c) => c === SUBAGENT_HOOK_COMMAND) ? "ok" : "stale";
+}
+
+/** `agent-guide-stale`, for the hooks: an older Genesis hook command in `.claude/settings.json`. */
+export function checkAgentHooks(ctx: DoctorContext): void {
+  if (agentHooksState(ctx.root) === "stale") {
+    ctx.report({ rule: "agent-guide-stale", level: "warn", file: SETTINGS_PATH, message: "has an older Genesis SubagentStart hook command; run genesis agents and commit the result" });
+  }
 }

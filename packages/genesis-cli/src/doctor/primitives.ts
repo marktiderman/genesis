@@ -10,7 +10,7 @@
  *   marked block in the app's AGENTS.md.
  * - `agent-guide-stale` warns when either no longer matches the installed packages.
  */
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { preferRules, type DeclaringPackage } from "./package-rules.js";
 import type { DoctorContext } from "./types.js";
@@ -190,22 +190,44 @@ export function skillDescription(text: string): string {
 }
 
 /**
+ * Where a package's guide sits at a path that stays put: `node_modules/<package>/SKILL.md` at the app
+ * or, for a workspace that hoists dependencies, in a folder above it up to the repo root.
+ */
+function stableGuidePath(root: string, name: string): string | null {
+  for (let dir = root; ; ) {
+    const file = path.join(dir, "node_modules", name, "SKILL.md");
+    if (existsSync(file)) return file;
+    if (existsSync(path.join(dir, ".git")) || existsSync(path.join(dir, "pnpm-workspace.yaml"))) return null;
+    const up = path.dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+}
+
+/**
  * The `SKILL.md` each installed package ships, so agents read the version the app actually has. Only
- * paths that stay put are listed: `node_modules/<package>/SKILL.md` at the app root, or a local
- * package's folder. A package reached only through the umbrella lives in pnpm's store under a path
- * that changes with unrelated dependency bumps, so it's left out rather than going stale.
+ * paths that stay put are listed: a local package's folder, or `node_modules/<package>/SKILL.md` at
+ * the app or a workspace folder above it. A package reached only through the umbrella lives in
+ * pnpm's store under a path that changes with unrelated dependency bumps, so it's left out rather
+ * than going stale; `unlistedGuides` names those.
  */
 export function packageGuides(root: string, packages: readonly DeclaringPackage[]): PackageGuide[] {
   const guides: PackageGuide[] = [];
   for (const p of packages) {
-    const stable = p.local ? path.join(p.dir, "SKILL.md") : path.join(root, "node_modules", p.name, "SKILL.md");
-    const text = read(stable);
-    if (text === null) continue;
+    const stable = p.local ? path.join(p.dir, "SKILL.md") : stableGuidePath(root, p.name);
+    const text = stable === null ? null : read(stable);
+    if (stable === null || text === null) continue;
     const description = skillDescription(text);
     const at = description.indexOf("Load before");
     guides.push({ package: p.name, path: path.relative(root, stable).split(path.sep).join("/"), when: at >= 0 ? description.slice(at) : description });
   }
   return guides.sort((a, b) => a.package.localeCompare(b.package));
+}
+
+/** Packages that ship a guide the agent guide can't point at, because it's only inside pnpm's store. */
+export function unlistedGuides(root: string, packages: readonly DeclaringPackage[]): string[] {
+  const listed = new Set(packageGuides(root, packages).map((g) => g.package));
+  return packages.filter((p) => !p.local && !listed.has(p.name) && existsSync(path.join(p.dir, "SKILL.md"))).map((p) => p.name).sort();
 }
 
 /** The package guides as a short list, or nothing when no installed package ships one. */
@@ -327,14 +349,33 @@ export function writeAgentGuide(root: string, packages: readonly DeclaringPackag
 }
 
 /**
- * The app's CLAUDE.md: missing, misnamed (another case of the name, or a dangling link, which
- * `genesis agents` won't write over), present without importing AGENTS.md, or ok.
+ * The app's CLAUDE.md: missing; blocked (something else is in its place, which `genesis agents` won't
+ * write over: another case of the name, a dangling link, a folder or an unreadable file); present
+ * without importing AGENTS.md; or ok (it imports AGENTS.md, or is a link to it). The folder's real
+ * names are compared, so macOS and Linux report the same state.
  */
-function claudeState(root: string): "ok" | "missing" | "misnamed" | "no-import" {
+function claudeState(root: string): "ok" | "missing" | "blocked" | "no-import" {
   const file = path.join(root, "CLAUDE.md");
-  const text = read(file);
-  if (text === null) return pathTaken(file) ? "misnamed" : "missing";
-  return /^@AGENTS\.md\b/m.test(text) ? "ok" : "no-import";
+  let names: string[] = [];
+  try {
+    names = readdirSync(root);
+  } catch {
+    /* no folder: missing */
+  }
+  if (!names.includes("CLAUDE.md")) return names.some((n) => n.toLowerCase() === "claude.md") ? "blocked" : "missing";
+  let text: string;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch {
+    return "blocked";
+  }
+  if (/^@AGENTS\.md\b/m.test(text)) return "ok";
+  try {
+    if (realpathSync(file) === realpathSync(path.join(root, "AGENTS.md"))) return "ok";
+  } catch {
+    /* no AGENTS.md to compare with */
+  }
+  return "no-import";
 }
 
 /** What `agent-guide-stale` found: the generated files that are missing or differ. */
@@ -342,7 +383,7 @@ export function agentGuideState(
   root: string,
   packages: readonly DeclaringPackage[],
   agentsFile = "AGENTS.md",
-): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" | "broken"; claude: "ok" | "missing" | "misnamed" | "no-import" } {
+): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" | "broken"; claude: "ok" | "missing" | "blocked" | "no-import" } {
   const rows = primitivesCatalog(packages);
   const guides = packageGuides(root, packages);
   const skill = read(path.join(root, SKILL_PATH))?.replace(/\r\n/g, "\n") ?? null;
@@ -383,10 +424,14 @@ export function checkAgentGuide(ctx: DoctorContext): void {
   if (state.claude === "missing") {
     ctx.report({ rule: "agent-guide-stale", level: "warn", file: "CLAUDE.md", message: `is missing, so reviewers and cloud project threads that read only CLAUDE.md never see AGENTS.md; ${fix} (it writes \`@AGENTS.md\`)` });
   }
-  if (state.claude === "misnamed") {
-    ctx.report({ rule: "agent-guide-stale", level: "warn", file: "CLAUDE.md", message: `can't be read: another case of the name (such as claude.md) or a dangling link is in its place, and genesis agents won't write over it; ${MISNAMED_FIX}` });
+  if (state.claude === "blocked") {
+    ctx.report({ rule: "agent-guide-stale", level: "warn", file: "CLAUDE.md", message: `can't be read: something else is in its place (another case of the name such as claude.md, a dangling link, a folder or an unreadable file), and genesis agents won't write over it; ${BLOCKED_FIX}` });
+  }
+  const unlisted = unlistedGuides(ctx.root, ctx.packages);
+  if (unlisted.length) {
+    ctx.report({ rule: "agent-guide-stale", level: "info", file: "AGENTS.md", message: `leaves out the guide of ${unlisted.join(", ")}: it's only inside pnpm's store, under a path that changes with unrelated bumps. Add the package as a direct dependency to list its guide.` });
   }
 }
 
-/** The fix for a misnamed CLAUDE.md, which `genesis agents` can't make itself. */
-export const MISNAMED_FIX = "rename it to CLAUDE.md (or remove the dangling link), then run genesis agents";
+/** The fix for a blocked CLAUDE.md, which `genesis agents` can't make itself. */
+export const BLOCKED_FIX = "rename or replace it with a CLAUDE.md file (or remove the dangling link), then run genesis agents";
