@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -74,5 +75,22 @@ describe("agent hooks: settings shapes", () => {
       expect(() => writeAgentHooks(root)).toThrow(/fix it by hand/);
       expect(readFileSync(path.join(root, ".claude/settings.json"), "utf8")).toBe(bad);
     }
+  });
+});
+
+describe("genesis agents --hook (the CLI)", () => {
+  const cli = path.join(path.dirname(new URL(import.meta.url).pathname), "../dist/cli.js");
+  const run = (args: string[], cwd: string) => spawnSync(process.execPath, [cli, ...args], { cwd, encoding: "utf8" });
+  it.skipIf(!existsSync(cli))("prints the SubagentStart output and exits 0", () => {
+    const root = app();
+    const r = run(["agents", "--hook", "subagent-start", "--dir", root], root);
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout).hookSpecificOutput.hookEventName).toBe("SubagentStart");
+  });
+  it.skipIf(!existsSync(cli))("prints nothing and exits 0 for a hook it doesn't know, so a session never breaks", () => {
+    const root = app();
+    const r = run(["agents", "--hook", "no-such-hook", "--dir", root], root);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe("");
   });
 });
