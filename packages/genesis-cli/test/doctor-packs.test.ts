@@ -14,7 +14,7 @@ import {
   type DoctorConfig,
   type Finding,
 } from "../src/doctor/index.js";
-import { argTypes, dynamicGrants } from "../src/doctor/supabase.js";
+import { apiSchemas, argTypes, dynamicGrants } from "../src/doctor/supabase.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
 afterAll(cleanupApps);
@@ -614,5 +614,83 @@ describe("supabase pack", () => {
       expect(levels(r.findings, "migration-edited")).toEqual(["warn"]);
       expect(brief(r.findings, "migration-grants")).toEqual(["migration-grants supabase/migrations:0"]);
     });
+  });
+});
+
+describe("supabase pack: exposed-schema-created-later", () => {
+  const RULE = "exposed-schema-created-later";
+
+  it("reads [api] schemas from config.toml: multi-line, comments, enabled", () => {
+    expect(apiSchemas('[db]\nschemas = ["x"]\n\n[api]\nenabled = true\nschemas = [\n  "public", # a "quoted" comment\n  "API",\n]\n[auth]\n')).toEqual({
+      enabled: true,
+      schemas: ["public", "api"],
+      line: 6,
+    });
+    expect(apiSchemas('[api] # the data api\nenabled = false\nschemas = ["api"]')?.enabled).toBe(false);
+    expect(apiSchemas('[api]\n# schemas = ["api"]\nport = 1')).toEqual({ enabled: true, schemas: [], line: 1 });
+    expect(apiSchemas('[db]\nport = 1')).toBeNull();
+  });
+
+  it("warns on the fixture that reproduces a preview branch failing its health check", async () => {
+    const r = await run("supabase-exposed-later", SUPABASE);
+    expect(brief(r.findings, RULE)).toEqual([`${RULE} supabase/config.toml:9 api`]);
+    expect(levels(r.findings, RULE)).toEqual(["warn"]);
+    const [f] = r.findings.filter((x) => x.rule === RULE);
+    expect(f.message).toContain("supabase/migrations/20260102000000_api.sql:2");
+    expect(f.message).toContain("before it runs migrations");
+  });
+
+  it("passes the fixture that exposes only the platform's schemas", async () => {
+    const r = await run("supabase-exposed-ok", SUPABASE);
+    expect(brief(r.findings, RULE)).toEqual([]);
+  });
+
+  it("warns on a schema no migration creates", async () => {
+    const r = await run(null, SUPABASE, {
+      "supabase/config.toml": '[api]\nschemas = ["public", "reporting"]\n',
+      [M]: "create table public.t (id int);\nalter table public.t enable row level security;\n",
+    });
+    expect(brief(r.findings, RULE)).toEqual([`${RULE} supabase/config.toml:2 reporting`]);
+    expect(r.findings.find((f) => f.rule === RULE)?.message).toContain("no migration creates");
+  });
+
+  it("reads doctor.supabase.exposedSchemas too, once per schema", async () => {
+    const config: DoctorConfig = { ...SUPABASE, supabase: { since: "0", exposedSchemas: ["public", "api", "app"] } };
+    const r = await run(null, config, {
+      "supabase/config.toml": '[api]\nschemas = ["public", "api"]\n',
+      [M]: "create schema api;\ncreate schema app;\n",
+    });
+    expect(brief(r.findings, RULE)).toEqual([`${RULE} genesis.config.json:0 app`, `${RULE} supabase/config.toml:2 api`]);
+  });
+
+  it("is quiet when the Data API is off, or there is no config.toml", async () => {
+    const off = await run(null, SUPABASE, { "supabase/config.toml": '[api]\nenabled = false\nschemas = ["api"]\n', [M]: "create schema api;\n" });
+    expect(brief(off.findings, RULE)).toEqual([]);
+    const none = await migration("create schema api;\n");
+    expect(brief(none.findings, RULE)).toEqual([]);
+    // exposedSchemas (which the RLS and grants rules read too) doesn't bring it back while the API is off.
+    const offConfigured = await run(null, { ...SUPABASE, supabase: { since: "0", exposedSchemas: ["public", "api"] } }, {
+      "supabase/config.toml": '[api]\nenabled = false\nschemas = ["api"]\n',
+      [M]: "create schema api;\n",
+    });
+    expect(brief(offConfigured.findings, RULE)).toEqual([]);
+  });
+
+  it("reads a quoted schema name in create schema", async () => {
+    const r = await run(null, SUPABASE, { "supabase/config.toml": '[api]\nschemas = ["api"]\n', [M]: 'create schema if not exists "api";\n' });
+    expect(r.findings.find((f) => f.rule === RULE)?.message).toContain("only a migration creates");
+  });
+
+  it("is allowed with a reason, like any rule", async () => {
+    const config: DoctorConfig = {
+      ...SUPABASE,
+      allow: [{ rule: RULE, match: "api", reason: "automatic branching is off; previews are created on demand" }],
+    };
+    const r = await run("supabase-exposed-later", config);
+    expect(brief(r.findings, RULE)).toEqual([]);
+  });
+
+  it("is a built-in rule id", () => {
+    expect(BUILTIN_RULES).toContain(RULE);
   });
 });

@@ -1,0 +1,18 @@
+# Reproduces a preview branch whose Data API fails its health check: `api` is exposed, but only
+# the second migration creates it, and a Supabase branch applies [api] before it runs migrations.
+project_id = "fixture"
+
+[api]
+enabled = true
+port = 54321
+# public stays exposed for the platform; api is the app's own surface.
+schemas = [
+  "public",
+  "graphql_public",
+  "api", # created in 20260102000000_api.sql
+]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322

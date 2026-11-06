@@ -1,7 +1,8 @@
 # App CI
 
 Genesis ships three reusable GitHub Actions workflows, so an app's CI is a short file that calls
-them. Ready-to-copy callers are in [`templates/ci/`](../templates/ci).
+them. Ready-to-copy callers are in [`templates/ci/`](../templates/ci). Previews (web, database and
+native) are built on demand: see [Previews](#previews).
 
 A native app's builds, previews, store submissions and over-the-air updates run on EAS Workflows
 instead, from files in the app's `.eas/workflows/`: see [NATIVE-RELEASE.md](./NATIVE-RELEASE.md)
@@ -162,6 +163,105 @@ The caller grants `contents: write` and `pull-requests: write`. With the default
   pushes. Pass a `token` secret (a fine-grained token or a GitHub App token with contents and pull
   requests write) to have CI run on it.
 
+## Previews
+
+Genesis's standard: **production builds on every merge to `main`; previews are built on demand**,
+not on every pull request. A pull request still gets every check (app-ci, supabase-ci's fresh
+database and pgTAP tests); what it doesn't get by default is a deployed copy.
+
+| Setting | Default | Values |
+|---|---|---|
+| previews | `on-demand` | `on-demand`, `every-pr`, `off` |
+| trigger | label `preview`, or a branch starting `preview/` | (web also takes `[preview]` in the commit message) |
+
+Today these are environment variables on each platform (below). **Planned**
+([`app-environments`](../features.ts)): a `genesis.config.json` `environments` block and a
+`genesis previews should-build` command that read the same names and defaults, so moving them into
+config changes no behaviour. Neither exists yet.
+
+### Web: Vercel
+
+[`templates/vercel/ignore-build.sh`](../templates/vercel/ignore-build.sh) is Vercel's "Ignored
+Build Step" (exit 0 skips, exit 1 builds). Production (`VERCEL_ENV=production`) always builds. A
+preview builds only for a `preview/…` branch, a commit whose message has `[preview]`, or a pull
+request labelled `preview` (any case; before Vercel has the pull request's number, a label on any
+open pull request for the branch counts); everything else is skipped. Two cases always build,
+because production must never be skipped: a deploy without `VERCEL_ENV` (system variables not
+exposed, so production can't be told from a preview) and a custom environment
+(`VERCEL_TARGET_ENV` other than `preview`, such as `staging`).
+
+1. Copy it to `scripts/vercel-ignore-build.sh` in the app, and replace `GENESIS_SHA` in its header
+   with the commit of the Genesis release you copied it from (as in [Which ref to
+   call](#which-ref-to-call)); upgrade it the same way as the CI templates.
+2. Add `"ignoreCommand": "bash scripts/vercel-ignore-build.sh"` to the app's `vercel.json`
+   ([`templates/vercel/vercel.json`](../templates/vercel/vercel.json)). The path is relative to the
+   Vercel project's Root Directory. `ignoreCommand`
+   [overrides](https://vercel.com/docs/project-configuration/vercel-json#ignorecommand) the
+   dashboard's **Settings → Git → Ignored Build Step**, so leave that one at its default.
+3. In the Vercel project, **Settings → Environment Variables**: keep **Automatically expose System
+   Environment Variables** on (the script reads `VERCEL_ENV` and `VERCEL_GIT_*`; with it off,
+   every deploy builds), and add, for the
+   **Preview** environment only:
+
+   | Variable | Default | |
+   |---|---|---|
+   | `GENESIS_PREVIEW_GITHUB_TOKEN` | none | A fine-grained GitHub token with read-only **Pull requests** access to this repository. Without it the label isn't checked (branch and commit opt-ins still work). |
+   | `GENESIS_PREVIEWS` | `on-demand` | `every-pr` builds every preview; `off` builds none. Production builds either way. |
+   | `GENESIS_PREVIEW_LABEL` | `preview` | Set but empty turns the label check off. |
+   | `GENESIS_PREVIEW_BRANCH_PREFIX` | `preview/` | Set but empty turns the branch check off. |
+
+The label check fails closed: no token, a failed or rate-limited request, a non-GitHub repository
+or an answer it can't read skips the build. Vercel doesn't redeploy when a label is added, so
+after labelling push a commit or redeploy the latest one. A preview uses the Supabase variables of
+Vercel's Preview environment; point them at a Supabase preview branch only when the change needs
+its own database.
+
+### Database: Supabase
+
+Turn off Supabase's automatic branching, keep supabase-ci as the per-pull-request database check,
+and create preview branches only when a change needs one.
+
+1. **Supabase dashboard → Project Settings → Integrations → GitHub Integration**: turn
+   **Automatic branching** off (it's the option that "automatically sync[s] GitHub branches with
+   Supabase branches"; [GitHub
+   integration](https://supabase.com/docs/guides/deployment/branching/github-integration)). Keep
+   the GitHub connection itself: an on-demand branch can still be linked to a git branch.
+2. Keep [`supabase-ci.yml`](#supabase-ci) (template
+   [`templates/ci/supabase-ci.yml`](../templates/ci/supabase-ci.yml)) on every pull request. It
+   builds a fresh database from every migration and runs the pgTAP tests, which is what a branch
+   was mostly being used to prove.
+3. When a change needs a hosted database: `supabase branches create <name>` (or, with the
+   **Branching via dashboard** feature preview on, the branch menu beside the project name →
+   **Create branch**). Delete it when the pull request is done (`supabase branches delete`); a
+   branch is billed while it runs.
+
+**Why automatic branching fails with a custom exposed schema.** Supabase's
+[branching workflow](https://supabase.com/docs/guides/deployment/branching) runs Clone, Pull,
+Health, **Configure** ("Updates service configurations based on your config.toml file"), then
+**Migrate** ("Applies pending database migrations"). Configure applies `[api]`
+([troubleshooting](https://supabase.com/docs/guides/deployment/branching/troubleshooting): it
+"applies only the `[db]`, `[api]`, `[auth]`, `[storage]`, and `[experimental]` sections"), so the
+branch's Data API is pointed at every schema in `[api] schemas` before any migration has created
+it. A schema that only a migration creates (`create schema api;`) doesn't exist yet, PostgREST
+can't load it, and the branch's health check fails. Supabase's docs don't describe exposed custom
+schemas on branches at all; the step order above is what they do document, and the failure is
+what Genesis apps saw. An on-demand branch runs the same steps, so if its Data API is unhealthy
+after Migrate finishes, check it serves the schema before relying on it.
+
+`genesis doctor`'s supabase pack warns about this:
+[`exposed-schema-created-later`](../packages/genesis-cli/README.md) flags each schema in
+`[api] schemas` (or `exposedSchemas`) that only a migration creates, or that none does. Once
+automatic branching is off, record that with an `allow` entry for the schema and the reason. The
+rule is a warning, so an app that runs the doctor with `doctor-strict: true` fails until it does.
+
+### Native: EAS
+
+[`templates/eas/workflows/pr-preview.yml`](../templates/eas/workflows/pr-preview.yml) is the native
+equivalent: an installable build and an update channel per pull request, started by the `Preview`
+label or by a pull request into `main` that changes the app's code or build config
+([NATIVE-RELEASE.md](./NATIVE-RELEASE.md)). GitHub keeps one label per name whatever its case, so
+one `preview` label serves both; name it in `pull_request_labeled.labels` as GitHub shows it.
+
 ## Security
 
 - No input is written into a script: every input and `github.*` value reaches a shell through
@@ -191,3 +291,7 @@ doctor doesn't need. `genesis-upgrade` isn't in the self-test, because its pull 
 write token: try a change to it from a scratch repository with `dry-run: true` first.
 
 Validate edits locally with `actionlint .github/workflows/*.yml templates/ci/*.yml`.
+
+`templates/vercel/ignore-build.sh` is tested by
+[`scripts/__tests__/vercel-ignore-build.test.mjs`](../scripts/__tests__/vercel-ignore-build.test.mjs)
+(part of `pnpm test`), which runs it against every decision with a stub `curl` in place of GitHub.

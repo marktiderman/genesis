@@ -55,6 +55,7 @@ export const BUILTIN_RULES = [
   "migration-edited",
   "migration-testing-kit",
   "migration-view-rls",
+  "exposed-schema-created-later",
   // packages pack
   "package-app-import",
   "package-undeclared-dependency",
