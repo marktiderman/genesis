@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 715 components · 4406 other exports · 3676 standalone types across 200 entry points in 30 packages.
+**Totals:** 715 components · 4420 other exports · 3677 standalone types across 200 entry points in 30 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -6972,19 +6972,24 @@ export type { ScaffoldResult };
 
 **Barrel:** [`packages/genesis-cli/src/doctor/index.ts`](../packages/genesis-cli/src/doctor/index.ts)
 
-### Other exports (44)
+### Other exports (58)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | `agentGuideState` | value | — | _(no summary)_ |
+| `agentHooksState` | value | — | _(no summary)_ |
+| `agentRules` | value | — | _(no summary)_ |
+| `BLOCKED_FIX` | value | — | _(no summary)_ |
 | `BUILTIN_RULES` | value | — | _(no summary)_ |
 | [`builtinChecks`](../packages/genesis-cli/src/doctor/index.ts) | function | — | The built-in checks, in the order they run. A new built-in rule is a check here plus its ids in BUILTIN_RULES (rules.ts); a pack's checks run only when `packs` lists it. |
 | `catalogTable` | value | — | _(no summary)_ |
 | `changedSince` | value | — | _(no summary)_ |
+| `CLAUDE_IMPORT` | value | — | _(no summary)_ |
 | `clearPackageRulesCache` | value | — | _(no summary)_ |
 | `defineDoctorPlugin` | value | — | _(no summary)_ |
+| `DENY_RULES` | value | — | _(no summary)_ |
 | `discoverPackages` | value | — | _(no summary)_ |
 | `DoctorConfigError` | value | — | _(no summary)_ |
 | `findPackageDir` | value | — | _(no summary)_ |
@@ -6996,8 +7001,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `globToRegExp` | value | — | _(no summary)_ |
 | `loadConfig` | value | — | _(no summary)_ |
 | `loadGenesis` | value | — | _(no summary)_ |
+| `mergeAgentHooks` | value | — | _(no summary)_ |
 | `nativeLayouts` | value | — | _(no summary)_ |
 | `PackageDeclarationError` | value | — | _(no summary)_ |
+| `packageGuides` | value | — | _(no summary)_ |
 | `parseExportNames` | value | — | _(no summary)_ |
 | `parseRulesMarkdown` | value | — | _(no summary)_ |
 | `postgresContract` | value | — | _(no summary)_ |
@@ -7014,16 +7021,23 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `ruleNamespace` | value | — | _(no summary)_ |
 | [`runDoctor`](../packages/genesis-cli/src/doctor/index.ts) | function | — | _(no summary)_ |
 | `satisfies` | value | — | _(no summary)_ |
+| `SETTINGS_PATH` | value | — | _(no summary)_ |
 | `SKILL_PATH` | value | — | _(no summary)_ |
+| `skillDescription` | value | — | _(no summary)_ |
 | `sqlStatements` | value | — | _(no summary)_ |
+| `SUBAGENT_HOOK_COMMAND` | value | — | _(no summary)_ |
+| `subagentContext` | value | — | _(no summary)_ |
+| `subagentHookOutput` | value | — | _(no summary)_ |
 | [`toJson`](../packages/genesis-cli/src/doctor/index.ts) | function | — | The `--json` report: plain data, sets turned into sorted lists. |
+| `unlistedGuides` | value | — | _(no summary)_ |
 | `validateConfig` | value | — | _(no summary)_ |
 | `validateDeclaration` | value | — | _(no summary)_ |
 | `validateLinks` | value | — | _(no summary)_ |
 | `webRoutes` | value | — | _(no summary)_ |
 | `writeAgentGuide` | value | — | _(no summary)_ |
+| `writeAgentHooks` | value | — | _(no summary)_ |
 
-### Types (13)
+### Types (14)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -7034,6 +7048,7 @@ export type { GenesisInstall };
 export type { GenesisLinks };
 export type { GenesisSupabase };
 export type { PackageDeclaration };
+export type { PackageGuide };
 export type { PreferRule };
 export type { PrimitiveEntry };
 export type { PrimitiveRow };
