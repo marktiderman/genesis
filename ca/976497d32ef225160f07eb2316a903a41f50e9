@@ -1,0 +1,19 @@
+.changeset/release-pin-any-package.md
+  s_b016d44619be31::t_39aa3be7f71df2 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ca976497d32ef225160f07eb2316a903a41f50e9",
+  "prompts": {},
+  "sessions": {
+    "s_b016d44619be31": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf384bfa-c5f0-48a0-aa59-f76730c9f0a5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
