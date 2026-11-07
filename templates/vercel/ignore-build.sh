@@ -7,7 +7,7 @@
 # whether your copy is behind. Edit the copy, not the defaults: set the variables below in the
 # Vercel project instead.
 #
-# Genesis template templates/vercel/ignore-build.sh @ GENESIS_SHA # @marktiderman/genesis@X.Y.Z
+# Genesis template templates/vercel/ignore-build.sh @ GENESIS_SHA # <the release tag at that commit, e.g. @marktiderman/genesis@X.Y.Z>
 #
 # Vercel runs this before every build: exit 0 skips the build, exit 1 builds.
 #

@@ -45,6 +45,17 @@ Call the workflows at the commit of a Genesis release, never at `@main`.
   gh api 'repos/marktiderman/genesis/commits/@marktiderman%2Fgenesis@X.Y.Z' --jq .sha
   ```
 
+- Not every release bumps the umbrella. A release whose changesets name only other packages
+  tags those packages (`@marktiderman/genesis-cli@1.24.0`, say) at its "version packages" commit,
+  and the umbrella's newest tag is then an older commit that may not have the template or
+  workflow you're copying. Pin to the commit of the first release that has it, and name the tag
+  that is actually at that commit:
+
+  ```bash
+  git tag --points-at <sha> --list '@marktiderman/*'   # the release tags at a commit
+  git tag --contains <sha of the change> --list '@marktiderman/*' --sort=creatordate | head -1
+  ```
+
 - Why not `@main`: main changes under you, so a passing build can fail tomorrow with no change of
   yours, and whatever lands on main runs in your CI the moment it lands.
 - Why a SHA rather than the tag: a tag can be moved and a commit can't, and the tag's name
@@ -53,7 +64,7 @@ Call the workflows at the commit of a Genesis release, never at `@main`.
   packages to X.Y.Z, move the workflow SHA to X.Y.Z's commit in the same pull request. The upgrade
   workflow can't do that part: the default `GITHUB_TOKEN` may not edit workflow files.
 
-The workflows are in a release from the first umbrella release cut after they reach `main`.
+The workflows and templates are in a release from the first release cut after they reach `main`, whichever packages it bumps.
 
 ## app-ci
 

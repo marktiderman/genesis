@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   database:
-    uses: marktiderman/genesis/.github/workflows/supabase-ci.yml@GENESIS_SHA # @marktiderman/genesis@X.Y.Z
+    uses: marktiderman/genesis/.github/workflows/supabase-ci.yml@GENESIS_SHA # <the release tag at that commit, e.g. @marktiderman/genesis@X.Y.Z>
     with:
       package-manager: pnpm # or bun, npm
       doctor: false # app-ci's doctor already runs the supabase pack; true for a database-only repo
