@@ -1,5 +1,26 @@
 # @marktiderman/genesis-cli
 
+## 1.24.0
+
+### Minor Changes
+
+- a16ddaa: `genesis agents` points agents at each installed package's own `SKILL.md` (it matches the installed version), in both the AGENTS.md block and the generated skill, and writes a `CLAUDE.md` holding `@AGENTS.md` when the app has none, so reviewers and cloud project threads that read only CLAUDE.md see the same guide. `agent-guide-stale` warns when CLAUDE.md is missing. `agentGuideState` gains a `claude` key (`ok`, `missing`, `blocked` or `no-import`), and `genesis agents --check` now fails when CLAUDE.md is missing or blocked; a CLAUDE.md that doesn't import AGENTS.md is an info and passes `--check`. A blocked one (another case of the name, a dangling link or a folder) is never written over, so the warning says to fix it by hand. Only stable `node_modules/<package>/SKILL.md` paths (or a local package's folder) are listed, so a dependency bump elsewhere never makes the guide stale.
+- 1f1c13a: `genesis agents --hooks` writes a `SubagentStart` hook into `.claude/settings.json` that gives Claude Code's Explore and Plan subagents (which start without CLAUDE.md or AGENTS.md) the Genesis rules and the installed package guides, plus `permissions.deny` rules for `.env` files. The hook passes `--dir "$CLAUDE_PROJECT_DIR"`, so a session started in a subfolder still gets the guides. The app's own settings are kept. `genesis agents --hook subagent-start` prints the hook's output and never fails.
+- 87ea7f2: `genesis.config.json` takes an `environments` block (`previews`: on-demand, every-pr or off; `label`; `branchPrefix`) that the Vercel ignore-build template reads as the app's own preview defaults. A variable set in the Vercel project still wins, and the file wins over Genesis's defaults. The doctor fails an unknown key or value in the block.
+- 1f0b95f: Doctor: new supabase-pack rule `exposed-schema-created-later` (warn). It flags a schema in `supabase/config.toml` `[api] schemas` (or `doctor.supabase.exposedSchemas`) that a new Supabase database doesn't have before migrations run, naming the migration that creates it or saying none does. A Supabase branch applies `[api]` before it runs migrations, so a fresh preview branch's Data API fails its health check on such a schema. The fix is Genesis's preview standard (docs/APP-CI.md, "Previews"): turn automatic branching off, keep supabase-ci as the per-pull-request database check, and create preview branches on demand; then record it with the new supabase-pack setting `automaticBranching: false`, which quiets the migration-created case (a schema no migration creates still warns). `public`, `graphql_public` and the platform's own schemas never warn, and nothing is reported when `[api] enabled = false`.
+
+  **Strict apps:** the rule is a warning, so an app that runs the doctor with `--strict` (app-ci's `doctor-strict: true`) and exposes a schema a migration creates goes red on this release until it sets `doctor.supabase.automaticBranching` to `false` with branching off (or stops exposing the schema). Don't use an `allow` entry: a doctor run with `--base` fails a new one as `allow-grew`.
+
+  Also in this release, outside the CLI: `templates/vercel/ignore-build.sh` (with a `vercel.json` snippet), a Vercel Ignored Build Step that always builds production and builds a preview only for a `preview/` branch, a `[preview]` commit or a `preview`-labelled pull request, and always builds production, custom environments and any deploy without system variables (`GENESIS_PREVIEWS`, `GENESIS_PREVIEW_LABEL`, `GENESIS_PREVIEW_BRANCH_PREFIX` override the defaults).
+
+### Patch Changes
+
+- a7177dc: `genesis agents` follow-ups:
+  - **CLAUDE.md states.** A blocked CLAUDE.md is reported the same way on macOS and Linux, and a CLAUDE.md that links to AGENTS.md is ok.
+  - **Hoisted guides.** Package guides hoisted to a workspace root are found, up to the repo root, when that copy is the version the app resolved. A guide that's only inside pnpm's store is named in an `agent-guide-stale` info.
+  - **Older hooks.** `--check` and the doctor flag an older `SubagentStart` hook command; `genesis agents --hooks` updates it. A plain `genesis agents` still never writes settings.
+- bd43be1: Doctor docs: `doctor.supabase.automaticBranching` is the app's word, not something the doctor checks, so review a change to it like an `allow` entry. It doesn't cover on-demand Supabase branches.
+
 ## 1.23.0
 
 ### Minor Changes
