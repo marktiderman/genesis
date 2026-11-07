@@ -22,5 +22,5 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
-    uses: marktiderman/genesis/.github/workflows/claude-review.yml@GENESIS_SHA # @marktiderman/genesis@X.Y.Z
+    uses: marktiderman/genesis/.github/workflows/claude-review.yml@GENESIS_SHA # <the release tag at that commit, e.g. @marktiderman/genesis@X.Y.Z>
     secrets: inherit
