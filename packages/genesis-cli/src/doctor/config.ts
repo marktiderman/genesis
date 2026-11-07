@@ -136,6 +136,40 @@ export interface GenesisConfigFile {
   supabase?: GenesisSupabase;
   /** Where this app sits in its repository (`mobile`), when that isn't the root: see {@link validateAppFolder}. */
   appFolder?: string;
+  /** Preview defaults the templates read (templates/vercel/ignore-build.sh): see {@link validateEnvironments}. */
+  environments?: GenesisEnvironments;
+}
+
+/** The app's preview defaults. A variable set where the build runs wins over these; these win over Genesis's defaults. */
+export interface GenesisEnvironments {
+  /** on-demand (the default), every-pr or off. */
+  previews?: "on-demand" | "every-pr" | "off";
+  /** The pull request label that asks for a preview; "" turns the label check off. */
+  label?: string;
+  /** The branch prefix that asks for a preview; "" turns the branch check off. */
+  branchPrefix?: string;
+}
+
+const ENVIRONMENT_KEYS = new Set(["previews", "label", "branchPrefix", "$comment"]);
+
+/** Check the top-level `environments` block: unknown keys and values fail, so a typo can't silently do nothing. */
+export function validateEnvironments(raw: unknown, source = "config"): GenesisEnvironments {
+  const fail = (msg: string): never => {
+    throw new GenesisConfigError(`${source}: ${msg}`);
+  };
+  if (!isObject(raw)) return fail(`"environments" must be an object`);
+  for (const key of Object.keys(raw)) if (!ENVIRONMENT_KEYS.has(key)) fail(`environments: unknown setting "${key}" (known: previews, label, branchPrefix)`);
+  const out: GenesisEnvironments = {};
+  if (raw.previews !== undefined) {
+    if (raw.previews !== "on-demand" && raw.previews !== "every-pr" && raw.previews !== "off") fail(`environments.previews must be "on-demand", "every-pr" or "off" (got ${JSON.stringify(raw.previews)})`);
+    out.previews = raw.previews as GenesisEnvironments["previews"];
+  }
+  for (const key of ["label", "branchPrefix"] as const) {
+    if (raw[key] === undefined) continue;
+    if (typeof raw[key] !== "string") fail(`environments.${key} must be a string ("" turns that check off)`);
+    out[key] = raw[key] as string;
+  }
+  return out;
 }
 
 export interface LoadedConfig {
@@ -179,10 +213,10 @@ const PATTERN_KEYS = new Set(["id", "level", "files", "exclude", "forbid", "requ
 const PACKAGE_RULE_KEYS = new Set(["level", "files", "exclude", "reason"]);
 const CONTRACT_KEYS = new Set(["out", "schemas", "databaseEnv"]);
 const PACKS = new Set(["native", "supabase", "packages"]);
-/** Each pack's settings: key → "string", "path" (app-relative folder, normalized) or "list". */
-const PACK_KEYS: Record<string, Record<string, "string" | "path" | "list">> = {
+/** Each pack's settings: key → "string", "path" (app-relative folder, normalized), "list" or "boolean". */
+const PACK_KEYS: Record<string, Record<string, "string" | "path" | "list" | "boolean">> = {
   native: { routerRoot: "path" },
-  supabase: { migrations: "path", base: "string", exposedSchemas: "list", since: "string" },
+  supabase: { migrations: "path", base: "string", exposedSchemas: "list", since: "string", automaticBranching: "boolean" },
   packages: { base: "string" },
 };
 
@@ -267,6 +301,7 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
     if (supabase !== true) out.supabase = supabase;
   }
   if (raw.appFolder !== undefined) out.appFolder = validateAppFolder(raw.appFolder, file);
+  if (raw.environments !== undefined) out.environments = validateEnvironments(raw.environments, file);
   // localPackages is read and validated by blocks/local.ts where it's used (doctor, add, migrate);
   // the Expo config plugin loads this file too and must not pull the CLI's block code in.
   return out;
@@ -492,6 +527,7 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
       if (!want) fail(`${pack}: unknown setting "${k}"`);
       if (want === "string" && typeof v !== "string") fail(`${pack}.${k} must be a string`);
       if (want === "list" && !isStringList(v)) fail(`${pack}.${k} must be a list of strings`);
+      if (want === "boolean" && typeof v !== "boolean") fail(`${pack}.${k} must be true or false`);
       if (want === "string" && !(v as string).trim()) fail(`${pack}.${k} must not be empty`);
       if (want === "path") (block as Record<string, unknown>)[k] = appPath(v, `${pack}.${k}`, fail);
     }

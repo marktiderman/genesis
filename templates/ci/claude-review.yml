@@ -1,0 +1,26 @@
+# Copy to .github/workflows/claude-review.yml. Replace GENESIS_SHA with the commit of the
+# Genesis release you run (docs/APP-CI.md in marktiderman/genesis says how).
+# Claude reviews each pull request against this app's CLAUDE.md and AGENTS.md (run
+# `genesis agents` so they hold the Genesis guide). Needs the Claude GitHub app and the
+# CLAUDE_CODE_OAUTH_TOKEN secret.
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened] # add synchronize to review every push (each run is billed)
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  review:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    uses: marktiderman/genesis/.github/workflows/claude-review.yml@GENESIS_SHA # @marktiderman/genesis@X.Y.Z
+    secrets: inherit

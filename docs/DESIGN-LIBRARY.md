@@ -70,6 +70,18 @@ which still follow `primary` as the code does. In code, `themes/genesis.css` dec
 `--primary-text: var(--primary)` on `:root`, and that is resolved at the root: an app that
 overrides `--primary` on a nested element (a scoped theme) sets `--primary-text` beside it.
 
+**Known gap: dark `primary-text` on the muted fill.** In the dark modes, the derived
+`primary-text` is checked against the background only, not against the dark `muted` fill. A
+brand's own `dark.primaryText` is used as given and not checked at all. So primary text on a
+muted surface (a selected row, a chip, a muted card) can read below 4.5:1 in dark. The check
+lives in `packages/design-system/src/factories/brand-roles.ts` and
+`packages/design-system/src/tokens/themes.ts`.
+
+Checking the muted fill too would lighten the dark `primary-text` of every brand whose dark
+primary passes on the background but not on muted. That changes how Genesis looks in dark, so it
+is the maintainer's call, and the gap stays open. Until then, check by eye any dark screen that
+puts `primary-text` on `muted`.
+
 A mode's values come from the brand file, by the same mapping the factories use:
 
 ```sh

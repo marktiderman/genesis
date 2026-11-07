@@ -1,0 +1,10 @@
+# Passes: the Data API serves only schemas a new Supabase database has before any migration.
+project_id = "fixture"
+
+[api]
+enabled = true
+schemas = ["public", "graphql_public"] # the app's tables live in public
+extra_search_path = ["public", "extensions"]
+
+[db]
+port = 54322

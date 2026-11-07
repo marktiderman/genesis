@@ -12,7 +12,7 @@ const labels = [
   instance.getString('Option 4'),
   instance.getString('Option 5'),
 ].slice(0, count)
-const selected = instance.getEnum('selected', { '1': 0, '2': 1, '3': 2 })
+const selected = instance.getEnum('selected', { '1': 0, '2': 1, '3': 2, '4': 3, '5': 4 })
 const value = labels[Math.min(selected, labels.length - 1)]
 const options = labels.map((label) => `{ value: "${label}", label: "${label}" }`).join(', ')
 

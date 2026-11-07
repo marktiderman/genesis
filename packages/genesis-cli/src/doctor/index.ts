@@ -38,6 +38,7 @@ import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules, unk
 import { allowGrew, applyRatchet, changedSince, configAtBase, rulesWeakened } from "./ratchet.js";
 import { checkContracts } from "./contracts.js";
 import { checkAgentGuide, primitivesSummary } from "./primitives.js";
+import { checkAgentHooks } from "./agent-hooks.js";
 import { checkOverlays } from "./overlays.js";
 import { checkLockFiles } from "./lock-files.js";
 import { checkDatabaseHome } from "./database.js";
@@ -92,8 +93,15 @@ export {
   catalogTable,
   renderSkill,
   renderAgentsBlock,
+  packageGuides,
+  skillDescription,
+  type PackageGuide,
+  agentRules,
+  CLAUDE_IMPORT,
   writeAgentGuide,
   agentGuideState,
+  BLOCKED_FIX,
+  unlistedGuides,
   SKILL_PATH,
   type PrimitiveRow,
 } from "./primitives.js";
@@ -245,7 +253,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "studio-server-imports", check: checkStudioServerImports },
     { name: "removed-scope-names", check: checkRemovedScopeNames },
     { name: "stability-imports", check: checkStabilityImports },
-    { name: "agent-guide", check: checkAgentGuide },
+    { name: "agent-guide", check: (ctx: DoctorContext) => { checkAgentGuide(ctx); checkAgentHooks(ctx); } },
     { name: "overlays", check: (ctx: DoctorContext) => checkOverlays(ctx) },
     { name: "lock-files", check: checkLockFiles },
     { name: "database-elsewhere", check: checkDatabaseHome },
@@ -354,3 +362,5 @@ export function genesisSummary(g: GenesisFacts) {
     companions: Object.fromEntries(g.companions.map((c) => [`${c.package}@${c.version}`, c.components])),
   };
 }
+
+export { subagentContext, subagentHookOutput, mergeAgentHooks, writeAgentHooks, agentHooksState, SETTINGS_PATH, SUBAGENT_HOOK_COMMAND, DENY_RULES } from "./agent-hooks.js";

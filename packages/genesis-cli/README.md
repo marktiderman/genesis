@@ -900,7 +900,7 @@ result on its own):
   "doctor": {
     "packs": ["native", "supabase"],
     "native": { "routerRoot": "app" },
-    "supabase": { "migrations": "supabase/migrations", "base": "origin/main", "exposedSchemas": ["public"], "since": "20260101000000" }
+    "supabase": { "migrations": "supabase/migrations", "base": "origin/main", "exposedSchemas": ["public"], "since": "20260101000000", "automaticBranching": false }
   }
 }
 ```
@@ -908,6 +908,8 @@ result on its own):
 Pack rule ids are built-in ids, so `rules` and `allow` work on them as on any other rule.
 Folder settings (`routerRoot`, `migrations`) are app-relative: `./app/` is read as `app`, and
 an absolute path or one leaving the app is a config error. `exposedSchemas` compares lowercased.
+`automaticBranching` (true or false; unset counts as true) says whether Supabase makes a branch
+per pull request; `exposed-schema-created-later` reads it.
 
 **`native`**, for Expo apps on `@marktiderman/genesis-ui-native`. With the pack on, the core
 rules read the native package (unless `uiPackage` says otherwise) and the default scan is
@@ -943,6 +945,7 @@ bodies blanked, so text inside a function body never matches; the one exception 
 | `migration-testing-kit` | error | A migration that uses `genesis_testing`, genesis-supabase's pgTAP kit for test databases only (it signs in as anyone and resets roles). Keep it in `supabase/tests/database/000_genesis_testing.test.sql`. |
 | `contracts-stale` | error | With `doctor.contracts` (`{ out, schemas, databaseEnv }`, defaults `resources.genesis.ts`, the schemas the contract's own `// Source: Postgres (…)` line names (else `["public"]`), `DATABASE_URL`): the contract on disk isn't what `genesis introspect` would write from the database now (the same comparison as `introspect --check`). Without the environment variable it reports one `info` ("not checked") and never fails; a database it can't read is a warning, and a contract it can't generate (an invalid `labelField`, two tables with one name) is an error. The advice names the schemas and, when it isn't `DATABASE_URL`, `--database-env`. A contract whose `// Source:` line isn't Postgres (one written with `--openapi`) is reported as `info` ("not checked"); check it with `genesis introspect --openapi … --check`. Line endings don't count. The Vite plugin skips it in builds and the dev server, so a build never reads a live database: run it with `genesis doctor` in CI. |
 | `migration-view-rls` | error | A view in an exposed schema that runs as its owner once every migration has run: created without `with (security_invoker = true)`, replaced without it, or reset by `alter view … reset (security_invoker)`. A plain view reads past row level security on every table it selects from. `alter view … set (security_invoker = true)`, renames and drops are followed. A view that runs as its owner on purpose (it filters rows itself) takes an `allow` entry: `{ "rule": "migration-view-rls", "match": "public.profile_cards", "reason": "…" }`. |
+| `exposed-schema-created-later` | warn | A schema the Data API serves (`supabase/config.toml` `[api] schemas`, beside the migrations folder, or `exposedSchemas`) that a new Supabase database doesn't have before migrations run: anything but `public`, `graphql_public` and the platform's own schemas (`auth`, `storage`, `extensions`, `graphql`, `realtime`, `vault`). A Supabase branch applies `[api]` before it runs migrations, so a fresh preview branch's Data API points at a schema that doesn't exist yet and fails its health check; the message names the migration that creates it, or says none does. The fix is the Genesis preview standard: turn automatic branching off ([APP-CI.md, "Previews"](../../docs/APP-CI.md#previews)), then record that with `"supabase": { "automaticBranching": false }`, which quiets the migration-created case (a schema no migration creates still warns). Use that, not an `allow` entry: under `--base` a new `allow` entry fails `allow-grew`. The doctor can't see the Supabase dashboard, so `automaticBranching: false` is the app's word, not a check: review a change to it as you would an `allow` entry. It doesn't cover on-demand branches, which run the same steps; check one serves the schema after it migrates. Quiet when `[api] enabled = false`. |
 
 **Which migrations are new.** In a git repo with the base ref, a migration is new when it was
 added, modified or is untracked since the merge base. `since` (a file name or timestamp prefix)
@@ -1143,7 +1146,7 @@ genesis doctor --strict --base origin/main
 | --- | --- | --- |
 | `packs` | | Opt-in rule packs: `"native"`, `"supabase"`. See [Rule packs](#rule-packs). |
 | `native` | | `{ routerRoot }` for the native pack. |
-| `supabase` | | `{ migrations, base, exposedSchemas, since }` for the supabase pack. |
+| `supabase` | | `{ migrations, base, exposedSchemas, since, automaticBranching }` for the supabase pack. |
 | `src` | `["src"]` (`["app", "src", "components"]` with the native pack) | Folders (or files) to scan. |
 | `extensions` | `.ts .tsx .js .jsx .mts .cts .css` | |
 | `ignore` | | Globs to skip, added to the defaults. `*` stays in a folder, `**` crosses folders, a trailing `/` means the whole folder. |
@@ -1253,6 +1256,46 @@ if (!result.ok) throw new Error(formatReport(result));
    the local Vite plugin import with `@marktiderman/genesis-cli/vite`.
 4. Run `genesis doctor`, fix or `allow` what it reports (it checks `raw-color` in code as well
    as CSS, and `raw-tag` only in JSX files), then delete the old script.
+
+## genesis agents
+
+Writes the agent guide from the installed Genesis packages, so every coding agent and reviewer in
+the app reads the same rules, matched to the versions the app has:
+
+- **The AGENTS.md block** between `<!-- genesis-primitives:start -->` and
+  `<!-- genesis-primitives:end -->`: the rules, the catalog of what to use for each need, and the
+  path to each installed package's own `SKILL.md` at `node_modules/<package>/SKILL.md`, so it
+  matches the installed version (a package reached only through the umbrella, inside pnpm's store,
+  is left out: that path changes with unrelated dependency bumps). Text outside the markers is the
+  app's own and is never touched.
+- **`.claude/skills/genesis/SKILL.md`**: the same rules and catalog as a skill.
+- **`CLAUDE.md`** holding `@AGENTS.md`, only when the app has no `CLAUDE.md`. Reviewers and cloud
+  project threads read CLAUDE.md, not AGENTS.md.
+
+`genesis agents --hooks` also writes two things into `.claude/settings.json`, keeping everything
+else there: a `SubagentStart` hook that hands Claude Code's Explore and Plan subagents the same
+rules and package guides (they start without CLAUDE.md or AGENTS.md), and `permissions.deny`
+rules for `.env` files, which apply in cloud sessions too. The hook runs
+`genesis agents --hook subagent-start`, which prints the rules and guides and never fails a
+session: with no local `genesis` binary (before an install), the subagent simply starts without
+them. Settings are written only with `--hooks`, so a plain run never touches them; an older hook
+command is flagged instead (below), and `genesis agents --hooks` updates it.
+
+Package guides are listed only at paths that stay put: a local package's folder, or
+`node_modules/<package>/SKILL.md` at the app or a workspace folder above it, up to the repo root,
+and only when that copy is the one the app resolved.
+A package reached only through the umbrella lives in pnpm's store, so its guide is left out, and
+the doctor names it (an info): add the package as a direct dependency to list its guide.
+
+`genesis agents --check` writes nothing and exits 1 when any of them is missing or stale (for CI);
+the doctor's `agent-guide-stale` rule warns the same way, and also for an older hook command
+(fix it with `--hooks`). A
+CLAUDE.md the app keeps without the import, or a link to AGENTS.md, passes (the doctor notes a
+missing import as info). A CLAUDE.md that's blocked, by another case of the name such as
+`claude.md`, a dangling link or a folder, fails until it's fixed by hand, since `genesis agents`
+never writes over it. `genesis agents --rules` checks the repo against the agent rules of
+engagement a script can check. Run `genesis agents` after every Genesis upgrade.
+
 ## genesis figma:routes
 
 A read-only check that an app's Figma app file covers its routes, so CI reports the drift and an

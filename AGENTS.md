@@ -105,7 +105,7 @@ Every PR into a staging batch (`staging/**`) carries the check "Adversarial revi
 - The reviewer adds `review: approved` once every high or medium finding is fixed or declined with
   a reason. Never approve or label your own PR.
 - A new commit removes the label, so every push needs a review of the new head. Claude review
-  (`claude-code-review.yml`) also re-runs on every push.
+  (`claude-code-review.yml`, which calls the reusable `claude-review.yml` that apps call too) also re-runs on every push.
 - The author turns on Auto-fix for every PR it opens.
 
 ## Releasing, and how apps get a release
@@ -125,7 +125,7 @@ Every PR into a staging batch (`staging/**`) carries the check "Adversarial revi
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 157 features (26 planned, 74 building, 22 beta, 27 live, 1 deprecated, 7 retired).
+Every feature is in `features.ts`: 158 features (27 planned, 74 building, 22 beta, 27 live, 1 deprecated, 7 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

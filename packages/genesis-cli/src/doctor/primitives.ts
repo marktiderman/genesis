@@ -10,12 +10,34 @@
  *   marked block in the app's AGENTS.md.
  * - `agent-guide-stale` warns when either no longer matches the installed packages.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { preferRules, type DeclaringPackage } from "./package-rules.js";
 import type { DoctorContext } from "./types.js";
 
 const GENESIS_DOCS = "https://github.com/marktiderman/genesis/blob/main/docs";
+
+const read = (file: string) => (existsSync(file) ? readFileSync(file, "utf8") : null);
+
+/**
+ * The CLAUDE.md written when an app has none, so tools that read only CLAUDE.md (reviewers,
+ * cloud project threads) load the same AGENTS.md every other agent reads.
+ */
+export const CLAUDE_IMPORT = "@AGENTS.md\n";
+
+/** Whether anything sits at the path, a dangling link or another case of the name included, so a write never lands beside it. */
+function pathTaken(file: string): boolean {
+  try {
+    lstatSync(file);
+    return true;
+  } catch {
+    try {
+      return readdirSync(path.dirname(file)).some((n) => n.toLowerCase() === path.basename(file).toLowerCase());
+    } catch {
+      return false;
+    }
+  }
+}
 
 /** One row of the catalog. */
 export interface PrimitiveRow {
@@ -133,7 +155,7 @@ export const AGENTS_END = "<!-- genesis-primitives:end -->";
 
 /** The rules every agent follows, in both generated files. */
 const RULES = [
-  "Use the Genesis primitive for the need first: reuse, then extend, then invent (docs/FRAMEWORK.md, G1 to G6).",
+  `Use the Genesis primitive for the need first: reuse, then extend, then invent (G1 to G6 in ${GENESIS_DOCS}/FRAMEWORK.md).`,
   "Never copy an older screen as a template. Old screens predate the primitives; the doctor flags what they did.",
   "A list screen is a view (`defineView`) rendered by `ResourceView`; a record view is `RecordView`; on the phone, `NativeResourceView`.",
   "Screens never call the database client (`supabase.from`, `.rpc`) directly: reads go through a view or a named data function, writes through the resource's provider rules.",
@@ -141,8 +163,110 @@ const RULES = [
   "Run `genesis doctor` before you finish; it enforces these rules.",
 ];
 
+/** An installed package's own agent guide: its `SKILL.md`, which matches the installed version. */
+export interface PackageGuide {
+  package: string;
+  /** Relative to the app root, POSIX separators: `node_modules/<package>/SKILL.md`, or a local package's own folder. */
+  path: string;
+  /** When to read it, from the guide's `description`. */
+  when: string;
+}
+
+/** The `description` in a SKILL.md's frontmatter, with a folded (`>`, `>-`) or literal (`|`) value joined into one line. */
+export function skillDescription(text: string): string {
+  const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1];
+  if (!fm) return "";
+  const lines = fm.split(/\r?\n/);
+  const i = lines.findIndex((l) => /^description:/.test(l));
+  if (i < 0) return "";
+  const first = lines[i]!.replace(/^description:\s*/, "").trim();
+  if (first && !/^[>|][+-]?$/.test(first)) return first.replace(/^["']|["']$/g, "");
+  const more: string[] = [];
+  for (const l of lines.slice(i + 1)) {
+    if (!/^\s+\S/.test(l)) break;
+    more.push(l.trim());
+  }
+  return more.join(" ");
+}
+
+/** How many folders above the app the guide search looks, when no repo or workspace root stops it first. */
+const GUIDE_SEARCH_LEVELS = 4;
+
+/**
+ * Where a package's guide sits at a path that stays put: `node_modules/<package>/SKILL.md` at the app
+ * or, for a workspace that hoists dependencies, in a folder above it, up to the repo root. The nearest
+ * copy is the one Node resolves; it counts only when it is the copy the app has (`p.dir`), so a
+ * hoisted copy of another version is never listed.
+ */
+function stableGuidePath(root: string, p: DeclaringPackage): string | null {
+  const real = (f: string) => {
+    try {
+      return realpathSync(f);
+    } catch {
+      return null;
+    }
+  };
+  const want = real(p.dir);
+  for (let dir = root, level = 0; level <= GUIDE_SEARCH_LEVELS; level++) {
+    const found = path.join(dir, "node_modules", p.name);
+    if (existsSync(found)) {
+      const file = path.join(found, "SKILL.md");
+      return want !== null && real(found) === want && existsSync(file) ? file : null;
+    }
+    if (existsSync(path.join(dir, ".git")) || existsSync(path.join(dir, "pnpm-workspace.yaml"))) return null;
+    const up = path.dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+  return null;
+}
+
+/**
+ * The `SKILL.md` each installed package ships, so agents read the version the app actually has. Only
+ * paths that stay put are listed: a local package's folder, or `node_modules/<package>/SKILL.md` at
+ * the app or a workspace folder above it. A package reached only through the umbrella lives in
+ * pnpm's store under a path that changes with unrelated dependency bumps, so it's left out rather
+ * than going stale; `unlistedGuides` names those.
+ */
+export function packageGuides(root: string, packages: readonly DeclaringPackage[]): PackageGuide[] {
+  const guides: PackageGuide[] = [];
+  for (const p of packages) {
+    const stable = p.local ? path.join(p.dir, "SKILL.md") : stableGuidePath(root, p);
+    const text = stable === null ? null : read(stable);
+    if (stable === null || text === null) continue;
+    const description = skillDescription(text);
+    const at = description.indexOf("Load before");
+    guides.push({ package: p.name, path: path.relative(root, stable).split(path.sep).join("/"), when: at >= 0 ? description.slice(at) : description });
+  }
+  return guides.sort((a, b) => a.package.localeCompare(b.package));
+}
+
+/** Packages that ship a guide the agent guide can't point at, because it's only inside pnpm's store. */
+export function unlistedGuides(root: string, packages: readonly DeclaringPackage[]): string[] {
+  const listed = new Set(packageGuides(root, packages).map((g) => g.package));
+  return packages.filter((p) => !p.local && !listed.has(p.name) && existsSync(path.join(p.dir, "SKILL.md"))).map((p) => p.name).sort();
+}
+
+/** The package guides as a short list, or nothing when no installed package ships one. */
+function guidesSection(guides: readonly PackageGuide[]): string[] {
+  if (!guides.length) return [];
+  return [
+    "### Package guides (they match the installed versions)",
+    "",
+    "Before using a package's primitives, read its guide:",
+    "",
+    ...guides.map((g) => `- \`${g.path}\` (${g.package}): ${g.when}`),
+    "",
+  ];
+}
+
+/** The rules every agent follows, for callers outside this file (the subagent hook). */
+export function agentRules(): readonly string[] {
+  return RULES;
+}
+
 /** `.claude/skills/genesis/SKILL.md`, generated. */
-export function renderSkill(rows: readonly PrimitiveRow[]): string {
+export function renderSkill(rows: readonly PrimitiveRow[], guides: readonly PackageGuide[] = []): string {
   return [
     "---",
     "name: genesis",
@@ -155,6 +279,7 @@ export function renderSkill(rows: readonly PrimitiveRow[]): string {
     "",
     ...RULES.map((r) => `- ${r}`),
     "",
+    ...guidesSection(guides),
     "## What to use for each need",
     "",
     catalogTable(rows, { docs: true }),
@@ -165,7 +290,7 @@ export function renderSkill(rows: readonly PrimitiveRow[]): string {
 }
 
 /** The AGENTS.md block, generated (markers included). */
-export function renderAgentsBlock(rows: readonly PrimitiveRow[]): string {
+export function renderAgentsBlock(rows: readonly PrimitiveRow[], guides: readonly PackageGuide[] = []): string {
   return [
     AGENTS_START,
     "## Building with Genesis",
@@ -176,6 +301,7 @@ export function renderAgentsBlock(rows: readonly PrimitiveRow[]): string {
     "",
     ...RULES.map((r) => `- ${r}`),
     "",
+    ...guidesSection(guides),
     catalogTable(rows),
     AGENTS_END,
   ].join("\n");
@@ -211,18 +337,17 @@ export function currentAgentsBlock(agents: string | null): string | "broken" | n
   return agents.slice(span.start, span.end).replace(/\r\n/g, "\n");
 }
 
-const read = (file: string) => (existsSync(file) ? readFileSync(file, "utf8") : null);
-
 /** `genesis agents`: write the skill and the AGENTS.md block. Returns the files it changed. Writes nothing when AGENTS.md's block is broken. */
 export function writeAgentGuide(root: string, packages: readonly DeclaringPackage[], agentsFile = "AGENTS.md"): string[] {
   const rows = primitivesCatalog(packages);
+  const guides = packageGuides(root, packages);
   const changed: string[] = [];
   const agents = path.join(root, agentsFile);
   const before = read(agents);
   // Merge first: a broken block throws before either file is touched.
-  const after = mergeAgentsBlock(before, renderAgentsBlock(rows));
+  const after = mergeAgentsBlock(before, renderAgentsBlock(rows, guides));
   const skill = path.join(root, SKILL_PATH);
-  const skillText = renderSkill(rows);
+  const skillText = renderSkill(rows, guides);
   if (read(skill)?.replace(/\r\n/g, "\n") !== skillText) {
     mkdirSync(path.dirname(skill), { recursive: true });
     writeFileSync(skill, skillText);
@@ -232,7 +357,42 @@ export function writeAgentGuide(root: string, packages: readonly DeclaringPackag
     writeFileSync(agents, after);
     changed.push(agentsFile);
   }
+  const claude = path.join(root, "CLAUDE.md");
+  if (agentsFile === "AGENTS.md" && !pathTaken(claude)) {
+    writeFileSync(claude, CLAUDE_IMPORT);
+    changed.push("CLAUDE.md");
+  }
   return changed;
+}
+
+/**
+ * The app's CLAUDE.md: missing; blocked (something else is in its place, which `genesis agents` won't
+ * write over: another case of the name, a dangling link, a folder or an unreadable file); present
+ * without importing AGENTS.md; or ok (it imports AGENTS.md, or is a link to it). The folder's real
+ * names are compared, so macOS and Linux report the same state.
+ */
+function claudeState(root: string): "ok" | "missing" | "blocked" | "no-import" {
+  const file = path.join(root, "CLAUDE.md");
+  let names: string[] = [];
+  try {
+    names = readdirSync(root);
+  } catch {
+    /* no folder: missing */
+  }
+  if (!names.includes("CLAUDE.md")) return names.some((n) => n.toLowerCase() === "claude.md") ? "blocked" : "missing";
+  let text: string;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch {
+    return "blocked";
+  }
+  if (/^@AGENTS\.md\b/m.test(text)) return "ok";
+  try {
+    if (realpathSync(file) === realpathSync(path.join(root, "AGENTS.md"))) return "ok";
+  } catch {
+    /* no AGENTS.md to compare with */
+  }
+  return "no-import";
 }
 
 /** What `agent-guide-stale` found: the generated files that are missing or differ. */
@@ -240,19 +400,24 @@ export function agentGuideState(
   root: string,
   packages: readonly DeclaringPackage[],
   agentsFile = "AGENTS.md",
-): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" | "broken" } {
+): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" | "broken"; claude: "ok" | "missing" | "blocked" | "no-import" } {
   const rows = primitivesCatalog(packages);
+  const guides = packageGuides(root, packages);
   const skill = read(path.join(root, SKILL_PATH))?.replace(/\r\n/g, "\n") ?? null;
   const block = currentAgentsBlock(read(path.join(root, agentsFile)));
   return {
-    skill: skill === null ? "missing" : skill === renderSkill(rows) ? "ok" : "stale",
-    agents: block === null || block === "broken" ? (block ?? "missing") : block === renderAgentsBlock(rows) ? "ok" : "stale",
+    skill: skill === null ? "missing" : skill === renderSkill(rows, guides) ? "ok" : "stale",
+    agents: block === null || block === "broken" ? (block ?? "missing") : block === renderAgentsBlock(rows, guides) ? "ok" : "stale",
+    // Only the default AGENTS.md gets a CLAUDE.md written for it, so only then is a missing one reported.
+    claude: agentsFile !== "AGENTS.md" ? "ok" : claudeState(root),
   };
 }
 
 /**
- * `agent-guide-stale`: the generated skill or AGENTS.md block doesn't match the
- * installed packages, or one of the two is missing. An app with neither is left alone.
+ * `agent-guide-stale`: the generated skill or AGENTS.md block doesn't match the installed packages,
+ * one of the two is missing, or there's no CLAUDE.md (reviewers and cloud project threads read only
+ * CLAUDE.md). A CLAUDE.md that doesn't import AGENTS.md is an info. An app with neither generated
+ * file is left alone.
  */
 export function checkAgentGuide(ctx: DoctorContext): void {
   const state = agentGuideState(ctx.root, ctx.packages);
@@ -270,4 +435,20 @@ export function checkAgentGuide(ctx: DoctorContext): void {
     }[state.agents];
     ctx.report({ rule: "agent-guide-stale", level: "warn", file: "AGENTS.md", message });
   }
+  if (state.claude === "no-import") {
+    ctx.report({ rule: "agent-guide-stale", level: "info", file: "CLAUDE.md", message: "doesn't import AGENTS.md (`@AGENTS.md`), so reviewers and cloud project threads that read only CLAUDE.md don't see the Genesis guide" });
+  }
+  if (state.claude === "missing") {
+    ctx.report({ rule: "agent-guide-stale", level: "warn", file: "CLAUDE.md", message: `is missing, so reviewers and cloud project threads that read only CLAUDE.md never see AGENTS.md; ${fix} (it writes \`@AGENTS.md\`)` });
+  }
+  if (state.claude === "blocked") {
+    ctx.report({ rule: "agent-guide-stale", level: "warn", file: "CLAUDE.md", message: `can't be read: something else is in its place (another case of the name such as claude.md, a dangling link, a folder or an unreadable file), and genesis agents won't write over it; ${BLOCKED_FIX}` });
+  }
+  const unlisted = unlistedGuides(ctx.root, ctx.packages);
+  if (unlisted.length) {
+    ctx.report({ rule: "agent-guide-stale", level: "info", file: "AGENTS.md", message: `leaves out the guide of ${unlisted.join(", ")}: it's only inside pnpm's store, under a path that changes with unrelated bumps. Add the package as a direct dependency to list its guide.` });
+  }
 }
+
+/** The fix for a blocked CLAUDE.md, which `genesis agents` can't make itself. */
+export const BLOCKED_FIX = "rename or replace it with a CLAUDE.md file (or remove the dangling link), then run genesis agents";

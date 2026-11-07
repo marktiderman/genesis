@@ -1,6 +1,7 @@
 // @feat:doctor-package-rules
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -24,6 +25,9 @@ import {
   validateConfig,
   validateDeclaration,
   writeAgentGuide,
+  packageGuides,
+  unlistedGuides,
+  skillDescription,
   type DoctorConfig,
   type DoctorContext,
   type Finding,
@@ -781,13 +785,14 @@ describe("primitives catalog and agent guide", () => {
 
   it("writes the skill and the AGENTS.md block, keeps the rest of AGENTS.md, and reports when they go stale", async () => {
     const root = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "AGENTS.md": "# Notes\n\nOur own rules.\n" });
-    expect(writeAgentGuide(root, discoverPackages(root))).toEqual([SKILL_PATH, "AGENTS.md"]);
+    expect(writeAgentGuide(root, discoverPackages(root))).toEqual([SKILL_PATH, "AGENTS.md", "CLAUDE.md"]);
     expect(writeAgentGuide(root, discoverPackages(root))).toEqual([]);
+    expect(readFileSync(path.join(root, "CLAUDE.md"), "utf8")).toBe("@AGENTS.md\n");
     const agents = readFileSync(path.join(root, "AGENTS.md"), "utf8");
     expect(agents).toContain("Our own rules.");
     expect(agents).toContain("<!-- genesis-primitives:start -->");
     expect(agents).toContain("| a list screen | `<WidgetView>` | `@marktiderman/genesis-widgets` |");
-    expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok" });
+    expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok", claude: "ok" });
     expect(brief((await runDoctor({ root, config: {} })).findings, "agent-guide-stale")).toEqual([]);
 
     // The package changes what it enforces: the guide no longer matches.
@@ -800,18 +805,123 @@ describe("primitives catalog and agent guide", () => {
     ]);
   });
 
+  it("points at each installed package's own SKILL.md, so the guide matches the installed version", () => {
+    const root = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    writeFileSync(
+      path.join(root, "node_modules/@marktiderman/genesis-widgets/SKILL.md"),
+      "---\nname: genesis-widgets\ndescription: Build widgets with genesis-widgets. Load before building any widget screen.\n---\n\n# Widgets\n",
+    );
+    const guides = packageGuides(root, discoverPackages(root));
+    expect(guides).toEqual([{ package: "@marktiderman/genesis-widgets", path: "node_modules/@marktiderman/genesis-widgets/SKILL.md", when: "Load before building any widget screen." }]);
+    writeAgentGuide(root, discoverPackages(root));
+    const agents = readFileSync(path.join(root, "AGENTS.md"), "utf8");
+    expect(agents).toContain("- `node_modules/@marktiderman/genesis-widgets/SKILL.md` (@marktiderman/genesis-widgets): Load before building any widget screen.");
+    expect(readFileSync(path.join(root, SKILL_PATH), "utf8")).toContain("### Package guides (they match the installed versions)");
+    expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok", claude: "ok" });
+  });
+
+  it("leaves out a guide whose only path is inside pnpm's store, since that path changes with unrelated bumps", () => {
+    const root = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    const store = path.join(root, "node_modules/.pnpm/@marktiderman+genesis-widgets@1.0.0/node_modules/@marktiderman/genesis-widgets");
+    mkdirSync(store, { recursive: true });
+    writeFileSync(path.join(store, "SKILL.md"), "---\nname: w\ndescription: Load before widgets.\n---\n");
+    const pkg = { ...discoverPackages(root)[0]!, dir: store };
+    expect(packageGuides(root, [pkg])).toEqual([]);
+    expect(unlistedGuides(root, [pkg])).toEqual([pkg.name]);
+  });
+
+  it("finds a guide hoisted to the workspace root, and stops at the repo root", () => {
+    const repo = mkdtempSync(path.join(tmpdir(), "genesis-hoisted-"));
+    writeFileSync(path.join(repo, "pnpm-workspace.yaml"), "packages: [apps/*]\n");
+    const hoisted = path.join(repo, "node_modules/@marktiderman/genesis-widgets");
+    mkdirSync(hoisted, { recursive: true });
+    writeFileSync(path.join(hoisted, "SKILL.md"), "---\nname: w\ndescription: Load before widgets.\n---\n");
+    const root = path.join(repo, "apps/web");
+    mkdirSync(root, { recursive: true });
+    const pkg = { name: "@marktiderman/genesis-widgets", version: "1.0.0", dir: hoisted, namespace: "widgets", local: false, private: false, declaration: null };
+    expect(packageGuides(root, [pkg])).toEqual([{ package: pkg.name, path: "../../node_modules/@marktiderman/genesis-widgets/SKILL.md", when: "Load before widgets." }]);
+    expect(unlistedGuides(root, [pkg])).toEqual([]);
+  });
+
+  it("doesn't list a hoisted guide of another version than the one the app resolved", () => {
+    const repo = mkdtempSync(path.join(tmpdir(), "genesis-hoisted-other-"));
+    writeFileSync(path.join(repo, "pnpm-workspace.yaml"), "packages: [apps/*]\n");
+    const hoisted = path.join(repo, "node_modules/@marktiderman/genesis-widgets");
+    mkdirSync(hoisted, { recursive: true });
+    writeFileSync(path.join(hoisted, "SKILL.md"), "---\nname: w\ndescription: Load before widgets v1.\n---\n");
+    const own = path.join(repo, "node_modules/.pnpm/@marktiderman+genesis-widgets@2.0.0/node_modules/@marktiderman/genesis-widgets");
+    mkdirSync(own, { recursive: true });
+    writeFileSync(path.join(own, "SKILL.md"), "---\nname: w\ndescription: Load before widgets v2.\n---\n");
+    const root = path.join(repo, "apps/web");
+    mkdirSync(root, { recursive: true });
+    const pkg = { name: "@marktiderman/genesis-widgets", version: "2.0.0", dir: own, namespace: "widgets", local: false, private: false, declaration: null };
+    expect(packageGuides(root, [pkg])).toEqual([]);
+    expect(unlistedGuides(root, [pkg])).toEqual([pkg.name]);
+  });
+
+  it("reads a folded description from the frontmatter only, and keeps the whole Load before sentence", () => {
+    expect(skillDescription("---\nname: x\ndescription: >-\n  Build things, e.g. widgets. Load before building\n  any widget screen, e.g. a list.\n---\n\ndescription: not this\n")).toBe(
+      "Build things, e.g. widgets. Load before building any widget screen, e.g. a list.",
+    );
+    expect(skillDescription("no frontmatter\ndescription: nope\n")).toBe("");
+  });
+
+  it("reports a CLAUDE.md that doesn't import AGENTS.md as info, and doesn't write beside a lowercase claude.md", async () => {
+    const root = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "CLAUDE.md": "# Ours\n" });
+    writeAgentGuide(root, discoverPackages(root));
+    expect(agentGuideState(root, discoverPackages(root)).claude).toBe("no-import");
+    const info = (await runDoctor({ root, config: {} })).findings.filter((f) => f.rule === "agent-guide-stale");
+    expect(info.map((f) => `${f.level} ${f.file}`)).toEqual(["info CLAUDE.md"]);
+    const lower = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "claude.md": "# ours\n" });
+    expect(writeAgentGuide(lower, discoverPackages(lower))).not.toContain("CLAUDE.md");
+    // The folder's real names are compared, so macOS and Linux agree.
+    expect(agentGuideState(lower, discoverPackages(lower)).claude).toBe("blocked");
+  });
+
+  it("takes a CLAUDE.md linked to AGENTS.md as ok, and a CLAUDE.md folder as blocked", () => {
+    const linked = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    writeAgentGuide(linked, discoverPackages(linked));
+    rmSync(path.join(linked, "CLAUDE.md"));
+    symlinkSync("AGENTS.md", path.join(linked, "CLAUDE.md"));
+    expect(agentGuideState(linked, discoverPackages(linked)).claude).toBe("ok");
+    const folder = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    mkdirSync(path.join(folder, "CLAUDE.md"));
+    expect(agentGuideState(folder, discoverPackages(folder)).claude).toBe("blocked");
+  });
+
+  it("calls a dangling CLAUDE.md link blocked and says to fix it by hand, since genesis agents won't write over it", async () => {
+    const root = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    symlinkSync("nowhere.md", path.join(root, "CLAUDE.md"));
+    expect(writeAgentGuide(root, discoverPackages(root))).not.toContain("CLAUDE.md");
+    expect(agentGuideState(root, discoverPackages(root)).claude).toBe("blocked");
+    const found = (await runDoctor({ root, config: {} })).findings.filter((f) => f.rule === "agent-guide-stale");
+    expect(found.map((f) => `${f.level} ${f.file}`)).toEqual(["warn CLAUDE.md"]);
+    expect(found[0]!.message).toContain("rename or replace it");
+  });
+
+  it("doesn't ask for CLAUDE.md when the guide goes to a custom agents file", () => {
+    const root = makeApp(null, widgets({ prefer: [LIST_RULE] }));
+    expect(agentGuideState(root, discoverPackages(root), "AGENT_NOTES.md").claude).toBe("ok");
+  });
+
+  it("leaves an existing CLAUDE.md alone", () => {
+    const root = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "CLAUDE.md": "# Ours\n" });
+    expect(writeAgentGuide(root, discoverPackages(root))).toEqual([SKILL_PATH, "AGENTS.md"]);
+    expect(readFileSync(path.join(root, "CLAUDE.md"), "utf8")).toBe("# Ours\n");
+  });
+
   it("calls a lone end marker broken, writes nothing when it can't merge, and keeps AGENTS.md's line endings", async () => {
     const root = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "AGENTS.md": "# Notes\n\n<!-- genesis-primitives:end -->\n" });
     expect(agentGuideState(root, discoverPackages(root)).agents).toBe("broken");
     expect(() => writeAgentGuide(root, discoverPackages(root))).toThrow(/broken/);
     expect(existsSync(path.join(root, SKILL_PATH))).toBe(false);
-    expect(brief((await runDoctor({ root, config: {} })).findings, "agent-guide-stale")).toHaveLength(2);
+    expect(brief((await runDoctor({ root, config: {} })).findings, "agent-guide-stale")).toHaveLength(3);
 
     writeFileSync(path.join(root, "AGENTS.md"), "# Notes\r\n\r\nOur own rules.\r\n");
     writeAgentGuide(root, discoverPackages(root));
     const agents = readFileSync(path.join(root, "AGENTS.md"), "utf8");
     expect(agents.replace(/\r\n/g, "")).not.toContain("\n");
-    expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok" });
+    expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok", claude: "ok" });
     expect(writeAgentGuide(root, discoverPackages(root))).toEqual([]);
   });
 

@@ -278,9 +278,23 @@ program
   .option("--check", "Write nothing; exit 1 if either is missing or out of date (for CI)", false)
   .option("--rules", "Check the repo against the agent rules of engagement a script can check (docs/agents/RULES.md); exit 1 on a break", false)
   .option("--batch <pattern>", "With --rules: the branch pattern staging batches use in workflow filters", "staging/**")
+  .option("--hooks", "Also write the agent hooks into .claude/settings.json: the Genesis rules for Explore and Plan subagents, and deny rules for secret files", false)
+  .option("--hook <name>", "Run as a Claude Code hook and print its output (subagent-start); never fails")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
-  .action(async (opts: { check: boolean; rules: boolean; batch: string; dir: string }) => {
+  .action(async (opts: { check: boolean; rules: boolean; batch: string; dir: string; hooks: boolean; hook?: string }) => {
     const root = path.resolve(opts.dir);
+    if (opts.hook) {
+      // A hook must never break the session: any failure prints nothing and exits 0.
+      try {
+        if (opts.hook === "subagent-start") {
+          const doctor = await import("./doctor/index.js");
+          console.log(doctor.subagentHookOutput(root, doctor.discoverPackages(root)));
+        }
+      } catch {
+        /* fail open */
+      }
+      return;
+    }
     if (opts.rules && opts.check) return program.error("--rules checks the repo, --check the agent guide: run them one at a time");
     if (opts.rules) {
       if (!existsSync(path.join(root, "packages")) && !existsSync(path.join(root, ".github", "workflows"))) {
@@ -305,16 +319,25 @@ program
     }
     if (opts.check) {
       const state = doctor.agentGuideState(root, packages);
-      const bad = Object.entries(state).filter(([, v]) => v !== "ok");
+      // A CLAUDE.md that doesn't import AGENTS.md is the app's own choice (the doctor reports it as info), so it doesn't fail the check.
+      const bad: [string, string][] = Object.entries(state).filter(([k, v]) => v !== "ok" && !(k === "claude" && v === "no-import"));
+      if (doctor.agentHooksState(root) === "stale") bad.push([doctor.SETTINGS_PATH, "has an older Genesis hook"]);
       if (bad.length) {
-        console.error(`✗ The agent guide is ${bad.map(([k, v]) => `${k === "skill" ? doctor.SKILL_PATH : "AGENTS.md"} ${v}`).join(", ")}. Run \`genesis agents\` and commit the result.`);
+        const guideBad = bad.some(([k]) => k !== doctor.SETTINGS_PATH && k !== "claude");
+        const fix = [
+          ...(guideBad || state.claude === "missing" ? ["Run `genesis agents` and commit the result."] : []),
+          ...(state.claude === "blocked" ? [`For CLAUDE.md, ${doctor.BLOCKED_FIX}.`] : []),
+          ...(bad.some(([k]) => k === doctor.SETTINGS_PATH) ? ["Run `genesis agents --hooks` to update the hook."] : []),
+        ].join(" ");
+        console.error(`✗ The agent guide is ${bad.map(([k, v]) => k === doctor.SETTINGS_PATH ? `${k} ${v}` : `${k === "skill" ? doctor.SKILL_PATH : k === "claude" ? "CLAUDE.md" : "AGENTS.md"} ${v}`).join(", ")}. ${fix}`);
         process.exitCode = 1;
         return;
       }
       console.log("✔ The agent guide matches the installed Genesis packages.");
       return;
     }
-    const changed = doctor.writeAgentGuide(root, packages);
+    // Settings are only written with --hooks: they're the app's own, so an older hook is flagged (doctor, --check), not rewritten.
+    const changed = [...doctor.writeAgentGuide(root, packages), ...(opts.hooks ? doctor.writeAgentHooks(root) : [])];
     console.log(changed.length ? `✔ Wrote ${changed.join(", ")}` : "= The agent guide is up to date.");
   });
 
