@@ -51,6 +51,8 @@ const clamp = (v: number, limit: number) => Math.max(-limit, Math.min(limit, v))
 
 export interface NativeZoomablePhotoProps {
   src: string;
+  /** Caches the photo under this key instead of its URL (`NativeImage`'s `cacheKey`). */
+  cacheKey?: string;
   alt?: string;
   width: number;
   height: number;
@@ -72,8 +74,8 @@ export function NativeZoomablePhoto(props: NativeZoomablePhotoProps) {
   return Platform.OS === "ios" ? <ZoomableIos {...props} /> : <ZoomablePan {...props} />;
 }
 
-function Photo({ src, alt, width, height, testID }: { src: string; alt?: string; width: number; height: number; testID: string }) {
-  return <NativeImage src={src} alt={alt} width={width} height={height} contentFit="contain" className="bg-transparent" testID={testID} />;
+function Photo({ src, cacheKey, alt, width, height, testID }: { src: string; cacheKey?: string; alt?: string; width: number; height: number; testID: string }) {
+  return <NativeImage src={src} cacheKey={cacheKey} alt={alt} width={width} height={height} contentFit="contain" className="bg-transparent" testID={testID} />;
 }
 
 /** A tap that waits to see whether it's the first half of a double tap. */
@@ -113,7 +115,7 @@ function zoomTo(view: ZoomScrollView | null, rect: ZoomRect, animated: boolean) 
 }
 
 /** iOS: the system's zooming scroll view; at full size, a pull down past the top closes. */
-function ZoomableIos({ src, alt, width, height, active, onZoomChange, zoomable = true, onPull, onDismiss, onTap, testID }: NativeZoomablePhotoProps) {
+function ZoomableIos({ src, cacheKey, alt, width, height, active, onZoomChange, zoomable = true, onPull, onDismiss, onTap, testID }: NativeZoomablePhotoProps) {
   const ref = useRef<ZoomScrollView | null>(null);
   const scale = useRef(1);
   const reducedMotion = useReducedMotion();
@@ -158,14 +160,14 @@ function ZoomableIos({ src, alt, width, height, active, onZoomChange, zoomable =
       }}
     >
       <Pressable accessible={false} onPress={tap} style={{ width, height }}>
-        <Photo src={src} alt={alt} width={width} height={height} testID={`${testID}-image`} />
+        <Photo src={src} cacheKey={cacheKey} alt={alt} width={width} height={height} testID={`${testID}-image`} />
       </Pressable>
     </ScrollView>
   );
 }
 
 /** Android (no zooming ScrollView): two fingers pinch, one pans a zoomed photo or drags it down to close. */
-function ZoomablePan({ src, alt, width, height, active, onZoomChange, zoomable = true, onPull, onDismiss, onTap, testID }: NativeZoomablePhotoProps) {
+function ZoomablePan({ src, cacheKey, alt, width, height, active, onZoomChange, zoomable = true, onPull, onDismiss, onTap, testID }: NativeZoomablePhotoProps) {
   const reducedMotion = useReducedMotion();
   const scale = useRef(new Animated.Value(1)).current;
   const tx = useRef(new Animated.Value(0)).current;
@@ -274,7 +276,7 @@ function ZoomablePan({ src, alt, width, height, active, onZoomChange, zoomable =
     <View testID={testID} style={{ width, height, overflow: "hidden" }} {...responder.panHandlers}>
       <Animated.View style={{ width, height, transform: [{ translateX: tx }, { translateY: ty }, { scale }] }}>
         <Pressable accessible={false} onPress={tap} style={{ width, height }}>
-          <Photo src={src} alt={alt} width={width} height={height} testID={`${testID}-image`} />
+          <Photo src={src} cacheKey={cacheKey} alt={alt} width={width} height={height} testID={`${testID}-image`} />
         </Pressable>
       </Animated.View>
     </View>

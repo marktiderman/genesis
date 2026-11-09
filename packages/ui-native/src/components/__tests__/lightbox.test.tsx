@@ -3,6 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { GalleryItem } from "../gallery-types";
 import { NativeLightbox } from "../lightbox";
+import { GenesisModulesProvider } from "../../native-modules";
+import { fakeImage } from "../../__tests__/fake-modules";
 
 const items: GalleryItem[] = [
   { id: "a", src: "https://example.test/a.jpg", alt: "First", caption: "Warm-up" },
@@ -53,6 +55,20 @@ describe("NativeLightbox", () => {
     expect(screen.getByTestId("cap").textContent).toBe("c#2");
     expect(screen.getByTestId("lb-actions").contains(screen.getByTestId("act"))).toBe(true);
     expect(screen.getByTestId("lb-counter").textContent).toBe("3 / 3");
+  });
+
+  it("caches each page under its item's cacheKey, on the zooming page and the plain one", () => {
+    const keyed: GalleryItem[] = [{ id: "k", src: "https://example.test/k.jpg?sig=a", cacheKey: "photos/k.jpg" }];
+    for (const zoomable of [true, false]) {
+      const { container, unmount } = render(
+        <GenesisModulesProvider modules={{ image: fakeImage() }}>
+          <NativeLightbox open onOpenChange={() => undefined} items={keyed} index={0} onIndexChange={() => undefined} zoomable={zoomable} swipeToDismiss={zoomable} testID="lb" />
+        </GenesisModulesProvider>,
+      );
+      const img = container.ownerDocument.querySelector<HTMLElement>("img[data-expo-image]");
+      expect(img?.dataset.cacheKey).toBe("photos/k.jpg");
+      unmount();
+    }
   });
 
   it("shows no counter for a single picture", () => {

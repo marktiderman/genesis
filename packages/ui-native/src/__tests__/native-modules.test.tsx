@@ -407,6 +407,45 @@ describe("NativeAvatar and NativeImage", () => {
     expect(screen.getByTestId("img").getAttribute("aria-hidden")).toBe("true");
   });
 
+  it("cache a rotating signed URL under its cacheKey, which is also the recycling key", () => {
+    const Image = fakeImage();
+    const ui = (src: string) => (
+      <GenesisModulesProvider modules={{ image: Image }}>
+        <NativeImage testID="img" src={src} cacheKey="photos/42.jpg" />
+      </GenesisModulesProvider>
+    );
+    const { rerender } = render(ui("https://example.com/photos/42.jpg?expires=1&sig=a"));
+    const img = () => screen.getByTestId("img-image");
+    expect(img().dataset.cacheKey).toBe("photos/42.jpg");
+    expect(img().dataset.recyclingKey).toBe("photos/42.jpg");
+    // A new signature for the same picture keeps both keys, so it's neither fetched again nor reset.
+    rerender(ui("https://example.com/photos/42.jpg?expires=2&sig=b"));
+    expect(img().getAttribute("src")).toBe("https://example.com/photos/42.jpg?expires=2&sig=b");
+    expect(img().dataset.cacheKey).toBe("photos/42.jpg");
+    expect(img().dataset.recyclingKey).toBe("photos/42.jpg");
+  });
+
+  it("let an explicit recycling key win over the cacheKey, and pass no cacheKey when none is given", () => {
+    const Image = fakeImage();
+    const { rerender } = withModules({ image: Image }, <NativeImage testID="img" src="https://example.com/c.png" cacheKey="c" recyclingKey="row-3" />);
+    expect(screen.getByTestId("img-image").dataset.recyclingKey).toBe("row-3");
+    expect(screen.getByTestId("img-image").dataset.cacheKey).toBe("c");
+    rerender(
+      <GenesisModulesProvider modules={{ image: Image }}>
+        <NativeImage testID="img" src="https://example.com/c.png" />
+      </GenesisModulesProvider>,
+    );
+    expect(screen.getByTestId("img-image").dataset.cacheKey).toBeUndefined();
+    expect(Image.mock.lastCall?.[0].source).toEqual({ uri: "https://example.com/c.png" });
+  });
+
+  it("ignore cacheKey on React Native's Image", () => {
+    render(<NativeImage testID="img" src="https://example.com/d.png?sig=a" cacheKey="d" />);
+    const img = screen.getByTestId("img-image");
+    expect(img.dataset.expoImage).toBeUndefined();
+    expect(img.dataset.cacheKey).toBeUndefined();
+  });
+
   it("fall back to React Native's Image", () => {
     render(<NativeAvatar testID="av" src="https://example.com/a.png" fallback="AB" />);
     expect(screen.getByTestId("av-image").dataset.expoImage).toBeUndefined();

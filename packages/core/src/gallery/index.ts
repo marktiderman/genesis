@@ -25,6 +25,11 @@ export interface GalleryItem {
   width?: number;
   height?: number;
   caption?: string;
+  /**
+   * Native only: caches the picture under this key instead of `src` (`NativeImage`'s
+   * `cacheKey`), for signed URLs that rotate. The web grid ignores it.
+   */
+  cacheKey?: string;
 }
 
 /**
