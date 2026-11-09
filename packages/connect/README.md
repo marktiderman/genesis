@@ -1,12 +1,14 @@
 # @marktiderman/genesis-connect
 
-Connect an outside account, server side, in a few lines. Two primitives:
+Connect an outside account, server side, in a few lines. Three primitives:
 
 - **Secrets with key versioning**: AES-256-GCM, a key per purpose (HKDF-SHA-256), each
   secret bound to its row, and a keyring so keys can be rotated without a migration.
 - **An OAuth connector kit**: the authorization-code flow with PKCE on Web `Request` and
-  `Response`, Google built in, any other provider as a plain object. The app keeps the
+  `Response`, Google and Todoist built in, any other provider as a plain object. The app keeps the
   rows; the kit does the flow, seals the refresh token and hands it over.
+- **Webhook signatures**: `verifyWebhookSignature` checks a provider's HMAC on a delivery's raw
+  body, in constant time.
 
 fetch and WebCrypto only, no dependencies: Node 20+, edge runtimes and Cloudflare Workers.
 Server only: never import it into a browser bundle.
@@ -134,6 +136,59 @@ and refresh tokens expire seven days after consent. Once it is **In production**
 connect, but until Google verifies the app it shows the unverified-app warning and caps how
 many people can sign in.
 
+## Connect Todoist
+
+Todoist's OAuth (`todoistProvider`) joins scopes with commas, has no OpenID Connect and rotates
+refresh tokens: access tokens last an hour, and every refresh sends a new refresh token. Ask for
+`data:read_write` to read and change tasks, plus `data:delete` to delete them:
+
+```ts
+import { createConnector, createSecrets, todoistProvider, TODOIST_SCOPES } from "@marktiderman/genesis-connect";
+
+export const todoist = createConnector({
+  provider: todoistProvider,
+  clientId: process.env.TODOIST_CLIENT_ID!,
+  clientSecret: process.env.TODOIST_CLIENT_SECRET!,
+  stateSecret: process.env.CONNECT_STATE_SECRET!,
+  secrets: createSecrets(process.env.CONNECT_KEYRING!, { purpose: "todoist-refresh-token" }),
+  callbackPath: "/api/connect/todoist/callback",
+  scopes: [TODOIST_SCOPES.dataReadWrite, TODOIST_SCOPES.dataDelete],
+  store: async (account) => {
+    // No identity: read who the account is with the access token (Todoist's sync, `user`),
+    // and key the row on that id, never the email.
+  },
+});
+```
+
+Pass `onRotate` and, on more than one instance, `grant` to `accessToken` ([below](#more-than-one-server-instance)):
+a used refresh token sent again more than 60 seconds later revokes every token the person gave
+the app. `revoke` is RFC 7009 with HTTP Basic client auth (`revokeAuth`). Apps made in Todoist's
+console before refresh tokens get a ten-year access token and no refresh token, which this kit
+doesn't keep: make a new app. Todoist's tasks API (sync tokens, batched commands, webhooks) is
+`@marktiderman/genesis-tasks`.
+
+### Webhooks
+
+`verifyWebhookSignature` checks a delivery's HMAC on its raw body, in constant time
+(`@marktiderman/genesis-connect` or `/webhooks`):
+
+```ts
+import { verifyWebhookSignature } from "@marktiderman/genesis-connect/webhooks";
+
+const body = await request.text(); // the raw body: a re-serialized one isn't what was signed
+if (
+  !(await verifyWebhookSignature({
+    secret: process.env.TODOIST_CLIENT_SECRET!,
+    payload: body,
+    signature: request.headers.get("x-todoist-hmac-sha256"),
+  }))
+)
+  return new Response("Forbidden", { status: 403 });
+```
+
+The defaults (SHA-256, base64) are Todoist's; `encoding: "hex"` with `prefix: "sha256="` reads
+GitHub's. It returns false for a missing, malformed or wrong signature and never throws for one.
+
 ## Secrets and key rotation
 
 ```ts
@@ -204,6 +259,32 @@ const token = await connector.accessToken(row.refresh_token, aad, {
   onRotate: (sealed) => db.update("grants", row.id, { refresh_token: sealed }),
 });
 ```
+
+#### More than one server instance
+
+The cache and the shared refresh live in one process. On serverless, a webhook, a job and a page
+can each refresh the same grant at once, and a provider that rotates sees a used refresh token
+again: Todoist then revokes every token the person gave the app. Pass `grant`, the grant as the
+app keeps it, and refreshes run one at a time across instances:
+
+```ts
+const token = await connector.accessToken(row.refresh_token, aad, {
+  onRotate: (sealed) => db.update("grants", row.id, { refresh_token: sealed }),
+  grant: {
+    // The app's lock for this grant: a row lock, an advisory lock, a lease.
+    lock: (run) => db.withLock(`grant:${row.id}`, run),
+    // Read inside the lock, so a waiter never trades the token the holder just rotated.
+    current: async () => (await db.get("grants", row.id)).refresh_token,
+    // Optional: share the access token, so instances don't each refresh.
+    readAccessToken: async () => db.get("grant_access", row.id),
+    writeAccessToken: (sealed, expiresAt) => db.upsert("grant_access", { id: row.id, sealed, expiresAt }),
+  },
+});
+```
+
+An access token another instance stored is used while it has more than a minute left. Otherwise
+the refresh runs inside `lock`, from `current()`, and the rotated token goes to `onRotate` before
+the lock is let go. The new access token is sealed (to `<aad>:access`) for `writeAccessToken`.
 
 ### What it guarantees
 

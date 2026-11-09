@@ -7,6 +7,7 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     secrets: "src/secrets.ts",
+    webhooks: "src/webhooks.ts",
   },
   format: ["esm", "cjs"],
   dts: true,

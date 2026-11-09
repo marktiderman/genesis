@@ -1524,7 +1524,7 @@
     {
       "id": "connect",
       "name": "Connect an outside account",
-      "summary": "@marktiderman/genesis-connect: encrypted secrets with key versioning (AES-256-GCM, HKDF per purpose, row-bound associated data, a keyring with needsRotation and reseal, legacy v1 still opening) and an OAuth connector kit on Web Request and Response (authorization code with PKCE, a signed short-lived state, the verifier in an HttpOnly cookie, a pinned callback origin with a safe return on a shared domain, the granted-scope check, the refresh token sealed and handed to the app's store, cached access tokens, revoke), Google built in and any provider as a plain object.",
+      "summary": "@marktiderman/genesis-connect: encrypted secrets with key versioning (AES-256-GCM, HKDF per purpose, row-bound associated data, a keyring with needsRotation and reseal, legacy v1 still opening) and an OAuth connector kit on Web Request and Response (authorization code with PKCE, a signed short-lived state, the verifier in an HttpOnly cookie, a pinned callback origin with a safe return on a shared domain, the granted-scope check, the refresh token sealed and handed to the app's store, cached access tokens, revoke, a shared grant so instances refresh one at a time from the current token with the access token shared sealed), Google and Todoist built in (Todoist's rotating refresh tokens, comma scopes, RFC 7009 revoke with Basic auth) and any provider as a plain object; verifyWebhookSignature checks a delivery's HMAC on its raw body in constant time.",
       "category": "Integrations",
       "status": "building",
       "claimedBy": "mark",
@@ -1535,12 +1535,16 @@
         "connect",
         "google",
         "google drive",
+        "todoist",
         "refresh token",
+        "token rotation",
         "pkce",
         "encryption",
         "secrets",
         "key rotation",
         "keyring",
+        "webhook signature",
+        "hmac",
         "integrations"
       ],
       "entry": {
@@ -1559,9 +1563,11 @@
         "After the active key changes, secrets sealed with an older key still open, needsRotation reports them and reseal moves them to the active key; v1 secrets from genesis-forms open with the legacy key.",
         "A connection only finishes in the browser that started it, with an unexpired state the connector signed, and only when every scope asked for was granted.",
         "The browser is only ever sent back to a path on the starting origin, when that origin is the callback's or an https origin on the shared domain.",
+        "With a shared grant, concurrent accessToken calls on separate instances refresh once, from the grant's current refresh token, and the rotated token is stored before the lock is let go.",
+        "verifyWebhookSignature accepts only the HMAC of the exact raw body under the secret, and never throws for a missing or malformed signature.",
         "Not yet run against Google with a real client."
       ],
-      "reviewedAt": "2026-10-26",
+      "reviewedAt": "2026-11-09",
       "links": {
         "code": [
           "packages/connect"
@@ -1626,6 +1632,57 @@
         "docs": [
           "packages/calendar/README.md",
           "docs/adr/0014-calendar-read-layer.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "task-sync-layer",
+      "name": "Task sync layer",
+      "summary": "@marktiderman/genesis-tasks: a person's tasks kept equal with an outside list, both ways. TaskFields (title, notes, due day, done; priority, labels, due times and recurrence stay the list's); mergeTask (three-way, field by field, against the last agreed state; a field both sides changed goes to the later change or prefer); Todoist's adapter: syncTodoist (full, then incremental with the sync token, fixed due times on their zone's clock), getTodoistTask, todoistCommand builders and runTodoistCommands (100 per request, uuids Todoist runs once, temp ids mapped across batches, a result per command, repeating tasks' dates left to Todoist), readTodoistWebhook (HMAC on the raw body), typed errors with retryability. No storage, no OAuth (genesis-connect's todoistProvider), no React.",
+      "category": "Integrations",
+      "status": "building",
+      "claimedBy": "claude/peaceful-planck-wwrzpq",
+      "horizon": "now",
+      "kind": "service",
+      "keywords": [
+        "tasks",
+        "todoist",
+        "to-do",
+        "todo",
+        "two-way sync",
+        "task sync",
+        "merge",
+        "webhooks",
+        "integrations"
+      ],
+      "entry": {
+        "server": "@marktiderman/genesis-tasks"
+      },
+      "owner": "mark",
+      "apps": [
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "mergeTask keeps an edit made on each side to different fields, and writes nothing when both sides agree.",
+        "A command sent again with the same uuid is safe to retry, and a temp id from an earlier batch is sent as its real id.",
+        "todoistCommand.update never writes a due day to a repeating task, and keeps a task's time of day when its day changes.",
+        "readTodoistWebhook refuses a delivery whose signature isn't the HMAC of its exact body, and no error holds the access token.",
+        "Not yet run against Todoist with a real app."
+      ],
+      "reviewedAt": "2026-11-09",
+      "links": {
+        "code": [
+          "packages/tasks"
+        ],
+        "docs": [
+          "packages/tasks/README.md",
+          "packages/connect/README.md"
         ]
       },
       "access": "all",

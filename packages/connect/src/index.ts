@@ -5,6 +5,8 @@
  *   to a row, with key versioning (`needsRotation`, `reseal`).
  * - OAuth: `createConnector({ provider: googleProvider, … })` gives `start`,
  *   `callback`, `accessToken`, `refresh` and `revoke` on Web Request/Response.
+ * - Webhooks: `verifyWebhookSignature` checks a provider's HMAC signature on a
+ *   delivery's raw body, in constant time.
  *
  * fetch and WebCrypto only: Node 20+, edge runtimes and Workers.
  */
@@ -30,5 +32,7 @@ export {
   type StartResult,
   type StateData,
   type StoreResult,
+  type SharedGrant,
   type TokenCallOptions,
 } from "./oauth";
+export * from "./webhooks";

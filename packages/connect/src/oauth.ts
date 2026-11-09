@@ -426,6 +426,37 @@ export interface TokenCallOptions {
    * access token is cached before it runs.
    */
   onRotate?: ((sealedRefreshToken: string) => void | Promise<void>) | undefined;
+  /**
+   * The grant as the app keeps it, for `accessToken` on more than one server instance. The
+   * in-memory cache and single-flight cover one instance; two instances (a webhook, a job and a
+   * page at once) would each refresh, and a provider that rotates refresh tokens then sees the
+   * old one again. Todoist revokes every token of the grant when that happens more than 60
+   * seconds after it was used. With `grant`:
+   *
+   * - an access token another instance stored (`readAccessToken`) is used while it has more
+   *   than a minute left;
+   * - otherwise the refresh runs inside `lock` (the app's lock for this grant: a row lock, an
+   *   advisory lock, a lease), from `current()` (the grant's sealed refresh token as stored now,
+   *   read inside the lock, so a waiter never trades the token the holder just rotated), and the
+   *   rotated token is handed to `onRotate` before the lock is let go;
+   * - the new access token is sealed (to `<aad>:access`) and given to `writeAccessToken`, for
+   *   the next instance.
+   *
+   * A provider that rotates needs `onRotate` with it, as without it.
+   */
+  grant?: SharedGrant | undefined;
+}
+
+/** How the app shares one grant between server instances (`TokenCallOptions.grant`). */
+export interface SharedGrant {
+  /** Runs `run` holding the app's lock for this grant; waits for it, or throws when it can't. */
+  lock<T>(run: () => Promise<T>): Promise<T>;
+  /** The grant's sealed refresh token as stored now. Read inside the lock. */
+  current(): Promise<string>;
+  /** The access token an instance stored with `writeAccessToken`, sealed, and when it expires (ms since the epoch). */
+  readAccessToken?(): Promise<{ sealed: string; expiresAt: number } | null>;
+  /** Stores the new access token, sealed to `<aad>:access`, and its expiry, for other instances. A failure is logged, never thrown. */
+  writeAccessToken?(sealed: string, expiresAt: number): Promise<void>;
 }
 
 export interface Connector<D extends StateData = StateData> {
@@ -712,6 +743,7 @@ const isRetryableStatus = (status: number) =>
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 // Refreshes in flight, by the same key: concurrent cold calls share one.
 const inFlight = new Map<string, Promise<Refreshed>>();
+const sharedInFlight = new Map<string, Promise<{ token: string; expiresAt: number }>>();
 const TOKEN_CACHE_LIMIT = 1000;
 
 /** Forgets every cached access token (tests, or after a key or client change). */
@@ -1036,8 +1068,9 @@ export function createConnector<D extends StateData = StateData>(
   function clientAuth(
     body: URLSearchParams,
     headers: Record<string, string>,
+    method = provider.tokenAuth,
   ): void {
-    if (provider.tokenAuth === "client_secret_basic") {
+    if (method === "client_secret_basic") {
       const encode = (s: string) => encodeURIComponent(s).replace(/%20/g, "+");
       headers["authorization"] =
         `Basic ${btoa(`${encode(config.clientId)}:${encode(config.clientSecret)}`)}`;
@@ -1201,6 +1234,74 @@ export function createConnector<D extends StateData = StateData>(
     }
   }
 
+  /** An access token another instance stored for the grant, while it has more than a minute left. */
+  async function storedAccessToken(
+    grant: SharedGrant,
+    aad: string,
+  ): Promise<{ token: string; expiresAt: number } | null> {
+    if (!grant.readAccessToken) return null;
+    const stored = await grant.readAccessToken();
+    if (!stored || !(stored.expiresAt - 60_000 > now())) return null;
+    try {
+      return {
+        token: await config.secrets.open(stored.sealed, `${aad}:access`),
+        expiresAt: stored.expiresAt,
+      };
+    } catch {
+      // Sealed to another row or key: treat it as absent and refresh.
+      return null;
+    }
+  }
+
+  /** `accessToken` with `grant`: one refresh at a time across instances (see `SharedGrant`). */
+  async function sharedAccessToken(
+    refreshToken: string,
+    key: string,
+    aad: string,
+    options: TokenCallOptions,
+    grant: SharedGrant,
+  ): Promise<string> {
+    const remember = (token: string, expiresAt: number) => {
+      if (tokenCache.size >= TOKEN_CACHE_LIMIT)
+        tokenCache.delete(tokenCache.keys().next().value!);
+      tokenCache.set(key, { token, expiresAt });
+      return token;
+    };
+    const stored = await storedAccessToken(grant, aad);
+    if (stored) return remember(stored.token, stored.expiresAt);
+    let flight = sharedInFlight.get(key);
+    if (!flight) {
+      flight = grant
+        .lock(async () => {
+          // Another instance may have refreshed while this one waited for the lock.
+          const again = await storedAccessToken(grant, aad);
+          if (again) return again;
+          const latest = await config.secrets.open(await grant.current(), aad);
+          const at = now();
+          const fresh = await refreshWith(latest, aad, options.signal);
+          await cacheToken(latest, fresh, at);
+          // Inside the lock, so the next holder's `current()` reads the rotated token.
+          await handOver(fresh, options, true);
+          const expiresAt = at + fresh.expiresIn * 1000;
+          if (grant.writeAccessToken) {
+            try {
+              await grant.writeAccessToken(
+                await config.secrets.seal(fresh.accessToken, `${aad}:access`),
+                expiresAt,
+              );
+            } catch {
+              log({ step: "refresh", result: "failed", detail: "writeAccessToken threw" });
+            }
+          }
+          return { token: fresh.accessToken, expiresAt };
+        })
+        .finally(() => sharedInFlight.delete(key));
+      sharedInFlight.set(key, flight);
+    }
+    const got = await flight;
+    return remember(got.token, got.expiresAt);
+  }
+
   /** RFC 7009 revocation of one token; true when it is gone. Never throws. */
   async function revokeToken(
     token: string,
@@ -1213,7 +1314,8 @@ export function createConnector<D extends StateData = StateData>(
       "content-type": "application/x-www-form-urlencoded",
       accept: "application/json",
     };
-    if (provider.revokeWithClientAuth) clientAuth(body, headers);
+    if (provider.revokeWithClientAuth)
+      clientAuth(body, headers, provider.revokeAuth ?? provider.tokenAuth);
     try {
       const response = await timedFetch(
         config,
@@ -1508,6 +1610,7 @@ export function createConnector<D extends StateData = StateData>(
       const key = await cacheKey(refreshToken);
       const hit = tokenCache.get(key);
       if (hit && hit.expiresAt - 60_000 > now()) return hit.token;
+      if (options.grant) return sharedAccessToken(refreshToken, key, aad, options, options.grant);
       let flight = inFlight.get(key);
       if (!flight) {
         const at = now();
