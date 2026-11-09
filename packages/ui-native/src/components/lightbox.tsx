@@ -253,6 +253,7 @@ function LightboxBody({
               ) : zoomable || swipeToDismiss ? (
                 <NativeZoomablePhoto
                   src={it.src}
+                  cacheKey={it.cacheKey}
                   alt={it.alt ?? labels.photo(i + 1, items.length)}
                   width={width}
                   height={size.height}
@@ -266,7 +267,7 @@ function LightboxBody({
                 />
               ) : (
                 <Pressable accessible={false} onPress={toggleChrome} style={{ width, flex: 1 }}>
-                  <NativeImage src={it.src} alt={it.alt ?? labels.photo(i + 1, items.length)} className="h-full w-full" contentFit="contain" />
+                  <NativeImage src={it.src} cacheKey={it.cacheKey} alt={it.alt ?? labels.photo(i + 1, items.length)} className="h-full w-full" contentFit="contain" />
                 </Pressable>
               )}
             </View>

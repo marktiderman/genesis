@@ -73,6 +73,7 @@ export function fakeImage() {
       data-testid={props.testID}
       data-expo-image="true"
       data-recycling-key={props.recyclingKey ?? ""}
+      data-cache-key={typeof props.source === "object" && props.source ? props.source.cacheKey : undefined}
       data-cache-policy={props.cachePolicy}
       data-transition={String(props.transition)}
       src={typeof props.source === "object" && props.source ? props.source.uri : undefined}

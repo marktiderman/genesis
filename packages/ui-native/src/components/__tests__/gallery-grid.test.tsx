@@ -3,6 +3,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { GALLERY_DEFAULTS, type GalleryItem } from "../gallery-types";
 import { NativeGalleryGrid } from "../gallery-grid";
+import { GenesisModulesProvider } from "../../native-modules";
+import { fakeImage } from "../../__tests__/fake-modules";
 
 const items: GalleryItem[] = Array.from({ length: 5 }, (_, i) => ({
   id: `p${i}`,
@@ -139,6 +141,24 @@ describe("NativeGalleryGrid additions", () => {
     const placeholder = screen.getByTestId("g-placeholder-n");
     expect(placeholder.getAttribute("role")).toBe("image");
     expect(placeholder.getAttribute("aria-label")).toBe("Untitled");
+  });
+
+  it("passes each item's cacheKey to its image, and keys by the URL without one", () => {
+    const keyed: GalleryItem[] = [
+      { id: "k", src: "https://example.test/k.jpg?sig=a", cacheKey: "photos/k.jpg", width: 400, height: 300 },
+      { id: "u", src: "https://example.test/u.jpg", width: 400, height: 300 },
+    ];
+    const { container } = render(
+      <GenesisModulesProvider modules={{ image: fakeImage() }}>
+        <NativeGalleryGrid items={keyed} testID="g" />
+      </GenesisModulesProvider>,
+    );
+    measure(screen.getByTestId("g"), 600);
+    const [k, u] = Array.from(container.querySelectorAll<HTMLElement>("img[data-expo-image]"));
+    expect(k!.dataset.cacheKey).toBe("photos/k.jpg");
+    expect(k!.dataset.recyclingKey).toBe("photos/k.jpg");
+    expect(u!.dataset.cacheKey).toBeUndefined();
+    expect(u!.dataset.recyclingKey).toBe("https://example.test/u.jpg");
   });
 
   it("shares the web's defaults", () => {

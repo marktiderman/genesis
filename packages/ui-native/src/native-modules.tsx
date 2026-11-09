@@ -69,7 +69,8 @@ export type GenesisListComponent = ComponentType<GenesisListProps<any>>;
 
 /** The expo-image `Image` props Genesis passes. */
 export interface GenesisImageProps {
-  source: { uri: string } | number | null;
+  /** `cacheKey` keys the cache in place of the URL. */
+  source: { uri: string; cacheKey?: string } | number | null;
   style?: unknown;
   contentFit?: "cover" | "contain" | "fill" | "none" | "scale-down";
   cachePolicy?: "none" | "disk" | "memory" | "memory-disk";

@@ -31,7 +31,7 @@ import { lucideIcons } from "@marktiderman/genesis-ui-native/icons/lucide";
 | `modules.` | Package (`npx expo install …`) | Used by | Without it |
 | --- | --- | --- | --- |
 | `list` | `@shopify/flash-list` v2 (New Architecture only) | `NativeResourcePage`, `NotificationsPage` (sections become one list with sticky headers) | `FlatList` / `SectionList` |
-| `image` | `expo-image` | `NativeAvatar`, `NativeImage`: memory and disk cache, `placeholder` (blurhash / thumbhash), `recyclingKey` (the URL by default) so recycled rows never flash the last picture, no cross-fade under Reduce Motion | React Native `Image` |
+| `image` | `expo-image` | `NativeAvatar`, `NativeImage`: memory and disk cache, `placeholder` (blurhash / thumbhash), `recyclingKey` (the URL by default) so recycled rows never flash the last picture, `NativeImage`'s `cacheKey` (a stable key for a signed URL that rotates; also a gallery item's `cacheKey` in `NativeGalleryGrid` and `NativeLightbox`), no cross-fade under Reduce Motion | React Native `Image` |
 | `reanimated` | `react-native-reanimated` 4 (`import * as`) | `NativeToastProvider`, `NativeDrawer`, `NativeSkeleton`; all of them stay still under Reduce Motion | React Native `Animated` |
 | `glass` | `expo-glass-effect` (`import * as`) | `NativeGlassSurface`: default toasts, the update banner, popovers and dropdown menus, as iOS 26 Liquid Glass | the solid surface |
 | `symbol` | `expo-symbols` | `NativeIcon` on iOS (SF Symbols), and the drill-in chevron of `NativeListItem` | `icons` |

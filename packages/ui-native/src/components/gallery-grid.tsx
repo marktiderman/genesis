@@ -190,7 +190,7 @@ export function NativeGalleryGrid({
       <>
         <View className="absolute inset-0 bg-muted" />
         {item.src ? (
-          <NativeImage src={item.src} alt={item.alt} className="h-full w-full" />
+          <NativeImage src={item.src} cacheKey={item.cacheKey} alt={item.alt} className="h-full w-full" />
         ) : (
           // No image: a neutral tile with its words, so the count matches what's drawn. The tile's
           // own label (alt, then caption) names a pressable tile, so the words are hidden from
