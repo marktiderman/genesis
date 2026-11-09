@@ -28,9 +28,11 @@ outside list.
    entry `.`: pure TypeScript on fetch and WebCrypto, with no storage, no OAuth and no React. It
    mirrors genesis-calendar: provider-neutral types plus one adapter per provider.
 2. Provider-neutral: `TaskFields` (title, notes, due day, done: what a two-way sync keeps equal),
-   `ExternalTask`, `ExternalList`, `normalizeTaskFields` and `mergeTask`. `mergeTask` is a
-   three-way merge, field by field, against the last agreed state. A field both sides changed
-   goes to the later change, or to `prefer`.
+   `ExtraTaskFields` (labels and priority, merged when an app asks for them in `fields`),
+   `ExternalTask` (with `assigneeId`), `ExternalList`, `normalizeTaskFields`, `normalizeLabels`,
+   `matchesScope` and `mergeTask`. `mergeTask` is a three-way merge, field by field, against the
+   last agreed state. A field both sides changed goes to the later change, or to `prefer`. Labels
+   merge as a set: adds on either side kept, removals on either side applied.
 3. Todoist: `syncTodoist`, `getTodoistTask`, `todoistCommand` with `runTodoistCommands`,
    `readTodoistWebhook`, `fromTodoistItem`, and `TodoistError` (`isTodoistError`).
 4. OAuth stays in genesis-connect: `todoistProvider`, plus `accessToken`'s `grant` for rotating

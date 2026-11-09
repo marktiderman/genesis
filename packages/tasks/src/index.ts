@@ -8,10 +8,14 @@
  * @packageDocumentation
  */
 export {
+  normalizeLabels,
   normalizeTaskFields,
   TASK_FIELDS,
   type ExternalList,
   type ExternalTask,
+  type ExtraTaskFields,
+  type SyncedFieldName,
+  type SyncedTaskFields,
   type TaskFields,
 } from "./types";
 export { mergeTask, type MergeTaskInput, type MergeTaskResult } from "./merge";
@@ -19,6 +23,7 @@ export {
   fromTodoistItem,
   getTodoistTask,
   isTodoistError,
+  matchesScope,
   runTodoistCommands,
   syncTodoist,
   todoistCommand,
@@ -35,5 +40,6 @@ export {
   type TodoistSyncOptions,
   type TodoistSyncResult,
   type TodoistUser,
+  type TaskScope,
 } from "./todoist";
 export { readTodoistWebhook, type TodoistWebhookEvent, type TodoistWebhookResult } from "./webhook";

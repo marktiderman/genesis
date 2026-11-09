@@ -75,6 +75,25 @@ await state.save({ syncToken: read.syncToken });
 - **Scopes.** `data:read_write` reads and changes tasks; `todoistCommand.remove` also needs
   `data:delete`.
 
+## Labels, priority and scope
+
+A sync can keep labels and priority equal too: pass them in `fields`.
+
+```ts
+const merged = mergeTask({ base, local, remote, fields: ["title", "notes", "dueDay", "done", "labels", "priority"] });
+```
+
+- **Labels merge as a set**, compared without case: a label added on either side is kept, and one
+  removed on either side goes, so a label added here and another added in Todoist both stay.
+  `normalizeLabels` trims, drops empties and keeps one of each.
+- **Priority** merges like any field (1 normal to 4 most urgent: Todoist's API scale, where 4 is
+  what the app shows as p1).
+- `todoistCommand.add` and `.update` write `labels` (the whole list: Todoist replaces it) and
+  `priority`.
+- `matchesScope(task, { lists, labels, labelsMode, assignedTo })` says whether an outside task is
+  in a sync's scope. In a shared project, only tasks assigned to the person (or to nobody) match
+  `assignedTo`; `ExternalTask.assigneeId` is Todoist's `responsible_uid`.
+
 ## Webhooks
 
 Todoist sends a webhook for each change to a person who connected the app (configure the URL and

@@ -13,6 +13,8 @@ import {
 } from "./todoist";
 import type { ExternalTask, TaskFields } from "./types";
 import { readTodoistWebhook } from "./webhook";
+import { matchesScope } from "./todoist";
+import { normalizeLabels } from "./types";
 
 const TOKEN = "todoist-access-token-value";
 
@@ -285,3 +287,52 @@ describe("readTodoistWebhook", () => {
     expect(await readTodoistWebhook(request("not json", sign("not json")), { clientSecret: SECRET })).toEqual({ ok: false, status: 400 });
   });
 });
+
+describe("labels and priority", () => {
+  const withExtra = (over: Record<string, unknown> = {}) => ({ ...fields(), labels: ["growth90"], priority: 1 as const, ...over });
+  const both = ["title", "notes", "dueDay", "done", "labels", "priority"] as const;
+
+  it("merges labels as a set: a label added on each side keeps both, one removed on either side goes", () => {
+    const base = withExtra({ labels: ["growth90", "health"] });
+    const result = mergeTask({
+      base,
+      local: withExtra({ labels: ["growth90", "health", "Coaching"] }),
+      remote: withExtra({ labels: ["growth90", "errands"] }),
+      fields: both,
+    });
+    expect(result.fields.labels).toEqual(["growth90", "Coaching", "errands"]);
+    expect(result.toLocal.labels).toEqual(["growth90", "Coaching", "errands"]);
+    expect(result.toRemote.labels).toEqual(["growth90", "Coaching", "errands"]);
+  });
+
+  it("compares labels without case, and ignores them unless asked", () => {
+    expect(mergeTask({ base: null, local: withExtra({ labels: ["Health"] }), remote: withExtra({ labels: ["health"] }), fields: both }).toRemote).toEqual({});
+    expect(mergeTask({ base: null, local: withExtra({ labels: ["a"] }), remote: withExtra({ labels: ["b"] }) }).toRemote).toEqual({});
+    expect(normalizeLabels([" a ", "A", "", "b"])).toEqual(["a", "b"]);
+  });
+
+  it("merges priority like any field", () => {
+    const result = mergeTask({ base: withExtra(), local: withExtra(), remote: withExtra({ priority: 4 }), fields: both });
+    expect(result.toLocal).toEqual({ priority: 4 });
+  });
+
+  it("writes labels whole and priority in commands", () => {
+    expect(todoistCommand.update("9", { labels: ["growth90", " Coaching "], priority: 3 })[0]!.args).toEqual({ id: "9", labels: ["growth90", "Coaching"], priority: 3 });
+    expect(todoistCommand.add({ ...fields(), labels: ["growth90"], priority: 4 }, { tempId: "t" })[0]!.args).toMatchObject({ labels: ["growth90"], priority: 4 });
+  });
+});
+
+describe("matchesScope", () => {
+  const t = (over: Record<string, unknown>) => fromTodoistItem({ id: "1", content: "A", project_id: "p", ...over })!;
+
+  it("checks lists, labels (any or all) and the assignee", () => {
+    expect(matchesScope(t({}), { lists: ["p"] })).toBe(true);
+    expect(matchesScope(t({}), { lists: ["q"] })).toBe(false);
+    expect(matchesScope(t({ labels: ["Coaching"] }), { labels: ["coaching", "x"] })).toBe(true);
+    expect(matchesScope(t({ labels: ["Coaching"] }), { labels: ["coaching", "x"], labelsMode: "all" })).toBe(false);
+    expect(matchesScope(t({ responsible_uid: "me" }), { assignedTo: "me" })).toBe(true);
+    expect(matchesScope(t({ responsible_uid: "you" }), { assignedTo: "me" })).toBe(false);
+    expect(matchesScope(t({}), { assignedTo: "me" })).toBe(true);
+  });
+});
+

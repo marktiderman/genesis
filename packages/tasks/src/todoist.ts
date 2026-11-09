@@ -8,7 +8,7 @@
 // (or deleted) before the first read isn't in it. Absence from a full read is not a deletion: read
 // a task you hold a link to with `getTodoistTask` before removing your copy.
 import { isDay, isTimeZone, wallTimeIn } from "@marktiderman/genesis-core/dates";
-import type { ExternalList, ExternalTask, TaskFields } from "./types";
+import { normalizeLabels, type ExternalList, type ExternalTask, type SyncedTaskFields } from "./types";
 
 const TODOIST_API = "https://api.todoist.com/api/v1";
 /** Todoist runs at most 100 commands per request. */
@@ -85,6 +85,7 @@ export interface TodoistItem {
   priority?: number | null;
   due?: TodoistDue | null;
   labels?: string[] | null;
+  responsible_uid?: string | null;
   checked?: boolean | null;
   is_deleted?: boolean | null;
   completed_at?: string | null;
@@ -199,6 +200,7 @@ export function fromTodoistItem(item: TodoistItem, options: { timeZone?: string 
     deleted: item.is_deleted === true,
     priority: priority === 2 || priority === 3 || priority === 4 ? priority : 1,
     labels: Array.isArray(item.labels) ? item.labels.filter((l): l is string => typeof l === "string") : [],
+    assigneeId: str(item.responsible_uid),
     completedAt: str(item.completed_at),
     updatedAt: str(item.updated_at),
     url: str(item.url) ?? `https://app.todoist.com/app/task/${encodeURIComponent(id)}`,
@@ -339,13 +341,15 @@ function dueFor(day: string, current: ExternalTask | null | undefined): Record<s
  */
 export const todoistCommand = {
   add(
-    fields: TaskFields,
+    fields: SyncedTaskFields,
     options: CommandOptions & { tempId: string; listId?: string | null; sectionId?: string | null; parentId?: string | null },
   ): TodoistCommand[] {
     const next = uuids(options.uuid);
     const args: Record<string, unknown> = { content: fields.title.trim() };
     if (fields.notes.trim()) args["description"] = fields.notes.trim();
     if (fields.dueDay) args["due"] = { date: fields.dueDay };
+    if (fields.labels?.length) args["labels"] = normalizeLabels(fields.labels);
+    if (fields.priority && fields.priority !== 1) args["priority"] = fields.priority;
     if (options.listId) args["project_id"] = options.listId;
     if (options.sectionId) args["section_id"] = options.sectionId;
     if (options.parentId) args["parent_id"] = options.parentId;
@@ -356,7 +360,7 @@ export const todoistCommand = {
 
   update(
     id: string,
-    changes: Partial<TaskFields>,
+    changes: Partial<SyncedTaskFields>,
     options: CommandOptions & { current?: ExternalTask | null } = {},
   ): TodoistCommand[] {
     const next = uuids(options.uuid);
@@ -365,6 +369,9 @@ export const todoistCommand = {
     if (changes.notes !== undefined) args["description"] = changes.notes.trim();
     if (changes.dueDay !== undefined && !options.current?.recurring)
       args["due"] = changes.dueDay ? dueFor(changes.dueDay, options.current) : null;
+    // Labels are sent whole: Todoist replaces the task's list with this one.
+    if (changes.labels !== undefined) args["labels"] = normalizeLabels(changes.labels);
+    if (changes.priority !== undefined) args["priority"] = changes.priority;
     const out: TodoistCommand[] = [];
     if (Object.keys(args).length) out.push({ type: "item_update", uuid: next(), args: { id, ...args } });
     if (changes.done === true) out.push({ type: "item_close", uuid: next(), args: { id } });
@@ -456,3 +463,34 @@ export async function runTodoistCommands(
   }
   return { status, tempIds };
 }
+
+/** Which outside tasks a sync takes in. @stability Beta */
+export interface TaskScope {
+  /** Lists (projects) a task must be in; absent or empty for any. */
+  lists?: readonly string[] | undefined;
+  /** Labels a task must carry, compared without case; absent or empty for any. */
+  labels?: readonly string[] | undefined;
+  /** `any` (the default) or `all` of `labels`. */
+  labelsMode?: "any" | "all" | undefined;
+  /** Only tasks assigned to this user, or to nobody (a task in a personal project has no assignee). */
+  assignedTo?: string | undefined;
+}
+
+/**
+ * Whether an outside task is in a sync's scope: in one of its lists, with its labels, and (in a
+ * shared project) assigned to the person or to nobody.
+ *
+ * @stability Beta
+ */
+export function matchesScope(task: ExternalTask, scope: TaskScope): boolean {
+  if (scope.lists?.length && (!task.listId || !scope.lists.includes(task.listId))) return false;
+  if (scope.labels?.length) {
+    const have = new Set(task.labels.map((l) => l.trim().toLowerCase()));
+    const want = scope.labels.map((l) => l.trim().toLowerCase()).filter(Boolean);
+    const ok = scope.labelsMode === "all" ? want.every((l) => have.has(l)) : want.some((l) => have.has(l));
+    if (!ok) return false;
+  }
+  if (scope.assignedTo && task.assigneeId && task.assigneeId !== scope.assignedTo) return false;
+  return true;
+}
+

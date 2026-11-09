@@ -733,7 +733,7 @@ export const features = defineFeatures({
   },
   "task-sync-layer": {
     name: "Task sync layer",
-    summary: "@marktiderman/genesis-tasks: a person's tasks kept equal with an outside list, both ways. TaskFields (title, notes, due day, done; priority, labels, due times and recurrence stay the list's); mergeTask (three-way, field by field, against the last agreed state; a field both sides changed goes to the later change or prefer); Todoist's adapter: syncTodoist (full, then incremental with the sync token, fixed due times on their zone's clock), getTodoistTask, todoistCommand builders and runTodoistCommands (100 per request, uuids Todoist runs once, temp ids mapped across batches, a result per command, repeating tasks' dates left to Todoist), readTodoistWebhook (HMAC on the raw body), typed errors with retryability. No storage, no OAuth (genesis-connect's todoistProvider), no React.",
+    summary: "@marktiderman/genesis-tasks: a person's tasks kept equal with an outside list, both ways. TaskFields (title, notes, due day, done; priority, labels, due times and recurrence stay the list's); mergeTask (three-way, field by field, against the last agreed state; a field both sides changed goes to the later change or prefer; labels as a set and priority when asked for); matchesScope (lists, labels any/all, assignee); Todoist's adapter: syncTodoist (full, then incremental with the sync token, fixed due times on their zone's clock), getTodoistTask, todoistCommand builders and runTodoistCommands (100 per request, uuids Todoist runs once, temp ids mapped across batches, a result per command, repeating tasks' dates left to Todoist), readTodoistWebhook (HMAC on the raw body), typed errors with retryability. No storage, no OAuth (genesis-connect's todoistProvider), no React.",
     category: "Integrations",
     status: "building",
     claimedBy: "claude/peaceful-planck-wwrzpq",
@@ -747,6 +747,7 @@ export const features = defineFeatures({
     visibility: "internal",
     acceptance: [
       "mergeTask keeps an edit made on each side to different fields, and writes nothing when both sides agree.",
+      "A label added on each side keeps both, and one removed on either side goes.",
       "A command sent again with the same uuid is safe to retry, and a temp id from an earlier batch is sent as its real id.",
       "todoistCommand.update never writes a due day to a repeating task, and keeps a task's time of day when its day changes.",
       "readTodoistWebhook refuses a delivery whose signature isn't the HMAC of its exact body, and no error holds the access token.",

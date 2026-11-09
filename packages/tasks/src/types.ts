@@ -18,6 +18,36 @@ export interface TaskFields {
   done: boolean;
 }
 
+/**
+ * Fields a sync can keep equal too, when the app opts in (`mergeTask`'s `fields`): labels (names,
+ * compared without case) and priority (1 normal to 4 most urgent, Todoist's API scale).
+ * @stability Beta
+ */
+export interface ExtraTaskFields {
+  labels: string[];
+  priority: 1 | 2 | 3 | 4;
+}
+
+/** The shared fields plus any extra ones a sync opted into. @stability Beta */
+export type SyncedTaskFields = TaskFields & Partial<ExtraTaskFields>;
+
+/** Every field `mergeTask` can merge. @stability Beta */
+export type SyncedFieldName = keyof TaskFields | keyof ExtraTaskFields;
+
+/** Labels as a sync compares them: trimmed, without empties, one of each regardless of case (the first spelling kept). @stability Beta */
+export function normalizeLabels(labels: readonly string[] | null | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of labels ?? []) {
+    const label = String(raw).trim();
+    const key = label.toLowerCase();
+    if (!label || seen.has(key)) continue;
+    seen.add(key);
+    out.push(label);
+  }
+  return out;
+}
+
 /** The keys of `TaskFields`, in a fixed order. @stability Beta */
 export const TASK_FIELDS = ["title", "notes", "dueDay", "done"] as const satisfies readonly (keyof TaskFields)[];
 
@@ -44,6 +74,8 @@ export interface ExternalTask extends TaskFields {
   /** 1 (normal) to 4 (most urgent), Todoist's API scale. */
   priority: 1 | 2 | 3 | 4;
   labels: string[];
+  /** Who the task is assigned to in a shared project (the provider's user id), or null. */
+  assigneeId: string | null;
   /** When it was completed (ISO 8601), when it is done. */
   completedAt: string | null;
   /** When it last changed at the provider (ISO 8601), when the provider says. */
