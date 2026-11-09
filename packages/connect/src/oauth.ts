@@ -1301,7 +1301,7 @@ export function createConnector<D extends StateData = StateData>(
             log({ step: "refresh", result: "usage", detail: "grant without onRotate" });
             throw new ConnectError(
               "usage",
-              `accessToken with a shared grant needs onRotate to store the ${provider.id} refresh token it may rotate`,
+              `accessToken with a shared grant needs onRotate, for every provider: it stores the ${provider.id} refresh token if it rotates`,
             );
           }
           const at = now();
@@ -1677,9 +1677,15 @@ export function createConnector<D extends StateData = StateData>(
       const grant = options.grant;
       if (!grant) return;
       // And the copy other instances read, or the next accessToken would hand the refused one back.
-      if (grant.clearAccessToken) await grant.clearAccessToken();
-      else if (grant.writeAccessToken)
-        await grant.writeAccessToken(await config.secrets.seal("", `${aad}:access`), 0);
+      // Never thrown (as writeAccessToken's failures aren't): a 401 handler's retry goes on, and
+      // the next refresh writes a fresh token over the stale one anyway.
+      try {
+        if (grant.clearAccessToken) await grant.clearAccessToken();
+        else if (grant.writeAccessToken)
+          await grant.writeAccessToken(await config.secrets.seal("", `${aad}:access`), 0);
+      } catch {
+        log({ step: "refresh", result: "failed", detail: "clearing the shared access token threw" });
+      }
     },
 
     async revoke(sealedRefreshToken, aad, options = {}) {

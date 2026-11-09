@@ -285,7 +285,7 @@ const token = await connector.accessToken(row.refresh_token, aad, {
 When the provider refuses an access token (a 401), call `forget(sealed, aad, { grant })`: it drops
 this process's copy and the shared one (`clearAccessToken` when the grant has it, otherwise an
 expired token through `writeAccessToken`), so the next `accessToken` refreshes. With a grant,
-`onRotate` is required and checked before any refresh, and `refresh` refuses `grant` (it would
+`onRotate` is required for every provider (rotating or not) and checked before any refresh, and `refresh` refuses `grant` (it would
 trade the token outside the lock). On more than one instance, call a rotating provider only
 through `accessToken` with `grant`. A provider with `rotatesRefreshTokens` (Todoist) logs a refresh
 answered without a new refresh token: usually the same token was traded twice.
