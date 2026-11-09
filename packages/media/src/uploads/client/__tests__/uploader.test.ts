@@ -53,7 +53,7 @@ describe("createUploader", () => {
 
   it("resumes after the tab closed: a new uploader with the same store sends only what's missing", async () => {
     const s = setup();
-    const resumeStore = createMemoryResumeStore();
+    const resumeStore = createMemoryResumeStore(s.now); // the test server's clock, so a session never reads as expired on a later real date
     const bytes = bytesOf(10);
     const source = () => fromBytes(bytes, "a.bin:10:1");
     // One part at a time, so exactly part 1 lands before the network goes.
@@ -91,7 +91,7 @@ describe("createUploader", () => {
   it("never makes a wrong copy: a resumed session holding other bytes for a part is dropped, and a new one sends the file", async () => {
     const s = setup();
     const bytes = bytesOf(10);
-    const resumeStore = createMemoryResumeStore();
+    const resumeStore = createMemoryResumeStore(s.now); // the test server's clock, so a session never reads as expired on a later real date
     const created = await (await s.alice.create({ name: "a", contentType: "a/b", size: 10, sha256: await sha256Hex(bytes), purpose: "media" })).json() as { uploadId: string };
     // An earlier run (a changed file) left other bytes for part 1; the client trusts the server's part list.
     await s.alice.part(created.uploadId, 1, bytesOf(4, 77));
