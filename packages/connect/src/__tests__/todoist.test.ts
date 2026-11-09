@@ -43,7 +43,7 @@ function setup(handler: (call: Call) => Response | Promise<Response>) {
       stored.push(account);
     },
   });
-  return { connector, secrets, calls, stored, tick: (ms: number) => (clock += ms) };
+  return { connector, secrets, calls, stored, now: () => clock, tick: (ms: number) => (clock += ms) };
 }
 
 const granted = (extra: Record<string, unknown> = {}) =>
@@ -225,6 +225,8 @@ describe("accessToken with a shared grant", () => {
         throw new Error("the second instance must not refresh");
       }) as unknown as typeof fetch,
       store: () => undefined,
+      // The test's clock, not the wall's: the stored token's expiry is on it.
+      now: t.now,
     });
     await first;
     clearAccessTokenCache();
