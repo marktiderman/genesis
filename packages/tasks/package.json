@@ -54,7 +54,7 @@
   },
   "devDependencies": {
     "@marktiderman/genesis-core": "workspace:^",
-    "@types/node": "^22",
+    "@types/node": "^26",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^5.0.5"

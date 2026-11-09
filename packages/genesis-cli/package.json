@@ -94,7 +94,7 @@
     "@expo/config-plugins": "^55.0.11",
     "@expo/config-types": "^55.0.6",
     "@marktiderman/genesis-core": "workspace:^",
-    "@types/node": "^22.9.0",
+    "@types/node": "^26.6.6",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vite": "^8.2.4",
