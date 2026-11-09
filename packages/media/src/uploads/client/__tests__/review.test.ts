@@ -13,7 +13,7 @@ const waitFor = async (check: () => boolean) => {
 describe("2. a remembered session is trusted only when it is still this upload", () => {
   it("asked for more targets than the remembered session has: a new session, with every copy", async () => {
     const s = setup();
-    const resumeStore = createMemoryResumeStore();
+    const resumeStore = createMemoryResumeStore(s.now); // the test server's clock, so a session never reads as expired on a later real date
     const bytes = bytesOf(10);
     const first = client(s, { resumeStore, hook: async (m, p, i, f) => (m === "PUT" ? Promise.reject(new TypeError("network down")) : f()) });
     await first.uploader.upload(fromBytes(bytes, "k"), { name: "a", contentType: "a/b", purpose: "media", targets: ["working"] }).done.catch(() => {});
@@ -66,7 +66,7 @@ describe("3. cancel stops requests in flight and back-off waits", () => {
 describe("4. a changed file under the same key", () => {
   it("identity_mismatch: the bad session is aborted and a new one sends the file", async () => {
     const s = setup();
-    const resumeStore = createMemoryResumeStore();
+    const resumeStore = createMemoryResumeStore(s.now); // the test server's clock, so a session never reads as expired on a later real date
     const v1 = bytesOf(12, 1);
     const v2 = bytesOf(12, 2);
     // The first run sends every part of v1 and dies before finalize.
