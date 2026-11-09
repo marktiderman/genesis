@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 715 components · 4420 other exports · 3677 standalone types across 200 entry points in 30 packages.
+**Totals:** 715 components · 4438 other exports · 3702 standalone types across 202 entry points in 31 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1156,11 +1156,11 @@ export type { Visibility };
 
 ## @marktiderman/genesis-connect
 
-Connect an outside account, server side: encrypted secrets with key versioning (AES-256-GCM, HKDF per purpose, a keyring with rotation) and an OAuth connector kit (authorization code with PKCE, a signed state, the verifier in a cookie, a pinned callback origin) on Web Request and Response, with Google built in. fetch and WebCrypto only, no dependencies: Node 20+, edge and Workers. Part of the Genesis framework.
+Connect an outside account, server side: encrypted secrets with key versioning (AES-256-GCM, HKDF per purpose, a keyring with rotation) and an OAuth connector kit (authorization code with PKCE, a signed state, the verifier in a cookie, a pinned callback origin) on Web Request and Response, with Google and Todoist built in, and HMAC webhook checks. fetch and WebCrypto only, no dependencies: Node 20+, edge and Workers. Part of the Genesis framework.
 
 **Barrel:** [`packages/connect/src/index.ts`](../packages/connect/src/index.ts)
 
-### Other exports (17)
+### Other exports (20)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1183,8 +1183,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`sealWithKey`](../packages/connect/src/secrets.ts) | function | — | Seals with one derived key in the single-key format, `v1.<iv>.<ciphertext>`. Kept for genesis-forms' `sealSecret`; new code uses `createSecrets`, whose `v2.` form names its key so the key can be rotated. |
 | [`SecretError`](../packages/connect/src/secrets.ts) | class | — | A failure whose message is safe to log: never a key, a plaintext or a ciphertext. |
 | [`secretKeyBytes`](../packages/connect/src/secrets.ts) | function | — | The 32 key bytes from base64 or base64url text (as `openssl rand -base64 32` prints), or the bytes themselves. |
+| [`TODOIST_SCOPES`](../packages/connect/src/providers.ts) | const | — | Todoist's scopes. Prefer the narrowest: `dataReadWrite` covers reading and changing tasks. |
+| [`todoistProvider`](../packages/connect/src/providers.ts) | const | — | Todoist's OAuth 2.0 endpoints (https://developer.todoist.com/api/v1/#tag/Authorization). |
+| [`verifyWebhookSignature`](../packages/connect/src/webhooks.ts) | function | — | Whether `signature` is the HMAC of `payload` under `secret`. False for a missing, malformed or wrong signature, and for an empty secret; never throws for those. Compared in constant time. |
 
-### Types (23)
+### Types (25)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1206,12 +1209,14 @@ export type { Salt };
 export type { SecretErrorCode };
 export type { Secrets };
 export type { SecretsOptions };
+export type { SharedGrant };
 export type { StartOptions };
 export type { StartResult };
 export type { StateData };
 export type { StoreResult };
 export type { TokenCallOptions };
 export type { WebCryptoKey };
+export type { WebhookSignatureOptions };
 ```
 
 ---
@@ -1249,6 +1254,28 @@ export type { SecretErrorCode };
 export type { Secrets };
 export type { SecretsOptions };
 export type { WebCryptoKey };
+```
+
+---
+
+## @marktiderman/genesis-connect/webhooks
+
+**Barrel:** [`packages/connect/src/webhooks.ts`](../packages/connect/src/webhooks.ts)
+
+### Other exports (1)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`verifyWebhookSignature`](../packages/connect/src/webhooks.ts) | function | — | Whether `signature` is the HMAC of `payload` under `secret`. False for a missing, malformed or wrong signature, and for an empty secret; never throws for those. Compared in constant time. |
+
+### Types (1)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { WebhookSignatureOptions };
 ```
 
 ---
@@ -10450,6 +10477,64 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`createSwitchboardProvider`](../packages/switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
+
+---
+
+## @marktiderman/genesis-tasks
+
+The task sync layer: a person's tasks kept equal with an outside list. The shared fields, a three-way merge that never loses an edit, and Todoist's adapter: incremental sync with its sync token, batched commands with idempotent uuids, temp ids and per-command results, and checked webhooks. Pure TypeScript, no storage, no OAuth (genesis-connect's todoistProvider), no React. Part of the Genesis framework.
+
+**Barrel:** [`packages/tasks/src/index.ts`](../packages/tasks/src/index.ts)
+
+### Other exports (14)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`fromTodoistItem`](../packages/tasks/src/todoist.ts) | function | Beta | A Todoist task as an `ExternalTask`, or null when it has no id. A floating due date (`2026-11-10` or `2026-11-10T09:00:00`) is the owner's day as written; one fixed to a zone (`…Z` with `timezone`) is read on that zone's clock (or `timeZ... |
+| [`getTodoistTask`](../packages/tasks/src/todoist.ts) | function | Beta | One task, read on its own: for a task you hold a link to that a full read didn't include (done or deleted). Null when Todoist no longer has it. |
+| [`isTodoistError`](../packages/tasks/src/todoist.ts) | const | Beta | _(no summary)_ |
+| [`matchesScope`](../packages/tasks/src/todoist.ts) | function | Beta | Whether an outside task is in a sync's scope: in one of its lists, with its labels, and (in a shared project) assigned to the person or to nobody. |
+| [`mergeTask`](../packages/tasks/src/merge.ts) | function | Beta | Merges the app's task and the outside task against their base, field by field. |
+| [`normalizeLabels`](../packages/tasks/src/types.ts) | function | Beta | Labels as a sync compares them: trimmed, without empties, one of each regardless of case (the first spelling kept). @stability Beta |
+| [`normalizeTaskFields`](../packages/tasks/src/types.ts) | function | Beta | Normalizes the shared fields, so equal tasks compare equal. @stability Beta |
+| [`readTodoistWebhook`](../packages/tasks/src/webhook.ts) | function | Beta | Checks a Todoist webhook delivery's signature against the app's client secret and reads it. Reads the request's body; answer 200 quickly (Todoist redelivers anything else). |
+| [`runTodoistCommands`](../packages/tasks/src/todoist.ts) | function | Beta | Sends commands, at most 100 per request, in order, and reports each one. A request that fails as a whole throws a `TodoistError` whose `partial` holds what the requests before it did (their statuses and the real ids of tasks they added).... |
+| [`syncTodoist`](../packages/tasks/src/todoist.ts) | function | Beta | Reads Todoist: everything active the first time, then only what changed since `syncToken`. Due dates fixed to a zone are read on the account's zone when the task has none of its own. |
+| [`TASK_FIELDS`](../packages/tasks/src/types.ts) | const | Beta | The keys of `TaskFields`, in a fixed order. @stability Beta |
+| [`TODOIST_MAX_COMMANDS`](../packages/tasks/src/todoist.ts) | const | — | Todoist runs at most 100 commands per request. |
+| [`todoistCommand`](../packages/tasks/src/todoist.ts) | const | Beta | Builds Todoist sync commands from the shared fields. Each returns the commands to send, in order. |
+| [`TodoistError`](../packages/tasks/src/todoist.ts) | class | Beta | A Todoist call that failed, with why. Its message never holds the token. @stability Beta |
+
+### Types (22)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { CommandOptions };
+export type { ExternalList };
+export type { ExternalTask };
+export type { ExtraTaskFields };
+export type { MergeTaskInput };
+export type { MergeTaskResult };
+export type { SyncedFieldName };
+export type { SyncedTaskFields };
+export type { TaskFields };
+export type { TaskScope };
+export type { TodoistCallOptions };
+export type { TodoistCommand };
+export type { TodoistCommandStatus };
+export type { TodoistCommandsResult };
+export type { TodoistDue };
+export type { TodoistErrorCode };
+export type { TodoistItem };
+export type { TodoistSyncOptions };
+export type { TodoistSyncResult };
+export type { TodoistUser };
+export type { TodoistWebhookEvent };
+export type { TodoistWebhookResult };
+```
 
 ---
 
