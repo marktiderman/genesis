@@ -1,0 +1,25 @@
+.changeset/upload-tests-test-clock.md
+  s_28c953bc2876be::t_b8c7ddf8fa33de 1-4
+packages/media/src/uploads/client/__tests__/followups.test.ts
+  s_28c953bc2876be::t_226f4030bc2f2c 57,87
+packages/media/src/uploads/client/__tests__/review.test.ts
+  s_28c953bc2876be::t_817ad1f0eb0e4e 16,69
+packages/media/src/uploads/client/__tests__/uploader.test.ts
+  s_28c953bc2876be::t_a7c9eb3186cdda 56,94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5de14673c3442a5f2f8ba7f33ba39f9367595398",
+  "prompts": {},
+  "sessions": {
+    "s_28c953bc2876be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "06e6a01e-e2ce-4a9f-818c-8bcd9a8d65c6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
