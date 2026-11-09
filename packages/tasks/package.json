@@ -1,0 +1,93 @@
+{
+  "name": "@marktiderman/genesis-tasks",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "The task sync layer: a person's tasks kept equal with an outside list. The shared fields, a three-way merge that never loses an edit, and Todoist's adapter: incremental sync with its sync token, batched commands with idempotent uuids, temp ids and per-command results, and checked webhooks. Pure TypeScript, no storage, no OAuth (genesis-connect's todoistProvider), no React. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "tasks",
+    "todoist",
+    "two-way sync",
+    "integrations"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/tasks#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/tasks"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-core": "workspace:>=2.7.0 <3.0.0"
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
+    "@types/node": "^22",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "genesis": {
+    "layer": "primitive",
+    "group": "data",
+    "owner": "@marktiderman",
+    "doctor": {
+      "prefer": [
+        {
+          "id": "task-sync-uses-genesis-tasks",
+          "need": "syncing tasks with Todoist (or another outside task list)",
+          "level": "warn",
+          "exclude": [
+            "**/*.test.*",
+            "**/*.spec.*",
+            "**/__fixtures__/**"
+          ],
+          "forbid": {
+            "imports": [
+              "@doist/todoist-api-typescript",
+              "todoist",
+              "todoist-rest-api"
+            ],
+            "pattern": "api\\.todoist\\.com/(api/v1|rest/v2|sync/v9)"
+          },
+          "use": "syncTodoist and runTodoistCommands with todoistCommand, readTodoistWebhook for deliveries, mergeTask for a two-way sync",
+          "import": "@marktiderman/genesis-tasks",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/tasks/README.md",
+          "why": "Todoist's sync token, active-only full reads, command uuids and temp ids, recurring due dates and signed, redelivered webhooks are each easy to get wrong, and a two-way sync that compares only two sides loses edits."
+        }
+      ]
+    }
+  }
+}
