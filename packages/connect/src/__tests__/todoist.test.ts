@@ -288,3 +288,22 @@ describe("verifyWebhookSignature", () => {
     );
   });
 });
+
+describe("forget and rotation warnings", () => {
+  it("forget drops this process's cached access token, so the next call refreshes", async () => {
+    let n = 0;
+    const t = setup((call) =>
+      call.body.get("grant_type") === "refresh_token"
+        ? Response.json({ access_token: `access-${++n + 1}`, expires_in: 3600, refresh_token: "refresh-1" })
+        : granted(),
+    );
+    await connect(t);
+    const account = t.stored[0]!;
+    const onRotate = vi.fn();
+    expect(await t.connector.accessToken(account.sealedRefreshToken, account.aad, { onRotate })).toBe("access-2");
+    expect(await t.connector.accessToken(account.sealedRefreshToken, account.aad, { onRotate })).toBe("access-2");
+    await t.connector.forget(account.sealedRefreshToken, account.aad);
+    expect(await t.connector.accessToken(account.sealedRefreshToken, account.aad, { onRotate })).toBe("access-3");
+  });
+});
+

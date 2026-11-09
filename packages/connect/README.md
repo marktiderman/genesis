@@ -282,6 +282,10 @@ const token = await connector.accessToken(row.refresh_token, aad, {
 });
 ```
 
+When the provider refuses an access token (a 401), call `forget(sealed, aad)` so this process
+stops using its cached copy. A provider with `rotatesRefreshTokens` (Todoist) logs a refresh
+answered without a new refresh token: usually the same token was traded twice.
+
 An access token another instance stored is used while it has more than a minute left. Otherwise
 the refresh runs inside `lock`, from `current()`, and the rotated token goes to `onRotate` before
 the lock is let go. The new access token is sealed (to `<aad>:access`) for `writeAccessToken`.

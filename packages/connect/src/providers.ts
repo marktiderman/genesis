@@ -37,6 +37,12 @@ export interface OAuthProvider {
    * Default `tokenAuth`.
    */
   readonly revokeAuth?: "client_secret_post" | "client_secret_basic" | undefined;
+  /**
+   * The provider sends a new refresh token on every refresh (Todoist). A refresh answered without
+   * one is then logged: it usually means the same token was traded twice within the provider's
+   * grace window, and the stored token may be the used one.
+   */
+  readonly rotatesRefreshTokens?: boolean | undefined;
   /** How the provider joins scopes. Default a space (RFC 6749). */
   readonly scopeSeparator?: string | undefined;
   /**
@@ -118,6 +124,7 @@ export const todoistProvider: OAuthProvider = {
   tokenAuth: "client_secret_post",
   revokeWithClientAuth: true,
   revokeAuth: "client_secret_basic",
+  rotatesRefreshTokens: true,
   // Todoist joins scopes with commas, asked for and granted.
   scopeSeparator: ",",
 };

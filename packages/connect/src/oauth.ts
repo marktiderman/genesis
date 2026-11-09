@@ -487,6 +487,12 @@ export interface Connector<D extends StateData = StateData> {
     options?: TokenCallOptions,
   ): Promise<RefreshedToken>;
   /**
+   * Forgets this grant's cached access token in this process, so the next `accessToken` refreshes
+   * (or reads the shared one): for an access token the provider refused (a 401). Doesn't touch
+   * the provider.
+   */
+  forget(sealedRefreshToken: string, aad: string): Promise<void>;
+  /**
    * Revokes the grant at the provider and forgets its cached access token.
    * True when it is gone (revoked now, or already); false when the provider
    * could not be reached or has no revocation endpoint. Some providers
@@ -1162,6 +1168,12 @@ export function createConnector<D extends StateData = StateData>(
       body["refresh_token"] !== refreshToken
         ? body["refresh_token"]
         : undefined;
+    if (!rotated && provider.rotatesRefreshTokens)
+      log({
+        step: "refresh",
+        result: "failed",
+        detail: "a rotating provider sent no new refresh token (traded twice?)",
+      });
     const sealedRefreshToken = rotated
       ? await config.secrets.seal(rotated, aad)
       : undefined;
@@ -1626,6 +1638,11 @@ export function createConnector<D extends StateData = StateData>(
       const fresh = await flight;
       await handOver(fresh, options, true);
       return fresh.accessToken;
+    },
+
+    async forget(sealedRefreshToken, aad) {
+      const refreshToken = await config.secrets.open(sealedRefreshToken, aad);
+      tokenCache.delete(await cacheKey(refreshToken));
     },
 
     async revoke(sealedRefreshToken, aad, options = {}) {
