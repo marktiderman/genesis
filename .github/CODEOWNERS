@@ -30,5 +30,6 @@
 /packages/supabase/ @marktiderman
 /packages/support/ @marktiderman
 /packages/switchboard/ @marktiderman
+/packages/tasks/ @marktiderman
 /packages/ui/ @marktiderman
 /packages/ui-native/ @marktiderman
