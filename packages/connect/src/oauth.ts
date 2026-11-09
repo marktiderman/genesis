@@ -1677,8 +1677,9 @@ export function createConnector<D extends StateData = StateData>(
       const grant = options.grant;
       if (!grant) return;
       // And the copy other instances read, or the next accessToken would hand the refused one back.
-      // Never thrown (as writeAccessToken's failures aren't): a 401 handler's retry goes on, and
-      // the next refresh writes a fresh token over the stale one anyway.
+      // Logged, never thrown (as writeAccessToken's failures aren't), so a 401 handler's retry
+      // goes on. If it fails, the refused token stays in the shared store and other instances may
+      // use it until it expires (at most an hour); the log line says so.
       try {
         if (grant.clearAccessToken) await grant.clearAccessToken();
         else if (grant.writeAccessToken)
