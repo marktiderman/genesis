@@ -289,20 +289,20 @@ describe("readTodoistWebhook", () => {
 });
 
 describe("labels and priority", () => {
-  const withExtra = (over: Record<string, unknown> = {}) => ({ ...fields(), labels: ["growth90"], priority: 1 as const, ...over });
+  const withExtra = (over: Record<string, unknown> = {}) => ({ ...fields(), labels: ["acme"], priority: 1 as const, ...over });
   const both = ["title", "notes", "dueDay", "done", "labels", "priority"] as const;
 
   it("merges labels as a set: a label added on each side keeps both, one removed on either side goes", () => {
-    const base = withExtra({ labels: ["growth90", "health"] });
+    const base = withExtra({ labels: ["acme", "health"] });
     const result = mergeTask({
       base,
-      local: withExtra({ labels: ["growth90", "health", "Coaching"] }),
-      remote: withExtra({ labels: ["growth90", "errands"] }),
+      local: withExtra({ labels: ["acme", "health", "Coaching"] }),
+      remote: withExtra({ labels: ["acme", "errands"] }),
       fields: both,
     });
-    expect(result.fields.labels).toEqual(["growth90", "Coaching", "errands"]);
-    expect(result.toLocal.labels).toEqual(["growth90", "Coaching", "errands"]);
-    expect(result.toRemote.labels).toEqual(["growth90", "Coaching", "errands"]);
+    expect(result.fields.labels).toEqual(["acme", "Coaching", "errands"]);
+    expect(result.toLocal.labels).toEqual(["acme", "Coaching", "errands"]);
+    expect(result.toRemote.labels).toEqual(["acme", "Coaching", "errands"]);
   });
 
   it("compares labels without case, and ignores them unless asked", () => {
@@ -317,8 +317,8 @@ describe("labels and priority", () => {
   });
 
   it("writes labels whole and priority in commands", () => {
-    expect(todoistCommand.update("9", { labels: ["growth90", " Coaching "], priority: 3 })[0]!.args).toEqual({ id: "9", labels: ["growth90", "Coaching"], priority: 3 });
-    expect(todoistCommand.add({ ...fields(), labels: ["growth90"], priority: 4 }, { tempId: "t" })[0]!.args).toMatchObject({ labels: ["growth90"], priority: 4 });
+    expect(todoistCommand.update("9", { labels: ["acme", " Coaching "], priority: 3 })[0]!.args).toEqual({ id: "9", labels: ["acme", "Coaching"], priority: 3 });
+    expect(todoistCommand.add({ ...fields(), labels: ["acme"], priority: 4 }, { tempId: "t" })[0]!.args).toMatchObject({ labels: ["acme"], priority: 4 });
   });
 });
 
