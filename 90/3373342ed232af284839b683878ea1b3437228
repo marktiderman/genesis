@@ -1,0 +1,19 @@
+docs/adr/0016-content-types-and-the-app-map.md
+  s_18dd9cee35b819::t_e53aba55a37803 1-217
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "903373342ed232af284839b683878ea1b3437228",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
