@@ -59,13 +59,18 @@ await state.save({ syncToken: read.syncToken });
   when Todoist has none) before removing your copy.
 - **Command uuids make writes safe to retry.** Todoist runs a uuid once. Derive it from your own
   row (an outbox id) and send the same commands again after a timeout or a 5xx; a builder that
-  makes several commands suffixes it (`:1`, `:2`). Each command's result is in `status`, by uuid:
+  makes several commands keeps it for the first and suffixes the rest (`:0`, `:1`, …). Each command's result is in `status`, by uuid:
   a `retryable: false` failure (a 400, `ITEM_NOT_FOUND`) won't go better on a retry.
+- **A request that fails part-way** throws a `TodoistError` whose `partial` holds what the earlier
+  requests did, including the real ids of tasks they added. Retry with the same commands and
+  `tempIds: error.partial.tempIds`.
 - **Temp ids.** `todoistCommand.add` names the new task by `tempId`; later commands in the same
   call may use it, across batches too, and `tempIds` maps it to the real id.
 - **Repeating tasks.** Completing one moves its due day on, and it stays open. `update` never
   writes `dueDay` to a repeating task (Todoist owns its schedule), and `done: true` closes this
-  occurrence. The next sync brings the new due day back.
+  occurrence. The next sync brings the new due day back. So for a repeating task, store the base's
+  `dueDay` (and a reopen) as Todoist holds them, not as the merge wrote them: `update` dropped them,
+  and a base that says otherwise would undo the edit on the next merge.
 - **A due time is kept.** A new `dueDay` keeps the time of day (and zone) the task had, given
   `current`. A due time fixed to a zone is read on that zone's clock (`dueDay`, `dueTime`).
 - **Limits.** 1000 partial and 100 full syncs per person per 15 minutes; `rate_limited` errors

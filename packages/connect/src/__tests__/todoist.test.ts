@@ -246,6 +246,40 @@ describe("accessToken with a shared grant", () => {
       t.connector.accessToken(account.sealedRefreshToken, account.aad, { grant: db.grant }),
     ).rejects.toMatchObject({ code: "usage" });
     expect(db.events).toEqual(["lock", "current", "unlock"]);
+    // Refused before the refresh, so the stored token is still the one Todoist expects.
+    expect(t.calls.filter((c) => c.body.get("grant_type") === "refresh_token")).toHaveLength(0);
+    // Without a grant too.
+    await expect(t.connector.accessToken(account.sealedRefreshToken, account.aad)).rejects.toMatchObject({ code: "usage" });
+    expect(t.calls.filter((c) => c.body.get("grant_type") === "refresh_token")).toHaveLength(0);
+  });
+
+  it("refresh refuses grant: it would refresh outside the lock", async () => {
+    const t = setup(() => granted());
+    await connect(t);
+    const account = t.stored[0]!;
+    const db = store(account.sealedRefreshToken);
+    await expect(
+      t.connector.refresh(account.sealedRefreshToken, account.aad, { grant: db.grant, onRotate: db.onRotate }),
+    ).rejects.toMatchObject({ code: "usage" });
+    expect(t.calls.filter((c) => c.body.get("grant_type") === "refresh_token")).toHaveLength(0);
+  });
+
+  it("forget with the grant drops the shared copy too, so a refused token isn't handed back", async () => {
+    let n = 0;
+    const t = setup((call) =>
+      call.body.get("grant_type") === "refresh_token"
+        ? Response.json({ access_token: `access-${++n + 1}`, expires_in: 3600, refresh_token: `refresh-${n + 1}` })
+        : granted(),
+    );
+    await connect(t);
+    const account = t.stored[0]!;
+    const db = store(account.sealedRefreshToken);
+    const options = { grant: db.grant, onRotate: db.onRotate };
+    expect(await t.connector.accessToken(account.sealedRefreshToken, account.aad, options)).toBe("access-2");
+    // Todoist refuses access-2 (a 401): forget it here and in the shared row.
+    await t.connector.forget(db.row.sealed, account.aad, { grant: db.grant });
+    expect(await t.connector.accessToken(db.row.sealed, account.aad, options)).toBe("access-3");
+    expect(t.calls.filter((c) => c.body.get("grant_type") === "refresh_token")).toHaveLength(2);
   });
 });
 

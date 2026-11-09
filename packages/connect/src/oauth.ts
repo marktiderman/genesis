@@ -457,6 +457,11 @@ export interface SharedGrant {
   readAccessToken?(): Promise<{ sealed: string; expiresAt: number } | null>;
   /** Stores the new access token, sealed to `<aad>:access`, and its expiry, for other instances. A failure is logged, never thrown. */
   writeAccessToken?(sealed: string, expiresAt: number): Promise<void>;
+  /**
+   * Drops the stored access token, so the next `accessToken` refreshes: called by `forget` with
+   * this grant. Without it, `forget` stores an already-expired one through `writeAccessToken`.
+   */
+  clearAccessToken?(): Promise<void>;
 }
 
 export interface Connector<D extends StateData = StateData> {
@@ -487,11 +492,12 @@ export interface Connector<D extends StateData = StateData> {
     options?: TokenCallOptions,
   ): Promise<RefreshedToken>;
   /**
-   * Forgets this grant's cached access token in this process, so the next `accessToken` refreshes
-   * (or reads the shared one): for an access token the provider refused (a 401). Doesn't touch
-   * the provider.
+   * Forgets this grant's cached access token, so the next `accessToken` refreshes: for an access
+   * token the provider refused (a 401). With `grant`, the shared copy goes too (`clearAccessToken`,
+   * or an expired one through `writeAccessToken`); without it, only this process's cache. Doesn't
+   * touch the provider.
    */
-  forget(sealedRefreshToken: string, aad: string): Promise<void>;
+  forget(sealedRefreshToken: string, aad: string, options?: { grant?: SharedGrant | undefined }): Promise<void>;
   /**
    * Revokes the grant at the provider and forgets its cached access token.
    * True when it is gone (revoked now, or already); false when the provider
@@ -1289,6 +1295,15 @@ export function createConnector<D extends StateData = StateData>(
           const again = await storedAccessToken(grant, aad);
           if (again) return again;
           const latest = await config.secrets.open(await grant.current(), aad);
+          // Checked before the refresh, not after: a rotating provider has already spent the old
+          // token by then, and a token that can't be stored would leave the grant to be revoked.
+          if (!options.onRotate) {
+            log({ step: "refresh", result: "usage", detail: "grant without onRotate" });
+            throw new ConnectError(
+              "usage",
+              `accessToken with a shared grant needs onRotate to store the ${provider.id} refresh token it may rotate`,
+            );
+          }
           const at = now();
           const fresh = await refreshWith(latest, aad, options.signal);
           await cacheToken(latest, fresh, at);
@@ -1611,6 +1626,11 @@ export function createConnector<D extends StateData = StateData>(
     },
 
     async refresh(sealedRefreshToken, aad, options = {}) {
+      if (options.grant)
+        throw new ConnectError(
+          "usage",
+          "refresh doesn't take grant (it would refresh outside the lock): use accessToken with grant",
+        );
       const refreshToken = await config.secrets.open(sealedRefreshToken, aad);
       const fresh = await refreshWith(refreshToken, aad, options.signal);
       await handOver(fresh, options, false);
@@ -1623,6 +1643,11 @@ export function createConnector<D extends StateData = StateData>(
       const hit = tokenCache.get(key);
       if (hit && hit.expiresAt - 60_000 > now()) return hit.token;
       if (options.grant) return sharedAccessToken(refreshToken, key, aad, options, options.grant);
+      if (provider.rotatesRefreshTokens && !options.onRotate)
+        throw new ConnectError(
+          "usage",
+          `${provider.id} rotates refresh tokens: accessToken needs onRotate (and, on more than one instance, grant)`,
+        );
       let flight = inFlight.get(key);
       if (!flight) {
         const at = now();
@@ -1640,9 +1665,21 @@ export function createConnector<D extends StateData = StateData>(
       return fresh.accessToken;
     },
 
-    async forget(sealedRefreshToken, aad) {
+    async forget(sealedRefreshToken, aad, options = {}) {
       const refreshToken = await config.secrets.open(sealedRefreshToken, aad);
-      tokenCache.delete(await cacheKey(refreshToken));
+      const key = await cacheKey(refreshToken);
+      // The refused access token may be cached under more than one key (the old refresh token's
+      // and the rotated one's): drop every entry holding it.
+      const refused = tokenCache.get(key)?.token;
+      tokenCache.delete(key);
+      if (refused !== undefined)
+        for (const [k, entry] of tokenCache) if (entry.token === refused) tokenCache.delete(k);
+      const grant = options.grant;
+      if (!grant) return;
+      // And the copy other instances read, or the next accessToken would hand the refused one back.
+      if (grant.clearAccessToken) await grant.clearAccessToken();
+      else if (grant.writeAccessToken)
+        await grant.writeAccessToken(await config.secrets.seal("", `${aad}:access`), 0);
     },
 
     async revoke(sealedRefreshToken, aad, options = {}) {

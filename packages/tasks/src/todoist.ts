@@ -40,6 +40,12 @@ export class TodoistError extends Error {
   readonly tag: string | null;
   readonly retryAfterSeconds: number | null;
   readonly retryable: boolean;
+  /**
+   * From `runTodoistCommands`, when a later request failed: what the requests before it did
+   * (each command's status, and the real ids of tasks they added). Pass `tempIds` back in on the
+   * retry, so commands naming those temp ids still resolve.
+   */
+  partial?: TodoistCommandsResult;
   constructor(code: TodoistErrorCode, status: number | null, tag: string | null = null, retryAfterSeconds: number | null = null) {
     super(`Todoist: ${code}${status ? ` (${status})` : ""}${tag ? ` ${tag}` : ""}`);
     this.name = "TodoistError";
@@ -174,7 +180,9 @@ export function fromTodoistItem(item: TodoistItem, options: { timeZone?: string 
         const wall = wallTimeIn(zone, at);
         dueDay = wall.day;
         dueTime = wall.time.slice(0, 5);
-        dueTimeZone = isTimeZone(item.due?.timezone) ? item.due!.timezone! : null;
+        // A due time fixed to a zone stays fixed: the zone it was read in goes back with any
+        // new day, so it is never rewritten as a floating time.
+        dueTimeZone = zone;
       }
     } else {
       const day = date.slice(0, 10);
@@ -307,7 +315,8 @@ export interface TodoistCommand {
 export interface CommandOptions {
   /**
    * The command's uuid. Pass one derived from your own row (an outbox id), so a retry of the
-   * same change sends the same uuid; a builder that makes several commands suffixes it (`:1`, `:2`).
+   * same change sends the same uuid; a builder that makes several commands keeps it for the first
+   * and suffixes the rest (`:0`, `:1`, …).
    * Default a random one.
    */
   uuid?: string | undefined;
@@ -418,17 +427,23 @@ export interface TodoistCommandsResult {
 
 /**
  * Sends commands, at most 100 per request, in order, and reports each one. A request that fails
- * as a whole throws a `TodoistError`: the batches before it ran, and sending the same commands
- * again (same uuids) is safe, since Todoist runs a uuid once. Commands that name a `temp_id`
- * from an earlier batch are rewritten to its real id.
+ * as a whole throws a `TodoistError` whose `partial` holds what the requests before it did (their
+ * statuses and the real ids of tasks they added). Sending the same commands again (same uuids)
+ * is safe, since Todoist runs a uuid once; pass `partial.tempIds` as `tempIds` so commands that
+ * name an earlier batch's `temp_id` still resolve. Commands that name a `temp_id` from an earlier
+ * batch are rewritten to its real id.
  *
  * @stability Beta
  */
 export async function runTodoistCommands(
-  options: TodoistCallOptions & { commands: readonly TodoistCommand[] },
+  options: TodoistCallOptions & {
+    commands: readonly TodoistCommand[];
+    /** Temp ids already resolved, from an earlier attempt's `partial.tempIds`. */
+    tempIds?: Readonly<Record<string, string>> | undefined;
+  },
 ): Promise<TodoistCommandsResult> {
   const status: Record<string, TodoistCommandStatus> = {};
-  const tempIds: Record<string, string> = {};
+  const tempIds: Record<string, string> = { ...options.tempIds };
   const resolve = (value: unknown) => (typeof value === "string" && tempIds[value] ? tempIds[value] : value);
   for (let i = 0; i < options.commands.length; i += TODOIST_MAX_COMMANDS) {
     const batch = options.commands.slice(i, i + TODOIST_MAX_COMMANDS).map((c) => ({
@@ -437,10 +452,18 @@ export async function runTodoistCommands(
         Object.entries(c.args).map(([k, v]) => [k, k === "id" || k.endsWith("_id") ? resolve(v) : v]),
       ),
     }));
-    const body = (await call(options, "/sync", {
-      method: "POST",
-      form: { commands: JSON.stringify(batch) },
-    })) as Record<string, unknown>;
+    let body: Record<string, unknown>;
+    try {
+      body = (await call(options, "/sync", {
+        method: "POST",
+        form: { commands: JSON.stringify(batch) },
+      })) as Record<string, unknown>;
+    } catch (error) {
+      // Keep what the requests before this one did: the real ids of tasks they added are known
+      // nowhere else.
+      if (isTodoistError(error)) error.partial = { status: { ...status }, tempIds: { ...tempIds } };
+      throw error;
+    }
     const mapping = (body["temp_id_mapping"] ?? {}) as Record<string, unknown>;
     for (const [temp, real] of Object.entries(mapping)) if (typeof real === "string") tempIds[temp] = real;
     const results = (body["sync_status"] ?? {}) as Record<string, unknown>;

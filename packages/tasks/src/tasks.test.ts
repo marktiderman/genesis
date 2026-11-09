@@ -57,6 +57,15 @@ describe("fromTodoistItem", () => {
     expect(fromTodoistItem({ content: "no id" })).toBeNull();
   });
 
+  it("keeps a fixed due time fixed when Todoist sends no zone: it is read, and written back, in UTC", () => {
+    const task = fromTodoistItem({ id: "4", content: "D", due: { date: "2026-11-10T09:00:00Z" } })!;
+    expect(task).toMatchObject({ dueDay: "2026-11-10", dueTime: "09:00", dueTimeZone: "UTC" });
+    expect(todoistCommand.update("4", { dueDay: "2026-11-12" }, { current: task })[0]!.args["due"]).toEqual({
+      date: "2026-11-12T09:00:00",
+      timezone: "UTC",
+    });
+  });
+
   it("keeps done, deleted, recurring, priority and labels as Todoist says", () => {
     expect(
       fromTodoistItem({
@@ -197,6 +206,32 @@ describe("runTodoistCommands", () => {
     expect(result.status["a"]).toEqual({ ok: true });
     expect(result.status["gone"]).toEqual({ ok: false, tag: "ITEM_NOT_FOUND", status: 404, retryable: false });
   });
+
+  it("a later request that fails keeps what the earlier ones did, and a retry resolves their temp ids", async () => {
+    let n = 0;
+    const t = fake((body) => {
+      n++;
+      if (n === 2) return new Response(null, { status: 503 });
+      const commands = JSON.parse(body.get("commands")!) as TodoistCommand[];
+      return Response.json({
+        sync_status: Object.fromEntries(commands.map((c) => [c.uuid, "ok"])),
+        temp_id_mapping: Object.fromEntries(commands.filter((c) => c.temp_id).map((c) => [c.temp_id!, `real-${c.temp_id}`])),
+      });
+    });
+    const commands: TodoistCommand[] = [
+      ...todoistCommand.add(fields(), { tempId: "t0", uuid: "a" }),
+      ...Array.from({ length: 99 }, (_, i) => todoistCommand.update(`id-${i}`, { title: `T${i}` }, { uuid: `u${i}` })[0]!),
+      ...todoistCommand.update("t0", { done: true }, { uuid: "close" }),
+    ];
+    const error = (await runTodoistCommands({ accessToken: TOKEN, commands, fetch: t.fetch }).catch((e: unknown) => e)) as TodoistError;
+    expect(error).toBeInstanceOf(TodoistError);
+    expect(error.partial?.tempIds).toEqual({ t0: "real-t0" });
+    expect(error.partial?.status["a"]).toEqual({ ok: true });
+    // The retry sends only what's left; the temp id from the first attempt still resolves.
+    const retry = await runTodoistCommands({ accessToken: TOKEN, commands: commands.slice(100), tempIds: error.partial!.tempIds, fetch: t.fetch });
+    expect(JSON.parse(t.calls[2]!.body.get("commands")!)[0].args.id).toBe("real-t0");
+    expect(retry.status["close"]).toEqual({ ok: true });
+  });
 });
 
 describe("mergeTask", () => {
@@ -286,6 +321,24 @@ describe("readTodoistWebhook", () => {
     expect(await readTodoistWebhook(request(notEvent, sign(notEvent)), { clientSecret: SECRET })).toEqual({ ok: false, status: 400 });
     expect(await readTodoistWebhook(request("not json", sign("not json")), { clientSecret: SECRET })).toEqual({ ok: false, status: 400 });
   });
+
+  it("stops reading a body past the cap even without a content-length", async () => {
+    let pulled = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled++;
+        controller.enqueue(new Uint8Array(64 * 1024));
+      },
+    });
+    const huge = new Request("https://app.example.com/api/connect/todoist/webhook", {
+      method: "POST",
+      body: stream,
+      headers: { "x-todoist-hmac-sha256": "x" },
+      duplex: "half",
+    } as RequestInit);
+    expect(await readTodoistWebhook(huge, { clientSecret: SECRET })).toEqual({ ok: false, status: 400 });
+    expect(pulled).toBeLessThan(100);
+  });
 });
 
 describe("labels and priority", () => {
@@ -303,6 +356,14 @@ describe("labels and priority", () => {
     expect(result.fields.labels).toEqual(["acme", "Coaching", "errands"]);
     expect(result.toLocal.labels).toEqual(["acme", "Coaching", "errands"]);
     expect(result.toRemote.labels).toEqual(["acme", "Coaching", "errands"]);
+  });
+
+  it("leaves labels alone when one side doesn't carry them, rather than removing them all", () => {
+    const base = withExtra({ labels: ["acme", "health"] });
+    const local = { ...fields(), priority: 1 as const };
+    const result = mergeTask({ base, local, remote: withExtra({ labels: ["acme", "health"] }), fields: [...both] });
+    expect(result.toRemote.labels).toBeUndefined();
+    expect(result.toLocal.labels).toBeUndefined();
   });
 
   it("compares labels without case, and ignores them unless asked", () => {

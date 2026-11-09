@@ -70,8 +70,8 @@ export async function readTodoistWebhook(
 ): Promise<TodoistWebhookResult> {
   const length = Number(request.headers.get("content-length"));
   if (Number.isFinite(length) && length > MAX_BYTES) return { ok: false, status: 400 };
-  const body = await request.text().catch(() => null);
-  if (body === null || body.length > MAX_BYTES) return { ok: false, status: 400 };
+  const body = await readCapped(request, MAX_BYTES);
+  if (body === null) return { ok: false, status: 400 };
   const signed = await signatureMatches(options.clientSecret, body, request.headers.get("x-todoist-hmac-sha256"));
   if (!signed) return { ok: false, status: 401 };
   let value: unknown;
@@ -98,4 +98,33 @@ export async function readTodoistWebhook(
       task: name.startsWith("item:") && data && typeof data === "object" ? fromTodoistItem(data as TodoistItem) : null,
     },
   };
+}
+
+/** The body as text, or null when it can't be read or passes `max` bytes (stops reading there). */
+async function readCapped(request: Request, max: number): Promise<string | null> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > max) {
+        await reader.cancel().catch(() => undefined);
+        return null;
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return null;
+  }
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    all.set(c, at);
+    at += c.byteLength;
+  }
+  return new TextDecoder().decode(all);
 }

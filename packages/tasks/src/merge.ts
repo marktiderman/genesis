@@ -104,8 +104,11 @@ export function mergeTask(input: MergeTaskInput): MergeTaskResult {
 
   for (const key of names) {
     if (key === "labels") {
-      const lv = local.labels ?? [];
-      const rv = remote.labels ?? [];
+      // A side that doesn't carry labels says nothing about them: merging it as an empty list
+      // would remove every label the other side has.
+      if (local.labels === undefined || remote.labels === undefined) continue;
+      const lv = local.labels;
+      const rv = remote.labels;
       if (sameSet(lv, rv)) continue;
       const merged = mergeLabels(base ? (base.labels ?? []) : null, lv, rv);
       fields.labels = merged;
