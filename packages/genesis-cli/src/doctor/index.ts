@@ -185,6 +185,9 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   if (options.base && configFile) {
     const before = configAtBase(root, options.base, options.configPath !== undefined ? configFile : undefined);
     if (before && before !== "absent") baseExtend = before.extend;
+    // No doctor settings at the base (adopting the doctor): nothing to compare allow and rules with,
+    // but every extension is new, and the review sees each.
+    if (before === "absent") raw.push(...extensionsAdded(config.extend ?? [], [], options.base));
     if (before && before !== "absent") {
       raw.push(...allowGrew(config.allow ?? [], before.allow, options.base));
       raw.push(...rulesWeakened(config, before, options.base));
@@ -231,6 +234,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     findings = applyRatchet(findings, { config, newOnly, changed, base: options.base, isAppPath, originOf, ...(snapshot && baseCounts ? { baseCounts, existedAtBase: snapshot.existed } : {}) });
   }
   findings = dedupeFindings(findings);
+  const extensionsNew = (config.extend ?? []).filter((e) => findings.some((f) => f.rule === "extension-added" && f.file === e.file && f.subject === e.rule));
   const errors = findings.filter((f) => f.level === "error").length;
   const warnings = findings.filter((f) => f.level === "warn").length;
   const infos = findings.length - errors - warnings;
@@ -245,6 +249,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     errors,
     warnings,
     infos,
+    ...(extensionsNew.length ? { extensionsAdded: extensionsNew } : {}),
   };
 }
 
@@ -378,6 +383,10 @@ export function formatReport(result: DoctorResult, options: { verbose?: boolean 
   }
   lines.push(options.verbose ? `Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}` : `Available but unused: ${result.unused.length} (genesis doctor --verbose lists them)`);
   lines.push(`Primitives: ${result.primitives.rules} rules from ${result.primitives.packages} packages; see genesis catalog`);
+  if (result.extensionsAdded?.length) {
+    lines.push(`Extensions added on this branch (${result.extensionsAdded.length}); the pull request's review accepts each:`);
+    for (const e of result.extensionsAdded) lines.push(`  ${e.file}  [${e.rule}] builds on ${e.buildsOn}: ${e.reason}${e.upstream ? ` (upstream: ${e.upstream})` : ""}`);
+  }
   const info = result.infos ? `, ${result.infos} info` : "";
   lines.push(result.ok ? `PASS (${result.warnings} warnings${info})` : `FAIL (${result.errors} errors, ${result.warnings} warnings${info})`);
   return lines.join("\n");
@@ -394,6 +403,7 @@ export function toJson(result: DoctorResult) {
     findings: result.findings,
     unused: result.unused,
     primitives: result.primitives,
+    ...(result.extensionsAdded ? { extensionsAdded: result.extensionsAdded } : {}),
   };
 }
 

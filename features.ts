@@ -1144,7 +1144,7 @@ export const features = defineFeatures({
       "A package that adds genesis.doctor rules has them enforced in every app that installs it, with no app config.",
       "A published Genesis package without a declaration fails package-doctor-declaration.",
       "With --base, a newOnly rule reports a finding at its full level only in a new file or a file whose count of that rule grew since the merge base; the rest are info.",
-      "A doctor.extend entry (rule, file, buildsOn, reason) covers that package rule's findings in that file only when buildsOn is one of the rule's declared extension points, imported from Genesis, and only up to the file's count at the merge base; extension-invalid, stale-extension and the extension-added warning report the rest, and allow-grew never counts it.",
+      "A doctor.extend entry (rule, file, buildsOn, reason) covers that package rule's findings in that file only when buildsOn is one of the rule's declared extension points, imported from Genesis and used there, and only up to the file's count at the merge base; extension-invalid and stale-extension report the rest, each new one is listed with its reason for the pull request's review, and allow-grew never counts it.",
       "Findings of different rules on the same file, line and subject are reported once, listing every rule.",
       "genesis agents writes the skill and AGENTS.md block, and agent-guide-stale warns when they drift from the installed packages.",
       "genesis agents lists each installed package's SKILL.md path in the AGENTS.md block and writes CLAUDE.md (@AGENTS.md) when the app has none.",

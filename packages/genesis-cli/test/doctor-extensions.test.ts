@@ -145,7 +145,7 @@ describe("declared extensions: in the doctor", () => {
     expect(brief(off.findings, "stale-extension")).toEqual([]);
   });
 
-  it("isn't allow-grew or rules-weakened: a new extension is an extension-added warning for the pull request's review", async () => {
+  it("isn't allow-grew or rules-weakened: a new extension is extension-added (info), listed with its reason in the summary", async () => {
     const root = makeApp(null, { ...widgets(), "src/Board.tsx": BOARD, "genesis.config.json": JSON.stringify({ doctor: { rules: { "raw-tag": "warn" } } }) });
     const git = gitIn(root);
     git("init", "-q", "-b", "main");
@@ -156,10 +156,43 @@ describe("declared extensions: in the doctor", () => {
     git("commit", "-q", "-am", "extend");
     const result = await runDoctor({ root, base: "main" });
     expect([...brief(result.findings, "allow-grew"), ...brief(result.findings, "rules-weakened"), ...brief(result.findings, "widgets/")]).toEqual([]);
-    expect(brief(result.findings, "extension-added")).toEqual(["extension-added warn src/Board.tsx:0 widgets/lists-use-widget-view"]);
+    expect(brief(result.findings, "extension-added")).toEqual(["extension-added info src/Board.tsx:0 widgets/lists-use-widget-view"]);
     expect(result.findings.find((f) => f.rule === "extension-added")!.message).toContain(REASON);
-    expect(result.ok).toBe(true);
-    expect((await runDoctor({ root, base: "main", strict: true })).ok).toBe(false);
+    expect(result.extensionsAdded?.map((e) => e.file)).toEqual(["src/Board.tsx"]);
+    expect(formatReport(result)).toMatch(/Extensions added on this branch \(1\)[^\n]*\n  src\/Board\.tsx  \[widgets\/lists-use-widget-view\] builds on useBoardColumns: The board groups/);
+    expect((await runDoctor({ root, base: "main", strict: true })).ok).toBe(true);
+  });
+
+  it("shows every extension as added when the base had no doctor settings", async () => {
+    const root = makeApp(null, { ...widgets(), "src/Board.tsx": BOARD, "genesis.config.json": JSON.stringify({ features: {} }) });
+    const git = gitIn(root);
+    git("init", "-q", "-b", "main");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    git("checkout", "-q", "-b", "work");
+    writeFileSync(path.join(root, "genesis.config.json"), JSON.stringify({ features: {}, doctor: { extend: [extension()] } }));
+    git("commit", "-q", "-am", "adopt");
+    const result = await runDoctor({ root, base: "main" });
+    expect(brief(result.findings, "extension-added")).toEqual(["extension-added info src/Board.tsx:0 widgets/lists-use-widget-view"]);
+    expect(brief(result.findings, "allow-grew")).toEqual([]);
+  });
+
+  it("requires the file to use the point, not only import it: rendered, called, or the slot passed on its element", async () => {
+    const importOnly = 'import { useBoardColumns } from "@marktiderman/genesis-ui/data";\nexport const B = () => <DataGrid />;\n';
+    const root = makeApp(null, { ...widgets(), "src/Board.tsx": importOnly });
+    const result = await runDoctor({ root, config: { extend: [extension()] } });
+    expect(result.findings.find((f) => f.rule === "extension-invalid")!.message).toContain("imports useBoardColumns but doesn't render or call it");
+    const slots = (body: string) => makeApp(null, { ...widgets(), "src/Board.tsx": `import { WidgetView } from "@marktiderman/genesis-widgets";\n${body}` });
+    const slotExt = extension({ buildsOn: "WidgetView.slots" });
+    // slots is passed, but to another element, and WidgetView is only referenced.
+    const elsewhere = await runDoctor({ root: slots('export const B = () => <><DataGrid /><Other slots={{}} /></>;\nconst W = WidgetView;\n'), config: { extend: [slotExt] } });
+    expect(elsewhere.findings.find((f) => f.rule === "extension-invalid")!.message).toContain("doesn't pass slots to <WidgetView>");
+    const files = (code: string) => [{ path: "src/Board.tsx", absolutePath: "/x/src/Board.tsx", ext: ".tsx", text: code, code }];
+    const ctx = { config: {}, packages: discoverPackages(root), raw: [] };
+    const used = 'import { WidgetView } from "@marktiderman/genesis-widgets";\nexport const B = () => <WidgetView view={v} slots={{ empty: () => null }} />;\n';
+    expect(extensionProblem(slotExt, { ...ctx, files: files(used) })).toBeNull();
+    const inString = 'import { useBoardColumns } from "@marktiderman/genesis-ui/data";\nconst s = "useBoardColumns(v)";\n';
+    expect(extensionProblem(extension(), { ...ctx, files: files(inString) })).toMatch(/doesn't render or call it/);
   });
 
   it("covers only the findings its file had when it was declared: under --base, a count above the merge base's fails", async () => {
@@ -242,6 +275,30 @@ describe("ui/records-use-record-view", () => {
     ]);
   });
 
+  it("never reads a tag in a string as an element, and counts a wrapper as a builder only when it renders its children inside BuilderLayout", async () => {
+    const root = makeApp(null, {
+      ...ui(),
+      "src/components/Fakes.tsx": [
+        'import { BuilderLayout } from "@marktiderman/genesis-ui";',
+        "export function Dead({ children }) { return <>{false && <BuilderLayout />}{children}</>; }",
+        "export function Beside({ children }) { return <><BuilderLayout />{children}</>; }",
+        "export function Real({ children }) { return <BuilderLayout>{children}</BuilderLayout>; }",
+        "",
+      ].join("\n"),
+      "src/routes/string.$id.tsx": 'const s = "<BuilderLayout>";\nexport const S = () => <DetailPage title="x" />;\n',
+      "src/routes/template.$id.tsx": "const t = `<BuilderLayout>`;\nexport const T = () => <DetailPage title=\"x\" />;\n",
+      "src/routes/dead.$id.tsx": 'import { Dead } from "@/components/Fakes";\nexport const D = () => <Dead><DetailPage title="x" /></Dead>;\n',
+      "src/routes/beside.$id.tsx": 'import { Beside } from "@/components/Fakes";\nexport const B = () => <Beside><DetailPage title="x" /></Beside>;\n',
+      "src/routes/real.$id.tsx": 'import { Real } from "@/components/Fakes";\nexport const R = () => <Real><DetailPage title="x" /></Real>;\n',
+    });
+    expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/records-use")).toEqual([
+      "ui-rules/records-use-record-view warn src/routes/beside.$id.tsx:2 DetailPage",
+      "ui-rules/records-use-record-view warn src/routes/dead.$id.tsx:2 DetailPage",
+      "ui-rules/records-use-record-view warn src/routes/string.$id.tsx:2 DetailPage",
+      "ui-rules/records-use-record-view warn src/routes/template.$id.tsx:2 DetailPage",
+    ]);
+  });
+
   it("keeps unless.renders file-wide and direct only: a screen composing a ResourceView-backed component still flags its own DataTable", async () => {
     const root = makeApp(null, {
       ...ui(),
@@ -289,7 +346,7 @@ describe("the count-based ratchet", () => {
     expect(result.findings.find((f) => f.file === "src/Old.tsx")!.message).toContain("2 widgets/lists-use-widget-view findings in this file, 1 at the merge base");
   });
 
-  it("keeps a renamed or moved file's base counts, and lets a split share its origin's", async () => {
+  it("keeps a renamed or moved file's base counts, and never lends them to a copy", async () => {
     const big = (n: number) => Array.from({ length: n }, (_, i) => `export const Row${i} = () => <span>row ${i} of a long and similar file body</span>;`).join("\n");
     // Move src/Old.tsx to src/lists/Moved.tsx with a small edit.
     const root = makeApp(null, { ...widgets(ratcheted), "src/Old.tsx": `${OLD}${big(12)}\n` });
@@ -307,7 +364,7 @@ describe("the count-based ratchet", () => {
     const result = await runDoctor({ root, config: {}, base: "main" });
     expect(brief(result.findings, "widgets/")).toEqual(["widgets/lists-use-widget-view info src/lists/Moved.tsx:2 DataTable"]);
     expect(result.findings[0]!.message).toContain("1 in the files from src/Old.tsx, 1 at the merge base");
-    // Split: the debt moves into a copy of the file and leaves the original; the total doesn't grow.
+    // A copy (here, a split that moves the debt out) is a new file: its findings are new debt.
     const splitRoot = makeApp(null, { ...widgets(ratcheted), "src/Old.tsx": `${OLD}${big(12)}\n` });
     const g = gitIn(splitRoot);
     g("init", "-q", "-b", "main");
@@ -320,7 +377,7 @@ describe("the count-based ratchet", () => {
     g("commit", "-q", "-m", "split");
     clearPackageRulesCache();
     const split = await runDoctor({ root: splitRoot, config: {}, base: "main" });
-    expect(brief(split.findings, "widgets/")).toEqual(["widgets/lists-use-widget-view info src/Part.tsx:1 DataTable"]);
+    expect(brief(split.findings, "widgets/")).toEqual(["widgets/lists-use-widget-view warn src/Part.tsx:1 DataTable"]);
   });
 
   it("keeps every level in a changed file when the base counts are unknown (git can't read the base)", () => {

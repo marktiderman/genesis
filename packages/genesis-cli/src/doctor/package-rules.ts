@@ -385,6 +385,9 @@ function messageFor(rule: ResolvedPreferRule, found: string): string {
   return `${found}; use ${rule.use}${from}. ${rule.why}${docs}`;
 }
 
+/** Where a component renders what it was given: `{children}` or `{props.children}`. */
+const CHILDREN = /\{\s*(?:props\.)?children\s*\}/g;
+
 /** A top-level declaration (at the start of a line): whether it is exported, and its name. */
 const TOP_LEVEL = /^(export\s+(default\s+)?)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([\w$]+)/gm;
 /** `export { A, B as C }` without `from`: names exported after their declaration. */
@@ -398,7 +401,7 @@ const EXPORT_DEFAULT_NAME = /^export\s+default\s+([A-Z][\w$]*)\s*;?\s*$/gm;
  * declaration runs from its line to the next top-level declaration, so a sibling export that
  * doesn't render it isn't one.
  */
-function wrappersIn(file: Pick<SourceFile, "code">, elements: RegExpMatchArray[], names: ReadonlySet<string>): Map<string, string> {
+function wrappersIn(file: Pick<SourceFile, "code">, elements: RegExpMatchArray[], names: ReadonlySet<string>, accept?: (start: number, end: number) => boolean): Map<string, string> {
   const out = new Map<string, string>();
   const decls = [...file.code.matchAll(TOP_LEVEL)];
   const listed = new Map<string, string[]>();
@@ -414,7 +417,7 @@ function wrappersIn(file: Pick<SourceFile, "code">, elements: RegExpMatchArray[]
     if (!/^[A-Z]/.test(name) || names.has(name)) return;
     const end = decls[i + 1]?.index ?? file.code.length;
     const hit = elements.find((m) => m.index! > d.index! && m.index! < end && names.has(m[1]!));
-    if (!hit) return;
+    if (!hit || (accept && !accept(d.index!, end))) return;
     const exported = [...(d[1] ? [d[2] ? "default" : name] : []), ...(listed.get(name) ?? [])];
     for (const n of exported) out.set(n, hit[1]!);
   });
@@ -446,7 +449,10 @@ function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
     if (!builders.has(abs)) {
       const target = scanned.get(abs) ?? readSource(abs);
       const code = target ? ("ext" in target ? target.code : stripBlockComments(target.code, true)) : "";
-      builders.set(abs, code ? wrappersIn({ code }, [...code.matchAll(ELEMENT)], c.unlessInside) : new Map());
+      // A builder wrapper renders what it's given inside the builder: `{children}` nested in it.
+      const childrenInside = (start: number, end: number) =>
+        [...code.slice(start, end).matchAll(CHILDREN)].some((m) => openElementsAt(code, start + m.index!, (n) => c.unlessInside.has(n)).length > 0);
+      builders.set(abs, code ? wrappersIn({ code }, [...code.matchAll(ELEMENT)], c.unlessInside, childrenInside) : new Map());
     }
     return builders.get(abs)!;
   };

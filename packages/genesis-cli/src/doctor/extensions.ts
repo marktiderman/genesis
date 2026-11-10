@@ -15,6 +15,7 @@
  * - `stale-extension` (warn): the file no longer has a finding of `rule`; remove the entry.
  */
 import { genesisNamedImports } from "./stability.js";
+import { blankStrings, tagEnd } from "./source.js";
 import { preferRules } from "./package-rules.js";
 import type { DeclaringPackage, DoctorConfig, ExtensionEntry, Finding, FindingInput, Level, SourceFile } from "./types.js";
 
@@ -53,7 +54,29 @@ export function extensionProblem(entry: ExtensionEntry, ctx: Omit<ExtensionConte
   if (!file) return `${entry.file} isn't one of the files the doctor scans`;
   const imported = genesisNamedImports(file.code).some((i) => i.names.includes(name));
   if (!imported) return `${entry.file} doesn't import ${name} from a Genesis package; buildsOn names the extension point the file uses`;
+  if (!usesPoint(blankStrings(file.code), entry.buildsOn)) {
+    const prop = entry.buildsOn.split(".")[1];
+    return prop ? `${entry.file} doesn't pass ${prop} to <${name}>; an extension point is one the file uses` : `${entry.file} imports ${name} but doesn't render or call it; an extension point is one the file uses`;
+  }
   return null;
+}
+
+const escape = (s: string) => s.replace(/[$]/g, "\\$");
+
+/**
+ * Whether code uses an extension point: `Name` rendered (`<Name`) or called (`Name(`, `Name<T>(`),
+ * or for `Name.prop`, `prop=` passed on a `<Name …>` tag. A textual check, on code with comments
+ * and strings blanked.
+ */
+export function usesPoint(code: string, point: string): boolean {
+  const [name, prop] = point.split(".") as [string, string | undefined];
+  const n = escape(name);
+  if (!prop) return new RegExp(`(?<![\\w$.])<${n}(?=[\\s>/<])|(?<![\\w$.])${n}\\s*(?:<[^>()]*>)?\\s*\\(`).test(code);
+  for (const m of code.matchAll(new RegExp(`(?<![\\w$.])<${n}(?=[\\s>/<])`, "g"))) {
+    const { end } = tagEnd(code, m.index!);
+    if (new RegExp(`(?<![\\w$.])${escape(prop)}\\s*=`).test(code.slice(m.index!, end))) return true;
+  }
+  return false;
 }
 
 /**

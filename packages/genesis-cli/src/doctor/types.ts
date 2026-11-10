@@ -311,6 +311,8 @@ export interface DoctorResult {
   warnings: number;
   /** Findings at `info`: shown, never failing. */
   infos: number;
+  /** Under `--base`: the declared extensions this branch adds, for the pull request's review (also `extension-added` findings). */
+  extensionsAdded?: ExtensionEntry[];
 }
 
 /* Package rules (package-rules.ts): what a Genesis package declares in package.json `genesis.doctor`. */

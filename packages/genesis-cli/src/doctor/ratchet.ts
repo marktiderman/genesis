@@ -9,7 +9,8 @@
  * still remove findings, ratcheted or not, and under `--base` the list only
  * shrinks (`allow-grew`); `rules` and `packageRules` only tighten
  * (`rules-weakened`). Declared extensions (`extend`) are neither: a new one is
- * reported as `info` (`extension-added`) so the pull request's review sees it.
+ * reported as `info` (`extension-added`) and listed in the summary, and the
+ * pull request's review is where it is accepted.
  */
 import { spawnSync } from "node:child_process";
 import * as path from "node:path";
@@ -39,15 +40,15 @@ export function changedSince(root: string, base: string): Set<string> | null {
 }
 
 /**
- * Where each renamed, moved or copied file came from since the merge base with `base`: new path →
- * the path it had there (git's rename and copy detection, `-M -C`), so a move keeps its counts and
- * a split shares its origin's. Empty when git can't tell.
+ * Where each renamed or moved file came from since the merge base with `base`: new path → the path
+ * it had there (git's rename detection, `-M`), so a move keeps its counts. Copies don't: a copy's
+ * findings are new debt, whatever the file it came from had. Empty when git can't tell.
  */
 export function originsSince(root: string, base: string): Map<string, string> {
   const out = new Map<string, string>();
   const mergeBase = mergeBaseOf(root, base);
   if (!mergeBase) return out;
-  const diff = git(root, ["diff", "-z", "-M", "-C", "--name-status", "--relative", mergeBase, "--"]);
+  const diff = git(root, ["diff", "-z", "-M", "--name-status", "--relative", mergeBase, "--"]);
   if (diff === null) return out;
   const parts = diff.split("\0");
   for (let i = 0; i < parts.length; ) {
@@ -56,7 +57,7 @@ export function originsSince(root: string, base: string): Map<string, string> {
     if (status.startsWith("R") || status.startsWith("C")) {
       const from = parts[i++]!;
       const to = parts[i++]!;
-      out.set(to, from);
+      if (status.startsWith("R")) out.set(to, from);
     } else i++;
   }
   return out;
@@ -141,8 +142,9 @@ export function allowGrew(allow: readonly AllowEntry[], before: readonly AllowEn
 }
 
 /**
- * `extension-added` (warn): an extension the base config didn't have. Extensions don't count
- * against `allow-grew`; this one is what the pull request's review must read and accept.
+ * `extension-added` (info): an extension the base config didn't have. Extensions don't count
+ * against `allow-grew`; the report lists each with its reason for the pull request's review,
+ * which is where it is accepted.
  */
 export function extensionsAdded(extend: readonly ExtensionEntry[], before: readonly ExtensionEntry[], base: string): FindingInput[] {
   const had = new Set(before.map((e) => `${e.rule}\0${e.file}\0${e.buildsOn}`));
@@ -150,7 +152,7 @@ export function extensionsAdded(extend: readonly ExtensionEntry[], before: reado
     .filter((e) => !had.has(`${e.rule}\0${e.file}\0${e.buildsOn}`))
     .map((e) => ({
       rule: "extension-added",
-      level: "warn",
+      level: "info",
       file: e.file,
       subject: e.rule,
       message: `extends ${e.rule} since ${base}, building on ${e.buildsOn}: "${e.reason}"${e.upstream ? ` (upstream: ${e.upstream})` : ""}; the pull request's review accepts it, and it covers only the findings the file has now`,
@@ -234,9 +236,8 @@ export function countFindings(findings: readonly Pick<Finding, "file" | "rule">[
  * changed file, when `baseCounts` (the findings per file and rule at the merge base) is given and
  * the file existed there (`existedAtBase`), unless the file now has more findings of that rule than
  * it had: a count that grew, or a new file, keeps its level. Counts are per rule and file, so
- * fixing one finding and adding another of the same rule nets out. `originOf` maps a moved or
- * copied file to its path at the merge base: a rename keeps its count, and the files split from
- * one share its count. Without `baseCounts` (git couldn't
+ * fixing one finding and adding another of the same rule nets out. `originOf` maps a renamed or
+ * moved file to its path at the merge base, so it keeps its count. Without `baseCounts` (git couldn't
  * read the base) a changed file keeps every level. `newOnly` holds the ids declared newOnly;
  * `config.ratchet` adds more. Findings about something other than a file in the app (a package,
  * the config) are left alone, since `isAppPath` says which paths are files, and so are the rules
