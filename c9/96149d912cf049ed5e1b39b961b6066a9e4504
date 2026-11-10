@@ -1,0 +1,19 @@
+packages/genesis-cli/src/doctor/extensions.ts
+  s_71340fa4c3aabd::t_39b24af6923a34 64-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c996149d912cf049ed5e1b39b961b6066a9e4504",
+  "prompts": {},
+  "sessions": {
+    "s_71340fa4c3aabd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8bbf7928-6698-43d8-8ab5-7efc64f87a57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
