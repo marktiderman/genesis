@@ -1,0 +1,20 @@
+docs/adr/0017-lists-vnext.md
+  s_71340fa4c3aabd::t_63a833ee26544d 1-200,202-437
+  s_71340fa4c3aabd::t_a6110e6b329933 201
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4d26cca384db46834e1c24b13aad4b762793abf4",
+  "prompts": {},
+  "sessions": {
+    "s_71340fa4c3aabd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8bbf7928-6698-43d8-8ab5-7efc64f87a57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
