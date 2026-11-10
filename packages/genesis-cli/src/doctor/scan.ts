@@ -69,6 +69,11 @@ export function scanFiles(root: string, config: DoctorConfig): SourceFile[] {
   return files;
 }
 
+/** The same file with other contents (as it was at the merge base, say). */
+export function withText(file: SourceFile, text: string): SourceFile {
+  return { ...file, text, code: stripBlockComments(text, LINE_COMMENT_EXTS.has(file.ext)) };
+}
+
 /** 1-based line of a character offset. */
 export function lineAt(text: string, index: number): number {
   let line = 1;

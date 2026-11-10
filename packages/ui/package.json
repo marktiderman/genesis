@@ -535,7 +535,15 @@
           "use": "a view (defineView from @marktiderman/genesis-core/resource-view) rendered by <ResourceView>",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md",
-          "why": "A list is one description of its resource: columns, filters, saved views, permissions and the phone screen come from the view, not per-screen code. ResourcePage is the escape hatch inside a component that renders ResourceView. A board over a list is the view's board block rendered by <ResourceView mode=\"board\">. A KanbanBoard is fine when the same file feeds it from useBoardColumns (rows that aren't one view's), useResourceView or useResourceTable and renders no other forbidden list (the exemption is file-wide, so a DataTable beside it flags both)."
+          "why": "A list is one description of its resource: columns, filters, saved views, permissions and the phone screen come from the view, not per-screen code. ResourcePage is the escape hatch inside a component that renders ResourceView. A board over a list is the view's board block rendered by <ResourceView mode=\"board\">. A KanbanBoard is fine when the same file feeds it from useBoardColumns (rows that aren't one view's), useResourceView or useResourceTable and renders no other forbidden list (the exemption is file-wide, so a DataTable beside it flags both).",
+          "extensible": [
+            "ResourceView.slots",
+            "ResourceView.renderDetail",
+            "ResourceView.toolbar",
+            "useResourceView",
+            "useResourceTable",
+            "useBoardColumns"
+          ]
         },
         {
           "id": "records-use-record-view",
@@ -555,22 +563,25 @@
           ],
           "forbid": {
             "jsx": [
-              "AppShellPageHeader",
-              "ResourceHeader",
               "DetailPage"
             ]
           },
           "unless": {
             "renders": [
               "RecordView",
-              "ResourceWorkspace",
+              "ResourceWorkspace"
+            ],
+            "inside": [
               "BuilderLayout"
             ]
           },
+          "extensible": [
+            "BuilderLayout"
+          ],
           "use": "a record view (defineRecordView from @marktiderman/genesis-core/resource-view) rendered by <RecordView>",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordview",
-          "why": "One record's header, actions, sections, child lists and settings come from its record view description, the same on web and phone. Builders (BuilderLayout) are exempt."
+          "why": "One record's header, actions, sections, child lists and settings come from its record view description, the same on web and phone. A page around one publishable thing (ResourceHeader in AppShellPageHeader) and what a builder renders inside BuilderLayout (directly or inside an app component around it) are fine."
         },
         {
           "id": "overlays-fit-the-phone",

@@ -24,6 +24,11 @@ export interface Finding {
    * An `allow` entry's `match` is compared against it.
    */
   subject?: string;
+  /**
+   * Every rule that reported this finding, when more than one did (an app rule and a package rule
+   * on the same element of the same line): reported once, with `rule` the first of them.
+   */
+  rules?: string[];
 }
 
 /** What a rule or plugin passes to `report`. `level` defaults to `"error"`. */
@@ -46,6 +51,28 @@ export interface AllowEntry {
   reason: string;
 }
 
+/**
+ * A declared extension (`doctor.extend`): a file that builds on one of a package rule's declared
+ * extension points (`extensible`) in a way the rule doesn't recognize, and says why. Unlike
+ * `allow`, it is not debt: it never expires, and `allow-grew` doesn't count it; a new one is a
+ * warning (`extension-added`) for the pull request's review. It covers the findings the file had
+ * when it was declared: under `--base`, a count above the merge base's still fails. The doctor
+ * checks that `file` still has a finding of `rule` (`stale-extension`), and that `buildsOn` is one
+ * of the rule's points, imported from a Genesis package, and flagged by nothing (`extension-invalid`).
+ */
+export interface ExtensionEntry {
+  /** The rule whose findings in `file` it covers. */
+  rule: string;
+  /** One app-relative file (no globs: each file is reviewed on its own). */
+  file: string;
+  /** The rule's extension point the file builds on: one of the rule's `extensible` entries (`useBoardColumns`, `ResourceView.slots`). */
+  buildsOn: string;
+  /** Why the rule's primitive doesn't fit here: a sentence a reviewer can check. */
+  reason: string;
+  /** Where the gap is written up for Genesis, when it is one (an issue or proposal link). */
+  upstream?: string;
+}
+
 /** A declarative check: which files it covers and the pattern they must (not) contain. */
 export interface PatternRule {
   id: string;
@@ -61,7 +88,7 @@ export interface PatternRule {
   /** Regular expression every matching file's path must fit. */
   path?: string;
   message?: string;
-  /** Under `--base`, findings in files unchanged since the merge base drop to `info`. */
+  /** Under `--base`, findings drop to `info` unless they are in a new file or their count in a file grew since the merge base. */
   newOnly?: boolean;
 }
 
@@ -170,8 +197,9 @@ export interface DoctorConfig {
    */
   packageRules?: Record<string, PackageRuleSetting>;
   /**
-   * With `--base`, findings in files unchanged since the merge base drop to `info`, so new
-   * code meets the rule and old code is ratcheted. `true` for every rule, or a list of rule ids.
+   * With `--base`, a rule's findings drop to `info` unless they are in a new file or a file
+   * now has more of them than at the merge base, so new code meets the rule and old code is
+   * ratcheted. `true` for every rule, or a list of rule ids.
    * Rules declared `newOnly` (package rules, app patterns) ratchet without this.
    */
   ratchet?: boolean | string[];
@@ -179,8 +207,10 @@ export interface DoctorConfig {
   contracts?: ContractsConfig;
   /** Per-rule level overrides, e.g. `{ "raw-color": "warn", "palette-color": "off" }`. `info` never fails a run. */
   rules?: Record<string, RuleSetting>;
-  /** Justified exceptions. */
+  /** Justified exceptions: debt, which only shrinks under `--base`. */
   allow?: AllowEntry[];
+  /** Declared extensions: files that build on Genesis in a way a rule doesn't recognize, reviewed, never expiring. */
+  extend?: ExtensionEntry[];
   /** Declarative app rules. */
   patterns?: PatternRule[];
   /** A markdown file of pattern rules (`### rule-id` blocks of `- key: value` lines). */
@@ -281,6 +311,8 @@ export interface DoctorResult {
   warnings: number;
   /** Findings at `info`: shown, never failing. */
   infos: number;
+  /** Under `--base`: the declared extensions this branch adds, for the pull request's review (also `extension-added` findings). */
+  extensionsAdded?: ExtensionEntry[];
 }
 
 /* Package rules (package-rules.ts): what a Genesis package declares in package.json `genesis.doctor`. */
@@ -311,6 +343,11 @@ export interface PreferRule {
   unless?: {
     /** The file renders one of these elements. */
     renders?: string[];
+    /**
+     * Not the whole file: a forbidden element nested inside one of these elements, or inside an app
+     * component the file imports whose own body renders one, is left alone (a builder's own panels).
+     */
+    inside?: string[];
     /** The file contains this regular expression. */
     pattern?: string;
   };
@@ -322,8 +359,14 @@ export interface PreferRule {
   docs?: string;
   /** Why, in a sentence. */
   why: string;
-  /** Under `--base`, findings in files unchanged since the merge base drop to `info`. */
+  /** Under `--base`, findings drop to `info` unless they are in a new file or their count in a file grew since the merge base. */
   newOnly?: boolean;
+  /**
+   * The Genesis exports (or parts of one: `ResourceView.slots`) an app may build on in a way the
+   * rule doesn't recognize, and declare as an extension (`doctor.extend`). A rule without them
+   * can't be extended.
+   */
+  extensible?: string[];
 }
 
 /** A catalog entry with no rule behind it. */

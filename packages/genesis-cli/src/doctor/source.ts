@@ -77,8 +77,44 @@ export function viaOneImport(
   });
 }
 
+/**
+ * The code with the contents of string and template literals blanked (same length, newlines kept),
+ * so a tag written in a string (`"<BuilderLayout>"`) isn't read as one. A quote starts a literal only
+ * after an operator, bracket or keyword-like position, so an apostrophe in JSX text (`Don't`) doesn't.
+ * A light scan, not a parser, for code whose comments are already blanked.
+ */
+let lastBlanked: { source: string; blanked: string } | null = null;
+
+export function blankStrings(code: string): string {
+  if (lastBlanked?.source === code) return lastBlanked.blanked;
+  const out = code.split("");
+  for (let i = 0; i < code.length; i++) {
+    const ch = code[i]!;
+    if (ch !== '"' && ch !== "'" && ch !== "`") continue;
+    let j = i - 1;
+    while (j >= 0 && /[ \t]/.test(code[j]!)) j--;
+    const before = j >= 0 ? code[j]! : "\n";
+    const word = /[\w$]/.test(before) ? /(?:^|[^\w$])(return|case|typeof|in|of|yield|await)$/.test(code.slice(Math.max(0, j - 8), j + 1)) : false;
+    if (/[\w$)\]]/.test(before) && !word) continue;
+    let k = i + 1;
+    for (; k < code.length; k++) {
+      const c = code[k]!;
+      if (c === "\\") {
+        k++;
+        continue;
+      }
+      if (c === ch) break;
+      if (c === "\n" && ch !== "`") break;
+    }
+    for (let x = i + 1; x < k && x < code.length; x++) if (code[x] !== "\n") out[x] = " ";
+    i = k;
+  }
+  lastBlanked = { source: code, blanked: out.join("") };
+  return lastBlanked.blanked;
+}
+
 /** Index just past the `>` that ends the JSX tag opening at `start` (the `<`), and whether it self-closes. */
-function tagEnd(code: string, start: number): { end: number; selfClosing: boolean } {
+export function tagEnd(code: string, start: number): { end: number; selfClosing: boolean } {
   let depth = 0;
   let quote: string | null = null;
   for (let i = start + 1; i < code.length; i++) {
@@ -105,7 +141,9 @@ function tagEnd(code: string, start: number): { end: number; selfClosing: boolea
  * accepts. Self-closing tags and closed ones don't count. A light scan, not a
  * parser: good enough to tell a page-level element from one inside a card.
  */
-export function openElementsAt(code: string, index: number, track: (name: string) => boolean): string[] {
+export function openElementsAt(source: string, index: number, track: (name: string) => boolean): string[] {
+  // Tags written in strings and template literals aren't elements.
+  const code = blankStrings(source);
   const open: string[] = [];
   const re = /<(\/?)([A-Z][\w.]*)(?=[\s>/])/g;
   for (let m = re.exec(code); m && m.index < index; m = re.exec(code)) {
