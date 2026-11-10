@@ -1,0 +1,47 @@
+.changeset/doctor-declared-extensions.md
+  s_71340fa4c3aabd::t_83ce8cb65b51d5 8,10-11
+features.json
+  s_71340fa4c3aabd::t_c7a8316291be51 2599
+features.ts
+  s_71340fa4c3aabd::t_e1cadd4cfd1307 1147
+packages/genesis-cli/README.md
+  s_71340fa4c3aabd::t_064acb0ed4610a 836,1051,1111-1112,1171-1174,1181-1182
+packages/genesis-cli/src/doctor/extensions.ts
+  s_71340fa4c3aabd::t_9fc221e93383f9 18,57-60,64-81
+packages/genesis-cli/src/doctor/index.ts
+  s_71340fa4c3aabd::t_74b49464c12d28 188-190,237,252,386-389,406
+packages/genesis-cli/src/doctor/package-rules.ts
+  s_71340fa4c3aabd::t_9739fff0b52697 388-390,404,420,452-455
+packages/genesis-cli/src/doctor/ratchet.ts
+  s_71340fa4c3aabd::t_83a5c570643b43 12-13,43-45,51,60,145-147,155,239-240
+packages/genesis-cli/src/doctor/source.ts
+  s_40aa1b13d28222::t_3dca4eaf9e88fd 80-115,117,144-146
+packages/genesis-cli/src/doctor/types.ts
+  s_71340fa4c3aabd::t_5b846c78fa521b 314-315
+packages/genesis-cli/test/doctor-extensions.test.ts
+  s_71340fa4c3aabd::t_0649fc795d3181 148,159,161-195,278-301,349,367,380
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "da64c5f630550d41cda1f83ea1cacb63932bbb3e",
+  "prompts": {},
+  "sessions": {
+    "s_40aa1b13d28222": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "101b23e6-76d3-4ba7-a884-effb20edf7ef",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_71340fa4c3aabd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8bbf7928-6698-43d8-8ab5-7efc64f87a57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
