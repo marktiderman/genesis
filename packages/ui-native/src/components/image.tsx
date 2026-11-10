@@ -5,7 +5,10 @@
  * `GenesisModulesProvider`): cached in memory and on disk, an optional
  * blurhash/thumbhash `placeholder`, a cross-fade that Reduce Motion turns
  * off, and a `recyclingKey` (the URL by default) so a recycled FlashList row
- * never flashes the previous picture. Without it, React Native's `Image`.
+ * never flashes the previous picture. A `cacheKey` caches the picture under a
+ * stable key instead of its URL, for signed URLs that rotate (a new expiry or
+ * signature would otherwise miss the disk cache and download it again).
+ * Without it, React Native's `Image`.
  *
  * Give it a size (className or `width`/`height`). Decorative unless `alt` is
  * given.
@@ -28,7 +31,13 @@ export interface NativeImageProps {
   contentFit?: "cover" | "contain";
   /** expo-image only: `{ blurhash }` or `{ thumbhash }` shown while loading. */
   placeholder?: { blurhash: string } | { thumbhash: string };
-  /** expo-image only: resets the view when it changes (recycled rows). Default `src`. */
+  /**
+   * expo-image only: caches the picture under this key instead of its URL, so a signed URL
+   * that rotates (a new expiry or signature for the same file) still hits the memory and disk
+   * cache. Use a key that names the file, such as its storage path or id.
+   */
+  cacheKey?: string;
+  /** expo-image only: resets the view when it changes (recycled rows). Default `cacheKey`, then `src`. */
   recyclingKey?: string;
   /** expo-image only: load order among images. */
   priority?: "low" | "normal" | "high";
@@ -47,6 +56,7 @@ export function NativeImage({
   height,
   contentFit = "cover",
   placeholder,
+  cacheKey,
   recyclingKey,
   priority,
   onError,
@@ -68,14 +78,15 @@ export function NativeImage({
         <ExpoImage
           testID={testID ? `${testID}-image` : undefined}
           accessible={false}
-          source={{ uri: src }}
+          source={cacheKey ? { uri: src, cacheKey } : { uri: src }}
           style={FILL}
           contentFit={contentFit}
           cachePolicy="memory-disk"
           placeholder={placeholder}
           placeholderContentFit={contentFit}
           transition={reducedMotion ? null : 150}
-          recyclingKey={recyclingKey ?? src}
+          // A rotated URL for the same picture keeps the view, so it doesn't flash.
+          recyclingKey={recyclingKey ?? cacheKey ?? src}
           priority={priority}
           onError={onError}
         />

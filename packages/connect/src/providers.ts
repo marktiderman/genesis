@@ -31,6 +31,18 @@ export interface OAuthProvider {
   readonly tokenAuth?: "client_secret_post" | "client_secret_basic" | undefined;
   /** Whether the revocation request also carries the client's credentials. Default false. */
   readonly revokeWithClientAuth?: boolean | undefined;
+  /**
+   * How the client authenticates at the revocation endpoint, when it differs from the token
+   * endpoint (Todoist takes the secret in the token request's body but HTTP Basic on a revoke).
+   * Default `tokenAuth`.
+   */
+  readonly revokeAuth?: "client_secret_post" | "client_secret_basic" | undefined;
+  /**
+   * The provider sends a new refresh token on every refresh (Todoist). A refresh answered without
+   * one is then logged: it usually means the same token was traded twice within the provider's
+   * grace window, and the stored token may be the used one.
+   */
+  readonly rotatesRefreshTokens?: boolean | undefined;
   /** How the provider joins scopes. Default a space (RFC 6749). */
   readonly scopeSeparator?: string | undefined;
   /**
@@ -89,4 +101,44 @@ export const GOOGLE_SCOPES = {
   calendarReadonly: "https://www.googleapis.com/auth/calendar.readonly",
   /** Send mail as the person. */
   gmailSend: "https://www.googleapis.com/auth/gmail.send",
+} as const;
+
+/**
+ * Todoist's OAuth 2.0 endpoints (https://developer.todoist.com/api/v1/#tag/Authorization).
+ *
+ * An app made in Todoist's App Management Console since 2026 gets refresh tokens: access tokens
+ * last an hour and every refresh rotates the refresh token. A used refresh token sent again more
+ * than 60 seconds later revokes every token the person gave the app, so a server that runs on
+ * more than one instance passes `grant` to `accessToken` (one refresh at a time, from the
+ * grant's current token). Older apps get a ten-year access token and no refresh token, which
+ * this kit doesn't keep: make a new app. Todoist has no OpenID Connect, so there is no
+ * `identity`: read the account from `/api/v1/sync` (`user`) with the access token in `store`.
+ * Revocation is RFC 7009 with HTTP Basic client auth.
+ */
+export const todoistProvider: OAuthProvider = {
+  id: "todoist",
+  authorizeUrl: "https://app.todoist.com/oauth/authorize",
+  tokenUrl: "https://api.todoist.com/oauth/access_token",
+  revokeUrl: "https://api.todoist.com/api/v1/revoke",
+  defaultScopes: ["data:read_write"],
+  tokenAuth: "client_secret_post",
+  revokeWithClientAuth: true,
+  revokeAuth: "client_secret_basic",
+  rotatesRefreshTokens: true,
+  // Todoist joins scopes with commas, asked for and granted.
+  scopeSeparator: ",",
+};
+
+/** Todoist's scopes. Prefer the narrowest: `dataReadWrite` covers reading and changing tasks. */
+export const TODOIST_SCOPES = {
+  /** Add tasks, and nothing else (no reading). */
+  taskAdd: "task:add",
+  /** Read everything: tasks, projects, labels, comments. */
+  dataRead: "data:read",
+  /** Read and change tasks, projects, labels and comments. Deleting needs `dataDelete` too. */
+  dataReadWrite: "data:read_write",
+  /** Delete tasks, labels and filters. */
+  dataDelete: "data:delete",
+  /** Delete projects. */
+  projectDelete: "project:delete",
 } as const;

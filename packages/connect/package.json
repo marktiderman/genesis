@@ -1,10 +1,10 @@
 {
   "name": "@marktiderman/genesis-connect",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Connect an outside account, server side: encrypted secrets with key versioning (AES-256-GCM, HKDF per purpose, a keyring with rotation) and an OAuth connector kit (authorization code with PKCE, a signed state, the verifier in a cookie, a pinned callback origin) on Web Request and Response, with Google built in. fetch and WebCrypto only, no dependencies: Node 20+, edge and Workers. Part of the Genesis framework.",
+  "description": "Connect an outside account, server side: encrypted secrets with key versioning (AES-256-GCM, HKDF per purpose, a keyring with rotation) and an OAuth connector kit (authorization code with PKCE, a signed state, the verifier in a cookie, a pinned callback origin) on Web Request and Response, with Google and Todoist built in, and HMAC webhook checks. fetch and WebCrypto only, no dependencies: Node 20+, edge and Workers. Part of the Genesis framework.",
   "keywords": [
     "genesis",
     "genesis-framework",
@@ -50,6 +50,16 @@
       "require": {
         "types": "./dist/secrets.d.cts",
         "default": "./dist/secrets.cjs"
+      }
+    },
+    "./webhooks": {
+      "import": {
+        "types": "./dist/webhooks.d.ts",
+        "default": "./dist/webhooks.js"
+      },
+      "require": {
+        "types": "./dist/webhooks.d.cts",
+        "default": "./dist/webhooks.cjs"
       }
     }
   },

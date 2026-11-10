@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07",
+  "generatedAt": "2026-11-10",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -2697,6 +2697,13 @@
               "description": ""
             },
             {
+              "name": "cacheKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native only: caches the picture under this key instead of `src` (`NativeImage`'s\n`cacheKey`), for signed URLs that rotate. The web grid ignores it."
+            },
+            {
               "name": "caption",
               "type": "string",
               "required": false,
@@ -3097,7 +3104,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/image.tsx",
       "stability": "beta",
-      "summary": "NativeImage — a remote picture (thumbnail, cover, photo) with caching.\n\nDraws with expo-image when the app passes it (`modules.image` on\n`GenesisModulesProvider`): cached in memory and on disk, an optional\nblurhash/thumbhash `placeholder`, a cross-fade that Reduce Motion turns\noff, and a `recyclingKey` (the URL by default) so a recycled FlashList row\nnever flashes the previous picture. Without it, React Native's `Image`.\n\nGive it a size (className or `width`/`height`). Decorative unless `alt` is\ngiven.",
+      "summary": "NativeImage — a remote picture (thumbnail, cover, photo) with caching.\n\nDraws with expo-image when the app passes it (`modules.image` on\n`GenesisModulesProvider`): cached in memory and on disk, an optional\nblurhash/thumbhash `placeholder`, a cross-fade that Reduce Motion turns\noff, and a `recyclingKey` (the URL by default) so a recycled FlashList row\nnever flashes the previous picture. A `cacheKey` caches the picture under a\nstable key instead of its URL, for signed URLs that rotate (a new expiry or\nsignature would otherwise miss the disk cache and download it again).\nWithout it, React Native's `Image`.\n\nGive it a size (className or `width`/`height`). Decorative unless `alt` is\ngiven.",
       "primaryComponent": "NativeImage",
       "components": [
         {
@@ -3117,6 +3124,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Read by screen readers. Without it the picture is decorative."
+            },
+            {
+              "name": "cacheKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "expo-image only: caches the picture under this key instead of its URL, so a signed URL\nthat rotates (a new expiry or signature for the same file) still hits the memory and disk\ncache. Use a key that names the file, such as its storage path or id."
             },
             {
               "name": "className",
@@ -3165,7 +3179,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "expo-image only: resets the view when it changes (recycled rows). Default `src`."
+              "description": "expo-image only: resets the view when it changes (recycled rows). Default `cacheKey`, then `src`."
             },
             {
               "name": "testID",
@@ -3988,6 +4002,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "cacheKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Caches the photo under this key instead of its URL (`NativeImage`'s `cacheKey`)."
             },
             {
               "name": "zoomable",
@@ -9526,7 +9547,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/whats-new-sheet.tsx",
       "stability": "beta",
-      "summary": "WhatsNewSheet — release notes in a sheet, shown once and closed with \"Got it\".\n\nThe one sheet behind genesis-native's updates block (`WhatsNewSheet`) and genesis-product's\n`ProductWhatsNew`: each maps its own notes onto `NativeWhatsNewNote` and renders this.",
+      "summary": "WhatsNewSheet — release notes in a sheet, shown once and closed with \"Got it\".\n\nThe sheet behind genesis-native's updates block (`WhatsNewSheet`), which maps its own notes onto\n`NativeWhatsNewNote` and renders this.",
       "primaryComponent": "NativeWhatsNewSheet",
       "components": [
         {
@@ -16766,6 +16787,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "cacheKey",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Native only: caches the picture under this key instead of `src` (`NativeImage`'s\n`cacheKey`), for signed URLs that rotate. The web grid ignores it."
             },
             {
               "name": "caption",

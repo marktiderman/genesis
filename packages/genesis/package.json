@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis",
-  "version": "0.10.19",
+  "version": "0.10.20",
   "private": false,
   "type": "module",
   "sideEffects": false,

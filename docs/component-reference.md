@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 715 components · 4420 other exports · 3677 standalone types across 200 entry points in 30 packages.
+**Totals:** 711 components · 4339 other exports · 3583 standalone types across 198 entry points in 30 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1156,11 +1156,11 @@ export type { Visibility };
 
 ## @marktiderman/genesis-connect
 
-Connect an outside account, server side: encrypted secrets with key versioning (AES-256-GCM, HKDF per purpose, a keyring with rotation) and an OAuth connector kit (authorization code with PKCE, a signed state, the verifier in a cookie, a pinned callback origin) on Web Request and Response, with Google built in. fetch and WebCrypto only, no dependencies: Node 20+, edge and Workers. Part of the Genesis framework.
+Connect an outside account, server side: encrypted secrets with key versioning (AES-256-GCM, HKDF per purpose, a keyring with rotation) and an OAuth connector kit (authorization code with PKCE, a signed state, the verifier in a cookie, a pinned callback origin) on Web Request and Response, with Google and Todoist built in, and HMAC webhook checks. fetch and WebCrypto only, no dependencies: Node 20+, edge and Workers. Part of the Genesis framework.
 
 **Barrel:** [`packages/connect/src/index.ts`](../packages/connect/src/index.ts)
 
-### Other exports (17)
+### Other exports (20)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1183,8 +1183,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`sealWithKey`](../packages/connect/src/secrets.ts) | function | — | Seals with one derived key in the single-key format, `v1.<iv>.<ciphertext>`. Kept for genesis-forms' `sealSecret`; new code uses `createSecrets`, whose `v2.` form names its key so the key can be rotated. |
 | [`SecretError`](../packages/connect/src/secrets.ts) | class | — | A failure whose message is safe to log: never a key, a plaintext or a ciphertext. |
 | [`secretKeyBytes`](../packages/connect/src/secrets.ts) | function | — | The 32 key bytes from base64 or base64url text (as `openssl rand -base64 32` prints), or the bytes themselves. |
+| [`TODOIST_SCOPES`](../packages/connect/src/providers.ts) | const | — | Todoist's scopes. Prefer the narrowest: `dataReadWrite` covers reading and changing tasks. |
+| [`todoistProvider`](../packages/connect/src/providers.ts) | const | — | Todoist's OAuth 2.0 endpoints (https://developer.todoist.com/api/v1/#tag/Authorization). |
+| [`verifyWebhookSignature`](../packages/connect/src/webhooks.ts) | function | — | Whether `signature` is the HMAC of `payload` under `secret`. False for a missing, malformed or wrong signature, and for an empty secret; never throws for those. Compared in constant time. |
 
-### Types (23)
+### Types (25)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1206,12 +1209,14 @@ export type { Salt };
 export type { SecretErrorCode };
 export type { Secrets };
 export type { SecretsOptions };
+export type { SharedGrant };
 export type { StartOptions };
 export type { StartResult };
 export type { StateData };
 export type { StoreResult };
 export type { TokenCallOptions };
 export type { WebCryptoKey };
+export type { WebhookSignatureOptions };
 ```
 
 ---
@@ -1249,6 +1254,28 @@ export type { SecretErrorCode };
 export type { Secrets };
 export type { SecretsOptions };
 export type { WebCryptoKey };
+```
+
+---
+
+## @marktiderman/genesis-connect/webhooks
+
+**Barrel:** [`packages/connect/src/webhooks.ts`](../packages/connect/src/webhooks.ts)
+
+### Other exports (1)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`verifyWebhookSignature`](../packages/connect/src/webhooks.ts) | function | — | Whether `signature` is the HMAC of `payload` under `secret`. False for a missing, malformed or wrong signature, and for an empty secret; never throws for those. Compared in constant time. |
+
+### Types (1)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { WebhookSignatureOptions };
 ```
 
 ---
@@ -7728,7 +7755,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWhatsNew`](../packages/native/src/updates/block.tsx) | function | — | The notes to show now, or `null`. |
 | [`versionSignature`](../packages/native/src/updates/signature.ts) | function | — | _(no summary)_ |
 | [`WEEK_MS`](../packages/native/src/updates/policy.ts) | const | — | _(no summary)_ |
-| [`WhatsNewSheet`](../packages/native/src/updates/screens.tsx) | function | — | The release notes for this version, once, in a sheet: the updates block's slot, drawn by genesis-ui-native's `NativeWhatsNewSheet` (the same sheet genesis-product's uses). |
+| [`WhatsNewSheet`](../packages/native/src/updates/screens.tsx) | function | — | The release notes for this version, once, in a sheet: the updates block's slot, drawn by genesis-ui-native's `NativeWhatsNewSheet`. |
 
 ### Types (37)
 
@@ -8469,315 +8496,6 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`notificationsBlock`](../packages/notifications/src/blocks.ts) | const | Beta | Notifications: the feed, push and email for every domain, on one notifier. |
-
----
-
-## @marktiderman/genesis-product
-
-The product system for a Genesis repo: a Now / Next / Later board from features.ts with demand from ideas and feedback, a triage inbox, and release notes that close the loop with the people who asked. Ideas and feedback come from GitHub issues today, behind a SignalSource contract. Part of the Genesis framework.
-
-**Barrel:** [`packages/product/src/index.ts`](../packages/product/src/index.ts)
-
-### Other exports (25)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`answeredBy`](../packages/product/src/release.ts) | function | Experimental | The open ideas a release answers: the people to tell, and the asks to close. This is how the loop closes. Feedback and bugs are left alone: a feature going live doesn't mean a reported problem with it is fixed. |
-| [`buildBoard`](../packages/product/src/board.ts) | function | Experimental | Lays the catalog and its signals out as a board. A building feature with no horizon counts as now. Signals are matched to features by id or alias. |
-| [`cancelShipped`](../packages/product/src/notifications.ts) | function | Experimental | A release was withdrawn: stop the shipped notifications for one feature that haven't gone out yet, and take them out of the feed (`archive`, on by default). Only sends still waiting are stopped: email goes out as soon as the runner picks... |
-| [`createProductWhatsNew`](../packages/product/src/app.ts) | function | Experimental | "What's new", once per app version plus over-the-air update. A first install remembers the key and shows nothing; a new key fetches its notes then (never bundled) and opens when there are any. No notes for it: remembered, nothing shown. ... |
-| [`createVoteQueue`](../packages/product/src/app.ts) | function | Experimental | The offline vote queue, modelled on chat's outbox: a vote shows at once, is saved, and is sent when there is a connection (`flush()`: on start, after each vote and on reconnect). Votes on one idea collapse into the last one, and a toggle... |
-| [`demand`](../packages/product/src/board.ts) | function | Experimental | Demand for a feature: each open signal counts its importance (1 when unset) plus its votes. Closed signals don't count, so demand falls as asks are answered. |
-| [`diffRelease`](../packages/product/src/release.ts) | function | Experimental | The features a release shipped: those that reached `live` or `beta` between the catalog before and after it. Features with `visibility: internal` are left out of release notes. |
-| [`isAppPath`](../packages/product/src/notifications.ts) | function | Experimental | _(no summary)_ |
-| [`isPermanentVoteError`](../packages/product/src/app.ts) | function | Experimental | True for an error retrying won't fix: `permanent: true`, or an HTTP 4xx other than 408 and 429. @stability Experimental |
-| [`memoryProductSource`](../packages/product/src/app.ts) | function | Experimental | A source in memory, for tests and demos: votes change its own copy. @stability Experimental |
-| [`memorySignals`](../packages/product/src/model.ts) | function | Experimental | Signals held in memory, for tests and demos. @stability Experimental |
-| [`memoryVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in memory (the default: queued votes last as long as the app runs). @stability Experimental |
-| [`NOTIFY_BATCH`](../packages/product/src/notifications.ts) | const | Experimental | The most recipients genesis-notifications' `notify()` takes in one call. @stability Experimental |
-| [`notifyShipped`](../packages/product/src/notifications.ts) | function | Experimental | One `product.idea_shipped` notification to everyone who asked for a feature, keyed `shipped:<release>:<feature>`. `notify` is genesis-notifications' `notify` with the client and registry bound. It is called once per 1,000 recipients (not... |
-| [`PRODUCT_SHIPPED_TYPE`](../packages/product/src/notifications.ts) | const | Experimental | The notification type of "an idea you asked for shipped". @stability Experimental |
-| [`PRODUCT_UPDATES_CATEGORY`](../packages/product/src/notifications.ts) | const | Experimental | Its category: what a person turns on or off in their preferences. @stability Experimental |
-| [`productNotifications`](../packages/product/src/notifications.ts) | const | Experimental | The fragment for the app's `defineNotifications({ categories, types })`. Not critical and not transactional, so preferences, quiet hours and the unsubscribe link all apply. In the feed and by email by default; push is offered as an opt-i... |
-| [`renderBoard`](../packages/product/src/board.ts) | function | Experimental | The board as GitHub-flavoured markdown: one table per horizon, the top ideas by demand, and the triage inbox. |
-| [`renderRelease`](../packages/product/src/release.ts) | function | Experimental | Draft release notes for people, not developers: each feature's tagline (or its summary), grouped into shipped and in beta, with the asks it answers. A person edits and publishes them. |
-| [`roadmapFromBoard`](../packages/product/src/app.ts) | function | Experimental | The board's Now / Next / Later columns as roadmap rows. Only features everyone may see are kept (`public`, `customer`, or no visibility): `internal` and every `client:<name>` feature are left out, except that `client`'s own when it is gi... |
-| [`shippedKey`](../packages/product/src/notifications.ts) | function | Experimental | `shipped:<release>:<feature>`: the same release and feature never notify twice. @stability Experimental |
-| [`SIGNAL_KINDS`](../packages/product/src/model.ts) | const | Experimental | What someone sent: an idea, a piece of feedback or a bug. @stability Experimental |
-| [`storageVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in AsyncStorage, under one key. A value that can't be read counts as empty. @stability Experimental |
-| [`VoteRefusedError`](../packages/product/src/app.ts) | class | Experimental | A vote the source refused for good: the queue drops it and the board shows the source's state again. @stability Experimental |
-| [`whatsNewKey`](../packages/product/src/app.ts) | function | Experimental | What "what's new" is shown once for: the store version plus the over-the-air update running (`"1.4.0+3f2a…"`), or `"1.4.0+embedded"` for the code that shipped in the binary. `null` without a version: it never shows. |
-
-### Types (34)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { Board };
-export type { BoardItem };
-export type { CatalogFeature };
-export type { Importance };
-export type { MemoryProductSeed };
-export type { NotifyShippedOptions };
-export type { ProductCancelInput };
-export type { ProductIdea };
-export type { ProductIdeaStatus };
-export type { ProductNotifyInput };
-export type { ProductRecipient };
-export type { ProductSource };
-export type { ProductStorageLike };
-export type { ProductWhatsNew };
-export type { ProductWhatsNewOptions };
-export type { ProductWhatsNewState };
-export type { QueuedVote };
-export type { ReleaseChange };
-export type { RenderBoardOptions };
-export type { RenderReleaseOptions };
-export type { RoadmapFromBoardOptions };
-export type { RoadmapItem };
-export type { ShippedData };
-export type { ShippedFeature };
-export type { Signal };
-export type { SignalKind };
-export type { SignalSource };
-export type { VoteFlushResult };
-export type { VoteQueue };
-export type { VoteQueueOptions };
-export type { VoteQueueStore };
-export type { WhatsNewApplicationLike };
-export type { WhatsNewNote };
-export type { WhatsNewUpdatesLike };
-```
-
----
-
-## @marktiderman/genesis-product/server
-
-**Barrel:** [`packages/product/src/server.ts`](../packages/product/src/server.ts)
-
-### Other exports (8)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`cancelShipped`](../packages/product/src/notifications.ts) | function | Experimental | A release was withdrawn: stop the shipped notifications for one feature that haven't gone out yet, and take them out of the feed (`archive`, on by default). Only sends still waiting are stopped: email goes out as soon as the runner picks... |
-| [`isAppPath`](../packages/product/src/notifications.ts) | function | Experimental | _(no summary)_ |
-| [`NOTIFY_BATCH`](../packages/product/src/notifications.ts) | const | Experimental | The most recipients genesis-notifications' `notify()` takes in one call. @stability Experimental |
-| [`notifyShipped`](../packages/product/src/notifications.ts) | function | Experimental | One `product.idea_shipped` notification to everyone who asked for a feature, keyed `shipped:<release>:<feature>`. `notify` is genesis-notifications' `notify` with the client and registry bound. It is called once per 1,000 recipients (not... |
-| [`PRODUCT_SHIPPED_TYPE`](../packages/product/src/notifications.ts) | const | Experimental | The notification type of "an idea you asked for shipped". @stability Experimental |
-| [`PRODUCT_UPDATES_CATEGORY`](../packages/product/src/notifications.ts) | const | Experimental | Its category: what a person turns on or off in their preferences. @stability Experimental |
-| [`productNotifications`](../packages/product/src/notifications.ts) | const | Experimental | The fragment for the app's `defineNotifications({ categories, types })`. Not critical and not transactional, so preferences, quiet hours and the unsubscribe link all apply. In the feed and by email by default; push is offered as an opt-i... |
-| [`shippedKey`](../packages/product/src/notifications.ts) | function | Experimental | `shipped:<release>:<feature>`: the same release and feature never notify twice. @stability Experimental |
-
-### Types (6)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { NotifyShippedOptions };
-export type { ProductCancelInput };
-export type { ProductNotifyInput };
-export type { ProductRecipient };
-export type { ShippedData };
-export type { ShippedFeature };
-```
-
----
-
-## @marktiderman/genesis-product/node
-
-**Barrel:** [`packages/product/src/node.ts`](../packages/product/src/node.ts)
-
-### Other exports (34)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`answeredBy`](../packages/product/src/release.ts) | function | Experimental | The open ideas a release answers: the people to tell, and the asks to close. This is how the loop closes. Feedback and bugs are left alone: a feature going live doesn't mean a reported problem with it is fixed. |
-| [`BOARD_LABEL`](../packages/product/src/node.ts) | const | Experimental | The label that marks the board issue. No issue form applies it. @stability Experimental |
-| [`buildBoard`](../packages/product/src/board.ts) | function | Experimental | Lays the catalog and its signals out as a board. A building feature with no horizon counts as now. Signals are matched to features by id or alias. |
-| [`cancelShipped`](../packages/product/src/notifications.ts) | function | Experimental | A release was withdrawn: stop the shipped notifications for one feature that haven't gone out yet, and take them out of the feed (`archive`, on by default). Only sends still waiting are stopped: email goes out as soon as the runner picks... |
-| [`catalogAt`](../packages/product/src/node.ts) | function | Experimental | The catalog at a git ref (a tag, a branch or a commit). `[]` only when the ref exists and the file didn't exist at it yet; a ref that doesn't exist, or a file that can't be read at it, throws, so a typo never reads as "everything is new"... |
-| [`closeAnswered`](../packages/product/src/node.ts) | function | Experimental | Closes the loop on GitHub: closes each answered issue as completed, then comments on it saying what shipped. Closing first means a rerun after a failure never comments twice (the issue is no longer open). Only for signals from GitHub. |
-| [`createProductWhatsNew`](../packages/product/src/app.ts) | function | Experimental | "What's new", once per app version plus over-the-air update. A first install remembers the key and shows nothing; a new key fetches its notes then (never bundled) and opens when there are any. No notes for it: remembered, nothing shown. ... |
-| [`createVoteQueue`](../packages/product/src/app.ts) | function | Experimental | The offline vote queue, modelled on chat's outbox: a vote shows at once, is saved, and is sent when there is a connection (`flush()`: on start, after each vote and on reconnect). Votes on one idea collapse into the last one, and a toggle... |
-| [`demand`](../packages/product/src/board.ts) | function | Experimental | Demand for a feature: each open signal counts its importance (1 when unset) plus its votes. Closed signals don't count, so demand falls as asks are answered. |
-| [`diffRelease`](../packages/product/src/release.ts) | function | Experimental | The features a release shipped: those that reached `live` or `beta` between the catalog before and after it. Features with `visibility: internal` are left out of release notes. |
-| [`githubSignals`](../packages/product/src/node.ts) | function | Experimental | Signals from a repo's open issues. For each linked one, votes are the distinct people who gave it a 👍, not counting its author or bots. |
-| [`isAppPath`](../packages/product/src/notifications.ts) | function | Experimental | _(no summary)_ |
-| [`isPermanentVoteError`](../packages/product/src/app.ts) | function | Experimental | True for an error retrying won't fix: `permanent: true`, or an HTTP 4xx other than 408 and 429. @stability Experimental |
-| [`issueToSignal`](../packages/product/src/node.ts) | function | Experimental | One issue as a signal, or `null` when it isn't intake. An issue is intake when it carries an `idea`, `feedback` or `bug` label, or its title starts with `[Idea]`, `[Feedback]` or `[Bug]` (the issue forms set both). |
-| [`memoryProductSource`](../packages/product/src/app.ts) | function | Experimental | A source in memory, for tests and demos: votes change its own copy. @stability Experimental |
-| [`memorySignals`](../packages/product/src/model.ts) | function | Experimental | Signals held in memory, for tests and demos. @stability Experimental |
-| [`memoryVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in memory (the default: queued votes last as long as the app runs). @stability Experimental |
-| [`NOTIFY_BATCH`](../packages/product/src/notifications.ts) | const | Experimental | The most recipients genesis-notifications' `notify()` takes in one call. @stability Experimental |
-| [`notifyShipped`](../packages/product/src/notifications.ts) | function | Experimental | One `product.idea_shipped` notification to everyone who asked for a feature, keyed `shipped:<release>:<feature>`. `notify` is genesis-notifications' `notify` with the client and registry bound. It is called once per 1,000 recipients (not... |
-| [`parseCatalog`](../packages/product/src/node.ts) | function | Experimental | The catalog from a `features.json` (what `genesis features build` writes), whose `features` is an object keyed by id or an array. |
-| [`PRODUCT_SHIPPED_TYPE`](../packages/product/src/notifications.ts) | const | Experimental | The notification type of "an idea you asked for shipped". @stability Experimental |
-| [`PRODUCT_UPDATES_CATEGORY`](../packages/product/src/notifications.ts) | const | Experimental | Its category: what a person turns on or off in their preferences. @stability Experimental |
-| [`productNotifications`](../packages/product/src/notifications.ts) | const | Experimental | The fragment for the app's `defineNotifications({ categories, types })`. Not critical and not transactional, so preferences, quiet hours and the unsubscribe link all apply. In the feed and by email by default; push is offered as an opt-i... |
-| [`publishBoardIssue`](../packages/product/src/node.ts) | function | Experimental | Writes the board into the open issue labelled `product-board` that `author` opened, opening one if there is none, so the board is one link away on any device. Nobody else's issue is ever written, and the issue is left alone when only the... |
-| [`readCatalog`](../packages/product/src/node.ts) | function | Experimental | The catalog in a file. @stability Experimental |
-| [`renderBoard`](../packages/product/src/board.ts) | function | Experimental | The board as GitHub-flavoured markdown: one table per horizon, the top ideas by demand, and the triage inbox. |
-| [`renderRelease`](../packages/product/src/release.ts) | function | Experimental | Draft release notes for people, not developers: each feature's tagline (or its summary), grouped into shipped and in beta, with the asks it answers. A person edits and publishes them. |
-| [`repoFromGit`](../packages/product/src/node.ts) | function | Experimental | `owner/repo` from the `origin` remote, or `undefined`. @stability Experimental |
-| [`roadmapFromBoard`](../packages/product/src/app.ts) | function | Experimental | The board's Now / Next / Later columns as roadmap rows. Only features everyone may see are kept (`public`, `customer`, or no visibility): `internal` and every `client:<name>` feature are left out, except that `client`'s own when it is gi... |
-| [`shippedKey`](../packages/product/src/notifications.ts) | function | Experimental | `shipped:<release>:<feature>`: the same release and feature never notify twice. @stability Experimental |
-| [`SIGNAL_KINDS`](../packages/product/src/model.ts) | const | Experimental | What someone sent: an idea, a piece of feedback or a bug. @stability Experimental |
-| [`storageVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in AsyncStorage, under one key. A value that can't be read counts as empty. @stability Experimental |
-| [`VoteRefusedError`](../packages/product/src/app.ts) | class | Experimental | A vote the source refused for good: the queue drops it and the board shows the source's state again. @stability Experimental |
-| [`whatsNewKey`](../packages/product/src/app.ts) | function | Experimental | What "what's new" is shown once for: the store version plus the over-the-air update running (`"1.4.0+3f2a…"`), or `"1.4.0+embedded"` for the code that shipped in the binary. `null` without a version: it never shows. |
-
-### Types (37)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { Board };
-export type { BoardItem };
-export type { CatalogFeature };
-export type { GitHubIssue };
-export type { GitHubOptions };
-export type { Importance };
-export type { MemoryProductSeed };
-export type { NotifyShippedOptions };
-export type { ProductCancelInput };
-export type { ProductIdea };
-export type { ProductIdeaStatus };
-export type { ProductNotifyInput };
-export type { ProductRecipient };
-export type { ProductSource };
-export type { ProductStorageLike };
-export type { ProductWhatsNew };
-export type { ProductWhatsNewOptions };
-export type { ProductWhatsNewState };
-export type { PublishBoardOptions };
-export type { QueuedVote };
-export type { ReleaseChange };
-export type { RenderBoardOptions };
-export type { RenderReleaseOptions };
-export type { RoadmapFromBoardOptions };
-export type { RoadmapItem };
-export type { ShippedData };
-export type { ShippedFeature };
-export type { Signal };
-export type { SignalKind };
-export type { SignalSource };
-export type { VoteFlushResult };
-export type { VoteQueue };
-export type { VoteQueueOptions };
-export type { VoteQueueStore };
-export type { WhatsNewApplicationLike };
-export type { WhatsNewNote };
-export type { WhatsNewUpdatesLike };
-```
-
----
-
-## @marktiderman/genesis-product/native
-
-**Barrel:** [`packages/product/src/native/index.ts`](../packages/product/src/native/index.ts)
-
-### Components (4)
-
-| Name | Props | Stability | Summary |
-| --- | --- | --- | --- |
-| [`ProductWhatsNew`](../packages/product/src/native/whats-new.tsx) | `ProductWhatsNewProps` | — | Renders the sheet while the store shows notes, and nothing otherwise. |
-| [`ProductWhatsNewSheet`](../packages/product/src/native/whats-new.tsx) | `ProductWhatsNewSheetProps` | — | The sheet, in the product's copy: genesis-ui-native's `NativeWhatsNewSheet` with the notes' ids as keys. |
-| [`RoadmapDetailSheet`](../packages/product/src/native/roadmap.tsx) | `RoadmapDetailSheetProps` | — | _(no summary)_ |
-| [`VoteButton`](../packages/product/src/native/idea-board.tsx) | `VoteButtonProps` | — | _(no summary)_ |
-
-### Other exports (32)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`answeredBy`](../packages/product/src/release.ts) | function | Experimental | The open ideas a release answers: the people to tell, and the asks to close. This is how the loop closes. Feedback and bugs are left alone: a feature going live doesn't mean a reported problem with it is fixed. |
-| [`buildBoard`](../packages/product/src/board.ts) | function | Experimental | Lays the catalog and its signals out as a board. A building feature with no horizon counts as now. Signals are matched to features by id or alias. |
-| [`cancelShipped`](../packages/product/src/notifications.ts) | function | Experimental | A release was withdrawn: stop the shipped notifications for one feature that haven't gone out yet, and take them out of the feed (`archive`, on by default). Only sends still waiting are stopped: email goes out as soon as the runner picks... |
-| [`createProductWhatsNew`](../packages/product/src/app.ts) | function | Experimental | "What's new", once per app version plus over-the-air update. A first install remembers the key and shows nothing; a new key fetches its notes then (never bundled) and opens when there are any. No notes for it: remembered, nothing shown. ... |
-| [`createVoteQueue`](../packages/product/src/app.ts) | function | Experimental | The offline vote queue, modelled on chat's outbox: a vote shows at once, is saved, and is sent when there is a connection (`flush()`: on start, after each vote and on reconnect). Votes on one idea collapse into the last one, and a toggle... |
-| [`demand`](../packages/product/src/board.ts) | function | Experimental | Demand for a feature: each open signal counts its importance (1 when unset) plus its votes. Closed signals don't count, so demand falls as asks are answered. |
-| [`diffRelease`](../packages/product/src/release.ts) | function | Experimental | The features a release shipped: those that reached `live` or `beta` between the catalog before and after it. Features with `visibility: internal` are left out of release notes. |
-| [`haptic`](../packages/product/src/native/haptics.ts) | function | — | Plays a haptic when the app gave expo-haptics; never throws, never rejects (genesis-ui-native's `playHaptic`). |
-| [`IdeaBoardScreen`](../packages/product/src/native/idea-board.tsx) | function | — | The idea board screen. Put `getInboxPageStackOptions({ headerTitle })` on its `<Stack.Screen>`. |
-| [`isAppPath`](../packages/product/src/notifications.ts) | function | Experimental | _(no summary)_ |
-| [`isPermanentVoteError`](../packages/product/src/app.ts) | function | Experimental | True for an error retrying won't fix: `permanent: true`, or an HTTP 4xx other than 408 and 429. @stability Experimental |
-| [`memoryProductSource`](../packages/product/src/app.ts) | function | Experimental | A source in memory, for tests and demos: votes change its own copy. @stability Experimental |
-| [`memorySignals`](../packages/product/src/model.ts) | function | Experimental | Signals held in memory, for tests and demos. @stability Experimental |
-| [`memoryVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in memory (the default: queued votes last as long as the app runs). @stability Experimental |
-| [`NOTIFY_BATCH`](../packages/product/src/notifications.ts) | const | Experimental | The most recipients genesis-notifications' `notify()` takes in one call. @stability Experimental |
-| [`notifyShipped`](../packages/product/src/notifications.ts) | function | Experimental | One `product.idea_shipped` notification to everyone who asked for a feature, keyed `shipped:<release>:<feature>`. `notify` is genesis-notifications' `notify` with the client and registry bound. It is called once per 1,000 recipients (not... |
-| [`PRODUCT_COPY`](../packages/product/src/native/copy.ts) | const | — | Every word the product screens show. Pass a part of it as `copy` to change or translate it. |
-| [`PRODUCT_SHIPPED_TYPE`](../packages/product/src/notifications.ts) | const | Experimental | The notification type of "an idea you asked for shipped". @stability Experimental |
-| [`PRODUCT_UPDATES_CATEGORY`](../packages/product/src/notifications.ts) | const | Experimental | Its category: what a person turns on or off in their preferences. @stability Experimental |
-| [`productNotifications`](../packages/product/src/notifications.ts) | const | Experimental | The fragment for the app's `defineNotifications({ categories, types })`. Not critical and not transactional, so preferences, quiet hours and the unsubscribe link all apply. In the feed and by email by default; push is offered as an opt-i... |
-| [`renderBoard`](../packages/product/src/board.ts) | function | Experimental | The board as GitHub-flavoured markdown: one table per horizon, the top ideas by demand, and the triage inbox. |
-| [`renderRelease`](../packages/product/src/release.ts) | function | Experimental | Draft release notes for people, not developers: each feature's tagline (or its summary), grouped into shipped and in beta, with the asks it answers. A person edits and publishes them. |
-| [`roadmapFromBoard`](../packages/product/src/app.ts) | function | Experimental | The board's Now / Next / Later columns as roadmap rows. Only features everyone may see are kept (`public`, `customer`, or no visibility): `internal` and every `client:<name>` feature are left out, except that `client`'s own when it is gi... |
-| [`RoadmapScreen`](../packages/product/src/native/roadmap.tsx) | function | — | The roadmap screen: the segmented control above the rows, and the open item's sheet. |
-| [`shippedKey`](../packages/product/src/notifications.ts) | function | Experimental | `shipped:<release>:<feature>`: the same release and feature never notify twice. @stability Experimental |
-| [`SIGNAL_KINDS`](../packages/product/src/model.ts) | const | Experimental | What someone sent: an idea, a piece of feedback or a bug. @stability Experimental |
-| [`storageVoteQueueStore`](../packages/product/src/app.ts) | function | Experimental | A queue store in AsyncStorage, under one key. A value that can't be read counts as empty. @stability Experimental |
-| [`useIdeaBoard`](../packages/product/src/native/idea-board.tsx) | function | — | The idea board as InboxPage props: `<InboxPage {...useIdeaBoard({ source })} />`. |
-| [`useProductWhatsNew`](../packages/product/src/native/whats-new.tsx) | function | — | The store's state; loads it once on mount. |
-| [`useRoadmap`](../packages/product/src/native/roadmap.tsx) | function | — | _(no summary)_ |
-| [`VoteRefusedError`](../packages/product/src/app.ts) | class | Experimental | A vote the source refused for good: the queue drops it and the board shows the source's state again. @stability Experimental |
-| [`whatsNewKey`](../packages/product/src/app.ts) | function | Experimental | What "what's new" is shown once for: the store version plus the over-the-air update running (`"1.4.0+3f2a…"`), or `"1.4.0+embedded"` for the code that shipped in the binary. `null` without a version: it never shows. |
-
-### Types (42)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { Board };
-export type { BoardItem };
-export type { CatalogFeature };
-export type { HapticsLike };
-export type { IdeaBoard };
-export type { IdeaBoardOptions };
-export type { Importance };
-export type { MemoryProductSeed };
-export type { NotifyShippedOptions };
-export type { ProductCancelInput };
-export type { ProductCopy };
-export type { ProductCopyInput };
-export type { ProductHapticEvent };
-export type { ProductIdea };
-export type { ProductIdeaStatus };
-export type { ProductNotifyInput };
-export type { ProductRecipient };
-export type { ProductSource };
-export type { ProductStorageLike };
-export type { ProductWhatsNew };
-export type { ProductWhatsNewOptions };
-export type { ProductWhatsNewState };
-export type { QueuedVote };
-export type { ReleaseChange };
-export type { RenderBoardOptions };
-export type { RenderReleaseOptions };
-export type { Roadmap };
-export type { RoadmapFromBoardOptions };
-export type { RoadmapItem };
-export type { RoadmapOptions };
-export type { ShippedData };
-export type { ShippedFeature };
-export type { Signal };
-export type { SignalKind };
-export type { SignalSource };
-export type { VoteFlushResult };
-export type { VoteQueue };
-export type { VoteQueueOptions };
-export type { VoteQueueStore };
-export type { WhatsNewApplicationLike };
-export type { WhatsNewNote };
-export type { WhatsNewUpdatesLike };
-```
 
 ---
 
@@ -10450,6 +10168,64 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`createSwitchboardProvider`](../packages/switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
+
+---
+
+## @marktiderman/genesis-tasks
+
+The task sync layer: a person's tasks kept equal with an outside list. The shared fields, a three-way merge that never loses an edit, and Todoist's adapter: incremental sync with its sync token, batched commands with idempotent uuids, temp ids and per-command results, and checked webhooks. Pure TypeScript, no storage, no OAuth (genesis-connect's todoistProvider), no React. Part of the Genesis framework.
+
+**Barrel:** [`packages/tasks/src/index.ts`](../packages/tasks/src/index.ts)
+
+### Other exports (14)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`fromTodoistItem`](../packages/tasks/src/todoist.ts) | function | Beta | A Todoist task as an `ExternalTask`, or null when it has no id. A floating due date (`2026-11-10` or `2026-11-10T09:00:00`) is the owner's day as written; one fixed to a zone (`…Z` with `timezone`) is read on that zone's clock (or `timeZ... |
+| [`getTodoistTask`](../packages/tasks/src/todoist.ts) | function | Beta | One task, read on its own: for a task you hold a link to that a full read didn't include (done or deleted). Null when Todoist no longer has it. |
+| [`isTodoistError`](../packages/tasks/src/todoist.ts) | const | Beta | _(no summary)_ |
+| [`matchesScope`](../packages/tasks/src/todoist.ts) | function | Beta | Whether an outside task is in a sync's scope: in one of its lists, with its labels, and (in a shared project) assigned to the person or to nobody. |
+| [`mergeTask`](../packages/tasks/src/merge.ts) | function | Beta | Merges the app's task and the outside task against their base, field by field. |
+| [`normalizeLabels`](../packages/tasks/src/types.ts) | function | Beta | Labels as a sync compares them: trimmed, without empties, one of each regardless of case (the first spelling kept). @stability Beta |
+| [`normalizeTaskFields`](../packages/tasks/src/types.ts) | function | Beta | Normalizes the shared fields, so equal tasks compare equal. @stability Beta |
+| [`readTodoistWebhook`](../packages/tasks/src/webhook.ts) | function | Beta | Checks a Todoist webhook delivery's signature against the app's client secret and reads it. Reads the request's body; answer 200 quickly (Todoist redelivers anything else). |
+| [`runTodoistCommands`](../packages/tasks/src/todoist.ts) | function | Beta | Sends commands, at most 100 per request, in order, and reports each one. A request that fails as a whole throws a `TodoistError` whose `partial` holds what the requests before it did (their statuses and the real ids of tasks they added).... |
+| [`syncTodoist`](../packages/tasks/src/todoist.ts) | function | Beta | Reads Todoist: everything active the first time, then only what changed since `syncToken`. Due dates fixed to a zone are read on the account's zone when the task has none of its own. |
+| [`TASK_FIELDS`](../packages/tasks/src/types.ts) | const | Beta | The keys of `TaskFields`, in a fixed order. @stability Beta |
+| [`TODOIST_MAX_COMMANDS`](../packages/tasks/src/todoist.ts) | const | — | Todoist runs at most 100 commands per request. |
+| [`todoistCommand`](../packages/tasks/src/todoist.ts) | const | Beta | Builds Todoist sync commands from the shared fields. Each returns the commands to send, in order. |
+| [`TodoistError`](../packages/tasks/src/todoist.ts) | class | Beta | A Todoist call that failed, with why. Its message never holds the token. @stability Beta |
+
+### Types (22)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { CommandOptions };
+export type { ExternalList };
+export type { ExternalTask };
+export type { ExtraTaskFields };
+export type { MergeTaskInput };
+export type { MergeTaskResult };
+export type { SyncedFieldName };
+export type { SyncedTaskFields };
+export type { TaskFields };
+export type { TaskScope };
+export type { TodoistCallOptions };
+export type { TodoistCommand };
+export type { TodoistCommandStatus };
+export type { TodoistCommandsResult };
+export type { TodoistDue };
+export type { TodoistErrorCode };
+export type { TodoistItem };
+export type { TodoistSyncOptions };
+export type { TodoistSyncResult };
+export type { TodoistUser };
+export type { TodoistWebhookEvent };
+export type { TodoistWebhookResult };
+```
 
 ---
 

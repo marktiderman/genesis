@@ -134,7 +134,7 @@ export interface WhatsNewProps {
 
 /**
  * The release notes for this version, once, in a sheet: the updates block's slot, drawn by
- * genesis-ui-native's `NativeWhatsNewSheet` (the same sheet genesis-product's uses).
+ * genesis-ui-native's `NativeWhatsNewSheet`.
  */
 export function WhatsNewSheet({ notes, dismiss }: WhatsNewProps) {
   return (
