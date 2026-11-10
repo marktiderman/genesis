@@ -35,7 +35,8 @@ import { checkIsoDateSlices } from "./dates.js";
 import { checkRemovedScopeNames, checkStudioServerImports, checkTreeViews } from "./api-usage.js";
 import { checkStabilityImports } from "./stability.js";
 import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules, unknownPackageRuleSettings } from "./package-rules.js";
-import { allowGrew, applyRatchet, changedSince, configAtBase, rulesWeakened } from "./ratchet.js";
+import { allowGrew, applyRatchet, changedSince, configAtBase, countFindings, extensionsAdded, isRatcheted, rulesWeakened, snapshotAtBase, touched } from "./ratchet.js";
+import { applyExtensions, dedupeFindings } from "./extensions.js";
 import { checkContracts } from "./contracts.js";
 import { checkAgentGuide, primitivesSummary } from "./primitives.js";
 import { checkAgentHooks } from "./agent-hooks.js";
@@ -45,7 +46,7 @@ import { checkDatabaseHome } from "./database.js";
 import { checkEslintConfig } from "./eslint-config.js";
 import { checkFigmaRoutesRule } from "./figma-routes.js";
 import { existsSync } from "node:fs";
-import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
+import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts, SourceFile } from "./types.js";
 
 /** Built-in rules ratcheted under --base without config (a deprecation, or a config Genesis now wants changed, lands on existing code). */
 const RATCHETED_BY_DEFAULT = ["deprecated-import", "genesis-eslint-config"] as const;
@@ -106,6 +107,7 @@ export {
   type PrimitiveRow,
 } from "./primitives.js";
 export { changedSince } from "./ratchet.js";
+export { applyExtensions, dedupeFindings, extensionProblem } from "./extensions.js";
 export { postgresContract, postgresSource } from "./contracts.js";
 
 export interface RunDoctorOptions {
@@ -151,14 +153,8 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
 
   const raw: FindingInput[] = [];
   const ctx: DoctorContext = { root, files, genesis, config, packages, ...(options.base ? { base: options.base } : {}), ...(options.strict ? { strict: true } : {}), report: (f) => raw.push(f) };
-  for (const plugin of [...builtinChecks(config, { contracts: options.contracts ?? true, figma: options.figma ?? true }), ...packagePlugins, ...(patterns ? [patterns.plugin] : []), ...plugins]) {
-    try {
-      await plugin.check(ctx);
-    } catch (err) {
-      if (err instanceof DoctorConfigError) throw err;
-      raw.push({ rule: "plugin-error", file: plugin.name, message: `rule plugin "${plugin.name}" threw: ${(err as Error).message}` });
-    }
-  }
+  const appChecks = [...packagePlugins, ...(patterns ? [patterns.plugin] : []), ...plugins];
+  await runChecks(ctx, [...builtinChecks(config, { contracts: options.contracts ?? true, figma: options.figma ?? true }), ...appChecks]);
 
   if (options.build) {
     const failure = runBuild(root, buildCommands(root, config), options.quietBuild ?? false);
@@ -190,6 +186,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     if (before && before !== "absent") {
       raw.push(...allowGrew(config.allow ?? [], before.allow, options.base));
       raw.push(...rulesWeakened(config, before, options.base));
+      raw.push(...extensionsAdded(config.extend ?? [], before.extend, options.base));
     }
     // Uncompared: an error when the config holds something to compare; nothing to say when it holds
     // none (no allow, rules or packageRules can have weakened).
@@ -202,10 +199,25 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
         : { rule: "ratchet-skipped", level: "warn", file: "genesis config", message: `couldn't compare against ${options.base} (not a git repository, or the ref isn't fetched); every rule ran at its full level` },
     );
   }
-  let findings = applyConfig(raw, config, packageRuleIds(packages));
+  const packageIds = packageRuleIds(packages);
+  const settle = (found: FindingInput[], scanned: readonly SourceFile[]) => applyExtensions(applyConfig(found, config, packageIds), { config, files: scanned, packages, raw: found });
+  let findings = settle(raw, files);
   if (options.base && changed) {
-    findings = applyRatchet(findings, { config, newOnly, changed, base: options.base, isAppPath: (f) => existsSync(path.join(root, f)) });
+    const isAppPath = (f: string) => existsSync(path.join(root, f));
+    // A changed file keeps a ratcheted rule's findings at their level only when it is new or has
+    // more of them than at the merge base: count them there, from the files as they were. Only the
+    // checks that read the app's files run again (not the build, the database or Figma).
+    const due = findings.some((f) => f.level !== "info" && isRatcheted(f.rule, config, newOnly) && isAppPath(f.file) && touched(f.file, changed!));
+    const snapshot = due ? snapshotAtBase(root, options.base, files, changed) : null;
+    let baseCounts: Map<string, number> | undefined;
+    if (snapshot) {
+      const before: FindingInput[] = [];
+      await runChecks({ ...ctx, files: snapshot.files, report: (f) => before.push(f) }, [...builtinChecks(config, { contracts: false, figma: false }), ...appChecks]);
+      baseCounts = countFindings(settle(before, snapshot.files));
+    }
+    findings = applyRatchet(findings, { config, newOnly, changed, base: options.base, isAppPath, ...(snapshot && baseCounts ? { baseCounts, existedAtBase: snapshot.existed } : {}) });
   }
+  findings = dedupeFindings(findings);
   const errors = findings.filter((f) => f.level === "error").length;
   const warnings = findings.filter((f) => f.level === "warn").length;
   const infos = findings.length - errors - warnings;
@@ -221,6 +233,18 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     warnings,
     infos,
   };
+}
+
+/** Run each check, turning a plugin's crash into a `plugin-error` finding (a config error still throws). */
+async function runChecks(ctx: DoctorContext, checks: DoctorPlugin[]): Promise<void> {
+  for (const plugin of checks) {
+    try {
+      await plugin.check(ctx);
+    } catch (err) {
+      if (err instanceof DoctorConfigError) throw err;
+      ctx.report({ rule: "plugin-error", file: plugin.name, message: `rule plugin "${plugin.name}" threw: ${(err as Error).message}` });
+    }
+  }
 }
 
 /**
@@ -328,7 +352,7 @@ export function formatReport(result: DoctorResult, options: { verbose?: boolean 
       `${result.ruleCount} app rules; raw tags checked: ${[...g.rawTags.keys()].join(", ") || "none"}`,
   ];
   for (const f of result.findings) {
-    lines.push(`${f.level.toUpperCase().padEnd(5)} ${f.file}${f.line ? `:${f.line}` : ""}  [${f.rule}] ${f.message}`);
+    lines.push(`${f.level.toUpperCase().padEnd(5)} ${f.file}${f.line ? `:${f.line}` : ""}  [${(f.rules ?? [f.rule]).join(", ")}] ${f.message}`);
   }
   lines.push(options.verbose ? `Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}` : `Available but unused: ${result.unused.length} (genesis doctor --verbose lists them)`);
   lines.push(`Primitives: ${result.primitives.rules} rules from ${result.primitives.packages} packages; see genesis catalog`);

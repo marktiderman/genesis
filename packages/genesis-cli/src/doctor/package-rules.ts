@@ -41,7 +41,8 @@ import { overlayState } from "./overlays.js";
 import { loadPlugins } from "./plugins.js";
 import { routesDir } from "./routes.js";
 import { lineAt } from "./scan.js";
-import { localImportedNames } from "./source.js";
+import { localImportedNames, readSource } from "./source.js";
+import { stripBlockComments } from "../../../../scripts/lib/color-literals.mjs";
 import { importSpecifiers } from "./rules.js";
 import type { DeclaringPackage, DoctorContext, DoctorPlugin, FindingInput, Level, PackageDeclaration, PackageRuleSetting, PreferRule, PrimitiveEntry, SourceFile } from "./types.js";
 
@@ -386,11 +387,12 @@ const EXPORT_LIST = /\bexport\s*\{([^}]*)\}(?!\s*from)/g;
 const EXPORT_DEFAULT_NAME = /^export\s+default\s+([A-Z][\w$]*)\s*;?\s*$/gm;
 
 /**
- * The components a file exports whose own declaration renders a forbidden element, keyed by the
- * name they are imported under (`default` for the default export). A declaration runs from its
- * line to the next top-level declaration, so a sibling export that doesn't render it isn't one.
+ * The components a file exports whose own declaration renders one of `names`, keyed by the name
+ * they are imported under (`default` for the default export), with the element they render. A
+ * declaration runs from its line to the next top-level declaration, so a sibling export that
+ * doesn't render it isn't one.
  */
-function wrappersIn(file: SourceFile, elements: RegExpMatchArray[], c: CompiledPrefer): Map<string, string> {
+function wrappersIn(file: Pick<SourceFile, "code">, elements: RegExpMatchArray[], names: ReadonlySet<string>): Map<string, string> {
   const out = new Map<string, string>();
   const decls = [...file.code.matchAll(TOP_LEVEL)];
   const listed = new Map<string, string[]>();
@@ -403,12 +405,12 @@ function wrappersIn(file: SourceFile, elements: RegExpMatchArray[], c: CompiledP
   for (const m of file.code.matchAll(EXPORT_DEFAULT_NAME)) listed.set(m[1]!, [...(listed.get(m[1]!) ?? []), "default"]);
   decls.forEach((d, i) => {
     const name = d[3]!;
-    if (!/^[A-Z]/.test(name) || c.jsx.has(name)) return;
+    if (!/^[A-Z]/.test(name) || names.has(name)) return;
     const end = decls[i + 1]?.index ?? file.code.length;
-    const hit = elements.find((m) => m.index! > d.index! && m.index! < end && c.jsx.has(m[1]!));
+    const hit = elements.find((m) => m.index! > d.index! && m.index! < end && names.has(m[1]!));
     if (!hit) return;
-    const names = [...(d[1] ? [d[2] ? "default" : name] : []), ...(listed.get(name) ?? [])];
-    for (const n of names) out.set(n, hit[1]!);
+    const exported = [...(d[1] ? [d[2] ? "default" : name] : []), ...(listed.get(name) ?? [])];
+    for (const n of exported) out.set(n, hit[1]!);
   });
   return out;
 }
@@ -418,11 +420,41 @@ function wrappersIn(file: SourceFile, elements: RegExpMatchArray[], c: CompiledP
  * where it is rendered and, one level up, wherever an app component that
  * renders it is used: a local wrapper (`RecordTable` around `DataTable`) is
  * flagged once, and every screen that imports and renders the wrapper is flagged too.
+ * `unless.renders` follows the same one level: a screen that renders an app
+ * component whose own body renders the primitive (a page around `<BuilderLayout>`)
+ * builds on it too.
  */
 function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
   const own = c.rule.packageDir;
   const checked = ctx.files.filter((file) => SCRIPT.has(file.ext) && c.includes(file.path) && !c.excludes(file.path) && !inside(own, file.absolutePath));
-  const exempt = (file: SourceFile, rendered: string[]) => rendered.some((n) => c.unlessRenders.has(n)) || (c.unlessPattern?.test(file.code) ?? false);
+  const scanned = new Map(ctx.files.map((f) => [f.absolutePath, f]));
+  const importedBy = new Map<SourceFile, ReturnType<typeof localImportedNames>>();
+  const importsOf = (file: SourceFile) => {
+    if (!importedBy.has(file)) importedBy.set(file, localImportedNames(ctx.root, file));
+    return importedBy.get(file)!;
+  };
+  // Components, by file, whose own body renders an `unless.renders` element: rendering one is building on the primitive.
+  const builders = new Map<string, Map<string, string>>();
+  const buildersIn = (abs: string) => {
+    if (!builders.has(abs)) {
+      const target = scanned.get(abs) ?? readSource(abs);
+      const code = target ? ("ext" in target ? target.code : stripBlockComments(target.code, true)) : "";
+      builders.set(abs, code ? wrappersIn({ code }, [...code.matchAll(ELEMENT)], c.unlessRenders) : new Map());
+    }
+    return builders.get(abs)!;
+  };
+  const rendersBuilder = (file: SourceFile, rendered: string[]) => {
+    if (!c.unlessRenders.size) return false;
+    const local = rendered.filter((n) => !n.includes("."));
+    if (!local.length) return false;
+    const imported = importsOf(file);
+    return local.some((n) => {
+      const from = imported.get(n);
+      return from !== undefined && buildersIn(from.file).has(from.name);
+    });
+  };
+  const exempt = (file: SourceFile, rendered: string[]) =>
+    rendered.some((n) => c.unlessRenders.has(n)) || (c.unlessPattern?.test(file.code) ?? false) || rendersBuilder(file, rendered);
   // Wrappers, by file: exported components whose own body renders a forbidden element, in files that aren't exempt.
   const wrappers = new Map<string, Map<string, string>>();
   const renderedBy = new Map<SourceFile, RegExpMatchArray[]>();
@@ -431,7 +463,7 @@ function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
     const elements = [...file.code.matchAll(ELEMENT)];
     renderedBy.set(file, elements);
     if (!c.jsx.size || exempt(file, elements.map((m) => m[1]!))) continue;
-    const found = wrappersIn(file, elements, c);
+    const found = wrappersIn(file, elements, c.jsx);
     if (found.size) wrappers.set(file.absolutePath, found);
   }
   for (const file of checked) {
@@ -439,7 +471,7 @@ function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
     if (exempt(file, elements.map((m) => m[1]!))) continue;
     const report = (line: number, subject: string, found: string) =>
       ctx.report({ rule: c.rule.ruleId, level: c.level, file: file.path, line, subject, message: messageFor(c.rule, found) });
-    const imported = wrappers.size && elements.length ? localImportedNames(ctx.root, file) : null;
+    const imported = wrappers.size && elements.length ? importsOf(file) : null;
     for (const m of elements) {
       const name = m[1]!;
       if (c.jsx.has(name)) {

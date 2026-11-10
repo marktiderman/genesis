@@ -24,6 +24,11 @@ export interface Finding {
    * An `allow` entry's `match` is compared against it.
    */
   subject?: string;
+  /**
+   * Every rule that reported this finding, when more than one did (an app rule and a package rule
+   * on the same element of the same line): reported once, with `rule` the first of them.
+   */
+  rules?: string[];
 }
 
 /** What a rule or plugin passes to `report`. `level` defaults to `"error"`. */
@@ -46,6 +51,26 @@ export interface AllowEntry {
   reason: string;
 }
 
+/**
+ * A declared extension (`doctor.extend`): a file that builds on a Genesis primitive or extension
+ * point in a way a rule doesn't recognize, and says why. Unlike `allow`, it is not debt: it never
+ * expires and the ratchet doesn't count it, so it is reviewed in the pull request that adds it.
+ * The doctor checks that `file` still has a finding of `rule` (`stale-extension`), and that it
+ * imports `buildsOn` from a Genesis package and that nothing flags it (`extension-invalid`).
+ */
+export interface ExtensionEntry {
+  /** The rule whose findings in `file` it covers. */
+  rule: string;
+  /** One app-relative file (no globs: each file is reviewed on its own). */
+  file: string;
+  /** The Genesis primitive or extension point the file builds on: an export name (`FormBuilder`), or a part of one (`ResourceView.slots`). */
+  buildsOn: string;
+  /** Why the rule's primitive doesn't fit here: a sentence a reviewer can check. */
+  reason: string;
+  /** Where the gap is written up for Genesis, when it is one (an issue or proposal link). */
+  upstream?: string;
+}
+
 /** A declarative check: which files it covers and the pattern they must (not) contain. */
 export interface PatternRule {
   id: string;
@@ -61,7 +86,7 @@ export interface PatternRule {
   /** Regular expression every matching file's path must fit. */
   path?: string;
   message?: string;
-  /** Under `--base`, findings in files unchanged since the merge base drop to `info`. */
+  /** Under `--base`, findings drop to `info` unless they are in a new file or their count in a file grew since the merge base. */
   newOnly?: boolean;
 }
 
@@ -170,8 +195,9 @@ export interface DoctorConfig {
    */
   packageRules?: Record<string, PackageRuleSetting>;
   /**
-   * With `--base`, findings in files unchanged since the merge base drop to `info`, so new
-   * code meets the rule and old code is ratcheted. `true` for every rule, or a list of rule ids.
+   * With `--base`, a rule's findings drop to `info` unless they are in a new file or a file
+   * now has more of them than at the merge base, so new code meets the rule and old code is
+   * ratcheted. `true` for every rule, or a list of rule ids.
    * Rules declared `newOnly` (package rules, app patterns) ratchet without this.
    */
   ratchet?: boolean | string[];
@@ -179,8 +205,10 @@ export interface DoctorConfig {
   contracts?: ContractsConfig;
   /** Per-rule level overrides, e.g. `{ "raw-color": "warn", "palette-color": "off" }`. `info` never fails a run. */
   rules?: Record<string, RuleSetting>;
-  /** Justified exceptions. */
+  /** Justified exceptions: debt, which only shrinks under `--base`. */
   allow?: AllowEntry[];
+  /** Declared extensions: files that build on Genesis in a way a rule doesn't recognize, reviewed, never expiring. */
+  extend?: ExtensionEntry[];
   /** Declarative app rules. */
   patterns?: PatternRule[];
   /** A markdown file of pattern rules (`### rule-id` blocks of `- key: value` lines). */
@@ -322,7 +350,7 @@ export interface PreferRule {
   docs?: string;
   /** Why, in a sentence. */
   why: string;
-  /** Under `--base`, findings in files unchanged since the merge base drop to `info`. */
+  /** Under `--base`, findings drop to `info` unless they are in a new file or their count in a file grew since the merge base. */
   newOnly?: boolean;
 }
 

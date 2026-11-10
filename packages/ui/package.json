@@ -555,8 +555,6 @@
           ],
           "forbid": {
             "jsx": [
-              "AppShellPageHeader",
-              "ResourceHeader",
               "DetailPage"
             ]
           },
@@ -570,7 +568,7 @@
           "use": "a record view (defineRecordView from @marktiderman/genesis-core/resource-view) rendered by <RecordView>",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordview",
-          "why": "One record's header, actions, sections, child lists and settings come from its record view description, the same on web and phone. Builders (BuilderLayout) are exempt."
+          "why": "One record's header, actions, sections, child lists and settings come from its record view description, the same on web and phone. A page around one publishable thing (ResourceHeader in AppShellPageHeader) and builders (BuilderLayout, directly or through an app component) are fine."
         },
         {
           "id": "overlays-fit-the-phone",

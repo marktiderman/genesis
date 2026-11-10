@@ -81,6 +81,10 @@ export const BUILTIN_RULES = [
   "ratchet-skipped",
   "allow-grew",
   "rules-weakened",
+  "extension-added",
+  // declared extensions (extensions.ts)
+  "stale-extension",
+  "extension-invalid",
   // agent guide (primitives.ts)
   "agent-guide-stale",
   // supabase pack: contracts (contracts.ts)
