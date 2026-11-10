@@ -61,7 +61,8 @@ export function extensionProblem(entry: ExtensionEntry, ctx: Omit<ExtensionConte
   return null;
 }
 
-const escape = (s: string) => s.replace(/[$]/g, "\\$");
+/** A literal for a RegExp: every character with a meaning in a pattern, backslash included. */
+const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * Whether code uses an extension point: `Name` rendered (`<Name`) or called (`Name(`, `Name<T>(`),
