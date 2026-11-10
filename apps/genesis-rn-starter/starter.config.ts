@@ -34,7 +34,5 @@ export default defineStarter({
     checkIn: true,
     support: true,
     chat: true,
-    // Off: a demo of @marktiderman/genesis-product's native screens over sample data. README, "Product demo".
-    productDemo: false,
   },
 });

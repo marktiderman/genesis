@@ -153,7 +153,7 @@ The templates folder is not shipped: `packages/ui-native/package.json` `files` l
 ### The ratchet: `pnpm check:code-connect`
 
 `scripts/check-code-connect.mjs` covers genesis-ui-native, genesis-ui, genesis-chat, and the
-genesis-native, genesis-notifications, genesis-product, genesis-forms-native, genesis-forms-web,
+genesis-native, genesis-notifications, genesis-forms-native, genesis-forms-web,
 genesis-sites and genesis-studio packages below. The first three: genesis-ui-native (the `Native*`
 components and the page layouts), genesis-ui for the web (its PascalCase exports, minus
 sub-parts, typography, auto-layout primitives and cell formatters), and genesis-chat (the
@@ -170,7 +170,7 @@ nest the Messages page's primitives (`Msg/Bubble`, `Msg/Tapback`, `Msg/TapbackBa
 redrawing them. Chat's screens, sheets of library parts and dispatchers (`ChatInboxScreen`,
 `ChatPanel`, `ChatDock`, `MessageAttachments` on the web) are `composed`.
 
-Three more packages follow the same pattern, each with its own allowlist:
+Two more packages follow the same pattern, each with its own allowlist:
 
 - **genesis-native** (`native`, `packages/native/figma/`), page **Native · App**: the PascalCase
   exports of `.`, `/push` and `/updates`, minus the app plumbing (roots, boundaries, gates, error
@@ -184,9 +184,6 @@ Three more packages follow the same pattern, each with its own allowlist:
   `export function Name(` there. `NotificationRowView` and `NotificationBell` are library
   components; the feeds, preference tables and admin tables are `composed`. The React Email parts
   (`./email`) are not app UI and are not read.
-- **genesis-product** (`product`, `packages/product/figma/`), page **Product**: `VoteButton`,
-  `ProductWhatsNewSheet` (separate from genesis-native's `WhatsNewSheet`: product notes, with a
-  Learn more per note) and `RoadmapDetailSheet`; the screens and the store wrapper are `composed`.
 
 Four more cover the forms, sites and the data studio:
 

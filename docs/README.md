@@ -26,7 +26,6 @@
   from each and where it differs, with a last-checked date per row.
 - [`adr/`](./adr/): the architecture decisions:
   [0001 one feature gate](./adr/0001-one-feature-gate.md),
-  [0002 the product system](./adr/0002-product-system.md),
   [0003 navigation zones](./adr/0003-navigation-zones.md),
   [0004 workspaces](./adr/0004-workspaces.md),
   [0005 package layers](./adr/0005-package-layers.md),

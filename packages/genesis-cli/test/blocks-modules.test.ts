@@ -18,7 +18,7 @@ const modules = workspace.filter((w) => w.pkg.genesis?.module);
 
 describe("modules", () => {
   it("the workspace has modules", () => {
-    expect(modules.map((m) => m.dir).sort()).toEqual(["product", "sites", "support"]);
+    expect(modules.map((m) => m.dir).sort()).toEqual(["sites", "support"]);
   });
 
   it.each(modules.map((m) => [m.pkg.name, m] as const))("%s installs with genesis add --dry-run", async (_name, m) => {

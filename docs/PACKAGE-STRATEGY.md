@@ -48,7 +48,6 @@ row shows the package's layer and group from [Layers](#layers).
 | module · modules | `support` | 3.5k | Feedback, reports, idea board |
 | primitive · collaboration | `collab` | 0.2k | Spaces and visibility, designed in [COLLABORATION.md](./COLLABORATION.md) (`building`) |
 | primitive · data | `studio`, `studio-server` | 9.0k | Data Studio, with an audit entry per edit |
-| module · modules | `product` | 2.1k | Product board, triage, release notes |
 | tooling · core | `genesis-cli` | 11.0k | init, add, migrate, upgrade, doctor, introspect |
 | tooling · core | `agents` (retired 2026-10-29) | docs | Rules of engagement for agent sessions; now [docs/agents/RULES.md](./agents/RULES.md), checked by `genesis agents --rules` |
 | primitive · core | `genesis` | — | Umbrella: re-exports `core`, `ui`, `ui-native`, `design-system`, `features`, `switchboard`, `native` and the forms engine and renderers |
@@ -119,7 +118,7 @@ level 2 is the modules built from them.**
 
 ```
 Tooling      genesis-cli                                          (beside the layers; may use anything)
-Modules      sites · support · product                            (mini apps, installed with genesis add)
+Modules      sites · support                                      (mini apps, installed with genesis add)
 Primitives   data · ai · forms · collaboration · shells · umbrella
 Foundation   design-system · core · ui · ui-native · features     (essential: every app starts with them)
 ```
@@ -154,7 +153,6 @@ gets a working product surface to switch on for tenants, it is a **module**.
 | native, extension | primitive | shells | |
 | sites | module | modules | owns `genesis_sites`; `genesis add sites` |
 | support | module | modules | `genesis add support-feedback`; threads through the chat primitive |
-| product | module | modules | the roadmap, idea board and release notes; `genesis add product-board` |
 | genesis-cli | tooling | core | `packages/agents` retired: its rules are docs/agents/RULES.md, the checkable ones in genesis-cli; a `genesis-plugin` (idea) takes the seat |
 
 **The metadata.** Each package's `genesis` key in package.json:
@@ -195,15 +193,6 @@ ships; `essential` only on foundation or tooling. A genesis-cli test runs each m
 line through `genesis add --dry-run`. **Not yet:** that a module's migrations create objects only
 in its schema and no other package writes there (`package-schema-ownership`, planned; support's
 tables are still in genesis-supabase's migration 0006).
-
-**Product's two halves.** The board, idea board, roadmap and release notes for an app's own
-people are the module (`.`, `/native`, `/server`, block `product-board`). The repo-maintenance
-CLI (the `genesis-product` bin and `/node`, which reads git and GitHub issues) is tooling,
-declared as `toolingEntries: ["./node"]` in the same package rather than a new package: the two
-halves already have separate entry points with no imports between them in that direction, the
-release and board workflows keep running unchanged, and no published entry point moves. The
-check refuses any runtime package that imports `genesis-product/node`. If the CLI grows, it moves
-into `genesis-cli` as `genesis product`.
 
 **On the site and in Storybook** the packages appear in the same bands, grouped by `group`:
 Foundation, Primitives (Core, Data, AI, Forms, Collaboration, Shells), Modules, and Tooling.
@@ -313,7 +302,7 @@ the box:
 | Offline and presence | 🟡 forms outbox, chat typing; `data-offline` is building |
 | **AI: model layer, usage, admin, consent** | ❌ ([AI.md](./AI.md)) |
 | Agent readiness: MCP server, AGENTS.md, skills | 🟡 AGENTS.md and skills ship; no app MCP server |
-| Marketing, SEO, blog, changelog | ✅ `sites`, `product` |
+| Marketing, SEO, blog, changelog | 🟡 `sites`; no changelog |
 | CI/CD, OTA updates | ✅ CI templates, EAS workflows |
 
 Genesis is ahead of the commercial kits where they are thin: native parity, forms, the feature
@@ -353,7 +342,7 @@ Decided by the maintainer on 2026-10-29 (the package-layers research, nine decis
 3. **Block** stays the install unit at every layer; a module is a package of blocks forming a
    mini app.
 4. **Plans and entitlements** live in each app's `features.ts`, never in package metadata.
-5. **support and product are modules;** product's repo CLI is tooling (`toolingEntries`).
+5. **support is a module.**
 6. **cli and agents** are tooling, in the `core` group. (agents was then retired: RULES.md moved to docs/agents/, the checkable rules into genesis-cli, and `genesis-plugin` takes its seat.)
 7. **The umbrella** is a primitive that may bundle primitives, never modules.
 8. **The layering check fails CI from day one.**

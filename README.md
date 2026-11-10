@@ -162,8 +162,8 @@ primitives; level 2 is the modules built from them. Each package's `genesis.laye
 | | Forms | [`genesis-forms`](./packages/forms) with [`forms-react`](./packages/forms-react), [`forms-web`](./packages/forms-web), [`forms-native`](./packages/forms-native), [`forms-builder`](./packages/forms-builder), [`forms-studio`](./packages/forms-studio), [`forms-devtools`](./packages/forms-devtools) |
 | | Collaboration | [`genesis-chat`](./packages/chat) · [`genesis-notifications`](./packages/notifications) · [`genesis-collab`](./packages/collab) |
 | | Shells | [`genesis-native`](./packages/native) (the Expo app shell) · [`genesis-extension`](./packages/extension) (Chrome extensions) |
-| Modules | Modules | [`genesis-sites`](./packages/sites) (`genesis add sites`) · [`genesis-support`](./packages/support) (`genesis add support-feedback`) · [`genesis-product`](./packages/product) (`genesis add product-board`): mini apps with their own tables, screens and settings, installed as blocks and switched on per tenant |
-| Tooling | Core | [`genesis-cli`](./packages/genesis-cli) (`init`, `add`, `doctor`, `introspect`, `features`, codemods) · the rules for agent sessions ([docs/agents/RULES.md](./docs/agents/RULES.md), checked by `genesis agents --rules`). genesis-product's `genesis-product` bin and `/node` entry are tooling too. |
+| Modules | Modules | [`genesis-sites`](./packages/sites) (`genesis add sites`) · [`genesis-support`](./packages/support) (`genesis add support-feedback`): mini apps with their own tables, screens and settings, installed as blocks and switched on per tenant |
+| Tooling | Core | [`genesis-cli`](./packages/genesis-cli) (`init`, `add`, `doctor`, `introspect`, `features`, codemods) · the rules for agent sessions ([docs/agents/RULES.md](./docs/agents/RULES.md), checked by `genesis agents --rules`). |
 
 ## Reference apps
 

@@ -257,7 +257,6 @@ describe("two-package layout", () => {
       "native",
       "notifications-native",
       "notifications-web",
-      "product",
       "forms-native",
       "forms-web",
       "sites",
@@ -327,7 +326,7 @@ describe("chat entry points", () => {
   });
 });
 
-describe("genesis-native, genesis-notifications and genesis-product", () => {
+describe("genesis-native and genesis-notifications", () => {
   it("native: PascalCase exports minus roots, boundaries, gates, errors, the app and its boot slot", () => {
     const source = `
 export { GenesisNativeApp, BootScreen, useBoot, type BootScreenProps } from "./app";
@@ -353,14 +352,14 @@ export function relative(at: string) { return at; }
     expect(declaredComponentsFromIndex(source)).toEqual(["NotificationRowView", "NotificationBell"]);
   });
 
-  it("product: PascalCase exports minus hooks, constants and helpers; export * is ignored", () => {
+  it("pascal: PascalCase exports minus hooks, constants and helpers; export * is ignored", () => {
     const source = `
 export { haptic, type HapticsLike } from "./haptics";
-export { PRODUCT_COPY, type ProductCopy } from "./copy";
-export { useIdeaBoard, IdeaBoardScreen, VoteButton, type IdeaBoard } from "./idea-board";
+export { SAMPLE_COPY, type SampleCopy } from "./copy";
+export { useSampleList, SampleListScreen, SampleButton, type SampleList } from "./sample-list";
 export * from "../index";
 `;
-    expect(pascalComponentsFromIndex(source)).toEqual(["IdeaBoardScreen", "VoteButton"]);
+    expect(pascalComponentsFromIndex(source)).toEqual(["SampleListScreen", "SampleButton"]);
   });
 
   it("gives each new package its own Figma folder", () => {
@@ -368,7 +367,6 @@ export * from "../index";
     expect(dirs.native).toBe("packages/native/figma");
     expect(dirs["notifications-native"]).toBe("packages/notifications/figma/native");
     expect(dirs["notifications-web"]).toBe("packages/notifications/figma/web");
-    expect(dirs.product).toBe("packages/product/figma");
   });
 });
 

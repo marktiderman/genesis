@@ -55,8 +55,6 @@ const MARKER = /genesis-allow-console:\s*\S/;
 export const ALLOW = [
   // Command-line tools and server code: the console (stdout / the server log) is their output.
   { path: 'packages/genesis-cli/src/', reason: 'command-line tool: the console is its output' },
-  { path: 'packages/product/src/cli.ts', reason: 'command-line tool: the console is its output' },
-  { path: 'packages/product/src/node.ts', reason: 'Node-only tooling: the console is its output' },
   { path: 'packages/chat/src/server/', reason: 'server code: the default log goes to the server log' },
   { path: 'packages/supabase/src/jobs.ts', reason: 'server code (edge functions): the default log goes to the function log' },
   { path: 'packages/supabase/src/web-handoff-server.ts', reason: 'server code: logs to the server log' },
