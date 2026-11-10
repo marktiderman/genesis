@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 715 components · 4438 other exports · 3702 standalone types across 202 entry points in 31 packages.
+**Totals:** 715 components · 4441 other exports · 3702 standalone types across 202 entry points in 31 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -6999,7 +6999,7 @@ export type { ScaffoldResult };
 
 **Barrel:** [`packages/genesis-cli/src/doctor/index.ts`](../packages/genesis-cli/src/doctor/index.ts)
 
-### Other exports (58)
+### Other exports (61)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -7008,6 +7008,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `agentGuideState` | value | — | _(no summary)_ |
 | `agentHooksState` | value | — | _(no summary)_ |
 | `agentRules` | value | — | _(no summary)_ |
+| `applyExtensions` | value | — | _(no summary)_ |
 | `BLOCKED_FIX` | value | — | _(no summary)_ |
 | `BUILTIN_RULES` | value | — | _(no summary)_ |
 | [`builtinChecks`](../packages/genesis-cli/src/doctor/index.ts) | function | — | The built-in checks, in the order they run. A new built-in rule is a check here plus its ids in BUILTIN_RULES (rules.ts); a pack's checks run only when `packs` lists it. |
@@ -7015,10 +7016,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `changedSince` | value | — | _(no summary)_ |
 | `CLAUDE_IMPORT` | value | — | _(no summary)_ |
 | `clearPackageRulesCache` | value | — | _(no summary)_ |
+| `dedupeFindings` | value | — | _(no summary)_ |
 | `defineDoctorPlugin` | value | — | _(no summary)_ |
 | `DENY_RULES` | value | — | _(no summary)_ |
 | `discoverPackages` | value | — | _(no summary)_ |
 | `DoctorConfigError` | value | — | _(no summary)_ |
+| `extensionProblem` | value | — | _(no summary)_ |
 | `findPackageDir` | value | — | _(no summary)_ |
 | `formatPrimitives` | value | — | _(no summary)_ |
 | [`formatReport`](../packages/genesis-cli/src/doctor/index.ts) | function | — | The human-readable report. `verbose` lists the components no file imports; otherwise only their count. |

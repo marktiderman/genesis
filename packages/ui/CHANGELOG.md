@@ -1,5 +1,17 @@
 # @marktiderman/genesis-ui
 
+## 2.33.0
+
+### Minor Changes
+
+- 9c33383: Doctor: a sanctioned path for defensible customizations, one finding per element, and a ratchet that counts.
+
+  - **Declared extensions.** A package rule may declare extension points (`extensible`: the Genesis exports an app may build on in ways the rule doesn't recognize), and an app records a file that uses one in `doctor.extend: [{ rule, file, buildsOn, reason, upstream? }]`. Unlike `allow` (debt, which only shrinks), an extension is a reviewed decision, bounded three ways: only package rules with declared points can be extended, at those points (built-in rules such as `deprecated-import` can't); it covers only the findings its file had when declared (under `--base`, a file with more than at the merge base reports them all); and a new one is an `extension-added` info, listed with its reason in the report's summary (`extensionsAdded` in `--json`) for the pull request's review, which is where it is accepted. `allow-grew` and `rules-weakened` don't count it. `reason` needs at least six words and 40 characters, `file` is one file (no globs), `extension-invalid` (error) refuses one outside the rule's points, whose file doesn't import `buildsOn` from a Genesis package or doesn't use it (renders or calls it, or passes the slot prop on its element), whose `buildsOn` is what a package rule replaces, or that the doctor flags in that file, and `stale-extension` (warn) reports one whose file no longer has the finding. (The key is `extend` because `extensions` already lists the file extensions to scan.)
+  - **One finding per element.** Findings of different rules on the same file, line and subject (an app's own rule and a package rule on the same element) are reported once, at the higher level, with every rule id in the finding's new `rules` field and in the report.
+  - **Count-based ratchet.** Under `--base`, a ratcheted rule's findings keep their level only in a new file or in a file that now has more of them than at the merge base; an edit to a file with old debt no longer makes all of it due. Counts are per rule and file. A renamed or moved file keeps its count (git's rename detection); a copy's findings are new debt. The base counts come from the changed files as they were at the merge base; only the package rules run again when they are all that's counted, and never the build, the database contract or Figma. When git can't read them, a changed file keeps every level, as before. An unreadable base now also fails a config with `extend` (`ratchet-skipped`).
+  - **Package rules:** a new `unless.inside` exempts elements, not files: a forbidden element nested inside one of its elements, or inside an app component the file imports that renders its `{children}` inside one. Tags in strings and template literals don't count. A rule with `extensible` or `unless.inside` needs this genesis-cli (an older one skips it with a `package-rules-invalid` warning).
+  - **genesis-ui:** `ui/records-use-record-view` no longer flags `ResourceHeader` and `AppShellPageHeader`, Genesis's own parts for the page around one publishable thing; it still flags `DetailPage`, except inside `BuilderLayout` (directly or inside an app component around it), which replaces the file-wide `BuilderLayout` exemption. `ui/lists-use-resource-view` and `ui/records-use-record-view` declare their extension points.
+
 ## 2.32.1
 
 ### Patch Changes
