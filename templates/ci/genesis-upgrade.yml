@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   upgrade:
-    uses: marktiderman/genesis/.github/workflows/genesis-upgrade.yml@GENESIS_SHA # @marktiderman/genesis@X.Y.Z
+    uses: marktiderman/genesis/.github/workflows/genesis-upgrade.yml@GENESIS_SHA # <the release tag at that commit, e.g. @marktiderman/genesis@X.Y.Z>
     with:
       package-manager: pnpm # or bun, npm
       # base-branch: staging # the branch the pull request targets; default: the default branch
