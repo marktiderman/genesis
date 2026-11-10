@@ -52,18 +52,20 @@ export interface AllowEntry {
 }
 
 /**
- * A declared extension (`doctor.extend`): a file that builds on a Genesis primitive or extension
- * point in a way a rule doesn't recognize, and says why. Unlike `allow`, it is not debt: it never
- * expires and the ratchet doesn't count it, so it is reviewed in the pull request that adds it.
- * The doctor checks that `file` still has a finding of `rule` (`stale-extension`), and that it
- * imports `buildsOn` from a Genesis package and that nothing flags it (`extension-invalid`).
+ * A declared extension (`doctor.extend`): a file that builds on one of a package rule's declared
+ * extension points (`extensible`) in a way the rule doesn't recognize, and says why. Unlike
+ * `allow`, it is not debt: it never expires, and `allow-grew` doesn't count it; a new one is a
+ * warning (`extension-added`) for the pull request's review. It covers the findings the file had
+ * when it was declared: under `--base`, a count above the merge base's still fails. The doctor
+ * checks that `file` still has a finding of `rule` (`stale-extension`), and that `buildsOn` is one
+ * of the rule's points, imported from a Genesis package, and flagged by nothing (`extension-invalid`).
  */
 export interface ExtensionEntry {
   /** The rule whose findings in `file` it covers. */
   rule: string;
   /** One app-relative file (no globs: each file is reviewed on its own). */
   file: string;
-  /** The Genesis primitive or extension point the file builds on: an export name (`FormBuilder`), or a part of one (`ResourceView.slots`). */
+  /** The rule's extension point the file builds on: one of the rule's `extensible` entries (`useBoardColumns`, `ResourceView.slots`). */
   buildsOn: string;
   /** Why the rule's primitive doesn't fit here: a sentence a reviewer can check. */
   reason: string;
@@ -339,6 +341,11 @@ export interface PreferRule {
   unless?: {
     /** The file renders one of these elements. */
     renders?: string[];
+    /**
+     * Not the whole file: a forbidden element nested inside one of these elements, or inside an app
+     * component the file imports whose own body renders one, is left alone (a builder's own panels).
+     */
+    inside?: string[];
     /** The file contains this regular expression. */
     pattern?: string;
   };
@@ -352,6 +359,12 @@ export interface PreferRule {
   why: string;
   /** Under `--base`, findings drop to `info` unless they are in a new file or their count in a file grew since the merge base. */
   newOnly?: boolean;
+  /**
+   * The Genesis exports (or parts of one: `ResourceView.slots`) an app may build on in a way the
+   * rule doesn't recognize, and declare as an extension (`doctor.extend`). A rule without them
+   * can't be extended.
+   */
+  extensible?: string[];
 }
 
 /** A catalog entry with no rule behind it. */

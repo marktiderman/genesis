@@ -12,6 +12,7 @@ import {
   discoverPackages,
   extensionProblem,
   formatReport,
+  validateDeclaration,
   runDoctor,
   validateConfig,
   type DoctorConfig,
@@ -44,6 +45,7 @@ const RULE = {
   unless: { renders: ["WidgetView"] },
   use: "<WidgetView>",
   why: "One description per list.",
+  extensible: ["useBoardColumns", "WidgetView.slots"],
 };
 
 /** A fake installed Genesis package declaring `doctor`. */
@@ -67,11 +69,22 @@ describe("declared extensions: the config", () => {
     expect(() => validateConfig({ extend: [extension({ file: "src/**/*.tsx" })] })).toThrow(/one file, not a glob/);
     expect(() => validateConfig({ extend: [extension({ rule: "allow-grew" })] })).toThrow(/can't extend allow-grew/);
     expect(() => validateConfig({ extend: [extension({ rule: "stale-extension" })] })).toThrow(/can't extend stale-extension/);
+    for (const rule of ["deprecated-import", "removed-scope-name", "raw-tag"]) {
+      expect(() => validateConfig({ extend: [extension({ rule })] })).toThrow(/only package rules declare extension points/);
+    }
     expect(() => validateConfig({ extend: [{ ...extension(), match: "x" }] })).toThrow(/unknown key "match"/);
     expect(() => validateConfig({ extend: [extension({ buildsOn: "<FormBuilder>" })] })).toThrow(/buildsOn must name a Genesis export/);
     expect(() => validateConfig({ extend: [{ rule: "raw-tag", file: "src/a.tsx", reason: REASON }] })).toThrow(/needs "buildsOn"/);
     expect(() => validateConfig({ extend: [extension(), extension()] })).toThrow(/twice/);
     expect(() => validateConfig({ rules: { "extension-invalid": "off" } })).toThrow(/can't set extension-invalid/);
+  });
+});
+
+describe("declared extensions: the package side", () => {
+  it("validates a rule's extension points and unless.inside", () => {
+    expect(validateDeclaration({ prefer: [RULE] }, "@marktiderman/genesis-widgets").prefer[0]!.extensible).toEqual(["useBoardColumns", "WidgetView.slots"]);
+    expect(() => validateDeclaration({ prefer: [{ ...RULE, extensible: ["<Bad>"] }] }, "@marktiderman/genesis-widgets")).toThrow(/extensible must be a list of export names/);
+    expect(() => validateDeclaration({ prefer: [{ ...RULE, unless: { inside: ["lower"] } }] }, "@marktiderman/genesis-widgets")).toThrow(/unless.inside must be a list of component names/);
   });
 });
 
@@ -91,9 +104,28 @@ describe("declared extensions: in the doctor", () => {
     expect(brief(missing.findings, "extension-invalid")).toEqual(["extension-invalid error src/Board.tsx:0 widgets/lists-use-widget-view"]);
     expect(missing.findings.find((f) => f.rule === "extension-invalid")!.message).toContain("doesn't import useBoardColumns from a Genesis package");
     expect(missing.ok).toBe(false);
-    const legacy = makeApp(null, { ...widgets(), "src/Board.tsx": 'import { DataGrid } from "@marktiderman/genesis-ui/data";\nexport const B = () => <DataGrid />;\n' });
+    const legacy = makeApp(null, { ...widgets({ ...RULE, extensible: ["DataGrid"] }), "src/Board.tsx": 'import { DataGrid } from "@marktiderman/genesis-ui/data";\nexport const B = () => <DataGrid />;\n' });
     const refused = await runDoctor({ root: legacy, config: { extend: [extension({ buildsOn: "DataGrid" })] } });
     expect(refused.findings.find((f) => f.rule === "extension-invalid")!.message).toContain("DataGrid is what widgets/lists-use-widget-view replaces");
+  });
+
+  it("only extends a rule's declared extension points: any other Genesis import, or a rule with none, is refused", async () => {
+    const lazy = 'import { Button } from "@marktiderman/genesis-ui";\nexport const B = () => <><DataTable /><DataTable /><DataTable /><Button /></>;\n';
+    const root = makeApp(null, { ...widgets(), "src/Board.tsx": lazy });
+    const button = await runDoctor({ root, config: { extend: [extension({ buildsOn: "Button", reason: "We need these tables here for now, it is ok really." })] } });
+    expect(brief(button.findings, "widgets/")).toHaveLength(3);
+    expect(button.findings.find((f) => f.rule === "extension-invalid")!.message).toContain("Button isn't one of widgets/lists-use-widget-view's extension points (useBoardColumns, WidgetView.slots)");
+    const closed = makeApp(null, { ...widgets({ ...RULE, extensible: undefined }), "src/Board.tsx": BOARD });
+    const none = await runDoctor({ root: closed, config: { extend: [extension()] } });
+    expect(brief(none.findings, "widgets/")).toHaveLength(1);
+    expect(none.findings.find((f) => f.rule === "extension-invalid")!.message).toContain("declares no extension points");
+  });
+
+  it("refuses an extension of a rule without points even when the file has no finding of it", async () => {
+    const root = makeApp(null, { ...widgets({ ...RULE, extensible: undefined }), "src/Board.tsx": "export const B = () => null;\n" });
+    const result = await runDoctor({ root, config: { extend: [extension()] } });
+    expect(brief(result.findings, "extension-invalid")).toEqual(["extension-invalid error src/Board.tsx:0 widgets/lists-use-widget-view"]);
+    expect(brief(result.findings, "stale-extension")).toEqual([]);
   });
 
   it("refuses building on something the doctor flags in that file, a deprecated import say", () => {
@@ -113,7 +145,7 @@ describe("declared extensions: in the doctor", () => {
     expect(brief(off.findings, "stale-extension")).toEqual([]);
   });
 
-  it("isn't counted by the ratchet: a new extension is neither allow-grew nor rules-weakened, and is shown as extension-added", async () => {
+  it("isn't allow-grew or rules-weakened: a new extension is an extension-added warning for the pull request's review", async () => {
     const root = makeApp(null, { ...widgets(), "src/Board.tsx": BOARD, "genesis.config.json": JSON.stringify({ doctor: { rules: { "raw-tag": "warn" } } }) });
     const git = gitIn(root);
     git("init", "-q", "-b", "main");
@@ -124,9 +156,33 @@ describe("declared extensions: in the doctor", () => {
     git("commit", "-q", "-am", "extend");
     const result = await runDoctor({ root, base: "main" });
     expect([...brief(result.findings, "allow-grew"), ...brief(result.findings, "rules-weakened"), ...brief(result.findings, "widgets/")]).toEqual([]);
-    expect(brief(result.findings, "extension-added")).toEqual(["extension-added info src/Board.tsx:0 widgets/lists-use-widget-view"]);
+    expect(brief(result.findings, "extension-added")).toEqual(["extension-added warn src/Board.tsx:0 widgets/lists-use-widget-view"]);
     expect(result.findings.find((f) => f.rule === "extension-added")!.message).toContain(REASON);
     expect(result.ok).toBe(true);
+    expect((await runDoctor({ root, base: "main", strict: true })).ok).toBe(false);
+  });
+
+  it("covers only the findings its file had when it was declared: under --base, a count above the merge base's fails", async () => {
+    const config = JSON.stringify({ doctor: { extend: [extension()] } });
+    const root = makeApp(null, { ...widgets(), "src/Board.tsx": BOARD, "genesis.config.json": config });
+    const git = gitIn(root);
+    git("init", "-q", "-b", "main");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    git("checkout", "-q", "-b", "work");
+    writeFileSync(path.join(root, "src/Board.tsx"), `${BOARD}// a fix\n`);
+    git("commit", "-q", "-am", "edit");
+    const same = await runDoctor({ root, base: "main" });
+    expect(brief(same.findings, "widgets/")).toEqual([]);
+    writeFileSync(path.join(root, "src/Board.tsx"), `${BOARD}export const More = () => <><DataTable /><DataTable /></>;\n`);
+    git("commit", "-q", "-am", "grow");
+    const grown = await runDoctor({ root, base: "main" });
+    expect(brief(grown.findings, "widgets/")).toEqual([
+      "widgets/lists-use-widget-view warn src/Board.tsx:2 DataGrid",
+      "widgets/lists-use-widget-view warn src/Board.tsx:3 DataTable",
+      "widgets/lists-use-widget-view warn src/Board.tsx:3 DataTable",
+    ]);
+    expect(grown.findings.find((f) => f.rule.startsWith("widgets/"))!.message).toContain("covers the 1 at the merge base; this file now has 3");
   });
 });
 
@@ -169,14 +225,30 @@ describe("ui/records-use-record-view", () => {
     expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/records-use")).toEqual(["ui-rules/records-use-record-view warn src/routes/items.$id.tsx:1 DetailPage"]);
   });
 
-  it("exempts a screen that renders an app component whose own body renders BuilderLayout, one level, as forbid follows wrappers", async () => {
+  it("exempts only what renders inside BuilderLayout, or inside an app component around it, not the whole file", async () => {
     const root = makeApp(null, {
       ...ui(),
-      "src/components/FormBuilderPage.tsx": 'import { BuilderLayout } from "@marktiderman/genesis-ui";\nexport function FormBuilderPage() { return <BuilderLayout />; }\nexport const Plain = () => <div />;\n',
-      "src/routes/builder.$id.tsx": 'import { FormBuilderPage } from "@/components/FormBuilderPage";\nexport const B = () => <><DetailPage title="x" /><FormBuilderPage /></>;\n',
-      "src/routes/plain.$id.tsx": 'import { Plain } from "@/components/FormBuilderPage";\nexport const P = () => <><DetailPage title="x" /><Plain /></>;\n',
+      "src/components/FormBuilderPage.tsx": 'import { BuilderLayout } from "@marktiderman/genesis-ui";\nexport function FormBuilderPage({ children }) { return <BuilderLayout>{children}</BuilderLayout>; }\nexport const Plain = ({ children }) => <div>{children}</div>;\n',
+      "src/routes/direct.$id.tsx": "export const D = () => <BuilderLayout><DetailPage title=\"x\" /></BuilderLayout>;\n",
+      "src/routes/wrapped.$id.tsx": 'import { FormBuilderPage } from "@/components/FormBuilderPage";\nexport const B = () => (\n  <FormBuilderPage>\n    <DetailPage title="x" />\n  </FormBuilderPage>\n);\n',
+      "src/routes/beside.$id.tsx": 'import { FormBuilderPage } from "@/components/FormBuilderPage";\nexport const B = () => <><DetailPage title="x" /><FormBuilderPage /></>;\n',
+      "src/routes/dead.$id.tsx": "export const D = () => <>{false && <BuilderLayout />}<DetailPage title=\"x\" /></>;\n",
+      "src/routes/plain.$id.tsx": 'import { Plain } from "@/components/FormBuilderPage";\nexport const P = () => <Plain><DetailPage title="x" /></Plain>;\n',
     });
-    expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/records-use")).toEqual(["ui-rules/records-use-record-view warn src/routes/plain.$id.tsx:2 DetailPage"]);
+    expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/records-use")).toEqual([
+      "ui-rules/records-use-record-view warn src/routes/beside.$id.tsx:2 DetailPage",
+      "ui-rules/records-use-record-view warn src/routes/dead.$id.tsx:1 DetailPage",
+      "ui-rules/records-use-record-view warn src/routes/plain.$id.tsx:2 DetailPage",
+    ]);
+  });
+
+  it("keeps unless.renders file-wide and direct only: a screen composing a ResourceView-backed component still flags its own DataTable", async () => {
+    const root = makeApp(null, {
+      ...ui(),
+      "src/components/TasksList.tsx": 'import { ResourceView } from "@marktiderman/genesis-ui/data";\nexport const TasksList = () => <ResourceView view={v} />;\n',
+      "src/routes/home.tsx": 'import { TasksList } from "@/components/TasksList";\nexport const H = () => <><TasksList /><DataTable rows={[]} /></>;\n',
+    });
+    expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/lists-use")).toEqual(["ui-rules/lists-use-resource-view warn src/routes/home.tsx:2 DataTable"]);
   });
 });
 
@@ -215,6 +287,40 @@ describe("the count-based ratchet", () => {
       "widgets/lists-use-widget-view warn src/Old.tsx:2 DataGrid",
     ]);
     expect(result.findings.find((f) => f.file === "src/Old.tsx")!.message).toContain("2 widgets/lists-use-widget-view findings in this file, 1 at the merge base");
+  });
+
+  it("keeps a renamed or moved file's base counts, and lets a split share its origin's", async () => {
+    const big = (n: number) => Array.from({ length: n }, (_, i) => `export const Row${i} = () => <span>row ${i} of a long and similar file body</span>;`).join("\n");
+    // Move src/Old.tsx to src/lists/Moved.tsx with a small edit.
+    const root = makeApp(null, { ...widgets(ratcheted), "src/Old.tsx": `${OLD}${big(12)}\n` });
+    const git = gitIn(root);
+    git("init", "-q", "-b", "main");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    git("checkout", "-q", "-b", "work");
+    mkdirSync(path.join(root, "src/lists"), { recursive: true });
+    git("mv", "src/Old.tsx", "src/lists/Moved.tsx");
+    writeFileSync(path.join(root, "src/lists/Moved.tsx"), `// moved\n${OLD}${big(12)}\n`);
+    git("add", "-A");
+    git("commit", "-q", "-m", "move");
+    clearPackageRulesCache();
+    const result = await runDoctor({ root, config: {}, base: "main" });
+    expect(brief(result.findings, "widgets/")).toEqual(["widgets/lists-use-widget-view info src/lists/Moved.tsx:2 DataTable"]);
+    expect(result.findings[0]!.message).toContain("1 in the files from src/Old.tsx, 1 at the merge base");
+    // Split: the debt moves into a copy of the file and leaves the original; the total doesn't grow.
+    const splitRoot = makeApp(null, { ...widgets(ratcheted), "src/Old.tsx": `${OLD}${big(12)}\n` });
+    const g = gitIn(splitRoot);
+    g("init", "-q", "-b", "main");
+    g("add", "-A");
+    g("commit", "-q", "-m", "base");
+    g("checkout", "-q", "-b", "work");
+    writeFileSync(path.join(splitRoot, "src/Part.tsx"), `${OLD}${big(12)}\n// the copy\n`);
+    writeFileSync(path.join(splitRoot, "src/Old.tsx"), `${big(12)}\n`);
+    g("add", "-A");
+    g("commit", "-q", "-m", "split");
+    clearPackageRulesCache();
+    const split = await runDoctor({ root: splitRoot, config: {}, base: "main" });
+    expect(brief(split.findings, "widgets/")).toEqual(["widgets/lists-use-widget-view info src/Part.tsx:1 DataTable"]);
   });
 
   it("keeps every level in a changed file when the base counts are unknown (git can't read the base)", () => {

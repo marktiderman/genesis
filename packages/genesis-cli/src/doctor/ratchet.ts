@@ -38,6 +38,30 @@ export function changedSince(root: string, base: string): Set<string> | null {
   return new Set([...committed.split("\0"), ...untracked.split("\0")].filter(Boolean));
 }
 
+/**
+ * Where each renamed, moved or copied file came from since the merge base with `base`: new path →
+ * the path it had there (git's rename and copy detection, `-M -C`), so a move keeps its counts and
+ * a split shares its origin's. Empty when git can't tell.
+ */
+export function originsSince(root: string, base: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const mergeBase = mergeBaseOf(root, base);
+  if (!mergeBase) return out;
+  const diff = git(root, ["diff", "-z", "-M", "-C", "--name-status", "--relative", mergeBase, "--"]);
+  if (diff === null) return out;
+  const parts = diff.split("\0");
+  for (let i = 0; i < parts.length; ) {
+    const status = parts[i++] ?? "";
+    if (!status) continue;
+    if (status.startsWith("R") || status.startsWith("C")) {
+      const from = parts[i++]!;
+      const to = parts[i++]!;
+      out.set(to, from);
+    } else i++;
+  }
+  return out;
+}
+
 /** The merge base of `base` and HEAD, or null when git can't tell. */
 export function mergeBaseOf(root: string, base: string): string | null {
   return git(root, ["merge-base", base, "HEAD"])?.trim() || null;
@@ -117,8 +141,8 @@ export function allowGrew(allow: readonly AllowEntry[], before: readonly AllowEn
 }
 
 /**
- * `extension-added` (info): an extension the base config didn't have. Extensions don't count
- * against the ratchet; this says what the pull request adds, so its review reads the reason.
+ * `extension-added` (warn): an extension the base config didn't have. Extensions don't count
+ * against `allow-grew`; this one is what the pull request's review must read and accept.
  */
 export function extensionsAdded(extend: readonly ExtensionEntry[], before: readonly ExtensionEntry[], base: string): FindingInput[] {
   const had = new Set(before.map((e) => `${e.rule}\0${e.file}\0${e.buildsOn}`));
@@ -126,10 +150,10 @@ export function extensionsAdded(extend: readonly ExtensionEntry[], before: reado
     .filter((e) => !had.has(`${e.rule}\0${e.file}\0${e.buildsOn}`))
     .map((e) => ({
       rule: "extension-added",
-      level: "info",
+      level: "warn",
       file: e.file,
       subject: e.rule,
-      message: `extends ${e.rule} since ${base}, building on ${e.buildsOn}: "${e.reason}"${e.upstream ? ` (upstream: ${e.upstream})` : ""}; review the reason`,
+      message: `extends ${e.rule} since ${base}, building on ${e.buildsOn}: "${e.reason}"${e.upstream ? ` (upstream: ${e.upstream})` : ""}; the pull request's review accepts it, and it covers only the findings the file has now`,
     }));
 }
 
@@ -209,7 +233,10 @@ export function countFindings(findings: readonly Pick<Finding, "file" | "rule">[
  * Lower ratcheted findings to `info`. In a file unchanged since the merge base, always. In a
  * changed file, when `baseCounts` (the findings per file and rule at the merge base) is given and
  * the file existed there (`existedAtBase`), unless the file now has more findings of that rule than
- * it had: a count that grew, or a new file, keeps its level. Without `baseCounts` (git couldn't
+ * it had: a count that grew, or a new file, keeps its level. Counts are per rule and file, so
+ * fixing one finding and adding another of the same rule nets out. `originOf` maps a moved or
+ * copied file to its path at the merge base: a rename keeps its count, and the files split from
+ * one share its count. Without `baseCounts` (git couldn't
  * read the base) a changed file keeps every level. `newOnly` holds the ids declared newOnly;
  * `config.ratchet` adds more. Findings about something other than a file in the app (a package,
  * the config) are left alone, since `isAppPath` says which paths are files, and so are the rules
@@ -225,47 +252,62 @@ export function applyRatchet(
     isAppPath: (file: string) => boolean;
     baseCounts?: ReadonlyMap<string, number>;
     existedAtBase?: (file: string) => boolean;
+    originOf?: (file: string) => string;
   },
 ): Finding[] {
   const { config, newOnly, changed, base, isAppPath, baseCounts, existedAtBase } = options;
-  const counts = countFindings(findings);
+  const originOf = options.originOf ?? ((f: string) => f);
+  const counts = countFindings(findings.map((f) => ({ file: originOf(f.file), rule: f.rule })));
   return findings.map((f) => {
     if (f.level === "info" || !isRatcheted(f.rule, config, newOnly) || !isAppPath(f.file)) return f;
     if (!touched(f.file, changed)) return { ...f, level: "info", message: `${f.message} (ratcheted: unchanged since ${base})` };
-    if (!baseCounts || !existedAtBase?.(f.file)) return f;
-    const now = counts.get(countKey(f.file, f.rule)) ?? 0;
-    const was = baseCounts.get(countKey(f.file, f.rule)) ?? 0;
-    if (now > was) return { ...f, message: `${f.message} (${now} ${f.rule} findings in this file, ${was} at the merge base with ${base}: don't add to the debt)` };
-    return { ...f, level: "info", message: `${f.message} (ratcheted: ${now} in this file, ${was} at the merge base with ${base})` };
+    const origin = originOf(f.file);
+    if (!baseCounts || !existedAtBase?.(origin)) return f;
+    const now = counts.get(countKey(origin, f.rule)) ?? 0;
+    const was = baseCounts.get(countKey(origin, f.rule)) ?? 0;
+    const where = origin === f.file ? "this file" : `the files from ${origin}`;
+    if (now > was) return { ...f, message: `${f.message} (${now} ${f.rule} findings in ${where}, ${was} at the merge base with ${base}: don't add to the debt)` };
+    return { ...f, level: "info", message: `${f.message} (ratcheted: ${now} in ${where}, ${was} at the merge base with ${base})` };
   });
 }
 
 /** The app's files as they were at the merge base, for counting findings there. */
 export interface BaseSnapshot {
   mergeBase: string;
-  /** The scanned files, the changed ones as they were at the merge base, and those it didn't have left out. */
+  /** The scanned files as they were at the merge base, at their paths there: unchanged ones as they are, changed (and moved) ones read from git, new ones left out. */
   files: SourceFile[];
   /** Whether a path (a file or a folder) existed at the merge base. */
   existed(file: string): boolean;
 }
 
 /**
- * The scanned files as they were at the merge base with `base`: unchanged files as they are,
- * changed ones read from git, new ones left out. Null when git can't tell (no repository, the ref
- * isn't fetched, or a file can't be read).
+ * The scanned files as they were at the merge base with `base`. A changed file is read from git
+ * at its path there (`originOf`, for one moved or copied), once per path. Null when git can't tell
+ * (no repository, the ref isn't fetched, or a file can't be read).
  */
-export function snapshotAtBase(root: string, base: string, files: readonly SourceFile[], changed: ReadonlySet<string>): BaseSnapshot | null {
+export function snapshotAtBase(
+  root: string,
+  base: string,
+  files: readonly SourceFile[],
+  changed: ReadonlySet<string>,
+  originOf: (file: string) => string = (f) => f,
+): BaseSnapshot | null {
   const mergeBase = mergeBaseOf(root, base);
   if (!mergeBase) return null;
   const out: SourceFile[] = [];
+  const seen = new Set<string>();
   for (const f of files) {
     if (!changed.has(f.path)) {
-      out.push(f);
+      if (!seen.has(f.path)) out.push(f);
+      seen.add(f.path);
       continue;
     }
-    const text = showAt(root, mergeBase, f.path);
+    const origin = originOf(f.path);
+    if (seen.has(origin)) continue;
+    seen.add(origin);
+    const text = showAt(root, mergeBase, origin);
     if (text === null) return null;
-    if (text !== undefined) out.push(withText(f, text));
+    if (text !== undefined) out.push(withText({ ...f, path: origin, absolutePath: path.join(root, origin) }, text));
   }
   const cache = new Map<string, boolean>();
   return {

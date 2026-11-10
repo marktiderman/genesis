@@ -35,7 +35,7 @@ import { checkIsoDateSlices } from "./dates.js";
 import { checkRemovedScopeNames, checkStudioServerImports, checkTreeViews } from "./api-usage.js";
 import { checkStabilityImports } from "./stability.js";
 import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules, unknownPackageRuleSettings } from "./package-rules.js";
-import { allowGrew, applyRatchet, changedSince, configAtBase, countFindings, extensionsAdded, isRatcheted, rulesWeakened, snapshotAtBase, touched } from "./ratchet.js";
+import { allowGrew, applyRatchet, changedSince, configAtBase, countFindings, countKey, extensionsAdded, isRatcheted, originsSince, rulesWeakened, snapshotAtBase, touched } from "./ratchet.js";
 import { applyExtensions, dedupeFindings } from "./extensions.js";
 import { checkContracts } from "./contracts.js";
 import { checkAgentGuide, primitivesSummary } from "./primitives.js";
@@ -46,7 +46,7 @@ import { checkDatabaseHome } from "./database.js";
 import { checkEslintConfig } from "./eslint-config.js";
 import { checkFigmaRoutesRule } from "./figma-routes.js";
 import { existsSync } from "node:fs";
-import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts, SourceFile } from "./types.js";
+import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, ExtensionEntry, GenesisFacts } from "./types.js";
 
 /** Built-in rules ratcheted under --base without config (a deprecation, or a config Genesis now wants changed, lands on existing code). */
 const RATCHETED_BY_DEFAULT = ["deprecated-import", "genesis-eslint-config"] as const;
@@ -174,48 +174,61 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   // A default-ratcheted rule asks git only when it found something, so an app with no deprecated
   // imports never sees a ratchet-skipped notice where git can't compare.
   const ratchetNeeded = newOnly.size > RATCHETED_BY_DEFAULT.length || raw.some((f) => (RATCHETED_BY_DEFAULT as readonly string[]).includes(f.rule));
-  if (options.base && (ratchetNeeded || config.ratchet)) {
+  if (options.base && (ratchetNeeded || config.ratchet || config.extend?.length)) {
     changed = options.changedFiles ? new Set(options.changedFiles) : changedSince(root, options.base);
     skipped ||= !changed;
   }
   const configFile = "file" in loaded ? loaded.file : null;
-  const guarded = (config.allow?.length ?? 0) + Object.keys(config.rules ?? {}).length + Object.keys(config.packageRules ?? {}).length > 0;
+  const guarded = (config.allow?.length ?? 0) + (config.extend?.length ?? 0) + Object.keys(config.rules ?? {}).length + Object.keys(config.packageRules ?? {}).length > 0;
   let configSkipped = false;
+  let baseExtend: ExtensionEntry[] = [];
   if (options.base && configFile) {
     const before = configAtBase(root, options.base, options.configPath !== undefined ? configFile : undefined);
+    if (before && before !== "absent") baseExtend = before.extend;
     if (before && before !== "absent") {
       raw.push(...allowGrew(config.allow ?? [], before.allow, options.base));
       raw.push(...rulesWeakened(config, before, options.base));
       raw.push(...extensionsAdded(config.extend ?? [], before.extend, options.base));
     }
     // Uncompared: an error when the config holds something to compare; nothing to say when it holds
-    // none (no allow, rules or packageRules can have weakened).
+    // none (no allow, extend, rules or packageRules can have weakened or grown).
     configSkipped = !before && guarded;
   }
   if (skipped || configSkipped) {
     raw.push(
       configSkipped
-        ? { rule: "ratchet-skipped", level: "error", file: "genesis config", message: `couldn't compare allow, rules and packageRules against ${options.base} (not a git repository, or the ref isn't fetched; in CI check out with fetch-depth: 0)` }
+        ? { rule: "ratchet-skipped", level: "error", file: "genesis config", message: `couldn't compare allow, extend, rules and packageRules against ${options.base} (not a git repository, or the ref isn't fetched; in CI check out with fetch-depth: 0)` }
         : { rule: "ratchet-skipped", level: "warn", file: "genesis config", message: `couldn't compare against ${options.base} (not a git repository, or the ref isn't fetched); every rule ran at its full level` },
     );
   }
   const packageIds = packageRuleIds(packages);
-  const settle = (found: FindingInput[], scanned: readonly SourceFile[]) => applyExtensions(applyConfig(found, config, packageIds), { config, files: scanned, packages, raw: found });
-  let findings = settle(raw, files);
+  const extensionCtx = { config, files, packages, raw };
+  const configured = applyConfig(raw, config, packageIds);
+  let findings = applyExtensions(configured, extensionCtx);
   if (options.base && changed) {
     const isAppPath = (f: string) => existsSync(path.join(root, f));
+    const origins = options.changedFiles ? new Map<string, string>() : originsSince(root, options.base);
+    const originOf = (f: string) => origins.get(f) ?? f;
     // A changed file keeps a ratcheted rule's findings at their level only when it is new or has
-    // more of them than at the merge base: count them there, from the files as they were. Only the
-    // checks that read the app's files run again (not the build, the database or Figma).
-    const due = findings.some((f) => f.level !== "info" && isRatcheted(f.rule, config, newOnly) && isAppPath(f.file) && touched(f.file, changed!));
-    const snapshot = due ? snapshotAtBase(root, options.base, files, changed) : null;
+    // more of them than at the merge base, and an extension the base had covers only the findings
+    // its file had there: count them at the merge base, from the files as they were.
+    const dueRules = new Set(findings.filter((f) => f.level !== "info" && isRatcheted(f.rule, config, newOnly) && isAppPath(f.file) && touched(f.file, changed!)).map((f) => f.rule));
+    const heldExtensions = (config.extend ?? []).filter((e) => touched(e.file, changed!) && baseExtend.some((b) => b.rule === e.rule && (b.file === e.file || b.file === originOf(e.file))));
+    for (const e of heldExtensions) dueRules.add(e.rule);
+    const snapshot = dueRules.size ? snapshotAtBase(root, options.base, files, changed, originOf) : null;
     let baseCounts: Map<string, number> | undefined;
     if (snapshot) {
       const before: FindingInput[] = [];
-      await runChecks({ ...ctx, files: snapshot.files, report: (f) => before.push(f) }, [...builtinChecks(config, { contracts: false, figma: false }), ...appChecks]);
-      baseCounts = countFindings(settle(before, snapshot.files));
+      await runChecks({ ...ctx, files: snapshot.files, report: (f) => before.push(f) }, baseChecks(dueRules, packageIds, packagePlugins, () => [...builtinChecks(config, { contracts: false, figma: false }), ...appChecks]));
+      // Counted before extensions: what an extension covers is what its file had.
+      baseCounts = countFindings(applyConfig(before, config, packageIds));
+      if (heldExtensions.length) {
+        const counts = baseCounts;
+        const held = new Set(heldExtensions);
+        findings = applyExtensions(configured, { ...extensionCtx, limit: (e) => (held.has(e) ? (counts.get(countKey(originOf(e.file), e.rule)) ?? 0) : undefined) });
+      }
     }
-    findings = applyRatchet(findings, { config, newOnly, changed, base: options.base, isAppPath, ...(snapshot && baseCounts ? { baseCounts, existedAtBase: snapshot.existed } : {}) });
+    findings = applyRatchet(findings, { config, newOnly, changed, base: options.base, isAppPath, originOf, ...(snapshot && baseCounts ? { baseCounts, existedAtBase: snapshot.existed } : {}) });
   }
   findings = dedupeFindings(findings);
   const errors = findings.filter((f) => f.level === "error").length;
@@ -233,6 +246,15 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     warnings,
     infos,
   };
+}
+
+/**
+ * The checks the merge base's pass runs: only the package rules when every rule it counts is a
+ * package `prefer` rule (the usual case), else every check that reads the app's files.
+ */
+function baseChecks(rules: ReadonlySet<string>, preferIds: ReadonlySet<string>, packagePlugins: DoctorPlugin[], all: () => DoctorPlugin[]): DoctorPlugin[] {
+  if ([...rules].every((r) => preferIds.has(r))) return packagePlugins.filter((p) => p.name === "package-rules");
+  return all();
 }
 
 /** Run each check, turning a plugin's crash into a `plugin-error` finding (a config error still throws). */

@@ -41,7 +41,7 @@ import { overlayState } from "./overlays.js";
 import { loadPlugins } from "./plugins.js";
 import { routesDir } from "./routes.js";
 import { lineAt } from "./scan.js";
-import { localImportedNames, readSource } from "./source.js";
+import { localImportedNames, openElementsAt, readSource } from "./source.js";
 import { stripBlockComments } from "../../../../scripts/lib/color-literals.mjs";
 import { importSpecifiers } from "./rules.js";
 import type { DeclaringPackage, DoctorContext, DoctorPlugin, FindingInput, Level, PackageDeclaration, PackageRuleSetting, PreferRule, PrimitiveEntry, SourceFile } from "./types.js";
@@ -55,9 +55,9 @@ export class PackageDeclarationError extends Error {
 const GENESIS = /^@marktiderman\/genesis(?:-([a-z0-9-]+))?$/;
 const ID = /^[a-z0-9][a-z0-9-]*$/;
 const LEVELS = new Set(["error", "warn", "info"]);
-const PREFER_KEYS = new Set(["id", "need", "level", "platform", "files", "exclude", "forbid", "unless", "use", "import", "docs", "why", "newOnly"]);
+const PREFER_KEYS = new Set(["id", "need", "level", "platform", "files", "exclude", "forbid", "unless", "use", "import", "docs", "why", "newOnly", "extensible"]);
 const FORBID_KEYS = new Set(["jsx", "imports", "pattern"]);
-const UNLESS_KEYS = new Set(["renders", "pattern"]);
+const UNLESS_KEYS = new Set(["renders", "inside", "pattern"]);
 const PRIMITIVE_KEYS = new Set(["need", "use", "import", "docs"]);
 const DECLARATION_KEYS = new Set(["enforce", "reason", "prefer", "catalog", "primitives", "plugin", "$comment"]);
 const SCRIPT_GLOBS = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mts", "**/*.cts", "**/*.mjs", "**/*.cjs"];
@@ -189,6 +189,9 @@ function validatePrefer(raw: unknown, where: string, fail: (msg: string) => neve
   if (raw.platform !== undefined && raw.platform !== "web" && raw.platform !== "native") fail(`${at}.platform must be "web" or "native"`);
   if (raw.newOnly !== undefined && typeof raw.newOnly !== "boolean") fail(`${at}.newOnly must be true or false`);
   for (const key of ["files", "exclude"]) if (raw[key] !== undefined && !isStringList(raw[key])) fail(`${at}.${key} must be a list of globs`);
+  if (raw.extensible !== undefined && !(isStringList(raw.extensible) && raw.extensible.every((n) => /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(n)))) {
+    fail(`${at}.extensible must be a list of export names, or parts of one ("ResourceView.slots")`);
+  }
   if (!isObject(raw.forbid)) fail(`${at} needs "forbid": { jsx?, imports?, pattern? }`);
   const forbid = raw.forbid as Record<string, unknown>;
   for (const key of Object.keys(forbid)) if (!FORBID_KEYS.has(key)) unknownKey(`${at}.forbid`, key);
@@ -201,6 +204,7 @@ function validatePrefer(raw: unknown, where: string, fail: (msg: string) => neve
     const unless = raw.unless as Record<string, unknown>;
     for (const key of Object.keys(unless)) if (!UNLESS_KEYS.has(key)) narrowing(`${at}.unless`, key, UNLESS_KEYS);
     if (unless.renders !== undefined && !isStringList(unless.renders)) fail(`${at}.unless.renders must be a list of component names`);
+    if (unless.inside !== undefined && !(isStringList(unless.inside) && unless.inside.every((n) => /^[A-Z][\w.]*$/.test(n)))) fail(`${at}.unless.inside must be a list of component names`);
     if (unless.pattern !== undefined) checkPattern(unless.pattern, `${at}.unless.pattern`, fail);
   }
   return raw as unknown as PreferRule;
@@ -341,6 +345,7 @@ interface CompiledPrefer {
   imports: Array<(spec: string) => boolean>;
   pattern?: RegExp;
   unlessRenders: Set<string>;
+  unlessInside: Set<string>;
   unlessPattern?: RegExp;
 }
 
@@ -363,6 +368,7 @@ function compile(rule: ResolvedPreferRule, setting: PackageRuleSetting | undefin
     imports: (rule.forbid.imports ?? []).map(specMatcher),
     ...(rule.forbid.pattern ? { pattern: toRegExp(rule.forbid.pattern, "g") } : {}),
     unlessRenders: new Set(rule.unless?.renders ?? []),
+    unlessInside: new Set(rule.unless?.inside ?? []),
     ...(rule.unless?.pattern ? { unlessPattern: toRegExp(rule.unless.pattern) } : {}),
   };
 }
@@ -420,41 +426,41 @@ function wrappersIn(file: Pick<SourceFile, "code">, elements: RegExpMatchArray[]
  * where it is rendered and, one level up, wherever an app component that
  * renders it is used: a local wrapper (`RecordTable` around `DataTable`) is
  * flagged once, and every screen that imports and renders the wrapper is flagged too.
- * `unless.renders` follows the same one level: a screen that renders an app
- * component whose own body renders the primitive (a page around `<BuilderLayout>`)
- * builds on it too.
+ * `unless.inside` exempts elements, not files: one nested inside an `inside`
+ * element, or inside an app component the file imports whose own body renders
+ * one (a page around `<BuilderLayout>`), is the builder's own and left alone.
  */
 function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
   const own = c.rule.packageDir;
   const checked = ctx.files.filter((file) => SCRIPT.has(file.ext) && c.includes(file.path) && !c.excludes(file.path) && !inside(own, file.absolutePath));
+  const exempt = (file: SourceFile, rendered: string[]) => rendered.some((n) => c.unlessRenders.has(n)) || (c.unlessPattern?.test(file.code) ?? false);
   const scanned = new Map(ctx.files.map((f) => [f.absolutePath, f]));
   const importedBy = new Map<SourceFile, ReturnType<typeof localImportedNames>>();
   const importsOf = (file: SourceFile) => {
     if (!importedBy.has(file)) importedBy.set(file, localImportedNames(ctx.root, file));
     return importedBy.get(file)!;
   };
-  // Components, by file, whose own body renders an `unless.renders` element: rendering one is building on the primitive.
+  // Components, by file, whose own body renders an `unless.inside` element.
   const builders = new Map<string, Map<string, string>>();
   const buildersIn = (abs: string) => {
     if (!builders.has(abs)) {
       const target = scanned.get(abs) ?? readSource(abs);
       const code = target ? ("ext" in target ? target.code : stripBlockComments(target.code, true)) : "";
-      builders.set(abs, code ? wrappersIn({ code }, [...code.matchAll(ELEMENT)], c.unlessRenders) : new Map());
+      builders.set(abs, code ? wrappersIn({ code }, [...code.matchAll(ELEMENT)], c.unlessInside) : new Map());
     }
     return builders.get(abs)!;
   };
-  const rendersBuilder = (file: SourceFile, rendered: string[]) => {
-    if (!c.unlessRenders.size) return false;
-    const local = rendered.filter((n) => !n.includes("."));
-    if (!local.length) return false;
+  /** Whether the element at `index` sits inside an `inside` element, or an imported app component around one. */
+  const nestedInBuilder = (file: SourceFile, index: number) => {
+    if (!c.unlessInside.size) return false;
     const imported = importsOf(file);
-    return local.some((n) => {
-      const from = imported.get(n);
+    const isBuilder = (name: string) => {
+      if (c.unlessInside.has(name)) return true;
+      const from = name.includes(".") ? undefined : imported.get(name);
       return from !== undefined && buildersIn(from.file).has(from.name);
-    });
+    };
+    return openElementsAt(file.code, index, isBuilder).length > 0;
   };
-  const exempt = (file: SourceFile, rendered: string[]) =>
-    rendered.some((n) => c.unlessRenders.has(n)) || (c.unlessPattern?.test(file.code) ?? false) || rendersBuilder(file, rendered);
   // Wrappers, by file: exported components whose own body renders a forbidden element, in files that aren't exempt.
   const wrappers = new Map<string, Map<string, string>>();
   const renderedBy = new Map<SourceFile, RegExpMatchArray[]>();
@@ -474,6 +480,7 @@ function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
     const imported = wrappers.size && elements.length ? importsOf(file) : null;
     for (const m of elements) {
       const name = m[1]!;
+      if (nestedInBuilder(file, m.index!)) continue;
       if (c.jsx.has(name)) {
         report(lineAt(file.code, m.index!), name, `renders <${name}>`);
         continue;
@@ -490,6 +497,7 @@ function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
     if (c.pattern) {
       c.pattern.lastIndex = 0;
       for (const m of file.code.matchAll(c.pattern)) {
+        if (nestedInBuilder(file, m.index!)) continue;
         const text = m[0].trim().replace(/\s+/g, " ").slice(0, 60);
         report(lineAt(file.code, m.index!), text, `has ${text}`);
       }

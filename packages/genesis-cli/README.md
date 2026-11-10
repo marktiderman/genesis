@@ -832,8 +832,8 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `scope-practice-id` | info | `scope.practiceId` read with no `ResourceScope` augmentation in the app (declaration files included). It still works, as the app's own key in the open slot, but reads as `unknown`; the message gives the one-line augmentation. Never fails, `--strict` included. |
 | `stale-exception` | warn | An `allow` entry that no longer matches anything, or a `packageRules` entry that names no rule an installed package declares (a typo there would change nothing). An id in the namespace of a package with a `plugin` isn't checked, since a plugin's ids aren't known until it reports. |
 | `stale-extension` | warn | A [declared extension](#declared-extensions) whose file no longer has a finding of its rule; remove it. Not reported while the rule is `off`. |
-| `extension-invalid` | error | A [declared extension](#declared-extensions) the doctor can't accept: its file doesn't import `buildsOn` from a Genesis package, `buildsOn` is what a package rule replaces, or something in the file flags it. The findings it would cover stay. `rules` and `allow` can't name it. |
-| `extension-added` | info | Under `--base`: a declared extension the doctor settings at the merge base didn't have, with its reason, so the pull request's review reads it. Never fails. |
+| `extension-invalid` | error | A [declared extension](#declared-extensions) the doctor can't accept: its rule declares no extension points or `buildsOn` isn't one, its file doesn't import `buildsOn` from a Genesis package, `buildsOn` is what a package rule replaces, or something in the file flags it. The findings it would cover stay. `rules` and `allow` can't name it. |
+| `extension-added` | warn | Under `--base`: a declared extension the doctor settings at the merge base didn't have, with its reason, for the pull request's review to accept. Never ratcheted. |
 | `package-rules-invalid` | warn | An installed or local package's `genesis.doctor` declaration (or its plugin) that doesn't validate: its rules don't run; the rest of the doctor does. Read forward-compatibly, since a package can be newer than the CLI: an unknown key is ignored, and a `prefer` rule or primitive that doesn't validate is skipped on its own, each with this warning. An unknown key on a `prefer` rule itself or in its `unless` could narrow where it applies, so that rule is skipped whole rather than run wider; an unknown key in `forbid` is only dropped. It is never an error, so a package upgrade can't break an app's build. See [Package rules](#package-rules). |
 | `package-rule-override` | warn | `rules` changes a package rule's level without a reason; move it to `packageRules` with one. |
 | `agent-guide-stale` | warn | The agent guide `genesis agents` wrote (`.claude/skills/genesis/SKILL.md` and the `genesis-primitives` block in AGENTS.md) doesn't match the installed packages, one of the two is missing, or the block's markers are broken (one missing, repeated or out of order; `genesis agents` then writes nothing). An app with neither isn't checked. Line endings don't count. |
@@ -1048,15 +1048,15 @@ once). A package that must stay readable by a genesis-cli before this release ke
 | `platform` | `web` (off with the `native` pack) or `native` (only with it). Default both. |
 | `files`, `exclude` | App-relative globs. `{routes}` is the routes folder (`routesDir`). Default: every scanned script file. |
 | `forbid` | `jsx` element names (type arguments too: `<ResourcePage<T>`), `imports` (exact, or `prefix*`), and/or a `pattern` regular expression (every match is reported; `(?i)` for case-insensitive). Comments never count. |
-| `unless` | A file is left alone when it `renders` one of these elements (it builds on the primitive), directly or through an app component it imports whose own body renders one, or matches `pattern`. |
+| `unless` | A file is left alone when it `renders` one of these elements (it builds on the primitive) or matches `pattern`. `inside` exempts elements, not files: a forbidden element nested inside one of these (a builder's own panels inside `BuilderLayout`), or inside an app component the file imports whose own body renders one. |
+| `extensible` | The rule's extension points: the Genesis exports (or parts of one, `ResourceView.slots`) an app may build on in a way the rule doesn't recognize, and record as a [declared extension](#declared-extensions). A rule without them can't be extended. Needs genesis-cli 1.25 or later (an older one skips a rule with this key, with a `package-rules-invalid` warning). |
 | `use`, `import`, `docs`, `why` | The message: what to use, where from, why, and the link. `use` and `why` are required. |
 | `newOnly` | Ratchet: under `--base`, findings drop to `info` unless they are in a new file or a file now has more of them than at the merge base. |
 
 A forbidden element counts one level up too: an app component that renders it (`RecordTable`
 around `DataTable`) is flagged in its own file, and so is every screen that renders the
-wrapper. `unless.renders` follows the same level: a screen that renders an app component whose
-own body renders `BuilderLayout` builds on it too. A package's rules never run on the package's
-own files.
+wrapper. `unless.inside` follows the same level, for the elements nested in it only. A package's
+rules never run on the package's own files.
 
 When two rules flag the same element on the same line (an app's own rule and a package rule,
 say), the doctor reports it once, at the higher level, with every rule id in `rules` (and in the
@@ -1106,10 +1106,15 @@ doctor counts each file's findings of each ratcheted rule at the merge base and 
 keeps its level only in a file the merge base didn't have, or in a file that now has more of
 that rule's findings than it had; everything else is reported as `info`, with "ratcheted" in its
 message. So a one-line fix in a file with old debt passes, and adding to the debt doesn't.
+Counts are per rule and file, not per finding: fixing one finding and adding another of the same
+rule in the same file nets out, and the new one is reported as `info` like the rest. A renamed or
+moved file keeps its count (git's rename and copy detection), and files split from one share
+its count, so a refactor isn't charged for debt it only moved.
 Changed means committed on the branch, staged, edited or untracked; the merge base's counts come
-from the changed files as git has them there (the checks that read the app's files run again on
-those; the build, the database contract and Figma don't). When git can't read them, a changed
-file keeps every level. Without `--base` every rule runs at its level, as before; when git can't compare,
+from the changed files as git has them there: only the package rules run again on them when
+every rule being counted is one (the usual case), else every check that reads the app's files;
+never the build, the database contract or Figma. When git can't read them, a changed file keeps
+every level. Without `--base` every rule runs at its level, as before; when git can't compare,
 `ratchet-skipped` says so and nothing is lowered. `allow` entries still remove findings,
 ratcheted or not: they are the recorded ratchet, file by file, and under `--base` the list only
 shrinks: `allow-grew` fails an entry the doctor settings at the merge base didn't have, and
@@ -1131,8 +1136,9 @@ shallow CI clone has no merge base, so `ratchet-skipped` fails a config with `al
 ### Declared extensions
 
 Genesis is a trellis, not a ceiling: a rule knows the usual ways of building on a primitive, and
-an app may build on Genesis in a way the rule doesn't recognize. When that's defensible, declare
-it in `doctor.extend` instead of hiding the finding in `allow`:
+an app may build on Genesis in a way the rule doesn't recognize. A package rule that allows this
+declares its extension points (`extensible`), and an app that uses one, defensibly, declares it in
+`doctor.extend` instead of hiding the finding in `allow`:
 
 ```json
 {
@@ -1150,22 +1156,31 @@ it in `doctor.extend` instead of hiding the finding in `allow`:
 }
 ```
 
-An extension covers every finding of `rule` in one `file` (no globs: each file is reviewed on
-its own). `allow` is debt and only shrinks; an extension is a decision, so it never expires,
-`allow-grew` and `rules-weakened` don't count it, and under `--base` it is reported as
-`extension-added` (info) with its reason, for the pull request's review. The doctor checks it:
+`allow` is debt and only shrinks. An extension is a reviewed decision, and it is bounded:
+
+- **By the rule.** Only package rules can be extended, and only at the points they declare
+  (`ui/lists-use-resource-view`: `ResourceView.slots`, `ResourceView.renderDetail`,
+  `ResourceView.toolbar`, `useResourceView`, `useResourceTable`, `useBoardColumns`;
+  `ui/records-use-record-view`: `BuilderLayout`). A built-in rule (`deprecated-import`,
+  `removed-scope-name`, `raw-tag`, …) or a package rule without points can't be, so debt can't be
+  renamed an extension.
+- **By the file, now.** It names one file (no globs) and covers the findings of its rule that the
+  file has when the extension is declared. Under `--base`, once the merge base has the extension,
+  a file with more of them than at the merge base reports them all at their level, as the ratchet
+  would.
+- **By review.** `allow-grew` and `rules-weakened` don't count it, but under `--base` a new one is
+  an `extension-added` warning carrying its reason, so the pull request's reviewer reads and
+  accepts it (and `--strict` CI fails until it's merged).
+
+The doctor checks each one:
 
 - `reason` is required, at least six words and 40 characters: why the rule's primitive doesn't
   fit this file. `upstream` links the gap's write-up for Genesis, when it is one.
-- `extension-invalid` (error, can't be lowered or allowed): `buildsOn` (an export, or a part of
-  one: `ResourceView.slots`) isn't imported from a Genesis package in that file, or it is what a
-  package rule replaces (`DataTable`, `DetailPage`), or the doctor flags it there (a deprecated
-  import). The findings it would cover stay.
+- `extension-invalid` (error, can't be lowered or allowed): the rule declares no extension points
+  or `buildsOn` isn't one of them, the file doesn't import `buildsOn` from a Genesis package,
+  `buildsOn` is what a package rule replaces (`DataTable`, `DetailPage`), or the doctor flags it in
+  that file (a deprecated import). The findings it would cover stay.
 - `stale-extension` (warn): the file no longer has a finding of `rule`; remove the entry.
-
-```bash
-genesis doctor --strict --base origin/main
-```
 
 ### Config
 
@@ -1213,7 +1228,7 @@ genesis doctor --strict --base origin/main
 | `ratchet` | | `true`, or a list of rule ids, ratcheted under `--base`. See [The ratchet](#the-ratchet). |
 | `contracts` | | `{ out?, schemas?, databaseEnv? }`: the supabase pack's `contracts-stale` check. Needs the supabase pack. |
 | `allow` | | Exceptions: `{ rule, file?, match?, reason }`. `match` is the exact tag, token, export name or import specifier. `reason` is required. Debt: under `--base` it only shrinks. |
-| `extend` | | Declared extensions: `{ rule, file, buildsOn, reason, upstream? }`. See [Declared extensions](#declared-extensions). |
+| `extend` | | Declared extensions: `{ rule, file, buildsOn, reason, upstream? }`, at a package rule's declared extension points, bounded by the findings the file had when declared. See [Declared extensions](#declared-extensions). |
 | `patterns` | | Declarative rules, below. |
 | `rulesDoc` | | A markdown file of declarative rules, below. |
 | `plugins` | | Rule modules, below. |

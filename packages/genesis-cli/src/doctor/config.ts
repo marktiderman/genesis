@@ -486,6 +486,7 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
       for (const k of ["rule", "file", "buildsOn", "reason"]) if (typeof e[k] !== "string" || !(e[k] as string).trim()) fail(`${where} needs "${k}"`);
       const { rule, file, buildsOn, reason } = e as Record<string, string>;
       if (META_RULES.has(rule!) || CONFIG_RULES.has(rule!)) fail(`${where} can't extend ${rule}: it is about the config, not the app's code`);
+      if (!rule!.includes("/")) fail(`${where} can't extend ${rule}: only package rules declare extension points (a built-in rule's findings are fixed, or recorded as allow debt)`);
       if (/[*?[\]{}]/.test(file!)) fail(`${where}.file must be one file, not a glob: each extension is reviewed on its own`);
       e.file = appPath(file, `${where}.file`, fail);
       if (!/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(buildsOn!)) fail(`${where}.buildsOn must name a Genesis export, or a part of one ("FormBuilder", "ResourceView.slots")`);
