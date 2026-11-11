@@ -62,6 +62,23 @@ The rule below comes from this, as Mark put it:
 >
 > It's really the Genesis way, and it's what we're trying to do here: the purpose of Genesis.
 
+And on 2026-11-11, after an agent in a consumer app first treated the app's own components as
+a breach, then kept them as copies beside Genesis parts that did the same job:
+
+> REUSE genesis primitives first. EXTEND genesis primitives with slots etc. and your own
+> extensions. INVENT your own screens and primitives in the client app. Customize and use them
+> to your heart's content, and recommend them to genesis if you think that would be helpful.
+>
+> I want the client apps […] to invent their own customizations and primitives as needed
+> without any limits.
+>
+> If they are close and share the same JTBD, then extending them or adding a customize layer on
+> top would be a better fit, versus creating parallel structures.
+
+The same day's other lesson: that agent had called pieces missing that Genesis had. It had
+looked at two pages of the library, and the app was thirty releases behind. So before deciding
+Genesis lacks something, look at all of it, and check the app is on a current release.
+
 ## The rule: reuse, then extend, then invent
 
 Ask these in order, every time, before writing code.

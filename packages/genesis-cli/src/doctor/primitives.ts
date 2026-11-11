@@ -55,7 +55,7 @@ export interface PrimitiveRow {
 const CORE: PrimitiveRow[] = [
   {
     need: "anything, before building it",
-    use: "search what exists: `genesis features find <term>`, this catalog, and the \"Available but unused\" list in `genesis doctor --verbose`",
+    use: "search what exists: `genesis features find <term>`, this catalog, and the \"Available but unused\" list in `genesis doctor --verbose`. Check the install is current first (`genesis upgrade --dry-run`): an old one hides pieces that exist",
     docs: `${GENESIS_DOCS}/FRAMEWORK.md`,
     from: "genesis-cli",
   },
@@ -162,6 +162,7 @@ export const AGENTS_END = "<!-- genesis-primitives:end -->";
 /** The rules every agent follows, in both generated files. */
 const RULES = [
   `Use the Genesis primitive for the need first: reuse, then extend, then invent (G1 to G6 in ${GENESIS_DOCS}/FRAMEWORK.md).`,
+  "Before deciding Genesis lacks a piece, look at all of it (the catalog below, `genesis features find <term>`) and check the installed packages are current (`genesis upgrade --dry-run`). An old install hides pieces that exist; upgrade before building around a gap that is already closed.",
   "Never copy an older screen as a template. Old screens predate the primitives; the doctor flags what they did.",
   "A list screen is a view (`defineView`) rendered by `ResourceView`; a record view is `RecordView`; on the phone, `NativeResourceView`.",
   "Screens never call the database client (`supabase.from`, `.rpc`) directly: reads go through a view or a named data function, writes through the resource's provider rules.",

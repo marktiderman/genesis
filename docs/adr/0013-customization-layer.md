@@ -67,6 +67,14 @@ a primitive at level 4, **Adapt**, never as a dependency:
 This is how a public engine and premium parts can coexist: the engine is complete on its own,
 and premium parts plug into ports it defines.
 
+### Registering is a recommendation (added 2026-11-11)
+
+Rule 2's entry in `docs/genesis-upstream.md` is a recommendation an app makes when it thinks
+Genesis should have the piece. It is never a condition for building at level 5: the app builds
+first, and nothing is written up or approved beforehand. A piece that is close to a Genesis part
+and does the same job is not level 5 at all: it is extended at level 3 (a slot, a prop, or the
+app's own component wrapping the part) and never rebuilt beside it (FRAMEWORK G2 and G5).
+
 ## Consequences
 
 - The 80% path is levels 1–4 everywhere; an app's uniqueness is level 5, and visible as such.

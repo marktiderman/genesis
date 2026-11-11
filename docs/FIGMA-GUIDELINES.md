@@ -109,7 +109,10 @@ What makes the app prototype feel live, all with library instances:
 An app file follows the rule its code follows (FRAMEWORK.md Part 1, G1 to G3). Ask in order:
 
 1. **Reuse.** The library has a component for the job: place its instance and set its
-   properties. Check the code as well as the drawing. The library mirrors code, so when the code
+   properties. Search the whole library before deciding it has none: every page under "The
+   library's structure", not only the one you expect it on. Then check the app's code is on a
+   Genesis release that has the component; when the installed packages are behind the library,
+   the app upgrades (`genesis upgrade`), it does not redraw. Check the code as well as the drawing. The library mirrors code, so when the code
    component already has the prop (a deeper level, another step) and only the drawing lacks it,
    the drawing is what needs extending in the library; the app wraps the instance meanwhile (2).
 2. **Extend.** A library component is close and does the same job: make an app component that
