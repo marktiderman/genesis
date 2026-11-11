@@ -1,0 +1,40 @@
+docs/FRAMEWORK.md
+  s_324133fe503f4f::t_e0dbd3282d2d39 72-73
+  s_324133fe503f4f::t_592abade1dfa92 75,87-101
+.changeset/reuse-extend-own.md
+  s_324133fe503f4f::t_572b66a08b7df6 1-9
+AGENTS.md
+  s_324133fe503f4f::t_801c96e36e919d 21,26,46-50
+docs/FIGMA-GUIDELINES.md
+  s_324133fe503f4f::t_df4ff1f3f31ca3 12,20-23,56-57,74,107,109,111-121,123-135,143-144,151-152,198-199,211
+docs/GLOSSARY.md
+  s_324133fe503f4f::t_97227c0a65bda5 38
+docs/PACKAGE-STRATEGY.md
+  s_324133fe503f4f::t_d57d2e5852f303 228-230
+packages/genesis-cli/README.md
+  s_324133fe503f4f::t_42eeef6c5ef830 809,1096,1464-1466
+packages/genesis-cli/src/doctor/primitives.ts
+  s_324133fe503f4f::t_a2841b964337fb 83-88,91,168-169
+packages/genesis-cli/src/doctor/rules.ts
+  s_324133fe503f4f::t_b4fa74bfbbcbd2 125
+packages/ui/EXTENDING.md
+  s_324133fe503f4f::t_0aa950c711edad 100-101,107-150
+packages/ui/SKILL.md
+  s_324133fe503f4f::t_34d95e1ca942d6 54-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5f9f52c131c462323fcba5471ae050c228067a65",
+  "prompts": {},
+  "sessions": {
+    "s_324133fe503f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dfd43a46-01e4-491b-9eff-af1d9de9360f",
+        "model": "claude-fable-5-2"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
