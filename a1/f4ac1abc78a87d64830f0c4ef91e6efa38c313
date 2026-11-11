@@ -1,0 +1,25 @@
+docs/FIGMA-GUIDELINES.md
+  s_324133fe503f4f::t_97e128a4d27bfc 112-115
+docs/FRAMEWORK.md
+  s_324133fe503f4f::t_f42b4f525cde7d 65-81
+docs/adr/0013-customization-layer.md
+  s_324133fe503f4f::t_ec164311ac911f 70-77
+packages/genesis-cli/src/doctor/primitives.ts
+  s_324133fe503f4f::t_cc734f48994f61 58,165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a1f4ac1abc78a87d64830f0c4ef91e6efa38c313",
+  "prompts": {},
+  "sessions": {
+    "s_324133fe503f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dfd43a46-01e4-491b-9eff-af1d9de9360f",
+        "model": "claude-fable-5-2"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
