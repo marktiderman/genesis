@@ -36,7 +36,8 @@ Rules:
    `docs/genesis-upstream.md` when it works around something Genesis should do (a gap) or could
    serve another app (an extension or invention), as a recommendation and never as a condition
    for building it (amended 2026-11-11); what is unique to the app needs no entry (G3).
-   When a second app needs it, it is promoted into Genesis (G4) and the app deletes its copy.
+   When more than one app wants it, or Genesis decides to own the capability, it can be promoted
+   into Genesis (G4, a decision and not an automatic step); the app then deletes its copy.
 3. **No eject.** An app never copies a Genesis component to change it (PACKAGE-STRATEGY, R6).
    When levels 1–4 can't reach a need that a Genesis part should cover, the gap names the missing
    extension point and Genesis adds it; a need no Genesis part covers is level 5.
