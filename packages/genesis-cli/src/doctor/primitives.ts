@@ -81,8 +81,14 @@ const CORE: PrimitiveRow[] = [
     from: "genesis-cli",
   },
   {
+    need: "a Genesis piece that is close but doesn't quite fit",
+    use: "extend it: a prop, a variant, a slot, or your own component that wraps it; never a parallel copy beside it",
+    docs: `${GENESIS_DOCS}/FRAMEWORK.md`,
+    from: "genesis-cli",
+  },
+  {
     need: "something no primitive covers",
-    use: "write the gap up for Genesis (an issue or a proposal) first, then invent in the app, on Genesis primitives",
+    use: "invent it in the app, on Genesis tokens and primitives; nothing is written up first. Add it to `docs/genesis-upstream.md` (`genesis upstream`) when Genesis should have it",
     docs: `${GENESIS_DOCS}/FRAMEWORK.md`,
     from: "genesis-cli",
   },
@@ -159,7 +165,8 @@ const RULES = [
   "Never copy an older screen as a template. Old screens predate the primitives; the doctor flags what they did.",
   "A list screen is a view (`defineView`) rendered by `ResourceView`; a record view is `RecordView`; on the phone, `NativeResourceView`.",
   "Screens never call the database client (`supabase.from`, `.rpc`) directly: reads go through a view or a named data function, writes through the resource's provider rules.",
-  "When no primitive fits, write the gap up for Genesis before inventing, then invent in the app on Genesis primitives.",
+  "When a Genesis piece is close and does the same job, extend it: a prop, a variant, a slot, or your own component that wraps it. Never build a parallel copy beside it.",
+  "When no Genesis piece does the job, invent it in the app: your own screens and components, on Genesis tokens and primitives. Nothing is written up or approved first; add it to `docs/genesis-upstream.md` when Genesis should have it.",
   "Run `genesis doctor` before you finish; it enforces these rules.",
 ];
 

@@ -35,6 +35,7 @@ new names against this page.
 | **data-bound** | a component that needs a resource contract (ResourceView, RecordView). | smart component, connected component. |
 | **component** | any React component, whatever its tier. A generic word, never a tier name. |  |
 | **slot / variant** | the two extension points. A slot is a named fill. A variant is a named style or behavior option. | render prop (in docs), flavour, mode (for variants). |
+| **reuse / extend / invent** | the one rule for where code goes (FRAMEWORK G1 to G3). Reuse: the Genesis piece as it is. Extend: the Genesis piece with the app's additions (a prop, a variant, a slot, or a wrapper around it). Invent: the app's own piece, when nothing in Genesis does the job. ADR 0013's five levels and EXTENDING.md's rungs are steps inside these three. | eject, fork; gap (for an invention); a parallel piece as a way to customize. |
 
 ## Data
 

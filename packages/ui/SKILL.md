@@ -51,6 +51,18 @@ already right; that re-derivation is where forks come from. Reach for rung 2
 first. When the app hand-builds something Genesis nearly had, that is a bug
 report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 
+## When the ladder doesn't reach
+
+- **A Genesis piece is close and does the same job:** extend it. A prop, a variant, a slot, or
+  your own component that wraps it and adds on top. Never a parallel piece beside it.
+- **Nothing in Genesis does the job:** invent it in the app. Your own screens and components, as
+  many as the app needs, with nothing written up or approved first. Build on the semantic
+  tokens, compose Genesis primitives inside, keep it out of `src/components/ui`, and don't name
+  it like a Genesis export.
+- **Worth sharing?** Add a line to `docs/genesis-upstream.md` (`genesis upstream`). Optional.
+
+`EXTENDING.md`, beside this file, has the wrapper example under "Your own components".
+
 ## ResourcePage knobs a real screen needs
 
 Reach for these before a slot. Each one replaced a slot workaround in a real app.

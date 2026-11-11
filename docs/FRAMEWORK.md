@@ -69,10 +69,10 @@ Ask these in order, every time, before writing code.
 | ID | Principle | What it means |
 |---|---|---|
 | **G1 Reuse** | Can we reuse what's already there? If so, do it. | Use the Genesis component, hook, layout or provider as it is, configured with its props. |
-| **G2 Extend** | If we can't reuse it, is there a way to extend it? | Add a variant, fill a slot, pass a function or configuration, or build a component based on another component. |
-| **G3 Invent, in the app first** | If those don't work, invent it, first inside the client app. | Inventing is allowed and sometimes needed. Everything starts with an invention; we just don't go there first. |
+| **G2 Extend** | If we can't reuse it, is there a way to extend it? | Add a variant, fill a slot, pass a function or configuration, or build a component based on another component: the app's own wrapper around the Genesis piece, with its additions on top. When a Genesis piece is close and does the same job, this is the answer, never a parallel piece beside it. |
+| **G3 Invent, in the app first** | If those don't work, invent it, first inside the client app. | Inventing is allowed and sometimes needed. Everything starts with an invention; we just don't go there first. An app invents its own screens and components as it needs them, without a limit, and nothing has to be written up or approved by Genesis first. Recommending one to Genesis is welcome when it would help other apps, never required. |
 | **G4 Promote when it pays** | When an invention would benefit us several times, give it a home one level up. | Used in several places in one app: make it a component inside that app. Wanted by many apps, or a capability Genesis decides to own (a learning package, say): move it into Genesis. |
-| **G5 Never recreate** | Don't write out something that already exists somewhere else, or should. | Recreating a header, a button or a page layout is the one kind of code Genesis is here to remove. If Genesis lacks something you keep needing, that's a gap to raise, not a reason to rebuild it. |
+| **G5 Never recreate** | Don't write out something that already exists somewhere else. | Recreating a header, a button or a page layout is the one kind of code Genesis is here to remove. The test is the job: when Genesis has a piece that does the same job, reuse or extend it. When nothing does that job, building it is an invention (G3), not a recreation. |
 | **G6 Be wise and clean** | Whatever we write, write it as cleanly as possible. | Config is still code people read. An invention is held to the same standard as Genesis itself. |
 
 In reviews, cite the ID ("this recreates `PageHeader`, G5") rather than re-arguing the rule.
@@ -84,7 +84,21 @@ In reviews, cite the ID ("this recreates `PageHeader`, G5") rather than re-argui
 | **Config** (no-code) | choose a variant, fill a slot, set props, pass functions, variables or configuration to a Genesis component, hook or provider, describe a resource, a form or a feature | No |
 | **An extension** | build a component on Genesis primitives through their extension points (slots, variants, a wrapper that composes them) | No, as long as it doesn't recreate what it extends |
 | **An invention** | write something new that doesn't exist anywhere yet, because reuse and extension didn't fit | Yes, and that's allowed: say why in the PR |
-| **A recreation** | write out something that already exists in Genesis or another package, or should | Yes, and the target is zero |
+| **A recreation** | write out something Genesis or another package already has a piece for: the same job, built again beside it | Yes, and the target is zero |
+
+## One rule, three words
+
+Reuse, extend and invent are the words. Other pages name finer steps inside them, and each maps
+onto one of the three:
+
+| The rule | [ADR 0013](./adr/0013-customization-layer.md)'s levels | [EXTENDING.md](../packages/ui/EXTENDING.md) | In a Figma app file ([FIGMA-GUIDELINES](./FIGMA-GUIDELINES.md)) |
+|---|---|---|---|
+| **Reuse** (G1) | 1 Configure, 2 Brand | rung 1, the pattern | a library instance, set through its properties, in the app's Brand mode |
+| **Extend** (G2) | 3 Compose, 4 Adapt | rungs 2 to 4 (slots, the primitives, the hook), or a wrapper | an app component that wraps the library instance |
+| **Invent** (G3) | 5 Own | your own component | an app component of its own |
+
+The promotion ladder further down answers a different question: not how to build a thing, but
+where an invention lives once it exists.
 
 **Measuring custom code.** An app's custom code is its inventions plus its recreations, never
 its config. Track both, separately: inventions show where an app is genuinely its own (and
