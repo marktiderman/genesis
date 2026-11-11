@@ -1,0 +1,31 @@
+AGENTS.md
+  s_324133fe503f4f::t_f00f5e30e0482f 49-51
+docs/FIGMA-GUIDELINES.md
+  s_324133fe503f4f::t_ced69988ba77d8 127-129
+docs/PACKAGE-STRATEGY.md
+  s_324133fe503f4f::t_55eb471f1e5581 228-231
+docs/adr/0013-customization-layer.md
+  s_324133fe503f4f::t_0d7aa648f22a8d 35,37-38
+packages/genesis-cli/src/doctor/primitives.ts
+  s_324133fe503f4f::t_7f98f487227882 91,170
+packages/ui/EXTENDING.md
+  s_324133fe503f4f::t_707551c1db641d 136-138,149-157
+packages/ui/SKILL.md
+  s_324133fe503f4f::t_394e76c3f19a6e 59-60,63-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6c3ce03423fd8e572bcbddf88684e0a768b30504",
+  "prompts": {},
+  "sessions": {
+    "s_324133fe503f4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "dfd43a46-01e4-491b-9eff-af1d9de9360f",
+        "model": "claude-fable-5-2"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
