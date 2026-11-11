@@ -56,10 +56,13 @@ report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 - **A Genesis piece is close and does the same job:** extend it. A prop, a variant, a slot, or
   your own component that wraps it and adds on top. Never a parallel piece beside it.
 - **Nothing in Genesis does the job:** invent it in the app. Your own screens and components, as
-  many as the app needs, with nothing written up or approved first. Build on the semantic
+  many as the app needs, with nothing written up for Genesis or approved by it first (your
+  app's own design review still applies). Build on the semantic
   tokens, compose Genesis primitives inside, keep it out of `src/components/ui`, and don't name
   it like a Genesis export. A colour no Genesis role covers is the app's own token: a CSS
-  variable declared in the app's stylesheet, never a literal in the component.
+  variable, never a literal in the component. Derive it from existing tokens (`color-mix`) or
+  put its literal in the file that already holds the app's colour values (EXTENDING.md says
+  why a new file trips `allow-grew`).
 - **Worth sharing?** Add a line to `docs/genesis-upstream.md` (`genesis upstream`). Optional.
 
 `EXTENDING.md`, beside this file, has the wrapper example under "Your own components".

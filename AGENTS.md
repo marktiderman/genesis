@@ -46,8 +46,9 @@ AGENTS.md and skill):
 - Never copy an older screen as a template.
 - When a Genesis piece is close and does the same job, extend it: a prop, a variant, a slot, or the
   app's own component that wraps it. Never a parallel piece beside it.
-- When nothing in Genesis does the job, invent it in the app. Nothing is written up or approved
-  first; recommending it to Genesis (`genesis upstream`) is optional.
+- When nothing in Genesis does the job, invent it in the app. Genesis asks for no write-up or
+  approval first, and recommending it to Genesis (`genesis upstream`) is optional. The app's own
+  design review (the Figma proposal above) is a separate thing and still applies.
 
 A package that adds a primitive declares its rule in its package.json (`genesis.doctor`); see
 the genesis-cli README, "Package rules". Every published package must declare one, or say why

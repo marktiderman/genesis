@@ -133,8 +133,9 @@ README).
 
 ### An invention: nothing in Genesis does the job
 
-Build it in the app. There is no limit on how many, and nothing to write up or get approved
-first. Three things keep an invention at home in a Genesis app:
+Build it in the app. There is no limit on how many, and nothing to write up for Genesis or get
+approved by it first; your app's own design review is a separate thing and still applies. Three
+things keep an invention at home in a Genesis app:
 
 - **Build on the tokens.** Semantic classes (`bg-primary`, `text-muted-foreground`), never
   literal colours, so it follows the brand and dark mode.
@@ -145,10 +146,15 @@ first. Three things keep an invention at home in a Genesis app:
   copies primitives and what `local-primitives` reports. Don't name it like a Genesis export.
 
 An invention sometimes needs a colour no Genesis role covers (a rank, a category, a chart
-series). That is the app's own token, not a literal: declare it as a CSS variable in the app's
-stylesheet and use the variable in the component. `genesis doctor` counts a variable the app's
-CSS declares as defined (`undefined-token`), and the one file that sets the values takes an
-`allow` entry for `raw-color`, with the reason.
+series). That is the app's own token, not a literal: declare it as a CSS variable and use the
+variable in the component. `genesis doctor` counts a variable the app's CSS declares as defined
+(`undefined-token`). Where its value comes from decides whether `raw-color` passes:
+
+- **Derived from existing tokens** (`color-mix(in oklch, var(--primary) 60%, var(--foreground))`):
+  no literal, so nothing to allow.
+- **A literal** (`#8a6400`): put it in the file that already holds the app's colour values, the
+  one with the app's `raw-color` `allow` entry. A literal in a new file needs a new entry, and
+  under `--base` a new entry is an `allow-grew` error, so a second colour file is not the way.
 
 When you think other apps would want it, add a line to `docs/genesis-upstream.md`
 (`genesis upstream`). That is a recommendation, and optional. If Genesis takes it, you swap to

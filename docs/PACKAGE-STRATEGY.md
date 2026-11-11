@@ -225,9 +225,10 @@ prints the step.
 | | Agent skills (`SKILL.md`) and the AGENTS.md block |
 
 There is no eject. An app that needs a component to behave differently uses its props, variants
-and slots, or wraps it in a component of its own (FRAMEWORK G2); when no extension point fits, it
-builds what it needs locally and, when Genesis should have the extension point, records it in the
-`genesis upstream` register, which is a recommendation and never a gate. A fix
+and slots, or wraps it in a component of its own (FRAMEWORK G2), and never rebuilds it beside the
+Genesis one. When no extension point fits, the wrapper carries the difference, and the missing
+extension point can go in the `genesis upstream` register, which is a recommendation and never a
+gate. Only a job no Genesis component does is built from scratch in the app (G3). A fix
 in a package then reaches every app with `genesis upgrade`, which a copied component never would.
 Rejected: shadcn-style ejecting, which recreates the code in each app, breaks G5 and drifts.
 

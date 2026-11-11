@@ -124,9 +124,9 @@ An app file follows the rule its code follows (FRAMEWORK.md Part 1, G1 to G3). A
    library owner first. It mirrors a component in the app's code.
 
 The app's components live on the app file's `Components` page, named `<App>/Name`, with every
-fill, stroke and text colour bound to the library's variables, so they follow the Brand and
-Color modes. An app's own tokens, where its code defines them beside the theme, are a local
-variable collection named after the app.
+fill, stroke and text colour bound to a variable: the library's, so they follow the Brand and
+Color modes, or one of the app's own tokens. An app's own tokens, where its code defines them
+beside the theme, are a local variable collection named after the app.
 
 **Recommending one to Genesis is optional.** When an extension or an invention would help other
 apps, tell the library owner (the Figma session) with the route and what the code supports, and

@@ -32,9 +32,10 @@ Rules:
 1. **Lowest level first.** An agent or a person tries Configure before Brand, Brand before
    Compose, and so on. `genesis doctor` keeps steering away from re-implementing what a lower
    level already does.
-2. **Own is legitimate.** Code at level 5 stays in the app. It is registered in
+2. **Own is legitimate.** Code at level 5 stays in the app. It may be registered in
    `docs/genesis-upstream.md` when it works around something Genesis should do (a gap) or could
-   serve another app (an extension or invention); what is unique to the app needs no entry (G3).
+   serve another app (an extension or invention), as a recommendation and never as a condition
+   for building it (amended 2026-11-11); what is unique to the app needs no entry (G3).
    When a second app needs it, it is promoted into Genesis (G4) and the app deletes its copy.
 3. **No eject.** An app never copies a Genesis component to change it (PACKAGE-STRATEGY, R6).
    When levels 1–4 can't reach a need that a Genesis part should cover, the gap names the missing
