@@ -88,7 +88,7 @@ const CORE: PrimitiveRow[] = [
   },
   {
     need: "something no primitive covers",
-    use: "invent it in the app, on Genesis tokens and primitives; Genesis asks for no write-up first. Add it to `docs/genesis-upstream.md` (`genesis upstream`) when Genesis should have it",
+    use: "invent it in the app, on Genesis tokens and primitives; Genesis asks for no write-up first. You may add it to `docs/genesis-upstream.md` (`genesis upstream`) if you think Genesis should have it",
     docs: `${GENESIS_DOCS}/FRAMEWORK.md`,
     from: "genesis-cli",
   },
@@ -167,7 +167,7 @@ const RULES = [
   "A list screen is a view (`defineView`) rendered by `ResourceView`; a record view is `RecordView`; on the phone, `NativeResourceView`.",
   "Screens never call the database client (`supabase.from`, `.rpc`) directly: reads go through a view or a named data function, writes through the resource's provider rules.",
   "When a Genesis piece is close and does the same job, extend it: a prop, a variant, a slot, or your own component that wraps it. Never build a parallel copy beside it.",
-  "When no Genesis piece does the job, invent it in the app: your own screens and components, on Genesis tokens and primitives. Genesis asks for no write-up or approval first (your app's own design review still applies); add it to `docs/genesis-upstream.md` when Genesis should have it.",
+  "When no Genesis piece does the job, invent it in the app: your own screens and components, on Genesis tokens and primitives. Genesis asks for no write-up or approval first (your app's own design review still applies); you may add it to `docs/genesis-upstream.md` if you think Genesis should have it.",
   "Run `genesis doctor` before you finish; it enforces these rules.",
 ];
 

@@ -150,11 +150,14 @@ series). That is the app's own token, not a literal: declare it as a CSS variabl
 variable in the component. `genesis doctor` counts a variable the app's CSS declares as defined
 (`undefined-token`). Where its value comes from decides whether `raw-color` passes:
 
-- **Derived from existing tokens** (`color-mix(in oklch, var(--primary) 60%, var(--foreground))`):
-  no literal, so nothing to allow.
+- **Derived from existing tokens**
+  (`color-mix(in oklch, hsl(var(--primary)) 60%, hsl(var(--foreground)))`): no literal, so
+  nothing to allow. The role variables hold HSL channels (`243 75% 59%`), so each goes inside
+  `hsl()`.
 - **A literal** (`#8a6400`): put it in the file that already holds the app's colour values, the
-  one with the app's `raw-color` `allow` entry. A literal in a new file needs a new entry, and
-  under `--base` a new entry is an `allow-grew` error, so a second colour file is not the way.
+  one with the app's `raw-color` `allow` entry. That entry has to cover the file (no `match`),
+  since `allow` compares a `match` exactly. A literal in a new file needs a new entry, and under
+  `--base` a new entry is an `allow-grew` error, so a second colour file is not the way.
 
 When you think other apps would want it, add a line to `docs/genesis-upstream.md`
 (`genesis upstream`). That is a recommendation, and optional. If Genesis takes it, you swap to

@@ -25,7 +25,7 @@ it offers, in its README and SKILL.md, with these names.
 | 2. **Brand** | the look, everywhere at once | design tokens, a brand or design system, fonts, icons | the app's brand (design-system schema) |
 | 3. **Compose** | the shape of a screen | slots, `slotProps`, named parts and `classNames`; Genesis elements arranged in the app's own pages | the app's routes, using Genesis parts |
 | 4. **Adapt** | what sits behind a seam | adapters: data provider, storage, video, email, SMS, AI vendor, payments | an adapter object passed in config |
-| 5. **Own** | something Genesis doesn't do | the app's own components, routes, workflows and tables | the app's repository; an entry in `docs/genesis-upstream.md` when it is a gap or worth sharing |
+| 5. **Own** | something Genesis doesn't do | the app's own components, routes, workflows and tables | the app's repository; optionally an entry in `docs/genesis-upstream.md` when it is a gap or worth sharing |
 
 Rules:
 
@@ -73,8 +73,9 @@ and premium parts plug into ports it defines.
 Rule 2's entry in `docs/genesis-upstream.md` is a recommendation an app makes when it thinks
 Genesis should have the piece. It is never a condition for building at level 5: the app builds
 first, and nothing is written up or approved beforehand. A piece that is close to a Genesis part
-and does the same job is not level 5 at all: it is extended at level 3 (a slot, a prop, or the
-app's own component wrapping the part) and never rebuilt beside it (FRAMEWORK G2 and G5).
+and does the same job is not level 5 at all: it is configured at level 1 (a prop or a variant) or
+composed at level 3 (a slot, or the app's own component wrapping the part), and never rebuilt
+beside it (FRAMEWORK G2 and G5).
 
 ## Consequences
 
