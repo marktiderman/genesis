@@ -806,7 +806,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 
 | Rule | Level | What it flags |
 | --- | --- | --- |
-| `local-primitives` | error | A local primitive folder (`src/components/ui` by default; `localPrimitiveDirs`). |
+| `local-primitives` | error | A local primitive folder (`src/components/ui` by default; `localPrimitiveDirs`): where a shadcn starter copies the primitives Genesis already has. The app's own components live in any other folder. |
 | `starter-leftover` | warn | `components.json` or `src/lib/utils.ts` from a shadcn starter. |
 | `forbidden-import` | error | `@radix-ui/*`, local `components/ui/*` (alias or relative), `@/lib/utils`, plus your `forbiddenImports`. |
 | `raw-tag` | error | A raw JSX tag Genesis has a component for: any of `button input textarea select label table dialog progress details summary` with a same-named Genesis export, plus `hr` → `Separator`. JSX files only; `rawTags` adds or removes mappings. |
@@ -1093,7 +1093,7 @@ its import, the rule that enforces it and the docs: a short static core plus eve
 package's declarations. `genesis agents` writes the same catalog as
 `.claude/skills/genesis/SKILL.md` and a `<!-- genesis-primitives:start -->` block in the app's
 AGENTS.md (the rest of the file is the app's), telling agents to use the primitives first, never
-copy an older screen, and write a gap up for Genesis before inventing. `genesis agents --check`
+copy an older screen, extend a close Genesis piece rather than build beside it, and invent in the app when nothing fits. `genesis agents --check`
 writes nothing and fails when either is out of date, and the doctor's `agent-guide-stale` warns.
 Both commands, and `genesis catalog`, exit 1 when a package's declaration doesn't validate,
 since the catalog would leave it out. Run `genesis agents` after each Genesis upgrade.
@@ -1460,6 +1460,9 @@ What an app needed from Genesis and didn't find goes in `docs/genesis-upstream.m
 | id | kind | status | feature | package | local | need |
 | --- | --- | --- | --- | --- | --- | --- |
 | kanban-swimlanes | extension | candidate | data-views | @marktiderman/genesis-ui | src/components/lanes.tsx | Swimlanes on KanbanBoard |
+
+An entry is a recommendation, never a request for permission: the app builds what it needs first
+(FRAMEWORK G3) and adds an entry when it thinks Genesis should have it.
 
 `kind` is `gap` (nothing in Genesis), `extension` (a part with no prop, variant or slot for it)
 or `invention` (the app built it). `status` is `candidate`, `proposed`, `promoted` or `declined`.

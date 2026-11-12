@@ -122,7 +122,7 @@ export function checkProjectLayout(ctx: DoctorContext): void {
         rule: "local-primitives",
         file: dir,
         subject: dir,
-        message: `is a local design-system primitive folder; use ${ctx.genesis.uiPackage} (or extend it upstream)`,
+        message: `is a local design-system primitive folder; use ${ctx.genesis.uiPackage} for those, and keep the app's own components in another folder`,
       });
     }
   }
