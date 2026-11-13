@@ -1,0 +1,19 @@
+docs/proposals/client-layer-and-surfaces.md
+  s_9c94fb8fc662ae::t_3879f81424aac6 1-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4e33ca050bae3fc14a42fd4b83a0119e21f19c04",
+  "prompts": {},
+  "sessions": {
+    "s_9c94fb8fc662ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43574400-0d77-49f7-ac4b-1586a7ece165",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
