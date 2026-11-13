@@ -41,7 +41,7 @@ function hexTriplet(hex: string): string {
   return `${round(h)} ${round(s * 100)}% ${round(l * 100)}%`;
 }
 
-/** Text inside a CSS comment: a `*/` in it would end the comment early. */
+/** Text inside a CSS comment: a closing star-slash in it would end the comment early. */
 function commentSafe(text: string): string {
   return text.replace(/\*\//g, "* /");
 }
