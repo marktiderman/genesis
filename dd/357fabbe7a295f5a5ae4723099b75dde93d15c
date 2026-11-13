@@ -1,0 +1,30 @@
+packages/support/src/copy.ts
+  s_5cf92f35ac2d0a::t_b37a55c1c6305e 169-170
+packages/support/src/__tests__/messenger.test.tsx
+  s_5cf92f35ac2d0a::t_1f2ac6a23e03a4 215-228
+packages/support/src/web-chat/messenger.tsx
+  s_5cf92f35ac2d0a::t_65c7760f17782a 563-564
+  s_5cf92f35ac2d0a::t_d34ff4b66d63e9 617-625
+.changeset/support-awaiting-reply-inbox-row.md
+  s_5cf92f35ac2d0a::t_c46c82e92eba60 1-6
+packages/ui/src/components/patterns/__tests__/messaging.test.tsx
+  s_5cf92f35ac2d0a::t_580250f6b63e9d 473-478
+packages/ui/src/components/patterns/messaging/inbox-page.tsx
+  s_5cf92f35ac2d0a::t_115cf746494669 295
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dd357fabbe7a295f5a5ae4723099b75dde93d15c",
+  "prompts": {},
+  "sessions": {
+    "s_5cf92f35ac2d0a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "63f176d9-9b0f-4f51-bb21-a1ffbd02cc4c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
