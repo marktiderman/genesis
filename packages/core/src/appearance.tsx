@@ -20,6 +20,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePersistedUiState } from "./hooks/use-persisted-ui-state";
+import { reportError } from "./errors";
 import {
   APPEARANCES,
   DENSITIES,
@@ -169,7 +170,7 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
         },
         (error: unknown) => {
           // A store that can't be read leaves the device's copy in charge.
-          if (process.env.NODE_ENV !== "production") console.warn("[genesis-core] appearance preferences: the store's read failed", error);
+          reportError(error, "core:appearance-preferences");
           if (active) setReady(true);
         },
       );
@@ -196,7 +197,7 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
         void Promise.resolve()
           .then(() => latestStore.current?.write(next))
           .catch((error: unknown) => {
-            if (process.env.NODE_ENV !== "production") console.warn("[genesis-core] appearance preferences: the store's write failed", error);
+            reportError(error, "core:appearance-preferences");
           });
       }
     },

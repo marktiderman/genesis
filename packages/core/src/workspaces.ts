@@ -118,6 +118,7 @@ export function resolveWorkspaceBrand(
     const ids = options.available?.map((b) => (typeof b === "string" ? b : b.id));
     if (!ids || ids.includes(wanted)) return wanted;
     if (process.env.NODE_ENV !== "production") {
+      // genesis-allow-console: a development hint about the app's own data, not a caught error.
       console.warn(`[genesis-core] resolveWorkspaceBrand: the workspace asks for brand "${wanted}", which the app doesn't ship.`);
     }
   }
