@@ -721,7 +721,7 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#custom-views"
         },
         {
-          "need": "a view type of your own beside table, list, board, calendar and gallery (a timeline, a map)",
+          "need": "a view type of your own beside the built-in view types (a timeline, a map)",
           "use": "defineViewType and registerViewType, then <ResourceView type=\"<yours>\">",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#view-types"
@@ -740,7 +740,7 @@
         },
         {
           "need": "the app's navigation style (sidebar, rail, top tabs, bottom bar, page tree) and frame (flush or inset)",
-          "use": "AppShell options navigation and frame, or an app theme's layout (appShellOptionsFromTheme, from @marktiderman/genesis-ui/themes)",
+          "use": "AppShell's options.navigation and options.frame (<AppShell options={{ navigation: \"rail\", frame: \"inset\" }}>; its navigation prop is the nav tree), or an app theme's layout (appShellOptionsFromTheme, from @marktiderman/genesis-ui/themes)",
           "import": "@marktiderman/genesis-ui/layout",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
         },
@@ -752,8 +752,8 @@
         },
         {
           "need": "the person's light or dark and density, kept on their account",
-          "use": "defineAppearancePreferences with your store, served by AppearancePreferencesProvider (both from @marktiderman/genesis-core), around AppearanceProvider; AppShell reads the density",
-          "import": "@marktiderman/genesis-ui/themes",
+          "use": "defineAppearancePreferences with your store, served by AppearancePreferencesProvider, around AppearanceProvider (from @marktiderman/genesis-ui/themes); AppShell reads the density",
+          "import": "@marktiderman/genesis-core",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0024-who-sets-what.md"
         }
       ]
