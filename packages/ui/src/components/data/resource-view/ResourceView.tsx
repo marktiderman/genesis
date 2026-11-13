@@ -3,7 +3,7 @@
 // the peek, the form, delete, saved views and slots are all ResourcePage's. Every ResourcePage
 // prop still works as an escape hatch, and the screen's own props win over the view.
 
-import { createContext, useContext, useMemo, type ComponentType, type ReactNode } from "react";
+import { useContext, useMemo, type ComponentType, type ReactNode } from "react";
 import { useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
 import { groupRows, groupTotals, plural, rowPicture, type RecordOpen, type RecordView as RecordViewDef, type ResourceView as View, type ViewGallery } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
@@ -23,7 +23,8 @@ import {
   ViewFilterControls,
   ViewSegments,
   ViewTypeSwitcher,
-  type ViewListStateResult,
+  ListModelContext,
+  type ListModel,
 } from "./list-controls";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
 import { useDisplayCell } from "./display";
@@ -40,6 +41,7 @@ import { useViewFormFields } from "./view-form";
 import { listViewTypes, registerBuiltInViewType, resolveViewType, type ViewTypeName } from "./view-types";
 import { detailMode, recordViewOf, resolveRecordOpen } from "./record-open";
 import { recordPeekSlot } from "./RecordPeek";
+import { ResourceInbox, type ResourceInboxOptions } from "./ResourceInbox";
 
 type Row = Record<string, unknown>;
 type Scalar = string | number | boolean | null;
@@ -83,7 +85,7 @@ export interface ResourceViewOptions {
    * Prefer `type`, which takes the same values and every registered view type; `mode` stays as
    * its alias, and `type` wins when both are set.
    */
-  mode?: ViewModeDefault | "calendar" | "board" | undefined;
+  mode?: ViewModeDefault | "calendar" | "board" | "inbox" | undefined;
   /**
    * The view type (ADR 0021): how the view shows. `table`, `list` and `grid` (the person can
    * switch between them, and their pick is remembered), `board`, `calendar`, `gallery` (the grid
@@ -167,6 +169,11 @@ export type ResourceViewProps<T extends Row = Row> = ResourceViewOptions &
      * the row height), or turns the grid into a gallery for a view without one.
      */
     gallery?: Partial<ViewGallery>;
+    /**
+     * With `type="inbox"`: the open record (a URL param the app owns) and `onSelectedChange`, the
+     * reading pane of the app's own (`renderReading`), and the context sidebar (`renderContext`).
+     */
+    inbox?: ResourceInboxOptions<T>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
     view: View<ResourceContract<any>, T & DataRow>;
   };
@@ -209,16 +216,6 @@ function widthOf(width: number | string | undefined): number | string | undefine
   return rem ? Number(rem[1]) * 16 : width;
 }
 
-/**
- * The list's state a root ResourceView holds for every view type below it (segment, declared
- * filters, the view type and grouping), and the switcher it draws.
- */
-interface ListModel {
-  state: ViewListStateResult;
-  url: SearchParamsAdapter | undefined;
-  switcher: ReactNode;
-}
-const ListModelContext = createContext<ListModel | null>(null);
 
 /** Whether a screen shows the view-type switcher, and the types it offers. */
 function switcherFor(props: ResourceViewProps<Row>) {
@@ -270,7 +267,7 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
     calendar: _calendar, board: _board, gallery: screenGallery, detail: screenDetail,
     noun: screenNoun, nounPlural: screenNounPlural, formTitles: screenFormTitles, countFormat: screenCountFormat,
     defaultSegment: _defaultSegment, types: _types, switcher: _switcher, groupBy: screenGroupBy, rowActions: screenRowActions, refusals: screenRefusals,
-    export: screenExport, filterSlot, onAction, urlState: _urlState, rows,
+    export: screenExport, filterSlot, onAction, urlState: _urlState, rows, inbox: _inbox,
     ...rest
   } = props;
   const model = useListModel(props as ResourceViewProps<Row>);
@@ -633,7 +630,8 @@ function ResourceViewRoot<T extends Row>(props: ResourceViewProps<T>) {
   const switcher = on ? <ViewTypeSwitcher types={types} value={type} onChange={own.state.setType} /> : null;
   const model = useMemo(() => ({ ...own, switcher }), [own, switcher]);
   const page = type === undefined || PAGE_DRAWN.has(type);
-  const bar = !page && (switcher || props.view.segments().length > 0 || props.view.filters().length > 0 || props.filterSlot);
+  // The inbox draws its own segments (its rail), filters and switcher (over its list).
+  const bar = !page && type !== "inbox" && (switcher || props.view.segments().length > 0 || props.view.filters().length > 0 || props.filterSlot);
   return (
     <ListModelContext.Provider value={model}>
       {page ? (
@@ -768,8 +766,8 @@ function ResourceViewBoard<T extends Row>(props: ResourceViewProps<T>) {
  */
 export function useResourceView<T extends Row = Row>(props: ResourceViewProps<T>): ResourceTableState<T> {
   const shown = props.type ?? props.mode;
-  if (shown === "calendar" || shown === "board") {
-    const part = shown === "calendar" ? "ResourceCalendar" : "ResourceBoard";
+  if (shown === "calendar" || shown === "board" || shown === "inbox") {
+    const part = shown === "calendar" ? "ResourceCalendar" : shown === "board" ? "ResourceBoard" : "ResourceInbox";
     throw new Error(`useResourceView(${props.view.resource}): ${shown} mode has no table state; render <ResourceView type="${shown}"> or <${part}>`);
   }
   return useResourceTable<T>(useResourceViewProps(props));
@@ -784,3 +782,4 @@ registerBuiltInViewType({ id: "grid", label: "Grid", render: ResourceViewPage })
 registerBuiltInViewType({ id: "gallery", label: "Gallery", render: ResourceViewPage });
 registerBuiltInViewType({ id: "board", label: "Board", render: ResourceViewBoard });
 registerBuiltInViewType({ id: "calendar", label: "Calendar", render: ResourceViewCalendar });
+registerBuiltInViewType({ id: "inbox", label: "Inbox", render: ResourceInbox });

@@ -115,6 +115,8 @@ describe("segments", () => {
     expect(view.segmentFilters("mine", { id: "u1", scope: {} })).toEqual([{ field: "owner_id", operator: "eq", value: "u1" }]);
     expect(view.segmentFilters("all")).toEqual([]);
     expect(() => view.segmentFilters("late")).toThrow(ViewDefinitionError);
+    // A function source's arguments: equality filters its `take` reads, not fields.
+    expect(defineView(tasks, { segments: [{ id: "mine", label: "Mine", args: { queue: "mine" } }] }).segmentFilters("mine")).toEqual([{ field: "queue", operator: "eq", value: "mine" }]);
   });
 
   it("refuses an id the URL can't carry, a repeat and an unknown field", () => {
@@ -202,5 +204,38 @@ describe("saved views", () => {
       }),
     ).toEqual({ filters: { status: ["todo"] }, sort: { field: "hours", order: "desc" }, groupBy: "status" });
     expect(applicableListState(view, { type: "calendar", groupBy: null })).toEqual({ type: "calendar", groupBy: null });
+  });
+});
+
+describe("the inbox block", () => {
+  const inboxView = defineView(tasks, {
+    fields: { status: { tones: { done: "success" } } },
+    inbox: { preview: "notes", time: "due_on", from: "owner_id", unread: "urgent", badge: "status" },
+    actions: [{ name: "done", label: "Done" }, { name: "markRead", label: "Mark read" }],
+  });
+
+  it("draws a row as an inbox does, and offers the inbox type", () => {
+    const row = { id: "t1", title: "Call back", status: "done", owner_id: "Ada", due_on: "2026-11-12", hours: 1, urgent: true, notes: "About the invoice" } as Task;
+    expect(inboxView.inboxRow(row)).toEqual({
+      id: "t1",
+      title: "Call back",
+      unread: true,
+      preview: "About the invoice",
+      time: "2026-11-12",
+      from: "Ada",
+      badge: { label: "Done", tone: "success" },
+    });
+    expect(inboxView.types()).toContain("inbox");
+    expect(inboxView.inboxActions()).toEqual({ done: "done", markRead: "markRead" });
+    // Without a block: the summary's title, read.
+    expect(defineView(tasks).inboxRow(row)).toEqual({ id: "t1", title: "Call back", unread: false });
+  });
+
+  it("names a field that isn't there, an unread that isn't yes/no and an action the view lacks", () => {
+    expect(() => defineView(tasks, { inbox: { preview: "nope" as "title" } })).toThrow(/inbox.preview names "nope"/);
+    expect(() => defineView(tasks, { inbox: { unread: "title" } })).toThrow(/isn't a yes\/no field/);
+    expect(() => defineView(tasks, { inbox: { doneAction: "solve" } })).toThrow(/isn't one of the view's actions/);
+    expect(() => defineView(tasks, { types: ["table", "inbox"] })).toThrow(/needs an inbox block/);
+    expect(defineView(tasks, { inbox: { unread: (t) => t.urgent }, types: ["table", "inbox"] }).types()).toEqual(["table", "inbox"]);
   });
 });

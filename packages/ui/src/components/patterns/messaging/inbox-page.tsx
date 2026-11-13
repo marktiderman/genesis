@@ -33,6 +33,7 @@ import { cn } from "../../../utils";
 import { useHydrated } from "../../../hooks/use-mobile";
 import { Button } from "../../ui/button";
 import { Skeleton } from "../../ui/skeleton";
+import { Checkbox } from "../../ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../ui/dropdown-menu";
 import { EmptyState } from "../empty-state";
 
@@ -54,6 +55,10 @@ export type InboxPageSlotMap = {
     moreLabel: string;
     /** "3 unread", for a screen reader. */
     unreadLabel: string | null;
+    /** With `checked` on the page: whether the row is picked, and how to pick it. */
+    checked?: boolean | undefined;
+    onCheckedChange?: ((checked: boolean, options: { shiftKey: boolean }) => void) | undefined;
+    checkLabel?: string | undefined;
   };
   header: { testID: string };
   footer: { loadingMore: boolean; label: string; testID: string };
@@ -109,6 +114,14 @@ export interface InboxPageProps {
   now?: () => Date;
   slots?: Slots<InboxPageSlotMap>;
   slotProps?: SlotPropsFor<InboxPageSlotMap>;
+  /**
+   * Picked rows, for a bulk action: each row gets a checkbox (its own tab stop). Shift on a
+   * checkbox reports `shiftKey`, so the app can pick a range.
+   */
+  checked?: ReadonlySet<string> | undefined;
+  onCheckedChange?: ((id: string, checked: boolean, options: { shiftKey: boolean }) => void) | undefined;
+  /** A row's checkbox name. Default "Select {title}". */
+  checkLabel?: ((title: string) => string) | undefined;
   className?: string;
   /** testID on the root. Default `"inbox-page"`. */
   testID?: string;
@@ -143,6 +156,9 @@ export function InboxPage({
   now = () => new Date(),
   slots = {},
   slotProps = {},
+  checked,
+  onCheckedChange,
+  checkLabel = (title) => `Select ${title}`,
   className,
   testID = "inbox-page",
 }: InboxPageProps) {
@@ -263,6 +279,13 @@ export function InboxPage({
                     moreLabel,
                     unreadLabel: unread ? unreadLabel(item.unreadCount && item.unreadCount > 0 ? item.unreadCount : null) : null,
                     rowProps: { "data-inbox-row": "", tabIndex: item.id === stopId ? 0 : -1, onFocus: () => setFocusedId(item.id) },
+                    ...(onCheckedChange
+                      ? {
+                          checked: checked?.has(item.id) ?? false,
+                          onCheckedChange: (next: boolean, options: { shiftKey: boolean }) => onCheckedChange(item.id, next, options),
+                          checkLabel: checkLabel(item.title),
+                        }
+                      : {}),
                   },
                   slotProps.row,
                 )}
@@ -286,6 +309,20 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
   const actions: InboxSwipeAction[] = row.swipeActions ?? [];
   return (
     <div className={cn("group relative flex items-stretch", row.selected && "bg-muted")}>
+      {row.onCheckedChange ? (
+        <span className="flex shrink-0 items-start pl-3 pt-3">
+          <Checkbox
+            checked={row.checked ?? false}
+            aria-label={row.checkLabel}
+            data-testid={`${row.testID}-check`}
+            // A click (not onCheckedChange) carries Shift, for picking a range.
+            onClick={(e) => {
+              e.preventDefault();
+              row.onCheckedChange!(!(row.checked ?? false), { shiftKey: e.shiftKey });
+            }}
+          />
+        </span>
+      ) : null}
       <button
         type="button"
         data-testid={row.testID}

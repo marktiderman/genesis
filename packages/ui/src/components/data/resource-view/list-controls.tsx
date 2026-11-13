@@ -5,9 +5,9 @@
 // export. ResourceView composes these onto ResourcePage's own slots and props, so the engine stays
 // ResourcePage and DataTable; nothing here is a second list.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Filter, Images, Kanban, LayoutGrid, List, Table2, X, type LucideIcon } from "lucide-react";
+import { CalendarDays, Filter, Images, Inbox, Kanban, LayoutGrid, List, Table2, X, type LucideIcon } from "lucide-react";
 import {
   encodeRecordKey,
   resourceKeys,
@@ -394,6 +394,7 @@ const TYPE_ICONS: Readonly<Partial<Record<string, LucideIcon>>> = {
   gallery: Images,
   board: Kanban,
   calendar: CalendarDays,
+  inbox: Inbox,
 };
 
 /**
@@ -766,3 +767,14 @@ export function useViewSavedViews(
     },
   };
 }
+
+/**
+ * The list's state a root ResourceView holds for every view type below it (segment, declared
+ * filters, the view type and grouping), its URL adapter, and the switcher it draws.
+ */
+export interface ListModel {
+  state: ViewListStateResult;
+  url: SearchParamsAdapter | undefined;
+  switcher: ReactNode;
+}
+export const ListModelContext = createContext<ListModel | null>(null);

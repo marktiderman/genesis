@@ -14,7 +14,7 @@ type Row = Record<string, unknown>;
  *
  * @stability Beta
  */
-export type BuiltInViewType = "table" | "list" | "grid" | "board" | "calendar" | "gallery";
+export type BuiltInViewType = "table" | "list" | "grid" | "board" | "calendar" | "gallery" | "inbox";
 
 /**
  * A view type's name: a built-in one, or one an app registered (`"timeline"`). An unregistered
@@ -46,7 +46,7 @@ export interface ViewType {
   readonly label: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any row type
   readonly render: ComponentType<ResourceViewProps<any>>;
-  /** Genesis's own (table, list, grid, board, calendar, gallery). */
+  /** Genesis's own (table, list, grid, board, calendar, gallery, inbox). */
   readonly builtIn: boolean;
 }
 

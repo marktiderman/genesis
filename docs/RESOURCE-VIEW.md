@@ -1120,6 +1120,63 @@ export const tasksView = defineView(tasksContract, {
 Planned with the same ADR: these on the phone, link filters with a picker, cards from parts and
 detail routes, **Planned** ([`resource-view-sheet`](../features.ts)) for export jobs and sheet mode.
 
+## Inbox
+
+<!-- api: ViewDefinition<any>, ViewInbox<any>, ResourceViewProps, ResourceInboxOptions<any> -->
+
+Any view can show as a three-pane inbox, like a mail or help-desk client: the view's segments
+with their counts (and saved views) in a rail, its rows as messages, and the open record beside
+them. The view's `inbox` block says which field is which:
+
+```ts
+import { defineView } from "@marktiderman/genesis-core/resource-view";
+
+export const ticketsView = defineView(ticketsContract, {
+  segments: [
+    { id: "open", label: "Open", where: { status: "open" }, count: true },
+    { id: "solved", label: "Solved", where: { status: "solved" }, count: true },
+  ],
+  actions: [{ name: "done", label: "Solve", bulk: true }],
+  inbox: { preview: "body", time: "updated_at", from: "requester", unread: "unread", badge: "status" },
+  types: ["inbox", "table"],
+});
+```
+
+```tsx
+import { ResourceView } from "@marktiderman/genesis-ui/data";
+
+export function Tickets({ open, setOpen }: { open: string | null; setOpen: (id: string | null) => void }) {
+  return <ResourceView view={ticketsView} type="inbox" inbox={{ selected: open, onSelectedChange: setOpen }} />;
+}
+```
+
+- **The block.** `title` (default the `labelField`), `preview`, `time` (a date or timestamp,
+  shown as a short relative time), `from` and `avatar`, `unread` (a yes/no field, or a function of
+  the row: the row is bold, with a dot), and `badge` (a field drawn in its tones). `defineView`
+  names a field that isn't there.
+- **The rail** is the view's segments, each with its count, and the saved views under Saved
+  (`rail: "none"` leaves it out). A segment's `args` reach a function-backed source as its
+  arguments (a queue's `mine` or `unassigned`).
+- **The list** pages through the provider, as the table does, with search over it and the view's
+  declared filters. Each row's menu has the view's actions, and with bulk actions the rows get
+  checkboxes (Shift picks a range) and the bulk bar.
+- **The reading pane** is the open record's record view (the view's `recordView`, else a document
+  page of its fields), with its actions and the screen's `onEdit` and `onDelete`. An app's own
+  reading pane (a ticket's thread and its reply box, a conversation) goes in `inbox.renderReading`,
+  which gets the row and `close`; `inbox.renderContext` fills the sidebar beside it.
+- **Selection** is the app's, like a peek: `inbox.selected` and `inbox.onSelectedChange` hold it
+  in its router's URL. A key no row has (deleted, or hidden from the viewer) shows "Not available".
+- **Narrow screens** show one pane at a time, with Back. Keys: j and k move, e runs the view's
+  done action (`doneAction`, else an action named `done` or `close`), Escape closes.
+- **Mark read.** Opening an unread row runs the view's `markRead` action when it declares one.
+  Genesis never writes on its own.
+- **On the phone**, `NativeResourceView type="inbox"` draws the rows as InboxPage's, with the
+  same swipe actions; a press opens the row as the list's does.
+
+genesis-support exports `ticketInbox`, `ticketSegments` and `supportQueueSource()` for its agent
+queue, and genesis-chat `conversationInbox` for a list of conversations; their READMEs show the
+reading pane each takes.
+
 ## View types
 
 <!-- api: ViewTypeDefinition, ResourceViewProps -->
@@ -1133,6 +1190,7 @@ any of them, picked by the screen with `type` (`mode` is its older alias, and `t
 | `board` | a column per value of the view's `board` field ([Board](#board)) |
 | `calendar` | the rows placed by a date field ([Calendar](#calendar)) |
 | `gallery` | a photo per row, from the view's `gallery` block ([Gallery](#gallery)); `type="grid"` with a gallery block still draws it too |
+| `inbox` | a three-pane inbox from the view's `inbox` block ([Inbox](#inbox)) |
 
 A view's `types` lists the ones a person may switch between ([Lists](#lists-what-a-view-declares)).
 

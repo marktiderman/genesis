@@ -219,6 +219,30 @@ export const inbox = (
 );
 ```
 
+**Or as a view's inbox.** The same queue can be a Genesis view drawn by
+`<ResourceView type="inbox">` (genesis-ui), beside its table and with saved views, when your app
+reads it through the data provider. This package exports the pieces: `supportQueueSource()` (the
+provider `source` over `support_agent_tickets`), `ticketInbox` (which column is the title, preview,
+time, requester, unread and status) and `ticketSegments` (Mine, Unassigned, Open, Solved, All; Mine
+and Unassigned pass the queue's view as a segment's `args`). The reading pane is the ticket's
+thread with its reply box, through `renderReading`:
+
+<!-- docs-check: skip -->
+```tsx
+createSupabaseProvider(supabase, { resources: { support_queue: { source: supportQueueSource(), writeColumns: [] } } });
+export const queueView = defineView(supportQueueContract, { inbox: ticketInbox, segments: ticketSegments, types: ["inbox", "table"] });
+
+<ResourceView
+  view={queueView}
+  type="inbox"
+  inbox={{
+    selected: ticketId,
+    onSelectedChange: (id) => navigate(id ? `/help/inbox/${id}` : "/help/inbox"),
+    renderReading: (ticket) => <SupportStaffThread client={support} reportId={String(ticket.id)} resolveUser={resolveUser} staff={agents} />,
+  }}
+/>;
+```
+
 Only a tenant's agents get in: `client.agentTickets`, `agentTicket` and `agentTicketCounts` read
 through `support_agent_tickets` and `support_agent_ticket_counts`, which refuse anyone else. An
 agent's own ticket isn't in their queue, since another agent answers it.

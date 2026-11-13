@@ -322,6 +322,27 @@ export const tasksView = defineView(tasksContract, {
 - **Extension points.** `types` and `switcher` on the screen narrow or turn it off; a registered
   view type joins it by being listed; `ViewTypeSwitcher` draws it in an app's own layout.
 
+### 12. The inbox view type (added 2026-11-13)
+
+- **The view declares** `inbox`: which field is the title, `preview`, `time`, `from`, `avatar`,
+  `unread` (a yes/no field or a function of the row) and `badge`, and optionally `rail`,
+  `doneAction` and `markRead` (both the view's own actions). Platform-neutral, beside `board`,
+  `calendar` and `gallery`, checked by `defineView`; `view.inboxRow(row)` resolves a row the same
+  way on every platform. A segment's `args` pass a function-backed source its arguments (a queue's
+  `mine` or `unassigned`), as equality filters its `take` reads.
+- **Default behaviour.** `inbox` is a view type: `<ResourceView type="inbox">`, or one of `types`
+  in the switcher. It is drawn on the messaging patterns Genesis already has: `InboxLayout` (the
+  panes, one at a time on a narrow screen with Back, and the keys), `InboxViews` (the segments
+  with their counts, and saved views), `InboxPage` (the rows, which gained checkboxes for bulk
+  actions) and `RecordView` for the reading pane, which gained `onEdit` and `onDelete` (and
+  `recordPeekSlot` now forwards a list's own). The open record's key is the app's (`selected`,
+  `onSelectedChange`), like a peek; a key no row has shows "Not available". Opening an unread row
+  runs the view's `markRead` action when it declares one; Genesis never writes on its own.
+- **Extension points.** `renderReading(row, { close })` replaces the reading pane (a ticket's
+  thread, a conversation), `renderContext(row)` fills the sidebar. genesis-support exports
+  `ticketInbox`, `ticketSegments` and `supportQueueSource()`, genesis-chat `conversationInbox`.
+  On a phone, `NativeResourceView type="inbox"` draws the rows as InboxPage's.
+
 ## Extension points, at a glance
 
 | Gap | The view declares | Extension point | Level (ADR 0013) |
@@ -337,6 +358,7 @@ export const tasksView = defineView(tasksContract, {
 | 9 | `card` | `cardParts`, `renderCard` | Compose |
 | 10 | `detail.route` | `onNavigate`, `surface` tokens | Configure, Brand |
 | 11 | `types` | `types`, `switcher`, registered view types | Configure, Compose |
+| 12 | `inbox` | `renderReading`, `renderContext`, `selected` | Configure, Compose |
 
 ## Form: how apps keep their own look
 

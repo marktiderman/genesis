@@ -100,6 +100,13 @@ export interface RecordViewProps<T extends Row = Row> {
    * otherwise shows the label's first letter).
    */
   sectionIcons?: Partial<Record<string, LucideIcon>> | undefined;
+  /**
+   * Edit the record (the list's form, say): an Edit button among the header's actions. A peek
+   * opened from a list passes the list's own.
+   */
+  onEdit?: ((row: T) => void) | undefined;
+  /** Delete the record: a Delete button, last among the header's actions. */
+  onDelete?: ((row: T) => void) | undefined;
   testID?: string | undefined;
 }
 
@@ -119,7 +126,7 @@ const alreadyShown = () => {};
  * document, `record-page-cover`, `-icon`, `-title`, `-properties` and `-body`.
  */
 export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
-  const { view: recordView, row, section: sectionProp, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, sectionIcons, settingsLocked, presentation = "page", testID = "resource-workspace" } = props;
+  const { view: recordView, row, section: sectionProp, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, sectionIcons, settingsLocked, presentation = "page", onEdit, onDelete, testID = "resource-workspace" } = props;
   const peek = presentation === "peek";
   // A peek's tabs switch in place; a page's follow the route.
   const [peekSection, setPeekSection] = useState<string | undefined>(sectionProp);
@@ -176,7 +183,15 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
   const summary = recordView.readinessSummary(record);
   const active = recordView.section(section);
 
-  const headerActions = header.actions.map((a) => (
+  const headerActions = [
+    ...(onEdit
+      ? [
+          <Button key="__edit" variant="outline" onClick={() => onEdit(row)} data-testid={`${testID}-edit`}>
+            {m.common.edit}
+          </Button>,
+        ]
+      : []),
+    ...header.actions.map((a) => (
     <Button
       key={a.name}
       variant={a.destructive ? "destructive" : "outline"}
@@ -187,7 +202,15 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
     >
       {a.label}
     </Button>
-  ));
+  )),
+    ...(onDelete
+      ? [
+          <Button key="__delete" variant="destructive" onClick={() => onDelete(row)} data-testid={`${testID}-delete`}>
+            {m.common.delete}
+          </Button>,
+        ]
+      : []),
+  ];
   const document = recordView.template === "document";
   const resourceHeader = (
     <ResourceHeader

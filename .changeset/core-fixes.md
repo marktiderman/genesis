@@ -2,6 +2,7 @@
 "@marktiderman/genesis-core": minor
 ---
 
+Features: appearance-preferences, data-provider, resource-view-links
 Fixes a consumer app reported:
 
 - `AppearancePreferencesProvider` copies a successful store read onto the device, keeps a choice the person makes while the read is in flight, sends writes one at a time (a newer one replacing a waiting one), and passes the store's last answer as `write(values, { previous })` so a store can write conditionally. `onWriteError` (on the definition or the provider) hears a failed write.

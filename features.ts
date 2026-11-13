@@ -494,6 +494,28 @@ export const features = defineFeatures({
     reviewedAt: "2026-11-13",
     links: { code: ["packages/ui/src/components/data/DataTable.tsx", "packages/core/src/resource-view/define-view.ts"], docs: ["docs/adr/0017-lists-vnext.md"] },
   },
+  "view-inbox": {
+    name: "Inbox view type",
+    summary: "Any view drawn as a three-pane inbox, like a mail or help-desk client: <ResourceView type=\"inbox\"> (or inbox among a view's types in the switcher) puts the view's segments with their counts and saved views in a rail (InboxViews), its rows as messages (InboxPage: unread in bold, a preview, a relative time, a badge, the row's actions, checkboxes for bulk actions), paged through the provider, and the open record beside them (RecordView with the screen's Edit and Delete, or the app's renderReading: a ticket thread, a conversation). The view's inbox block (core) says which field is which; selection is a URL param the app owns; narrow screens show one pane with Back; j, k, e and Escape work; a declared markRead action runs on opening an unread row. NativeResourceView type=\"inbox\" draws the rows as InboxPage's. genesis-support exports ticketInbox, ticketSegments and supportQueueSource; genesis-chat conversationInbox.",
+    status: "building",
+    kind: "pattern",
+    keywords: ["inbox", "three-pane", "mail", "help desk", "reading pane", "unread", "tickets", "conversations", "InboxLayout", "renderReading"],
+    platforms: { web: "building", native: "building" },
+    entry: { web: "@marktiderman/genesis-ui/data", native: "@marktiderman/genesis-ui-native/data" },
+    extends: "resource-page",
+    owner: "mark",
+    apps: ["web", "native"],
+    audience: ["developer"],
+    acceptance: [
+      "A view with an inbox block draws its segments with counts, its rows with unread in bold, and the open record's page with Edit and Delete.",
+      "A selected key no row has shows Not available, and on a narrow screen Back returns to the list.",
+    ],
+    reviewedAt: "2026-11-13",
+    links: {
+      code: ["packages/ui/src/components/data/resource-view/ResourceInbox.tsx", "packages/core/src/resource-view/define-view.ts", "packages/support/src/inbox.ts", "packages/chat/src/core/inbox.ts"],
+      docs: ["docs/adr/0017-lists-vnext.md", "docs/RESOURCE-VIEW.md"],
+    },
+  },
   "client-layer": {
     name: "The app client layer",
     summary: "An app's own layer over Genesis in one folder (ADR 0020): src/client/ (or genesis.config.json client.dir) with client-layer.tsx (the provider, defaults, saved-view store and URL adapter), resource-view.tsx (the app's ResourceView), a folder per record type with its view.ts and appearance.tsx, and cells/, components/ and view-types/. genesis client init scaffolds it; the doctor warns where a screen renders Genesis's ResourceView or RecordView directly once the layer exists (client/layer) and on a second view over one contract (client/one-view-per-resource).",

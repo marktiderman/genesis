@@ -28,6 +28,7 @@ import type {
   ViewField,
   ViewFilter,
   ViewGallery,
+  ViewInbox,
   RecordOpen,
 } from "./types";
 import { RECORD_OPEN_MODES } from "./types";
@@ -191,6 +192,43 @@ export function boardChoices(field: Pick<FieldSchema, "type" | "array" | "enumVa
   if (field.enumValues?.length) return field.enumValues;
   if (field.type === "boolean") return ["true", "false"];
   return undefined;
+}
+
+/** An inbox block's keys: anything else in one is a mistake `defineView` names. */
+const INBOX_KEYS: readonly string[] = ["title", "preview", "time", "from", "avatar", "unread", "badge", "rail", "doneAction", "markRead"];
+
+/**
+ * What's wrong with an inbox block for these fields, one sentence each (empty when it's fine).
+ *
+ * @stability Beta
+ */
+export function inboxProblems(fields: readonly Pick<FieldSchema, "name" | "type" | "array">[], inbox: Partial<ViewInbox>, actions: readonly string[] = []): string[] {
+  const problems: string[] = [];
+  const byName = new Map(fields.map((f) => [f.name, f]));
+  const named = (key: "title" | "preview" | "time" | "from" | "avatar" | "badge", type?: "string" | "datetime") => {
+    const name = inbox[key];
+    if (name === undefined) return;
+    const field = typeof name === "string" ? byName.get(name) : undefined;
+    if (!field) problems.push(`inbox.${key} names "${String(name)}", which isn't a field`);
+    else if (type && (field.type !== type || field.array)) problems.push(`inbox.${key} "${name}" isn't a ${type === "datetime" ? "date or timestamp" : "text"} field`);
+  };
+  named("title");
+  named("preview");
+  named("time", "datetime");
+  named("from");
+  named("avatar", "string");
+  named("badge");
+  if (inbox.unread !== undefined && typeof inbox.unread !== "function") {
+    const field = typeof inbox.unread === "string" ? byName.get(inbox.unread) : undefined;
+    if (!field) problems.push(`inbox.unread names "${String(inbox.unread)}", which isn't a field (or pass a function of the row)`);
+    else if (field.type !== "boolean") problems.push(`inbox.unread "${inbox.unread}" isn't a yes/no field`);
+  }
+  if (inbox.rail !== undefined && inbox.rail !== "segments" && inbox.rail !== "none") problems.push(`inbox.rail is "segments" or "none", not ${JSON.stringify(inbox.rail)}`);
+  for (const key of ["doneAction", "markRead"] as const) {
+    const name = inbox[key];
+    if (name !== undefined && (typeof name !== "string" || !actions.includes(name))) problems.push(`inbox.${key} names "${String(name)}", which isn't one of the view's actions`);
+  }
+  return problems;
 }
 
 /** A gallery block's keys: anything else in one is a mistake `defineView` names. */
@@ -451,6 +489,18 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       problems.push(...galleryProblems(fields, gallery));
     }
   }
+  const rawInbox = (definition as { inbox?: unknown }).inbox;
+  let inbox: Readonly<ViewInbox> | undefined;
+  if (rawInbox !== undefined) {
+    if (!rawInbox || typeof rawInbox !== "object" || Array.isArray(rawInbox)) {
+      problems.push("inbox isn't an object");
+    } else {
+      for (const key of Object.keys(rawInbox)) if (!INBOX_KEYS.includes(key)) problems.push(`inbox.${key} isn't an inbox setting`);
+      inbox = Object.freeze({ ...(rawInbox as ViewInbox) });
+      const actionNames = (Array.isArray(definition.actions) ? definition.actions : []).map((a) => (a && typeof a.name === "string" ? a.name.trim() : ""));
+      problems.push(...inboxProblems(fields, inbox, actionNames));
+    }
+  }
   if (definition.orderBy) {
     known(definition.orderBy.field, "orderBy");
     const { nulls } = definition.orderBy as { nulls?: unknown };
@@ -510,6 +560,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
         if (t === "board" && !definition.board) problems.push('types lists "board", which needs a board block');
         if (t === "calendar" && !definition.calendar) problems.push('types lists "calendar", which needs a calendar block');
         if (t === "gallery" && !definition.gallery) problems.push('types lists "gallery", which needs a gallery block');
+        if (t === "inbox" && !definition.inbox) problems.push('types lists "inbox", which needs an inbox block');
       }
     }
   }
@@ -791,12 +842,12 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     const segment = segmentList.find((s) => s.id === id);
     if (!segment) throw new ViewDefinitionError(contract.name, [`no segment "${id}"`]);
     const where = typeof segment.where === "function" ? segment.where(viewer) : segment.where;
-    return whereParams(where as Parameters<typeof whereParams>[0]);
+    return [...whereParams(where as Parameters<typeof whereParams>[0]), ...whereParams(segment.args)];
   };
   const viewTypes: readonly string[] = Object.freeze(
     definition.types
       ? [...definition.types]
-      : ["table", "list", "grid", ...(gallery ? ["gallery"] : []), ...(board ? ["board"] : []), ...(calendar ? ["calendar"] : [])],
+      : ["table", "list", "grid", ...(gallery ? ["gallery"] : []), ...(board ? ["board"] : []), ...(calendar ? ["calendar"] : []), ...(inbox ? ["inbox"] : [])],
   );
   const rowTone = (row: Row) => definition.rowTone?.(row) ?? undefined;
   const exportPlan = (preset = "default") => {
@@ -809,6 +860,33 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       filename: given.filename ?? (nounPlural.replace(/[^\w .-]/g, "") || "export"),
       maxRows: given.maxRows ?? 10_000,
       raw: given.raw === true,
+    });
+  };
+
+  const actionNames = new Set(actionList.map((a) => a.name));
+  const inboxActionNames = Object.freeze({
+    ...((inbox?.doneAction ?? ["done", "close"].find((n) => actionNames.has(n))) ? { done: inbox?.doneAction ?? ["done", "close"].find((n) => actionNames.has(n))! } : {}),
+    ...((inbox?.markRead ?? (actionNames.has("markRead") ? "markRead" : undefined)) ? { markRead: inbox?.markRead ?? "markRead" } : {}),
+  });
+  const words = (value: unknown) => (value === null || value === undefined || value === "" ? undefined : String(value));
+  const inboxRow = (row: Row) => {
+    const block = inbox ?? {};
+    const title = (block.title ? words(row[block.title]) : undefined) ?? summary(row).title;
+    const unread =
+      typeof block.unread === "function" ? block.unread(row as never) === true : typeof block.unread === "string" ? row[block.unread] === true : false;
+    const badgeValue = block.badge ? row[block.badge] : undefined;
+    const badgeTones = block.badge ? own(viewFields, block.badge)?.tones : undefined;
+    const badgeTone = badgeValue !== undefined && badgeValue !== null && badgeTones ? own(badgeTones, String(badgeValue)) : undefined;
+    const time = block.time ? row[block.time] : undefined;
+    return Object.freeze({
+      id: String(encodeRecordKey(contract, row as DataRow)),
+      title,
+      unread,
+      ...(block.preview && words(row[block.preview]) ? { preview: words(row[block.preview])! } : {}),
+      ...(time instanceof Date ? { time: time.toISOString() } : words(time) ? { time: words(time)! } : {}),
+      ...(block.from && words(row[block.from]) ? { from: words(row[block.from])! } : {}),
+      ...(block.avatar && words(row[block.avatar]) ? { avatar: words(row[block.avatar])! } : {}),
+      ...(words(badgeValue) ? { badge: Object.freeze({ label: valueLabel(block.badge!, badgeValue), ...(badgeTone ? { tone: badgeTone } : {}) }) } : {}),
     });
   };
 
@@ -825,6 +903,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       ...(calendar ? { calendar } : {}),
       ...(board ? { board } : {}),
       ...(gallery ? { gallery } : {}),
+      ...(inbox ? { inbox } : {}),
       ...(definition.filters ? { filters: Object.freeze(definition.filters.map((f) => Object.freeze({ ...f }))) } : {}),
       ...(definition.segments ? { segments: segmentList } : {}),
       ...(definition.types ? { types: viewTypes } : {}),
@@ -856,5 +935,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     types: () => viewTypes,
     rowTone,
     exportPlan,
+    inboxRow,
+    inboxActions: () => inboxActionNames,
   });
 }

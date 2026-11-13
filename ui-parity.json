@@ -61,6 +61,7 @@
     "ResourceCalendar": "notYet: the native calendar mode.",
     "ResourceDetailPage": "A desktop record page from a resource; NativeRecordView is the phone's record screen.",
     "ResourceHeader": "A desktop record header; a phone's record title and actions sit in the stack header.",
+    "ResourceInbox": "Three panes side by side are a wide-screen layout; a phone shows the same view one pane at a time as NativeResourceView type=\"inbox\" (InboxPage's rows), opening a row as the list does.",
     "ResourceSettingsPage": "notYet: a record's settings page on a phone; NativeRecordView's settings section covers it.",
     "ResponsesToolbar": "notYet: the responses toolbar on a phone.",
     "RowContextMenuItems": "A right-click menu: pointer-only. A phone long-presses a row, which NativeResourceView offers.",

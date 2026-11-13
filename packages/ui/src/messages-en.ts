@@ -187,6 +187,23 @@ export const uiMessages = {
     /** A bulk action no selected row allows. `{reason}`: the refusal. */
     noneAllowed: "None of the selected rows allows this: {reason}",
   },
+  /** A view drawn as an inbox (`type="inbox"`). */
+  inbox: {
+    /** The rail's section of the view's segments. */
+    views: "Views",
+    /** The rail's section of saved views. */
+    saved: "Saved",
+    /** The search box over the list. */
+    search: "Search",
+    /** The reading pane with nothing open. */
+    pickTitle: "Nothing open",
+    pickBody: "Pick one from the list to read it here.",
+    /** The open record is gone or hidden from this viewer. */
+    goneTitle: "Not available",
+    goneBody: "It may have been deleted, or it isn't shared with you.",
+    back: "Back",
+    details: "Details",
+  },
   /** CSV export from a list (ADR 0017 §8). */
   export: {
     action: "Export CSV",

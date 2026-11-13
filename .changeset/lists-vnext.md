@@ -4,6 +4,7 @@
 "@marktiderman/genesis-design-system": minor
 ---
 
+Features: view-filters, view-actions, saved-views, view-export, list-emphasis, resource-view-shaping, view-inbox
 Lists v-next (ADR 0017): a view declares what its lists do, and `ResourceView` draws it.
 
 - **Segments and filters.** `defineView`'s `segments` (named tabs with a `where` or a function of the viewer, and `count: true` for a count from the provider) and `filters` (choices, a range or contains, from the field). They go to the server, count toward Clear filters, and, once the app registers its router adapter (`ResourceViewDefaultsProvider urlState`), live in the URL (`seg`, `f.<field>`); only declared filters are read back. Core: `view.filters()`, `segments()`, `segmentFilters()`, `filterParams()`, `readListUrl`, `listUrlParams`, `whereParams`, `isFilterSet`.

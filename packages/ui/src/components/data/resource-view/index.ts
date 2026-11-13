@@ -70,3 +70,5 @@ export {
   type ViewListStateOptions,
   type ViewListStateResult,
 } from "./list-controls";
+// The inbox view type: a view as a three-pane inbox (rail, list, reading pane).
+export { ResourceInbox, type ResourceInboxOptions } from "./ResourceInbox";

@@ -102,6 +102,9 @@ export function recordPeekSlot<T extends Row>(
         onClose={props.onClose}
         mode={props.layout === "dialog" ? "center-peek" : "side-peek"}
         {...(props.width ? { width: props.width } : {})}
+        // The list's own edit and delete (ResourcePage's DetailPanel props): a peek keeps them.
+        {...(props.onEdit ? { onEdit: props.onEdit } : {})}
+        {...(props.onDelete ? { onDelete: props.onDelete } : {})}
       />
     );
   }

@@ -65,6 +65,7 @@ export const THEME_PARTS: readonly ThemePartInfo[] = Object.freeze([
   p("grid-group", "A group's header above its cards or list rows."),
   p("view-segments", "A list's segments: named tabs over it, each with an optional count."),
   p("view-type-switcher", "The switch between a view's types: table, list, grid, board, calendar, gallery or an app's own."),
+  p("inbox", "A view drawn as an inbox: its segments, its rows as messages and the open record."),
   p("view-list-bar", "The bar above a board, a calendar or an app's view type: its segments, filters and type switcher."),
   p("tabs-list", "A row of tabs."),
   p("tabs-trigger", "One tab.", ["state"]),

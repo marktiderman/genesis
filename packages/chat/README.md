@@ -38,6 +38,28 @@ for your own attachment kinds, `composerAccessory`). Mount a Genesis `<Toaster /
 (`@source "../node_modules/@marktiderman/genesis-chat/dist"`). `createMemoryChatClient` runs it
 all with no backend, for demos, stories and tests.
 
+### As a view's inbox
+
+A list of conversations an app reads through the data provider (genesis_chat's `inbox` function
+as a source, or a view of its own) can be a Genesis view drawn by `<ResourceView type="inbox">`
+(genesis-ui): the rail of its segments, the conversations, and the open one as the reading pane.
+`conversationInbox` says which column is which (the title, the last message's time, unread above
+0), and `renderReading` holds the thread:
+
+<!-- docs-check: skip -->
+```tsx
+export const conversationsView = defineView(conversationsContract, { inbox: conversationInbox, types: ["inbox"] });
+
+<ResourceView
+  view={conversationsView}
+  inbox={{
+    selected: conversationId,
+    onSelectedChange: setConversationId,
+    renderReading: (c) => <ChatThread conversationId={String(c.conversation_id)} resolveUser={resolveUser} />,
+  }}
+/>;
+```
+
 ## The chat dock
 
 Conversations that stay open while people move around the app. On a wide screen there are up to

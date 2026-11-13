@@ -79,8 +79,8 @@ afterEach(() => {
 });
 
 describe("the view-type registry", () => {
-  it("has Genesis's six types and draws an app's own by name", async () => {
-    expect(listViewTypes().filter((t) => t.builtIn).map((t) => t.id)).toEqual(["table", "list", "grid", "gallery", "board", "calendar"]);
+  it("has Genesis's seven types and draws an app's own by name", async () => {
+    expect(listViewTypes().filter((t) => t.builtIn).map((t) => t.id)).toEqual(["table", "list", "grid", "gallery", "board", "calendar", "inbox"]);
     function Timeline(props: ResourceViewProps) {
       const list = useViewList(props.view);
       return <ol data-testid="timeline">{list.rows.map((r) => <li key={String(r.id)}>{String(r.title)}</li>)}</ol>;
@@ -100,7 +100,7 @@ describe("the view-type registry", () => {
     expect(() => registerViewType(defineViewType({ id: "map", render: () => null }))).toThrow(/already registered/);
     expect(() => registerViewType(defineViewType({ id: "board", render: () => null }))).toThrow(/built-in/);
     vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => render(<ResourceView view={plain} type="nope" />, { wrapper: wrap() })).toThrow(/no view type "nope"; registered: table, list, grid, gallery, board, calendar, map/);
+    expect(() => render(<ResourceView view={plain} type="nope" />, { wrapper: wrap() })).toThrow(/no view type "nope"; registered: table, list, grid, gallery, board, calendar, inbox, map/);
   });
 
   it("takes `type` over its alias `mode`, and gallery as its own type", async () => {

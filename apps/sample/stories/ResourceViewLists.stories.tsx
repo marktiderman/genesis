@@ -40,6 +40,7 @@ const tasksView = defineView(tasks, {
   export: true,
   board: { field: "stage" },
   calendar: { field: "due_on" },
+  inbox: { preview: "stage", time: "due_on", unread: "urgent", badge: "stage" },
 });
 
 const seed = (): Task[] => [
@@ -85,5 +86,22 @@ export const Declared: Story = {
     await waitFor(() => expect(canvas.getByText("Draft the brief")).toBeInTheDocument());
     expect(canvas.getByTestId("view-segment-open")).toBeInTheDocument();
     expect(canvas.getByTestId("view-type-board")).toBeInTheDocument();
+  },
+};
+
+/**
+ * The same view as an inbox: its segments with their counts in the rail, the rows as messages
+ * (urgent ones unread, in bold), and the open task's page beside them. j and k move.
+ */
+export const Inbox: Story = {
+  render: () => (
+    <WithTasks>
+      <ResourceView view={tasksView} type="inbox" className="h-[36rem] rounded-lg border" />
+    </WithTasks>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(canvas.getByText("Draft the brief")).toBeInTheDocument());
+    expect(canvas.getByTestId("resource-inbox-nothing")).toBeInTheDocument();
   },
 };

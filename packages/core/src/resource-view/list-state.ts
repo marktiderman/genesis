@@ -125,6 +125,7 @@ export function segmentProblems(fields: ReadonlyMap<string, FieldSchema>, segmen
     else seen.add(s.id);
     if (typeof s.label !== "string" || !s.label.trim()) problems.push(`${where} has no label`);
     if (s.count !== undefined && typeof s.count !== "boolean") problems.push(`${where}.count isn't true or false`);
+    if (s.args !== undefined && (!s.args || typeof s.args !== "object" || Array.isArray(s.args))) problems.push(`${where}.args isn't a map of arguments to values`);
     if (s.columns !== undefined && (typeof s.columns !== "string" || !columnPresets(s.columns))) problems.push(`${where}.columns names "${String(s.columns)}", which isn't a column preset`);
     if (s.where !== undefined && typeof s.where !== "function") {
       if (!s.where || typeof s.where !== "object" || Array.isArray(s.where)) problems.push(`${where}.where isn't a map of fields to values`);

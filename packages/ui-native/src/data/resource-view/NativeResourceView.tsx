@@ -38,7 +38,7 @@ import { NativeSectionListHeader } from "../../components/section-list";
 import { NativeSheet } from "../../components/sheet";
 import { NativeText } from "../../components/text";
 import { useThemeRoles } from "../../hooks/use-theme-roles";
-import { showInboxActions, type InboxPageSlotMap } from "../../layouts/inbox-page";
+import { InboxPage, showInboxActions, type InboxPageSlotMap } from "../../layouts/inbox-page";
 import { NativeDetailPanel } from "../NativeDetailPanel";
 import {
   badgeVariant,
@@ -68,7 +68,7 @@ export type NativeResourceSwipeableProps = Omit<InboxPageSlotMap["swipeable"], "
 export type NativeResourceViewMode = "list" | "grid";
 
 /** The view types the phone draws: list, grid and gallery (ADR 0021). @stability Beta */
-export type NativeResourceViewType = NativeResourceViewMode | "gallery";
+export type NativeResourceViewType = NativeResourceViewMode | "gallery" | "inbox";
 
 /**
  * Spread onto your card's Pressable: the press (the screen's `onRowPress`, else the peek), the
@@ -126,7 +126,8 @@ export interface NativeResourceViewProps<T extends Row = Row> extends NativeReso
   mode?: NativeResourceViewMode;
   /**
    * The view type (ADR 0021), as the web's `<ResourceView type>`: `"list"` (default), `"grid"`, or
-   * `"gallery"` (the grid as photos, from the view's `gallery` block). The phone has no board or
+   * `"gallery"` (the grid as photos, from the view's `gallery` block), or `"inbox"` (InboxPage's
+   * rows from the view's `inbox` block: unread in bold, a preview, a time, swipe actions). The phone has no board or
    * calendar yet. Wins over `mode`.
    */
   type?: NativeResourceViewType;
@@ -485,7 +486,9 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     ...options
   } = props;
   // `type` is the view type's name (ADR 0021); `mode` its alias. A gallery is the grid as photos.
-  const mode: NativeResourceViewMode = type === "gallery" ? "grid" : (type ?? modeProp);
+  // An inbox is the list drawn as InboxPage's rows (from the view's inbox block).
+  const inbox = type === "inbox";
+  const mode: NativeResourceViewMode = type === "gallery" ? "grid" : type === "inbox" ? "list" : (type ?? modeProp);
   if (type === "gallery" && !view.definition.gallery && !screenGallery?.image) {
     throw new Error(`NativeResourceView(${view.resource}): type="gallery" needs a gallery block: the view's gallery.image, or gallery={{ image }}`);
   }
@@ -739,7 +742,34 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
 
   return (
     <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
-      {photos ? (
+      {inbox ? (
+        <InboxPage
+          testID={`${testID}-inbox`}
+          items={state.rows.map((row) => {
+            const r = view.inboxRow(row as never);
+            return {
+              id: r.id,
+              title: r.title,
+              unread: r.unread,
+              ...(r.preview ? { preview: r.preview } : {}),
+              ...(r.time ? { timestamp: r.time } : {}),
+              ...(r.from || r.badge ? { meta: [r.from, r.badge?.label].filter(Boolean).join(" · ") } : {}),
+              onPress: () => press(row),
+              // The view's swipe actions (edit, delete, its own), as the list's rows have them.
+              swipeActions: actionsFor(row, handlers).map((a) => ({ id: a.id, label: a.label, onPress: a.onPress, ...(a.destructive ? { destructive: true } : {}) })),
+            };
+          })}
+          header={listHeader}
+          loading={state.loading}
+          error={Boolean(state.error)}
+          refreshing={state.refreshing}
+          onRefresh={() => state.refresh()}
+          loadingMore={state.loadingMore}
+          {...(state.hasMore ? { onEndReached: state.loadMore } : {})}
+          {...(view.definition.copy?.empty?.title ? { emptyTitle: view.definition.copy.empty.title } : {})}
+          {...(view.definition.copy?.empty?.body ? { emptyBody: view.definition.copy.empty.body } : {})}
+        />
+      ) : photos ? (
         <NativeGalleryGrid
           testID={`${testID}-gallery`}
           items={photos.items}

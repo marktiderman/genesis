@@ -171,6 +171,12 @@ export interface ViewSegment<Name extends string = string> {
   label: string;
   /** Its rows, or a function of the viewer for one relative to them (`(v) => ({ owner_id: v.id })`). No `where`: every row. */
   where?: SegmentWhere<Name> | ((viewer: Viewer) => SegmentWhere<Name>);
+  /**
+   * Arguments for a function-backed source (`source.args`'s `take`), sent as equality filters the
+   * function takes and the query leaves out: `{ inbox_view: "mine" }`. Not fields, so not checked
+   * against the contract.
+   */
+  args?: Readonly<Record<string, string | number | boolean | null>>;
   /** Show a count beside the label: one count request through the provider. */
   count?: boolean;
   /** A column preset the segment shows (`columns`). Default the screen's. */
@@ -517,6 +523,52 @@ export interface ViewGallery<Name extends string = string> {
 }
 
 /**
+ * How the view's rows show as an inbox (ADR 0017, the `inbox` view type): a three-pane layout of
+ * segments, a list of rows like messages, and the open record. Field names only, except `unread`,
+ * which may be a function of the row; every platform reads the same block.
+ *
+ * @stability Beta
+ */
+export interface ViewInbox<Name extends string = string, Row extends DataRow = DataRow> {
+  /** The row's title line. Default the view's `labelField`. */
+  title?: Name;
+  /** One line under the title (the latest message, a description). */
+  preview?: Name;
+  /** A date or timestamp field: the row's short relative time. */
+  time?: Name;
+  /** Who it's from, in words: a line under the preview, and the avatar's initials. */
+  from?: Name;
+  /** An image field: the avatar beside the row. */
+  avatar?: Name;
+  /** A yes/no field, or a function of the row: bold, with a dot, while it's unread. */
+  unread?: Name | ((row: Row) => boolean);
+  /** A field drawn as a badge at the row's end, in its `fields.<name>.tones`. */
+  badge?: Name;
+  /** What fills the left rail: the view's segments (and saved views). Default `"segments"` when the view has segments. */
+  rail?: "segments" | "none";
+  /** The view action the `e` key runs on the open row ("done", "close"). Default an action named `done` or `close`. */
+  doneAction?: string;
+  /**
+   * The view action run when an unread row is opened, to mark it read. Default an action named
+   * `markRead`, if the view declares one. Genesis never writes on its own.
+   */
+  markRead?: string;
+}
+
+/** One row as an inbox draws it (`ResourceView.inboxRow`). @stability Beta */
+export interface InboxRow {
+  readonly id: string;
+  readonly title: string;
+  readonly preview?: string;
+  /** The time field's value, as stored (an ISO date or timestamp). */
+  readonly time?: string;
+  readonly from?: string;
+  readonly avatar?: string;
+  readonly unread: boolean;
+  readonly badge?: { readonly label: string; readonly tone?: ViewTone };
+}
+
+/**
  * How a record opens from a view (a record page, ADR 0021): a **side peek** (a panel at the edge,
  * the list still beside it), a **center peek** (a dialog over the list) or a full **page** (the
  * record's own route).
@@ -560,6 +612,8 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   board?: ViewBoard<FieldNameOf<C>>;
   /** How the rows show as a gallery of photos (`mode="grid"`), in place of cards. */
   gallery?: ViewGallery<FieldNameOf<C>>;
+  /** How the rows show as an inbox (`type="inbox"`): a list like messages beside the open record. */
+  inbox?: ViewInbox<FieldNameOf<C>, Row>;
   /** Group rows under headers by this field. */
   groupBy?: FieldNameOf<C>;
   /**
@@ -757,4 +811,11 @@ export interface ResourceView<C extends ResourceContract = ResourceContract, Row
    * @stability Beta
    */
   exportPlan(preset?: string): { readonly columns: readonly ResolvedColumn<Row>[]; readonly filename: string; readonly maxRows: number; readonly raw: boolean } | undefined;
+  /**
+   * The row as an inbox draws it, by the view's `inbox` block (its title from `labelField` when
+   * the block says none). Works without a block too: the summary's title. @stability Beta
+   */
+  inboxRow(row: Row): InboxRow;
+  /** The inbox's `done` and `markRead` actions, when the view declares them. @stability Beta */
+  inboxActions(): { readonly done?: string; readonly markRead?: string };
 }
