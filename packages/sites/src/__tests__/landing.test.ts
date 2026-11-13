@@ -22,7 +22,7 @@ import {
   type PageDoc,
   type PageMeta,
 } from "../index";
-import { checkSite, createLandingPage, moveLandingPage, movePageInList, setLandingDirectory, type EditorSiteStore } from "../editor/site-actions";
+import { LandingDirectoryError, checkSite, createLandingPage, moveLandingPage, movePageInList, setLandingDirectory, type EditorSiteStore } from "../editor/site-actions";
 import { brand } from "./fixtures";
 
 const page = (title: string): PageDoc => ({ schemaVersion: 1, root: { props: { title } }, content: [] });
@@ -191,13 +191,16 @@ describe("landing pages on the memory store", () => {
     expect(landingDirectory((await store.getDraft(siteId))!.site)).toBe("/go");
   });
 
-  it("moves into a directory under the old one without colliding", async () => {
+  it("refuses a move onto another moving landing page's old address, before anything moves", async () => {
     const { store, siteId } = await site();
     const a = await createLandingPage(store, siteId, { title: "A", slug: "a", brand });
     const nested = await store.createPage(siteId, { path: "/go/sub/a", kind: "landing", doc: page("Nested") });
-    await setLandingDirectory(store, siteId, "/go/sub", { movePages: true });
-    expect((await store.getPageDraft(a.id))!.path).toBe("/go/sub/a");
-    expect((await store.getPageDraft(nested.id))!.path).toBe("/go/sub/sub/a");
+    const move = vi.spyOn(store, "movePage");
+    await expect(setLandingDirectory(store, siteId, "/go/sub", { movePages: true })).rejects.toThrow(/\/go\/sub\/a is the old address of another landing page/);
+    expect(move).not.toHaveBeenCalled();
+    expect((await store.getPageDraft(a.id))!.path).toBe("/go/a");
+    expect((await store.getPageDraft(nested.id))!.path).toBe("/go/sub/a");
+    expect(landingDirectory((await store.getDraft(siteId))!.site)).toBe("/go");
   });
 
   it("changes the directory and back, leaving redirects and no loops", async () => {
@@ -220,7 +223,10 @@ describe("landing pages on the memory store", () => {
       if (id === b.id) throw new Error("The network went away.");
       return real(id, path);
     });
-    await expect(setLandingDirectory(store, siteId, "/offers", { movePages: true })).rejects.toThrow(/Moved \/offers\/a, then stopped: The network went away\..*again to finish/);
+    const failed = await setLandingDirectory(store, siteId, "/offers", { movePages: true }).catch((err: unknown) => err);
+    expect(failed).toBeInstanceOf(LandingDirectoryError);
+    expect((failed as LandingDirectoryError).message).toMatch(/Moved \/offers\/a, then stopped: The network went away\..*again to finish/);
+    expect((failed as LandingDirectoryError).moved.map((m) => [m.id, m.path])).toEqual([[a.id, "/offers/a"]]);
     expect(landingDirectory((await store.getDraft(siteId))!.site)).toBe("/go");
     move.mockRestore();
     const again = await setLandingDirectory(store, siteId, "/offers", { movePages: true });

@@ -652,9 +652,11 @@ What it does:
   path other than `/` that isn't reserved. **Change the directory** sets it, and offers to
   move the landing pages already under the old one (each old address
   redirects); without that, they keep their addresses and only new landing
-  pages use the new directory. The moves aren't one transaction: if one
-  fails, the error names the pages that moved, and making the same change
-  again finishes it. The same steps without the editor are
+  pages use the new directory. A move onto the old address of another
+  landing page that is also moving is refused before anything moves, so
+  every old address keeps redirecting to its page. The moves aren't one
+  transaction: if one fails, `LandingDirectoryError` lists the pages that
+  moved (`moved`), and making the same change again finishes it. The same steps without the editor are
   `createLandingPage`, `moveLandingPage` and `setLandingDirectory` from
   `/editor`; `landingDirectory`, `landingPath` and `landingSlugProblems`
   are in the root.

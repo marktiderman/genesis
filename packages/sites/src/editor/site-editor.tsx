@@ -48,7 +48,7 @@ import { PagesPanel, menuItemProblems, type NewPageRequest } from "./pages-panel
 import { loadSiteCss, renderPreview, styleText } from "./preview";
 import { PublishPanel } from "./publish-panel";
 import { EditorServicesContext, type EditorAssets, type EditorServices, type PickedImage } from "./services";
-import { checkSite, createLandingPage, moveLandingPage, movePageInList, publishSite, renamePage, setLandingDirectory, type EditorSiteStore } from "./site-actions";
+import { LandingDirectoryError, checkSite, createLandingPage, moveLandingPage, movePageInList, publishSite, renamePage, setLandingDirectory, type EditorSiteStore } from "./site-actions";
 
 const usePuck = createUsePuck();
 
@@ -700,16 +700,22 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
       if (!(await flushAll())) throw new Error("Save your changes first.");
       const before = new Map(pages.map((p) => [p.id, p.path]));
       let result: Awaited<ReturnType<typeof setLandingDirectory>>;
+      // Menu links to a moved page follow it, even when the change stopped partway.
+      const followMoves = (moved: readonly PageMeta[]) => {
+        const draft = siteSaver.current?.latest ?? null;
+        const to = new Map(moved.map((m) => [before.get(m.id), m.path]));
+        if (draft && draft.nav.some((n) => to.has(n.href))) onNavChange(draft.nav.map((n) => (to.has(n.href) ? { ...n, href: to.get(n.href)! } : n)));
+      };
       try {
         result = await setLandingDirectory(store, siteId, directory, { movePages, ...(reserved ? { reserved } : {}) });
-      } finally {
-        // Moves that landed before a failure moved paths and revisions on: take what the store has either way.
-        await resync().catch((err: unknown) => setNotice({ tone: "error", text: `Couldn't reload the pages; reload the editor before editing: ${(err as Error).message}` }));
+      } catch (err) {
+        // Moves that landed before the failure moved paths and revisions on: take what the store has.
+        await resync().catch(() => undefined);
+        if (err instanceof LandingDirectoryError) followMoves(err.moved);
+        throw err;
       }
-      const draft = siteSaver.current?.latest ?? null;
-      // Menu links to a moved page follow it.
-      const to = new Map(result.moved.map((m) => [before.get(m.id), m.path]));
-      if (draft && draft.nav.some((n) => to.has(n.href))) onNavChange(draft.nav.map((n) => (to.has(n.href) ? { ...n, href: to.get(n.href)! } : n)));
+      await resync().catch((err: unknown) => setNotice({ tone: "error", text: `Couldn't reload the pages; reload the editor before editing: ${(err as Error).message}` }));
+      followMoves(result.moved);
       setNotice({ tone: "info", text: `New landing pages go in ${directory}.${result.moved.length ? ` Moved ${result.moved.length} landing page${result.moved.length === 1 ? "" : "s"}; their old addresses redirect.` : ""}` });
     });
 

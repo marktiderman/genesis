@@ -20,6 +20,7 @@ the site document, so the directory would fall back to `/go`.
 New in the root: `DEFAULT_LANDING_DIRECTORY`, `LANDING_SLUG`, `isLandingPage`, `landingDirectory`, `landingPath`,
 `landingSlugOf`, `landingSlugProblems`, `landingDirectoryProblems`, `landingPages`,
 `landingMoves`. New in `/editor`: `createLandingPage`, `moveLandingPage`, `setLandingDirectory`,
+`LandingDirectoryError` (what moved before a directory change stopped),
 and `movePageInList` takes `{ within }` to reorder a subset of the pages. The Pages list and the
 menu editor's suggestions now leave landing pages out. No database change: each landing page's
 path is checked by the existing page functions.

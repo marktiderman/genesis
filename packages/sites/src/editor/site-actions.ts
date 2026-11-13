@@ -222,12 +222,17 @@ export async function moveLandingPage(store: SiteStore, pageId: string, slug: st
  * their addresses and only new landing pages use the new directory.
  *
  * The moves and the save are separate store calls, not one transaction. If
- * one fails partway, the error says which pages already moved; running the
- * same change again finishes it (the pages still under the old directory
- * move, and the directory is saved). The final save re-reads the site and
- * tries once more when someone saved it meanwhile, then throws
- * `SiteConflictError` (as the `cause` of the error naming the moves, when
+ * one fails partway, it throws a `LandingDirectoryError` whose `moved` lists
+ * the pages that already moved (its message names them); running the same
+ * change again finishes it (the pages still under the old directory move,
+ * and the directory is saved). The final save re-reads the site and tries
+ * once more when someone saved it meanwhile, then throws
+ * `SiteConflictError` (as the `cause` of a `LandingDirectoryError` when
  * pages had already moved).
+ *
+ * A move onto the old address of another landing page that is also moving
+ * is refused before anything moves: that address must keep redirecting to
+ * the page that had it.
  *
  * @stability Beta
  */
@@ -238,26 +243,20 @@ export async function setLandingDirectory(store: SiteStore, siteId: string, dire
   const before = await store.getDraft(siteId);
   if (!before) throw new Error(`There's no site ${siteId}, or you can't edit it.`);
   const moved: PageMeta[] = [];
-  const partly = (err: unknown) =>
-    new Error(
-      `${moved.length ? `Moved ${moved.map((m) => m.path).join(", ")}, then stopped: ` : ""}${(err as Error).message}${moved.length ? " Change the directory to the same place again to finish." : ""}`,
-      { cause: err },
-    );
+  const partly = (err: unknown) => (moved.length ? new LandingDirectoryError(moved, err) : err);
   if (options.movePages) {
     const pages = await store.listPages(siteId);
     const moves = landingMoves(pages, landingDirectory(before.site), directory);
     const moving = new Set(moves.map((m) => m.page.id));
     const staying = pages.filter((p) => !moving.has(p.id));
     const errors = moves.flatMap((m) => pathProblems(m.path, staying, { reserved }));
+    // An old address of a moving page must keep redirecting to it: another page can't take it over.
+    const leaving = new Set(moves.map((m) => m.page.path));
+    for (const m of moves) if (leaving.has(m.path)) errors.push(`${m.path} is the old address of another landing page, and must keep redirecting to it.`);
     if (errors.length) throw new Error(`The landing pages can't move to ${directory}: ${[...new Set(errors)].join(" ")}`);
-    // A page moving onto an address another moving page is leaving: move in an order that frees it first.
-    const pending = [...moves];
-    while (pending.length) {
-      const k = pending.findIndex((m) => !pending.some((o) => o !== m && o.page.path === m.path));
-      if (k < 0) throw partly(new Error("The landing pages' new addresses overlap their old ones; move them one at a time."));
-      const [m] = pending.splice(k, 1);
+    for (const m of moves) {
       try {
-        moved.push(await store.movePage(m!.page.id, m!.path));
+        moved.push(await store.movePage(m.page.id, m.path));
       } catch (err) {
         throw partly(err);
       }
@@ -277,4 +276,21 @@ export async function setLandingDirectory(store: SiteStore, siteId: string, dire
     if (attempt >= 1) throw moved.length ? partly(new SiteConflictError()) : new SiteConflictError();
   }
   return { directory, moved };
+}
+
+/**
+ * `setLandingDirectory` stopped after moving some landing pages: `moved`
+ * lists them (their old addresses already redirect), and `cause` is what
+ * stopped it. Running the same change again finishes it.
+ *
+ * @stability Beta
+ */
+export class LandingDirectoryError extends Error {
+  constructor(
+    readonly moved: PageMeta[],
+    cause: unknown,
+  ) {
+    super(`Moved ${moved.map((m) => m.path).join(", ")}, then stopped: ${(cause as Error)?.message ?? String(cause)} Change the directory to the same place again to finish.`, { cause });
+    this.name = "LandingDirectoryError";
+  }
 }
