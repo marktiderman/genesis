@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 727 components · 4657 other exports · 3868 standalone types across 205 entry points in 31 packages.
+**Totals:** 727 components · 4681 other exports · 3868 standalone types across 205 entry points in 31 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -9145,7 +9145,7 @@ Sites and landing pages for Genesis apps: a section registry with zod 4 schemas,
 
 **Barrel:** [`packages/sites/src/index.ts`](../packages/sites/src/index.ts)
 
-### Other exports (121)
+### Other exports (131)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9170,6 +9170,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`contrastRatio`](../packages/sites/src/core/theme.ts) | function | — | WCAG contrast ratio (1–21) of two colours. |
 | [`Copy`](../packages/sites/src/core/schemas.ts) | const | — | A paragraph of plain copy. |
 | [`createMemorySiteStore`](../packages/sites/src/core/store.ts) | function | Beta | An in-memory `SiteStore`: the same rules as the database (compare-and-swap revisions, path checks, redirects on move, immutable releases), for tests, demos and local previews. Documents are copied in and out, so callers can't change stor... |
+| [`DEFAULT_LANDING_DIRECTORY`](../packages/sites/src/core/landing.ts) | const | — | Where new landing pages go when the site doesn't say. |
 | [`DEFAULT_RESERVED_PATHS`](../packages/sites/src/core/urls.ts) | const | — | Paths a site never owns, because it shares its hostname with the host app: the app's API and server functions, its auth callbacks, and this package's own assets. A host passes its own list (or a predicate) to `handleSiteRequest` and `val... |
 | [`defineSection`](../packages/sites/src/core/registry.ts) | function | Beta | Declare a section kind. Checks the definition (and every preset against its schema) and returns it frozen. It isn't registered until `registerSection`. |
 | [`escapeXml`](../packages/sites/src/core/seo.ts) | function | — | _(no summary)_ |
@@ -9185,6 +9186,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Image`](../packages/sites/src/core/schemas.ts) | const | — | An image. `alt` describes it for someone who can't see it; an image that adds nothing (a texture) is `decorative: true` and gets an empty alt. The accessibility check refuses to publish an image with neither. |
 | [`isConflict`](../packages/sites/src/core/store.ts) | const | — | _(no summary)_ |
 | [`isExternalHref`](../packages/sites/src/core/urls.ts) | function | — | Is this an external (absolute) link, opened with `rel="noopener noreferrer"`? |
+| [`isLandingPage`](../packages/sites/src/core/landing.ts) | function | — | Is this one of the site's landing pages? A page of kind `landing`, except the home page: a one-click landing site's `/` is the site's home page, and stays among the pages. |
 | [`isOwnUrl`](../packages/sites/src/core/a11y.ts) | function | Beta | Is this URL the site's own: a site path (`/photo.jpg`), or a URL on one of `origins` (the store's asset origin)? |
 | [`isPlainEmail`](../packages/sites/src/core/forms.ts) | function | — | A plain email address (no display name, no `%` escapes, no header injection): what a `mailto` form may write to. |
 | [`isPublishable`](../packages/sites/src/core/a11y.ts) | const | — | _(no summary)_ |
@@ -9192,7 +9194,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isSafeHref`](../packages/sites/src/core/urls.ts) | function | — | Is this a link a site may render: a site path, a fragment, or an http(s), mailto or tel URL? |
 | [`isSafeImageSrc`](../packages/sites/src/core/urls.ts) | function | — | Is this a URL an image may load from: a site path or an `https:` URL? |
 | [`isSiteBrand`](../packages/sites/src/core/theme.ts) | function | — | _(no summary)_ |
+| [`LANDING_SLUG`](../packages/sites/src/core/landing.ts) | const | — | A landing page's slug: one path segment of lowercase letters, digits and single hyphens. |
+| [`landingDirectory`](../packages/sites/src/core/landing.ts) | function | — | The site's landing page directory: `site.landing.directory`, or `/go`. |
+| [`landingDirectoryProblems`](../packages/sites/src/core/landing.ts) | function | — | Why `directory` can't hold landing pages (empty when it can): a page path other than `/`, and not reserved. |
+| [`landingMoves`](../packages/sites/src/core/landing.ts) | function | — | Where each landing page under `from` goes when the directory becomes `to`: `/go/spring` → `/offers/spring`. Pages outside `from` stay where they are. |
 | [`landingPage`](../packages/sites/src/core/templates.ts) | function | Beta | The one-click landing page: brand plus message, on one page. |
+| [`landingPages`](../packages/sites/src/core/landing.ts) | function | — | The site's landing pages (`isLandingPage`), in the store's order. |
+| [`landingPath`](../packages/sites/src/core/landing.ts) | function | — | The path of the landing page `slug` under `directory`: `("/go", "spring")` → `/go/spring`. |
+| [`landingSlugOf`](../packages/sites/src/core/landing.ts) | function | — | The slug of a page under `directory` (`/go/spring` → `spring`), or null for a path outside it. |
+| [`landingSlugProblems`](../packages/sites/src/core/landing.ts) | function | — | Why `slug` can't name a landing page under `directory` (empty when it can). |
 | [`LATIN_UNICODE_RANGE`](../packages/design-system/src/fonts.ts) | const | — | The latin subset's `unicode-range`, so a page in another script falls back to the next font in the stack. |
 | [`Line`](../packages/sites/src/core/schemas.ts) | const | — | A short line of copy (a heading, a label). |
 | [`Link`](../packages/sites/src/core/schemas.ts) | const | — | A labelled link: a button, a menu entry, a footer link, an outbound booking link. |
@@ -9353,7 +9363,7 @@ export type { ThemePair };
 
 **Barrel:** [`packages/sites/src/index.ts`](../packages/sites/src/index.ts)
 
-### Other exports (121)
+### Other exports (131)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9378,6 +9388,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`contrastRatio`](../packages/sites/src/core/theme.ts) | function | — | WCAG contrast ratio (1–21) of two colours. |
 | [`Copy`](../packages/sites/src/core/schemas.ts) | const | — | A paragraph of plain copy. |
 | [`createMemorySiteStore`](../packages/sites/src/core/store.ts) | function | Beta | An in-memory `SiteStore`: the same rules as the database (compare-and-swap revisions, path checks, redirects on move, immutable releases), for tests, demos and local previews. Documents are copied in and out, so callers can't change stor... |
+| [`DEFAULT_LANDING_DIRECTORY`](../packages/sites/src/core/landing.ts) | const | — | Where new landing pages go when the site doesn't say. |
 | [`DEFAULT_RESERVED_PATHS`](../packages/sites/src/core/urls.ts) | const | — | Paths a site never owns, because it shares its hostname with the host app: the app's API and server functions, its auth callbacks, and this package's own assets. A host passes its own list (or a predicate) to `handleSiteRequest` and `val... |
 | [`defineSection`](../packages/sites/src/core/registry.ts) | function | Beta | Declare a section kind. Checks the definition (and every preset against its schema) and returns it frozen. It isn't registered until `registerSection`. |
 | [`escapeXml`](../packages/sites/src/core/seo.ts) | function | — | _(no summary)_ |
@@ -9393,6 +9404,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Image`](../packages/sites/src/core/schemas.ts) | const | — | An image. `alt` describes it for someone who can't see it; an image that adds nothing (a texture) is `decorative: true` and gets an empty alt. The accessibility check refuses to publish an image with neither. |
 | [`isConflict`](../packages/sites/src/core/store.ts) | const | — | _(no summary)_ |
 | [`isExternalHref`](../packages/sites/src/core/urls.ts) | function | — | Is this an external (absolute) link, opened with `rel="noopener noreferrer"`? |
+| [`isLandingPage`](../packages/sites/src/core/landing.ts) | function | — | Is this one of the site's landing pages? A page of kind `landing`, except the home page: a one-click landing site's `/` is the site's home page, and stays among the pages. |
 | [`isOwnUrl`](../packages/sites/src/core/a11y.ts) | function | Beta | Is this URL the site's own: a site path (`/photo.jpg`), or a URL on one of `origins` (the store's asset origin)? |
 | [`isPlainEmail`](../packages/sites/src/core/forms.ts) | function | — | A plain email address (no display name, no `%` escapes, no header injection): what a `mailto` form may write to. |
 | [`isPublishable`](../packages/sites/src/core/a11y.ts) | const | — | _(no summary)_ |
@@ -9400,7 +9412,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isSafeHref`](../packages/sites/src/core/urls.ts) | function | — | Is this a link a site may render: a site path, a fragment, or an http(s), mailto or tel URL? |
 | [`isSafeImageSrc`](../packages/sites/src/core/urls.ts) | function | — | Is this a URL an image may load from: a site path or an `https:` URL? |
 | [`isSiteBrand`](../packages/sites/src/core/theme.ts) | function | — | _(no summary)_ |
+| [`LANDING_SLUG`](../packages/sites/src/core/landing.ts) | const | — | A landing page's slug: one path segment of lowercase letters, digits and single hyphens. |
+| [`landingDirectory`](../packages/sites/src/core/landing.ts) | function | — | The site's landing page directory: `site.landing.directory`, or `/go`. |
+| [`landingDirectoryProblems`](../packages/sites/src/core/landing.ts) | function | — | Why `directory` can't hold landing pages (empty when it can): a page path other than `/`, and not reserved. |
+| [`landingMoves`](../packages/sites/src/core/landing.ts) | function | — | Where each landing page under `from` goes when the directory becomes `to`: `/go/spring` → `/offers/spring`. Pages outside `from` stay where they are. |
 | [`landingPage`](../packages/sites/src/core/templates.ts) | function | Beta | The one-click landing page: brand plus message, on one page. |
+| [`landingPages`](../packages/sites/src/core/landing.ts) | function | — | The site's landing pages (`isLandingPage`), in the store's order. |
+| [`landingPath`](../packages/sites/src/core/landing.ts) | function | — | The path of the landing page `slug` under `directory`: `("/go", "spring")` → `/go/spring`. |
+| [`landingSlugOf`](../packages/sites/src/core/landing.ts) | function | — | The slug of a page under `directory` (`/go/spring` → `spring`), or null for a path outside it. |
+| [`landingSlugProblems`](../packages/sites/src/core/landing.ts) | function | — | Why `slug` can't name a landing page under `directory` (empty when it can). |
 | [`LATIN_UNICODE_RANGE`](../packages/design-system/src/fonts.ts) | const | — | The latin subset's `unicode-range`, so a page in another script falls back to the next font in the stack. |
 | [`Line`](../packages/sites/src/core/schemas.ts) | const | — | A short line of copy (a heading, a label). |
 | [`Link`](../packages/sites/src/core/schemas.ts) | const | — | A labelled link: a button, a menu entry, a footer link, an outbound booking link. |
@@ -9691,7 +9711,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`AssetPicker`](../packages/sites/src/editor/asset-picker.tsx) | `AssetPickerProps` | — | _(no summary)_ |
 | [`SiteEditor`](../packages/sites/src/editor/site-editor.tsx) | `SiteEditorProps` | Beta | The visual editor. |
 
-### Other exports (30)
+### Other exports (34)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9702,6 +9722,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`checkSite`](../packages/sites/src/editor/site-actions.ts) | function | Beta | Run the publish checks on the drafts as they are now (accessibility, contrast, placeholders, paths), without publishing: what the Publish panel lists, errors first. |
 | [`countTypes`](../packages/sites/src/editor/data.ts) | function | — | How many sections of each type the page holds, in every zone (for the Add picker's limits). |
 | [`createEditorConfig`](../packages/sites/src/editor/config.tsx) | function | Beta | The Puck config for one page kind, from the registry. |
+| [`createLandingPage`](../packages/sites/src/editor/site-actions.ts) | function | Beta | Make a landing page: the brand's landing page template (kind `landing`) at `<directory>/<slug>`, under the site's landing directory. It isn't added to the menu. Refuses a slug, reserved path or taken address before asking the store. |
 | `createUsePuck` | value | — | _(no summary)_ |
 | [`fromEditorData`](../packages/sites/src/editor/data.ts) | function | — | The editor's Puck data back as a page and the site's header and footer. |
 | [`genesisOverrides`](../packages/sites/src/editor/overrides.tsx) | function | — | _(no summary)_ |
@@ -9709,7 +9730,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`humanize`](../packages/sites/src/editor/fields.ts) | function | — | `primaryCta` → "Primary CTA"; `hideOn` → "Hide on". |
 | [`IMAGE_TYPES`](../packages/sites/src/editor/asset-picker.tsx) | const | — | Raster images only: the database refuses SVG (it can carry script). |
 | [`itemToNode`](../packages/sites/src/editor/data.ts) | function | — | A Puck item as a node. |
-| [`movePageInList`](../packages/sites/src/editor/site-actions.ts) | function | — | Move one page up or down the list (through `reorderPages`, when the store has it). |
+| [`LandingDirectoryError`](../packages/sites/src/editor/site-actions.ts) | class | Beta | `setLandingDirectory` stopped after moving some landing pages: `moved` lists them (their old addresses already redirect), and `cause` is what stopped it. Running the same change again finishes it. |
+| [`moveLandingPage`](../packages/sites/src/editor/site-actions.ts) | function | Beta | Give a landing page a new slug under the site's landing directory (a page outside the directory moves into it). The old address redirects (301), as for any page move. |
+| [`movePageInList`](../packages/sites/src/editor/site-actions.ts) | function | — | Move one page up or down the list (through `reorderPages`, when the store has it). `within` limits the list being reordered (the Pages panel's own pages, not the landing pages): the page swaps with the next one that passes it. |
 | [`NODE_KEYS`](../packages/sites/src/editor/data.ts) | const | — | Keys a section schema may not use: they carry the node's own fields. |
 | [`nodeToItem`](../packages/sites/src/editor/data.ts) | function | — | A node as a Puck item, at its section's current version. Unknown types keep their props, so nothing is lost. |
 | [`pageTemplates`](../packages/sites/src/editor/site-actions.ts) | function | Beta | The templates the Add page dialog offers: a blank page, the one-click landing page from the brand, and each page of the starter site (about, contact) after its home page. |
@@ -9723,6 +9746,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`safeSectionId`](../packages/sites/src/editor/data.ts) | function | — | A section id the schema accepts (1–64 letters, digits, `-`, `_`). Puck makes ids for dragged-in and duplicated sections from the component name and a UUID; the same id always maps to the same safe one, so saves stay stable. |
 | [`sectionFields`](../packages/sites/src/editor/fields.ts) | function | Beta | Every field of a section: its layout (variant) first, then its props from the JSON Schema, then where it shows. |
 | [`sectionTypeOf`](../packages/sites/src/editor/data.ts) | const | — | The section type a Puck component name stands for. |
+| [`setLandingDirectory`](../packages/sites/src/editor/site-actions.ts) | function | Beta | Change where new landing pages go (`site.landing.directory`). With `movePages`, every landing page under the old directory moves to the same slug under the new one, and its old address redirects (301); every new address is checked before... |
 | [`slugify`](../packages/sites/src/editor/site-actions.ts) | function | — | A page's title as a path segment: "Our services" → "/our-services". |
 | [`toEditorData`](../packages/sites/src/editor/data.ts) | function | — | A page (and its site's header and footer) as the editor's Puck data. |
 | [`uploadProblem`](../packages/sites/src/editor/asset-picker.tsx) | function | — | Why an upload can't be used (or null). |
