@@ -16,6 +16,8 @@ export {
 export { useOptionalTheme, useTheme } from "./use-theme";
 export {
   resolveTokens,
+  type Appearance,
+  type ResolvedAppearance,
   type ResolvedColorScale,
   type ResolvedThemeMode,
   type ResolvedTokens,

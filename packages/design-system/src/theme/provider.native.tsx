@@ -53,6 +53,13 @@ export interface GenesisThemeProviderProps {
   defaultMode?: ThemeMode;
   onModeChange?: (mode: ResolvedThemeMode) => void;
   /**
+   * Called with the person's new appearance whenever `setMode` is asked for one (a toggle, a
+   * picker), controlled or not: where to save it. A controlled provider with it doesn't warn;
+   * its owner saves the choice and passes it back as `mode` (genesis-ui's `AppearanceProvider`
+   * does this with the person's appearance preferences).
+   */
+  onModeSelect?: (mode: ThemeMode) => void;
+  /**
    * Pass the mode to the platform (`Appearance.setColorScheme`), so iOS
    * system colors and native controls follow an in-app light or dark
    * choice. The setting is app-wide, so turn it on for one provider only,
@@ -68,6 +75,7 @@ export function GenesisThemeProvider({
   mode: controlledMode,
   defaultMode = "system",
   onModeChange,
+  onModeSelect,
   syncNativeAppearance = false,
   children,
 }: GenesisThemeProviderProps) {
@@ -101,7 +109,9 @@ export function GenesisThemeProvider({
 
   const setMode = useCallback(
     (next: ThemeMode) => {
+      onModeSelect?.(next);
       if (isControlled) {
+        if (onModeSelect) return;
         if (process.env.NODE_ENV !== "production") {
           // eslint-disable-next-line no-console
           console.warn(
@@ -113,7 +123,7 @@ export function GenesisThemeProvider({
       }
       setInternalChoice(next);
     },
-    [isControlled]
+    [isControlled, onModeSelect]
   );
 
   const tokens: ResolvedTokens = useMemo(
