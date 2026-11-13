@@ -117,6 +117,8 @@ declare module "react-native" {
 
   export interface TextInputProps {
     style?: TextStyle | TextStyle[];
+    /** Hides the caret (a one-time-code field draws its own). */
+    caretHidden?: boolean;
     className?: string;
     value?: string;
     defaultValue?: string;
@@ -192,6 +194,8 @@ declare module "react-native" {
     className?: string;
     onPress?: (e: GestureResponderEvent) => void;
     onLongPress?: () => void;
+    /** Milliseconds a press must last to be a long press. */
+    delayLongPress?: number;
     disabled?: boolean;
     children?: React.ReactNode | ((state: { pressed: boolean }) => React.ReactNode);
     accessible?: boolean;
@@ -286,6 +290,11 @@ declare module "react-native" {
     bouncesZoom?: boolean;
     centerContent?: boolean;
     alwaysBounceVertical?: boolean;
+    /** Stops on each page (a carousel). */
+    pagingEnabled?: boolean;
+    /** iOS: insets the content for the keyboard. */
+    automaticallyAdjustKeyboardInsets?: boolean;
+    onMomentumScrollEnd?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
     ref?: React.Ref<unknown>;
   }
 

@@ -13,6 +13,7 @@
  */
 import { useCallback } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
+import { canStepNumber, clampNumber, parseNumberInput, stepNumber } from "@marktiderman/genesis-core/headless";
 import { cn } from "../utils";
 
 export interface NativeNumberInputProps {
@@ -33,12 +34,6 @@ export interface NativeNumberInputProps {
   testID?: string;
 }
 
-function clamp(v: number, min?: number, max?: number) {
-  if (min !== undefined && v < min) return min;
-  if (max !== undefined && v > max) return max;
-  return v;
-}
-
 export function NativeNumberInput({
   value,
   onChange,
@@ -55,13 +50,13 @@ export function NativeNumberInput({
   const setValue = useCallback(
     (next: number) => {
       if (Number.isNaN(next)) return;
-      onChange(clamp(next, min, max));
+      onChange(clampNumber(next, min, max));
     },
     [max, min, onChange]
   );
 
-  const decBlocked = disabled || (min !== undefined && value <= min);
-  const incBlocked = disabled || (max !== undefined && value >= max);
+  const decBlocked = disabled || !canStepNumber(value, -1, { min, max });
+  const incBlocked = disabled || !canStepNumber(value, 1, { min, max });
 
   return (
     <View
@@ -78,7 +73,7 @@ export function NativeNumberInput({
         accessibilityRole="button"
         accessibilityLabel="Decrement"
         disabled={decBlocked}
-        onPress={() => setValue(value - step)}
+        onPress={() => setValue(stepNumber(value, -1, { step, min, max }))}
         className={cn(
           "min-h-[44px] min-w-[44px] items-center justify-center px-3",
           decBlocked && "opacity-40"
@@ -93,8 +88,8 @@ export function NativeNumberInput({
         keyboardType="numeric"
         accessibilityLabel="Numeric value"
         onChangeText={(t) => {
-          const parsed = Number(t.replace(/[^0-9.\-]/g, ""));
-          setValue(parsed);
+          const parsed = parseNumberInput(t);
+          if (parsed !== null) setValue(parsed);
         }}
         className={cn(
           "min-w-[64px] flex-1 border-x border-input bg-background text-center text-base text-foreground",
@@ -106,7 +101,7 @@ export function NativeNumberInput({
         accessibilityRole="button"
         accessibilityLabel="Increment"
         disabled={incBlocked}
-        onPress={() => setValue(value + step)}
+        onPress={() => setValue(stepNumber(value, 1, { step, min, max }))}
         className={cn(
           "min-h-[44px] min-w-[44px] items-center justify-center px-3",
           incBlocked && "opacity-40"

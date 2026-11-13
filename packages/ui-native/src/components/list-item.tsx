@@ -29,6 +29,13 @@ export interface NativeListItemProps {
   /** When provided, the row becomes pressable. */
   onPress?: () => void;
   disabled?: boolean;
+  /**
+   * What a pressable row is to a screen reader. Default `button`; a row that flips its switch
+   * (NativeToggleRow) is a `switch`, with `accessibilityState.checked`.
+   */
+  accessibilityRole?: "button" | "switch" | "link" | "menuitem";
+  /** Merged over the row's own (`disabled`). */
+  accessibilityState?: { checked?: boolean; selected?: boolean };
   className?: string;
   testID?: string;
 }
@@ -41,6 +48,8 @@ export function NativeListItem({
   showChevron,
   onPress,
   disabled,
+  accessibilityRole = "button",
+  accessibilityState,
   className,
   testID,
 }: NativeListItemProps) {
@@ -69,9 +78,9 @@ export function NativeListItem({
     return (
       <Pressable
         testID={testID ?? "native-list-item"}
-        accessibilityRole="button"
+        accessibilityRole={accessibilityRole}
         accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
-        accessibilityState={{ disabled }}
+        accessibilityState={{ disabled, ...accessibilityState }}
         disabled={disabled}
         onPress={onPress}
         className={cn(

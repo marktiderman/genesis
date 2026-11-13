@@ -3,11 +3,13 @@
  * and lets the user pick one.
  *
  * Use when the user knows what they're looking for and the option list
- * is too long for a Select. Filtering is case-insensitive substring by
- * default; pass `filter` to override (e.g. fuzzy match).
+ * is too long for a Select. By default every word typed must appear in an
+ * option's label or description, ignoring case and accents (genesis-core's
+ * `matchesQuery`, as the web's Combobox); pass `filter` to override.
  *
  * @stability Beta
  */
+import { matchesQuery } from "@marktiderman/genesis-core/headless";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { cn } from "../utils";
@@ -43,9 +45,8 @@ export interface NativeComboboxProps<T = string> {
   testID?: string;
 }
 
-const defaultFilter = <T,>(o: NativeComboboxOption<T>, q: string) =>
-  o.label.toLowerCase().includes(q.toLowerCase()) ||
-  (o.description?.toLowerCase().includes(q.toLowerCase()) ?? false);
+// Every word typed, ignoring case and accents: genesis-core's rule, as the web's Combobox.
+const defaultFilter = <T,>(o: NativeComboboxOption<T>, q: string) => matchesQuery([o.label, o.description], q);
 
 export function NativeCombobox<T = string>({
   options,

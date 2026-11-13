@@ -1,0 +1,16 @@
+---
+"@marktiderman/genesis-ui-native": minor
+---
+
+Features: ui-twins, custom-views, record-pages, widgets
+A phone twin for every genesis-ui component that had none (ui-parity.json), with the web component's props and its behaviour from `@marktiderman/genesis-core/headless`:
+
+- Controls: `NativeButtonGroup`, `NativeInputGroup` and `NativePasswordToggleField` (on NativeInput's new `leading` and `trailing`), `NativeInputOTP` (one field under the boxes, so the system's code autofill works), `NativeCalendar` (single, multiple or range), `NativeCarousel`.
+- Data display: `NativeChartContainer` (bar, line and area; lines with react-native-svg passed as the new `GenesisModules.svg`), `NativeSortableList` (a drag handle, a long-press Move menu and screen-reader actions, announced), `NativeStatCard`, `NativeStatusBadge` (NativeBadge gains a tinted `danger` variant), `NativeUserAvatar`.
+- Pages, in `/layouts`: `DashboardPage`, `DetailPage`, `DocumentPage` and `FormPage`, on ScreenContainer.
+- Forms, in `/data`: `NativeFieldArrayRenderer`, `NativeFileUploadField` (the picker is the new `GenesisModules.filePicker`), `NativeRelationField` (NativeResourceView's link picker) and `NativeWizardForm`; NativeResourceFormFieldRenderer now draws array, file, image and relation fields with them.
+- Resource workspace: `NativeReadinessChip`, `NativeHeadlineNumbers`, `NativeSummaryCard`, `NativeFollowUpList`, `NativeResponsesToolbar`.
+- Records and settings: `NativeRecordPeek` (the record view in a sheet, with `onEdit` and a confirmed `onDelete`), `NativeCustomView` and `useNativeCustomView` (the list type), `NativeResourceSettingsPage`, `NativeSettingsRow` and `NativeToggleRow` (NativeListItem takes `accessibilityRole` and `accessibilityState`).
+- `NativeNoFeaturesFound`, `NativeNoFeedbackFound` and `NativeNoSearchResults`, and `NativeWorkspaceSwitcher`.
+
+NativeNumberInput, NativeSlider, NativeStepper, NativeCombobox and NotificationsPage now take their clamping, snapping, step states, search and day groups from genesis-core. NativeCombobox's default search matches every word typed, ignoring accents ("cafe" finds "Café"), as the web's Combobox does.

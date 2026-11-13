@@ -240,6 +240,64 @@ The doctor's `haptics-use-genesis` rule warns on new code that calls `impactAsyn
 or whatever it's named), or imported by name. Handing the module to `GenesisModules` is fine, and
 tests are left alone.
 
+## Web parity twins
+
+Every genesis-ui component has a phone twin here, or a reason in `ui-parity.json` (the check,
+`node scripts/check-ui-parity.mjs`, runs in CI). The twins take the web component's props, and the
+behaviour both share lives once in genesis-core's `@marktiderman/genesis-core/headless`: clamping
+and stepping a number, matching typed text, moving an item in a list, reading a time, a chart's
+axis and colours, a one-time code, a form's repeat and upload limits, a trend line, a status's
+tone, a step's state and the notification day groups. Only the drawing differs.
+
+| Web | Phone |
+| --- | --- |
+| ButtonGroup, InputGroup, PasswordToggleField, InputOTP | `NativeButtonGroup`, `NativeInputGroup` (NativeInput's `leading` / `trailing`), `NativePasswordToggleField`, `NativeInputOTP` (system code autofill) |
+| Calendar, Carousel | `NativeCalendar` (single, multiple or range), `NativeCarousel` (paging, dots, screen-reader adjustable) |
+| ChartContainer | `NativeChartContainer` (bar, line, area; lines with react-native-svg as `GenesisModules.svg`) |
+| SortableList | `NativeSortableList` (drag handle, long-press Move menu, screen-reader actions) |
+| StatCard, StatusBadge, UserAvatar | `NativeStatCard`, `NativeStatusBadge`, `NativeUserAvatar` |
+| ReadinessChip, HeadlineNumbers, SummaryCard, FollowUpList, ResponsesToolbar | `NativeReadinessChip`, `NativeHeadlineNumbers`, `NativeSummaryCard`, `NativeFollowUpList`, `NativeResponsesToolbar` |
+| SettingsRow, ToggleRow, ResourceSettingsPage | `NativeSettingsRow`, `NativeToggleRow` (the row is the switch), `NativeResourceSettingsPage` |
+| NoFeaturesFound, NoFeedbackFound, NoSearchResults | `NativeNoFeaturesFound`, `NativeNoFeedbackFound`, `NativeNoSearchResults` |
+| WorkspaceSwitcher | `NativeWorkspaceSwitcher` (a sheet, under a `WorkspaceScope`) |
+| DashboardPage, DetailPage, DocumentPage, FormPage | the same names in `/layouts`, on ScreenContainer |
+| FieldArrayRenderer, FileUploadField, RelationField, WizardForm | `NativeFieldArrayRenderer`, `NativeFileUploadField` (`GenesisModules.filePicker`), `NativeRelationField`, `NativeWizardForm` in `/data`; NativeResourceFormFieldRenderer draws array, file, image and relation fields with them |
+| CustomView, RecordPeek | `NativeCustomView` / `useNativeCustomView` (list type) and `NativeRecordPeek` (with `onEdit` / `onDelete`) in `/data` |
+
+```tsx
+import { View } from "react-native";
+import { NativeChartContainer, NativeStatCard, NativeToggleRow } from "@marktiderman/genesis-ui-native";
+import { DashboardPage } from "@marktiderman/genesis-ui-native/layouts";
+
+export function Today({ visits }: { visits: { day: string; count: number }[] }) {
+  return (
+    <DashboardPage
+      title="Today"
+      stats={[<NativeStatCard key="m" label="Members" value={42} trend={{ value: 4, label: "this week" }} />]}
+    >
+      <NativeChartContainer config={{ count: { label: "Check-ins", color: "var(--chart-1)" } }} data={visits} xKey="day" />
+      <View>
+        <NativeToggleRow label="Email me a summary" description="Every Monday" defaultChecked />
+      </View>
+    </DashboardPage>
+  );
+}
+```
+
+A file or image field needs a picker: pass one function, once, wrapping the picker the app installed.
+
+```tsx
+import * as DocumentPicker from "expo-document-picker";
+import type { GenesisModules } from "@marktiderman/genesis-ui-native";
+
+export const modules: GenesisModules = {
+  filePicker: async ({ multiple }) => {
+    const res = await DocumentPicker.getDocumentAsync({ multiple });
+    return res.canceled ? [] : res.assets.map((a) => ({ uri: a.uri, name: a.name, type: a.mimeType, size: a.size }));
+  },
+};
+```
+
 ## Inbox and thread: `InboxPage` and `ThreadPage`
 
 Two generic layouts for conversations (support tickets, direct messages, comment threads), in

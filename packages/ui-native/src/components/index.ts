@@ -288,6 +288,9 @@ export type {
   GenesisDatePickerProps,
   GenesisNavigationModule,
   GenesisNavigationTheme,
+  GenesisSvgModule,
+  GenesisFilePicker,
+  NativePickedFile,
   KeyboardAvoidingLike,
 } from "../native-modules";
 
@@ -357,3 +360,47 @@ export { NativeShareSheet } from "./share-sheet";
 export type { NativeShareSheetProps } from "./share-sheet";
 export { NativeWhatsNewSheet } from "./whats-new-sheet";
 export type { NativeWhatsNewNote, NativeWhatsNewSheetProps } from "./whats-new-sheet";
+
+// --- Web parity twins (ui-parity.json): the genesis-ui components' phone counterparts ---
+
+export { NativeButtonGroup } from "./button-group";
+export type { NativeButtonGroupProps } from "./button-group";
+export { NativeInputGroup } from "./input-group";
+export type { NativeInputGroupProps } from "./input-group";
+export { NativePasswordToggleField } from "./input-group";
+export type { NativePasswordToggleFieldProps } from "./input-group";
+export { NativeInputOTP } from "./input-otp";
+export type { NativeInputOTPProps } from "./input-otp";
+export { NativeCalendar } from "./calendar";
+export type { NativeCalendarProps, NativeCalendarRange } from "./calendar";
+export { NativeCarousel } from "./carousel";
+export type { NativeCarouselProps } from "./carousel";
+export { NativeChartContainer } from "./chart";
+export type { NativeChartContainerProps, NativeChartConfig } from "./chart";
+export { NativeSortableList } from "./sortable-list";
+export type { NativeSortableListProps, NativeSortableListItemContext, NativeSortableListLabels } from "./sortable-list";
+export { NativeStatCard } from "./stat-card";
+export type { NativeStatCardProps, NativeStatCardColor } from "./stat-card";
+export { NativeStatusBadge } from "./stat-card";
+export type { NativeStatusBadgeProps } from "./stat-card";
+export { NativeUserAvatar } from "./stat-card";
+export type { NativeUserAvatarProps } from "./stat-card";
+export { NativeReadinessChip } from "./resource";
+export type { NativeReadinessChipProps } from "./resource";
+export { NativeHeadlineNumbers } from "./resource";
+export type { NativeHeadlineNumbersProps } from "./resource";
+export { NativeSummaryCard } from "./resource";
+export type { NativeSummaryCardProps } from "./resource";
+export { NativeFollowUpList } from "./resource";
+export type { NativeFollowUpListProps, NativeFollowUpEntry } from "./resource";
+export { NativeResponsesToolbar } from "./resource";
+export type { NativeResponsesToolbarProps, NativeResponsesView } from "./resource";
+export { NativeSettingsRow } from "./settings-row";
+export type { NativeSettingsRowProps } from "./settings-row";
+export { NativeToggleRow } from "./settings-row";
+export type { NativeToggleRowProps } from "./settings-row";
+export { NativeResourceSettingsPage } from "./settings-row";
+export type { NativeResourceSettingsPageProps, NativeResourceSettingsSection } from "./settings-row";
+export { NativeNoFeaturesFound, NativeNoFeedbackFound, NativeNoSearchResults } from "./empty-state";
+export { NativeWorkspaceSwitcher } from "./workspace-switcher";
+export type { NativeWorkspaceSwitcherProps } from "./workspace-switcher";

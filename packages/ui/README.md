@@ -367,6 +367,37 @@ they are, or lay a dashboard's body out with `WidgetGrid`. `StatCard`,
 app style changes all of them through `widget-label`, `widget-value` and
 `widget-detail`. See docs/RESOURCE-VIEW.md, "Widgets".
 
+## Twins of the phone's components
+
+The web side of components genesis-ui-native had first, with the native twin's props and its
+behaviour from genesis-core's `@marktiderman/genesis-core/headless`:
+
+- `Banner` and `InlineAlert` (NativeBanner, NativeInlineAlert): the Alert, tinted, with dismiss and actions.
+- `ChoiceCard` (NativeChoiceCard): an option card that is a radio, or with `multiple` a checkbox.
+- `ChipGroup` with `ChipGroupItem` (NativeChipGroup): the toggle Chip, single or multiple.
+- `Combobox` (NativeCombobox): Command in a Popover, searched with genesis-core's `filterOptions`.
+- `NumberInput` (NativeNumberInput): a spinbutton with − and + on the InputGroup.
+- `RangeSlider` (NativeRangeSlider): the Slider with two thumbs (the Slider draws a thumb per value).
+- `Stepper` (NativeStepper), `TimePicker` (NativeTimePicker), `WhatsNewSheet` (NativeWhatsNewSheet, a dialog that rises as a sheet on a phone-width screen) and `NotificationsPage` (the phone's NotificationsPage).
+
+```tsx
+import { useState } from "react";
+import { Combobox, NumberInput, TimePicker } from "@marktiderman/genesis-ui";
+
+export function ClassForm() {
+  const [room, setRoom] = useState<string | undefined>();
+  const [spots, setSpots] = useState(12);
+  const [at, setAt] = useState(() => new Date());
+  return (
+    <>
+      <Combobox aria-label="Room" options={[{ value: "a", label: "Studio A" }, { value: "b", label: "Studio B" }]} value={room} onChange={setRoom} />
+      <NumberInput aria-label="Spots" value={spots} onChange={setSpots} min={1} max={40} />
+      <TimePicker aria-label="Starts" value={at} onChange={setAt} minuteStep={15} />
+    </>
+  );
+}
+```
+
 ## Read next
 
 - [SKILL.md](./SKILL.md): the reuse ladder (pattern, slots, elements, hooks) and which export

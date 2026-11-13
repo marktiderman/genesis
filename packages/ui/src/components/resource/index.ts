@@ -10,6 +10,7 @@
  */
 export * from "./rules";
 export { Chip, type ChipProps } from "./chip";
+export { ChipGroup, ChipGroupItem, type ChipGroupProps, type ChipGroupItemProps, type ChipGroupMode } from "./chip-group";
 export { ResourceHeader, type ResourceHeaderProps } from "./ResourceHeader";
 export { ReadinessChip } from "./ReadinessChip";
 export { ResponsesToolbar, type ResponsesView } from "./ResponsesToolbar";

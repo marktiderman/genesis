@@ -6,6 +6,7 @@ import { Button } from "../ui/button";
 import { FormField, FormLabel, FormError } from "../patterns/form-field";
 import { titleCase } from "../../hooks/use-resource-page";
 import { buildArrayItemDefaults } from "@marktiderman/genesis-core/hooks";
+import { fieldArrayAddLabel, fieldArrayLimits } from "@marktiderman/genesis-core/headless";
 import { ResourceFormFieldRenderer, type ResourceFormFieldDef } from "./ResourceFormField";
 
 // ---------------------------------------------------------------------------
@@ -30,8 +31,8 @@ export function FieldArrayRenderer({
 
   const subFields = field.arrayFields ?? [];
   const label = field.label ?? titleCase(field.key);
-  const canAdd = field.arrayMax == null || items.length < field.arrayMax;
-  const canRemove = field.arrayMin == null || items.length > field.arrayMin;
+  // The limits and the add button's words are genesis-core's, as NativeFieldArrayRenderer's.
+  const { canAdd, canRemove } = fieldArrayLimits(items.length, field);
 
   const handleAdd = () => {
     append(buildArrayItemDefaults(subFields));
@@ -92,7 +93,7 @@ export function FieldArrayRenderer({
         onClick={handleAdd}
       >
         <PlusIcon className="h-4 w-4 mr-1" />
-        Add {label.replace(/s$/, "")}
+        {fieldArrayAddLabel(label)}
       </Button>
 
       <FormError id={`${field.key}-error`}>

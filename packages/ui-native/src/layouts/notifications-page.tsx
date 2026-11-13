@@ -21,6 +21,7 @@
  * @stability Beta
  */
 import { useCallback, useContext, useMemo, type ReactNode } from "react";
+import { groupNotificationsByDay, notificationDayBucket } from "@marktiderman/genesis-core/headless";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import {
   Platform,
@@ -154,22 +155,8 @@ export function getNotificationsPageStackOptions(props: {
   });
 }
 
-// Returns a stable section title for a timestamp. Computes against the
-// caller's local clock for consistency with the rest of the app.
-function bucketFor(ts: string | Date, now = new Date()): string {
-  const d = typeof ts === "string" ? new Date(ts) : ts;
-  const startOfDay = (date: Date) => {
-    const x = new Date(date);
-    x.setHours(0, 0, 0, 0);
-    return x.getTime();
-  };
-  const today = startOfDay(now);
-  const yesterday = today - 24 * 60 * 60 * 1000;
-  const day = startOfDay(d);
-  if (day === today) return "Today";
-  if (day === yesterday) return "Yesterday";
-  return "Earlier";
-}
+// The day groups are genesis-core's, as the web's NotificationsPage draws them.
+const bucketFor = notificationDayBucket;
 
 interface Section {
   title: string;
@@ -177,22 +164,7 @@ interface Section {
 }
 
 function groupByDate(items: NotificationItem[], now = new Date()): Section[] {
-  const map = new Map<string, NotificationItem[]>();
-  // Iterate in input order so stable sort within bucket.
-  for (const item of items) {
-    const bucket = bucketFor(item.timestamp, now);
-    const arr = map.get(bucket) ?? [];
-    arr.push(item);
-    map.set(bucket, arr);
-  }
-  // Stable section order: Today / Yesterday / Earlier.
-  const order = ["Today", "Yesterday", "Earlier"];
-  return order
-    .filter((title) => map.has(title))
-    .map((title) => ({
-      title,
-      data: map.get(title) ?? [],
-    }));
+  return groupNotificationsByDay(items, now);
 }
 
 type FlatRow = { kind: "header"; title: string } | { kind: "item"; item: NotificationItem; last: boolean };
