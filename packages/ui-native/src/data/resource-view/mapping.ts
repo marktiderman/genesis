@@ -228,11 +228,11 @@ export interface NativeFormField {
 /** Choices that fit a segmented control; more go to a list. */
 const SEGMENTED_MAX = 4;
 
-function kindFor(display: DisplayHint, options: unknown[] | undefined, widget?: string): NativeFormFieldKind {
+function kindFor(display: DisplayHint, options: unknown[] | undefined, control?: string): NativeFormFieldKind {
   if (options) return options.length <= SEGMENTED_MAX ? "segmented" : "select";
-  // A phone number shows as text, so only the contract's `widget: "tel"` makes it one (as on the
+  // A phone number shows as text, so only the contract's `control: "tel"` (or its older `widget`) makes it one (as on the
   // web); a column's name is never read as a type.
-  if (widget === "tel" && display === "text") return "tel";
+  if (control === "tel" && display === "text") return "tel";
   switch (display) {
     case "boolean":
       return "switch";
@@ -311,7 +311,7 @@ export function formFieldsFor<T extends Row>(
       return {
         key: f.field.name,
         label: f.label,
-        kind: link ? ("link" as const) : kindFor(f.display, options, f.field.widget),
+        kind: link ? ("link" as const) : kindFor(f.display, options, f.field.control ?? f.field.widget),
         display: f.display,
         required: !readOnly && f.required,
         readOnly,

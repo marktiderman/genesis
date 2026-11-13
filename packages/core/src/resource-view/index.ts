@@ -4,6 +4,8 @@
 
 export { boardChoices, boardProblems, calendarProblems, defineView, galleryProblems, deriveDisplay, plural, singular, valueText, ViewDefinitionError } from "./define-view";
 export { initialsOf, rowPicture } from "./picture";
+export { groupRows, type GroupRowsOptions, type RowGroup } from "./group";
+export { RECORD_OPEN_MODES } from "./types";
 export { scopeFilter, scopeValues } from "./scope";
 export { filterParams } from "./link";
 export { cascadeSelection, initialExpanded, setExpanded, treeRows } from "./tree";
@@ -40,6 +42,7 @@ export type {
   ViewLink,
   ViewPreset,
   ViewTone,
+  RecordOpen,
   TimeZoneName,
   ViewTimeZone,
   Viewer,
@@ -52,6 +55,9 @@ export type {
   ResolvedRecordViewSection,
   RecordView,
   RecordViewDefinition,
+  AnyRecordView,
+  RecordViewDocument,
+  RecordPageTemplate,
   RecordViewFilter,
   RecordViewHeader,
   RecordViewHeaderAction,

@@ -116,7 +116,7 @@ export function FilterBuilder({
                   <Input
                     className="h-8 w-36 text-xs"
                     aria-label="Value"
-                    type={field?.widget === "date" ? "date" : "text"}
+                    type={(field?.control ?? field?.widget) === "date" ? "date" : "text"}
                     value={d.value}
                     onChange={(e) => update(i, { value: e.target.value })}
                   />

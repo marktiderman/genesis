@@ -374,7 +374,9 @@ export function KanbanBoard<T>({
         <section
           key={column.key}
           aria-label={column.label}
+          data-slot="board-column"
           data-kanban-column={column.key}
+          data-status={column.status}
           className={cn(
             "flex flex-col gap-3 rounded-lg",
             movable &&

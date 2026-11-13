@@ -17,30 +17,30 @@ export type WidgetTileVariant = "stat" | "headline" | "summary" | "widget";
 export type WidgetTileState = "loading" | "error" | "empty" | "ready";
 
 export interface WidgetTileProps {
-  variant?: WidgetTileVariant;
+  variant?: WidgetTileVariant | undefined;
   /** What the tile is called. */
   label: string;
   /** The number, or whatever stands for it. */
-  value?: ReactNode;
+  value?: ReactNode | undefined;
   /** A short line under the value. */
-  detail?: ReactNode;
+  detail?: ReactNode | undefined;
   /** The detail's class (a tone's colour). */
-  detailClassName?: string;
+  detailClassName?: string | undefined;
   /** An icon beside the label (stat, widget) or the title (summary). */
-  icon?: LucideIcon | ReactNode;
+  icon?: LucideIcon | ReactNode | undefined;
   /** The icon's class (a colour). */
-  iconClassName?: string;
+  iconClassName?: string | undefined;
   /** A short line on the header's right (summary, widget). */
-  meta?: ReactNode;
+  meta?: ReactNode | undefined;
   /** Under the value: a bar, a list, a chart, a summary's body. */
-  children?: ReactNode;
+  children?: ReactNode | undefined;
   /** Makes the whole tile a link (stat, widget). */
   href?: string | undefined;
-  linkComponent?: LinkComponent;
+  linkComponent?: LinkComponent | undefined;
   /** What a widget is showing; set as `data-state`. */
-  state?: WidgetTileState;
+  state?: WidgetTileState | undefined;
   /** The widget kind, set as `data-kind` (widget). */
-  kind?: string;
+  kind?: string | undefined;
   className?: string | undefined;
   testID?: string | undefined;
 }

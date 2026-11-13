@@ -59,7 +59,10 @@ function field(column: IntrospectedColumn, indent: string): string {
   const description = column.settings?.description ?? column.description;
   if (label) parts.push(`label: ${quote(label)}`);
   if (description) parts.push(`description: ${quote(description)}`);
-  if (column.settings?.widget) parts.push(`widget: ${quote(column.settings.widget)}`);
+  // A comment's `control` is written as `control`; one still saying `widget` keeps its word, so a
+  // regenerated contract doesn't change under an app that hasn't moved.
+  if (column.settings?.control) parts.push(`control: ${quote(column.settings.control)}`);
+  else if (column.settings?.widget) parts.push(`widget: ${quote(column.settings.widget)}`);
   if (column.settings?.readonly) parts.push("readOnly: true");
   if (column.settings?.sensitive) parts.push("sensitive: true");
   return `${indent}{ ${parts.join(", ")} },`;

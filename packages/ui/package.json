@@ -538,19 +538,23 @@
               "RecordView",
               "ResourceWorkspace"
             ],
-            "pattern": "^(?=[\\s\\S]*<KanbanBoard\\b)(?=[\\s\\S]*\\b(?:useResource(?:View|Table)|useBoardColumns)\\s*[<(])(?![\\s\\S]*<(?:DataTable|DataGrid|DataList|ResourcePage)\\b)"
+            "pattern": "^(?:(?=[\\s\\S]*<KanbanBoard\\b)(?=[\\s\\S]*\\b(?:useResource(?:View|Table)|useBoardColumns|useViewBoard)\\s*[<(])(?![\\s\\S]*<(?:DataTable|DataGrid|DataList|ResourcePage)\\b)|(?=[\\s\\S]*\\b(?:defineViewType|registerViewType)\\s*\\())"
           },
           "use": "a view (defineView from @marktiderman/genesis-core/resource-view) rendered by <ResourceView>",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md",
-          "why": "A list is one description of its resource: columns, filters, saved views, permissions and the phone screen come from the view, not per-screen code. ResourcePage is the escape hatch inside a component that renders ResourceView. A board over a list is the view's board block rendered by <ResourceView mode=\"board\">. A KanbanBoard is fine when the same file feeds it from useBoardColumns (rows that aren't one view's), useResourceView or useResourceTable and renders no other forbidden list (the exemption is file-wide, so a DataTable beside it flags both).",
+          "why": "A list is one description of its resource: columns, filters, saved views, permissions and the phone screen come from the view, not per-screen code. ResourcePage is the escape hatch inside a component that renders ResourceView. A board over a list is the view's board block rendered by <ResourceView mode=\"board\">. A KanbanBoard is fine when the same file feeds it from useBoardColumns (rows that aren't one view's), useViewBoard, useResourceView or useResourceTable and renders no other forbidden list (the exemption is file-wide, so a DataTable beside it flags both). A file that defines or registers a view type (defineViewType, registerViewType) is the view type's own drawing, picked with <ResourceView type>, so its lists are fine.",
           "extensible": [
             "ResourceView.slots",
             "ResourceView.renderDetail",
             "ResourceView.toolbar",
             "useResourceView",
             "useResourceTable",
-            "useBoardColumns"
+            "useBoardColumns",
+            "useViewBoard",
+            "defineViewType",
+            "registerViewType",
+            "CustomView"
           ]
         },
         {

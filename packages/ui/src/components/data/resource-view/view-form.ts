@@ -4,7 +4,7 @@
 // `filter` and `defaults` fix starts the form (or fills it hidden).
 
 import { useMemo } from "react";
-import { useViewer, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
+import { fieldControl, useViewer, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
 import type { ResourceScope } from "@marktiderman/genesis-core/hooks";
 import { scopeFilter, type DisplayHint, type ResolvedFormField, type ResourceView as View } from "@marktiderman/genesis-core/resource-view";
 import type { FieldType, ResourceFormFieldDef } from "../ResourceFormField";
@@ -28,11 +28,11 @@ const FORM_TYPE: Partial<Record<DisplayHint, FieldType>> = {
 };
 
 // A phone number has no display hint of its own (it shows as text), so the form reads the
-// contract's declared `widget: "tel"`. Never guessed from the column's name. RecordView's inline
+// contract's declared `control: "tel"` (or its older `widget`). Never guessed from the column's name. RecordView's inline
 // fields use it too.
 export function formType(f: ResolvedFormField, hasOptions: boolean): FieldType {
   if (hasOptions) return "select";
-  if (f.field.widget === "tel" && f.display === "text") return "tel";
+  if (fieldControl(f.field) === "tel" && f.display === "text") return "tel";
   return FORM_TYPE[f.display] ?? "text";
 }
 

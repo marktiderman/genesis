@@ -3,9 +3,9 @@
 // the peek, the form, delete, saved views and slots are all ResourcePage's. Every ResourcePage
 // prop still works as an escape hatch, and the screen's own props win over the view.
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, type ComponentType, type ReactNode } from "react";
 import { useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
-import { plural, rowPicture, type ResourceView as View, type ViewGallery } from "@marktiderman/genesis-core/resource-view";
+import { plural, rowPicture, type RecordOpen, type RecordView as RecordViewDef, type ResourceView as View, type ViewGallery } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
 import { useDisplayCell } from "./display";
@@ -17,6 +17,9 @@ import { RowAvatar } from "./RowAvatar";
 import { galleryGridSlot } from "./ResourceGallery";
 import { useViewDetailFields, useViewListParams, type Filter } from "./view-list";
 import { useViewFormFields } from "./view-form";
+import { listViewTypes, registerBuiltInViewType, resolveViewType, type ViewTypeName } from "./view-types";
+import { detailMode, recordViewOf, resolveRecordOpen } from "./record-open";
+import { recordPeekSlot } from "./RecordPeek";
 
 type Row = Record<string, unknown>;
 type Scalar = string | number | boolean | null;
@@ -56,8 +59,30 @@ export interface ResourceViewOptions {
    * in it, and no phone default turns into it. `board` shows a card per row in a column per value
    * of the view's `board` field, and moving a card writes that field; like calendar, it is never
    * stored as the user's pick.
+   *
+   * Prefer `type`, which takes the same values and every registered view type; `mode` stays as
+   * its alias, and `type` wins when both are set.
    */
   mode?: ViewModeDefault | "calendar" | "board" | undefined;
+  /**
+   * The view type (ADR 0021): how the view shows. `table`, `list` and `grid` (the person can
+   * switch between them, and their pick is remembered), `board`, `calendar`, `gallery` (the grid
+   * as photos, from the view's `gallery` block), or a type the app registered with
+   * `registerViewType` (`"timeline"`). `{ mobile, desktop }` picks per screen size, as `mode` does.
+   */
+  type?: ViewModeDefault | ViewTypeName | undefined;
+  /**
+   * How a record opens from this screen (ADR 0021): a `side-peek`, a `center-peek` or its `page`.
+   * Default the view's `open`, else a side peek. ResourcePage's `detail` (`panel`, `modal`,
+   * `route`) still works, and wins when set.
+   */
+  open?: RecordOpen | undefined;
+  /**
+   * The record view a peek draws. Default the view's `recordView`. Without either, a peek shows
+   * the view's columns, as before.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
+  recordView?: RecordViewDef<ResourceContract<any>, any> | undefined;
   title?: string | undefined;
   subtitle?: string | undefined;
 }
@@ -126,11 +151,21 @@ function columnWidth(c: { key: string; display: string }, index: number, all: re
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
   const {
     // preset, filter and scoped are read by useViewListParams; taken out here so they aren't passed on.
-    view, layout = "page", columns: columnPreset, preset: _preset, filter: _filter, scoped: _scoped, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
-    calendar: _calendar, board: _board, gallery: screenGallery,
+    view, layout = "page", columns: columnPreset, preset: _preset, filter: _filter, scoped: _scoped, defaults, mode: modeProp, type: typeProp, open: openProp, recordView: recordViewProp, title, subtitle, can, resourceOptions, cells, tree: screenTree,
+    calendar: _calendar, board: _board, gallery: screenGallery, detail: screenDetail,
     noun: screenNoun, nounPlural: screenNounPlural, formTitles: screenFormTitles, countFormat: screenCountFormat,
     ...rest
   } = props;
+  // `type` is the preferred name; `mode` its alias. A gallery is the grid view drawn as photos.
+  const shown = typeProp ?? modeProp;
+  const gallery = shown === "gallery";
+  const mode = gallery ? "grid" : shown;
+  if (typeof mode === "string" && !PAGE_TYPES.has(mode)) {
+    throw new Error(`ResourceView(${view.resource}): type "${mode}" isn't drawn by the list page; render <ResourceView type="${mode}"> (useResourceView covers table, list, grid and gallery)`);
+  }
+  if (gallery && !view.definition.gallery && !screenGallery?.image) {
+    throw new Error(`ResourceView(${view.resource}): type="gallery" needs a gallery block: the view's gallery.image, or gallery={{ image }}`);
+  }
   const cell = useDisplayCell();
   const viewer = useViewer();
   const listDefaults = useResourceViewDefaults();
@@ -214,6 +249,8 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     [view, galleryKey],
   );
   const searchFields = rest.searchFields ?? (view.labelField ? [view.labelField] : undefined);
+  const recordView = recordViewOf(view, recordViewProp);
+  const peekSlot = useMemo(() => (recordView ? recordPeekSlot<T>(recordView) : undefined), [recordView]);
   return {
     resource: view.resource,
     title: title ?? view.title,
@@ -224,8 +261,8 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     // screen's own `defaultView` (in `rest`) still overrides all three. The phone default is a
     // full page's only: an embedded list hides the view switch, so cards there would have no
     // way back to the table.
-    ...(mode && mode !== "calendar" && mode !== "board"
-      ? { defaultView: mode }
+    ...(mode
+      ? { defaultView: mode as ViewModeDefault }
       : layout === "compact"
         ? { defaultView: "list" as const }
         : layout === "page" && listDefaults.phoneMode
@@ -257,8 +294,14 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     ...(copy?.empty?.title ? { emptyMessage: copy.empty.title } : {}),
     ...(copy?.empty?.body ? { emptyDescription: copy.empty.body } : {}),
     ...(searchFields ? { searchFields } : {}),
+    // How a record opens: ResourcePage's own `detail` first, then the screen's `open`, then the view's.
+    detail: detailMode(resolveRecordOpen(view, screenDetail, openProp)),
     ...rest,
     ...(gallerySlot && rest.slots?.grid === undefined ? { slots: { ...rest.slots, grid: gallerySlot } } : {}),
+    // A peek draws the view's record view when it names one, unless the screen draws its own.
+    ...(peekSlot && rest.slots?.detail === undefined && !rest.renderDetail
+      ? { slots: { ...rest.slots, ...(gallerySlot && rest.slots?.grid === undefined ? { grid: gallerySlot } : {}), detail: peekSlot } }
+      : {}),
     // The app's `clipCells` and `sizeColumns` under the screen's own table props, which win.
     ...(listDefaults.clipCells || listDefaults.sizeColumns
       ? {
@@ -291,31 +334,59 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
  * <ResourceView view={brandsView} />
  * <ResourceView view={sessionsView} layout="embedded" filter={{ client_id: id }} columns="compact" />
  * <ResourceView view={leaguesView} tree={{ getParentId: (l) => l.parent_id, defaultExpanded: 1 }} />
+ * <ResourceView view={tasksView} type="board" open="center-peek" />
  * ```
+ *
+ * `type` picks the view type (ADR 0021): Genesis's table, list, grid, board, calendar and gallery,
+ * or one registered with `registerViewType`. A record opens as the view's `open` says.
  *
  * Customise in steps: a screen setting, then the view (every screen gets it), then a slot
  * (`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.
  */
 export function ResourceView<T extends Row = Row>(props: ResourceViewProps<T>) {
-  // Two components, so switching `mode` to and from calendar swaps children rather than hooks.
-  if (props.mode === "calendar") return <ResourceViewCalendar<T> {...props} />;
-  if (props.mode === "board") return <ResourceViewBoard<T> {...props} />;
-  return <ResourceViewPage<T> {...props} />;
+  // Each view type is its own component, so switching type swaps children rather than hooks.
+  const shown = props.type ?? props.mode;
+  if (shown === undefined || typeof shown !== "string") return <ResourceViewPage<T> {...props} />;
+  const type = resolveViewType(shown);
+  if (!type) {
+    throw new Error(`ResourceView(${props.view.resource}): no view type "${shown}"; registered: ${listViewTypes().map((t) => t.id).join(", ")}. Register it with registerViewType.`);
+  }
+  const Render = type.render as ComponentType<ResourceViewProps<T>>;
+  return <Render {...props} />;
 }
 
 function ResourceViewPage<T extends Row>(props: ResourceViewProps<T>) {
   return <ResourcePage<T> {...useResourceViewProps(props)} />;
 }
 
+/** How a board or calendar opens a record: the screen's `detail`, then `open`, then the view's. */
+function openProps<T extends Row>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
+  view: View<ResourceContract<any>, T & DataRow>,
+  detail: ResourceViewProps<T>["detail"],
+  open: RecordOpen | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
+  recordView: RecordViewDef<ResourceContract<any>, any> | undefined,
+  onNavigate: ResourceViewProps<T>["onNavigate"],
+) {
+  const mode = resolveRecordOpen(view, detail, open);
+  return {
+    open: mode,
+    ...(recordView ? { recordView } : {}),
+    ...(onNavigate ? { onNavigate } : {}),
+  };
+}
+
 /** `mode="calendar"`: the same view, scope and filters, placed by a date field. */
 function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
-  const { view, calendar, title, subtitle, className, cells } = props;
+  const { view, calendar, title, subtitle, className, cells, open, recordView, onNavigate, detail } = props;
   const words = subtitle ?? view.definition.copy?.subtitle;
   const { filters, select, enabled, live } = useViewListParams(props);
   return (
     <ResourceCalendar<T>
       {...(calendar ?? {})}
       view={view}
+      {...openProps<T>(view, detail, open, recordView, onNavigate)}
       filters={filters}
       {...(select !== undefined ? { select } : {})}
       enabled={enabled}
@@ -330,13 +401,14 @@ function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
 
 /** `mode="board"`: the same view, scope and filters, a column per value of the board's field. */
 function ResourceViewBoard<T extends Row>(props: ResourceViewProps<T>) {
-  const { view, board, title, subtitle, className, cells, can, resourceOptions } = props;
+  const { view, board, title, subtitle, className, cells, can, resourceOptions, open, recordView, onNavigate, detail } = props;
   const words = subtitle ?? view.definition.copy?.subtitle;
   const { filters, select, enabled, live } = useViewListParams(props);
   return (
     <ResourceBoard<T>
       {...(board ?? {})}
       view={view}
+      {...openProps<T>(view, detail, open, recordView, onNavigate)}
       filters={filters}
       {...(can ? { can } : {})}
       {...(resourceOptions ? { resourceOptions: resourceOptions as NonNullable<ResourceBoardProps<T>["resourceOptions"]> } : {})}
@@ -351,11 +423,26 @@ function ResourceViewBoard<T extends Row>(props: ResourceViewProps<T>) {
   );
 }
 
-/** The headless form: the same state as `useResourceTable`, from a view. */
+/**
+ * The headless form: the same state as `useResourceTable`, from a view. Table, list, grid and
+ * gallery only; a board, a calendar or an app's view type has no table state (`useViewBoard`,
+ * `useViewCalendarRange` and `useViewList` are theirs).
+ */
 export function useResourceView<T extends Row = Row>(props: ResourceViewProps<T>): ResourceTableState<T> {
-  if (props.mode === "calendar" || props.mode === "board") {
-    const part = props.mode === "calendar" ? "ResourceCalendar" : "ResourceBoard";
-    throw new Error(`useResourceView(${props.view.resource}): ${props.mode} mode has no table state; render <ResourceView mode="${props.mode}"> or <${part}>`);
+  const shown = props.type ?? props.mode;
+  if (shown === "calendar" || shown === "board") {
+    const part = shown === "calendar" ? "ResourceCalendar" : "ResourceBoard";
+    throw new Error(`useResourceView(${props.view.resource}): ${shown} mode has no table state; render <ResourceView type="${shown}"> or <${part}>`);
   }
   return useResourceTable<T>(useResourceViewProps(props));
 }
+
+// Genesis's own view types. The list page draws table, list and grid (the person switches between
+// them) and the gallery; the board and the calendar are their own components.
+const PAGE_TYPES: ReadonlySet<string> = new Set(["table", "list", "grid"]);
+registerBuiltInViewType({ id: "table", label: "Table", render: ResourceViewPage });
+registerBuiltInViewType({ id: "list", label: "List", render: ResourceViewPage });
+registerBuiltInViewType({ id: "grid", label: "Grid", render: ResourceViewPage });
+registerBuiltInViewType({ id: "gallery", label: "Gallery", render: ResourceViewPage });
+registerBuiltInViewType({ id: "board", label: "Board", render: ResourceViewBoard });
+registerBuiltInViewType({ id: "calendar", label: "Calendar", render: ResourceViewCalendar });

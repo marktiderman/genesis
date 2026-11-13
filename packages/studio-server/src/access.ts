@@ -525,7 +525,9 @@ function withContract(fields: FieldSchema[], contract: StudioContract): FieldSch
     // Only a widget that can edit this field's type, and never over a
     // relation or choice list (those come from the database's own structure).
     const allowed = field.array || field.references || field.enumValues ? [] : WIDGETS_FOR[field.type] ?? [];
-    const widget = over.widget && allowed.includes(over.widget as WidgetHint) ? (over.widget as WidgetHint) : field.widget;
+    // `control` is the hint's name now; a contract's older `widget` still works.
+    const asked = over.control ?? over.widget;
+    const widget = asked && allowed.includes(asked as WidgetHint) ? (asked as WidgetHint) : field.widget;
     return {
       ...field,
       ...(over.label ? { label: over.label } : {}),

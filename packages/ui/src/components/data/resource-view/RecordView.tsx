@@ -36,6 +36,8 @@ import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
+import { Tabs, TabsList, TabsTrigger } from "../../ui/tabs";
+import { useDisplayCell } from "./display";
 import type { LucideIcon } from "lucide-react";
 import { NONE_CHOICE as NONE } from "../none-choice";
 import { inputHints } from "../ResourceFormField";
@@ -49,10 +51,22 @@ export interface RecordViewProps<T extends Row = Row> {
   view: RecordViewDef<ResourceContract<any>, T & DataRow>;
   /** The record, as the screen loaded it (`useOne`). A save refreshes it through the cache. */
   row: T;
-  /** The section showing now: the route's segment. */
-  section: string;
-  /** Each section's route, for the shell's tabs: `(id) => \`/brands/${brand.id}/${id}\``. */
-  sectionHref: (id: string) => string;
+  /**
+   * The section showing now: the route's segment. Default the first section. In a peek, the
+   * section it opens on; its tabs then switch in place.
+   */
+  section?: string;
+  /**
+   * Each section's route, for the shell's tabs: `(id) => \`/brands/${brand.id}/${id}\``. A full
+   * page needs it for its tabs; a peek switches sections in place and doesn't.
+   */
+  sectionHref?: (id: string) => string;
+  /**
+   * Where the record page is drawn (ADR 0021): `page` (default) puts the header and the section
+   * tabs in the app shell, as a full page; `peek` draws them inline, for a side or center peek
+   * (`RecordPeek`, a view's `open`), with the tabs switching in place.
+   */
+  presentation?: "page" | "peek";
   /**
    * Runs a header action once allowed (and confirmed). Default: the provider's `runAction`. A
    * rejection shows inline.
@@ -98,9 +112,18 @@ const alreadyShown = () => {};
  * ```tsx
  * <RecordView view={brandRecordView} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />
  * ```
+ *
+ * A record page (ADR 0021): a full page in the shell by default, or `presentation="peek"` inline
+ * in a side or center peek (`RecordPeek`). A record view's `template: "document"` lays it out as
+ * a cover, an icon, a title, the properties and the body. Parts: `record-page` and, for a
+ * document, `record-page-cover`, `-icon`, `-title`, `-properties` and `-body`.
  */
 export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
-  const { view: recordView, row, section, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, sectionIcons, settingsLocked, testID = "resource-workspace" } = props;
+  const { view: recordView, row, section: sectionProp, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, sectionIcons, settingsLocked, presentation = "page", testID = "resource-workspace" } = props;
+  const peek = presentation === "peek";
+  // A peek's tabs switch in place; a page's follow the route.
+  const [peekSection, setPeekSection] = useState<string | undefined>(sectionProp);
+  const section = (peek ? (peekSection ?? sectionProp) : sectionProp) ?? recordView.sections[0]?.id ?? "";
   const record = row as T & DataRow;
   const m = useUiMessages();
   const provider = useDataProvider();
@@ -128,10 +151,12 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
   const [confirming, setConfirming] = useState<RecordViewHeaderAction | null>(null);
 
   useAppShellSubNav(
-    recordView.sections.map((s) => {
-      const icon = sectionIcons?.[s.id];
-      return { to: sectionHref(s.id), label: s.label, ...(icon ? { icon } : {}) };
-    }),
+    peek || !sectionHref || recordView.sections.length === 0
+      ? null
+      : recordView.sections.map((s) => {
+          const icon = sectionIcons?.[s.id];
+          return { to: sectionHref(s.id), label: s.label, ...(icon ? { icon } : {}) };
+        }),
   );
 
   const action = useWrite(
@@ -151,35 +176,67 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
   const summary = recordView.readinessSummary(record);
   const active = recordView.section(section);
 
+  const headerActions = header.actions.map((a) => (
+    <Button
+      key={a.name}
+      variant={a.destructive ? "destructive" : "outline"}
+      disabled={a.allowed !== true || action.pending}
+      title={a.allowed === true ? a.description : a.allowed}
+      onClick={() => start(a)}
+      data-testid={`${testID}-action-${a.name}`}
+    >
+      {a.label}
+    </Button>
+  ));
+  const document = recordView.template === "document";
+  const resourceHeader = (
+    <ResourceHeader
+      title={header.title}
+      parent={parent}
+      leading={switcher}
+      {...(header.chips[0] ? { status: { label: header.chips[0].label, tone: header.chips[0].tone ?? "muted" } } : {})}
+      // The first chip is the status; the rest follow it, and the summary's subtitle sits under the title.
+      {...(header.chips.length > 1 ? { chips: header.chips.slice(1).map((c) => ({ label: c.label, tone: c.tone ?? "muted" })) } : {})}
+      {...(header.subtitle ? { subtitle: header.subtitle } : {})}
+      actions={headerActions}
+    />
+  );
+  const readinessChip = summary ? <ReadinessChip readiness={summary} labels={readinessLabels} onClick={() => setShowChecks((v) => !v)} /> : null;
+
   return (
-    <div data-testid={testID} className="space-y-4">
-      <AppShellPageHeader>
-        <ResourceHeader
-          title={header.title}
-          parent={parent}
-          leading={switcher}
-          {...(header.chips[0] ? { status: { label: header.chips[0].label, tone: header.chips[0].tone ?? "muted" } } : {})}
-          // The first chip is the status; the rest follow it, and the summary's subtitle sits under the title.
-          {...(header.chips.length > 1 ? { chips: header.chips.slice(1).map((c) => ({ label: c.label, tone: c.tone ?? "muted" })) } : {})}
-          {...(header.subtitle ? { subtitle: header.subtitle } : {})}
-          actions={header.actions.map((a) => (
-            <Button
-              key={a.name}
-              variant={a.destructive ? "destructive" : "outline"}
-              disabled={a.allowed !== true || action.pending}
-              title={a.allowed === true ? a.description : a.allowed}
-              onClick={() => start(a)}
-              data-testid={`${testID}-action-${a.name}`}
-            >
-              {a.label}
-            </Button>
-          ))}
-        />
-      </AppShellPageHeader>
-      {summary ? (
-        <AppShellSubNavEnd>
-          <ReadinessChip readiness={summary} labels={readinessLabels} onClick={() => setShowChecks((v) => !v)} />
-        </AppShellSubNavEnd>
+    <div data-testid={testID} data-slot="record-page" data-template={recordView.template} data-presentation={presentation} className="space-y-4">
+      {peek ? (
+        // Inline: a peek has no shell header of its own. A document shows its own title below.
+        document ? (
+          headerActions.length ? <div className="flex flex-wrap justify-end gap-2">{headerActions}</div> : null
+        ) : (
+          resourceHeader
+        )
+      ) : (
+        <AppShellPageHeader>{resourceHeader}</AppShellPageHeader>
+      )}
+      {document ? <RecordDocument recordView={recordView} row={record} heading={peek ? "h2" : "h1"} testID={testID} /> : null}
+      {peek ? (
+        recordView.sections.length > 1 || readinessChip ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {recordView.sections.length > 1 ? (
+              <Tabs value={section} defaultValue={section} onValueChange={setPeekSection}>
+                <TabsList data-testid={`${testID}-sections`}>
+                  {recordView.sections.map((s) => (
+                    <TabsTrigger key={s.id} value={s.id} data-testid={`${testID}-section-${s.id}`}>
+                      {s.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            ) : (
+              <span />
+            )}
+            {readinessChip}
+          </div>
+        ) : null
+      ) : readinessChip ? (
+        <AppShellSubNavEnd>{readinessChip}</AppShellSubNavEnd>
       ) : null}
 
       {action.error ? (
@@ -248,6 +305,77 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+/** An icon field's value that is an image's address rather than an emoji or short text. */
+const IMAGE_ADDRESS = /^(?:https?:\/\/|\/)/;
+
+/**
+ * The document record page template (ADR 0021): a cover, an icon, a large title, the properties,
+ * then the body, from the fields `defineRecordView`'s `document` names. A part whose field is
+ * empty on this row isn't drawn.
+ */
+function RecordDocument({
+  recordView,
+  row,
+  heading: Heading,
+  testID,
+}: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
+  recordView: RecordViewDef<ResourceContract<any>, any>;
+  row: DataRow;
+  heading: "h1" | "h2";
+  testID: string;
+}) {
+  const cell = useDisplayCell();
+  const view = recordView.view;
+  const { cover, icon, properties = [], body } = recordView.document;
+  const text = (name: string | undefined) => {
+    const value = name ? row[name] : undefined;
+    return typeof value === "string" && value.trim() ? value : null;
+  };
+  const coverUrl = text(cover);
+  const iconValue = text(icon);
+  const bodyText = text(body);
+  const title = view.summary(row).title;
+  const shown = properties.flatMap((name) => {
+    const column = view.column(name);
+    return column ? [column] : [];
+  });
+  return (
+    <article className="space-y-4" data-testid={`${testID}-document`}>
+      {coverUrl ? (
+        <div data-slot="record-page-cover" className="overflow-hidden rounded-lg bg-muted">
+          <img src={coverUrl} alt="" className="h-40 w-full object-cover" />
+        </div>
+      ) : null}
+      <div className="space-y-2">
+        {iconValue ? (
+          <span data-slot="record-page-icon" className="block text-4xl leading-none" aria-hidden>
+            {IMAGE_ADDRESS.test(iconValue) ? <img src={iconValue} alt="" className="size-12 rounded-md object-cover" /> : iconValue}
+          </span>
+        ) : null}
+        <Heading data-slot="record-page-title" className="text-3xl font-bold tracking-tight">
+          {title}
+        </Heading>
+      </div>
+      {shown.length ? (
+        <dl data-slot="record-page-properties" className="grid grid-cols-[minmax(8rem,auto)_1fr] gap-x-4 gap-y-2 text-sm">
+          {shown.map((column) => (
+            <div key={column.key} className="contents">
+              <dt className="text-muted-foreground">{column.label}</dt>
+              <dd className="min-w-0">{cell(column as never, row)}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+      {bodyText ? (
+        <div data-slot="record-page-body" className="whitespace-pre-wrap text-base leading-relaxed">
+          {bodyText}
+        </div>
+      ) : null}
+    </article>
   );
 }
 
@@ -490,7 +618,7 @@ function SettingField({
       </SettingsRow>
     );
   }
-  // The form's type for the field (so `widget: "tel"` is a phone number here too), and the same
+  // The form's type for the field (so `control: "tel"` is a phone number here too), and the same
   // keyboard and autofill hints as a ResourceForm input. Selects, toggles and long text are above.
   const form = formType(f, false);
   // A form type that isn't an <input> type (a JSON blob's textarea, a badge without options)
@@ -530,10 +658,10 @@ function SettingField({
   );
 }
 
-/** @deprecated Renamed `RecordViewProps`; its `workspace` prop is now `view`. */
+/** @deprecated Renamed `RecordViewProps`; its `workspace` prop is now `view`. Removed in the next major. @stability Deprecated */
 export type ResourceWorkspaceProps<T extends Row = Row> = Omit<RecordViewProps<T>, "view"> & { workspace: RecordViewProps<T>["view"] };
 
-/** @deprecated Renamed `RecordView`, with `view` in place of `workspace`. */
+/** @deprecated Renamed `RecordView`, with `view` in place of `workspace`. Removed in the next major. @stability Deprecated */
 export function ResourceWorkspace<T extends Row = Row>({ workspace, ...props }: ResourceWorkspaceProps<T>) {
   return <RecordView<T> {...props} view={workspace} />;
 }

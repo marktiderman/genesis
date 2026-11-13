@@ -813,6 +813,178 @@
       "flags": []
     },
     {
+      "id": "custom-views",
+      "name": "Custom views",
+      "summary": "A screen an app draws itself over a view (ADR 0019), while Genesis keeps the view's data and states: <CustomView view type=\"list|board|calendar\">{(state) => …}</CustomView> and useCustomView load the view's rows with its scope, filters, preset, URL state, live updates and permissions, and draw loading, empty (EmptyState in the view's words) and error with a retry, each replaceable. Underneath is one headless view query every view type shares: useViewListParams, useViewList (paging, sort, search, selection, the open record, urlState, can), useViewBoard (columns from the board block, paging per column, the move write with its guards and conflict sheet) and useViewCalendarRange (one window's rows, live). ResourceBoard and ResourceCalendar load through the same hooks. groupRows (core) and useReducedMotion help draw groups and motion. Doctor rules app-part-name, app-part-colors and custom-view-states keep an app's own drawing in its style.",
+      "status": "building",
+      "kind": "pattern",
+      "keywords": [
+        "custom view",
+        "own screen",
+        "headless",
+        "useViewList",
+        "useViewBoard",
+        "useViewCalendarRange",
+        "useCustomView",
+        "leaderboard",
+        "app part",
+        "data-slot app-",
+        "loading state",
+        "empty state",
+        "error state",
+        "reduced motion",
+        "groupRows"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A CustomView over a view loads its rows with the view's scope, preset and filters and the viewer's permissions, and draws loading, empty and error itself; the app's function draws only the rows.",
+        "useViewBoard and useViewCalendarRange give a custom view the same columns, moves and calendar window ResourceBoard and ResourceCalendar use, and those two load through them.",
+        "The doctor warns when a custom view draws its own loading, empty or error state, when an app part's data-slot doesn't start app- (or clashes with a Genesis part), and when a custom view or app part takes a colour from a variable that isn't a colour role."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/ui/src/components/data/resource-view/CustomView.tsx",
+          "packages/ui/src/components/data/resource-view/use-view-list.ts",
+          "packages/ui/src/components/data/resource-view/use-view-board.ts",
+          "packages/ui/src/components/data/resource-view/use-view-calendar-range.ts",
+          "packages/core/src/resource-view/group.ts",
+          "packages/genesis-cli/src/doctor/custom-views.ts"
+        ],
+        "docs": [
+          "docs/adr/0019-custom-views.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "view-types",
+      "name": "View types",
+      "summary": "How a view shows (ADR 0021): <ResourceView type> picks a view type from one registry: Genesis's table, list, grid (the person switches between them), board, calendar and gallery (the grid as photos, now its own type), or one an app adds with defineViewType and registerViewType (a timeline, a map), drawn with the headless view hooks so its scope, filters, paging, permissions and live updates are the view's. `mode` stays as type's alias. NativeResourceView takes type too (list, grid, gallery). The ui doctor's lists-use-resource-view rule accepts a file that defines or registers a view type.",
+      "status": "building",
+      "kind": "pattern",
+      "keywords": [
+        "view type",
+        "defineViewType",
+        "registerViewType",
+        "type prop",
+        "mode",
+        "timeline",
+        "map view",
+        "custom list type",
+        "gallery type"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "<ResourceView type> draws every built-in view type and any registered one; an unknown type throws naming the registered ones, and a built-in type can't be replaced.",
+        "type=\"gallery\" draws the grid as photos from the view's gallery block (and asks for one); mode keeps working as type's alias."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/ui/src/components/data/resource-view/view-types.tsx",
+          "packages/ui/src/components/data/resource-view/ResourceView.tsx"
+        ],
+        "docs": [
+          "docs/adr/0021-view-types-and-record-pages.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "record-pages",
+      "name": "Record pages: peeks and templates",
+      "summary": "One record shown on its own (ADR 0021): a view declares how its records open, `open: \"side-peek\" | \"center-peek\" | \"page\"`, and the record view a peek draws (`recordView: (): AnyRecordView => recordView`), and the list, the board and the calendar all honour it; a screen's `open` (or ResourcePage's older detail panel/modal/route, still accepted and mapped) wins. A peek draws RecordView inline (presentation=\"peek\": header, actions, readiness and sections as tabs that switch in place) in a sheet or a dialog (RecordPeek), the same page a full-page route draws. defineRecordView takes a template: standard, or document (a cover, an icon, a large title, the properties and the body). A field's form-control hint is now `control`, with `widget` a deprecated alias every reader still reads (fieldControl).",
+      "status": "building",
+      "kind": "pattern",
+      "keywords": [
+        "record page",
+        "peek",
+        "side peek",
+        "center peek",
+        "full page",
+        "open mode",
+        "RecordPeek",
+        "document template",
+        "record template",
+        "cover",
+        "control hint",
+        "detail panel"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A view's open mode decides how a record opens from its list, board and calendar alike, and a screen's open or detail overrides it.",
+        "With a record view on the view, a peek draws that record view inline (its sections switch in place), not the view's columns.",
+        "A document record view draws its cover, icon, title, properties and body, leaving out a part whose field is empty on the row.",
+        "A field's control hint and its older widget name both drive forms and displays; control wins when both are set."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/resource-view/record-view.ts",
+          "packages/ui/src/components/data/resource-view/RecordPeek.tsx",
+          "packages/ui/src/components/data/resource-view/RecordView.tsx",
+          "packages/ui/src/components/data/resource-view/record-open.tsx"
+        ],
+        "docs": [
+          "docs/adr/0021-view-types-and-record-pages.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "resource-tree",
       "name": "Tree mode for lists",
       "summary": "ResourceView and ResourcePage's `tree` option nests rows under their parent from a flat list: depth and an expand arrow in the first cell, sort within siblings, filters that keep a match's ancestors, controlled or uncontrolled open state and opt-in cascade selection, with the logic in genesis-core/resource-view.",

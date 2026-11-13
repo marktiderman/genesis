@@ -31,13 +31,13 @@ export interface WidgetProps {
   /** From `defineWidget`. */
   widget: DefinedWidget | WidgetDefinition;
   /** A list widget's link for one row (its record page). */
-  rowHref?: (row: Record<string, unknown>) => string;
+  rowHref?: ((row: Record<string, unknown>) => string) | undefined;
   /** Router link for `href` and `rowHref`. Default a plain `<a>`. */
-  linkComponent?: LinkComponent;
+  linkComponent?: LinkComponent | undefined;
   /** An icon beside the label. */
-  icon?: ReactNode;
+  icon?: ReactNode | undefined;
   /** Number locale (`Intl`). Default the runtime's. */
-  locale?: string;
+  locale?: string | undefined;
   /** Shown in place of the tile when the viewer may not see it. Default nothing. */
   refused?: (reason: string) => ReactNode;
   className?: string | undefined;
@@ -126,13 +126,13 @@ function WidgetBody({ widget, rowHref, linkComponent, icon, locale, className }:
 
   switch (widget.kind) {
     case "number": {
-      const value = totals.data?.values.value ?? null;
+      const value = totals.data?.values["value"] ?? null;
       const text = toWidgetText(value, widget.format, locale);
       return tile(value === null ? "empty" : "ready", value === null ? m.empty : totals.data?.isEstimate ? `~${text}` : text);
     }
     case "progress": {
-      const value = totals.data?.values.value ?? null;
-      const target = typeof widget.goal === "number" ? widget.goal : (goal.data?.values.goal ?? null);
+      const value = totals.data?.values["value"] ?? null;
+      const target = typeof widget.goal === "number" ? widget.goal : (goal.data?.values["goal"] ?? null);
       const fraction = resolveProgress(value, target);
       const of = fillMessage(m.progressOf, { value: toWidgetText(value ?? 0, "number", locale), goal: toWidgetText(target, "number", locale) });
       return tile(

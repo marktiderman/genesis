@@ -404,6 +404,10 @@ describe("the real package declarations", () => {
       "src/routes/table.tsx": "export const T = () => { const t = useResourceTable(view); return <DataTable rows={t.rows} />; };\n",
       // A calendar is no exemption: the hook and a calendar beside a raw DataTable is still flagged.
       "src/routes/calendar.tsx": "export const C = () => { const v = useResourceView(events); return <><MiniCalendar /><DataTable rows={raw} /></>; };\n",
+      // useViewBoard is a view's own board data, as useBoardColumns is rows'.
+      "src/routes/viewboard.tsx": "export const V = () => { const b = useViewBoard(tasks); return <KanbanBoard columns={b.columns} />; };\n",
+      // A registered view type (ADR 0021) draws a view its own way: its lists are the type's.
+      "src/view-types/timeline.tsx": "export const timeline = defineViewType({ id: \"timeline\", render: (p) => <DataList rows={[]} /> });\nregisterViewType(timeline);\n",
       // A banned list beside an exempted board: the exemption is off for the file, so both are flagged.
       "src/routes/mixed.tsx": "export const M = () => { const v = useResourceView(tasks); return <><KanbanBoard columns={v.rows} /><DataTable rows={raw} /></>; };\n",
     });

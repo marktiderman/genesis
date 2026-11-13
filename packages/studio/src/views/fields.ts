@@ -18,7 +18,7 @@ export function dateFields(schema: ResourceSchema): FieldSchema[] {
 
 /** True for a `date` column: no time, no zone. */
 export function isDateOnly(field: FieldSchema): boolean {
-  return field.dbType === "date" || field.widget === "date";
+  return field.dbType === "date" || (field.control ?? field.widget) === "date";
 }
 
 /**

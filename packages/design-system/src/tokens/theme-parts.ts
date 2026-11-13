@@ -74,6 +74,26 @@ export const THEME_PARTS: readonly ThemePartInfo[] = Object.freeze([
   p("headline-numbers", "A row of headline numbers."),
   p("headline-number", "One headline number."),
   p("summary-card", "A summary card."),
+  // View types (ADR 0021): the board, the calendar and the gallery
+  p("board", "A board view: a column per value, a card per record."),
+  p("board-column", "One column of a board.", ["status"]),
+  p("board-card", "A card on a board.", ["saving"]),
+  p("calendar", "A calendar view.", ["layout"]),
+  p("calendar-event", "An event on a calendar."),
+  p("gallery", "A gallery view: a photo per record."),
+  // Record pages (ADR 0021): a record opened as a side peek, a center peek or a full page
+  p("record-page", "A record page.", ["template", "presentation"]),
+  p("record-peek", "A record page in a side or center peek.", ["open"]),
+  p("record-page-cover", "A document record page's cover image."),
+  p("record-page-icon", "A document record page's icon."),
+  p("record-page-title", "A document record page's title."),
+  p("record-page-properties", "A document record page's properties."),
+  p("record-page-body", "A document record page's body text."),
+  // Custom views (ADR 0019): the states Genesis draws around an app's own view
+  p("custom-view", "A custom view: an app's own drawing of a view, in Genesis's states.", ["view-type", "state"]),
+  p("custom-view-loading", "A custom view while it loads."),
+  p("custom-view-empty", "A custom view with nothing to show."),
+  p("custom-view-error", "A custom view whose data failed to load, with a retry."),
   // The app shell
   p("shell", "The whole app shell: its density, navigation style, frame and the zone you are in.", ["density", "navigation", "frame", "zone"]),
   p("shell-sidebar", "The desktop sidebar.", ["collapsed"]),
