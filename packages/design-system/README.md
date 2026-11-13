@@ -287,6 +287,48 @@ const css = appStyleCss(ledger); // [data-app-style="ledger"] { … }, in any br
 Brands and styles are code an app ships and reviews; `css` is trusted as
 written, so never build either from what a user types.
 
+### A brand's name, logo and mark
+
+An app brand also carries what people call the app and how it looks in the
+corner: `appName` (the shell's title), `logo` (the full wordmark) and `mark`
+(the square icon for the collapsed rail, a tab, a phone's header). Each image
+is an `https:` URL, a path from the site's root or an inline `data:image/…`,
+with `alt` text (empty for a mark beside the name) and, if it doesn't read on
+a dark ground, a `darkSrc`. `defineAppBrand` checks them. genesis-ui's
+`appShellBrandProps(brand)` gives `AppShell` its `appName` and `logo`.
+
+```ts
+import { defineAppBrand, getStarterBrand } from "@marktiderman/genesis-design-system/app-styles";
+
+export const acme = defineAppBrand({
+  name: "acme",
+  label: "Acme",
+  description: "Acme's colours, type and logo.",
+  brand: { ...getStarterBrand("tracker")!.brand, name: "acme" },
+  appName: "Acme Studio",
+  logo: { src: "/brand/acme.svg", alt: "Acme Studio", darkSrc: "/brand/acme-dark.svg" },
+  mark: { src: "/brand/acme-mark.svg", alt: "" },
+});
+```
+
+### How the brand shapes relate
+
+Genesis has four shapes that hold a brand. One is the source; the others are
+read from it or name it:
+
+| Shape | Where | What it is | Relation |
+|---|---|---|---|
+| `CanonicalBrand` | design-system (`schema/brand`) | colours, status, radius, typography: the colour engine's input | the source of colour |
+| `AppBrand` | design-system (`app-styles`) | a named brand an app wears with `data-app-brand`: a `CanonicalBrand` plus hand-set `roles`, `fonts`, `appName`, `logo`, `mark` | wraps a `CanonicalBrand` (`appBrand.brand`) |
+| `PublicBrand` | genesis-ui (`layout/brand-theme`) | a public page's accent and images (`logoUrl`, `headerImageUrl`), often typed in by an organization | a page-level override, painted with `brandThemeStyle`; never an app brand |
+| `WorkspaceTheme` | genesis-core (`workspaces`) | an organization's `accent`, its app brand by id (`brand`) and its appearance defaults | names an `AppBrand` by id (`resolveWorkspaceBrand`); its `accent` recolours the workspace's own tile |
+
+No converters ship between them: an `AppBrand`'s `brand` is already its
+`CanonicalBrand`, and a `PublicBrand` or a `WorkspaceTheme.accent` comes from
+what people type, which never becomes an app brand (brands are code an app
+ships). Light, dark or system is none of these: it is the person's
+appearance (`GenesisThemeProvider`; `Appearance` is its `ThemeMode`).
+
 ## The colour engine
 
 `palette({ primary, primaryDark?, secondary?, ground })` turns brand colours

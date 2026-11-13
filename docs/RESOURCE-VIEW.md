@@ -763,6 +763,48 @@ export const photosView = defineView(contracts["public.photos"], {
 - **Not yet:** selecting photos, and a pull to refresh on the phone's gallery. GalleryGrid stays
   the component for photos that aren't records (a message's attachments, a form's uploads).
 
+## Widgets
+
+<!-- api: WidgetProps, WidgetGridProps, NumberWidget<any, any>, ProgressWidget<any, any>, StreakWidget<any, any>, ListWidget<any, any>, ChartWidget<any, any>, AggregateParams -->
+
+A widget is a small tile on a dashboard or a record page's sidebar (a number, progress, a streak,
+a short list, a chart), fed by a view (ADR 0023). It reads through its view, so it is in the
+viewer's scope, under row security, and live, and a field the viewer can't read hides it.
+
+```ts
+export const openDeals = defineWidget({ id: "open-deals", kind: "number", label: "Open deals", view: dealsView, preset: "open" });
+export const pipeline = defineWidget({
+  id: "pipeline",
+  kind: "number",
+  label: "Pipeline",
+  view: dealsView,
+  preset: "open",
+  metric: { fn: "sum", field: "amount" },
+  format: { currency: "USD" },
+});
+export const won = defineWidget({ id: "won", kind: "progress", label: "Won", view: dealsView, preset: "won", goal: { fn: "count" } });
+```
+
+```tsx
+<DashboardPage title="Sales" stats={<><Widget widget={openDeals} /><Widget widget={pipeline} /></>}>
+  <WidgetGrid widgets={[won, { widget: byStage, span: 2 }]} />
+</DashboardPage>
+```
+
+- **Kinds:** `number` (a `metric`, default a count), `progress` (a `metric` toward a `goal`: a
+  number, or a total over the scope and `goalFilter`), `streak` (days or weeks in a row with a row
+  on `dateField`), `list` (the first `limit` rows, named by the view's `labelField`) and `chart`
+  (a bar or point per value of `groupBy`, from up to `limit` rows).
+- **Totals** come from the provider's `aggregate` (count, and `sum`, `avg`, `min`, `max` of a
+  field), with `resolveAggregate` falling back to `getList` for a provider without it.
+  `useAggregate` reads them for a screen of your own.
+- **States:** loading, an error with a retry, and empty are the widget's; `<Widget>` sets
+  `data-state` and `data-kind` on its tile.
+- **One tile:** `StatCard`, `HeadlineNumbers` and `SummaryCard` draw the same `WidgetTile`, so an
+  app style reaches every tile through `widget-label`, `widget-value` and `widget-detail`.
+- **Not yet:** a widget on the phone (**Planned**, [`widgets`](../features.ts)), group totals in
+  one request and footer totals ([`resource-view-shaping`](../features.ts)).
+
 ## Security model
 
 ResourceView adds **no authority**. The layers, in order:
