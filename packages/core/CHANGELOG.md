@@ -1,5 +1,43 @@
 # @marktiderman/genesis-core
 
+## 2.15.0
+
+### Minor Changes
+
+- 234414b: Layouts (ADR 0022): an app's navigation style, frame, density and a document page template, plus zones in Genesis navigation (ADR 0003). Every default renders as before.
+
+  - genesis-ui: `AppShellOptions.navigation` (`"sidebar"` default, `"rail"`, `"top-tabs"`, `"bottom-bar"`, `"page-tree"`) over the same navigation tree, `AppShellOptions.frame` (`"flush"` default, `"inset"`), and `density` gains `"spacious"` (types `AppShellNavigation`, `AppShellFrame`, `AppShellDensity`). New page template `DocumentPage` (cover, icon, title, reading column) at `/layout` and `/document-page`. New parts: `shell-frame`, `shell-top-tabs`, `shell-page-tree`, `tab-bar`, `tab-bar-item`, `sub-nav`, `sub-nav-item`, `page-header`, `page-header-title` and the document page's; the `shell` part carries `data-navigation`, `data-frame` and `data-zone`. `AppThemeLayout` gains `navigation` and `frame` (and `spacious`), passed by `appShellOptionsFromTheme`; the starter themes name a navigation style and a frame. `resolveNavigationZones` and the zone types are re-exported.
+  - genesis-design-system: one density vocabulary, `DENSITY_LEVELS` (`compact`, `comfortable`, `spacious`), `DensityLevel` and `resolveDensity`; sites' design systems accept `comfortable` and `spacious` as aliases of `normal` and `generous`. Component tokens `--shell-frame-gap`, `--shell-frame-radius`, `--shell-frame-border-width` and `--shell-frame-shadow` (read only by the inset frame).
+  - genesis-core: `NavigationNode.zone`, `ResolvedNavigation.zone`, `NavigationZone` and `resolveNavigationZones(tree, pathname, { zones, rollUp })`.
+  - genesis-features: `BlockNavItem.zone`.
+
+  Features: shell-navigation-styles, navigation-zones
+
+- a5a8fdf: Custom views (ADR 0019): a screen an app draws itself over a view, while Genesis keeps the view's data and states.
+
+  - genesis-ui (`/data`): `<CustomView view type="list|board|calendar">{(state) => …}</CustomView>` and `useCustomView` load the view's rows with its scope, preset, filters, URL state, live updates and permissions, and draw loading, empty (the view's `copy.empty` words) and error with a retry, each replaceable (`loading`, `empty`, `error`). The headless view query every view type shares is exported: `useViewListParams`, `useViewList` (paging, sort, search, selection, the open record, `urlState`, `can`), `useViewPermissions`, `useViewBoard` (columns from the board block, the move with its guards, refusal and conflict) and `useViewCalendarRange` (one window's rows, live). ResourceBoard and ResourceCalendar now load through `useViewBoard` and `useViewCalendarRange`, unchanged on screen. `useReducedMotion` (`/hooks`, `/data`).
+  - genesis-core (`/resource-view`): `groupRows(view, rows, options)` groups rows by the view's `groupBy` on any platform.
+  - genesis-design-system: `THEME_PARTS` gains `custom-view` (`data-view-type`, `data-state`), `custom-view-loading`, `custom-view-empty` and `custom-view-error`.
+  - genesis-cli: doctor rules `app-part-name` (an app's own `data-slot` starts `app-` and doesn't clash with a Genesis part), `app-part-colors` (custom views and app parts take colours from roles only) and `custom-view-states` (a custom view doesn't draw its own loading, empty or error), all warn.
+
+  View types and record pages (ADR 0021):
+
+  - genesis-ui (`/data`): a view-type registry (`defineViewType`, `registerViewType`, `resolveViewType`, `listViewTypes`); `<ResourceView type>` is the preferred prop (`mode` stays as its alias) and dispatches through it, with `gallery` now its own type. `open` (`side-peek`, `center-peek`, `page`) and `recordView` on ResourceView; ResourcePage's `detail` takes the same words beside `panel`, `modal` and `route` (`detailMode`, `recordOpen`). The board and the calendar honour the open mode (`open`, `recordView`, `onNavigate`). A peek draws the view's record view when it names one: `RecordPeek`, and `RecordView presentation="peek"` (sections as tabs that switch in place; `section` and `sectionHref` are optional there). RecordView draws the document template.
+  - genesis-core (`/resource-view`): `defineView`'s `open` (`RecordOpen`, `RECORD_OPEN_MODES`) and `recordView`; `defineRecordView`'s `template` (`standard`, `document`) and `document` (`cover`, `icon`, `properties`, `body`). A field's form-control hint is `control` (`ControlHint`, `fieldControl`); `widget` and `WidgetHint` stay as deprecated aliases every reader still reads.
+  - genesis-ui-native: `NativeResourceView` takes `type` (`list`, `grid`, `gallery`), `mode` its alias; `NativeResourceViewType`.
+  - genesis-studio, genesis-studio-server and `genesis introspect` read `control` beside `widget`.
+  - genesis-design-system: parts `board`, `board-column`, `board-card`, `calendar`, `calendar-event`, `gallery`, `record-page`, `record-peek` and the document template's `record-page-cover`, `-icon`, `-title`, `-properties` and `-body`.
+  - genesis-cli: the ui doctor rule `lists-use-resource-view` accepts a file that defines or registers a view type, and a KanbanBoard fed by `useViewBoard`.
+
+- 1e435fb: Widgets (ADR 0023), app brand logos and names, and who sets the look (ADR 0024).
+
+  - **Totals over a list.** `DataProvider` gains an optional `aggregate(resource, { metrics, filters, search })`: `count`, and `sum`, `avg`, `min` and `max` of a field, over the rows `getList` would return. The mock provider serves it; the Supabase provider counts in the database and totals the rest with PostgREST's aggregate functions when `aggregateFunctions: true`, else from the rows. `resolveAggregate` works for any provider (a count from `getList`'s total, other metrics from its rows, refusing past `maxRows`), `toAggregateValues` totals rows in hand, and `useAggregate` (genesis-core/hooks) reads them cached under the resource's key, `live` on request.
+  - **Widgets.** `defineWidget` (genesis-core/resource-view): a tile fed by a view, of kind `number`, `progress`, `streak`, `list` or `chart`, with a preset, a filter, a label, a format and an optional `can`. `resolveWidgetRequest`, `resolveWidgetAccess`, `resolveStreak`, `resolveChartSeries`, `resolveProgress` and `toWidgetText` are the pure halves both platforms compute. genesis-ui/data adds `<Widget>` (loading, error with retry and empty states, live by default, hidden over a field the viewer can't read), `WidgetGrid` for a dashboard's body, and `WidgetTile`, the one tile under `StatCard`, `HeadlineNumbers` and `SummaryCard`, which keep their APIs and markup. A `DashboardPage`'s `stats` take `<Widget>`s as they are.
+  - **Parts.** `THEME_PARTS` gains `widget` (with `data-kind`, `data-state`), `widget-label`, `widget-value`, `widget-detail`, `widget-body`, `widget-grid`, `stat-card`, `headline-numbers`, `headline-number` and `summary-card`.
+  - **App brands.** `AppBrandInput` gains `appName`, `logo` and `mark` (`AppBrandImage`: `src`, `alt`, `darkSrc`), checked. genesis-ui/themes adds `appShellBrandProps(brand)`, AppShell's `appName` and `logo` from a brand.
+  - **Appearance and density are the person's.** genesis-core adds `defineAppearancePreferences` (a store the app backs with its own table, the device as the fallback, and the app's lock), `AppearancePreferencesProvider`, `useAppearancePreferences` and `resolveAppearancePreferences`, in the order app lock > person > organization default > theme default > Genesis default. genesis-ui/themes adds `AppearanceProvider`, `GenesisThemeProvider` fed from those preferences; `AppShell` takes its density and its theme toggle from them when they're there, and works as before when they aren't. `GenesisThemeProvider` gains `onModeSelect`, and design-system exports `Appearance` and `ResolvedAppearance` as the glossary's names for `ThemeMode` and `ResolvedThemeMode`.
+  - **Organization brands.** `WorkspaceTheme` gains `brand` (an app brand id) and `defaults` (the organization's appearance and density); `resolveWorkspaceBrand` and `resolveWorkspaceAppearance` (genesis-core/workspaces) read them.
+
 ## 2.14.0
 
 ### Minor Changes
