@@ -88,6 +88,13 @@ the next major. The doctor's catalog and the sample app's showcase are renamed t
 (`genesis primitives` still works and warns) and `/showcase/elements` (old `/showcase/primitives`
 URLs redirect). The old names alias until the next major.
 
+The **layout tier** is a rank inside genesis-ui (layout elements and page templates: positions
+content without knowing what it is). An app's **layout**, as a look piece, is how it is navigated
+and framed: its navigation style, its frame and the page templates it uses (ADR 0022, GLOSSARY
+"Look and feel"). The two share the word because the look piece is made of the tier's
+components (`AppShell`'s options, the page templates); a component's tier never depends on which
+layout an app picks. *Added 2026-11-13.*
+
 ## Consequences
 
 - A contributor can place new code from the rule in section 1, and CI says when a dependency

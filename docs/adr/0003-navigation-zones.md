@@ -1,6 +1,6 @@
 # ADR 0003: Navigation zones
 
-- Status: accepted (web), proposed (native)
+- Status: accepted (web), proposed (native); amended 2026-11-13 (§6, built in Genesis)
 - Date: 2026-10-29 (proposed 2026-10-27)
 - Features: `feature-gate`, `entitlements`, `tenant-features`
 - Related: ADR 0004 (workspaces)
@@ -121,6 +121,26 @@ set changes.
   zone, with a checkmark on it; Android needs `@expo/ui` for the same menu, else an action sheet.
   It is never only a swipe or long press, since hidden mode switches are a known failure.
 - **iPad:** `sidebarAdaptable` (iOS 18+).
+
+### 6. Amendment (2026-11-13): what Genesis now ships
+
+The first part of §4's "to upstream" is built, minimally and additively (ADR 0022):
+
+- **The zone is data on the tree.** `NavigationNode.zone` names a node's zone; its descendants
+  inherit it, and a node with none above it is global. `BlockNavItem.zone` lets a block's pages
+  land in their zone (`web-blocks` copies it to the node it builds).
+- **The current zone.** `resolveNavigation` returns `zone`: the zone of the nearest node in the
+  resolved trail, so a page opened from a zone's list under another path keeps that zone through
+  its logical parent (§1).
+- **The grouping.** `resolveNavigationZones(tree, pathname, { zones, rollUp })`, pure, in
+  `genesis-core/navigation` (web and native), returns `{ navigation, zone, zones, global, rollUp }`:
+  the zones that have a page (in the order given, each with its top nodes), the global pages and
+  the roll-up. A zone id the `zones` list doesn't name reads as global.
+- **A theme per zone.** `AppShell` marks the shell part with `data-zone`, and an app sets the
+  zone's app theme on `<html>` from `zone` (ADR 0018 Consequences).
+
+Still to upstream: the helpers that turn the grouping into AppShell's sidebar and
+`mobileNavItems` (§4's phone bar rules), and the native zone shells (§5).
 
 ## Consequences
 

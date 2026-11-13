@@ -70,6 +70,14 @@ describe("defineBlock", () => {
     ]);
   });
 
+  it("places a nav entry in a zone, and refuses an empty one", () => {
+    const zoned = defineBlock({ id: "training", contributes: { nav: [{ id: "workouts", label: "Workouts", path: "/train", zone: "training" }] } });
+    expect(zoned.contributes?.nav?.[0]?.zone).toBe("training");
+    expect(problems(() => defineBlock({ id: "training", contributes: { nav: [{ id: "w", label: "W", path: "/w", zone: " " }] } }))).toEqual([
+      'training.contributes.nav: "w" zone must be a non-empty string',
+    ]);
+  });
+
   it("checks the id against a FeatureId when given one", () => {
     const ok = defineBlock<FeatureId>({ id: "tasks" });
     expect(ok.id).toBe("tasks");

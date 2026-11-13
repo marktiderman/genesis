@@ -248,14 +248,14 @@ starter style) come without a brand and wear the app's colours.
 `appThemeAttributes(theme)` gives the attributes to set (on `<html>`, so menus
 and dialogs wear it too) and `appShellOptionsFromTheme(theme)` the `AppShell`
 options the layout starts from. Those are defaults: where the shell is
-`configurable`, the person's own density and rail win (`lockedOptions` keeps
+`configurable`, the person's own choices win (`lockedOptions` keeps
 one fixed). Light and dark is the person's appearance, which no theme sets.
 
 ```tsx
 import { AppShell } from "@marktiderman/genesis-ui/layout";
 import { appShellOptionsFromTheme, appThemeAttributes, getStarterTheme } from "@marktiderman/genesis-ui/themes";
 
-const theme = getStarterTheme("tracker"); // the tracker style and a compact layout, in the app's brand
+const theme = getStarterTheme("tracker"); // the tracker style and a compact, inset sidebar layout, in the app's brand
 Object.assign(document.documentElement.dataset, { appStyle: theme?.style?.id });
 appThemeAttributes(theme); // { "data-app-style": "tracker" }
 const shell = <AppShell appName="Acme" navItems={[]} options={{ ...appShellOptionsFromTheme(theme), scrollRoot: "window" }} />;
@@ -263,6 +263,42 @@ const shell = <AppShell appName="Acme" navItems={[]} options={{ ...appShellOptio
 
 The parts and tokens are a contract (`THEME_PARTS`, `COMPONENT_TOKENS`): a test
 fails a part a component stops rendering and a token nothing reads.
+
+## Layouts: navigation styles, frames, density and page templates
+
+An app's **layout** is how it is navigated and framed (ADR 0022), and it is
+`AppShell` options over the one navigation tree:
+
+- `navigation`: `sidebar` (default, as always), `rail` (opens collapsed to the
+  icon rail), `top-tabs` (the top items as tabs across a desktop top bar),
+  `bottom-bar` (the phone's bottom bar on every width) or `page-tree` (a
+  nested, collapsible tree of pages, indented by depth).
+- `frame`: `flush` (default) or `inset`, the page area as a panel over the
+  sidebar's colour, shaped by the `--shell-frame-*` component tokens.
+- `density`: `compact`, `comfortable` (default) or `spacious`, the same words
+  lists (`useViewSettings`) and sites' design systems use (`DENSITY_LEVELS`).
+
+A theme's layout (`AppThemeLayout`: `navigation`, `frame`, `density`, rail and
+sub-navigation) is the default; the app's own options and the person's stored
+choices win.
+
+```tsx
+import { AppShell, DocumentPage } from "@marktiderman/genesis-ui/layout";
+
+const shell = (
+  <AppShell appName="Acme" navItems={[]} options={{ navigation: "top-tabs", frame: "inset", density: "spacious" }}>
+    <DocumentPage cover="/covers/ocean.jpg" icon="🌊" title="Trip notes">
+      <p>Day one.</p>
+    </DocumentPage>
+  </AppShell>
+);
+```
+
+The page templates are `DashboardPage`, `DetailPage`, `FormPage`,
+`SettingsPage` and `DocumentPage` (a cover, an icon, a title and a centred
+reading column), each also on its own subpath (`/document-page`). Zones
+(`NavigationNode.zone`, `resolveNavigationZones`) tell the app which area the
+viewer is in, so it can set a theme per zone; the shell carries `data-zone`.
 
 ## Read next
 

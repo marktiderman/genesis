@@ -20,13 +20,15 @@ function starter(id: string, layout: AppThemeLayout): AppTheme {
   });
 }
 
-export const trackerTheme: AppTheme = starter("tracker", { density: "compact" });
-export const repositoryTheme: AppTheme = starter("repository", { density: "compact" });
-export const checklistTheme: AppTheme = starter("checklist", { density: "comfortable" });
-export const notebookTheme: AppTheme = starter("notebook", { density: "comfortable" });
-export const pressTheme: AppTheme = starter("press", { density: "compact" });
-export const journalTheme: AppTheme = starter("journal", { density: "comfortable" });
-export const arenaTheme: AppTheme = starter("arena", { density: "comfortable" });
+// Each layout follows its kind of product: an issue tracker's sidebar in an inset panel, a code
+// host's top tabs, a notebook's page tree, a newsroom's flush sidebar, a sports app's rail.
+export const trackerTheme: AppTheme = starter("tracker", { navigation: "sidebar", frame: "inset", density: "compact" });
+export const repositoryTheme: AppTheme = starter("repository", { navigation: "top-tabs", frame: "flush", density: "compact" });
+export const checklistTheme: AppTheme = starter("checklist", { navigation: "sidebar", frame: "flush", density: "comfortable" });
+export const notebookTheme: AppTheme = starter("notebook", { navigation: "page-tree", frame: "flush", density: "comfortable" });
+export const pressTheme: AppTheme = starter("press", { navigation: "sidebar", frame: "flush", density: "compact" });
+export const journalTheme: AppTheme = starter("journal", { navigation: "sidebar", frame: "inset", density: "spacious" });
+export const arenaTheme: AppTheme = starter("arena", { navigation: "rail", frame: "flush", density: "comfortable" });
 
 /** Every starter theme Genesis ships, in picker order. */
 export const STARTER_THEMES: readonly AppTheme[] = Object.freeze([

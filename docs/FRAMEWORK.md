@@ -479,6 +479,7 @@ structure*: the layers table wins over the prose.
 | `FormPage` | no — positions header, fields, summary and an action bar | layout | `genesis-ui/layout` |
 | `DashboardPage` | no — tiles and regions arrive as props | layout | `genesis-ui/layout` |
 | `SettingsPage` | no — rows and their persistence are the app's | layout | `genesis-ui/layout` |
+| `DocumentPage` | no — positions a cover, an icon, a title and a reading column | layout | `genesis-ui/layout` |
 | `ResourceView` (over `ResourcePage`) | **yes** — lists a resource from its view | data-bound | `genesis-ui/data` |
 | `RecordView` | **yes** — one record from its record view | data-bound | `genesis-ui/data` |
 | `ResourceDetailPage` | **yes** — fetches a record by id | data-bound | `genesis-ui/data` |
@@ -503,6 +504,17 @@ backend and the policy (`createAuthFormClient` from genesis-supabase is one clie
 
 **The target: a new app is shell + templates + a resource config.** Not dozens of
 hand-assembled pages.
+
+**An app's layout is options, not a new shell** (ADR 0022). How an app is navigated and framed
+is `AppShell` configuration: `navigation` (`sidebar`, `rail`, `top-tabs`, `bottom-bar`,
+`page-tree`) over the one navigation tree, `frame` (`flush`, `inset`, read from the
+`--shell-frame-*` component tokens) and `density` (`compact`, `comfortable`, `spacious`, the
+same words lists and sites use). An app theme's layout sets them as defaults
+(`appShellOptionsFromTheme`), and the person's own choices win. An app that wants another look
+for its navigation changes options, tokens or parts (`shell-top-tabs`, `shell-page-tree`,
+`shell-frame`); it never draws a second shell beside `AppShell` (G2). Zones
+(`NavigationNode.zone`, `resolveNavigationZones`) say which area of the app the viewer is in,
+so an app can key a theme on it.
 
 ### Why templates need the contract first
 

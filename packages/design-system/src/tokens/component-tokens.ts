@@ -94,13 +94,18 @@ export const COMPONENT_TOKENS: readonly ComponentTokenInfo[] = Object.freeze([
   t("title-font-weight", "weight", "600", ["card-title", "dialog-title", "sheet-title"], "A card's, dialog's and sheet's title weight."),
   t("title-letter-spacing", "tracking", "-0.025em", ["card-title", "dialog-title"], "A card's and dialog's title letter spacing."),
   t("title-text-transform", "case", "none", ["card-title", "dialog-title", "sheet-title"], "Their case."),
-  t("page-title-font-weight", "weight", "700", ["dashboard-page-title", "detail-page-title", "form-page-title", "settings-page-title"], "A page title's weight."),
-  t("page-title-letter-spacing", "tracking", "-0.025em", ["dashboard-page-title", "detail-page-title", "form-page-title", "settings-page-title"], "A page title's letter spacing."),
-  t("page-title-text-transform", "case", "none", ["dashboard-page-title", "detail-page-title", "form-page-title", "settings-page-title"], "A page title's case."),
+  t("page-title-font-weight", "weight", "700", ["dashboard-page-title", "detail-page-title", "form-page-title", "settings-page-title", "document-page-title"], "A page title's weight."),
+  t("page-title-letter-spacing", "tracking", "-0.025em", ["dashboard-page-title", "detail-page-title", "form-page-title", "settings-page-title", "document-page-title"], "A page title's letter spacing."),
+  t("page-title-text-transform", "case", "none", ["dashboard-page-title", "detail-page-title", "form-page-title", "settings-page-title", "document-page-title"], "A page title's case."),
 
   // The app shell.
   t("sidebar-item-radius", "length", "var(--radius)", ["shell-nav-item"], "A sidebar item's corners."),
   t("sidebar-item-font-weight", "weight", "500", ["shell-nav-item"], "A sidebar item's weight."),
+  // The shell's frame (ADR 0022): read only by the inset frame, so a flush shell (the default) is unchanged.
+  t("shell-frame-gap", "length", "0.5rem", ["shell-frame"], "The inset frame's margin from the window and the sidebar."),
+  t("shell-frame-radius", "length", "calc(var(--radius) * 1.4)", ["shell-frame"], "The inset frame's corners."),
+  t("shell-frame-border-width", "length", "1px", ["shell-frame"], "The inset frame's border width (`0` for none)."),
+  t("shell-frame-shadow", "shadow", NO_SHADOW, ["shell-frame"], "The inset frame's shadow."),
 ]);
 
 /** Every token's name. */

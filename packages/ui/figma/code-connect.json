@@ -122,5 +122,7 @@
     "WizardForm",
     "WorkspaceSwitcher"
   ],
-  "notYet": []
+  "notYet": [
+    "DocumentPage"
+  ]
 }

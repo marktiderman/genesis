@@ -27,6 +27,15 @@ export interface BlockNavItem {
   icon?: string;
   /** Lower first. Default 0. */
   order?: number;
+  /**
+   * The navigation zone the entry lands in (ADR 0003): an id from the app's
+   * zones (`NavigationZone`, genesis-core/navigation), copied to the tree node
+   * the app builds from it, so a module's pages sit in their zone with no app
+   * wiring. Unset: a global page.
+   *
+   * @stability Beta
+   */
+  zone?: string;
 }
 
 /**
@@ -196,6 +205,7 @@ function blockProblems(block: BlockDef<string, unknown>): string[] {
   for (const d of duplicates((c.settings ?? []).map((r) => r.id))) problems.push(`${id}.contributes.settings: "${d}" appears twice`);
   for (const d of duplicates((c.routes ?? []).map((r) => r.path))) problems.push(`${id}.contributes.routes: "${d}" appears twice`);
   for (const n of c.nav ?? []) if (!n.id || !n.label || !n.path) problems.push(`${id}.contributes.nav: every entry needs an id, a label and a path`);
+  for (const n of c.nav ?? []) if (n.zone !== undefined && (typeof n.zone !== "string" || !n.zone.trim())) problems.push(`${id}.contributes.nav: "${n.id}" zone must be a non-empty string`);
   for (const r of c.settings ?? []) if (!r.id || !r.section || !r.title) problems.push(`${id}.contributes.settings: every row needs an id, a section and a title`);
   for (const m of c.migrations ?? []) if (!m.package || !m.file) problems.push(`${id}.contributes.migrations: every migration needs a package and a file`);
   return problems;
