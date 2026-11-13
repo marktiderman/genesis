@@ -560,6 +560,8 @@ function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, 
       </div>
     );
   }
+  // Until support first answers, say where the answer will come.
+  const awaiting = replies.isSuccess && !shown.some((r) => !r.mine);
   const send = () => {
     const body = draft.trim();
     if (!body || sending) return;
@@ -612,7 +614,15 @@ function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, 
                         </p>
                       ),
                     }
-                  : {}),
+                  : awaiting
+                    ? {
+                        above: (
+                          <p data-testid="genesis-support-messenger-awaiting" className="px-3 pt-2 text-sm text-muted-foreground">
+                            {copy.messenger.awaitingReply}
+                          </p>
+                        ),
+                      }
+                    : {}),
               }
         }
       />

@@ -212,6 +212,20 @@ describe("SupportMessenger", () => {
     await waitFor(() => expect(client.markRead).toHaveBeenCalledWith("t1"));
   });
 
+  it("says where the answer will come until support first replies", async () => {
+    const mine = { id: "m1", reportId: "t1", body: "Hello?", fromStaff: false, mine: true, internal: false, createdAt: "2026-11-03T12:00:00Z" };
+    show(fakeClient({ replies: vi.fn(async () => [mine]) }), { spaces: ["messages"] });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    expect(await screen.findByTestId("genesis-support-messenger-awaiting")).toBeTruthy();
+  });
+
+  it("drops that line once support has answered", async () => {
+    show(fakeClient(), { spaces: ["messages"] });
+    fireEvent.click(await screen.findByText("Where is my invoice?"));
+    expect(await screen.findByTestId("genesis-support-messenger-thread-message-r1")).toBeTruthy();
+    expect(screen.queryByTestId("genesis-support-messenger-awaiting")).toBeNull();
+  });
+
   it("takes no reply on a closed ticket", async () => {
     show(fakeClient({ report: vi.fn(async () => ticket({ status: "wont_fix" })) }), { spaces: ["messages"] });
     fireEvent.click(await screen.findByText("Where is my invoice?"));

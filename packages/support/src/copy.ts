@@ -166,6 +166,8 @@ export const supportCopy = {
     composeLabel: "Your message",
     composePlaceholder: "What can we help with?",
     composeFailed: "That wasn't sent. Your words are still here; try again.",
+    /** Under a conversation nobody has answered yet: where the answer will come. */
+    awaitingReply: "We've got your message. Our reply will show up here, and we'll let you know when it does.",
     messagesEmptyTitle: "No conversations yet",
     messagesEmptyBody: "When you send us a message, it's here with our replies.",
     messagesErrorTitle: "Couldn't load your conversations",
