@@ -2016,7 +2016,7 @@ export function AppShell({
           id="app-shell-mobile-nav"
           data-testid="app-shell-mobile-nav"
           aria-describedby={undefined}
-          overlayClassName={drawerEverywhere ? undefined : "md:hidden"}
+          {...(drawerEverywhere ? {} : { overlayClassName: "md:hidden" })}
           className={cn(
             "flex w-72 max-w-[85vw] flex-col gap-0 overflow-y-auto overscroll-contain border-sidebar-border bg-sidebar p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] shadow-none sm:max-w-[85vw]",
             !drawerEverywhere && "md:hidden",
@@ -2308,7 +2308,7 @@ export function AppShell({
             <SheetContent
               side="bottom"
               className={cn("pb-[calc(1.5rem+env(safe-area-inset-bottom))]", !bottomBar && "md:hidden")}
-              overlayClassName={bottomBar ? undefined : "md:hidden"}
+              {...(bottomBar ? {} : { overlayClassName: "md:hidden" })}
               data-testid="app-shell-mobile-more-sheet"
             >
               <SheetTitle>{m.more}</SheetTitle>
