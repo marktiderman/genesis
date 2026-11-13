@@ -44,7 +44,8 @@ describe("theme parts", () => {
 });
 
 describe("component tokens", () => {
-  it.each(COMPONENT_TOKENS.map((t) => [t.name] as const))("--%s is read by a component", (name) => {
+  // --radius is a theme role every rounded-* step reads through the Tailwind bridge, not a class here.
+  it.each(COMPONENT_TOKENS.filter((t) => !t.role).map((t) => [t.name] as const))("--%s is read by a component", (name) => {
     expect(all).toContain(`var(--${name})`);
   });
 

@@ -1,12 +1,13 @@
 /**
- * The starter themes Genesis ships: one per kind of work, each in the spirit
- * of a kind of product people already know how to use, and each using every
- * layer an app theme has (colours, fonts, component tokens, part styles, the
- * shell's layout; arena some raw CSS too). The palettes are Genesis's own;
- * none copies a product's brand colours.
+ * The starter brands and themes Genesis ships: one of each per kind of work,
+ * in the spirit of a kind of product people already know how to use. A brand
+ * is colours and fonts; a theme is layout and shape, with colours only from
+ * roles, so any brand goes with any theme. Each theme was designed with the
+ * brand of the same name (`pairsWith`). The palettes are Genesis's own; none
+ * copies a product's brand colours.
  */
 import type { BrandDarkRoles, CanonicalBrand } from "../schema/brand";
-import { defineAppTheme, type AppTheme } from "./define";
+import { defineAppBrand, defineAppTheme, type AppBrand, type AppTheme } from "./define";
 
 const SYSTEM_SANS = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 const SYSTEM_MONO = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
@@ -22,7 +23,7 @@ interface BrandParts {
   ink: string;
   primary: string;
   primaryText?: string;
-  radius: string;
+  radius?: string;
   status: { success: string; warning: string; error: string; info: string };
   dark: BrandDarkRoles;
 }
@@ -40,7 +41,7 @@ function brand(name: string, p: BrandParts): CanonicalBrand {
       error: { DEFAULT: p.status.error },
       info: { DEFAULT: p.status.info },
     },
-    radius: { lg: p.radius },
+    ...(p.radius ? { radius: { lg: p.radius } } : {}),
     ...(p.primaryText ? { primaryText: p.primaryText } : {}),
     dark: p.dark,
   };
@@ -53,23 +54,16 @@ const darkStatus = (success: string, warning: string, error: string, info: strin
   info: { DEFAULT: info },
 });
 
-/**
- * Tracker: keyboard-first and dense. Cool near-neutral greys, an indigo
- * accent used sparingly, small corners, Inter at a compact size and a
- * sidebar a step quieter than the page. Best in dark mode.
- */
-export const trackerTheme: AppTheme = defineAppTheme({
+/** Tracker: Cool near-neutral greys, a sparing indigo, Inter and a sidebar a step quieter than the page. Best in dark mode. */
+export const trackerBrand: AppBrand = defineAppBrand({
   name: "tracker",
   label: "Tracker",
-  description: "Keyboard-first and dense: cool greys, a sparing indigo accent, small corners and a quiet sidebar.",
-  feel: "keyboard-first issue trackers",
-  suits: ["issues", "projects", "roadmaps", "product"],
+  description: "Cool near-neutral greys, a sparing indigo, Inter and a sidebar a step quieter than the page. Best in dark mode.",
   brand: brand("tracker", {
     neutral: ["#f7f7f8", "#f0f0f2", "#e3e3e8", "#cfcfd6", "#9b9ba6", "#6a6a75", "#53535c", "#3a3a41", "#26262b", "#161619"],
     page: "#fcfcfd",
     ink: "#18181b",
     primary: "#5753d6",
-    radius: "0.375rem",
     status: { success: "#2a8f58", warning: "#b37306", error: "#c93442", info: "#3473d6" },
     dark: {
       surface: { DEFAULT: "#0f1012" },
@@ -101,7 +95,18 @@ export const trackerTheme: AppTheme = defineAppTheme({
     display: `"Inter", ${SYSTEM_SANS}`,
     mono: `"JetBrains Mono", ${SYSTEM_MONO}`,
   },
+});
+
+/** Tracker layout: designed with the tracker brand, at home with any. */
+export const trackerTheme: AppTheme = defineAppTheme({
+  name: "tracker",
+  label: "Tracker",
+  description: "Keyboard-first and dense: 32px controls, flat cards, tight tables, a compact shell.",
+  feel: "keyboard-first issue trackers",
+  suits: ["issues", "projects", "roadmaps", "product"],
+  pairsWith: "tracker",
   tokens: {
+    radius: "0.375rem",
     "control-height": "2rem",
     "control-height-sm": "1.75rem",
     "control-height-lg": "2.25rem",
@@ -129,24 +134,17 @@ export const trackerTheme: AppTheme = defineAppTheme({
   shell: { density: "compact" },
 });
 
-/**
- * Repository: the code host's look. A white page on a cool grey canvas,
- * hairline borders, green for the action that commits and blue for links,
- * the system font and monospace close at hand.
- */
-export const repositoryTheme: AppTheme = defineAppTheme({
+/** Repository: A white page on a cool grey canvas, green for actions, blue for links, the system font and monospace. */
+export const repositoryBrand: AppBrand = defineAppBrand({
   name: "repository",
   label: "Repository",
-  description: "The code host's look: hairline borders, green actions, blue links, system type and monospace close at hand.",
-  feel: "code hosting and developer consoles",
-  suits: ["admin", "data", "settings", "platform"],
+  description: "A white page on a cool grey canvas, green for actions, blue for links, the system font and monospace.",
   brand: brand("repository", {
     neutral: ["#f6f8fa", "#eff2f5", "#d4dae1", "#bfc6ce", "#8b949e", "#5f6873", "#4a525b", "#343a42", "#24292f", "#1d2127"],
     page: "#ffffff",
     ink: "#1d2127",
     primary: "#1c7c3a",
     primaryText: "#0a5fc2",
-    radius: "0.375rem",
     status: { success: "#1c7c3a", warning: "#9a6700", error: "#cf2330", info: "#0a5fc2" },
     dark: {
       surface: { DEFAULT: "#0e1117" },
@@ -186,7 +184,18 @@ export const repositoryTheme: AppTheme = defineAppTheme({
     display: `-apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif`,
     mono: SYSTEM_MONO,
   },
+});
+
+/** Repository layout: designed with the repository brand, at home with any. */
+export const repositoryTheme: AppTheme = defineAppTheme({
+  name: "repository",
+  label: "Repository",
+  description: "Hairline and exact: 32px controls with a crisp edge, flat cards, grey outlined buttons, shaded table headings, a marked active item.",
+  feel: "code hosting and developer consoles",
+  suits: ["admin", "data", "settings", "platform"],
+  pairsWith: "repository",
   tokens: {
+    radius: "0.375rem",
     "control-height": "2rem",
     "control-height-sm": "1.75rem",
     "control-height-lg": "2.5rem",
@@ -211,7 +220,7 @@ export const repositoryTheme: AppTheme = defineAppTheme({
     "overlay-shadow": "0 12px 28px rgb(1 4 9 / 0.85)",
   },
   parts: {
-    "button[variant=default]": { "border": "1px solid rgb(31 35 40 / 0.15)" },
+    "button[variant=default]": { border: "1px solid hsl(var(--foreground) / 0.15)" },
     "button[variant=outline]": { "background-color": "hsl(var(--secondary))" },
     "table-head": { "background-color": "hsl(var(--muted))" },
     "shell-nav-item[active]": { "box-shadow": "inset 2px 0 0 hsl(var(--sidebar-ring))", "font-weight": "600" },
@@ -219,23 +228,16 @@ export const repositoryTheme: AppTheme = defineAppTheme({
   shell: { density: "compact" },
 });
 
-/**
- * Checklist: the to-do list. A warm white page, a confident red for adding
- * and finishing things, a warm sidebar whose open list sits on a red tint,
- * friendly corners and room to breathe.
- */
-export const checklistTheme: AppTheme = defineAppTheme({
+/** Checklist: A warm white page, a confident red, and a warm sidebar whose open list sits on a red tint. */
+export const checklistBrand: AppBrand = defineAppBrand({
   name: "checklist",
   label: "Checklist",
-  description: "The to-do list: a warm white page, a confident red, a warm sidebar with a tinted open list and friendly corners.",
-  feel: "personal task managers",
-  suits: ["tasks", "today", "goals", "habits"],
+  description: "A warm white page, a confident red, and a warm sidebar whose open list sits on a red tint.",
   brand: brand("checklist", {
     neutral: ["#fcfaf8", "#f5f1ed", "#ebe5df", "#dbd3ca", "#a79e94", "#776e64", "#5e564e", "#453f38", "#2e2a25", "#1f1c19"],
     page: "#fffdfb",
     ink: "#24211d",
     primary: "#cc3b2f",
-    radius: "0.5rem",
     status: { success: "#2a8a4a", warning: "#c47f0a", error: "#cc3b2f", info: "#2f6fd1" },
     dark: {
       surface: { DEFAULT: "#1c1a18" },
@@ -266,7 +268,18 @@ export const checklistTheme: AppTheme = defineAppTheme({
     },
   },
   fonts: { sans: SYSTEM_SANS, display: SYSTEM_SANS },
+});
+
+/** Checklist layout: designed with the checklist brand, at home with any. */
+export const checklistTheme: AppTheme = defineAppTheme({
+  name: "checklist",
+  label: "Checklist",
+  description: "Friendly and roomy: firm 36px controls, soft cards, round checkboxes.",
+  feel: "personal task managers",
+  suits: ["tasks", "today", "goals", "habits"],
+  pairsWith: "checklist",
   tokens: {
+    radius: "0.5rem",
     "control-height": "2.25rem",
     "control-padding-x": "0.875rem",
     "control-font-weight": "600",
@@ -288,23 +301,16 @@ export const checklistTheme: AppTheme = defineAppTheme({
   shell: { density: "comfortable" },
 });
 
-/**
- * Notebook: the all-in-one workspace. A plain white page and warm grey ink,
- * a sidebar a shade warmer than the page, borders you barely notice, a calm
- * blue, and content first: the chrome stays out of the way.
- */
-export const notebookTheme: AppTheme = defineAppTheme({
+/** Notebook: A plain white page, warm grey ink, a sidebar a shade warmer and a calm blue. */
+export const notebookBrand: AppBrand = defineAppBrand({
   name: "notebook",
   label: "Notebook",
-  description: "The all-in-one workspace: a white page, warm grey ink, a warm sidebar, faint borders and a calm blue.",
-  feel: "document and wiki workspaces",
-  suits: ["docs", "meetings", "team", "learning", "clients"],
+  description: "A plain white page, warm grey ink, a sidebar a shade warmer and a calm blue.",
   brand: brand("notebook", {
     neutral: ["#fbfbfa", "#f3f2f0", "#e8e7e4", "#d5d3ce", "#a4a19a", "#73716a", "#5d5b55", "#46443e", "#2f2e2a", "#1f1e1b"],
     page: "#ffffff",
     ink: "#37352f",
     primary: "#1f6fc6",
-    radius: "0.375rem",
     status: { success: "#3c7f5d", warning: "#b5731b", error: "#c13a30", info: "#1f6fc6" },
     dark: {
       surface: { DEFAULT: "#191919" },
@@ -340,7 +346,18 @@ export const notebookTheme: AppTheme = defineAppTheme({
     display: `"Inter", ${SYSTEM_SANS}`,
     mono: SYSTEM_MONO,
   },
+});
+
+/** Notebook layout: designed with the notebook brand, at home with any. */
+export const notebookTheme: AppTheme = defineAppTheme({
+  name: "notebook",
+  label: "Notebook",
+  description: "Content first: 32px controls, borderless cards on a hairline shadow, ruled table columns, square-ish tags.",
+  feel: "document and wiki workspaces",
+  suits: ["docs", "meetings", "team", "learning", "clients"],
+  pairsWith: "notebook",
   tokens: {
+    radius: "0.375rem",
     "control-height": "2rem",
     "control-height-sm": "1.75rem",
     "control-padding-x": "0.625rem",
@@ -370,23 +387,16 @@ export const notebookTheme: AppTheme = defineAppTheme({
   shell: { density: "comfortable" },
 });
 
-/**
- * Press: the publishing dashboard. A dark rail beside a light grey canvas,
- * white cards on it, a steady blue, square-ish corners and the system font:
- * built for managing pages, posts and media.
- */
-export const pressTheme: AppTheme = defineAppTheme({
+/** Press: A dark rail beside a light grey canvas, white cards and a steady blue. */
+export const pressBrand: AppBrand = defineAppBrand({
   name: "press",
   label: "Press",
-  description: "The publishing dashboard: a dark rail, a grey canvas with white cards, a steady blue and square-ish corners.",
-  feel: "website and blog dashboards",
-  suits: ["website", "pages", "posts", "media", "marketing"],
+  description: "A dark rail beside a light grey canvas, white cards and a steady blue.",
   brand: brand("press", {
     neutral: ["#f6f7f7", "#e6e7e8", "#c9cacd", "#a7aaad", "#8c8f94", "#5f646b", "#50575e", "#3c434a", "#2c3338", "#1d2327"],
     page: "#f0f0f1",
     ink: "#1d2327",
     primary: "#2a6fb0",
-    radius: "0.25rem",
     status: { success: "#1f7a36", warning: "#a36a00", error: "#c9252b", info: "#2a6fb0" },
     dark: {
       surface: { DEFAULT: "#15181b" },
@@ -424,7 +434,18 @@ export const pressTheme: AppTheme = defineAppTheme({
     },
   },
   fonts: { sans: SYSTEM_SANS, display: SYSTEM_SANS, mono: SYSTEM_MONO },
+});
+
+/** Press layout: designed with the press brand, at home with any. */
+export const pressTheme: AppTheme = defineAppTheme({
+  name: "press",
+  label: "Press",
+  description: "The publishing dashboard: square cards, small corners, regular-weight titles, a filled active item, outlined buttons.",
+  feel: "website and blog dashboards",
+  suits: ["website", "pages", "posts", "media", "marketing"],
+  pairsWith: "press",
   tokens: {
+    radius: "0.25rem",
     "control-height": "2.25rem",
     "control-height-sm": "2rem",
     "control-padding-x": "0.75rem",
@@ -450,23 +471,16 @@ export const pressTheme: AppTheme = defineAppTheme({
   shell: { density: "compact" },
 });
 
-/**
- * Journal: slow and reflective. A paper ground, ink-brown text, a sage
- * accent, serif headings over a soft sans, round corners and generous room.
- * For journaling, habits and reading.
- */
-export const journalTheme: AppTheme = defineAppTheme({
+/** Journal: A paper ground, ink-brown text, a sage accent, serif headings over a soft sans. */
+export const journalBrand: AppBrand = defineAppBrand({
   name: "journal",
   label: "Journal",
-  description: "Slow and reflective: a paper ground, serif headings, a sage accent, round corners and generous room.",
-  feel: "journaling, habit and reading apps",
-  suits: ["journal", "habits", "growth", "reading", "learning"],
+  description: "A paper ground, ink-brown text, a sage accent, serif headings over a soft sans.",
   brand: brand("journal", {
     neutral: ["#f8f4ee", "#f1ebe2", "#e3dbce", "#d1c6b5", "#a89c8a", "#6f6553", "#5b5143", "#453d32", "#2f2a23", "#201c17"],
     page: "#fbf8f3",
     ink: "#2b2722",
     primary: "#46694f",
-    radius: "0.875rem",
     status: { success: "#3d7a4e", warning: "#a8701a", error: "#b5443a", info: "#3d6c94" },
     dark: {
       surface: { DEFAULT: "#1a1815" },
@@ -500,7 +514,18 @@ export const journalTheme: AppTheme = defineAppTheme({
     sans: `"DM Sans", ${SYSTEM_SANS}`,
     display: `"Lora", "Source Serif 4", "Source Serif Pro", Georgia, serif`,
   },
+});
+
+/** Journal layout: designed with the journal brand, at home with any. */
+export const journalTheme: AppTheme = defineAppTheme({
+  name: "journal",
+  label: "Journal",
+  description: "Slow and open: pill buttons and fields, soft lifted cards, generous padding, serif titles.",
+  feel: "journaling, habit and reading apps",
+  suits: ["journal", "habits", "growth", "reading", "learning"],
+  pairsWith: "journal",
   tokens: {
+    radius: "0.875rem",
     "control-height": "2.75rem",
     "control-height-sm": "2.25rem",
     "control-height-lg": "3.25rem",
@@ -533,24 +558,17 @@ export const journalTheme: AppTheme = defineAppTheme({
   shell: { density: "comfortable" },
 });
 
-/**
- * Arena: athletic and loud. A black rail, a hot orange with dark text on it,
- * condensed headings, tight corners and high contrast. For training,
- * workouts and leaderboards. Best in dark mode.
- */
-export const arenaTheme: AppTheme = defineAppTheme({
+/** Arena: A black rail, a hot orange with dark text on it, condensed headings and high contrast. Best in dark mode. */
+export const arenaBrand: AppBrand = defineAppBrand({
   name: "arena",
   label: "Arena",
-  description: "Athletic and loud: a black rail, hot orange with dark text, condensed headings, tight corners, high contrast.",
-  feel: "training and fitness trackers",
-  suits: ["training", "workouts", "classes", "leaderboards"],
+  description: "A black rail, a hot orange with dark text on it, condensed headings and high contrast. Best in dark mode.",
   brand: brand("arena", {
     neutral: ["#f5f5f5", "#ececec", "#dcdcdc", "#c4c4c4", "#9a9a9a", "#666666", "#525252", "#3a3a3a", "#242424", "#121212"],
     page: "#fafafa",
     ink: "#0f0f10",
     primary: "#f04e17",
     primaryText: "#b83a0c",
-    radius: "0.25rem",
     status: { success: "#1d8a45", warning: "#b77700", error: "#d42a2a", info: "#2668d6" },
     dark: {
       surface: { DEFAULT: "#0b0b0c" },
@@ -587,7 +605,18 @@ export const arenaTheme: AppTheme = defineAppTheme({
     sans: `"Barlow", "Inter", ${SYSTEM_SANS}`,
     display: `"Barlow Condensed", "Oswald", "Arial Narrow", ${SYSTEM_SANS}`,
   },
+});
+
+/** Arena layout: designed with the arena brand, at home with any. */
+export const arenaTheme: AppTheme = defineAppTheme({
+  name: "arena",
+  label: "Arena",
+  description: "Athletic and loud: capitals on buttons, badges, column headings and titles, tight corners, a marked active item, a press that sinks.",
+  feel: "training and fitness trackers",
+  suits: ["training", "workouts", "classes", "leaderboards"],
+  pairsWith: "arena",
   tokens: {
+    radius: "0.25rem",
     "control-height": "2.75rem",
     "control-padding-x": "1.25rem",
     "control-radius": "calc(var(--radius) * 0.6)",
@@ -627,7 +656,23 @@ export const arenaTheme: AppTheme = defineAppTheme({
   shell: { density: "comfortable" },
 });
 
-/** Every starter theme Genesis ships, in picker order. */
+/** Every starter brand Genesis ships, in picker order: colours and fonts. */
+export const STARTER_BRANDS: readonly AppBrand[] = Object.freeze([
+  trackerBrand,
+  repositoryBrand,
+  checklistBrand,
+  notebookBrand,
+  pressBrand,
+  journalBrand,
+  arenaBrand,
+]);
+
+/** A starter brand by id, or undefined. */
+export function getStarterBrand(id: string): AppBrand | undefined {
+  return STARTER_BRANDS.find((b) => b.id === id);
+}
+
+/** Every starter theme Genesis ships, in picker order: layout and shape. Each pairs with the brand of its name. */
 export const STARTER_THEMES: readonly AppTheme[] = Object.freeze([
   trackerTheme,
   repositoryTheme,

@@ -1603,11 +1603,11 @@ export const features = defineFeatures({
   "app-themes": {
     name: "App themes",
     aliases: ["starter-themes"],
-    summary: "A whole-app look, the way a site theme works: a brand plus colour roles by hand, font stacks, component tokens (control height, card shadow, button case, table padding, page title weight…), styles for any named part of any component (button[variant=outline], shell-nav-item[active]), raw CSS and the shell's layout, light and dark (ADR 0017). genesis-ui's components read the tokens and mark their parts, so one stylesheet restyles every screen without touching a component. Seven starter themes ship: tracker, repository, checklist, notebook, press, journal and arena.",
+    summary: "How an app looks, as two independent choices (ADR 0017). An app brand (data-app-brand) is colours and fonts; an app theme (data-app-theme) is layout and shape: component tokens (corner radius, control height, card shadow, button case, table padding, page title weight…), styles for any named part of any component (button[variant=outline], shell-nav-item[active]), raw CSS and the shell's layout, with colours only from roles, so any brand goes with any theme. genesis-ui's components read the tokens and mark their parts. Seven starter brands and seven starter themes ship in matching pairs: tracker, repository, checklist, notebook, press, journal and arena.",
     category: "Design system",
     status: "building",
     kind: "token",
-    keywords: ["theme", "app theme", "starter theme", "data-app-theme", "defineAppTheme", "component tokens", "parts", "data-slot", "look", "skin", "density"],
+    keywords: ["theme", "app theme", "app brand", "data-app-brand", "starter theme", "data-app-theme", "defineAppTheme", "component tokens", "parts", "data-slot", "look", "skin", "density"],
     platforms: { web: "building" },
     entry: { web: "@marktiderman/genesis-design-system/app-themes" },
     requires: ["design-tokens"],
@@ -1616,10 +1616,10 @@ export const features = defineFeatures({
     audience: ["developer"],
     visibility: "internal",
     acceptance: [
-      "Every starter theme reaches its WCAG minimum on every pair in APP_THEME_PAIRS, light and dark, and passes the brand contrast check.",
+      "Every starter brand reaches its WCAG minimum on every pair in APP_BRAND_PAIRS, light and dark, and passes the brand contrast check; any starter theme works with any brand, since a theme's colours come from roles only.",
       "With no theme set, every genesis-ui component renders as before: each component token's default is the value its class had.",
       "Every part in THEME_PARTS is rendered with its data-slot and attributes, every component token is read by a component, and no component reads an undeclared one (genesis-ui's contract test).",
-      "Setting or removing data-app-theme changes only CSS, never a component's markup or behaviour; dark mode follows .dark on the element or an ancestor.",
+      "Setting or removing data-app-brand or data-app-theme changes only CSS, never a component's markup or behaviour; dark mode follows .dark on the element or an ancestor.",
     ],
     reviewedAt,
     links: {

@@ -237,14 +237,15 @@ parts with `data-slot` (`button` with `data-variant` and `data-size`, `card`,
 `data-density`…). An app theme (genesis-design-system's
 `@marktiderman/genesis-design-system/app-themes`, ADR 0017) sets the tokens and
 styles the parts, so one stylesheet changes how every screen looks without
-touching a component. `appShellOptionsFromTheme(theme)` gives `AppShell` the
+touching a component; an app brand (`data-app-brand`) sets the colours and
+fonts on its own. `appShellOptionsFromTheme(theme)` gives `AppShell` the
 theme's layout:
 
 ```tsx
 import { AppShell, appShellOptionsFromTheme } from "@marktiderman/genesis-ui/layout";
 import { getStarterTheme } from "@marktiderman/genesis-design-system/app-themes";
 
-const theme = getStarterTheme("tracker");
+const theme = getStarterTheme("tracker"); // layout and shape; colours come from the app brand
 const shell = <AppShell appName="Acme" navItems={[]} options={{ ...appShellOptionsFromTheme(theme), scrollRoot: "window" }} />;
 ```
 

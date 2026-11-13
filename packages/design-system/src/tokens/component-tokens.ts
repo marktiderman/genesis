@@ -28,8 +28,10 @@ export interface ComponentTokenInfo {
   kind: ComponentTokenKind;
   /** What `themes/genesis.css` declares: the value genesis-ui's class had before. */
   default: string;
-  /** The components (genesis-ui part names) that read it. */
+  /** The components (genesis-ui part names) that read it. Empty for `radius`, which every `rounded-*` step reads through the Tailwind bridge. */
   parts: readonly string[];
+  /** Already a theme role variable in `themes/genesis.css` (`--radius`), so not declared again. */
+  role?: true;
   description: string;
 }
 
@@ -45,6 +47,8 @@ export const NO_SHADOW = "0 0 #0000";
 
 /** Every component token, by group. */
 export const COMPONENT_TOKENS: readonly ComponentTokenInfo[] = Object.freeze([
+  // Shape: the base every corner scales from (rounded-sm is 0.6×, rounded-lg 1×, rounded-xl 1.4×).
+  Object.freeze({ ...t("radius", "length", "0.625rem", [], "The base corner radius every `rounded-*` step and corner token scales from."), role: true as const }),
   // Controls: buttons, and the fields beside them.
   t("control-height", "length", "2.5rem", ["button", "input", "select-trigger"], "A button's and a field's height, default size."),
   t("control-height-sm", "length", "2.25rem", ["button"], "A small button's height."),
@@ -140,5 +144,7 @@ export function componentTokenCss(name: string, value: string): string {
 
 /** Every token at its default, as `--name: value;` lines: the component block of `themes/genesis.css`. */
 export function renderComponentTokenDefaults(indent = "  "): string {
-  return COMPONENT_TOKENS.map((token) => `${indent}--${token.name}: ${token.default};`).join("\n");
+  return COMPONENT_TOKENS.filter((token) => !token.role)
+    .map((token) => `${indent}--${token.name}: ${token.default};`)
+    .join("\n");
 }

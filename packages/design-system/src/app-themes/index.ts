@@ -1,7 +1,7 @@
 /**
- * App themes: a whole-app look, from colours to every component's size,
- * shape and parts, and the shell's layout. Seven starter themes ship.
- * See `define.ts` for the layers and the package README for how to use one.
+ * App brands (colours and fonts) and app themes (every component's size,
+ * shape and parts, and the shell's layout), chosen independently. Seven of
+ * each ship as starters. See `define.ts` and the package README.
  *
  * @packageDocumentation
  */
@@ -9,9 +9,13 @@ export {
   THEME_FONTS,
   THEME_ROLES,
   THEME_TOKEN_NAMES,
+  defineAppBrand,
   defineAppTheme,
   parsePartSelector,
+  validateAppBrand,
   validateAppTheme,
+  type AppBrand,
+  type AppBrandInput,
   type AppTheme,
   type AppThemeInput,
   type AppThemeShell,
@@ -22,24 +26,35 @@ export {
   type ThemeTokenValues,
 } from "./define";
 export {
-  APP_THEME_PAIRS,
-  appThemeContrastProblems,
+  APP_BRAND_PAIRS,
+  appBrandContrastProblems,
+  appBrandCss,
+  appBrandVariables,
   appThemeCss,
   appThemeVariables,
   renderAppThemesCss,
-  type AppThemeContrastProblem,
+  type AppBrandContrastProblem,
   type AppThemeCssOptions,
   type AppThemeVariables,
 } from "./render";
 export {
+  STARTER_BRANDS,
   STARTER_THEMES,
+  arenaBrand,
   arenaTheme,
+  checklistBrand,
   checklistTheme,
+  getStarterBrand,
   getStarterTheme,
+  journalBrand,
   journalTheme,
+  notebookBrand,
   notebookTheme,
+  pressBrand,
   pressTheme,
+  repositoryBrand,
   repositoryTheme,
+  trackerBrand,
   trackerTheme,
 } from "./themes";
 export {

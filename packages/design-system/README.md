@@ -171,37 +171,45 @@ A host reads each with its own value as the fallback:
 | `image` | `--ds-image-filter`, `--ds-image-grain` |
 | `motion` | `--ds-ease-{out,swift,in-out,decelerate}`, `--ds-dur-{press,fast,hover,base,ui,reveal,media}` (from `resolveMotion`; a host gates them with `prefers-reduced-motion`), `--ds-reveal` and `--ds-reveal-phone` (the keyframes to run, `ds-rise` or `ds-clip`, which the host's stylesheet defines), `--ds-reveal-distance`, `--ds-reveal-range`, `--ds-hover-lift` |
 
-## App themes
+## App brands and app themes
 
-An app theme is a whole-app look, as far as it wants to go: colours, fonts,
-the size, shape and type of every genesis-ui component, any part of any
-component, and the app shell's layout, light and dark (ADR 0017). It never
-changes what a component does, what it shows or who may see it.
+How an app looks is two independent choices (ADR 0017), each set with its own
+attribute on `<html>` (the whole app, menus and dialogs included) or on any
+element:
 
-A theme works in layers. Each is optional; reach for the lowest that does the
-job:
+- An **app brand** (`data-app-brand`) is colour and type: a `CanonicalBrand`
+  (colours and status, light and dark, solved for contrast), colour `roles`
+  set by hand (the sidebar, a card apart from the page) and `fonts`.
+- An **app theme** (`data-app-theme`) is layout and shape, with no colours of
+  its own: component tokens, part styles, raw CSS and the shell's layout. Its
+  colours come from whatever brand is set, so any brand goes with any theme:
+  your own brand with the `tracker` layout, the Genesis brand with `press`.
 
-| Layer | What it changes | Example |
-|---|---|---|
-| `brand` | colours, radius and status, solved for contrast | `accent: { DEFAULT: "#5753d6" }` |
-| `roles` | any colour role by hand, per mode | `{ light: { "sidebar-background": "#1d2327" } }` |
-| `fonts` | `--font-sans`, `--font-display`, `--font-mono` | `{ display: '"Lora", Georgia, serif' }` |
-| `tokens`, `darkTokens` | component tokens: sizes, shapes, type | `{ "control-height": "2rem", "card-shadow": "none" }` |
-| `parts`, `darkParts` | CSS declarations for any part | `{ "shell-nav-item[active]": { "box-shadow": "inset 3px 0 0 hsl(var(--primary))" } }` |
-| `css` | raw CSS nested in the theme's scope, for what parts can't say | `` `[data-slot="button"]:active { transform: translateY(1px); }` `` |
-| `shell` | the app shell's layout | `{ density: "compact", railWidth: "wide" }` |
+Neither changes what a component does, what it shows or who may see it.
+
+| Piece | Layer | What it changes | Example |
+|---|---|---|---|
+| brand | `brand` | colours and status, solved for contrast | `accent: { DEFAULT: "#5753d6" }` |
+| brand | `roles` | any colour role by hand, per mode | `{ light: { "sidebar-background": "#1d2327" } }` |
+| brand | `fonts` | `--font-sans`, `--font-display`, `--font-mono` | `{ display: '"Lora", Georgia, serif' }` |
+| theme | `tokens`, `darkTokens` | component tokens: sizes, corners, type | `{ radius: "0.25rem", "control-height": "2rem" }` |
+| theme | `parts`, `darkParts` | CSS declarations for any part, colours from roles | `{ "shell-nav-item[active]": { "box-shadow": "inset 3px 0 0 hsl(var(--primary))" } }` |
+| theme | `css` | raw CSS nested in the theme's scope | `` `[data-slot="button"]:active { transform: translateY(1px); }` `` |
+| theme | `shell` | the app shell's layout | `{ density: "compact", railWidth: "wide" }` |
 
 **Component tokens** (`COMPONENT_TOKENS`) are CSS variables genesis-ui reads in
-place of fixed classes: `--control-height` (and `-sm`, `-lg`),
-`--control-padding-x`, `--control-radius`, `--control-font-weight`,
-`--control-text-transform`, `--control-letter-spacing`, `--control-shadow`,
-`--input-padding-x`, `--input-border-width`, `--input-shadow`,
-`--focus-ring-width`, `--focus-ring-offset`, `--card-radius`,
-`--card-border-width`, `--card-shadow`, `--card-padding`, `--popover-radius`,
-`--popover-shadow`, `--overlay-shadow`, `--badge-*`, `--table-*`, `--title-*`,
-`--page-title-*` and `--sidebar-item-*`. `themes/genesis.css` declares each at
-what the component's class said before, so an app that sets none looks as it
-did, and a `className` on one instance still wins over a token.
+place of fixed classes: `radius` (the base every corner scales from),
+`--control-height` (and `-sm`, `-lg`), `--control-padding-x`,
+`--control-radius`, `--control-font-weight`, `--control-text-transform`,
+`--control-letter-spacing`, `--control-shadow`, `--input-padding-x`,
+`--input-border-width`, `--input-shadow`, `--focus-ring-width`,
+`--focus-ring-offset`, `--card-radius`, `--card-border-width`, `--card-shadow`,
+`--card-padding`, `--popover-radius`, `--popover-shadow`, `--overlay-shadow`,
+`--badge-*`, `--table-*`, `--title-*`, `--page-title-*` and
+`--sidebar-item-*`. `themes/genesis.css` declares each at what the component's
+class said before, so an app that sets none looks as it did, and a
+`className` on one instance still wins over a token. A brand leaves `--radius`
+to the theme unless it names a radius itself.
 
 **Parts** (`THEME_PARTS`) are genesis-ui's named pieces: every one renders
 `data-slot="<name>"` with the attributes listed for it, and genesis-ui's tests
@@ -210,32 +218,33 @@ hold it to the list. A part selector is a part name, `[attribute]` or
 `:active`, `:disabled`, …), and up to three of those nested with spaces:
 `button[variant=outline][size=sm]:hover`, `shell-sidebar shell-nav-item[active]`.
 `root` is the themed element itself. Name an app's own parts `app-<name>`.
-A part style beats the component's own classes, and a `className` on one
-instance too, so scope it when one instance must differ.
+In a theme, colour properties (`color`, `background`, `border`, …) take
+colours from roles only (`hsl(var(--primary))`), which `defineAppTheme`
+checks. A part style beats the component's own classes, and a `className` on
+one instance too, so scope it when one instance must differ.
 
-Seven **starter themes** ship, each using every layer:
+Seven of each ship as **starters**, in matching pairs (`theme.pairsWith`):
 
-| Theme | Feel | Suits | Density |
+| Name | Brand (colours, fonts) | Theme (layout, shape) | Density |
 |---|---|---|---|
-| `tracker` | keyboard-first issue trackers: cool greys, a sparing indigo, 32px controls | issues, projects, roadmaps | compact |
-| `repository` | code hosting: hairlines, green actions, blue links, grey outlined buttons, a marked active item | admin, data, settings | compact |
-| `checklist` | personal task managers: warm white, a confident red, round checkboxes | tasks, today, goals | comfortable |
-| `notebook` | document workspaces: warm grey ink, borderless cards, ruled tables, square-ish tags | docs, meetings, team | comfortable |
-| `press` | website dashboards: a dark rail with a filled active item, square cards, outlined blue buttons | website, pages, media | compact |
-| `journal` | journaling and reading: paper ground, serif titles, pill buttons, soft cards | journal, habits, reading | comfortable |
-| `arena` | training trackers: a black rail, hot orange, capitals, condensed titles | training, workouts, classes | comfortable |
+| `tracker` | cool greys, a sparing indigo, Inter | 32px controls, flat cards, tight tables | compact |
+| `repository` | green actions, blue links, system type and mono | crisp controls, grey outlined buttons, shaded headings, a marked active item | compact |
+| `checklist` | warm white, a confident red, a red-tinted open list | firm controls, soft cards, round checkboxes | comfortable |
+| `notebook` | white page, warm grey ink, a warm sidebar, a calm blue | borderless cards, ruled tables, square-ish tags | comfortable |
+| `press` | a dark rail, a grey canvas with white cards, a steady blue | square cards, a filled active item, outlined buttons | compact |
+| `journal` | paper ground, sage, serif headings over a soft sans | pill buttons and fields, soft lifted cards, serif titles | comfortable |
+| `arena` | a black rail, hot orange, condensed headings | capitals, tight corners, a marked active item, a press that sinks | comfortable |
 
-Every theme reaches WCAG AA on every pair genesis-ui draws
-(`APP_THEME_PAIRS`, the sidebar's active item included), light and dark, and
+Every starter brand reaches WCAG AA on every pair genesis-ui draws
+(`APP_BRAND_PAIRS`, the sidebar's active item included), light and dark, and
 passes the brand contrast check.
 
-**Use one:** import the stylesheet unlayered, after `genesis.css` and the
-Tailwind bridge, then set `data-app-theme` on `<html>` (the whole app, menus
-and dialogs included) or on an element (a part of the page; what portals out of
-it follows the page). Dark mode follows the `.dark` class. Pass the theme's
-shell to `AppShell` with genesis-ui's `appShellOptionsFromTheme`, and load the
-fonts it names (each stack falls back to system fonts). (`data-theme` is
-`GenesisThemeProvider`'s light and dark mode.)
+**Use them:** import the stylesheet unlayered, after `genesis.css` and the
+Tailwind bridge, then set either attribute or both. Dark mode follows the
+`.dark` class. Pass the theme's shell to `AppShell` with genesis-ui's
+`appShellOptionsFromTheme`, and load the fonts the brand names (each stack
+falls back to system fonts). (`data-theme` is `GenesisThemeProvider`'s light
+and dark mode.)
 
 ```css
 @import "@marktiderman/genesis-design-system/themes/genesis.css";
@@ -244,20 +253,21 @@ fonts it names (each stack falls back to system fonts). (`data-theme` is
 ```
 
 ```ts
-import { appThemeContrastProblems, getStarterTheme } from "@marktiderman/genesis-design-system/app-themes";
+import { appBrandContrastProblems, getStarterBrand, getStarterTheme } from "@marktiderman/genesis-design-system/app-themes";
 
-const theme = getStarterTheme("notebook");
-document.documentElement.dataset.appTheme = theme?.id;
-appThemeContrastProblems(theme!); // [] for every starter theme
+const theme = getStarterTheme("press");
+document.documentElement.dataset.appTheme = theme?.id; // layout and shape
+document.documentElement.dataset.appBrand = getStarterBrand("notebook")?.id; // colours and fonts
+appBrandContrastProblems(getStarterBrand("notebook")!); // [] for every starter brand
 ```
 
-**Make one:** start from a starter theme or from scratch with
-`defineAppTheme`, which checks every layer (and the brand) and throws with
-every problem. `appThemeCss(theme)` renders it scoped to `data-app-theme`;
-`appThemeVariables(theme)` gives the variable maps.
+**Make your own:** `defineAppBrand` and `defineAppTheme` check every layer
+and throw with every problem. `appBrandCss` and `appThemeCss` render each
+scoped to its attribute; `appBrandVariables` and `appThemeVariables` give the
+variable maps.
 
 ```ts
-import { defineAppTheme, notebookTheme, appThemeCss } from "@marktiderman/genesis-design-system/app-themes";
+import { appThemeCss, defineAppTheme, notebookTheme } from "@marktiderman/genesis-design-system/app-themes";
 
 export const ledger = defineAppTheme({
   ...notebookTheme,
@@ -266,16 +276,15 @@ export const ledger = defineAppTheme({
   description: "Quiet and exact, for finance screens.",
   feel: "accounting tools",
   suits: ["invoices", "reports"],
-  brand: { ...notebookTheme.brand, name: "ledger", accent: { DEFAULT: "#0f766e" } },
   tokens: { ...notebookTheme.tokens, "table-cell-padding-y": "0.25rem", "table-head-text-transform": "uppercase" },
   parts: { "table-cell": { "font-variant-numeric": "tabular-nums" } },
   shell: { density: "compact" },
 });
-const css = appThemeCss(ledger); // [data-app-theme="ledger"] { … }
+const css = appThemeCss(ledger); // [data-app-theme="ledger"] { … }, in any brand's colours
 ```
 
-Themes are code an app ships and reviews; `css` is trusted as written, so never
-build a theme from what a user types.
+Brands and themes are code an app ships and reviews; `css` is trusted as
+written, so never build either from what a user types.
 
 ## The colour engine
 

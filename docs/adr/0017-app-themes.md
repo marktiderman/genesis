@@ -1,4 +1,4 @@
-# ADR 0017: App themes: component tokens, parts and the shell, in one theme
+# ADR 0017: App brands and app themes: colours apart from layout, component tokens and parts
 
 - Status: proposed
 - Date: 2026-11-13
@@ -39,21 +39,28 @@ neither reaches a component's size or shape.
    contract: genesis-ui's test fails a part that isn't rendered, a token no component reads and a
    token a component reads that isn't declared. A renamed part is a breaking change. An app's own
    parts are named `app-<name>`.
-3. **App themes.** `@marktiderman/genesis-design-system/app-themes` exports `defineAppTheme`: a
-   brand, plus `roles` (colour roles by hand, per mode), `fonts`, `tokens` / `darkTokens`,
-   `parts` / `darkParts` (declarations per part selector: `card`,
-   `button[variant=outline]:hover`, `shell-sidebar shell-nav-item[active]`), raw `css` nested in
-   the theme's scope, and `shell` (AppShell's density, rail width, collapsed rail, sub-navigation).
-   `appThemeCss` renders it scoped to `[data-app-theme="<id>"]`, light and `.dark`;
-   `appThemeContrastProblems` checks the pairs genesis-ui draws, sidebar included. Seven starter
-   themes ship, in `themes/starter.css`.
+3. **Brand apart from layout.** How an app looks is two independent choices, each with its own
+   attribute, so any brand goes with any theme:
+   - an **app brand** (`defineAppBrand`, `[data-app-brand="<id>"]`): a `CanonicalBrand`, `roles`
+     (colour roles by hand, per mode) and `fonts`. `appBrandContrastProblems` checks the pairs
+     genesis-ui draws, sidebar included.
+   - an **app theme** (`defineAppTheme`, `[data-app-theme="<id>"]`): `tokens` / `darkTokens`
+     (the base `radius` among them: corners are shape), `parts` / `darkParts` (declarations per
+     part selector: `card`, `button[variant=outline]:hover`,
+     `shell-sidebar shell-nav-item[active]`), raw `css` nested in its scope, and `shell`
+     (AppShell's density, rail width, collapsed rail, sub-navigation). It holds no colours: in
+     its part styles, colour properties take colours from roles only (`hsl(var(--primary))`),
+     which `defineAppTheme` checks, so a theme recolours with whatever brand is set.
+   Seven starter brands and seven starter themes ship in matching pairs (`pairsWith`), in
+   `themes/starter.css`, brands first.
 4. **Precedence.** Variables first (a theme's selectors outrank `:root` and `.dark`), then part
    styles, then `css`. The theme stylesheet is imported unlayered, so part styles beat the
    components' utility classes, which sit in Tailwind's layers; that is what lets a part style
    change anything. A theme reaches for the lowest layer that does the job: tokens before parts,
    parts before `css`.
-5. **The attribute is `data-app-theme`**, not `data-theme`, which `GenesisThemeProvider` already
-   uses for light and dark mode (and the tooltip mirrors onto its portal).
+5. **The attributes are `data-app-brand` and `data-app-theme`**, not `data-theme`, which
+   `GenesisThemeProvider` already uses for light and dark mode (and the tooltip mirrors onto its
+   portal).
 6. **The shell.** genesis-ui exports `appShellOptionsFromTheme(theme)`, the AppShell options the
    theme asks for, to spread under the app's own.
 7. **Presentation only.** A theme never changes what a component does, what data it shows or who
@@ -63,9 +70,10 @@ neither reaches a component's size or shape.
 
 ## Glossary
 
-- **app theme**: a whole-app look: colours, fonts, component tokens, part styles and the shell's
-  layout (`defineAppTheme`). Don't use: skin, template, design system (that's sites' look rules),
-  brand (identity only), theme alone where light and dark mode could be meant.
+- **app brand**: an app's colours and fonts (`defineAppBrand`, `data-app-brand`).
+- **app theme**: an app's layout and shape: component tokens, part styles and the shell's layout,
+  with no colours of its own (`defineAppTheme`, `data-app-theme`). Don't use: skin, template,
+  design system (that's sites' look rules), theme alone where light and dark mode could be meant.
 - **component token**: a token a component reads for its size, shape or type (`COMPONENT_TOKENS`).
 - **part**: a named piece of a component a theme can style, marked `data-slot="<name>"`
   (`THEME_PARTS`). Don't use: slot (a slot is a fill), selector.
@@ -78,6 +86,9 @@ neither reaches a component's size or shape.
 - **Per-component class overrides in a React provider** (variants and classNames from context):
   needs every component to read context, doesn't reach portalled or third-party parts, and can't
   be scoped to part of a page. Part styles do the same in CSS and scope by attribute.
+- **One theme holding colours and layout together:** an app could only take a starter's look
+  whole; keeping its own brand with another layout meant copying the theme. Splitting them lets
+  any brand go with any theme.
 - **Only tokens, no part styles:** every new need would be a new token in Genesis first. Tokens
   cover the common dimensions; parts and `css` cover the rest without a release.
 - **Putting the theme's styles in a cascade layer** below utilities: a caller's className would

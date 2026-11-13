@@ -31,7 +31,8 @@ new names against this page.
 | **token** | a design value. | variable, design constant. |
 | **component token** | a token a component reads for its size, shape or type (`COMPONENT_TOKENS`: `--control-height`, `--card-shadow`). ADR 0017. |  |
 | **part** | a named piece of a component a theme can style, marked `data-slot="<name>"` (`THEME_PARTS`). ADR 0017. | slot (a slot is a fill), selector. |
-| **app theme** | a whole-app look: colours, fonts, component tokens, part styles and the shell's layout (`defineAppTheme`). ADR 0017. | skin, template, design system (sites' look rules), brand (identity only), theme alone where light and dark mode could be meant. |
+| **app brand** | an app's colours and fonts (`defineAppBrand`, `data-app-brand`). ADR 0017. |  |
+| **app theme** | an app's layout and shape: component tokens, part styles and the shell's layout, with no colours of its own (`defineAppTheme`, `data-app-theme`). ADR 0017. | skin, template, design system (sites' look rules), theme alone where light and dark mode could be meant. |
 | **element** | one interaction with no domain words (Button, Tooltip). It was the "primitive" tier. | primitive (for UI), atom. |
 | **pattern** | two or more elements in a recurring shape, with no data. | molecule, organism, composite. |
 | **layout** | positions content without knowing what it is (AppShell, DetailPage). | template, frame, chrome. |
