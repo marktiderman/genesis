@@ -1,6 +1,7 @@
 /**
  * The Pages panel: the site's pages (open, add from a template, change an
- * address, delete, reorder) and its menu.
+ * address, delete, reorder), its landing pages (the `landing` slot), and its
+ * menu. Landing pages are listed in their own section, not among the pages.
  */
 import * as React from "react";
 import { ArrowDown, ArrowUp, FileText, Home, Plus, Trash2 } from "lucide-react";
@@ -49,6 +50,8 @@ export interface PagesPanelProps {
   onReorder(pageId: string, by: -1 | 1): Promise<void>;
   onNavChange(nav: MenuItem[]): void;
   onEditFooter(): void;
+  /** The Landing pages section, shown below the pages. */
+  landing?: React.ReactNode;
 }
 
 function AddPageDialog({ open, onOpenChange, pages, reserved, onCreate }: { open: boolean; onOpenChange(open: boolean): void; pages: readonly PageMeta[]; reserved?: ReservedPaths | undefined; onCreate(r: NewPageRequest): Promise<void> }) {
@@ -256,7 +259,8 @@ function MenuEditor({ nav, pages, busy, onChange }: { nav: readonly MenuItem[]; 
       (same && !same.disabled ? same : list.current?.querySelector<HTMLButtonElement>(`[data-menu-move="${j}:${-by}"]`))?.focus();
     });
   };
-  const unlinked = pages.filter((p) => !items.some((i) => i.href === p.path));
+  // Landing pages are campaign pages: the menu doesn't suggest them.
+  const unlinked = pages.filter((p) => p.kind !== "landing" && !items.some((i) => i.href === p.path));
   return (
     <div className="flex flex-col gap-3">
       {items.length === 0 ? <p className="text-sm text-muted-foreground">The menu is empty.</p> : null}
@@ -315,6 +319,7 @@ export function PagesPanel(props: PagesPanelProps) {
   const [adding, setAdding] = React.useState(false);
   const [renaming, setRenaming] = React.useState<PageMeta | null>(null);
   const [deleting, setDeleting] = React.useState<PageMeta | null>(null);
+  const ordinary = props.pages.filter((p) => p.kind !== "landing");
   return (
     <div className="flex flex-col gap-4 p-3">
       <div className="flex items-center justify-between">
@@ -326,7 +331,7 @@ export function PagesPanel(props: PagesPanelProps) {
         )}
       </div>
       <ul className="flex flex-col gap-1" aria-label="Pages">
-        {props.pages.map((p, i) => {
+        {ordinary.map((p, i) => {
           const current = p.id === props.currentId;
           return (
             <li key={p.id} className={cn("group flex flex-col gap-1 rounded-md border p-2", current ? "border-primary bg-muted" : "border-transparent hover:border-border")}>
@@ -336,7 +341,6 @@ export function PagesPanel(props: PagesPanelProps) {
                   <span className="truncate font-medium">{p.title}</span>
                   <span className="truncate text-xs text-muted-foreground">
                     {p.path}
-                    {p.kind === "landing" ? " · landing" : ""}
                   </span>
                 </span>
               </button>
@@ -352,7 +356,7 @@ export function PagesPanel(props: PagesPanelProps) {
                     <Button type="button" size="icon" variant="ghost" disabled={props.busy || i === 0} aria-label={`Move ${p.title} up`} onClick={() => props.onReorder(p.id, -1)}>
                       <ArrowUp className="h-4 w-4" />
                     </Button>
-                    <Button type="button" size="icon" variant="ghost" disabled={props.busy || i === props.pages.length - 1} aria-label={`Move ${p.title} down`} onClick={() => props.onReorder(p.id, 1)}>
+                    <Button type="button" size="icon" variant="ghost" disabled={props.busy || i === ordinary.length - 1} aria-label={`Move ${p.title} down`} onClick={() => props.onReorder(p.id, 1)}>
                       <ArrowDown className="h-4 w-4" />
                     </Button>
                   </>
@@ -368,6 +372,12 @@ export function PagesPanel(props: PagesPanelProps) {
           );
         })}
       </ul>
+      {props.landing ? (
+        <>
+          <Separator />
+          {props.landing}
+        </>
+      ) : null}
       <Separator />
       <section aria-labelledby="gs-menu-heading" className="flex flex-col gap-2">
         <h2 id="gs-menu-heading" className="text-sm font-semibold">

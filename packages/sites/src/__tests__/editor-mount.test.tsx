@@ -267,3 +267,46 @@ describe("SiteEditor publishing", () => {
     await waitFor(() => el.querySelector('header [role="status"]')?.textContent === "Someone else saved: choose a version", "the conflict");
   });
 });
+
+describe("SiteEditor landing pages", () => {
+  it("lists landing pages apart from the pages, and makes a new one that opens in the same canvas", async () => {
+    const { store, siteId } = await publishableSite();
+    await store.createPage(siteId, { path: "/go/spring", kind: "landing", doc: { schemaVersion: 1, root: { props: { title: "Spring" } }, content: [] } });
+    const el = await mount({ siteId, store });
+    await openTab(el, "Pages");
+
+    const section = await waitFor(() => el.querySelector<HTMLElement>("[data-gs-landing]"), "the Landing pages section");
+    expect(section.textContent).toContain("/go/spring");
+    expect(section.textContent).toContain("Draft");
+    expect(el.querySelector('ul[aria-label="Pages"]')?.textContent).not.toContain("/go/spring");
+
+    await act(async () => buttons(el, "New landing page")[0]!.click());
+    const dialog = await waitFor(() => document.querySelector<HTMLElement>('[role="dialog"]'), "the New landing page dialog");
+    await type(field(dialog, "Title"), "Summer sale");
+    expect(field(dialog, "Address").value).toBe("summer-sale");
+    await act(async () => dialog.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    await waitFor(() => el.textContent?.includes("Added the landing page Summer sale at /go/summer-sale."), "the landing page to be made");
+
+    const made = (await store.listPages(siteId)).find((p) => p.path === "/go/summer-sale");
+    expect(made?.kind).toBe("landing");
+    // Opened in the same editor, and kept out of the menu.
+    expect(el.querySelector("header")?.textContent).toContain("(/go/summer-sale)");
+    expect((await store.getDraft(siteId))!.site.nav).toEqual([]);
+  });
+
+  it("changes the directory and moves the landing pages with it", async () => {
+    const { store, siteId } = await publishableSite();
+    const spring = await store.createPage(siteId, { path: "/go/spring", kind: "landing", doc: { schemaVersion: 1, root: { props: { title: "Spring" } }, content: [] } });
+    const el = await mount({ siteId, store });
+    await openTab(el, "Pages");
+    await act(async () => buttons(el, "Change the directory")[0]!.click());
+    const dialog = await waitFor(() => document.querySelector<HTMLElement>('[role="dialog"]'), "the directory dialog");
+    await type(field(dialog, "Directory"), "/offers");
+    expect(dialog.textContent).toMatch(/Their old addresses redirect/);
+    await act(async () => dialog.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    await waitFor(() => el.textContent?.includes("New landing pages go in /offers."), "the directory to change");
+    expect((await store.getPageDraft(spring.id))!.path).toBe("/offers/spring");
+    expect((await store.getDraft(siteId))!.site.landing).toEqual({ directory: "/offers" });
+    expect(el.querySelector("[data-gs-landing]")?.textContent).toContain("/offers/spring");
+  });
+});
