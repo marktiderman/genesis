@@ -20,9 +20,11 @@ import { Alert, Platform, Pressable, SectionList, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { BaseRecord, DataRow } from "@marktiderman/genesis-core";
 import { personTimeZone } from "@marktiderman/genesis-core/dates";
-import { scopeClock, useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
+import { resourceKeys, useDataProvider, useViewer } from "@marktiderman/genesis-core";
+import { scopeClock, useListState, useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 import type { GalleryItem } from "@marktiderman/genesis-core/gallery";
-import type { RowPicture, ViewGallery } from "@marktiderman/genesis-core/resource-view";
+import type { RowPicture, SavedViewStore, ViewGallery } from "@marktiderman/genesis-core/resource-view";
 import { NativeAvatar } from "../../components/avatar";
 import { NativeBadge } from "../../components/badge";
 import { NativeImage } from "../../components/image";
@@ -50,6 +52,7 @@ import {
 import type { AnyResourceView, NativeResourceRowItem, NativeResourceSection, NativeResourceSwipeAction } from "./mapping";
 import { fill } from "./messages";
 import { NativeResourceFormSheet } from "./NativeResourceFormSheet";
+import { NativeListControls, NativeResourceBoard, NativeResourceCalendar, nativeSwitchableTypes } from "./list-controls";
 import {
   recordKey,
   useNativeResourceView,
@@ -67,8 +70,8 @@ export type NativeResourceSwipeableProps = Omit<InboxPageSlotMap["swipeable"], "
 /** How rows show: a list (the default) or cards in columns, as the web's `mode`. */
 export type NativeResourceViewMode = "list" | "grid";
 
-/** The view types the phone draws: list, grid and gallery (ADR 0021). @stability Beta */
-export type NativeResourceViewType = NativeResourceViewMode | "gallery" | "inbox";
+/** The view types the phone draws (ADR 0021). @stability Beta */
+export type NativeResourceViewType = NativeResourceViewMode | "gallery" | "inbox" | "board" | "calendar";
 
 /**
  * Spread onto your card's Pressable: the press (the screen's `onRowPress`, else the peek), the
@@ -127,10 +130,27 @@ export interface NativeResourceViewProps<T extends Row = Row> extends NativeReso
   /**
    * The view type (ADR 0021), as the web's `<ResourceView type>`: `"list"` (default), `"grid"`, or
    * `"gallery"` (the grid as photos, from the view's `gallery` block), or `"inbox"` (InboxPage's
-   * rows from the view's `inbox` block: unread in bold, a preview, a time, swipe actions). The phone has no board or
-   * calendar yet. Wins over `mode`.
+   * rows from the view's `inbox` block: unread in bold, a preview, a time, swipe actions), `"board"`
+   * (the view's board block: columns side by side, a long press moves a card) or `"calendar"` (the
+   * view's calendar block: an agenda or a month). Wins over `mode`, and fixes the type: the
+   * switcher stays off unless `switcher` asks for it.
    */
   type?: NativeResourceViewType;
+  /**
+   * The view-type switcher above the list (ADR 0017 §11): the view's `types` the phone draws, the
+   * person's choice kept in `savedViews`. Default on when the view declares `types` (two or more
+   * the phone draws) and the screen fixes neither `type` nor `mode`.
+   */
+  switcher?: boolean;
+  /** Where the person's choices (the view type) are kept: the app's saved-view store, the web's contract. */
+  savedViews?: SavedViewStore;
+  /** The segment the list opens on. Default the view's first. */
+  defaultSegment?: string;
+  /**
+   * Runs one of the view's actions on a row (a swipe or the long-press menu). Default: the
+   * provider's `runAction`, after the action's `confirm`.
+   */
+  onAction?: (name: string, row: T) => void | Promise<void>;
   /** Columns in grid mode (React Native's FlatList name). Default 2. */
   numColumns?: number;
   /**
@@ -483,17 +503,65 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     renderCard,
     scopeTimeZone: _zone,
     testID = "native-resource-view",
+    switcher,
+    savedViews,
+    defaultSegment,
+    onAction,
     ...options
   } = props;
+  // The list's state (ADR 0017): core's, the same the web's ResourceView holds. The segment and
+  // declared filters narrow the read; the type comes from the switcher when it's on.
+  const switchTypes = useMemo(() => nativeSwitchableTypes(view as AnyResourceView<Row>), [view]);
+  // On by default only where the view declares its `types` and the screen fixes neither type nor mode.
+  const switcherOn = (switcher ?? (type === undefined && props.mode === undefined && !!view.definition.types)) && switchTypes.length >= 2;
+  const list = useListState({
+    view: view as never,
+    store: savedViews,
+    types: switchTypes,
+    defaultType: type ?? (switcherOn ? switchTypes[0] : undefined) ?? modeProp,
+    rememberType: switcherOn,
+    defaultSegment,
+  });
+  const shown = (switcherOn ? (list.type as NativeResourceViewType | undefined) : undefined) ?? type;
   // `type` is the view type's name (ADR 0021); `mode` its alias. A gallery is the grid as photos.
   // An inbox is the list drawn as InboxPage's rows (from the view's inbox block).
-  const inbox = type === "inbox";
-  const mode: NativeResourceViewMode = type === "gallery" ? "grid" : type === "inbox" ? "list" : (type ?? modeProp);
-  if (type === "gallery" && !view.definition.gallery && !screenGallery?.image) {
+  const inbox = shown === "inbox";
+  const board = shown === "board";
+  const calendar = shown === "calendar";
+  const mode: NativeResourceViewMode = shown === "gallery" ? "grid" : shown === "grid" ? "grid" : shown === undefined ? modeProp : "list";
+  if (shown === "gallery" && !view.definition.gallery && !screenGallery?.image) {
     throw new Error(`NativeResourceView(${view.resource}): type="gallery" needs a gallery block: the view's gallery.image, or gallery={{ image }}`);
   }
+  if (inbox && !view.definition.inbox) {
+    throw new Error(`NativeResourceView(${view.resource}): type="inbox" needs the view's inbox block (which field is the title, the time, unread)`);
+  }
   void _zone;
-  const state = useNativeResourceView<T>(view, options);
+  const state = useNativeResourceView<T>(view, { ...options, listFilters: list.filters, enabled: !board && !calendar });
+  // The view's own actions, run through the provider (or the screen's `onAction`) after their confirm.
+  const provider = useDataProvider();
+  const queryClient = useQueryClient();
+  const viewer = useViewer();
+  const runAction = useCallback(
+    async (name: string, row: T) => {
+      if (onAction) await onAction(name, row);
+      else if (provider.runAction) await provider.runAction(view.resource, { id: recordKey(view as AnyResourceView<Row>, row), action: name });
+      await queryClient.invalidateQueries({ queryKey: resourceKeys(view.resource).all });
+    },
+    [onAction, provider, view, queryClient],
+  );
+  const actionsOn = !!onAction || !!provider.runAction;
+  const cancelWord = useNativeResourceViewMessages().common.cancel;
+  const confirmAction = useCallback(
+    (name: string, row: T) => {
+      const action = view.actions().find((a) => a.name === name);
+      const run = () => void runAction(name, row).catch((error: unknown) => Alert.alert(action?.label ?? name, error instanceof Error ? error.message : String(error)));
+      if (action?.confirm) Alert.alert(action.confirm, undefined, [{ text: cancelWord, style: "cancel" }, { text: action.label, style: action.destructive ? "destructive" : "default", onPress: run }]);
+      else run();
+    },
+    [view, runAction, cancelWord],
+  );
+  // Opening an unread inbox row runs the view's markRead action, when it declares one and allows it.
+  const markRead = view.inboxActions().markRead;
   const keyExtractor = useCallback((row: T) => recordKey(view as AnyResourceView<Row>, row), [view]);
   const messages = useNativeResourceViewMessages();
   const colors = useThemeRoles();
@@ -526,7 +594,10 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     setPeekId(null);
     setSheet({ mode: "edit", row });
   }, []);
-  const handlers = useMemo(() => ({ onEdit: edit, onDelete: confirmDelete, onRefused: refused }), [edit, confirmDelete, refused]);
+  const handlers = useMemo(
+    () => ({ onEdit: edit, onDelete: confirmDelete, onRefused: refused, ...(actionsOn ? { onAction: confirmAction } : {}) }),
+    [edit, confirmDelete, refused, actionsOn, confirmAction],
+  );
 
   // The screen's handler through a ref, so an inline `onRowPress` doesn't redraw every row.
   const rowPress = useRef(onRowPress);
@@ -615,7 +686,8 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     else if (typeof state.canCreate === "string") refused(fill(messages.common.create, { noun: view.noun }), state.canCreate);
   };
 
-  const showSearch = searchable ?? !!(options.searchFields?.length || view.labelField);
+  // A board and a calendar read the segment and filters, not the search box.
+  const showSearch = !board && !calendar && (searchable ?? !!(options.searchFields?.length || view.labelField));
   const heading = title === false ? null : (title ?? view.title);
   const hasRows = state.rows.length > 0;
 
@@ -667,6 +739,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
           onDismiss={state.dismissRefusal}
         />
       ) : null}
+      <NativeListControls view={view as AnyResourceView<Row>} state={list} baseFilters={state.baseFilters} types={switcherOn ? switchTypes : []} testID={testID} />
       {header}
       {state.loadingPrevious ? (
         <NativeLoadingState fullScreen={false} size="small" label={messages.list.loadingMore} testID={`${testID}-previous`} />
@@ -742,7 +815,18 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
 
   return (
     <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
-      {inbox ? (
+      {board ? (
+        <NativeResourceBoard
+          view={view as AnyResourceView<Row>}
+          filters={[...state.baseFilters, ...list.filters]}
+          {...(options.can ? { can: options.can as never } : {})}
+          onOpen={(row) => press(row as T)}
+          header={listHeader}
+          testID={testID}
+        />
+      ) : calendar ? (
+        <NativeResourceCalendar view={view as AnyResourceView<Row>} filters={[...state.baseFilters, ...list.filters]} onOpen={(row) => press(row as T)} header={listHeader} testID={testID} />
+      ) : inbox ? (
         <InboxPage
           testID={`${testID}-inbox`}
           items={state.rows.map((row) => {
@@ -754,7 +838,10 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
               ...(r.preview ? { preview: r.preview } : {}),
               ...(r.time ? { timestamp: r.time } : {}),
               ...(r.from || r.badge ? { meta: [r.from, r.badge?.label].filter(Boolean).join(" · ") } : {}),
-              onPress: () => press(row),
+              onPress: () => {
+                if (r.unread && markRead && view.canAction(markRead, row as never, viewer) === true) void runAction(markRead, row).catch(() => undefined);
+                press(row);
+              },
               // The view's swipe actions (edit, delete, its own), as the list's rows have them.
               swipeActions: actionsFor(row, handlers).map((a) => ({ id: a.id, label: a.label, onPress: a.onPress, ...(a.destructive ? { destructive: true } : {}) })),
             };
