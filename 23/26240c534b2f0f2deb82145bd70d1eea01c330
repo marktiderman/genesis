@@ -1,0 +1,19 @@
+packages/support/src/web-chat/messenger.tsx
+  s_5cf92f35ac2d0a::t_36b50237c10ce7 564
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2326240c534b2f0f2deb82145bd70d1eea01c330",
+  "prompts": {},
+  "sessions": {
+    "s_5cf92f35ac2d0a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "63f176d9-9b0f-4f51-bb21-a1ffbd02cc4c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
