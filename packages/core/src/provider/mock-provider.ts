@@ -3,6 +3,7 @@ import type {
   ListParams,
   FilterParam,
 } from "./types";
+import { toAggregateValues } from "./aggregate";
 
 // ---------------------------------------------------------------------------
 // Mock DataProvider — operates on in-memory arrays, deep-cloned on creation
@@ -153,6 +154,11 @@ export function createMockProvider(
       const table = getTable(_resource);
       const result = applyListParams(table, params);
       return withDelay(result) as never;
+    },
+
+    async aggregate(_resource, params) {
+      const { data } = applyListParams(getTable(_resource), { filters: params.filters, search: params.search });
+      return withDelay({ values: toAggregateValues(data, params.metrics) });
     },
 
     async getOne(_resource, params) {

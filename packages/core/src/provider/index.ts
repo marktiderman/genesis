@@ -32,7 +32,18 @@ export type {
   InvalidationKey,
   ResourceChangeEvent,
   SubscribeParams,
+  AggregateMetric,
+  AggregateParams,
+  AggregateResult,
 } from "./types";
+
+// Totals over a list: a provider's own `aggregate`, or worked out from its reads (ADR 0023).
+export {
+  aggregateProblems,
+  resolveAggregate,
+  toAggregateValues,
+  type ResolveAggregateOptions,
+} from "./aggregate";
 
 // Write outcomes — also exported from `@marktiderman/genesis-core/schema`.
 export {

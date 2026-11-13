@@ -154,6 +154,8 @@ export function resourceKeys(resource: string) {
     detailsOf: (id: Identifier | null | undefined) => [resource, "detail", id] as const,
     detail: (id: Identifier | null | undefined, select?: string) => [resource, "detail", id, select] as const,
     infinite: (params: unknown) => [resource, "infinite", params] as const,
+    /** Totals over a list (`useAggregate`): any write to the resource makes them stale. */
+    aggregate: (params: unknown) => [resource, "aggregate", params] as const,
   };
 }
 
