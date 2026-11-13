@@ -32,6 +32,8 @@ export interface ResourceColumnDef<T> {
   minWidth?: number | undefined;
   /** Whether the column shows before the user picks columns. Default true. */
   defaultVisible?: boolean | undefined;
+  /** How much the column matters in a row (`DataTable`'s `emphasis`). */
+  emphasis?: DataTableColumn<T>["emphasis"];
   render?: ((
     item: T,
     value: unknown,
@@ -69,6 +71,12 @@ export interface UseResourcePageProps<T> {
    * a table on desktops); only an explicit pick is persisted.
    */
   defaultView?: ViewModeDefault;
+  /**
+   * The view mode, held by the caller (a view-type switcher, say): the stored pick is neither
+   * read nor written while it's set. `onViewModeChange` hears a change.
+   */
+  viewMode?: ViewMode | undefined;
+  onViewModeChange?: ((mode: ViewMode) => void) | undefined;
   /**
    * Where the table/cards/list choice is remembered. Default: `resource`,
    * else one key shared by every keyless page — so pages without a
@@ -300,12 +308,22 @@ export function useResourcePage<T = Record<string, unknown>>(
     viewKey,
     tree: treeProp,
     getKey: getKeyProp,
+    viewMode: viewModeProp,
+    onViewModeChange,
   } = props;
 
   // -- View mode --
-  const [viewMode, setViewMode] = useViewPreference(
+  const [storedViewMode, setStoredViewMode] = useViewPreference(
     viewKey ?? resource ?? "resource-page",
     defaultView,
+  );
+  const viewMode = viewModeProp ?? storedViewMode;
+  const setViewMode = useCallback(
+    (mode: ViewMode) => {
+      if (viewModeProp === undefined) setStoredViewMode(mode);
+      onViewModeChange?.(mode);
+    },
+    [viewModeProp, setStoredViewMode, onViewModeChange],
   );
 
   // -- Derive initial values from initialFilters --
@@ -514,6 +532,7 @@ export function useResourcePage<T = Record<string, unknown>>(
         header: col.header ?? titleCase(col.key),
         sortable: col.sortable ?? true,
         hideBelow: col.hideBelow,
+        ...(col.emphasis ? { emphasis: col.emphasis } : {}),
         width: col.width,
         minWidth: col.minWidth,
         defaultVisible: col.defaultVisible,

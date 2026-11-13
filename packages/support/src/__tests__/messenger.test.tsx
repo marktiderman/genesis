@@ -632,6 +632,6 @@ describe("the block", () => {
   it("brings the help center's migration, after support and its chat", () => {
     const block = defineSupportHelpdeskBlock();
     expect(block.requires).toEqual(["support-feedback", "support-chat"]);
-    expect(block.contributes?.migrations?.map((m) => m.file)).toEqual(["migrations/0010_genesis_support_help_center.sql"]);
+    expect(block.contributes?.migrations?.map((m) => m.file)).toEqual(["migrations/0010_genesis_support_help_center.sql", "migrations/0012_genesis_support_help_answers.sql"]);
   });
 });

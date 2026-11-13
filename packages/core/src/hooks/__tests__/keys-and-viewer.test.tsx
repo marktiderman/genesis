@@ -299,6 +299,35 @@ describe("ViewerScope", () => {
     expect(same.client.getQueryData(["whoami"])).toBe("ann (restored)");
   });
 
+  it("a ViewerScope nested in one for the same viewer keeps the cache; one for another viewer empties it", async () => {
+    const { client, wrap } = setup();
+    function Inner({ viewer }: { viewer: string }) {
+      const [show, setShow] = useState(false);
+      return show ? (
+        <ViewerScope viewer={viewer} scope={{ spaceId: "s1" }}>
+          <p>inner {viewer}</p>
+        </ViewerScope>
+      ) : (
+        <button onClick={() => setShow(true)}>open {viewer}</button>
+      );
+    }
+    render(wrap(<ViewerScope viewer="ann"><Inner viewer="ann" /></ViewerScope>));
+    await screen.findByText("open ann");
+    client.setQueryData(["loaded"], "ann's rows");
+    act(() => screen.getByText("open ann").click());
+    await screen.findByText("inner ann");
+    expect(client.getQueryData(["loaded"])).toBe("ann's rows");
+    cleanup();
+
+    const other = setup();
+    render(other.wrap(<ViewerScope viewer="ann"><Inner viewer="bob" /></ViewerScope>));
+    await screen.findByText("open bob");
+    other.client.setQueryData(["loaded"], "ann's rows");
+    act(() => screen.getByText("open bob").click());
+    await screen.findByText("inner bob");
+    expect(other.client.getQueryData(["loaded"])).toBeUndefined();
+  });
+
   it("passes the viewer and scope down, and a new scope re-renders readers without remounting them", async () => {
     const { wrap } = setup();
     const mounts: string[] = [];

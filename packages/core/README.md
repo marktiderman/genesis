@@ -120,8 +120,9 @@ createSupabaseProvider(supabase, {
   resources: {
     // A view joining tasks to people and counting comments.
     tasks: { source: "tasks_with_people" },
-    // A function returning rows; args are read on every request.
-    course_progress: { source: { rpc: "group_progress", args: () => ({ group_id: currentGroupId() }) } },
+    // A function returning rows; args are read on every request, from the list's filters (which
+    // carry the viewer's scope): take() reads one and keeps it out of the query.
+    course_progress: { source: { rpc: "group_progress", args: ({ take }) => ({ group_id: take("group_id") }) } },
     // Embedded joins as the default columns (a caller's `select` still wins).
     sessions: { select: "*, client:people(full_name)" },
   },

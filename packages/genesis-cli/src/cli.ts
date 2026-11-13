@@ -16,6 +16,7 @@
  *   npx @marktiderman/genesis-cli migrate [--dry-run] [--forward]
  *   npx @marktiderman/genesis-cli upgrade [--version <v>] [--dry-run] [--pr]
  *   npx @marktiderman/genesis-cli figma:routes [--json] [--strict]
+ *   npx @marktiderman/genesis-cli client init [--folder <dir>] [--type <name>] [--force]
  */
 import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
@@ -458,6 +459,47 @@ upstream
     const own = register.problems.filter((p) => p.startsWith(`${id}:`) || p.startsWith(`${id} `));
     if (own.length) return program.error(`Fix the entry first:\n${own.map((p) => `  ${p}`).join("\n")}`);
     console.log(`Open this to file it (check it names no app or customer; Genesis is public), then set its status to proposed:\n${exportIssueUrl(entry)}`);
+  });
+
+const client = program.command("client").description("The app's client layer: its own layer over Genesis (ADR 0020)");
+
+client
+  .command("init")
+  .description("Start the app's client layer: the provider and defaults, its ResourceView wrapper, and a folder per record type")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--folder <folder>", "The layer's folder (default: genesis.config.json's client.dir, else src/client)")
+  .option("--type <name>", "A record type to start: <folder>/<type>/view.ts and appearance.tsx")
+  .option("--force", "Overwrite files that already exist", false)
+  .action(async (opts: { dir: string; folder?: string; type?: string; force: boolean }) => {
+    const { planClientInit } = await import("./client/init.js");
+    const { readGenesisConfig } = await import("./doctor/config.js");
+    const root = path.resolve(opts.dir);
+    const configured = readGenesisConfig(root);
+    const folder = opts.folder ?? configured?.client?.dir;
+    let plan;
+    try {
+      plan = planClientInit({ ...(folder ? { dir: folder } : {}), ...(opts.type ? { type: opts.type } : {}) });
+    } catch (err) {
+      return program.error((err as Error).message);
+    }
+    for (const file of plan.files) {
+      const target = path.join(root, file.path);
+      if (existsSync(target) && !opts.force) {
+        console.log(`· ${file.path} (kept)`);
+        continue;
+      }
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      await fs.writeFile(target, file.content);
+      console.log(`✔ ${file.path}`);
+    }
+    // A folder other than the default is named in genesis.config.json, so the doctor finds it.
+    if (opts.folder && opts.folder !== "src/client" && configured?.client?.dir !== plan.dir) {
+      const configPath = path.join(root, "genesis.config.json");
+      const raw = configured?.raw ?? {};
+      await fs.writeFile(configPath, `${JSON.stringify({ ...raw, client: { dir: plan.dir } }, null, 2)}\n`);
+      console.log("✔ genesis.config.json (client.dir)");
+    }
+    for (const step of plan.steps) console.log(`→ ${step}`);
   });
 
 const studio = program.command("studio").description("The Genesis Data Studio");

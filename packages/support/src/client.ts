@@ -223,6 +223,8 @@ export interface SupportClient extends FeedbackSink {
   agentTicket?(id: string, options?: { tenantId?: string | null }): Promise<AgentTicket | null>;
   /** Agents: how many tickets each queue holds. Needs migration 0009. */
   agentTicketCounts?(options?: { tenantId?: string | null }): Promise<AgentTicketCounts>;
+  /** Agents: how many open tickets hold a requester's message no agent has read (a badge). Needs migration 0011. */
+  agentUnreadCount?(options?: { tenantId?: string | null }): Promise<number>;
   /** A help center's collections, in their order (migration 0010). Null is the app's own tenant; left out, the client's `tenantId`, else the app's own. The same for every help center call. */
   helpCollections?(options?: { tenantId?: string | null }): Promise<HelpCollection[]>;
   /** Its articles, without their bodies. `includeDrafts` is for an agent's list; others get published ones either way. */
@@ -699,6 +701,9 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       const rows = must<Row[]>("agentTicketCounts", await supabase.rpc("support_agent_ticket_counts", { tenant: tenantId }));
       const count = (view: TicketInboxView) => Number((rows ?? []).find((r) => r["inbox_view"] === view)?.["tickets"] ?? 0);
       return { mine: count("mine"), unassigned: count("unassigned"), all: count("all") };
+    },
+    async agentUnreadCount({ tenantId = null } = {}) {
+      return Number(must<number>("agentUnreadCount", await supabase.rpc("support_agent_unread_count", { tenant: tenantId })) ?? 0);
     },
 
     currentTenant: () => scope(undefined),

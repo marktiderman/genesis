@@ -123,6 +123,8 @@
     "WorkspaceSwitcher"
   ],
   "notYet": [
-    "DocumentPage"
+    "DocumentPage",
+    "RowContextMenuItems",
+    "RowMenuButton"
   ]
 }

@@ -62,3 +62,36 @@ export function groupRows<Row extends DataRow>(
   }
   return [...groups.values()].map((g) => Object.freeze({ ...g, rows: Object.freeze(g.rows) }));
 }
+
+/**
+ * The view's `totals` over some rows (a group's, or every loaded row for a footer): per field, its
+ * sum, average, lowest, highest or count, `null` when no row has a number. Fields the view names
+ * no total for are left out.
+ *
+ * ```ts
+ * groupTotals(tasksView, group.rows); // { estimate_hours: 12.5 }
+ * ```
+ *
+ * @stability Beta
+ */
+export function groupTotals<Row extends DataRow>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
+  view: ResourceView<ResourceContract<any>, Row>,
+  rows: readonly Row[],
+): Readonly<Record<string, number | null>> {
+  const out: Record<string, number | null> = {};
+  for (const [field, fn] of Object.entries((view.definition.totals ?? {}) as Readonly<Record<string, string>>)) {
+    if (fn === "count") {
+      out[field] = rows.filter((r) => !isEmpty(r[field])).length;
+      continue;
+    }
+    const numbers = rows.map((r) => (isEmpty(r[field]) ? NaN : Number(r[field]))).filter((n) => Number.isFinite(n));
+    if (!numbers.length) {
+      out[field] = null;
+      continue;
+    }
+    const sum = numbers.reduce((a, b) => a + b, 0);
+    out[field] = fn === "sum" ? sum : fn === "avg" ? sum / numbers.length : fn === "min" ? Math.min(...numbers) : Math.max(...numbers);
+  }
+  return Object.freeze(out);
+}

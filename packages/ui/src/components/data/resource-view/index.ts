@@ -60,3 +60,13 @@ export {
 } from "./view-types";
 export { RecordPeek, type RecordPeekProps } from "./RecordPeek";
 export { detailMode, recordOpen, type DetailMode } from "./open-modes";
+// What a view declares for its lists (ADR 0017): its segments, declared filters and the
+// view-type switcher, as parts an app's own list or a custom view type can draw too.
+export {
+  ViewFilterControls,
+  ViewSegments,
+  ViewTypeSwitcher,
+  useViewListState,
+  type ViewListStateOptions,
+  type ViewListStateResult,
+} from "./list-controls";

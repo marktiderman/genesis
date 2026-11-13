@@ -713,6 +713,30 @@
           "use": "TierBadge with tone set to a key of the brand's accents",
           "import": "@marktiderman/genesis-ui",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "segments, filters, row and bulk actions, saved views or a type switcher on a list",
+          "use": "declare them on the view (defineView's segments, filters, actions with bulk, types) and render <ResourceView>; give ResourceViewDefaultsProvider the app's savedViews store, router urlState and rowActions once",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0017-lists-vnext.md"
+        },
+        {
+          "need": "group headers, totals, a row's tone or a column's emphasis on a list",
+          "use": "the view's groupBy, totals, rowTone and fields' emphasis, drawn by <ResourceView>; DataTable's groups, footer and rowTone for rows that aren't one view's",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md"
+        },
+        {
+          "need": "a CSV export of a list",
+          "use": "the view's export, which <ResourceView> offers as Export CSV (core's exportCsv underneath); ResourcePage's onExport for an export of the screen's own",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md"
+        },
+        {
+          "need": "the app's own layer over Genesis: list defaults, its ResourceView wrapper, one view per resource",
+          "use": "the client layer in src/client/ (genesis client init; genesis.config.json client.dir); screens render its ResourceView",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0020-client-layer.md"
         }
       ]
     }

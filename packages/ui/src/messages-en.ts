@@ -124,6 +124,12 @@ export const uiMessages = {
     range: "Showing {from}–{to} of {total}",
     /** `{page}` / `{pages}`. */
     pageOf: "{page} / {pages}",
+    /** A group's count when only some of its rows are loaded (server paging). `{count}`: rows loaded. */
+    groupCountLoaded: "{count} loaded",
+    /** The row menu's button. `{name}`: the row's label. */
+    rowActions: "Actions for {name}",
+    /** The footer row's label for a list's totals. */
+    totals: "Total",
   },
   confirmDelete: {
     title: "Delete this record?",
@@ -150,13 +156,50 @@ export const uiMessages = {
     clearAll: "Clear all",
     saveViewTitle: "Save Current View",
     viewNamePlaceholder: "View name (e.g. 'Active Sessions')",
+    /** The declared filters' button and sheet title (ADR 0017). */
+    filters: "Filters",
+    /** A range filter's ends. */
+    from: "From",
+    to: "To",
+    /** The segments' accessible name. */
+    segments: "Segments",
+    /** `{label}`: a segment's label; `{count}`: its rows. */
+    segmentCount: "{label}, {count}",
+    /** Saved view scopes. */
+    personal: "Only me",
+    team: "My team",
+    /** Shown when the saved-view store can't be reached. */
+    viewsFailed: "Saved views couldn't be loaded.",
   },
   bulk: {
     /** `{count}`: selected rows. */
     selected: "{count} selected",
+    /** After a full page is selected. `{total}`: every row the list's filters match. */
+    selectAllMatching: "Select all {total} matching",
+    /** Every matching row is selected. `{total}`: their count. */
+    allMatching: "All {total} matching selected",
+    /** A bulk action that takes ids only, with every matching row selected. `{count}`: the rows loaded. */
+    loadedOnly: "Runs on the {count} loaded rows",
+    /** A bulk action finished. `{done}`: rows changed; `{label}`: the action. */
+    done: "{label}: {done} done",
+    /** Rows a bulk action skipped. `{count}`: how many; `{reason}`: the first refusal's words. */
+    skipped: "{count} skipped: {reason}",
+    /** A bulk action no selected row allows. `{reason}`: the refusal. */
+    noneAllowed: "None of the selected rows allows this: {reason}",
+  },
+  /** CSV export from a list (ADR 0017 §8). */
+  export: {
+    action: "Export CSV",
+    /** `{rows}`: rows written. */
+    done: "Exported {rows} rows",
+    /** `{rows}`: rows written before the cap. */
+    truncated: "Exported the first {rows} rows; narrow the list to export the rest",
+    failed: "The export didn't finish",
   },
   view: {
     mode: "View mode",
+    /** The view-type switcher's accessible name (ADR 0017). */
+    type: "View type",
     grid: "Grid view",
     table: "Table view",
     list: "List view",

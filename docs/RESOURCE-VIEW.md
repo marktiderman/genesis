@@ -186,7 +186,8 @@ export const brandsView = defineView(contracts["public.brands"], {
   column list) and **row actions** (`actions`, shaped like the resource's) are part of the view.
 - **Presets carry filters as well as columns.** `presets: { short: { filter: { term: "short" }, columns: "compact" } }` (a column preset by name) show as tabs (team or private, short- or long-term, this quarter).
 - **Grouping:** `groupBy: "owner_id"`. NativeResourceView shows the groups as sections, sorted on
-  the server. On the web, group headers with counts are **Planned** ([`resource-view-shaping`](../features.ts)).
+  the server. On the web, the table, grid and list draw a header per group with its count, its
+  totals and a toggle to close it ([Lists](#lists-what-a-view-declares)).
 - **Empty values in a sort:** `orderBy: { field: "rating", direction: "desc", nulls: "last" }` keeps rows
   with no value below the rated ones; unset, the store decides, and Postgres puts them first on a
   descending sort. Each of a screen's own sort options in the filters slot takes the same `nulls`,
@@ -194,8 +195,8 @@ export const brandsView = defineView(contracts["public.brands"], {
 - **Order:** `orderBy: { field: "rank", direction: "asc" }` is the default sort. Drag to reorder
   with `manual: true` (keyboard pick-up, the Move menu, the rank written through the provider) is
   **Planned** ([`resource-view-shaping`](../features.ts)): today `manual` is accepted and ignored.
-- **Footer totals** (a figure such as a week's completion %), overall and per group for
-  assessment-style lists: **Planned** ([`resource-view-shaping`](../features.ts)).
+- **Totals:** `totals: { hours: "sum" }` (`sum`, `avg`, `min`, `max`, `count`) shows in each
+  group's header and the table's footer, over the rows loaded ([Lists](#lists-what-a-view-declares)).
 - **Dates are days or instants, never confused.** The `date` hint formats a calendar day
   (`YYYY-MM-DD`) from its parts, never `new Date(day)`. A timestamp renders on the viewer's clock
   with `genesis-core/dates` (`wallClock(personTimeZone(viewer), at)`). `timeZone: "scope"` renders it
@@ -1054,6 +1055,71 @@ export const brandRecordView = defineRecordView(brandsView, {
 - **Saving** sends only the section's changed, listed, visible keys. A save that matches no rows
   is a refusal, shown inline; a number field never saves NaN.
 
+## Lists: what a view declares
+
+<!-- api: ViewDefinition<any>, ResourceViewProps, ViewSegment<any>, ViewField<any>, ViewExport<any> -->
+
+A list's behaviour is declared on its view (ADR 0017), so every screen of the resource gets it
+with no screen code, and a screen's own props still win.
+
+```ts
+import { defineView } from "@marktiderman/genesis-core/resource-view";
+
+export const tasksView = defineView(tasksContract, {
+  fields: { title: { emphasis: "title" }, hours: { emphasis: "secondary", hideBelow: "md", width: 96 } },
+  segments: [
+    { id: "open", label: "Open", where: { status: ["todo", "doing"] }, count: true },
+    { id: "mine", label: "Mine", where: (viewer) => ({ owner_id: viewer.id }) },
+    { id: "all", label: "All" },
+  ],
+  filters: [{ field: "status" }, { field: "hours" }],
+  actions: [{ name: "finish", label: "Finish", bulk: true, can: (t) => (t.status === "done" ? "It's already done." : true) }],
+  groupBy: "status",
+  totals: { hours: "sum" },
+  rowTone: (t) => (t.overdue ? "danger" : undefined),
+  export: true,
+});
+```
+
+- **Segments** are named tabs over the list, each with its own filter (`where`, or a function of
+  the viewer) and, with `count: true`, a count from the provider. They sit above the search row;
+  the first is the default.
+- **Filters** name the fields a person narrows the list by. A field with choices gets a
+  multi-select, a date or number a range, a text field "contains". Every value goes to the server
+  (`view.filterParams`), never to loaded rows, and only declared filters are read from the URL.
+- **The URL.** Register the router's adapter once (`ResourceViewDefaultsProvider urlState`) and
+  every page list keeps its segment (`seg`), filters (`f.<field>`), search, sort and page in it. A
+  screen's `urlState={false}` keeps a list out; an embedded list passes `urlState` to join.
+- **Row actions.** With `rowActions` (on the screen, or app-wide on the provider for this minor), each
+  table row gets a "More" menu and the same on right-click: edit, the view's actions, delete. A
+  refused one stays, disabled, with the guard's sentence under it; `refusals: "hide"` leaves it out.
+  An action runs through the provider's `runAction`, or the screen's `onAction`.
+- **Bulk actions.** An action with `bulk` joins the bulk bar (and a view that has one deletes many
+  too). It runs per selected row through the provider, skipping and naming the rows its guard
+  refuses, or once through its own `run`. Shift-click selects a range. With `bulk.matching` and a
+  `run` that takes the list's filters, the bar offers "Select all matching" past the loaded page.
+- **Saved views.** Give the provider a `SavedViewStore` (`savedViews`): page lists offer Views
+  (save, load, delete), each holding the segment, filters, search, sort, columns, view type and
+  grouping, stamped with the view's `version`; an older one applies as far as it still fits
+  (`applicableListState`). `createLocalSavedViewStore()` keeps them on the device; an app's store
+  over its own table shares them.
+- **The type switcher.** A page list whose view supports more than table, list and grid (a board,
+  a calendar, a gallery, a registered type, or `types`) shows one switcher in its header, and each
+  person's choice goes through the same store. A screen that sets `type` opens fixed there.
+- **Grouping and totals** draw in the table (a header row per group, with a toggle to close it, and
+  a totals footer), and in the grid and list (a header per group). Rows sort by the group first.
+- **Tone and emphasis.** `rowTone(row)` gives a row a leading bar and a tint from the status
+  tokens; a field's `emphasis` (`title`, `secondary`, `muted`) sets how strongly its column reads.
+- **Column hints.** A field's `sortable: false`, `hideBelow` and `width` reach the table.
+- **Export.** With `export`, the header's menu offers "Export CSV": every row the list matches,
+  paged through the provider by core's `exportCsv` (formula-safe), with values in words unless the
+  export block's `raw` says otherwise, up to its `maxRows`.
+- **Rows the screen holds.** `rows` draws rows the screen already read, searched, sorted and paged
+  in the browser, with nothing fetched; writes stay the screen's.
+
+Planned with the same ADR: these on the phone, link filters with a picker, cards from parts and
+detail routes, **Planned** ([`resource-view-sheet`](../features.ts)) for export jobs and sheet mode.
+
 ## View types
 
 <!-- api: ViewTypeDefinition, ResourceViewProps -->
@@ -1067,6 +1133,8 @@ any of them, picked by the screen with `type` (`mode` is its older alias, and `t
 | `board` | a column per value of the view's `board` field ([Board](#board)) |
 | `calendar` | the rows placed by a date field ([Calendar](#calendar)) |
 | `gallery` | a photo per row, from the view's `gallery` block ([Gallery](#gallery)); `type="grid"` with a gallery block still draws it too |
+
+A view's `types` lists the ones a person may switch between ([Lists](#lists-what-a-view-declares)).
 
 An app adds its own, and every screen picks it the same way:
 

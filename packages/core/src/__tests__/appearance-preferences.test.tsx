@@ -99,8 +99,95 @@ describe("AppearancePreferencesProvider", () => {
     await waitFor(() => expect(screen.getByTestId("ready").textContent).toBe("true"));
     act(() => screen.getByText("dark").click());
     expect(screen.getByTestId("appearance").textContent).toBe("dark:person");
-    await waitFor(() => expect(write).toHaveBeenCalledWith({ appearance: "dark" }));
+    await waitFor(() => expect(write).toHaveBeenCalledWith({ appearance: "dark" }, { previous: null }));
     expect(JSON.parse(localStorage.getItem("genesis-appearance")!)).toEqual({ appearance: "dark" });
+  });
+
+  it("copies a successful read onto the device, for the next visit's first paint", async () => {
+    const preferences = defineAppearancePreferences({ store: { read: async () => ({ density: "compact" }), write: vi.fn() } });
+    render(
+      <AppearancePreferencesProvider preferences={preferences}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("ready").textContent).toBe("true"));
+    expect(JSON.parse(localStorage.getItem("genesis-appearance")!)).toEqual({ density: "compact" });
+  });
+
+  it("keeps a choice made while the store's read was still in flight", async () => {
+    let answer: (values: AppearancePreferenceValues) => void = () => undefined;
+    const read = () => new Promise<AppearancePreferenceValues>((resolve) => (answer = resolve));
+    const write = vi.fn();
+    const preferences = defineAppearancePreferences({ store: { read, write } });
+    render(
+      <AppearancePreferencesProvider preferences={preferences}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    act(() => screen.getByText("dark").click());
+    await act(async () => {
+      // The read starts on the next tick; answer it once it's asked.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      answer({ appearance: "light" });
+    });
+    await waitFor(() => expect(screen.getByTestId("ready").textContent).toBe("true"));
+    expect(screen.getByTestId("appearance").textContent).toBe("dark:person");
+    // The write that was made from a choice taken before the read answered says what it replaces.
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(localStorage.getItem("genesis-appearance")!)).toEqual({ appearance: "dark" });
+  });
+
+  it("sends writes one at a time, skips one a newer write replaced, and passes what it replaces", async () => {
+    const calls: Array<[AppearancePreferenceValues, AppearancePreferenceValues | null]> = [];
+    let release: () => void = () => undefined;
+    const write = vi.fn((values: AppearancePreferenceValues, { previous }: { previous: AppearancePreferenceValues | null }) => {
+      calls.push([values, previous]);
+      if (calls.length === 1) return new Promise<void>((resolve) => (release = resolve));
+      return undefined;
+    });
+    function Three() {
+      const p = useAppearancePreferences();
+      return (
+        <div>
+          <span data-testid="ready">{String(p.ready)}</span>
+          <button onClick={() => p.setAppearance("dark")}>a</button>
+          <button onClick={() => p.setDensity("compact")}>b</button>
+          <button onClick={() => p.setDensity("spacious")}>c</button>
+        </div>
+      );
+    }
+    const preferences = defineAppearancePreferences({ store: { read: () => ({ appearance: "light" }), write } });
+    render(
+      <AppearancePreferencesProvider preferences={preferences}>
+        <Three />
+      </AppearancePreferencesProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("ready").textContent).toBe("true"));
+    act(() => screen.getByText("a").click());
+    act(() => screen.getByText("b").click());
+    act(() => screen.getByText("c").click());
+    await waitFor(() => expect(calls).toHaveLength(1));
+    await act(async () => release());
+    await waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls).toEqual([
+      [{ appearance: "dark" }, { appearance: "light" }],
+      [{ appearance: "dark", density: "spacious" }, { appearance: "dark" }],
+    ]);
+  });
+
+  it("tells onWriteError about a write the store refused, and keeps the device's copy", async () => {
+    const onWriteError = vi.fn();
+    const refusal = new Error("stale");
+    const preferences = defineAppearancePreferences({ store: { read: () => null, write: () => Promise.reject(refusal) }, onWriteError });
+    render(
+      <AppearancePreferencesProvider preferences={preferences}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("ready").textContent).toBe("true"));
+    act(() => screen.getByText("compact").click());
+    await waitFor(() => expect(onWriteError).toHaveBeenCalledWith(refusal, { density: "compact" }));
+    expect(JSON.parse(localStorage.getItem("genesis-appearance")!)).toEqual({ density: "compact" });
   });
 
   it("keeps a locked value whatever the person picks", () => {

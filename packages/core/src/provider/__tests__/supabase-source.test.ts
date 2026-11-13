@@ -104,6 +104,30 @@ describe("resource source", () => {
     expect(call("eq")).toEqual([["id", "p1"]]);
   });
 
+  it("gives a function's args the list's filters, and leaves out the ones it takes", async () => {
+    const p = provider({
+      resources: { progress: { source: { rpc: "group_progress", args: ({ take, filters }) => ({ group_id: take("group_id"), n: filters.length }) } } },
+    });
+    queue.push({ data: [], error: null, count: 0 });
+    await p.getList("progress", {
+      filters: [
+        { field: "group_id", operator: "eq", value: "g9" },
+        { field: "done", operator: "gt", value: 2 },
+      ],
+    });
+    expect(call("rpc")).toEqual([["group_progress", { group_id: "g9", n: 2 }, { count: "exact" }]]);
+    // The scope went in as an argument, so it isn't a column filter too.
+    expect(call("eq")).toEqual([]);
+    expect(call("gt")).toEqual([["done", 2]]);
+
+    // An aggregate reads through the same path.
+    calls = [];
+    queue.push({ data: [], error: null, count: 4 });
+    expect((await p.aggregate!("progress", { metrics: { n: { fn: "count" } }, filters: [{ field: "group_id", operator: "eq", value: "g1" }] })).values).toEqual({ n: 4 });
+    expect(call("rpc")[0]![1]).toEqual({ group_id: "g1", n: 1 });
+    expect(call("eq")).toEqual([]);
+  });
+
   it("uses the resource's default columns unless the caller names some", async () => {
     const p = provider({ resources: { tasks: { select: "*, person:people(full_name)" } } });
     queue.push({ data: [], error: null, count: 0 });

@@ -41,7 +41,7 @@ describe("ResourcePage getKey", () => {
     // [select-all, row 1, row 2]
     fireEvent.click(boxes[2]!);
     fireEvent.click(screen.getByTestId("export"));
-    expect(onAction).toHaveBeenCalledWith(['["c1","u2"]']);
+    expect(onAction).toHaveBeenCalledWith(['["c1","u2"]'], expect.objectContaining({ allMatching: false }));
   });
 
   it("passes `editable` through from a column definition to the table", () => {

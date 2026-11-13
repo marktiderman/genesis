@@ -99,6 +99,9 @@ export const BUILTIN_RULES = [
   "app-part-colors",
   "app-part-name",
   "custom-view-states",
+  // the app's client layer (client-layer.ts)
+  "client/layer",
+  "client/one-view-per-resource",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];

@@ -62,6 +62,7 @@ export {
   type SupabaseClientInput,
   type SupabaseProviderOptions,
   type SupabaseResourceConfig,
+  type SourceArgsContext,
   type SupabaseWriteContext,
   type SupabaseUpdateContext,
   type SupabaseRealtimeChannel,

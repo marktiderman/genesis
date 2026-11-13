@@ -15,7 +15,10 @@ export {
   type DataTableProps,
   type DataTableSort,
   type DataTableTree,
+  type DataTableGroups,
+  type DataTableRowTone,
 } from "./DataTable";
+export { RowMenuButton, RowContextMenuItems, type ResourceRowMenuItem } from "./RowMenu";
 export { TreeIndent, type TreeIndentProps } from "./TreeIndent";
 export { DataBulkBar, type BulkAction } from "./DataBulkBar";
 export { FilterCombobox, type FilterOption } from "./FilterCombobox";
@@ -47,6 +50,9 @@ export {
   type ResourcePageSlots,
   type ResourcePageSlotProps,
   type ResourceDeleteConfirmCopy,
+  type ResourceListQuery,
+  type ResourceBulkContext,
+  type ResourcePageRowMenuItem,
 } from "./ResourcePage";
 export { useResourceTable, type ResourceTableState } from "./use-resource-table";
 // A list screen from a genesis-core/resource-view view, mapped onto ResourcePage.

@@ -333,6 +333,8 @@ export function useResourceTableModel<
         : undefined),
     onFiltersChange,
     defaultView,
+    ...(props.viewMode !== undefined ? { viewMode: props.viewMode } : {}),
+    ...(props.onViewModeChange ? { onViewModeChange: props.onViewModeChange } : {}),
     // Each page remembers its own table/cards choice, under the same key as
     // its density and page size — not one key shared by every data page.
     viewKey: viewSettingsKey,
@@ -713,6 +715,7 @@ export function useResourceTableModel<
           header: col.header ?? col.key,
           sortable: col.sortable ?? true,
           hideBelow: col.hideBelow,
+          ...(col.emphasis ? { emphasis: col.emphasis } : {}),
           width: col.width,
           minWidth: col.minWidth,
           defaultVisible: col.defaultVisible,

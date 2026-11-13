@@ -44,8 +44,20 @@ import {
  */
 export interface AppearancePreferencesStore {
   read(): AppearancePreferenceValues | null | undefined | Promise<AppearancePreferenceValues | null | undefined>;
-  write(values: AppearancePreferenceValues): void | Promise<void>;
+  /**
+   * Save the person's values. Writes are sent one at a time, in order, and a write that a newer
+   * one replaces before it starts is skipped. `context.previous` is what the store last answered
+   * or accepted (null for nothing yet), so a store can write conditionally (compare and set) and
+   * refuse a write made from a stale copy by throwing: `onWriteError` hears it.
+   */
+  write(values: AppearancePreferenceValues, context: AppearanceWriteContext): void | Promise<void>;
   subscribe?(onChange: (values: AppearancePreferenceValues | null) => void): () => void;
+}
+
+/** What a store's `write` is told beside the values. @stability Beta */
+export interface AppearanceWriteContext {
+  /** The values the store last read or accepted; null when it has none yet. */
+  readonly previous: AppearancePreferenceValues | null;
 }
 
 /** What `defineAppearancePreferences` accepts. */
@@ -56,6 +68,12 @@ export interface AppearancePreferencesDefinition {
   storageKey?: string;
   /** Values the app fixes: nobody below can change them. */
   lock?: AppearancePreferenceValues;
+  /**
+   * Hears a store write that failed (offline, refused, a conditional write that lost), with the
+   * values it tried to save. The person's choice stays on this device either way. Default: the
+   * error goes to `reportError`.
+   */
+  onWriteError?: (error: unknown, values: AppearancePreferenceValues) => void;
 }
 
 /** A defined appearance-preferences setup. */
@@ -63,6 +81,7 @@ export interface AppearancePreferences {
   readonly store?: AppearancePreferencesStore;
   readonly storageKey: string;
   readonly lock: Readonly<AppearancePreferenceValues>;
+  readonly onWriteError?: (error: unknown, values: AppearancePreferenceValues) => void;
 }
 
 /**
@@ -90,9 +109,11 @@ export function defineAppearancePreferences(definition: AppearancePreferencesDef
     problems.push("store: an object with read() and write()");
   if (definition.storageKey !== undefined && (typeof definition.storageKey !== "string" || !definition.storageKey.trim()))
     problems.push("storageKey: a non-empty string");
+  if (definition.onWriteError !== undefined && typeof definition.onWriteError !== "function") problems.push("onWriteError: a function");
   if (problems.length) throw new Error(`defineAppearancePreferences: ${problems.join("; ")}`);
   return Object.freeze({
     ...(definition.store ? { store: definition.store } : {}),
+    ...(definition.onWriteError ? { onWriteError: definition.onWriteError } : {}),
     storageKey: definition.storageKey ?? "genesis-appearance",
     lock: Object.freeze(toAppearancePreferenceValues(lock)),
   });
@@ -137,6 +158,8 @@ export interface AppearancePreferencesProviderProps {
   organization?: AppearancePreferenceValues | undefined;
   /** The app theme's defaults. */
   theme?: AppearancePreferenceValues | undefined;
+  /** Hears a failed store write (wins over the definition's `onWriteError`). */
+  onWriteError?: ((error: unknown, values: AppearancePreferenceValues) => void) | undefined;
   children: ReactNode;
 }
 
@@ -149,23 +172,42 @@ const DEVICE_ONLY = defineAppearancePreferences();
  *
  * @stability Beta
  */
-export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organization, theme, children }: AppearancePreferencesProviderProps) {
+export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organization, theme, onWriteError, children }: AppearancePreferencesProviderProps) {
   const { store, storageKey, lock } = preferences;
   const [device, setDevice] = usePersistedUiState<AppearancePreferenceValues>(storageKey, NONE, FORMAT);
   const [stored, setStored] = useState<AppearancePreferenceValues | null | undefined>(undefined);
   const [ready, setReady] = useState(!store);
   const latestStore = useRef(store);
   latestStore.current = store;
+  // How many choices the person has made here: a read that started before the latest one is
+  // older than it, so it never overwrites the newer local choice.
+  const edits = useRef(0);
+  // What the store last answered or accepted, for a conditional write.
+  const confirmed = useRef<AppearancePreferenceValues | null>(null);
+  // One write at a time, in order; the newest waiting write replaces an older waiting one.
+  const queue = useRef<{ running: boolean; next: AppearancePreferenceValues | null }>({ running: false, next: null });
+  const deviceSetter = useRef(setDevice);
+  deviceSetter.current = setDevice;
+  const writeErrorHandler = useRef(onWriteError ?? preferences.onWriteError);
+  writeErrorHandler.current = onWriteError ?? preferences.onWriteError;
 
   useEffect(() => {
     if (!store) return;
     let active = true;
+    const startedAt = edits.current;
     Promise.resolve()
       .then(() => store.read())
       .then(
         (values) => {
           if (!active) return;
-          setStored(values ? toAppearancePreferenceValues(values) : null);
+          const read = values ? toAppearancePreferenceValues(values) : null;
+          confirmed.current = read;
+          // A choice made while the read was in flight is newer: it stays, and its write is on its way.
+          if (edits.current === startedAt) {
+            setStored(read);
+            // The device keeps a copy of what the store said, for the next visit's first paint.
+            if (read) deviceSetter.current(Object.keys(read).length ? read : undefined);
+          }
           setReady(true);
         },
         (error: unknown) => {
@@ -175,7 +217,11 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
         },
       );
     const unsubscribe = store.subscribe?.((values) => {
-      if (active) setStored(values ? toAppearancePreferenceValues(values) : null);
+      if (!active) return;
+      const next = values ? toAppearancePreferenceValues(values) : null;
+      confirmed.current = next;
+      setStored(next);
+      if (next) deviceSetter.current(Object.keys(next).length ? next : undefined);
     });
     return () => {
       active = false;
@@ -187,21 +233,43 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
   // when there is no store.
   const person = useMemo<AppearancePreferenceValues>(() => ({ ...device, ...(stored ?? {}) }), [device, stored]);
 
+  const drain = useCallback(async () => {
+    const q = queue.current;
+    if (q.running) return;
+    q.running = true;
+    try {
+      while (q.next) {
+        const values = q.next;
+        q.next = null;
+        const target = latestStore.current;
+        if (!target) break;
+        try {
+          await target.write(values, { previous: confirmed.current });
+          confirmed.current = values;
+        } catch (error: unknown) {
+          const handler = writeErrorHandler.current;
+          if (handler) handler(error, values);
+          else reportError(error, "core:appearance-preferences");
+        }
+      }
+    } finally {
+      q.running = false;
+    }
+  }, []);
+
   const save = useCallback(
     (patch: AppearancePreferenceValues) => {
+      edits.current += 1;
       // An undefined value in the patch clears that key: the spread sets it, and the check drops it.
       const next = toAppearancePreferenceValues({ ...person, ...patch });
       setDevice(Object.keys(next).length ? next : undefined);
       if (latestStore.current) {
         setStored(next);
-        void Promise.resolve()
-          .then(() => latestStore.current?.write(next))
-          .catch((error: unknown) => {
-            reportError(error, "core:appearance-preferences");
-          });
+        queue.current.next = next;
+        void drain();
       }
     },
-    [person, setDevice],
+    [person, setDevice, drain],
   );
 
   const value = useMemo<UseAppearancePreferencesReturn>(() => {

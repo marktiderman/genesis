@@ -46,6 +46,35 @@ interface DataGridProps<T> {
   onItemClick?: ((item: T) => void) | undefined;
   /** Accessible name for an activatable item, e.g. `Open ${item.name}`. Used with `onItemClick`. */
   getItemLabel?: ((item: T) => string) | undefined;
+  /**
+   * Cards and list rows under group headers (ADR 0017): the group an item is in. Items come in
+   * group order; a header goes wherever the group changes.
+   */
+  groupOf?: ((item: T) => { key: string; label: ReactNode }) | undefined;
+  /** What a group's header shows after its count (its totals). */
+  groupSummary?: ((items: T[]) => ReactNode) | undefined;
+}
+
+/** Consecutive runs of items by group, each with the index of its first item. */
+function runsOf<T>(items: T[], groupOf: (item: T) => { key: string; label: ReactNode }) {
+  const runs: { key: string; label: ReactNode; items: T[]; start: number }[] = [];
+  items.forEach((item, i) => {
+    const { key, label } = groupOf(item);
+    const last = runs[runs.length - 1];
+    if (last && last.key === key) last.items.push(item);
+    else runs.push({ key, label, items: [item], start: i });
+  });
+  return runs;
+}
+
+function GroupHeader({ label, count, summary }: { label: ReactNode; count: number; summary?: ReactNode }) {
+  return (
+    <div data-slot="grid-group" className="flex items-center gap-2 px-1 pt-2 text-sm font-medium">
+      <span className="truncate">{label}</span>
+      <span className="text-xs font-normal text-muted-foreground tabular-nums">{count}</span>
+      {summary ? <span className="ml-auto text-xs font-normal text-muted-foreground tabular-nums">{summary}</span> : null}
+    </div>
+  );
 }
 
 const NESTED_CONTROL =
@@ -94,6 +123,8 @@ export function DataGrid<T>({
   keyboardContainerRef,
   onItemClick,
   getItemLabel,
+  groupOf,
+  groupSummary,
 }: DataGridProps<T>) {
   const [visibleCount, setVisibleCount] = useState(batchSize);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -128,26 +159,41 @@ export function DataGrid<T>({
     const keyFnList =
       getKey ||
       ((item: T) => (item as Record<string, unknown>)["id"] as string);
+    const listRow = (item: T, i: number) => (
+      <div
+        key={keyFnList(item)}
+        data-nav-item
+        {...activation(item, onItemClick, getItemLabel)}
+        className={cn(
+          "px-4 py-3 transition-colors hover:bg-accent/50",
+          onItemClick && ACTIVATABLE,
+          focusedIndex === i &&
+            "ring-2 ring-inset ring-primary bg-accent/50",
+        )}
+      >
+        {renderListItem(item, i)}
+      </div>
+    );
+    if (groupOf) {
+      return (
+        <div ref={keyboardContainerRef} className="space-y-3">
+          {runsOf(items, groupOf).map((run) => (
+            <section key={run.key} data-group={run.key}>
+              <GroupHeader label={run.label} count={run.items.length} summary={groupSummary?.(run.items)} />
+              <div className="mt-1 divide-y divide-border rounded-lg border">
+                {run.items.map((item, j) => listRow(item, run.start + j))}
+              </div>
+            </section>
+          ))}
+        </div>
+      );
+    }
     return (
       <div
         ref={keyboardContainerRef}
         className="divide-y divide-border rounded-lg border"
       >
-        {items.map((item, i) => (
-          <div
-            key={keyFnList(item)}
-            data-nav-item
-            {...activation(item, onItemClick, getItemLabel)}
-            className={cn(
-              "px-4 py-3 transition-colors hover:bg-accent/50",
-              onItemClick && ACTIVATABLE,
-              focusedIndex === i &&
-                "ring-2 ring-inset ring-primary bg-accent/50",
-            )}
-          >
-            {renderListItem(item, i)}
-          </div>
-        ))}
+        {items.map((item, i) => listRow(item, i))}
       </div>
     );
   }
@@ -157,8 +203,42 @@ export function DataGrid<T>({
     getKey ||
     ((item: T) => (item as Record<string, unknown>)["id"] as string);
 
+  const card = (item: T, i: number) => (
+          <div
+            key={keyFn(item)}
+            data-nav-item
+            {...activation(item, onItemClick, getItemLabel)}
+            className={cn(
+              staggerAnimation && "animate-fade-in",
+              onItemClick && cn(ACTIVATABLE, "h-full rounded-xl"),
+              focusedIndex === i &&
+                "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-xl transition-shadow duration-150",
+            )}
+            style={
+              staggerAnimation
+                ? {
+                    animationDelay: `${(i % batchSize) * 30}ms`,
+                    animationFillMode: "both",
+                  }
+                : undefined
+            }
+          >
+            {renderCard(item, i)}
+          </div>
+  );
+
   return (
     <>
+      {groupOf ? (
+        <div ref={keyboardContainerRef} className="space-y-4">
+          {runsOf(visible, groupOf).map((run) => (
+            <section key={run.key} data-group={run.key}>
+              <GroupHeader label={run.label} count={run.items.length} summary={groupSummary?.(run.items)} />
+              <div className={`mt-2 grid ${gridCols} gap-4`}>{run.items.map((item, j) => card(item, run.start + j))}</div>
+            </section>
+          ))}
+        </div>
+      ) : (
       <div ref={keyboardContainerRef} className={`grid ${gridCols} gap-4`}>
         {visible.map((item, i) => (
           <div
@@ -184,6 +264,7 @@ export function DataGrid<T>({
           </div>
         ))}
       </div>
+      )}
       {visibleCount < items.length && (
         <div
           ref={sentinelRef}

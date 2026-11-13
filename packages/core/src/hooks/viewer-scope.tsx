@@ -140,9 +140,11 @@ export interface ViewerScopeProps {
   /** The signed-in viewer's id, null when signed out, undefined while the session loads. */
   viewer: string | null | undefined;
   /**
-   * The viewer a persisted cache was saved for. When the first known viewer
-   * is this one, the restored cache is kept; otherwise it's emptied. Inside a
-   * `GenesisProvider` with `persist`, it defaults to its `persistScope`'s user.
+   * The viewer whose session filled the cache before this scope mounted: a persisted cache
+   * restored for them, or a router's loaders that prefetched under their session. When the first
+   * known viewer is this one, the cache is kept; otherwise it's emptied. Inside a
+   * `GenesisProvider` with `persist`, it defaults to its `persistScope`'s user. A ViewerScope
+   * nested inside another for the same viewer always keeps it: the outer one already guards it.
    */
   persistedViewer?: string | null;
   /** Where the viewer is working (see `ResourceScope`). Changing it doesn't remount or clear anything. */
@@ -211,6 +213,9 @@ const reportedScopeZones = new Set<string>();
 export function ViewerScope({ viewer, persistedViewer: persistedViewerProp, scope, roles, timeZone, scopeTimeZone, fallback = null, children }: ViewerScopeProps) {
   const queryClient = useQueryClient();
   const restoredFor = useContext(PersistedViewerContext);
+  // An outer ViewerScope already emptied the cache for its viewer: a nested scope for the same
+  // viewer (a sub-area with its own scope or roles) keeps it.
+  const outer = useContext(ViewerContextValue);
   const persistedViewer = persistedViewerProp !== undefined ? persistedViewerProp : restoredFor;
   const zone = personTimeZone({ timeZone });
   // Memoised, and scopeClock reports a zone once, so a bad zone isn't reported on every render.
@@ -246,7 +251,8 @@ export function ViewerScope({ viewer, persistedViewer: persistedViewerProp, scop
   const [mounted, setMounted] = useState<{ viewer: string | null; epoch: number } | undefined>(undefined);
   if (viewer === undefined) return <>{fallback}</>;
   if (mounted === undefined || mounted.viewer !== viewer) {
-    const keep = mounted === undefined && persistedViewer !== undefined && persistedViewer === viewer;
+    const keep =
+      mounted === undefined && ((outer !== null && outer.viewer === viewer) || (persistedViewer !== undefined && persistedViewer === viewer));
     // Nothing for the new viewer is mounted yet, so emptying now can't strand
     // a fetch; the old viewer's screens unmount with this render.
     if (!keep) {

@@ -232,7 +232,7 @@ describe("the block", () => {
     expect(block.requires).toEqual(["account"]);
   });
 
-  it("contributes Send feedback and Help to Settings, its routes and migrations 0006, 0003 and 0004", () => {
+  it("contributes Send feedback and Help to Settings, its routes and migrations 0006, 0003, 0004 and 0011", () => {
     const resolved = resolveBlocks([defineSupportBlock({ basePath: "/settings/support" })], [SUPPORT_BLOCK_ID, "account"]);
     expect(resolved.settings.map((r) => [r.id, r.section, r.title, r.href])).toEqual([
       ["support-send-feedback", "support", "Send feedback", "/settings/support/new"],
@@ -251,6 +251,12 @@ describe("the block", () => {
         package: "@marktiderman/genesis-support",
         file: "migrations/0004_genesis_support_tickets.sql",
         test: "migrations/tests/0004_genesis_support_tickets.test.sql",
+        feature: SUPPORT_BLOCK_ID,
+      },
+      {
+        package: "@marktiderman/genesis-support",
+        file: "migrations/0011_genesis_support_ticket_fixes.sql",
+        test: "migrations/tests/0011_genesis_support_ticket_fixes.test.sql",
         feature: SUPPORT_BLOCK_ID,
       },
     ]);

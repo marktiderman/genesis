@@ -392,10 +392,24 @@ feature id, vote counts and read receipts are the server's. See the migration's 
   with support-chat is pushed as the marker's message. If it can't be posted, the status change
   still goes through without it.
 
+  Genesis sends no notification of its own for it. An app that notifies on new replies tells the
+  verify prompt apart by `support_replies.prompt = 'verify'`, never by the reply's words: the words
+  are a sentence an app may translate or change.
+
 It also replaces the reply trigger that `0002_genesis_support_email.sql` (support-email) replaces;
 its version keeps the email rules when that block is already installed. Adding support-email after
 it, handlers can't reply (their status changes still work, without the prompt) until 0003's
 `genesis_support_new_reply` is applied again.
+
+## Fixes to tickets (migration 0011) and to help answers (migration 0012)
+
+- 0011 (with the support block, after 0004): the Data Studio's audit log and outbox move from the
+  old table names to `public.tickets` and `public.ticket_attachments`, wherever those tables exist,
+  so a ticket's history reads on past the rename. `support_agent_unread_count(tenant)` is an
+  agent's count of open tickets with a requester's message no agent has read (`client.agentUnreadCount`),
+  for a badge without reading the queue.
+- 0012 (with support-helpdesk, after 0010): a question the safety protocol routes elsewhere, or one
+  asked before the person agreed, keeps no answer and no cited articles, as well as no words.
 
 ## Tickets and tenants (migration 0004)
 

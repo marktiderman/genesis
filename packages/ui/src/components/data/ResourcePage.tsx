@@ -3,6 +3,7 @@
 import { detailMode } from "./resource-view/open-modes";
 import {
   Fragment,
+  useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type ComponentProps,
   type ComponentType,
@@ -12,6 +13,7 @@ import type { LucideIcon } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import {
   AlertTriangle,
+  Download,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -32,6 +34,7 @@ import { DataTable, type DataTableSort } from "./DataTable";
 import { TreeIndent } from "./TreeIndent";
 import type { ResourceTree } from "@marktiderman/genesis-core/resource-view";
 import { DataBulkBar } from "./DataBulkBar";
+import { RowContextMenuItems, RowMenuButton, type ResourceRowMenuItem } from "./RowMenu";
 import { DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
 import { ResourceForm } from "./ResourceForm";
@@ -43,6 +46,7 @@ import {
 } from "../../slots";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewModeDefault } from "../../hooks/use-view-preference";
+import type { ViewMode } from "../patterns/view-toggle";
 // Types only: the behaviour lives in `useResourceTableModel`.
 import type {
   useResource,
@@ -75,6 +79,34 @@ import {
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
+
+/**
+ * The query a list is showing: its filters (segment, declared filters, scope), sort and search.
+ * What `onExport` and a bulk action's context receive.
+ *
+ * @stability Beta
+ */
+export interface ResourceListQuery {
+  filters: FilterParam[];
+  sorts: SortParam[];
+  search?: { query: string; fields: string[] } | undefined;
+  /** Rows the query matches, when counted. */
+  total?: number | undefined;
+}
+
+/**
+ * What a bulk action's `onAction` gets beside the selected ids.
+ *
+ * @stability Beta
+ */
+export interface ResourceBulkContext<T> {
+  /** The selected rows that are loaded. */
+  rows: T[];
+  /** Every row the list matches is selected ("Select all matching"), not only `ids`. */
+  allMatching: boolean;
+  /** The list's query, for an action that runs on every matching row. */
+  query: ResourceListQuery;
+}
 
 /**
  * What a user may do with a list's records, for ResourcePage's `can`.
@@ -640,7 +672,21 @@ export interface ResourcePageProps<
     label: string;
     icon?: LucideIcon | undefined;
     variant?: "default" | "destructive" | undefined;
-    onAction: (ids: string[]) => void | Promise<void>;
+    /**
+     * Runs on the selected ids. The second argument has the loaded rows, whether every matching
+     * row is selected, and the list's query (ADR 0017).
+     */
+    onAction: (ids: string[], context: ResourceBulkContext<T>) => void | Promise<void>;
+    /**
+     * Why it can't run on this selection: shown on the disabled button. A function gets the
+     * selected rows that are loaded (and isn't asked while every matching row is selected).
+     */
+    reason?: string | ((rows: T[]) => string | undefined) | undefined;
+    /**
+     * It accepts every matching row (`context.allMatching` with the list's query), so the bar
+     * offers "Select all {total} matching" past the loaded rows.
+     */
+    matching?: boolean | undefined;
     /**
      * Forwarded straight to the rendered bulk button (see `BulkAction`).
      * Exists so a consumer can kill every bulk action while one of them is
@@ -830,6 +876,13 @@ export interface ResourcePageProps<
    */
   defaultView?: ViewModeDefault;
   /**
+   * The view mode (`table`, `list`, `grid`), held by the caller: the person's stored pick is
+   * neither read nor written while it's set (ResourceView's type switcher holds it).
+   */
+  viewMode?: ViewMode | undefined;
+  /** Hears the view toggle, with `viewMode` or without. */
+  onViewModeChange?: ((mode: ViewMode) => void) | undefined;
+  /**
    * Persist key for density / page size via `useViewSettings`.
    * Defaults to `resource` or a slug of `title`.
    */
@@ -854,7 +907,28 @@ export interface ResourcePageProps<
   slotProps?: ResourcePageSlotProps<T>;
   /** Merged onto the page shell's root. */
   className?: string;
+  /**
+   * Offer "Export CSV" in the header's menu (ADR 0017 §8): called with the list's query (its
+   * filters, sort and search) to export every row it matches, not one page.
+   */
+  onExport?: ((query: ResourceListQuery) => void | Promise<void>) | undefined;
+  /**
+   * A menu on each table row (ADR 0017 §2): a trailing "More" button and the same items on
+   * right-click. It gets the row and the page's own edit and delete for it (when the page offers
+   * them), so it can place them around its own items; an item with a `reason` shows disabled
+   * with those words. ResourceView builds it from the view's actions and guards.
+   */
+  rowMenu?: ((item: T, builtIn: { edit?: () => void; delete?: () => void }) => ResourcePageRowMenuItem[]) | undefined;
+  /**
+   * Filters the caller holds (a view's segment and declared filters, ADR 0017): while `active`,
+   * they count toward "Clear filters" and the empty state's filtered wording, and clearing the
+   * list calls `clear` too.
+   */
+  heldFilters?: { active: boolean; clear: () => void } | undefined;
 }
+
+/** One item in a ResourcePage row menu (`rowMenu`). @stability Beta */
+export type ResourcePageRowMenuItem = ResourceRowMenuItem;
 
 // ---------------------------------------------------------------------------
 // Created toast (`createdToast`)
@@ -979,6 +1053,9 @@ export function ResourcePage<
     subtitle,
     title,
     toolbar,
+    onExport,
+    rowMenu,
+    heldFilters,
   } = props;
   // The record open modes (side-peek, center-peek, page) are the same choices in ADR 0021's words.
   const detail = detailMode(detailProp);
@@ -1007,7 +1084,7 @@ export function ResourcePage<
     formAction,
     formItem,
     formOpen,
-    handleClearFilters,
+    handleClearFilters: handlePageClearFilters,
     handleClearSelection,
     handleCreate,
     handleEdit,
@@ -1056,6 +1133,40 @@ export function ResourcePage<
   } = useResourceTableModel<T>(props);
   // Tree mode's state (the `tree` option): each row's node and how to open or close one.
   const pageTree = page.tree;
+  // The caller's own filters (a view's segment and declared filters) count as filtering too.
+  const anyFilters = page.hasActiveFilters || !!heldFilters?.active;
+  const handleClearFilters = () => {
+    handlePageClearFilters();
+    heldFilters?.clear();
+  };
+  // The list's query: what an export and a bulk action over every matching row read.
+  const listQuery = (): ResourceListQuery => {
+    const params = isClientMode ? resourceHook.params : {};
+    const sorts = params.sorts?.length ? params.sorts : params.sort ? [params.sort] : [];
+    return {
+      filters: params.filters ?? [],
+      sorts,
+      ...(params.search?.query ? { search: params.search } : {}),
+      ...(displayTotal >= 0 ? { total: displayTotal } : {}),
+    };
+  };
+  // "Select all matching": every row the query matches, past the loaded page.
+  const [allMatching, setAllMatching] = useState(false);
+  const fullPage = selectedIds.size > 0 && selectedIds.size === page.data.length;
+  if (allMatching && !fullPage) setAllMatching(false);
+  const matchingOffered =
+    isClientMode && !!bulkActions?.some((a) => a.matching) && displayTotal > page.data.length;
+  const headerActions: PageHeaderAction[] | undefined = onExport
+    ? [
+        ...(secondaryActions ?? []),
+        {
+          label: m.export.action,
+          icon: Download,
+          testId: "resource-page-export",
+          onClick: () => void onExport(listQuery()),
+        },
+      ]
+    : secondaryActions;
   // An embedded list shows a filter row only when it has something to filter by, or when
   // something is already filtering it (a `?q=` in the URL, say): never filtered with no way
   // to see why or clear it.
@@ -1083,7 +1194,7 @@ export function ResourcePage<
   // `emptyCreate`: an empty list that nothing filters offers its create button once, in the empty
   // state, and drops the filter row it has no use for.
   const filtering =
-    page.hasActiveFilters || !!filtersProp?.some((f) => f.selected.length > 0) || emptyFiltered;
+    anyFilters || !!filtersProp?.some((f) => f.selected.length > 0) || emptyFiltered;
   const emptyUnfiltered = emptyCreate && isEmpty && !filtering;
   const createInEmpty = emptyUnfiltered && !emptyState && !!createButton;
   const headerCreate = createInEmpty ? null : createButton;
@@ -1094,7 +1205,7 @@ export function ResourcePage<
     embedded &&
     !isLoading &&
     displayTotal <= 10 &&
-    !page.hasActiveFilters &&
+    !anyFilters &&
     !filtersProp?.some((f) => f.selected.length > 0);
 
   const createAction =
@@ -1140,6 +1251,14 @@ export function ResourcePage<
     });
     focusToastAction(marker);
   };
+
+  const rowMenuFor = (item: T): ResourceRowMenuItem[] =>
+    rowMenu
+      ? rowMenu(item, {
+          ...(useBuiltInEdit || onEdit ? { edit: () => (onEdit ? onEdit(item) : handleEdit(item)) } : {}),
+          ...(deleteHandler ? { delete: () => deleteHandler(item) } : {}),
+        })
+      : [];
 
   const cardActionsFor = (item: T): ResourceCardActions<T> => ({
     ...actions,
@@ -1317,8 +1436,8 @@ export function ResourcePage<
       density={settings.density}
       onDensityChange={(d) => updateSetting("density", d)}
       createAction={createAction}
-      secondaryActions={secondaryActions}
-      hasActiveFilters={page.hasActiveFilters}
+      secondaryActions={headerActions}
+      hasActiveFilters={anyFilters}
       onClearFilters={handleClearFilters}
       emptyAction={emptyState ?? (createInEmpty ? createButton : undefined)}
       emptyIcon={emptyIcon}
@@ -1346,7 +1465,7 @@ export function ResourcePage<
           onSaveView,
           onDeleteView,
           canSaveViews,
-          onClearAll: page.hasActiveFilters ? handleClearFilters : undefined,
+          onClearAll: anyFilters ? handleClearFilters : undefined,
           showSearch:
             capabilities?.search !== false &&
             // Server and cursor paging search on the server, which needs the columns.
@@ -1380,14 +1499,25 @@ export function ResourcePage<
             totalCount: page.data.length,
             onToggleAll: handleToggleAll,
             onClearSelection: handleClearSelection,
+            ...(matchingOffered
+              ? { matchingTotal: displayTotal, allMatching, onSelectAllMatching: setAllMatching }
+              : {}),
             actions: bulkActions.map((a) => ({
               label: a.label,
               icon: a.icon ?? Trash2,
               variant: a.variant,
               disabled: a.disabled,
               testId: a.testId,
+              reason:
+                typeof a.reason === "function"
+                  ? allMatching && a.matching
+                    ? undefined
+                    : a.reason(page.data.filter((row) => selectedIds.has(keyOf(row))))
+                  : a.reason,
               onClick: () => {
-                void a.onAction(Array.from(selectedIds));
+                const ids = Array.from(selectedIds);
+                const rows = page.data.filter((row) => selectedIds.has(keyOf(row)));
+                void a.onAction(ids, { rows, allMatching: allMatching && !!a.matching, query: listQuery() });
               },
             })),
           },
@@ -1442,6 +1572,19 @@ export function ResourcePage<
                   : { sort: tableSort, onSortChange: handleTableSort }),
                 // Tree mode: the rows come in the tree's order; the table draws depth and arrows.
                 ...(pageTree ? { tree: { node: (id: string) => pageTree.nodes.get(id), setExpanded: pageTree.setExpanded } } : {}),
+                // The row's menu: "More" at the end, and the same on right-click.
+                ...(rowMenu
+                  ? {
+                      renderActions: (item: T) => (
+                        <RowMenuButton
+                          items={rowMenuFor(item)}
+                          label={fillMessage(m.table.rowActions, { name: titleOf(item) })}
+                          testID="resource-row-menu"
+                        />
+                      ),
+                      rowContextMenu: (item: T) => <RowContextMenuItems items={rowMenuFor(item)} />,
+                    }
+                  : {}),
               },
               slotProps?.table,
             )

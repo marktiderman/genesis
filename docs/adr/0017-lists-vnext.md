@@ -1,11 +1,13 @@
 # ADR 0017: Lists v-next: what a view declares
 
-- Status: proposed
+- Status: accepted (2026-11-13)
 - Date: 2026-11-10
-- Features: `resource-page`, `data-views`, `list-url-state`, `resource-view-shaping`,
-  `resource-view-sheet`, `native-resource-view-cards`
+- Features: `view-filters`, `view-actions`, `saved-views`, `view-export`, `list-emphasis`,
+  `resource-view-shaping`, `resource-page`, `data-views`, `list-url-state`, `resource-view-sheet`,
+  `native-resource-view-cards`
 - Related: docs/RESOURCE-VIEW.md, ADR 0009 (one resource contract), ADR 0013 (the customization
-  layer), docs/FRAMEWORK.md (G1–G6)
+  layer), ADR 0019 (custom views), ADR 0020 (the app client layer), ADR 0021 (view types),
+  docs/FRAMEWORK.md (G1–G6)
 
 ## Context
 
@@ -110,7 +112,8 @@ plain data where they can be (so web, native and other surfaces read the same vi
 functions of the row or the viewer where they must be. Screens keep their props, and a screen's
 prop wins over the view's, as today (RESOURCE-VIEW.md, "Words: each step overrides the one before").
 
-A view with every new key, to show the shape (names are proposals, settled in each build):
+A view with the keys this release ships (the later ones, `leading`, `card` and `detail.route`, are
+in their sections below):
 
 <!-- docs-check: skip -->
 ```ts
@@ -118,13 +121,10 @@ export const tasksView = defineView(tasksContract, {
   fields: {
     title: { emphasis: "title" },
     status: { tones: { todo: "muted", doing: "info", done: "success" } },
-    due_on: { emphasis: "secondary" },
+    due_on: { emphasis: "secondary", hideBelow: "md", width: 120 },
+    estimate_hours: { sortable: false },
   },
-  filters: [
-    { field: "status" },
-    { field: "owner_id" },
-    { field: "due_on", kind: "range" },
-  ],
+  filters: [{ field: "status" }, { field: "due_on" }, { field: "notes" }],
   segments: [
     { id: "open", label: "Open", where: { status: ["todo", "doing"] }, count: true },
     { id: "mine", label: "Mine", where: (viewer) => ({ owner_id: viewer.id }), count: true },
@@ -132,15 +132,15 @@ export const tasksView = defineView(tasksContract, {
   ],
   actions: [
     { name: "complete", label: "Mark done", bulk: true, can: (t) => (t.status === "done" ? "It's already done." : true) },
-    { name: "archive", label: "Archive", destructive: true, bulk: { confirm: "Archive {count} tasks?" } },
+    { name: "archive", label: "Archive", destructive: true, bulk: { confirm: "Archive {count} tasks?", matching: true, run: archiveMatching } },
   ],
+  types: ["table", "board", "calendar"],
   groupBy: "status",
   totals: { estimate_hours: "sum" },
   rowTone: (t) => (t.overdue ? "danger" : undefined),
-  leading: { kind: "indicator", field: "status" },
-  card: { title: "title", subtitle: ["owner_id", "due_on"], chips: ["status"], meta: ["estimate_hours"] },
-  detail: { route: (t) => ({ to: "/tasks/$taskId", params: { taskId: t.id } }) },
   export: true,
+  board: { field: "status" },
+  calendar: { field: "due_on" },
 });
 ```
 
@@ -306,6 +306,22 @@ export const tasksView = defineView(tasksContract, {
 - **Extension points.** `onNavigate` (exists) for a router Genesis has no adapter for; brand
   tokens for the surface; `slotProps.table` (exists) for one table's props.
 
+### 11. A switcher across every view type
+
+- **The view declares** `types`: the view types a person may switch between, of `table`, `list`,
+  `grid`, `board`, `calendar`, `gallery` and any type the app registers (ADR 0021). Without it the
+  view supports table, list and grid, plus each type it has a block for (`gallery`, `board`,
+  `calendar`). `defineView` refuses a type whose block is missing.
+- **Default behaviour.** A page list whose view supports a type past table, list and grid (or
+  declares `types`) shows one switcher in its header, in place of ResourcePage's table, list and
+  grid toggle, unless the screen fixes `type`. Every type reads the same list state: the segment,
+  the declared filters and the grouping carry across a switch, and above a board, a calendar or an
+  app's type a bar draws the segments and filters. Each person's choice is kept through the app's
+  `SavedViewStore` (`readCurrent`, `writeCurrent`), so it follows them where the store does, and a
+  saved view stores the type with the rest.
+- **Extension points.** `types` and `switcher` on the screen narrow or turn it off; a registered
+  view type joins it by being listed; `ViewTypeSwitcher` draws it in an app's own layout.
+
 ## Extension points, at a glance
 
 | Gap | The view declares | Extension point | Level (ADR 0013) |
@@ -320,6 +336,7 @@ export const tasksView = defineView(tasksContract, {
 | 8 | `export` | `onExport` | Configure, Adapt |
 | 9 | `card` | `cardParts`, `renderCard` | Compose |
 | 10 | `detail.route` | `onNavigate`, `surface` tokens | Configure, Brand |
+| 11 | `types` | `types`, `switcher`, registered view types | Configure, Compose |
 
 ## Form: how apps keep their own look
 
@@ -363,6 +380,25 @@ All of it is additive, in minor releases:
 
 ## Delivery
 
+**What shipped (2026-11-13), on the web.** Filters and segments with counts, kept in the URL
+(`seg`, `f.<field>`) once the app registers its adapter; row actions with their reasons (a "More"
+menu and right-click, behind `rowActions` for this minor); bulk actions on the view with refusals
+named, Shift-click range select and "Select all matching" for a `run` that takes filters; the
+`SavedViewStore` with a device default; the view-type switcher (section 11); grouping with group
+and footer totals in the table, grid and list; `emphasis`, `rowTone` and the column hints
+(`sortable`, `hideBelow`, `width`); CSV export through `exportCsv`, in words, capped at `maxRows`.
+ResourcePage's own users get the row menu (`rowMenu`), the matching selection, `onExport`,
+`heldFilters` and the table's `groups`, `footer`, `rowTone` and `rowContextMenu` through the same
+props.
+
+**Next.** On the phone: filters, segments, row actions in long press and swipe, and the edit-mode
+selection (`NativeResourceView`; the parity file records them). Link filters with a picker, a
+filter's own `component`, `leading`, cards from parts (section 9), `detail.route` and surfaces
+(section 10), cursor search on the server and `virtualize` by default (section 5), export jobs past
+a threshold and sheet mode (`resource-view-sheet`). Saved views restore search and sort only
+through the URL for now: a saved view keeps them, and loading one sets the segment, filters, type
+and grouping.
+
 **Round 1, gaps 1 to 4: what people do with a list.** Filters and segments with counts (web and
 phone), row actions with reasons (menu, right-click, long press, swipe), bulk actions on the view
 (range select, select all matching, phone edit mode), and URL state with the `SavedViewStore`.
@@ -384,6 +420,10 @@ screens before and after, and the parity gaps it closes from the list below.
 - **Saved view**: a person's or a team's stored segment, filters, search, sort, columns and mode.
 - **Surface**: the look a list sits on (plain, inset, striped), from tokens.
 - **Emphasis**: how much a field matters in a row (title, secondary, muted).
+- **Saved-view store**: where a list's saved views and each person's current choices live
+  (`SavedViewStore`), passed once to `ResourceViewDefaultsProvider`. Not "preferences table".
+- **Type switcher**: the control that switches a list between its view types (`ViewTypeSwitcher`).
+  Not "view toggle", which is ResourcePage's older table, list and grid control.
 
 ## Alternatives
 
@@ -415,16 +455,18 @@ screens before and after, and the parity gaps it closes from the list below.
 - Left for later: a filter builder, per-group manual order (with `resource-view-shaping`), and
   saved views shared across apps.
 
-## Open questions
+## Open questions, decided
 
-1. **Row actions on by default.** Ship them behind an app-wide switch for one minor (proposed), or
-   on at once since a view that declares `actions` asked for them?
-2. **URL by default.** Only page-layout lists (proposed), or embedded lists too, under a prefix?
-3. **Team saved views.** A store interface only (proposed), or a reference store on
-   `genesis-supabase` with its table and policies?
-4. **Counts.** One count request per segment (proposed) costs a request each; is a single grouped
-   count function per resource worth asking providers for?
-5. **Tone on the web.** A leading bar plus a tinted surface (proposed), or the bar alone?
+1. **Row actions on by default.** Behind `ResourceViewDefaultsProvider rowActions` (and a screen's
+   `rowActions`) for this minor; on by default in the next. Bulk actions show at once: `bulk` is a
+   new key, so a view that sets it asked for them.
+2. **URL by default.** Page-layout lists only, once the app registers its adapter; an embedded list
+   passes `urlState` to join.
+3. **Team saved views.** A store interface only (`scope: "personal" | "team"`); the app's store
+   decides sharing under its own row security.
+4. **Counts.** One count per segment, through the provider's `aggregate` (estimated where it can
+   be), cached with the resource's queries. A grouped count function stays a later option.
+5. **Tone on the web.** A leading bar plus a tinted row, both from the status tokens.
 
 ## Consumer gaps to fold in
 
@@ -434,4 +476,8 @@ named. To be filled as the migrations report.
 
 | Gap | Function or form | Covered by | Evidence |
 | --- | --- | --- | --- |
-| _to be filled_ | | | |
+| A list over a database function couldn't pass the viewer's scope to it as an argument | Function | new: the Supabase provider's `source.args(context)` gets the list's filters, and `take(field)` reads a scope value and leaves it out of the query | A consumer app's function-backed lists read the scope from a module variable |
+| A ViewerScope nested for a sub-area emptied the query cache when it mounted | Function | new: a nested scope for the same viewer keeps the cache; `persistedViewer` names a viewer whose session filled it | Data its router's loaders had read was fetched again |
+| ResourceView couldn't draw rows a screen already held | Function | new: `rows` | A consumer app kept hand-built tables for rows it had already read |
+| Filters, segments and counts were written per screen | Function | 1 | Several list screens with their own tab bars |
+| Refused actions vanished with no reason | Function and form | 2, 3 | People asked why an action was missing |

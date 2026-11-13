@@ -93,6 +93,8 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: "@marktiderman/genesis-support", file: "migrations/0003_genesis_support_findings.sql", test: "migrations/tests/0003_genesis_support_findings.test.sql" },
       // Tickets and tenants: the rename, tenant_id, agents (needs the app's default-tenant hook).
       { package: "@marktiderman/genesis-support", file: "migrations/0004_genesis_support_tickets.sql", test: "migrations/tests/0004_genesis_support_tickets.test.sql" },
+      // The Data Studio's keys after the rename, and an agent's unread count.
+      { package: "@marktiderman/genesis-support", file: "migrations/0011_genesis_support_ticket_fixes.sql", test: "migrations/tests/0011_genesis_support_ticket_fixes.test.sql" },
     ],
     privacy: {
       collects: [
@@ -190,7 +192,11 @@ export function defineSupportHelpdeskBlock(options: { basePath?: string; require
         { path: paths.help, description: "the help center", signedIn: true },
         { path: `${paths.help}/[slug]`, description: "one help article", signedIn: true },
       ],
-      migrations: [{ package: "@marktiderman/genesis-support", file: "migrations/0010_genesis_support_help_center.sql", test: "migrations/tests/0010_genesis_support_help_center.test.sql" }],
+      migrations: [
+        { package: "@marktiderman/genesis-support", file: "migrations/0010_genesis_support_help_center.sql", test: "migrations/tests/0010_genesis_support_help_center.test.sql" },
+        // A question routed elsewhere keeps no answer.
+        { package: "@marktiderman/genesis-support", file: "migrations/0012_genesis_support_help_answers.sql", test: "migrations/tests/0012_genesis_support_help_answers.test.sql" },
+      ],
       privacy: {
         notes: ["With AI answers on, a question the person chooses to ask and its answer are kept with their account and readable by the tenant's agents, and the question and the tenant's published articles go to the AI vendor. People agree first, unless the app's terms cover it. A question the app's safety protocol routes elsewhere isn't kept."],
       },
