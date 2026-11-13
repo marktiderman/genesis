@@ -209,3 +209,61 @@ describe("rows a screen already holds", () => {
     expect(p.getList).not.toHaveBeenCalled();
   });
 });
+
+describe("saved views", () => {
+  const view = defineView(tasks, {
+    segments: [
+      { id: "open", label: "Open", where: { status: "todo" } },
+      { id: "all", label: "All" },
+    ],
+    columns: { default: ["title", "status", "hours"], short: ["title"] },
+    board: { field: "status" },
+  });
+
+  it("stores the segment, search, sort and type, and restores all of them on load", async () => {
+    const store = createLocalSavedViewStore({ storage: createMemoryStorageAdapter() });
+    const first = provider();
+    const url = adapter("sort=hours:desc");
+    const { unmount } = render(<ResourceView view={view} />, { wrapper: wrap(first, { savedViews: store, urlState: url, children: null }) });
+    await screen.findByText("Write the plan");
+    fireEvent.click(screen.getByTestId("view-segment-all"));
+    fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: "plan" } });
+    await waitFor(() => expect((first.getList.mock.calls.at(-1)![1] as ListParams).search?.query).toBe("plan"));
+    fireEvent.click(screen.getByText("Views"));
+    fireEvent.click(await screen.findByText("Save current view"));
+    fireEvent.change(screen.getByPlaceholderText("View name (e.g. 'Active Sessions')"), { target: { value: "Plans by hours" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(store.list("tasks")).toHaveLength(1));
+    const saved = (await store.list("tasks"))[0]!;
+    expect(saved.state).toEqual({ segment: "all", type: "table", search: "plan", sort: { field: "hours", order: "desc" } });
+    expect(saved.version).toBe(1);
+    unmount();
+
+    // A fresh list, on its default segment and with no search or sort, loads the saved view.
+    const second = provider();
+    render(<ResourceView view={view} />, { wrapper: wrap(second, { savedViews: store, children: null }) });
+    await screen.findByText("Write the plan");
+    expect(screen.queryByText("Ship it")).toBeNull();
+    fireEvent.click(screen.getByText("Views"));
+    fireEvent.click(await screen.findByText("Plans by hours"));
+    await waitFor(() => {
+      const last = second.getList.mock.calls.at(-1)![1] as ListParams;
+      expect(last.search?.query).toBe("plan");
+      expect(last.sort).toMatchObject({ field: "hours", order: "desc" });
+      expect((last.filters ?? []).some((f) => f.field === "status")).toBe(false);
+    });
+    expect((screen.getByPlaceholderText("Search...") as HTMLInputElement).value).toBe("plan");
+    expect(screen.getByTestId("view-segment-all").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("restores a saved column preset", async () => {
+    const store = createLocalSavedViewStore({ storage: createMemoryStorageAdapter() });
+    await store.save({ name: "Short", scope: "personal", resource: "tasks", version: 1, state: { columns: "short" } });
+    const { container } = render(<ResourceView view={view} />, { wrapper: wrap(provider(), { savedViews: store, children: null }) });
+    await screen.findByText("Write the plan");
+    expect(container.querySelectorAll("thead th").length).toBeGreaterThan(1);
+    fireEvent.click(screen.getByText("Views"));
+    fireEvent.click(await screen.findByText("Short"));
+    await waitFor(() => expect(screen.queryByRole("columnheader", { name: /Hours/ })).toBeNull());
+  });
+});

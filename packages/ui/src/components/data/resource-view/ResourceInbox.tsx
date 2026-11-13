@@ -6,7 +6,7 @@
 // useViewList), and the open record is its RecordView (the view's record view, or a document
 // page) or the app's own reading pane (`renderReading`: a ticket thread, a conversation).
 
-import { useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import {
@@ -130,6 +130,19 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
     perPage,
     ...(timeSort ? { sort: timeSort } : {}),
   });
+
+  // A saved view's search and sort come back; the list's own reach the list state, for saving.
+  const restoreNonce = state.restore.nonce;
+  useEffect(() => {
+    if (!restoreNonce) return;
+    list.setSearch(state.restore.search);
+    list.setSort(state.restore.sort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per restore
+  }, [restoreNonce]);
+  const observe = state.observeQuery;
+  useEffect(() => {
+    observe({ search: list.search, sort: list.sort ? { field: list.sort.field, order: list.sort.order } : null });
+  }, [observe, list.search, list.sort]);
 
   // ── The rail: segments with counts, then saved views ──
   const segments = view.segments();

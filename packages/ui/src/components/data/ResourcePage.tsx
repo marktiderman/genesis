@@ -3,6 +3,8 @@
 import { detailMode } from "./resource-view/open-modes";
 import {
   Fragment,
+  useEffect,
+  useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type ComponentProps,
@@ -925,6 +927,11 @@ export interface ResourcePageProps<
    * list calls `clear` too.
    */
   heldFilters?: { active: boolean; clear: () => void } | undefined;
+  /**
+   * Hears the list's search and sort as they change (it only listens: the page keeps them). A
+   * saved view stores them from here.
+   */
+  onQueryChange?: ((query: { search: string; sort: SortParam | null }) => void) | undefined;
 }
 
 /** One item in a ResourcePage row menu (`rowMenu`). @stability Beta */
@@ -1056,6 +1063,7 @@ export function ResourcePage<
     onExport,
     rowMenu,
     heldFilters,
+    onQueryChange,
   } = props;
   // The record open modes (side-peek, center-peek, page) are the same choices in ADR 0021's words.
   const detail = detailMode(detailProp);
@@ -1133,6 +1141,14 @@ export function ResourcePage<
   } = useResourceTableModel<T>(props);
   // Tree mode's state (the `tree` option): each row's node and how to open or close one.
   const pageTree = page.tree;
+  // Tell the caller the search and sort as they change.
+  const queryListener = useRef(onQueryChange);
+  queryListener.current = onQueryChange;
+  const sortKey = page.sort ? `${page.sort.field}:${page.sort.order}` : "";
+  useEffect(() => {
+    queryListener.current?.({ search: page.search, sort: page.sort ?? null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- by value: the search and the sort's key
+  }, [page.search, sortKey]);
   // The caller's own filters (a view's segment and declared filters) count as filtering too.
   const anyFilters = page.hasActiveFilters || !!heldFilters?.active;
   const handleClearFilters = () => {

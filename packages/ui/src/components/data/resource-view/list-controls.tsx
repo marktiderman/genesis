@@ -99,8 +99,19 @@ export interface ViewListStateResult {
   type: string | undefined;
   setType: (type: string) => void;
   groupBy: string | null | undefined;
-  /** Apply a saved view's state. */
+  /** Apply a saved view's state: its segment, filters, search, sort, columns, type and grouping. */
   apply: (state: ListState) => void;
+  /** A column preset a saved view chose, over the screen's default. */
+  columns: string | undefined;
+  /**
+   * Search and sort a saved view restored: a list draws them by starting again (`nonce` changes)
+   * with these. Zero until a saved view loads.
+   */
+  restore: { readonly nonce: number; readonly search: string; readonly sort: { readonly field: string; readonly order: "asc" | "desc" } | null };
+  /** The list's own search and sort as it reports them, for saving. */
+  observeQuery: (query: { search: string; sort: { field: string; order: "asc" | "desc" } | null }) => void;
+  /** The last search and sort the list reported. */
+  query: () => { search: string; sort: { field: string; order: "asc" | "desc" } | null };
   /** The provider filters the segment and declared filters make. */
   filters: FilterParam[];
 }
@@ -119,6 +130,13 @@ export function useViewListState(options: ViewListStateOptions): ViewListStateRe
   const [segment, setSegmentRaw] = useState<string | undefined>(seeded.segment ?? firstSegment);
   const [values, setValues] = useState<Readonly<Record<string, ViewFilterValue>>>(() => seeded.filters ?? defaultValues(view.filters()));
   const [groupBy, setGroupBy] = useState<string | null | undefined>(undefined);
+  const [columns, setColumns] = useState<string | undefined>(undefined);
+  const [restore, setRestore] = useState<ViewListStateResult["restore"]>({ nonce: 0, search: "", sort: null });
+  const queryRef = useRef<{ search: string; sort: { field: string; order: "asc" | "desc" } | null }>({ search: "", sort: null });
+  const observeQuery = useCallback((query: { search: string; sort: { field: string; order: "asc" | "desc" } | null }) => {
+    queryRef.current = { search: query.search, sort: query.sort ? { field: query.sort.field, order: query.sort.order } : null };
+  }, []);
+  const query = useCallback(() => queryRef.current, []);
   // The person's type: the store's current state, read once (it may answer later).
   const typeChosen = useRef(false);
   const [type, setTypeRaw] = useState<string | undefined>(() => {
@@ -206,9 +224,25 @@ export function useViewListState(options: ViewListStateOptions): ViewListStateRe
       const seg = state.segment ?? firstSegment;
       setSegmentRaw(seg);
       setValues(state.filters ?? {});
-      if (state.groupBy !== undefined) setGroupBy(state.groupBy);
+      setGroupBy(state.groupBy);
+      setColumns(state.columns);
       if (state.type && types.includes(state.type)) setType(state.type);
       writeUrl({ segment: seg, filters: state.filters ?? {} });
+      // The search and sort: the list starts again with them (and the URL holds them, if it's kept).
+      const search = state.search ?? "";
+      const sort = state.sort ? { field: state.sort.field, order: state.sort.order } : null;
+      queryRef.current = { search, sort };
+      const adapter = urlRef.current;
+      if (adapter) {
+        const params = new URLSearchParams(adapter.searchParams);
+        if (search) params.set("q", search);
+        else params.delete("q");
+        if (sort) params.set("sort", `${sort.field}:${sort.order}`);
+        else params.delete("sort");
+        params.delete("page");
+        adapter.setSearchParams(params, { replace: true });
+      }
+      setRestore((before) => ({ nonce: before.nonce + 1, search, sort }));
     },
     [view, firstSegment, types, setType, writeUrl],
   );
@@ -218,7 +252,7 @@ export function useViewListState(options: ViewListStateOptions): ViewListStateRe
     [view, segment, values, viewer],
   );
   const active = (segment !== undefined && segment !== firstSegment) || Object.values(values).some(isFilterSet);
-  return { segment, setSegment, values, setValue, clear, active, type, setType, groupBy, apply, filters };
+  return { segment, setSegment, values, setValue, clear, active, type, setType, groupBy, apply, filters, columns, restore, observeQuery, query };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -749,16 +783,16 @@ export function useViewSavedViews(
     savedViews: views.map((v) => ({ id: v.id, name: v.name, filters: v.state as unknown as Record<string, unknown> })),
     canSaveViews: true,
     onSaveView: (name: string) => {
-      const url = extra.url?.searchParams;
-      const sort = url?.get("sort")?.split(":");
+      // Everything the person set: the list's own search and sort as it reported them.
+      const { search, sort } = state.query();
       const saved: ListState = {
         ...(state.segment ? { segment: state.segment } : {}),
         ...(Object.keys(state.values).length ? { filters: state.values } : {}),
         ...(state.type ? { type: state.type } : {}),
         ...(state.groupBy !== undefined ? { groupBy: state.groupBy } : {}),
         ...(extra.columns !== "default" ? { columns: extra.columns } : {}),
-        ...(url?.get("q") ? { search: url.get("q")! } : {}),
-        ...(sort && sort[0] && (sort[1] === "asc" || sort[1] === "desc") ? { sort: { field: sort[0], order: sort[1] } } : {}),
+        ...(search.trim() ? { search: search.trim() } : {}),
+        ...(sort ? { sort } : {}),
       };
       void Promise.resolve(store.save({ name, scope: "personal", resource: view.resource, version, state: saved })).then(refresh, () => toast.error(m.filters.viewsFailed));
     },

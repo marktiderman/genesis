@@ -250,6 +250,8 @@ function useListModel(props: ResourceViewProps<Row>): ListModel {
 interface ResourceViewModel<T extends Row> {
   pageProps: ResourcePageProps<T>;
   confirm: ReactNode;
+  /** Changes when a saved view restores the search and sort: the page starts again with them. */
+  restoreKey: number;
 }
 
 /**
@@ -287,7 +289,7 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
   const listDefaults = useResourceViewDefaults();
   const { filter, filters: defaultFilters, tab } = useViewListParams(props);
   const segmentColumns = view.segments().find((seg) => seg.id === listState.segment)?.columns;
-  const presetName = columnPreset ?? segmentColumns ?? tab?.columns ?? "default";
+  const presetName = columnPreset ?? listState.columns ?? segmentColumns ?? tab?.columns ?? "default";
 
   const columns = useMemo(
     () =>
@@ -546,6 +548,20 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
       pageProps.onViewModeChange = (mode) => listState.setType(mode);
     }
   }
+  // The list's search and sort reach the list state (a saved view stores them), and a saved view's
+  // come back as the page's starting search and sort.
+  const screenQuery = rest.onQueryChange;
+  pageProps.onQueryChange = (query) => {
+    listState.observeQuery(query);
+    screenQuery?.(query);
+  };
+  if (listState.restore.nonce > 0 && !rest.initialFilters) {
+    const { search, sort } = listState.restore;
+    pageProps.initialFilters = [
+      ...(search ? [{ field: "__search__", operator: "contains" as const, value: search }] : []),
+      ...(sort ? [{ field: "__sort__", operator: "eq" as const, value: `${sort.field}:${sort.order}:` }] : []),
+    ];
+  }
   // Saved views through the app's store.
   Object.assign(pageProps, savedViewProps, {
     ...(rest.savedViews ? { savedViews: rest.savedViews } : {}),
@@ -591,7 +607,7 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
       confirmLabel={confirming?.label ?? m.common.save}
     />
   );
-  return { pageProps, confirm };
+  return { pageProps, confirm, restoreKey: listState.restore.nonce };
 }
 
 /**
@@ -682,10 +698,10 @@ function ResourceViewOfType<T extends Row = Row>(props: ResourceViewProps<T>) {
 }
 
 function ResourceViewPage<T extends Row>(props: ResourceViewProps<T>) {
-  const { pageProps, confirm } = useResourceViewModel(props);
+  const { pageProps, confirm, restoreKey } = useResourceViewModel(props);
   return (
     <>
-      <ResourcePage<T> {...pageProps} />
+      <ResourcePage<T> key={restoreKey} {...pageProps} />
       {confirm}
     </>
   );
