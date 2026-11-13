@@ -15,6 +15,7 @@ export {
   validateAppBrand,
   validateAppStyle,
   type AppBrand,
+  type AppBrandImage,
   type AppBrandInput,
   type AppStyle,
   type AppStyleInput,

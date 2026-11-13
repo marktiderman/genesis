@@ -14,6 +14,9 @@ export {
   type AppThemeLayout,
 } from "./define";
 export { appShellOptionsFromTheme } from "./layout";
+// An app brand's name, logo and mark in AppShell; the person's appearance from their preferences.
+export { appShellBrandProps, type AppShellBrandProps } from "./brand";
+export { AppearanceProvider, type AppearanceProviderProps } from "./appearance";
 export {
   STARTER_THEMES,
   arenaTheme,

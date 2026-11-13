@@ -27,11 +27,25 @@ import type { BrandGradient, CanonicalBrand, ColorScale, DisplayTypography } fro
 export type ThemeMode = "light" | "dark" | "system";
 
 /**
+ * The person's appearance (light, dark or system): the glossary's name for {@link ThemeMode}.
+ *
+ * @stability Beta
+ */
+export type Appearance = ThemeMode;
+
+/**
  * The OS-resolved mode surfaced as {@link UseThemeReturn.resolvedMode} —
  * always concrete (`"system"` is resolved before this is read). Use this
  * for tokens-keyed-by-mode lookups and for `data-theme` attribute writes.
  */
 export type ResolvedThemeMode = "light" | "dark";
+
+/**
+ * The appearance that's showing, `system` resolved: the glossary's name for {@link ResolvedThemeMode}.
+ *
+ * @stability Beta
+ */
+export type ResolvedAppearance = ResolvedThemeMode;
 
 /**
  * A color scale resolved for the active platform + mode. Same shape as

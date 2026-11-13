@@ -71,6 +71,27 @@ export interface AppBrandInput {
   roles?: { light?: ThemeRoleColors; dark?: ThemeRoleColors };
   /** Font stacks, as CSS (`"Inter", ui-sans-serif, sans-serif`). Unset keeps the host's. */
   fonts?: Readonly<Partial<Record<ThemeFont, string>>>;
+  /**
+   * The app's name as people see it ("Acme Studio"): the shell's title. Not `label`, which names
+   * the brand in a picker.
+   */
+  appName?: string;
+  /** The full logo (a wordmark, usually wide), with a version for dark backgrounds if it needs one. */
+  logo?: AppBrandImage;
+  /** The square icon: the collapsed rail, a tab's favicon, a phone's header. */
+  mark?: AppBrandImage;
+}
+
+/**
+ * A brand image: a URL (`https:`, a path from the site's root, or an inline `data:image/…`),
+ * its words for a screen reader, and, if the image doesn't read on a dark ground, a dark one.
+ */
+export interface AppBrandImage {
+  src: string;
+  /** What it says: the app's name, usually. Empty for a mark beside the name, which says it already. */
+  alt: string;
+  /** Shown instead of `src` in dark appearance. */
+  darkSrc?: string;
 }
 
 /** A defined app brand: its input, frozen, with its id (its name). */
@@ -204,6 +225,24 @@ export function validateAppBrand(input: AppBrandInput): string[] {
     if (!(THEME_FONTS as readonly string[]).includes(key)) errors.push(`appBrand.fonts.${key}: one of ${THEME_FONTS.join(", ")}`);
     else if (typeof stack !== "string" || !stack.trim() || !FONT_STACK.test(stack)) errors.push(`appBrand.fonts.${key}: a font stack (names, quotes and commas)`);
   }
+  if (t.appName !== undefined && (typeof t.appName !== "string" || !t.appName.trim() || t.appName.length > 60))
+    errors.push("appBrand.appName: a name of 1 to 60 characters");
+  for (const key of ["logo", "mark"] as const) errors.push(...imageProblems(`appBrand.${key}`, t[key]));
+  return errors;
+}
+
+/** `https:` or `http:`, a path from the site's root, or an inline raster or SVG image. */
+const IMAGE_SRC = /^(?:https?:\/\/[^\s"'<>]+|\/(?!\/)[^\s"'<>]*|data:image\/(?:png|jpeg|gif|webp|avif|svg\+xml);base64,[A-Za-z0-9+/=]+)$/;
+
+function imageProblems(path: string, image: unknown): string[] {
+  if (image === undefined) return [];
+  if (!image || typeof image !== "object" || Array.isArray(image)) return [`${path}: expected { src, alt }`];
+  const { src, alt, darkSrc } = image as Record<string, unknown>;
+  const errors: string[] = [];
+  if (typeof src !== "string" || !IMAGE_SRC.test(src)) errors.push(`${path}.src: an https: URL, a path from the site's root, or a data:image/… URL`);
+  if (typeof alt !== "string") errors.push(`${path}.alt: the image's words for a screen reader (empty for a mark beside the name)`);
+  if (darkSrc !== undefined && (typeof darkSrc !== "string" || !IMAGE_SRC.test(darkSrc)))
+    errors.push(`${path}.darkSrc: an https: URL, a path from the site's root, or a data:image/… URL`);
   return errors;
 }
 

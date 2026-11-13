@@ -51,6 +51,7 @@ import type { DensityLevel } from "@marktiderman/genesis-design-system/app-style
 import { useUiMessages } from "../../messages";
 import { splitTabBarItems, TAB_BAR_MAX } from "@marktiderman/genesis-core/navigation";
 import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
+import { resolveAppearancePreferences, useOptionalAppearancePreferences } from "@marktiderman/genesis-core";
 import {
   DefaultLink,
   isPathActive,
@@ -504,6 +505,41 @@ function fillItems(items: NavItem[], params: Record<string, string>): NavItem[] 
 }
 
 function ThemeToggle({ testId }: { testId: string }) {
+  // Inside an AppearancePreferencesProvider the toggle changes the person's appearance there
+  // (saved to their account); without one it keeps this device's choice, as it always has.
+  const preferences = useOptionalAppearancePreferences();
+  return preferences ? <PreferenceThemeToggle testId={testId} /> : <DeviceThemeToggle testId={testId} />;
+}
+
+const prefersDark = () => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+function PreferenceThemeToggle({ testId }: { testId: string }) {
+  const preferences = useOptionalAppearancePreferences()!;
+  const { appearance } = preferences;
+  const [systemDark, setSystemDark] = useState(false);
+  useEffect(() => setSystemDark(prefersDark()), [appearance]);
+  const dark = appearance === "dark" || (appearance === "system" && systemDark);
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
+  if (preferences.locked.appearance) return null;
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => preferences.setAppearance(dark ? "light" : "dark")}
+      className="h-8 w-8"
+      title="Toggle theme"
+      aria-label="Toggle theme"
+      data-testid={testId}
+      testID={testId}
+    >
+      {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+    </Button>
+  );
+}
+
+function DeviceThemeToggle({ testId }: { testId: string }) {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
@@ -1605,7 +1641,18 @@ export function AppShell({
 
   const ParentLink = linkComponent;
   const LinkComp = linkComponent;
-  const density = resolved.density ?? "comfortable";
+  // Density is the person's (ADR 0024): inside an AppearancePreferencesProvider, the app's lock
+  // (`lockedOptions` with "density"), then the person's choice, the organization's default, the
+  // theme's, then these options' own.
+  const appearancePreferences = useOptionalAppearancePreferences();
+  const densityLocked = lockedOptions?.includes("density") ?? false;
+  const density: AppShellDensity =
+    !appearancePreferences || densityLocked
+      ? (resolved.density ?? "comfortable")
+      : resolveAppearancePreferences({
+          ...appearancePreferences.layers,
+          theme: { density: appearancePreferences.layers.theme?.density ?? optionsProp?.density },
+        }).density;
   const scrollWindow = resolved.scrollRoot === "window";
   const railExpanded =
     resolved.railWidth === "wide" ? "md:w-64" : "md:w-52";

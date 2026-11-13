@@ -67,3 +67,32 @@ export {
 
 // Utils
 export { titleCase } from "./utils";
+
+// Appearance and density: the person's, with the app's lock and the organization's and
+// theme's defaults under it (ADR 0024).
+export {
+  APPEARANCES,
+  DENSITIES,
+  GENESIS_APPEARANCE_DEFAULTS,
+  isAppearance,
+  isDensity,
+  resolveAppearancePreferences,
+  toAppearancePreferenceValues,
+  type Appearance,
+  type AppearancePreferenceLayers,
+  type AppearancePreferenceSource,
+  type AppearancePreferenceValues,
+  type Density,
+  type ResolvedAppearancePreferences,
+} from "./appearance-values";
+export {
+  AppearancePreferencesProvider,
+  defineAppearancePreferences,
+  useAppearancePreferences,
+  useOptionalAppearancePreferences,
+  type AppearancePreferences,
+  type AppearancePreferencesDefinition,
+  type AppearancePreferencesProviderProps,
+  type AppearancePreferencesStore,
+  type UseAppearancePreferencesReturn,
+} from "./appearance";

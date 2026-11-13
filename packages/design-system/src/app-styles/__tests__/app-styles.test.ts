@@ -58,6 +58,25 @@ describe("defineAppBrand", () => {
     for (const f of ["appBrand.name", "appBrand.brand", "roles.light.not-a-role", "roles.light.background", "fonts.sans", "fonts.serif"]) has(errors, f);
     expect(() => defineAppBrand({ ...brandInput, name: "Bad Name" })).toThrow(/isn't valid/);
   });
+
+  // @feat:org-brands
+  it("carries the app's name, a logo and a square mark, checked", () => {
+    const brand = defineAppBrand({
+      ...brandInput,
+      appName: "Acme Studio",
+      logo: { src: "https://cdn.example.com/acme.svg", alt: "Acme Studio", darkSrc: "/brand/acme-dark.svg" },
+      mark: { src: "data:image/png;base64,iVBORw0KGgo=", alt: "" },
+    });
+    expect(brand.appName).toBe("Acme Studio");
+    expect(Object.isFrozen(brand.logo)).toBe(true);
+    const errors = validateAppBrand({
+      ...brandInput,
+      appName: " ",
+      logo: { src: "javascript:alert(1)", alt: "x" },
+      mark: { src: "//evil.example/x.png", alt: 3 as never, darkSrc: "data:text/html;base64,AA==" },
+    });
+    for (const f of ["appBrand.appName", "appBrand.logo.src", "appBrand.mark.src", "appBrand.mark.alt", "appBrand.mark.darkSrc"]) has(errors, f);
+  });
 });
 
 describe("defineAppStyle", () => {

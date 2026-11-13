@@ -300,6 +300,43 @@ reading column), each also on its own subpath (`/document-page`). Zones
 (`NavigationNode.zone`, `resolveNavigationZones`) tell the app which area the
 viewer is in, so it can set a theme per zone; the shell carries `data-zone`.
 
+### Appearance, density and the brand in the shell
+
+A person's appearance (light, dark or system) and density are theirs (ADR
+0024). Wrap the app in genesis-core's `AppearancePreferencesProvider`, with a
+store from `defineAppearancePreferences` so the choice follows them, and use
+`AppearanceProvider` from `@marktiderman/genesis-ui/themes` where you used
+`GenesisThemeProvider`: it shows their appearance and saves their changes.
+`AppShell` then takes its density and its theme toggle from them: the app's
+lock, the person, the organization's default, the theme's, then its own
+`options`. `appShellBrandProps(brand)` gives `AppShell` an app brand's name and
+mark.
+
+```tsx
+import { AppearancePreferencesProvider } from "@marktiderman/genesis-core";
+import { AppShell } from "@marktiderman/genesis-ui/layout";
+import { AppearanceProvider, appShellBrandProps } from "@marktiderman/genesis-ui/themes";
+
+const app = (
+  <AppearancePreferencesProvider preferences={appearance} organization={resolveWorkspaceAppearance(active)}>
+    <AppearanceProvider brand={canonicalBrand}>
+      <AppShell {...appShellBrandProps(acmeBrand)} navItems={[]}>{page}</AppShell>
+    </AppearanceProvider>
+  </AppearancePreferencesProvider>
+);
+```
+
+## Widgets
+
+A widget is a tile fed by a view (ADR 0023): `defineWidget` from
+`@marktiderman/genesis-core/resource-view`, drawn by `<Widget>` from
+`@marktiderman/genesis-ui/data`, live and in the viewer's scope, with its own
+loading, error and empty states. Put them in a `DashboardPage`'s `stats` as
+they are, or lay a dashboard's body out with `WidgetGrid`. `StatCard`,
+`HeadlineNumbers` and `SummaryCard` draw the same tile (`WidgetTile`), so an
+app style changes all of them through `widget-label`, `widget-value` and
+`widget-detail`. See docs/RESOURCE-VIEW.md, "Widgets".
+
 ## Read next
 
 - [SKILL.md](./SKILL.md): the reuse ladder (pattern, slots, elements, hooks) and which export

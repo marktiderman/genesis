@@ -24,6 +24,8 @@ export { EmptyState } from "./EmptyState";
 export { ViewToggle, type ViewMode } from "../patterns/view-toggle";
 export { ViewSettings } from "../patterns/view-settings";
 export { StatCard, type StatCardProps, type StatCardColor } from "./StatCard";
+// Widgets: tiles fed by a view (defineWidget), and the one tile under StatCard, HeadlineNumbers and SummaryCard.
+export * from "./widget";
 export { KanbanBoard, type KanbanColumn, type KanbanBoardProps, type ColumnStatus } from "./KanbanBoard";
 export {
   BOARD_NONE,

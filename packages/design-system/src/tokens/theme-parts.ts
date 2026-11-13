@@ -63,6 +63,17 @@ export const THEME_PARTS: readonly ThemePartInfo[] = Object.freeze([
   p("tabs-list", "A row of tabs."),
   p("tabs-trigger", "One tab.", ["state"]),
   p("tabs-content", "A tab's panel."),
+  // Widgets: tiles fed by a view, and the one tile StatCard, HeadlineNumbers and SummaryCard draw
+  p("widget", "A widget's tile.", ["kind", "state"]),
+  p("widget-label", "A tile's label."),
+  p("widget-value", "A tile's number."),
+  p("widget-detail", "The short line under a tile's number."),
+  p("widget-body", "A widget's bar, list or chart, under its number."),
+  p("widget-grid", "A dashboard's grid of widgets."),
+  p("stat-card", "A stat card."),
+  p("headline-numbers", "A row of headline numbers."),
+  p("headline-number", "One headline number."),
+  p("summary-card", "A summary card."),
   // The app shell
   p("shell", "The whole app shell: its density, navigation style, frame and the zone you are in.", ["density", "navigation", "frame", "zone"]),
   p("shell-sidebar", "The desktop sidebar.", ["collapsed"]),

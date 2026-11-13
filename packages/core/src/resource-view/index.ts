@@ -66,3 +66,31 @@ export type {
   WorkspaceSection,
   WorkspaceHeaderAction,
 } from "./record-view";
+// Widgets: a tile on a dashboard or a record page's sidebar, fed by a view (ADR 0023).
+export {
+  defineWidget,
+  isWidget,
+  resolveChartSeries,
+  resolveProgress,
+  resolveStreak,
+  resolveWidgetAccess,
+  resolveWidgetRequest,
+  toWidgetText,
+  widgetProblems,
+} from "./widget";
+export type {
+  ChartPoint,
+  ChartWidget,
+  DefinedWidget,
+  ListWidget,
+  NumberWidget,
+  ProgressWidget,
+  Streak,
+  StreakWidget,
+  WidgetBase,
+  WidgetDefinition,
+  WidgetFilter,
+  WidgetFormat,
+  WidgetKind,
+  WidgetRequest,
+} from "./widget";

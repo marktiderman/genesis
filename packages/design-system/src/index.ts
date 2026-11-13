@@ -96,6 +96,8 @@ export {
   resolveTokens,
   type ResolvedColorScale,
   type ResolvedThemeMode,
+  type Appearance,
+  type ResolvedAppearance,
   type ResolvedTokens,
   type ThemeMode,
   type UseThemeReturn,
