@@ -1,6 +1,7 @@
 // `genesis client init`: give an app its client layer (ADR 0020), the one folder where its own
 // layer over Genesis lives: the provider and defaults, its ResourceView wrapper, and a folder per
 // record type with its view and its appearance. Pure planning, so it is tested on a fake project.
+import { isPlainFolder } from "../doctor/config.js";
 
 /** The client layer's folder when genesis.config.json doesn't name one. */
 export const DEFAULT_CLIENT_DIR = "src/client";
@@ -22,6 +23,19 @@ export interface ClientInitPlan {
   files: ClientFile[];
   /** What the person still has to do. */
   steps: string[];
+}
+
+/**
+ * The layer's folder as genesis.config.json stores it: relative to the app, POSIX slashes, no `./`
+ * or trailing slash. Throws for anything the config would refuse (absolute, `..`, `.`, spaces,
+ * backslashes), so the scaffold never writes a folder the doctor then rejects.
+ */
+export function normalizeClientDir(raw: string): string {
+  const dir = raw.trim().replace(/^(\.\/)+/, "").replace(/\/{2,}/g, "/").replace(/\/+$/, "");
+  if (raw.includes("\\") || !isPlainFolder(dir) || dir.split("/").includes(".")) {
+    throw new Error(`client init: "${raw}" isn't a plain folder inside the app; give one like src/client (letters, digits, dashes, dots and underscores, separated by /)`);
+  }
+  return dir;
 }
 
 const TYPE = /^[a-z][a-z0-9-]{0,39}$/;
@@ -71,19 +85,67 @@ export type { ResourceViewProps };
 `;
 }
 
+function recordViewFile(): string {
+  return `// The app's RecordView (ADR 0020): Genesis's record page, with the app's defaults. Screens render
+// this one, never Genesis's directly, so a default the app changes reaches every record page at once.
+import { RecordView as GenesisRecordView, type RecordViewProps } from "@marktiderman/genesis-ui/data";
+
+type Row = Record<string, unknown>;
+
+export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
+  return <GenesisRecordView<T> {...props} />;
+}
+
+export type { RecordViewProps };
+`;
+}
+
+function contractFile(type: string): string {
+  const name = camel(type);
+  const table = type.replace(/-/g, "_");
+  const Row = `${name[0]!.toUpperCase()}${name.slice(1)}Row`;
+  return `// The ${type} contract: its fields and identity. A starting example so the view works today; once
+// the app generates its contracts, export the generated one instead:
+//   export { contracts["public.${table}"] as ${name}Contract } … from "../../lib/resources.genesis";
+import { defineResource } from "@marktiderman/genesis-core";
+
+export interface ${Row} {
+  id: string;
+  name: string;
+  status: string;
+  updated_at: string;
+  [field: string]: unknown;
+}
+
+export const ${name}Contract = defineResource<${Row}>()({
+  name: "public.${table}",
+  key: "id",
+  labelField: "name",
+  noun: "${type.replace(/-/g, " ")}",
+  fields: [
+    { name: "id", type: "string", readOnly: true },
+    { name: "name", type: "string", label: "Name" },
+    { name: "status", type: "string", label: "Status" },
+    { name: "updated_at", type: "datetime", label: "Updated", readOnly: true },
+  ],
+});
+`;
+}
+
 function viewFile(type: string): string {
   const name = camel(type);
   return `// The ${type} view (ADR 0020): what a ${type} record means to people. One view per resource; every
 // screen of ${type} renders this one, narrowed by its own props.
 import { defineView } from "@marktiderman/genesis-core/resource-view";
-// import { contracts } from "../../lib/resources.genesis";
+import { ${name}Contract } from "./contract";
 
-export const ${name}View = defineView(/* contracts["public.${type.replace(/-/g, "_")}"] */ undefined as never, {
+export const ${name}View = defineView(${name}Contract, {
+  columns: { default: ["name", "status", "updated_at"] },
+  segments: [{ id: "all", label: "All" }],
+  filters: [{ field: "status" }],
+  export: true,
   // fields: { status: { tones: { active: "success" } } },
-  // segments: [{ id: "all", label: "All" }],
-  // filters: [{ field: "status" }],
   // actions: [{ name: "archive", label: "Archive", bulk: true }],
-  // export: true,
 });
 `;
 }
@@ -106,12 +168,12 @@ export const ${name}Cells: Partial<Record<string, (row: ${name[0]!.toUpperCase()
  * and writes only what isn't there unless forced.
  */
 export function planClientInit(options: ClientInitOptions = {}): ClientInitPlan {
-  const dir = (options.dir ?? DEFAULT_CLIENT_DIR).replace(/^\.\//, "").replace(/\/+$/, "");
-  if (!dir || dir.startsWith("/") || dir.split("/").includes("..")) throw new Error(`client init: "${options.dir}" isn't a folder inside the app`);
+  const dir = normalizeClientDir(options.dir ?? DEFAULT_CLIENT_DIR);
   if (options.type !== undefined && !TYPE.test(options.type)) throw new Error(`client init: the type "${options.type}" is lowercase letters, digits and dashes`);
   const files: ClientFile[] = [
     { path: `${dir}/client-layer.tsx`, content: layerFile() },
     { path: `${dir}/resource-view.tsx`, content: resourceViewFile() },
+    { path: `${dir}/record-view.tsx`, content: recordViewFile() },
     { path: `${dir}/cells/index.ts`, content: "// Cells the app draws its own way, shared by its types (ADR 0020).\nexport {};\n" },
     { path: `${dir}/components/index.ts`, content: "// The app's own parts (ADR 0020): name each element's data-slot app-<name>.\nexport {};\n" },
     {
@@ -120,13 +182,27 @@ export function planClientInit(options: ClientInitOptions = {}): ClientInitPlan 
     },
   ];
   if (options.type) {
+    files.push({ path: `${dir}/${options.type}/contract.ts`, content: contractFile(options.type) });
     files.push({ path: `${dir}/${options.type}/view.ts`, content: viewFile(options.type) });
     files.push({ path: `${dir}/${options.type}/appearance.tsx`, content: appearanceFile(options.type) });
   }
   const steps = [
     `Mount <ClientLayer> from ${dir}/client-layer.tsx once, inside GenesisProvider.`,
-    `Render ResourceView from ${dir}/resource-view.tsx in screens; genesis doctor warns (client/layer) where a screen renders Genesis's directly.`,
+    `Render ResourceView and RecordView from ${dir}/resource-view.tsx and ${dir}/record-view.tsx in screens; genesis doctor warns (client/layer) where a screen renders Genesis's directly.`,
     ...(dir !== DEFAULT_CLIENT_DIR ? [`genesis.config.json now names the folder: { "client": { "dir": "${dir}" } }.`] : []),
   ];
   return { dir, files, steps };
+}
+
+/**
+ * Whether `genesis client init` writes `client.dir` into genesis.config.json for the planned folder.
+ * The default folder with nothing configured, or the folder already configured, needs no write.
+ * Moving a configured layer to another folder is refused unless forced, since the doctor and the
+ * app's imports read the configured one.
+ */
+export function clientConfigChange(planned: string, configured: string | undefined, force = false): "none" | "write" {
+  if (configured === undefined) return planned === DEFAULT_CLIENT_DIR ? "none" : "write";
+  if (configured === planned) return "none";
+  if (!force) throw new Error(`client init: genesis.config.json names the client layer's folder "${configured}"; pass --force to move it to "${planned}"`);
+  return "write";
 }

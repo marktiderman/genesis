@@ -1784,6 +1784,9 @@ importers:
       '@marktiderman/genesis-chat':
         specifier: workspace:^
         version: link:../chat
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../core
       '@marktiderman/genesis-native':
         specifier: workspace:^
         version: link:../native

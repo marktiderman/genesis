@@ -40,6 +40,10 @@ levels, given one home.
      defaults, its `SavedViewStore` and its router's URL adapter (`ResourceViewDefaultsProvider`).
    - `resource-view.tsx`: the app's `ResourceView`, Genesis's with the app's defaults. Screens
      render this one.
+   - `record-view.tsx`: the app's `RecordView`, Genesis's record page with the app's defaults.
+     Screens render this one.
+   - `<type>/contract.ts`: the scaffold's starting contract, so the view works the day it is
+     written; the app swaps in its generated contract.
    - `<type>/view.ts`: one view per resource, its `defineView`. Platform-neutral (ADR 0009), so a
      phone screen imports the same file.
    - `<type>/appearance.tsx`: how that type looks: its own cells, its card and its record page.
@@ -47,13 +51,18 @@ levels, given one home.
      ADR 0018); `view-types/`: the view types it registers (ADR 0021).
 2. **A scaffold.** `genesis client init [--folder <dir>] [--type <name>]` writes those files
    (keeping any that exist unless `--force`) and, for another folder, names it in
-   genesis.config.json.
+   genesis.config.json. The folder must be one the config accepts (relative, inside the app, `/`
+   between plain names, no `.`, `..`, spaces or backslashes), and it is written normalized. Moving
+   a layer the config already names takes `--force`.
 3. **Two doctor rules** (genesis-cli built-ins, warn, and only once the app has a layer: a
    `resource-view.tsx` in the folder):
    - `client/layer`: a screen outside the layer renders Genesis's `<ResourceView>` or
-     `<RecordView>` directly; render the layer's.
+     `<RecordView>` directly; render the layer's (`<RecordView>` is reported once the layer has
+     `record-view.tsx`).
    - `client/one-view-per-resource`: a second `defineView` over the same contract; keep one view
-     per resource and narrow it on the screen.
+     per resource and narrow it on the screen. A contract is told apart by where it comes from
+     (the module and name it is imported as, plus a `["…"]` key), not by its spelling; stories and
+     tests are left out.
 4. **What stays in Genesis.** The layer holds configuration and the app's own drawing (G2, G3);
    it never copies a Genesis component (ADR 0013, rule 3). A part the layer grows that more than
    one app wants is promoted (G4) and the app deletes its copy.
@@ -83,5 +92,5 @@ the app's; Genesis ships no code that runs in them.
 - Apps get one place for their list defaults, saved-view store and URL adapter, and the doctor
   points screens at it.
 - An app without a layer sees no new findings.
-- Planned: the layer's record-page wrapper (`record-view.tsx`) beside `resource-view.tsx`, when
-  RecordView's app defaults (slots, readiness labels) settle.
+- The layer's record-page wrapper (`record-view.tsx`) ships beside `resource-view.tsx`; it passes
+  Genesis's `RecordView` through until the app sets its own defaults there.

@@ -114,7 +114,7 @@ describe("AppearancePreferencesProvider", () => {
     expect(JSON.parse(localStorage.getItem("genesis-appearance")!)).toEqual({ density: "compact" });
   });
 
-  it("keeps a choice made while the store's read was still in flight", async () => {
+  it("holds a choice made while the store's read is in flight, then writes it merged onto the read", async () => {
     let answer: (values: AppearancePreferenceValues) => void = () => undefined;
     const read = () => new Promise<AppearancePreferenceValues>((resolve) => (answer = resolve));
     const write = vi.fn();
@@ -125,16 +125,39 @@ describe("AppearancePreferencesProvider", () => {
       </AppearancePreferencesProvider>,
     );
     act(() => screen.getByText("dark").click());
+    // Nothing goes out before the store has answered: it holds values this device doesn't know.
     await act(async () => {
-      // The read starts on the next tick; answer it once it's asked.
       await new Promise((resolve) => setTimeout(resolve, 0));
-      answer({ appearance: "light" });
     });
+    expect(write).not.toHaveBeenCalled();
+    await act(async () => answer({ appearance: "light", density: "compact" }));
     await waitFor(() => expect(screen.getByTestId("ready").textContent).toBe("true"));
     expect(screen.getByTestId("appearance").textContent).toBe("dark:person");
-    // The write that was made from a choice taken before the read answered says what it replaces.
+    expect(screen.getByTestId("density").textContent).toBe("compact:person");
+    // The choice merged onto the store's values, written against them: a compare-and-set store accepts it.
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
-    expect(JSON.parse(localStorage.getItem("genesis-appearance")!)).toEqual({ appearance: "dark" });
+    expect(write).toHaveBeenCalledWith({ appearance: "dark", density: "compact" }, { previous: { appearance: "light", density: "compact" } });
+    expect(JSON.parse(localStorage.getItem("genesis-appearance")!)).toEqual({ appearance: "dark", density: "compact" });
+  });
+
+  it("writes a held choice onto this device's values when the store can't be read", async () => {
+    localStorage.setItem("genesis-appearance", JSON.stringify({ density: "spacious" }));
+    let fail: (error: Error) => void = () => undefined;
+    const read = () => new Promise<AppearancePreferenceValues>((_, reject) => (fail = reject));
+    const write = vi.fn();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const preferences = defineAppearancePreferences({ store: { read, write } });
+    render(
+      <AppearancePreferencesProvider preferences={preferences}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    act(() => screen.getByText("dark").click());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      fail(new Error("offline"));
+    });
+    await waitFor(() => expect(write).toHaveBeenCalledWith({ appearance: "dark", density: "spacious" }, { previous: null }));
   });
 
   it("sends writes one at a time, skips one a newer write replaced, and passes what it replaces", async () => {

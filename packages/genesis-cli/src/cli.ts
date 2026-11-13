@@ -471,14 +471,16 @@ client
   .option("--type <name>", "A record type to start: <folder>/<type>/view.ts and appearance.tsx")
   .option("--force", "Overwrite files that already exist", false)
   .action(async (opts: { dir: string; folder?: string; type?: string; force: boolean }) => {
-    const { planClientInit } = await import("./client/init.js");
+    const { planClientInit, clientConfigChange } = await import("./client/init.js");
     const { readGenesisConfig } = await import("./doctor/config.js");
     const root = path.resolve(opts.dir);
     const configured = readGenesisConfig(root);
     const folder = opts.folder ?? configured?.client?.dir;
     let plan;
+    let change;
     try {
       plan = planClientInit({ ...(folder ? { dir: folder } : {}), ...(opts.type ? { type: opts.type } : {}) });
+      change = clientConfigChange(plan.dir, configured?.client?.dir, opts.force);
     } catch (err) {
       return program.error((err as Error).message);
     }
@@ -492,8 +494,8 @@ client
       await fs.writeFile(target, file.content);
       console.log(`✔ ${file.path}`);
     }
-    // A folder other than the default is named in genesis.config.json, so the doctor finds it.
-    if (opts.folder && opts.folder !== "src/client" && configured?.client?.dir !== plan.dir) {
+    // A folder other than the one genesis.config.json names (or the default) is written there, so the doctor finds it.
+    if (change === "write") {
       const configPath = path.join(root, "genesis.config.json");
       const raw = configured?.raw ?? {};
       await fs.writeFile(configPath, `${JSON.stringify({ ...raw, client: { dir: plan.dir } }, null, 2)}\n`);

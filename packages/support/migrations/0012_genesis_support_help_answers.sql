@@ -6,6 +6,9 @@
 -- kept an answer recorded earlier and the articles it cited. Now support_record_answer clears the
 -- answer and its article ids too, and the rows already ended that way are cleared here.
 --
+-- A question answered first and routed later keeps its outcome (`answered`, `resolved` or
+-- `handed_off`) with a null answer and no articles: show it as "not kept", never as an empty answer.
+--
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --

@@ -7,7 +7,7 @@
 -- of ta; e5 an agent of tb.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(14);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -61,14 +61,27 @@ create schema if not exists genesis_studio;
 create table if not exists genesis_studio.audit_log (
   id uuid primary key default gen_random_uuid(), occurred_at timestamptz not null default clock_timestamp(),
   actor text, actor_claims jsonb, resource text not null, record_key jsonb not null, action text not null, before jsonb, after jsonb);
+create table if not exists genesis_studio.comments (
+  id uuid primary key default gen_random_uuid(), resource text not null, record_key jsonb not null, author text, body text not null,
+  created_at timestamptz not null default now());
+create table if not exists genesis_studio.outbox (
+  id uuid primary key default gen_random_uuid(), seq bigserial, resource text not null, record_key jsonb not null, payload jsonb not null);
+create table if not exists genesis_studio.outbox_dead_letter (
+  id uuid primary key default gen_random_uuid(), resource text not null, record_key jsonb not null, payload jsonb not null);
 insert into genesis_studio.audit_log (resource, record_key, action) values
   ('public.support_reports', '"r1"', 'update'),
   ('public.support_attachments', '"a1"', 'create'),
   ('public.goals', '"g1"', 'update');
+insert into genesis_studio.comments (resource, record_key, body) values ('public.support_reports', '"r1"', 'A note on the old name');
+insert into genesis_studio.outbox (resource, record_key, payload) values ('public.support_reports', '"r1"', '{"resource": "public.support_reports", "action": "update"}');
+insert into genesis_studio.outbox_dead_letter (resource, record_key, payload) values ('support_attachments', '"a1"', '{"resource": "support_attachments"}');
 
-select is(private.genesis_support_rename_studio_keys(), 2, 'the old names move');
+select is(private.genesis_support_rename_studio_keys(), 7, 'the old names move: three columns and two payloads besides the audit log');
 select is((select array_agg(resource order by resource) from genesis_studio.audit_log where record_key in ('"r1"', '"a1"', '"g1"')),
           array['public.goals', 'public.ticket_attachments', 'public.tickets'], '... to tickets and ticket_attachments, and nothing else moves');
+select is((select resource from genesis_studio.comments where record_key = '"r1"'), 'public.tickets', 'a comment follows the rename');
+select is((select resource || ' ' || (payload ->> 'resource') from genesis_studio.outbox where record_key = '"r1"'), 'public.tickets public.tickets', 'an outbox row and the payload it delivers follow it');
+select is((select resource || ' ' || (payload ->> 'resource') from genesis_studio.outbox_dead_letter where record_key = '"a1"'), 'ticket_attachments ticket_attachments', 'a dead letter and its payload follow it');
 select is(private.genesis_support_rename_studio_keys(), 0, 'running it again changes nothing');
 
 -- 2. An agent's unread count --------------------------------------------------------------------

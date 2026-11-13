@@ -222,7 +222,7 @@ export const inbox = (
 **Or as a view's inbox.** The same queue can be a Genesis view drawn by
 `<ResourceView type="inbox">` (genesis-ui), beside its table and with saved views, when your app
 reads it through the data provider. This package exports the pieces: `supportQueueSource()` (the
-provider `source` over `support_agent_tickets`), `ticketInbox` (which column is the title, preview,
+provider `source` over migration 0013's `support_agent_queue`, which pages and counts every ticket; pass `{ tenant }`, or scope the view by `tenant_id`), `ticketInbox` (which column is the title, preview,
 time, requester, unread and status) and `ticketSegments` (Mine, Unassigned, Open, Solved, All; Mine
 and Unassigned pass the queue's view as a segment's `args`). The reading pane is the ticket's
 thread with its reply box, through `renderReading`:

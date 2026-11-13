@@ -829,8 +829,8 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `app-part-name` | warn | An app element's own `data-slot` that doesn't start `app-`. An app style reaches an app's own part by name, so it is `app-<name>` and never matches a Genesis part; a name the installed design system's `THEME_PARTS` already uses is called out, since every app style's rules for that part would hit the app's element. Files inside an overlay of the component package are skipped (ADR 0018). |
 | `app-part-colors` | warn | In a custom view (a file that renders `<CustomView>` or calls `useCustomView`) or a file with an app part (`data-slot="app-…"`): a colour property (`color`, `backgroundColor`, `borderColor`, `fill`, …) or a Tailwind colour utility with an arbitrary value (`bg-[var(--x)]`) that reads a custom property the theme stylesheets don't declare as a colour role. Take colours from roles (`hsl(var(--primary))`, `bg-primary`), so the app brand and dark mode reach the view. Literal colours stay `raw-color`'s (ADR 0019). |
 | `custom-view-states` | warn | A custom view that draws its own loading, empty or error state: a `status === "loading"`, `"empty"` or `"error"` check in a file that renders `<CustomView>` or calls `useCustomView`. `<CustomView>` draws the three states in the app's style; its `loading`, `empty` and `error` props replace one (ADR 0019). |
-| `client/layer` | warn | Once the app has a client layer (a `resource-view.tsx` in `src/client/`, or genesis.config.json's `client.dir`): a screen outside it that renders Genesis's `<ResourceView>` or `<RecordView>` directly. Screens render the layer's, so the app's defaults reach them (ADR 0020). |
-| `client/one-view-per-resource` | warn | A second `defineView` over the same contract. Keep one view per resource and narrow it on the screen (`preset`, `filter`, `columns`), so its rules can't drift (ADR 0020). |
+| `client/layer` | warn | Once the app has a client layer (a `resource-view.tsx` in `src/client/`, or genesis.config.json's `client.dir`): a screen outside it that renders Genesis's `<ResourceView>` or `<RecordView>` directly (`<RecordView>` once the layer has `record-view.tsx`). Screens render the layer's, so the app's defaults reach them (ADR 0020). |
+| `client/one-view-per-resource` | warn | Once the app has a client layer: a second `defineView` over the same contract, told apart by where it is imported from (module and name, plus a `["…"]` key), not its spelling. Stories and tests are skipped. Keep one view per resource and narrow it on the screen (`preset`, `filter`, `columns`), so its rules can't drift (ADR 0020). |
 | `deprecated-import` | warn | A named import of a Genesis export tagged `@deprecated` (or `@stability Deprecated`) in its published declarations. It goes at the next major; the message carries the tag's advice. Ratcheted by default: under `--base`, files that didn't change report it as `info`, so an upgrade never fails strict CI on untouched files. |
 | `beta-import` | info | A named import of an export tagged `@stability Beta` or `Experimental`, which may still change in a minor. Info by default since most of Genesis is beta; set it to `warn` in `rules` to see it in CI. |
 | `figma-routes` | info | Runs only when genesis.config.json has a `figma` block: [genesis figma:routes](#genesis-figmaroutes) as findings. A configured page the file doesn't have, a route with no frame, navigation with no hotspot and a `// figma:` id that isn't the route's frame are `info`, `warn` under `--strict`; frames with no route, hotspots to them and navigation that isn't a string literal are always `info`, by design. Never `error`. Invalid JSON or a bad `figma` block in genesis.config.json is one `warn` naming the file. Without `FIGMA_ACCESS_TOKEN`, or when the API can't be read or doesn't answer within 30 seconds, one `info` notice. The Vite plugin and `genesis upgrade` skip it (it reads the network). |
@@ -1466,9 +1466,12 @@ npx @marktiderman/genesis-cli client init [--folder <dir>] [--type <name>] [--fo
 Starts the app's client layer (ADR 0020), its own layer over Genesis, in `src/client/` (or
 `--folder`, which it names in genesis.config.json as `client.dir`): `client-layer.tsx` (the
 provider with the app's list defaults, its saved-view store and its router's URL adapter),
-`resource-view.tsx` (the app's ResourceView, which screens render), `cells/`, `components/` and
-`view-types/`, and with `--type tasks`, `tasks/view.ts` and `tasks/appearance.tsx`. Files that
-exist are kept unless `--force`. The doctor's `client/layer` and `client/one-view-per-resource`
+`resource-view.tsx` and `record-view.tsx` (the app's ResourceView and RecordView, which screens
+render), `cells/`, `components/` and `view-types/`, and with `--type tasks`, `tasks/contract.ts`
+(a starting contract to swap for the generated one), `tasks/view.ts` and `tasks/appearance.tsx`.
+Files that exist are kept unless `--force`. `--folder` takes a plain folder inside the app (no
+`.`, `..`, spaces or backslashes) and is written normalized; moving a folder genesis.config.json
+already names takes `--force`. The doctor's `client/layer` and `client/one-view-per-resource`
 rules keep screens on it.
 
 ## genesis upstream

@@ -5,21 +5,27 @@
  * platform.
  *
  * ```ts
- * createSupabaseProvider(supabase, { resources: { support_queue: { source: supportQueueSource() } } });
+ * createSupabaseProvider(supabase, { resources: { support_queue: { source: supportQueueSource(), writeColumns: [] } } });
  * export const queueView = defineView(supportQueueContract, { inbox: ticketInbox, segments: ticketSegments, types: ["inbox", "table"] });
  * // <ResourceView view={queueView} inbox={{ renderReading: (t) => <SupportStaffThread client={support} reportId={t.id} resolveUser={…} /> }} />
  * ```
  */
 
 /**
- * A provider `source` for the agent queue: migration 0009's `support_agent_tickets`, with the
- * queue (`mine`, `unassigned`, `all`) taken from the list's `inbox_view` filter, which the
- * Mine and Unassigned segments set.
+ * A provider `source` for the agent queue: migration 0013's `support_agent_queue`, which returns
+ * every ticket (no limit of its own) so the provider pages, counts and filters it. The queue
+ * (`mine`, `unassigned`, `all`) comes from the list's `inbox_view` filter, which the Mine and
+ * Unassigned segments set as `args`. The tenant is `options.tenant` when given, else the list's
+ * `tenant_id` filter (a view with `scope: ["tenant_id"]`, under the viewer's workspace), else the
+ * app's own.
  */
-export function supportQueueSource() {
+export function supportQueueSource(options: { tenant?: string | null } = {}) {
   return {
-    rpc: "support_agent_tickets",
-    args: (context: { take(field: string): unknown }) => ({ inbox_view: context.take("inbox_view") ?? "all" }),
+    rpc: "support_agent_queue",
+    args: (context: { take(field: string): unknown }) => ({
+      tenant: options.tenant !== undefined ? options.tenant : (context.take("tenant_id") ?? null),
+      inbox_view: context.take("inbox_view") ?? "all",
+    }),
   };
 }
 

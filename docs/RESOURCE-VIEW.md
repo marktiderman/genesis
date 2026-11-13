@@ -1174,7 +1174,7 @@ export function Tickets({ open, setOpen }: { open: string | null; setOpen: (id: 
   same swipe actions; a press opens the row as the list's does.
 
 genesis-support exports `ticketInbox`, `ticketSegments` and `supportQueueSource()` for its agent
-queue, and genesis-chat `conversationInbox` for a list of conversations; their READMEs show the
+queue, and genesis-chat `conversationInbox()` for a list of conversations; their READMEs show the
 reading pane each takes.
 
 ## View types

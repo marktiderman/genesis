@@ -208,6 +208,7 @@ export function inboxProblems(fields: readonly Pick<FieldSchema, "name" | "type"
   const named = (key: "title" | "preview" | "time" | "from" | "avatar" | "badge", type?: "string" | "datetime") => {
     const name = inbox[key];
     if (name === undefined) return;
+    if (typeof name === "function" && (key === "title" || key === "preview" || key === "from")) return;
     const field = typeof name === "string" ? byName.get(name) : undefined;
     if (!field) problems.push(`inbox.${key} names "${String(name)}", which isn't a field`);
     else if (type && (field.type !== type || field.array)) problems.push(`inbox.${key} "${name}" isn't a ${type === "datetime" ? "date or timestamp" : "text"} field`);
@@ -869,9 +870,13 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     ...((inbox?.markRead ?? (actionNames.has("markRead") ? "markRead" : undefined)) ? { markRead: inbox?.markRead ?? "markRead" } : {}),
   });
   const words = (value: unknown) => (value === null || value === undefined || value === "" ? undefined : String(value));
+  const inboxText = (pick: string | ((row: Row) => string | null | undefined) | undefined, row: Row) =>
+    pick === undefined ? undefined : typeof pick === "function" ? words(pick(row)) : words(row[pick]);
   const inboxRow = (row: Row) => {
-    const block = inbox ?? {};
-    const title = (block.title ? words(row[block.title]) : undefined) ?? summary(row).title;
+    const block = (inbox ?? {}) as ViewInbox<string, Row>;
+    const title = inboxText(block.title, row) ?? summary(row).title;
+    const preview = inboxText(block.preview, row);
+    const from = inboxText(block.from, row);
     const unread =
       typeof block.unread === "function" ? block.unread(row as never) === true : typeof block.unread === "string" ? row[block.unread] === true : false;
     const badgeValue = block.badge ? row[block.badge] : undefined;
@@ -882,9 +887,9 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       id: String(encodeRecordKey(contract, row as DataRow)),
       title,
       unread,
-      ...(block.preview && words(row[block.preview]) ? { preview: words(row[block.preview])! } : {}),
+      ...(preview ? { preview } : {}),
       ...(time instanceof Date ? { time: time.toISOString() } : words(time) ? { time: words(time)! } : {}),
-      ...(block.from && words(row[block.from]) ? { from: words(row[block.from])! } : {}),
+      ...(from ? { from } : {}),
       ...(block.avatar && words(row[block.avatar]) ? { avatar: words(row[block.avatar])! } : {}),
       ...(words(badgeValue) ? { badge: Object.freeze({ label: valueLabel(block.badge!, badgeValue), ...(badgeTone ? { tone: badgeTone } : {}) }) } : {}),
     });

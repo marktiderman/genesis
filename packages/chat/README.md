@@ -43,12 +43,16 @@ all with no backend, for demos, stories and tests.
 A list of conversations an app reads through the data provider (genesis_chat's `inbox` function
 as a source, or a view of its own) can be a Genesis view drawn by `<ResourceView type="inbox">`
 (genesis-ui): the rail of its segments, the conversations, and the open one as the reading pane.
-`conversationInbox` says which column is which (the title, the last message's time, unread above
-0), and `renderReading` holds the thread:
+`conversationInbox({ resolveUser })` says which column is which: the title (a direct
+conversation's is the other member's name, from `resolveUser`), the latest message as the preview,
+its time, and unread above 0. `renderReading` holds the thread. genesis_chat's `inbox` function
+returns at most 50 conversations by default (`p_limit`, 200 at most) and pages by `p_before`, so as
+a provider source it isn't paged or counted past that; read a longer list through a view of the
+app's own.
 
 <!-- docs-check: skip -->
 ```tsx
-export const conversationsView = defineView(conversationsContract, { inbox: conversationInbox, types: ["inbox"] });
+export const conversationsView = defineView(conversationsContract, { inbox: conversationInbox({ resolveUser }), types: ["inbox"] });
 
 <ResourceView
   view={conversationsView}

@@ -530,14 +530,14 @@ export interface ViewGallery<Name extends string = string> {
  * @stability Beta
  */
 export interface ViewInbox<Name extends string = string, Row extends DataRow = DataRow> {
-  /** The row's title line. Default the view's `labelField`. */
-  title?: Name;
-  /** One line under the title (the latest message, a description). */
-  preview?: Name;
+  /** The row's title line: a field, or a function of the row (a direct message's other person). Default the view's `labelField`. */
+  title?: Name | ((row: Row) => string | null | undefined);
+  /** One line under the title (the latest message, a description): a field, or a function of the row. */
+  preview?: Name | ((row: Row) => string | null | undefined);
   /** A date or timestamp field: the row's short relative time. */
   time?: Name;
-  /** Who it's from, in words: a line under the preview, and the avatar's initials. */
-  from?: Name;
+  /** Who it's from, in words: a line under the preview, and the avatar's initials. A field, or a function of the row. */
+  from?: Name | ((row: Row) => string | null | undefined);
   /** An image field: the avatar beside the row. */
   avatar?: Name;
   /** A yes/no field, or a function of the row: bold, with a dot, while it's unread. */

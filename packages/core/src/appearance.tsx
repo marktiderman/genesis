@@ -70,7 +70,8 @@ export interface AppearancePreferencesDefinition {
   lock?: AppearancePreferenceValues;
   /**
    * Hears a store write that failed (offline, refused, a conditional write that lost), with the
-   * values it tried to save. The person's choice stays on this device either way. Default: the
+   * values it tried to save. The device keeps the choice for this visit; the next successful read
+   * of the store (another visit, another device) wins over it. Default: the
    * error goes to `reportError`.
    */
   onWriteError?: (error: unknown, values: AppearancePreferenceValues) => void;
@@ -179,9 +180,12 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
   const [ready, setReady] = useState(!store);
   const latestStore = useRef(store);
   latestStore.current = store;
-  // How many choices the person has made here: a read that started before the latest one is
-  // older than it, so it never overwrites the newer local choice.
-  const edits = useRef(0);
+  // The first read settles before any write goes out: choices made while it's in flight wait here as
+  // patches, then go out merged onto what the store said, with that as `previous`.
+  const firstRead = useRef<"pending" | "settled">(store ? "pending" : "settled");
+  const waiting = useRef<AppearancePreferenceValues | null>(null);
+  // How many writes the store has accepted: a read that started before one is older than it.
+  const writesDone = useRef(0);
   // What the store last answered or accepted, for a conditional write.
   const confirmed = useRef<AppearancePreferenceValues | null>(null);
   // One write at a time, in order; the newest waiting write replaces an older waiting one.
@@ -194,26 +198,44 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
   useEffect(() => {
     if (!store) return;
     let active = true;
-    const startedAt = edits.current;
+    firstRead.current = "pending";
+    const writesAtStart = writesDone.current;
+    // Choices made meanwhile go out now: merged onto what the store said, or onto this device's.
+    const release = (base: AppearancePreferenceValues | null) => {
+      firstRead.current = "settled";
+      const patch = waiting.current;
+      waiting.current = null;
+      if (!patch) return;
+      const merged = toAppearancePreferenceValues({ ...(base ?? {}), ...patch });
+      setStored(merged);
+      deviceSetter.current(Object.keys(merged).length ? merged : undefined);
+      queue.current.next = merged;
+      void drainRef.current();
+    };
     Promise.resolve()
       .then(() => store.read())
       .then(
         (values) => {
           if (!active) return;
           const read = values ? toAppearancePreferenceValues(values) : null;
-          confirmed.current = read;
-          // A choice made while the read was in flight is newer: it stays, and its write is on its way.
-          if (edits.current === startedAt) {
-            setStored(read);
-            // The device keeps a copy of what the store said, for the next visit's first paint.
-            if (read) deviceSetter.current(Object.keys(read).length ? read : undefined);
+          // A read older than an accepted write says nothing new: drop it.
+          if (writesDone.current === writesAtStart) {
+            confirmed.current = read;
+            if (!waiting.current) {
+              setStored(read);
+              // The device keeps a copy of what the store said, for the next visit's first paint.
+              if (read) deviceSetter.current(Object.keys(read).length ? read : undefined);
+            }
           }
+          release(read);
           setReady(true);
         },
         (error: unknown) => {
           // A store that can't be read leaves the device's copy in charge.
           reportError(error, "core:appearance-preferences");
-          if (active) setReady(true);
+          if (!active) return;
+          release(deviceRef.current);
+          setReady(true);
         },
       );
     const unsubscribe = store.subscribe?.((values) => {
@@ -232,6 +254,8 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
   // The store's answer is the person's choice; the device's copy fills in until it comes, and
   // when there is no store.
   const person = useMemo<AppearancePreferenceValues>(() => ({ ...device, ...(stored ?? {}) }), [device, stored]);
+  const deviceRef = useRef(device);
+  deviceRef.current = device;
 
   const drain = useCallback(async () => {
     const q = queue.current;
@@ -246,6 +270,7 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
         try {
           await target.write(values, { previous: confirmed.current });
           confirmed.current = values;
+          writesDone.current += 1;
         } catch (error: unknown) {
           const handler = writeErrorHandler.current;
           if (handler) handler(error, values);
@@ -256,15 +281,21 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
       q.running = false;
     }
   }, []);
+  const drainRef = useRef(drain);
+  drainRef.current = drain;
 
   const save = useCallback(
     (patch: AppearancePreferenceValues) => {
-      edits.current += 1;
       // An undefined value in the patch clears that key: the spread sets it, and the check drops it.
       const next = toAppearancePreferenceValues({ ...person, ...patch });
       setDevice(Object.keys(next).length ? next : undefined);
       if (latestStore.current) {
         setStored(next);
+        if (firstRead.current === "pending") {
+          // Not yet: the patch waits for the store's answer, so nothing it holds is overwritten.
+          waiting.current = { ...(waiting.current ?? {}), ...patch };
+          return;
+        }
         queue.current.next = next;
         void drain();
       }

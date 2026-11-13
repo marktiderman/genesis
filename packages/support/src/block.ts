@@ -139,6 +139,7 @@ export function defineSupportChatBlock(options: { requires?: readonly string[] }
         { package: "@marktiderman/genesis-support", file: "migrations/0006_genesis_support_chat_tenants.sql", test: "migrations/tests/0006_genesis_support_chat_tenants.test.sql" },
         // The agent inbox's read path.
         { package: "@marktiderman/genesis-support", file: "migrations/0009_genesis_support_inbox.sql", test: "migrations/tests/0009_genesis_support_inbox.test.sql" },
+      { package: "@marktiderman/genesis-support", file: "migrations/0013_genesis_support_agent_queue.sql", test: "migrations/tests/0013_genesis_support_agent_queue.test.sql" },
       ],
     },
   });

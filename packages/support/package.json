@@ -139,6 +139,7 @@
   "devDependencies": {
     "@marktiderman/genesis-ai": "workspace:^",
     "@marktiderman/genesis-chat": "workspace:^",
+    "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-native": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
@@ -384,6 +385,10 @@
           {
             "file": "migrations/0009_genesis_support_inbox.sql",
             "test": "migrations/tests/0009_genesis_support_inbox.test.sql"
+          },
+          {
+            "file": "migrations/0013_genesis_support_agent_queue.sql",
+            "test": "migrations/tests/0013_genesis_support_agent_queue.test.sql"
           }
         ],
         "steps": [

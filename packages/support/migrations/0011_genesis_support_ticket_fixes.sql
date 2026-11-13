@@ -3,11 +3,12 @@
 --
 --   1. The Data Studio's records of support rows follow the rename. 0004 renamed
 --      public.support_reports to public.tickets and public.support_attachments to
---      public.ticket_attachments; the Data Studio's audit log and outbox (genesis-studio-server's
---      genesis_studio.audit_log, outbox and outbox_dead_letter) still keyed their rows by the old
---      names, so a ticket's history stopped at the rename. private.genesis_support_rename_studio_keys()
---      rewrites them, only where those tables exist (to_regclass), and returns how many rows moved.
---      It runs once here; running it again changes nothing.
+--      public.ticket_attachments; the Data Studio (genesis-studio-server) still keyed its rows by
+--      the old names, so a ticket's history and comments stopped at the rename.
+--      private.genesis_support_rename_studio_keys() rewrites `resource` in genesis_studio.audit_log,
+--      comments, outbox and outbox_dead_letter, and the `resource` inside the outbox's and dead
+--      letter's `payload` (what a delivery sends downstream), only where those tables exist
+--      (to_regclass), and returns how many rows moved. It runs once here; running it again changes nothing.
 --   2. public.support_agent_unread_count(tenant) returns how many open tickets of a tenant hold a
 --      message from the requester no agent has read: an agent's badge without reading the queue.
 --      A null tenant means the app's own. Only an agent of the tenant may ask (42501 otherwise),
@@ -36,7 +37,7 @@ declare
   n integer;
   t text;
 begin
-  foreach t in array array['genesis_studio.audit_log', 'genesis_studio.outbox', 'genesis_studio.outbox_dead_letter'] loop
+  foreach t in array array['genesis_studio.audit_log', 'genesis_studio.comments', 'genesis_studio.outbox', 'genesis_studio.outbox_dead_letter'] loop
     if to_regclass(t) is null then
       continue;
     end if;
@@ -48,6 +49,23 @@ begin
                                   when ''support_attachments'' then ''ticket_attachments''
                                 end
         where resource in (''public.support_reports'', ''support_reports'', ''public.support_attachments'', ''support_attachments'')',
+      t);
+    get diagnostics n = row_count;
+    moved := moved + n;
+  end loop;
+  -- What a delivery carries downstream names the resource too.
+  foreach t in array array['genesis_studio.outbox', 'genesis_studio.outbox_dead_letter'] loop
+    if to_regclass(t) is null then
+      continue;
+    end if;
+    execute format(
+      'update %s set payload = jsonb_set(payload, ''{resource}'', to_jsonb(case payload ->> ''resource''
+                                  when ''public.support_reports'' then ''public.tickets''
+                                  when ''support_reports'' then ''tickets''
+                                  when ''public.support_attachments'' then ''public.ticket_attachments''
+                                  when ''support_attachments'' then ''ticket_attachments''
+                                end))
+        where payload ->> ''resource'' in (''public.support_reports'', ''support_reports'', ''public.support_attachments'', ''support_attachments'')',
       t);
     get diagnostics n = row_count;
     moved := moved + n;

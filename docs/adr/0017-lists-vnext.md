@@ -340,7 +340,7 @@ export const tasksView = defineView(tasksContract, {
   runs the view's `markRead` action when it declares one; Genesis never writes on its own.
 - **Extension points.** `renderReading(row, { close })` replaces the reading pane (a ticket's
   thread, a conversation), `renderContext(row)` fills the sidebar. genesis-support exports
-  `ticketInbox`, `ticketSegments` and `supportQueueSource()`, genesis-chat `conversationInbox`.
+  `ticketInbox`, `ticketSegments` and `supportQueueSource()`, genesis-chat `conversationInbox()`.
   On a phone, `NativeResourceView type="inbox"` draws the rows as InboxPage's.
 
 ## Extension points, at a glance
