@@ -25,6 +25,7 @@ import {
   renderThemeCss,
   type ThemeBrand,
 } from "./src/tokens/theme-css";
+import { STARTER_THEMES, renderStarterThemesCss } from "./src/starter-themes";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -404,6 +405,10 @@ async function build() {
       "utf-8"
     );
     console.log("  wrote dist/themes/genesis-tailwind4.css");
+
+    // Starter themes, each scoped to [data-theme="<id>"], in one stylesheet.
+    writeFileSync(join(__dirname, "dist", "themes", "starter.css"), renderStarterThemesCss(STARTER_THEMES), "utf-8");
+    console.log("  wrote dist/themes/starter.css");
   }
 
   // Native token generation (→ src/tokens/; run BEFORE tsup bundles).

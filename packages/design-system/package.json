@@ -83,6 +83,10 @@
       "types": "./dist/design-systems/index.d.ts",
       "import": "./dist/design-systems/index.js"
     },
+    "./starter-themes": {
+      "types": "./dist/starter-themes/index.d.ts",
+      "import": "./dist/starter-themes/index.js"
+    },
     "./fonts": {
       "types": "./dist/fonts.d.ts",
       "import": "./dist/fonts.js"
@@ -119,6 +123,12 @@
           "use": "a brand file (the brand schema) and tailwindFromBrand",
           "import": "@marktiderman/genesis-design-system",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/design-system/README.md"
+        },
+        {
+          "need": "a whole-app look (a theme): sidebar, surfaces, fonts and density, light and dark",
+          "use": "a starter theme (STARTER_THEMES, or your own with defineStarterTheme) through themes/starter.css and data-theme",
+          "import": "@marktiderman/genesis-design-system/starter-themes",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/design-system/README.md#starter-themes"
         }
       ]
     }

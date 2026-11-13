@@ -171,6 +171,75 @@ A host reads each with its own value as the fallback:
 | `image` | `--ds-image-filter`, `--ds-image-grain` |
 | `motion` | `--ds-ease-{out,swift,in-out,decelerate}`, `--ds-dur-{press,fast,hover,base,ui,reveal,media}` (from `resolveMotion`; a host gates them with `prefers-reduced-motion`), `--ds-reveal` and `--ds-reveal-phone` (the keyframes to run, `ds-rise` or `ds-clip`, which the host's stylesheet defines), `--ds-reveal-distance`, `--ds-reveal-range`, `--ds-hover-lift` |
 
+## Starter themes
+
+A starter theme is a whole-app look built on a brand: the brand's colours,
+radius and status (through `brandRoleVariables`), plus what a brand leaves at
+the Genesis default and a product's character mostly lives in: the sidebar,
+a card that differs from the page, the font stacks and the shell's density.
+Each follows the feel of a kind of product people already know how to use,
+with Genesis's own palette. Every one reaches WCAG AA on every pair
+genesis-ui draws (`STARTER_THEME_PAIRS`), light and dark, and passes the brand
+contrast check.
+
+| Theme | Feel | Suits | Density |
+|---|---|---|---|
+| `tracker` | keyboard-first issue trackers: cool greys, a sparing indigo, small corners | issues, projects, roadmaps | compact |
+| `repository` | code hosting: hairlines, green actions, blue links, system type | admin, data, settings | compact |
+| `checklist` | personal task managers: warm white, a confident red, a tinted open list | tasks, today, goals | comfortable |
+| `notebook` | document workspaces: white page, warm grey ink, a warm sidebar | docs, meetings, team | comfortable |
+| `press` | website dashboards: a dark rail, a grey canvas with white cards | website, pages, media | compact |
+| `journal` | journaling and reading: paper ground, serif headings, sage | journal, habits, reading | comfortable |
+| `arena` | training trackers: a black rail, hot orange, condensed headings | training, workouts, classes | comfortable |
+
+**As is:** import the stylesheet after `genesis.css` and the Tailwind bridge,
+then set `data-theme` on `<html>` for the whole app (portalled menus and
+dialogs included) or on any element for a part of it. Dark mode follows the
+`.dark` class, on the same element or an ancestor, and the selectors outrank a
+plain `:root` override, so an app's own brand comes back when the attribute is
+removed. Pass the theme's density to `AppShell`, and load the fonts it names
+(each stack falls back to system fonts).
+
+```css
+@import "@marktiderman/genesis-design-system/themes/genesis.css";
+@import "@marktiderman/genesis-design-system/themes/genesis-tailwind4.css";
+@import "@marktiderman/genesis-design-system/themes/starter.css";
+```
+
+```ts
+import { getStarterTheme, starterThemeContrastProblems } from "@marktiderman/genesis-design-system/starter-themes";
+
+const theme = getStarterTheme("notebook");
+document.documentElement.dataset.theme = theme?.id;
+const density = theme?.shell?.density ?? "comfortable"; // for AppShell
+starterThemeContrastProblems(theme!); // [] for every shipped theme
+```
+
+**As a starting point:** copy one into your own with `defineStarterTheme`,
+which checks it (and its brand) and throws with every problem. `roles` sets
+any theme role by hand, per mode, over the brand's; `fonts` sets `--font-sans`,
+`--font-display` and `--font-mono`. `starterThemeCss(theme)` renders it scoped
+to `data-theme`, and `starterThemeVariables(theme)` gives the variable maps.
+
+```ts
+import { defineStarterTheme, notebookTheme, starterThemeCss } from "@marktiderman/genesis-design-system/starter-themes";
+
+export const ledger = defineStarterTheme({
+  ...notebookTheme,
+  name: "ledger",
+  label: "Ledger",
+  description: "Quiet and exact, for finance screens.",
+  feel: "accounting tools",
+  suits: ["invoices", "reports"],
+  brand: { ...notebookTheme.brand, name: "ledger", accent: { DEFAULT: "#0f766e" } },
+  shell: { density: "compact" },
+});
+const css = starterThemeCss(ledger); // [data-theme="ledger"] { … }
+```
+
+A starter theme is the customization layer's Brand level (ADR 0013): no
+component renders differently because of one.
+
 ## The colour engine
 
 `palette({ primary, primaryDark?, secondary?, ground })` turns brand colours
