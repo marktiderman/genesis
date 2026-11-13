@@ -237,6 +237,12 @@
           "need": "write errors and refusals",
           "use": "DataWriteError and readFailureMessage",
           "import": "@marktiderman/genesis-core/errors"
+        },
+        {
+          "need": "an organization's own brand and defaults inside the app",
+          "use": "WorkspaceTheme's brand and defaults, read with resolveWorkspaceBrand and resolveWorkspaceAppearance",
+          "import": "@marktiderman/genesis-core",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0024-who-sets-what.md"
         }
       ]
     }
