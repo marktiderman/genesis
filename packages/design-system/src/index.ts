@@ -40,6 +40,9 @@ export {
 // The full check (shape and contrast); "./schema/brand" keeps the light shape check.
 export { validateBrand, brandContrastProblems, type BrandContrastProblem } from "./schema/brand-contrast";
 
+// Density: one vocabulary (compact, comfortable, spacious) for the shell, lists and sites. Also at "./app-styles".
+export { DENSITY_LEVELS, resolveDensity, type DensityLevel } from "./tokens/density";
+
 // Design systems and the OKLCH colour engine. Also at "./design-systems".
 export * from "./design-systems/index";
 

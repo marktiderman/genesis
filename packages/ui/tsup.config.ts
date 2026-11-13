@@ -58,6 +58,7 @@ export default defineConfig({
     "src/components/layout/builder-layout.tsx",
     "src/components/layout/dashboard-page.tsx",
     "src/components/layout/detail-page.tsx",
+    "src/components/layout/document-page.tsx",
     "src/components/layout/form-page.tsx",
     "src/components/layout/settings-page.tsx",
     // Resource workspace family (`/resource`) and its pure, server-safe rules

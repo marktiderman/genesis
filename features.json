@@ -93,7 +93,7 @@
     {
       "id": "page-layouts",
       "name": "Page layouts",
-      "summary": "DashboardPage, DetailPage, SettingsPage, FormPage, AuthPage, PublicPage, Section, Stack, Grid and Split: the page shells apps compose. PublicPage themes itself from a brand object, darkening an accent that fails 4.5:1, and has an embedded mode for iframes. BuilderLayout lays out a builder's outline, editor and live preview, responsive by container query, with the preview kept mounted as the editor changes.",
+      "summary": "DashboardPage, DetailPage, DocumentPage (cover, icon, title and a reading column), SettingsPage, FormPage, AuthPage, PublicPage, Section, Stack, Grid and Split: the page shells apps compose. PublicPage themes itself from a brand object, darkening an accent that fails 4.5:1, and has an embedded mode for iframes. BuilderLayout lays out a builder's outline, editor and live preview, responsive by container query, with the preview kept mounted as the editor changes.",
       "tagline": "Pages that look consistent without a designer on every screen.",
       "category": "Design system",
       "status": "live",
@@ -211,6 +211,109 @@
         "code": [
           "packages/ui/src/components/layout/AppShell.tsx",
           "packages/ui/src/navigation.tsx"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "shell-navigation-styles",
+      "name": "Navigation styles, frames and density",
+      "summary": "The app's layout as AppShell options (ADR 0022): one navigation setting (sidebar, rail, top tabs, bottom bar or page tree) over the same navigation tree and NavItems, a flush or inset frame for the page area (shell-frame part, --shell-frame-* tokens), and one density vocabulary (compact, comfortable, spacious) shared by the shell, lists and sites' design systems. An app theme's layout sets them as defaults the person's own choices override.",
+      "category": "Design system",
+      "status": "building",
+      "claimedBy": "look/layouts",
+      "kind": "layout",
+      "keywords": [
+        "navigation style",
+        "top tabs",
+        "page tree",
+        "bottom bar",
+        "rail",
+        "frame",
+        "inset",
+        "flush",
+        "density",
+        "spacious",
+        "layout"
+      ],
+      "platforms": {
+        "web": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/layout"
+      },
+      "extends": "app-shell",
+      "requires": [
+        "app-shell",
+        "app-themes"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/ui/src/components/layout/AppShell.tsx",
+          "packages/ui/src/themes/define.ts",
+          "packages/design-system/src/tokens/density.ts"
+        ],
+        "docs": [
+          "docs/adr/0022-layouts.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "navigation-zones",
+      "name": "Navigation zones",
+      "summary": "Zones over the navigation tree (ADR 0003): a zone on NavigationNode and BlockNavItem, resolveNavigation's current zone (nearest in the trail), and resolveNavigationZones grouping the tree into each zone's pages, the global pages and the roll-up, so an app can key a theme or a phone bar per zone. AppShell marks the shell with data-zone.",
+      "category": "Platform",
+      "status": "building",
+      "claimedBy": "look/layouts",
+      "kind": "service",
+      "keywords": [
+        "zone",
+        "zones",
+        "roll-up",
+        "navigation",
+        "theme per zone",
+        "BlockNavItem"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-core/navigation",
+        "native": "@marktiderman/genesis-core/navigation"
+      },
+      "requires": [
+        "app-shell"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/navigation.ts",
+          "packages/features/src/blocks.ts"
+        ],
+        "docs": [
+          "docs/adr/0003-navigation-zones.md"
         ]
       },
       "access": "all",

@@ -61,8 +61,8 @@ who picks dark on a laptop gets light on their phone. An organization can set on
 
 ## Consequences
 
-- AppShell draws two densities; `spacious` draws as comfortable until the shell's one density
-  vocabulary lands (ADR 0018's density decision).
+- core's `Density` names the same three words as design-system's `DENSITY_LEVELS` (core can't
+  import design-system, a layer beside it); AppShell draws all three.
 - A store's read is asynchronous, so a person's server-kept choice can arrive after first paint;
   the device's copy covers repeat visits.
 - Native reads the same contract (`AppearancePreferencesProvider` is platform-neutral, and the

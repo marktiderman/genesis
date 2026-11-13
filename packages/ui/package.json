@@ -218,6 +218,10 @@
       "types": "./dist/components/ui/dialog.d.ts",
       "import": "./dist/components/ui/dialog.js"
     },
+    "./document-page": {
+      "types": "./dist/components/layout/document-page.d.ts",
+      "import": "./dist/components/layout/document-page.js"
+    },
     "./drawer": {
       "types": "./dist/components/ui/drawer.d.ts",
       "import": "./dist/components/ui/drawer.js"

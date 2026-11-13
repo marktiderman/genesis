@@ -47,6 +47,7 @@ import {
 } from "./sub-nav";
 import { cn } from "../../utils";
 import { useIsMobile } from "../../hooks/use-mobile";
+import type { DensityLevel } from "@marktiderman/genesis-design-system/app-styles";
 import { useUiMessages } from "../../messages";
 import { splitTabBarItems, TAB_BAR_MAX } from "@marktiderman/genesis-core/navigation";
 import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
@@ -90,6 +91,49 @@ export interface NavItem {
 export interface ParentNavigation {
   href: string;
   label: string;
+}
+
+/**
+ * How AppShell lays out an app's navigation (ADR 0022), from one navigation
+ * tree and the same `NavItem`s:
+ * - `sidebar` (default): the sidebar as it always was, collapsible to a rail.
+ * - `rail`: the same sidebar, opening collapsed to its icon rail (the person
+ *   can still expand it).
+ * - `top-tabs`: on a desktop, the top-level items as tabs in a bar across the
+ *   top, with the brand and the account; an active item's children as a
+ *   second row. Phones keep the drawer and the bottom bar.
+ * - `bottom-bar`: the phone's bottom tab bar on every width, with the drawer
+ *   (secondary items, the account) behind the top bar's menu button.
+ * - `page-tree`: the sidebar as a nested, collapsible tree of pages,
+ *   indented by depth, as in a notebook app. Collapsed, it is the rail.
+ *
+ * @stability Beta
+ */
+export type AppShellNavigation = "sidebar" | "rail" | "top-tabs" | "bottom-bar" | "page-tree";
+
+/**
+ * The page area's frame (ADR 0022): `flush` (default) against the sidebar as
+ * it always was, or `inset`, a panel with a margin, rounded corners and a
+ * border over the sidebar's colour. The inset frame reads the component
+ * tokens `--shell-frame-gap`, `--shell-frame-radius`,
+ * `--shell-frame-border-width` and `--shell-frame-shadow`, and is the
+ * `shell-frame` part. Phones are always flush.
+ *
+ * @stability Beta
+ */
+export type AppShellFrame = "flush" | "inset";
+
+/**
+ * The shell's density, in Genesis's one vocabulary (`DENSITY_LEVELS`):
+ * `compact`, `comfortable` (default) or `spacious`.
+ *
+ * @stability Beta
+ */
+export type AppShellDensity = DensityLevel;
+
+/** A sidebar row's padding for a density. */
+function rowPadding(density: AppShellDensity): string {
+  return density === "compact" ? "px-2.5 py-1.5" : density === "spacious" ? "px-3 py-2.5" : "px-3 py-2";
 }
 
 /**
@@ -147,8 +191,28 @@ export interface AppShellOptions {
    * override for them is ignored on resolve.
    */
   lockedOptions?: (keyof AppShellOptions)[];
-  /** Comfortable (default) vs compact row padding */
-  density?: "comfortable" | "compact" | undefined;
+  /**
+   * Row padding: `comfortable` (default), `compact` or `spacious`. The same
+   * three words as lists and tables (`useViewSettings`) and sites' design
+   * systems; it is also the shell part's `data-density`.
+   */
+  density?: AppShellDensity | undefined;
+  /**
+   * How the navigation is laid out: `sidebar` (default, as always), `rail`,
+   * `top-tabs`, `bottom-bar` or `page-tree` (see `AppShellNavigation`). The
+   * shell part's `data-navigation`. An app theme's layout may set it as a
+   * default.
+   *
+   * @stability Beta
+   */
+  navigation?: AppShellNavigation | undefined;
+  /**
+   * The page area's frame: `flush` (default, as always) or `inset` (see
+   * `AppShellFrame`). The shell part's `data-frame`.
+   *
+   * @stability Beta
+   */
+  frame?: AppShellFrame | undefined;
   /** Expanded rail width in rem-ish tokens: narrow ≈ 13rem, wide ≈ 16rem */
   railWidth?: "narrow" | "wide";
   /**
@@ -194,6 +258,8 @@ const OPTION_DEFAULTS: Required<
   subNav: "section",
   configurable: undefined,
   density: "comfortable",
+  navigation: "sidebar",
+  frame: "flush",
   railWidth: "narrow",
   scrollRoot: "container",
 };
@@ -556,7 +622,7 @@ function NavLinkRow({
 }: {
   item: SubNavItem;
   collapsed: boolean;
-  density: "comfortable" | "compact";
+  density: AppShellDensity;
   onNavClick?: (() => void) | undefined;
   linkComponent: LinkComponent;
   activePath?: string | undefined;
@@ -567,7 +633,7 @@ function NavLinkRow({
   active?: boolean | undefined;
 }) {
   const active = activeOverride ?? itemIsActive(item, activePath, isActive);
-  const pad = density === "compact" ? "px-2.5 py-1.5" : "px-3 py-2";
+  const pad = rowPadding(density);
 
   if (item.disabled) {
     if (!collapsed) {
@@ -664,7 +730,7 @@ function RailGroup({
   notCurrent,
 }: {
   item: SubNavItem;
-  density: "comfortable" | "compact";
+  density: AppShellDensity;
   linkComponent: LinkComponent;
   activePath?: string | undefined;
   isActive: (to: string, activePath?: string) => boolean;
@@ -754,7 +820,7 @@ function NavGroup({
 }: {
   item: SubNavItem;
   collapsed: boolean;
-  density: "comfortable" | "compact";
+  density: AppShellDensity;
   onNavClick?: (() => void) | undefined;
   linkComponent: LinkComponent;
   activePath?: string | undefined;
@@ -815,7 +881,7 @@ function NavGroup({
       : isActive(item.to, activePath)
     : false;
   const groupHighlight = selfActive || childActive;
-  const pad = density === "compact" ? "px-2.5 py-1.5" : "px-3 py-2";
+  const pad = rowPadding(density);
   const LinkComp = linkComponent;
   const parentClass = cn(
     "flex min-w-0 flex-1 items-center gap-3 rounded-[var(--sidebar-item-radius)] text-sm font-[number:var(--sidebar-item-font-weight)] transition-colors",
@@ -900,6 +966,126 @@ function NavGroup({
   );
 }
 
+/**
+ * One page in the page tree (`navigation: "page-tree"`): a row indented by
+ * its depth, with a chevron that opens its children (opened when one of them
+ * is current), and the same at every level below. A page with children is
+ * still a link to itself; only the exact page is current.
+ */
+function PageTreeItem({
+  item,
+  depth,
+  density,
+  onNavClick,
+  linkComponent: LinkComp,
+  activePath,
+  isActive,
+  notCurrent,
+}: {
+  item: SubNavItem;
+  depth: number;
+  density: AppShellDensity;
+  onNavClick?: (() => void) | undefined;
+  linkComponent: LinkComponent;
+  activePath?: string | undefined;
+  isActive: (to: string, activePath?: string) => boolean;
+  notCurrent: boolean;
+}) {
+  const children = item.children ?? [];
+  const childActive = children.some((c) => itemIsActive(c, activePath, isActive));
+  const [open, setOpen] = useState(childActive);
+  useEffect(() => {
+    if (childActive) setOpen(true);
+  }, [childActive]);
+  // A leaf follows the usual rule; a page with children is current only on itself.
+  const active =
+    children.length > 0
+      ? Boolean(item.to && isPathActive(item.to, activePath, { end: true }))
+      : itemIsActive(item, activePath, isActive);
+  const pad = rowPadding(density);
+  const rowClass = cn(
+    "flex min-w-0 flex-1 items-center gap-2 rounded-[var(--sidebar-item-radius)] text-sm font-[number:var(--sidebar-item-font-weight)] transition-colors motion-reduce:transition-none",
+    pad,
+    "pl-1",
+    active
+      ? "bg-sidebar-accent text-sidebar-primary"
+      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+  );
+  const body = (
+    <>
+      <NavIcon item={item} className="h-4 w-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      {item.badge != null ? (
+        <Badge variant="secondary" className="h-5 shrink-0 px-1.5 text-[10px]">
+          {item.badge}
+        </Badge>
+      ) : null}
+    </>
+  );
+  return (
+    <li>
+      <div className="flex min-w-0 items-center gap-0.5" style={{ paddingLeft: `${depth * 0.75}rem` }}>
+        {children.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={open ? `Collapse ${item.label}` : `Expand ${item.label}`}
+            className="flex h-6 w-5 shrink-0 items-center justify-center rounded text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            data-testid={`nav-tree-toggle-${item.label}`}
+          >
+            <ChevronRight
+              className={cn("h-3.5 w-3.5 transition-transform motion-reduce:transition-none", open && "rotate-90")}
+              aria-hidden
+            />
+          </button>
+        ) : (
+          <span className="w-5 shrink-0" aria-hidden />
+        )}
+        {item.disabled || !item.to ? (
+          <span
+            data-slot="shell-nav-item"
+            data-depth={depth}
+            className={cn(rowClass, item.disabled && "opacity-40")}
+            aria-disabled={item.disabled || undefined}
+          >
+            {body}
+          </span>
+        ) : (
+          <LinkComp
+            href={item.to}
+            onClick={onNavClick}
+            aria-current={active && !notCurrent ? "page" : undefined}
+            data-slot="shell-nav-item"
+            data-depth={depth}
+            data-active={active || undefined}
+            className={rowClass}
+          >
+            {body}
+          </LinkComp>
+        )}
+      </div>
+      {open && children.length > 0 ? (
+        <ul className="mt-0.5 space-y-0.5">
+          {children.map((child) => (
+            <PageTreeItem
+              key={child.to + child.label}
+              item={child}
+              depth={depth + 1}
+              density={density}
+              onNavClick={onNavClick}
+              linkComponent={LinkComp}
+              activePath={activePath}
+              isActive={isActive}
+              notCurrent={notCurrent}
+            />
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
 function SidebarNav({
   navItems,
   contextualNavItems,
@@ -915,7 +1101,10 @@ function SidebarNav({
   isActive,
   subActive = false,
   nest = false,
+  tree = false,
 }: {
+  /** `navigation: "page-tree"`: the global items as a nested, collapsible tree (expanded sidebar only). */
+  tree?: boolean;
   navItems: SubNavItem[];
   /** The page's children, in `subNav: "sidebar"` mode only. */
   contextualNavItems?: SubNavItem[] | undefined;
@@ -932,7 +1121,7 @@ function SidebarNav({
   secondaryNavLabel: string;
   showSecondary: boolean;
   collapsed: boolean;
-  density: "comfortable" | "compact";
+  density: AppShellDensity;
   onNavClick?: (() => void) | undefined;
   linkComponent: LinkComponent;
   activePath?: string | undefined;
@@ -1016,7 +1205,24 @@ function SidebarNav({
       )}
       aria-label="Main"
     >
-      {navItems.map((item) => {
+      {tree && !collapsed ? (
+        <ul data-slot="shell-page-tree" className="space-y-0.5">
+          {navItems.map((item) => (
+            <PageTreeItem
+              key={item.to + item.label}
+              item={item}
+              depth={0}
+              density={density}
+              onNavClick={onNavClick}
+              linkComponent={linkComponent}
+              activePath={activePath}
+              isActive={isActive}
+              notCurrent={contextualActive}
+            />
+          ))}
+        </ul>
+      ) : null}
+      {(tree && !collapsed ? [] : navItems).map((item) => {
         if (item === host && collapsed) {
           // Rail: the active item opens a flyout with its children.
           return (
@@ -1053,7 +1259,7 @@ function SidebarNav({
         );
       })}
 
-      {contextual.length > 0 && !host ? contextualGroup(false) : null}
+      {contextual.length > 0 && (!host || (tree && !collapsed)) ? contextualGroup(false) : null}
 
       {showSecondary && secondaryNavItems && secondaryNavItems.length > 0 ? (
         <div
@@ -1209,6 +1415,7 @@ export function AppShell({
       navDefaultCollapsed,
       navSubNav,
       backItem,
+      zone: nav.zone,
     };
   }, [navigation, activePath]);
 
@@ -1242,8 +1449,14 @@ export function AppShell({
   // screen widened, since the menu button sits in the phone header, which is hidden then.
   const desktopToggleRef = useRef<HTMLButtonElement>(null);
   const phoneSheetOpen = mobileOpen || moreOpen;
+  // `navigation: "bottom-bar"` keeps the phone's top bar, drawer and bottom bar on every width.
+  // Read straight from the options (the resolved ones come later): the stored override first.
+  const drawerEverywhere =
+    (optionsProp?.lockedOptions?.includes("navigation")
+      ? optionsProp?.navigation
+      : (userOverrides.navigation ?? optionsProp?.navigation)) === "bottom-bar";
   useEffect(() => {
-    if (!phoneSheetOpen || typeof window.matchMedia !== "function") return;
+    if (!phoneSheetOpen || drawerEverywhere || typeof window.matchMedia !== "function") return;
     const wide = window.matchMedia(DESKTOP_QUERY);
     const close = () => {
       setMobileOpen(false);
@@ -1254,7 +1467,7 @@ export function AppShell({
     };
     wide.addEventListener?.("change", onChange);
     return () => wide.removeEventListener?.("change", onChange);
-  }, [phoneSheetOpen]);
+  }, [phoneSheetOpen, drawerEverywhere]);
 
   const hasSecondary = Boolean(secondaryNavItems && secondaryNavItems.length);
   const hasUser = userSlot != null;
@@ -1318,11 +1531,18 @@ export function AppShell({
     undefined,
     COLLAPSED_FORMAT,
   );
+  // The navigation style: `rail` opens collapsed unless something closer says otherwise.
+  const navStyle: AppShellNavigation = resolved.navigation ?? "sidebar";
+  const frame: AppShellFrame = resolved.frame ?? "flush";
+  const inset = frame === "inset";
+  const hasSidebar = navStyle === "sidebar" || navStyle === "rail" || navStyle === "page-tree";
+  const topTabs = navStyle === "top-tabs";
+  const bottomBar = navStyle === "bottom-bar";
   const pageDefaultCollapsed =
     defaultCollapsedProp ??
     derived?.navDefaultCollapsed ??
     optionsProp?.defaultCollapsed ??
-    OPTION_DEFAULTS.defaultCollapsed!;
+    (navStyle === "rail" ? true : OPTION_DEFAULTS.defaultCollapsed!);
 
   const isCollapseControlled = collapsedProp !== undefined;
   const collapsed = isCollapseControlled
@@ -1423,18 +1643,16 @@ export function AppShell({
   const LinkComp = linkComponent;
   // Density is the person's (ADR 0024): inside an AppearancePreferencesProvider, the app's lock
   // (`lockedOptions` with "density"), then the person's choice, the organization's default, the
-  // theme's, then these options' own. The shell draws two densities: spacious draws comfortable.
+  // theme's, then these options' own.
   const appearancePreferences = useOptionalAppearancePreferences();
   const densityLocked = lockedOptions?.includes("density") ?? false;
-  const density: "comfortable" | "compact" = (() => {
-    if (!appearancePreferences || densityLocked) return resolved.density ?? "comfortable";
-    const { layers } = appearancePreferences;
-    const chosen = resolveAppearancePreferences({
-      ...layers,
-      theme: { density: layers.theme?.density ?? optionsProp?.density },
-    }).density;
-    return chosen === "compact" ? "compact" : "comfortable";
-  })();
+  const density: AppShellDensity =
+    !appearancePreferences || densityLocked
+      ? (resolved.density ?? "comfortable")
+      : resolveAppearancePreferences({
+          ...appearancePreferences.layers,
+          theme: { density: appearancePreferences.layers.theme?.density ?? optionsProp?.density },
+        }).density;
   const scrollWindow = resolved.scrollRoot === "window";
   const railExpanded =
     resolved.railWidth === "wide" ? "md:w-64" : "md:w-52";
@@ -1530,6 +1748,9 @@ export function AppShell({
   const showMobileBottom =
     bottomItems.length > 0 && resolved.showMobileBottomNav !== false;
   const showTabs = subNavMode === "tabs" && contextualNavItems.length > 0;
+  // Top tabs: the active top item's own children, as a second row of tabs on a desktop.
+  const topHost = topTabs ? mostSpecificActive(navItems, activePath, isActive) : undefined;
+  const topChildren: SubNavItem[] = topHost?.children ?? [];
   // Phones hide the tab row behind the bottom bar, so the row's end slot (a
   // page's readiness chip) moves to a strip under the page header there.
   // One target at a time: the slot element is either in the row or in the
@@ -1698,7 +1919,8 @@ export function AppShell({
             ? contextualNavItems
             : undefined
         }
-        nest={subNavMode === "sidebar" || (opts.mobile && subNavOn)}
+        nest={navStyle !== "page-tree" && (subNavMode === "sidebar" || (opts.mobile && subNavOn))}
+        tree={navStyle === "page-tree"}
         contextualNavLabel={derived?.current.label}
         subActive={subActive}
         secondaryNavItems={secondaryNavItems}
@@ -1762,27 +1984,74 @@ export function AppShell({
     <div
       data-slot="shell"
       data-density={density}
+      data-navigation={navStyle}
+      data-frame={frame}
+      data-zone={derived?.zone}
       className={cn(
         "flex",
+        topTabs && "md:flex-col",
+        inset && "md:bg-sidebar",
         scrollWindow ? "min-h-screen" : "h-screen overflow-hidden",
         // Printed, the page is its content: no fixed height or clipping, so it runs onto more pages.
         "print:block print:h-auto print:min-h-0 print:overflow-visible",
       )}
     >
+      {/* Desktop top bar (`navigation: "top-tabs"`): the brand, the top-level items as tabs and
+          the account. Phones keep their own top bar, drawer and bottom bar. */}
+      {topTabs ? (
+        <div
+          data-slot="shell-top-tabs"
+          data-testid="app-shell-top-tabs"
+          className={cn(
+            "hidden h-14 shrink-0 items-center gap-4 bg-sidebar px-4 md:flex print:hidden",
+            !inset && "border-b border-sidebar-border",
+            scrollWindow && "sticky top-0 z-20",
+          )}
+        >
+          <div className="shrink-0">
+            <SidebarBrand
+              appName={appName}
+              appLogo={appLogo}
+              logo={logo}
+              showLogo={resolved.showLogo !== false}
+              showAppName={resolved.showAppName !== false}
+              collapsed={false}
+            />
+          </div>
+          {headerSlot ? <div className="min-w-0 max-w-xs shrink-0">{headerSlot}</div> : null}
+          <SubNavTabs
+            items={showSecondary && secondaryNavItems ? [...navItems, ...secondaryNavItems] : navItems}
+            activePath={activePath}
+            isActive={isActive}
+            linkComponent={linkComponent}
+            label={m.primaryNavigation}
+            className="h-full min-w-0 flex-1 self-end border-b-0"
+          />
+          <div className="flex shrink-0 items-center gap-1">
+            {optionsControl}
+            {showTheme ? <ThemeToggle testId="app-shell-theme-toggle-top" /> : null}
+            {showUser ? <div className="flex items-center [&_[data-shell-user-detail]]:hidden">{userSlot}</div> : null}
+          </div>
+        </div>
+      ) : null}
+
       {/* Desktop sidebar (not printed: navigation is chrome) */}
-      <aside
-        className={cn(
-          "hidden flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 motion-reduce:transition-none md:flex print:hidden",
-          scrollWindow && "sticky top-0 h-screen",
-          railClass,
-        )}
-        ref={sidebarRef}
-        data-collapsed={collapsed || undefined}
-        data-slot="shell-sidebar"
-        data-testid="app-shell-sidebar"
-      >
-        {sidebarChrome({})}
-      </aside>
+      {hasSidebar ? (
+        <aside
+          className={cn(
+            "hidden flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 motion-reduce:transition-none md:flex print:hidden",
+            inset && "md:border-r-0",
+            scrollWindow && "sticky top-0 h-screen",
+            railClass,
+          )}
+          ref={sidebarRef}
+          data-collapsed={collapsed || undefined}
+          data-slot="shell-sidebar"
+          data-testid="app-shell-sidebar"
+        >
+          {sidebarChrome({})}
+        </aside>
+      ) : null}
 
       {/* Phone drawer: genesis-ui's left Sheet, so Radix owns the modal (focus trap, Escape that
           closes only the topmost layer, scroll lock, the page behind hidden from assistive tech).
@@ -1794,9 +2063,10 @@ export function AppShell({
           id="app-shell-mobile-nav"
           data-testid="app-shell-mobile-nav"
           aria-describedby={undefined}
-          overlayClassName="md:hidden"
+          {...(drawerEverywhere ? {} : { overlayClassName: "md:hidden" })}
           className={cn(
-            "flex w-72 max-w-[85vw] flex-col gap-0 overflow-y-auto overscroll-contain border-sidebar-border bg-sidebar p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] shadow-none sm:max-w-[85vw] md:hidden",
+            "flex w-72 max-w-[85vw] flex-col gap-0 overflow-y-auto overscroll-contain border-sidebar-border bg-sidebar p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] shadow-none sm:max-w-[85vw]",
+            !drawerEverywhere && "md:hidden",
             "motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none",
             "[&_a]:min-h-11 [&_[role=link]]:min-h-11 [&_button]:min-h-11 [&_button]:min-w-11",
           )}
@@ -1829,19 +2099,29 @@ export function AppShell({
         </SheetContent>
       </Sheet>
 
-      {/* Main content */}
+      {/* Main content: the frame (flush, or an inset panel over the sidebar's colour) */}
       <div
+        data-slot="shell-frame"
+        data-frame={frame}
         className={cn(
           "flex min-w-0 flex-1 flex-col",
           !scrollWindow && "overflow-hidden",
           "print:overflow-visible",
+          inset &&
+            cn(
+              "bg-background md:my-[var(--shell-frame-gap)] md:mr-[var(--shell-frame-gap)] md:min-h-0 md:rounded-[var(--shell-frame-radius)] md:border-[length:var(--shell-frame-border-width)] md:border-border md:shadow-[var(--shell-frame-shadow)]",
+              (!hasSidebar || topTabs) && "md:ml-[var(--shell-frame-gap)]",
+              topTabs && "md:mt-0",
+              "print:m-0 print:rounded-none print:border-0 print:shadow-none",
+            ),
         )}
       >
         <header
           data-slot="shell-header"
           className={cn(
             // Clears the notch and the side insets when the app runs edge to edge.
-            "flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-3 border-b pt-[env(safe-area-inset-top)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:hidden print:hidden",
+            "flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-3 border-b pt-[env(safe-area-inset-top)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] print:hidden",
+            !bottomBar && "md:hidden",
             scrollWindow && "sticky top-0 z-20 bg-background",
           )}
         >
@@ -1873,7 +2153,9 @@ export function AppShell({
           className={cn(
             "flex-1",
             !scrollWindow && "overflow-y-auto",
-            showMobileBottom ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0" : "pb-0",
+            showMobileBottom
+              ? cn("pb-[calc(4rem+env(safe-area-inset-bottom))]", !bottomBar && "md:pb-0")
+              : "pb-0",
             "print:overflow-visible print:pb-0",
           )}
         >
@@ -1922,6 +2204,22 @@ export function AppShell({
               data-testid="app-shell-sub-nav-end-phone"
             />
           ) : null}
+          {topChildren.length > 0 ? (
+            <div
+              className={cn(
+                "hidden px-4 sm:px-6 md:block lg:px-8",
+                !parentNavigation && !hasPageHeader && "pt-2 sm:pt-3 lg:pt-4",
+              )}
+            >
+              <SubNavTabs
+                items={topChildren}
+                activePath={activePath}
+                isActive={isActive}
+                linkComponent={linkComponent}
+                label={topHost?.label ?? m.primaryNavigation}
+              />
+            </div>
+          ) : null}
           {showTabs ? (
             <div
               className={cn(
@@ -1961,7 +2259,10 @@ export function AppShell({
           <nav
             data-slot="shell-mobile-nav"
             // Padded above the home indicator and inside the side insets in landscape.
-            className="fixed bottom-0 left-0 right-0 z-30 flex border-t bg-background pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] md:hidden print:hidden"
+            className={cn(
+              "fixed bottom-0 left-0 right-0 z-30 flex border-t bg-background pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] print:hidden",
+              bottomBar ? "md:justify-center md:[&>*]:max-w-32" : "md:hidden",
+            )}
             aria-label={m.primaryNavigation}
             data-testid="app-shell-mobile-bottom-nav"
           >
@@ -2041,7 +2342,7 @@ export function AppShell({
               "pointer-events-none fixed right-0 z-40 pr-[env(safe-area-inset-right)] print:hidden",
               // Clear of the phone's bottom bar: the same 4rem the page keeps free below it.
               showMobileBottom
-                ? "bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0"
+                ? cn("bottom-[calc(4rem+env(safe-area-inset-bottom))]", !bottomBar && "md:bottom-0")
                 : "bottom-[env(safe-area-inset-bottom)] md:bottom-0",
             )}
             data-testid="app-shell-dock"
@@ -2053,8 +2354,8 @@ export function AppShell({
           <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
             <SheetContent
               side="bottom"
-              className="pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:hidden"
-              overlayClassName="md:hidden"
+              className={cn("pb-[calc(1.5rem+env(safe-area-inset-bottom))]", !bottomBar && "md:hidden")}
+              {...(bottomBar ? {} : { overlayClassName: "md:hidden" })}
               data-testid="app-shell-mobile-more-sheet"
             >
               <SheetTitle>{m.more}</SheetTitle>

@@ -28,12 +28,26 @@
  */
 import { FONT_CLASSES, type FontClass } from "../fonts";
 import { GROUNDS, type Ground } from "./color";
+import { DENSITY_LEVELS, resolveDensity, type DensityLevel } from "../tokens/density";
 
 // ── The fixed lists ─────────────────────────────────────────────────────────
 
-/** Section padding. */
+/**
+ * Section padding. Genesis's one density vocabulary (`DENSITY_LEVELS`:
+ * compact, comfortable, spacious) is accepted too: `comfortable` means
+ * `normal` and `spacious` means `generous` (ADR 0022).
+ */
 export const DENSITIES = ["compact", "normal", "generous"] as const;
 export type Density = (typeof DENSITIES)[number];
+/** A density a design system or a brand may name: its own words, or Genesis's one vocabulary. */
+export type DesignSystemDensity = Density | DensityLevel;
+const SITE_DENSITY: Record<DensityLevel, Density> = { compact: "compact", comfortable: "normal", spacious: "generous" };
+/** A site's density in its own words: `comfortable` is `normal`, `spacious` is `generous`. */
+function siteDensity(value: DesignSystemDensity): Density {
+  const level = resolveDensity(value);
+  return level ? SITE_DENSITY[level] : (value as Density);
+}
+const isDensity = (v: unknown): boolean => oneOf(DENSITIES, v) || oneOf(DENSITY_LEVELS, v);
 
 /** Corner radius sets, from square to friendly. */
 export const CORNERS = ["square", "crisp", "soft", "round", "friendly"] as const;
@@ -110,8 +124,8 @@ export interface DesignSystemInput {
     eyebrow?: Partial<EyebrowRule>;
   };
   space?: {
-    /** The default density; a brand may choose another. */
-    density: Density;
+    /** The default density; a brand may choose another. `comfortable` and `spacious` mean `normal` and `generous`. */
+    density: DesignSystemDensity;
   };
   shape?: {
     /** The default corners; a brand may choose others. */
@@ -147,7 +161,7 @@ export type DesignSystem = Readonly<DesignSystemInput> & {
 export interface DesignSystemChoice {
   /** `crisp@1`. */
   id: string;
-  density?: Density;
+  density?: DesignSystemDensity;
   corners?: Corners;
   motion?: MotionLevel;
 }
@@ -269,7 +283,7 @@ export function validateDesignSystem(input: unknown): string[] {
     for (const r of required) if (g[r] === undefined) errors.push(`designSystem.${key}.${r}: required`);
     for (const [f, ok] of Object.entries(fields)) if (g[f] !== undefined && !ok(g[f])) errors.push(`designSystem.${key}.${f}: ${hint}`);
   };
-  group("space", { density: (v) => oneOf(DENSITIES, v) }, ["density"], `one of ${DENSITIES.join(", ")}`);
+  group("space", { density: isDensity }, ["density"], `one of ${DENSITIES.join(", ")} (or ${DENSITY_LEVELS.join(", ")})`);
   group("shape", { corners: (v) => oneOf(CORNERS, v), borderWidth: (v) => v === 1 || v === 2, shadow: (v) => oneOf(SHADOW_LEVELS, v) }, ["corners"], `corners: ${CORNERS.join(", ")}; borderWidth: 1 or 2; shadow: ${SHADOW_LEVELS.join(", ")}`);
   group("surfaces", { ground: (v) => oneOf(GROUNDS, v) }, ["ground"], `one of ${GROUNDS.join(", ")}`);
   group("image", { filter: (v) => oneOf(IMAGE_FILTERS, v), grain: (v) => v === 0 || v === 3 || v === 5, scrim: (v) => oneOf(SCRIMS, v) }, [], `filter: ${IMAGE_FILTERS.join(", ")}; grain: 0, 3 or 5; scrim: ${SCRIMS.join(", ")}`);
@@ -283,7 +297,7 @@ export function validateDesignSystemChoice(input: unknown, path = "designSystem"
   if (!isObject(input)) return [`${path}: expected object`];
   checkKeys(input, ["id", "density", "corners", "motion"], path, errors);
   if (typeof input.id !== "string" || !ID.test(input.id)) errors.push(`${path}.id: expected "name@version", e.g. "crisp@1"`);
-  if (input.density !== undefined && !oneOf(DENSITIES, input.density)) errors.push(`${path}.density: one of ${DENSITIES.join(", ")}`);
+  if (input.density !== undefined && !isDensity(input.density)) errors.push(`${path}.density: one of ${DENSITIES.join(", ")} (or ${DENSITY_LEVELS.join(", ")})`);
   if (input.corners !== undefined && !oneOf(CORNERS, input.corners)) errors.push(`${path}.corners: one of ${CORNERS.join(", ")}`);
   if (input.motion !== undefined && !oneOf(MOTION_LEVELS, input.motion)) errors.push(`${path}.motion: one of ${MOTION_LEVELS.join(", ")}`);
   return errors;
@@ -312,7 +326,7 @@ export function defineDesignSystem(input: DesignSystemInput): DesignSystem {
 /** The design system's choices for a brand: the brand's, else the design system's defaults. */
 export function resolveChoices(ds: DesignSystem, choice?: Partial<DesignSystemChoice>): { density: Density; corners: Corners; motion: MotionLevel } {
   return {
-    density: choice?.density ?? ds.space?.density ?? "normal",
+    density: siteDensity(choice?.density ?? ds.space?.density ?? "normal"),
     corners: choice?.corners ?? ds.shape?.corners ?? "soft",
     motion: choice?.motion ?? ds.motion?.level ?? "none",
   };

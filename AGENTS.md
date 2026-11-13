@@ -130,7 +130,7 @@ Every PR into a staging batch (`staging/**`) carries the check "Adversarial revi
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 163 features (27 planned, 79 building, 22 beta, 27 live, 1 deprecated, 7 retired).
+Every feature is in `features.ts`: 165 features (27 planned, 81 building, 22 beta, 27 live, 1 deprecated, 7 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

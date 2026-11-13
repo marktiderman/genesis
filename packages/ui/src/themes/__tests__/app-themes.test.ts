@@ -26,6 +26,11 @@ describe("defineAppTheme", () => {
     for (const f of ["appTheme.tokens: belongs to an app style", "appTheme.roles: belongs to an app brand", "appTheme.widgets: not a theme piece", "appTheme.layout.density", "appTheme.layout.width"])
       expect(errors.some((e) => e.includes(f)), `${f} in ${errors.join(" | ")}`).toBe(true);
     expect(validateAppTheme({ ...base, style: "tracker" } as never)).toContain("appTheme.style: expected an app style (defineAppStyle)");
+    expect(validateAppTheme({ ...base, layout: { navigation: "drawer", frame: "floating" } } as never)).toEqual([
+      "appTheme.layout.navigation: one of sidebar, rail, top-tabs, bottom-bar, page-tree",
+      "appTheme.layout.frame: one of flush, inset",
+    ]);
+    expect(validateAppTheme({ ...base, layout: { navigation: "top-tabs", frame: "inset", density: "spacious" } })).toEqual([]);
   });
 });
 
@@ -45,6 +50,15 @@ describe("the starter themes", () => {
       expect(theme.brand).toBeUndefined();
       expect(theme.layout?.density).toBeDefined();
       expect(getStarterTheme(theme.id)).toBe(theme);
+    }
+  });
+
+  it("name a navigation style and a frame (ADR 0022)", () => {
+    expect(getStarterTheme("tracker")?.layout).toMatchObject({ navigation: "sidebar", frame: "inset" });
+    expect(getStarterTheme("notebook")?.layout).toMatchObject({ navigation: "page-tree", frame: "flush" });
+    for (const theme of STARTER_THEMES) {
+      expect(theme.layout?.navigation).toBeDefined();
+      expect(theme.layout?.frame).toBeDefined();
     }
   });
 

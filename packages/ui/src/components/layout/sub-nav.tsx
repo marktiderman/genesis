@@ -164,6 +164,7 @@ export function SubNavTabs({
   return (
     <div
       className={cn("flex min-w-0 items-end gap-4 border-b", className)}
+      data-slot="sub-nav"
       data-testid="app-shell-sub-nav"
     >
       <nav aria-label={label} className="-mb-px min-w-0 flex-1 overflow-x-auto">
@@ -187,13 +188,15 @@ export function SubNavTabs({
             return (
               <li key={item.to + item.label} className="shrink-0">
                 {item.disabled ? (
-                  <span className={cn(cls, "opacity-40")} role="link" aria-disabled="true">
+                  <span className={cn(cls, "opacity-40")} role="link" aria-disabled="true" data-slot="sub-nav-item">
                     {body}
                   </span>
                 ) : (
                   <LinkComp
                     href={item.to}
                     aria-current={active ? "page" : undefined}
+                    data-slot="sub-nav-item"
+                    data-active={active || undefined}
                     className={cn(
                       cls,
                       "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",

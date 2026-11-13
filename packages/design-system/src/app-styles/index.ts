@@ -67,3 +67,4 @@ export {
   type ComponentTokenKind,
 } from "../tokens/component-tokens";
 export { THEME_PARTS, getThemePart, type ThemePartInfo } from "../tokens/theme-parts";
+export { DENSITY_LEVELS, resolveDensity, type DensityLevel } from "../tokens/density";

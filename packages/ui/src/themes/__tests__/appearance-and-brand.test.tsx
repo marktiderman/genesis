@@ -48,6 +48,12 @@ describe("AppShell's density", () => {
     expect(container.querySelector('[data-slot="shell"]')?.getAttribute("data-density")).toBe("comfortable");
   });
 
+  it("draws a person's spacious choice", () => {
+    localStorage.setItem("genesis-appearance", JSON.stringify({ density: "spacious" }));
+    const { container } = render(<AppearancePreferencesProvider>{shell({ density: "compact" })}</AppearancePreferencesProvider>);
+    expect(container.querySelector('[data-slot="shell"]')?.getAttribute("data-density")).toBe("spacious");
+  });
+
   it("takes the organization's default over the shell's options when the person hasn't chosen", () => {
     const { container } = render(<AppearancePreferencesProvider organization={{ density: "compact" }}>{shell({ density: "comfortable" })}</AppearancePreferencesProvider>);
     expect(container.querySelector('[data-slot="shell"]')?.getAttribute("data-density")).toBe("compact");

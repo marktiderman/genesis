@@ -10,7 +10,7 @@
   "webOnly": {
     "AccessibleIcon": "React Native names an icon with accessibilityLabel on the icon itself.",
     "AlertDialog": "A phone confirms with the system alert (Alert.alert), which NativeResourceView and NativeRecordView already use.",
-    "AppShell": "The desktop shell (sidebar, header, chat dock). A phone's shell is the app's own tab and stack navigators (expo-router).",
+    "AppShell": "The desktop shell (sidebar, header, chat dock) and its layout options (navigation style, frame, density; ADR 0022). A phone's shell is the app's own tab and stack navigators (expo-router); zones work on both through genesis-core's resolveNavigationZones, and native zone shells (ADR 0003 §5) aren't built.",
     "AspectRatio": "React Native has an aspectRatio style.",
     "Band": "A genesis-sites section band for marketing pages, which apps don't ship on a phone.",
     "BuilderLayout": "A desktop builder with side panels and a canvas; there's no phone builder.",
@@ -29,6 +29,7 @@
     "DataTable": "Tables don't fit a phone; NativeResourceView shows the same view as rows.",
     "DefaultLink": "The web's link component for app routing; a phone navigates with expo-router.",
     "DetailPage": "notYet: a phone detail page shell; NativeRecordView covers records.",
+    "DocumentPage": "notYet: a phone document page (cover, icon, title, reading column); a phone composes it from NativeHeaderCard and ScreenContainer until it's built.",
     "Display": "A genesis-sites display heading for marketing pages.",
     "FieldArrayRenderer": "notYet: repeating field groups in a phone form.",
     "FileUploadField": "notYet: a phone form field that picks and uploads files.",
