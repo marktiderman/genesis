@@ -193,14 +193,21 @@ function WidgetBody({ widget, rowHref, linkComponent, icon, locale, className }:
       );
     }
     case "chart": {
-      const series = resolveChartSeries(widget, rows.list.data?.data ?? []);
+      const chartRows = rows.list.data?.data ?? [];
+      const series = resolveChartSeries(widget, chartRows);
       if (series.length === 0) return tile("empty", undefined, m.empty);
+      // Drawn from one page of rows: say so when there are more, rather than draw wrong bars quietly.
+      const chartTotal = rows.list.data?.total;
+      const partial =
+        typeof chartTotal === "number" && chartTotal > chartRows.length
+          ? fillMessage(m.partial, { shown: chartRows.length.toLocaleString(locale), total: chartTotal.toLocaleString(locale) })
+          : undefined;
       const config: ChartConfig = { value: { label: widget.label, color: "hsl(var(--primary))" } };
       const format = (v: number) => toWidgetText(v, widget.format, locale);
       return tile(
         "ready",
         undefined,
-        undefined,
+        partial,
         <ChartContainer config={config} className="aspect-auto h-40 w-full">
           {widget.chart === "line" ? (
             <LineChart data={series} margin={{ left: 4, right: 4 }}>

@@ -133,7 +133,7 @@ const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 /** A font stack is written into CSS: names, quotes, commas, digits and spaces only. */
 const FONT_STACK = /^[A-Za-z0-9 ,"'_-]+$/;
 const PROPERTY = /^(?:--[a-z0-9-]+|-?[a-z][a-z-]*)$/;
-const UNSAFE_VALUE = /[;{}<>\\]|@import|expression\(|javascript:/i;
+const UNSAFE_VALUE = /[;{}<>\\]|\/\*|\*\/|@import|expression\(|javascript:/i;
 
 /**
  * A part selector: up to three parts, each a part name with optional
@@ -232,7 +232,7 @@ export function validateAppBrand(input: AppBrandInput): string[] {
 }
 
 /** `https:` or `http:`, a path from the site's root, or an inline raster or SVG image. */
-const IMAGE_SRC = /^(?:https?:\/\/[^\s"'<>]+|\/(?!\/)[^\s"'<>]*|data:image\/(?:png|jpeg|gif|webp|avif|svg\+xml);base64,[A-Za-z0-9+/=]+)$/;
+const IMAGE_SRC = /^(?:https:\/\/[^\s"'<>]+|\/(?!\/)[^\s"'<>]*|data:image\/(?:png|jpeg|gif|webp|avif|svg\+xml);base64,[A-Za-z0-9+/=]+)$/;
 
 function imageProblems(path: string, image: unknown): string[] {
   if (image === undefined) return [];

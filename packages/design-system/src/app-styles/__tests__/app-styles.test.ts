@@ -228,6 +228,9 @@ describe("variables", () => {
     expect(appBrandVariables(trackerBrand).light["--radius"]).toBeUndefined();
     const own = defineAppBrand({ ...brandInput, brand: { ...genesisBrand, name: "acme", radius: { lg: "1rem" } } });
     expect(appBrandVariables(own).light["--radius"]).toBe("1rem");
+    // and declares the corners computed from it again, so it works on an inner element too.
+    expect(appBrandVariables(own).light["--control-radius"]).toBe("calc(var(--radius) * 0.8)");
+    expect(appBrandVariables(trackerBrand).light["--control-radius"]).toBeUndefined();
   });
 
   it("a style: tokens, dark tokens over light in dark mode", () => {

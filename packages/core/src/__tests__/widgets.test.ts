@@ -139,6 +139,16 @@ describe("resolveChartSeries", () => {
       { key: "(none)", label: "None", value: 1 },
     ]);
   });
+
+  it("skips rows with no number, as a number widget's total does", () => {
+    const w = defineWidget({ id: "a", kind: "chart", label: "Avg", view: dealsView, groupBy: "stage", metric: { fn: "avg", field: "amount" } });
+    expect(resolveChartSeries(w as ChartWidget, [{ stage: "open", amount: 10 }, { stage: "open", amount: null }])).toEqual([{ key: "open", label: "Open", value: 10 }]);
+  });
+
+  it("refuses a currency Intl can't format, and a chart limit past 1000", () => {
+    expect(() => defineWidget({ id: "x", kind: "number", label: "X", view: dealsView, format: { currency: "dollars" } })).toThrow(/format.currency/);
+    expect(() => defineWidget({ id: "y", kind: "chart", label: "Y", view: dealsView, groupBy: "stage", limit: 5000 })).toThrow(/limit/);
+  });
 });
 
 describe("toWidgetText and resolveProgress", () => {

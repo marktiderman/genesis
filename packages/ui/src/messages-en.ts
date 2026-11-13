@@ -293,6 +293,8 @@ export const uiMessages = {
     streakToday: "Done today",
     /** A list widget's link to the whole view. */
     seeAll: "See all",
+    /** A chart drawn from only the first rows: `{shown}` of `{total}`. */
+    partial: "From the first {shown} of {total}",
   },
   conflict: {
     /** `{noun}`: the record's noun ("task"). */

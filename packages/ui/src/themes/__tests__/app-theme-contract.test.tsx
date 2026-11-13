@@ -175,3 +175,12 @@ describe("appShellOptionsFromTheme", () => {
     expect(appShellOptionsFromTheme({})).toEqual({});
   });
 });
+
+describe("genesis-ui's stylesheet", () => {
+  it("declares every component token at its default, so components keep their size without genesis.css", () => {
+    const css = readFileSync(join(__dirname, "../../styles.css"), "utf-8");
+    for (const token of COMPONENT_TOKENS.filter((t) => !t.role)) {
+      expect(css, `--${token.name}`).toContain(`--${token.name}: ${token.default};`);
+    }
+  });
+});

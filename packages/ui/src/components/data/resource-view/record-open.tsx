@@ -1,7 +1,8 @@
 "use client";
 
-// How a record opens from a view (ADR 0021), in one place for every view type: the screen's
-// `open`, else ResourcePage's older `detail`, else the view's own `open`, else a side peek. A peek
+// How a record opens from a view (ADR 0021), in one place for every view type: the screen's choice
+// (its `detail`, then its `open`, as ResourceView passes them), else the view's own `open`, else a
+// side peek. A peek
 // draws the view's record view when it names one, else the view's columns (DetailPanel).
 
 import type { ReactNode } from "react";

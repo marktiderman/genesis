@@ -9,6 +9,7 @@
 import { addDays, dayIn, deviceTimeZone, isDay, startOfWeek, type Day } from "../dates";
 import type { ResourceScope } from "../hooks/viewer-scope";
 import type { AggregateMetric, AggregateParams, FilterParam, SortParam } from "../provider/types";
+import { toAggregateValues } from "../provider/aggregate";
 import type { DataRow, ResourceContract } from "../schema/types";
 import { ViewDefinitionError } from "./errors";
 import { filterParams } from "./link";
@@ -149,6 +150,14 @@ export function widgetProblems(input: WidgetDefinition): string[] {
   if (!view || typeof view !== "object" || typeof view.field !== "function") return [...problems, "view: a view from defineView"];
   if (w.preset !== undefined && !view.definition.presets?.[w.preset]) problems.push(`preset: ${view.resource} has no preset "${w.preset}"`);
   for (const field of Object.keys(w.filter ?? {})) if (!view.field(field)) problems.push(`filter.${field}: not a field of ${view.resource}`);
+  const currency = (w as { format?: { currency?: unknown } }).format?.currency;
+  if (currency !== undefined) {
+    try {
+      new Intl.NumberFormat("en", { style: "currency", currency: String(currency) });
+    } catch {
+      problems.push("format.currency: an ISO 4217 code (USD, EUR)");
+    }
+  }
   switch (w.kind) {
     case "number":
       problems.push(...metricProblems("metric", w.metric, view));
@@ -164,6 +173,7 @@ export function widgetProblems(input: WidgetDefinition): string[] {
     case "streak":
       if (typeof w.dateField !== "string" || !view.field(w.dateField)) problems.push(`dateField: not a field of ${view.resource}`);
       if (w.unit !== undefined && w.unit !== "day" && w.unit !== "week") problems.push("unit: day or week");
+      if (w.limit !== undefined && !(Number.isInteger(w.limit) && w.limit > 0 && w.limit <= 1000)) problems.push("limit: a whole number from 1 to 1000");
       break;
     case "list":
       if (w.limit !== undefined && !(Number.isInteger(w.limit) && w.limit > 0 && w.limit <= 50)) problems.push("limit: a whole number from 1 to 50");
@@ -173,6 +183,7 @@ export function widgetProblems(input: WidgetDefinition): string[] {
       if (typeof w.groupBy !== "string" || !view.field(w.groupBy)) problems.push(`groupBy: not a field of ${view.resource}`);
       problems.push(...metricProblems("metric", w.metric, view));
       if (w.chart !== undefined && w.chart !== "bar" && w.chart !== "line") problems.push("chart: bar or line");
+      if (w.limit !== undefined && !(Number.isInteger(w.limit) && w.limit > 0 && w.limit <= 1000)) problems.push("limit: a whole number from 1 to 1000");
       break;
     default:
       problems.push("kind: one of number, progress, streak, list, chart");
@@ -370,21 +381,9 @@ export function resolveChartSeries(widget: ChartWidget, rows: readonly Record<st
   const metric = widget.metric ?? { fn: "count" as const };
   return keys.map((key) => {
     const list = groups.get(key)!;
-    let value: number;
-    if (metric.fn === "count") value = list.length;
-    else {
-      const nums = list.map((r) => Number(r[metric.field])).filter((n) => Number.isFinite(n));
-      value =
-        nums.length === 0
-          ? 0
-          : metric.fn === "sum"
-            ? nums.reduce((a, b) => a + b, 0)
-            : metric.fn === "avg"
-              ? nums.reduce((a, b) => a + b, 0) / nums.length
-              : metric.fn === "min"
-                ? Math.min(...nums)
-                : Math.max(...nums);
-    }
+    // The same rule as a number widget's total: rows with no number in the field are skipped, not
+    // read as 0; a group where none has one draws as 0.
+    const value = toAggregateValues(list, { value: metric })["value"] ?? 0;
     return { key, label: key === "(none)" ? "None" : widget.view.valueLabel(widget.groupBy, key), value };
   });
 }

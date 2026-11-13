@@ -41,6 +41,16 @@ function hexTriplet(hex: string): string {
   return `${round(h)} ${round(s * 100)}% ${round(l * 100)}%`;
 }
 
+/** Text inside a CSS comment: a `*/` in it would end the comment early. */
+function commentSafe(text: string): string {
+  return text.replace(/\*\//g, "* /");
+}
+
+/** The component tokens computed from `--radius`, at their defaults. */
+function radiusDerivedDefaults(): Record<string, string> {
+  return Object.fromEntries(COMPONENT_TOKENS.filter((t) => !t.role && t.default.includes("var(--radius)")).map((t) => [t.name, t.default]));
+}
+
 /**
  * Every variable an app brand sets, per mode: its colour roles
  * (`brandRoleVariables`, web overrides applied), the roles it sets by hand,
@@ -51,10 +61,17 @@ function hexTriplet(hex: string): string {
 export function appBrandVariables(brand: AppBrand): AppCssVariables {
   const base = brandRoleVariables(brand.brand, { platform: "web" });
   const out: AppCssVariables = { light: { ...base.light }, dark: { ...base.dark } };
-  // Corners are a style's (its `radius` token), unless the brand names a radius itself.
+  // Corners are a style's (its `radius` token), unless the brand names a radius itself. When it
+  // does, the tokens computed from --radius are declared again in the brand's scope: a computed
+  // value is resolved where it's declared (:root), so a brand set on an inner element would
+  // otherwise change no corner (as appStyleVariables does for a style's radius).
   if (!brand.brand.radius) {
     delete out.light["--radius"];
     delete out.dark["--radius"];
+  } else {
+    for (const mode of ["light", "dark"] as const) {
+      for (const [name, value] of Object.entries(radiusDerivedDefaults())) out[mode][`--${name}`] = value;
+    }
   }
   for (const mode of ["light", "dark"] as const) {
     for (const [role, hex] of Object.entries(brand.roles?.[mode] ?? {})) {
@@ -77,9 +94,7 @@ export function appStyleVariables(style: AppStyle): AppCssVariables {
   const out: AppCssVariables = { light: {}, dark: {} };
   // A token computed from --radius is resolved where it's declared (:root), so a style set on an
   // inner element that changes the radius declares them again in its own scope.
-  const derived = style.tokens?.["radius"]
-    ? Object.fromEntries(COMPONENT_TOKENS.filter((t) => t.default.includes("var(--radius)")).map((t) => [t.name, t.default]))
-    : {};
+  const derived = style.tokens?.["radius"] ? radiusDerivedDefaults() : {};
   for (const mode of ["light", "dark"] as const) {
     const tokens = { ...derived, ...style.tokens, ...(mode === "dark" ? style.darkTokens : {}) };
     for (const [name, value] of Object.entries(tokens)) {
@@ -140,7 +155,7 @@ export function appBrandCss(brand: AppBrand, options: AppCssOptions = {}): strin
   const on = `[${options.attribute ?? "data-app-brand"}="${brand.id}"]`;
   const vars = appBrandVariables(brand);
   const s = scopes(on);
-  return [`/* Brand · ${brand.label}: ${brand.description} */`, block(s.light, vars.light, "light"), block(s.dark, vars.dark, "dark")].join("\n");
+  return [`/* Brand · ${commentSafe(brand.label)}: ${commentSafe(brand.description)} */`, block(s.light, vars.light, "light"), block(s.dark, vars.dark, "dark")].join("\n");
 }
 
 /**
@@ -159,7 +174,7 @@ export function appStyleCss(style: AppStyle, options: AppCssOptions = {}): strin
   const vars = appStyleVariables(style);
   const s = scopes(on);
   return [
-    `/* Style · ${style.label}: ${style.description} */`,
+    `/* Style · ${commentSafe(style.label)}: ${commentSafe(style.description)} */`,
     ...(Object.keys(vars.light).length ? [block(s.light, vars.light)] : []),
     ...(Object.keys(vars.dark).length && style.darkTokens ? [block(s.dark, vars.dark)] : []),
     ...partBlocks(style.parts, [on]),

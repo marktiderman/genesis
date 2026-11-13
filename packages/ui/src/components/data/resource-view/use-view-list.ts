@@ -241,7 +241,8 @@ export function useViewList<T extends Row = Row>(view: AnyView<T>, options: UseV
   };
 
   const permissions = useViewPermissions(view, can);
-  const loading = params.enabled && query.isPending;
+  // A list waiting on its scope (enabled false) is still loading, not empty.
+  const loading = !params.enabled || query.isPending;
   const error = query.error;
   return {
     view,

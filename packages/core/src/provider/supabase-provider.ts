@@ -1247,10 +1247,13 @@ export function createSupabaseProvider(
         } else {
           // The same reads without this method, so the fallback pages rows instead of calling back here.
           const { aggregate: _self, ...reads } = provider;
-          const rows = await resolveAggregate(reads, resource, {
-            ...params,
-            metrics: Object.fromEntries(others),
-          });
+          // Pages no bigger than getList allows here (maxPerPage), so the fallback isn't refused.
+          const rows = await resolveAggregate(
+            reads,
+            resource,
+            { ...params, metrics: Object.fromEntries(others) },
+            { pageSize: Math.max(1, Math.min(500, maxPerPage - 1)) },
+          );
           Object.assign(values, rows.values);
         }
       }
