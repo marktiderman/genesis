@@ -27,6 +27,7 @@ export {
   validateDesignSystemChoice,
   type Corners,
   type Density,
+  type DesignSystemDensity,
   type DesignSystem,
   type DesignSystemChoice,
   type DesignSystemInput,

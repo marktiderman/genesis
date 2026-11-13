@@ -529,13 +529,14 @@ export function PageHeader({
 
   const titleRow = resolved.showTitle === false ? (
     <div
+      data-slot="page-header"
       data-testid="page-header-toolbar"
       className="flex min-w-0 flex-wrap items-center justify-end gap-2"
     >
       {actionsCluster}
     </div>
   ) : (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div data-slot="page-header" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3 min-w-0">
         {Icon && resolved.showIcon !== false ? (
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10">
@@ -544,6 +545,7 @@ export function PageHeader({
         ) : null}
         <div className="min-w-0">
           <h1
+            data-slot="page-header-title"
             data-testid="page-title"
             className="truncate font-display text-xl font-bold tracking-tight sm:text-2xl"
           >

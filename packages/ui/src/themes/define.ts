@@ -5,8 +5,8 @@
  *   - `brand`: colours and typefaces (an `AppBrand`, design-system).
  *   - `style`: every component's size, shape and parts (an `AppStyle`,
  *     design-system).
- *   - `layout`: the app shell's layout (density, rail, sub-navigation): the
- *     `AppShell` options it starts from.
+ *   - `layout`: the app shell's layout (navigation, frame, density, rail,
+ *     sub-navigation): the `AppShell` options it starts from (ADR 0022).
  *
  * Brand and style are presentation only, so they live in design-system. A
  * layout is the components', so the theme that bundles them lives here, a
@@ -22,8 +22,15 @@ import type { AppBrand, AppStyle } from "@marktiderman/genesis-design-system/app
 
 /** The app shell's layout a theme starts from (the same names and values as `AppShellOptions`). */
 export interface AppThemeLayout {
+  /**
+   * How the navigation is laid out: `sidebar`, `rail`, `top-tabs`,
+   * `bottom-bar` or `page-tree` (`AppShellOptions.navigation`).
+   */
+  navigation?: "sidebar" | "rail" | "top-tabs" | "bottom-bar" | "page-tree";
+  /** The page area's frame: `flush` or `inset` (`AppShellOptions.frame`). */
+  frame?: "flush" | "inset";
   /** Row padding in the sidebar and lists: the default; the person's own choice wins. */
-  density?: "comfortable" | "compact";
+  density?: "compact" | "comfortable" | "spacious";
   /** The expanded sidebar's width. */
   railWidth?: "narrow" | "wide";
   /** Open the sidebar collapsed to an icon rail. */
@@ -57,7 +64,9 @@ export type AppTheme = Readonly<AppThemeInput> & { readonly id: string };
 
 const NAME = /^[a-z][a-z0-9-]{0,39}$/;
 const LAYOUT_VALUES: Record<keyof AppThemeLayout, readonly unknown[]> = {
-  density: ["comfortable", "compact"],
+  navigation: ["sidebar", "rail", "top-tabs", "bottom-bar", "page-tree"],
+  frame: ["flush", "inset"],
+  density: ["compact", "comfortable", "spacious"],
   railWidth: ["narrow", "wide"],
   defaultCollapsed: [true, false],
   collapsedRailWidth: [56, 64],

@@ -51,7 +51,7 @@ describe("component tokens", () => {
 
   it("are the only ones components read in their groups", () => {
     const declared = new Set(COMPONENT_TOKENS.map((t) => t.name));
-    const groups = /^(control|input|focus-ring|card|popover|overlay|badge|table|title|page-title|sidebar-item)-/;
+    const groups = /^(control|input|focus-ring|card|popover|overlay|badge|table|title|page-title|sidebar-item|shell-frame)-/;
     const read = [...all.matchAll(/var\(--([a-z0-9-]+)\)/g)].map((m) => m[1]!).filter((name) => groups.test(name));
     expect([...new Set(read)].filter((name) => !declared.has(name))).toEqual([]);
   });
@@ -112,7 +112,59 @@ describe("rendered parts", () => {
   });
 });
 
+describe("layout parts", () => {
+  const nav = [
+    { to: "/", label: "Home", icon: LayoutDashboard, end: true },
+    { to: "/docs", label: "Docs", icon: LayoutDashboard, children: [{ to: "/docs/a", label: "A", icon: LayoutDashboard }] },
+  ];
+  const opts = { showThemeToggle: false, showCollapse: false, configurable: false } as const;
+
+  it("the shell names its navigation, frame and zone, and the inset frame reads its tokens", () => {
+    const { container } = render(
+      <AppShell
+        appName="Acme"
+        navigation={{ id: "root", path: "/", label: "Home", items: nav, children: [{ id: "docs", path: "/docs", label: "Docs", items: [], zone: "writing" }] }}
+        activePath="/docs/a"
+        options={{ ...opts, navigation: "page-tree", frame: "inset", density: "spacious" }}
+      >
+        <p>Page</p>
+      </AppShell>,
+    );
+    const shell = container.querySelector('[data-slot="shell"]')!;
+    expect(shell.getAttribute("data-navigation")).toBe("page-tree");
+    expect(shell.getAttribute("data-frame")).toBe("inset");
+    expect(shell.getAttribute("data-density")).toBe("spacious");
+    expect(shell.getAttribute("data-zone")).toBe("writing");
+    const frame = container.querySelector('[data-slot="shell-frame"]')!;
+    expect(frame.getAttribute("data-frame")).toBe("inset");
+    expect(frame.className).toContain("md:rounded-[var(--shell-frame-radius)]");
+    expect(container.querySelector('[data-slot="shell-page-tree"]')).not.toBeNull();
+    expect(container.querySelector('[data-slot="shell-nav-item"][data-depth="1"][data-active]')?.textContent).toBe("A");
+  });
+
+  it("a flush shell's frame reads no frame tokens", () => {
+    const { container } = render(
+      <AppShell appName="Acme" navItems={nav} activePath="/" options={opts}>
+        <p>Page</p>
+      </AppShell>,
+    );
+    const shell = container.querySelector('[data-slot="shell"]')!;
+    expect(shell.getAttribute("data-navigation")).toBe("sidebar");
+    expect(shell.getAttribute("data-frame")).toBe("flush");
+    expect(shell.hasAttribute("data-zone")).toBe(false);
+    expect(container.querySelector('[data-slot="shell-frame"]')!.className).not.toContain("shell-frame");
+  });
+});
+
 describe("appShellOptionsFromTheme", () => {
+  it("passes navigation and frame too", () => {
+    expect(appShellOptionsFromTheme({ layout: { navigation: "page-tree", frame: "inset", density: "spacious" } })).toEqual({
+      navigation: "page-tree",
+      frame: "inset",
+      density: "spacious",
+    });
+  });
+
   it("passes the theme's shell choices and nothing else", () => {
     expect(appShellOptionsFromTheme({ layout: { density: "compact", railWidth: "wide", defaultCollapsed: false } })).toEqual({
       density: "compact",

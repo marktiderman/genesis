@@ -107,6 +107,8 @@ const LAYOUT_SUBPATH_COMPONENTS = [
   "builder-layout",
   "dashboard-page",
   "detail-page",
+  // ADR 0022: the document page template (cover, icon, title, reading column).
+  "document-page",
   "form-page",
   "settings-page",
 ];
