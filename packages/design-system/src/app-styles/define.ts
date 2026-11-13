@@ -1,72 +1,54 @@
 /**
- * App brands and app themes: how a Genesis app looks, in two independent
- * pieces an app combines freely (ADR 0017).
+ * App brands and app styles: how a Genesis app looks, in two independent
+ * pieces an app combines freely (ADR 0018).
  *
- * An **app brand** is colour and type: a `CanonicalBrand` (colours, radius,
+ * An **app brand** is colours and typefaces: a `CanonicalBrand` (colours,
  * status, light and dark, solved for contrast), colour `roles` set by hand
  * (the sidebar, a card apart from the page) and `fonts`. It is set with
  * `data-app-brand="<id>"`.
  *
- * An **app theme** is layout and shape, with no colours of its own:
+ * An **app style** is every component's size and shape, with no colours of
+ * its own:
  *
- *   1. `tokens` (and `darkTokens`): component sizes, shapes and type
- *      (`COMPONENT_TOKENS`): control height, card shadow, button case, table
- *      cell padding, page title weight…
+ *   1. `tokens` (and `darkTokens`): component sizes, shapes and type sizes
+ *      and weights (`COMPONENT_TOKENS`): control height, card shadow, button
+ *      case, table cell padding, page title weight…
  *   2. `parts` (and `darkParts`): CSS declarations for any named part
  *      (`THEME_PARTS`): `card`, `button[variant=outline]`,
  *      `shell-nav-item[active]:hover`. A part style beats the component's own
  *      classes, so it can change anything about it. Colours in it come from
  *      roles (`hsl(var(--primary))`), so it takes on whatever brand is set.
- *   3. `css`: raw CSS nested in the theme's scope, for what parts can't say.
- *   4. `shell`: the app shell's layout (density, rail width, collapsed rail,
- *      sub-navigation), which genesis-ui's `appShellOptionsFromTheme` passes
- *      to `AppShell`.
+ *   3. `css`: raw CSS nested in the style's scope, for what parts can't say.
  *
- * It is set with `data-app-theme="<id>"`. Any brand works with any theme:
- * the Genesis brand with the `press` layout, an app's own brand with
- * `tracker`. A starter theme names the brand it was designed with
- * (`pairsWith`); nothing requires it.
+ * It is set with `data-app-style="<id>"`. Any brand works with any style: the
+ * Genesis brand with the `press` style, an app's own brand with `tracker`. A
+ * starter style names the brand it was designed with (`pairsWith`); nothing
+ * requires it.
  *
  * Both are presentation only: never what a component does, what data it
- * shows or who may see it. They are code an app ships, reviewed like code;
- * `css` especially is trusted as written, so neither is ever built from
- * what a user types.
+ * shows or who may see it. The **app theme**, which bundles a brand, a style
+ * and a layout (and the views a theme picks), is genesis-ui's
+ * (`@marktiderman/genesis-ui/themes`), because a layout is the components'.
+ * Light, dark or system is the person's **appearance** (`GenesisThemeProvider`),
+ * not either of these.
+ *
+ * Brands and styles are code an app ships, reviewed like code; `css`
+ * especially is trusted as written, so neither is ever built from what a
+ * user types.
  */
 import { validateBrand, type CanonicalBrand } from "../schema/brand";
 import { COMPONENT_TOKENS, componentTokenProblem } from "../tokens/component-tokens";
 import { getThemePart } from "../tokens/theme-parts";
 import { THEME_SECTIONS } from "../tokens/theme-css";
 
-/** Every colour role a theme can set by hand: the names `themes/genesis.css` declares, without `--`. */
+/** Every colour role a brand can set by hand: the names `themes/genesis.css` declares, without `--`. */
 export const THEME_ROLES: readonly string[] = Object.freeze(
   THEME_SECTIONS.flatMap((section) => section.vars.filter((v) => v.kind === "color").map((v) => v.name)),
 );
 
-/** The font stacks a theme can set: `--font-sans`, `--font-display`, `--font-mono`. */
+/** The font stacks a brand can set: `--font-sans`, `--font-display`, `--font-mono`. */
 export const THEME_FONTS = ["sans", "display", "mono"] as const;
 export type ThemeFont = (typeof THEME_FONTS)[number];
-
-/** The app shell's layout choices a theme can make (the same names and values as `AppShellOptions`). */
-export interface AppThemeShell {
-  /** Row padding in the sidebar and lists. */
-  density?: "comfortable" | "compact";
-  /** The expanded sidebar's width. */
-  railWidth?: "narrow" | "wide";
-  /** Open the sidebar collapsed to an icon rail. */
-  defaultCollapsed?: boolean;
-  /** The collapsed rail's width in px. */
-  collapsedRailWidth?: 56 | 64;
-  /** How a page's own sub-navigation shows. */
-  subNav?: "section" | "tabs" | "sidebar" | "off";
-}
-
-const SHELL_VALUES: Record<keyof AppThemeShell, readonly unknown[]> = {
-  density: ["comfortable", "compact"],
-  railWidth: ["narrow", "wide"],
-  defaultCollapsed: [true, false],
-  collapsedRailWidth: [56, 64],
-  subNav: ["section", "tabs", "sidebar", "off"],
-};
 
 /** Colour roles set by hand, as `#rgb` or `#rrggbb`: `{ "sidebar-background": "#1d2327" }`. */
 export type ThemeRoleColors = Readonly<Partial<Record<string, string>>>;
@@ -94,8 +76,8 @@ export interface AppBrandInput {
 /** A defined app brand: its input, frozen, with its id (its name). */
 export type AppBrand = Readonly<AppBrandInput> & { readonly id: string };
 
-export interface AppThemeInput {
-  /** Lowercase letters, digits and hyphens: what `data-app-theme` names. */
+export interface AppStyleInput {
+  /** Lowercase letters, digits and hyphens: what `data-app-style` names. */
   name: string;
   /** Its name in a picker. */
   label: string;
@@ -115,17 +97,15 @@ export interface AppThemeInput {
   /** Declarations per part in dark mode only, over `parts`. */
   darkParts?: ThemePartStyles;
   /**
-   * Raw CSS, nested inside the theme's scope (`[data-app-theme="<id>"] { … }`):
-   * a bare declaration styles the themed element, a nested rule
+   * Raw CSS, nested inside the style's scope (`[data-app-style="<id>"] { … }`):
+   * a bare declaration styles the styled element, a nested rule
    * (`[data-slot="card"]:hover { … }`) its descendants. Trusted as written.
    */
   css?: string;
-  /** The app shell's layout. */
-  shell?: AppThemeShell;
 }
 
-/** A defined app theme: its input, frozen, with its id (its name). */
-export type AppTheme = Readonly<AppThemeInput> & { readonly id: string };
+/** A defined app style: its input, frozen, with its id (its name). */
+export type AppStyle = Readonly<AppStyleInput> & { readonly id: string };
 
 const NAME = /^[a-z][a-z0-9-]{0,39}$/;
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
@@ -137,7 +117,7 @@ const UNSAFE_VALUE = /[;{}<>\\]|@import|expression\(|javascript:/i;
 /**
  * A part selector: up to three parts, each a part name with optional
  * `[attribute]` / `[attribute=value]` filters and one state, separated by
- * spaces (a part inside a part). `root` is the themed element itself.
+ * spaces (a part inside a part). `root` is the styled element itself.
  */
 const STATES = ["hover", "focus-visible", "focus-within", "active", "disabled", "first-child", "last-child", "placeholder"] as const;
 const COMPOUND = new RegExp(`^([a-z][a-z0-9-]*)((?:\\[[a-z][a-z-]*(?:=[a-z0-9-]+)?\\])*)(?::(${STATES.join("|")}))?$`);
@@ -159,7 +139,7 @@ export function parsePartSelector(selector: string): { parts: { name: string; fi
   return { parts };
 }
 
-/** Properties that paint a colour: in a theme, their values take colours from roles only. */
+/** Properties that paint a colour: in a style, their values take colours from roles only. */
 const COLOUR_PROPERTY = /^(?:color|background(?:-color)?|border(?:-(?:top|right|bottom|left|block|inline))?(?:-color)?|outline(?:-color)?|text-decoration(?:-color)?|caret-color|accent-color|fill|stroke|column-rule(?:-color)?)$/;
 /** A colour written out: `#abc`, `rgb(1 2 3)`, `hsl(10 20% 30%)`, `oklch(…)`. `hsl(var(--role))` isn't one. */
 const LITERAL_COLOUR = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\((?!\s*var\()/i;
@@ -176,7 +156,7 @@ function declarationProblems(path: string, decls: unknown): string[] {
 }
 
 /**
- * Whether braces balance and no rule closes the theme's scope early, with comments and strings
+ * Whether braces balance and no rule closes the style's scope early, with comments and strings
  * aside. One pass over the text, no backtracking, so it stays linear on any input.
  */
 function balanced(css: string): boolean {
@@ -227,40 +207,38 @@ export function validateAppBrand(input: AppBrandInput): string[] {
   return errors;
 }
 
-/** Every problem with an app theme input; empty when it is sound. */
-export function validateAppTheme(input: AppThemeInput): string[] {
-  const t = input as Partial<AppThemeInput> & Record<string, unknown>;
-  if (!t || typeof t !== "object") return ["appTheme: expected object"];
-  const errors = nameProblems("appTheme", t);
-  if (typeof t.feel !== "string" || !t.feel.trim()) errors.push("appTheme.feel: expected a non-empty string");
+/** Every problem with an app style input; empty when it is sound. */
+export function validateAppStyle(input: AppStyleInput): string[] {
+  const t = input as Partial<AppStyleInput> & Record<string, unknown>;
+  if (!t || typeof t !== "object") return ["appStyle: expected object"];
+  const errors = nameProblems("appStyle", t);
+  if (typeof t.feel !== "string" || !t.feel.trim()) errors.push("appStyle.feel: expected a non-empty string");
   if (!Array.isArray(t.suits) || t.suits.length === 0 || !t.suits.every((s) => typeof s === "string" && s.trim()))
-    errors.push("appTheme.suits: expected at least one non-empty string");
-  if (t.pairsWith !== undefined && (typeof t.pairsWith !== "string" || !NAME.test(t.pairsWith))) errors.push("appTheme.pairsWith: an app brand's id");
+    errors.push("appStyle.suits: expected at least one non-empty string");
+  if (t.pairsWith !== undefined && (typeof t.pairsWith !== "string" || !NAME.test(t.pairsWith))) errors.push("appStyle.pairsWith: an app brand's id");
   for (const key of ["brand", "roles", "fonts"]) {
-    if (t[key] !== undefined) errors.push(`appTheme.${key}: colours and fonts are an app brand's (defineAppBrand), not a theme's`);
+    if (t[key] !== undefined) errors.push(`appStyle.${key}: colours and typefaces are an app brand's (defineAppBrand), not a style's`);
+  }
+  for (const key of ["shell", "layout"]) {
+    if (t[key] !== undefined) errors.push(`appStyle.${key}: a layout is an app theme's (defineAppTheme in @marktiderman/genesis-ui/themes), not a style's`);
   }
   for (const key of ["tokens", "darkTokens"] as const) {
     for (const [name, value] of Object.entries(t[key] ?? {})) {
       const problem = componentTokenProblem(name, value);
-      if (problem) errors.push(`appTheme.${key}: ${problem}`);
+      if (problem) errors.push(`appStyle.${key}: ${problem}`);
     }
   }
   for (const key of ["parts", "darkParts"] as const) {
     for (const [selector, decls] of Object.entries(t[key] ?? {})) {
       const parsed = parsePartSelector(selector);
-      if ("problem" in parsed) errors.push(`appTheme.${key}["${selector}"]: ${parsed.problem}`);
-      errors.push(...declarationProblems(`appTheme.${key}["${selector}"]`, decls));
+      if ("problem" in parsed) errors.push(`appStyle.${key}["${selector}"]: ${parsed.problem}`);
+      errors.push(...declarationProblems(`appStyle.${key}["${selector}"]`, decls));
     }
   }
   if (t.css !== undefined) {
-    if (typeof t.css !== "string") errors.push("appTheme.css: expected a string");
-    else if (/<\/|@import/i.test(t.css)) errors.push("appTheme.css: no @import and no </");
-    else if (!balanced(t.css)) errors.push("appTheme.css: braces don't balance");
-  }
-  for (const [key, value] of Object.entries(t.shell ?? {})) {
-    const allowed = SHELL_VALUES[key as keyof AppThemeShell];
-    if (!allowed) errors.push(`appTheme.shell.${key}: one of ${Object.keys(SHELL_VALUES).join(", ")}`);
-    else if (!allowed.includes(value)) errors.push(`appTheme.shell.${key}: one of ${allowed.join(", ")}`);
+    if (typeof t.css !== "string") errors.push("appStyle.css: expected a string");
+    else if (/<\/|@import/i.test(t.css)) errors.push("appStyle.css: no @import and no </");
+    else if (!balanced(t.css)) errors.push("appStyle.css: braces don't balance");
   }
   return errors;
 }
@@ -286,14 +264,14 @@ export function defineAppBrand(input: AppBrandInput): AppBrand {
 }
 
 /**
- * Define an app theme (layout and shape): checks it and returns it frozen,
+ * Define an app style (every component's size and shape): checks it and returns it frozen,
  * with its id. Throws with every problem when it isn't sound.
  *
  * @stability Beta
  */
-export function defineAppTheme(input: AppThemeInput): AppTheme {
-  const errors = validateAppTheme(input);
-  if (errors.length) throw new Error(`App theme "${String(input?.name)}" isn't valid:\n- ${errors.join("\n- ")}`);
+export function defineAppStyle(input: AppStyleInput): AppStyle {
+  const errors = validateAppStyle(input);
+  if (errors.length) throw new Error(`App style "${String(input?.name)}" isn't valid:\n- ${errors.join("\n- ")}`);
   return deepFreeze({ ...structuredClone(input), id: input.name });
 }
 

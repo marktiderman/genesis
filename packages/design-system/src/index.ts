@@ -103,5 +103,5 @@ export {
 // Motion: durations, easings and springs, for web CSS and native (Reanimated) alike.
 export * from "./tokens/motion";
 
-// App themes: whole-app looks (colours, component tokens, parts, shell layout); seven starter themes ship.
-export * from "./app-themes";
+// App brands (colours, typefaces) and app styles (component tokens, parts): seven starters of each.
+export * from "./app-styles";

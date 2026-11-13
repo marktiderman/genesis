@@ -226,7 +226,7 @@ function Inbox({ items, messages, draft, setDraft, send, openId, open, close }: 
 }
 ```
 
-## Theming: component tokens and parts
+## App themes: component tokens, parts and the bundle
 
 genesis-ui's components read component tokens for their sizes, shapes and
 type (`--control-height`, `--card-shadow`, `--table-head-text-transform`…,
@@ -234,18 +234,30 @@ declared in genesis-design-system's `themes/genesis.css` at the values the
 classes had), and every core component and the app shell mark their named
 parts with `data-slot` (`button` with `data-variant` and `data-size`, `card`,
 `table-head`, `shell-nav-item` with `data-active`, `shell` with
-`data-density`…). An app theme (genesis-design-system's
-`@marktiderman/genesis-design-system/app-themes`, ADR 0017) sets the tokens and
-styles the parts, so one stylesheet changes how every screen looks without
-touching a component; an app brand (`data-app-brand`) sets the colours and
-fonts on its own. `appShellOptionsFromTheme(theme)` gives `AppShell` the
-theme's layout:
+`data-density`…). An app style (`data-app-style`) sets the tokens and changes
+the parts, so one stylesheet changes how every screen looks without touching a
+component; an app brand (`data-app-brand`) sets the colours and typefaces on
+its own. Both are genesis-design-system's
+(`@marktiderman/genesis-design-system/app-styles`, ADR 0018).
+
+An **app theme** bundles them under one name with a layout:
+`defineAppTheme({ name, label, description, brand?, style?, layout? })` from
+`@marktiderman/genesis-ui/themes`. Each piece is optional and one left out
+keeps the app's own, so the seven starter themes (`STARTER_THEMES`, one per
+starter style) come without a brand and wear the app's colours.
+`appThemeAttributes(theme)` gives the attributes to set (on `<html>`, so menus
+and dialogs wear it too) and `appShellOptionsFromTheme(theme)` the `AppShell`
+options the layout starts from. Those are defaults: where the shell is
+`configurable`, the person's own density and rail win (`lockedOptions` keeps
+one fixed). Light and dark is the person's appearance, which no theme sets.
 
 ```tsx
-import { AppShell, appShellOptionsFromTheme } from "@marktiderman/genesis-ui/layout";
-import { getStarterTheme } from "@marktiderman/genesis-design-system/app-themes";
+import { AppShell } from "@marktiderman/genesis-ui/layout";
+import { appShellOptionsFromTheme, appThemeAttributes, getStarterTheme } from "@marktiderman/genesis-ui/themes";
 
-const theme = getStarterTheme("tracker"); // layout and shape; colours come from the app brand
+const theme = getStarterTheme("tracker"); // the tracker style and a compact layout, in the app's brand
+Object.assign(document.documentElement.dataset, { appStyle: theme?.style?.id });
+appThemeAttributes(theme); // { "data-app-style": "tracker" }
 const shell = <AppShell appName="Acme" navItems={[]} options={{ ...appShellOptionsFromTheme(theme), scrollRoot: "window" }} />;
 ```
 

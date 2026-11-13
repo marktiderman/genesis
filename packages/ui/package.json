@@ -64,6 +64,10 @@
       "types": "./dist/components/layout/index.d.ts",
       "import": "./dist/components/layout/index.js"
     },
+    "./themes": {
+      "types": "./dist/themes/index.d.ts",
+      "import": "./dist/themes/index.js"
+    },
     "./resource": {
       "types": "./dist/components/resource/index.d.ts",
       "import": "./dist/components/resource/index.js"
@@ -603,6 +607,12 @@
         }
       ],
       "primitives": [
+        {
+          "need": "an app's whole look under one name: a brand, a style and a layout (per app, or per area of an app)",
+          "use": "an app theme (defineAppTheme, or a starter from STARTER_THEMES): appThemeAttributes sets its brand and style, appShellOptionsFromTheme gives AppShell its layout",
+          "import": "@marktiderman/genesis-ui/themes",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md#app-themes-component-tokens-parts-and-the-bundle"
+        },
         {
           "need": "the app skeleton: navigation, header, content",
           "use": "AppShell with a navigation tree",

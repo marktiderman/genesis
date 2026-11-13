@@ -1,13 +1,13 @@
 /**
- * The starter brands and themes Genesis ships: one of each per kind of work,
+ * The starter brands and styles Genesis ships: one of each per kind of work,
  * in the spirit of a kind of product people already know how to use. A brand
- * is colours and fonts; a theme is layout and shape, with colours only from
- * roles, so any brand goes with any theme. Each theme was designed with the
+ * is colours and typefaces; a style is every component's size and shape, with colours only from
+ * roles, so any brand goes with any style. Each style was designed with the
  * brand of the same name (`pairsWith`). The palettes are Genesis's own; none
  * copies a product's brand colours.
  */
 import type { BrandDarkRoles, CanonicalBrand } from "../schema/brand";
-import { defineAppBrand, defineAppTheme, type AppBrand, type AppTheme } from "./define";
+import { defineAppBrand, defineAppStyle, type AppBrand, type AppStyle } from "./define";
 
 const SYSTEM_SANS = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 const SYSTEM_MONO = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
@@ -98,7 +98,7 @@ export const trackerBrand: AppBrand = defineAppBrand({
 });
 
 /** Tracker layout: designed with the tracker brand, at home with any. */
-export const trackerTheme: AppTheme = defineAppTheme({
+export const trackerStyle: AppStyle = defineAppStyle({
   name: "tracker",
   label: "Tracker",
   description: "Keyboard-first and dense: 32px controls, flat cards, tight tables, a compact shell.",
@@ -131,7 +131,6 @@ export const trackerTheme: AppTheme = defineAppTheme({
     "shell-nav-item": { "font-size": "0.8125rem" },
     "table-cell": { "font-size": "0.8125rem" },
   },
-  shell: { density: "compact" },
 });
 
 /** Repository: A white page on a cool grey canvas, green for actions, blue for links, the system font and monospace. */
@@ -187,7 +186,7 @@ export const repositoryBrand: AppBrand = defineAppBrand({
 });
 
 /** Repository layout: designed with the repository brand, at home with any. */
-export const repositoryTheme: AppTheme = defineAppTheme({
+export const repositoryStyle: AppStyle = defineAppStyle({
   name: "repository",
   label: "Repository",
   description: "Hairline and exact: 32px controls with a crisp edge, flat cards, grey outlined buttons, shaded table headings, a marked active item.",
@@ -225,7 +224,6 @@ export const repositoryTheme: AppTheme = defineAppTheme({
     "table-head": { "background-color": "hsl(var(--muted))" },
     "shell-nav-item[active]": { "box-shadow": "inset 2px 0 0 hsl(var(--sidebar-ring))", "font-weight": "600" },
   },
-  shell: { density: "compact" },
 });
 
 /** Checklist: A warm white page, a confident red, and a warm sidebar whose open list sits on a red tint. */
@@ -271,7 +269,7 @@ export const checklistBrand: AppBrand = defineAppBrand({
 });
 
 /** Checklist layout: designed with the checklist brand, at home with any. */
-export const checklistTheme: AppTheme = defineAppTheme({
+export const checklistStyle: AppStyle = defineAppStyle({
   name: "checklist",
   label: "Checklist",
   description: "Friendly and roomy: firm 36px controls, soft cards, round checkboxes.",
@@ -298,7 +296,6 @@ export const checklistTheme: AppTheme = defineAppTheme({
     checkbox: { "border-radius": "9999px" },
     "shell-nav-item[active]": { "font-weight": "500" },
   },
-  shell: { density: "comfortable" },
 });
 
 /** Notebook: A plain white page, warm grey ink, a sidebar a shade warmer and a calm blue. */
@@ -349,7 +346,7 @@ export const notebookBrand: AppBrand = defineAppBrand({
 });
 
 /** Notebook layout: designed with the notebook brand, at home with any. */
-export const notebookTheme: AppTheme = defineAppTheme({
+export const notebookStyle: AppStyle = defineAppStyle({
   name: "notebook",
   label: "Notebook",
   description: "Content first: 32px controls, borderless cards on a hairline shadow, ruled table columns, square-ish tags.",
@@ -384,7 +381,6 @@ export const notebookTheme: AppTheme = defineAppTheme({
     "table-cell:last-child": { "border-right": "none" },
     "button[variant=outline]": { "border-color": "hsl(var(--border))" },
   },
-  shell: { density: "comfortable" },
 });
 
 /** Press: A dark rail beside a light grey canvas, white cards and a steady blue. */
@@ -437,7 +433,7 @@ export const pressBrand: AppBrand = defineAppBrand({
 });
 
 /** Press layout: designed with the press brand, at home with any. */
-export const pressTheme: AppTheme = defineAppTheme({
+export const pressStyle: AppStyle = defineAppStyle({
   name: "press",
   label: "Press",
   description: "The publishing dashboard: square cards, small corners, regular-weight titles, a filled active item, outlined buttons.",
@@ -468,7 +464,6 @@ export const pressTheme: AppTheme = defineAppTheme({
     "button[variant=outline]": { color: "hsl(var(--primary-text))", "border-color": "hsl(var(--primary))" },
     "shell-nav-item[active]": { "background-color": "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" },
   },
-  shell: { density: "compact" },
 });
 
 /** Journal: A paper ground, ink-brown text, a sage accent, serif headings over a soft sans. */
@@ -517,7 +512,7 @@ export const journalBrand: AppBrand = defineAppBrand({
 });
 
 /** Journal layout: designed with the journal brand, at home with any. */
-export const journalTheme: AppTheme = defineAppTheme({
+export const journalStyle: AppStyle = defineAppStyle({
   name: "journal",
   label: "Journal",
   description: "Slow and open: pill buttons and fields, soft lifted cards, generous padding, serif titles.",
@@ -555,7 +550,6 @@ export const journalTheme: AppTheme = defineAppTheme({
     "form-page-title": { "font-family": "var(--font-display)" },
     "settings-page-title": { "font-family": "var(--font-display)" },
   },
-  shell: { density: "comfortable" },
 });
 
 /** Arena: A black rail, a hot orange with dark text on it, condensed headings and high contrast. Best in dark mode. */
@@ -608,7 +602,7 @@ export const arenaBrand: AppBrand = defineAppBrand({
 });
 
 /** Arena layout: designed with the arena brand, at home with any. */
-export const arenaTheme: AppTheme = defineAppTheme({
+export const arenaStyle: AppStyle = defineAppStyle({
   name: "arena",
   label: "Arena",
   description: "Athletic and loud: capitals on buttons, badges, column headings and titles, tight corners, a marked active item, a press that sinks.",
@@ -653,7 +647,6 @@ export const arenaTheme: AppTheme = defineAppTheme({
   css: `[data-slot="button"]:active:not(:disabled) {
   transform: translateY(1px);
 }`,
-  shell: { density: "comfortable" },
 });
 
 /** Every starter brand Genesis ships, in picker order: colours and fonts. */
@@ -672,18 +665,18 @@ export function getStarterBrand(id: string): AppBrand | undefined {
   return STARTER_BRANDS.find((b) => b.id === id);
 }
 
-/** Every starter theme Genesis ships, in picker order: layout and shape. Each pairs with the brand of its name. */
-export const STARTER_THEMES: readonly AppTheme[] = Object.freeze([
-  trackerTheme,
-  repositoryTheme,
-  checklistTheme,
-  notebookTheme,
-  pressTheme,
-  journalTheme,
-  arenaTheme,
+/** Every starter style Genesis ships, in picker order: component size and shape. Each pairs with the brand of its name. */
+export const STARTER_STYLES: readonly AppStyle[] = Object.freeze([
+  trackerStyle,
+  repositoryStyle,
+  checklistStyle,
+  notebookStyle,
+  pressStyle,
+  journalStyle,
+  arenaStyle,
 ]);
 
-/** A starter theme by id, or undefined. */
-export function getStarterTheme(id: string): AppTheme | undefined {
-  return STARTER_THEMES.find((t) => t.id === id);
+/** A starter style by id, or undefined. */
+export function getStarterStyle(id: string): AppStyle | undefined {
+  return STARTER_STYLES.find((t) => t.id === id);
 }

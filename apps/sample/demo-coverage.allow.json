@@ -1,7 +1,6 @@
 {
   "native/*": "React Native components have no web renderer on this site yet; the Expo starter (apps/genesis-rn-starter) shows them.",
   "web/accessible-icon": "No story or demo page yet: add a story under apps/sample/stories/.",
-  "web/app-theme-shell": "A function, not a component: appShellOptionsFromTheme turns an app theme's shell into AppShell options, which the AppShell stories show.",
   "web/band": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/brand-theme": "Applies a brand's tokens: shown by every page's theme.",
   "web/carousel": "No story or demo page yet: add a story under apps/sample/stories/.",

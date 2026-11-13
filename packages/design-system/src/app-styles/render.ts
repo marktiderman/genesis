@@ -1,17 +1,17 @@
 /**
- * App brands and app themes as variables and as CSS scoped to their
+ * App brands and app styles as variables and as CSS scoped to their
  * attributes; brands checked for contrast.
  */
 import { brandRoleVariables, hslToRgb } from "../factories/brand-roles";
 import { COMPONENT_TOKENS, componentTokenCss } from "../tokens/component-tokens";
 import { formatFontStack } from "../tokens/theme-css";
-import { parsePartSelector, type AppBrand, type AppTheme, type ThemePartStyles } from "./define";
+import { parsePartSelector, type AppBrand, type AppStyle, type ThemePartStyles } from "./define";
 
 type Mode = "light" | "dark";
 type Rgb = [number, number, number];
 
 /** Variables per mode, as `{ "--primary": "243 75% 59%", "--font-sans": "…" }`. */
-export interface AppThemeVariables {
+export interface AppCssVariables {
   light: Record<string, string>;
   dark: Record<string, string>;
 }
@@ -42,16 +42,16 @@ function hexTriplet(hex: string): string {
 }
 
 /**
- * Every variable an app brand sets, per mode: its theme roles
+ * Every variable an app brand sets, per mode: its colour roles
  * (`brandRoleVariables`, web overrides applied), the roles it sets by hand,
  * then its font stacks.
  *
  * @stability Beta
  */
-export function appBrandVariables(brand: AppBrand): AppThemeVariables {
+export function appBrandVariables(brand: AppBrand): AppCssVariables {
   const base = brandRoleVariables(brand.brand, { platform: "web" });
-  const out: AppThemeVariables = { light: { ...base.light }, dark: { ...base.dark } };
-  // Corners are a theme's (its `radius` token), unless the brand names a radius itself.
+  const out: AppCssVariables = { light: { ...base.light }, dark: { ...base.dark } };
+  // Corners are a style's (its `radius` token), unless the brand names a radius itself.
   if (!brand.brand.radius) {
     delete out.light["--radius"];
     delete out.dark["--radius"];
@@ -68,20 +68,20 @@ export function appBrandVariables(brand: AppBrand): AppThemeVariables {
 }
 
 /**
- * Every variable an app theme sets, per mode: its component tokens
+ * Every variable an app style sets, per mode: its component tokens
  * (`darkTokens` over `tokens` in dark mode).
  *
  * @stability Beta
  */
-export function appThemeVariables(theme: AppTheme): AppThemeVariables {
-  const out: AppThemeVariables = { light: {}, dark: {} };
-  // A token computed from --radius is resolved where it's declared (:root), so a theme set on an
+export function appStyleVariables(style: AppStyle): AppCssVariables {
+  const out: AppCssVariables = { light: {}, dark: {} };
+  // A token computed from --radius is resolved where it's declared (:root), so a style set on an
   // inner element that changes the radius declares them again in its own scope.
-  const derived = theme.tokens?.["radius"]
+  const derived = style.tokens?.["radius"]
     ? Object.fromEntries(COMPONENT_TOKENS.filter((t) => t.default.includes("var(--radius)")).map((t) => [t.name, t.default]))
     : {};
   for (const mode of ["light", "dark"] as const) {
-    const tokens = { ...derived, ...theme.tokens, ...(mode === "dark" ? theme.darkTokens : {}) };
+    const tokens = { ...derived, ...style.tokens, ...(mode === "dark" ? style.darkTokens : {}) };
     for (const [name, value] of Object.entries(tokens)) {
       if (value) out[mode][`--${name}`] = componentTokenCss(name, value);
     }
@@ -89,10 +89,10 @@ export function appThemeVariables(theme: AppTheme): AppThemeVariables {
   return out;
 }
 
-export interface AppThemeCssOptions {
+export interface AppCssOptions {
   /**
    * The attribute that names it. Default `data-app-brand` for a brand and
-   * `data-app-theme` for a theme (`data-theme` is Genesis's light and dark mode).
+   * `data-app-style` for a style (`data-theme` is the person's appearance: light or dark).
    */
   attribute?: string;
 }
@@ -136,7 +136,7 @@ const scopes = (on: string) => ({ light: [`:root${on}`, on], dark: [`:root.dark$
  *
  * @stability Beta
  */
-export function appBrandCss(brand: AppBrand, options: AppThemeCssOptions = {}): string {
+export function appBrandCss(brand: AppBrand, options: AppCssOptions = {}): string {
   const on = `[${options.attribute ?? "data-app-brand"}="${brand.id}"]`;
   const vars = appBrandVariables(brand);
   const s = scopes(on);
@@ -144,7 +144,7 @@ export function appBrandCss(brand: AppBrand, options: AppThemeCssOptions = {}): 
 }
 
 /**
- * An app theme as CSS, scoped to `[data-app-theme="<id>"]`: its component
+ * An app style as CSS, scoped to `[data-app-style="<id>"]`: its component
  * tokens, its part styles (`darkParts` after `parts`), then its raw `css`
  * nested in its scope. Its colours come from whatever brand is set.
  *
@@ -154,35 +154,35 @@ export function appBrandCss(brand: AppBrand, options: AppThemeCssOptions = {}): 
  *
  * @stability Beta
  */
-export function appThemeCss(theme: AppTheme, options: AppThemeCssOptions = {}): string {
-  const on = `[${options.attribute ?? "data-app-theme"}="${theme.id}"]`;
-  const vars = appThemeVariables(theme);
+export function appStyleCss(style: AppStyle, options: AppCssOptions = {}): string {
+  const on = `[${options.attribute ?? "data-app-style"}="${style.id}"]`;
+  const vars = appStyleVariables(style);
   const s = scopes(on);
   return [
-    `/* Theme · ${theme.label}: ${theme.description} */`,
+    `/* Style · ${style.label}: ${style.description} */`,
     ...(Object.keys(vars.light).length ? [block(s.light, vars.light)] : []),
-    ...(Object.keys(vars.dark).length && theme.darkTokens ? [block(s.dark, vars.dark)] : []),
-    ...partBlocks(theme.parts, [on]),
-    ...partBlocks(theme.darkParts, [`.dark${on}`, `.dark ${on}`]),
-    ...(theme.css?.trim() ? [`${on} {\n${theme.css.trim().replace(/^/gm, "  ")}\n}\n`] : []),
+    ...(Object.keys(vars.dark).length && style.darkTokens ? [block(s.dark, vars.dark)] : []),
+    ...partBlocks(style.parts, [on]),
+    ...partBlocks(style.darkParts, [`.dark${on}`, `.dark ${on}`]),
+    ...(style.css?.trim() ? [`${on} {\n${style.css.trim().replace(/^/gm, "  ")}\n}\n`] : []),
   ].join("\n");
 }
 
-/** Brands' and themes' CSS in one stylesheet: what `dist/themes/starter.css` holds for the starters. */
-export function renderAppThemesCss(brands: readonly AppBrand[], themes: readonly AppTheme[]): string {
+/** Brands' and styles' CSS in one stylesheet: what `dist/themes/starter.css` holds for the starters. */
+export function renderAppStylesCss(brands: readonly AppBrand[], styles: readonly AppStyle[]): string {
   return `/**
- * Genesis app brands and app themes, generated from src/app-themes. Do not edit by hand.
+ * Genesis app brands and app styles, generated from src/app-styles. Do not edit by hand.
  *
  * Usage, unlayered, after genesis.css and the Tailwind bridge:
  *   @import "@marktiderman/genesis-design-system/themes/starter.css";
  * then, on <html> (the whole app) or on any element, choose each on its own:
- *   <html data-app-brand="${brands[0]?.id ?? "tracker"}" data-app-theme="${themes[0]?.id ?? "tracker"}">
+ *   <html data-app-brand="${brands[0]?.id ?? "tracker"}" data-app-style="${styles[0]?.id ?? "tracker"}">
  * Brands (colours, fonts): ${brands.map((b) => b.id).join(", ")}.
- * Themes (layout, shape): ${themes.map((t) => t.id).join(", ")}.
+ * Styles (component size and shape): ${styles.map((t) => t.id).join(", ")}.
  * Load the fonts a brand names yourself; each stack falls back to system fonts.
  */
 
-${[...brands.map((b) => appBrandCss(b)), ...themes.map((t) => appThemeCss(t))].join("\n")}`;
+${[...brands.map((b) => appBrandCss(b)), ...styles.map((t) => appStyleCss(t))].join("\n")}`;
 }
 
 // ── Contrast ────────────────────────────────────────────────────────────────
@@ -242,7 +242,7 @@ export interface AppBrandContrastProblem {
 
 /**
  * Every pair in {@link APP_BRAND_PAIRS} under its minimum, in either mode.
- * Empty for every theme Genesis ships (a test holds it there).
+ * Empty for every brand Genesis ships (a test holds it there).
  *
  * @stability Beta
  */

@@ -83,9 +83,9 @@
       "types": "./dist/design-systems/index.d.ts",
       "import": "./dist/design-systems/index.js"
     },
-    "./app-themes": {
-      "types": "./dist/app-themes/index.d.ts",
-      "import": "./dist/app-themes/index.js"
+    "./app-styles": {
+      "types": "./dist/app-styles/index.d.ts",
+      "import": "./dist/app-styles/index.js"
     },
     "./fonts": {
       "types": "./dist/fonts.d.ts",
@@ -125,10 +125,10 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/design-system/README.md"
         },
         {
-          "need": "a theme: a whole-app look (colours, fonts, every component's size, shape and parts, the shell's layout), light and dark",
-          "use": "an app theme (defineAppTheme, or a starter theme from STARTER_THEMES) rendered with appThemeCss or themes/starter.css, set with data-theme",
-          "import": "@marktiderman/genesis-design-system/app-themes",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/design-system/README.md#app-themes"
+          "need": "an app's brand (colours and typefaces) or style (every component's size, shape and parts), light and dark",
+          "use": "defineAppBrand and defineAppStyle (or the starters, STARTER_BRANDS and STARTER_STYLES) rendered with appBrandCss and appStyleCss or themes/starter.css, set with data-app-brand and data-app-style; a whole theme (brand, style and layout) is genesis-ui's defineAppTheme",
+          "import": "@marktiderman/genesis-design-system/app-styles",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/design-system/README.md#app-brands-and-app-styles"
         }
       ]
     }

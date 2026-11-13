@@ -1,6 +1,6 @@
 /**
  * @feat:app-themes
- * App brands (colours, fonts) and app themes (tokens, parts, css, shell), defined, rendered and
+ * App brands (colours, typefaces) and app styles (tokens, parts, css), defined, rendered and
  * checked, and the starter set of each.
  */
 import { readFileSync } from "node:fs";
@@ -11,33 +11,33 @@ import { GENESIS_THEME_BRAND, fontFamiliesFromDtcg, renderThemeCss } from "../..
 import {
   COMPONENT_TOKENS,
   STARTER_BRANDS,
-  STARTER_THEMES,
+  STARTER_STYLES,
   THEME_PARTS,
   THEME_ROLES,
   appBrandContrastProblems,
   appBrandCss,
   appBrandVariables,
-  appThemeCss,
-  appThemeVariables,
-  arenaTheme,
+  appStyleCss,
+  appStyleVariables,
+  arenaStyle,
   componentTokenProblem,
   defineAppBrand,
-  defineAppTheme,
+  defineAppStyle,
   getStarterBrand,
-  getStarterTheme,
+  getStarterStyle,
   parsePartSelector,
   pressBrand,
-  renderAppThemesCss,
+  renderAppStylesCss,
   trackerBrand,
-  trackerTheme,
+  trackerStyle,
   validateAppBrand,
-  validateAppTheme,
+  validateAppStyle,
   type AppBrandInput,
-  type AppThemeInput,
+  type AppStyleInput,
 } from "../index";
 
 const brandInput: AppBrandInput = { name: "acme", label: "Acme", description: "A test brand.", brand: { ...genesisBrand, name: "acme" } };
-const themeInput: AppThemeInput = { name: "acme", label: "Acme", description: "A test theme.", feel: "test apps", suits: ["tests"] };
+const styleInput: AppStyleInput = { name: "acme", label: "Acme", description: "A test style.", feel: "test apps", suits: ["tests"] };
 const has = (errors: string[], fragment: string) => expect(errors.some((e) => e.includes(fragment)), `${fragment} in\n${errors.join("\n")}`).toBe(true);
 
 describe("defineAppBrand", () => {
@@ -60,70 +60,69 @@ describe("defineAppBrand", () => {
   });
 });
 
-describe("defineAppTheme", () => {
-  it("returns the theme frozen, with its name as its id", () => {
-    const theme = defineAppTheme(themeInput);
-    expect(theme.id).toBe("acme");
-    expect(Object.isFrozen(theme)).toBe(true);
+describe("defineAppStyle", () => {
+  it("returns the style frozen, with its name as its id", () => {
+    const style = defineAppStyle(styleInput);
+    expect(style.id).toBe("acme");
+    expect(Object.isFrozen(style)).toBe(true);
   });
 
   it("lists every problem at once", () => {
-    const errors = validateAppTheme({
-      ...themeInput,
+    const errors = validateAppStyle({
+      ...styleInput,
       name: "Bad Name",
       suits: [],
       pairsWith: "Not An Id",
       tokens: { "control-height": "tall", "no-such-token": "1rem", "card-shadow": "0 0 red; } x {" },
       parts: { carrd: { color: "hsl(var(--primary))" }, card: { Color: "red", padding: "1rem; }" } },
       css: "[data-slot=card] { color: red; } }",
-      shell: { density: "roomy" as never, width: 3 } as never,
-    });
+      shell: { density: "compact" },
+    } as never);
     for (const f of [
-      "appTheme.name",
-      "appTheme.suits",
-      "appTheme.pairsWith",
+      "appStyle.name",
+      "appStyle.suits",
+      "appStyle.pairsWith",
       "--control-height: a length",
       "--no-such-token: not a component token",
       "--card-shadow: a box-shadow",
       '"carrd": not a Genesis part',
       '["card"].Color',
       '["card"].padding',
-      "appTheme.css: braces don't balance",
-      "shell.density",
-      "shell.width",
+      "appStyle.css: braces don't balance",
+      "appStyle.shell: a layout is an app theme's",
     ])
       has(errors, f);
   });
 
   it("leaves colours and fonts to the brand", () => {
-    const errors = validateAppTheme({ ...themeInput, brand: genesisBrand, roles: {}, fonts: {} } as never);
-    for (const f of ["appTheme.brand", "appTheme.roles", "appTheme.fonts"]) has(errors, f);
+    const errors = validateAppStyle({ ...styleInput, brand: genesisBrand, roles: {}, fonts: {} } as never);
+    for (const f of ["appStyle.brand", "appStyle.roles", "appStyle.fonts"]) has(errors, f);
   });
 
   it("takes colours in parts from roles only, so they follow the brand", () => {
     for (const value of ["#ff0000", "rgb(255 0 0)", "hsl(0 100% 50%)", "1px solid #000", "oklch(0.6 0.2 30)"])
-      has(validateAppTheme({ ...themeInput, parts: { card: { "border-color": value } } }), "a colour from a role");
-    expect(validateAppTheme({ ...themeInput, parts: { card: { color: "hsl(var(--primary))", border: "1px solid hsl(var(--foreground) / 0.15)" } } })).toEqual([]);
+      has(validateAppStyle({ ...styleInput, parts: { card: { "border-color": value } } }), "a colour from a role");
+    expect(validateAppStyle({ ...styleInput, parts: { card: { color: "hsl(var(--primary))", border: "1px solid hsl(var(--foreground) / 0.15)" } } })).toEqual([]);
     // A shadow is elevation, not a colour: literal shadow colours are fine.
-    expect(validateAppTheme({ ...themeInput, parts: { card: { "box-shadow": "0 1px 2px rgb(0 0 0 / 0.2)" } } })).toEqual([]);
+    expect(validateAppStyle({ ...styleInput, parts: { card: { "box-shadow": "0 1px 2px rgb(0 0 0 / 0.2)" } } })).toEqual([]);
   });
 
-  it("refuses CSS that would leave the theme's scope or fetch", () => {
-    expect(validateAppTheme({ ...themeInput, css: "@import url(x.css);" })).toContain("appTheme.css: no @import and no </");
-    expect(validateAppTheme({ ...themeInput, css: "} body { color: red; } x {" })).toContain("appTheme.css: braces don't balance");
-    expect(validateAppTheme({ ...themeInput, css: '[data-slot="card"]::after { content: "}"; }' })).toEqual([]);
-    expect(validateAppTheme({ ...themeInput, css: "/* unclosed" })).toContain("appTheme.css: braces don't balance");
-    expect(validateAppTheme({ ...themeInput, css: 'a { content: "unclosed }' })).toContain("appTheme.css: braces don't balance");
+  it("refuses CSS that would leave the style's scope or fetch", () => {
+    expect(validateAppStyle({ ...styleInput, css: "@import url(x.css);" })).toContain("appStyle.css: no @import and no </");
+    expect(validateAppStyle({ ...styleInput, css: "} body { color: red; } x {" })).toContain("appStyle.css: braces don't balance");
+    expect(validateAppStyle({ ...styleInput, css: '[data-slot="card"]::after { content: "}"; }' })).toEqual([]);
+    expect(validateAppStyle({ ...styleInput, css: "/* unclosed" })).toContain("appStyle.css: braces don't balance");
+    expect(validateAppStyle({ ...styleInput, css: 'a { content: "unclosed }' })).toContain("appStyle.css: braces don't balance");
   });
 
   it("checks raw CSS in linear time, whatever it holds", () => {
     const start = performance.now();
-    validateAppTheme({ ...themeInput, css: "/*" + "a/*".repeat(200_000) });
+    validateAppStyle({ ...styleInput, css: "/*" + "a/*".repeat(200_000) });
     expect(performance.now() - start).toBeLessThan(500);
   });
 
   it("accepts an app's own parts, prefixed app-", () => {
-    expect(validateAppTheme({ ...themeInput, parts: { "app-zone-switcher": { gap: "0" } } })).toEqual([]);
+    expect(validateAppStyle({ ...styleInput, parts: { "app-zone-switcher": { gap: "0" } } })).toEqual([]);
   });
 });
 
@@ -165,12 +164,12 @@ describe("part selectors", () => {
   });
 });
 
-describe("the starter brands and themes", () => {
+describe("the starter brands and styles", () => {
   it("come in matching pairs, found by id", () => {
-    expect(STARTER_BRANDS.map((b) => b.id)).toEqual(STARTER_THEMES.map((t) => t.id));
-    for (const theme of STARTER_THEMES) {
-      expect(getStarterTheme(theme.id)).toBe(theme);
-      expect(getStarterBrand(theme.pairsWith!)?.id).toBe(theme.id);
+    expect(STARTER_BRANDS.map((b) => b.id)).toEqual(STARTER_STYLES.map((t) => t.id));
+    for (const style of STARTER_STYLES) {
+      expect(getStarterStyle(style.id)).toBe(style);
+      expect(getStarterBrand(style.pairsWith!)?.id).toBe(style.id);
     }
     expect(getStarterBrand("nope")).toBeUndefined();
   });
@@ -180,11 +179,10 @@ describe("the starter brands and themes", () => {
     expect(brandContrastProblems(brand.brand)).toEqual([]);
   });
 
-  it.each(STARTER_THEMES.map((t) => [t.id, t] as const))("theme %s uses tokens, parts and the shell, and no colours", (_id, theme) => {
-    expect(Object.keys(theme.tokens ?? {}).length).toBeGreaterThan(5);
-    expect(Object.keys(theme.parts ?? {}).length).toBeGreaterThan(0);
-    expect(theme.shell?.density).toBeDefined();
-    const vars = appThemeVariables(theme);
+  it.each(STARTER_STYLES.map((t) => [t.id, t] as const))("style %s uses tokens and parts, and no colours", (_id, style) => {
+    expect(Object.keys(style.tokens ?? {}).length).toBeGreaterThan(5);
+    expect(Object.keys(style.parts ?? {}).length).toBeGreaterThan(0);
+    const vars = appStyleVariables(style);
     expect(Object.keys(vars.light).filter((v) => THEME_ROLES.includes(v.slice(2)) || v.startsWith("--font-"))).toEqual([]);
   });
 
@@ -207,14 +205,14 @@ describe("variables", () => {
     expect(appBrandVariables(trackerBrand).light["--font-sans"]).toMatch(/^Inter, ui-sans-serif/);
   });
 
-  it("a brand leaves corners to the theme unless it names a radius", () => {
+  it("a brand leaves corners to the style unless it names a radius", () => {
     expect(appBrandVariables(trackerBrand).light["--radius"]).toBeUndefined();
     const own = defineAppBrand({ ...brandInput, brand: { ...genesisBrand, name: "acme", radius: { lg: "1rem" } } });
     expect(appBrandVariables(own).light["--radius"]).toBe("1rem");
   });
 
-  it("a theme: tokens, dark tokens over light in dark mode", () => {
-    const vars = appThemeVariables(trackerTheme);
+  it("a style: tokens, dark tokens over light in dark mode", () => {
+    const vars = appStyleVariables(trackerStyle);
     expect(vars.light["--control-height"]).toBe("2rem");
     expect(vars.light["--radius"]).toBe("0.375rem");
     expect(vars.light["--card-shadow"]).toBe("0 0 #0000"); // "none", composable with rings
@@ -222,10 +220,10 @@ describe("variables", () => {
     expect(vars.light["--popover-shadow"]).not.toContain("0.6)");
   });
 
-  it("a theme that sets the radius declares the tokens computed from it again, in its own scope", () => {
-    const vars = appThemeVariables(defineAppTheme({ ...themeInput, tokens: { radius: "0" } }));
+  it("a style that sets the radius declares the tokens computed from it again, in its own scope", () => {
+    const vars = appStyleVariables(defineAppStyle({ ...styleInput, tokens: { radius: "0" } }));
     expect(vars.light["--card-radius"]).toBe("calc(var(--radius) * 1.4)");
-    expect(appThemeVariables(defineAppTheme(themeInput)).light).toEqual({});
+    expect(appStyleVariables(defineAppStyle(styleInput)).light).toEqual({});
   });
 });
 
@@ -237,33 +235,33 @@ describe("CSS", () => {
     expect(css).not.toContain("data-slot");
   });
 
-  it("scopes a theme to data-app-theme, with its part styles", () => {
-    const css = appThemeCss(trackerTheme);
-    expect(css).toMatch(/:root\[data-app-theme="tracker"\],\n\[data-app-theme="tracker"\] \{\n[^}]*--radius: 0\.375rem;/);
-    expect(css).toContain('[data-app-theme="tracker"] [data-slot="button"][data-variant="default"] {\n  box-shadow:');
+  it("scopes a style to data-app-style, with its part styles", () => {
+    const css = appStyleCss(trackerStyle);
+    expect(css).toMatch(/:root\[data-app-style="tracker"\],\n\[data-app-style="tracker"\] \{\n[^}]*--radius: 0\.375rem;/);
+    expect(css).toContain('[data-app-style="tracker"] [data-slot="button"][data-variant="default"] {\n  box-shadow:');
     expect(css).not.toContain("--primary:");
-    const nested = appThemeCss(defineAppTheme({ ...themeInput, parts: { "shell-sidebar shell-nav-item:hover": { gap: "0" }, "root[density=compact]": { gap: "0" } } }));
-    expect(nested).toContain('[data-app-theme="acme"] [data-slot="shell-sidebar"] [data-slot="shell-nav-item"]:hover {');
-    expect(nested).toContain('[data-app-theme="acme"][data-density="compact"] {');
+    const nested = appStyleCss(defineAppStyle({ ...styleInput, parts: { "shell-sidebar shell-nav-item:hover": { gap: "0" }, "root[density=compact]": { gap: "0" } } }));
+    expect(nested).toContain('[data-app-style="acme"] [data-slot="shell-sidebar"] [data-slot="shell-nav-item"]:hover {');
+    expect(nested).toContain('[data-app-style="acme"][data-density="compact"] {');
   });
 
   it("renders dark part styles under .dark, and raw CSS nested in the scope", () => {
-    const out = appThemeCss(defineAppTheme({ ...themeInput, darkParts: { card: { "border-width": "0" } } }));
-    expect(out).toContain('.dark[data-app-theme="acme"] [data-slot="card"],\n.dark [data-app-theme="acme"] [data-slot="card"] {');
-    expect(appThemeCss(arenaTheme)).toMatch(/\[data-app-theme="arena"\] \{\n {2}\[data-slot="button"\]:active:not\(:disabled\) \{/);
+    const out = appStyleCss(defineAppStyle({ ...styleInput, darkParts: { card: { "border-width": "0" } } }));
+    expect(out).toContain('.dark[data-app-style="acme"] [data-slot="card"],\n.dark [data-app-style="acme"] [data-slot="card"] {');
+    expect(appStyleCss(arenaStyle)).toMatch(/\[data-app-style="arena"\] \{\n {2}\[data-slot="button"\]:active:not\(:disabled\) \{/);
   });
 
   it("takes another attribute name", () => {
-    expect(appThemeCss(trackerTheme, { attribute: "data-look" })).toContain('[data-look="tracker"] [data-slot="button"]');
+    expect(appStyleCss(trackerStyle, { attribute: "data-look" })).toContain('[data-look="tracker"] [data-slot="button"]');
     expect(appBrandCss(trackerBrand, { attribute: "data-palette" })).toContain('[data-palette="tracker"]');
   });
 
-  it("renders every brand, then every theme, in one stylesheet", () => {
-    const all = renderAppThemesCss(STARTER_BRANDS, STARTER_THEMES);
+  it("renders every brand, then every style, in one stylesheet", () => {
+    const all = renderAppStylesCss(STARTER_BRANDS, STARTER_STYLES);
     for (const b of STARTER_BRANDS) expect(all).toContain(`[data-app-brand="${b.id}"]`);
-    for (const t of STARTER_THEMES) expect(all).toContain(`[data-app-theme="${t.id}"]`);
-    // Themes come after brands, so a theme's corners win where both are on one element.
-    expect(all.lastIndexOf("data-app-brand=")).toBeLessThan(all.indexOf('[data-app-theme="tracker"]'));
+    for (const t of STARTER_STYLES) expect(all).toContain(`[data-app-style="${t.id}"]`);
+    // Styles come after brands, so a style's corners win where both are on one element.
+    expect(all.lastIndexOf("data-app-brand=")).toBeLessThan(all.indexOf('[data-app-style="tracker"]'));
     expect(all).not.toMatch(/undefined|NaN/);
   });
 });

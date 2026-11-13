@@ -8,15 +8,15 @@ import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { LayoutDashboard } from "lucide-react";
-import { COMPONENT_TOKENS, THEME_PARTS } from "@marktiderman/genesis-design-system/app-themes";
+import { COMPONENT_TOKENS, THEME_PARTS } from "@marktiderman/genesis-design-system/app-styles";
 
-import { Badge } from "../../ui/badge";
-import { Button } from "../../ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
-import { AppShell } from "../AppShell";
-import { appShellOptionsFromTheme } from "../app-theme-shell";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { AppShell } from "../../components/layout/AppShell";
+import { appShellOptionsFromTheme } from "../layout";
 
-const SRC = join(__dirname, "../../..");
+const SRC = join(__dirname, "../..");
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -114,7 +114,7 @@ describe("rendered parts", () => {
 
 describe("appShellOptionsFromTheme", () => {
   it("passes the theme's shell choices and nothing else", () => {
-    expect(appShellOptionsFromTheme({ shell: { density: "compact", railWidth: "wide", defaultCollapsed: false } })).toEqual({
+    expect(appShellOptionsFromTheme({ layout: { density: "compact", railWidth: "wide", defaultCollapsed: false } })).toEqual({
       density: "compact",
       railWidth: "wide",
       defaultCollapsed: false,

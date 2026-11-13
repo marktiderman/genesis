@@ -29,17 +29,34 @@ new names against this page.
 |---|---|---|
 | **tier** | a UI rank inside `genesis-ui` and `genesis-ui-native`: token → element → pattern → layout → data-bound. |  |
 | **token** | a design value. | variable, design constant. |
-| **component token** | a token a component reads for its size, shape or type (`COMPONENT_TOKENS`: `--control-height`, `--card-shadow`). ADR 0017. |  |
-| **part** | a named piece of a component a theme can style, marked `data-slot="<name>"` (`THEME_PARTS`). ADR 0017. | slot (a slot is a fill), selector. |
-| **app brand** | an app's colours and fonts (`defineAppBrand`, `data-app-brand`). ADR 0017. |  |
-| **app theme** | an app's layout and shape: component tokens, part styles and the shell's layout, with no colours of its own (`defineAppTheme`, `data-app-theme`). ADR 0017. | skin, template, design system (sites' look rules), theme alone where light and dark mode could be meant. |
+| **component token** | a token a component reads for its size, shape or type (`COMPONENT_TOKENS`: `--control-height`, `--card-shadow`). ADR 0018. |  |
+| **part** | a named piece of a component a style can change, marked `data-slot="<name>"` (`THEME_PARTS`). An app's own are `app-<name>`. ADR 0018. | slot (a slot is a fill), selector. |
 | **element** | one interaction with no domain words (Button, Tooltip). It was the "primitive" tier. | primitive (for UI), atom. |
 | **pattern** | two or more elements in a recurring shape, with no data. | molecule, organism, composite. |
-| **layout** | positions content without knowing what it is (AppShell, DetailPage). | template, frame, chrome. |
+| **layout component** | the layout tier: positions content without knowing what it is (AppShell, DetailPage). An app's **layout** as a look piece is in "Look and feel" below. | template (bare), chrome. |
 | **data-bound** | a component that needs a resource contract (ResourceView, RecordView). | smart component, connected component. |
 | **component** | any React component, whatever its tier. A generic word, never a tier name. |  |
 | **slot / variant** | the two extension points. A slot is a named fill. A variant is a named style or behavior option. | render prop (in docs), flavour, mode (for variants). |
 | **reuse / extend / invent** | the one rule for where code goes (FRAMEWORK G1 to G3). Reuse: the Genesis piece as it is. Extend: the Genesis piece with the app's additions (a prop, a variant, a slot, or a wrapper around it). Invent: the app's own piece, when nothing in Genesis does the job. ADR 0013's five levels and EXTENDING.md's rungs are steps inside these three. | eject, fork; gap (for an invention); a parallel piece as a way to customize. |
+
+## Look and feel
+
+The ten pieces of how an app looks and works (ADR 0018). Each combines freely with the others.
+
+| Term | Definition | Don't use |
+|---|---|---|
+| **record page** | one record shown on its own: opened as a **side peek**, a **center peek** or a **full page**, on a record page template (standard, document). | detail panel, detail page (for this), workspace, modal (for a peek). |
+| **custom view** | a screen an app draws itself over a view, while Genesis keeps the view's states, data, URL and permissions. | surface, custom UI, skin. |
+| **layout** | how an app is navigated and framed: its navigation (sidebar, rail, top tabs, bottom bar, page tree), its **frame** (flush, inset) and its page templates. In a theme, the `AppShell` options it starts from (`AppThemeLayout`). | skeleton, chrome. |
+| **page template** | a ready page layout component (DashboardPage, SettingsPage, FormPage, DetailPage). | template (bare), page type. |
+| **app style** | every component's size and shape, with no colours of its own: component tokens, part styles and raw CSS (`defineAppStyle`, `data-app-style`). Type sizes and weights are a style's. | skin, design system (sites' look rules), theme (for this). |
+| **app brand** | an app's colours, typefaces, logo and name (`defineAppBrand`, `data-app-brand`). | brand for corners or spacing (those are the style's). |
+| **app theme** | a named bundle: a brand, a style and a layout, each optional (`defineAppTheme`, genesis-ui). | theme for light and dark, skin. |
+| **appearance** | light, dark or system: the person's choice (`GenesisThemeProvider`, `data-theme`). | theme, mode, color scheme (except sites' `colorScheme`). |
+| **density** | how tightly rows and controls sit: compact, comfortable, spacious. A theme sets the default; the person's choice wins. |  |
+| **widget** | a small tile on a dashboard or a record page's sidebar (a number, a streak, a mini list), fed by a view. Scoped exception: a field's `widget` in core's field schema is a form control hint. | gadget, card (for this), tile (in APIs). |
+| **template** | always qualified: page template, record page template, site template, Code Connect template, `--template`. | template alone. |
+| **surface** | only a coloured ground (a band's `surface`, a brand's surface scale) or an extension's window (`openSurface`). ADR 0009's "surface" is a **channel** (UI, API, AI tool). | surface for a custom view or a page. |
 
 ## Data
 
@@ -47,8 +64,9 @@ new names against this page.
 |---|---|---|
 | **resource** | the typed contract for one data source a view reads and writes (`defineResource`). | entity, model, collection, schema (for this). |
 | **record** | one item of a resource. Use "row" only inside grid and sheet UIs. | entity, item (in APIs), document. |
-| **view** | the description of how a resource's list shows (`defineView`). | list config, table config. Data Studio's saved grids are **saved views**. |
-| **record view** | the description of one record's page (`defineRecordView`). | resource workspace (removed earlier; `m.workspace.*` message keys and the `native-resource-workspace-menu` testID still carry it), detail panel. |
+| **view** | the rules for a resource's list, whatever its view type: scope, filters, sort, paging, selection, permissions, live updates and URL state (`defineView`). How it shows is its **view type**. | list config, table config. Data Studio's saved grids are **saved views**. |
+| **view type** | how a view shows: table, list, grid, board, calendar, gallery, sheet (`<ResourceView mode>` today). | mode (except the `mode` prop), list UI, layout (for this). |
+| **record view** | the description of one record's page (`defineRecordView`), which a **record page** renders. | resource workspace (removed earlier; `m.workspace.*` message keys and the `native-resource-workspace-menu` testID still carry it), detail panel. |
 | **table** | a Postgres table. Never used for a resource. |  |
 | **data provider** | the implementation behind resources (`DataProvider`, `createSupabaseProvider`). |  |
 | **adapter** | an implementation of a Genesis interface for an outside system: a switchboard backend, a storage backend or an AI vendor. | driver, connector (for this), and provider (for AI vendors). |
@@ -82,7 +100,7 @@ new names against this page.
 | **gate** | the one on/off answer for a feature (`featureOn`, ADR 0001). |  |
 | **tenant feature** | a tenant switching off a shipped feature. |  |
 
-## Surfaces and work
+## Pages and work
 
 | Term | Definition | Don't use |
 |---|---|---|

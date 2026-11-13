@@ -42,6 +42,8 @@ export default defineConfig({
     "src/components/patterns/user-avatar.tsx",
     "src/components/patterns/index.ts",
     "src/components/layout/index.ts",
+    // App themes (a brand, a style and a layout), on their own subpath.
+    "src/themes/index.ts",
     // Page templates (FRAMEWORK.md step 8), listed one by one for the same
     // mirror-the-exports-map reason as the patterns entries above. A
     // `layout/*.tsx` glob would be WIDER than the map: it would also emit
