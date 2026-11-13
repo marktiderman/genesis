@@ -12,4 +12,11 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 docker exec "$name" bash -c 'apt-get update -qq && apt-get install -y -qq postgresql-17-pgtap libtap-parser-sourcehandler-pgtap-perl >/dev/null' || exit 1
+# Installing pgTAP can upgrade the image's own Postgres packages under the running server, which
+# then can't load the newer plpgsql.so ("undefined symbol"). Restart so server and libraries match.
+docker restart "$name" >/dev/null || exit 1
+for _ in $(seq 1 60); do
+  docker exec "$name" pg_isready -U postgres -h 127.0.0.1 >/dev/null 2>&1 && break
+  sleep 1
+done
 docker exec "$name" bash /repo/scripts/pgtap-local/suites.sh "$@"
