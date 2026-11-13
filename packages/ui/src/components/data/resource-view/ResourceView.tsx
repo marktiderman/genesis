@@ -41,6 +41,7 @@ import { listViewTypes, registerBuiltInViewType, resolveViewType, type ViewTypeN
 import { detailMode, recordViewOf, resolveRecordOpen } from "./record-open";
 import { recordPeekSlot } from "./RecordPeek";
 import { ResourceInbox, type ResourceInboxOptions } from "./ResourceInbox";
+import { ResourceSheet } from "./ResourceSheet";
 
 type Row = Record<string, unknown>;
 type Scalar = string | number | boolean | null;
@@ -84,7 +85,7 @@ export interface ResourceViewOptions {
    * Prefer `type`, which takes the same values and every registered view type; `mode` stays as
    * its alias, and `type` wins when both are set.
    */
-  mode?: ViewModeDefault | "calendar" | "board" | "inbox" | undefined;
+  mode?: ViewModeDefault | "calendar" | "board" | "inbox" | "sheet" | undefined;
   /**
    * The view type (ADR 0021): how the view shows. `table`, `list` and `grid` (the person can
    * switch between them, and their pick is remembered), `board`, `calendar`, `gallery` (the grid
@@ -797,8 +798,8 @@ function ResourceViewBoard<T extends Row>(props: ResourceViewProps<T>) {
  */
 export function useResourceView<T extends Row = Row>(props: ResourceViewProps<T>): ResourceTableState<T> {
   const shown = props.type ?? props.mode;
-  if (shown === "calendar" || shown === "board" || shown === "inbox") {
-    const part = shown === "calendar" ? "ResourceCalendar" : shown === "board" ? "ResourceBoard" : "ResourceInbox";
+  if (shown === "calendar" || shown === "board" || shown === "inbox" || shown === "sheet") {
+    const part = shown === "calendar" ? "ResourceCalendar" : shown === "board" ? "ResourceBoard" : shown === "sheet" ? "ResourceSheet" : "ResourceInbox";
     throw new Error(`useResourceView(${props.view.resource}): ${shown} mode has no table state; render <ResourceView type="${shown}"> or <${part}>`);
   }
   return useResourceTable<T>(useResourceViewProps(props));
@@ -814,3 +815,4 @@ registerBuiltInViewType({ id: "gallery", label: "Gallery", render: ResourceViewP
 registerBuiltInViewType({ id: "board", label: "Board", render: ResourceViewBoard });
 registerBuiltInViewType({ id: "calendar", label: "Calendar", render: ResourceViewCalendar });
 registerBuiltInViewType({ id: "inbox", label: "Inbox", render: ResourceInbox });
+registerBuiltInViewType({ id: "sheet", label: "Sheet", render: ResourceSheet });

@@ -238,7 +238,8 @@ export const tasksView = defineView(tasksContract, {
   "max" | "count"`, shown per group and in a footer.
 - **Default behaviour.** The web draws a group header row in the table (and a header in grid and
   list modes) with the value's words and tone, a count and a collapse toggle; collapsed groups are
-  remembered per person. The list sorts by the group field first, as the phone does. With server
+  remembered per person. The list sorts by the group field first, as the phone does, then by the
+  view's `orderBy`. A view's own `groupBy` doesn't group a table by itself: a screen opts in. With server
   paging, a group's count is the server's where the provider can count by group, else the loaded
   rows', marked as partial. The phone keeps its sections and gains the same counts, collapse and
   totals.
@@ -413,13 +414,22 @@ ResourcePage's own users get the row menu (`rowMenu`), the matching selection, `
 `heldFilters` and the table's `groups`, `footer`, `rowTone` and `rowContextMenu` through the same
 props.
 
-**Next.** On the phone: filters, segments, row actions in long press and swipe, and the edit-mode
-selection (`NativeResourceView`; the parity file records them). Link filters with a picker, a
-filter's own `component`, `leading`, cards from parts (section 9), `detail.route` and surfaces
-(section 10), cursor search on the server and `virtualize` by default (section 5), export jobs past
-a threshold and sheet mode (`resource-view-sheet`). Saved views restore search and sort only
-through the URL for now: a saved view keeps them, and loading one sets the segment, filters, type
-and grouping.
+**Also shipped, the same release.** Saved views restore search, sort and columns too. The list's
+logic lives in core, so the web and the phone share it and only draw differently: `useListState`
+(the URL both ways, text filters after a pause, filters on the viewer's clock), `useSegmentCounts`,
+and the board and calendar hooks and placement (`useViewBoard`, `useViewCalendarRange`,
+`calendarEvents`, `placeEvents`). On the phone, `NativeResourceView` has segments with counts,
+declared filters in a sheet, the switcher, the view's actions in swipe and long press with their
+reasons, and `type="board"` and `type="calendar"`. Bulk delete and the row menu go through
+ResourcePage's one delete and edit path. Sheet mode (`type="sheet"`) is a view on SheetGrid, the
+Data Studio's grid, its writes through the resource's update row by row. Device saved views are
+kept per viewer (`forViewer`).
+
+**Next.** The phone's edit-mode selection and bulk bar; link filters with a picker, a filter's own
+`component`, `leading`, cards from parts (section 9), `detail.route` and surfaces (section 10),
+cursor search on the server and `virtualize` by default (section 5); export jobs and big pastes
+past a threshold, and a sheet paste in one transaction where the provider serves bulk writes
+(`resource-view-sheet`).
 
 **Round 1, gaps 1 to 4: what people do with a list.** Filters and segments with counts (web and
 phone), row actions with reasons (menu, right-click, long press, swipe), bulk actions on the view

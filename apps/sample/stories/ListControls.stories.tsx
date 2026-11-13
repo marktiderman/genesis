@@ -3,7 +3,8 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, waitFor, within } from "storybook/test";
 import { createMemoryStorageAdapter, defineResource } from "@marktiderman/genesis-core";
 import { createLocalSavedViewStore, defineView } from "@marktiderman/genesis-core/resource-view";
-import { useViewListState, ViewFilterControls, ViewSegments, ViewTypeSwitcher } from "@marktiderman/genesis-ui/data";
+import { useListState } from "@marktiderman/genesis-core/hooks";
+import { ViewFilterControls, ViewSegments, ViewTypeSwitcher } from "@marktiderman/genesis-ui/data";
 import { GenesisProvider, createMockProvider } from "@marktiderman/genesis-ui/provider";
 
 type Deal = { id: string; name: string; stage: "lead" | "won" | "lost"; amount: number; closes_on: string };
@@ -46,12 +47,10 @@ function WithDeals({ children }: { children: ReactNode }) {
 /** The list controls on their own: the parts ResourceView composes, for an app's own list layout. */
 function Controls() {
   const [store] = useState(() => createLocalSavedViewStore({ storage: createMemoryStorageAdapter() }));
-  const state = useViewListState({
+  const state = useListState({
     view: dealsView,
-    url: undefined,
     store,
     currentKey: "deals",
-    defaultSegment: undefined,
     defaultType: "table",
     types: dealsView.types(),
     rememberType: true,
@@ -82,7 +81,7 @@ type Story = StoryObj<typeof ViewSegments>;
 
 /**
  * A view's segments with their counts, its range and text filters, and the switcher across its
- * types (table, list, grid, board, calendar), held by `useViewListState`; the provider filters
+ * types (table, list, grid, board, calendar), held by core's `useListState`; the provider filters
  * they make are shown below.
  */
 export const SegmentsFiltersAndSwitcher: Story = {

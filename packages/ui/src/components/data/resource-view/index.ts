@@ -69,3 +69,5 @@ export {
 } from "./list-controls";
 // The inbox view type: a view as a three-pane inbox (rail, list, reading pane).
 export { ResourceInbox, type ResourceInboxOptions } from "./ResourceInbox";
+// The sheet view type: a view as a spreadsheet on SheetGrid, edits through the resource's update.
+export { ResourceSheet } from "./ResourceSheet";

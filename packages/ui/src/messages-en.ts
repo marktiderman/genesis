@@ -212,6 +212,27 @@ export const uiMessages = {
     back: "Back",
     details: "Details",
   },
+  /** A view as a spreadsheet (`type="sheet"`). */
+  sheet: {
+    /** The grid's accessible name. `{title}`: the view's title. */
+    label: "{title} sheet",
+    /** A column the view doesn't let anyone write. */
+    readOnly: "Read-only",
+    /** `{count}`: cells a paste left as they were (read-only, or the row refuses changes). */
+    skipped: "{count} read-only cells were left as they were.",
+    /** `{count}`: cells that weren't saved; each is marked with its reason. */
+    failed: "{count} cells weren't saved. Each is marked with its reason.",
+    saveFailed: "This change couldn't be saved.",
+    notNumber: "That isn't a number.",
+    notJson: "That isn't valid JSON.",
+    undo: "Undo last change",
+    undone: "Undone.",
+    nothingToUndo: "Nothing to undo.",
+    previous: "Previous",
+    next: "Next",
+    /** `{page}` of `{pages}`. */
+    page: "Page {page} of {pages}",
+  },
   /** CSV export from a list (ADR 0017 §8). */
   export: {
     action: "Export CSV",

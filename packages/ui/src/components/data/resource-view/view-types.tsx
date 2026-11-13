@@ -14,7 +14,7 @@ type Row = Record<string, unknown>;
  *
  * @stability Beta
  */
-export type BuiltInViewType = "table" | "list" | "grid" | "board" | "calendar" | "gallery" | "inbox";
+export type BuiltInViewType = "table" | "list" | "grid" | "board" | "calendar" | "gallery" | "inbox" | "sheet";
 
 /**
  * A view type's name: a built-in one, or one an app registered (`"timeline"`). An unregistered

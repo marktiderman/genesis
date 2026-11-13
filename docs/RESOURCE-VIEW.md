@@ -419,29 +419,26 @@ On phones:
 
 ## Sheet mode
 
-**Planned** ([`resource-view-sheet`](../features.ts)): none of this section is built. Today's modes are `table`, `grid`,
-`list` and `calendar`.
+<!-- api: ResourceViewProps -->
 
-`mode="sheet"` is the "studio" switch: a spreadsheet with inline editing for this one resource.
+`<ResourceView view={tasksView} type="sheet" />` (or `sheet` among a view's `types`, for the
+switcher) draws the view's rows as a spreadsheet on genesis-ui's `SheetGrid`, the grid the Data
+Studio's sheet uses. Segments, declared filters and the switcher sit above it, as for a board.
 
-- It is built on genesis-ui's `SheetGrid`, loaded with `React.lazy` the first time it's used.
-  `genesis-studio` already depends on genesis-ui, so the reverse dependency isn't possible.
-- Edits go through `useResource`, so they get the same cache updates, undo and refusal handling as
-  the form. Nothing writes around the provider.
-- **Editable cells are an allow-list.** Only fields the view's `form` names are editable. Tenant,
-  owner and `readonly` columns never are. Without that rule, a provider with no `describe()` would
-  offer every column.
-- **Multi-cell paste needs the provider's `bulkWrites` capability** (`updateMany` in one
-  transaction; the Supabase provider reports `false`). Otherwise it is off, and it is never a
-  non-transactional loop. When it's on, the paste is one undoable unit and each row is still
-  checked for refusal.
-- Version checks apply only where the provider supports them (`versionedWrites`). The Supabase
-  provider doesn't today, and the doc doesn't claim otherwise.
-- Rows and columns are virtualised.
-- **Who can switch modes:**
-  - The developer makes sheet mode available with `mode` or `modes={["table", "sheet"]}`.
-  - A user toggle for it sits behind the feature gate and an admin permission. Otherwise every
-    list grows a spreadsheet button.
+- **Editable cells are an allow-list:** the view's writable fields (`view.writable("edit")`), and
+  only on rows the view's update guard and the screen's `can("edit", row)` allow. A refused
+  cell stays read-only with the guard's sentence on it; a read-only column says "Read-only". A
+  paste fills a block and leaves read-only cells as they were.
+- **Writes go through the resource's own update** (`useResource`), row by row, so the provider's
+  rules, its cache patching and a versioned resource's check apply. A cell that wasn't saved is
+  marked with its reason, and the others in the paste stay saved.
+- **Undo** (the button, or Ctrl/Cmd+Z in the grid) puts the last change back through the same
+  update.
+- **The keyboard** is SheetGrid's: arrows, Tab, Enter to edit and save, Escape to cancel, Shift to
+  extend a range, copy and paste as TSV.
+
+**Planned** ([`resource-view-sheet`](../features.ts)): big pastes, imports and exports as jobs,
+and a paste in one transaction where the provider serves bulk writes.
 
 ## Phones
 
@@ -1094,20 +1091,29 @@ export const tasksView = defineView(tasksContract, {
   table row gets a "More" menu and the same on right-click: edit, the view's actions, delete. A
   refused one stays, disabled, with the guard's sentence under it; `refusals: "hide"` leaves it out.
   An action runs through the provider's `runAction`, or the screen's `onAction`.
-- **Bulk actions.** An action with `bulk` joins the bulk bar (and a view that has one deletes many
-  too). It runs per selected row through the provider, skipping and naming the rows its guard
-  refuses, or once through its own `run`. Shift-click selects a range. With `bulk.matching` and a
-  `run` that takes the list's filters, the bar offers "Select all matching" past the loaded page.
+- **Bulk actions.** An action with `bulk` joins the bulk bar. It runs per selected row through the
+  provider, skipping and naming the rows its guard refuses, or once through its own `run`.
+  Shift-click selects a range. With `bulk.matching` and a `run` that takes the list's filters, the
+  bar offers "Select all matching" past the loaded page; while every matching row is selected,
+  actions that take only the loaded rows wait, with a reason. A `matching` run gets filters, not
+  rows: it checks access itself and treats the filters as untrusted.
+- **Bulk delete.** A view with bulk actions also deletes many, through the page's own delete
+  (`ResourcePage bulkDelete`): the provider's delete under the screen's `can` and the view's guard,
+  one confirm step with the count, and the recycle-bin wording when the provider has one. A screen
+  that deletes through `onDelete`, or a list of `rows`, adds its own bulk action instead.
 - **Saved views.** Give the provider a `SavedViewStore` (`savedViews`): page lists offer Views
   (save, load, delete), each holding the segment, filters, search, sort, columns, view type and
   grouping, stamped with the view's `version`; an older one applies as far as it still fits
-  (`applicableListState`). `createLocalSavedViewStore()` keeps them on the device; an app's store
-  over its own table shares them.
+  (`applicableListState`). `createLocalSavedViewStore()` keeps them on the device, each viewer's
+  apart (`forViewer`); an app's store over its own table shares them, scoped to the viewer by its
+  row-level security.
 - **The type switcher.** A page list whose view supports more than table, list and grid (a board,
   a calendar, a gallery, a registered type, or `types`) shows one switcher in its header, and each
   person's choice goes through the same store. A screen that sets `type` opens fixed there.
-- **Grouping and totals** draw in the table (a header row per group, with a toggle to close it, and
-  a totals footer), and in the grid and list (a header per group). Rows sort by the group first.
+- **Grouping and totals.** A screen's `groupBy` (or a saved view's) groups the table (a header row
+  per group, with a toggle to close it) and the grid and list. Rows sort by the group first, then
+  by the view's `orderBy`. A view's own `groupBy` doesn't group a table by itself. Totals sit in
+  each group's header and a footer; on a server-paged list they cover the rows loaded, and say so.
 - **Tone and emphasis.** `rowTone(row)` gives a row a leading bar and a tint from the status
   tokens; a field's `emphasis` (`title`, `secondary`, `muted`) sets how strongly its column reads.
 - **Column hints.** A field's `sortable: false`, `hideBelow` and `width` reach the table.
@@ -1117,8 +1123,12 @@ export const tasksView = defineView(tasksContract, {
 - **Rows the screen holds.** `rows` draws rows the screen already read, searched, sorted and paged
   in the browser, with nothing fetched; writes stay the screen's.
 
-Planned with the same ADR: these on the phone, link filters with a picker, cards from parts and
-detail routes, **Planned** ([`resource-view-sheet`](../features.ts)) for export jobs and sheet mode.
+One list state holds all of this on every platform: core's `useListState` (the URL both ways,
+text filters after a pause, filters on the viewer's clock), with `useSegmentCounts` for the
+counts. The phone draws the same state ([Native](#native)).
+
+Planned with the same ADR: link filters with a picker, cards from parts and detail routes, and
+**Planned** ([`resource-view-sheet`](../features.ts)) export jobs.
 
 ## Inbox
 
@@ -1326,6 +1336,15 @@ shares them, so a custom view asks for exactly what the table, board and calenda
 - **Paging and writes:** cursor paging with `onEndReached`. Search debounced at 300 ms. Zero-row
   refusals and optimistic updates with rollback.
 - **Doctor:** `native-screen-layout` counts `NativeResourceView` as a layout.
+- **Lists ([Lists: what a view declares](#lists-what-a-view-declares)):** the same list state as
+  the web (core's `useListState`). The view's segments are a row of chips with their counts, its
+  declared filters a Filters sheet, and its `types` a segmented switcher (the choice kept in
+  `savedViews`, the same `SavedViewStore`). Each row's swipe and long-press menu has edit, the
+  view's own actions and delete, a refused one with its reason.
+- **Board and calendar:** `type="board"` draws the view's columns side by side, a long press
+  moving a card through the resource's update (core's `useViewBoard`, as on the web);
+  `type="calendar"` draws an agenda or a month from core's `useViewCalendarRange`,
+  `calendarEvents` and `placeEvents`.
 
 ### Cards and custom rows
 

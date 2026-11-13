@@ -7,7 +7,7 @@
 
 import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, Filter, Images, Inbox, Kanban, LayoutGrid, List, Table2, X, type LucideIcon } from "lucide-react";
+import { CalendarDays, Filter, Images, Inbox, Kanban, LayoutGrid, List, Sheet, Table2, X, type LucideIcon } from "lucide-react";
 import {
   encodeRecordKey,
   resourceKeys,
@@ -236,6 +236,7 @@ const TYPE_ICONS: Readonly<Partial<Record<string, LucideIcon>>> = {
   board: Kanban,
   calendar: CalendarDays,
   inbox: Inbox,
+  sheet: Sheet,
 };
 
 /**
