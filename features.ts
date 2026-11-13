@@ -1199,7 +1199,7 @@ export const features = defineFeatures({
   },
   "sites-editor": {
     name: "Site editor",
-    summary: "<SiteEditor siteId store brand />: a visual editor on Puck whose config is generated from the section registry (fields from each section's JSON Schema, presets in the Add picker, limits enforced), with a canvas drawn by the sections' own renderers and the brand's theme, autosave by compare-and-swap with a conflict choice, undo and redo, a Pages panel (templates, address changes that leave a redirect, the menu), publish checks that block errors, preview through the /web renderer, release history and rollback, per-page SEO and an image picker that asks for alt text. Puck stays inside /editor; published pages never load it.",
+    summary: "<SiteEditor siteId store brand />: a visual editor on Puck whose config is generated from the section registry (fields from each section's JSON Schema, presets in the Add picker, limits enforced), with a canvas drawn by the sections' own renderers and the brand's theme, autosave by compare-and-swap with a conflict choice, undo and redo, a Pages panel (templates, address changes that leave a redirect, the menu), a Landing pages section (new landing pages from the brand under the site's landing directory, /go by default, kept out of the menu, moved and deleted, the directory changed with their redirects), publish checks that block errors, preview through the /web renderer, release history and rollback, per-page SEO and an image picker that asks for alt text. Puck stays inside /editor; published pages never load it.",
     category: "Sites",
     status: "building",
     claimedBy: "mark",
@@ -1216,9 +1216,10 @@ export const features = defineFeatures({
       "Every built-in section gets a component with a field for every prop, generated from its JSON Schema, and a section registered later appears with no editor change.",
       "An autosave that meets another editor's save stops, keeps every local edit, and offers loading their version or keeping yours.",
       "Publish is refused while the checks report an error; changing a page's address leaves a 301 from the old one, and reserved paths are refused.",
+      "A new landing page is made under the site's landing directory, isn't added to the menu, opens in the same canvas, and publishes in the same release as every other page.",
       "The /web build contains no Puck code.",
     ],
-    reviewedAt: "2026-10-25",
+    reviewedAt: "2026-11-13",
     links: { code: ["packages/sites/src/editor", "apps/sample/app/routes/sites-editor.tsx"], docs: ["packages/sites/README.md", "docs/SITES.md"] },
   },
 

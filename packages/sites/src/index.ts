@@ -54,6 +54,18 @@ export {
   type ReservedPaths,
 } from "./core/urls";
 export {
+  DEFAULT_LANDING_DIRECTORY,
+  LANDING_SLUG,
+  landingDirectory,
+  landingDirectoryProblems,
+  isLandingPage,
+  landingMoves,
+  landingPages,
+  landingPath,
+  landingSlugOf,
+  landingSlugProblems,
+} from "./core/landing";
+export {
   BUILT_IN_SECTION_TYPES,
   SECTION_CATEGORIES,
   SectionDefinitionError,

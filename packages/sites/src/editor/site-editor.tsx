@@ -42,11 +42,13 @@ import { Autosaver, type AutosaveState } from "./autosave";
 import { createEditorConfig, type CanvasMetadata } from "./config";
 import { countTypes, fromEditorData, h1SectionId, placeholderSnapshot, toEditorData, type EditorData } from "./data";
 import { EditorLockContext, genesisOverrides } from "./overrides";
+import { isLandingPage, landingDirectory } from "../core/landing";
+import { LandingPanel } from "./landing-panel";
 import { PagesPanel, menuItemProblems, type NewPageRequest } from "./pages-panel";
 import { loadSiteCss, renderPreview, styleText } from "./preview";
 import { PublishPanel } from "./publish-panel";
 import { EditorServicesContext, type EditorAssets, type EditorServices, type PickedImage } from "./services";
-import { checkSite, movePageInList, publishSite, renamePage, type EditorSiteStore } from "./site-actions";
+import { LandingDirectoryError, checkSite, createLandingPage, moveLandingPage, movePageInList, publishSite, renamePage, setLandingDirectory, type EditorSiteStore } from "./site-actions";
 
 const usePuck = createUsePuck();
 
@@ -299,6 +301,8 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
   const [publishing, setPublishing] = React.useState(false);
   const [releases, setReleases] = React.useState<ReleaseMeta[]>([]);
   const [liveId, setLiveId] = React.useState<string | null>(null);
+  /** The pages in the live release, for the landing pages' Published/Draft state. */
+  const [liveIds, setLiveIds] = React.useState<ReadonlySet<string> | null>(null);
   const [leftTab, setLeftTab] = React.useState(readOnly ? "outline" : "add");
   const [rightTab, setRightTab] = React.useState("edit");
   const [viewport, setViewport] = React.useState<Viewport>("desktop");
@@ -371,6 +375,7 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     const [list, live] = await Promise.all([store.listReleases(siteId), store.getLive(siteId)]);
     setReleases(list);
     setLiveId(live?.id ?? null);
+    setLiveIds(new Set(live?.snapshot.pages.map((p) => p.id) ?? []));
   }, [store, siteId]);
 
   React.useEffect(() => {
@@ -669,9 +674,54 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     }
   };
 
+  // ── Landing pages ───────────────────────────────────────────────────────────
+  const createLanding = (request: { title: string; slug: string }) =>
+    holding(async () => {
+      if (!(await flushAll())) throw new Error("Save your changes first.");
+      const meta = await createLandingPage(store, siteId, { ...request, brand, ...(reserved ? { reserved } : {}) });
+      const { draft } = await resync();
+      focusTitle.current = true;
+      await loadPage(meta.id, siteSaver.current?.latest ?? draft?.site ?? site!);
+      setNotice({ tone: "info", text: `Added the landing page ${request.title} at ${meta.path}.` });
+    });
+
+  const moveLanding = (pageId: string, slug: string) =>
+    holding(async () => {
+      if (!(await flushAll())) throw new Error("Save your changes first.");
+      const before = pages.find((p) => p.id === pageId)?.path;
+      const moved = await moveLandingPage(store, pageId, slug, reserved ? { reserved } : {});
+      const { draft } = await resync();
+      if (draft && before && draft.site.nav.some((n) => n.href === before)) onNavChange(draft.site.nav.map((n) => (n.href === before ? { ...n, href: moved.path } : n)));
+      setNotice({ tone: "info", text: `Moved to ${moved.path}. ${before} now redirects there.` });
+    });
+
+  const changeLandingDirectory = (directory: string, movePages: boolean) =>
+    holding(async () => {
+      if (!(await flushAll())) throw new Error("Save your changes first.");
+      const before = new Map(pages.map((p) => [p.id, p.path]));
+      let result: Awaited<ReturnType<typeof setLandingDirectory>>;
+      // Menu links to a moved page follow it, even when the change stopped partway.
+      const followMoves = (moved: readonly PageMeta[]) => {
+        const draft = siteSaver.current?.latest ?? null;
+        const to = new Map(moved.map((m) => [before.get(m.id), m.path]));
+        if (draft && draft.nav.some((n) => to.has(n.href))) onNavChange(draft.nav.map((n) => (to.has(n.href) ? { ...n, href: to.get(n.href)! } : n)));
+      };
+      try {
+        result = await setLandingDirectory(store, siteId, directory, { movePages, ...(reserved ? { reserved } : {}) });
+      } catch (err) {
+        // Moves that landed before the failure moved paths and revisions on: take what the store has.
+        await resync().catch(() => undefined);
+        if (err instanceof LandingDirectoryError) followMoves(err.moved);
+        throw err;
+      }
+      await resync().catch((err: unknown) => setNotice({ tone: "error", text: `Couldn't reload the pages; reload the editor before editing: ${(err as Error).message}` }));
+      followMoves(result.moved);
+      setNotice({ tone: "info", text: `New landing pages go in ${directory}.${result.moved.length ? ` Moved ${result.moved.length} landing page${result.moved.length === 1 ? "" : "s"}; their old addresses redirect.` : ""}` });
+    });
+
   const reorder = async (pageId: string, by: -1 | 1) => {
     try {
-      setPages(await movePageInList(store, siteId, pageId, by));
+      setPages(await movePageInList(store, siteId, pageId, by, { within: (p) => !isLandingPage(p) }));
     } catch (err) {
       setNotice({ tone: "error", text: (err as Error).message });
     }
@@ -952,6 +1002,22 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
                     onReorder={reorder}
                     onNavChange={onMenuEdit}
                     onFooter={() => setRightTab("edit")}
+                    landing={
+                      <LandingPanel
+                        pages={pages}
+                        directory={landingDirectory(site)}
+                        liveIds={liveIds}
+                        currentId={open.id}
+                        reserved={reserved}
+                        busy={busy || publishing}
+                        readOnly={readOnly}
+                        onOpen={(id) => void openPage(id)}
+                        onCreate={createLanding}
+                        onMove={moveLanding}
+                        onDelete={remove}
+                        onSetDirectory={changeLandingDirectory}
+                      />
+                    }
                   />
                 </TabsContent>
               </Tabs>

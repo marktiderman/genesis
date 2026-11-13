@@ -35,7 +35,7 @@ export {
   type PuckItem,
 } from "./data";
 export { Autosaver, AutosaveBlockedError, type AutosaveState, type AutosaveStatus, type AutosaverOptions } from "./autosave";
-export { checkSite, movePageInList, pageTemplates, pathProblems, publishSite, renamePage, slugify, type EditorSiteStore, type PageTemplate, type SiteCheck } from "./site-actions";
+export { LandingDirectoryError, checkSite, createLandingPage, moveLandingPage, movePageInList, pageTemplates, pathProblems, publishSite, renamePage, setLandingDirectory, slugify, type EditorSiteStore, type PageTemplate, type SiteCheck } from "./site-actions";
 export { renderPreview, type PreviewInput, type PreviewResult } from "./preview";
 export { AssetPicker, IMAGE_TYPES, uploadProblem, type AssetPickerProps } from "./asset-picker";
 export type { EditorAssets, PickedImage } from "./services";
