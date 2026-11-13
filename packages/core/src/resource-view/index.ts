@@ -10,6 +10,7 @@ export {
   encodeFilterValue,
   filterOptionLabel,
   isFilterSet,
+  filterValueFor,
   LIST_URL_KEYS,
   listUrlParams,
   readListUrl,

@@ -8,9 +8,8 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check } from "lucide-react";
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  resolveAggregate,
   resourceKeys,
   useDataProvider,
   useViewer,
@@ -19,7 +18,7 @@ import {
   type FilterParam,
   type ResourceContract,
 } from "@marktiderman/genesis-core";
-import { useOne } from "@marktiderman/genesis-core/hooks";
+import { useCapabilities, useListState, useOne, useSegmentCounts } from "@marktiderman/genesis-core/hooks";
 import type { InboxItem } from "@marktiderman/genesis-core/conversation";
 import { defineRecordView, rowPicture, type AnyRecordView, type RecordView as RecordViewDef, type ResourceView as View } from "@marktiderman/genesis-core/resource-view";
 import { InboxLayout } from "../../patterns/messaging/inbox-layout";
@@ -31,12 +30,12 @@ import { Input } from "../../ui/input";
 import { toast } from "../../ui/sonner";
 import { ConfirmDeleteDialog } from "../ConfirmDeleteDialog";
 import { DataBulkBar } from "../DataBulkBar";
-import { useUiMessages } from "../../../messages";
+import { fillMessage, useUiMessages } from "../../../messages";
 import { RecordView } from "./RecordView";
 import { RowAvatar } from "./RowAvatar";
 import { recordViewOf } from "./record-open";
 import { useViewList } from "./use-view-list";
-import { ListModelContext, defaultSavedViewStore, useListActions, useViewListState, useViewSavedViews, ViewFilterControls } from "./list-controls";
+import { ListModelContext, defaultSavedViewStore, useListActions, useViewSavedViews, ViewFilterControls } from "./list-controls";
 import { useResourceViewDefaults } from "./defaults";
 import type { ResourceViewProps } from "./ResourceView";
 
@@ -104,7 +103,7 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
   const queryClient = useQueryClient();
   const defaults = useResourceViewDefaults();
   const shared = useContext(ListModelContext);
-  const own = useViewListState({
+  const own = useListState({
     view: view as never,
     url: undefined,
     store: defaults.savedViews ?? defaultSavedViewStore(),
@@ -146,23 +145,14 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
 
   // ── The rail: segments with counts, then saved views ──
   const segments = view.segments();
-  const baseFilters: FilterParam[] = useMemo(() => [...list.params.filters.filter((f) => !listFilters.includes(f)), ...view.filterParams(state.values)], [list.params.filters, listFilters, view, state.values]);
-  const counted = useQueries({
-    queries: segments.map((s) => {
-      const params = { metrics: { n: { fn: "count" as const } }, filters: [...baseFilters, ...view.segmentFilters(s.id, viewer)], count: "estimated" as const };
-      return {
-        queryKey: resourceKeys(view.resource).aggregate(params),
-        queryFn: () => resolveAggregate(provider, view.resource, params),
-        enabled: s.count && list.params.enabled,
-      };
-    }),
-  });
+  const baseFilters: FilterParam[] = useMemo(() => [...list.params.filters.filter((f) => !listFilters.includes(f)), ...state.valueFilters], [list.params.filters, listFilters, state.valueFilters]);
+  const counted = useSegmentCounts(view as never, baseFilters, { enabled: list.params.enabled });
   const saved = useViewSavedViews(view as never, defaults.savedViews ?? undefined, state, { columns: "default", url: undefined });
   const [savedActive, setSavedActive] = useState<string | null>(null);
   const railOn = (block.rail ?? (segments.length ? "segments" : "none")) === "segments" && (segments.length > 0 || (saved.savedViews?.length ?? 0) > 0);
   const railViews: InboxView[] = [
-    ...segments.map((s, i) => {
-      const n = counted[i]?.data?.values["n"];
+    ...segments.map((s) => {
+      const n = counted[s.id];
       return { id: `segment:${s.id}`, label: s.label, ...(typeof n === "number" ? { count: n } : {}) };
     }),
     ...(saved.savedViews ?? []).map((v) => ({ id: `saved:${v.id}`, label: v.name })),
@@ -229,20 +219,28 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
   // ── Actions: the row's own (a menu on each row), the bulk bar, and delete ──
   const actions = useListActions<T>(view, {
     refusals: refusals ?? view.definition.refusals ?? "disable",
-    allowDelete: props.allowDelete !== false,
     ...(onAction ? { onRun: onAction as (name: string, row: T) => void | Promise<void> } : {}),
   });
-  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
+  const [pickedAll, setPicked] = useState<ReadonlySet<string>>(() => new Set());
   const lastPicked = useRef<string | null>(null);
-  const pickedRows = list.rows.filter((r) => picked.has(list.keyOf(r)));
+  // Only picks the person can see count: a segment, filter or search change hides the rest.
+  const pickedRows = list.rows.filter((r) => pickedAll.has(list.keyOf(r)));
+  const picked: ReadonlySet<string> = new Set(pickedRows.map((r) => list.keyOf(r)));
   const [deleting, setDeleting] = useState<T | null>(null);
-  const deleteRow =
+  const { data: caps } = useCapabilities(view.resource, { enabled: !onDelete && props.allowDelete !== false });
+  // The reading pane's Edit and Delete: the screen's `can`, then the view's guard, on the open row.
+  const can = props.can;
+  const allows = (action: "edit" | "delete", row: T) =>
+    (!can || can(action, row)) && view.can(action === "edit" ? "update" : "delete", row as T & DataRow, viewer) === true;
+  const deleteHandler =
     onDelete ??
     (props.allowDelete !== false
       ? (row: T) => {
-          if (view.can("delete", row as T & DataRow, viewer) === true) setDeleting(row);
+          setDeleting(row);
         }
       : undefined);
+  const deleteRow = deleteHandler && openRow && allows("delete", openRow) ? deleteHandler : undefined;
+  const editRow = onEdit && openRow && allows("edit", openRow) ? onEdit : undefined;
 
   // ── The list's rows, as InboxPage draws them ──
   const items: InboxItem[] = list.rows.map((row) => {
@@ -282,7 +280,7 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
           row={openRow}
           presentation="peek"
           {...(onAction ? { onAction } : {})}
-          {...(onEdit ? { onEdit } : {})}
+          {...(editRow ? { onEdit: editRow } : {})}
           {...(deleteRow ? { onDelete: deleteRow } : {})}
           testID="resource-inbox-record"
         />
@@ -369,6 +367,7 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
               },
             }
           : {})}
+        checkLabel={(title: string) => fillMessage(m.table.selectRow, { name: title })}
         testID="resource-inbox-list"
       />
     </div>
@@ -403,6 +402,7 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
       />
       <ConfirmDeleteDialog
         open={deleting !== null}
+        kind={caps?.softDelete ? "recycle" : "permanent"}
         onOpenChange={(open) => !open && setDeleting(null)}
         onConfirm={async () => {
           if (!deleting) return;

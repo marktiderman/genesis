@@ -5,13 +5,12 @@
 // export. ResourceView composes these onto ResourcePage's own slots and props, so the engine stays
 // ResourcePage and DataTable; nothing here is a second list.
 
-import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Filter, Images, Inbox, Kanban, LayoutGrid, List, Table2, X, type LucideIcon } from "lucide-react";
 import {
   encodeRecordKey,
   resourceKeys,
-  useAggregate,
   useDataProvider,
   useViewer,
   type DataRow,
@@ -20,12 +19,9 @@ import {
   type ResourceContract,
 } from "@marktiderman/genesis-core";
 import { exportCsv } from "@marktiderman/genesis-core/csv";
+import { useSegmentCounts, type ListStateResult } from "@marktiderman/genesis-core/hooks";
 import {
-  applicableListState,
   createLocalSavedViewStore,
-  isFilterSet,
-  listUrlParams,
-  readListUrl,
   type ResolvedFilter,
   type ResolvedViewAction,
   type ResourceView as View,
@@ -43,7 +39,7 @@ import type { SearchParamsAdapter } from "../../../navigation";
 import type { ResourceUrlStateOptions } from "../../../hooks/use-resource-url-state";
 import type { DataFilterConfig } from "../DataFilters";
 import type { ResourceRowMenuItem } from "../RowMenu";
-import type { ResourceBulkContext, ResourceListQuery } from "../ResourcePage";
+import type { ResourceBulkContext, ResourceListQuery, ResourceRowMenuBuiltIn } from "../ResourcePage";
 import { listViewTypes, resolveViewType } from "./view-types";
 
 type Row = Record<string, unknown>;
@@ -58,7 +54,6 @@ export function defaultSavedViewStore(): SavedViewStore {
   return deviceStore;
 }
 
-const isPromise = <V,>(v: unknown): v is Promise<V> => !!v && typeof (v as Promise<V>).then === "function";
 
 /** A router adapter from ResourcePage's `urlState` shapes. */
 export function adapterOf(urlState: SearchParamsAdapter | ResourceUrlStateOptions | false | null | undefined): SearchParamsAdapter | undefined {
@@ -70,201 +65,12 @@ export function adapterOf(urlState: SearchParamsAdapter | ResourceUrlStateOption
 // The list's state: segment, declared filters, view type, grouping
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface ViewListStateOptions {
-  view: AnyView;
-  /** Where the URL lives (page lists, once the app registers its adapter). */
-  url: SearchParamsAdapter | undefined;
-  /** Where the person's current choices are kept. */
-  store: SavedViewStore;
-  /** The key for the person's current choices (the resource, or the screen's key). */
-  currentKey: string;
-  defaultSegment: string | undefined;
-  /** The type the screen opens on, when it names one. */
-  defaultType: string | undefined;
-  /** The types a person may switch between; the stored choice must be one. */
-  types: readonly string[];
-  /** Remember the person's type. Off when the screen fixes the type. */
-  rememberType: boolean;
-}
-
-export interface ViewListStateResult {
-  segment: string | undefined;
-  setSegment: (id: string) => void;
-  values: Readonly<Record<string, ViewFilterValue>>;
-  setValue: (field: string, value: ViewFilterValue | undefined) => void;
-  /** The segment and every filter back to their defaults. */
-  clear: () => void;
-  /** Something narrows the list beyond the default segment. */
-  active: boolean;
-  type: string | undefined;
-  setType: (type: string) => void;
-  groupBy: string | null | undefined;
-  /** Apply a saved view's state: its segment, filters, search, sort, columns, type and grouping. */
-  apply: (state: ListState) => void;
-  /** A column preset a saved view chose, over the screen's default. */
-  columns: string | undefined;
-  /**
-   * Search and sort a saved view restored: a list draws them by starting again (`nonce` changes)
-   * with these. Zero until a saved view loads.
-   */
-  restore: { readonly nonce: number; readonly search: string; readonly sort: { readonly field: string; readonly order: "asc" | "desc" } | null };
-  /** The list's own search and sort as it reports them, for saving. */
-  observeQuery: (query: { search: string; sort: { field: string; order: "asc" | "desc" } | null }) => void;
-  /** The last search and sort the list reported. */
-  query: () => { search: string; sort: { field: string; order: "asc" | "desc" } | null };
-  /** The provider filters the segment and declared filters make. */
-  filters: FilterParam[];
-}
-
-/** The filters a view starts with: each declared filter's `default`. */
-function defaultValues(filters: readonly ResolvedFilter[]): Record<string, ViewFilterValue> {
-  return Object.fromEntries(filters.filter((f) => f.default !== undefined && isFilterSet(f.default)).map((f) => [f.field, f.default!]));
-}
-
-/** A segment, its declared filters and a type, held for one list, from the URL and the person's store. */
-export function useViewListState(options: ViewListStateOptions): ViewListStateResult {
-  const { view, url, store, currentKey, defaultSegment, defaultType, types, rememberType } = options;
-  const viewer = useViewer();
-  const firstSegment = defaultSegment ?? view.segments()[0]?.id;
-  const [seeded] = useState(() => (url ? readListUrl(view, (key) => url.searchParams.get(key)) : {}));
-  const [segment, setSegmentRaw] = useState<string | undefined>(seeded.segment ?? firstSegment);
-  const [values, setValues] = useState<Readonly<Record<string, ViewFilterValue>>>(() => seeded.filters ?? defaultValues(view.filters()));
-  const [groupBy, setGroupBy] = useState<string | null | undefined>(undefined);
-  const [columns, setColumns] = useState<string | undefined>(undefined);
-  const [restore, setRestore] = useState<ViewListStateResult["restore"]>({ nonce: 0, search: "", sort: null });
-  const queryRef = useRef<{ search: string; sort: { field: string; order: "asc" | "desc" } | null }>({ search: "", sort: null });
-  const observeQuery = useCallback((query: { search: string; sort: { field: string; order: "asc" | "desc" } | null }) => {
-    queryRef.current = { search: query.search, sort: query.sort ? { field: query.sort.field, order: query.sort.order } : null };
-  }, []);
-  const query = useCallback(() => queryRef.current, []);
-  // The person's type: the store's current state, read once (it may answer later).
-  const typeChosen = useRef(false);
-  const [type, setTypeRaw] = useState<string | undefined>(() => {
-    if (!rememberType || !store.readCurrent) return defaultType;
-    const read = store.readCurrent(currentKey);
-    if (isPromise(read)) return defaultType;
-    const t = read?.type;
-    return t && types.includes(t) ? t : defaultType;
-  });
-  useEffect(() => {
-    if (!rememberType || !store.readCurrent) return;
-    const read = store.readCurrent(currentKey);
-    if (!isPromise<ListState | null | undefined>(read)) return;
-    let live = true;
-    read.then(
-      (state) => {
-        const t = state?.type;
-        if (live && !typeChosen.current && t && types.includes(t)) setTypeRaw(t);
-      },
-      () => undefined,
-    );
-    return () => {
-      live = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per list
-  }, [store, currentKey]);
-
-  // The URL follows the segment and filters (replacing the entry: a filter isn't a page).
-  const urlRef = useRef(url);
-  urlRef.current = url;
-  const writeUrl = useCallback(
-    (next: { segment?: string | undefined; filters: Readonly<Record<string, ViewFilterValue>> }) => {
-      const adapter = urlRef.current;
-      if (!adapter) return;
-      const params = new URLSearchParams(adapter.searchParams);
-      const state = { ...(next.segment !== undefined ? { segment: next.segment } : {}), filters: next.filters };
-      for (const [key, value] of Object.entries(listUrlParams(view, state, firstSegment))) {
-        if (value === null) params.delete(key);
-        else params.set(key, value);
-      }
-      // A new filter is a new list: back to its first page.
-      params.delete("page");
-      if (params.toString() !== adapter.searchParams.toString()) adapter.setSearchParams(params, { replace: true });
-    },
-    [view, firstSegment],
-  );
-
-  const setSegment = useCallback(
-    (id: string) => {
-      setSegmentRaw(id);
-      writeUrl({ segment: id, filters: values });
-    },
-    [values, writeUrl],
-  );
-  const setValue = useCallback(
-    (field: string, value: ViewFilterValue | undefined) => {
-      setValues((prev) => {
-        const next = { ...prev };
-        if (value === undefined || !isFilterSet(value)) delete next[field];
-        else next[field] = value;
-        writeUrl({ segment, filters: next });
-        return next;
-      });
-    },
-    [segment, writeUrl],
-  );
-  const clear = useCallback(() => {
-    setSegmentRaw(firstSegment);
-    setValues({});
-    writeUrl({ segment: firstSegment, filters: {} });
-  }, [firstSegment, writeUrl]);
-  const setType = useCallback(
-    (next: string) => {
-      typeChosen.current = true;
-      setTypeRaw(next);
-      if (rememberType && store.writeCurrent) {
-        void Promise.resolve(store.writeCurrent(currentKey, { type: next })).catch(() => undefined);
-      }
-    },
-    [rememberType, store, currentKey],
-  );
-  const apply = useCallback(
-    (raw: ListState) => {
-      const state = applicableListState(view, raw);
-      const seg = state.segment ?? firstSegment;
-      setSegmentRaw(seg);
-      setValues(state.filters ?? {});
-      setGroupBy(state.groupBy);
-      setColumns(state.columns);
-      if (state.type && types.includes(state.type)) setType(state.type);
-      writeUrl({ segment: seg, filters: state.filters ?? {} });
-      // The search and sort: the list starts again with them (and the URL holds them, if it's kept).
-      const search = state.search ?? "";
-      const sort = state.sort ? { field: state.sort.field, order: state.sort.order } : null;
-      queryRef.current = { search, sort };
-      const adapter = urlRef.current;
-      if (adapter) {
-        const params = new URLSearchParams(adapter.searchParams);
-        if (search) params.set("q", search);
-        else params.delete("q");
-        if (sort) params.set("sort", `${sort.field}:${sort.order}`);
-        else params.delete("sort");
-        params.delete("page");
-        adapter.setSearchParams(params, { replace: true });
-      }
-      setRestore((before) => ({ nonce: before.nonce + 1, search, sort }));
-    },
-    [view, firstSegment, types, setType, writeUrl],
-  );
-
-  const filters = useMemo(
-    () => [...(segment ? view.segmentFilters(segment, viewer) : []), ...view.filterParams(values)],
-    [view, segment, values, viewer],
-  );
-  const active = (segment !== undefined && segment !== firstSegment) || Object.values(values).some(isFilterSet);
-  return { segment, setSegment, values, setValue, clear, active, type, setType, groupBy, apply, filters, columns, restore, observeQuery, query };
-}
+/** A list's state: core's `useListState` (one for the web and the phone). */
+export type ViewListStateResult = ListStateResult;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Segments with counts
 // ─────────────────────────────────────────────────────────────────────────────
-
-function SegmentCount({ view, filters, enabled }: { view: AnyView; filters: FilterParam[]; enabled: boolean }) {
-  const counted = useAggregate(view.resource, { metrics: { n: { fn: "count" } }, filters, count: "estimated" }, { enabled });
-  const n = counted.data?.values["n"];
-  if (n === undefined || n === null) return null;
-  return <span className="text-[10px] tabular-nums opacity-70">{n.toLocaleString()}</span>;
-}
 
 /**
  * The view's segments as one segmented strip, each with its count when it asks for one.
@@ -286,8 +92,8 @@ export function ViewSegments({
   enabled?: boolean;
 }) {
   const m = useUiMessages();
-  const viewer = useViewer();
   const segments = view.segments();
+  const counts = useSegmentCounts(view, baseFilters, { enabled });
   if (!segments.length) return null;
   return (
     <div data-slot="view-segments" className="flex w-fit max-w-full items-center overflow-x-auto rounded-lg border" role="group" aria-label={m.filters.segments}>
@@ -305,7 +111,7 @@ export function ViewSegments({
             testID={`view-segment-${s.id}`}
           >
             {s.label}
-            {s.count ? <SegmentCount view={view} filters={[...baseFilters, ...view.segmentFilters(s.id, viewer)]} enabled={enabled} /> : null}
+            {counts[s.id] !== undefined ? <span className="text-[10px] tabular-nums opacity-70">{counts[s.id]!.toLocaleString()}</span> : null}
           </Button>
         );
       })}
@@ -479,7 +285,7 @@ export function switchableTypes(view: AnyView, screenTypes: readonly string[] | 
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** A refusal's words, or undefined when allowed. */
-const reasonOf = (allowed: true | string) => (allowed === true ? undefined : allowed);
+export const reasonOf = (allowed: true | string) => (allowed === true ? undefined : allowed);
 
 /** The actions a provider serves for the resource: all of them when it doesn't say. */
 export function useServedActions(view: AnyView): { runnable: boolean; served: ReadonlySet<string> | null } {
@@ -502,7 +308,7 @@ interface Confirming {
 }
 
 export interface ListActionsResult<T extends Row> {
-  rowMenu: (row: T, builtIn: { edit?: () => void; delete?: () => void }) => ResourceRowMenuItem[];
+  rowMenu: (row: T, builtIn: ResourceRowMenuBuiltIn) => ResourceRowMenuItem[];
   bulkActions: Array<{
     label: string;
     variant?: "default" | "destructive";
@@ -521,7 +327,7 @@ export interface ListActionsResult<T extends Row> {
  */
 export function useListActions<T extends Row>(
   view: AnyView<T>,
-  options: { refusals: "disable" | "hide"; allowDelete: boolean; onRun?: ((name: string, row: T) => void | Promise<void>) | undefined },
+  options: { refusals: "disable" | "hide"; onRun?: ((name: string, row: T) => void | Promise<void>) | undefined },
 ): ListActionsResult<T> {
   const m = useUiMessages();
   const viewer = useViewer();
@@ -561,13 +367,16 @@ export function useListActions<T extends Row>(
   );
 
   const rowMenu = useCallback(
-    (row: T, builtIn: { edit?: () => void; delete?: () => void }): ResourceRowMenuItem[] => {
+    (row: T, builtIn: ResourceRowMenuBuiltIn): ResourceRowMenuItem[] => {
       const items: ResourceRowMenuItem[] = [];
       const add = (item: ResourceRowMenuItem) => {
         if (hide && item.reason) return;
         items.push(item);
       };
-      if (builtIn.edit) add({ key: "edit", label: m.common.edit, onSelect: builtIn.edit, reason: reasonOf(view.can("update", row as T & DataRow, viewer)) });
+      // The view's words for a refusal first, then the page's (its `can`) without words of its own.
+      const refusal = (action: "update" | "delete", refused: boolean | undefined) =>
+        reasonOf(view.can(action, row as T & DataRow, viewer)) ?? (refused ? m.table.notAllowed : undefined);
+      if (builtIn.edit) add({ key: "edit", label: m.common.edit, onSelect: builtIn.edit, reason: refusal("update", builtIn.refused?.edit) });
       for (const a of visible) {
         add({
           key: a.name,
@@ -577,7 +386,7 @@ export function useListActions<T extends Row>(
           onSelect: () => start(a.confirm, a.label, !!a.destructive, () => runRow(a, row)),
         });
       }
-      if (builtIn.delete) add({ key: "delete", label: m.common.delete, destructive: true, onSelect: builtIn.delete, reason: reasonOf(view.can("delete", row as T & DataRow, viewer)) });
+      if (builtIn.delete) add({ key: "delete", label: m.common.delete, destructive: true, onSelect: builtIn.delete, reason: refusal("delete", builtIn.refused?.delete) });
       return items;
     },
     [hide, m, view, viewer, visible, start, runRow],
@@ -646,37 +455,6 @@ export function useListActions<T extends Row>(
             } finally {
               await refresh();
             }
-          });
-        },
-      });
-    }
-    // A view that runs actions on many rows deletes many too, when it allows delete.
-    if (out.length && options.allowDelete) {
-      out.push({
-        label: m.common.delete,
-        variant: "destructive",
-        testId: "bulk-delete",
-        reason: (rows) => {
-          const reasons = rows.map((r) => reasonOf(view.can("delete", r as T & DataRow, viewer)));
-          return reasons.every(Boolean) && rows.length ? fillMessage(m.bulk.noneAllowed, { reason: reasons[0]! }) : undefined;
-        },
-        onAction: (_ids, context) => {
-          start(fillMessage(m.confirmDelete.title, {}), m.common.delete, true, async () => {
-            const allowed = context.rows.filter((r) => view.can("delete", r as T & DataRow, viewer) === true);
-            const refused = context.rows.filter((r) => !allowed.includes(r));
-            const skipped = { count: refused.length, reason: refused[0] ? reasonOf(view.can("delete", refused[0] as T & DataRow, viewer)) : undefined };
-            let done = 0;
-            for (const r of allowed) {
-              try {
-                await provider.deleteOne(view.resource, { id: idOf(r) });
-                done += 1;
-              } catch (error) {
-                skipped.count += 1;
-                skipped.reason ??= error instanceof Error ? error.message : String(error);
-              }
-            }
-            report(m.common.delete, done, skipped);
-            await refresh();
           });
         },
       });
@@ -766,7 +544,10 @@ export function useViewSavedViews(
 ) {
   const queryClient = useQueryClient();
   const m = useUiMessages();
-  const key = ["__genesis_saved_views", view.resource];
+  const viewer = useViewer();
+  // The app's store, for this viewer: the list state holds it (`forViewer` on a shared device).
+  if (store) store = state.store ?? store;
+  const key = ["__genesis_saved_views", view.resource, viewer.id];
   const listed = useQuery({
     queryKey: key,
     queryFn: async () => [...(await store!.list(view.resource))],
@@ -784,16 +565,7 @@ export function useViewSavedViews(
     canSaveViews: true,
     onSaveView: (name: string) => {
       // Everything the person set: the list's own search and sort as it reported them.
-      const { search, sort } = state.query();
-      const saved: ListState = {
-        ...(state.segment ? { segment: state.segment } : {}),
-        ...(Object.keys(state.values).length ? { filters: state.values } : {}),
-        ...(state.type ? { type: state.type } : {}),
-        ...(state.groupBy !== undefined ? { groupBy: state.groupBy } : {}),
-        ...(extra.columns !== "default" ? { columns: extra.columns } : {}),
-        ...(search.trim() ? { search: search.trim() } : {}),
-        ...(sort ? { sort } : {}),
-      };
+      const saved = state.snapshot(extra.columns);
       void Promise.resolve(store.save({ name, scope: "personal", resource: view.resource, version, state: saved })).then(refresh, () => toast.error(m.filters.viewsFailed));
     },
     onLoadView: (filters: Record<string, unknown>) => state.apply(filters as ListState),

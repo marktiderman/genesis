@@ -24,6 +24,8 @@
 export { useResource, type UpdateOptions, type UseResourceOptions, type UseResourceReturn } from "./use-resource";
 export { useOne, type UseOneOptions } from "./use-one";
 export { useAggregate, type UseAggregateOptions } from "./use-aggregate";
+export { useSegmentCounts } from "./use-segment-counts";
+export { useListState, type ListStateResult, type ListSort, type ListUrlAdapter, type UseListStateOptions } from "./use-list-state";
 export { useRelationLabel, loadRelationLabel, relationNamingField, type UseRelationLabelOptions } from "./use-relation-label";
 export {
   useLinkOptions,

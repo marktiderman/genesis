@@ -11,6 +11,7 @@ import {
   createLocalSavedViewStore,
   defineView,
   groupTotals,
+  isFilterSet,
   listUrlParams,
   readListUrl,
   ViewDefinitionError,
@@ -237,5 +238,53 @@ describe("the inbox block", () => {
     expect(() => defineView(tasks, { inbox: { doneAction: "solve" } })).toThrow(/isn't one of the view's actions/);
     expect(() => defineView(tasks, { types: ["table", "inbox"] })).toThrow(/needs an inbox block/);
     expect(defineView(tasks, { inbox: { unread: (t) => t.urgent }, types: ["table", "inbox"] }).types()).toEqual(["table", "inbox"]);
+  });
+});
+
+describe("review fixes", () => {
+  const events = defineResource<{ id: string; title: string; starts_at: string; done_on: string }>()({
+    name: "public.events",
+    key: "id",
+    labelField: "title",
+    fields: [
+      { name: "id", type: "string" },
+      { name: "title", type: "string" },
+      { name: "starts_at", type: "datetime", dbType: "timestamptz" },
+      { name: "done_on", type: "datetime", dbType: "date" },
+    ],
+  });
+
+  it("reads days on a timestamp column as the viewer's whole days, and a time without an offset on their clock", () => {
+    const shown = defineView(events, { fields: { starts_at: { display: "date" } }, filters: [{ field: "starts_at" }, { field: "done_on" }] });
+    expect(shown.filterParams({ starts_at: { gte: "2024-01-01", lte: "2024-01-31" } }, "America/New_York")).toEqual([
+      { field: "starts_at", operator: "gte", value: "2024-01-01T05:00:00.000Z" },
+      { field: "starts_at", operator: "lt", value: "2024-02-01T05:00:00.000Z" },
+    ]);
+    // A date column keeps its days as they are.
+    expect(shown.filterParams({ done_on: { lte: "2024-01-31" } }, "America/New_York")).toEqual([{ field: "done_on", operator: "lte", value: "2024-01-31" }]);
+    const timed = defineView(events, { filters: [{ field: "starts_at" }] });
+    expect(timed.filterParams({ starts_at: { gte: "2024-07-01T10:00", lte: "2024-07-01T12:00Z" } }, "Europe/Paris")).toEqual([
+      { field: "starts_at", operator: "gte", value: "2024-07-01T08:00:00.000Z" },
+      { field: "starts_at", operator: "lte", value: "2024-07-01T12:00Z" },
+    ]);
+  });
+
+  it("drops malformed stored filter values instead of throwing", () => {
+    expect(isFilterSet({ gte: 5 } as never)).toBe(false);
+    expect(isFilterSet(null as never)).toBe(false);
+    expect(isFilterSet([1, ""] as never)).toBe(false);
+    expect(applicableListState(view, { filters: { status: { gte: 5 }, due_on: "x", hours: { gte: "1", lte: 3 }, urgent: null, notes: ["a"] } } as never)).toEqual({
+      filters: { status: ["x"].filter(() => false).length ? {} : undefined, hours: { gte: "1" } },
+    } as never);
+  });
+
+  it("keeps each viewer's device views apart", () => {
+    const storage = createMemoryStorageAdapter();
+    const device = createLocalSavedViewStore({ storage });
+    device.forViewer!("u-1").save({ name: "Mine", scope: "personal", resource: "public.tasks", version: 1, state: { search: "private words" } });
+    expect(device.forViewer!("u-1").list("public.tasks")).toHaveLength(1);
+    expect(device.forViewer!("u-2").list("public.tasks")).toEqual([]);
+    expect(device.forViewer!(null).list("public.tasks")).toEqual([]);
+    expect(device.list("public.tasks")).toEqual([]);
   });
 });

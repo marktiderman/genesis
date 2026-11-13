@@ -4,11 +4,10 @@
 // prop still works as an escape hatch, and the screen's own props win over the view.
 
 import { useContext, useMemo, type ComponentType, type ReactNode } from "react";
-import { useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
+import { useListState, useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
 import { groupRows, groupTotals, plural, rowPicture, type RecordOpen, type RecordView as RecordViewDef, type ResourceView as View, type ViewGallery } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import { ConfirmDeleteDialog } from "../ConfirmDeleteDialog";
-import type { ResourceRowMenuItem } from "../RowMenu";
 import type { SearchParamsAdapter } from "../../../navigation";
 import type { ResourceUrlStateOptions } from "../../../hooks/use-resource-url-state";
 import {
@@ -16,9 +15,9 @@ import {
   choiceFilterConfigs,
   defaultSavedViewStore,
   switchableTypes,
+  reasonOf,
   useListActions,
   useViewExport,
-  useViewListState,
   useViewSavedViews,
   ViewFilterControls,
   ViewSegments,
@@ -233,7 +232,7 @@ function useListModel(props: ResourceViewProps<Row>): ListModel {
   const { on, types } = switcherFor(props);
   const url = props.urlState === false ? undefined : (adapterOf(props.urlState) ?? ((props.layout ?? "page") === "page" ? (defaults.urlState ?? undefined) : undefined));
   const shown = props.type ?? props.mode;
-  const own = useViewListState({
+  const own = useListState({
     view: props.view as never,
     url,
     store: defaults.savedViews ?? defaultSavedViewStore(),
@@ -380,7 +379,6 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
   const refusals = screenRefusals ?? view.definition.refusals ?? "disable";
   const actions = useListActions<T>(view, {
     refusals,
-    allowDelete: rest.allowDelete !== false,
     ...(onAction ? { onRun: onAction as (name: string, row: T) => void | Promise<void> } : {}),
   });
   const showRowActions = (screenRowActions ?? listDefaults.rowActions ?? false) && view.actions().length > 0;
@@ -391,16 +389,22 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
     listState,
     { columns: presetName, url: model.url },
   );
-  // Grouping: the screen's, then the person's saved choice, then the view's. Rows come sorted by
-  // the group first, so each group is one run.
-  const groupField = screenGroupBy !== undefined ? screenGroupBy : listState.groupBy !== undefined ? listState.groupBy : (view.definition.groupBy as string | undefined);
+  // Grouping: the screen's, then the person's saved choice. A view's own `groupBy` (the board's and
+  // `groupRows`' default) doesn't group a table by itself: a screen opts in with
+  // `groupBy={view.definition.groupBy}`. Rows come sorted by the group first, so each group is one
+  // run, and the view's `orderBy` sorts inside it.
+  const groupField = screenGroupBy !== undefined ? screenGroupBy : listState.groupBy !== undefined ? listState.groupBy : undefined;
   const grouping = groupField && !screenTree ? groupField : null;
   const totals = view.definition.totals as Readonly<Record<string, string>> | undefined;
-  const totalWords = (items: T[]) =>
-    Object.entries(groupTotals(view, items as (T & DataRow)[]))
+  // Totals cover the rows loaded: on a server-paged list that's the page, and the words say so.
+  const pagedTotals = !screenTree && rows === undefined;
+  const totalWords = (items: T[]) => {
+    const words = Object.entries(groupTotals(view, items as (T & DataRow)[]))
       .filter(([, n]) => n !== null)
       .map(([field, n]) => `${view.label(field)}: ${n!.toLocaleString()}`)
       .join(" · ");
+    return words && pagedTotals ? `${words} ${m.table.loadedOnly}` : words;
+  };
   const groupOf = grouping
     ? (row: T) => {
         const g = groupRows(view, [row as T & DataRow], { field: grouping })[0]!;
@@ -411,7 +415,7 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
   const filtersRow = view.segments().length || view.filters().length || filterSlot;
   const listFilters = listState.filters;
   const segmentsNode = view.segments().length ? (
-    <ViewSegments view={view as never} value={listState.segment} onChange={listState.setSegment} baseFilters={[...defaultFilters, ...view.filterParams(listState.values)]} enabled={rows === undefined} />
+    <ViewSegments view={view as never} value={listState.segment} onChange={listState.setSegment} baseFilters={[...defaultFilters, ...listState.valueFilters]} enabled={rows === undefined} />
   ) : null;
   const extraFilters =
     view.filters().some((f) => f.kind !== "choice") || filterSlot ? (
@@ -500,7 +504,12 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
       ...resourceOptions,
       ...(defaultFilters.length || listFilters.length ? { defaultFilters: [...defaultFilters, ...listFilters] } : {}),
       ...(grouping && !resourceOptions?.defaultSort
-        ? { defaultSort: { field: grouping, order: "asc" as const } }
+        ? {
+            defaultSort: { field: grouping, order: "asc" as const },
+            ...(orderBy && orderBy.field !== grouping && !resourceOptions?.thenSort
+              ? { thenSort: { field: orderBy.field, order: orderBy.direction ?? "asc", ...(orderBy.nulls ? { nulls: orderBy.nulls } : {}) } }
+              : {}),
+          }
         : orderBy && !resourceOptions?.defaultSort
           ? { defaultSort: { field: orderBy.field, order: orderBy.direction ?? "asc", ...(orderBy.nulls ? { nulls: orderBy.nulls } : {}) } }
           : {}),
@@ -572,6 +581,11 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
   // Row actions with their reasons, and bulk actions from the view beside the screen's.
   if (showRowActions && rest.rowMenu === undefined) pageProps.rowMenu = actions.rowMenu;
   if (actions.bulkActions.length) pageProps.bulkActions = [...actions.bulkActions, ...(rest.bulkActions ?? [])];
+  // A view that runs actions on many rows deletes many too, through the page's own delete (its
+  // `can`, the recycle-bin wording, one confirm step). Not with the screen's `onDelete` or `rows`.
+  if (actions.bulkActions.length && rest.allowDelete !== false && rest.bulkDelete === undefined && rows === undefined) {
+    pageProps.bulkDelete = { reason: (row: T) => reasonOf(view.can("delete", row as T & DataRow, viewer)) };
+  }
   // "Export CSV": the view's, unless the screen turns it off or brings its own.
   if (onExportView && screenExport !== false && !rest.onExport && rows === undefined) pageProps.onExport = onExportView;
   // Grouping and totals, tone: the table's and the cards' own props, under the screen's.
@@ -580,6 +594,7 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
     ...(groupOf ? { groups: { of: groupOf, ...(totals ? { summary: totalWords } : {}), persistKey: `${view.resource}:${grouping}`, partial: paged } } : {}),
     ...(totals
       ? {
+          footerPartial: pagedTotals,
           footer: (items: T[]) =>
             Object.fromEntries(
               Object.entries(groupTotals(view, items as (T & DataRow)[])).map(([field, n]) => [field, n === null ? null : n.toLocaleString()]),
@@ -672,7 +687,7 @@ function ListBar<T extends Row>(props: ResourceViewProps<T>) {
   const choice = choiceFilterConfigs(view as never, model.state);
   return (
     <div data-slot="view-list-bar" className="flex flex-wrap items-center gap-2">
-      <ViewSegments view={view as never} value={model.state.segment} onChange={model.state.setSegment} baseFilters={[...filters, ...view.filterParams(model.state.values)]} />
+      <ViewSegments view={view as never} value={model.state.segment} onChange={model.state.setSegment} baseFilters={[...filters, ...model.state.valueFilters]} />
       {choice.map((f) => (
         <FilterCombobox key={f.key} label={f.label} icon={f.icon} options={f.options} selected={f.selected} onChange={f.onChange} labelMap={f.labelMap} />
       ))}

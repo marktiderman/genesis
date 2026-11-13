@@ -4,7 +4,7 @@
 
 import type { StorageAdapter } from "../storage/types";
 import type { ResolvedFilter } from "./types";
-import { isFilterSet, type ListState } from "./list-state";
+import { filterValueFor, type ListState } from "./list-state";
 
 /**
  * One saved view: a name, who it's for, and the list state it restores, stamped with the view's
@@ -33,6 +33,11 @@ export type SavedViewInput = Omit<SavedView, "id"> & { readonly id?: string };
  * them, keep each person's current choices for a list (its view type, say), so they follow the
  * person the way saved views do.
  *
+ * A store returns only the views the signed-in person may see: a server store scopes its rows to
+ * the viewer (row-level security on the app's table: their own personal views, and team views of
+ * their team). A store kept on a device that several people sign in to has `forViewer`, and lists
+ * call it with the viewer's id, so one person never sees another's views.
+ *
  * @stability Beta
  */
 export interface SavedViewStore {
@@ -44,6 +49,8 @@ export interface SavedViewStore {
   /** The person's current state for a list (its key: the resource, or a screen's own key). */
   readCurrent?(key: string): ListState | null | undefined | Promise<ListState | null | undefined>;
   writeCurrent?(key: string, state: ListState): void | Promise<void>;
+  /** The store for one viewer (their id, or null signed out), for a store kept on a shared device. */
+  forViewer?(viewer: string | null): SavedViewStore;
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => Boolean(v) && typeof v === "object" && !Array.isArray(v);
@@ -76,7 +83,9 @@ function defaultStorage(): StorageAdapter | undefined {
 /**
  * The default saved-view store: this device only, personal views, under `<prefix>:<resource>`
  * in the browser's localStorage (or the storage you pass, such as a phone's adapter). Without
- * storage it keeps views in memory for the page's life.
+ * storage it keeps views in memory for the page's life. Lists use `forViewer(id)`, which keeps
+ * each person's views under `<prefix>:<viewer>:…`, so whoever signs in next on the device sees
+ * only their own.
  *
  * ```ts
  * <ResourceViewDefaultsProvider savedViews={createLocalSavedViewStore()} />
@@ -85,8 +94,11 @@ function defaultStorage(): StorageAdapter | undefined {
  * @stability Beta
  */
 export function createLocalSavedViewStore(options: { storage?: StorageAdapter; prefix?: string } = {}): SavedViewStore {
+  return localStore(options, new Map(), new Map());
+}
+
+function localStore(options: { storage?: StorageAdapter; prefix?: string }, memory: Map<string, string>, viewers: Map<string, SavedViewStore>): SavedViewStore {
   const prefix = options.prefix ?? "genesis-saved-views";
-  const memory = new Map<string, string>();
   const storage = (): StorageAdapter =>
     options.storage ??
     defaultStorage() ?? { getItem: (k) => memory.get(k) ?? null, setItem: (k, v) => void memory.set(k, v), removeItem: (k) => void memory.delete(k) };
@@ -119,6 +131,16 @@ export function createLocalSavedViewStore(options: { storage?: StorageAdapter; p
         // As above: kept for this page only.
       }
     },
+    forViewer: (viewer: string | null): SavedViewStore => {
+      // Under the store's own prefix: a viewer id can't reach another prefix's keys.
+      const id = `${options.prefix ?? "genesis-saved-views"}:viewer:${encodeURIComponent(viewer ?? "signed-out")}`;
+      let store = viewers.get(id);
+      if (!store) {
+        store = localStore({ ...options, prefix: id }, memory, viewers);
+        viewers.set(id, store);
+      }
+      return store;
+    },
   });
 }
 
@@ -143,8 +165,14 @@ export function applicableListState(
   const out: { -readonly [K in keyof ListState]: ListState[K] } = {};
   if (typeof state.segment === "string" && view.segments().some((s) => s.id === state.segment)) out.segment = state.segment;
   if (isObject(state.filters)) {
-    const declared = new Set(view.filters().map((f) => f.field));
-    const kept = Object.fromEntries(Object.entries(state.filters).filter(([field, value]) => declared.has(field) && isFilterSet(value as never)));
+    const declared = new Map(view.filters().map((f) => [f.field, f]));
+    const kept = Object.fromEntries(
+      Object.entries(state.filters).flatMap(([field, value]) => {
+        const filter = declared.get(field);
+        const clean = filter ? filterValueFor(filter, value) : undefined;
+        return clean === undefined ? [] : [[field, clean]];
+      }),
+    );
     if (Object.keys(kept).length) out.filters = kept as ListState["filters"];
   }
   if (typeof state.search === "string" && state.search.trim()) out.search = state.search.slice(0, 200);

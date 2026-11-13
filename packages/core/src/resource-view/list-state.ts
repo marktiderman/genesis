@@ -5,6 +5,7 @@
 import type { FilterParam } from "../provider/types";
 import type { FieldSchema } from "../schema/types";
 import { titleCase } from "../utils";
+import { addDays, deviceTimeZone, instantIn, isTimeZone, startOfDayIn } from "../dates";
 import type {
   ResolvedFilter,
   SegmentWhere,
@@ -101,6 +102,7 @@ export function resolveFilters(
         kind,
         options,
         ...(input ? { input: input as "date" | "datetime" | "number" } : {}),
+        ...(input === "date" && !/^date$/i.test(field.dbType ?? "") && field.type === "datetime" ? { instants: true } : {}),
         ...(f.default !== undefined ? { default: f.default } : {}),
       });
     }),
@@ -171,8 +173,16 @@ export function filterValueParams(
   resolved: readonly ResolvedFilter[],
   fields: ReadonlyMap<string, FieldSchema>,
   values: Readonly<Record<string, ViewFilterValue | undefined>> | null | undefined,
+  zone?: string,
 ): FilterParam[] {
   const out: FilterParam[] = [];
+  const clock = zone && isTimeZone(zone) ? zone : deviceTimeZone();
+  // A time with no offset is the viewer's wall clock: sent as the instant it names.
+  const instant = (v: string | number) => {
+    if (typeof v !== "string" || DAY.test(v) || /(?:Z|[+-]\d{2}:?\d{2})$/.test(v)) return v;
+    const [day, time = "00:00"] = v.split(/[T ]/);
+    return instantIn(day!, time.slice(0, 8), clock).toISOString();
+  };
   for (const filter of resolved) {
     const value = values && Object.hasOwn(values, filter.field) ? values[filter.field] : undefined;
     if (value === undefined) continue;
@@ -189,8 +199,15 @@ export function filterValueParams(
       const range = value as { gte?: unknown; lte?: unknown };
       const gte = rangeEnd(range.gte, filter.input);
       const lte = rangeEnd(range.lte, filter.input);
-      if (gte !== undefined) out.push({ field: filter.field, operator: "gte", value: gte });
-      if (lte !== undefined) out.push({ field: filter.field, operator: "lte", value: lte });
+      if (filter.instants) {
+        // Days on a timestamp column: [start of the first day, start of the day after the last).
+        if (gte !== undefined) out.push({ field: filter.field, operator: "gte", value: startOfDayIn(String(gte), clock).toISOString() });
+        if (lte !== undefined) out.push({ field: filter.field, operator: "lt", value: startOfDayIn(addDays(String(lte), 1), clock).toISOString() });
+        continue;
+      }
+      const timed = filter.input === "datetime";
+      if (gte !== undefined) out.push({ field: filter.field, operator: "gte", value: timed ? instant(gte) : gte });
+      if (lte !== undefined) out.push({ field: filter.field, operator: "lte", value: timed ? instant(lte) : lte });
     } else {
       if (typeof value !== "string") continue;
       const text = value.trim().slice(0, MAX_TEXT);
@@ -201,12 +218,35 @@ export function filterValueParams(
 }
 
 /** Whether a filter value narrows anything (an empty choice or range doesn't). @stability Beta */
-export function isFilterSet(value: ViewFilterValue | undefined): boolean {
-  if (value === undefined) return false;
+export function isFilterSet(value: ViewFilterValue | undefined | null): boolean {
+  if (value === undefined || value === null) return false;
   if (typeof value === "string") return value.trim() !== "";
-  if (Array.isArray(value)) return value.length > 0;
-  const range = value as { gte?: string; lte?: string };
-  return Boolean(range.gte?.trim() || range.lte?.trim());
+  if (Array.isArray(value)) return value.some((v) => typeof v === "string" && v !== "");
+  if (typeof value !== "object") return false;
+  const range = value as { gte?: unknown; lte?: unknown };
+  const end = (v: unknown) => typeof v === "string" && v.trim() !== "";
+  return end(range.gte) || end(range.lte);
+}
+
+/**
+ * A stored filter value in the shape its filter takes (a choice's list of strings, a range's ends,
+ * a text), or undefined when it isn't: a saved view from a server or edited by hand can't break a list.
+ *
+ * @stability Beta
+ */
+export function filterValueFor(filter: Pick<ResolvedFilter, "kind">, value: unknown): ViewFilterValue | undefined {
+  if (filter.kind === "choice") {
+    const list = Array.isArray(value) ? value : typeof value === "string" ? [value] : [];
+    const kept = list.filter((v): v is string => typeof v === "string" && v !== "");
+    return kept.length ? kept : undefined;
+  }
+  if (filter.kind === "range") {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+    const { gte, lte } = value as { gte?: unknown; lte?: unknown };
+    const out = { ...(typeof gte === "string" && gte.trim() ? { gte } : {}), ...(typeof lte === "string" && lte.trim() ? { lte } : {}) };
+    return Object.keys(out).length ? out : undefined;
+  }
+  return typeof value === "string" && value.trim() ? value : undefined;
 }
 
 /**

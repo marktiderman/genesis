@@ -130,6 +130,12 @@ export const uiMessages = {
     rowActions: "Actions for {name}",
     /** The footer row's label for a list's totals. */
     totals: "Total",
+    /** The footer's label when its totals cover only the rows loaded (server paging). */
+    totalsLoaded: "Total of loaded rows",
+    /** After a group's totals when they cover only its rows loaded. */
+    loadedOnly: "(loaded rows)",
+    /** A row menu's Edit or Delete the screen doesn't allow on this row, with no reason of its own. */
+    notAllowed: "Not allowed for this row",
   },
   confirmDelete: {
     title: "Delete this record?",
@@ -178,8 +184,10 @@ export const uiMessages = {
     selectAllMatching: "Select all {total} matching",
     /** Every matching row is selected. `{total}`: their count. */
     allMatching: "All {total} matching selected",
-    /** A bulk action that takes ids only, with every matching row selected. `{count}`: the rows loaded. */
-    loadedOnly: "Runs on the {count} loaded rows",
+    /** A bulk action that takes the loaded rows only, while every matching row is selected. `{count}`: the rows loaded. */
+    loadedOnly: "Works on loaded rows only: select the {count} on this page instead of all matching",
+    /** The confirm step of a bulk Delete. `{count}`: rows to delete. */
+    deleteTitle: "Delete {count} records?",
     /** A bulk action finished. `{done}`: rows changed; `{label}`: the action. */
     done: "{label}: {done} done",
     /** Rows a bulk action skipped. `{count}`: how many; `{reason}`: the first refusal's words. */

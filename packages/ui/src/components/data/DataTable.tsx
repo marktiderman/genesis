@@ -278,6 +278,13 @@ export interface DataTableProps<T> {
   groups?: DataTableGroups<T> | undefined;
   /** A footer row: each column's cell, by key (totals, say), over the rows shown. */
   footer?: ((items: T[]) => Partial<Record<string, ReactNode>>) | undefined;
+  /**
+   * The footer's label, in the first column when that column has no cell of its own. Default
+   * "Total"; with `footerPartial`, words that say it covers only the rows loaded.
+   */
+  footerLabel?: ReactNode | undefined;
+  /** The footer covers only the rows loaded (server paging), not every row the list matches. */
+  footerPartial?: boolean | undefined;
   /** The menu a right-click on a row opens (the same items as the row's own menu). */
   rowContextMenu?: ((item: T) => ReactNode) | undefined;
 }
@@ -700,6 +707,8 @@ export function DataTable<T>({
   rowClassName,
   groups,
   footer,
+  footerLabel,
+  footerPartial = false,
   rowContextMenu,
 }: DataTableProps<T>) {
   const m = useUiMessages();
@@ -1033,7 +1042,9 @@ export function DataTable<T>({
       onToggleSelect?.(id);
       return;
     }
-    const keys = displayItems.map(getKey);
+    // Only the rows drawn: a closed group's rows stay as they are.
+    const hidden = groups ? new Set(closedGroups) : null;
+    const keys = (hidden && hidden.size ? displayItems.filter((item) => !hidden.has(groups!.of(item).key)) : displayItems).map(getKey);
     const a = keys.indexOf(from);
     const b = keys.indexOf(id);
     if (a < 0 || b < 0) {
@@ -1275,7 +1286,7 @@ export function DataTable<T>({
       out.splice(
         g.start,
         0,
-        <TableRow key={`__group:${g.key}`} data-slot="table-group" data-group={g.key} className="bg-muted/40 hover:bg-muted/40">
+        <TableRow key={`__group:${g.start}:${g.key}`} data-slot="table-group" data-group={g.key} className="bg-muted/40 hover:bg-muted/40">
           <TableCell colSpan={totalCols} className={cn(cellDensity, "py-1.5")}>
             <button
               type="button"
@@ -1586,12 +1597,13 @@ export function DataTable<T>({
             <tfoot data-slot="table-footer" className="border-t bg-muted/30 text-sm font-medium">
               {(() => {
                 const cells = footer(displayItems);
+                const label = footerLabel ?? (footerPartial ? m.table.totalsLoaded : m.table.totals);
                 return (
-                  <tr>
+                  <tr data-partial={footerPartial || undefined}>
                     {selectable && <td />}
-                    {activeColumns.map((col) => (
+                    {activeColumns.map((col, i) => (
                       <td key={col.key} className={cn(getCellClasses(col as DataTableColumn<unknown>), cellDensity, "px-4 tabular-nums")}>
-                        {cells[col.key] ?? null}
+                        {cells[col.key] ?? (i === 0 ? <span className="text-muted-foreground">{label}</span> : null)}
                       </td>
                     ))}
                     {renderActions && <td />}

@@ -47,7 +47,10 @@ const matches = (row: Ticket, f: FilterParam) => {
 function provider(extra: Partial<DataProvider> = {}) {
   return {
     getList: vi.fn(async (_r: string, params: ListParams) => {
-      const data = ROWS.filter((row) => (params.filters ?? []).every((f) => matches(row, f)));
+      const q = params.search?.query.toLowerCase();
+      const data = ROWS.filter((row) => (params.filters ?? []).every((f) => matches(row, f))).filter(
+        (row) => !q || (params.search?.fields ?? []).some((field) => String(row[field as keyof Ticket]).toLowerCase().includes(q)),
+      );
       return { data, total: data.length };
     }),
     getOne: vi.fn(async (_r: string, { id }: { id: string }) => {
@@ -147,6 +150,20 @@ describe("<ResourceView type=\"inbox\">", () => {
   });
 });
 
+describe("the reading pane's Edit and Delete", () => {
+  it("follow the screen's can and the view's guard on the open row", async () => {
+    const guarded = defineView(tickets, { inbox: { unread: "unread" }, can: { update: (t) => (t.id === "t2" ? "Locked." : true) } });
+    render(<ResourceView view={guarded} type="inbox" onEdit={vi.fn()} can={(action) => action !== "delete"} />, { wrapper: wrap(provider()) });
+    fireEvent.click(await screen.findByTestId("resource-inbox-list-row-t2"));
+    const reading = await screen.findByTestId("resource-inbox-reading");
+    await within(reading).findByText("Please resend October's.");
+    expect(within(reading).queryByTestId("resource-inbox-record-edit")).toBeNull();
+    expect(within(reading).queryByTestId("resource-inbox-record-delete")).toBeNull();
+    fireEvent.click(screen.getByTestId("resource-inbox-list-row-t1"));
+    await waitFor(() => expect(within(screen.getByTestId("resource-inbox-reading")).getByTestId("resource-inbox-record-edit")).toBeTruthy());
+  });
+});
+
 describe("the inbox among a view's types", () => {
   it("is offered by the switcher, and its list runs the view's bulk actions", async () => {
     const runAction = vi.fn(async () => ({ data: null }));
@@ -164,6 +181,21 @@ describe("the inbox among a view's types", () => {
     // t1 and t2 allow it; t3 is solved and skipped.
     await waitFor(() => expect(runAction).toHaveBeenCalledTimes(2));
     expect(runAction).toHaveBeenCalledWith("tickets", { id: "t2", action: "solve" });
+  });
+
+  it("counts only the picks the list still shows", async () => {
+    const both = defineView(tickets, {
+      inbox: { unread: "unread" },
+      types: ["table", "inbox"],
+      actions: [{ name: "solve", label: "Solve", bulk: true }],
+    });
+    render(<ResourceView view={both} type="inbox" />, { wrapper: wrap(provider({ runAction: vi.fn() })) });
+    fireEvent.click(await screen.findByTestId("resource-inbox-list-row-t1-check"));
+    fireEvent.click(screen.getByTestId("resource-inbox-list-row-t2-check"));
+    expect(await screen.findByText("2 selected")).toBeTruthy();
+    fireEvent.change(screen.getByTestId("resource-inbox-search"), { target: { value: "invoice" } });
+    await waitFor(() => expect(screen.queryByTestId("resource-inbox-list-row-t1")).toBeNull());
+    expect(await screen.findByText("1 selected")).toBeTruthy();
   });
 });
 

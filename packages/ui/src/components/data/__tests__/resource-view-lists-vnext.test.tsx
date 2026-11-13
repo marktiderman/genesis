@@ -7,6 +7,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createMemoryStorageAdapter, defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams } from "@marktiderman/genesis-core";
 import { createLocalSavedViewStore, defineView } from "@marktiderman/genesis-core/resource-view";
@@ -47,7 +48,8 @@ function provider(extra: Partial<DataProvider> = {}): DataProvider & { getList: 
       const data = ROWS.filter((row) => (params.filters ?? []).every((f) => matches(row, f)));
       const sort = params.sort;
       if (sort) data.sort((x, y) => String(x[sort.field as keyof Task]).localeCompare(String(y[sort.field as keyof Task])) * (sort.order === "desc" ? -1 : 1));
-      return { data, total: data.length };
+      const { page = 1, perPage = 25 } = params.pagination ?? {};
+      return { data: data.slice((page - 1) * perPage, page * perPage), total: data.length };
     }),
     getOne: vi.fn(async (_r: string, { id }: { id: string }) => ({ data: ROWS.find((r) => r.id === id) })),
     getMany: vi.fn(async () => ({ data: [] })),
@@ -174,7 +176,9 @@ describe("the view-type switcher", () => {
     expect(screen.getByTestId("view-type-board")).toBeTruthy();
     fireEvent.click(screen.getByTestId("view-type-board"));
     await screen.findByTestId("resource-board");
-    expect(store.readCurrent!("tasks")).toEqual({ type: "board" });
+    // Signed out here: the device store keeps it under the signed-out viewer.
+    expect(store.forViewer!(null).readCurrent!("tasks")).toEqual({ type: "board" });
+    expect(store.readCurrent!("tasks")).toBeUndefined();
   });
 
   it("stays off when the screen fixes its type", async () => {
@@ -187,7 +191,7 @@ describe("the view-type switcher", () => {
 describe("grouping, totals and tone", () => {
   it("draws a header per group with its count and total, and a tone on a row", async () => {
     const view = defineView(tasks, { groupBy: "status", totals: { hours: "sum" }, rowTone: (t) => (t.urgent ? "danger" : undefined) });
-    const { container } = render(<ResourceView view={view} />, { wrapper: wrap(provider()) });
+    const { container } = render(<ResourceView view={view} groupBy="status" />, { wrapper: wrap(provider()) });
     await screen.findByText("Ship it");
     const groups = container.querySelectorAll('[data-slot="table-group"]');
     expect(groups.length).toBeGreaterThanOrEqual(2);
@@ -196,7 +200,10 @@ describe("grouping, totals and tone", () => {
     expect(groups[0]!.textContent).toContain("Hours: 3");
     expect(groups[1]!.textContent).toContain("2 loaded");
     expect(container.querySelectorAll('[data-tone="danger"]').length).toBe(1);
+    // Server paging: the totals cover the rows loaded, and say so.
     expect(container.querySelector('[data-slot="table-footer"]')!.textContent).toContain("6");
+    expect(container.querySelector('[data-slot="table-footer"]')!.textContent).toContain("Total of loaded rows");
+    expect(groups[0]!.textContent).toContain("(loaded rows)");
   });
 });
 
@@ -233,8 +240,8 @@ describe("saved views", () => {
     fireEvent.click(await screen.findByText("Save current view"));
     fireEvent.change(screen.getByPlaceholderText("View name (e.g. 'Active Sessions')"), { target: { value: "Plans by hours" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(store.list("tasks")).toHaveLength(1));
-    const saved = (await store.list("tasks"))[0]!;
+    await waitFor(() => expect(store.forViewer!(null).list("tasks")).toHaveLength(1));
+    const saved = (await store.forViewer!(null).list("tasks"))[0]!;
     expect(saved.state).toEqual({ segment: "all", type: "table", search: "plan", sort: { field: "hours", order: "desc" } });
     expect(saved.version).toBe(1);
     unmount();
@@ -258,12 +265,181 @@ describe("saved views", () => {
 
   it("restores a saved column preset", async () => {
     const store = createLocalSavedViewStore({ storage: createMemoryStorageAdapter() });
-    await store.save({ name: "Short", scope: "personal", resource: "tasks", version: 1, state: { columns: "short" } });
+    await store.forViewer!(null).save({ name: "Short", scope: "personal", resource: "tasks", version: 1, state: { columns: "short" } });
     const { container } = render(<ResourceView view={view} />, { wrapper: wrap(provider(), { savedViews: store, children: null }) });
     await screen.findByText("Write the plan");
     expect(container.querySelectorAll("thead th").length).toBeGreaterThan(1);
     fireEvent.click(screen.getByText("Views"));
     fireEvent.click(await screen.findByText("Short"));
     await waitFor(() => expect(screen.queryByRole("columnheader", { name: /Hours/ })).toBeNull());
+  });
+});
+
+describe("review fixes: delete, edit, grouping and select-all-matching", () => {
+  const view = defineView(tasks, {
+    actions: [
+      { name: "finish", label: "Finish", bulk: true },
+      { name: "archive", label: "Archive", bulk: { matching: true, run: vi.fn() } },
+    ],
+  });
+
+  it("deletes the chosen rows through the page's own delete, under the screen's can, with one confirm step", async () => {
+    const deleteOne = vi.fn(async () => ({ data: null }));
+    const p = provider({ runAction: vi.fn(), deleteOne });
+    render(<ResourceView view={view} can={(action, row) => action !== "delete" || (row as Task | undefined)?.id !== "b"} />, { wrapper: wrap(p) });
+    await screen.findByText("Ship it");
+    for (const name of ["Write the plan", "Ship it", "Tell people"]) fireEvent.click(screen.getByLabelText(`Select ${name}`));
+    fireEvent.click(await screen.findByTestId("bulk-delete"));
+    // The confirm step counts the rows it will delete: the one the screen refuses isn't one.
+    expect(await screen.findByText("Delete 2 records?")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(deleteOne).toHaveBeenCalledTimes(2));
+    expect(deleteOne.mock.calls.map((c) => (c as unknown as [string, { id: string }])[1].id).sort()).toEqual(["a", "c"]);
+  });
+
+  it("disables bulk Delete when the screen refuses every chosen row", async () => {
+    render(<ResourceView view={view} can={(action) => action !== "delete"} />, { wrapper: wrap(provider({ runAction: vi.fn() })) });
+    await screen.findByText("Ship it");
+    fireEvent.click(screen.getByLabelText("Select Ship it"));
+    expect((await screen.findByTestId("bulk-delete")).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("leaves bulk Delete out when the screen deletes with onDelete, or holds the rows", async () => {
+    const { unmount } = render(<ResourceView view={view} onDelete={vi.fn()} />, { wrapper: wrap(provider({ runAction: vi.fn() })) });
+    await screen.findByText("Ship it");
+    fireEvent.click(screen.getByLabelText("Select Ship it"));
+    await screen.findByTestId("bulk-finish");
+    expect(screen.queryByTestId("bulk-delete")).toBeNull();
+    unmount();
+    render(<ResourceView view={view} rows={ROWS} onAction={vi.fn()} />, { wrapper: wrap(provider()) });
+    fireEvent.click(await screen.findByLabelText("Select Ship it"));
+    await screen.findByTestId("bulk-finish");
+    expect(screen.queryByTestId("bulk-delete")).toBeNull();
+  });
+
+  it("shows the row menu's Delete disabled where the screen's can refuses it, and edits through the page's check", async () => {
+    const onEdit = vi.fn();
+    render(<ResourceView view={view} rowActions onEdit={onEdit} can={(action, row) => !(action === "edit" && (row as Task | undefined)?.id === "a") && action !== "delete"} />, {
+      wrapper: wrap(provider({ runAction: vi.fn() })),
+    });
+    await screen.findByText("Ship it");
+    fireEvent.pointerDown(screen.getAllByTestId("resource-row-menu")[0]!, { button: 0, ctrlKey: false });
+    const del = await screen.findByTestId("resource-row-menu-delete");
+    expect(del.getAttribute("aria-disabled")).toBe("true");
+    expect(within(del).getByText("Not allowed for this row")).toBeTruthy();
+    expect((await screen.findByTestId("resource-row-menu-edit")).getAttribute("aria-disabled")).toBe("true");
+    fireEvent.keyDown(del, { key: "Escape" });
+    fireEvent.pointerDown(screen.getAllByTestId("resource-row-menu")[1]!, { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByTestId("resource-row-menu-edit"));
+    await waitFor(() => expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: "b" })));
+  });
+
+  it("keeps the row menu off unless the screen or the app turns it on", async () => {
+    render(<ResourceView view={view} />, { wrapper: wrap(provider({ runAction: vi.fn() })) });
+    await screen.findByText("Ship it");
+    expect(screen.queryByTestId("resource-row-menu")).toBeNull();
+  });
+
+  it("doesn't group a table by the view's groupBy alone, and keeps orderBy under a group the screen asks for", async () => {
+    const grouped = defineView(tasks, { groupBy: "status", orderBy: { field: "hours", direction: "desc" } });
+    const p = provider();
+    const { container, unmount } = render(<ResourceView view={grouped} />, { wrapper: wrap(p) });
+    await screen.findByText("Ship it");
+    expect(container.querySelectorAll('[data-slot="table-group"]')).toHaveLength(0);
+    expect((p.getList.mock.calls.at(-1)![1] as ListParams).sort).toEqual({ field: "hours", order: "desc" });
+    unmount();
+    const q = provider();
+    const second = render(<ResourceView view={grouped} groupBy="status" />, { wrapper: wrap(q) });
+    await screen.findByText("Ship it");
+    expect(second.container.querySelectorAll('[data-slot="table-group"]').length).toBeGreaterThan(0);
+    expect((q.getList.mock.calls.at(-1)![1] as ListParams).sorts).toEqual([
+      { field: "status", order: "asc" },
+      { field: "hours", order: "desc" },
+    ]);
+  });
+
+  it("with every matching row selected, sends the query to a matching run and holds the actions that take loaded rows", async () => {
+    const run = vi.fn();
+    const matchingView = defineView(tasks, {
+      actions: [
+        { name: "finish", label: "Finish", bulk: true },
+        { name: "archive", label: "Archive", bulk: { matching: true, run } },
+      ],
+    });
+    render(<ResourceView view={matchingView} resourceOptions={{ defaultPerPage: 2 }} />, { wrapper: wrap(provider({ runAction: vi.fn() })) });
+    await screen.findByText("Write the plan");
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    fireEvent.click(await screen.findByTestId("bulk-select-all-matching"));
+    expect(await screen.findByText("All 3 matching selected")).toBeTruthy();
+    expect(screen.getByTestId("bulk-finish").hasAttribute("disabled")).toBe(true);
+    expect(screen.getByTestId("bulk-delete").hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByTestId("bulk-archive"));
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    expect(run.mock.calls[0]![0]).toMatchObject({ kind: "matching", total: 3 });
+  });
+
+  it("exports every matching row as CSV with the view's words", async () => {
+    const exportView = defineView(tasks, { export: true, fields: { status: { labels: { todo: "To do", done: "Done" } } } });
+    let blob: Blob | undefined;
+    const create = vi.fn((b: Blob) => {
+      blob = b;
+      return "blob:x";
+    });
+    Object.assign(URL, { createObjectURL: create, revokeObjectURL: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    render(<ResourceView view={exportView} resourceOptions={{ defaultPerPage: 2 }} />, { wrapper: wrap(provider()) });
+    await screen.findByText("Write the plan");
+    fireEvent.pointerDown(screen.getByLabelText("More actions"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByText("Export CSV"));
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    const text = await blob!.text();
+    expect(text).toContain("Ship it");
+    expect(text).toContain("Tell people");
+    expect(text).toContain("To do");
+    expect(text).not.toMatch(/,todo(,|\r?\n|$)/);
+  });
+});
+
+describe("review fixes: list state", () => {
+  const view = defineView(tasks, {
+    segments: [
+      { id: "open", label: "Open", where: { status: "todo" } },
+      { id: "all", label: "All" },
+    ],
+    filters: [{ field: "title", kind: "text" }],
+    board: { field: "status" },
+  });
+
+  it("reads no stored type while rendering, so a server render and the first client render agree", () => {
+    const readCurrent = vi.fn(() => ({ type: "board" }));
+    const store = { list: () => [], save: vi.fn(), remove: vi.fn(), readCurrent, writeCurrent: vi.fn() };
+    const Wrapper = wrap(provider(), { savedViews: store, children: null });
+    renderToString(
+      <Wrapper>
+        <ResourceView view={view} />
+      </Wrapper>,
+    );
+    expect(readCurrent).not.toHaveBeenCalled();
+  });
+
+  it("follows the URL when it changes from outside (Back, a link)", async () => {
+    const url = adapter("seg=open");
+    const Wrapper = wrap(provider(), { urlState: url, children: null });
+    const { rerender } = render(<ResourceView view={view} />, { wrapper: Wrapper });
+    await screen.findByText("Write the plan");
+    expect(screen.queryByText("Ship it")).toBeNull();
+    url.setSearchParams(new URLSearchParams("seg=all"));
+    rerender(<ResourceView view={view} />);
+    await screen.findByText("Ship it");
+  });
+
+  it("asks again for a text filter after a pause, not on every keystroke", async () => {
+    const p = provider();
+    render(<ResourceView view={view} />, { wrapper: wrap(p) });
+    await screen.findByText("Write the plan");
+    const box = screen.getByPlaceholderText(/title/i);
+    fireEvent.change(box, { target: { value: "wri" } });
+    expect(lastFilters(p).some((f) => f.operator === "contains")).toBe(false);
+    await waitFor(() => expect(lastFilters(p)).toContainEqual({ field: "title", operator: "contains", value: "wri" }));
   });
 });

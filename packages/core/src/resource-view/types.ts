@@ -227,7 +227,12 @@ export interface ViewBulkAction<Row extends DataRow = DataRow> {
   confirm?: string;
   /** Runs it on many rows at once (one server call). Default: the row action per row. */
   run?: (target: BulkTarget<Row>, viewer: Viewer) => void | Promise<void>;
-  /** `run` accepts every matching row as filters (`target.kind === "matching"`), so "select all matching" can reach it. */
+  /**
+   * `run` accepts every matching row as filters (`target.kind === "matching"`), so "select all
+   * matching" can reach it. Such a run gets no rows, so no per-row `can` check has happened: it
+   * must enforce access itself (a server function under the caller's row-level security, checking
+   * each row it touches), and treat the filters and search as untrusted input from the browser.
+   */
   matching?: boolean;
 }
 
@@ -674,6 +679,11 @@ export interface ResolvedFilter {
   readonly options: readonly { readonly value: string; readonly label: string; readonly tone?: ViewTone }[];
   /** For `range`: whether the values are dates (`date`), timestamps (`datetime`) or numbers. */
   readonly input?: "date" | "datetime" | "number";
+  /**
+   * For a `date` input over a timestamp column (one shown as a date): a day is the viewer's day, so
+   * a range runs from that day's start in their zone to the next day's start.
+   */
+  readonly instants?: boolean;
   readonly default?: ViewFilterValue;
 }
 
@@ -799,9 +809,11 @@ export interface ResourceView<C extends ResourceContract = ResourceContract, Row
   /**
    * Declared filters' values as provider filters. Only declared filters count, and a value a
    * filter doesn't accept (a choice it doesn't offer, a malformed range) is dropped: the URL is
-   * an allow-list, never a way to send any field. @stability Beta
+   * an allow-list, never a way to send any field. Days and times on a timestamp column are read
+   * on `zone`'s clock (the viewer's; default the device's): a day runs from its start to the next
+   * day's start, and a time with no offset is that zone's. @stability Beta
    */
-  filterParams(values: Readonly<Record<string, ViewFilterValue | undefined>> | null | undefined): FilterParam[];
+  filterParams(values: Readonly<Record<string, ViewFilterValue | undefined>> | null | undefined, zone?: string): FilterParam[];
   /** The view types a person may switch between, in order (`types`, or the derived default). @stability Beta */
   types(): readonly string[];
   /** The row's tone (`rowTone`), or undefined. @stability Beta */

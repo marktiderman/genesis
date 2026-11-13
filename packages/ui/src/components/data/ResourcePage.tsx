@@ -97,6 +97,18 @@ export interface ResourceListQuery {
 }
 
 /**
+ * The page's own Edit and Delete for a row, for a row menu (`rowMenu`). `refused` marks one the
+ * page's `can` refuses on this row: the menu shows it disabled, or leaves it out.
+ *
+ * @stability Beta
+ */
+export interface ResourceRowMenuBuiltIn {
+  edit?: () => void;
+  delete?: () => void;
+  refused?: { edit?: boolean; delete?: boolean };
+}
+
+/**
  * What a bulk action's `onAction` gets beside the selected ids.
  *
  * @stability Beta
@@ -920,7 +932,15 @@ export interface ResourcePageProps<
    * them), so it can place them around its own items; an item with a `reason` shows disabled
    * with those words. ResourceView builds it from the view's actions and guards.
    */
-  rowMenu?: ((item: T, builtIn: { edit?: () => void; delete?: () => void }) => ResourcePageRowMenuItem[]) | undefined;
+  rowMenu?: ((item: T, builtIn: ResourceRowMenuBuiltIn) => ResourcePageRowMenuItem[]) | undefined;
+  /**
+   * Offer Delete in the bulk bar, over the page's own delete path (ADR 0017 §2): the provider's
+   * delete under `can`, with the recycle-bin wording when the provider has one, one confirm step
+   * for the rows chosen. Only for a list the page loads itself with its built-in delete: a screen
+   * that deletes through `onDelete`, or a list of `data` rows, adds its own bulk action. `reason`
+   * words a row `can` refuses. Default off.
+   */
+  bulkDelete?: boolean | { reason?: ((item: T) => string | undefined) | undefined } | undefined;
   /**
    * Filters the caller holds (a view's segment and declared filters, ADR 0017): while `active`,
    * they count toward "Clear filters" and the empty state's filtered wording, and clearing the
@@ -1062,6 +1082,7 @@ export function ResourcePage<
     toolbar,
     onExport,
     rowMenu,
+    bulkDelete,
     heldFilters,
     onQueryChange,
   } = props;
@@ -1170,8 +1191,49 @@ export function ResourcePage<
   const [allMatching, setAllMatching] = useState(false);
   const fullPage = selectedIds.size > 0 && selectedIds.size === page.data.length;
   if (allMatching && !fullPage) setAllMatching(false);
+  // Bulk Delete over the page's own delete path (`bulkDelete`): the built-in delete only.
+  const [bulkDeleting, setBulkDeleting] = useState<T[] | null>(null);
+  const bulkDeleteReason = typeof bulkDelete === "object" ? bulkDelete.reason : undefined;
+  const ownBulkDelete: NonNullable<ResourcePageProps<T>["bulkActions"]> =
+    bulkDelete && useBuiltInDelete
+      ? [
+          {
+            label: m.common.delete,
+            variant: "destructive",
+            testId: "bulk-delete",
+            reason: (rows: T[]) =>
+              rows.length && rows.every((row) => !allows("delete", row))
+                ? fillMessage(m.bulk.noneAllowed, { reason: bulkDeleteReason?.(rows[0]!) ?? m.table.notAllowed })
+                : undefined,
+            onAction: (_ids, context) => setBulkDeleting(context.rows),
+          },
+        ]
+      : [];
+  const allBulkActions = bulkActions || ownBulkDelete.length ? [...(bulkActions ?? []), ...ownBulkDelete] : undefined;
+  const runBulkDelete = async (rows: T[]) => {
+    const allowed = rows.filter((row) => allows("delete", row));
+    const refused = rows.length - allowed.length;
+    let done = 0;
+    let failed = 0;
+    let firstError: string | undefined;
+    for (const row of allowed) {
+      try {
+        await performDelete(row);
+        done += 1;
+      } catch (error) {
+        failed += 1;
+        firstError ??= error instanceof Error ? error.message : String(error);
+      }
+    }
+    handleClearSelection();
+    if (done > 0) toast.success(fillMessage(m.bulk.done, { label: m.common.delete, done }));
+    const skipped = refused + failed;
+    if (skipped > 0) {
+      toast(fillMessage(m.bulk.skipped, { count: skipped, reason: firstError ?? (refused && rows[0] ? (bulkDeleteReason?.(rows.find((r) => !allows("delete", r))!) ?? m.table.notAllowed) : m.table.notAllowed) }));
+    }
+  };
   const matchingOffered =
-    isClientMode && !!bulkActions?.some((a) => a.matching) && displayTotal > page.data.length;
+    isClientMode && !!allBulkActions?.some((a) => a.matching) && displayTotal > page.data.length;
   const headerActions: PageHeaderAction[] | undefined = onExport
     ? [
         ...(secondaryActions ?? []),
@@ -1268,13 +1330,19 @@ export function ResourcePage<
     focusToastAction(marker);
   };
 
-  const rowMenuFor = (item: T): ResourceRowMenuItem[] =>
-    rowMenu
-      ? rowMenu(item, {
-          ...(useBuiltInEdit || onEdit ? { edit: () => (onEdit ? onEdit(item) : handleEdit(item)) } : {}),
-          ...(deleteHandler ? { delete: () => deleteHandler(item) } : {}),
-        })
-      : [];
+  // The menu's Edit and Delete go through the page's own checks: `handleEdit` asks `can`, and a
+  // refused row's items come marked so the menu shows them disabled.
+  const rowMenuFor = (item: T): ResourceRowMenuItem[] => {
+    if (!rowMenu) return [];
+    const editable = useBuiltInEdit || !!onEdit;
+    const refusedEdit = editable && !allows("edit", item);
+    const refusedDelete = !!deleteHandler && !allows("delete", item);
+    return rowMenu(item, {
+      ...(editable ? { edit: () => handleEdit(item) } : {}),
+      ...(deleteHandler ? { delete: () => (allows("delete", item) ? deleteHandler(item) : undefined) } : {}),
+      ...(refusedEdit || refusedDelete ? { refused: { ...(refusedEdit ? { edit: true } : {}), ...(refusedDelete ? { delete: true } : {}) } } : {}),
+    });
+  };
 
   const cardActionsFor = (item: T): ResourceCardActions<T> => ({
     ...actions,
@@ -1505,8 +1573,8 @@ export function ResourcePage<
         : {})}
       className={cn(className, shellSlotProps?.className)}
     >
-      {bulkActions &&
-        bulkActions.length > 0 &&
+      {allBulkActions &&
+        allBulkActions.length > 0 &&
         renderSlot(
           DataBulkBar,
           slots?.bulkBar,
@@ -1518,18 +1586,22 @@ export function ResourcePage<
             ...(matchingOffered
               ? { matchingTotal: displayTotal, allMatching, onSelectAllMatching: setAllMatching }
               : {}),
-            actions: bulkActions.map((a) => ({
+            actions: allBulkActions.map((a) => ({
               label: a.label,
               icon: a.icon ?? Trash2,
               variant: a.variant,
               disabled: a.disabled,
               testId: a.testId,
+              // With every matching row selected, an action that takes only the loaded rows says so
+              // and waits: it would act on the page, not on the rows the badge counts.
               reason:
-                typeof a.reason === "function"
-                  ? allMatching && a.matching
-                    ? undefined
-                    : a.reason(page.data.filter((row) => selectedIds.has(keyOf(row))))
-                  : a.reason,
+                allMatching && !a.matching
+                  ? fillMessage(m.bulk.loadedOnly, { count: page.data.length })
+                  : typeof a.reason === "function"
+                    ? allMatching && a.matching
+                      ? undefined
+                      : a.reason(page.data.filter((row) => selectedIds.has(keyOf(row))))
+                    : a.reason,
               onClick: () => {
                 const ids = Array.from(selectedIds);
                 const rows = page.data.filter((row) => selectedIds.has(keyOf(row)));
@@ -1562,7 +1634,7 @@ export function ResourcePage<
                 columns: tableColumns,
                 getKey: keyOf,
                 onRowClick: detail !== "none" ? handleRowClick : undefined,
-                selectable: !!bulkActions && bulkActions.length > 0,
+                selectable: !!allBulkActions && allBulkActions.length > 0,
                 selected: selectedIds,
                 onToggleSelect: handleToggleSelect,
                 onToggleAll: handleToggleAll,
@@ -1910,6 +1982,23 @@ export function ResourcePage<
                   ? deleteCopy.description(pendingDelete)
                   : undefined
                 : deleteCopy?.description,
+            confirmLabel: deleteCopy?.confirmLabel,
+            cancelLabel: deleteCopy?.cancelLabel,
+          },
+          slotProps?.deleteDialog,
+        )}
+      {ownBulkDelete.length > 0 &&
+        renderSlot(
+          ConfirmDeleteDialog,
+          slots?.deleteDialog,
+          {
+            open: bulkDeleting !== null,
+            onOpenChange: (open: boolean) => {
+              if (!open) setBulkDeleting(null);
+            },
+            onConfirm: () => (bulkDeleting ? runBulkDelete(bulkDeleting) : undefined),
+            kind: deleteKind,
+            title: fillMessage(m.bulk.deleteTitle, { count: (bulkDeleting ?? []).filter((row) => allows("delete", row)).length }),
             confirmLabel: deleteCopy?.confirmLabel,
             cancelLabel: deleteCopy?.cancelLabel,
           },

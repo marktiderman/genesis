@@ -52,6 +52,7 @@ export {
   type ResourceDeleteConfirmCopy,
   type ResourceListQuery,
   type ResourceBulkContext,
+  type ResourceRowMenuBuiltIn,
   type ResourcePageRowMenuItem,
 } from "./ResourcePage";
 export { useResourceTable, type ResourceTableState } from "./use-resource-table";

@@ -936,7 +936,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     filters: () => resolvedFilters,
     segments: () => resolvedSegments,
     segmentFilters,
-    filterParams: (values: Parameters<ResourceView<C, Row>["filterParams"]>[0]) => filterValueParams(resolvedFilters, byName, values),
+    filterParams: (values: Parameters<ResourceView<C, Row>["filterParams"]>[0], zone?: string) => filterValueParams(resolvedFilters, byName, values, zone),
     types: () => viewTypes,
     rowTone,
     exportPlan,
