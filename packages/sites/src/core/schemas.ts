@@ -286,7 +286,7 @@ export const SiteDoc = z.object({
    * (`DEFAULT_LANDING_DIRECTORY`). It is where new landing pages go, not a
    * rule: each page's own path is checked when it is made or moved.
    */
-  landing: z.object({ directory: PagePath }).optional(),
+  landing: z.object({ directory: PagePath.refine((p) => p !== "/", { message: "Landing pages need a directory of their own, not /." }) }).optional(),
 });
 export type SiteDoc = z.infer<typeof SiteDoc>;
 /** A `SiteDoc` as written, before defaults. */

@@ -42,7 +42,7 @@ import { Autosaver, type AutosaveState } from "./autosave";
 import { createEditorConfig, type CanvasMetadata } from "./config";
 import { countTypes, fromEditorData, h1SectionId, placeholderSnapshot, toEditorData, type EditorData } from "./data";
 import { EditorLockContext, genesisOverrides } from "./overrides";
-import { landingDirectory } from "../core/landing";
+import { isLandingPage, landingDirectory } from "../core/landing";
 import { LandingPanel } from "./landing-panel";
 import { PagesPanel, menuItemProblems, type NewPageRequest } from "./pages-panel";
 import { loadSiteCss, renderPreview, styleText } from "./preview";
@@ -699,17 +699,23 @@ export function SiteEditor({ siteId, store, brand, forms, assets, onPublish, res
     holding(async () => {
       if (!(await flushAll())) throw new Error("Save your changes first.");
       const before = new Map(pages.map((p) => [p.id, p.path]));
-      const result = await setLandingDirectory(store, siteId, directory, { movePages, ...(reserved ? { reserved } : {}) });
-      const { draft } = await resync();
+      let result: Awaited<ReturnType<typeof setLandingDirectory>>;
+      try {
+        result = await setLandingDirectory(store, siteId, directory, { movePages, ...(reserved ? { reserved } : {}) });
+      } finally {
+        // Moves that landed before a failure moved paths and revisions on: take what the store has either way.
+        await resync().catch((err: unknown) => setNotice({ tone: "error", text: `Couldn't reload the pages; reload the editor before editing: ${(err as Error).message}` }));
+      }
+      const draft = siteSaver.current?.latest ?? null;
       // Menu links to a moved page follow it.
       const to = new Map(result.moved.map((m) => [before.get(m.id), m.path]));
-      if (draft && draft.site.nav.some((n) => to.has(n.href))) onNavChange(draft.site.nav.map((n) => (to.has(n.href) ? { ...n, href: to.get(n.href)! } : n)));
+      if (draft && draft.nav.some((n) => to.has(n.href))) onNavChange(draft.nav.map((n) => (to.has(n.href) ? { ...n, href: to.get(n.href)! } : n)));
       setNotice({ tone: "info", text: `New landing pages go in ${directory}.${result.moved.length ? ` Moved ${result.moved.length} landing page${result.moved.length === 1 ? "" : "s"}; their old addresses redirect.` : ""}` });
     });
 
   const reorder = async (pageId: string, by: -1 | 1) => {
     try {
-      setPages(await movePageInList(store, siteId, pageId, by, { within: (p) => p.kind !== "landing" }));
+      setPages(await movePageInList(store, siteId, pageId, by, { within: (p) => !isLandingPage(p) }));
     } catch (err) {
       setNotice({ tone: "error", text: (err as Error).message });
     }

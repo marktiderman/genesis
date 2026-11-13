@@ -221,7 +221,13 @@ export async function moveLandingPage(store: SiteStore, pageId: string, slug: st
  * address is checked before anything moves. Without it, existing pages keep
  * their addresses and only new landing pages use the new directory.
  *
- * Throws `SiteConflictError` when someone saved the site meanwhile.
+ * The moves and the save are separate store calls, not one transaction. If
+ * one fails partway, the error says which pages already moved; running the
+ * same change again finishes it (the pages still under the old directory
+ * move, and the directory is saved). The final save re-reads the site and
+ * tries once more when someone saved it meanwhile, then throws
+ * `SiteConflictError` (as the `cause` of the error naming the moves, when
+ * pages had already moved).
  *
  * @stability Beta
  */
@@ -232,6 +238,11 @@ export async function setLandingDirectory(store: SiteStore, siteId: string, dire
   const before = await store.getDraft(siteId);
   if (!before) throw new Error(`There's no site ${siteId}, or you can't edit it.`);
   const moved: PageMeta[] = [];
+  const partly = (err: unknown) =>
+    new Error(
+      `${moved.length ? `Moved ${moved.map((m) => m.path).join(", ")}, then stopped: ` : ""}${(err as Error).message}${moved.length ? " Change the directory to the same place again to finish." : ""}`,
+      { cause: err },
+    );
   if (options.movePages) {
     const pages = await store.listPages(siteId);
     const moves = landingMoves(pages, landingDirectory(before.site), directory);
@@ -243,15 +254,27 @@ export async function setLandingDirectory(store: SiteStore, siteId: string, dire
     const pending = [...moves];
     while (pending.length) {
       const k = pending.findIndex((m) => !pending.some((o) => o !== m && o.page.path === m.path));
-      if (k < 0) throw new Error("The landing pages' new addresses overlap their old ones; move them one at a time.");
+      if (k < 0) throw partly(new Error("The landing pages' new addresses overlap their old ones; move them one at a time."));
       const [m] = pending.splice(k, 1);
-      moved.push(await store.movePage(m!.page.id, m!.path));
+      try {
+        moved.push(await store.movePage(m!.page.id, m!.path));
+      } catch (err) {
+        throw partly(err);
+      }
     }
   }
-  // Moves write redirects into the site document: save on top of what they left.
-  const draft = moved.length ? await store.getDraft(siteId) : before;
-  if (!draft) throw new Error(`There's no site ${siteId}, or you can't edit it.`);
-  const saved = await store.saveSiteDraft(siteId, draft.rev, { ...draft.site, landing: { ...draft.site.landing, directory } });
-  if (isConflict(saved)) throw new SiteConflictError();
+  // Moves write redirects into the site document: save on top of what they left, and once more if someone saved meanwhile.
+  for (let attempt = 0; ; attempt++) {
+    const draft = attempt === 0 && !moved.length ? before : await store.getDraft(siteId);
+    if (!draft) throw partly(new Error(`There's no site ${siteId}, or you can't edit it.`));
+    let saved;
+    try {
+      saved = await store.saveSiteDraft(siteId, draft.rev, { ...draft.site, landing: { ...draft.site.landing, directory } });
+    } catch (err) {
+      throw partly(err);
+    }
+    if (!isConflict(saved)) break;
+    if (attempt >= 1) throw moved.length ? partly(new SiteConflictError()) : new SiteConflictError();
+  }
   return { directory, moved };
 }

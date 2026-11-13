@@ -58,6 +58,7 @@ export {
   LANDING_SLUG,
   landingDirectory,
   landingDirectoryProblems,
+  isLandingPage,
   landingMoves,
   landingPages,
   landingPath,

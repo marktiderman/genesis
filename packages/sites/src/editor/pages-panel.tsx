@@ -23,6 +23,7 @@ import { RadioGroup, RadioGroupItem } from "@marktiderman/genesis-ui/radio-group
 import { Separator } from "@marktiderman/genesis-ui/separator";
 import { Switch } from "@marktiderman/genesis-ui/switch";
 import { cn } from "@marktiderman/genesis-ui/utils";
+import { isLandingPage } from "../core/landing";
 import type { MenuItem, PageMeta } from "../core/schemas";
 import { isSafeHref, type ReservedPaths } from "../core/urls";
 import { pageTemplates, pathProblems, slugify, type PageTemplate } from "./site-actions";
@@ -55,7 +56,8 @@ export interface PagesPanelProps {
 }
 
 function AddPageDialog({ open, onOpenChange, pages, reserved, onCreate }: { open: boolean; onOpenChange(open: boolean): void; pages: readonly PageMeta[]; reserved?: ReservedPaths | undefined; onCreate(r: NewPageRequest): Promise<void> }) {
-  const templates = React.useMemo(() => pageTemplates(), []);
+  // Landing pages are made under Landing pages (in the landing directory, out of the menu), not here.
+  const templates = React.useMemo(() => pageTemplates().filter((t) => t.kind !== "landing"), []);
   const [title, setTitle] = React.useState("");
   const [path, setPath] = React.useState("");
   const [pathEdited, setPathEdited] = React.useState(false);
@@ -95,7 +97,7 @@ function AddPageDialog({ open, onOpenChange, pages, reserved, onCreate }: { open
         <form onSubmit={submit} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>Add a page</DialogTitle>
-            <DialogDescription>Start blank, from a template, or with a landing page made from your brand.</DialogDescription>
+            <DialogDescription>Start blank or from a template. For a campaign page, use New landing page under Landing pages.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2">
             <Label htmlFor={`${id}-title`}>Title</Label>
@@ -260,7 +262,7 @@ function MenuEditor({ nav, pages, busy, onChange }: { nav: readonly MenuItem[]; 
     });
   };
   // Landing pages are campaign pages: the menu doesn't suggest them.
-  const unlinked = pages.filter((p) => p.kind !== "landing" && !items.some((i) => i.href === p.path));
+  const unlinked = pages.filter((p) => !isLandingPage(p) && !items.some((i) => i.href === p.path));
   return (
     <div className="flex flex-col gap-3">
       {items.length === 0 ? <p className="text-sm text-muted-foreground">The menu is empty.</p> : null}
@@ -319,7 +321,7 @@ export function PagesPanel(props: PagesPanelProps) {
   const [adding, setAdding] = React.useState(false);
   const [renaming, setRenaming] = React.useState<PageMeta | null>(null);
   const [deleting, setDeleting] = React.useState<PageMeta | null>(null);
-  const ordinary = props.pages.filter((p) => p.kind !== "landing");
+  const ordinary = props.pages.filter((p) => !isLandingPage(p));
   return (
     <div className="flex flex-col gap-4 p-3">
       <div className="flex items-center justify-between">

@@ -634,13 +634,13 @@ What it does:
   unmounts with changes still waiting it saves them on the way out, but it
   can't wait for that save, so a host that must not lose them asks first.
   Undo and redo are Puck's history (the toolbar, or Ctrl+Z and Ctrl+Shift+Z).
-- **Pages**: open, add (blank, the landing page from your brand, or a starter
-  site page), change an address (the old one redirects with a 301; reserved
+- **Pages**: open, add (blank or a starter site page), change an address (the old one redirects with a 301; reserved
   paths are refused), delete, and edit the header menu. Reordering pages
   needs a store with `reorderPages(siteId, pageIds)`; without it the list is
   in the store's order.
 - **Landing pages** have their own section in the Pages tab: the site's
-  pages of kind `landing`, each with its address and whether the live
+  pages of kind `landing` other than the home page (`isLandingPage`: a
+  one-click landing site's `/` stays among the pages), each with its address and whether the live
   release has it (Published or Draft). **New landing page** asks a title and
   an address and makes the landing page from your brand at
   `<directory>/<address>`, opened in the same canvas; it isn't added to the
@@ -649,10 +649,12 @@ What it does:
   deleted, and it is edited, previewed, checked and published exactly like
   any other page, in the same release. The directory is the site's
   `landing.directory` (unset: `/go`, `DEFAULT_LANDING_DIRECTORY`), a page
-  path that isn't reserved. **Change the directory** sets it, and offers to
+  path other than `/` that isn't reserved. **Change the directory** sets it, and offers to
   move the landing pages already under the old one (each old address
   redirects); without that, they keep their addresses and only new landing
-  pages use the new directory. The same steps without the editor are
+  pages use the new directory. The moves aren't one transaction: if one
+  fails, the error names the pages that moved, and making the same change
+  again finishes it. The same steps without the editor are
   `createLandingPage`, `moveLandingPage` and `setLandingDirectory` from
   `/editor`; `landingDirectory`, `landingPath` and `landingSlugProblems`
   are in the root.

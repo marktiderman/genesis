@@ -8,7 +8,9 @@ import { describe, expect, it, vi } from "vitest";
 import "../sections/index";
 import {
   DEFAULT_LANDING_DIRECTORY,
+  SiteConflictError,
   SiteDoc,
+  isLandingPage,
   createMemorySiteStore,
   landingDirectory,
   landingDirectoryProblems,
@@ -61,19 +63,31 @@ describe("the landing directory setting", () => {
     expect(landingDirectoryProblems("/go")).toEqual([]);
   });
 
+  it("refuses / as the directory: it would take in every page", () => {
+    expect(landingDirectoryProblems("/")[0]).toMatch(/not \//);
+    expect(SiteDoc.safeParse({ schemaVersion: 1, name: "Example", landing: { directory: "/" } }).success).toBe(false);
+  });
+
+  it("keeps a landing-kind home page among the pages", () => {
+    const pages: Pick<PageMeta, "id" | "kind" | "path">[] = [
+      { id: "home", kind: "landing", path: "/" },
+      { id: "a", kind: "landing", path: "/go/a" },
+    ];
+    expect(isLandingPage(pages[0]!)).toBe(false);
+    expect(landingPages(pages).map((p) => p.id)).toEqual(["a"]);
+  });
+
   it("joins and splits a slug", () => {
     expect(landingPath("/go", "spring-offer")).toBe("/go/spring-offer");
-    expect(landingPath("/", "spring-offer")).toBe("/spring-offer");
     expect(landingSlugOf("/go", "/go/spring-offer")).toBe("spring-offer");
     expect(landingSlugOf("/go", "/go")).toBeNull();
     expect(landingSlugOf("/go", "/gone/x")).toBeNull();
-    expect(landingSlugOf("/", "/spring")).toBe("spring");
   });
 
   it("checks a slug is one segment and makes a usable path", () => {
     expect(landingSlugProblems("/go", "spring-offer")).toEqual([]);
     for (const bad of ["", "Spring", "spring/offer", "-spring", "spring--offer", "spring_offer"]) expect(landingSlugProblems("/go", bad).length, bad).toBeGreaterThan(0);
-    expect(landingSlugProblems("/", "api")[0]).toMatch(/reserved/);
+    expect(landingSlugProblems("/api", "x")[0]).toMatch(/reserved/);
   });
 
   it("plans moves for the landing pages under the old directory only", () => {
@@ -104,10 +118,11 @@ describe("landing pages on the memory store", () => {
   });
 
   it("refuses a bad slug, a reserved path and a taken address before asking the store", async () => {
-    const { store, siteId } = await site({ landing: { directory: "/" } });
+    const { store, siteId } = await site();
+    await store.createPage(siteId, { path: "/go/about", doc: page("Taken") });
     const create = vi.spyOn(store, "createPage");
     await expect(createLandingPage(store, siteId, { title: "X", slug: "Bad Slug", brand })).rejects.toThrow(/lowercase/);
-    await expect(createLandingPage(store, siteId, { title: "X", slug: "api", brand })).rejects.toThrow(/reserved/);
+    await expect(createLandingPage(store, siteId, { title: "X", slug: "x", brand, reserved: ["/go"] })).rejects.toThrow(/reserved/);
     await expect(createLandingPage(store, siteId, { title: "X", slug: "about", brand })).rejects.toThrow(/already/);
     await expect(createLandingPage(store, siteId, { title: "  ", slug: "ok", brand })).rejects.toThrow(/title/);
     expect(create).not.toHaveBeenCalled();
@@ -183,6 +198,52 @@ describe("landing pages on the memory store", () => {
     await setLandingDirectory(store, siteId, "/go/sub", { movePages: true });
     expect((await store.getPageDraft(a.id))!.path).toBe("/go/sub/a");
     expect((await store.getPageDraft(nested.id))!.path).toBe("/go/sub/sub/a");
+  });
+
+  it("changes the directory and back, leaving redirects and no loops", async () => {
+    const { store, siteId } = await site();
+    const spring = await createLandingPage(store, siteId, { title: "Spring", slug: "spring", brand });
+    await setLandingDirectory(store, siteId, "/offers", { movePages: true });
+    await setLandingDirectory(store, siteId, "/go", { movePages: true });
+    expect((await store.getPageDraft(spring.id))!.path).toBe("/go/spring");
+    const doc = (await store.getDraft(siteId))!.site;
+    expect(landingDirectory(doc)).toBe("/go");
+    expect(doc.redirects).toEqual([{ from: "/offers/spring", to: "/go/spring", status: 301 }]);
+  });
+
+  it("names the pages that moved when a move fails partway, and finishes on a second run", async () => {
+    const { store, siteId } = await site();
+    const a = await createLandingPage(store, siteId, { title: "A", slug: "a", brand });
+    const b = await createLandingPage(store, siteId, { title: "B", slug: "b", brand });
+    const real = store.movePage.bind(store);
+    const move = vi.spyOn(store, "movePage").mockImplementation(async (id, path) => {
+      if (id === b.id) throw new Error("The network went away.");
+      return real(id, path);
+    });
+    await expect(setLandingDirectory(store, siteId, "/offers", { movePages: true })).rejects.toThrow(/Moved \/offers\/a, then stopped: The network went away\..*again to finish/);
+    expect(landingDirectory((await store.getDraft(siteId))!.site)).toBe("/go");
+    move.mockRestore();
+    const again = await setLandingDirectory(store, siteId, "/offers", { movePages: true });
+    expect(again.moved.map((m) => m.id)).toEqual([b.id]);
+    expect((await store.getPageDraft(a.id))!.path).toBe("/offers/a");
+    expect(landingDirectory((await store.getDraft(siteId))!.site)).toBe("/offers");
+  });
+
+  it("saves the directory again on a conflict, and gives up after a second one", async () => {
+    const { store, siteId } = await site();
+    const real = store.saveSiteDraft.bind(store);
+    let conflicts = 1;
+    const save = vi.spyOn(store, "saveSiteDraft").mockImplementation(async (id, rev, doc) => {
+      if (conflicts-- > 0) return { conflict: (await store.getDraft(id))!.site, rev: rev + 1 };
+      return real(id, rev, doc);
+    });
+    await setLandingDirectory(store, siteId, "/offers");
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(landingDirectory((await store.getDraft(siteId))!.site)).toBe("/offers");
+
+    conflicts = 2;
+    await expect(setLandingDirectory(store, siteId, "/promo")).rejects.toThrow(SiteConflictError);
+    expect(landingDirectory((await store.getDraft(siteId))!.site)).toBe("/offers");
   });
 
   it("reorders ordinary pages past the landing pages between them", async () => {

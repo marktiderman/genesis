@@ -20,18 +20,19 @@ export function landingDirectory(site: Pick<SiteDoc, "landing"> | null | undefin
 
 /** The path of the landing page `slug` under `directory`: `("/go", "spring")` → `/go/spring`. */
 export function landingPath(directory: string, slug: string): string {
-  return directory === "/" ? `/${slug}` : `${directory}/${slug}`;
+  return `${directory}/${slug}`;
 }
 
 /** The slug of a page under `directory` (`/go/spring` → `spring`), or null for a path outside it. */
 export function landingSlugOf(directory: string, path: string): string | null {
-  const prefix = directory === "/" ? "/" : `${directory}/`;
+  const prefix = `${directory}/`;
   if (!path.startsWith(prefix) || path.length === prefix.length) return null;
   return path.slice(prefix.length);
 }
 
-/** Why `directory` can't hold landing pages (empty when it can): a page path, and not reserved. */
+/** Why `directory` can't hold landing pages (empty when it can): a page path other than `/`, and not reserved. */
 export function landingDirectoryProblems(directory: unknown, reserved: ReservedPaths = DEFAULT_RESERVED_PATHS): string[] {
+  if (directory === "/") return ["Landing pages need a directory of their own (like /go), not /."];
   return pagePathProblems(directory, reserved).map((p) => p.replace(/^A page path/, "A landing page directory"));
 }
 
@@ -41,9 +42,18 @@ export function landingSlugProblems(directory: string, slug: string, reserved: R
   return pagePathProblems(landingPath(directory, slug), reserved);
 }
 
-/** The site's landing pages, in the store's order. */
-export function landingPages<T extends Pick<PageMeta, "kind">>(pages: readonly T[]): T[] {
-  return pages.filter((p) => p.kind === "landing");
+/**
+ * Is this one of the site's landing pages? A page of kind `landing`, except
+ * the home page: a one-click landing site's `/` is the site's home page, and
+ * stays among the pages.
+ */
+export function isLandingPage(page: Pick<PageMeta, "kind" | "path">): boolean {
+  return page.kind === "landing" && page.path !== "/";
+}
+
+/** The site's landing pages (`isLandingPage`), in the store's order. */
+export function landingPages<T extends Pick<PageMeta, "kind" | "path">>(pages: readonly T[]): T[] {
+  return pages.filter(isLandingPage);
 }
 
 /**

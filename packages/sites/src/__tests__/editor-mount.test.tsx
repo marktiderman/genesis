@@ -10,7 +10,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "../sections/index";
-import { createMemorySiteStore, type PageDoc, type SiteStore } from "../index";
+import { createMemorySiteStore, landingPage, type PageDoc, type SiteStore } from "../index";
 import { SiteEditor, type SiteEditorProps } from "../editor/site-editor";
 import { brand } from "./fixtures";
 
@@ -269,6 +269,23 @@ describe("SiteEditor publishing", () => {
 });
 
 describe("SiteEditor landing pages", () => {
+  it("keeps a one-click landing site's home page among the pages, and Add page offers no landing template", async () => {
+    const store = createMemorySiteStore();
+    const t = landingPage({ brand, message: { headline: "Make things with people who know your name" } });
+    expect(t.pages[0]).toMatchObject({ path: "/", kind: "landing" });
+    const { siteId } = await store.createSite({ site: t.site, pages: t.pages });
+    const el = await mount({ siteId, store });
+    await openTab(el, "Pages");
+    expect(el.querySelector('ul[aria-label="Pages"]')?.textContent).toContain("/");
+    const section = await waitFor(() => el.querySelector<HTMLElement>("[data-gs-landing]"), "the Landing pages section");
+    expect(section.textContent).toContain("No landing pages yet.");
+
+    await act(async () => buttons(el, "Add page")[0]!.click());
+    const dialog = await waitFor(() => document.querySelector<HTMLElement>('[role="dialog"]'), "the Add page dialog");
+    expect(dialog.textContent).toContain("Blank page");
+    expect(dialog.textContent).not.toContain("Landing page from your brand");
+  });
+
   it("lists landing pages apart from the pages, and makes a new one that opens in the same canvas", async () => {
     const { store, siteId } = await publishableSite();
     await store.createPage(siteId, { path: "/go/spring", kind: "landing", doc: { schemaVersion: 1, root: { props: { title: "Spring" } }, content: [] } });

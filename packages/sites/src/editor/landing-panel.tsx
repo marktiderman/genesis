@@ -53,7 +53,7 @@ function SlugField({ id, directory, slug, problems, onChange, autoFocus }: { id:
     <div className="flex flex-col gap-2">
       <Label htmlFor={`${id}-slug`}>Address</Label>
       <div className="flex items-center gap-1">
-        <span className="shrink-0 text-sm text-muted-foreground">{directory === "/" ? "/" : `${directory}/`}</span>
+        <span className="shrink-0 text-sm text-muted-foreground">{`${directory}/`}</span>
         <Input id={`${id}-slug`} value={slug} placeholder="spring-offer" autoFocus={autoFocus} aria-invalid={problems.length > 0 || undefined} aria-describedby={`${id}-slug-hint`} onChange={(e) => onChange(e.currentTarget.value)} />
       </div>
       <p id={`${id}-slug-hint`} className={problems.length ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
@@ -152,11 +152,14 @@ function MoveLandingDialog({ page, pages, directory, reserved, onClose, onMove }
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const id = React.useId();
+  const initial = page ? (landingSlugOf(directory, page.path) ?? page.path.split("/").pop() ?? "") : "";
   React.useEffect(() => {
-    setSlug(page ? (landingSlugOf(directory, page.path) ?? page.path.split("/").pop() ?? "") : "");
+    setSlug(initial);
     setError(null);
-  }, [page, directory]);
+  }, [initial]);
   if (!page) return null;
+  // A page outside the directory (left there when the directory changed) moves into it: the dialog says so.
+  const outside = landingSlugOf(directory, page.path) === null;
   const path = landingPath(directory, slug);
   const unchanged = path === page.path;
   const problems = slug && !unchanged ? [...landingSlugProblems(directory, slug, reserved), ...taken(pages, path, page.id)] : [];
@@ -183,7 +186,10 @@ function MoveLandingDialog({ page, pages, directory, reserved, onClose, onMove }
         >
           <DialogHeader>
             <DialogTitle>Change the address of “{page.title}”</DialogTitle>
-            <DialogDescription>The old address, {page.path}, will redirect here, so links in ads and emails keep working.</DialogDescription>
+            <DialogDescription>
+              The old address, {page.path}, will redirect here, so links in ads and emails keep working.
+              {outside ? ` This page is outside ${directory}: saving moves it into ${directory}, at ${path}.` : ""}
+            </DialogDescription>
           </DialogHeader>
           <SlugField id={id} directory={directory} slug={slug} problems={problems} onChange={setSlug} autoFocus />
           {error ? (
@@ -196,7 +202,7 @@ function MoveLandingDialog({ page, pages, directory, reserved, onClose, onMove }
               Cancel
             </Button>
             <Button type="submit" loading={busy}>
-              Change address
+              {outside ? `Move into ${directory}` : "Change address"}
             </Button>
           </DialogFooter>
         </form>
@@ -289,10 +295,11 @@ export function LandingPanel(props: LandingPanelProps) {
   const [deleting, setDeleting] = React.useState<PageMeta | null>(null);
   const [editingDir, setEditingDir] = React.useState(false);
   const list = landingPages(props.pages);
+  const headingId = React.useId();
   return (
-    <section aria-labelledby="gs-landing-heading" className="flex flex-col gap-2" data-gs-landing="">
+    <section aria-labelledby={headingId} className="flex flex-col gap-2" data-gs-landing="">
       <div className="flex items-center justify-between">
-        <h2 id="gs-landing-heading" className="text-sm font-semibold">
+        <h2 id={headingId} className="text-sm font-semibold">
           Landing pages
         </h2>
         {props.readOnly ? null : (
@@ -302,7 +309,7 @@ export function LandingPanel(props: LandingPanelProps) {
         )}
       </div>
       <p className="text-sm text-muted-foreground">
-        Campaign pages, kept out of the menu, at {props.directory === "/" ? "/<address>" : `${props.directory}/…`}.
+        Campaign pages, kept out of the menu, at {props.directory}/….
         {props.readOnly ? null : (
           <>
             {" "}
@@ -329,7 +336,7 @@ export function LandingPanel(props: LandingPanelProps) {
               </button>
               {props.readOnly ? null : (
                 <div className="flex flex-wrap gap-1">
-                  <Button type="button" size="sm" variant="ghost" disabled={props.busy} onClick={() => setMoving(p)} aria-label={`Change the address of ${p.title}`}>
+                  <Button type="button" size="sm" variant="ghost" disabled={props.busy} onClick={() => setMoving(p)} aria-label={`Address of ${p.title}`}>
                     Address
                   </Button>
                   <Button type="button" size="icon" variant="ghost" disabled={props.busy} aria-label={`Delete ${p.title}`} onClick={() => setDeleting(p)}>
