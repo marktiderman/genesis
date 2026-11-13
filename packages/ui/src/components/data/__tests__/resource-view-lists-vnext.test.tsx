@@ -284,7 +284,7 @@ describe("review fixes: delete, edit, grouping and select-all-matching", () => {
   });
 
   it("deletes the chosen rows through the page's own delete, under the screen's can, with one confirm step", async () => {
-    const deleteOne = vi.fn(async () => ({ data: null }));
+    const deleteOne = vi.fn(async (_r: string, { id }: { id: string | number }) => ({ data: { id } }));
     const p = provider({ runAction: vi.fn(), deleteOne });
     render(<ResourceView view={view} can={(action, row) => action !== "delete" || (row as Task | undefined)?.id !== "b"} />, { wrapper: wrap(p) });
     await screen.findByText("Ship it");
@@ -294,7 +294,7 @@ describe("review fixes: delete, edit, grouping and select-all-matching", () => {
     expect(await screen.findByText("Delete 2 records?")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(deleteOne).toHaveBeenCalledTimes(2));
-    expect(deleteOne.mock.calls.map((c) => (c as unknown as [string, { id: string }])[1].id).sort()).toEqual(["a", "c"]);
+    expect(deleteOne.mock.calls.map((c) => c[1].id).sort()).toEqual(["a", "c"]);
   });
 
   it("disables bulk Delete when the screen refuses every chosen row", async () => {

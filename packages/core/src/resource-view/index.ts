@@ -128,3 +128,26 @@ export type {
   WidgetKind,
   WidgetRequest,
 } from "./widget";
+// Calendars over a view's rows: shared by the web's calendar, custom views and the phone's.
+export {
+  calendarEvents,
+  calendarLanes,
+  calendarWindow,
+  displayZone,
+  eventDays,
+  eventDots,
+  laneKeys,
+  placeEvents,
+  shiftAnchor,
+  timeStorage,
+  warnOnce,
+  windowBounds,
+  type CalendarEvent,
+  type CalendarEventOptions,
+  type CalendarLane,
+  type CalendarLayout,
+  type CalendarWeeks,
+  type CalendarWindowOptions,
+  type PlacedEvent,
+  type TimeStorage,
+} from "./calendar";
