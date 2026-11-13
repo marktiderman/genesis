@@ -1,0 +1,47 @@
+.changeset/sites-landing-directory.md
+  s_a2e5357843c63e::t_1fd23f206f30a3 10,14-20
+packages/sites/README.md
+  s_a2e5357843c63e::t_7828dbde03b05b 637,642-643,652,655-657
+packages/sites/src/__tests__/editor-mount.test.tsx
+  s_a2e5357843c63e::t_58b4162b3b0bbe 13,272-288
+packages/sites/src/__tests__/landing.test.ts
+  s_a2e5357843c63e::t_2003375387d8fb 11,13,66-79,90,121-122,125,203-248
+packages/sites/src/core/landing.ts
+  s_a2e5357843c63e::t_16356f81cd6d65 23,28,33,35,45-56
+packages/sites/src/core/schemas.ts
+  s_a2e5357843c63e::t_837c0317efecfb 289
+packages/sites/src/editor/landing-panel.tsx
+  s_a2e5357843c63e::t_8ac15cc1382877 56,155,157,159,161-162,189-192,205,298,300,302,312,339
+packages/sites/src/editor/pages-panel.tsx
+  s_a2e5357843c63e::t_1a388a3d2a80b1 26,59-60,100,265,324
+packages/sites/src/editor/site-actions.ts
+  s_a2e5357843c63e::t_b31f18d196d367 224-230,241-245,257,259-263,266-278
+packages/sites/src/editor/site-editor.tsx
+  s_9c94fb8fc662ae::t_73c6e73628aeb1 45,702-709,712,718
+packages/sites/src/index.ts
+  s_a2e5357843c63e::t_c3f976343485ae 61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dab9d35938b2284fab81a6141b736191fa1ccd79",
+  "prompts": {},
+  "sessions": {
+    "s_9c94fb8fc662ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43574400-0d77-49f7-ac4b-1586a7ece165",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
