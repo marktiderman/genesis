@@ -221,7 +221,7 @@ export const brandsView = defineView(contracts["public.brands"], {
 ```tsx
 <ResourceView view={brandsView} />
 <ResourceView view={brandsView} columns="compact" layout="embedded" filter={{ org_id }} />
-<ResourceView view={sessionsView} layout="embedded" filter={{ client_id: id }} mode="grid" />
+<ResourceView view={sessionsView} layout="embedded" filter={{ client_id: id }} type="grid" />
 ```
 
 Screen settings:
@@ -237,16 +237,20 @@ Screen settings:
   filled hidden and sent on create, like `filter`. The filter wins a clash;
 - `onSaved(row, action)`: after the built-in form saves, e.g. to open a builder for a new row.
   A pessimistic save gives the server's row with its key;
-- `mode`: `table`, `grid` (cards), `list`, `calendar` ([Calendar](#calendar)) or `board`
-  ([Board](#board)); `sheet` is
+- `type`: the view type ([View types](#view-types)): `table`, `grid` (cards), `list`, `calendar`
+  ([Calendar](#calendar)), `board` ([Board](#board)), `gallery` ([Gallery](#gallery)) or one the
+  app registered;
+- `mode`: `type`'s older name, kept as its alias; `sheet` is
   **Planned** ([`resource-view-sheet`](../features.ts));
+- `open`: how a record opens, `side-peek`, `center-peek` or `page` ([Record pages](#record-pages));
+- `recordView`: the record view a peek draws, over the view's own;
 - `header`: `page` (the full header) or `toolbar` (its actions without the title block);
 - `toolbar`: content beside the header's actions;
 - `cells`: draw some cells this screen's way, by column key;
 - `slots` and `slotProps`: replace or adjust ResourcePage's parts (`shell`, `filters`, `bulkBar`,
   `grid`, `table`, `detail`, `form`, `deleteDialog`);
 - `tree`: nested rows from a flat list ([Tree mode](#tree-mode)).
-- `calendar` and `board`: the screen's settings for those modes, over the view's blocks.
+- `calendar` and `board`: the screen's settings for those view types, over the view's blocks.
 
 Every other ResourcePage prop passes through (`renderCard`, `renderDetail`, `live`, `pagination`).
 
@@ -1008,6 +1012,87 @@ export const brandRecordView = defineRecordView(brandsView, {
 - **Saving** sends only the section's changed, listed, visible keys. A save that matches no rows
   is a refusal, shown inline; a number field never saves NaN.
 
+## View types
+
+<!-- api: ViewTypeDefinition, ResourceViewProps -->
+
+A **view** is the rules for a resource's list; a **view type** is how it shows. One view shows as
+any of them, picked by the screen with `type` (`mode` is its older alias, and `type` wins):
+
+| View type | What it draws |
+| --- | --- |
+| `table`, `list`, `grid` | rows, cards or a list, through ResourcePage; the person switches between them and their pick is remembered |
+| `board` | a column per value of the view's `board` field ([Board](#board)) |
+| `calendar` | the rows placed by a date field ([Calendar](#calendar)) |
+| `gallery` | a photo per row, from the view's `gallery` block ([Gallery](#gallery)); `type="grid"` with a gallery block still draws it too |
+
+An app adds its own, and every screen picks it the same way:
+
+```tsx
+import { defineViewType, registerViewType, useViewList, type ResourceViewProps } from "@marktiderman/genesis-ui/data";
+
+function Timeline({ view }: ResourceViewProps) {
+  const list = useViewList(view);
+  return <ol>{list.rows.map((row) => <li key={list.keyOf(row)}>{String(row.title)}</li>)}</ol>;
+}
+export const timelineType = defineViewType({ id: "timeline", label: "Timeline", render: Timeline });
+registerViewType(timelineType); // once, at start-up
+```
+
+- `id`: lowercase letters, digits and hyphens; a built-in id can't be taken and a second
+  registration under one id throws unless `{ replace: true }`.
+- `render`: gets the screen's ResourceView props. The headless hooks give it the view's data
+  ([Custom views](#custom-views)): scope, filters, paging, permissions and live updates are the
+  view's, whatever it draws.
+- The registry reads with `resolveViewType(id)` and `listViewTypes()`; an unknown `type` throws,
+  naming the registered ones.
+- The doctor's `ui/lists-use-resource-view` rule accepts a file that defines or registers a view
+  type: its lists are the type's own drawing.
+- On the phone, `NativeResourceView` takes `type` too: `list`, `grid` or `gallery`; its board and
+  calendar aren't built yet.
+
+## Record pages
+
+<!-- api: ViewDefinition<any>, RecordViewDefinition<any>, RecordPeekProps<any>, RecordViewProps<any> -->
+
+A record opened from a view is a **record page**, shown one of three ways. The view says which,
+so the list, the board and the calendar open records alike:
+
+```ts
+export const tasksView = defineView(tasksContract, {
+  open: "center-peek",                 // "side-peek" (default), "center-peek" or "page"
+  recordView: (): AnyRecordView => taskRecordView, // the record view a peek draws (its type named)
+});
+export const taskRecordView = defineRecordView(tasksView, { sections: [{ id: "about", label: "About" }] });
+```
+
+- `open`: a **side peek** (a sheet at the edge, the list beside it), a **center peek** (a dialog)
+  or the record's full **page** (`/{resource}/{id}` through `onNavigate`). A screen's `open`, or
+  ResourcePage's older `detail` (`panel`, `modal`, `route`, which it still takes beside the new
+  words), wins.
+- `recordView`: a function, since the record view is defined from the view; name its return
+  type (`AnyRecordView`), or TypeScript can't infer the view and the record view from each other.
+  A peek then draws
+  `RecordView` inline (`presentation="peek"`: its header, its sections as tabs that switch in place,
+  its actions and settings), the same page a full-page route draws. Without one, a peek shows the
+  view's columns, as before.
+- To open one by hand: `<RecordPeek view={taskRecordView} row={task} open onClose={close} mode="center-peek" />`.
+- **Templates:** a record view is `standard` (a header, then the sections) or `document`: a cover,
+  an icon, a large title, the properties, then the body, from the fields its `document` names:
+
+```ts
+export const noteRecordView = defineRecordView(notesView, {
+  template: "document",
+  document: { cover: "cover_url", icon: "emoji", properties: ["status", "due_on"], body: "body" },
+  sections: [], // a document may have none
+});
+```
+
+  `defineRecordView` checks each is a field (cover, icon and body text fields). A part whose field
+  is empty on a row isn't drawn. Parts: `record-page` (`data-template`, `data-presentation`),
+  `record-peek` (`data-open`), `record-page-cover`, `record-page-icon`, `record-page-title`,
+  `record-page-properties` and `record-page-body`.
+
 ## Custom views
 
 <!-- api: CustomViewProps<any>, UseViewListOptions<any> -->
@@ -1116,7 +1201,7 @@ exactly as above.
   It owns the whole row: no inset group cell or separator is drawn around it, and the screen still
   wraps it in `swipeable` when it has actions. Pass a stable function (`useCallback`) for long lists.
 
-## Other surfaces (extensions, popups, side panels)
+## Other channels (extensions, popups, side panels)
 
 - The view entry has no React and no DOM, so a service worker, content script or server code can
   use `summary`, labels, the `select` list and form data.

@@ -5,7 +5,7 @@
 import { NO_VIEWER, type Viewer } from "../viewer";
 import { encodeRecordKey, keyFields } from "../schema/keys";
 import type { GalleryItem } from "../gallery";
-import type { DataRow, FieldSchema, ResourceContract } from "../schema/types";
+import { fieldControl, type DataRow, type FieldSchema, type ResourceContract } from "../schema/types";
 import { titleCase } from "../utils";
 import { isTimeZone } from "../dates";
 import { ViewDefinitionError } from "./errors";
@@ -25,7 +25,9 @@ import type {
   ViewDefinition,
   ViewField,
   ViewGallery,
+  RecordOpen,
 } from "./types";
+import { RECORD_OPEN_MODES } from "./types";
 
 // Facts a contract may carry from `@genesis` comments. Read loosely so a contract emitted before
 // they existed still works.
@@ -43,7 +45,7 @@ export { ViewDefinitionError } from "./errors";
 /** The display a field gets when the view doesn't name one. */
 export function deriveDisplay(field: FieldSchema): DisplayHint {
   if (field.references) return "relation";
-  switch (field.widget) {
+  switch (fieldControl(field)) {
     case "url":
       return "url";
     case "email":
@@ -380,6 +382,12 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   }
   for (const name of scope) known(name, "scope");
   if (definition.groupBy) known(definition.groupBy, "groupBy");
+  const rawOpen = (definition as { open?: unknown }).open;
+  if (rawOpen !== undefined && !RECORD_OPEN_MODES.includes(rawOpen as RecordOpen)) {
+    problems.push(`open is ${RECORD_OPEN_MODES.map((m) => `"${m}"`).join(", ")}, not ${JSON.stringify(rawOpen)}`);
+  }
+  const rawRecordView = (definition as { recordView?: unknown }).recordView;
+  if (rawRecordView !== undefined && typeof rawRecordView !== "function") problems.push("recordView is a function that returns the record view (`() => brandRecordView`)");
   // A copy, frozen like the other blocks: changing the object passed in can't change the view.
   // Checked as written first: a plain object with a field, and only keys a calendar has.
   const rawCalendar = definition.calendar as unknown;

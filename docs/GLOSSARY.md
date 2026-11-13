@@ -45,7 +45,7 @@ The ten pieces of how an app looks and works (ADR 0018). Each combines freely wi
 
 | Term | Definition | Don't use |
 |---|---|---|
-| **record page** | one record shown on its own: opened as a **side peek**, a **center peek** or a **full page**, on a record page template (standard, document). | detail panel, detail page (for this), workspace, modal (for a peek). |
+| **record page** | one record shown on its own: opened as a **side peek**, a **center peek** or a **full page** (a view's `open`: `side-peek`, `center-peek`, `page`), on a record page template (`standard`, `document`; ADR 0021). | detail panel, detail page (for this), workspace, modal (for a peek). |
 | **custom view** | a screen an app draws itself over a view, while Genesis keeps the view's states, data, URL and permissions. | surface, custom UI, skin. |
 | **layout** | how an app is navigated and framed: its navigation (sidebar, rail, top tabs, bottom bar, page tree), its **frame** (flush, inset) and its page templates. In a theme, the `AppShell` options it starts from (`AppThemeLayout`). | skeleton, chrome. |
 | **page template** | a ready page layout component (DashboardPage, SettingsPage, FormPage, DetailPage). | template (bare), page type. |
@@ -54,7 +54,7 @@ The ten pieces of how an app looks and works (ADR 0018). Each combines freely wi
 | **app theme** | a named bundle: a brand, a style and a layout, each optional (`defineAppTheme`, genesis-ui). | theme for light and dark, skin. |
 | **appearance** | light, dark or system: the person's choice (`GenesisThemeProvider`, `data-theme`). | theme, mode, color scheme (except sites' `colorScheme`). |
 | **density** | how tightly rows and controls sit: compact, comfortable, spacious. A theme sets the default; the person's choice wins. |  |
-| **widget** | a small tile on a dashboard or a record page's sidebar (a number, a streak, a mini list), fed by a view. Scoped exception: a field's `widget` in core's field schema is a form control hint. | gadget, card (for this), tile (in APIs). |
+| **widget** | a small tile on a dashboard or a record page's sidebar (a number, a streak, a mini list), fed by a view. A field's form-control hint is its `control` (core's field schema); its older name `widget` is a deprecated alias (ADR 0021). | gadget, card (for this), tile (in APIs). |
 | **template** | always qualified: page template, record page template, site template, Code Connect template, `--template`. | template alone. |
 | **surface** | only a coloured ground (a band's `surface`, a brand's surface scale) or an extension's window (`openSurface`). ADR 0009's "surface" is a **channel** (UI, API, AI tool). | surface for a custom view or a page. |
 
@@ -65,7 +65,7 @@ The ten pieces of how an app looks and works (ADR 0018). Each combines freely wi
 | **resource** | the typed contract for one data source a view reads and writes (`defineResource`). | entity, model, collection, schema (for this). |
 | **record** | one item of a resource. Use "row" only inside grid and sheet UIs. | entity, item (in APIs), document. |
 | **view** | the rules for a resource's list, whatever its view type: scope, filters, sort, paging, selection, permissions, live updates and URL state (`defineView`). How it shows is its **view type**. | list config, table config. Data Studio's saved grids are **saved views**. |
-| **view type** | how a view shows: table, list, grid, board, calendar, gallery, sheet (`<ResourceView mode>` today). | mode (except the `mode` prop), list UI, layout (for this). |
+| **view type** | how a view shows: table, list, grid, board, calendar, gallery, or one an app registers (`<ResourceView type>`, `defineViewType`, `registerViewType`; ADR 0021). Sheet is planned. | mode (except the `mode` prop, `type`'s alias), list UI, layout (for this). |
 | **record view** | the description of one record's page (`defineRecordView`), which a **record page** renders. | resource workspace (removed earlier; `m.workspace.*` message keys and the `native-resource-workspace-menu` testID still carry it), detail panel. |
 | **table** | a Postgres table. Never used for a resource. |  |
 | **data provider** | the implementation behind resources (`DataProvider`, `createSupabaseProvider`). |  |

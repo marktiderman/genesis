@@ -14,6 +14,7 @@ export * from "./form-types";
 // "./provider" above, so only the rest is listed here.
 export type {
   StorageType,
+  ControlHint,
   WidgetHint,
   DataRow,
   FieldPermissions,
@@ -33,7 +34,7 @@ export type {
   RecordComment,
 } from "./schema/types";
 export { keyFields, encodeRecordKey, decodeRecordKey } from "./schema/keys";
-export { defineResource } from "./schema/types";
+export { defineResource, fieldControl } from "./schema/types";
 export { writeConflict, type WriteConflict, type WriteConflictOptions, type WriteState } from "./schema/write-state";
 
 // Query keys

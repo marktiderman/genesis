@@ -47,3 +47,16 @@ export {
   type UseCustomViewOptions,
 } from "./CustomView";
 export { useReducedMotion } from "../../../hooks/use-reduced-motion";
+// View types and record pages (ADR 0021).
+export {
+  defineViewType,
+  listViewTypes,
+  registerViewType,
+  resolveViewType,
+  type BuiltInViewType,
+  type ViewType,
+  type ViewTypeDefinition,
+  type ViewTypeName,
+} from "./view-types";
+export { RecordPeek, type RecordPeekProps } from "./RecordPeek";
+export { detailMode, recordOpen, type DetailMode } from "./open-modes";

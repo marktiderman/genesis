@@ -7,17 +7,18 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { BaseRecord, DataRow, FilterParam, ResourceContract, UseResourceOptions } from "@marktiderman/genesis-core";
 import type { LiveOptions } from "@marktiderman/genesis-core/hooks";
-import type { ResourceView as View, ViewBoard, ViewTone } from "@marktiderman/genesis-core/resource-view";
+import type { RecordOpen, RecordView as RecordViewDef, ResourceView as View, ViewBoard, ViewTone } from "@marktiderman/genesis-core/resource-view";
+import { defaultNavigate, type NavigateFn } from "../../../navigation";
 import { Button } from "../../ui/button";
 import { cn } from "../../../utils";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { ConflictSheet } from "../ConflictSheet";
-import { DetailPanel } from "../DetailPanel";
 import { KanbanBoard, type ColumnStatus, type KanbanColumn } from "../KanbanBoard";
 import type { ResourceAction } from "../ResourcePage";
 import { useDisplayCell } from "./display";
 import { useViewDetailFields } from "./view-list";
 import { useViewBoard } from "./use-view-board";
+import { recordViewOf, resolveRecordOpen, ViewRecordPeek } from "./record-open";
 
 type Row = Record<string, unknown>;
 
@@ -39,6 +40,16 @@ export interface ResourceBoardOptions<T extends Row = Row> extends Partial<ViewB
   onMoveError?: (error: unknown, row: T) => void;
   /** Cards per column page. Default 50. */
   perPage?: number;
+  /**
+   * How a card opens (ADR 0021): `side-peek`, `center-peek` or `page` (navigates to
+   * `/{resource}/{id}` through `onNavigate`), or `none`. Default the view's `open`, else a side peek.
+   */
+  open?: RecordOpen | "none";
+  /** The record view a peek draws. Default the view's `recordView`, else the view's columns. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
+  recordView?: RecordViewDef<ResourceContract<any>, any>;
+  /** With `open="page"`: how to go to the record's page. Default a full-page navigation. */
+  onNavigate?: NavigateFn;
 }
 
 export interface ResourceBoardProps<T extends Row = Row> extends ResourceBoardOptions<T> {
@@ -106,6 +117,13 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
   const { field: fieldName, block, keyOf, titleOf, movable, saving, conflict } = board;
   const cardFields = block.cardFields ?? [];
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const openMode = resolveRecordOpen(view, props.open);
+  const recordView = recordViewOf(view, props.recordView);
+  const choose = (row: T) => {
+    if (onSelect) return onSelect(row);
+    if (openMode === "page") return (props.onNavigate ?? defaultNavigate)(`/${view.resource}/${keyOf(row)}`);
+    if (openMode !== "none") setOpenKey(keyOf(row));
+  };
   // Columns past either edge: a fade there says the board scrolls sideways. It's decoration: the
   // columns are regions a screen reader lists, and focusing a card or handle scrolls it into view.
   // Measured from the start edge, so it works right to left too (where scrollLeft runs negative).
@@ -146,8 +164,10 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
     ) : (
       <button
         type="button"
-        onClick={() => (onSelect ? onSelect(row) : setOpenKey(keyOf(row)))}
+        onClick={() => choose(row)}
         aria-busy={saving.has(keyOf(row)) || undefined}
+        data-slot="board-card"
+        data-saving={saving.has(keyOf(row)) ? "" : undefined}
         className={cn(
           "w-full rounded-lg border bg-card p-3 text-left text-sm shadow-sm hover:border-primary/50",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -175,7 +195,7 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
   const refusal = board.refusal;
 
   return (
-    <div className={className} data-testid={testID} aria-busy={board.loading || undefined}>
+    <div data-slot="board" className={className} data-testid={testID} aria-busy={board.loading || undefined}>
       {title && <h2 className={cn("text-lg font-semibold", !subtitle && "mb-2")}>{title}</h2>}
       {subtitle && <p className="mb-2 text-sm text-muted-foreground">{subtitle}</p>}
       {board.ownFilterSetAside && <p className="mb-2 text-xs text-muted-foreground">{fillMessage(m.board.ownFilterSetAside, { field: view.label(fieldName) })}</p>}
@@ -228,14 +248,7 @@ export function ResourceBoard<T extends Row = Row>(props: ResourceBoardProps<T>)
         onDismiss={board.takeTheirs}
         testID={`${testID}-conflict`}
       />
-      <DetailPanel<T>
-        item={open}
-        open={open !== null}
-        onClose={() => setOpenKey(null)}
-        title={open ? titleOf(open) : undefined}
-        subtitle={open ? view.summary(open as T & DataRow).subtitle : undefined}
-        fields={detailFields}
-      />
+      <ViewRecordPeek<T> view={view} recordView={recordView} open={openMode} row={open} onClose={() => setOpenKey(null)} fields={detailFields} />
     </div>
   );
 }

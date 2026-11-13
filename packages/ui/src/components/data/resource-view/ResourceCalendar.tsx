@@ -10,11 +10,11 @@ import { useDataProvider, type DataRow, type FilterParam, type ResourceContract 
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
 import { addDays, dayIn, isTimeZone, readEventTime, type Day } from "@marktiderman/genesis-core/dates";
 import { loadRelationLabel, useOptionalViewerScope, type LiveOptions } from "@marktiderman/genesis-core/hooks";
-import { calendarProblems, type ResourceView as View, type ViewCalendar, type ViewCalendarDurationUnit } from "@marktiderman/genesis-core/resource-view";
+import { calendarProblems, type RecordOpen, type RecordView as RecordViewDef, type ResourceView as View, type ViewCalendar, type ViewCalendarDurationUnit } from "@marktiderman/genesis-core/resource-view";
+import { defaultNavigate, type NavigateFn } from "../../../navigation";
 import { Button } from "../../ui/button";
 import { cn } from "../../../utils";
 import { fillMessage, useUiMessages } from "../../../messages";
-import { DetailPanel } from "../DetailPanel";
 import { EventCalendar } from "../calendar/EventCalendar";
 import { calendarLanes, calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout, type CalendarWeeks } from "../calendar/placement";
 import { PrintableAgenda, type PrintableSection } from "../calendar/PrintableAgenda";
@@ -23,6 +23,7 @@ import { useFollowedState } from "../calendar/use-followed-state";
 import { anchorOr, layoutOr, warnOnce } from "../calendar/guard";
 import { useViewDetailFields } from "./view-list";
 import { CALENDAR_LIMIT, displayZone, useViewCalendarRange } from "./use-view-calendar-range";
+import { recordViewOf, resolveRecordOpen, ViewRecordPeek } from "./record-open";
 
 export { CALENDAR_LIMIT };
 import { useIsMobile } from "../../../hooks/use-mobile";
@@ -84,8 +85,18 @@ export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<Vi
   limit?: number;
   /** The agenda shows empty days too. */
   showEmptyDays?: boolean;
-  /** A row was chosen. Default: the view's peek. */
+  /** A row was chosen. Default: the view's peek (or page, with `open="page"`). */
   onSelect?: (row: T) => void;
+  /**
+   * How an event's record opens (ADR 0021): `side-peek`, `center-peek` or `page` (navigates to
+   * `/{resource}/{id}` through `onNavigate`), or `none`. Default the view's `open`, else a side peek.
+   */
+  open?: RecordOpen | "none";
+  /** The record view a peek draws. Default the view's `recordView`, else the view's columns. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
+  recordView?: RecordViewDef<ResourceContract<any>, any>;
+  /** With `open="page"`: how to go to the record's page. Default a full-page navigation. */
+  onNavigate?: NavigateFn;
   /**
    * Print one sheet per lane (PrintableAgenda) for the week the calendar shows, instead of the
    * calendar itself: the same rows, scope and filters, with no screen code reading data. Lanes
@@ -177,8 +188,10 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const {
     field: fieldName, endField, durationField, durationUnit = "minutes", allDayField, layout: layoutProp, phoneLayout, layouts, onLayoutChange,
     weeks: weeksProp = 2, weeksOptions, onWeeksChange, toolbar, colorLanes, weekStartsOn = 1, timeZone, anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, classNameOf, statusOf,
-    limit = CALENDAR_LIMIT, showEmptyDays, onSelect, print,
+    limit = CALENDAR_LIMIT, showEmptyDays, onSelect, print, onNavigate,
   } = settings;
+  const openMode = resolveRecordOpen(view, props.open);
+  const recordView = recordViewOf(view, props.recordView);
   const m = useUiMessages();
   const provider = useDataProvider();
   const viewerScope = useOptionalViewerScope();
@@ -434,18 +447,15 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
             )}
           </>
         }
-        onSelect={(e) => (onSelect ? onSelect(e.row as T) : setOpenKey(e.key))}
+        onSelect={(e) => {
+          if (onSelect) return onSelect(e.row as T);
+          if (openMode === "page") return (onNavigate ?? defaultNavigate)(`/${view.resource}/${e.key}`);
+          if (openMode !== "none") setOpenKey(e.key);
+        }}
         loading={loading}
         testID={testID}
       />
-      <DetailPanel<T>
-        item={open}
-        open={open !== null}
-        onClose={() => setOpenKey(null)}
-        title={open ? view.summary(open as T & DataRow).title : undefined}
-        subtitle={open ? view.summary(open as T & DataRow).subtitle : undefined}
-        fields={detailFields}
-      />
+      <ViewRecordPeek<T> view={view} recordView={recordView} open={openMode} row={open} onClose={() => setOpenKey(null)} fields={detailFields} />
     </div>
   );
 }

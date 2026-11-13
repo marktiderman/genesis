@@ -150,7 +150,11 @@ and use it the same way.
 | Page title row with count, view toggle, options               | `PageHeader` (+ `options.configurable` for the in-header options popover)          | `/layout`                                                         |
 | A list screen over a resource                                 | a view (`defineView`) rendered by `ResourceView`; never a hand-built table        | `@marktiderman/genesis-core/resource-view` + `/data`              |
 | A record view: header, actions, sections, child lists         | a record view (`defineRecordView`) rendered by `RecordView`                    | `@marktiderman/genesis-core/resource-view` + `/data`              |
-| A view's rows on a calendar: month, 1–4 weeks, agenda (prints), lanes per person | the view's `calendar` block (`defineView`) and `<ResourceView view={…} mode="calendar" />`; `EventCalendar` for events that aren't a view's rows | `/data` (ranges and RRULE expansion in `@marktiderman/genesis-core/dates`) |
+| A view's rows on a calendar: month, 1–4 weeks, agenda (prints), lanes per person | the view's `calendar` block (`defineView`) and `<ResourceView view={…} type="calendar" />`; `EventCalendar` for events that aren't a view's rows | `/data` (ranges and RRULE expansion in `@marktiderman/genesis-core/dates`) |
+| How a view shows (a view type): table, list, grid, board, calendar, gallery, or the app's own | `<ResourceView view={…} type="board" />` (`mode` is its alias); an app's own with `defineViewType` + `registerViewType` | `/data` |
+| How a record opens: side peek, center peek or its page          | the view's `open` (`defineView`) and `recordView` (the record view a peek draws); a screen's `open` wins; `RecordPeek` on its own | `@marktiderman/genesis-core/resource-view` + `/data` |
+| A record page laid out like a document: cover, icon, title, properties, body | `defineRecordView(view, { template: "document", document: { … } })` rendered by `RecordView` | `@marktiderman/genesis-core/resource-view` + `/data` |
+| A screen the app draws itself over a view (a custom view)     | `<CustomView view type>{(state) => …}</CustomView>`: Genesis draws loading, empty and error; `useViewList`, `useViewBoard`, `useViewCalendarRange` underneath | `/data` |
 | The same list or record on the phone                          | `NativeResourceView`, `NativeRecordView` from the same view                 | `@marktiderman/genesis-ui-native/data`                            |
 | Reading and writing data                                      | the view and the resource's provider (`useWrite`, the view's form); never `supabase.from` in a screen | `@marktiderman/genesis-core`                     |
 | List page chrome: header, filters, loading/empty/error        | `DataPageShell` (`stats`, `filters` slots)                                         | `/data`                                                           |
@@ -267,8 +271,14 @@ same options and returns:
 - the open record (`handleRowClick`, `detailOpen`, `selectedItem`, `closeDetail`);
 - the built-in form and delete state.
 
-Build a board, a calendar or a custom card wall on it instead of re-deriving that wiring.
-`ResourcePage` is this hook plus Genesis's markup.
+Build a custom card wall on it instead of re-deriving that wiring. `ResourcePage` is this hook
+plus Genesis's markup. For a screen over a view that isn't a table at all (a leaderboard, a
+timeline), use a custom view: `<CustomView view={…}>{(state) => …}</CustomView>` keeps the view's
+data, URL, live updates and permissions and draws loading, empty and error, and `useViewList`,
+`useViewBoard` and `useViewCalendarRange` are the same data a table, board and calendar use
+([Custom views](https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#custom-views)).
+When more than one screen wants that drawing, make it a view type (`defineViewType`,
+`registerViewType`) and pick it with `<ResourceView type>`.
 
 ## Big tables
 

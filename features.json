@@ -772,6 +772,116 @@
       "flags": []
     },
     {
+      "id": "view-types",
+      "name": "View types",
+      "summary": "How a view shows (ADR 0021): <ResourceView type> picks a view type from one registry: Genesis's table, list, grid (the person switches between them), board, calendar and gallery (the grid as photos, now its own type), or one an app adds with defineViewType and registerViewType (a timeline, a map), drawn with the headless view hooks so its scope, filters, paging, permissions and live updates are the view's. `mode` stays as type's alias. NativeResourceView takes type too (list, grid, gallery). The ui doctor's lists-use-resource-view rule accepts a file that defines or registers a view type.",
+      "status": "building",
+      "kind": "pattern",
+      "keywords": [
+        "view type",
+        "defineViewType",
+        "registerViewType",
+        "type prop",
+        "mode",
+        "timeline",
+        "map view",
+        "custom list type",
+        "gallery type"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "<ResourceView type> draws every built-in view type and any registered one; an unknown type throws naming the registered ones, and a built-in type can't be replaced.",
+        "type=\"gallery\" draws the grid as photos from the view's gallery block (and asks for one); mode keeps working as type's alias."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/ui/src/components/data/resource-view/view-types.tsx",
+          "packages/ui/src/components/data/resource-view/ResourceView.tsx"
+        ],
+        "docs": [
+          "docs/adr/0021-view-types-and-record-pages.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "record-pages",
+      "name": "Record pages: peeks and templates",
+      "summary": "One record shown on its own (ADR 0021): a view declares how its records open, `open: \"side-peek\" | \"center-peek\" | \"page\"`, and the record view a peek draws (`recordView: (): AnyRecordView => recordView`), and the list, the board and the calendar all honour it; a screen's `open` (or ResourcePage's older detail panel/modal/route, still accepted and mapped) wins. A peek draws RecordView inline (presentation=\"peek\": header, actions, readiness and sections as tabs that switch in place) in a sheet or a dialog (RecordPeek), the same page a full-page route draws. defineRecordView takes a template: standard, or document (a cover, an icon, a large title, the properties and the body). A field's form-control hint is now `control`, with `widget` a deprecated alias every reader still reads (fieldControl).",
+      "status": "building",
+      "kind": "pattern",
+      "keywords": [
+        "record page",
+        "peek",
+        "side peek",
+        "center peek",
+        "full page",
+        "open mode",
+        "RecordPeek",
+        "document template",
+        "record template",
+        "cover",
+        "control hint",
+        "detail panel"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A view's open mode decides how a record opens from its list, board and calendar alike, and a screen's open or detail overrides it.",
+        "With a record view on the view, a peek draws that record view inline (its sections switch in place), not the view's columns.",
+        "A document record view draws its cover, icon, title, properties and body, leaving out a part whose field is empty on the row.",
+        "A field's control hint and its older widget name both drive forms and displays; control wins when both are set."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/resource-view/record-view.ts",
+          "packages/ui/src/components/data/resource-view/RecordPeek.tsx",
+          "packages/ui/src/components/data/resource-view/RecordView.tsx",
+          "packages/ui/src/components/data/resource-view/record-open.tsx"
+        ],
+        "docs": [
+          "docs/adr/0021-view-types-and-record-pages.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "resource-tree",
       "name": "Tree mode for lists",
       "summary": "ResourceView and ResourcePage's `tree` option nests rows under their parent from a flat list: depth and an expand arrow in the first cell, sort within siblings, filters that keep a match's ancestors, controlled or uncontrolled open state and opt-in cascade selection, with the logic in genesis-core/resource-view.",

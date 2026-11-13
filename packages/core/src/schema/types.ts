@@ -8,9 +8,21 @@
 // React half of this package.
 // ---------------------------------------------------------------------------
 
-import type { FieldType as WidgetHint } from "../form-types";
+import type { FieldType } from "../form-types";
 
-export type { WidgetHint };
+/**
+ * Which form control fits a field (`text`, `textarea`, `date`, `tel`…): a hint a form reads.
+ * The field's `control` (decision F, ADR 0021).
+ *
+ * @stability Beta
+ */
+export type ControlHint = FieldType;
+
+/**
+ * @deprecated Renamed `ControlHint`: "widget" now means a dashboard tile (docs/GLOSSARY.md).
+ * Kept as an alias; removed in the next major.
+ */
+export type WidgetHint = ControlHint;
 
 /**
  * Portable storage type of a field — what kind of value the store holds,
@@ -67,8 +79,16 @@ export interface FieldSchema {
   readonly label?: string;
   /** The store's exact type, e.g. `timestamp with time zone` or `public.status`. */
   readonly dbType?: string;
-  /** Which control fits this field. A hint: a UI may still choose another. */
-  readonly widget?: WidgetHint;
+  /**
+   * Which form control fits this field (`textarea`, `date`, `tel`…). A hint: a UI may still
+   * choose another. Read it with `fieldControl(field)`, which also reads the old `widget`.
+   */
+  readonly control?: ControlHint;
+  /**
+   * @deprecated Renamed `control` ("widget" now means a dashboard tile). Still read wherever
+   * `control` is (`fieldControl`); `control` wins when both are set. Removed in the next major.
+   */
+  readonly widget?: ControlHint;
   /** True when the store accepts null for this field. */
   readonly nullable?: boolean;
   /** True when the store fills the field itself on insert. */
@@ -369,4 +389,14 @@ export interface AuditEntry {
   readonly before: DataRow | null;
   /** Values of the changed fields after the edit. */
   readonly after: DataRow | null;
+}
+
+/**
+ * A field's form-control hint: its `control`, else the deprecated `widget`. Every reader goes
+ * through this, so a contract written with either name works.
+ *
+ * @stability Beta
+ */
+export function fieldControl(field: { readonly control?: string | undefined; readonly widget?: string | undefined } | undefined): ControlHint | undefined {
+  return (field?.control ?? field?.widget) as ControlHint | undefined;
 }
