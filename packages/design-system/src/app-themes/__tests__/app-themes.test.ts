@@ -112,6 +112,14 @@ describe("defineAppTheme", () => {
     expect(validateAppTheme({ ...themeInput, css: "@import url(x.css);" })).toContain("appTheme.css: no @import and no </");
     expect(validateAppTheme({ ...themeInput, css: "} body { color: red; } x {" })).toContain("appTheme.css: braces don't balance");
     expect(validateAppTheme({ ...themeInput, css: '[data-slot="card"]::after { content: "}"; }' })).toEqual([]);
+    expect(validateAppTheme({ ...themeInput, css: "/* unclosed" })).toContain("appTheme.css: braces don't balance");
+    expect(validateAppTheme({ ...themeInput, css: 'a { content: "unclosed }' })).toContain("appTheme.css: braces don't balance");
+  });
+
+  it("checks raw CSS in linear time, whatever it holds", () => {
+    const start = performance.now();
+    validateAppTheme({ ...themeInput, css: "/*" + "a/*".repeat(200_000) });
+    expect(performance.now() - start).toBeLessThan(500);
   });
 
   it("accepts an app's own parts, prefixed app-", () => {

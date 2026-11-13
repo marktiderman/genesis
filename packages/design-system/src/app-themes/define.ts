@@ -175,12 +175,24 @@ function declarationProblems(path: string, decls: unknown): string[] {
   return errors;
 }
 
-/** Whether braces balance and no rule closes the theme's scope early (strings and comments aside). */
+/**
+ * Whether braces balance and no rule closes the theme's scope early, with comments and strings
+ * aside. One pass over the text, no backtracking, so it stays linear on any input.
+ */
 function balanced(css: string): boolean {
-  const bare = css.replace(/\/\*[\s\S]*?\*\//g, "").replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, "");
   let depth = 0;
-  for (const ch of bare) {
-    if (ch === "{") depth++;
+  for (let i = 0; i < css.length; i++) {
+    const ch = css[i];
+    if (ch === "/" && css[i + 1] === "*") {
+      const end = css.indexOf("*/", i + 2);
+      if (end === -1) return false; // an unclosed comment would swallow the scope's own brace
+      i = end + 1;
+    } else if (ch === '"' || ch === "'") {
+      let k = i + 1;
+      while (k < css.length && css[k] !== ch) k += css[k] === "\\" ? 2 : 1;
+      if (k >= css.length) return false; // an unclosed string
+      i = k;
+    } else if (ch === "{") depth++;
     else if (ch === "}" && --depth < 0) return false;
   }
   return depth === 0;
