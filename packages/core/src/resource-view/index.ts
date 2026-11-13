@@ -4,6 +4,7 @@
 
 export { boardChoices, boardProblems, calendarProblems, defineView, galleryProblems, deriveDisplay, plural, singular, valueText, ViewDefinitionError } from "./define-view";
 export { initialsOf, rowPicture } from "./picture";
+export { groupRows, type GroupRowsOptions, type RowGroup } from "./group";
 export { scopeFilter, scopeValues } from "./scope";
 export { filterParams } from "./link";
 export { cascadeSelection, initialExpanded, setExpanded, treeRows } from "./tree";

@@ -1008,6 +1008,52 @@ export const brandRecordView = defineRecordView(brandsView, {
 - **Saving** sends only the section's changed, listed, visible keys. A save that matches no rows
   is a refusal, shown inline; a number field never saves NaN.
 
+## Custom views
+
+<!-- api: CustomViewProps<any>, UseViewListOptions<any> -->
+
+A **custom view** is a screen an app draws itself over a view (ADR 0019): a leaderboard whose
+rows slide into place, a streak strip, a day's timeline. Genesis keeps the view's data and states;
+the app draws the rows.
+
+```tsx
+import { CustomView } from "@marktiderman/genesis-ui/data";
+
+<CustomView view={playersView} sort={{ field: "points", order: "desc" }} perPage={10} live>
+  {({ rows, reducedMotion }) => <Leaderboard players={rows} animate={!reducedMotion} />}
+</CustomView>;
+```
+
+- `type`: `list` (default, a page of rows), `board` (the board block's columns, with moves) or
+  `calendar` (one window's rows; `range`, default this month's grid). Fixed for a component's life.
+- **States are Genesis's.** Loading (skeleton rows), empty (EmptyState in the view's
+  `copy.empty` words) and error (the reason and a retry) are drawn for you, as parts
+  `custom-view-loading`, `custom-view-empty` and `custom-view-error` inside `custom-view`
+  (`data-view-type`, `data-state`). `loading`, `empty` and `error` replace one; `empty={false}` hands
+  an empty view to the function too (a calendar that still draws its days). The doctor's
+  `custom-view-states` rule warns when a custom view draws its own.
+- **The function gets** `rows`, `status`, `groups()` (the rows under the view's `groupBy`, through
+  core's `groupRows`), `can` (the view's guards for the viewer, each `true` or its reason, narrowed
+  by the screen's `can`), `params`, `reducedMotion`, and the data of its type: `list`
+  (`useViewList`'s state), `board` (`useViewBoard`'s) or `calendar` and `range`
+  (`useViewCalendarRange`'s).
+- **The view's rules hold**: `preset`, `filter`, `scoped` and `resourceOptions` work as on
+  `<ResourceView>`, and `urlState` keeps the page, sort, search and open record in the URL.
+- **The app's own elements** inside are its parts: `data-slot="app-…"`, coloured from roles only
+  (`bg-card`, `hsl(var(--primary))`), so an app style and brand reach them. The doctor's
+  `app-part-name` and `app-part-colors` rules say when one isn't.
+
+The headless pieces underneath are exported for a screen that needs them, and every view type
+shares them, so a custom view asks for exactly what the table, board and calendar ask for:
+
+| Hook | What it gives |
+| --- | --- |
+| `useViewListParams(options)` | the scope, preset and screen filters as provider params, with select, enabled and live |
+| `useViewList(view, options)` | a page of rows with paging, sort, search, a selection by record key, the open record, `urlState` and `can` |
+| `useViewBoard(view, options)` | the board's columns, paged per column, and `move` with the guards, a refusal's reason and the conflict sheet's choices (ResourceBoard draws it) |
+| `useViewCalendarRange(view, range, options)` | one calendar window's rows, capped, on the field's clock (ResourceCalendar loads through it) |
+| `useReducedMotion()` | the person's motion preference |
+
 ## Native
 
 <!-- api: NativeResourceViewProps<any>, ViewDefinition<any> -->

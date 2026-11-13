@@ -75,7 +75,9 @@ export function loadGenesis(root: string, config: DoctorConfig): GenesisFacts {
   // ---- Tokens, from the theme stylesheets ----
   const tokens = new Set<string>();
   const themeFiles = resolveThemeFiles(root, config, uiDir);
-  for (const file of themeFiles) for (const t of declaredTokens(readFileSync(file, "utf8"))) tokens.add(t);
+  const themeCss = themeFiles.map((file) => readFileSync(file, "utf8"));
+  for (const css of themeCss) for (const t of declaredTokens(css)) tokens.add(t);
+  const colorTokens = colorRoles(themeCss);
 
   // ---- Raw tags ----
   const byLower = new Map(components.map((c) => [c.toLowerCase(), c]));
@@ -94,6 +96,8 @@ export function loadGenesis(root: string, config: DoctorConfig): GenesisFacts {
     values,
     components,
     tokens,
+    colorTokens,
+    ...(themeParts(root) ? { themeParts: themeParts(root)! } : {}),
     rawTags,
     palette: loadPalette(root),
     companions: loadCompanions(root, config, uiPackage),
@@ -216,6 +220,59 @@ export function parseExportNames(dts: string): string[] {
 }
 
 /** Custom properties a stylesheet declares (`--name:`). */
+/** A token's value that is a colour: an HSL triple (`243 75% 59%`), `#hex` or a colour function. */
+const COLOUR_VALUE = /^(?:-?[\d.]+(?:deg)?\s+[\d.]+%\s+[\d.]+%(?:\s*\/\s*[\d.]+%?)?|#[0-9a-f]{3,8}|(?:hsla?|rgba?|oklch|oklab|lab|lch|color)\(.*\))$/i;
+
+/**
+ * The colour roles the theme stylesheets declare: tokens whose value is a colour, or a `var()` of
+ * one (`--primary-text: var(--primary)`, the Tailwind bridge's `--color-primary`).
+ */
+export function colorRoles(sheets: readonly string[]): Set<string> {
+  const declared = new Map<string, string[]>();
+  for (const css of sheets) {
+    for (const m of css.matchAll(/(--[A-Za-z0-9_-]+)\s*:\s*([^;{}]+);/g)) {
+      const list = declared.get(m[1]!) ?? [];
+      list.push(m[2]!.trim());
+      declared.set(m[1]!, list);
+    }
+  }
+  const roles = new Set<string>();
+  for (const [name, values] of declared) if (values.some((v) => COLOUR_VALUE.test(v))) roles.add(name);
+  // Tokens that read a colour role are roles too; a few passes reach chains of them.
+  for (let pass = 0; pass < 4; pass++) {
+    for (const [name, values] of declared) {
+      if (roles.has(name)) continue;
+      if (values.some((v) => [...v.matchAll(/var\(\s*(--[A-Za-z0-9_-]+)/g)].some((r) => roles.has(r[1]!)))) roles.add(name);
+    }
+  }
+  return roles;
+}
+
+/** The part names in the installed design system's `THEME_PARTS`, read from its built files. */
+const partsCache = new Map<string, readonly string[] | null>();
+export function themeParts(root: string): readonly string[] | null {
+  const ds = findPackageDir(root, DESIGN_SYSTEM_PACKAGE);
+  if (!ds) return null;
+  if (partsCache.has(ds)) return partsCache.get(ds)!;
+  let found: readonly string[] | null = null;
+  const dist = path.join(ds, "dist");
+  try {
+    for (const name of existsSync(dist) ? readdirSync(dist) : []) {
+      if (!name.endsWith(".js")) continue;
+      const code = readFileSync(path.join(dist, name), "utf8");
+      const at = code.indexOf("THEME_PARTS = Object.freeze([");
+      if (at === -1) continue;
+      const body = code.slice(at, code.indexOf("]);", at));
+      found = [...body.matchAll(/\bp\(\s*"([a-z][a-z0-9-]*)"/g)].map((m) => m[1]!);
+      break;
+    }
+  } catch {
+    found = null;
+  }
+  partsCache.set(ds, found);
+  return found;
+}
+
 export function declaredTokens(css: string): string[] {
   return [...css.matchAll(/(--[A-Za-z0-9_-]+)\s*:/g)].map((m) => m[1]);
 }

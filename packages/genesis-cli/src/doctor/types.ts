@@ -245,6 +245,13 @@ export interface GenesisFacts {
   components: readonly string[];
   /** Custom properties the theme stylesheets define. */
   tokens: ReadonlySet<string>;
+  /**
+   * The colour roles among them: tokens whose value is a colour (`--primary: 243 75% 59%`,
+   * `--color-primary: hsl(var(--primary))`). Absent when not read.
+   */
+  colorTokens?: ReadonlySet<string>;
+  /** The part names genesis-ui renders (`THEME_PARTS`), from the installed design system. Absent when not found. */
+  themeParts?: readonly string[];
   /** Raw HTML tag → the Genesis component that replaces it. */
   rawTags: ReadonlyMap<string, string>;
   /** Tailwind palette color names (red, slate, …). */

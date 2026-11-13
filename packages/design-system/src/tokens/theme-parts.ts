@@ -63,6 +63,11 @@ export const THEME_PARTS: readonly ThemePartInfo[] = Object.freeze([
   p("tabs-list", "A row of tabs."),
   p("tabs-trigger", "One tab.", ["state"]),
   p("tabs-content", "A tab's panel."),
+  // Custom views (ADR 0019): the states Genesis draws around an app's own view
+  p("custom-view", "A custom view: an app's own drawing of a view, in Genesis's states.", ["view-type", "state"]),
+  p("custom-view-loading", "A custom view while it loads."),
+  p("custom-view-empty", "A custom view with nothing to show."),
+  p("custom-view-error", "A custom view whose data failed to load, with a retry."),
   // The app shell
   p("shell", "The whole app shell."),
   p("shell-sidebar", "The desktop sidebar.", ["collapsed"]),
