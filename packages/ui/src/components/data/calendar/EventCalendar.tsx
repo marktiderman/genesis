@@ -198,7 +198,7 @@ export function EventCalendar<T = unknown>({
   );
 
   return (
-    <div className={cn("space-y-2", className)} data-testid={testID} data-layout={layout} aria-busy={loading || undefined}>
+    <div data-slot="calendar" className={cn("space-y-2", className)} data-testid={testID} data-layout={layout} aria-busy={loading || undefined}>
       <div className="flex flex-wrap items-center gap-2">
         {!hideNavigation && (
           <div className="flex items-center gap-1 print:hidden">
@@ -333,7 +333,7 @@ function EventItem<T>({ className, placed, lanes, compact, time, allDayLabel, co
     event.className,
   );
   return (
-    <li data-event={event.key} className={className}>
+    <li data-slot="calendar-event" data-event={event.key} className={className}>
       {onSelect ? (
         <button
           type="button"

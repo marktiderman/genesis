@@ -148,6 +148,10 @@ export {
 } from "./components/layout/detail-page";
 export { FormPage, type FormPageProps } from "./components/layout/form-page";
 export {
+  DocumentPage,
+  type DocumentPageProps,
+} from "./components/layout/document-page";
+export {
   DashboardPage,
   type DashboardPageProps,
 } from "./components/layout/dashboard-page";
@@ -204,12 +208,15 @@ export {
   DefaultLink,
   isPathActive,
   resolveNavigation,
+  resolveNavigationZones,
   defaultNavigate,
   useBrowserSearchParams,
   type GenesisLinkProps,
   type IsPathActiveOptions,
   type NavigationNode,
+  type NavigationZone,
   type ResolvedNavigation,
+  type ResolvedNavigationZones,
   type LinkComponent,
   type NavigateFn,
   type SearchParamsAdapter,

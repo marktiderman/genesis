@@ -40,6 +40,9 @@ export interface IntrospectedTable {
 export interface FieldSettings {
   label?: string;
   description?: string;
+  /** The form-control hint (`textarea`, `date`…). */
+  control?: string;
+  /** @deprecated Renamed `control`; still read. */
   widget?: string;
   /** Server-owned: clients never write it. */
   readonly?: boolean;

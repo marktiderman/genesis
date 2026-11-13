@@ -84,9 +84,12 @@ export const DefaultLink: LinkComponent = ({
 export {
   isPathActive,
   resolveNavigation,
+  resolveNavigationZones,
   type IsPathActiveOptions,
   type NavigationNode,
+  type NavigationZone,
   type ResolvedNavigation,
+  type ResolvedNavigationZones,
 } from "@marktiderman/genesis-core/navigation";
 
 // ---------------------------------------------------------------------------

@@ -3,7 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useStorage } from "@marktiderman/genesis-core";
 
-export type Density = "compact" | "comfortable" | "spacious";
+import type { DensityLevel } from "@marktiderman/genesis-design-system/app-styles";
+
+/**
+ * A list's density: Genesis's one vocabulary (`DENSITY_LEVELS`: compact,
+ * comfortable, spacious), the same words as AppShell's `density` and sites'
+ * design systems (ADR 0022).
+ */
+export type Density = DensityLevel;
 
 export interface ViewSettings {
   pageSize: number;

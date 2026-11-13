@@ -22,7 +22,7 @@ it offers, in its README and SKILL.md, with these names.
 | Level | What changes | How | Where it lives |
 | --- | --- | --- | --- |
 | 1. **Configure** | behaviour, by data | options, props, variants, view descriptions (fields, columns, `can`, scope), feature flags | the app's config and descriptions |
-| 2. **Brand** | the look, everywhere at once | design tokens, a brand or design system, fonts, icons | the app's brand (design-system schema) |
+| 2. **Brand** | the look, everywhere at once | design tokens, an app brand (colours, typefaces) and an app style (sizes, shapes, parts; ADR 0018), a design system for sites, icons | the app's brand and style (design-system), or an app theme that bundles them with a layout (genesis-ui) |
 | 3. **Compose** | the shape of a screen | slots, `slotProps`, named parts and `classNames`; Genesis elements arranged in the app's own pages | the app's routes, using Genesis parts |
 | 4. **Adapt** | what sits behind a seam | adapters: data provider, storage, video, email, SMS, AI vendor, payments | an adapter object passed in config |
 | 5. **Own** | something Genesis doesn't do | the app's own components, routes, workflows and tables | the app's repository; optionally an entry in `docs/genesis-upstream.md` when it is a gap or worth sharing |

@@ -95,6 +95,10 @@ export const BUILTIN_RULES = [
   "database-elsewhere",
   // the app's eslint config loads Genesis's lint rules (eslint-config.ts)
   "genesis-eslint-config",
+  // custom views and app parts (custom-views.ts)
+  "app-part-colors",
+  "app-part-name",
+  "custom-view-states",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];

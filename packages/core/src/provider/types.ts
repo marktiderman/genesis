@@ -126,6 +126,39 @@ export interface ListResult<T> {
   prevCursor?: string | null;
 }
 
+/**
+ * One total over a list: how many rows (`count`), or the sum, average, lowest or highest of a
+ * numeric field. Rows with no value in the field are left out of `sum`, `avg`, `min` and `max`,
+ * as SQL leaves them out.
+ */
+export type AggregateMetric =
+  | { fn: "count" }
+  | { fn: "sum" | "avg" | "min" | "max"; field: string };
+
+/**
+ * Parameters for `aggregate`: the totals to work out, by a name the caller picks, over the rows
+ * the same `filters` and `search` would list.
+ */
+export interface AggregateParams {
+  /** The totals, by name: `{ open: { fn: "count" }, value: { fn: "sum", field: "amount" } }`. */
+  metrics: Readonly<Record<string, AggregateMetric>>;
+  filters?: FilterParam[];
+  search?: { query: string; fields: string[] };
+  /** How `count` is counted (see `CountMode`); `none` isn't allowed here. Default exact. */
+  count?: Exclude<CountMode, "none">;
+}
+
+/** Result of `aggregate`. */
+export interface AggregateResult {
+  /**
+   * Each metric's value, by its name. `count` is always a number; the others are `null` when no
+   * row has a value (SQL's answer for an empty sum).
+   */
+  values: Record<string, number | null>;
+  /** True when a count is the database's estimate, so a screen says "about". */
+  isEstimate?: boolean;
+}
+
 /** Parameters for `getOne`. */
 export interface GetOneParams {
   id: Identifier;
@@ -342,6 +375,14 @@ export interface DataProvider {
    * are omitted entirely.
    */
   describe?(resource: string): Promise<ResourceSchema>;
+
+  /**
+   * Totals over the rows a list with the same filters and search would return, worked out by
+   * the store under the same rules as `getList` (row security included), so a widget never
+   * reads rows it only counts. Optional: `resolveAggregate` falls back to `getList` for a
+   * provider without it.
+   */
+  aggregate?(resource: string, params: AggregateParams): Promise<AggregateResult>;
 
   /** Every resource this user may see, for a sidebar or a picker. */
   listResources?(): Promise<ResourceSummary[]>;

@@ -93,7 +93,7 @@
     {
       "id": "page-layouts",
       "name": "Page layouts",
-      "summary": "DashboardPage, DetailPage, SettingsPage, FormPage, AuthPage, PublicPage, Section, Stack, Grid and Split: the page shells apps compose. PublicPage themes itself from a brand object, darkening an accent that fails 4.5:1, and has an embedded mode for iframes. BuilderLayout lays out a builder's outline, editor and live preview, responsive by container query, with the preview kept mounted as the editor changes.",
+      "summary": "DashboardPage, DetailPage, DocumentPage (cover, icon, title and a reading column), SettingsPage, FormPage, AuthPage, PublicPage, Section, Stack, Grid and Split: the page shells apps compose. PublicPage themes itself from a brand object, darkening an accent that fails 4.5:1, and has an embedded mode for iframes. BuilderLayout lays out a builder's outline, editor and live preview, responsive by container query, with the preview kept mounted as the editor changes.",
       "tagline": "Pages that look consistent without a designer on every screen.",
       "category": "Design system",
       "status": "live",
@@ -211,6 +211,109 @@
         "code": [
           "packages/ui/src/components/layout/AppShell.tsx",
           "packages/ui/src/navigation.tsx"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "shell-navigation-styles",
+      "name": "Navigation styles, frames and density",
+      "summary": "The app's layout as AppShell options (ADR 0022): one navigation setting (sidebar, rail, top tabs, bottom bar or page tree) over the same navigation tree and NavItems, a flush or inset frame for the page area (shell-frame part, --shell-frame-* tokens), and one density vocabulary (compact, comfortable, spacious) shared by the shell, lists and sites' design systems. An app theme's layout sets them as defaults the person's own choices override.",
+      "category": "Design system",
+      "status": "building",
+      "claimedBy": "look/layouts",
+      "kind": "layout",
+      "keywords": [
+        "navigation style",
+        "top tabs",
+        "page tree",
+        "bottom bar",
+        "rail",
+        "frame",
+        "inset",
+        "flush",
+        "density",
+        "spacious",
+        "layout"
+      ],
+      "platforms": {
+        "web": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/layout"
+      },
+      "extends": "app-shell",
+      "requires": [
+        "app-shell",
+        "app-themes"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/ui/src/components/layout/AppShell.tsx",
+          "packages/ui/src/themes/define.ts",
+          "packages/design-system/src/tokens/density.ts"
+        ],
+        "docs": [
+          "docs/adr/0022-layouts.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "navigation-zones",
+      "name": "Navigation zones",
+      "summary": "Zones over the navigation tree (ADR 0003): a zone on NavigationNode and BlockNavItem, resolveNavigation's current zone (nearest in the trail), and resolveNavigationZones grouping the tree into each zone's pages, the global pages and the roll-up, so an app can key a theme or a phone bar per zone. AppShell marks the shell with data-zone.",
+      "category": "Platform",
+      "status": "building",
+      "claimedBy": "look/layouts",
+      "kind": "service",
+      "keywords": [
+        "zone",
+        "zones",
+        "roll-up",
+        "navigation",
+        "theme per zone",
+        "BlockNavItem"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-core/navigation",
+        "native": "@marktiderman/genesis-core/navigation"
+      },
+      "requires": [
+        "app-shell"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/navigation.ts",
+          "packages/features/src/blocks.ts"
+        ],
+        "docs": [
+          "docs/adr/0003-navigation-zones.md"
         ]
       },
       "access": "all",
@@ -702,6 +805,178 @@
           "packages/ui/src/components/data/KanbanBoard.tsx"
         ],
         "docs": [
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "custom-views",
+      "name": "Custom views",
+      "summary": "A screen an app draws itself over a view (ADR 0019), while Genesis keeps the view's data and states: <CustomView view type=\"list|board|calendar\">{(state) => …}</CustomView> and useCustomView load the view's rows with its scope, filters, preset, URL state, live updates and permissions, and draw loading, empty (EmptyState in the view's words) and error with a retry, each replaceable. Underneath is one headless view query every view type shares: useViewListParams, useViewList (paging, sort, search, selection, the open record, urlState, can), useViewBoard (columns from the board block, paging per column, the move write with its guards and conflict sheet) and useViewCalendarRange (one window's rows, live). ResourceBoard and ResourceCalendar load through the same hooks. groupRows (core) and useReducedMotion help draw groups and motion. Doctor rules app-part-name, app-part-colors and custom-view-states keep an app's own drawing in its style.",
+      "status": "building",
+      "kind": "pattern",
+      "keywords": [
+        "custom view",
+        "own screen",
+        "headless",
+        "useViewList",
+        "useViewBoard",
+        "useViewCalendarRange",
+        "useCustomView",
+        "leaderboard",
+        "app part",
+        "data-slot app-",
+        "loading state",
+        "empty state",
+        "error state",
+        "reduced motion",
+        "groupRows"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A CustomView over a view loads its rows with the view's scope, preset and filters and the viewer's permissions, and draws loading, empty and error itself; the app's function draws only the rows.",
+        "useViewBoard and useViewCalendarRange give a custom view the same columns, moves and calendar window ResourceBoard and ResourceCalendar use, and those two load through them.",
+        "The doctor warns when a custom view draws its own loading, empty or error state, when an app part's data-slot doesn't start app- (or clashes with a Genesis part), and when a custom view or app part takes a colour from a variable that isn't a colour role."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/ui/src/components/data/resource-view/CustomView.tsx",
+          "packages/ui/src/components/data/resource-view/use-view-list.ts",
+          "packages/ui/src/components/data/resource-view/use-view-board.ts",
+          "packages/ui/src/components/data/resource-view/use-view-calendar-range.ts",
+          "packages/core/src/resource-view/group.ts",
+          "packages/genesis-cli/src/doctor/custom-views.ts"
+        ],
+        "docs": [
+          "docs/adr/0019-custom-views.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "view-types",
+      "name": "View types",
+      "summary": "How a view shows (ADR 0021): <ResourceView type> picks a view type from one registry: Genesis's table, list, grid (the person switches between them), board, calendar and gallery (the grid as photos, now its own type), or one an app adds with defineViewType and registerViewType (a timeline, a map), drawn with the headless view hooks so its scope, filters, paging, permissions and live updates are the view's. `mode` stays as type's alias. NativeResourceView takes type too (list, grid, gallery). The ui doctor's lists-use-resource-view rule accepts a file that defines or registers a view type.",
+      "status": "building",
+      "kind": "pattern",
+      "keywords": [
+        "view type",
+        "defineViewType",
+        "registerViewType",
+        "type prop",
+        "mode",
+        "timeline",
+        "map view",
+        "custom list type",
+        "gallery type"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "<ResourceView type> draws every built-in view type and any registered one; an unknown type throws naming the registered ones, and a built-in type can't be replaced.",
+        "type=\"gallery\" draws the grid as photos from the view's gallery block (and asks for one); mode keeps working as type's alias."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/ui/src/components/data/resource-view/view-types.tsx",
+          "packages/ui/src/components/data/resource-view/ResourceView.tsx"
+        ],
+        "docs": [
+          "docs/adr/0021-view-types-and-record-pages.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "record-pages",
+      "name": "Record pages: peeks and templates",
+      "summary": "One record shown on its own (ADR 0021): a view declares how its records open, `open: \"side-peek\" | \"center-peek\" | \"page\"`, and the record view a peek draws (`recordView: (): AnyRecordView => recordView`), and the list, the board and the calendar all honour it; a screen's `open` (or ResourcePage's older detail panel/modal/route, still accepted and mapped) wins. A peek draws RecordView inline (presentation=\"peek\": header, actions, readiness and sections as tabs that switch in place) in a sheet or a dialog (RecordPeek), the same page a full-page route draws. defineRecordView takes a template: standard, or document (a cover, an icon, a large title, the properties and the body). A field's form-control hint is now `control`, with `widget` a deprecated alias every reader still reads (fieldControl).",
+      "status": "building",
+      "kind": "pattern",
+      "keywords": [
+        "record page",
+        "peek",
+        "side peek",
+        "center peek",
+        "full page",
+        "open mode",
+        "RecordPeek",
+        "document template",
+        "record template",
+        "cover",
+        "control hint",
+        "detail panel"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A view's open mode decides how a record opens from its list, board and calendar alike, and a screen's open or detail overrides it.",
+        "With a record view on the view, a peek draws that record view inline (its sections switch in place), not the view's columns.",
+        "A document record view draws its cover, icon, title, properties and body, leaving out a part whose field is empty on the row.",
+        "A field's control hint and its older widget name both drive forms and displays; control wins when both are set."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/resource-view/record-view.ts",
+          "packages/ui/src/components/data/resource-view/RecordPeek.tsx",
+          "packages/ui/src/components/data/resource-view/RecordView.tsx",
+          "packages/ui/src/components/data/resource-view/record-open.tsx"
+        ],
+        "docs": [
+          "docs/adr/0021-view-types-and-record-pages.md",
           "docs/RESOURCE-VIEW.md"
         ]
       },
@@ -3612,6 +3887,259 @@
         "code": [
           "packages/design-system/src/design-systems",
           "packages/sites/src/templates/design-systems.ts"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "app-themes",
+      "name": "App brands, styles and themes",
+      "aliases": [
+        "starter-themes"
+      ],
+      "summary": "How an app looks, as pieces that combine freely (ADR 0018). An app brand (data-app-brand) is colours and typefaces; an app style (data-app-style) is every component's size and shape: component tokens (corner radius, control height, card shadow, button case, table padding, page title weight…), styles for any named part of any component (button[variant=outline], shell-nav-item[active]) and raw CSS, with colours only from roles, so any brand goes with any style. Both are genesis-design-system's. An app theme (genesis-ui) bundles a brand, a style and a layout (the AppShell options it starts from), each optional. genesis-ui's components read the tokens and mark their parts. Seven starter brands and seven starter styles ship in matching pairs, and seven starter themes: tracker, repository, checklist, notebook, press, journal and arena.",
+      "category": "Design system",
+      "status": "building",
+      "kind": "token",
+      "keywords": [
+        "theme",
+        "app theme",
+        "app brand",
+        "app style",
+        "data-app-brand",
+        "data-app-style",
+        "starter theme",
+        "starter style",
+        "defineAppTheme",
+        "defineAppStyle",
+        "component tokens",
+        "parts",
+        "data-slot",
+        "look",
+        "skin",
+        "density",
+        "layout"
+      ],
+      "platforms": {
+        "web": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/themes"
+      },
+      "requires": [
+        "design-tokens"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Every starter brand reaches its WCAG minimum on every pair in APP_BRAND_PAIRS, light and dark, and passes the brand contrast check; any starter style works with any brand, since a style's colours come from roles only.",
+        "With no style set, every genesis-ui component renders as before: each component token's default is the value its class had.",
+        "Every part in THEME_PARTS is rendered with its data-slot and attributes, every component token is read by a component, and no component reads an undeclared one (genesis-ui's contract test).",
+        "Setting or removing data-app-brand or data-app-style changes only CSS, never a component's markup or behaviour; dark mode follows .dark on the element or an ancestor.",
+        "An app theme's pieces are each optional and one left out keeps the app's own; its layout is a default the person's own AppShell choices override."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/design-system/src/app-styles",
+          "packages/design-system/src/tokens/component-tokens.ts",
+          "packages/design-system/src/tokens/theme-parts.ts",
+          "packages/ui/src/themes"
+        ],
+        "docs": [
+          "docs/adr/0018-app-brands-styles-themes.md",
+          "packages/design-system/README.md",
+          "packages/ui/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "widgets",
+      "name": "Widgets",
+      "summary": "A small tile on a dashboard or a record page's sidebar (a number, progress toward a goal, a streak, a short list, a chart), fed by a view, so it reads in the viewer's scope, under row security, and stays live (ADR 0023). defineWidget (genesis-core/resource-view) declares it against a view, preset and filter; <Widget> and WidgetGrid (genesis-ui/data) draw it with its loading, error and empty states. Totals come from DataProvider.aggregate (count, and sum, average, lowest and highest of a field), which the mock and Supabase providers serve and resolveAggregate falls back from. StatCard, HeadlineNumbers and SummaryCard draw the same tile (WidgetTile), so an app style changes every tile through its parts.",
+      "tagline": "A dashboard number that's always right, for whoever is looking.",
+      "category": "Data",
+      "status": "building",
+      "claimedBy": "mark",
+      "kind": "pattern",
+      "keywords": [
+        "widget",
+        "tile",
+        "kpi",
+        "stat card",
+        "dashboard",
+        "metric",
+        "total",
+        "count",
+        "sum",
+        "average",
+        "aggregate",
+        "progress",
+        "streak",
+        "chart",
+        "mini list"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
+      "requires": [
+        "data-views"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "A number widget over a view's preset shows the provider's total for the viewer's scope, and changes when a row changes (live) or a write goes through Genesis.",
+        "A widget over a field the viewer can't read isn't drawn, and its own can only narrows; row security decides which rows any total covers.",
+        "Loading, an error with a retry, and an empty state are the widget's, never the app's.",
+        "StatCard, HeadlineNumbers and SummaryCard render as before and wear the widget tile's parts (widget-label, widget-value, widget-detail).",
+        "A provider without aggregate still totals: a count from getList's total, other metrics from its rows, refusing past maxRows rather than leaving rows out."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/resource-view/widget.ts",
+          "packages/core/src/provider/aggregate.ts",
+          "packages/core/src/hooks/use-aggregate.ts",
+          "packages/ui/src/components/data/widget"
+        ],
+        "docs": [
+          "docs/adr/0023-widgets.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "appearance-preferences",
+      "name": "Appearance and density preferences",
+      "summary": "A person's appearance (light, dark or system) and density (compact, comfortable, spacious) are theirs, kept in a store the app backs with its own server table (with the device as a copy and the fallback), in a written order: the app's lock, then the person, then the organization's default, then the theme's, then Genesis's (ADR 0024). defineAppearancePreferences and AppearancePreferencesProvider (genesis-core) serve it; genesis-ui's AppearanceProvider (GenesisThemeProvider by the glossary's word) and AppShell read it when it's there and work as before when it isn't.",
+      "category": "Design system",
+      "status": "building",
+      "claimedBy": "mark",
+      "kind": "provider",
+      "keywords": [
+        "appearance",
+        "dark mode",
+        "light mode",
+        "system",
+        "density",
+        "compact",
+        "preferences",
+        "user settings",
+        "theme toggle",
+        "lock"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-core"
+      },
+      "requires": [
+        "app-themes"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "resolveAppearancePreferences applies app lock > person > organization default > theme default > Genesis default, value by value, and skips values that aren't known.",
+        "A change the person makes is saved to the app's store and the device; a locked value can't be changed and AppShell's toggle hides.",
+        "Without an AppearancePreferencesProvider, GenesisThemeProvider and AppShell behave exactly as before."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/appearance.tsx",
+          "packages/core/src/appearance-values.ts",
+          "packages/ui/src/themes/appearance.tsx",
+          "packages/ui/src/components/layout/AppShell.tsx"
+        ],
+        "docs": [
+          "docs/adr/0024-who-sets-what.md",
+          "docs/MIGRATION.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "org-brands",
+      "name": "Organization brands",
+      "summary": "An organization wears its own app brand: WorkspaceTheme names a brand id (and the organization's appearance and density defaults) beside its accent, and resolveWorkspaceBrand picks the brand that applies in the active workspace, checked against the brands the app ships (ADR 0024). An app brand carries the app's name, a logo and a square mark (each with a dark version), and appShellBrandProps puts them in AppShell.",
+      "category": "Design system",
+      "status": "building",
+      "claimedBy": "mark",
+      "kind": "pattern",
+      "keywords": [
+        "organization brand",
+        "white label",
+        "tenant brand",
+        "logo",
+        "mark",
+        "app name",
+        "workspace theme",
+        "data-app-brand"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-core/workspaces"
+      },
+      "requires": [
+        "workspaces",
+        "app-themes"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "resolveWorkspaceBrand returns the workspace's brand only when the app ships it, else the app's fallback.",
+        "defineAppBrand refuses a logo or mark whose URL isn't https:, a root path or an inline image, and one without alt text.",
+        "appShellBrandProps gives AppShell the brand's name and its mark (else logo), light and dark, and leaves the letter tile when there are no images."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/workspaces.ts",
+          "packages/design-system/src/app-styles/define.ts",
+          "packages/ui/src/themes/brand.tsx"
+        ],
+        "docs": [
+          "docs/adr/0024-who-sets-what.md",
+          "packages/design-system/README.md"
         ]
       },
       "access": "all",

@@ -5,34 +5,30 @@
 // the list does, or the screen's `onSelect`.
 
 import { useMemo, useState, type ReactNode } from "react";
-import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
-import { resourceKeys, useDataProvider, type BaseRecord, type DataRow, type FilterParam, type ListParams, type ResourceContract } from "@marktiderman/genesis-core";
+import { useQueries } from "@tanstack/react-query";
+import { useDataProvider, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
-import { addDays, dayIn, deviceTimeZone, isTimeZone, readEventTime, type Day } from "@marktiderman/genesis-core/dates";
-import { loadRelationLabel, useLiveInvalidation, useOptionalViewerScope, type LiveOptions } from "@marktiderman/genesis-core/hooks";
-import { calendarProblems, type ResourceView as View, type ViewCalendar, type ViewCalendarDurationUnit } from "@marktiderman/genesis-core/resource-view";
+import { addDays, dayIn, isTimeZone, readEventTime, type Day } from "@marktiderman/genesis-core/dates";
+import { loadRelationLabel, useOptionalViewerScope, type LiveOptions } from "@marktiderman/genesis-core/hooks";
+import { calendarProblems, type RecordOpen, type RecordView as RecordViewDef, type ResourceView as View, type ViewCalendar, type ViewCalendarDurationUnit } from "@marktiderman/genesis-core/resource-view";
+import { defaultNavigate, type NavigateFn } from "../../../navigation";
 import { Button } from "../../ui/button";
 import { cn } from "../../../utils";
 import { fillMessage, useUiMessages } from "../../../messages";
-import { DetailPanel } from "../DetailPanel";
 import { EventCalendar } from "../calendar/EventCalendar";
 import { calendarLanes, calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout, type CalendarWeeks } from "../calendar/placement";
 import { PrintableAgenda, type PrintableSection } from "../calendar/PrintableAgenda";
-import { timeStorage, windowBounds } from "../calendar/values";
+import { timeStorage } from "../calendar/values";
 import { useFollowedState } from "../calendar/use-followed-state";
 import { anchorOr, layoutOr, warnOnce } from "../calendar/guard";
 import { useViewDetailFields } from "./view-list";
+import { CALENDAR_LIMIT, displayZone, useViewCalendarRange } from "./use-view-calendar-range";
+import { recordViewOf, resolveRecordOpen, ViewRecordPeek } from "./record-open";
+
+export { CALENDAR_LIMIT };
 import { useIsMobile } from "../../../hooks/use-mobile";
 
 type Row = Record<string, unknown>;
-
-/**
- * Most rows one request loads (a calendar with an `endField` makes two, so up to twice this).
- * A month grid is six weeks: 500 is about a dozen a day, more than a
- * busy shared calendar holds, and still one quick request. Past it the calendar says how many it
- * left out ("+N more") rather than dropping them silently.
- */
-export const CALENDAR_LIMIT = 500;
 
 /**
  * A screen's calendar settings. The view's `calendar` block (`defineView`) is the default for every
@@ -89,8 +85,18 @@ export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<Vi
   limit?: number;
   /** The agenda shows empty days too. */
   showEmptyDays?: boolean;
-  /** A row was chosen. Default: the view's peek. */
+  /** A row was chosen. Default: the view's peek (or page, with `open="page"`). */
   onSelect?: (row: T) => void;
+  /**
+   * How an event's record opens (ADR 0021): `side-peek`, `center-peek` or `page` (navigates to
+   * `/{resource}/{id}` through `onNavigate`), or `none`. Default the view's `open`, else a side peek.
+   */
+  open?: RecordOpen | "none";
+  /** The record view a peek draws. Default the view's `recordView`, else the view's columns. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
+  recordView?: RecordViewDef<ResourceContract<any>, any>;
+  /** With `open="page"`: how to go to the record's page. Default a full-page navigation. */
+  onNavigate?: NavigateFn;
   /**
    * Print one sheet per lane (PrintableAgenda) for the week the calendar shows, instead of the
    * calendar itself: the same rows, scope and filters, with no screen code reading data. Lanes
@@ -159,32 +165,6 @@ function durationEnd(start: Day | Date, startDay: Day, allDay: boolean, ms: numb
   return Number.isFinite(end) && Math.abs(end) <= MAX_TIME ? new Date(end) : null;
 }
 
-/** The clock a field's cells use (display.tsx): its own zone, the scope's, the viewer's, the device's. */
-function displayZone(own: string | undefined, viewer: string | undefined, scope: string | undefined): string {
-  if (own && own !== "viewer" && own !== "scope" && isTimeZone(own)) return own;
-  const picked = own === "scope" ? (scope ?? viewer) : viewer;
-  return picked && isTimeZone(picked) ? picked : deviceTimeZone();
-}
-
-/** The fields a Supabase select string doesn't fetch (`*` fetches all; `alias:col` fetches col). */
-function selectMissing(select: string, fields: readonly (string | undefined)[]): string[] {
-  const top: string[] = [];
-  let depth = 0;
-  let token = "";
-  for (const ch of select) {
-    if (ch === "(") depth++;
-    if (ch === ")") depth--;
-    if (ch === "," && depth === 0) {
-      top.push(token);
-      token = "";
-    } else token += ch;
-  }
-  top.push(token);
-  const names = new Set(top.map((t) => t.trim().replace(/\(.*$/s, "").split(":").pop()!.split("::")[0]!.trim()));
-  if (names.has("*")) return [];
-  return fields.filter((f): f is string => Boolean(f) && !names.has(f!));
-}
-
 function withoutUndefined<O extends object>(o: O): Partial<O> {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<O>;
 }
@@ -208,8 +188,10 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const {
     field: fieldName, endField, durationField, durationUnit = "minutes", allDayField, layout: layoutProp, phoneLayout, layouts, onLayoutChange,
     weeks: weeksProp = 2, weeksOptions, onWeeksChange, toolbar, colorLanes, weekStartsOn = 1, timeZone, anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, classNameOf, statusOf,
-    limit = CALENDAR_LIMIT, showEmptyDays, onSelect, print,
+    limit = CALENDAR_LIMIT, showEmptyDays, onSelect, print, onNavigate,
   } = settings;
+  const openMode = resolveRecordOpen(view, props.open);
+  const recordView = recordViewOf(view, props.recordView);
   const m = useUiMessages();
   const provider = useDataProvider();
   const viewerScope = useOptionalViewerScope();
@@ -243,69 +225,24 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const [ownAnchor, setOwnAnchor] = useFollowedState<Day>(anchorProp, () => dayIn(zone));
   const anchor = anchorOr(onAnchorChange ? anchorProp : ownAnchor, dayIn(zone), where);
   const range = calendarWindow(layout, anchor, { weeks, weekStartsOn });
-  // An all-day row stored as instants lands on its UTC day (below), which can be a day either
-  // side of the window's own midnights on this clock: ask for a day more each side, and let
-  // placement keep only the window's days.
-  const fetched = allDayField && storage === "zoned" ? { start: addDays(range.start, -1), end: addDays(range.end, 1) } : range;
-  const { from, to } = windowBounds(fetched, storage, zone);
-  const end = endField ? windowBounds(allDayField && endStorage === "zoned" ? fetched : range, endStorage, zone) : undefined;
-
-  // At most two lists, each a plain filter list the provider rules apply to, that neither overlap
-  // nor leave a gap:
-  // - rows that start in the window, whatever their end (a moment at its first midnight included);
-  // - with an end field, rows that started before it and end inside or after it (a long event that
-  //   began weeks ago; no guessing how far back to look). A timestamp end is exclusive, so one
-  //   exactly at the window's first midnight is out (`gt`); a date end is the last day (`gte`).
-  // A select that leaves out the calendar's own fields makes every event vanish, silently: say so.
-  if (select) {
-    const missing = selectMissing(select, [fieldName, endField, durationField, allDayField, lanesOf ? undefined : laneBy]);
-    if (missing.length) warnOnce(`ResourceView(${view.resource}): calendar select "${select}" leaves out ${missing.join(", ")}; events need them`);
-  }
-  // Everything the rows depend on except the window: what decides whether the last rows may stand in.
-  const listScope = JSON.stringify([filters, select ?? null, fieldName, endField ?? null, limit]);
-  const base = { pagination: { page: 1, perPage: limit }, sort: { field: fieldName, order: "asc" as const }, ...(select ? { select } : {}) };
-  const starting: ListParams = {
-    ...base,
-    filters: [...filters, { field: fieldName, operator: "gte", value: from }, { field: fieldName, operator: "lt", value: to }],
-  };
-  const running: ListParams | undefined = end && {
-    ...base,
-    filters: [...filters, { field: fieldName, operator: "lt", value: from }, { field: endField!, operator: endStorage === "date" ? "gte" : "gt", value: end.from }],
-  };
-  // One query for both, so they load, refresh and show placeholder data together: two windows'
-  // rows never mix. Under core's list keys, and shaped like a provider's list (`{ data, total }`),
-  // so a save refreshes it and optimistic or undoable writes patch it like any list.
-  const query = useQuery({
-    queryKey: [...resourceKeys(view.resource).lists, { calendar: running ? [starting, running] : [starting], scope: listScope }],
-    // The last window's rows stay up while the next window loads, but never across a change of
-    // scope or filter: those rows aren't this list's, and shouldn't be shown or opened.
-    placeholderData: (previous, previousQuery) =>
-      (previousQuery?.queryKey[2] as { scope?: string } | undefined)?.scope === listScope ? keepPreviousData(previous) : undefined,
+  // The window's rows: one query per window, refreshed live (useViewCalendarRange, which a custom
+  // view calls the same way).
+  const data = useViewCalendarRange<T>(view, range, {
+    field: fieldName,
+    endField,
+    allDayField,
+    filters,
+    select,
     enabled,
-    queryFn: async () => {
-      const lists = await Promise.all([starting, ...(running ? [running] : [])].map((params) => provider.getList<BaseRecord>(view.resource, params)));
-      return {
-        data: lists.flatMap((l) => l.data),
-        total: lists.reduce((n, l) => n + (l.total ?? l.data.length), 0),
-      };
-    },
+    live,
+    limit,
+    timeZone: zone,
+    needs: [durationField, lanesOf ? undefined : laneBy],
   });
-  const loading = query.isPending || query.isPlaceholderData;
-  // `live`, as a list has it: a change to the resource refetches the calendar.
-  useLiveInvalidation(view.resource, live, enabled, { filters: [...filters] }, resourceKeys(view.resource).all);
-  // The two filters can't both match a row; keyed anyway, so a row is never drawn twice.
-  const rows = useMemo(() => {
-    const seen = new Set<string>();
-    return ((query.data?.data ?? []) as unknown as T[]).filter((row) => {
-      const key = String(encodeRecordKey(view.contract, row as DataRow));
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [query.data, view]);
+  const { rows, loading } = data;
   const loaded = rows.length;
-  const total = query.data?.total ?? 0;
-  const error = query.error;
+  const total = data.total;
+  const error = data.error;
 
   const events = useMemo(
     () =>
@@ -510,18 +447,15 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
             )}
           </>
         }
-        onSelect={(e) => (onSelect ? onSelect(e.row as T) : setOpenKey(e.key))}
+        onSelect={(e) => {
+          if (onSelect) return onSelect(e.row as T);
+          if (openMode === "page") return (onNavigate ?? defaultNavigate)(`/${view.resource}/${e.key}`);
+          if (openMode !== "none") setOpenKey(e.key);
+        }}
         loading={loading}
         testID={testID}
       />
-      <DetailPanel<T>
-        item={open}
-        open={open !== null}
-        onClose={() => setOpenKey(null)}
-        title={open ? view.summary(open as T & DataRow).title : undefined}
-        subtitle={open ? view.summary(open as T & DataRow).subtitle : undefined}
-        fields={detailFields}
-      />
+      <ViewRecordPeek<T> view={view} recordView={recordView} open={openMode} row={open} onClose={() => setOpenKey(null)} fields={detailFields} />
     </div>
   );
 }

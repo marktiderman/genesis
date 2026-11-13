@@ -171,6 +171,164 @@ A host reads each with its own value as the fallback:
 | `image` | `--ds-image-filter`, `--ds-image-grain` |
 | `motion` | `--ds-ease-{out,swift,in-out,decelerate}`, `--ds-dur-{press,fast,hover,base,ui,reveal,media}` (from `resolveMotion`; a host gates them with `prefers-reduced-motion`), `--ds-reveal` and `--ds-reveal-phone` (the keyframes to run, `ds-rise` or `ds-clip`, which the host's stylesheet defines), `--ds-reveal-distance`, `--ds-reveal-range`, `--ds-hover-lift` |
 
+## App brands and app styles
+
+How an app looks is two independent choices here (ADR 0018), each set with
+its own attribute on `<html>` (the whole app, menus and dialogs included) or
+on any element:
+
+- An **app brand** (`data-app-brand`) is colours and typefaces: a
+  `CanonicalBrand` (colours and status, light and dark, solved for contrast),
+  colour `roles` set by hand (the sidebar, a card apart from the page) and
+  `fonts`.
+- An **app style** (`data-app-style`) is every component's size and shape,
+  with no colours of its own: component tokens, part styles and raw CSS. Its
+  colours come from whatever brand is set, so any brand goes with any style:
+  your own brand with the `tracker` style, the Genesis brand with `press`.
+
+Neither changes what a component does, what it shows or who may see it. An
+**app theme**, which bundles a brand, a style and a layout under one name, is
+genesis-ui's (`@marktiderman/genesis-ui/themes`), because a layout is the
+components'. Light, dark or system is the person's **appearance**
+(`GenesisThemeProvider`, `data-theme`), which neither sets.
+
+| Piece | Layer | What it changes | Example |
+|---|---|---|---|
+| brand | `brand` | colours and status, solved for contrast | `accent: { DEFAULT: "#5753d6" }` |
+| brand | `roles` | any colour role by hand, per mode | `{ light: { "sidebar-background": "#1d2327" } }` |
+| brand | `fonts` | `--font-sans`, `--font-display`, `--font-mono` | `{ display: '"Lora", Georgia, serif' }` |
+| style | `tokens`, `darkTokens` | component tokens: sizes, corners, type sizes and weights | `{ radius: "0.25rem", "control-height": "2rem" }` |
+| style | `parts`, `darkParts` | CSS declarations for any part, colours from roles | `{ "shell-nav-item[active]": { "box-shadow": "inset 3px 0 0 hsl(var(--primary))" } }` |
+| style | `css` | raw CSS nested in the style's scope | `` `[data-slot="button"]:active { transform: translateY(1px); }` `` |
+
+**Component tokens** (`COMPONENT_TOKENS`) are CSS variables genesis-ui reads in
+place of fixed classes: `radius` (the base every corner scales from),
+`--control-height` (and `-sm`, `-lg`), `--control-padding-x`,
+`--control-radius`, `--control-font-weight`, `--control-text-transform`,
+`--control-letter-spacing`, `--control-shadow`, `--input-padding-x`,
+`--input-border-width`, `--input-shadow`, `--focus-ring-width`,
+`--focus-ring-offset`, `--card-radius`, `--card-border-width`, `--card-shadow`,
+`--card-padding`, `--popover-radius`, `--popover-shadow`, `--overlay-shadow`,
+`--badge-*`, `--table-*`, `--title-*`, `--page-title-*` and
+`--sidebar-item-*`. `themes/genesis.css` declares each at what the component's
+class said before, so an app that sets none looks as it did, and a
+`className` on one instance still wins over a token. A brand leaves `--radius`
+to the style unless it names a radius itself.
+
+**Parts** (`THEME_PARTS`) are genesis-ui's named pieces: every one renders
+`data-slot="<name>"` with the attributes listed for it, and genesis-ui's tests
+hold it to the list. A part selector is a part name, `[attribute]` or
+`[attribute=value]` filters, one state (`:hover`, `:focus-visible`,
+`:active`, `:disabled`, …), and up to three of those nested with spaces:
+`button[variant=outline][size=sm]:hover`, `shell-sidebar shell-nav-item[active]`.
+`root` is the styled element itself. Name an app's own parts `app-<name>`.
+In a style, colour properties (`color`, `background`, `border`, …) take
+colours from roles only (`hsl(var(--primary))`), which `defineAppStyle`
+checks. A part style beats the component's own classes, and a `className` on
+one instance too, so scope it when one instance must differ.
+
+Seven of each ship as **starters**, in matching pairs (`style.pairsWith`);
+genesis-ui's starter themes add a layout to each:
+
+| Name | Brand (colours, typefaces) | Style (size and shape) |
+|---|---|---|
+| `tracker` | cool greys, a sparing indigo, Inter | 32px controls, flat cards, tight tables |
+| `repository` | green actions, blue links, system type and mono | crisp controls, grey outlined buttons, shaded headings, a marked active item |
+| `checklist` | warm white, a confident red, a red-tinted open list | firm controls, soft cards, round checkboxes |
+| `notebook` | white page, warm grey ink, a warm sidebar, a calm blue | borderless cards, ruled tables, square-ish tags |
+| `press` | a dark rail, a grey canvas with white cards, a steady blue | square cards, a filled active item, outlined buttons |
+| `journal` | paper ground, sage, serif headings over a soft sans | pill buttons and fields, soft lifted cards, serif titles |
+| `arena` | a black rail, hot orange, condensed headings | capitals, tight corners, a marked active item, a press that sinks |
+
+Every starter brand reaches WCAG AA on every pair genesis-ui draws
+(`APP_BRAND_PAIRS`, the sidebar's active item included), light and dark, and
+passes the brand contrast check.
+
+**Use them:** import the stylesheet unlayered, after `genesis.css` and the
+Tailwind bridge, then set either attribute or both. Dark mode follows the
+`.dark` class. Load the fonts the brand names (each stack falls back to
+system fonts).
+
+```css
+@import "@marktiderman/genesis-design-system/themes/genesis.css";
+@import "@marktiderman/genesis-design-system/themes/genesis-tailwind4.css";
+@import "@marktiderman/genesis-design-system/themes/starter.css";
+```
+
+```ts
+import { appBrandContrastProblems, getStarterBrand, getStarterStyle } from "@marktiderman/genesis-design-system/app-styles";
+
+document.documentElement.dataset.appStyle = getStarterStyle("press")?.id; // size and shape
+document.documentElement.dataset.appBrand = getStarterBrand("notebook")?.id; // colours and typefaces
+appBrandContrastProblems(getStarterBrand("notebook")!); // [] for every starter brand
+```
+
+**Make your own:** `defineAppBrand` and `defineAppStyle` check every layer
+and throw with every problem. `appBrandCss` and `appStyleCss` render each
+scoped to its attribute; `appBrandVariables` and `appStyleVariables` give the
+variable maps.
+
+```ts
+import { appStyleCss, defineAppStyle, notebookStyle } from "@marktiderman/genesis-design-system/app-styles";
+
+export const ledger = defineAppStyle({
+  ...notebookStyle,
+  name: "ledger",
+  label: "Ledger",
+  description: "Quiet and exact, for finance screens.",
+  feel: "accounting tools",
+  suits: ["invoices", "reports"],
+  tokens: { ...notebookStyle.tokens, "table-cell-padding-y": "0.25rem", "table-head-text-transform": "uppercase" },
+  parts: { "table-cell": { "font-variant-numeric": "tabular-nums" } },
+});
+const css = appStyleCss(ledger); // [data-app-style="ledger"] { … }, in any brand's colours
+```
+
+Brands and styles are code an app ships and reviews; `css` is trusted as
+written, so never build either from what a user types.
+
+### A brand's name, logo and mark
+
+An app brand also carries what people call the app and how it looks in the
+corner: `appName` (the shell's title), `logo` (the full wordmark) and `mark`
+(the square icon for the collapsed rail, a tab, a phone's header). Each image
+is an `https:` URL, a path from the site's root or an inline `data:image/…`,
+with `alt` text (empty for a mark beside the name) and, if it doesn't read on
+a dark ground, a `darkSrc`. `defineAppBrand` checks them. genesis-ui's
+`appShellBrandProps(brand)` gives `AppShell` its `appName` and `logo`.
+
+```ts
+import { defineAppBrand, getStarterBrand } from "@marktiderman/genesis-design-system/app-styles";
+
+export const acme = defineAppBrand({
+  name: "acme",
+  label: "Acme",
+  description: "Acme's colours, type and logo.",
+  brand: { ...getStarterBrand("tracker")!.brand, name: "acme" },
+  appName: "Acme Studio",
+  logo: { src: "/brand/acme.svg", alt: "Acme Studio", darkSrc: "/brand/acme-dark.svg" },
+  mark: { src: "/brand/acme-mark.svg", alt: "" },
+});
+```
+
+### How the brand shapes relate
+
+Genesis has four shapes that hold a brand. One is the source; the others are
+read from it or name it:
+
+| Shape | Where | What it is | Relation |
+|---|---|---|---|
+| `CanonicalBrand` | design-system (`schema/brand`) | colours, status, radius, typography: the colour engine's input | the source of colour |
+| `AppBrand` | design-system (`app-styles`) | a named brand an app wears with `data-app-brand`: a `CanonicalBrand` plus hand-set `roles`, `fonts`, `appName`, `logo`, `mark` | wraps a `CanonicalBrand` (`appBrand.brand`) |
+| `PublicBrand` | genesis-ui (`layout/brand-theme`) | a public page's accent and images (`logoUrl`, `headerImageUrl`), often typed in by an organization | a page-level override, painted with `brandThemeStyle`; never an app brand |
+| `WorkspaceTheme` | genesis-core (`workspaces`) | an organization's `accent`, its app brand by id (`brand`) and its appearance defaults | names an `AppBrand` by id (`resolveWorkspaceBrand`); its `accent` recolours the workspace's own tile |
+
+No converters ship between them: an `AppBrand`'s `brand` is already its
+`CanonicalBrand`, and a `PublicBrand` or a `WorkspaceTheme.accent` comes from
+what people type, which never becomes an app brand (brands are code an app
+ships). Light, dark or system is none of these: it is the person's
+appearance (`GenesisThemeProvider`; `Appearance` is its `ThemeMode`).
+
 ## The colour engine
 
 `palette({ primary, primaryDark?, secondary?, ground })` turns brand colours

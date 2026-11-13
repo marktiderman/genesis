@@ -57,12 +57,43 @@ export interface RecordViewReadinessItem {
   tone?: ViewTone;
 }
 
+/**
+ * A record page template (ADR 0021): `standard` (a header with the summary and actions, then the
+ * sections) or `document` (a cover, an icon, a large title, the properties, then the body, like
+ * a page in a notes app).
+ *
+ * @stability Beta
+ */
+export type RecordPageTemplate = "standard" | "document";
+
+/**
+ * Where a `document` template finds its parts, by field name. Each is optional; a part whose
+ * field is empty on a row isn't drawn.
+ *
+ * @stability Beta
+ */
+export interface RecordViewDocument<Name extends string = string> {
+  /** A text field holding the cover image's URL. */
+  cover?: Name;
+  /** A text field holding the icon: an emoji or a short text, or an image's URL. */
+  icon?: Name;
+  /** The fields listed under the title, as label and value, in order. */
+  properties?: readonly Name[];
+  /** The long text below the properties. */
+  body?: Name;
+}
+
 /** What `defineRecordView` accepts. */
 export interface RecordViewDefinition<C extends ResourceContract, Row extends DataRow = RowOf<C>> {
   /** The view actions the header offers, by name, in order. Default: every view action. */
   header?: { actions?: readonly string[] };
+  /** The sections. A `document` template may have none (the document is the page). */
   sections: readonly RecordViewSection<Row, FieldNameOf<C>>[];
   readiness?: (row: Row) => readonly RecordViewReadinessItem[];
+  /** The record page template. Default `standard`, the page as before. */
+  template?: RecordPageTemplate;
+  /** With `template: "document"`: the fields its cover, icon, properties and body show. */
+  document?: RecordViewDocument<FieldNameOf<C>>;
 }
 
 /** A section as a renderer draws it. */
@@ -112,6 +143,16 @@ export interface ResolvedReadinessItem {
   readonly tone: ViewTone;
 }
 
+/**
+ * Any record view, whatever its contract: the type a view's `recordView` returns. Name it on that
+ * function (`recordView: (): AnyRecordView => brandRecordView`), since the record view is defined
+ * from the view and TypeScript can't infer one from the other.
+ *
+ * @stability Beta
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract and row, by design
+export type AnyRecordView = RecordView<ResourceContract<any>, any>;
+
 /** What `defineRecordView` returns: frozen, with pure helpers for the renderers. */
 export interface RecordView<C extends ResourceContract = ResourceContract, Row extends DataRow = RowOf<C>> {
   readonly view: ResourceView<C, Row>;
@@ -119,6 +160,10 @@ export interface RecordView<C extends ResourceContract = ResourceContract, Row e
   /** The header's action names, in order. */
   readonly headerActions: readonly string[];
   readonly hasReadiness: boolean;
+  /** The record page template: `standard` unless the definition says `document`. */
+  readonly template: RecordPageTemplate;
+  /** The document template's fields (frozen); empty for `standard`. */
+  readonly document: Readonly<RecordViewDocument>;
   section(id: string): ResolvedRecordViewSection | undefined;
   /** The record's address for the provider: its key fields (`keyFields`), composite keys encoded. */
   recordId(row: Row): Identifier;
@@ -156,6 +201,7 @@ const WORKSPACE = Symbol.for("genesis.resource-workspace");
 const REFUSED = "This isn't allowed.";
 const TONES: ReadonlySet<string> = new Set<ViewTone>(["success", "warning", "danger", "info", "muted"]);
 const SECTION_KEYS: ReadonlySet<string> = new Set(["id", "label", "list", "settings"]);
+const DOCUMENT_KEYS: ReadonlySet<string> = new Set(["cover", "icon", "properties", "body"]);
 const dev = () => process.env.NODE_ENV !== "production";
 
 /** Why a field can't be a setting edited in place, or null when it can. */
@@ -222,8 +268,10 @@ export function defineRecordView<C extends ResourceContract, Row extends DataRow
 
   // ── Sections ─────────────────────────────────────────────────────────
   const input = Array.isArray(definition?.sections) ? definition.sections : [];
+  const template: RecordPageTemplate = definition?.template ?? "standard";
+  if (template !== "standard" && template !== "document") problems.push(`template is "standard" or "document", not ${JSON.stringify(template)}`);
   if (!Array.isArray(definition?.sections)) problems.push("sections isn't a list");
-  else if (input.length === 0) problems.push("sections is empty");
+  else if (input.length === 0 && template !== "document") problems.push("sections is empty");
   const ids = new Set<string>();
   const settingsSeen = new Set<string>();
   const sections: ResolvedRecordViewSection[] = [];
@@ -298,7 +346,30 @@ export function defineRecordView<C extends ResourceContract, Row extends DataRow
   if (definition?.readiness !== undefined && typeof definition.readiness !== "function") {
     problems.push("readiness isn't a function");
   }
+  // ── The document template ────────────────────────────────────────────
+  const doc = definition?.document;
+  if (doc !== undefined) {
+    if (!doc || typeof doc !== "object" || Array.isArray(doc)) problems.push("document isn't an object");
+    else {
+      if (template !== "document") problems.push(`document is set, but template isn't "document"`);
+      for (const key of Object.keys(doc)) if (!DOCUMENT_KEYS.has(key)) problems.push(`document.${key} isn't a document setting (cover, icon, properties, body)`);
+      for (const key of ["cover", "icon", "body"] as const) {
+        const name = doc[key];
+        if (name === undefined) continue;
+        const field = view.field(String(name));
+        if (!field) problems.push(`document.${key} names "${String(name)}", which isn't a field`);
+        else if (field.type !== "string" || field.array) problems.push(`document.${key} "${String(name)}" is a ${field.array ? "list" : field.type}, not a text field`);
+      }
+      if (doc.properties !== undefined) {
+        if (!Array.isArray(doc.properties)) problems.push("document.properties isn't a list");
+        else for (const name of doc.properties) if (!view.field(String(name))) problems.push(`document.properties names "${String(name)}", which isn't a field`);
+      }
+    }
+  }
   if (problems.length) throw new ViewDefinitionError(where, problems);
+  const document: Readonly<RecordViewDocument> = Object.freeze(
+    doc ? { ...doc, ...(doc.properties ? { properties: Object.freeze([...doc.properties].map(String)) } : {}) } : {},
+  );
 
   const frozenSections = Object.freeze(sections);
   const byId = new Map(frozenSections.map((s) => [s.id, s]));
@@ -382,6 +453,8 @@ export function defineRecordView<C extends ResourceContract, Row extends DataRow
     sections: frozenSections,
     headerActions,
     hasReadiness: Boolean(readiness),
+    template,
+    document,
     section: (id: string) => byId.get(id),
     recordId: (row: Row) => encodeRecordKey(view.contract, row),
     settingsLocked: (row: Row, viewer?: Viewer) => {
@@ -420,11 +493,11 @@ export function defineRecordView<C extends ResourceContract, Row extends DataRow
 // The names before record views were called record views ("workspace" now means where the viewer
 // is working: docs/adr/0004-workspaces.md). Kept for one minor release.
 
-/** @deprecated Renamed `defineRecordView`. */
+/** @deprecated Renamed `defineRecordView`. Removed in the next major. @stability Deprecated */
 export const defineWorkspace = defineRecordView;
-/** @deprecated Renamed `isRecordView`. */
+/** @deprecated Renamed `isRecordView`. Removed in the next major. @stability Deprecated */
 export const isWorkspace = isRecordView;
-/** @deprecated Renamed `RecordView`. */
+/** @deprecated Renamed `RecordView`. Removed in the next major. @stability Deprecated */
 export type ResourceWorkspace<C extends ResourceContract = ResourceContract, Row extends DataRow = RowOf<C>> = RecordView<C, Row>;
 /** @deprecated Renamed `RecordViewDefinition`. */
 export type WorkspaceDefinition<C extends ResourceContract, Row extends DataRow = RowOf<C>> = RecordViewDefinition<C, Row>;

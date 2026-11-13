@@ -26,7 +26,7 @@ function textRule(field: FieldSchema, required: boolean) {
       return;
     }
     if (field.type === "number" && !NUMBER.test(value.trim())) ctx.addIssue({ code: "custom", message: "Enter a number." });
-    if (field.widget === "date" && !DATE.test(value)) ctx.addIssue({ code: "custom", message: "Enter a date (YYYY-MM-DD)." });
+    if ((field.control ?? field.widget) === "date" && !DATE.test(value)) ctx.addIssue({ code: "custom", message: "Enter a date (YYYY-MM-DD)." });
     if (choices && field.type !== "boolean" && !choices.includes(value)) {
       ctx.addIssue({ code: "custom", message: `Choose one of: ${choices.join(", ")}.` });
     }

@@ -4,6 +4,8 @@
 
 export { boardChoices, boardProblems, calendarProblems, defineView, galleryProblems, deriveDisplay, plural, singular, valueText, ViewDefinitionError } from "./define-view";
 export { initialsOf, rowPicture } from "./picture";
+export { groupRows, type GroupRowsOptions, type RowGroup } from "./group";
+export { RECORD_OPEN_MODES } from "./types";
 export { scopeFilter, scopeValues } from "./scope";
 export { filterParams } from "./link";
 export { cascadeSelection, initialExpanded, setExpanded, treeRows } from "./tree";
@@ -40,6 +42,7 @@ export type {
   ViewLink,
   ViewPreset,
   ViewTone,
+  RecordOpen,
   TimeZoneName,
   ViewTimeZone,
   Viewer,
@@ -52,6 +55,9 @@ export type {
   ResolvedRecordViewSection,
   RecordView,
   RecordViewDefinition,
+  AnyRecordView,
+  RecordViewDocument,
+  RecordPageTemplate,
   RecordViewFilter,
   RecordViewHeader,
   RecordViewHeaderAction,
@@ -66,3 +72,31 @@ export type {
   WorkspaceSection,
   WorkspaceHeaderAction,
 } from "./record-view";
+// Widgets: a tile on a dashboard or a record page's sidebar, fed by a view (ADR 0023).
+export {
+  defineWidget,
+  isWidget,
+  resolveChartSeries,
+  resolveProgress,
+  resolveStreak,
+  resolveWidgetAccess,
+  resolveWidgetRequest,
+  toWidgetText,
+  widgetProblems,
+} from "./widget";
+export type {
+  ChartPoint,
+  ChartWidget,
+  DefinedWidget,
+  ListWidget,
+  NumberWidget,
+  ProgressWidget,
+  Streak,
+  StreakWidget,
+  WidgetBase,
+  WidgetDefinition,
+  WidgetFilter,
+  WidgetFormat,
+  WidgetKind,
+  WidgetRequest,
+} from "./widget";

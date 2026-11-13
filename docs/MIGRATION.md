@@ -11,6 +11,17 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## Light and dark is the person's appearance; widgets replace hand-fetched stat tiles — `@marktiderman/genesis-core`, `@marktiderman/genesis-design-system`, `@marktiderman/genesis-ui` (**minor**)
+
+🟢 **No action needed.** Everything below is additive; existing props and exports work as before.
+
+- **Words.** What `GenesisThemeProvider` and `ThemeMode` hold (light, dark or system) is the person's **appearance** (ADR 0024, the glossary). The props keep their `mode` names. New names for the same things: `Appearance` and `ResolvedAppearance` (types, design-system), and `AppearanceProvider` (genesis-ui/themes), which is `GenesisThemeProvider` fed from the person's appearance preferences. "Theme" now means the app theme (ADR 0018), never light and dark.
+- **Save the person's appearance and density** (🟡 recommended where an app keeps them in local storage by hand): define where they're kept with `defineAppearancePreferences({ store })` (genesis-core), wrap the app in `AppearancePreferencesProvider`, and swap `GenesisThemeProvider` for `AppearanceProvider`. `AppShell`'s theme toggle and density then follow the person across devices. A controlled `GenesisThemeProvider` can save `setMode` itself with the new `onModeSelect`.
+- **Organization brands:** set `WorkspaceTheme.brand` to an app brand's id and read it with `resolveWorkspaceBrand`.
+- **Dashboards** (🟡 recommended): a `StatCard` whose number a screen fetched by hand becomes a `defineWidget` over the view it counted, drawn with `<Widget>` in the `DashboardPage`'s `stats`. `StatCard`, `HeadlineNumbers` and `SummaryCard` keep their props and markup, and now carry the widget tile's parts (`stat-card`, `headline-number`, `summary-card`, `widget-label`, `widget-value`, `widget-detail`), so an app style can change them.
+
+---
+
 ## New doctor findings from release 2026-11-03/a — what to do about each
 
 🟡 **Action recommended.** These landed on existing code, and an app may have allowed them to take

@@ -155,7 +155,7 @@ export function RecordForm({ provider, sessionKey, mode, fields, editable, row, 
                     </Select>
                   );
                 }
-                if (field.widget === "textarea") {
+                if ((field.control ?? field.widget) === "textarea") {
                   return (
                     <Textarea
                       id={id}
@@ -172,7 +172,7 @@ export function RecordForm({ provider, sessionKey, mode, fields, editable, row, 
                 return (
                   <Input
                     id={id}
-                    type={field.widget === "date" ? "date" : "text"}
+                    type={(field.control ?? field.widget) === "date" ? "date" : "text"}
                     inputMode={field.type === "number" ? "decimal" : undefined}
                     value={String(control.value ?? "")}
                     onChange={control.onChange}

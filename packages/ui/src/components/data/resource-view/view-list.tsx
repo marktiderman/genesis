@@ -11,7 +11,7 @@ type Row = Record<string, unknown>;
 type Scalar = string | number | boolean | null;
 export type Filter = Readonly<Record<string, Scalar | readonly (string | number)[]>>;
 
-/** The screen options these read: a subset of ResourceViewProps. */
+/** The screen options these read: a subset of ResourceViewProps. @stability Beta */
 export interface ViewListOptions {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
   view: View<ResourceContract<any>, any>;
@@ -32,7 +32,7 @@ export function filterParams(filter: Filter | undefined): FilterParam[] {
   );
 }
 
-/** What a list over a view asks the provider for: shared by the list and the calendar so they can't drift. */
+/** What a list over a view asks the provider for: shared by every view type so they can't drift. @stability Beta */
 export interface ViewListParams {
   /** The scope and the screen's filter, as values (what a new row starts with). */
   filter: Filter | undefined;
@@ -45,8 +45,12 @@ export interface ViewListParams {
 }
 
 /**
- * The filters, select, enabled and live a screen's options make for a view's list. The list path
- * (`useResourceViewProps`) and the calendar path both use it.
+ * The filters, select, enabled and live a screen's options make for a view's list: the viewer's
+ * scope, the preset's filter and the screen's own, as provider params. Every view type (the
+ * table's `useResourceViewProps`, the board, the calendar) and every custom view (`useViewList`,
+ * `useViewBoard`, `useViewCalendarRange`, `<CustomView>`) starts from it, so they ask the same.
+ *
+ * @stability Beta
  */
 export function useViewListParams(props: ViewListOptions): ViewListParams & { tab: ReturnType<typeof presetOf> } {
   const { view, preset, filter: screenFilter, scoped = true, resourceOptions, live } = props;

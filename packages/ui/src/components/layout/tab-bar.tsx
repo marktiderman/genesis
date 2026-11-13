@@ -59,6 +59,7 @@ export function TabBar({ items, value, onChange, max = TAB_BAR_MAX, label, class
       <nav
         aria-label={label ?? m.primaryNavigation}
         className={cn("flex border-t bg-background pb-[env(safe-area-inset-bottom)]", className)}
+        data-slot="tab-bar"
         data-testid={testID}
       >
         {shown.map((item) => {
@@ -70,6 +71,8 @@ export function TabBar({ items, value, onChange, max = TAB_BAR_MAX, label, class
               onClick={() => onChange(item.key)}
               aria-current={active ? "page" : undefined}
               aria-label={badgeLabel(item.label, item.badge)}
+              data-slot="tab-bar-item"
+              data-active={active || undefined}
               className={itemClass(active)}
               data-testid={`${testID}-${item.key}`}
             >
@@ -92,6 +95,8 @@ export function TabBar({ items, value, onChange, max = TAB_BAR_MAX, label, class
             aria-haspopup="dialog"
             aria-expanded={moreOpen}
             aria-label={moreActive ? m.moreCurrent : undefined}
+            data-slot="tab-bar-item"
+            data-active={moreActive || undefined}
             className={itemClass(moreActive)}
             data-testid={`${testID}-more`}
           >

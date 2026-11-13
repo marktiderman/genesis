@@ -15,6 +15,7 @@ import { DataReadError, readFailureMessage } from "../schema/read-outcome";
 import type { FilterOperator, ProviderCapabilities } from "../schema/types";
 import { readOutcomeFromCode, toDataWriteError } from "./postgrest-errors";
 import { reportError } from "../errors";
+import { resolveAggregate } from "./aggregate";
 
 // ---------------------------------------------------------------------------
 // Minimal Supabase client shape — no hard dependency on @supabase/supabase-js
@@ -315,6 +316,13 @@ export interface SupabaseProviderOptions {
    * gives it.
    */
   realtime?: boolean | readonly string[] | ((resource: string) => boolean);
+  /**
+   * Work out `sum`, `avg`, `min` and `max` in the database with PostgREST's aggregate functions
+   * (`amount.sum()`), which a project turns on with `pgrst.db_aggregates_enabled`. Off by
+   * default: `aggregate` then counts in the database and totals the other metrics from the
+   * rows, paged (`resolveAggregate`, up to 10 000 rows). A count is always the database's.
+   */
+  aggregateFunctions?: boolean;
 }
 
 /** A PostgREST "undefined column" error (42703) naming `column`. */
@@ -1193,6 +1201,63 @@ export function createSupabaseProvider(
         total: mode === "none" ? -1 : (result.count ?? 0),
         ...(mode === "estimated" || mode === "planned" ? { totalIsEstimate: true } : {}),
       } as never;
+    },
+
+    async aggregate(resource, params) {
+      const entries = Object.entries(params.metrics);
+      const counts = entries.filter(([, m]) => m.fn === "count");
+      const others = entries.filter(([, m]) => m.fn !== "count");
+      const values: Record<string, number | null> = {};
+      let isEstimate = false;
+      const SAFE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+      const refuse = (why: string) =>
+        reportReadError(
+          new DataReadError("invalid", readFailureMessage("invalid", nounFor(resource), false, configFor(resource).nounPlural), {
+            cause: new Error(`[SupabaseProvider] aggregate of "${resource}": ${why}`),
+          }),
+          resource,
+          "getList",
+        );
+      const narrow = (query: SupabaseQueryBuilder) => {
+        query = applyFilters(query, params.filters);
+        const clauses = searchClauses(resource, { search: params.search });
+        return clauses ? query.or(clauses) : query;
+      };
+      if (counts.length > 0) {
+        const mode = params.count ?? "exact";
+        const result = (await narrow(read(resource, "*", mode)).range(0, 0)) as unknown as { error: unknown; count?: number | null };
+        await throwIfReadError(result, resource, "getList");
+        for (const [name] of counts) values[name] = result.count ?? 0;
+        isEstimate = mode !== "exact";
+      }
+      if (others.length > 0) {
+        if (options.aggregateFunctions) {
+          for (const [name, m] of others) {
+            if (!SAFE.test(name) || !("field" in m) || !SAFE.test(m.field)) await refuse(`"${name}" and its field must be plain column names.`);
+          }
+          const cols = others.map(([name, m]) => `${name}:${(m as { field: string }).field}.${m.fn}()`).join(",");
+          const result = (await narrow(read(resource, cols))) as unknown as { data: Record<string, unknown>[] | null; error: unknown };
+          await throwIfReadError(result, resource, "getList");
+          const row = result.data?.[0] ?? {};
+          for (const [name] of others) {
+            const raw = row[name];
+            const n = raw == null || raw === "" ? NaN : Number(raw);
+            values[name] = Number.isFinite(n) ? n : null;
+          }
+        } else {
+          // The same reads without this method, so the fallback pages rows instead of calling back here.
+          const { aggregate: _self, ...reads } = provider;
+          // Pages no bigger than getList allows here (maxPerPage), so the fallback isn't refused.
+          const rows = await resolveAggregate(
+            reads,
+            resource,
+            { ...params, metrics: Object.fromEntries(others) },
+            { pageSize: Math.max(1, Math.min(500, maxPerPage - 1)) },
+          );
+          Object.assign(values, rows.values);
+        }
+      }
+      return isEstimate ? { values, isEstimate } : { values };
     },
 
     async getOne(resource, params) {

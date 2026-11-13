@@ -11,6 +11,63 @@
 @source "./";
 
 /*
+ * Component tokens at their defaults (genesis-design-system COMPONENT_TOKENS): the sizes, shapes
+ * and type genesis-ui's classes read. themes/genesis.css declares them too; they're here, in the
+ * base layer, so an app whose colours come from its own brand CSS (tailwindFromBrand, without
+ * genesis.css) still draws every component at its usual size. Anything unlayered (genesis.css, an
+ * app style) wins. Kept in step with COMPONENT_TOKENS by genesis-ui's theme contract test.
+ */
+@layer base {
+  :root {
+    --control-height: 2.5rem;
+    --control-height-sm: 2.25rem;
+    --control-height-lg: 2.75rem;
+    --control-padding-x: 1rem;
+    --control-padding-x-sm: 0.75rem;
+    --control-padding-x-lg: 2rem;
+    --control-radius: calc(var(--radius) * 0.8);
+    --control-font-weight: 500;
+    --control-text-transform: none;
+    --control-letter-spacing: normal;
+    --control-shadow: 0 0 #0000;
+    --input-padding-x: 0.75rem;
+    --input-border-width: 1px;
+    --input-shadow: 0 0 #0000;
+    --focus-ring-width: 2px;
+    --focus-ring-offset: 2px;
+    --card-radius: calc(var(--radius) * 1.4);
+    --card-border-width: 1px;
+    --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --card-padding: 1.5rem;
+    --popover-radius: calc(var(--radius) * 0.8);
+    --popover-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --overlay-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --badge-radius: 9999px;
+    --badge-font-weight: 500;
+    --badge-text-transform: none;
+    --badge-letter-spacing: normal;
+    --table-head-height: 2.5rem;
+    --table-cell-padding-x: 0.5rem;
+    --table-cell-padding-y: 0.5rem;
+    --table-head-font-weight: 500;
+    --table-head-text-transform: none;
+    --table-head-letter-spacing: normal;
+    --title-font-weight: 600;
+    --title-letter-spacing: -0.025em;
+    --title-text-transform: none;
+    --page-title-font-weight: 700;
+    --page-title-letter-spacing: -0.025em;
+    --page-title-text-transform: none;
+    --sidebar-item-radius: var(--radius);
+    --sidebar-item-font-weight: 500;
+    --shell-frame-gap: 0.5rem;
+    --shell-frame-radius: calc(var(--radius) * 1.4);
+    --shell-frame-border-width: 1px;
+    --shell-frame-shadow: 0 0 #0000;
+  }
+}
+
+/*
  * Reduced motion, for everything genesis-ui draws: when the person has asked their device for
  * less motion, nothing slides, zooms or fades in. Animations and transitions still run, but in an
  * instant, so code waiting on `animationend` (Radix's open and close) carries on. A spinner keeps

@@ -126,6 +126,30 @@ export interface NavigationNode<T> {
    * @stability Beta
    */
   subNav?: "section" | "tabs" | "sidebar" | "off";
+  /**
+   * The zone this node and its descendants sit in (ADR 0003): a kind of work
+   * the viewer enters (their own work, training, admin). A descendant that
+   * names no zone of its own is in its nearest ancestor's; a node with none
+   * above it is global (settings, messages, help). `resolveNavigation`
+   * reports the current zone as `zone`, so an app can key a theme on it;
+   * `resolveNavigationZones` groups the tree by zone.
+   *
+   * @stability Beta
+   */
+  zone?: string;
+}
+
+/**
+ * One zone of an app's navigation (ADR 0003 §1): an ordered entry with an id
+ * the tree's `zone` names, a label and an optional icon (the app's own icon
+ * type, `I`).
+ *
+ * @stability Beta
+ */
+export interface NavigationZone<I = unknown> {
+  id: string;
+  label: string;
+  icon?: I;
 }
 
 /**
@@ -146,6 +170,14 @@ export interface ResolvedNavigation<T> {
   trail: NavigationNode<T>[];
   /** Params captured by `current.path`, URL-decoded. */
   params: Record<string, string>;
+  /**
+   * The zone the location is in: the `zone` of the nearest node in `trail`
+   * that names one, so a page opened from a zone's list keeps that zone
+   * through its logical parents. `undefined` on a global page.
+   *
+   * @stability Beta
+   */
+  zone?: string;
 }
 
 function pathSegments(path: string): string[] {
@@ -240,12 +272,87 @@ export function resolveNavigation<T>(
 
   const trail = winner.trail.map(interpolate);
   const current = trail[trail.length - 1]!;
+  const zone = [...trail].reverse().find((node) => node.zone !== undefined)?.zone;
   return {
     current,
     parent: trail.length > 1 ? trail[trail.length - 2] : undefined,
     items: current.items,
     trail,
     params,
+    ...(zone !== undefined ? { zone } : {}),
+  };
+}
+
+/**
+ * Result of {@link resolveNavigationZones}.
+ *
+ * @stability Beta
+ */
+export interface ResolvedNavigationZones<T, I = unknown> {
+  /** The tree resolved against the location, as `resolveNavigation` returns it. */
+  navigation: ResolvedNavigation<T>;
+  /** The zone the location is in (`navigation.zone`'s entry), or `undefined` on a global page or the roll-up. */
+  zone?: NavigationZone<I>;
+  /**
+   * The zones that have a page, in the order given, each with the top nodes
+   * of its pages (a node whose parent is in another zone or none). A zone
+   * with no page in the tree is left out: filter the tree for the viewer
+   * first, and access decides which zones show (ADR 0003 §1).
+   */
+  zones: Array<{ zone: NavigationZone<I>; nodes: NavigationNode<T>[] }>;
+  /** The root's children in no zone: pages shown in every zone (settings, messages, help). */
+  global: NavigationNode<T>[];
+  /** The roll-up page above the zones, when `options.rollUp` names one that is in the tree. */
+  rollUp?: NavigationNode<T>;
+}
+
+/**
+ * Lay an app's zones over its navigation tree (ADR 0003 §1 and §4): which zone
+ * the location is in, each zone's pages, the global pages and the roll-up.
+ * Pure, so web and native shells use the same answer; an app with no zones
+ * gets every top page in `global` and no `zone`.
+ *
+ * ```ts
+ * const { zone } = resolveNavigationZones(tree, pathname, { zones: ZONES });
+ * const theme = THEMES[zone?.id ?? "home"]; // a theme per zone
+ * ```
+ *
+ * A zone id the tree names but `zones` doesn't list is ignored (its pages
+ * read as global), so a stale id never invents a zone.
+ *
+ * @stability Beta
+ */
+export function resolveNavigationZones<T, I = unknown>(
+  tree: NavigationNode<T>,
+  pathname: string,
+  options: { zones: readonly NavigationZone<I>[]; rollUp?: string } = { zones: [] },
+): ResolvedNavigationZones<T, I> {
+  const known = new Map(options.zones.map((z) => [z.id, z] as const));
+  const effective = (own: string | undefined, inherited: string | undefined) =>
+    own !== undefined && known.has(own) ? own : inherited;
+  const byZone = new Map<string, NavigationNode<T>[]>();
+  const global: NavigationNode<T>[] = [];
+  let rollUp: NavigationNode<T> | undefined;
+  const visit = (node: NavigationNode<T>, parentZone: string | undefined, depth: number) => {
+    const zone = effective(node.zone, parentZone);
+    if (depth > 0 && options.rollUp !== undefined && node.id === options.rollUp) rollUp = node;
+    else if (depth > 0 && zone !== undefined && zone !== parentZone) {
+      const list = byZone.get(zone) ?? [];
+      list.push(node);
+      byZone.set(zone, list);
+    } else if (depth === 1 && zone === undefined) global.push(node);
+    for (const child of node.children ?? []) visit(child, zone, depth + 1);
+  };
+  visit(tree, effective(tree.zone, undefined), 0);
+  const navigation = resolveNavigation(tree, pathname);
+  const currentId = [...navigation.trail].reverse().find((node) => node.zone !== undefined && known.has(node.zone))?.zone;
+  const current = currentId !== undefined ? known.get(currentId) : undefined;
+  return {
+    navigation,
+    ...(current ? { zone: current } : {}),
+    zones: options.zones.filter((z) => byZone.has(z.id)).map((zone) => ({ zone, nodes: byZone.get(zone.id)! })),
+    global,
+    ...(rollUp ? { rollUp } : {}),
   };
 }
 
