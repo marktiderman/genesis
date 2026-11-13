@@ -194,3 +194,35 @@ describe("calendar", () => {
     expect(dayInRange("2026-01-03", { from: "2026-01-02", to: "2026-01-05" })).toBe(true);
   });
 });
+
+describe("adversarial inputs stay linear (CodeQL js/polynomial-redos)", () => {
+  const fast = (fn: () => unknown) => {
+    const start = performance.now();
+    fn();
+    return performance.now() - start;
+  };
+
+  it("parseNumberInput: still reads numbers, and refuses 50k-character input fast", () => {
+    expect(parseNumberInput("12.")).toBe(12);
+    expect(parseNumberInput(".5")).toBe(0.5);
+    expect(parseNumberInput(" -1,25 ")).toBe(-1.25);
+    expect(parseNumberInput("1,2,3")).toBeNull();
+    expect(parseNumberInput("1".repeat(64))).not.toBeNull();
+    for (const evil of ["1".repeat(50_000) + "x", "1".repeat(50_000) + ".", "-" + "9".repeat(50_000) + "a", "1".repeat(25_000) + "," + "1".repeat(25_000) + ","]) {
+      let result: number | null = 0;
+      expect(fast(() => (result = parseNumberInput(evil)))).toBeLessThan(50);
+      expect(result).toBeNull();
+    }
+  });
+
+  it("chartTokenOf: still reads tokens, and refuses 50k-character input fast", () => {
+    expect(chartTokenOf("  hsl( var(--chart-2) )  ")).toBe("chart-2");
+    expect(chartTokenOf("chart-3")).toBe("chart-3");
+    expect(chartTokenOf("var(--chart-1)))")).toBeUndefined();
+    for (const evil of ["chart-1" + " ".repeat(50_000) + "x", "hsl(var(--chart-1" + " )".repeat(25_000), "chart-" + "1".repeat(50_000) + "!"]) {
+      let result: string | undefined = "x";
+      expect(fast(() => (result = chartTokenOf(evil)))).toBeLessThan(50);
+      expect(result).toBeUndefined();
+    }
+  });
+});

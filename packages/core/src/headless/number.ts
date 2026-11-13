@@ -54,11 +54,20 @@ export function canStepNumber(value: number, direction: 1 | -1, options: NumberS
  */
 export function parseNumberInput(text: string): number | null {
   const t = text.trim().replace(/\s/g, "");
+  // No number a person types is this long; capping it keeps every pattern below linear.
+  if (t.length > MAX_NUMBER_INPUT) return null;
+  // One comma as the decimal mark ("1,5"). `replace` swaps only the first comma, which is all
+  // there is: the pattern allows exactly one.
   const normalised = /^-?\d*,\d+$/.test(t) ? t.replace(",", ".") : t;
-  if (!/^-?(\d+\.?\d*|\.\d+)$/.test(normalised)) return null;
+  // Unambiguous: digits with an optional fraction, or a bare fraction. No nested quantifiers
+  // over the same characters, so a long run of digits can't backtrack.
+  if (!/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalised)) return null;
   const n = Number(normalised);
   return Number.isFinite(n) ? n : null;
 }
+
+/** The longest text `parseNumberInput` reads; anything longer isn't a number a person typed. */
+const MAX_NUMBER_INPUT = 64;
 
 /**
  * Where two thumbs of a range slider may go: each snapped, the low one never past the high one.

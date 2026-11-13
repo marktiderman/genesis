@@ -24,7 +24,11 @@ export function chartSeriesColor(series: Pick<ChartSeriesConfig, "color" | "them
  * `"hsl(var(--chart-2))"` and `"chart-2"` are all `"chart-2"`. A literal colour is `undefined`.
  */
 export function chartTokenOf(color: string | undefined): `chart-${number}` | undefined {
-  const m = color?.match(/^(?:hsl\(\s*)?(?:var\(\s*--)?(chart-\d+)\s*\)?\s*\)?$/);
+  // Trimmed and capped first, then one unambiguous pattern: each closing paren takes its own
+  // leading spaces, so a long run of whitespace has one way to match and can't backtrack.
+  const text = color?.trim();
+  if (!text || text.length > 64) return undefined;
+  const m = text.match(/^(?:hsl\(\s*)?(?:var\(\s*--)?(chart-\d+)(?:\s*\)){0,2}$/);
   return m ? (m[1] as `chart-${number}`) : undefined;
 }
 
