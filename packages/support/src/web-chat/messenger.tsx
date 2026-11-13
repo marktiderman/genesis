@@ -561,7 +561,7 @@ function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, 
     );
   }
   // Until support first answers, say where the answer will come.
-  const awaiting = replies.isSuccess && !shown.some((r) => !r.mine);
+  const awaiting = replies.isSuccess && !shown.some((r) => r.fromStaff);
   const send = () => {
     const body = draft.trim();
     if (!body || sending) return;
