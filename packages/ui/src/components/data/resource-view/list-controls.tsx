@@ -47,8 +47,9 @@ import type { ResourceBulkContext, ResourceListQuery } from "../ResourcePage";
 import { listViewTypes, resolveViewType } from "./view-types";
 
 type Row = Record<string, unknown>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
-type AnyView<T extends Row = Row> = View<ResourceContract<any>, T & DataRow>;
+// Any contract and any row, so a typed view (rows of its own shape) passes in.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyView<T extends Row = any> = View<ResourceContract<any>, T & DataRow>;
 
 /** The device store, for a list's current state when the app gives no store of its own. */
 let deviceStore: SavedViewStore | undefined;

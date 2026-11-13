@@ -11,7 +11,6 @@
   "web/command-palette": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/confirm-delete-dialog": "The delete confirmation inside the list screens.",
   "web/container": "No story or demo page yet: add a story under apps/sample/stories/.",
-  "web/context-menu": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/data-bulk-bar": "The bulk-action bar on /tasks when rows are selected.",
   "web/date-picker": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/define": "App theme functions (defineAppTheme, validateAppTheme, appThemeAttributes in packages/ui/src/themes), not components: they set data-app-brand and data-app-style, which every story's components already read.",
