@@ -740,7 +740,7 @@
         },
         {
           "need": "the app's navigation style (sidebar, rail, top tabs, bottom bar, page tree) and frame (flush or inset)",
-          "use": "AppShell options navigation and frame, or an app theme's layout (appShellOptionsFromTheme)",
+          "use": "AppShell options navigation and frame, or an app theme's layout (appShellOptionsFromTheme, from @marktiderman/genesis-ui/themes)",
           "import": "@marktiderman/genesis-ui/layout",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
         },
@@ -752,7 +752,7 @@
         },
         {
           "need": "the person's light or dark and density, kept on their account",
-          "use": "defineAppearancePreferences (core) with your store, served by AppearanceProvider; AppShell reads the density",
+          "use": "defineAppearancePreferences (from @marktiderman/genesis-core) with your store, served by AppearanceProvider; AppShell reads the density",
           "import": "@marktiderman/genesis-ui/themes",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0024-who-sets-what.md"
         }
