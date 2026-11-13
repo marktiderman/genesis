@@ -32,7 +32,7 @@ const deals = {
     { name: "title", type: "string" },
     { name: "stage", type: "string", enumValues: ["open", "won", "lost"] },
     { name: "amount", type: "number", nullable: true },
-    { name: "margin", type: "number", nullable: true, permissions: { read: false } },
+    { name: "margin", type: "number", nullable: true, permissions: { read: false, update: false } },
     { name: "closed_on", type: "datetime", dbType: "date", nullable: true },
   ],
 } as const satisfies ResourceContract<DealRow>;

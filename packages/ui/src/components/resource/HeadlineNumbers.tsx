@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { HeadlineNumber as CoreHeadlineNumber, HeadlineTone } from "@marktiderman/genesis-core/resource";
 import { Skeleton } from "../ui/skeleton";
 import { cn } from "../../utils";
+import { WidgetTile } from "../data/widget/WidgetTile";
 
 /**
  * One headline number: a label, the number, and a short line under it. The data half
@@ -20,7 +21,10 @@ const TONE: Record<HeadlineTone, string> = {
   muted: "text-muted-foreground",
 };
 
-/** A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen. */
+/**
+ * A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen. Each
+ * is the one widget tile (`WidgetTile`, variant `headline`, part `headline-number`).
+ */
 export function HeadlineNumbers({
   numbers,
   isLoading = false,
@@ -50,15 +54,15 @@ export function HeadlineNumbers({
       )}
     >
       {numbers.map((n) => (
-        <div
+        <WidgetTile
           key={n.key}
-          className="flex min-w-0 flex-col gap-1 rounded-lg border border-border bg-card p-4 text-card-foreground"
-          data-testid={`headline-${n.key}`}
-        >
-          <dt className="truncate text-sm text-muted-foreground">{n.label}</dt>
-          <dd className="text-2xl font-semibold tabular-nums tracking-tight sm:text-3xl">{n.value}</dd>
-          {n.detail ? <dd className={cn("text-xs", TONE[n.tone ?? "muted"])}>{n.detail}</dd> : null}
-        </div>
+          variant="headline"
+          label={n.label}
+          value={n.value}
+          detail={n.detail}
+          detailClassName={TONE[n.tone ?? "muted"]}
+          testID={`headline-${n.key}`}
+        />
       ))}
     </dl>
   );

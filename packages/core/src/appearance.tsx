@@ -28,6 +28,7 @@ import {
   resolveAppearancePreferences,
   toAppearancePreferenceValues,
   type Appearance,
+  type AppearancePreferenceLayers,
   type AppearancePreferenceValues,
   type Density,
   type ResolvedAppearancePreferences,
@@ -102,6 +103,11 @@ export interface UseAppearancePreferencesReturn extends ResolvedAppearancePrefer
   person: AppearancePreferenceValues;
   /** Which values the app has locked. */
   locked: { appearance: boolean; density: boolean };
+  /**
+   * Every layer as given, for a component with a default of its own to put in the order
+   * (`AppShell` puts its `options.density` under the theme's).
+   */
+  layers: AppearancePreferenceLayers;
   /** False until the store's first read has answered. */
   ready: boolean;
   /** Save the person's appearance (`undefined` clears it back to the defaults). Ignored when locked. */
@@ -198,12 +204,14 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
   );
 
   const value = useMemo<UseAppearancePreferencesReturn>(() => {
-    const resolved = resolveAppearancePreferences({ lock, person, organization, theme });
+    const layers: AppearancePreferenceLayers = { lock, person, organization, theme };
+    const resolved = resolveAppearancePreferences(layers);
     const locked = { appearance: lock.appearance !== undefined, density: lock.density !== undefined };
     return {
       ...resolved,
       person,
       locked,
+      layers,
       ready,
       setAppearance: (appearance) => {
         if (!locked.appearance) save({ appearance });

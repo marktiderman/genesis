@@ -271,6 +271,29 @@ export const uiMessages = {
     weekOf: "Week of {date}",
   },
   /** ConflictSheet: a save met someone else's change. */
+  /** Widgets (`<Widget>`): tiles fed by a view. */
+  widget: {
+    /** A total with nothing to total. */
+    empty: "Nothing yet",
+    /** A list widget with no rows: `{items}` is the view's plural noun. */
+    emptyList: "No {items} yet",
+    /** A total or rows that couldn't be read, before the reason. */
+    error: "Couldn't load this",
+    retry: "Try again",
+    /** Progress: `{value}` of `{goal}`. */
+    progressOf: "{value} of {goal}",
+    /** A streak's unit, one and many. */
+    day: "day",
+    days: "days",
+    week: "week",
+    weeks: "weeks",
+    /** A streak whose latest day isn't done yet. */
+    streakOpen: "Keep it going today",
+    /** A streak that includes today. */
+    streakToday: "Done today",
+    /** A list widget's link to the whole view. */
+    seeAll: "See all",
+  },
   conflict: {
     /** `{noun}`: the record's noun ("task"). */
     title: "Someone else changed this {noun}",
