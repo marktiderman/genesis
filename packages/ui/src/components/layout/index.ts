@@ -23,6 +23,9 @@ export {
   AppShell,
   type AppShellProps,
   type AppShellOptions,
+  type AppShellNavigation,
+  type AppShellFrame,
+  type AppShellDensity,
   type NavItem,
   type ParentNavigation,
 } from "./AppShell";

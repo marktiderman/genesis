@@ -95,6 +95,9 @@ import {
   AppShell as AppShellImpl,
   type AppShellProps,
   type AppShellOptions,
+  type AppShellNavigation,
+  type AppShellFrame,
+  type AppShellDensity,
   type NavItem,
   type ParentNavigation,
 } from "../layout/AppShell";
