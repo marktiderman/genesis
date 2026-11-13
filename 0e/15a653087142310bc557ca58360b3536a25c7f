@@ -1,0 +1,57 @@
+packages/sites/src/core/landing.ts
+  s_a2e5357843c63e::t_c54b1afd941556 1-61
+packages/sites/src/__tests__/landing.test.ts
+  s_a2e5357843c63e::t_84acfa57e2782a 1-202
+.changeset/sites-landing-directory.md
+  s_a2e5357843c63e::t_5ba44a5169e269 1-19
+packages/sites/src/core/schemas.ts
+  s_a2e5357843c63e::t_09fc397d2e818c 283-289
+packages/sites/src/editor/landing-panel.tsx
+  s_a2e5357843c63e::t_d717a84992c624 222
+  s_a2e5357843c63e::t_1332ab3698342b 1-221,223-369
+packages/sites/src/index.ts
+  s_a2e5357843c63e::t_78a61b8778783b 57-66
+  s_9c94fb8fc662ae::t_c805ed1c639bd6 56
+features.json
+  s_a2e5357843c63e::t_d38907328c446c 2443,2481,2484
+features.ts
+  s_a2e5357843c63e::t_ca0a7116990c4f 1078,1095,1098
+packages/sites/README.md
+  s_a2e5357843c63e::t_e49a0201a5fecf 642-658
+packages/sites/SKILL.md
+  s_a2e5357843c63e::t_23d654884cdd31 35,45-48
+packages/sites/src/__tests__/editor-mount.test.tsx
+  s_a2e5357843c63e::t_3ecd84f28c4cf2 270-312
+packages/sites/src/editor/index.ts
+  s_a2e5357843c63e::t_ade04ad3a8c623 38
+packages/sites/src/editor/pages-panel.tsx
+  s_a2e5357843c63e::t_2cd716da899c28 3-4,53-54,262-263,322,334,359,375-380
+packages/sites/src/editor/site-actions.ts
+  s_a2e5357843c63e::t_d4cbed90763df8 6,10,157-162,166-167,174-257
+packages/sites/src/editor/site-editor.tsx
+  s_a2e5357843c63e::t_032947aa2497ba 45-46,51,304-305,378,677-709,712,993-1008
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0e15a653087142310bc557ca58360b3536a25c7f",
+  "prompts": {},
+  "sessions": {
+    "s_9c94fb8fc662ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43574400-0d77-49f7-ac4b-1586a7ece165",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
