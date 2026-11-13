@@ -226,6 +226,31 @@ function Inbox({ items, messages, draft, setDraft, send, openId, open, close }: 
 }
 ```
 
+## Theming: component tokens and parts
+
+genesis-ui's components read component tokens for their sizes, shapes and
+type (`--control-height`, `--card-shadow`, `--table-head-text-transform`…,
+declared in genesis-design-system's `themes/genesis.css` at the values the
+classes had), and every core component and the app shell mark their named
+parts with `data-slot` (`button` with `data-variant` and `data-size`, `card`,
+`table-head`, `shell-nav-item` with `data-active`, `shell` with
+`data-density`…). An app theme (genesis-design-system's
+`@marktiderman/genesis-design-system/app-themes`, ADR 0017) sets the tokens and
+styles the parts, so one stylesheet changes how every screen looks without
+touching a component. `appShellOptionsFromTheme(theme)` gives `AppShell` the
+theme's layout:
+
+```tsx
+import { AppShell, appShellOptionsFromTheme } from "@marktiderman/genesis-ui/layout";
+import { getStarterTheme } from "@marktiderman/genesis-design-system/app-themes";
+
+const theme = getStarterTheme("tracker");
+const shell = <AppShell appName="Acme" navItems={[]} options={{ ...appShellOptionsFromTheme(theme), scrollRoot: "window" }} />;
+```
+
+The parts and tokens are a contract (`THEME_PARTS`, `COMPONENT_TOKENS`): a test
+fails a part a component stops rendering and a token nothing reads.
+
 ## Read next
 
 - [SKILL.md](./SKILL.md): the reuse ladder (pattern, slots, elements, hooks) and which export

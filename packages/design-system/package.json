@@ -83,9 +83,9 @@
       "types": "./dist/design-systems/index.d.ts",
       "import": "./dist/design-systems/index.js"
     },
-    "./starter-themes": {
-      "types": "./dist/starter-themes/index.d.ts",
-      "import": "./dist/starter-themes/index.js"
+    "./app-themes": {
+      "types": "./dist/app-themes/index.d.ts",
+      "import": "./dist/app-themes/index.js"
     },
     "./fonts": {
       "types": "./dist/fonts.d.ts",
@@ -125,10 +125,10 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/design-system/README.md"
         },
         {
-          "need": "a whole-app look (a theme): sidebar, surfaces, fonts and density, light and dark",
-          "use": "a starter theme (STARTER_THEMES, or your own with defineStarterTheme) through themes/starter.css and data-theme",
-          "import": "@marktiderman/genesis-design-system/starter-themes",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/design-system/README.md#starter-themes"
+          "need": "a theme: a whole-app look (colours, fonts, every component's size, shape and parts, the shell's layout), light and dark",
+          "use": "an app theme (defineAppTheme, or a starter theme from STARTER_THEMES) rendered with appThemeCss or themes/starter.css, set with data-theme",
+          "import": "@marktiderman/genesis-design-system/app-themes",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/design-system/README.md#app-themes"
         }
       ]
     }

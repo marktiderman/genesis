@@ -29,7 +29,7 @@ SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 const sheetVariants = cva(
   // Every side scrolls inside itself and pads clear of the phone's notch and home indicator, so
   // nothing in a sheet can end up out of reach.
-  "fixed z-50 gap-4 overflow-y-auto overscroll-contain bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 motion-reduce:animate-none motion-reduce:transition-none",
+  "fixed z-50 gap-4 overflow-y-auto overscroll-contain bg-background p-6 shadow-[var(--overlay-shadow)] transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500 motion-reduce:animate-none motion-reduce:transition-none",
   {
     variants: {
       side: {
@@ -66,6 +66,8 @@ const SheetContent = React.forwardRef<
   <SheetPortal>
     <SheetOverlay className={overlayClassName} />
     <SheetPrimitive.Content
+      data-slot="sheet"
+      data-side={side ?? "right"}
       ref={ref}
       className={cn(sheetVariants({ side }), className)}
       {...props}
@@ -122,8 +124,9 @@ const SheetTitle = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Title>
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Title
+    data-slot="sheet-title"
     ref={ref}
-    className={cn("text-lg font-semibold text-foreground", className)}
+    className={cn("text-lg font-[number:var(--title-font-weight)] [text-transform:var(--title-text-transform)] text-foreground", className)}
     {...props}
   />
 ));

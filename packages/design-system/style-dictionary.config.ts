@@ -25,7 +25,7 @@ import {
   renderThemeCss,
   type ThemeBrand,
 } from "./src/tokens/theme-css";
-import { STARTER_THEMES, renderStarterThemesCss } from "./src/starter-themes";
+import { STARTER_THEMES, renderAppThemesCss } from "./src/app-themes";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -406,8 +406,8 @@ async function build() {
     );
     console.log("  wrote dist/themes/genesis-tailwind4.css");
 
-    // Starter themes, each scoped to [data-theme="<id>"], in one stylesheet.
-    writeFileSync(join(__dirname, "dist", "themes", "starter.css"), renderStarterThemesCss(STARTER_THEMES), "utf-8");
+    // The starter app themes, each scoped to [data-theme="<id>"], in one stylesheet.
+    writeFileSync(join(__dirname, "dist", "themes", "starter.css"), renderAppThemesCss(STARTER_THEMES), "utf-8");
     console.log("  wrote dist/themes/starter.css");
   }
 

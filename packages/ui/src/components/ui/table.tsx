@@ -14,7 +14,7 @@ export interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
 
 const Table = React.forwardRef<HTMLTableElement, TableProps>(({ className, containerClassName, ...props }, ref) => (
   <div data-slot="table-container" className={cn("relative w-full overflow-auto", containerClassName)}>
-    <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
+    <table ref={ref} data-slot="table" className={cn("w-full caption-bottom text-sm", className)} {...props} />
   </div>
 ));
 Table.displayName = "Table";
@@ -41,6 +41,7 @@ TableFooter.displayName = "TableFooter";
 const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTMLTableRowElement>>(
   ({ className, ...props }, ref) => (
     <tr
+      data-slot="table-row"
       ref={ref}
       className={cn("border-b transition-colors data-[state=selected]:bg-muted hover:bg-muted/50", className)}
       {...props}
@@ -52,9 +53,10 @@ TableRow.displayName = "TableRow";
 const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<HTMLTableCellElement>>(
   ({ className, ...props }, ref) => (
     <th
+      data-slot="table-head"
       ref={ref}
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
+        "h-[var(--table-head-height)] px-[var(--table-cell-padding-x)] text-left align-middle font-[number:var(--table-head-font-weight)] [text-transform:var(--table-head-text-transform)] tracking-[var(--table-head-letter-spacing)] whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
         className,
       )}
       {...props}
@@ -65,7 +67,7 @@ TableHead.displayName = "TableHead";
 
 const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(
   ({ className, ...props }, ref) => (
-    <td ref={ref} className={cn("p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0", className)} {...props} />
+    <td ref={ref} data-slot="table-cell" className={cn("px-[var(--table-cell-padding-x)] py-[var(--table-cell-padding-y)] align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0", className)} {...props} />
   ),
 );
 TableCell.displayName = "TableCell";

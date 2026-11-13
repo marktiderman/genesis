@@ -171,34 +171,71 @@ A host reads each with its own value as the fallback:
 | `image` | `--ds-image-filter`, `--ds-image-grain` |
 | `motion` | `--ds-ease-{out,swift,in-out,decelerate}`, `--ds-dur-{press,fast,hover,base,ui,reveal,media}` (from `resolveMotion`; a host gates them with `prefers-reduced-motion`), `--ds-reveal` and `--ds-reveal-phone` (the keyframes to run, `ds-rise` or `ds-clip`, which the host's stylesheet defines), `--ds-reveal-distance`, `--ds-reveal-range`, `--ds-hover-lift` |
 
-## Starter themes
+## App themes
 
-A starter theme is a whole-app look built on a brand: the brand's colours,
-radius and status (through `brandRoleVariables`), plus what a brand leaves at
-the Genesis default and a product's character mostly lives in: the sidebar,
-a card that differs from the page, the font stacks and the shell's density.
-Each follows the feel of a kind of product people already know how to use,
-with Genesis's own palette. Every one reaches WCAG AA on every pair
-genesis-ui draws (`STARTER_THEME_PAIRS`), light and dark, and passes the brand
-contrast check.
+An app theme is a whole-app look, as far as it wants to go: colours, fonts,
+the size, shape and type of every genesis-ui component, any part of any
+component, and the app shell's layout, light and dark (ADR 0017). It never
+changes what a component does, what it shows or who may see it.
+
+A theme works in layers. Each is optional; reach for the lowest that does the
+job:
+
+| Layer | What it changes | Example |
+|---|---|---|
+| `brand` | colours, radius and status, solved for contrast | `accent: { DEFAULT: "#5753d6" }` |
+| `roles` | any colour role by hand, per mode | `{ light: { "sidebar-background": "#1d2327" } }` |
+| `fonts` | `--font-sans`, `--font-display`, `--font-mono` | `{ display: '"Lora", Georgia, serif' }` |
+| `tokens`, `darkTokens` | component tokens: sizes, shapes, type | `{ "control-height": "2rem", "card-shadow": "none" }` |
+| `parts`, `darkParts` | CSS declarations for any part | `{ "shell-nav-item[active]": { "box-shadow": "inset 3px 0 0 hsl(var(--primary))" } }` |
+| `css` | raw CSS nested in the theme's scope, for what parts can't say | `` `[data-slot="button"]:active { transform: translateY(1px); }` `` |
+| `shell` | the app shell's layout | `{ density: "compact", railWidth: "wide" }` |
+
+**Component tokens** (`COMPONENT_TOKENS`) are CSS variables genesis-ui reads in
+place of fixed classes: `--control-height` (and `-sm`, `-lg`),
+`--control-padding-x`, `--control-radius`, `--control-font-weight`,
+`--control-text-transform`, `--control-letter-spacing`, `--control-shadow`,
+`--input-padding-x`, `--input-border-width`, `--input-shadow`,
+`--focus-ring-width`, `--focus-ring-offset`, `--card-radius`,
+`--card-border-width`, `--card-shadow`, `--card-padding`, `--popover-radius`,
+`--popover-shadow`, `--overlay-shadow`, `--badge-*`, `--table-*`, `--title-*`,
+`--page-title-*` and `--sidebar-item-*`. `themes/genesis.css` declares each at
+what the component's class said before, so an app that sets none looks as it
+did, and a `className` on one instance still wins over a token.
+
+**Parts** (`THEME_PARTS`) are genesis-ui's named pieces: every one renders
+`data-slot="<name>"` with the attributes listed for it, and genesis-ui's tests
+hold it to the list. A part selector is a part name, `[attribute]` or
+`[attribute=value]` filters, one state (`:hover`, `:focus-visible`,
+`:active`, `:disabled`, …), and up to three of those nested with spaces:
+`button[variant=outline][size=sm]:hover`, `shell-sidebar shell-nav-item[active]`.
+`root` is the themed element itself. Name an app's own parts `app-<name>`.
+A part style beats the component's own classes, and a `className` on one
+instance too, so scope it when one instance must differ.
+
+Seven **starter themes** ship, each using every layer:
 
 | Theme | Feel | Suits | Density |
 |---|---|---|---|
-| `tracker` | keyboard-first issue trackers: cool greys, a sparing indigo, small corners | issues, projects, roadmaps | compact |
-| `repository` | code hosting: hairlines, green actions, blue links, system type | admin, data, settings | compact |
-| `checklist` | personal task managers: warm white, a confident red, a tinted open list | tasks, today, goals | comfortable |
-| `notebook` | document workspaces: white page, warm grey ink, a warm sidebar | docs, meetings, team | comfortable |
-| `press` | website dashboards: a dark rail, a grey canvas with white cards | website, pages, media | compact |
-| `journal` | journaling and reading: paper ground, serif headings, sage | journal, habits, reading | comfortable |
-| `arena` | training trackers: a black rail, hot orange, condensed headings | training, workouts, classes | comfortable |
+| `tracker` | keyboard-first issue trackers: cool greys, a sparing indigo, 32px controls | issues, projects, roadmaps | compact |
+| `repository` | code hosting: hairlines, green actions, blue links, grey outlined buttons, a marked active item | admin, data, settings | compact |
+| `checklist` | personal task managers: warm white, a confident red, round checkboxes | tasks, today, goals | comfortable |
+| `notebook` | document workspaces: warm grey ink, borderless cards, ruled tables, square-ish tags | docs, meetings, team | comfortable |
+| `press` | website dashboards: a dark rail with a filled active item, square cards, outlined blue buttons | website, pages, media | compact |
+| `journal` | journaling and reading: paper ground, serif titles, pill buttons, soft cards | journal, habits, reading | comfortable |
+| `arena` | training trackers: a black rail, hot orange, capitals, condensed titles | training, workouts, classes | comfortable |
 
-**As is:** import the stylesheet after `genesis.css` and the Tailwind bridge,
-then set `data-theme` on `<html>` for the whole app (portalled menus and
-dialogs included) or on any element for a part of it. Dark mode follows the
-`.dark` class, on the same element or an ancestor, and the selectors outrank a
-plain `:root` override, so an app's own brand comes back when the attribute is
-removed. Pass the theme's density to `AppShell`, and load the fonts it names
-(each stack falls back to system fonts).
+Every theme reaches WCAG AA on every pair genesis-ui draws
+(`APP_THEME_PAIRS`, the sidebar's active item included), light and dark, and
+passes the brand contrast check.
+
+**Use one:** import the stylesheet unlayered, after `genesis.css` and the
+Tailwind bridge, then set `data-app-theme` on `<html>` (the whole app, menus
+and dialogs included) or on an element (a part of the page; what portals out of
+it follows the page). Dark mode follows the `.dark` class. Pass the theme's
+shell to `AppShell` with genesis-ui's `appShellOptionsFromTheme`, and load the
+fonts it names (each stack falls back to system fonts). (`data-theme` is
+`GenesisThemeProvider`'s light and dark mode.)
 
 ```css
 @import "@marktiderman/genesis-design-system/themes/genesis.css";
@@ -207,24 +244,22 @@ removed. Pass the theme's density to `AppShell`, and load the fonts it names
 ```
 
 ```ts
-import { getStarterTheme, starterThemeContrastProblems } from "@marktiderman/genesis-design-system/starter-themes";
+import { appThemeContrastProblems, getStarterTheme } from "@marktiderman/genesis-design-system/app-themes";
 
 const theme = getStarterTheme("notebook");
-document.documentElement.dataset.theme = theme?.id;
-const density = theme?.shell?.density ?? "comfortable"; // for AppShell
-starterThemeContrastProblems(theme!); // [] for every shipped theme
+document.documentElement.dataset.appTheme = theme?.id;
+appThemeContrastProblems(theme!); // [] for every starter theme
 ```
 
-**As a starting point:** copy one into your own with `defineStarterTheme`,
-which checks it (and its brand) and throws with every problem. `roles` sets
-any theme role by hand, per mode, over the brand's; `fonts` sets `--font-sans`,
-`--font-display` and `--font-mono`. `starterThemeCss(theme)` renders it scoped
-to `data-theme`, and `starterThemeVariables(theme)` gives the variable maps.
+**Make one:** start from a starter theme or from scratch with
+`defineAppTheme`, which checks every layer (and the brand) and throws with
+every problem. `appThemeCss(theme)` renders it scoped to `data-app-theme`;
+`appThemeVariables(theme)` gives the variable maps.
 
 ```ts
-import { defineStarterTheme, notebookTheme, starterThemeCss } from "@marktiderman/genesis-design-system/starter-themes";
+import { defineAppTheme, notebookTheme, appThemeCss } from "@marktiderman/genesis-design-system/app-themes";
 
-export const ledger = defineStarterTheme({
+export const ledger = defineAppTheme({
   ...notebookTheme,
   name: "ledger",
   label: "Ledger",
@@ -232,13 +267,15 @@ export const ledger = defineStarterTheme({
   feel: "accounting tools",
   suits: ["invoices", "reports"],
   brand: { ...notebookTheme.brand, name: "ledger", accent: { DEFAULT: "#0f766e" } },
+  tokens: { ...notebookTheme.tokens, "table-cell-padding-y": "0.25rem", "table-head-text-transform": "uppercase" },
+  parts: { "table-cell": { "font-variant-numeric": "tabular-nums" } },
   shell: { density: "compact" },
 });
-const css = starterThemeCss(ledger); // [data-theme="ledger"] { … }
+const css = appThemeCss(ledger); // [data-app-theme="ledger"] { … }
 ```
 
-A starter theme is the customization layer's Brand level (ADR 0013): no
-component renders differently because of one.
+Themes are code an app ships and reviews; `css` is trusted as written, so never
+build a theme from what a user types.
 
 ## The colour engine
 

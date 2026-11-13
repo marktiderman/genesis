@@ -538,8 +538,9 @@ function NavLinkRow({
       return (
         <span
           title={item.label}
+          data-slot="shell-nav-item"
           className={cn(
-            "flex items-center gap-3 rounded-lg text-sm font-medium opacity-40",
+            "flex items-center gap-3 rounded-[var(--sidebar-item-radius)] text-sm font-[number:var(--sidebar-item-font-weight)] opacity-40",
             pad,
           )}
           aria-disabled
@@ -557,7 +558,8 @@ function NavLinkRow({
           role="link"
           aria-disabled="true"
           aria-label={item.label}
-          className="flex h-10 w-full items-center justify-center rounded-lg text-sm font-medium opacity-40"
+          data-slot="shell-nav-item"
+          className="flex h-10 w-full items-center justify-center rounded-[var(--sidebar-item-radius)] text-sm font-[number:var(--sidebar-item-font-weight)] opacity-40"
         >
           <NavIcon item={item} className="h-4 w-4 shrink-0" />
         </span>
@@ -577,8 +579,10 @@ function NavLinkRow({
           : undefined
       }
       aria-current={active && !notCurrent ? "page" : undefined}
+      data-slot="shell-nav-item"
+      data-active={active || undefined}
       className={cn(
-        "flex items-center gap-3 rounded-lg text-sm font-medium transition-colors",
+        "flex items-center gap-3 rounded-[var(--sidebar-item-radius)] text-sm font-[number:var(--sidebar-item-font-weight)] transition-colors",
         pad,
         collapsed && "relative h-10 w-full justify-center px-0 py-0 motion-reduce:transition-none",
         active
@@ -652,8 +656,10 @@ function RailGroup({
             aria-label={item.label}
             disabled={item.disabled}
             data-testid={`nav-rail-group-${item.label}`}
+            data-slot="shell-nav-item"
+            data-active={active || undefined}
             className={cn(
-              "relative flex h-10 w-full items-center justify-center rounded-lg transition-colors motion-reduce:transition-none",
+              "relative flex h-10 w-full items-center justify-center rounded-[var(--sidebar-item-radius)] transition-colors motion-reduce:transition-none",
               active
                 ? "bg-sidebar-accent text-sidebar-primary"
                 : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -776,7 +782,7 @@ function NavGroup({
   const pad = density === "compact" ? "px-2.5 py-1.5" : "px-3 py-2";
   const LinkComp = linkComponent;
   const parentClass = cn(
-    "flex min-w-0 flex-1 items-center gap-3 rounded-lg text-sm font-medium transition-colors",
+    "flex min-w-0 flex-1 items-center gap-3 rounded-[var(--sidebar-item-radius)] text-sm font-[number:var(--sidebar-item-font-weight)] transition-colors",
     pad,
     groupHighlight
       ? "bg-sidebar-accent/60 text-sidebar-primary"
@@ -792,6 +798,8 @@ function NavGroup({
               href={item.to}
               onClick={onNavClick}
               aria-current={selfExact && !notCurrent ? "page" : undefined}
+              data-slot="shell-nav-item"
+              data-active={groupHighlight || undefined}
               className={parentClass}
             >
               <NavIcon item={item} className="h-4 w-4 shrink-0" />
@@ -800,6 +808,8 @@ function NavGroup({
           ) : (
             <button
               type="button"
+              data-slot="shell-nav-item"
+              data-active={groupHighlight || undefined}
               className={parentClass}
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
@@ -1701,6 +1711,8 @@ export function AppShell({
 
   return (
     <div
+      data-slot="shell"
+      data-density={density}
       className={cn(
         "flex",
         scrollWindow ? "min-h-screen" : "h-screen overflow-hidden",
@@ -1717,6 +1729,7 @@ export function AppShell({
         )}
         ref={sidebarRef}
         data-collapsed={collapsed || undefined}
+        data-slot="shell-sidebar"
         data-testid="app-shell-sidebar"
       >
         {sidebarChrome({})}
@@ -1776,6 +1789,7 @@ export function AppShell({
         )}
       >
         <header
+          data-slot="shell-header"
           className={cn(
             // Clears the notch and the side insets when the app runs edge to edge.
             "flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-3 border-b pt-[env(safe-area-inset-top)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:hidden print:hidden",
@@ -1806,6 +1820,7 @@ export function AppShell({
         </header>
 
         <main
+          data-slot="shell-main"
           className={cn(
             "flex-1",
             !scrollWindow && "overflow-y-auto",
@@ -1895,6 +1910,7 @@ export function AppShell({
 
         {showMobileBottom ? (
           <nav
+            data-slot="shell-mobile-nav"
             // Padded above the home indicator and inside the side insets in landscape.
             className="fixed bottom-0 left-0 right-0 z-30 flex border-t bg-background pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] md:hidden print:hidden"
             aria-label={m.primaryNavigation}

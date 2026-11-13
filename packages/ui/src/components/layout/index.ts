@@ -124,3 +124,4 @@ export {
   type PublicBrand,
   type Rgb,
 } from "./brand-theme";
+export { appShellOptionsFromTheme } from "./app-theme-shell";

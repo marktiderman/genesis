@@ -102,7 +102,7 @@ export const DashboardPage = React.forwardRef<
         <div className="flex min-w-0 flex-col gap-1">
           <h1
             data-slot="dashboard-page-title"
-            className="truncate text-xl font-bold tracking-tight sm:text-2xl"
+            className="truncate text-xl font-[number:var(--page-title-font-weight)] tracking-[var(--page-title-letter-spacing)] [text-transform:var(--page-title-text-transform)] sm:text-2xl"
           >
             {title}
           </h1>

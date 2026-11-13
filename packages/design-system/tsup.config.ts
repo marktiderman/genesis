@@ -30,8 +30,8 @@ export default defineConfig({
     // Design systems, the colour engine and the font list.
     "src/design-systems/index.ts",
     "src/fonts.ts",
-    // Starter themes: whole-app looks built on a brand (dist/themes/starter.css is written by build:tokens:css).
-    "src/starter-themes/index.ts",
+    // App themes and the starter themes (dist/themes/starter.css is written by build:tokens:css).
+    "src/app-themes/index.ts",
     // PRD-07 A2b — unified theme barrel + platform-specific providers.
     // Both `index.web.ts` and `index.native.ts` are emitted; the
     // package.json `exports."./theme"` block uses the `react-native`

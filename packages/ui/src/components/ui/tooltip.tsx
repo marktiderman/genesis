@@ -184,6 +184,7 @@ export function Tooltip({
         </div>
         <TooltipPrimitive.Portal>
           <TooltipPrimitive.Content
+            data-slot="tooltip"
             side={side}
             // 8px — what the old `mb-2`/`mt-2`/`ml-2`/`mr-2` margins produced.
             sideOffset={8}
