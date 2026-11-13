@@ -241,7 +241,7 @@
         {
           "need": "an organization's own brand and defaults inside the app",
           "use": "WorkspaceTheme's brand and defaults, read with resolveWorkspaceBrand and resolveWorkspaceAppearance",
-          "import": "@marktiderman/genesis-core",
+          "import": "@marktiderman/genesis-core/workspaces",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0024-who-sets-what.md"
         }
       ]
