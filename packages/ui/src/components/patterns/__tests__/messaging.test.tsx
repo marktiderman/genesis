@@ -470,6 +470,12 @@ describe("InboxPage (web)", () => {
     expect(items[0]!.onPress).toHaveBeenCalled();
   });
 
+  it("lets a row shrink to its list, so a long title truncates instead of widening the row", () => {
+    render(<InboxPage testID="i" items={items} now={now} />);
+    // A flex item's min-width is its content's unless min-w-0 says otherwise (jsdom has no layout).
+    expect(screen.getByTestId("i-row-a").className).toMatch(/(^|\s)min-w-0(\s|$)/);
+  });
+
   it("puts a row's actions in a menu", () => {
     render(<InboxPage testID="i" items={items} now={now} />);
     expect(screen.getByRole("button", { name: "More: Cy" })).toBeTruthy();
