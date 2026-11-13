@@ -477,8 +477,40 @@ useAppShellSubNav([
 <AppShellSubNavEnd><Badge variant="success">Ready to publish</Badge></AppShellSubNavEnd>
 ```
 
+**Navigation style, frame and density (the app's layout, ADR 0022).** One option each, over the
+same tree and `NavItem`s; never draw a second shell.
+
+- `options.navigation`: `"sidebar"` (default, as always), `"rail"` (opens collapsed to the icon
+  rail), `"top-tabs"` (desktop: the top items as tabs in a bar with the brand and the account; an
+  active item's children as a second row), `"bottom-bar"` (the phone's top bar, drawer and
+  bottom bar on every width) or `"page-tree"` (a nested, collapsible tree indented by depth, as
+  in a notebook; `NavItem.children` nest to any depth). Phones keep the drawer and bottom bar.
+- `options.frame`: `"flush"` (default) or `"inset"` (the page area as a panel with a margin,
+  rounded corners and a border over the sidebar colour; `--shell-frame-gap`, `-radius`,
+  `-border-width`, `-shadow` change it). An inset *list* is the view's `surface`, not this.
+- `options.density`: `"compact"`, `"comfortable"` (default) or `"spacious"`: the same words as
+  `useViewSettings` and sites' design systems.
+- An app theme sets these as defaults: `options={{ ...appShellOptionsFromTheme(theme), …yours }}`.
+- Parts: `shell` (`data-density`, `data-navigation`, `data-frame`, `data-zone`), `shell-frame`,
+  `shell-top-tabs`, `shell-page-tree`, `shell-nav-item[depth]`, `sub-nav-item[active]`,
+  `tab-bar-item[active]`.
+
+```tsx
+<AppShell appName="Acme" navigation={tree} activePath={pathname}
+  options={{ navigation: "page-tree", frame: "inset", density: "spacious" }}>{children}</AppShell>
+```
+
+**A document page.** `DocumentPage` (`/layout` or `/document-page`): an optional `cover` (an
+image URL or a node), an `icon`, the `title`, `subtitle`, `actions` and the body in a centred
+reading column (`width: "full"` for wide content). For notes, journal entries, guides and lessons.
+
+**Zones.** Put `zone: "training"` on a `NavigationNode` (its descendants inherit it).
+`resolveNavigation` then returns the current `zone`, and `resolveNavigationZones(tree, pathname,
+{ zones, rollUp })` groups the tree into each zone's pages, the global pages and the roll-up
+(ADR 0003). Key a theme per zone on it; AppShell marks the shell with `data-zone`.
+
 For chrome outside AppShell, call the same resolver: `resolveNavigation(tree, pathname)` (from
-`/layout`, `/data` or the root barrel) returns `{ current, parent, items, trail, params }` with
+`/layout`, `/data` or the root barrel) returns `{ current, parent, items, trail, params, zone }` with
 every path interpolated from the URL's params.
 
 ```ts

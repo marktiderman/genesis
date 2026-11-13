@@ -48,12 +48,12 @@ The ten pieces of how an app looks and works (ADR 0018). Each combines freely wi
 | **record page** | one record shown on its own: opened as a **side peek**, a **center peek** or a **full page**, on a record page template (standard, document). | detail panel, detail page (for this), workspace, modal (for a peek). |
 | **custom view** | a screen an app draws itself over a view, while Genesis keeps the view's states, data, URL and permissions. | surface, custom UI, skin. |
 | **layout** | how an app is navigated and framed: its navigation (sidebar, rail, top tabs, bottom bar, page tree), its **frame** (flush, inset) and its page templates. In a theme, the `AppShell` options it starts from (`AppThemeLayout`). | skeleton, chrome. |
-| **page template** | a ready page layout component (DashboardPage, SettingsPage, FormPage, DetailPage). | template (bare), page type. |
+| **page template** | a ready page layout component (DashboardPage, SettingsPage, FormPage, DetailPage, DocumentPage). | template (bare), page type. |
 | **app style** | every component's size and shape, with no colours of its own: component tokens, part styles and raw CSS (`defineAppStyle`, `data-app-style`). Type sizes and weights are a style's. | skin, design system (sites' look rules), theme (for this). |
 | **app brand** | an app's colours, typefaces, logo and name (`defineAppBrand`, `data-app-brand`). | brand for corners or spacing (those are the style's). |
 | **app theme** | a named bundle: a brand, a style and a layout, each optional (`defineAppTheme`, genesis-ui). | theme for light and dark, skin. |
 | **appearance** | light, dark or system: the person's choice (`GenesisThemeProvider`, `data-theme`). | theme, mode, color scheme (except sites' `colorScheme`). |
-| **density** | how tightly rows and controls sit: compact, comfortable, spacious. A theme sets the default; the person's choice wins. |  |
+| **density** | how tightly rows and controls sit: compact, comfortable, spacious (`DENSITY_LEVELS`), the same words in the shell, lists and sites. A theme sets the default; the person's choice wins. | normal, generous (sites' older words, still accepted). |
 | **widget** | a small tile on a dashboard or a record page's sidebar (a number, a streak, a mini list), fed by a view. Scoped exception: a field's `widget` in core's field schema is a form control hint. | gadget, card (for this), tile (in APIs). |
 | **template** | always qualified: page template, record page template, site template, Code Connect template, `--template`. | template alone. |
 | **surface** | only a coloured ground (a band's `surface`, a brand's surface scale) or an extension's window (`openSurface`). ADR 0009's "surface" is a **channel** (UI, API, AI tool). | surface for a custom view or a page. |
@@ -107,7 +107,7 @@ The ten pieces of how an app looks and works (ADR 0018). Each combines freely wi
 | **page** | what a web route renders inside the shell. **screen**: the same on native. | view (for a page), panel (for a page). |
 | **route** | a URL pattern and its file. |  |
 | **nav item** | an entry in the navigation tree (`NavItem`, `BlockNavItem`). | destination (for navigation, which apps use). In Genesis, "destination" means only where a forms submission goes (`genesis-forms/destinations`). |
-| **zone** | a navigation area (ADR 0003). Time zones are always written `timeZone`. | bare `zone` for a time zone in new APIs. `dayIn(zone)` and `resolveZone("scope")` predate this rule. |
+| **zone** | a navigation area (ADR 0003): a kind of work the viewer enters, named by `zone` on a navigation node (`resolveNavigationZones`). Time zones are always written `timeZone`. | bare `zone` for a time zone in new APIs. `dayIn(zone)` and `resolveZone("scope")` predate this rule. |
 | **section** | a titled region of a page: a sites section, a RecordView section, the layout `Section`. They are compatible meanings, so the word is kept. |  |
 | **AI task** | a versioned prompt with typed input and output (`defineTask`). Prose always says "AI task", because apps have their own to-do "tasks". |  |
 | **job** | background work queued with `enqueueJob`. |  |
