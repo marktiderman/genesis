@@ -8,9 +8,17 @@ const found = pkg.genesis.doctor.prefer.find((r) => r.id === "times-use-time-pic
 const re = new RegExp(found!.forbid.pattern!);
 
 describe("times-use-time-picker", () => {
-  it.each([['<Input type="time" value={t} />'], ["<input type='time' />"], ['<Input id="at" type={"time"} />']])("flags %s", (code) =>
+  it.each([['<Input type="time" value={t} />'], ["<input type='time' />"], ['<Input id="at" type={"time"} />'], ['<Input value={t} autoFocus type = "time" />']])("flags %s", (code) =>
     expect(re.test(code)).toBe(true),
   );
+  it("stays linear on long adversarial tags", () => {
+    // Each `t` before `type=` is taken by one branch only, so a failing match never backtracks.
+    for (const evil of ["<Input " + "type ".repeat(10_000), "<Input " + "t".repeat(50_000), "<Input " + "type".repeat(12_000) + "=x"]) {
+      const start = performance.now();
+      expect(re.test(evil)).toBe(false);
+      expect(performance.now() - start).toBeLessThan(50);
+    }
+  });
   it.each([['<TimePicker value={at} onChange={setAt} />'], ['<Input type="text" />'], ['<Input type="datetime-local" />']])("leaves %s alone", (code) =>
     expect(re.test(code)).toBe(false),
   );

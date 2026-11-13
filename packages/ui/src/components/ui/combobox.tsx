@@ -96,7 +96,7 @@ export function Combobox<T extends string | number = string>({
                 <CommandItem
                   key={String(o.value)}
                   value={String(o.value)}
-                  disabled={o.disabled}
+                  disabled={o.disabled === true}
                   data-testid={`${testID}-option-${String(o.value)}`}
                   onSelect={() => {
                     onChange(o.value);
