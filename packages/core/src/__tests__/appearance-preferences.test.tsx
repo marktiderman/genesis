@@ -259,6 +259,31 @@ describe("AppearancePreferencesProvider", () => {
     expect(writeB).not.toHaveBeenCalled();
   });
 
+  it("never writes a choice held during one store's first read to the store that replaced it", async () => {
+    const writeA = vi.fn();
+    const writeB = vi.fn();
+    const a = defineAppearancePreferences({ store: { read: () => new Promise<AppearancePreferenceValues>(() => undefined), write: writeA } });
+    const b = defineAppearancePreferences({ store: { read: async () => ({ density: "compact" }), write: writeB } });
+    const { rerender } = render(
+      <AppearancePreferencesProvider preferences={a}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    // A's first read never answers: the choice waits for it.
+    act(() => screen.getByText("dark").click());
+    rerender(
+      <AppearancePreferencesProvider preferences={b}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("ready").textContent).toBe("true"));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(writeB).not.toHaveBeenCalled();
+    expect(writeA).not.toHaveBeenCalled();
+  });
+
   it("tells onWriteError about a write the store refused, and keeps the device's copy", async () => {
     const onWriteError = vi.fn();
     const refusal = new Error("stale");

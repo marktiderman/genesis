@@ -145,6 +145,13 @@ export function useListState(options: UseListStateOptions): ListStateResult {
       typeChosen.current = false;
       setTypeRaw(defaultType);
     }
+    // The types offered changed (a held list's rows arrived, say) and the current one isn't among
+    // them: back to the screen's type, without writing the store, so the person's choice comes
+    // back once it's offered again.
+    else if (type !== undefined && types.length && !types.includes(type)) {
+      typeChosen.current = false;
+      setTypeRaw(defaultType);
+    }
     if (!rememberType || !store?.readCurrent) return;
     let live = true;
     const take = (state: ListState | null | undefined) => {

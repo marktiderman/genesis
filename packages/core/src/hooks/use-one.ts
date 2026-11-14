@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useDataProvider } from "../provider/context";
 import type { BaseRecord, FilterParam, Identifier } from "../provider/types";
@@ -21,7 +22,8 @@ export interface UseOneOptions {
   live?: boolean | LiveOptions;
   /**
    * The list's filters, when the record is opened from a list (`GetOneParams.scope`): a resource
-   * read from a function takes its scope from them. Part of the cache key when given.
+   * read from a function takes its scope from them. Only its equality and is-null filters are kept
+   * (all `take` reads), and they're part of the cache key when there are any.
    */
   scope?: FilterParam[] | undefined;
 }
@@ -43,7 +45,11 @@ export function useOne<T extends BaseRecord = BaseRecord>(
 ): UseQueryResult<T> {
   const provider = useDataProvider();
 
-  const { select, enabled, live, scope } = options;
+  const { select, enabled, live } = options;
+  // Only what a function source can take (`take` reads equality and is-null filters): a search's
+  // `contains` or a range never reaches its args, so it mustn't make a new record read per keystroke.
+  const scopeKey = JSON.stringify((options.scope ?? []).filter((f) => f.operator === "eq" || f.operator === "is_null"));
+  const scope = useMemo(() => JSON.parse(scopeKey) as FilterParam[], [scopeKey]);
   const isEnabled = enabled ?? !!id;
 
   // Only this record's events; `changed` (events may have been missed) too.

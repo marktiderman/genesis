@@ -157,13 +157,22 @@ export function useViewCalendarRange<T extends Row = Row>(
   // too (whole days, so the start's clock doesn't matter), and placement keeps only the ones that
   // reach the window. Without it, such a row shows only from the days it starts on: said once.
   const leadDays = durationField && maxDuration && maxDuration > 0 ? Math.ceil((maxDuration * DURATION_MS[durationUnit]) / DURATION_MS.days) : 0;
-  if (durationField && !leadDays) {
+  // With an end column, rows from before the window are read by their end already (`running`);
+  // only a calendar with no end column misses them without `maxDuration`.
+  if (durationField && !leadDays && !endField) {
     warnOnce(`ResourceView(${view.resource}): calendar durationField "${durationField}" has no maxDuration, so a row that starts before the window and runs into it isn't read; set calendar.maxDuration`);
   }
-  const lookback = leadDays ? windowBounds(fetched, storage, zone, leadDays).from : undefined;
+  // A zoned timestamp's duration is elapsed time (as calendarEvents adds it): the bound is the
+  // window's first instant minus that many milliseconds, so a day shortened by a clock change
+  // (spring forward) can't leave a row out. A date or a wall-clock time counts whole days.
+  const lookback = !leadDays
+    ? undefined
+    : storage === "zoned"
+      ? new Date(Date.parse(from) - maxDuration! * DURATION_MS[durationUnit]).toISOString()
+      : windowBounds(fetched, storage, zone, leadDays).from;
 
   // Everything the rows depend on except the window: what decides whether the last rows may stand in.
-  const listScope = JSON.stringify([filters, select ?? null, fieldName, endField ?? null, limit, durationField ?? null, leadDays]);
+  const listScope = JSON.stringify([filters, select ?? null, fieldName, endField ?? null, limit, durationField ?? null, durationUnit, maxDuration ?? null]);
   const base = { pagination: { page: 1, perPage: limit }, sort: { field: fieldName, order: "asc" as const }, ...(select ? { select } : {}) };
   const starting: ListParams = {
     ...base,
@@ -177,9 +186,12 @@ export function useViewCalendarRange<T extends Row = Row>(
   };
   // Rows that started within `maxDuration` before the window with no end of their own (no end
   // column, or an empty one): their end is their duration's, which a filter can't compute.
+  // Latest start first: past the limit, the rows kept are the ones that started just before the
+  // window, the likeliest to reach it, not the earliest of the lookback.
   const lasting: ListParams | undefined = lookback !== undefined
     ? {
         ...base,
+        sort: { field: fieldName, order: "desc" as const },
         filters: [
           ...filters,
           { field: fieldName, operator: "gte", value: lookback },

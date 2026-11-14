@@ -201,8 +201,10 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
 
   useEffect(() => {
     generation.current += 1;
-    // What waited for the last store isn't this one's to write.
+    // What waited for the last store isn't this one's to write: neither a queued write nor a
+    // choice held while that store's first read was out (the device keeps its copy).
     queue.current.next = null;
+    waiting.current = null;
     if (!store) return;
     let active = true;
     firstRead.current = "pending";

@@ -472,7 +472,8 @@ export interface ViewCalendar<Name extends string = string> {
    * The longest a row with a `durationField` runs, in `durationUnit`s. The calendar reads rows that
    * started up to this long before its window too, so one that runs into the window from before
    * it (a session at 23:00 for two hours) is drawn. Without it, such a row is drawn only on the
-   * days it starts in the window, and the calendar warns once.
+   * days it starts in the window, and a calendar with no `endField` warns once. Past the read's
+   * limit, the latest starts are kept.
    */
   maxDuration?: number;
   /** A yes/no field: the row is all day, its timestamp shown without a time. */

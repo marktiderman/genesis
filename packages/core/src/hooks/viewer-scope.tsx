@@ -5,7 +5,7 @@ import { reportError } from "../errors";
 import { stableJson } from "./draft-controller";
 import { NO_VIEWER, type GenesisViewerRoles, type Viewer } from "../viewer";
 import { dropPendingWrites, flushPendingWrites } from "./mutation-mode";
-import { PersistedViewerContext } from "../provider/context";
+import { PersistedClientContext, PersistedViewerContext } from "../provider/context";
 
 export { NO_VIEWER, type GenesisViewerRoles, type Viewer };
 
@@ -218,11 +218,13 @@ const reportedScopeZones = new Set<string>();
  */
 export function ViewerScope({ viewer, persistedViewer: persistedViewerProp, scope, roles, timeZone, scopeTimeZone, fallback = null, children }: ViewerScopeProps) {
   const queryClient = useQueryClient();
+  // The viewer GenesisProvider restored reads for, only over the client it restored them into.
+  const restoredInto = useContext(PersistedClientContext);
   const restoredFor = useContext(PersistedViewerContext);
   // An outer ViewerScope already emptied the cache for its viewer: a nested scope for the same
   // viewer (a sub-area with its own scope or roles) keeps it.
   const outer = useContext(GuardedCacheContext);
-  const persistedViewer = persistedViewerProp !== undefined ? persistedViewerProp : restoredFor;
+  const persistedViewer = persistedViewerProp !== undefined ? persistedViewerProp : restoredInto === queryClient ? restoredFor : undefined;
   const zone = personTimeZone({ timeZone });
   // Memoised, and scopeClock reports a zone once, so a bad zone isn't reported on every render.
   const scopeZone = useMemo(() => scopeClock(scopeTimeZone, zone), [scopeTimeZone, zone]);

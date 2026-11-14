@@ -167,7 +167,9 @@ export interface GetOneParams {
   /**
    * The list's filters, when the record is opened from a list: a resource read from a function
    * whose `args` take its scope from them (`take`) reads in that scope. They never narrow the
-   * record itself, and a provider without function sources ignores them.
+   * record itself, and a provider without function sources ignores them. ResourceView's table
+   * (a deep-linked record), inbox (an off-page row) and NativeResourceView's peek and edit sheet pass
+   * them through `useOne`'s `scope`.
    */
   scope?: FilterParam[];
 }

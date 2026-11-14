@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DataProviderRoot } from "../../provider/context";
+import { DataProviderRoot, PersistedClientContext, PersistedViewerContext } from "../../provider/context";
 import { createMockProvider } from "../../provider/mock-provider";
 import { defineQueryKeys, resourceKeys } from "../../query-keys";
 import { useInfiniteResource } from "../use-infinite-resource";
@@ -326,6 +326,35 @@ describe("ViewerScope", () => {
     act(() => screen.getByText("open bob").click());
     await screen.findByText("inner bob");
     expect(other.client.getQueryData(["loaded"])).toBeUndefined();
+  });
+
+  it("keeps restored reads for the persisted viewer only in the client they were restored into", async () => {
+    // As GenesisProvider with persistence on: the restored viewer and the client it restored into.
+    const restoredClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const innerClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    restoredClient.setQueryData(["whoami"], "ann (restored)");
+    innerClient.setQueryData(["whoami"], "someone else's rows");
+    render(
+      <QueryClientProvider client={restoredClient}>
+        <PersistedViewerContext.Provider value="ann">
+          <PersistedClientContext.Provider value={restoredClient}>
+            <ViewerScope viewer="ann">
+              <p>outer ann</p>
+            </ViewerScope>
+            <QueryClientProvider client={innerClient}>
+              <ViewerScope viewer="ann">
+                <p>inner ann</p>
+              </ViewerScope>
+            </QueryClientProvider>
+          </PersistedClientContext.Provider>
+        </PersistedViewerContext.Provider>
+      </QueryClientProvider>,
+    );
+    await screen.findByText("outer ann");
+    await screen.findByText("inner ann");
+    expect(restoredClient.getQueryData(["whoami"])).toBe("ann (restored)");
+    // The nested client was never restored for ann: it's emptied, not trusted.
+    expect(innerClient.getQueryData(["whoami"])).toBeUndefined();
   });
 
   it("a nested ViewerScope over another QueryClient empties that cache, even for the same viewer", async () => {
