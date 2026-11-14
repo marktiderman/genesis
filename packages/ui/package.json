@@ -687,13 +687,13 @@
         },
         {
           "need": "a calendar over a list (month, 1-4 weeks, agenda, lanes per person)",
-          "use": "the view's calendar block (defineView) rendered by <ResourceView mode=\"calendar\">; EventCalendar for events that aren't one view's rows",
+          "use": "the view's calendar block (defineView) rendered by `<ResourceView mode=\"calendar\">`; EventCalendar for events that aren't one view's rows",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#calendar"
         },
         {
           "need": "a board over a list (a column per status, cards moved between them)",
-          "use": "the view's board block (defineView) rendered by <ResourceView mode=\"board\">; KanbanBoard fed by useBoardColumns for rows that aren't one view's",
+          "use": "the view's board block (defineView) rendered by `<ResourceView mode=\"board\">`; KanbanBoard fed by useBoardColumns for rows that aren't one view's",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#board"
         },
@@ -738,7 +738,7 @@
         },
         {
           "need": "a photo gallery over a list (a photo per record, in justified rows)",
-          "use": "the view's gallery block (defineView) rendered by <ResourceView mode=\"grid\">; GalleryGrid for photos that aren't records (attachments, uploads)",
+          "use": "the view's gallery block (defineView) rendered by `<ResourceView mode=\"grid\">`; GalleryGrid for photos that aren't records (attachments, uploads)",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#gallery"
         },
@@ -761,6 +761,48 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
         },
         {
+          "need": "a screen you draw your own way over a list's data (a live leaderboard, a TV board, a game console)",
+          "use": "a custom view: `<CustomView view={myView} type=\"list\">` (type is list, board or calendar). Genesis owns the data, URL state, live updates and the view's can, and draws loading, empty and error; its loading, empty and error props replace one. useCustomView is the headless half, only for drawing those states yourself; the doctor's custom-view-states rule warns when you do",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#custom-views"
+        },
+        {
+          "need": "a view type of your own beside the built-in view types (a timeline, a map)",
+          "use": "defineViewType and registerViewType, then `<ResourceView type=\"your-type\">`",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#view-types"
+        },
+        {
+          "need": "how a record opens from a list (side peek, center peek, full page), or a document-style record page",
+          "use": "the view's open (side-peek, center-peek, page) and recordView; defineRecordView (from @marktiderman/genesis-core/resource-view) with template \"document\"",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#record-pages"
+        },
+        {
+          "need": "a tile on a dashboard or a record page's sidebar (a number, progress, a streak, a short list, a chart)",
+          "use": "a widget: defineWidget (from @marktiderman/genesis-core/resource-view) over a view, drawn by `<Widget>` (several in a WidgetGrid, or in DashboardPage's stats)",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#widgets"
+        },
+        {
+          "need": "the app's navigation style (sidebar, rail, top tabs, bottom bar, page tree) and frame (flush or inset)",
+          "use": "AppShell's options.navigation and options.frame (`<AppShell options={{ navigation: \"rail\", frame: \"inset\" }}>`; its navigation prop is the nav tree), or an app theme's layout (appShellOptionsFromTheme, from @marktiderman/genesis-ui/themes)",
+          "import": "@marktiderman/genesis-ui/layout",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
+        },
+        {
+          "need": "a document-style page (a cover, an icon, a title and a reading column)",
+          "use": "DocumentPage",
+          "import": "@marktiderman/genesis-ui/document-page",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
+        },
+        {
+          "need": "the person's light or dark and density, kept on their account",
+          "use": "defineAppearancePreferences with your store, served by AppearancePreferencesProvider, around AppearanceProvider (from @marktiderman/genesis-ui/themes); AppShell reads the density",
+          "import": "@marktiderman/genesis-core",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0024-who-sets-what.md"
+        },
+        {
           "need": "a choice from a long list the person can search",
           "use": "Combobox (options, value, onChange), built from Command in a Popover; the twin of NativeCombobox",
           "import": "@marktiderman/genesis-ui",
@@ -779,10 +821,10 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
         },
         {
-          "need": "a time of day",
-          "use": "TimePicker (value: Date), the twin of NativeTimePicker",
+          "need": "a time of day on a set time zone's clock (a session at 9 am where it's held, whatever the viewer's zone)",
+          "use": "TimePicker (value: an \"HH:MM\" string, or a Date with timeZone to read it on a set zone's clock from the first render), the web twin of NativeTimePicker (which takes a Date only and has no timeZone)",
           "import": "@marktiderman/genesis-ui",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md#a-time-of-day-timepicker"
         },
         {
           "need": "a selectable option card (radio or checkbox, with a picture or a description)",
