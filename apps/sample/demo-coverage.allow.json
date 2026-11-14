@@ -32,7 +32,6 @@
   "web/none-choice": "A constant, not a component: the value of a picker's None choice, shown by RecordView's settings pickers and RelationField.",
   "web/open-modes": "Functions, not components: detailMode and recordOpen map a view's open mode (side peek, center peek, page) to ResourcePage's detail; the ResourcePage and ResourceBoard stories open records through them.",
   "web/password-toggle-field": "No story or demo page yet: add a story under apps/sample/stories/.",
-  "web/placement": "Pure placement helpers EventCalendar draws with: shown by the EventCalendar stories.",
   "web/record-peek": "Drawn by ResourceView, ResourceBoard and ResourceCalendar when a view names a record view (a side or center peek); shown wherever those open a record.",
   "web/relation-field": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/resizable": "No story or demo page yet: add a story under apps/sample/stories/.",
