@@ -314,5 +314,42 @@ describe("<ResourceView type=\"sheet\">", () => {
     await act(async () => undefined);
     expect((screen.getByTestId("resource-sheet-undo") as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("never writes a save queued behind another into the resource the sheet moved to", async () => {
+    const p = provider();
+    const notes = defineResource<Task>()({ ...tasks, name: "notes" });
+    const notesView = defineView(notes, { columns: { default: ["title", "hours"] } });
+    const { rerender } = render(<ResourceView view={view} type="sheet" />, { wrapper: wrap(p) });
+    await screen.findByText("Write the plan");
+    // The first save is out; the second queues behind it.
+    let release: () => void = () => undefined;
+    p.update.mockImplementationOnce(() => new Promise((resolve) => (release = () => resolve({ data: {} }))));
+    const grid = screen.getByRole("grid");
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    fireEvent.keyDown(grid, { key: "7" });
+    let input = screen.getByLabelText(/Hours, row 1/i);
+    fireEvent.change(input, { target: { value: "7" } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "ArrowUp" });
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "ArrowLeft" });
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "Q" });
+    input = screen.getByLabelText(/Title, row 1/i);
+    fireEvent.change(input, { target: { value: "Queued" } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+    expect(p.update).toHaveBeenCalledTimes(1);
+    // The sheet moves to notes before the queued save runs.
+    rerender(<ResourceView view={notesView as never} type="sheet" />);
+    await screen.findByText("Write the plan");
+    await act(async () => release());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(p.update).toHaveBeenCalledTimes(1);
+    expect(p.update.mock.calls.every((c) => c[0] === "tasks")).toBe(true);
+  });
 });
 

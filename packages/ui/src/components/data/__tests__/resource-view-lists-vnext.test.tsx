@@ -777,7 +777,8 @@ describe("review fixes: held rows after a type was chosen, record scope", () => 
     render(<ResourceView view={view} onExport={onExport} resourceOptions={{ defaultPerPage: 2 }} />, { wrapper: wrap(p) });
     await screen.findByText("Write the plan");
     fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: " p" } });
-    await waitFor(() => expect((p.getList.mock.calls.at(-1)![1] as ListParams).search?.query).toBe(" p"));
+    // The one normalized search goes to the provider: trimmed.
+    await waitFor(() => expect((p.getList.mock.calls.at(-1)![1] as ListParams).search?.query).toBe("p"));
     const server = (p.getList.mock.calls.at(-1)![1] as ListParams).search;
     await screen.findByText("Write the plan");
     fireEvent.click(screen.getByLabelText("Select all rows"));
@@ -815,7 +816,41 @@ describe("review fixes: held rows after a type was chosen, record scope", () => 
     fireEvent.pointerDown(screen.getByLabelText("More actions"), { button: 0, ctrlKey: false });
     fireEvent.click(await screen.findByText("Export CSV"));
     await waitFor(() => expect(onExport).toHaveBeenCalled());
-    expect(onExport.mock.calls[0]![0].search).toEqual({ query: "o", fields: ["title"] });
+    // Both constraints: the provider's own search stays, the browser's narrows on top of it.
+    expect(onExport.mock.calls[0]![0].search).toEqual({ query: "o", fields: ["status"] });
+    expect(onExport.mock.calls[0]![0].filters).toContainEqual({ field: "title", operator: "contains", value: "o" });
+  });
+
+  it("compares the fields the browser really searches: derived from the rows when the page names none", async () => {
+    // The provider searches title and status; the page names no fields, so the browser searches
+    // the first row's text fields, and a null status leaves status out of them.
+    const nullStatus = [{ ...ROWS[0]!, status: null as never }, ...ROWS.slice(1)];
+    const p = provider({
+      getList: vi.fn(async (_r: string, params: ListParams) => {
+        const { page = 1, perPage = 25 } = params.pagination ?? {};
+        return { data: nullStatus.slice((page - 1) * perPage, page * perPage), total: nullStatus.length };
+      }),
+    } as never);
+    const onAction = vi.fn();
+    render(
+      <ResourcePage<Task>
+        resource="tasks"
+        title="Tasks"
+        pagination="client"
+        resourceOptions={{ defaultSearch: "t", searchFields: ["title", "status"], defaultPerPage: 2 } as never}
+        columns={[{ key: "title", header: "Title" }]}
+        bulkActions={[{ label: "Archive", matching: true, onAction, testId: "bulk-archive" }]}
+      />,
+      { wrapper: wrap(p) },
+    );
+    await screen.findByText("Write the plan");
+    fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: "t" } });
+    await act(async () => undefined);
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    await screen.findByTestId("bulk-archive");
+    expect(screen.queryByTestId("bulk-select-all-matching")).toBeNull();
+    fireEvent.click(screen.getByTestId("bulk-archive"));
+    expect(onAction.mock.calls[0]![1]).toMatchObject({ allMatching: false });
   });
 
   it("leaves the server's total out while a client-paged page narrows its rows", async () => {
@@ -839,6 +874,125 @@ describe("review fixes: held rows after a type was chosen, record scope", () => 
     const query = onAction.mock.calls[0]![1].query;
     expect(query.filters).toEqual([{ field: "status", operator: "in", value: ["todo"] }]);
     expect(query.total).toBeUndefined();
+  });
+
+});
+
+describe("one normalized search, in every paging mode", () => {
+  // A provider that searches like a database's ilike: untrimmed, over the fields it's given.
+  const searching = () =>
+    provider({
+      getList: vi.fn(async (_r: string, params: ListParams) => {
+        const q = params.search?.query.toLowerCase();
+        const data = ROWS.filter((row) => !q || (params.search?.fields ?? []).some((f) => String(row[f as keyof Task]).toLowerCase().includes(q)));
+        const { page = 1, perPage = 25 } = params.pagination ?? {};
+        return { data: data.slice((page - 1) * perPage, page * perPage), total: data.length };
+      }),
+    } as never);
+
+  async function run(pagination: "server" | "cursor" | "client", typed: string, resourceOptions: Record<string, unknown> = {}, searchFields: string[] = ["title"]) {
+    const onExport = vi.fn();
+    const p = searching();
+    const { unmount, container } = render(
+      <ResourcePage<Task>
+        resource="tasks"
+        title="Tasks"
+        pagination={pagination}
+        searchFields={searchFields}
+        resourceOptions={{ searchFields: ["title"], defaultPerPage: 1, ...resourceOptions } as never}
+        columns={[{ key: "title", header: "Title" }]}
+        bulkActions={[{ label: "Archive", matching: true, onAction: vi.fn(), testId: "bulk-archive" }]}
+        onExport={onExport}
+      />,
+      { wrapper: wrap(p) },
+    );
+    await waitFor(() => expect(p.getList).toHaveBeenCalled());
+    fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: typed } });
+    // Past the debounce: the list has settled on the search.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    const shown = ROWS.map((r) => r.title).filter((t) => within(container).queryByText(t));
+    const boxes = screen.queryAllByLabelText(/^Select /).filter((b) => b.getAttribute("aria-label") !== "Select all rows");
+    if (boxes.length) fireEvent.click(screen.getByLabelText("Select all rows"));
+    const offered = !!screen.queryByTestId("bulk-select-all-matching");
+    fireEvent.pointerDown(screen.getByLabelText("More actions"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByText("Export CSV"));
+    const query = onExport.mock.calls[0]?.[0];
+    const sent = (p.getList.mock.calls.at(-1)![1] as ListParams).search;
+    unmount();
+    return { shown, offered, query, sent };
+  }
+
+  for (const typed of [" pl", "pl ", "  pl  "]) {
+    it(`server paging, ${JSON.stringify(typed)}: the provider, the rows, the export, the total and "all matching" agree`, async () => {
+      const r = await run("server", typed);
+      expect(r.sent).toEqual({ query: "pl", fields: ["title"] });
+      expect(r.query.search).toEqual({ query: "pl", fields: ["title"] });
+      expect(r.query.total).toBe(2);
+      expect(r.offered).toBe(true);
+    });
+
+    it(`cursor paging, ${JSON.stringify(typed)}: the infinite query's own search, total and offer`, async () => {
+      const r = await run("cursor", typed);
+      expect(r.sent).toEqual({ query: "pl", fields: ["title"] });
+      expect(r.query.search).toEqual({ query: "pl", fields: ["title"] });
+      expect(r.query.total).toBe(2);
+      expect(r.offered).toBe(true);
+    });
+
+    it(`client paging, ${JSON.stringify(typed)}: the browser filters what the export says, and offers nothing beyond it`, async () => {
+      const r = await run("client", typed, { defaultPerPage: 25 });
+      expect(r.shown).toEqual(["Write the plan", "Tell people"]);
+      expect(r.query.search).toEqual({ query: "pl", fields: ["title"] });
+      expect(r.query.total).toBeUndefined();
+      expect(r.offered).toBe(false);
+    });
+  }
+
+  it("client paging over a provider default search of the same text: no narrowing, the server's total and offer", async () => {
+    const r = await run("client", " pl ", { defaultSearch: "pl" });
+    expect(r.query.search).toEqual({ query: "pl", fields: ["title"] });
+    expect(r.query.total).toBe(2);
+    expect(r.offered).toBe(true);
+  });
+
+  it("client paging over a provider default search of other text: both constraints in the query", async () => {
+    const r = await run("client", " pe ", { defaultSearch: "i", defaultPerPage: 25 });
+    // The provider's "i" rows (Write the plan, Ship it) narrowed to "pe": none.
+    expect(r.shown).toEqual([]);
+    expect(r.query.search).toEqual({ query: "i", fields: ["title"] });
+    expect(r.query.filters).toContainEqual({ field: "title", operator: "contains", value: "pe" });
+    expect(r.query.total).toBeUndefined();
+    expect(r.offered).toBe(false);
+  });
+
+  it("refuses to export a browser search over several fields on top of a provider search", async () => {
+    const failed = vi.spyOn(toast, "error");
+    const r = await run("client", "pe", { defaultSearch: "i", defaultPerPage: 25 }, ["title", "status"]);
+    expect(r.query).toBeUndefined();
+    expect(failed).toHaveBeenCalled();
+  });
+
+  it("reads a deep-linked record in the cursor list's scope, and not at all while the screen holds enabled off", async () => {
+    const p = provider();
+    const scope = [{ field: "status", operator: "eq" as const, value: "todo" }];
+    const { unmount } = render(
+      <ResourcePage<Task> resource="tasks" title="Tasks" pagination="cursor" urlState={adapter("id=b")} resourceOptions={{ defaultFilters: scope }} columns={[{ key: "title", header: "Title" }]} />,
+      { wrapper: wrap(p) },
+    );
+    await waitFor(() => expect(p.getOne).toHaveBeenCalled());
+    expect(vi.mocked(p.getOne).mock.calls[0]![1]).toMatchObject({ id: "b", scope });
+    unmount();
+    const held = provider();
+    render(
+      <ResourcePage<Task> resource="tasks" title="Tasks" urlState={adapter("id=b")} resourceOptions={{ enabled: false }} columns={[{ key: "title", header: "Title" }]} />,
+      { wrapper: wrap(held) },
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(held.getOne).not.toHaveBeenCalled();
   });
 });
 

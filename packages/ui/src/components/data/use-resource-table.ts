@@ -281,6 +281,10 @@ export function useResourceTableModel<
       : {}),
   }));
 
+  // The params the rows were fetched with: the infinite query's under cursor paging (where
+  // `resourceHook` only writes), else the resource's. Every read of "the list's query" uses these.
+  const fetchedParams = resourceCursorPaging ? infinite.params : resourceHook.params;
+
   /** Explicit prop beats the per-user stored preference. */
   const effectivePageSize = resourceServerPaging
     ? (resourceHook.params.pagination?.perPage ?? settings.pageSize)
@@ -365,26 +369,29 @@ export function useResourceTableModel<
   // Seeded from the URL, which useResource already starts on (see above).
   const pushedSearchRef = useRef(queryDriven ? (urlSeed?.q ?? "") : "");
   const searchEffectRanRef = useRef(false);
+  // The page's one normalized search (`searchQuery`: trimmed, spaces only is none) is what goes:
+  // the provider searches exactly what the browser and the list's query mean.
+  const searchQuery = page.searchQuery;
   useEffect(() => {
     if (!queryDriven) return;
     const firstRun = !searchEffectRanRef.current;
     searchEffectRanRef.current = true;
-    if (page.search === pushedSearchRef.current) return;
+    if (searchQuery === pushedSearchRef.current) return;
     const push = () => {
-      pushedSearchRef.current = page.search;
-      setResourceSearch(page.search);
+      pushedSearchRef.current = searchQuery;
+      setResourceSearch(searchQuery);
     };
     // One request per pause in typing, not per keystroke — but an
     // `initialFilters` search (first run) or a cleared box ("Clear all")
     // goes out at once, landing with the sort / status pushes instead of
     // 300ms behind them.
-    if (firstRun || page.search === "") {
+    if (firstRun || searchQuery === "") {
       push();
       return;
     }
     const timer = setTimeout(push, 300);
     return () => clearTimeout(timer);
-  }, [queryDriven, page.search, setResourceSearch]);
+  }, [queryDriven, searchQuery, setResourceSearch]);
 
   const defaultSort = resourceOptions?.defaultSort;
   const pushedSortRef = useRef<string>(queryDriven ? urlSortKey : "");
@@ -518,8 +525,9 @@ export function useResourceTableModel<
   // In the list's scope, as the inbox reads an off-page row: a resource read from a function that
   // takes its scope from the list's filters (a tenant) reads the record there, not in its default.
   const linked = useOne<T & BaseRecord>(resourceName ?? "__noop__", linkedId, {
-    enabled: isClientMode && !!linkedId,
-    scope: resourceHook.params.filters,
+    // The screen's `resourceOptions.enabled` holds this read too, as it holds the list's.
+    enabled: isClientMode && !!linkedId && resourceOptions?.enabled !== false,
+    scope: fetchedParams.filters,
   });
   const selectedItem: T | null =
     rowOrSnapshot ?? (linkedId && linked.data ? (linked.data as T) : null);
@@ -1125,6 +1133,7 @@ export function useResourceTableModel<
     rangeFrom,
     rangeTo,
     resourceHook,
+    listParams: fetchedParams,
     resourceServerPaging,
     selectedDeletable,
     selectedEditable,

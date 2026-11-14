@@ -1169,6 +1169,7 @@ function ResourcePageBody<
     rangeFrom,
     rangeTo,
     resourceHook,
+    listParams,
     resourceServerPaging,
     selectedDeletable,
     selectedEditable,
@@ -1207,55 +1208,80 @@ function ResourcePageBody<
   // The list's query: what an export and a bulk action over every matching row read.
   // With the caller's data (no `resource`) it is the page's own search, sort and status chips:
   // filters the caller applies itself (a view's segment, its own controls) are the caller's to add.
-  const listQuery = (): ResourceListQuery => {
+  const listQuery = (): ResourceListQuery => listQueryOf().query;
+  /**
+   * The list's query, and whether it says exactly what the list shows. Every part of the search is
+   * the page's one normalized `searchQuery` (what the browser filters by and the provider is sent).
+   */
+  const listQueryOf = (): { query: ResourceListQuery; exact: boolean } => {
     if (!isClientMode) {
       const statusField = typeof props.statusFilter === "string" ? props.statusFilter : props.statusFilter?.field;
-      const query = page.search.trim();
+      const typed = page.searchQuery;
+      const fields = [...page.searchFields];
       return {
-        filters: statusField && page.statusValue.length ? [{ field: statusField, operator: "in", value: [...page.statusValue] }] : [],
-        sorts: page.sort ? [page.sort] : [],
-        ...(query ? { search: { query, fields: props.searchFields ?? [] } } : {}),
-        ...(displayTotal >= 0 ? { total: displayTotal } : {}),
+        query: {
+          filters: statusField && page.statusValue.length ? [{ field: statusField, operator: "in", value: [...page.statusValue] }] : [],
+          sorts: page.sort ? [page.sort] : [],
+          ...(typed ? { search: { query: typed, fields } } : {}),
+          ...(displayTotal >= 0 ? { total: displayTotal } : {}),
+        },
+        exact: !typed || fields.length > 0,
       };
     }
-    // The resource's own query, with what the page applies in the browser when it pages there
-    // (`pagination="client"`): its search, sort and status chips, which never reach the params.
-    const { params, chip, search, sort } = browserQuery();
+    // The params the rows were fetched with (the infinite query's under cursor paging), with what
+    // the page applies in the browser when it pages there (`pagination="client"`) on top.
+    const b = browserQuery();
+    const { params, chip, sort } = b;
     const filters = [...(params.filters ?? [])];
     // The chip narrows on top of a provider filter on the same field (a default), never instead.
     if (chip && !filters.some((f) => sameFilter(f, chip))) filters.push(chip);
     const own = params.sorts?.length ? params.sorts : params.sort ? [params.sort] : [];
     // The person's sort wins over a provider default; the same sort keeps the params' tie-breakers.
     const sorts = sort && !(own[0]?.field === sort.field && own[0]?.order === sort.order) ? [sort] : own;
-    const query = search ?? params.search;
+    // The provider's own search stays (a default one included); a browser search narrows on top of
+    // it. One query holds one search, so on top of another it goes as a `contains` filter when it
+    // searches one field; over several it can't be said, and the query isn't exact.
+    const server = params.search?.query ? params.search : undefined;
+    let search = server;
+    let exact = true;
+    if (b.search) {
+      if (!server) {
+        search = b.search;
+        exact = b.search.fields.length > 0;
+      } else if (b.search.fields.length === 1) filters.push({ field: b.search.fields[0]!, operator: "contains", value: b.search.query });
+      else exact = false;
+    }
     return {
-      filters,
-      sorts,
-      ...(query?.query ? { search: query } : {}),
-      // The server's count, unless the browser narrowed the rows past it: then no count, rather
-      // than one the narrowed list doesn't have.
-      ...(displayTotal >= 0 && !browserNarrowing({ params, chip, search }) ? { total: displayTotal } : {}),
+      query: {
+        filters,
+        sorts,
+        ...(search?.query ? { search } : {}),
+        // The server's count, unless the browser narrowed the rows past it: then no count, rather
+        // than one the narrowed list doesn't have.
+        ...(displayTotal >= 0 && !browserNarrowing(b) ? { total: displayTotal } : {}),
+      },
+      exact,
     };
   };
-  /** What the browser applies on top of the resource's params: the search, status chip and sort. */
+  /** What the browser applies on top of the fetched params: the search, status chip and sort. */
   const browserQuery = () => {
-    const params = resourceHook.params;
+    const params = listParams;
     const statusField = typeof props.statusFilter === "string" ? props.statusFilter : props.statusFilter?.field;
     const chip: FilterParam | undefined = statusField && page.statusValue.length ? { field: statusField, operator: "in", value: [...page.statusValue] } : undefined;
-    const typed = page.search.trim();
-    const server = params.search?.query?.trim() ? params.search : undefined;
+    const typed = page.searchQuery;
+    const server = params.search?.query ? params.search : undefined;
     let search: { query: string; fields: string[] } | undefined;
     if (typed) {
       if (resourceServerPaging || loadMore) {
-        // The provider searches: its search is the list's, padded or not. The typed text counts
-        // only while it's on its way there (the debounce), with the fields the server will use.
-        search = server && server.query.trim() === typed ? undefined : { query: typed, fields: [...(serverSearchFields ?? [])] };
+        // The provider searches the same normalized text: its search is the list's. The typed text
+        // counts only while it's on its way there (the debounce), with the fields it will use.
+        search = server && server.query === typed ? undefined : { query: typed, fields: [...(serverSearchFields ?? [])] };
       } else {
-        // The browser searches its own fields (the page's, else the rows' text): narrowing unless
-        // the provider already searches the same text in the same fields.
-        const fields = props.searchFields ?? props.resourceOptions?.searchFields ?? [];
+        // The browser searches its own fields: narrowing unless the provider already searches the
+        // same text in the same fields.
+        const fields = [...page.searchFields];
         const same = !!server && server.query.trim() === typed && fields.length > 0 && JSON.stringify([...server.fields].sort()) === JSON.stringify([...fields].sort());
-        search = same ? undefined : { query: typed, fields: [...fields] };
+        search = same ? undefined : { query: typed, fields };
       }
     }
     return { params, chip, search, sort: page.sort ?? undefined };
@@ -1326,7 +1352,12 @@ function ResourcePageBody<
           label: m.export.action,
           icon: Download,
           testId: "resource-page-export",
-          onClick: () => void onExport(listQuery()),
+          onClick: () => {
+            const { query, exact } = listQueryOf();
+            // Never export rows the list doesn't show: say why instead.
+            if (!exact) toast.error(m.export.searchNotExportable);
+            else void onExport(query);
+          },
         },
       ]
     : secondaryActions;

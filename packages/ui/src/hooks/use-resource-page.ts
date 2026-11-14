@@ -151,7 +151,16 @@ export interface UseResourcePageReturn<T> {
   };
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
+  /** The search box's text, as typed. */
   search: string;
+  /**
+   * The search the list applies: the typed text trimmed, empty when it's only spaces. The one
+   * value the browser filters by, the provider is sent and a list's query (export, "all matching")
+   * carries, so none of them can disagree over a padded search.
+   */
+  searchQuery: string;
+  /** The fields the browser searches: `searchFields`, else the rows' text fields. */
+  searchFields: string[];
   setSearch: (value: string) => void;
   sort: SortParam | null;
   setSort: (sort: SortParam | null) => void;
@@ -357,6 +366,7 @@ export function useResourcePage<T = Record<string, unknown>>(
 
   // -- Search --
   const [search, setSearch] = useState(initialSearch);
+  const searchQuery = search.trim();
 
   // -- Sort --
   const [sort, setSort] = useState<SortParam | null>(initialSort);
@@ -438,9 +448,9 @@ export function useResourcePage<T = Record<string, unknown>>(
 
   const treeResult = useMemo(() => {
     if (!treeOn || !getParentId) return null;
-    const filtering = !!search || (!!statusFieldName && statusValue.length > 0);
+    const filtering = !!searchQuery || (!!statusFieldName && statusValue.length > 0);
     const matches = (item: T) => {
-      if (search && !matchesSearch(item, search, searchFields)) return false;
+      if (searchQuery && !matchesSearch(item, searchQuery, searchFields)) return false;
       if (statusFieldName && statusValue.length > 0) {
         const val = (item as Record<string, unknown>)[statusFieldName];
         return val != null && statusValue.includes(String(val));
@@ -454,7 +464,7 @@ export function useResourcePage<T = Record<string, unknown>>(
       ...(filtering ? { match: matches } : {}),
       ...(sort ? { compare: (a: T, b: T) => compareItems(a, b, sort) } : {}),
     });
-  }, [treeOn, getParentId, rawData, treeKey, expanded, search, searchFields, statusFieldName, statusValue, sort]);
+  }, [treeOn, getParentId, rawData, treeKey, expanded, searchQuery, searchFields, statusFieldName, statusValue, sort]);
 
   const filteredData = useMemo(() => {
     if (controlled) return rawData;
@@ -463,9 +473,9 @@ export function useResourcePage<T = Record<string, unknown>>(
     let result = rawData;
 
     // Text search
-    if (search) {
+    if (searchQuery) {
       result = result.filter((item) =>
-        matchesSearch(item, search, searchFields),
+        matchesSearch(item, searchQuery, searchFields),
       );
     }
 
@@ -483,7 +493,7 @@ export function useResourcePage<T = Record<string, unknown>>(
     }
 
     return result;
-  }, [controlled, rawData, search, searchFields, statusFieldName, statusValue, sort, treeResult]);
+  }, [controlled, rawData, searchQuery, searchFields, statusFieldName, statusValue, sort, treeResult]);
 
   const cascadeSelect = !!treeProp?.cascadeSelect;
   const treeState = useMemo<ResourcePageTreeState<T> | undefined>(
@@ -640,6 +650,8 @@ export function useResourcePage<T = Record<string, unknown>>(
     viewMode,
     setViewMode,
     search,
+    searchQuery,
+    searchFields,
     setSearch,
     sort,
     setSort,

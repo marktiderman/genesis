@@ -223,6 +223,8 @@ export const uiMessages = {
     /** `{count}`: cells that weren't saved; each is marked with its reason. */
     failed: "{count} cells weren't saved. Each is marked with its reason.",
     saveFailed: "This change couldn't be saved.",
+    /** A change still waiting to save when the sheet showed another list: it wasn't sent there. */
+    moved: "Not saved: the sheet moved to another list before this change went out.",
     notNumber: "That isn't a number.",
     notJson: "That isn't valid JSON.",
     undo: "Undo last change",
@@ -241,6 +243,8 @@ export const uiMessages = {
     /** `{rows}`: rows written before the cap. */
     truncated: "Exported the first {rows} rows; narrow the list to export the rest",
     failed: "The export didn't finish",
+    /** The page searches several fields on top of the list's own search: no one query says both. */
+    searchNotExportable: "This search can't be exported as it stands: search one field, or clear the search, then export",
   },
   view: {
     mode: "View mode",

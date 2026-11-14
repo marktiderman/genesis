@@ -172,6 +172,12 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
     const resource = view.resource;
     const saved: UndoEntry["rows"] = [];
     for (const [key, { data, before }] of byRow) {
+      // Queued behind another write, it may run after the sheet moved to another resource: its
+      // keys and values are the old one's, so it's never sent (the cells say why).
+      if (madeIn !== generation.current) {
+        for (const column of Object.keys(data)) failed.push({ rowKey: key, column, message: m.sheet.moved });
+        continue;
+      }
       try {
         await update(key, data as Partial<T & BaseRecord>);
         saved.push({ key, before });
@@ -231,6 +237,12 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
     const left: UndoEntry["rows"] = [];
     let problem: string | undefined;
     for (const item of last.rows) {
+      // The sheet moved to another resource while this undo waited or ran: nothing more is sent.
+      if (madeIn !== generation.current) {
+        left.push(item);
+        problem ??= m.sheet.moved;
+        continue;
+      }
       const row = list.rows.find((r) => keyOf(r) === item.key);
       const refusal = !row
         ? m.table.notAllowed
