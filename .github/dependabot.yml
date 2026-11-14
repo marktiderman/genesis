@@ -60,6 +60,9 @@ updates:
       # comes with a genesis-ui major, made by hand.
       - dependency-name: "react-resizable-panels"
         update-types: ["version-update:semver-major"]
+      # @types/node tracks the runtime's major (CI and engines are Node 22); move it with the Node upgrade.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
