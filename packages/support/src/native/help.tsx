@@ -18,6 +18,7 @@ import type { InboxItem, InboxPageProps, ThreadPageProps } from "@marktiderman/g
 import { reportHeading, SupportError, type HelpArticle } from "../client";
 import type { SupportCopy } from "../copy";
 import { useHelpAsk, type UseHelpAsk } from "../help-ask";
+import { composeExpectationLine, useReplyExpectation } from "../reply-expectation";
 import { SUPPORT_QUERY_ROOT, useSupport } from "./support";
 
 const key = (...parts: (string | null)[]) => [SUPPORT_QUERY_ROOT, "help", ...parts];
@@ -310,9 +311,18 @@ export function HelpArticleBody({ article, loading, notFound, error, copy, onNew
   );
 }
 
-type StartProps = Pick<ThreadPageProps, "messages" | "composer" | "emptyTitle" | "emptyBody" | "testID"> & { headerTitle: string; failed: boolean };
+type StartProps = Pick<ThreadPageProps, "messages" | "composer" | "emptyTitle" | "emptyBody" | "testID"> & {
+  headerTitle: string;
+  failed: boolean;
+  /** How soon people hear back, or when someone's back (`replyExpectation`, `officeHours`): shown above the composer, and here for a screen of your own. Null with neither set. */
+  expectation: string | null;
+};
 
-/** Start a conversation: an empty thread whose first message becomes a ticket, then its thread opens. */
+/**
+ * Start a conversation: an empty thread whose first message becomes a ticket, then its thread
+ * opens. With `replyExpectation` or `officeHours` given to `createSupport`, it says how soon people
+ * hear back, or when someone's back.
+ */
 export function useStartConversation(): StartProps {
   const block = useSupport();
   const { copy, client, paths } = block;
@@ -321,6 +331,7 @@ export function useStartConversation(): StartProps {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState(false);
+  const expectation = composeExpectationLine(useReplyExpectation(block.options.replyExpectation, block.options.officeHours), copy);
   return {
     testID: "genesis-support-start",
     headerTitle: copy.messenger.composeTitle,
@@ -328,7 +339,17 @@ export function useStartConversation(): StartProps {
     emptyTitle: copy.messenger.composeTitle,
     emptyBody: failed ? copy.messenger.composeFailed : copy.messenger.composePlaceholder,
     failed,
+    expectation,
     composer: {
+      ...(expectation
+        ? {
+            above: (
+              <NativeText preset="body-sm" className="text-muted-foreground" style={{ paddingHorizontal: 12, paddingTop: 8 }} testID="genesis-support-start-expectation">
+                {expectation}
+              </NativeText>
+            ),
+          }
+        : {}),
       value: draft,
       onChangeText: setDraft,
       placeholder: copy.messenger.composeLabel,

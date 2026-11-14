@@ -13,11 +13,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Alert, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { NativeButton, NativeInput } from "@marktiderman/genesis-ui-native/components";
+import { NativeButton, NativeInput, NativeText } from "@marktiderman/genesis-ui-native/components";
 import type { InboxItem, InboxPageProps, ThreadMessage, ThreadPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import type { SupportIdea, SupportReply, SupportReport } from "../client";
 import type { SupportThreadInfo } from "../chat";
 import { fill } from "../copy";
+import { awaitingReplyLine, useReplyExpectation } from "../reply-expectation";
 import { SUPPORT_QUERY_ROOT, useOptionalSupport, useSupport } from "./support";
 
 const key = (...parts: string[]) => [SUPPORT_QUERY_ROOT, ...parts];
@@ -106,6 +107,12 @@ function firstLine(text: string): string {
 
 type ThreadProps = Pick<ThreadPageProps, "messages" | "composer" | "closedNotice" | "readAt" | "readLabel" | "emptyTitle" | "emptyBody" | "labels" | "testID"> & {
   headerTitle: string;
+  /**
+   * Until support first answers: where the answer will come, and how soon (`replyExpectation`) or
+   * when someone's back (`officeHours`). Shown above the composer, and here for a screen of your own.
+   * Null without either option, once support has answered, or while the replies load.
+   */
+  awaiting: string | null;
   report: SupportReport | null;
   loading: boolean;
   /** Read, and there is no such report (deleted, or not the person's): leave the screen. */
@@ -139,7 +146,9 @@ const CLOSED = new Set(["addressed", "wont_fix"]);
 /**
  * One report as a conversation: the report itself, then the replies. Marks it read as it opens
  * and as replies arrive. On genesis-chat (the support-chat block) it updates live and shows the
- * photos in replies; otherwise it re-reads support_replies every `pollMs`.
+ * photos in replies; otherwise it re-reads support_replies every `pollMs`. With `replyExpectation`
+ * or `officeHours` given to `createSupport`, until support first answers it says where the answer
+ * will come and how soon, or when someone's back, as `SupportMessenger` does on the web.
  */
 export function useSupportThread(reportId: string, options: { pollMs?: number } = {}): ThreadProps {
   const block = useSupport();
@@ -161,6 +170,7 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
   const attachments = useQuery({ queryKey: key("attachments", reportId), queryFn: () => client.attachments(reportId), staleTime: 50 * 60_000 });
   const [draft, setDraft] = useState("");
   const [failed, setFailed] = useState<{ id: string; body: string; at: string }[]>([]);
+  const expectation = useReplyExpectation(block.options.replyExpectation, block.options.officeHours);
 
   const lastStaff = report.data?.lastStaffReplyAt ?? null;
   useEffect(() => {
@@ -222,6 +232,10 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
   }, [r, replies.data, attachments.data, send.isPending, send.variables, failed, copy, send]);
 
   const closed = r ? CLOSED.has(r.status) : false;
+  // Until support first answers, say where the answer will come. Only when the app set when people
+  // hear back: this screen shows bug reports too, which said nothing before.
+  const expects = Boolean(block.options.replyExpectation?.trim() || block.options.officeHours);
+  const awaiting = expects && r && replies.isSuccess && !(replies.data ?? []).some((reply) => reply.fromStaff && !reply.internal) ? awaitingReplyLine(expectation, copy) : null;
   return {
     testID: "genesis-support-thread",
     headerTitle: r ? r.title || copy.feedback.types[r.type] : copy.thread.title,
@@ -237,9 +251,19 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
     emptyTitle: copy.thread.emptyTitle,
     emptyBody: copy.thread.emptyBody,
     closedNotice: copy.thread.closed,
+    awaiting,
     composer: closed
       ? null
       : {
+          ...(awaiting
+            ? {
+                above: (
+                  <NativeText preset="body-sm" className="text-muted-foreground" style={{ paddingHorizontal: 12, paddingTop: 8 }} testID="genesis-support-thread-awaiting">
+                    {awaiting}
+                  </NativeText>
+                ),
+              }
+            : {}),
           value: draft,
           onChangeText: setDraft,
           placeholder: copy.thread.placeholder,

@@ -1,8 +1,10 @@
 /**
  * The agent composer's pickers: typing `@` in an internal note offers the tenant's agents to
- * mention, `!` the tenant's saved replies, `?` its help articles. A trigger counts at the start of
- * the draft or after a space, and what follows it filters; arrow keys move, Enter or Tab inserts,
- * Escape closes. A mention goes in as genesis-chat's markdown (`@[Name](user:<uuid>)`), which the
+ * mention, `!` the tenant's saved replies, `?` its help articles, in a reply or a note. A trigger
+ * counts at the start of the draft or after a space, and what follows it filters; `!` and `?` open
+ * only once a letter follows them, so "Merci !" or a "?" on its own is just words. Arrow keys move
+ * into the list and Tab inserts; Enter inserts only once the agent has moved into the list with the
+ * arrows, and otherwise sends as it always does. Escape closes. A mention goes in as genesis-chat's markdown (`@[Name](user:<uuid>)`), which the
  * database reads to tell the agent (migration 0014); a saved reply with its `{first_name}`-style
  * variables filled; an article as its title and link.
  *
@@ -27,13 +29,19 @@ export interface PickerOption {
 const TRIGGERS: Record<string, PickerKind> = { "@": "mention", "!": "saved", "?": "article" };
 const MAX_OPTIONS = 8;
 
-/** The trigger being typed at the end of a draft, if any: its kind, where it starts and what follows it. */
+/**
+ * The trigger being typed at the end of a draft, if any: its kind, where it starts and what follows
+ * it. `!` and `?` are punctuation too ("Merci !", "Ça marche ?"), so they need a character after
+ * them; `@` (notes only) doesn't.
+ */
 export function pickerToken(draft: string): { kind: PickerKind; start: number; query: string } | null {
   const match = /(^|\s)([@!?])([^\s@!?]{0,40})$/.exec(draft);
   if (!match) return null;
   const kind = TRIGGERS[match[2]!];
   if (!kind) return null;
-  return { kind, start: match.index + match[1]!.length, query: match[3] ?? "" };
+  const query = match[3] ?? "";
+  if (kind !== "mention" && !query) return null;
+  return { kind, start: match.index + match[1]!.length, query };
 }
 
 /** genesis-chat's mention markdown. Brackets and parentheses in a name would break it, so they go. */
@@ -45,6 +53,18 @@ export function mentionMarkup(agent: { id: string; name: string }): string {
 /** A body with its mentions shown as `@Name`. */
 export function showMentions(body: string): string {
   return body.replace(/@\[([^\]\n]{1,80})\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
+}
+
+/**
+ * A saved reply with its variables filled. A variable that's known and empty (the requester has no
+ * name) goes with the space before it, and at the start of a line with the comma after it, so
+ * "Hi {first_name}," reads "Hi," and "{first_name}, thanks" reads "thanks". Unknown ones stay as written.
+ */
+export function fillReply(body: string, variables: Readonly<Record<string, string>>): string {
+  const tidied = body
+    .replace(/^\{(\w+)\}[,;:]?[ \t]*/gm, (token, name: string) => (variables[name] === "" ? "" : token))
+    .replace(/[ \t]*\{(\w+)\}/g, (token, name: string) => (variables[name] === "" ? "" : token));
+  return fill(tidied, variables);
 }
 
 const matches = (text: string, query: string) => !query || text.toLowerCase().includes(query.toLowerCase());
@@ -71,6 +91,7 @@ export interface ComposerPicker {
   kind: PickerKind | null;
   options: PickerOption[];
   loading: boolean;
+  /** The option the arrows are on, or -1 until the agent moves into the list (Enter sends until then). */
   active: number;
   listId: string;
   optionId: (index: number) => string;
@@ -86,6 +107,8 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
   const token = pickerToken(draft);
   const [dismissed, setDismissed] = useState<number | null>(null);
   const [active, setActive] = useState(0);
+  // Whether the agent has moved into the list with the arrows: only then does Enter insert.
+  const [engaged, setEngaged] = useState(false);
   const kind = token && token.start !== dismissed ? token.kind : null;
   const usable = kind === "mention" ? note && Boolean(agents?.length) : kind === "saved" ? Boolean(client.savedReplies) : kind === "article" ? Boolean(client.searchHelp && client.helpArticles) : false;
   const query = token?.query ?? "";
@@ -120,7 +143,7 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
       return (saved.data ?? [])
         .filter((r: SavedReply) => matches(r.title, query))
         .slice(0, MAX_OPTIONS)
-        .map((r) => ({ id: r.id, label: r.title, detail: r.body.split("\n")[0], insert: fill(r.body, variables) }));
+        .map((r) => ({ id: r.id, label: r.title, detail: r.body.split("\n")[0], insert: fillReply(r.body, variables) }));
     }
     if (kind === "article") {
       return (articles.data ?? []).slice(0, MAX_OPTIONS).map((a) => ({
@@ -133,8 +156,11 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
     return [];
   }, [usable, kind, agents, query, saved.data, articles.data, variables, articleHref, copy]);
 
-  // A new list starts at its first option.
-  useEffect(() => setActive(0), [kind, query]);
+  // A new list starts at its first option, with Enter sending until the agent moves into it.
+  useEffect(() => {
+    setActive(0);
+    setEngaged(false);
+  }, [kind, query]);
   // Typing a new trigger reopens what Escape closed.
   useEffect(() => {
     if (dismissed !== null && token?.start !== dismissed) setDismissed(null);
@@ -152,7 +178,7 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
     kind: open ? kind : null,
     options,
     loading: open && ((kind === "saved" && saved.isPending) || (kind === "article" && articles.isPending)),
-    active: Math.min(active, Math.max(options.length - 1, 0)),
+    active: engaged && options.length ? Math.min(active, options.length - 1) : -1,
     listId,
     optionId: (index) => `${listId}-option-${index}`,
     setActive,
@@ -165,14 +191,17 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
       }
       if (!options.length) return false;
       if (event.key === "ArrowDown") {
-        setActive((i) => (i + 1) % options.length);
+        // The first press moves into the list, onto its first option.
+        setActive((i) => (engaged ? (i + 1) % options.length : 0));
+        setEngaged(true);
         return true;
       }
       if (event.key === "ArrowUp") {
-        setActive((i) => (i - 1 + options.length) % options.length);
+        setActive((i) => (engaged ? (i - 1 + options.length) % options.length : options.length - 1));
+        setEngaged(true);
         return true;
       }
-      if ((event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) || event.key === "Tab") {
+      if ((engaged && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) || event.key === "Tab") {
         choose(Math.min(active, options.length - 1));
         return true;
       }
@@ -207,9 +236,8 @@ export function ComposerPickerList({ picker, copy, testID }: { picker: ComposerP
               data-testid={`${testID}-option-${option.id}`}
               // Keep focus in the composer: choosing must not blur it.
               onMouseDown={(event) => event.preventDefault()}
-              onMouseEnter={() => picker.setActive(index)}
               onClick={() => picker.choose(index)}
-              className={cn("flex min-h-11 cursor-pointer flex-col justify-center rounded-sm px-2 py-1 text-sm", index === picker.active && "bg-accent text-accent-foreground")}
+              className={cn("flex min-h-11 cursor-pointer flex-col justify-center rounded-sm px-2 py-1 text-sm hover:bg-accent hover:text-accent-foreground", index === picker.active && "bg-accent text-accent-foreground")}
             >
               <span className="truncate font-medium">{option.label}</span>
               {option.detail ? <span className="truncate text-xs text-muted-foreground">{option.detail}</span> : null}
