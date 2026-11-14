@@ -780,7 +780,7 @@
         },
         {
           "need": "a tile on a dashboard or a record page's sidebar (a number, progress, a streak, a short list, a chart)",
-          "use": "a widget: defineWidget (from @marktiderman/genesis-core/resource-view) over a view, drawn by <Widget> (several in a WidgetGrid, or in DashboardPage's stats)",
+          "use": "a widget: defineWidget (from @marktiderman/genesis-core/resource-view) over a view, drawn by `<Widget>` (several in a WidgetGrid, or in DashboardPage's stats)",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#widgets"
         },
