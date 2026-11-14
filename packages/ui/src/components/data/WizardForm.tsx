@@ -7,6 +7,7 @@ import { Button } from "../ui/button";
 import { Progress } from "../ui/progress";
 import { Spinner } from "../ui/spinner";
 import { useWizard, type WizardStep } from "@marktiderman/genesis-core/hooks";
+import { wizardProgressLabel, wizardStepFields } from "@marktiderman/genesis-core/headless";
 import { ResourceFormFieldRenderer, type ResourceFormFieldDef } from "./ResourceFormField";
 
 // ---------------------------------------------------------------------------
@@ -47,10 +48,9 @@ export function WizardForm({
   const watchedValues = useWatch({ control: form.control }) as Record<string, unknown>;
 
   // Get fields for the current step
-  const stepFieldKeys = new Set(wizard.currentStepDef.fields);
-  const stepFields = fields.filter(
-    (f) => stepFieldKeys.has(f.key) && f.visible?.(watchedValues) !== false,
-  );
+  // The step's visible fields and the progress words are genesis-core's, as NativeWizardForm's.
+  const stepFields = wizardStepFields(fields, wizard.currentStepDef.fields, watchedValues);
+  const progress = wizardProgressLabel(wizard);
 
   const handleNext = async () => {
     if (wizard.isLast) {
@@ -66,10 +66,8 @@ export function WizardForm({
       {/* Progress */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <span>
-            Step {wizard.currentStep + 1} of {wizard.totalSteps}
-          </span>
-          <span>{Math.round(wizard.progress * 100)}%</span>
+          <span>{progress.step}</span>
+          <span>{progress.percent}</span>
         </div>
         <Progress value={wizard.progress * 100} />
       </div>

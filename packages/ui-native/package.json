@@ -361,6 +361,72 @@
           "use": "NativeTierBadge with tone set to a key of the brand's accents",
           "import": "@marktiderman/genesis-ui-native",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a chart on the phone",
+          "use": "NativeChartContainer (config, data, xKey, type), with react-native-svg as GenesisModules.svg for lines",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#web-parity-twins"
+        },
+        {
+          "need": "a list the person reorders on the phone",
+          "use": "NativeSortableList (drag handle, long-press Move menu, screen-reader actions)",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#web-parity-twins"
+        },
+        {
+          "need": "a phone dashboard, detail, document or form page",
+          "use": "DashboardPage, DetailPage, DocumentPage or FormPage",
+          "import": "@marktiderman/genesis-ui-native/layouts",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#web-parity-twins"
+        },
+        {
+          "need": "a stat tile or headline numbers on the phone",
+          "use": "NativeStatCard, or NativeHeadlineNumbers",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#web-parity-twins"
+        },
+        {
+          "need": "a settings row on the phone (a label, a description and a control, or a switch)",
+          "use": "NativeSettingsRow, or NativeToggleRow",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#web-parity-twins"
+        },
+        {
+          "need": "switching workspace on the phone",
+          "use": "NativeWorkspaceSwitcher under a WorkspaceScope",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#web-parity-twins"
+        },
+        {
+          "need": "a one-time code on the phone",
+          "use": "NativeInputOTP (system code autofill on one field)",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#web-parity-twins"
+        },
+        {
+          "need": "a month grid to pick days on the phone",
+          "use": "NativeCalendar (mode single, multiple or range)",
+          "import": "@marktiderman/genesis-ui-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#web-parity-twins"
+        },
+        {
+          "need": "a custom view on the phone (an app's own drawing over a view's rows)",
+          "use": "NativeCustomView, or useNativeCustomView",
+          "import": "@marktiderman/genesis-ui-native/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#web-parity-twins"
+        },
+        {
+          "need": "a record in a sheet on the phone",
+          "use": "NativeRecordPeek (the record view, with onEdit and onDelete)",
+          "import": "@marktiderman/genesis-ui-native/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#web-parity-twins"
+        },
+        {
+          "need": "a form in steps, a repeating group, a file or a link field on the phone",
+          "use": "NativeWizardForm, NativeFieldArrayRenderer, NativeFileUploadField (GenesisModules.filePicker) and NativeRelationField",
+          "import": "@marktiderman/genesis-ui-native/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md#web-parity-twins"
         }
       ]
     }

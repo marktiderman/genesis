@@ -19,6 +19,10 @@
  * `SettingsSubPage`). It needs `component` too: the bar sits beside the
  * keyboard-aware scroll view. Without it, nothing changes.
  *
+ * `sticky` (optional, `KeyboardStickyView`) carries a layout's bottom bar (FormPage's Save /
+ * Cancel) up with the keyboard. Without it, with `component`, FormPage puts the bar at the end
+ * of the scrolling form instead, where the keyboard never covers it.
+ *
  * @stability Beta
  */
 import { createContext, createElement, useContext, useMemo, type ComponentType, type ReactNode } from "react";
@@ -59,9 +63,17 @@ export interface KeyboardToolbarProps {
  */
 export const KEYBOARD_TOOLBAR_HEIGHT = 42;
 
+/** The props Genesis passes to a view that rides on the keyboard (`KeyboardStickyView`). */
+export interface KeyboardStickyProps {
+  children?: ReactNode;
+  /** Extra distance from the keyboard, closed and open. */
+  offset?: { closed?: number; opened?: number };
+}
+
 interface KeyboardScrollValue {
   component: ComponentType<KeyboardScrollProps>;
   toolbar: ComponentType<KeyboardToolbarProps> | null;
+  sticky: ComponentType<KeyboardStickyProps> | null;
 }
 
 const KeyboardScrollContext = createContext<KeyboardScrollValue | null>(null);
@@ -69,20 +81,28 @@ const KeyboardScrollContext = createContext<KeyboardScrollValue | null>(null);
 export function KeyboardScrollProvider({
   component,
   toolbar,
+  sticky,
   children,
 }: {
   component: ComponentType<KeyboardScrollProps>;
   /** `KeyboardToolbar` from react-native-keyboard-controller: previous / next / done above the keyboard. */
-  toolbar?: ComponentType<KeyboardToolbarProps>;
+  toolbar?: ComponentType<KeyboardToolbarProps> | undefined;
+  /** `KeyboardStickyView` from react-native-keyboard-controller: keeps a form's action bar above the keyboard. */
+  sticky?: ComponentType<KeyboardStickyProps> | undefined;
   children: ReactNode;
 }) {
-  const value = useMemo(() => ({ component, toolbar: toolbar ?? null }), [component, toolbar]);
+  const value = useMemo(() => ({ component, toolbar: toolbar ?? null, sticky: sticky ?? null }), [component, toolbar, sticky]);
   return createElement(KeyboardScrollContext.Provider, { value }, children);
 }
 
 /** The app's keyboard-aware scroll view, or null when none was provided. */
 export function useKeyboardScroll(): ComponentType<KeyboardScrollProps> | null {
   return useContext(KeyboardScrollContext)?.component ?? null;
+}
+
+/** The app's keyboard-riding view for a bottom bar, or null when none was provided (or no scroll view to go with it). */
+export function useKeyboardSticky(): ComponentType<KeyboardStickyProps> | null {
+  return useContext(KeyboardScrollContext)?.sticky ?? null;
 }
 
 /** The app's keyboard toolbar, or null when none was provided (or no scroll view to go with it). */

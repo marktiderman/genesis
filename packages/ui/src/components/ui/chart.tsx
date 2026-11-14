@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as RechartsPrimitive from "recharts";
 
+import { chartSeriesColor, type ChartScheme } from "@marktiderman/genesis-core/headless";
 import { cn } from "../../utils";
 
 // Format: { THEME_NAME: CSS_SELECTOR }
@@ -100,9 +101,8 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
 ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
-    const color =
-      itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ??
-      itemConfig.color;
+    // The scheme's colour, else the one colour: genesis-core's rule, shared with NativeChartContainer.
+    const color = chartSeriesColor(itemConfig, theme as ChartScheme);
     return color ? `  --color-${key}: ${color};` : null;
   })
   .join("\n")}

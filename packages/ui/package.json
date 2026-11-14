@@ -186,9 +186,17 @@
       "types": "./dist/components/ui/checkbox.d.ts",
       "import": "./dist/components/ui/checkbox.js"
     },
+    "./choice-card": {
+      "types": "./dist/components/ui/choice-card.d.ts",
+      "import": "./dist/components/ui/choice-card.js"
+    },
     "./collapsible": {
       "types": "./dist/components/ui/collapsible.d.ts",
       "import": "./dist/components/ui/collapsible.js"
+    },
+    "./combobox": {
+      "types": "./dist/components/ui/combobox.d.ts",
+      "import": "./dist/components/ui/combobox.js"
     },
     "./command": {
       "types": "./dist/components/ui/command.d.ts",
@@ -246,6 +254,10 @@
       "types": "./dist/components/ui/hover-card.d.ts",
       "import": "./dist/components/ui/hover-card.js"
     },
+    "./inline-alert": {
+      "types": "./dist/components/ui/inline-alert.d.ts",
+      "import": "./dist/components/ui/inline-alert.js"
+    },
     "./input": {
       "types": "./dist/components/ui/input.d.ts",
       "import": "./dist/components/ui/input.js"
@@ -274,6 +286,10 @@
       "types": "./dist/components/ui/navigation-menu.d.ts",
       "import": "./dist/components/ui/navigation-menu.js"
     },
+    "./number-input": {
+      "types": "./dist/components/ui/number-input.d.ts",
+      "import": "./dist/components/ui/number-input.js"
+    },
     "./page-loading": {
       "types": "./dist/components/patterns/page-loading.d.ts",
       "import": "./dist/components/patterns/page-loading.js"
@@ -297,6 +313,10 @@
     "./radio-group": {
       "types": "./dist/components/ui/radio-group.d.ts",
       "import": "./dist/components/ui/radio-group.js"
+    },
+    "./range-slider": {
+      "types": "./dist/components/ui/range-slider.d.ts",
+      "import": "./dist/components/ui/range-slider.js"
     },
     "./resizable": {
       "types": "./dist/components/ui/resizable.d.ts",
@@ -350,6 +370,10 @@
       "types": "./dist/components/patterns/status-badge.d.ts",
       "import": "./dist/components/patterns/status-badge.js"
     },
+    "./stepper": {
+      "types": "./dist/components/ui/stepper.d.ts",
+      "import": "./dist/components/ui/stepper.js"
+    },
     "./switch": {
       "types": "./dist/components/ui/switch.d.ts",
       "import": "./dist/components/ui/switch.js"
@@ -369,6 +393,10 @@
     "./tier-badge": {
       "types": "./dist/components/ui/tier-badge.d.ts",
       "import": "./dist/components/ui/tier-badge.js"
+    },
+    "./time-picker": {
+      "types": "./dist/components/ui/time-picker.d.ts",
+      "import": "./dist/components/ui/time-picker.js"
     },
     "./toggle": {
       "types": "./dist/components/ui/toggle.d.ts",
@@ -612,6 +640,24 @@
           "import": "@marktiderman/genesis-ui",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/MOBILE.md",
           "why": "A height in vh on a dialog or sheet is measured against the browser's largest viewport, so on a phone the toolbar or keyboard cuts off its bottom, and the Save button with it. The primitives size themselves in dvh, inside the safe areas; a screen that sets its own height undoes that."
+        },
+        {
+          "id": "times-use-time-picker",
+          "need": "a time of day in a form",
+          "level": "warn",
+          "platform": "web",
+          "newOnly": true,
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "forbid": {
+            "pattern": "<(?:Input|input)\\b(?:[^>{t]|(?<![-\\w])t(?!ype\\s*=)|(?<=[-\\w])t|\\{(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*\\})*(?<![-\\w])type\\s*=\\s*(?:\\{\\s*)?[\"']time[\"']"
+          },
+          "use": "TimePicker (value: an \"HH:MM\" string or a Date, onChange), the twin of the phone's NativeTimePicker",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md#a-time-of-day-timepicker",
+          "why": "A browser's time input looks and types differently in every browser and can't list the times a class runs at; TimePicker reads typed times (\"2:30 pm\", \"1430\") with genesis-core's parseTimeOfDay, as the phone does, and keeps the day."
         }
       ],
       "primitives": [
@@ -711,6 +757,66 @@
         {
           "need": "a rank or tier label (Gold, Level 3) in a brand accent",
           "use": "TierBadge with tone set to a key of the brand's accents",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a choice from a long list the person can search",
+          "use": "Combobox (options, value, onChange), built from Command in a Popover; the twin of NativeCombobox",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a number with minus and plus buttons",
+          "use": "NumberInput (value, min, max, step), the twin of NativeNumberInput",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a range with two thumbs (a price band)",
+          "use": "RangeSlider (value: [low, high]), the twin of NativeRangeSlider",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a time of day",
+          "use": "TimePicker (value: Date), the twin of NativeTimePicker",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a selectable option card (radio or checkbox, with a picture or a description)",
+          "use": "ChoiceCard, the twin of NativeChoiceCard",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "filter chips that toggle together",
+          "use": "ChipGroup with ChipGroupItem, the twin of NativeChipGroup",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "where a person is in a flow of steps",
+          "use": "Stepper (steps, current), the twin of NativeStepper",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a message beside what it's about, or a system banner across the page",
+          "use": "InlineAlert, or Banner, the twins of NativeInlineAlert and NativeBanner",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a what's new dialog after an update",
+          "use": "WhatsNewSheet (notes, dismiss), the twin of NativeWhatsNewSheet",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+        },
+        {
+          "need": "a page of a person's notifications under day headings",
+          "use": "NotificationsPage (items), the twin of the phone's NotificationsPage; NotificationFeed (genesis-notifications) loads them",
           "import": "@marktiderman/genesis-ui",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
         }

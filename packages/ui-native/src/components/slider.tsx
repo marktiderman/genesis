@@ -13,6 +13,7 @@
  */
 import { useMemo, useRef, useState } from "react";
 import { PanResponder, View } from "react-native";
+import { snapToStep } from "@marktiderman/genesis-core/headless";
 import { cn } from "../utils";
 
 interface BaseProps {
@@ -31,15 +32,8 @@ export interface NativeSliderProps extends BaseProps {
   onChange: (value: number) => void;
 }
 
-function snap(v: number, step: number, min: number, max: number) {
-  const clamped = Math.min(max, Math.max(min, v));
-  if (step <= 0) return clamped;
-  // Snap relative to `min` so non-zero starts (e.g. min=1, step=2 → 1,3,5,...)
-  // produce the correct discrete grid. Then re-clamp because the stepped
-  // value can exceed max when (max - min) is not a multiple of step.
-  const stepped = Math.round((clamped - min) / step) * step + min;
-  return Math.min(max, Math.max(min, stepped));
-}
+// The grid a thumb snaps to is genesis-core's, as the web's RangeSlider and NumberInput use.
+const snap = snapToStep;
 
 function useTrackWidth() {
   const [width, setWidth] = useState(0);

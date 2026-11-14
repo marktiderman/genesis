@@ -63,7 +63,7 @@ export { Drawer, DrawerPortal, DrawerOverlay, DrawerTrigger, DrawerClose, Drawer
 export { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "./components/ui/accordion";
 export { Avatar, AvatarImage, AvatarFallback } from "./components/ui/avatar";
 export { UserAvatar, userAvatarVariants, type UserAvatarProps } from "./components/patterns/user-avatar";
-export { Slider } from "./components/ui/slider";
+export { Slider, type SliderProps } from "./components/ui/slider";
 export { Toggle, toggleVariants } from "./components/ui/toggle";
 export { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group";
 export { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuCheckboxItem, ContextMenuRadioItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuGroup, ContextMenuPortal, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuRadioGroup } from "./components/ui/context-menu";
@@ -95,6 +95,17 @@ export { LiveIndicator, type LiveIndicatorProps, type LiveIndicatorState } from 
 export { Toolbar, ToolbarButton, ToolbarLink, ToolbarSeparator, ToolbarToggleGroup, ToolbarToggleItem, toolbarVariants, type ToolbarProps, type ToolbarButtonProps, type ToolbarLinkProps, type ToolbarSeparatorProps, type ToolbarToggleItemProps } from "./components/ui/toolbar";
 export { VisuallyHidden, type VisuallyHiddenProps } from "./components/ui/visually-hidden";
 export { AccessibleIcon, type AccessibleIconProps } from "./components/ui/accessible-icon";
+// Twins of genesis-ui-native components (ui-parity.json): the same props on the web.
+export { Banner, InlineAlert, type BannerProps, type InlineAlertProps, type InlineAlertVariant } from "./components/ui/inline-alert";
+export { ChoiceCard, type ChoiceCardProps, type ChoiceCardRadioProps, type ChoiceCardCheckboxProps } from "./components/ui/choice-card";
+export { ChipGroup, ChipGroupItem, type ChipGroupProps, type ChipGroupSingleProps, type ChipGroupMultipleProps, type ChipGroupItemProps, type ChipGroupMode } from "./components/resource/chip-group";
+export { Combobox, type ComboboxProps, type ComboboxOption } from "./components/ui/combobox";
+export { NumberInput, type NumberInputProps } from "./components/ui/number-input";
+export { RangeSlider, type RangeSliderProps } from "./components/ui/range-slider";
+export { Stepper, type StepperProps, type StepperStep } from "./components/ui/stepper";
+export { TimePicker, type TimePickerProps } from "./components/ui/time-picker";
+export { WhatsNewSheet, type WhatsNewSheetProps, type WhatsNewNote } from "./components/patterns/whats-new-sheet";
+export { NotificationsPage, type NotificationsPageProps, type NotificationItem } from "./components/layout/notifications-page";
 // Experimental — Radix ships this as `unstable_PasswordToggleField`; its props
 // may change in a minor. See the file header for the full stability note.
 export { PasswordToggleField, PasswordToggleFieldInput, PasswordToggleFieldToggle, PasswordToggleFieldSlot, PasswordToggleFieldIcon, type PasswordToggleFieldProps, type PasswordToggleFieldInputProps, type PasswordToggleFieldToggleProps, type PasswordToggleFieldSlotProps, type PasswordToggleFieldIconProps } from "./components/ui/password-toggle-field";

@@ -24,3 +24,6 @@ export {
   type MotionLevel,
   type ResolveMotionOptions,
 } from "./motion";
+// Each scheme's colours as concrete hex values, for what a class can't reach on a phone (a
+// chart's SVG strokes, say): the same DTCG themes the native provider reads.
+export { nativeThemeLight, nativeThemeDark } from "./native-themes";

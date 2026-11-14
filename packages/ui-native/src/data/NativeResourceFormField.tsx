@@ -14,6 +14,7 @@ import {
 import { NativeSwitch } from "../components/switch";
 import { NativeText } from "../components/text";
 import { NativeTextarea } from "../components/textarea";
+import { NativeFieldArrayRenderer, NativeFileUploadField, NativeRelationField, type NativeFileUploadFieldProps } from "./NativeFormFields";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,12 +71,43 @@ function NativeResourceFormFieldRenderer({
     return null;
   }
 
+  // Repeating groups, as the web's form (FieldArrayRenderer).
+  if (fieldType === "array" && field.arrayFields) {
+    return <NativeFieldArrayRenderer field={field} control={control} action={action} watchedValues={watchedValues} />;
+  }
+
   return (
     <Controller
       name={field.key}
       control={control}
       render={({ field: f, fieldState }) => {
         const errorMessage = fieldState.error?.message;
+
+        // ------------------------------------------------------------------
+        // Relation, file and image: the same pieces as the web's form.
+        // ------------------------------------------------------------------
+        if (fieldType === "relation" && field.relation) {
+          return (
+            <NativeRelationField
+              field={field}
+              value={f.value}
+              onChange={f.onChange}
+              values={watchedValues ?? {}}
+              {...(errorMessage ? { error: errorMessage } : {})}
+            />
+          );
+        }
+        if (fieldType === "file" || fieldType === "image") {
+          return (
+            <NativeFileUploadField
+              field={field}
+              value={(f.value as NativeFileUploadFieldProps["value"]) ?? null}
+              onChange={f.onChange}
+              disabled={isDisabled}
+              {...(errorMessage ? { error: errorMessage } : {})}
+            />
+          );
+        }
 
         // ------------------------------------------------------------------
         // Switch

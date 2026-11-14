@@ -20,6 +20,8 @@ const badgeVariants = cva(
         warning: "border-transparent bg-warning/15",
         info: "border-transparent bg-info/15",
         muted: "border-transparent bg-muted",
+        // The tinted red (StatusBadge's offTrack / blocked, a "danger" chip); `destructive` is the solid fill.
+        danger: "border-transparent bg-destructive/15 dark:bg-destructive/20",
       },
     },
     defaultVariants: {
@@ -49,6 +51,7 @@ const badgeTextVariants = cva("text-xs font-medium", {
       warning: "text-amber-800 dark:text-amber-200",
       info: "text-blue-700 dark:text-blue-300",
       muted: "text-muted-foreground",
+      danger: "text-red-700 dark:text-red-300",
     },
   },
   defaultVariants: {
