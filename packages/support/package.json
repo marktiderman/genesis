@@ -380,6 +380,18 @@
           {
             "file": "migrations/0009_genesis_support_inbox.sql",
             "test": "migrations/tests/0009_genesis_support_inbox.test.sql"
+          },
+          {
+            "file": "migrations/0013_genesis_support_queues.sql",
+            "test": "migrations/tests/0013_genesis_support_queues.test.sql"
+          },
+          {
+            "file": "migrations/0014_genesis_support_agent_tools.sql",
+            "test": "migrations/tests/0014_genesis_support_agent_tools.test.sql"
+          },
+          {
+            "file": "migrations/0015_genesis_support_agent_tools_bounds.sql",
+            "test": "migrations/tests/0015_genesis_support_agent_tools_bounds.test.sql"
           }
         ],
         "steps": [
