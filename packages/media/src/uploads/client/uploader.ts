@@ -87,6 +87,12 @@ export interface UploaderOptions {
   retries?: number | undefined;
   /** How often to ask whether a big upload's read-back is done, in ms. Default 2000. */
   pollMs?: number | undefined;
+  /**
+   * The longest a cancel waits for the DELETE that removes its session, in ms: making the headers,
+   * the request and reading the answer. Then it gives up, and the session lapses when it expires.
+   * Default 5000.
+   */
+  cleanupTimeoutMs?: number | undefined;
   /** Stops every upload on this uploader (as `cancel()` does each). */
   signal?: AbortSignal | undefined;
   /** For tests. */
@@ -210,6 +216,7 @@ export function createUploader(options: UploaderOptions) {
   const partsAtOnce = Math.max(1, options.partsAtOnce ?? 4);
   const filesAtOnce = Math.max(1, options.filesAtOnce ?? 2);
   const pollMs = options.pollMs ?? 2000;
+  const cleanupTimeoutMs = options.cleanupTimeoutMs ?? 5000;
   const limit = createSpeedLimiter(options.bytesPerSecond ?? (() => 0), (ms, signal) => sleep(ms, signal));
 
   // Remembering an id is a convenience: a store that fails (private browsing, a full disk) never stops an upload.
@@ -283,19 +290,27 @@ export function createUploader(options: UploaderOptions) {
     path: string,
     init: { body?: RequestInit["body"]; headers?: Record<string, string> } = {},
     signal?: AbortSignal,
+    /** Called each time the request is handed to `fetch`, just before. */
+    onSend?: () => void,
+    /** Tries before a network failure or a transient status is final. Default `retries`. */
+    attempts = retries,
   ): Promise<{ status: number; body: unknown }> {
     for (let attempt = 1; ; attempt++) {
       if (signal?.aborted) throw cancelledError();
       let res: Response;
       try {
-        res = await doFetch(`${endpoint}${path}`, { method, body: init.body, headers: { ...(await options.headers?.()), ...init.headers }, ...(signal ? { signal } : {}) });
+        const headers = { ...(await options.headers?.()), ...init.headers };
+        // A cancel while the app's headers were being made: the request never goes.
+        if (signal?.aborted) throw cancelledError();
+        onSend?.();
+        res = await doFetch(`${endpoint}${path}`, { method, body: init.body, headers, ...(signal ? { signal } : {}) });
       } catch (e) {
         if (signal?.aborted) throw cancelledError();
-        if (attempt >= retries) throw new UploadClientError(e instanceof Error ? e.message : "The network failed.", "network");
+        if (attempt >= attempts) throw new UploadClientError(e instanceof Error ? e.message : "The network failed.", "network");
         await backoff(attempt, signal);
         continue;
       }
-      if (transient(res.status) && attempt < retries) {
+      if (transient(res.status) && attempt < attempts) {
         await res.body?.cancel().catch(() => {});
         await backoff(attempt, signal, res.headers.get("retry-after"));
         continue;
@@ -310,6 +325,25 @@ export function createUploader(options: UploaderOptions) {
       return { status: res.status, body };
     }
   }
+
+  /**
+   * Removes a cancelled upload's session: best effort, one try and no back-off, and never longer
+   * than `cleanupTimeoutMs` (headers, request and answer), so a cancel settles even offline or when
+   * the DELETE never answers. Its own deadline, not the upload's signal, which is already aborted.
+   * A session this misses lapses when it expires.
+   */
+  const discard = async (id: string): Promise<void> => {
+    const deadline = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<void>((resolve) => {
+      timer = setTimeout(() => (deadline.abort(), resolve()), cleanupTimeoutMs);
+    });
+    try {
+      await Promise.race([call("DELETE", `/${id}`, {}, deadline.signal, undefined, 1).catch(() => {}), expired]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 
   const fail = (status: number, body: unknown): never => {
     const e = (body ?? {}) as Partial<UploadError>;
@@ -405,15 +439,37 @@ export function createUploader(options: UploaderOptions) {
       }
       if (!status) {
         // The id is chosen here, so a create retried after a lost answer finds the session the first try made.
-        const r = await call(
-          "POST",
-          "",
-          {
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ name: o.name, contentType: o.contentType, size: source.size, purpose: o.purpose, uploadId: newUploadId(), ...(sha256 ? { sha256 } : {}), ...(o.targets ? { targets: o.targets } : {}) }),
-          },
-          signal,
-        );
+        const uploadId = newUploadId();
+        // Whether the create has been handed to fetch: before that, the server can't have this id.
+        let sent = false;
+        let r: Awaited<ReturnType<typeof call>>;
+        try {
+          r = await call(
+            "POST",
+            "",
+            {
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ name: o.name, contentType: o.contentType, size: source.size, purpose: o.purpose, uploadId, ...(sha256 ? { sha256 } : {}), ...(o.targets ? { targets: o.targets } : {}) }),
+            },
+            signal,
+            () => {
+              sent = true;
+              // Known as the create goes, so cancel() deletes it even when the create never answers
+              // (a fetch that ignores its signal, a request the network holds).
+              run.id = uploadId;
+            },
+          );
+        } catch (e) {
+          // Cancelled with the create sent: the server may have made the session before the abort
+          // reached it. Remove it (a 404 when it never was). A create that reaches the server after
+          // this DELETE and cancel()'s both still makes a session, and the client can't close that
+          // window: the session's expiry bounds it.
+          if (signal.aborted || (e instanceof UploadClientError && e.code === "cancelled")) {
+            if (sent) await discard(uploadId);
+            throw cancelledError();
+          }
+          throw e;
+        }
         if (r.status === 200 && (r.body as UploadSkipped).state === "skipped") {
           const skipped = r.body as UploadSkipped;
           progress({ phase: "sending", bytesDone: source.size, size: source.size });
@@ -436,7 +492,7 @@ export function createUploader(options: UploaderOptions) {
         return done(memo, await send(source, status, sha256, run, progress));
       } catch (e) {
         if (signal.aborted || (e instanceof UploadClientError && e.code === "cancelled")) {
-          await call("DELETE", `/${id}`).catch(() => {});
+          await discard(id);
           if (memo) await resumeStore.delete(memo);
           throw cancelledError();
         }
@@ -540,7 +596,7 @@ export function createUploader(options: UploaderOptions) {
           return;
         }
         // Running: it stops at once and removes its session; this makes sure of it.
-        if (run.id) await call("DELETE", `/${run.id}`).catch(() => {});
+        if (run.id) await discard(run.id);
       };
       for (const s of outer) {
         if (s.aborted) void cancel();
