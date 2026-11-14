@@ -91,9 +91,10 @@ then overwrite. On EAS, runs are serialized (`concurrency`, never cancelling one
 finishes before the next starts, in the order GitHub started them, which is the order the commits
 reached `main` (GitHub's runs are serialized too). EAS drops waiting runs in between; the newest one
 carries their code, on every platform. GitHub doesn't promise to start runs in push order, so before
-publishing or handing a platform to EAS, each run checks the channel's latest update: when it already
-carries this commit or a later one (`git merge-base --is-ancestor`), the run skips that platform out
-loud. It never skips because a later commit is expected to ship, which could drop a release
+publishing or handing a platform to EAS, each run checks the channel's latest update (the newest
+group in `eas update:list --branch <channel>`, then its commit from `eas update:view <group>`;
+none before the first release, when the branch doesn't exist yet): when it already carries this
+commit or a later one (`git merge-base --is-ancestor`), the run skips that platform out loud. It never skips because a later commit is expected to ship, which could drop a release
 silently. Left over:
 - Two EAS runs started out of order (GitHub ran the later commit's release first, while an EAS run
   was open) publish in the order they were started; the check above happens on GitHub, before the
@@ -268,9 +269,10 @@ left with the new text in `.genesis-next`. So:
   release's pin with its text. In a shared workflow it only names (under `appFolder`), the pin
   moves in place only when the template didn't change between the two releases; when it did, the
   reusable workflow may want new inputs, so the pin stays and the summary says to move it with
-  those changes. That change stays outstanding in the lock (its checksum isn't advanced) until the
-  repository's copy names the new release, so a later release whose template didn't change can't
-  move the pin past it. The pin is read and written through the same path checks as owned files: a
+  those changes. That change stays outstanding in the lock (its checksum isn't advanced, and
+  `awaiting` names the release it came with) until the repository's copy pins that release or a
+  later one, so a later release whose template didn't change can't move the pin past it; once you
+  have applied it and moved the pin, the next upgrade takes it and moves the pin on from there. The pin is read and written through the same path checks as owned files: a
   symlink there is refused, never followed. A workflow Genesis doesn't own is left as it is.
 - **Templates the app doesn't have** are listed at the end of the summary, with the
   `genesis add template` line; nothing is added by itself.

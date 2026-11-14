@@ -153,8 +153,8 @@ jobs:
             runtime=$(tr -d '[:space:]' < "$RUNNER_TEMP/release/runtime-$platform.txt")
             eas build:list --platform "$platform" --build-profile "$PROFILE" --runtime-version "$runtime" --limit 50 --json --non-interactive > "$RUNNER_TEMP/release/builds-$platform.json"
 #@end
-            eas update:list --branch "$CHANNEL" --platform "$platform" --limit 1 --json --non-interactive > "$RUNNER_TEMP/release/latest-$platform.json"
-            latest=$(node .eas/scripts/native-release.mjs latest-commit "$RUNNER_TEMP/release/latest-$platform.json" "$platform")
+            # The channel's latest update for the platform and its commit ("" before the first one).
+            latest=$(node .eas/scripts/native-release.mjs latest-commit "$CHANNEL" "$platform")
             if [ -n "$latest" ] && git merge-base --is-ancestor "$GITHUB_SHA" "$latest" 2>/dev/null; then
               echo "$latest" > "$RUNNER_TEMP/release/shipped-$platform.txt"
             fi
@@ -209,7 +209,9 @@ jobs:
         run: |
           # eas update reads the EAS environment but not the build profile's `env` (eas.json, with
           # its ios overrides), which the build used: the update is bundled with the same values.
-          eval "$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" ios --shell)"
+          # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
+          profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" ios --shell)
+          eval "$profile_env"
           # The runtime version this checkout gives, checked against the build's before publishing.
           eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx expo-updates runtimeversion:resolve --platform ios' --non-interactive > "$RUNNER_TEMP/release/resolved-ios.txt"
           node .eas/scripts/native-release.mjs runtime "$RUNNER_TEMP/release/resolved-ios.txt" ios "$RUNTIME_VERSION"
@@ -258,7 +260,9 @@ jobs:
         run: |
           # eas update reads the EAS environment but not the build profile's `env` (eas.json, with
           # its android overrides), which the build used: the update is bundled with the same values.
-          eval "$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" android --shell)"
+          # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
+          profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" android --shell)
+          eval "$profile_env"
           # The runtime version this checkout gives, checked against the build's before publishing.
           eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx expo-updates runtimeversion:resolve --platform android' --non-interactive > "$RUNNER_TEMP/release/resolved-android.txt"
           node .eas/scripts/native-release.mjs runtime "$RUNNER_TEMP/release/resolved-android.txt" android "$RUNTIME_VERSION"

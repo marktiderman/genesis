@@ -41,6 +41,12 @@ export interface OwnedFile {
    * meant, so it stops warning that a locked file is missing.
    */
   deleted?: true;
+  /**
+   * A workflow the repository shares (under `appFolder`, only named by upgrade) whose template
+   * changed in this release and wasn't applied yet: the release the change came with. It counts as
+   * applied once the repository's copy pins that release or a later one.
+   */
+  awaiting?: { sha: string; version: string };
 }
 
 export interface GenesisLock {

@@ -31,8 +31,9 @@
 //     The build profile's `env` as EAS resolves it for the platform (along `extends`, with
 //     `<platform>.env` over it), as NAME=value lines, or `export` lines to eval: eas update doesn't
 //     apply it, and the build does.
-//   node .eas/scripts/native-release.mjs latest-commit <update-list.json> <platform>
-//     The commit of the channel's latest update for the platform (`eas update:list --json`), or "".
+//   node .eas/scripts/native-release.mjs latest-commit <branch> <platform>
+//     The commit of the branch's latest update for the platform (`eas update:list`, then
+//     `eas update:view` for its commit), or "" when there is none or no branch yet.
 //   node .eas/scripts/native-release.mjs runtime <resolved.txt> <platform> <runtime version>
 //     Before publishing: fails unless `expo-updates runtimeversion:resolve` (its output in
 //     <resolved.txt>) gives the runtime version the plan matched, so a mismatched update is never
@@ -40,6 +41,7 @@
 //
 // Genesis template (templates/eas/scripts/native-release.mjs). genesis upgrade refreshes it; change
 // the lane through genesis.config.json `release`, not here.
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -221,16 +223,49 @@ export function profileEnv(easJson, profile, platform, shell = false) {
 }
 
 /**
- * The commit of the latest update for `platform` in `eas update:list --json`, or "" when there is
- * none (or it has no commit).
+ * The latest update group on a branch, from eas-cli 26's `eas update:list --branch <b> --platform
+ * <p> --limit 1 --json`: `{ name, id, currentPage: [{ group, platforms, runtimeVersion, … }] }`,
+ * newest first. Its entries carry no commit (`latestCommit` reads it with `eas update:view`). ""
+ * when the branch has none.
  * @param {unknown} list
  */
-export function latestCommit(list, platform) {
-  const items = Array.isArray(list) ? list : Array.isArray(list?.updates) ? list.updates : Array.isArray(list?.currentPage) ? list.currentPage : null;
-  if (!items) throw new Error("eas update:list --json did not print a list of updates.");
-  const latest = items.filter((u) => !u?.platform || u.platform === platform).sort((a, b) => String(b?.createdAt ?? "").localeCompare(String(a?.createdAt ?? "")))[0];
-  const sha = latest?.gitCommitHash ?? "";
+export function latestGroup(list, platform) {
+  const page = list && typeof list === "object" ? list.currentPage : undefined;
+  if (!Array.isArray(page)) throw new Error("eas update:list --json printed no currentPage.");
+  const latest = page.find((g) => !g?.platforms || String(g.platforms).split(/,\s*/).includes(platform));
+  return typeof latest?.group === "string" ? latest.group : "";
+}
+
+/**
+ * The commit of `platform`'s update in a group, from eas-cli 26's `eas update:view <group> --json`:
+ * a list of `{ id, group, platform, gitCommitHash, createdAt, … }`. "" when it records none.
+ * @param {unknown} updates
+ */
+export function groupCommit(updates, platform) {
+  const list = Array.isArray(updates) ? updates : Array.isArray(updates?.updates) ? updates.updates : null;
+  if (!list) throw new Error("eas update:view --json did not print a list of updates.");
+  const sha = list.find((u) => u?.platform === platform)?.gitCommitHash ?? "";
   return /^[0-9a-f]{40}$/i.test(sha) ? sha : "";
+}
+
+/**
+ * The commit of the channel's latest update for `platform`, read with eas-cli (`run(args)` runs
+ * `eas <args>` and returns its output): "" when there is none, including a branch that doesn't
+ * exist yet (the first release, which eas-cli reports as `Could not find branch`).
+ * @param {(args: string[]) => string} run
+ */
+export function latestCommit(run, branch, platform) {
+  let listed;
+  try {
+    listed = run(["update:list", "--branch", branch, "--platform", platform, "--limit", "1", "--json", "--non-interactive"]);
+  } catch (error) {
+    const said = [error?.stderr, error?.stdout, error?.message].map((v) => (v == null ? "" : String(v))).join("\n");
+    if (/Could not find branch/.test(said)) return "";
+    throw error;
+  }
+  const group = latestGroup(JSON.parse(listed), platform);
+  if (!group) return "";
+  return groupCommit(JSON.parse(run(["update:view", group, "--json", "--non-interactive"])), platform);
 }
 
 /** The runtime version in `expo-updates runtimeversion:resolve`'s output, or null. */
@@ -283,9 +318,10 @@ async function main(command, args, env) {
     if (!file || !profile) throw new Error("profile-env needs <eas.json> <profile> [platform] [--shell].");
     for (const line of profileEnv(readJson(file), profile, platform === "--shell" ? undefined : platform, platform === "--shell" || flag === "--shell")) console.log(line);
   } else if (command === "latest-commit") {
-    const [file, platform] = args;
-    if (!file || !PLATFORMS.includes(platform)) throw new Error("latest-commit needs <update-list.json> <platform>.");
-    console.log(latestCommit(readJson(file), platform));
+    const [branch, platform] = args;
+    if (!branch || !PLATFORMS.includes(platform)) throw new Error("latest-commit needs <branch> <platform>.");
+    const run = (eas) => execFileSync("eas", eas, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    console.log(latestCommit(run, branch, platform));
   } else if (command === "runtime") {
     const [file, platform, expected] = args;
     if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime needs <resolved.txt> <platform> <runtime version>.");

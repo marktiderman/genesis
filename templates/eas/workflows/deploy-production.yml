@@ -151,7 +151,9 @@ jobs:
         name: Publish the iOS update
         run: |
           set -eo pipefail
-          eval "$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" ios --shell)"
+          # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
+          profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" ios --shell)
+          eval "$profile_env"
           npx expo-updates runtimeversion:resolve --platform ios > resolved-ios.txt
           node .eas/scripts/native-release.mjs runtime resolved-ios.txt ios "$RUNTIME_VERSION"
           npx --yes eas-cli@26.0.0 update --channel "GENESIS_RELEASE_CHANNEL" --platform ios --environment "GENESIS_RELEASE_EAS_ENVIRONMENT" --message "Release $COMMIT_SHA" --json --non-interactive > update-ios.json
@@ -261,7 +263,9 @@ jobs:
         name: Publish the Android update
         run: |
           set -eo pipefail
-          eval "$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" android --shell)"
+          # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
+          profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" android --shell)
+          eval "$profile_env"
           npx expo-updates runtimeversion:resolve --platform android > resolved-android.txt
           node .eas/scripts/native-release.mjs runtime resolved-android.txt android "$RUNTIME_VERSION"
           npx --yes eas-cli@26.0.0 update --channel "GENESIS_RELEASE_CHANNEL" --platform android --environment "GENESIS_RELEASE_EAS_ENVIRONMENT" --message "Release $COMMIT_SHA" --json --non-interactive > update-android.json

@@ -52,9 +52,16 @@ import { starterDir, templatesDir } from "../blocks/templates.js";
 import { adoptTemplates, bumpCallerPins, calledWorkflows, competingReleaseWorkflows, isDedicatedWorkflow, lookupPin, missingTemplateSets, ownedDir, releaseContext, renderPin, repositoryRoot, resolveTemplateNames, TEMPLATE_SETS, type ReleasePin } from "../blocks/release.js";
 import { renderRelease, type ReleaseContext } from "../blocks/release-render.js";
 
+/** Whether a workflow pins its Genesis caller of `workflow` to `release` or a later one (by the `# @marktiderman/genesis@<version>` beside it, or the same commit). */
+function pinsAtLeast(text: string, workflow: string, release: ReleasePin): boolean {
+  const escaped = workflow.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const callers = [...text.matchAll(new RegExp(`/${escaped}@([0-9a-f]{40})\\s*#\\s*@marktiderman/genesis@(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)`, "g"))];
+  return callers.length > 0 && callers.every((m) => m[1] === release.sha || compareVersions(m[2]!, release.version) >= 0);
+}
+
 /** The old lane's push-triggered workflow, which the new lane's version replaces only on adoption. */
 const OLD_LANE_FILE = ".eas/workflows/deploy-production.yml";
-import { bumpPackageJson, bumpSummary, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
+import { bumpPackageJson, bumpSummary, compareVersions, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { breakLines, fetchChangelog, type ChangelogReader } from "./changelog.js";
 import { codemodInstallNote, codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
 import { componentValues, handBuiltSwaps, swapLines, type HandBuiltSwap } from "./new-exports.js";
@@ -623,8 +630,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
         warnings.push(`${shownRepo}: ${err instanceof Error ? err.message : String(err)}; its Genesis pin wasn't moved.`);
       }
       const called = theirs === null ? [] : calledWorkflows(theirs);
-      // The app moved the pin itself, with the template's changes: that change is applied.
-      const appliedByHand = Boolean(newPin && repoText !== null && called.length && called.every((w) => repoText!.includes(`/${w}@${newPin.sha}`)));
+      // The release whose template change the copy still waits on: recorded the first time it
+      // isn't applied, else this release's.
+      const waitingOn = entry.awaiting ?? newPin;
+      // The app moved the pin itself, with that change: the copy pins that release or a later one.
+      const appliedByHand = Boolean(waitingOn && repoText !== null && called.length && called.every((w) => pinsAtLeast(repoText!, w, waitingOn)));
       let pinned = false;
       if (newPin && templateSame && repoText !== null) {
         const after = bumpCallerPins(repoText, newPin, called);
@@ -638,14 +648,17 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
         // The lock records only what reached the repository's copy: a template change still to
         // apply keeps the old checksum, so a later release can't move the pin past it.
         // A template that calls no Genesis workflow has no pin to wait on: it's named once.
-        const applied = templateSame || appliedByHand || !called.length;
-        if (applied) lock.files[file] = { ...entry, sha256: sha256(theirs), ...(version ? { version } : {}) };
+        const applied = (templateSame && !entry.awaiting) || appliedByHand || !called.length;
+        if (applied) {
+          const { awaiting: _done, ...rest } = entry;
+          lock.files[file] = { ...rest, sha256: sha256(theirs), ...(version ? { version } : {}) };
+        } else if (newPin && !entry.awaiting) lock.files[file] = { ...entry, awaiting: newPin };
         refreshed.push(
           pinned
             ? { path: file, outcome: "updated", detail: `the repository's copy: its Genesis pin moved to ${newPin!.version} (${newPin!.sha.slice(0, 7)}); the template is otherwise unchanged` }
-            : appliedByHand || templateSame
+            : appliedByHand || (templateSame && !entry.awaiting)
               ? { path: file, outcome: "updated", detail: "the repository's copy already has this release's changes" }
-              : { path: file, outcome: "repository", detail: `the template changed; your copy is in the repository's own .github/workflows (with working-directory: ${appFolder}), so compare it with ${entry.source}${newPin && called.length ? `, and move its Genesis pin to ${newPin.version} (${newPin.sha}) with those changes. Until its pin names this release, upgrades leave it and say so again` : ""}` },
+              : { path: file, outcome: "repository", detail: `the template changed; your copy is in the repository's own .github/workflows (with working-directory: ${appFolder}), so compare it with ${entry.source}${newPin && called.length ? `, and move its Genesis pin to ${newPin.version} (${newPin.sha}) with those changes. Until its pin names ${waitingOn?.version ?? newPin.version} or later, upgrades leave it and say so again` : ""}` },
         );
       } else refreshed.push({ path: file, outcome: "unchanged" });
       continue;

@@ -3,7 +3,7 @@
  * The native release lane as versioned templates: the `release` block rendered into them, the
  * plan script's decisions, adopting the templates into an app, and upgrading one (docs/NATIVE-RELEASE.md).
  */
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -213,9 +213,24 @@ describe("rendering the templates", () => {
     const steps = yaml("ci/native-release.yml", ctx()).jobs.release.steps as { name?: string; run?: string; if?: string }[];
     for (const [p, Name] of [["ios", "iOS"], ["android", "Android"]]) {
       const run = steps.find((st) => st.name === `Publish the ${Name} update`)!.run!;
-      expect(run).toContain(`eval "$(node .eas/scripts/native-release.mjs profile-env eas.json "production" ${p} --shell)"`);
+      expect(run).toContain(`profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "production" ${p} --shell)\neval "$profile_env"`);
       expect(run.indexOf("profile-env")).toBeLessThan(run.indexOf(`runtimeversion:resolve --platform ${p}`));
       expect(run.indexOf("native-release.mjs runtime ")).toBeLessThan(run.indexOf("eas update --channel"));
+    }
+  });
+
+  it("a profile-env that fails fails the publish step, on GitHub and on EAS", () => {
+    const gh = (yaml("ci/native-release.yml", ctx()).jobs.release.steps as { name?: string; run?: string }[]).find((st) => st.name === "Publish the iOS update")!.run!;
+    const eas = (yaml("eas/workflows/deploy-production.yml", ctx()).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+    for (const run of [gh, eas]) {
+      const lines = run.split("\n");
+      const upTo = lines.slice(0, lines.findIndex((l) => l.startsWith("eval ")) + 1).join("\n");
+      expect(upTo).toContain("profile_env=$(node .eas/scripts/native-release.mjs profile-env");
+      const app = tempDir("genesis-profile-env-");
+      writeTree(app, { ".eas/scripts/native-release.mjs": readFileSync(path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "utf8"), "eas.json": JSON.stringify({ build: {} }) });
+      const result = spawnSync("bash", ["-eo", "pipefail", "-c", `${upTo}\necho reached`], { cwd: app, encoding: "utf8" });
+      expect(result.status, run.slice(0, 40)).not.toBe(0);
+      expect(result.stdout).not.toContain("reached");
     }
   });
 
@@ -224,7 +239,7 @@ describe("rendering the templates", () => {
     const steps = doc.jobs.release.steps as { name?: string; run?: string; if?: string; with?: Record<string, unknown> }[];
     expect((steps as { uses?: string; with?: Record<string, unknown> }[]).find((st) => st.uses?.startsWith("actions/checkout"))!.with!["fetch-depth"]).toBe(0);
     const plan = steps.find((st) => st.name === "Runtime versions, builds and EAS's release runs")!.run!;
-    expect(plan).toContain('eas update:list --branch "$CHANNEL" --platform "$platform" --limit 1 --json --non-interactive');
+    expect(plan).toContain('latest=$(node .eas/scripts/native-release.mjs latest-commit "$CHANNEL" "$platform")');
     expect(plan).toContain('git merge-base --is-ancestor "$GITHUB_SHA" "$latest"');
     const shipped = steps.find((st) => st.name === "Already shipped")!;
     expect(shipped.if).toBe("steps.plan.outputs.skipped_platforms != ''");
@@ -349,18 +364,55 @@ describe("the plan script", () => {
     expect(() => plan.profileEnv(eas, "production", "web")).toThrow(/ios or android/);
   });
 
-  it("reads the channel's latest update's commit for a platform", () => {
-    const sha = (c: string) => c.repeat(40);
-    const list = [
-      { platform: "android", gitCommitHash: sha("b"), createdAt: "2026-11-14T10:00:00Z" },
-      { platform: "ios", gitCommitHash: sha("a"), createdAt: "2026-11-14T09:00:00Z" },
-      { platform: "ios", gitCommitHash: sha("c"), createdAt: "2026-11-14T11:00:00Z" },
-    ];
-    expect(plan.latestCommit(list, "ios")).toBe(sha("c"));
-    expect(plan.latestCommit(list, "android")).toBe(sha("b"));
-    expect(plan.latestCommit([], "ios")).toBe("");
-    expect(plan.latestCommit([{ platform: "ios", gitCommitHash: null }], "ios")).toBe("");
-    expect(() => plan.latestCommit({ nope: 1 }, "ios")).toThrow(/list of updates/);
+  // eas-cli 26.0.0's own output (build/update/queries.js renderUpdateGroupsOnBranch and
+  // build/update/utils.js getUpdateGroupDescriptionsWithBranch; build/commands/update/view.js with
+  // getUpdateWithFileUrlsJsonInfosForUpdates): update:list's entries have no commit, update:view's do.
+  const sha = (c: string) => c.repeat(40);
+  const LIST = {
+    name: "production",
+    id: "8c5b2a1e-0000-4000-8000-000000000001",
+    currentPage: [
+      { branch: "production", message: '"Fix the header" (1 hour ago by robot)', runtimeVersion: sha("f"), isRollBackToEmbedded: false, group: "group-new", platforms: "ios" },
+      { branch: "production", message: '"Older" (2 hours ago by robot)', runtimeVersion: sha("f"), isRollBackToEmbedded: false, group: "group-old", platforms: "ios" },
+    ],
+  };
+  const VIEW = [
+    { id: "u-1", createdAt: "2026-11-14T11:00:00.000Z", group: "group-new", branch: "production", message: "Fix the header", runtimeVersion: sha("f"), platform: "ios", manifestPermalink: "https://u.expo.dev/x", isRollBackToEmbedded: false, gitCommitHash: sha("c"), assetMapUrl: null, sourceMapUrl: null },
+    { id: "u-2", createdAt: "2026-11-14T11:00:00.000Z", group: "group-new", branch: "production", message: "Fix the header", runtimeVersion: sha("e"), platform: "android", manifestPermalink: "https://u.expo.dev/y", isRollBackToEmbedded: false, gitCommitHash: sha("c"), assetMapUrl: null, sourceMapUrl: null },
+  ];
+
+  it("reads the latest group from update:list and its commit from update:view, as eas-cli 26 prints them", () => {
+    expect(plan.latestGroup(LIST, "ios")).toBe("group-new");
+    expect(plan.latestGroup({ name: "production", id: "N/A", currentPage: [] }, "ios")).toBe("");
+    expect(() => plan.latestGroup([], "ios")).toThrow(/no currentPage/);
+    expect(plan.groupCommit(VIEW, "android")).toBe(sha("c"));
+    expect(plan.groupCommit([{ ...VIEW[0], gitCommitHash: null }], "ios")).toBe("");
+    const calls: string[][] = [];
+    const run = (args: string[]) => {
+      calls.push(args);
+      return JSON.stringify(args[0] === "update:list" ? LIST : VIEW);
+    };
+    expect(plan.latestCommit(run, "production", "ios")).toBe(sha("c"));
+    expect(calls).toEqual([
+      ["update:list", "--branch", "production", "--platform", "ios", "--limit", "1", "--json", "--non-interactive"],
+      ["update:view", "group-new", "--json", "--non-interactive"],
+    ]);
+    // No update yet on the branch: no update:view.
+    expect(plan.latestCommit(() => JSON.stringify({ name: "production", id: "N/A", currentPage: [] }), "production", "ios")).toBe("");
+  });
+
+  it("a channel with no branch yet (the first release) has no latest update; any other failure stops the plan", () => {
+    const fails = (stderr: string) => () => {
+      throw Object.assign(new Error("Command failed: eas update:list"), { status: 1, stderr });
+    };
+    expect(plan.latestCommit(fails('    Error: update:list command failed.\nCould not find branch "production"\n'), "production", "ios")).toBe("");
+    expect(() => plan.latestCommit(fails("Error: Entity not authorized\n"), "production", "ios")).toThrow(/Command failed/);
+    // The command itself, with a stand-in `eas` that answers as eas-cli does for a missing branch.
+    const bin = tempDir("genesis-eas-bin-");
+    writeTree(bin, { eas: '#!/usr/bin/env bash\necho "Could not find branch \\"$3\\"" >&2\nexit 1\n' });
+    execFileSync("chmod", ["+x", path.join(bin, "eas")]);
+    const out = execFileSync("node", [path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "latest-commit", "production", "ios"], { encoding: "utf8", env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}` } });
+    expect(out).toBe("\n");
   });
 
   it("refuses before publishing when this checkout's runtime version isn't the build's", () => {
@@ -601,6 +653,32 @@ describe("genesis upgrade and the release lane", () => {
     const done = await runUpgrade({ root, lookup: release({ [CLI]: "1.4.0" }), install: (r) => void ship(r, "1.4.0", { "ci/app-ci.yml": v2 }), doctor: false, pin: () => p3 });
     expect(done.refreshed.find((r) => r.path === ".github/workflows/ci.yml")).toMatchObject({ outcome: "updated" });
     expect(readLock(root).files[".github/workflows/ci.yml"]!.sha256).not.toBe(sha256(v1));
+  });
+
+  it("records which release a shared workflow waits on, and takes it once the app pins that release", async () => {
+    const { repo, root } = monorepo({});
+    const v1 = template("ci/app-ci.yml");
+    const v2 = v1.replace("name: CI", "name: App CI");
+    ship(root, "1.0.0", { "ci/app-ci.yml": v1 });
+    writeLock(root, { version: 1, blocks: {}, files: { ".github/workflows/ci.yml": { source: `${CLI}:templates/ci/app-ci.yml`, sha256: sha256(v1) } } });
+    const old = `jobs:\n  app:\n    uses: marktiderman/genesis/.github/workflows/app-ci.yml@${"b".repeat(40)} # @marktiderman/genesis@1.9.0\n`;
+    writeTree(repo, { ".github/workflows/ci.yml": old });
+    const p2 = { sha: "2".repeat(40), version: "2.0.0" };
+    await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: (r) => void ship(r, "1.2.0", { "ci/app-ci.yml": v2 }), doctor: false, pin: () => p2 });
+    expect(readLock(root).files[".github/workflows/ci.yml"]!.awaiting).toEqual(p2);
+    // The app applies P2's change by hand, pinning P2.
+    writeTree(repo, { ".github/workflows/ci.yml": old.replace(`${"b".repeat(40)} # @marktiderman/genesis@1.9.0`, `${p2.sha} # @marktiderman/genesis@2.0.0`) });
+    // P3 doesn't change the template: the change P2 brought is applied, so the lock takes it and the pin moves on.
+    const p3 = { sha: "3".repeat(40), version: "3.0.0" };
+    const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.3.0" }), install: (r) => void ship(r, "1.3.0", { "ci/app-ci.yml": v2 }), doctor: false, pin: () => p3 });
+    expect(report.refreshed.find((r) => r.path === ".github/workflows/ci.yml")).toMatchObject({ outcome: "updated" });
+    const entry = readLock(root).files[".github/workflows/ci.yml"]!;
+    expect(entry.awaiting).toBeUndefined();
+    expect(entry.sha256).not.toBe(sha256(v1));
+    // Settled: the next release with the same template moves the pin by itself.
+    const p4 = { sha: "4".repeat(40), version: "4.0.0" };
+    await runUpgrade({ root, lookup: release({ [CLI]: "1.4.0" }), install: (r) => void ship(r, "1.4.0", { "ci/app-ci.yml": v2 }), doctor: false, pin: () => p4 });
+    expect(read(repo, ".github/workflows/ci.yml")).toContain(`app-ci.yml@${p4.sha} # @marktiderman/genesis@4.0.0`);
   });
 
   it("never writes a pin through a symlinked workflow", async () => {
