@@ -290,6 +290,19 @@ describe("NativeRecordPeek", () => {
     alert.mockRestore();
   });
 
+  it("with confirmDelete={false}, calls a handler that confirms on its own at once, as the web's RecordPeek", async () => {
+    const onDelete = vi.fn();
+    const alert = vi.spyOn(Alert, "alert").mockImplementation(() => {});
+    render(<NativeRecordPeek view={recordView} row={PEOPLE[0]!} open onClose={() => undefined} onDelete={onDelete} confirmDelete={false} />, { wrapper: wrap() });
+    await screen.findByTestId("record-peek-page");
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("record-peek-delete"));
+    });
+    expect(alert).not.toHaveBeenCalled();
+    expect(onDelete).toHaveBeenCalledWith(PEOPLE[0]);
+    alert.mockRestore();
+  });
+
   it("hides what the screen's can turns off and explains what the view's guard refuses", async () => {
     const guarded = defineRecordView(
       defineView(people, { can: { delete: () => "Only owners delete people." } }),

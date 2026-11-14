@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams } from "@marktiderman/genesis-core";
 import { defineRecordView, defineView, type AnyRecordView } from "@marktiderman/genesis-core/resource-view";
 import { ResourceInbox, ResourceView } from "../resource-view";
-import { recordPeekSlot } from "../resource-view/RecordPeek";
+import { RecordPeek, recordPeekSlot } from "../resource-view/RecordPeek";
 
 type Ticket = { id: string; subject: string; body: string; requester: string; status: "open" | "solved"; unread: boolean; updated_at: string };
 
@@ -249,6 +249,32 @@ describe("recordPeekSlot", () => {
     fireEvent.click(screen.getByTestId("record-peek-page-edit"));
     fireEvent.click(screen.getByTestId("record-peek-page-delete"));
     expect(onEdit).toHaveBeenCalledWith(ROWS[0]);
+    // The list's handler confirms itself: the peek calls it at once, with no second confirm.
     expect(onDelete).toHaveBeenCalledWith(ROWS[0]);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+});
+
+describe("RecordPeek's onDelete, as NativeRecordPeek's", () => {
+  it("is the write: the peek confirms once first, then closes when it resolves", async () => {
+    const record = defineRecordView(view, { template: "document", sections: [] }) as unknown as AnyRecordView;
+    const onDelete = vi.fn(async () => undefined);
+    const onClose = vi.fn();
+    render(<RecordPeek view={record as never} row={ROWS[0]!} open onClose={onClose} onDelete={onDelete} />, { wrapper: wrap(provider()) });
+    fireEvent.click(screen.getByTestId("record-peek-page-delete"));
+    expect(onDelete).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(onDelete).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("with confirmDelete={false}, calls a handler that confirms on its own at once", () => {
+    const record = defineRecordView(view, { template: "document", sections: [] }) as unknown as AnyRecordView;
+    const onDelete = vi.fn();
+    render(<RecordPeek view={record as never} row={ROWS[0]!} open onClose={() => undefined} onDelete={onDelete} confirmDelete={false} />, { wrapper: wrap(provider()) });
+    fireEvent.click(screen.getByTestId("record-peek-page-delete"));
+    expect(onDelete).toHaveBeenCalledWith(ROWS[0]);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 });
