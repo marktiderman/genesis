@@ -1,0 +1,19 @@
+.github/workflows/review-gate.yml
+  s_a2e5357843c63e::t_09492cd8bcb3c1 53,64,86-88,92-93,106-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6472e89f569b231fd5e538645924ce67e5dde93c",
+  "prompts": {},
+  "sessions": {
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
