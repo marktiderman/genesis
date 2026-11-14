@@ -284,6 +284,63 @@ describe("AppearancePreferencesProvider", () => {
     expect(writeA).not.toHaveBeenCalled();
   });
 
+  it("doesn't pass the last store's confirmed values as the new store's previous", async () => {
+    const writeB = vi.fn();
+    const a = defineAppearancePreferences({ store: { read: async () => ({ appearance: "light" }), write: vi.fn() } });
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const b = defineAppearancePreferences({ store: { read: () => Promise.reject(new Error("offline")), write: writeB } });
+    const { rerender } = render(
+      <AppearancePreferencesProvider preferences={a}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("ready").textContent).toBe("true"));
+    rerender(
+      <AppearancePreferencesProvider preferences={b}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    act(() => screen.getByText("compact").click());
+    await waitFor(() => expect(writeB).toHaveBeenCalled());
+    expect(writeB.mock.calls[0]![1]).toEqual({ previous: null });
+  });
+
+  it("keeps values a subscription delivered while a write was out as the next write's previous", async () => {
+    let release: () => void = () => undefined;
+    let deliver: (values: AppearancePreferenceValues) => void = () => undefined;
+    const calls: Array<AppearancePreferenceValues | null> = [];
+    const write = vi.fn((_values: AppearancePreferenceValues, { previous }: { previous: AppearancePreferenceValues | null }) => {
+      calls.push(previous);
+      if (calls.length === 1) return new Promise<void>((resolve) => (release = resolve));
+      return undefined;
+    });
+    const store: AppearancePreferencesStore = {
+      read: () => null,
+      write,
+      subscribe: (listener) => {
+        deliver = listener as (values: AppearancePreferenceValues) => void;
+        return () => undefined;
+      },
+    };
+    render(
+      <AppearancePreferencesProvider preferences={defineAppearancePreferences({ store })}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("ready").textContent).toBe("true"));
+    act(() => screen.getByText("dark").click());
+    await waitFor(() => expect(calls).toHaveLength(1));
+    // Another device's change arrives while the write is out.
+    await act(async () => deliver({ appearance: "light", density: "spacious" }));
+    await act(async () => release());
+    act(() => screen.getByText("compact").click());
+    await waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls[1]).toEqual({ appearance: "light", density: "spacious" });
+  });
+
   it("tells onWriteError about a write the store refused, and keeps the device's copy", async () => {
     const onWriteError = vi.fn();
     const refusal = new Error("stale");

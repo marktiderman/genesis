@@ -205,6 +205,9 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
     // choice held while that store's first read was out (the device keeps its copy).
     queue.current.next = null;
     waiting.current = null;
+    // What the last store confirmed isn't this one's `previous`: a conditional write to the new
+    // store must start from what it says (its read), or from nothing.
+    confirmed.current = null;
     if (!store) return;
     let active = true;
     firstRead.current = "pending";
@@ -282,10 +285,12 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
         // Queued for a store that has since been replaced: not this one's to write.
         if (owner !== generation.current) continue;
         try {
+          // Newer values the store's subscription delivers while this write is out win over it.
+          const freshAtStart = writesDone.current;
           await target.write(values, { previous: confirmed.current });
           // The store changed while it was out: the new one's state isn't this write's.
           if (owner !== generation.current) continue;
-          confirmed.current = values;
+          if (writesDone.current === freshAtStart) confirmed.current = values;
           writesDone.current += 1;
         } catch (error: unknown) {
           const handler = writeErrorHandler.current;
