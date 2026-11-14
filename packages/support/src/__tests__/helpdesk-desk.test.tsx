@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { createSupportClient, officeHoursState, SupportError, waitingSinceOf, type AgentTicket, type SupportClient, type SupportReply, type Ticket } from "..";
 import { SupportAgentInbox, SupportAgentReports, SupportMessenger, SupportSavedRepliesAdmin } from "../web-chat";
-import { mentionMarkup, pickerToken, showMentions } from "../web-chat/composer-pickers";
+import { fillReply, mentionMarkup, pickerToken, showMentions } from "../web-chat/composer-pickers";
 import { fakeSupabase } from "./fake-supabase";
 
 afterEach(() => {
@@ -139,7 +139,7 @@ describe("the client", () => {
     expect(rpcs.at(-1)).toEqual({ fn: "support_delete_saved_reply", args: { saved: "s1" } });
     const report = await support.agentReport!({ from: new Date("2026-10-01T00:00:00Z"), to: "2026-11-01T00:00:00Z" });
     expect(rpcs.at(-1)).toEqual({ fn: "support_agent_report", args: { tenant: "ta", from_at: "2026-10-01T00:00:00.000Z", to_at: "2026-11-01T00:00:00Z" } });
-    expect(report).toMatchObject({ opened: 4, closed: 2, openNow: 3, medianFirstResponseSeconds: 3600, medianCloseSeconds: null, byRequester: [{ label: "Acme", open: 2 }, { label: null, open: 1 }] });
+    expect(report).toMatchObject({ opened: 4, closed: 2, openNow: 3, medianFirstResponseSeconds: 3600, medianCloseSeconds: null, byRequester: [{ label: "Acme", open: 2 }, { label: null, open: 1 }], byRequesterCapped: false });
     expect(await support.agentMentions!()).toEqual([{ id: "x", reportId: "t1", messageId: "m", authorId: "a", createdAt: "2026-11-01T00:00:00Z" }]);
     expect(calls.at(-1)?.table).toBe("ticket_mentions");
   });
@@ -186,7 +186,12 @@ describe("the queues", () => {
 describe("the composer's pickers", () => {
   it("finds the trigger being typed", () => {
     expect(pickerToken("Hi !ref")).toEqual({ kind: "saved", start: 3, query: "ref" });
-    expect(pickerToken("?")).toEqual({ kind: "article", start: 0, query: "" });
+    expect(pickerToken("?r")).toEqual({ kind: "article", start: 0, query: "r" });
+    expect(pickerToken("@")).toEqual({ kind: "mention", start: 0, query: "" });
+    // `!` and `?` are punctuation too: on their own they're words, not a picker.
+    expect(pickerToken("?")).toBeNull();
+    expect(pickerToken("Merci !")).toBeNull();
+    expect(pickerToken("Ça marche ?")).toBeNull();
     expect(pickerToken("Can you help?")).toBeNull();
     expect(pickerToken("mail me@x")).toBeNull();
     expect(mentionMarkup({ id: AGENT, name: "Kit [lead]" })).toBe(`@[Kit lead](user:${AGENT})`);
@@ -201,6 +206,9 @@ describe("the composer's pickers", () => {
     const picker = await screen.findByTestId("genesis-support-agent-thread-composer-picker");
     expect(await within(picker).findByText("Refund")).toBeTruthy();
     expect(box.getAttribute("aria-controls")).toBeTruthy();
+    expect(box.getAttribute("aria-activedescendant")).toBeNull();
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    expect(box.getAttribute("aria-activedescendant")).toMatch(/-option-0$/);
     fireEvent.keyDown(box, { key: "ArrowDown" });
     fireEvent.keyDown(box, { key: "Enter" });
     await waitFor(() => expect(box.value).toBe("Hi Ada, open Settings."));
@@ -246,12 +254,68 @@ describe("the composer's pickers", () => {
     const client = fakeClient();
     inbox(client, { ticketId: "t1" });
     const box = await composer();
-    fireEvent.change(box, { target: { value: "Is it ?" } });
+    fireEvent.change(box, { target: { value: "Is it ?re" } });
     await screen.findByTestId("genesis-support-agent-thread-composer-picker");
     fireEvent.keyDown(box, { key: "Escape" });
     await waitFor(() => expect(screen.queryByTestId("genesis-support-agent-thread-composer-picker")).toBeNull());
     fireEvent.click(screen.getByTestId("genesis-support-agent-thread-composer-send"));
-    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Is it ?", { internal: false }));
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Is it ?re", { internal: false }));
+  });
+
+  it("leaves French punctuation alone: no picker after a bare ! or ?, and Enter sends", async () => {
+    const client = fakeClient();
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "Merci !" } });
+    await act(async () => undefined);
+    expect(screen.queryByTestId("genesis-support-agent-thread-composer-picker")).toBeNull();
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Merci !", { internal: false }));
+    expect(client.savedReplies).not.toHaveBeenCalled();
+  });
+
+  it("sends on Enter with a picker open until the agent moves into it", async () => {
+    const client = fakeClient();
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "Ça marche ?r" } });
+    expect(await within(await screen.findByTestId("genesis-support-agent-thread-composer-picker")).findByText("Reset your password")).toBeTruthy();
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Ça marche ?r", { internal: false }));
+  });
+});
+
+describe("a saved reply's name variables", () => {
+  it("fill as nothing, with the space before them, when the requester has no name", () => {
+    const none = { first_name: "", name: "" };
+    expect(fillReply("Hi {first_name}, open Settings.", none)).toBe("Hi, open Settings.");
+    expect(fillReply("Hi {first_name}!", none)).toBe("Hi!");
+    expect(fillReply("{first_name}, thanks.\nDear {name} and team", none)).toBe("thanks.\nDear and team");
+    expect(fillReply("Hi {first_name}, {signature}", { first_name: "Ada" })).toBe("Hi Ada, {signature}");
+  });
+
+  it("never greet an email ticket by its address", async () => {
+    inbox(fakeClient({ agentTicket: vi.fn(async (id: string) => ticket({ id, userId: null, requesterName: null, requesterEmail: "jane@example.test" })) }), { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!reset" } });
+    fireEvent.click(await screen.findByTestId("genesis-support-agent-thread-composer-picker-option-s2"));
+    await waitFor(() => expect(box.value).toBe("Hi, open Settings."));
+  });
+
+  it("use an email ticket's own name when it has one", async () => {
+    inbox(fakeClient({ agentTicket: vi.fn(async (id: string) => ticket({ id, userId: null, requesterName: "Jane Doe", requesterEmail: "jane@example.test" })) }), { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!reset" } });
+    fireEvent.click(await screen.findByTestId("genesis-support-agent-thread-composer-picker-option-s2"));
+    await waitFor(() => expect(box.value).toBe("Hi Jane, open Settings."));
+  });
+
+  it("fill as nothing when resolveUser can't name the person", async () => {
+    inbox(fakeClient(), { ticketId: "t1", resolveUser: () => ({ name: "" }) });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!reset" } });
+    fireEvent.click(await screen.findByTestId("genesis-support-agent-thread-composer-picker-option-s2"));
+    await waitFor(() => expect(box.value).toBe("Hi, open Settings."));
   });
 });
 
@@ -339,6 +403,12 @@ describe("SupportSavedRepliesAdmin", () => {
 });
 
 describe("SupportAgentReports", () => {
+  it("says when the list by customer counts only some open tickets", async () => {
+    const agentReport = vi.fn(async () => ({ fromAt: "", toAt: "", opened: 1, closed: 0, openNow: 1500, medianFirstResponseSeconds: null, medianCloseSeconds: null, byRequester: [{ label: "Acme", open: 1000 }], byRequesterCapped: true }));
+    render(<SupportAgentReports client={fakeClient({ agentReport })} tenantId="ta" from="2026-10-01" to="2026-10-31" />, { wrapper });
+    expect((await screen.findByTestId("genesis-support-reports-by-requester-capped")).textContent).toMatch(/^Counted from the 1.?000 most recently changed open conversations\.$/);
+  });
+
   it("shows the range's numbers and the open ones by customer", async () => {
     const agentReport = vi.fn(async () => ({ fromAt: "", toAt: "", opened: 12, closed: 7, openNow: 5, medianFirstResponseSeconds: 5400, medianCloseSeconds: null, byRequester: [{ label: "Acme", open: 3 }, { label: null, open: 2 }] }));
     render(<SupportAgentReports client={fakeClient({ agentReport })} tenantId="ta" from="2026-10-01" to="2026-10-31" />, { wrapper });
@@ -347,6 +417,7 @@ describe("SupportAgentReports", () => {
     expect(screen.getByText("None yet")).toBeTruthy();
     expect(screen.getByText("Acme")).toBeTruthy();
     expect(screen.getByText("Unknown")).toBeTruthy();
+    expect(screen.queryByTestId("genesis-support-reports-by-requester-capped")).toBeNull();
     const call = (agentReport.mock.calls[0] as unknown as [{ tenantId: string; from: Date; to: Date }])[0];
     expect(call.tenantId).toBe("ta");
     expect(call.from.getDate()).toBe(1);
@@ -379,6 +450,17 @@ describe("office hours", () => {
   it("is away at the weekend, back on Monday", () => {
     // Saturday 2026-11-14, noon in New York.
     expect(officeHoursState(office, new Date("2026-11-14T17:00:00Z"))).toEqual({ open: false, nextOpen: new Date("2026-11-16T14:00:00Z") });
+  });
+
+  it("reads 24:00 as the end of the day, and nothing later", () => {
+    // Wednesday 23:00 in New York.
+    const late = new Date("2026-11-12T04:00:00Z");
+    expect(officeHoursState({ timeZone: "America/New_York", hours: [{ days: [3], open: "18:00", close: "24:00" }] }, late)).toEqual({ open: true, nextOpen: null });
+    // "24:30" isn't a time: the span is left out, so the desk is away until its other span.
+    expect(officeHoursState({ timeZone: "America/New_York", hours: [{ days: [3], open: "18:00", close: "24:30" }, { days: [4], open: "09:00", close: "17:00" }] }, late)).toEqual({
+      open: false,
+      nextOpen: new Date("2026-11-12T14:00:00Z"),
+    });
   });
 
   it("never says away when the hours can't be read", () => {

@@ -1,5 +1,28 @@
 # @marktiderman/genesis-core
 
+## 2.16.1
+
+### Patch Changes
+
+- cd2d239: The catalog names the look-and-feel pieces, so `genesis agents` writes them into an app's guide (and `genesis catalog` lists them): custom views, view types of your own, record pages (open modes and the document template), widgets, the shell's navigation style and frame, DocumentPage, appearance preferences, and an organization's brand.
+
+  The TimePicker row names its `timeZone` prop and points at the README's TimePicker section, beside the rule for a time of day in a form; the calendar, board and gallery rows write `<ResourceView mode="…">` as code, so a rendered guide keeps it.
+
+- e7c1f1a: The `@hookform/resolvers` peer now accepts v7 (core and ui-native: `^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0`; studio: `^5.1.0 || ^6.0.0 || ^7.0.0`), and `genesis studio init` installs `>=5.1.0 <8`, so an app already on 7 isn't asked to go back to 6. v7 changes two resolvers: the TypeBox resolver moves to `typebox` 1.x (the legacy `@sinclair/typebox` is no longer supported), and the `fluentvalidation-ts` resolver changes how it reports errors on array items. Genesis uses only the zod resolver, which ships byte-identical in 6.0.2 and 7.0.1, so Genesis's forms are unaffected, and the packages' tests now run on 7.0. `genesis init --template native` starts apps on `@hookform/resolvers` ^7.
+
+## 2.16.0
+
+### Minor Changes
+
+- a6b65a9: Features: ui-twins
+  `@marktiderman/genesis-core/headless`: the behaviour genesis-ui's controls and their genesis-ui-native twins share, written once with no React and no DOM. `clampNumber`, `snapToStep`, `stepNumber`, `canStepNumber`, `parseNumberInput` ("1,5" reads as 1.5 and "1,234" as 1234; pass `locale` to read a locale's own marks, as strictly: a group mark only between whole groups, one decimal mark; runs of spaces or apostrophes, ’ included, are a group mark checked the same way), `readNumberDraft` (whether a number being typed is ready to pass on), `commitNumberDraft` (what's typed, rounded to the precision and clamped) and `clampRange`; `matchesQuery` and `filterOptions` (every word typed, ignoring case and Latin accents); `moveItem`, `dropIndex` and `movedAnnouncement`; `parseTimeOfDay` ("2:30 pm", "14:30", "1430"), `formatTimeOfDay`, `timeToValue`, `timeOfDate`, `withTimeOfDay` and `timeSlots`; `chartSeriesColor`, `chartTokenOf`, `defaultChartToken`, `chartDomain` (a stack's positive and negative values apart), `chartPosition` and `chartSummary` (what a screen reader hears for a chart); `OTP_PATTERN_DIGITS`, `stripOtpSeparators`, `sanitizeOtp` (the pattern tested against the whole code, as input-otp does), `otpSlots` and `otpComplete`; `fieldArrayLimits`, `fieldArrayAddLabel`, `wizardStepFields`, `wizardProgressLabel`, `formatFileSize`, `fileProblem` and `fieldAccept`; `formatTrend`, `STATUS_BADGE_TONES`, `statusBadgeLabel`, `stepState`, `NOTIFICATION_DAY_BUCKETS`, `notificationDayBucket`, `groupNotificationsByDay` (Upcoming, Today, Yesterday and Earlier, counted on a given `now` and `timeZone`) and `customViewStatus`; `carouselIndex` and `carouselOffset`; and a month grid's days (`monthWeeks`, `dayOfDate`, `dateOfDay`, `dayInRange`, `pickRangeDay`, `weekdayDays`; weeks start on Monday by default, as genesis-core's dates do).
+
+  A repeating group's field takes `arrayItemLabel`, its one item's name for the add button ("Add Person").
+
+  `@marktiderman/genesis-core/workspaces` adds `WORKSPACE_SWITCHER_SEARCH_THRESHOLD`, `DEFAULT_WORKSPACE_KIND_LABELS`, `hasWorkspaceBadge` and `workspaceBadgeLabel` (genesis-ui's WorkspaceSwitcher re-exports the first two, unchanged), and `filterWorkspaces` matches through `matchesQuery`, with the same results.
+
+  `@marktiderman/genesis-design-system/tokens` exports `nativeThemeLight` and `nativeThemeDark`, each scheme's colours as hex, for what a class can't reach on a phone (a chart's SVG strokes).
+
 ## 2.15.0
 
 ### Minor Changes

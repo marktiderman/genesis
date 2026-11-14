@@ -201,6 +201,11 @@ export interface AgentReport {
   medianCloseSeconds: number | null;
   /** Open tickets by whom their requester is with, most first. Empty unless the app's hook says (`label` null: unknown). */
   byRequester: { label: string | null; open: number }[];
+  /**
+   * The list counts only some open tickets: without the set-based hook, migration 0015 labels the
+   * 1,000 most recently changed (`private.genesis_support_requester_labels` labels them all).
+   */
+  byRequesterCapped?: boolean;
 }
 
 /** An agent's role in a tenant: `admin` also manages the tenant's agents. */
@@ -824,6 +829,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
         medianFirstResponseSeconds: seconds(r["median_first_response_seconds"]),
         medianCloseSeconds: seconds(r["median_close_seconds"]),
         byRequester: ((r["by_requester"] as Row[] | undefined) ?? []).map((g) => ({ label: (g["label"] as string | null) ?? null, open: Number(g["open"] ?? 0) })),
+        byRequesterCapped: r["by_requester_capped"] === true,
       };
     },
 

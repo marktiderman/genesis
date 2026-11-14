@@ -3,8 +3,9 @@
 import type { ReactNode } from "react";
 import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { describe, expect, it, vi } from "vitest";
-import { createSupport, HelpArticleBody, SupportProvider, useHelpArticle, useHelpCenter, useMessengerHome, useStartConversation } from "../native";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ThreadPage } from "@marktiderman/genesis-ui-native/layouts";
+import { createSupport, HelpArticleBody, SupportProvider, useHelpArticle, useHelpCenter, useMessengerHome, useStartConversation, useSupportThread } from "../native";
 import { fakeSupabase, type Call } from "./fake-supabase";
 
 const ARTICLE = { id: "a1", collection_id: null, slug: "reset", title: "Reset your password", summary: "Getting in", status: "published", published_at: "x", updated_at: "x" };
@@ -77,5 +78,70 @@ describe("the messenger on the phone", () => {
     act(() => result.current.composer?.onSend());
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/s/t9"));
     expect(inserted).toMatchObject({ tenant_id: "ta", type: "question", message: "I need help" });
+  });
+});
+
+// The same reply expectation and office hours as SupportMessenger's on the web (one shared piece).
+describe("the reply expectation on the phone", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  const office = { timeZone: "America/New_York", hours: [{ days: [1, 2, 3, 4, 5], open: "09:00", close: "17:00" }] };
+  const REPORT = "11111111-1111-4111-8111-111111111111";
+  const unanswered = (call: Call) => {
+    if (call.table === "support_reports") return { data: { id: REPORT, type: "question", message: "Hello?", status: "open", created_at: "2026-11-14T09:00:00Z", updated_at: "x" }, error: null };
+    if (call.table === "support_replies") return { data: [], error: null };
+    return { data: [], error: null };
+  };
+
+  it("says how soon people hear back on the compose screen", async () => {
+    const { wrapper } = harness({ replyExpectation: " within a few hours " });
+    function Screen() {
+      return <ThreadPage {...useStartConversation()} />;
+    }
+    render(<Screen />, { wrapper });
+    expect((await screen.findByTestId("genesis-support-start-expectation")).textContent).toBe("We usually reply within a few hours.");
+    const { result } = renderHook(() => useStartConversation(), { wrapper });
+    expect(result.current.expectation).toBe("We usually reply within a few hours.");
+  });
+
+  it("says when someone is back, outside office hours", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    // Saturday noon in New York.
+    vi.setSystemTime(new Date("2026-11-14T17:00:00Z"));
+    const { wrapper } = harness({ replyExpectation: "within a few hours", officeHours: office });
+    const { result } = renderHook(() => useStartConversation(), { wrapper });
+    await waitFor(() => expect(result.current.expectation).toMatch(/^We're away right now, and back Monday/));
+  });
+
+  it("says nothing extra without either", () => {
+    const { wrapper } = harness();
+    const { result } = renderHook(() => useStartConversation(), { wrapper });
+    expect(result.current.expectation).toBeNull();
+    expect(result.current.composer?.above).toBeUndefined();
+  });
+
+  it("says where the answer will come under a conversation nobody has answered", async () => {
+    const { wrapper } = harness({ replyExpectation: "within a few hours" }, unanswered);
+    function Thread() {
+      return <ThreadPage {...useSupportThread(REPORT)} />;
+    }
+    render(<Thread />, { wrapper });
+    expect((await screen.findByTestId("genesis-support-thread-awaiting")).textContent).toBe(
+      "We've got your message. We usually reply within a few hours. Our reply will show up here, and we'll let you know when it does.",
+    );
+  });
+
+  it("stops once support answers, and says nothing on a thread without the options", async () => {
+    const answered = harness({ replyExpectation: "within a few hours" }, (call) =>
+      call.table === "support_replies" ? { data: [{ id: "r1", report_id: REPORT, body: "On it", from_staff: true, author_id: "staff", created_at: "2026-11-14T10:00:00Z" }], error: null } : unanswered(call),
+    );
+    const first = renderHook(() => useSupportThread(REPORT), { wrapper: answered.wrapper });
+    await waitFor(() => expect(first.result.current.messages.length).toBe(2));
+    expect(first.result.current.awaiting).toBeNull();
+    const plain = harness({}, unanswered);
+    const second = renderHook(() => useSupportThread(REPORT), { wrapper: plain.wrapper });
+    await waitFor(() => expect(second.result.current.report).not.toBeNull());
+    expect(second.result.current.awaiting).toBeNull();
   });
 });

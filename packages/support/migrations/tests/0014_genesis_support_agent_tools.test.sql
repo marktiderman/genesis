@@ -155,11 +155,11 @@ set local role authenticated;
 select pg_temp.sign_in('c3');
 select lives_ok($$ select genesis_chat.send_message(pg_temp.conv('ta2'), gen_random_uuid(), 'Sorted', '[]', null, null, null, '{}', 'everyone') $$, 'an agent answers ta2');
 select lives_ok($$ select public.support_set_report_status(pg_temp.id('ta2'), 'addressed') $$, 'and closes it');
-select is((public.support_agent_report('00000000-0000-4000-8000-0000000000a0', now() - interval '1 day', now() + interval '1 minute') - 'from_at' - 'to_at'),
+select is((public.support_agent_report('00000000-0000-4000-8000-0000000000a0', now() - interval '1 day', now() + interval '1 minute') - 'from_at' - 'to_at' - 'by_requester_capped'),
           jsonb_build_object('opened', 2, 'closed', 1, 'open_now', 1,
                              'median_first_response_seconds', 3600, 'median_close_seconds', 7200,
                              'by_requester', jsonb_build_array(jsonb_build_object('label', 'Acme', 'open', 1))),
-          'opened, closed, the medians (a note is no response) and open by requester');
+          'opened, closed, the medians (a note is no response) and open by requester (0015 adds by_requester_capped, tested there)');
 select throws_ok($$ select public.support_agent_report('00000000-0000-4000-8000-0000000000a0', now(), now() - interval '1 day') $$, '22023', null,
                  'a range runs forward');
 select pg_temp.sign_in('e5');

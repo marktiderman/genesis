@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-13",
+  "generatedAt": "2026-11-14",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 182
+      "count": 192
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 99
+      "count": 116
     }
   },
   "primitives": [
@@ -743,7 +743,7 @@
             },
             {
               "name": "variant",
-              "type": "\"default\" | \"secondary\" | \"destructive\" | \"outline\" | \"success\" | \"warning\" | \"info\" | \"muted\" | null",
+              "type": "\"default\" | \"secondary\" | \"destructive\" | \"outline\" | \"success\" | \"warning\" | \"info\" | \"muted\" | \"danger\" | null",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -1073,6 +1073,175 @@
       ]
     },
     {
+      "slug": "button-group",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/button-group.tsx",
+      "stability": "beta",
+      "summary": "ButtonGroup — NativeButtons joined into one control: the twin of genesis-ui's ButtonGroup.\n\nPass NativeButtons as children: the group squares the inner corners and draws them edge to\nedge, across (`orientation=\"horizontal\"`, the default) or down. For a choice of one value use\nNativeSegmentedControl; a button group is separate actions that belong together (\"Previous\",\n\"Next\").",
+      "primaryComponent": "NativeButtonGroup",
+      "components": [
+        {
+          "name": "NativeButtonGroup",
+          "summary": "",
+          "props": [
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": "NativeButtons (or anything taking `className`)."
+            },
+            {
+              "name": "accessibilityLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What the group is for, read by screen readers (\"Pagination\")."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "orientation",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "horizontal",
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "calendar",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/calendar.tsx",
+      "stability": "beta",
+      "summary": "Calendar — a month grid to pick a day, several days or a range: the twin of genesis-ui's\nCalendar (react-day-picker on the web), with the same `mode`, `selected` and `onSelect`.\n\nIts weeks come from genesis-core (`monthWeeks`, on calendar days), the same weeks a view's\ncalendar mode lays out. For one date in a form field, NativeDatePicker (the system picker) is\nusually the better fit; use the grid when the month itself is the point (booking, a streak).\n\nEvery day is a button a screen reader names in full (\"Wednesday, 3 June 2026\"), with its\nselected and disabled state; the previous and next month buttons are named too.",
+      "primaryComponent": "NativeCalendar",
+      "components": [
+        {
+          "name": "NativeCalendar",
+          "summary": "",
+          "props": [
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "defaultMonth",
+              "type": "Date",
+              "required": false,
+              "defaultValue": null,
+              "description": "The month shown first, uncontrolled. Default the selection's, else today's."
+            },
+            {
+              "name": "disabled",
+              "type": "((date: Date) => boolean)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Days that can't be picked."
+            },
+            {
+              "name": "labels",
+              "type": "{ previousMonth?: string; nextMonth?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "Labels for the month buttons."
+            },
+            {
+              "name": "locale",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "BCP 47 locale for the month and weekday names. Default the device's."
+            },
+            {
+              "name": "mode",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "month",
+              "type": "Date",
+              "required": false,
+              "defaultValue": null,
+              "description": "The month shown, to control it."
+            },
+            {
+              "name": "onMonthChange",
+              "type": "((month: Date) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onSelect",
+              "type": "((date: Date) => void) | ((dates: Date[]) => void) | ((range: NativeCalendarRange) => void) | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "selected",
+              "type": "Date | Date[] | NativeCalendarRange",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "showOutsideDays",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Draw the days of the months before and after. Default true."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "today",
+              "type": "Date",
+              "required": false,
+              "defaultValue": null,
+              "description": "Today, for its mark. Default now."
+            },
+            {
+              "name": "weekStartsOn",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "0 Sunday to 6 Saturday. Default 0, as the web's Calendar (react-day-picker) draws an en-US\nmonth; genesis-core's own default is 1, so it is passed to `monthWeeks` and `weekdayDays`."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "card",
       "aliases": [],
       "surface": "native",
@@ -1205,6 +1374,208 @@
       ]
     },
     {
+      "slug": "carousel",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/carousel.tsx",
+      "stability": "beta",
+      "summary": "Carousel — slides a person swipes through, one page at a time: the twin of genesis-ui's\nCarousel (Embla on the web). Each child is a slide, as full width as the carousel.\n\nSwiping pages natively (a paging ScrollView); the dots and the previous and next buttons move\nit too. For a screen reader, each part is its own element, as on iOS: the slide shown (its\nbuttons and text reachable one by one), the previous and next buttons, and the dots as one page\ncontrol (\"Featured, Slide 2 of 5\", swipe up or down to move, like UIPageControl). With neither\ndots nor buttons, every slide stays reachable and the pages follow the screen reader's focus.\nWhich slide a scroll rests on comes from genesis-core's `carouselIndex`.\n\nFor photos with zoom and a full-screen view, use NativeLightbox; a carousel is for cards,\nonboarding pages and featured content.",
+      "primaryComponent": "NativeCarousel",
+      "components": [
+        {
+          "name": "NativeCarousel",
+          "summary": "",
+          "props": [
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": "The slides."
+            },
+            {
+              "name": "accessibilityLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What the carousel shows, read by screen readers with the page control (\"Featured classes\")."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "defaultIndex",
+              "type": "number",
+              "required": false,
+              "defaultValue": "0",
+              "description": "The slide shown first, uncontrolled. Default 0."
+            },
+            {
+              "name": "index",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "The slide shown, to control it."
+            },
+            {
+              "name": "labels",
+              "type": "{ slide?: string; previous?: string; next?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "Words: \"Slide {index} of {count}\", and the buttons'."
+            },
+            {
+              "name": "onIndexChange",
+              "type": "((index: number) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "showControls",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Previous and next buttons. Default false (a swipe is the phone's way)."
+            },
+            {
+              "name": "showDots",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Dots under the slides. Default true."
+            },
+            {
+              "name": "slideClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-carousel",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "chart",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/chart.tsx",
+      "stability": "beta",
+      "summary": "A config colour the phone can draw. A theme variable the web resolves in CSS (`hsl(var(--primary))`,\n`var(--success)`) is read from the native theme's hex map; one the theme doesn't have is the\nforeground, so a series is never drawn in nothing. A plain colour (`#e11d48`, `rgb(…)`, `tomato`)\nis used as it is.",
+      "primaryComponent": "nativeColor",
+      "components": [
+        {
+          "name": "nativeColor",
+          "summary": "A config colour the phone can draw. A theme variable the web resolves in CSS (`hsl(var(--primary))`,\n`var(--success)`) is read from the native theme's hex map; one the theme doesn't have is the\nforeground, so a series is never drawn in nothing. A plain colour (`#e11d48`, `rgb(…)`, `tomato`)\nis used as it is.",
+          "props": []
+        },
+        {
+          "name": "NativeChartContainer",
+          "summary": "",
+          "props": [
+            {
+              "name": "config",
+              "type": "NativeChartConfig",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "data",
+              "type": "readonly Record<string, unknown>[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The rows: one per point on the x axis."
+            },
+            {
+              "name": "xKey",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The rows' field on the x axis (\"month\")."
+            },
+            {
+              "name": "accessibilityLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What the chart is, said before its values (\"Visitors by month\")."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "height",
+              "type": "number",
+              "required": false,
+              "defaultValue": "200",
+              "description": "The plot's height in points. Default 200."
+            },
+            {
+              "name": "showGrid",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Lines at each tick. Default true."
+            },
+            {
+              "name": "showLegend",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "A legend under the chart. Default true with more than one series."
+            },
+            {
+              "name": "stacked",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Bars on top of each other instead of side by side."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-chart",
+              "description": ""
+            },
+            {
+              "name": "type",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "bar",
+              "description": "Default `bar`."
+            },
+            {
+              "name": "valueFormat",
+              "type": "((value: number) => string)",
+              "required": false,
+              "defaultValue": "(v) => String(v)",
+              "description": "How values read on the axis and to a screen reader."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "checkbox",
       "aliases": [],
       "surface": "native",
@@ -1280,17 +1651,24 @@
           "props": [
             {
               "name": "onChange",
-              "type": "(value: string | string[]) => void",
+              "type": "(value: NativeChipGroupValue<M>) => void",
               "required": true,
               "defaultValue": null,
               "description": ""
             },
             {
               "name": "value",
-              "type": "string | string[]",
+              "type": "string | readonly string[]",
               "required": true,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "allowEmpty",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "In `single` mode, pressing the chosen chip clears it (`onChange(\"\")`). Default false: pressing\nit calls `onChange` with its own value again, as it always has (the web's ChipGroup sends\nnothing then)."
             },
             {
               "name": "className",
@@ -1310,7 +1688,7 @@
               "name": "mode",
               "type": "enum",
               "required": false,
-              "defaultValue": "multiple",
+              "defaultValue": "\"multiple\" as M",
               "description": ""
             },
             {
@@ -1358,27 +1736,13 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/choice-card.tsx",
       "stability": "beta",
-      "summary": "NativeChoiceCard — one selectable option drawn as a card: an indicator\n(a radio circle, or a checkbox square with `multiple`), an optional\n`media` slot (a thumbnail, an icon), a title and a description.\n\nThe whole card is the press target (at least 44pt high) and reads as one\nradio or checkbox to VoiceOver and TalkBack, named \"title, description\".\nSelected, the border and indicator take the primary colour and the card a\nlight primary wash; `invalid` draws the border in the destructive colour\n(and says \"Needs an answer\"). Controlled: the parent owns `selected`.\n\nUse a column of them for a question with pictures or explanations per\noption; for a plain list of words use NativeRadioGroup or NativeChipGroup.",
+      "summary": "NativeChoiceCard — one selectable option drawn as a card: an indicator\n(a radio circle, or a checkbox square with `multiple`), an optional\n`media` slot (a thumbnail, an icon), a title and a description.\n\nThe whole card is the press target (at least 44pt high) and reads as one\nradio or checkbox to VoiceOver and TalkBack, named \"title, description\".\nSelected, the border and indicator take the primary colour and the card a\nlight primary wash; `invalid` draws the border in the destructive colour\n(and says \"Needs an answer\").\n\nAs the web's ChoiceCard: one of several is a card with a `value` inside a NativeRadioGroup, and\nwith `multiple` it is a checkbox with `selected` and `onSelectedChange(next)`. The older\n`selected` with `onPress` still works in either mode.\n\nUse a column of them for a question with pictures or explanations per\noption; for a plain list of words use NativeRadioGroup or NativeChipGroup.",
       "primaryComponent": "NativeChoiceCard",
       "components": [
         {
           "name": "NativeChoiceCard",
           "summary": "",
           "props": [
-            {
-              "name": "onPress",
-              "type": "() => void",
-              "required": true,
-              "defaultValue": null,
-              "description": ""
-            },
-            {
-              "name": "selected",
-              "type": "boolean",
-              "required": true,
-              "defaultValue": null,
-              "description": ""
-            },
             {
               "name": "title",
               "type": "string",
@@ -1404,7 +1768,7 @@
               "name": "disabled",
               "type": "boolean",
               "required": false,
-              "defaultValue": "false",
+              "defaultValue": null,
               "description": ""
             },
             {
@@ -1418,7 +1782,7 @@
               "name": "invalid",
               "type": "boolean",
               "required": false,
-              "defaultValue": "false",
+              "defaultValue": null,
               "description": "The question still needs an answer: a destructive border and hint."
             },
             {
@@ -1432,15 +1796,43 @@
               "name": "multiple",
               "type": "boolean",
               "required": false,
-              "defaultValue": "false",
+              "defaultValue": null,
               "description": "A checkbox (several can be chosen) rather than a radio."
+            },
+            {
+              "name": "onPress",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onSelectedChange",
+              "type": "((selected: boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called when it is pressed, with the new state."
+            },
+            {
+              "name": "selected",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
             },
             {
               "name": "testID",
               "type": "string",
               "required": false,
-              "defaultValue": "native-choice-card",
+              "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "value",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "This card's value in its NativeRadioGroup."
             }
           ]
         }
@@ -1453,7 +1845,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/combobox.tsx",
       "stability": "beta",
-      "summary": "Combobox / Autocomplete — text input that filters a fixed option list\nand lets the user pick one.\n\nUse when the user knows what they're looking for and the option list\nis too long for a Select. Filtering is case-insensitive substring by\ndefault; pass `filter` to override (e.g. fuzzy match).",
+      "summary": "Combobox / Autocomplete — text input that filters a fixed option list\nand lets the user pick one.\n\nUse when the user knows what they're looking for and the option list\nis too long for a Select. By default every word typed must appear in an\noption's label or description, ignoring case and accents (genesis-core's\n`matchesQuery`, as the web's Combobox); pass `filter` to override.",
       "primaryComponent": "NativeCombobox",
       "components": [
         {
@@ -1499,7 +1891,7 @@
               "name": "filter",
               "type": "((option: NativeComboboxOption<T>, query: string) => boolean)",
               "required": false,
-              "defaultValue": "<T,>(o: NativeComboboxOption<T>, q: string) =>\n  o.label.toLowerCase().includes(q.toLowerCase()) ||\n  (o.description?.toLowerCase().includes(q.toLowerCase()) ?? false)",
+              "defaultValue": "<T,>(o: NativeComboboxOption<T>, q: string) => matchesQuery([o.label, o.description], q)",
               "description": "Override the substring filter. Return true to keep the option visible."
             },
             {
@@ -2349,6 +2741,83 @@
               "description": "Variant drives default tone + default title. Default \"first-run\"."
             }
           ]
+        },
+        {
+          "name": "NativeNoFeaturesFound",
+          "summary": "An empty roadmap or feature list.",
+          "props": [
+            {
+              "name": "onCreate",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "no-features-found",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "NativeNoFeedbackFound",
+          "summary": "A feedback inbox with nothing in it yet.",
+          "props": [
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "no-feedback-found",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "NativeNoSearchResults",
+          "summary": "A search or filter that matched nothing.",
+          "props": [
+            {
+              "name": "onClear",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "query",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "no-search-results",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "flatten-children",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/flatten-children.ts",
+      "stability": "stable",
+      "summary": "",
+      "primaryComponent": "flattenChildren",
+      "components": [
+        {
+          "name": "flattenChildren",
+          "summary": "",
+          "props": []
         }
       ]
     },
@@ -3701,11 +4170,270 @@
               "description": ""
             },
             {
+              "name": "leading",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Content fixed before the text, inside the field's border: an icon, a currency sign, \"https://\".\nWith `leading` or `trailing` the field is an input group (NativeInputGroup)."
+            },
+            {
               "name": "ref",
               "type": "Ref<_TextInputInstance>",
               "required": false,
               "defaultValue": null,
               "description": "The underlying TextInput (React 19 passes `ref` as a prop)."
+            },
+            {
+              "name": "trailing",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Content fixed after the text, inside the field's border: a unit, a clear or show button."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "input-group",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/input-group.tsx",
+      "stability": "beta",
+      "summary": "InputGroup — a text field with content fixed inside its border: the twin of genesis-ui's\nInputGroup (InputGroupPrefix / InputGroupSuffix). It is NativeInput with `leading` and\n`trailing` (`prefix` and `suffix` here, as on the web), so it keeps the input's label, error\nand placeholder colour.\n\nPasswordToggleField — a password field with a Show / Hide button that keeps the typed text:\nthe twin of genesis-ui's PasswordToggleField, on the same input group. Toggling keeps the cursor\nwhere it was (Android otherwise moves it to the start). On iOS, the system clears a hidden\npassword field when typing resumes after it was shown and hidden again; that rule is the OS's\n(it guards against a shoulder-surfed edit), and the field follows it.",
+      "primaryComponent": "NativeInputGroup",
+      "components": [
+        {
+          "name": "NativeInputGroup",
+          "summary": "",
+          "props": [
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "error",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "inputClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "prefix",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Before the text: an icon, \"$\", \"https://\"."
+            },
+            {
+              "name": "ref",
+              "type": "Ref<_TextInputInstance>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The underlying TextInput (React 19 passes `ref` as a prop)."
+            },
+            {
+              "name": "suffix",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "After the text: a unit, a button."
+            }
+          ]
+        },
+        {
+          "name": "NativePasswordToggleField",
+          "summary": "",
+          "props": [
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "defaultVisible",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Shown (uncontrolled start). Default false: the password is hidden."
+            },
+            {
+              "name": "error",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "inputClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labels",
+              "type": "{ show?: string; hide?: string; showAccessible?: string | undefined; hideAccessible?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "The button's words. Default \"Show password\" / \"Hide password\" (read) and \"Show\" / \"Hide\" (shown)."
+            },
+            {
+              "name": "leading",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Content fixed before the text, inside the field's border: an icon, a currency sign, \"https://\".\nWith `leading` or `trailing` the field is an input group (NativeInputGroup)."
+            },
+            {
+              "name": "onVisibleChange",
+              "type": "((visible: boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "ref",
+              "type": "Ref<_TextInputInstance>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The underlying TextInput (React 19 passes `ref` as a prop)."
+            },
+            {
+              "name": "visible",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown, to control it."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "input-otp",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/input-otp.tsx",
+      "stability": "beta",
+      "summary": "InputOTP — a one-time code in boxes: the twin of genesis-ui's InputOTP.\n\nOne real text field sits over the boxes, so the system's code autofill (iOS's \"From Messages\",\nAndroid's SMS retriever with `autoComplete=\"sms-otp\"`), paste and the screen reader all work on\na single field; the boxes only draw what it holds and are hidden from screen readers. The field\nis all but invisible (transparent text, no caret, 1% opacity) rather than at 0 opacity, which\niOS drops from VoiceOver; it is the one labelled element, and a screen reader reads its text.\nThe characters it keeps and the caret's box come from genesis-core's `sanitizeOtp` and\n`otpSlots`. The field has no native length cap: `sanitizeOtp` keeps the first `maxLength`\ncharacters after it strips spaces and dashes, so a pasted \"123-456\" stays whole. `pattern` is\ntested against the whole code, as the web's InputOTP (input-otp) tests it: a change the pattern\nrefuses (\"12a\" in a digits field) leaves the code as it was, on both.",
+      "primaryComponent": "NativeInputOTP",
+      "components": [
+        {
+          "name": "NativeInputOTP",
+          "summary": "",
+          "props": [
+            {
+              "name": "onChange",
+              "type": "(value: string) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "accessibilityHint",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Read after the label. Default \"{maxLength} characters\"."
+            },
+            {
+              "name": "accessibilityLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "One-time code",
+              "description": "Read by screen readers. Default \"One-time code\"."
+            },
+            {
+              "name": "autoFocus",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "maxLength",
+              "type": "number",
+              "required": false,
+              "defaultValue": "6",
+              "description": "How many characters. Default 6."
+            },
+            {
+              "name": "onComplete",
+              "type": "((value: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called once every box is filled."
+            },
+            {
+              "name": "pattern",
+              "type": "string",
+              "required": false,
+              "defaultValue": "^\\d+$",
+              "description": "What the code may hold, as a RegExp source tested against the whole code typed so far (as\ninput-otp's `pattern`). Default digits (`OTP_PATTERN_DIGITS`, the same as input-otp's\n`REGEXP_ONLY_DIGITS`). Match a partial code too: \"^[A-Z0-9]+$\", not \"^[A-Z0-9]{8}$\"."
+            },
+            {
+              "name": "separatorAfter",
+              "type": "number[]",
+              "required": false,
+              "defaultValue": "[]",
+              "description": "Draws a separator after these box indexes ([2] for 123-456)."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-input-otp",
+              "description": ""
             }
           ]
         }
@@ -3718,7 +4446,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/keyboard.tsx",
       "stability": "beta",
-      "summary": "Keyboard-aware scrolling for form screens. Expo recommends\nreact-native-keyboard-controller's `KeyboardAwareScrollView` over\n`KeyboardAvoidingView` for real apps; it is an optional peer here, so an app\nthat has it passes it once:\n\n  import { KeyboardAwareScrollView, KeyboardProvider, KeyboardToolbar } from \"react-native-keyboard-controller\";\n  <KeyboardProvider>\n    <KeyboardScrollProvider component={KeyboardAwareScrollView} toolbar={KeyboardToolbar}>…</KeyboardScrollProvider>\n  </KeyboardProvider>\n\n`KeyboardAwareScrollView` does nothing without react-native-keyboard-controller's\n`KeyboardProvider` above it, mounted once at the root. (The native app\nshell does both, with `keyboardProvider` and `keyboardScroll`.) Without a\nscroll view here, form screens fall back to `KeyboardAvoidingView`.\n\n`toolbar` (optional, `KeyboardToolbar`) adds the previous / next / done bar\nabove the keyboard on Genesis's multi-field form layouts (`AuthScreen`,\n`SettingsSubPage`). It needs `component` too: the bar sits beside the\nkeyboard-aware scroll view. Without it, nothing changes.",
+      "summary": "Keyboard-aware scrolling for form screens. Expo recommends\nreact-native-keyboard-controller's `KeyboardAwareScrollView` over\n`KeyboardAvoidingView` for real apps; it is an optional peer here, so an app\nthat has it passes it once:\n\n  import { KeyboardAwareScrollView, KeyboardProvider, KeyboardToolbar } from \"react-native-keyboard-controller\";\n  <KeyboardProvider>\n    <KeyboardScrollProvider component={KeyboardAwareScrollView} toolbar={KeyboardToolbar}>…</KeyboardScrollProvider>\n  </KeyboardProvider>\n\n`KeyboardAwareScrollView` does nothing without react-native-keyboard-controller's\n`KeyboardProvider` above it, mounted once at the root. (The native app\nshell does both, with `keyboardProvider` and `keyboardScroll`.) Without a\nscroll view here, form screens fall back to `KeyboardAvoidingView`.\n\n`toolbar` (optional, `KeyboardToolbar`) adds the previous / next / done bar\nabove the keyboard on Genesis's multi-field form layouts (`AuthScreen`,\n`SettingsSubPage`). It needs `component` too: the bar sits beside the\nkeyboard-aware scroll view. Without it, nothing changes.\n\n`sticky` (optional, `KeyboardStickyView`) carries a layout's bottom bar (FormPage's Save /\nCancel) up with the keyboard. Without it, with `component`, FormPage puts the bar at the end\nof the scrolling form instead, where the keyboard never covers it.",
       "primaryComponent": "KeyboardScrollProvider",
       "components": [
         {
@@ -3733,6 +4461,13 @@
               "description": ""
             },
             {
+              "name": "sticky",
+              "type": "ComponentType<KeyboardStickyProps>",
+              "required": false,
+              "defaultValue": null,
+              "description": "`KeyboardStickyView` from react-native-keyboard-controller: keeps a form's action bar above the keyboard."
+            },
+            {
               "name": "toolbar",
               "type": "ComponentType<KeyboardToolbarProps>",
               "required": false,
@@ -3744,6 +4479,11 @@
         {
           "name": "useKeyboardScroll",
           "summary": "The app's keyboard-aware scroll view, or null when none was provided.",
+          "props": []
+        },
+        {
+          "name": "useKeyboardSticky",
+          "summary": "The app's keyboard-riding view for a bottom bar, or null when none was provided (or no scroll view to go with it).",
           "props": []
         },
         {
@@ -4061,6 +4801,27 @@
               "required": true,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "accessibilityLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What a screen reader reads for the row. Default its title and subtitle. The row is one\nelement, so a `trailing` badge's own label is not read: put its words here too."
+            },
+            {
+              "name": "accessibilityRole",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "button",
+              "description": "What a pressable row is to a screen reader. Default `button`; a row that flips its switch\n(NativeToggleRow) is a `switch`, and one choice of several (NativeWorkspaceSwitcher) a\n`radio`, each with `accessibilityState.checked`."
+            },
+            {
+              "name": "accessibilityState",
+              "type": "{ checked?: boolean; selected?: boolean; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "Merged over the row's own (`disabled`)."
             },
             {
               "name": "className",
@@ -4437,6 +5198,120 @@
       ]
     },
     {
+      "slug": "native-custom-view",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/NativeCustomView.tsx",
+      "stability": "stable",
+      "summary": "",
+      "primaryComponent": "NativeCustomView",
+      "components": [
+        {
+          "name": "useNativeCustomView",
+          "summary": "A native custom view's data and states, headless. `<NativeCustomView>` calls it and draws the states.",
+          "props": []
+        },
+        {
+          "name": "NativeCustomView",
+          "summary": "",
+          "props": [
+            {
+              "name": "children",
+              "type": "(state: NativeCustomViewState<T>) => ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": "Draws the view once there's something to show."
+            },
+            {
+              "name": "view",
+              "type": "AnyResourceView<T>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "can",
+              "type": "NativeResourceScreenCan<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own rule. It only narrows the view's guards."
+            },
+            {
+              "name": "empty",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the empty state; `false` hands an empty view to `children` too."
+            },
+            {
+              "name": "error",
+              "type": "ReactNode | ((error: string, retry: () => void) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the error state; a function gets the error and a retry."
+            },
+            {
+              "name": "filter",
+              "type": "Readonly<Record<string, string | number | boolean | readonly (string | number)[] | null>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Filters sent to the server (`{ client_id: id }`); `null` means \"is empty\" and a list means\n\"any of\" (`{ status: [\"open\", \"blocked\"] }`, sent as `in`; a create never takes a list). A create\nalso saves every non-null value here (a tab's filter too), even for read-only fields such as\na required link: they come from the screen, never from an input. An edit never sends them."
+            },
+            {
+              "name": "live",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Refetch loaded pages when the provider reports a change."
+            },
+            {
+              "name": "loading",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "maxPages",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Pages kept loaded when the provider pages by cursor (and serves `prevCursor`): scrolling far\ndrops pages from the front, and scrolling back to the top loads them again (`loadPrevious` on\nthe list's `onStartReached`, with `maintainVisibleContentPosition` so the rows on screen stay\nput). Offset paging never drops pages. Default 10."
+            },
+            {
+              "name": "perPage",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Rows per page. Default 25."
+            },
+            {
+              "name": "preset",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A tab the view defines: its server filter."
+            },
+            {
+              "name": "searchFields",
+              "type": "string[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Fields the search box searches. Default: the view's `labelField`."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "custom-view",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "native-data-filters",
       "aliases": [],
       "surface": "native",
@@ -4691,6 +5566,245 @@
       ]
     },
     {
+      "slug": "native-form-fields",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/NativeFormFields.tsx",
+      "stability": "stable",
+      "summary": "A field of `type: \"array\"`: one card per item, each with the field's `arrayFields`, and Add / Remove within `arrayMin` and `arrayMax`.",
+      "primaryComponent": "NativeFieldArrayRenderer",
+      "components": [
+        {
+          "name": "NativeFieldArrayRenderer",
+          "summary": "A field of `type: \"array\"`: one card per item, each with the field's `arrayFields`, and Add / Remove within `arrayMin` and `arrayMax`.",
+          "props": [
+            {
+              "name": "action",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "control",
+              "type": "Control<Record<string, unknown>>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "field",
+              "type": "ResourceFormFieldDef",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labels",
+              "type": "{ item?: string; remove?: string; removeButton?: string | undefined; add?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "The words. `{n}`: the item's number. `remove` is what a screen reader hears, `removeButton` the button's visible word."
+            },
+            {
+              "name": "watchedValues",
+              "type": "Record<string, unknown>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "NativeFileUploadField",
+          "summary": "A field of `type: \"file\"` or `\"image\"`: a button that opens the system picker, then the picked files with their size and a Remove each.",
+          "props": [
+            {
+              "name": "field",
+              "type": "ResourceFormFieldDef",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onChange",
+              "type": "(value: NativePickedFile | NativePickedFile[] | null) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "NativePickedFile | NativePickedFile[] | null",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "error",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labels",
+              "type": "{ choose?: string; chooseMore?: string; remove?: string | undefined; noPicker?: string | undefined; pickFailed?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "The words. `pickFailed`: the picker rejected (a permission denied, a download that failed)."
+            },
+            {
+              "name": "pickFiles",
+              "type": "GenesisFilePicker",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opens the picker. Default `GenesisModules.filePicker`."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "`file-upload-${field.key}`",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "NativeRelationField",
+          "summary": "A field of `type: \"relation\"`: the linked resource's rows through the data provider, searched\nand paged on the server. The same picker NativeResourceView's form uses (NativeLinkPicker),\nfed from the field's `relation`.",
+          "props": [
+            {
+              "name": "field",
+              "type": "ResourceFormFieldDef",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onChange",
+              "type": "(value: string | number | null) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "The key as the field's `relation.keys` says: a string (`\"\"` for none), or the row's own (`null` for none)."
+            },
+            {
+              "name": "value",
+              "type": "unknown",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "error",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "`relation-${field.key}`",
+              "description": ""
+            },
+            {
+              "name": "values",
+              "type": "Readonly<Record<string, unknown>>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "NativeWizardForm",
+          "summary": "A form in steps (genesis-core's `useWizard`): the step's fields, its progress, Back and Next, and Create or Save on the last step.",
+          "props": [
+            {
+              "name": "action",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "fields",
+              "type": "ResourceFormFieldDef[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "form",
+              "type": "UseFormReturn<Record<string, unknown>>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "isSaving",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onSubmit",
+              "type": "(data: Record<string, unknown>) => Promise<void>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "steps",
+              "type": "WizardStep[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labels",
+              "type": "{ back?: string; next?: string; create?: string | undefined; save?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
+            },
+            {
+              "name": "onInvalid",
+              "type": "((errors: FieldErrors) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "renderField",
+              "type": "((field: ResourceFormFieldDef, control: Control<Record<string, unknown>, any, Record<string, unknown>>, action: \"create\" | \"edit\", watchedValues: Record<...>) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "wizard-form",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "native-link-picker",
       "aliases": [],
       "surface": "native",
@@ -4777,6 +5891,157 @@
           "name": "useGenesisModules",
           "summary": "The modules given to the nearest `GenesisModulesProvider`; `{}` without one.",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "native-record-peek",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/NativeRecordPeek.tsx",
+      "stability": "stable",
+      "summary": "",
+      "primaryComponent": "NativeRecordPeek",
+      "components": [
+        {
+          "name": "NativeRecordPeek",
+          "summary": "",
+          "props": [
+            {
+              "name": "onClose",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "row",
+              "type": "Row | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "The record, or null while none is open."
+            },
+            {
+              "name": "view",
+              "type": "AnyRecordView<T>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "can",
+              "type": "NativeResourceScreenCan<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own rule, as NativeResourceView's `can`: `false` hides Edit or Delete, a sentence refuses it. Only narrows the view's guards."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the record (a link to its full page)."
+            },
+            {
+              "name": "labels",
+              "type": "{ edit?: string; delete?: string; deleteTitle?: string | undefined; deleteBody?: string | undefined; cancel?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "Overrides for the resource-view messages (`common.edit`, `delete` / `bin`, `common.cancel`)."
+            },
+            {
+              "name": "lists",
+              "type": "Partial<Record<string, Partial<Omit<NativeResourceViewProps<Row>, \"view\" | \"filter\">>>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "More props for a list section's NativeResourceView, by section id."
+            },
+            {
+              "name": "messages",
+              "type": "Partial<NativeRecordViewMessages>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onDelete",
+              "type": "((row: T) => unknown)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shows Delete (where `can` and the view's delete guard allow it). The peek confirms first, so\npass the write itself (the provider's delete), never a handler that confirms again. Return its\npromise: the sheet closes when it resolves, and a rejection is shown in plain words."
+            },
+            {
+              "name": "onEdit",
+              "type": "((row: T) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shows Edit (where the screen's `can` and the view's update guard allow it): open the record's form."
+            },
+            {
+              "name": "onOpenSection",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "With more than four sections: push that section's route (the pushed screen passes `section`).\nWithout it, the section opens in place with an \"All sections\" row to go back."
+            },
+            {
+              "name": "onSaved",
+              "type": "((row: T) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "After a settings section saved, with the stored row."
+            },
+            {
+              "name": "onSectionChange",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The segmented control changed section."
+            },
+            {
+              "name": "section",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The section to show. With up to four sections, the segmented control's value (default the\nfirst). With more, the pushed section; without it, the list of sections."
+            },
+            {
+              "name": "slots",
+              "type": "Partial<Record<string, ReactNode | ((top: ReactNode) => ReactNode)>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own sections, by id. A node is laid out in the screen's scroll view. A section\nthat scrolls itself (a long FlatList) passes a function instead: it gets the screen's top\n(switcher, readiness, sections) to render as its list's header, and owns the scroll view, so\nset `contentInsetAdjustmentBehavior=\"automatic\"` on it."
+            },
+            {
+              "name": "snapPoints",
+              "type": "(string | number)[]",
+              "required": false,
+              "defaultValue": "[\"60%\", \"92%\"]",
+              "description": "The sheet's heights. Default `[\"60%\", \"92%\"]`."
+            },
+            {
+              "name": "switcher",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the sections: a switcher between records."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "record-peek",
+              "description": ""
+            }
+          ]
         }
       ]
     },
@@ -5922,7 +7187,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/notifications-page.tsx",
       "stability": "beta",
-      "summary": "NotificationsPage — feed-style notifications list.\n\nComposes:\n  - SectionList grouped by relative date (Today / Yesterday / Earlier)\n  - Pull-to-refresh\n  - Empty state slot (auto-rendered when `items` is empty)\n  - Mark-all-read action surfaced via `headerRight` helper\n  - Per-row \"mark read\" action exposed via the consumer's row press\n    (swipe-to-mark-read is documented as Maestro / E2E only because it\n    requires gesture-handler — consumers wire it via their own row\n    wrapper; this layout exposes the unread state via row props).\n\nSlots: replace or drop (`null`) `sectionHeader`, `row` or `empty`\nthrough `slots`; feed a default part through `slotProps`.\n\nHeader customization: `headerTitle`, `headerLeft`, `headerRight`,\n`headerOptions`. Use `getNotificationsPageStackOptions()` to wire a\n\"Mark all read\" action via `headerRight` automatically.",
+      "summary": "NotificationsPage — feed-style notifications list.\n\nComposes:\n  - SectionList grouped by relative date (Upcoming / Today / Yesterday / Earlier)\n  - Pull-to-refresh\n  - Empty state slot (auto-rendered when `items` is empty)\n  - Mark-all-read action surfaced via `headerRight` helper\n  - Per-row \"mark read\" action exposed via the consumer's row press\n    (swipe-to-mark-read is documented as Maestro / E2E only because it\n    requires gesture-handler — consumers wire it via their own row\n    wrapper; this layout exposes the unread state via row props).\n\nSlots: replace or drop (`null`) `sectionHeader`, `row` or `empty`\nthrough `slots`; feed a default part through `slotProps`.\n\nHeader customization: `headerTitle`, `headerLeft`, `headerRight`,\n`headerOptions`. Use `getNotificationsPageStackOptions()` to wire a\n\"Mark all read\" action via `headerRight` automatically.",
       "primaryComponent": "NotificationsPage",
       "components": [
         {
@@ -6119,6 +7384,13 @@
               "required": false,
               "defaultValue": "notifications-page",
               "description": "testID on the root container. Default `\"notifications-page\"`."
+            },
+            {
+              "name": "timeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The zone whose days the headings count (an IANA name), as the web's NotificationsPage takes\nit. Default the device's, which is the person's own."
             }
           ]
         },
@@ -6179,6 +7451,13 @@
               "description": ""
             },
             {
+              "name": "locale",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The locale whose marks typed numbers use (\"de-DE\" reads \"1.234,5\"). Default: worked out from\nthe text (\"1,234\" is 1234, \"1,5\" is 1.5), genesis-core's `parseNumberInput`, as on the web."
+            },
+            {
               "name": "max",
               "type": "number",
               "required": false,
@@ -6218,6 +7497,434 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "pages",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/layouts/pages.tsx",
+      "stability": "beta",
+      "summary": "The phone's page layouts that match genesis-ui's: DashboardPage, DetailPage, DocumentPage and\nFormPage, with the same names and props (`title`, `subtitle`, `actions`, `stats`, `sidebar`,\n`cover`, `icon`, `errors`…). Each is a ScreenContainer (safe areas, theme background, pull to\nrefresh, a loading state) with the page's title block and body, so a screen passes content and\nnever draws the chrome.\n\nOn a phone the stack header usually shows the screen's title too: pass `hideTitle` to leave\nthe in-page title out, or give the stack the same title with `composeHeaderOptions`.",
+      "primaryComponent": "DashboardPage",
+      "components": [
+        {
+          "name": "DashboardPage",
+          "summary": "",
+          "props": [
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Override root container className."
+            },
+            {
+              "name": "contentClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Override inner content container className (the ScrollView's contentContainerClassName when scroll=true)."
+            },
+            {
+              "name": "hideTitle",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Leave the in-page title out (the stack header shows it)."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When `true`, a centred `NativeLoadingState` (theme-tinted spinner,\nannounced as loading) replaces the body, inside the same safe area and\nbackground. Use it for redirect and first-load screens: the body is\nunmounted while it's on, so a form underneath loses its state. Default `false`."
+            },
+            {
+              "name": "loadingLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Text under the spinner while `loading`, and what screen readers announce: pass translated text."
+            },
+            {
+              "name": "onRefresh",
+              "type": "(() => void | Promise<void>)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Pull to refresh: a theme-tinted `NativeRefreshControl` on the body, as InboxPage and\nNotificationsPage have. Pulling needs a scroll view, so passing it makes the body scroll\n(as `scroll`). Off unless passed. Never with a list child (FlatList, SectionList,\nNativeResourceView, InboxPage): a list inside a ScrollView loses virtualization, and those\nlists have their own pull to refresh."
+            },
+            {
+              "name": "refreshing",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The refresh spinner shows while `true`: pass your query's refetching state. Default `false`."
+            },
+            {
+              "name": "safeAreaEdges",
+              "type": "SafeAreaEdge[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "SafeAreaView edges. Defaults to `[\"left\", \"right\"]` — top/bottom are\nnormally handled by the navigation header / tab bar."
+            },
+            {
+              "name": "statColumns",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "2",
+              "description": "Tiles per row. Default 2."
+            },
+            {
+              "name": "stats",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Stat tiles (NativeStatCard), two to a row."
+            },
+            {
+              "name": "subtitle",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "dashboard-page",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "DetailPage",
+          "summary": "",
+          "props": [
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "breadcrumb",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the title (a parent's name)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Override root container className."
+            },
+            {
+              "name": "contentClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Override inner content container className (the ScrollView's contentContainerClassName when scroll=true)."
+            },
+            {
+              "name": "hideTitle",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Leave the in-page title out (the stack header shows it)."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When `true`, a centred `NativeLoadingState` (theme-tinted spinner,\nannounced as loading) replaces the body, inside the same safe area and\nbackground. Use it for redirect and first-load screens: the body is\nunmounted while it's on, so a form underneath loses its state. Default `false`."
+            },
+            {
+              "name": "loadingLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Text under the spinner while `loading`, and what screen readers announce: pass translated text."
+            },
+            {
+              "name": "onRefresh",
+              "type": "(() => void | Promise<void>)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Pull to refresh: a theme-tinted `NativeRefreshControl` on the body, as InboxPage and\nNotificationsPage have. Pulling needs a scroll view, so passing it makes the body scroll\n(as `scroll`). Off unless passed. Never with a list child (FlatList, SectionList,\nNativeResourceView, InboxPage): a list inside a ScrollView loses virtualization, and those\nlists have their own pull to refresh."
+            },
+            {
+              "name": "refreshing",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The refresh spinner shows while `true`: pass your query's refetching state. Default `false`."
+            },
+            {
+              "name": "safeAreaEdges",
+              "type": "SafeAreaEdge[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "SafeAreaView edges. Defaults to `[\"left\", \"right\"]` — top/bottom are\nnormally handled by the navigation header / tab bar."
+            },
+            {
+              "name": "sidebar",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The web's side column; on a phone it follows the content."
+            },
+            {
+              "name": "subtitle",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "detail-page",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "DocumentPage",
+          "summary": "",
+          "props": [
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Override root container className."
+            },
+            {
+              "name": "contentClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Override inner content container className (the ScrollView's contentContainerClassName when scroll=true)."
+            },
+            {
+              "name": "cover",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A banner across the top: an image URL, or your own node."
+            },
+            {
+              "name": "hideTitle",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Leave the in-page title out (the stack header shows it)."
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "An emoji, an image or an icon over the title."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When `true`, a centred `NativeLoadingState` (theme-tinted spinner,\nannounced as loading) replaces the body, inside the same safe area and\nbackground. Use it for redirect and first-load screens: the body is\nunmounted while it's on, so a form underneath loses its state. Default `false`."
+            },
+            {
+              "name": "loadingLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Text under the spinner while `loading`, and what screen readers announce: pass translated text."
+            },
+            {
+              "name": "onRefresh",
+              "type": "(() => void | Promise<void>)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Pull to refresh: a theme-tinted `NativeRefreshControl` on the body, as InboxPage and\nNotificationsPage have. Pulling needs a scroll view, so passing it makes the body scroll\n(as `scroll`). Off unless passed. Never with a list child (FlatList, SectionList,\nNativeResourceView, InboxPage): a list inside a ScrollView loses virtualization, and those\nlists have their own pull to refresh."
+            },
+            {
+              "name": "refreshing",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The refresh spinner shows while `true`: pass your query's refetching state. Default `false`."
+            },
+            {
+              "name": "safeAreaEdges",
+              "type": "SafeAreaEdge[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "SafeAreaView edges. Defaults to `[\"left\", \"right\"]` — top/bottom are\nnormally handled by the navigation header / tab bar."
+            },
+            {
+              "name": "subtitle",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "document-page",
+              "description": ""
+            },
+            {
+              "name": "width",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "reading",
+              "description": "`reading` (default) keeps a reading column on a tablet; `full` uses the width."
+            }
+          ]
+        },
+        {
+          "name": "FormPage",
+          "summary": "",
+          "props": [
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The Save / Cancel row. It stays above the keyboard: through the app's keyboard-aware scroll\nview and `KeyboardStickyView` when it gave them (`KeyboardScrollProvider`), else in a\nKeyboardAvoidingView. With a keyboard-aware scroll view but no sticky view, it ends the form.\nA touch on it dismisses the keyboard first, so the focused field commits what's typed before\nthe button's press runs."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Override root container className."
+            },
+            {
+              "name": "contentClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Override inner content container className (the ScrollView's contentContainerClassName when scroll=true)."
+            },
+            {
+              "name": "description",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "errors",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A summary of what to fix, over the fields."
+            },
+            {
+              "name": "hideTitle",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When `true`, a centred `NativeLoadingState` (theme-tinted spinner,\nannounced as loading) replaces the body, inside the same safe area and\nbackground. Use it for redirect and first-load screens: the body is\nunmounted while it's on, so a form underneath loses its state. Default `false`."
+            },
+            {
+              "name": "loadingLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Text under the spinner while `loading`, and what screen readers announce: pass translated text."
+            },
+            {
+              "name": "onRefresh",
+              "type": "(() => void | Promise<void>)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Pull to refresh: a theme-tinted `NativeRefreshControl` on the body, as InboxPage and\nNotificationsPage have. Pulling needs a scroll view, so passing it makes the body scroll\n(as `scroll`). Off unless passed. Never with a list child (FlatList, SectionList,\nNativeResourceView, InboxPage): a list inside a ScrollView loses virtualization, and those\nlists have their own pull to refresh."
+            },
+            {
+              "name": "refreshing",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The refresh spinner shows while `true`: pass your query's refetching state. Default `false`."
+            },
+            {
+              "name": "safeAreaEdges",
+              "type": "SafeAreaEdge[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "SafeAreaView edges. Defaults to `[\"left\", \"right\"]` — top/bottom are\nnormally handled by the navigation header / tab bar."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "form-page",
               "description": ""
             }
           ]
@@ -6468,6 +8175,11 @@
       "summary": "RadioGroup — single-selection list of radio items.",
       "primaryComponent": "NativeRadioGroup",
       "components": [
+        {
+          "name": "useNativeRadioGroupContext",
+          "summary": "The group a radio item sits in, or null outside one (NativeChoiceCard reads it).",
+          "props": []
+        },
         {
           "name": "NativeRadioGroup",
           "summary": "",
@@ -6721,6 +8433,223 @@
               "required": false,
               "defaultValue": null,
               "description": "Color of the iOS title text."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "resource",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/resource.tsx",
+      "stability": "beta",
+      "summary": "The resource workspace's pieces on the phone (a form, a course, a lesson): the twins of\ngenesis-ui's `/resource` components, over the same genesis-core rules\n(`@marktiderman/genesis-core/resource`).\n\n- NativeReadinessChip: \"Ready to publish\", or how many problems to fix (`readinessChip`).\n- NativeHeadlineNumbers: a grid of headline numbers, two across (`HeadlineNumber`).\n- NativeSummaryCard: one card of a summary: an icon, a title, a line on the right, then the body.\n- NativeFollowUpList: responses that need a follow-up, with their tag, comment, low score and actions.\n- NativeResponsesToolbar: Summary / Each response, the host's filters and its actions.",
+      "primaryComponent": "NativeReadinessChip",
+      "components": [
+        {
+          "name": "NativeReadinessChip",
+          "summary": "",
+          "props": [
+            {
+              "name": "readiness",
+              "type": "Readiness",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labels",
+              "type": "ReadinessLabels",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onPress",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Makes it a button (open the checks)."
+            }
+          ]
+        },
+        {
+          "name": "NativeHeadlineNumbers",
+          "summary": "",
+          "props": [
+            {
+              "name": "numbers",
+              "type": "readonly HeadlineNumber[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "isLoading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "NativeSummaryCard",
+          "summary": "",
+          "props": [
+            {
+              "name": "title",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "meta",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "NativeFollowUpList",
+          "summary": "",
+          "props": [
+            {
+              "name": "entries",
+              "type": "readonly NativeFollowUpEntry[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "actions",
+              "type": "((entry: NativeFollowUpEntry) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "empty",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Nothing to follow up right now.",
+              "description": ""
+            },
+            {
+              "name": "isLoading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": ""
+            },
+            {
+              "name": "noComment",
+              "type": "string",
+              "required": false,
+              "defaultValue": "No comment",
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Needs a follow-up",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "NativeResponsesToolbar",
+          "summary": "",
+          "props": [
+            {
+              "name": "onViewChange",
+              "type": "(view: NativeResponsesView) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "view",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "filters",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labels",
+              "type": "{ summary?: string; each?: string; } | undefined",
+              "required": false,
+              "defaultValue": "{}",
+              "description": ""
             }
           ]
         }
@@ -7380,6 +9309,183 @@
       ]
     },
     {
+      "slug": "settings-row",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/settings-row.tsx",
+      "stability": "beta",
+      "summary": "SettingsRow — a label and a description with a control at the end: the twin of genesis-ui's\nSettingsRow. It is a NativeListItem (the phone's row), with the control in its trailing slot.\n\nToggleRow — a SettingsRow with a switch: the twin of genesis-ui's ToggleRow. The whole row\nflips the switch and is one `switch` to a screen reader (its label, description and state), as\nthe iOS Settings app's rows are.\n\nResourceSettingsPage — every setting of one thing (a form, a course) as cards with icons, and a\nrow of jump links that scroll to each: the twin of genesis-ui's ResourceSettingsPage. Its\nsections take the same `id`, `title`, `icon`, `description` and `content`.",
+      "primaryComponent": "NativeSettingsRow",
+      "components": [
+        {
+          "name": "NativeSettingsRow",
+          "summary": "",
+          "props": [
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The control at the end: a NativeSwitch, a NativeSelect trigger, a NativeBadge, a NativeButton."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onPress",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Makes the row a button (a row that opens a sub-page)."
+            },
+            {
+              "name": "showChevron",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The drill-in chevron, for a row that opens a sub-page."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "settings-row",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "NativeToggleRow",
+          "summary": "",
+          "props": [
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "checked",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "defaultChecked",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": ""
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onCheckedChange",
+              "type": "((checked: boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "rowTestID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "toggle-row",
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "toggle-row-switch",
+              "description": "On the switch, as on the web."
+            }
+          ]
+        },
+        {
+          "name": "NativeResourceSettingsPage",
+          "summary": "",
+          "props": [
+            {
+              "name": "sections",
+              "type": "readonly NativeResourceSettingsSection[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "navLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "On this page",
+              "description": "The jump links' accessible name. Default \"On this page\"."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "resource-settings-page",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "settings-sub-page",
       "aliases": [],
       "surface": "native",
@@ -7981,6 +10087,115 @@
       ]
     },
     {
+      "slug": "sortable-list",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/sortable-list.tsx",
+      "stability": "beta",
+      "summary": "SortableList — a vertical list the person rearranges (course steps, form fields): the twin of\ngenesis-ui's SortableList, with the same `items`, `getKey`, `getItemLabel`, `renderItem` and\n`onReorder(from, to, { key })`.\n\nEvery way to move an item does the same thing, so dragging is never the only one:\n- drag the row's handle (`context.handle`, render it in the row). Once a drag starts it keeps\n  the gesture (a parent ScrollView can't take it over); `onDragChange` tells the screen, so it\n  can also stop its scroll view (`scrollEnabled={!dragging}`), which iOS needs for a native one;\n- long press the row for a Move menu (up, down, to top, to bottom; `moveMenu`, on by default);\n- a screen reader's actions on the row (swipe up or down on it: the same four moves);\n- `moveUp` / `moveDown` / `moveTo` from the render context, for buttons of your own.\n\nThe list shows the new order at once and keeps it until `onReorder`'s promise settles; a\nrejected promise puts the old order back and says the move failed. Moves are announced. The\norder arithmetic is genesis-core's (`moveItem`, `dropIndex`, `movedAnnouncement`), as on the web.\n\nThe rows are plain views, not a virtualized list: for tens of items, not thousands.",
+      "primaryComponent": "NativeSortableList",
+      "components": [
+        {
+          "name": "NativeSortableList",
+          "summary": "",
+          "props": [
+            {
+              "name": "getItemLabel",
+              "type": "(item: T) => string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "getKey",
+              "type": "(item: T) => string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "items",
+              "type": "readonly T[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The list's accessible name (\"Course steps\")."
+            },
+            {
+              "name": "onReorder",
+              "type": "(from: number, to: number, move: { key: string; }) => void | Promise<void>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Move the item at `from` to `to`; by the time a returned promise settles, `items` is in the new order."
+            },
+            {
+              "name": "renderItem",
+              "type": "(item: T, context: NativeSortableListItemContext) => ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": ""
+            },
+            {
+              "name": "itemClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labels",
+              "type": "NativeSortableListLabels",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "moveMenu",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "The Move menu on a long press. Default true."
+            },
+            {
+              "name": "onDragChange",
+              "type": "((dragging: boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A drag started (`true`) or ended (`false`): stop the screen's ScrollView while it runs."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-sortable-list",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "spacing",
       "aliases": [],
       "surface": "native",
@@ -8036,6 +10251,162 @@
               "required": false,
               "defaultValue": null,
               "description": "Main-axis (vertical) distribution of children."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "stat-card",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/stat-card.tsx",
+      "stability": "beta",
+      "summary": "StatCard — a labelled number on a dashboard: the twin of genesis-ui's StatCard, with the same\n`label`, `value`, `color` and `trend`. `onPress` makes the tile a button (the web's `href`).\nThe trend line (\"+12% vs last week\") is genesis-core's `formatTrend`, as on the web.\n\nStatusBadge — a goal or task status as a tinted badge: the twin of genesis-ui's StatusBadge,\nthe status's tone from genesis-core's `STATUS_BADGE_TONES`, drawn by NativeBadge.\n\nUserAvatar — a person's photo, or their initials: the twin of genesis-ui's UserAvatar, on\nNativeAvatar, with initials from genesis-core's `initialsOf` and the person's name as the label.",
+      "primaryComponent": "NativeStatCard",
+      "components": [
+        {
+          "name": "NativeStatCard",
+          "summary": "",
+          "props": [
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "string | number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "color",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "primary",
+              "description": "The icon's tone. Default `primary`."
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "An icon (a NativeIcon) beside the label."
+            },
+            {
+              "name": "onPress",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Makes the tile a button (open the list behind the number)."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-stat-card",
+              "description": ""
+            },
+            {
+              "name": "trend",
+              "type": "{ value: number; label: string; }",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "NativeStatusBadge",
+          "summary": "",
+          "props": [
+            {
+              "name": "status",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The words. Default the status's (\"On track\")."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "NativeUserAvatar",
+          "summary": "",
+          "props": [
+            {
+              "name": "name",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The person's full name: the initials and what a screen reader hears."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "distinct",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "In a list of people: two letters for a one-word name, as the web's `distinct`."
+            },
+            {
+              "name": "size",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "default",
+              "description": "`sm` 32, `default` 40, `lg` 48 points, as the web's sizes."
+            },
+            {
+              "name": "src",
+              "type": "string | null",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
             }
           ]
         }
@@ -9616,6 +11987,245 @@
               "required": false,
               "defaultValue": "What's new",
               "description": "Default \"What's new\"."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "widget-tile",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/widget-tile.tsx",
+      "stability": "stable",
+      "summary": "The one tile under the phone's stat card, headline numbers and summary cards, as genesis-ui's\nWidgetTile is on the web: a NativeCard with a label (and an icon or a line on the right), a\nvalue, a detail line and a body. Not exported: use NativeStatCard, NativeHeadlineNumbers or\nNativeSummaryCard, the components that name the job.",
+      "primaryComponent": "WidgetTile",
+      "components": [
+        {
+          "name": "WidgetTile",
+          "summary": "",
+          "props": [
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "detail",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "detailClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "meta",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onPress",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "workspace-switcher",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/workspace-switcher.tsx",
+      "stability": "beta",
+      "summary": "WorkspaceSwitcher — where the viewer is working (one organization, the roll-up, or personal),\nand a sheet to switch: the twin of genesis-ui's WorkspaceSwitcher, on the same workspaces.\n\nIt reads the nearest WorkspaceScope (genesis-core) when `workspaces` and `current` aren't\npassed. The grouping, order, search, initials and badge words are genesis-core's\n(`groupWorkspaces`, `filterWorkspaces`, `workspaceInitials`, `workspaceBadgeLabel`), so the\nphone lists the same workspaces, in the same order, as the web.\n\nThe phone navigates with its own router: `onSelect` gets the workspace and the href to go to\n(the scope's `hrefFor`, keeping the viewer's place when it can). Put it in a screen's header\n(`headerTitle`) or at the top of a tab.",
+      "primaryComponent": "NativeWorkspaceSwitcher",
+      "components": [
+        {
+          "name": "NativeWorkspaceSwitcher",
+          "summary": "",
+          "props": [
+            {
+              "name": "onSelect",
+              "type": "(workspace: W, href: string) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "The viewer picked a workspace: navigate to `href`."
+            },
+            {
+              "name": "actions",
+              "type": "readonly { id: string; label: string; onPress: () => void; }[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Rows at the bottom of the sheet (\"Create an organization\")."
+            },
+            {
+              "name": "badgeLabel",
+              "type": "((workspace: W, value: string | number) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "What a screen reader hears for a badge. Default \"3 new\" for a number."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "current",
+              "type": "Workspace",
+              "required": false,
+              "defaultValue": null,
+              "description": "The current workspace; defaults to the nearest WorkspaceScope's."
+            },
+            {
+              "name": "emptyText",
+              "type": "string",
+              "required": false,
+              "defaultValue": "No workspaces found",
+              "description": ""
+            },
+            {
+              "name": "hrefFor",
+              "type": "((workspace: W) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Where each choice goes; defaults to the WorkspaceScope's, else the workspace's landing page."
+            },
+            {
+              "name": "kindLabels",
+              "type": "Partial<Record<keyof GenesisWorkspaceKinds, string | null>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Headings over each kind's group; `null` hides one."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Switch workspace",
+              "description": "The sheet's title and the trigger's hint. Default \"Switch workspace\"."
+            },
+            {
+              "name": "onOpenChange",
+              "type": "((open: boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Controlled open state."
+            },
+            {
+              "name": "order",
+              "type": "readonly (keyof GenesisWorkspaceKinds)[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The order of the kinds (default personal, roll-up, tenants)."
+            },
+            {
+              "name": "placeholder",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Choose a workspace",
+              "description": "Shown when the viewer is in no workspace. Default \"Choose a workspace\"."
+            },
+            {
+              "name": "renderImage",
+              "type": "((workspace: W, size: number) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the picture (a brand mark)."
+            },
+            {
+              "name": "search",
+              "type": "boolean | \"auto\"",
+              "required": false,
+              "defaultValue": "auto",
+              "description": "A search box over the list. `\"auto\"` past seven workspaces. Default `\"auto\"`."
+            },
+            {
+              "name": "searchPlaceholder",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Find a workspace",
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "workspace-switcher",
+              "description": ""
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "row",
+              "description": "`row` (default): picture, name and description. `compact`: the name and a chevron, for a header."
+            },
+            {
+              "name": "workspaces",
+              "type": "readonly W[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Every workspace; defaults to the nearest WorkspaceScope's."
             }
           ]
         }
@@ -13078,6 +15688,209 @@
       ]
     },
     {
+      "slug": "chip-group",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/resource/chip-group.tsx",
+      "stability": "beta",
+      "summary": "ChipGroup — filter chips that toggle together: the twin of genesis-ui-native's NativeChipGroup,\nwith the same `mode` (default `multiple`), `value` and `onChange`; `onChange` gets a string in\n`single` mode and a list in `multiple`.\n\nIt is Radix's ToggleGroup, as genesis-ui's ToggleGroup is: one tab stop, the arrow keys move\nbetween chips, Enter and Space toggle. Each `ChipGroupItem` draws the resource workspace's Chip,\nringed while it is on.",
+      "primaryComponent": "ChipGroup",
+      "components": [
+        {
+          "name": "ChipGroup",
+          "summary": "ChipGroup — filter chips that toggle together: the twin of genesis-ui-native's NativeChipGroup,\nwith the same `mode` (default `multiple`), `value` and `onChange`; `onChange` gets a string in\n`single` mode and a list in `multiple`.\n\nIt is Radix's ToggleGroup, as genesis-ui's ToggleGroup is: one tab stop, the arrow keys move\nbetween chips, Enter and Space toggle. Each `ChipGroupItem` draws the resource workspace's Chip,\nringed while it is on.",
+          "props": [
+            {
+              "name": "onChange",
+              "type": "((value: string[]) => void) | ((value: string) => void)",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "string | readonly string[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "allowEmpty",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Pressing the chosen chip clears it (`onChange(\"\")`). Default false: one stays chosen."
+            },
+            {
+              "name": "aria-label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What the chips choose, for screen readers (\"Filter by level\")."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "mode",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "ChipGroupItem",
+          "summary": "One chip of a ChipGroup: the group's toggle item, drawn as the Chip.",
+          "props": [
+            {
+              "name": "value",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "choice-card",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/ui/choice-card.tsx",
+      "stability": "beta",
+      "summary": "ChoiceCard — one option as a card a person picks (a plan, a class, an answer with a picture):\nthe twin of genesis-ui-native's NativeChoiceCard, with the same `title`, `description`, `media`,\n`multiple`, `invalid` and `disabled`.\n\nOne of several (the default) is a radio built on the RadioGroup's item, so it goes in a\n`RadioGroup` with a label: the group is one tab stop, the arrow keys move the choice, and the\ngroup's `value` is the chosen card's. With `multiple` it is a checkbox with its own `selected`\nand `onSelectedChange`; put those in an element with `role=\"group\"` and a label.\n\n```tsx\n<RadioGroup aria-label=\"Plan\" value={plan} onValueChange={setPlan}>\n  <ChoiceCard value=\"monthly\" title=\"Monthly\" description=\"$20 a month\" />\n  <ChoiceCard value=\"yearly\" title=\"Yearly\" description=\"$200 a year\" />\n</RadioGroup>\n```\n\nThe card's surface is the Card's (`bg-card`, `border`, `rounded-lg`).",
+      "primaryComponent": "ChoiceCard",
+      "components": [
+        {
+          "name": "ChoiceCard",
+          "summary": "ChoiceCard — one option as a card a person picks (a plan, a class, an answer with a picture):\nthe twin of genesis-ui-native's NativeChoiceCard, with the same `title`, `description`, `media`,\n`multiple`, `invalid` and `disabled`.\n\nOne of several (the default) is a radio built on the RadioGroup's item, so it goes in a\n`RadioGroup` with a label: the group is one tab stop, the arrow keys move the choice, and the\ngroup's `value` is the chosen card's. With `multiple` it is a checkbox with its own `selected`\nand `onSelectedChange`; put those in an element with `role=\"group\"` and a label.\n\n```tsx\n<RadioGroup aria-label=\"Plan\" value={plan} onValueChange={setPlan}>\n  <ChoiceCard value=\"monthly\" title=\"Monthly\" description=\"$20 a month\" />\n  <ChoiceCard value=\"yearly\" title=\"Yearly\" description=\"$200 a year\" />\n</RadioGroup>\n```\n\nThe card's surface is the Card's (`bg-card`, `border`, `rounded-lg`).",
+          "props": [
+            {
+              "name": "onSelectedChange",
+              "type": "(selected: boolean) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Called when it is pressed (Space, or a click), with the new state."
+            },
+            {
+              "name": "selected",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "This card's value in its RadioGroup."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "description",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A second line under the title, muted."
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "invalid",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The question still needs an answer: a destructive border, and said to screen readers."
+            },
+            {
+              "name": "media",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Left of the text: a thumbnail, an icon."
+            },
+            {
+              "name": "multiple",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "collapsible",
       "aliases": [],
       "surface": "web",
@@ -13125,6 +15938,120 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "combobox",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/ui/combobox.tsx",
+      "stability": "beta",
+      "summary": "Combobox — pick one option from a list you can search: the twin of genesis-ui-native's\nNativeCombobox, built from Command in a Popover. The trigger is a button that opens a listbox;\nthe search box inside is the combobox (arrow keys move, Enter picks, Escape closes).\n\nThe search is genesis-core's (`filterOptions`), so the web and the phone find the same options.\n\nIt is a form field that picks one value. A filter bar that picks several, with counts, is the\ndata layer's `FilterCombobox`.",
+      "primaryComponent": "Combobox",
+      "components": [
+        {
+          "name": "Combobox",
+          "summary": "Combobox — pick one option from a list you can search: the twin of genesis-ui-native's\nNativeCombobox, built from Command in a Popover. The trigger is a button that opens a listbox;\nthe search box inside is the combobox (arrow keys move, Enter picks, Escape closes).\n\nThe search is genesis-core's (`filterOptions`), so the web and the phone find the same options.\n\nIt is a form field that picks one value. A filter bar that picks several, with counts, is the\ndata layer's `FilterCombobox`.",
+          "props": [
+            {
+              "name": "onChange",
+              "type": "(value: T) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "options",
+              "type": "readonly ComboboxOption<T>[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aria-label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The trigger's accessible name when no visible label points at it."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "contentClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "emptyText",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": "No results.",
+              "description": "Shown when the search matches nothing. Default \"No results.\""
+            },
+            {
+              "name": "filter",
+              "type": "((options: readonly ComboboxOption<T>[], query: string) => ComboboxOption<T>[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "Which options a search keeps. Default: every word typed, in the label or description,\nignoring case and accents (genesis-core's `filterOptions`, as NativeCombobox)."
+            },
+            {
+              "name": "id",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "placeholder",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Select…",
+              "description": "The button's words with nothing chosen. Default \"Select…\"."
+            },
+            {
+              "name": "searchPlaceholder",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Search…",
+              "description": "The search box's placeholder and accessible name. Default \"Search…\"."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "combobox",
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "string | number",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "ComboboxOption",
+          "summary": "An option a combobox lists: what it stores, what it shows, and a second line.",
+          "props": []
         }
       ]
     },
@@ -16958,12 +19885,12 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/FilterCombobox.tsx",
       "stability": "stable",
-      "summary": "",
+      "summary": "FilterCombobox — a filter bar's multi-select: any number of values, each with its count, an\n\"All\" row that clears them, and a trigger that names the one chosen or says how many. For a\nform field that picks one value and shows it, use `Combobox`; neither is a subset of the other,\nand both are Command in a Popover.",
       "primaryComponent": "FilterCombobox",
       "components": [
         {
           "name": "FilterCombobox",
-          "summary": "",
+          "summary": "FilterCombobox — a filter bar's multi-select: any number of values, each with its count, an\n\"All\" row that clears them, and a trigger that names the one chosen or says how many. For a\nform field that picks one value and shows it, use `Combobox`; neither is a subset of the other,\nand both are Command in a Popover.",
           "props": [
             {
               "name": "icon",
@@ -18051,6 +20978,170 @@
       ]
     },
     {
+      "slug": "inline-alert",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/ui/inline-alert.tsx",
+      "stability": "beta",
+      "summary": "InlineAlert — a message that sits with what it is about (between form fields, over a list): the\ntwin of genesis-ui-native's NativeInlineAlert, with the same variants (info, success, warning,\ndestructive), dismiss, content and actions. It is the Alert, tinted. Warnings and errors are\nannounced (`role=\"alert\"`); info and success are a polite status.",
+      "primaryComponent": "InlineAlert",
+      "components": [
+        {
+          "name": "InlineAlert",
+          "summary": "InlineAlert — a message that sits with what it is about (between form fields, over a list): the\ntwin of genesis-ui-native's NativeInlineAlert, with the same variants (info, success, warning,\ndestructive), dismiss, content and actions. It is the Alert, tinted. Warnings and errors are\nannounced (`role=\"alert\"`); info and success are a polite status.",
+          "props": [
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A row of buttons under the content (\"Retry\", \"Review\")."
+            },
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Content under the description (a list of the fields to fix, a status line)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "description",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "dismissLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The dismiss button's accessible name. Default \"Dismiss\"."
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "An icon before the text."
+            },
+            {
+              "name": "onDismiss",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shows a dismiss button."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "Banner",
+          "summary": "Banner — a full-width system message across the top of a page (\"You're offline\"): the twin of\ngenesis-ui-native's NativeBanner. It stays until dismissed or until its condition clears, and is\nannounced politely. For a passing confirmation use a toast; for something blocking, a dialog.",
+          "props": [
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A row of buttons under the content (\"Retry\", \"Review\")."
+            },
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Content under the description (a list of the fields to fix, a status line)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "description",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "dismissLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The dismiss button's accessible name. Default \"Dismiss\"."
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "An icon before the text."
+            },
+            {
+              "name": "onDismiss",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shows a dismiss button."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "input",
       "aliases": [],
       "surface": "web",
@@ -18106,12 +21197,12 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/components/ui/input-otp.tsx",
       "stability": "stable",
-      "summary": "",
+      "summary": "InputOTP — a one-time code in boxes (input-otp), the twin of genesis-ui-native's NativeInputOTP.\n`pattern` is tested against the whole code, on both: pass genesis-core's `OTP_PATTERN_DIGITS`\n(input-otp's `REGEXP_ONLY_DIGITS`) for digits. A pasted code loses the spaces, dashes and dots\nit is often grouped with (\"123-456\"), as on the phone, unless `pasteTransformer` says otherwise.",
       "primaryComponent": "InputOTP",
       "components": [
         {
           "name": "InputOTP",
-          "summary": "",
+          "summary": "InputOTP — a one-time code in boxes (input-otp), the twin of genesis-ui-native's NativeInputOTP.\n`pattern` is tested against the whole code, on both: pass genesis-core's `OTP_PATTERN_DIGITS`\n(input-otp's `REGEXP_ONLY_DIGITS`) for digits. A pasted code loses the spaces, dashes and dots\nit is often grouped with (\"123-456\"), as on the phone, unless `pasteTransformer` says otherwise.",
           "props": [
             {
               "name": "maxLength",
@@ -19216,6 +22307,245 @@
       ]
     },
     {
+      "slug": "notifications-page",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/layout",
+      "filePath": "packages/ui/src/components/layout/notifications-page.tsx",
+      "stability": "beta",
+      "summary": "NotificationsPage — a person's notifications under day headings (Upcoming, Today, Yesterday, Earlier),\nunread ones marked, with Mark all read: the twin of genesis-ui-native's NotificationsPage, with\nthe same `items`, `onMarkAllRead` and empty words. The day groups are genesis-core's\n(`groupNotificationsByDay`), so both platforms put a notification under the same heading.\n\nPresentational: it takes the items. genesis-notifications' NotificationFeed is the one that\nloads them from the notifications tables.",
+      "primaryComponent": "NotificationsPage",
+      "components": [
+        {
+          "name": "NotificationsPage",
+          "summary": "NotificationsPage — a person's notifications under day headings (Upcoming, Today, Yesterday, Earlier),\nunread ones marked, with Mark all read: the twin of genesis-ui-native's NotificationsPage, with\nthe same `items`, `onMarkAllRead` and empty words. The day groups are genesis-core's\n(`groupNotificationsByDay`), so both platforms put a notification under the same heading.\n\nPresentational: it takes the items. genesis-notifications' NotificationFeed is the one that\nloads them from the notifications tables.",
+          "props": [
+            {
+              "name": "items",
+              "type": "readonly NotificationItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "dayLabels",
+              "type": "Partial<Record<NotificationDayBucket, string>>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "The day headings' words, by bucket."
+            },
+            {
+              "name": "emptyBody",
+              "type": "string",
+              "required": false,
+              "defaultValue": "When something needs your attention, it'll show up here.",
+              "description": ""
+            },
+            {
+              "name": "emptyState",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the empty state."
+            },
+            {
+              "name": "emptyTitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": "No notifications yet",
+              "description": ""
+            },
+            {
+              "name": "isLoading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": ""
+            },
+            {
+              "name": "markAllReadLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Mark all read",
+              "description": ""
+            },
+            {
+              "name": "now",
+              "type": "Date",
+              "required": false,
+              "defaultValue": null,
+              "description": "The moment the day headings count from. Default now, read in the browser."
+            },
+            {
+              "name": "onMarkAllRead",
+              "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shows Mark all read in the header."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "notifications-page",
+              "description": ""
+            },
+            {
+              "name": "timeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The zone whose days the headings count (an IANA name). Default the browser's. Pass it with\n`now` to group on the server too; without both, the server renders the list without headings\nand the browser adds them once it has hydrated, so the server's clock and zone never decide\nwhich day a notification is on."
+            },
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": "Notifications",
+              "description": "Default \"Notifications\"."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "number-input",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/ui/number-input.tsx",
+      "stability": "beta",
+      "summary": "NumberInput — a number with − and + buttons: the twin of genesis-ui-native's NativeNumberInput,\nwith the same `value`, `min`, `max`, `step` and `precision`. The field is a `spinbutton` (↑ and ↓\nstep it, Page Up and Page Down by ten steps, Home and End go to the ends); typing \"1,5\" reads as\n1.5 and \"1,234\" as 1234. Clamping, stepping and reading what was typed are genesis-core's, as on\nthe phone.\n\nA typed number is passed on as it is typed only while it is inside `min` and `max`; one outside\nis clamped when the field is left or Enter is pressed, so typing \"1\" on the way to \"15\" with\n`min` 10 never sends 10. The ref is the input's, so a form library can register it with `name`\nand `onBlur`.\n\nIt is the InputGroup with the buttons at its ends.",
+      "primaryComponent": "NumberInput",
+      "components": [
+        {
+          "name": "NumberInput",
+          "summary": "NumberInput — a number with − and + buttons: the twin of genesis-ui-native's NativeNumberInput,\nwith the same `value`, `min`, `max`, `step` and `precision`. The field is a `spinbutton` (↑ and ↓\nstep it, Page Up and Page Down by ten steps, Home and End go to the ends); typing \"1,5\" reads as\n1.5 and \"1,234\" as 1234. Clamping, stepping and reading what was typed are genesis-core's, as on\nthe phone.\n\nA typed number is passed on as it is typed only while it is inside `min` and `max`; one outside\nis clamped when the field is left or Enter is pressed, so typing \"1\" on the way to \"15\" with\n`min` 10 never sends 10. The ref is the input's, so a form library can register it with `name`\nand `onBlur`.\n\nIt is the InputGroup with the buttons at its ends.",
+          "props": [
+            {
+              "name": "onChange",
+              "type": "(next: number) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aria-label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The field's accessible name when no `<label htmlFor>` names it."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "id",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labels",
+              "type": "{ decrement?: string; increment?: string; } | undefined",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "The stepper buttons' names. Default \"Decrement\" / \"Increment\"."
+            },
+            {
+              "name": "locale",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The locale whose marks typed numbers use (\"de-DE\" reads \"1.234,5\"). Default: worked out from\nthe text (\"1,234\" is 1234, \"1,5\" is 1.5), genesis-core's `parseNumberInput`."
+            },
+            {
+              "name": "max",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "min",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The field's name in a form."
+            },
+            {
+              "name": "onBlur",
+              "type": "FocusEventHandler<HTMLInputElement>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called when the field is left, after a typed number is committed."
+            },
+            {
+              "name": "precision",
+              "type": "number",
+              "required": false,
+              "defaultValue": "0",
+              "description": "Decimal places shown. Default 0."
+            },
+            {
+              "name": "readOnlyInput",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Keep the steppers but not typing."
+            },
+            {
+              "name": "step",
+              "type": "number",
+              "required": false,
+              "defaultValue": "1",
+              "description": "Each press of − or +, and each arrow key. Default 1."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "number-input",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "open-modes",
       "aliases": [],
       "surface": "web",
@@ -20015,6 +23345,101 @@
             {
               "name": "asChild",
               "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "range-slider",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/ui/range-slider.tsx",
+      "stability": "beta",
+      "summary": "RangeSlider — two thumbs on one track, for a range (a price band, an age range): the twin of\ngenesis-ui-native's NativeRangeSlider, with the same `value: [low, high]` and `onChange`.\n\nIt is the Slider with two values (Radix draws a thumb per value, each keyboard-adjustable with\nthe arrow keys, Page Up/Down and Home/End). The ends are snapped and kept in order by\ngenesis-core's `clampRange`, the rule the phone's twin applies.",
+      "primaryComponent": "RangeSlider",
+      "components": [
+        {
+          "name": "RangeSlider",
+          "summary": "RangeSlider — two thumbs on one track, for a range (a price band, an age range): the twin of\ngenesis-ui-native's NativeRangeSlider, with the same `value: [low, high]` and `onChange`.\n\nIt is the Slider with two values (Radix draws a thumb per value, each keyboard-adjustable with\nthe arrow keys, Page Up/Down and Home/End). The ends are snapped and kept in order by\ngenesis-core's `clampRange`, the rule the phone's twin applies.",
+          "props": [
+            {
+              "name": "onChange",
+              "type": "(value: [number, number]) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "[number, number]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The low and high ends."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labels",
+              "type": "readonly [string, string]",
+              "required": false,
+              "defaultValue": "[\"Minimum\", \"Maximum\"]",
+              "description": "The thumbs' accessible names. Default \"Minimum\" and \"Maximum\"."
+            },
+            {
+              "name": "max",
+              "type": "number",
+              "required": false,
+              "defaultValue": "100",
+              "description": ""
+            },
+            {
+              "name": "min",
+              "type": "number",
+              "required": false,
+              "defaultValue": "0",
+              "description": ""
+            },
+            {
+              "name": "minStepsBetweenThumbs",
+              "type": "number",
+              "required": false,
+              "defaultValue": "0",
+              "description": "Steps the two thumbs keep between them. Default 0 (they may meet)."
+            },
+            {
+              "name": "onCommit",
+              "type": "((value: [number, number]) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called once a drag ends, with the final range."
+            },
+            {
+              "name": "step",
+              "type": "number",
+              "required": false,
+              "defaultValue": "1",
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -26706,6 +30131,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "thumbLabels",
+              "type": "readonly string[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Each thumb's accessible name, in order (\"Minimum price\", \"Maximum price\"). A thumb is drawn\nper value, so `value={[20, 80]}` is a range (RangeSlider names its two)."
             }
           ]
         }
@@ -27236,6 +30668,59 @@
           "name": "StatusBadgeStatus",
           "summary": "The domain status vocabulary `StatusBadge` understands. A `Pick` (not a\nhand-copied literal union) of `@marktiderman/genesis-design-system`'s\n`status` tokens, so removing/renaming one of these keys upstream breaks\nthis file's typecheck instead of silently drifting.",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "stepper",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/ui/stepper.tsx",
+      "stability": "beta",
+      "summary": "Stepper — where a person is in a flow of steps (onboarding, a checkout, a form in steps): the\ntwin of genesis-ui-native's NativeStepper, with the same `steps` and `current`. Done steps show\na check, the current one is marked (`aria-current=\"step\"`), and each step's state is\ngenesis-core's `stepState`, as on the phone.",
+      "primaryComponent": "Stepper",
+      "components": [
+        {
+          "name": "Stepper",
+          "summary": "Stepper — where a person is in a flow of steps (onboarding, a checkout, a form in steps): the\ntwin of genesis-ui-native's NativeStepper, with the same `steps` and `current`. Done steps show\na check, the current one is marked (`aria-current=\"step\"`), and each step's state is\ngenesis-core's `stepState`, as on the phone.",
+          "props": [
+            {
+              "name": "current",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": "The step the person is on, from 0."
+            },
+            {
+              "name": "steps",
+              "type": "readonly StepperStep[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aria-label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The list's accessible name. Default \"Progress\"."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "stepper",
+              "description": ""
+            }
+          ]
         }
       ]
     },
@@ -28137,6 +31622,115 @@
               "required": false,
               "defaultValue": null,
               "description": "A key of the brand's `accents` (`\"gold\"`). Unset: neutral."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "time-picker",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/components/ui/time-picker.tsx",
+      "stability": "beta",
+      "summary": "TimePicker — a time of day, picked from a list or typed: the twin of genesis-ui-native's\nNativeTimePicker. Its `value` is a `Date` (the day is kept, as NativeTimePicker's) or an\n\"HH:MM\" string (a time of day alone, as `<input type=\"time\">` holds it), and `onChange` gives\nback the same kind. The list steps by `minuteStep`; typing \"2:30 pm\", \"14:30\" or \"1430\" puts\nthat time first in the list, highlighted, so Enter picks the time that is highlighted. Reading\nand writing times is genesis-core's (`parseTimeOfDay`, `formatTimeOfDay`, `timeSlots`), as on\nthe phone.\n\nA `Date` is read on the browser's clock once the page has hydrated, or on `timeZone`'s from the\nfirst render. The trigger's name is its visible label (`<label htmlFor={id}>`), or `aria-label`,\nfollowed by the time.\n\nBuilt from Command in a Popover, like Combobox: the search box is the combobox, arrow keys move\nthrough the times, and Enter picks the highlighted one.",
+      "primaryComponent": "TimePicker",
+      "components": [
+        {
+          "name": "TimePicker",
+          "summary": "TimePicker — a time of day, picked from a list or typed: the twin of genesis-ui-native's\nNativeTimePicker. Its `value` is a `Date` (the day is kept, as NativeTimePicker's) or an\n\"HH:MM\" string (a time of day alone, as `<input type=\"time\">` holds it), and `onChange` gives\nback the same kind. The list steps by `minuteStep`; typing \"2:30 pm\", \"14:30\" or \"1430\" puts\nthat time first in the list, highlighted, so Enter picks the time that is highlighted. Reading\nand writing times is genesis-core's (`parseTimeOfDay`, `formatTimeOfDay`, `timeSlots`), as on\nthe phone.\n\nA `Date` is read on the browser's clock once the page has hydrated, or on `timeZone`'s from the\nfirst render. The trigger's name is its visible label (`<label htmlFor={id}>`), or `aria-label`,\nfollowed by the time.\n\nBuilt from Command in a Popover, like Combobox: the search box is the combobox, arrow keys move\nthrough the times, and Enter picks the highlighted one.",
+          "props": [
+            {
+              "name": "onChange",
+              "type": "((next: Date) => void) | ((next: string) => void)",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "string | Date",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "aria-label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The trigger's name, followed by the time (\"Starts, 2:30 PM\"). Leave it out when a visible\n`<label htmlFor={id}>` names the trigger: the label's words and the time are its name then\n(through `aria-labelledby`). With neither, the name is \"Pick a time\" and the time."
+            },
+            {
+              "name": "aria-labelledby",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The id of an element that names the trigger; the time is added after it."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "disabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "formatLabel",
+              "type": "((date: Date) => string) | ((time: string) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The trigger's words. Default the time, in 12 or 24 hours. With `timeZone` it also runs on the\nserver, so format on that same zone (`Intl.DateTimeFormat(…, { timeZone })`), or the server's\nwords and the browser's differ.\nThe trigger's words. Default the time, in 12 or 24 hours."
+            },
+            {
+              "name": "hour12",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "12-hour times (\"2:30 PM\"). Default: the viewer's locale's preference, read after the page\nhas hydrated (24-hour until then), so a server's locale never decides it. Pass it to render\nthe viewer's form from the first paint."
+            },
+            {
+              "name": "id",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "minuteStep",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Minutes between the listed times. Default 15."
+            },
+            {
+              "name": "placeholder",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The trigger's words with no time chosen (an empty string value). Default \"Pick a time\"."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "timeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The zone whose clock the time is read and picked on (an IANA name, \"Europe/Paris\"). Default\nthe browser's. Without it the trigger shows no time until the page has hydrated, so a\nserver's zone never decides it; pass it to render the time from the server too. A pick keeps\nthe value's calendar day on this clock, daylight-saving days included (see the README)."
             }
           ]
         }
@@ -30787,6 +34381,80 @@
       ]
     },
     {
+      "slug": "whats-new-sheet",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/patterns",
+      "filePath": "packages/ui/src/components/patterns/whats-new-sheet.tsx",
+      "stability": "beta",
+      "summary": "WhatsNewSheet — a release's notes after an update, in a dialog: the twin of genesis-ui-native's\nNativeWhatsNewSheet, with the same `notes`, `dismiss`, `onOpenNote` and labels. On a phone-width\nscreen it rises as a sheet (`mobileLayout=\"sheet\"`). Closing it in any way (Got it, Escape, the\noverlay) dismisses the notes, and Learn more dismisses them before opening the note.",
+      "primaryComponent": "WhatsNewSheet",
+      "components": [
+        {
+          "name": "WhatsNewSheet",
+          "summary": "WhatsNewSheet — a release's notes after an update, in a dialog: the twin of genesis-ui-native's\nNativeWhatsNewSheet, with the same `notes`, `dismiss`, `onOpenNote` and labels. On a phone-width\nscreen it rises as a sheet (`mobileLayout=\"sheet\"`). Closing it in any way (Got it, Escape, the\noverlay) dismisses the notes, and Learn more dismisses them before opening the note.",
+          "props": [
+            {
+              "name": "dismiss",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Mark the notes seen and close (genesis-native's `useWhatsNew().dismiss`, or your own)."
+            },
+            {
+              "name": "notes",
+              "type": "readonly N[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The notes; with none, nothing is shown."
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A line under the title, for screen readers and sighted people alike."
+            },
+            {
+              "name": "doneLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Got it",
+              "description": ""
+            },
+            {
+              "name": "learnMoreLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Learn more",
+              "description": ""
+            },
+            {
+              "name": "onOpenNote",
+              "type": "((note: N) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Opens a note's `url`. Without it, notes show no Learn more."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "whats-new",
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": "What's new",
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "widget",
       "aliases": [],
       "surface": "web",
@@ -31161,7 +34829,7 @@
               "name": "badgeLabel",
               "type": "((workspace: W, value: string | number) => string)",
               "required": false,
-              "defaultValue": "(_w: Workspace, value: string | number) => (typeof value === \"number\" ? `${value} new` : String(value))",
+              "defaultValue": null,
               "description": "What a screen reader hears for a badge, in place of the bare value. Default: \"3 new\" for a\nnumber, the text itself otherwise."
             },
             {
@@ -31367,12 +35035,7 @@
         },
         {
           "name": "WORKSPACE_SWITCHER_SEARCH_THRESHOLD",
-          "summary": "With `search=\"auto\"`, past this many workspaces the menu opens with a search box.",
-          "props": []
-        },
-        {
-          "name": "DEFAULT_WORKSPACE_KIND_LABELS",
-          "summary": "The default heading over each kind's group in the menu.",
+          "summary": "With a switcher's `search=\"auto\"`, past this many workspaces it opens with a search box. On the web and the phone.",
           "props": []
         },
         {
