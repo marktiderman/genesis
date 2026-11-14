@@ -195,13 +195,13 @@ describe("3. cancel stops requests in flight and back-off waits", () => {
     const s = setup();
     let reached!: () => void;
     const partInFlight = new Promise<void>((r) => (reached = r));
-    let deletes = 0;
+    const deleteSignals: (AbortSignal | null | undefined)[] = [];
     const { uploader } = client(s, {
       filesAtOnce: 1,
       cleanupTimeoutMs: 20,
       hook: async (m, p, init, forward) => {
         // A DELETE the network holds for ever, ignoring its signal: only the uploader's own deadline ends the wait.
-        if (m === "DELETE") return deletes++, new Promise<Response>(() => {});
+        if (m === "DELETE") return deleteSignals.push(init.signal), new Promise<Response>(() => {});
         // The first upload's parts wait for the cancel; the second upload's go through.
         if (m === "PUT") first ||= p.split("/")[1]!;
         if (m === "PUT" && p.startsWith(`/${first}/`))
@@ -233,7 +233,9 @@ describe("3. cancel stops requests in flight and back-off waits", () => {
     } finally {
       clearTimeout(guard);
     }
-    expect(deletes).toBe(2);
+    // The deadline doesn't only stop waiting: it aborts each DELETE, so a real fetch lets go of the request.
+    expect(deleteSignals).toHaveLength(2);
+    expect(deleteSignals.map((sig) => sig?.aborted)).toEqual([true, true]);
   });
 
   it("a cancel before the create is sent sends no DELETE: the server never saw the id", async () => {

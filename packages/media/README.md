@@ -631,9 +631,10 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
   best-effort DELETE with no retries, which waits at most `cleanupTimeoutMs` (default 5000), so a
   cancel settles even offline. A DELETE that fails (offline, a 5xx or 429, the deadline) isn't
   retried, and a create can reach the server after it: that session stays open, with its parts,
-  until it expires (`sessionTtlSeconds` after its last part, 7 days by default), and then only
-  the scheduled sweep (`UPLOAD_SWEEP_JOB`) clears it. A cancel before the create is sent sends
-  no DELETE. Pause
+  until it expires (`sessionTtlSeconds` after its last part, 7 days by default). After that, the
+  next create of the same file (same owner, purpose, size, SHA-256 and targets) clears it, or the
+  scheduled sweep (`UPLOAD_SWEEP_JOB`) does. A cancel before the create is sent sends no
+  DELETE. Pause
   holds before the next hash slice, part or finalize. A resume store that fails (private
   browsing) never stops an upload. With the Web Worker hasher, a pause during hashing takes
   effect once the whole-file hash is done (the worker hashes the file in one go; a cancel stops
