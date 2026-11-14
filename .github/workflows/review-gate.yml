@@ -50,6 +50,7 @@ jobs:
       # No job-level `if`: a skipped job would satisfy a required check. A base that isn't gated
       # fails here instead (no ruleset requires the check there, so that red run is harmless).
       - name: Gated base?
+        shell: bash
         run: |
           case "$BASE" in
             staging/*|"$DEFAULT") echo "Gated base: $BASE" ;;
@@ -60,6 +61,7 @@ jobs:
           DEFAULT: ${{ github.event.repository.default_branch }}
       - name: A new commit needs a new review
         if: "${{ github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'review: approved') }}"
+        shell: bash
         run: |
           # The token is the base branch's, with write access, Dependabot's and forks' PRs included.
           # If the revoke still fails, the label stays, but a review of an older head never counts.
@@ -81,10 +83,14 @@ jobs:
           REPO: ${{ github.repository }}
       - name: Reviewed?
         if: "${{ !(github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'review: approved')) }}"
+        # `shell: bash` runs with -eo pipefail: a failed API call (any page) fails the step, so an
+        # incomplete review history can never pass.
+        shell: bash
         run: |
           # Read the label now, not from the event, so a label a failed revoke left behind or one
           # added since still counts as it stands.
-          if ! gh api "repos/$REPO/issues/$PR/labels" --jq '.[].name' | grep -Fxq 'review: approved'; then
+          labels=$(gh api "repos/$REPO/issues/$PR/labels" --jq '.[].name')
+          if ! grep -Fxq 'review: approved' <<< "$labels"; then
             echo "::error::Waiting for an independent adversarial review. The reviewer adds 'review: approved' once every finding (lows included) is fixed, or declined with a reason the reviewer accepts."
             exit 1
           fi
@@ -97,17 +103,29 @@ jobs:
             exit 1
           fi
           # The latest verdict on the head from a person decides: dismissed reviews are ignored,
-          # and a later "changes requested" overrides an earlier approve. Each page is reduced to
-          # "time<TAB>verdict" lines, then sorted across pages.
-          verdict=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews" --jq "
-            .[] | select(.commit_id == \"$HEAD\" and .user.type == \"User\" and .state != \"DISMISSED\")
-            | ((.body // \"\") | ascii_downcase | sub(\"^[\\\\s#*_>]+\"; \"\")) as \$b
-            | (if .state == \"CHANGES_REQUESTED\" then \"changes\"
-               elif (\$b | startswith(\"verdict: approve\")) then \"approve\"
-               elif (\$b | startswith(\"verdict:\")) then \"changes\"
-               elif .state == \"APPROVED\" then \"approve\"
-               else empty end) as \$v
-            | \"\(.submitted_at)\t\(\$v)\"" | sort | tail -n 1 | cut -f 2)
+          # and a later "changes requested" overrides an earlier approve. A review's verdict is
+          # read from its first non-empty line, lowercased, with every * _ ` removed and leading
+          # # > and whitespace stripped, then matched as "verdict: approve" or
+          # "verdict: changes requested". A line that starts "verdict" but parses to neither
+          # counts as not approving. Each review becomes a "time<TAB>verdict" line; the latest wins.
+          VERDICT_JQ=$(cat <<'JQ'
+          .[]
+          | select(.commit_id == $head and .user.type == "User" and .state != "DISMISSED")
+          | ((.body // "") | ascii_downcase | split("\n") | map(select(test("\\S"))) | (.[0] // "")
+             | gsub("[*_`]"; "") | sub("^[\\s#>]+"; "")) as $line
+          | ([$line | capture("^verdict\\s*:\\s*(?<v>approve|changes requested)")] | .[0].v) as $parsed
+          | (if .state == "CHANGES_REQUESTED" then "changes"
+             elif $parsed == "approve" then "approve"
+             elif $parsed == "changes requested" then "changes"
+             elif ($line | startswith("verdict")) then "unreadable"
+             elif .state == "APPROVED" then "approve"
+             else empty end) as $v
+          | "\(.submitted_at)\t\($v)"
+          JQ
+          )
+          reviews=$(mktemp)
+          gh api --paginate "repos/$REPO/pulls/$PR/reviews" > "$reviews"
+          verdict=$(jq -r --arg head "$HEAD" "$VERDICT_JQ" "$reviews" | sort | tail -n 1 | cut -f 2)
           if [ "$verdict" != "approve" ]; then
             echo "::error::'review: approved' is on, but the latest verdict on the head ($HEAD) is '${verdict:-none}', not an approve. Review the latest head."
             exit 1
