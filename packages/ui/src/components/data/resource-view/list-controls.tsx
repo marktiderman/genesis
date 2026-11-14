@@ -275,6 +275,16 @@ export function ViewTypeSwitcher({ types, value, onChange }: { types: readonly s
   );
 }
 
+/**
+ * Rows a screen holds are drawn by the list page only (table, list, grid, gallery). A type that
+ * reads its own rows (board, calendar, inbox, sheet, an app's type) says so rather than show rows
+ * other than the screen's, whether ResourceView dispatches to it or the screen renders it directly.
+ */
+export function refuseHeldRows(resource: string, type: string, rows: unknown): void {
+  if (rows === undefined) return;
+  throw new Error(`ResourceView(${resource}): rows are drawn by the table, list, grid and gallery only; type "${type}" reads its own rows. Leave rows out, or pick one of those types.`);
+}
+
 /** The types the view supports that are registered here, in the view's order. */
 export function switchableTypes(view: AnyView, screenTypes: readonly string[] | undefined): readonly string[] {
   const registered = new Set(listViewTypes().map((t) => t.id));

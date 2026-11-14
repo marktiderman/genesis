@@ -515,8 +515,11 @@ export function useResourceTableModel<
   // A linked record that isn't in the loaded rows (another page, outside the
   // search) is fetched on its own; one that can't be read shows as missing.
   const linkedId = urlPeek && selectedKey && !rowOrSnapshot ? selectedKey : null;
+  // In the list's scope, as the inbox reads an off-page row: a resource read from a function that
+  // takes its scope from the list's filters (a tenant) reads the record there, not in its default.
   const linked = useOne<T & BaseRecord>(resourceName ?? "__noop__", linkedId, {
     enabled: isClientMode && !!linkedId,
+    scope: resourceHook.params.filters,
   });
   const selectedItem: T | null =
     rowOrSnapshot ?? (linkedId && linked.data ? (linked.data as T) : null);

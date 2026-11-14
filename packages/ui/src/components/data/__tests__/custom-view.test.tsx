@@ -224,6 +224,55 @@ describe("useViewCalendarRange", () => {
     expect(result.current.rows.map((r) => r.id)).toEqual(["x"]);
   });
 
+  it("reads the lookback latest start first, so the limit keeps the rows nearest the window", async () => {
+    const lasting = defineView(players, { calendar: { field: "played_on", durationField: "points", durationUnit: "days", maxDuration: 2 } });
+    const p = provider();
+    const { result } = renderHook(() => useViewCalendarRange(lasting, { start: "2026-11-01", end: "2026-11-08" }, { limit: 500 }), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const lookback = vi.mocked(p.getList).mock.calls.map((c) => c[1]).find((params) => params.filters?.some((f) => f.operator === "gte" && f.value === "2026-10-30"))!;
+    expect(lookback.sort).toEqual({ field: "played_on", order: "desc" });
+    expect(lookback.pagination).toEqual({ page: 1, perPage: 500 });
+  });
+
+  it("with an end column, reads only lookback rows with no end of their own, and doesn't warn without maxDuration", async () => {
+    type Slot = { id: string; starts_at: string; ends_at: string | null; minutes: number };
+    const slots = defineResource<Slot>()({
+      name: "slots",
+      key: "id",
+      fields: [
+        { name: "id", type: "string" },
+        { name: "starts_at", type: "datetime", dbType: "timestamptz" },
+        { name: "ends_at", type: "datetime", dbType: "timestamptz", nullable: true },
+        { name: "minutes", type: "number" },
+      ],
+    });
+    const p = provider();
+    const ended = defineView(slots, { calendar: { field: "starts_at", endField: "ends_at", durationField: "minutes", maxDuration: 180 } });
+    const { result } = renderHook(() => useViewCalendarRange(ended, { start: "2026-11-01", end: "2026-11-08" }, { timeZone: "UTC" }), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const reads = vi.mocked(p.getList).mock.calls.map((c) => c[1].filters ?? []);
+    expect(reads).toContainEqual([
+      { field: "starts_at", operator: "gte", value: "2026-10-31T21:00:00.000Z" },
+      { field: "starts_at", operator: "lt", value: "2026-11-01T00:00:00.000Z" },
+      { field: "ends_at", operator: "is_null" },
+    ]);
+    // A zoned timestamp looks back by elapsed time: across spring forward (New York, 8 March 2026,
+    // a 23-hour day), 24 hours before the 9 March window is 04:00 UTC on the 8th, not that day's midnight.
+    const dst = provider();
+    const daylong = defineView(slots, { calendar: { field: "starts_at", durationField: "minutes", durationUnit: "hours", maxDuration: 24 } });
+    const spring = renderHook(() => useViewCalendarRange(daylong, { start: "2026-03-09", end: "2026-03-10" }, { timeZone: "America/New_York" }), { wrapper: wrap(dst) });
+    await waitFor(() => expect(spring.result.current.loading).toBe(false));
+    expect(vi.mocked(dst.getList).mock.calls.map((c) => c[1].filters ?? [])).toContainEqual([
+      { field: "starts_at", operator: "gte", value: "2026-03-08T04:00:00.000Z" },
+      { field: "starts_at", operator: "lt", value: "2026-03-09T04:00:00.000Z" },
+    ]);
+    // Without maxDuration, an end column already reads the rows from before the window: no warning.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const quiet = defineView(slots, { calendar: { field: "starts_at", endField: "ends_at", durationField: "minutes" } });
+    renderHook(() => useViewCalendarRange(quiet, { start: "2026-11-01", end: "2026-11-08" }, { timeZone: "UTC" }), { wrapper: wrap(provider()) });
+    expect(warn.mock.calls.some((c) => String(c[0]).includes("maxDuration"))).toBe(false);
+  });
+
   it("refuses a maxDuration that isn't a positive number or has no durationField", () => {
     expect(() => defineView(players, { calendar: { field: "played_on", maxDuration: 2 } })).toThrow(/maxDuration needs a durationField/);
     expect(() => defineView(players, { calendar: { field: "played_on", durationField: "points", maxDuration: -1 } })).toThrow(/maxDuration is a number above 0/);

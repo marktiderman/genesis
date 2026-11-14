@@ -801,6 +801,12 @@ export interface ResourcePageProps<
    * confirmation, from `useResourceViewProps`). Rendered as given.
    */
   dialogs?: ReactNode;
+  /**
+   * The page starts again (its search, sort and status from `initialFilters`) when this changes:
+   * `useResourceViewProps` sets it when a saved view is restored, so a screen that renders its own
+   * `<ResourcePage {...props}>` picks the saved search and sort up as `<ResourceView>` does.
+   */
+  restoreKey?: string | number | undefined;
   /** The empty state's action, e.g. the create button. */
   emptyState?: ReactNode;
   /**
@@ -928,7 +934,11 @@ export interface ResourcePageProps<
   className?: string;
   /**
    * Offer "Export CSV" in the header's menu (ADR 0017 §8): called with the list's query (its
-   * filters, sort and search) to export every row it matches, not one page.
+   * filters, sort and search) to export every row it matches, not one page. With a `resource`, that
+   * is the resource's query plus what the page applies in the browser (`pagination="client"`): its
+   * search, sort and status chips. With the caller's `data`, it carries the page's search, sort and
+   * status chips, but not filters the caller applies to its data itself: the caller adds those.
+   * "Select all matching" bulk actions get the same query.
    */
   onExport?: ((query: ResourceListQuery) => void | Promise<void>) | undefined;
   /**
@@ -1016,6 +1026,13 @@ function focusToastAction(marker: string) {
  * {@link useResourceTable} is the same behaviour without this markup.
  */
 export function ResourcePage<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(props: ResourcePageProps<T>) {
+  // `initialFilters` is read when the page mounts: a new `restoreKey` mounts it again with them.
+  return <ResourcePageBody<T> key={props.restoreKey ?? "page"} {...props} />;
+}
+
+function ResourcePageBody<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(props: ResourcePageProps<T>) {
   const {
@@ -1196,12 +1213,21 @@ export function ResourcePage<
         ...(displayTotal >= 0 ? { total: displayTotal } : {}),
       };
     }
+    // The resource's own query, with what the page applies in the browser when it pages there
+    // (`pagination="client"`): its search, sort and status chips, which never reach the params.
     const params = resourceHook.params;
-    const sorts = params.sorts?.length ? params.sorts : params.sort ? [params.sort] : [];
+    const statusField = typeof props.statusFilter === "string" ? props.statusFilter : props.statusFilter?.field;
+    const filters = [...(params.filters ?? [])];
+    if (statusField && page.statusValue.length && !filters.some((f) => f.field === statusField)) {
+      filters.push({ field: statusField, operator: "in", value: [...page.statusValue] });
+    }
+    const sorts = params.sorts?.length ? params.sorts : params.sort ? [params.sort] : page.sort ? [page.sort] : [];
+    const query = page.search.trim();
+    const search = params.search?.query ? params.search : query ? { query, fields: props.searchFields ?? props.resourceOptions?.searchFields ?? [] } : undefined;
     return {
-      filters: params.filters ?? [],
+      filters,
       sorts,
-      ...(params.search?.query ? { search: params.search } : {}),
+      ...(search ? { search } : {}),
       ...(displayTotal >= 0 ? { total: displayTotal } : {}),
     };
   };

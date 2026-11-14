@@ -10,7 +10,7 @@ import type { ReactNode } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { defineResource, GenesisProvider, type DataProvider } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
-import { ResourceView } from "../resource-view";
+import { ResourceSheet, ResourceView } from "../resource-view";
 
 type Task = { id: string; title: string; hours: number; locked: boolean; created_at: string };
 
@@ -187,4 +187,54 @@ describe("<ResourceView type=\"sheet\">", () => {
     expect(await screen.findByTestId("resource-sheet-error")).toBeTruthy();
     expect(screen.getByTestId("resource-sheet-retry")).toBeTruthy();
   });
+
+  it("runs one undo at a time: a second press while one is out does nothing", async () => {
+    const p = provider();
+    render(<ResourceView view={view} type="sheet" />, { wrapper: wrap(p) });
+    await editHours(p, "5");
+    let release: () => void = () => undefined;
+    p.update.mockImplementationOnce(() => new Promise((resolve) => (release = () => resolve({ data: {} }))));
+    const undo = screen.getByTestId("resource-sheet-undo");
+    fireEvent.click(undo);
+    fireEvent.click(undo);
+    await act(async () => undefined);
+    expect(p.update).toHaveBeenCalledTimes(2);
+    await act(async () => release());
+    await act(async () => undefined);
+    expect(p.update).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses rows the screen holds when rendered directly, before any read", () => {
+    const p = provider();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(() => render(<ResourceSheet view={view} rows={p.rows} />, { wrapper: wrap(p) })).toThrow(/rows are drawn by the table/);
+    expect(p.getList).not.toHaveBeenCalled();
+  });
+
+  it("adds no undo entry for a save that lands after the sheet moved to another resource and back", async () => {
+    const p = provider();
+    const notes = defineResource<Task>()({ ...tasks, name: "notes" });
+    const notesView = defineView(notes, { columns: { default: ["title", "hours"] } });
+    const { rerender } = render(<ResourceView view={view} type="sheet" />, { wrapper: wrap(p) });
+    await screen.findByText("Write the plan");
+    let release: () => void = () => undefined;
+    p.update.mockImplementationOnce(() => new Promise((resolve) => (release = () => resolve({ data: {} }))));
+    const grid = screen.getByRole("grid");
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    fireEvent.keyDown(grid, { key: "8" });
+    const input = screen.getByLabelText(/Hours, row 1/i);
+    fireEvent.change(input, { target: { value: "8" } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+    // A to B and back to A while the save is still out; then it lands.
+    rerender(<ResourceView view={notesView as never} type="sheet" />);
+    await screen.findByText("Write the plan");
+    rerender(<ResourceView view={view} type="sheet" />);
+    await screen.findByText("Write the plan");
+    await act(async () => release());
+    await act(async () => undefined);
+    expect((screen.getByTestId("resource-sheet-undo") as HTMLButtonElement).disabled).toBe(true);
+  });
 });
+

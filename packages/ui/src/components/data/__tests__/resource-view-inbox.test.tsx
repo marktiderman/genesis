@@ -11,7 +11,7 @@ import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams } from "@marktiderman/genesis-core";
 import { defineRecordView, defineView, type AnyRecordView } from "@marktiderman/genesis-core/resource-view";
-import { ResourceView } from "../resource-view";
+import { ResourceInbox, ResourceView } from "../resource-view";
 import { recordPeekSlot } from "../resource-view/RecordPeek";
 
 type Ticket = { id: string; subject: string; body: string; requester: string; status: "open" | "solved"; unread: boolean; updated_at: string };
@@ -156,6 +156,26 @@ describe("<ResourceView type=\"inbox\">", () => {
     render(<ResourceView view={scoped} type="inbox" inbox={{ selected: "t3" }} />, { wrapper: wrap(p) });
     await waitFor(() => expect(p.getOne).toHaveBeenCalled());
     expect(vi.mocked(p.getOne).mock.calls[0]![1]).toMatchObject({ id: "t3", scope: [{ field: "status", operator: "eq", value: "open" }] });
+  });
+
+  it("doesn't read the open record again for every change of a text filter, which its scope can't take", async () => {
+    const p = provider();
+    const filtered = defineView(tickets, { inbox: { unread: "unread" }, filters: [{ field: "subject", kind: "text" }] });
+    render(<ResourceView view={filtered} type="inbox" inbox={{ selected: "t9" }} />, { wrapper: wrap(p) });
+    await waitFor(() => expect(p.getOne).toHaveBeenCalledTimes(1));
+    const box = screen.getByPlaceholderText(/subject/i);
+    for (const text of ["c", "ca"]) {
+      fireEvent.change(box, { target: { value: text } });
+      await waitFor(() => expect(vi.mocked(p.getList).mock.calls.some((c) => (c[1] as ListParams).filters?.some((f) => f.operator === "contains" && f.value === text))).toBe(true));
+    }
+    expect(p.getOne).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses rows the screen holds when rendered directly, before any read", () => {
+    const p = provider();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(() => render(<ResourceInbox view={view} rows={ROWS} />, { wrapper: wrap(p) })).toThrow(/rows are drawn by the table/);
+    expect(p.getList).not.toHaveBeenCalled();
   });
 
   it("moves with j and k", async () => {

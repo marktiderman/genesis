@@ -34,7 +34,7 @@ import { RecordView } from "./RecordView";
 import { RowAvatar } from "./RowAvatar";
 import { recordViewOf } from "./record-open";
 import { useViewList } from "./use-view-list";
-import { ListModelContext, defaultSavedViewStore, useListActions, useViewSavedViews, ViewFilterControls } from "./list-controls";
+import { ListModelContext, defaultSavedViewStore, refuseHeldRows, useListActions, useViewSavedViews, ViewFilterControls } from "./list-controls";
 import { useResourceViewDefaults } from "./defaults";
 import type { ResourceViewProps } from "./ResourceView";
 
@@ -96,6 +96,8 @@ function documentPage<T extends Row>(view: AnyView<T>): AnyRecordView {
  */
 export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) {
   const { view, inbox: options = {}, preset, filter, scoped, resourceOptions, live, onEdit, onDelete, onAction, recordView: recordViewProp, filterSlot, refusals, className } = props;
+  // Rendered directly too: held rows would be ignored for the provider's.
+  refuseHeldRows(view.resource, "inbox", props.rows);
   const m = useUiMessages();
   const viewer = useViewer();
   const provider = useDataProvider();

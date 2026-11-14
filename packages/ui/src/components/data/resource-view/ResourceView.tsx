@@ -16,6 +16,7 @@ import {
   defaultSavedViewStore,
   switchableTypes,
   reasonOf,
+  refuseHeldRows,
   useListActions,
   useViewExport,
   useViewSavedViews,
@@ -271,10 +272,11 @@ interface ResourceViewModel<T extends Row> {
  * `<ResourceView>` both use it; call it yourself to hand the props to your own layout.
  */
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
-  const { pageProps, confirm } = useResourceViewModel(props);
+  const { pageProps, confirm, restoreKey } = useResourceViewModel(props);
   // A view action's confirmation travels with the props (`dialogs`), so a screen that hands them to
-  // its own <ResourcePage> gets the dialog too, and the action runs once it's confirmed.
-  return { ...pageProps, dialogs: <>{confirm}{pageProps.dialogs}</> };
+  // its own <ResourcePage> gets the dialog too, and the action runs once it's confirmed. So does
+  // `restoreKey`: a restored saved view's search and sort start the page again, as here.
+  return { ...pageProps, restoreKey, dialogs: <>{confirm}{pageProps.dialogs}</> };
 }
 
 function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): ResourceViewModel<T> {
@@ -676,7 +678,10 @@ function ResourceViewRoot<T extends Row>(props: ResourceViewProps<T>) {
   const own = useOwnListModel(props as ResourceViewProps<Row>);
   const { on, types } = switcherFor(props as ResourceViewProps<Row>);
   const fixed = props.type ?? props.mode;
-  const type = on ? (own.state.type ?? types[0]!) : typeof fixed === "string" ? fixed : undefined;
+  // The person's type only while it's offered: rows arriving narrow the types to the list page's,
+  // and a board chosen (or restored) before them falls back to the first type rather than throw.
+  const chosen = own.state.type;
+  const type = on ? (chosen !== undefined && types.includes(chosen) ? chosen : types[0]!) : typeof fixed === "string" ? fixed : undefined;
   const switcher = on ? <ViewTypeSwitcher types={types} value={type} onChange={own.state.setType} /> : null;
   const model = useMemo(() => ({ ...own, switcher }), [own, switcher]);
   const page = type === undefined || PAGE_DRAWN.has(type);
@@ -723,11 +728,7 @@ function ResourceViewOfType<T extends Row = Row>(props: ResourceViewProps<T>) {
   // Rows the screen holds go to the list page (table, list, grid, gallery). The board, the
   // calendar, the inbox, the sheet and an app's type read their own: rather than show rows other
   // than the screen's, say so.
-  if (props.rows !== undefined && typeof shown === "string" && !PAGE_DRAWN.has(shown)) {
-    throw new Error(
-      `ResourceView(${props.view.resource}): rows are drawn by the table, list, grid and gallery only; type "${shown}" reads its own rows. Leave rows out, or pick one of those types.`,
-    );
-  }
+  if (typeof shown === "string" && !PAGE_DRAWN.has(shown)) refuseHeldRows(props.view.resource, shown, props.rows);
   const model = useContext(ListModelContext);
   if (model && (shown === undefined || shown === "table" || shown === "list" || shown === "grid")) return <ResourceViewPage<T> {...props} />;
   if (shown === undefined || typeof shown !== "string") return <ResourceViewPage<T> {...props} />;

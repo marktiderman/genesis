@@ -484,6 +484,8 @@ describe("review fixes: list state, actions and rows (second round)", () => {
     await waitFor(() => expect(writes.length).toBeGreaterThan(0));
     const first = new URLSearchParams(writes[0]!);
     expect([first.get("seg"), first.get("q"), first.get("sort")]).toEqual(["all", "plan", "hours:desc"]);
+    await act(async () => undefined);
+    expect(writes).toHaveLength(1);
   });
 
   it("starts another list from the screen's type, not the last list's stored one", async () => {
@@ -571,11 +573,17 @@ describe("review fixes: list state, actions and rows (second round)", () => {
   });
 
   it("with rows the screen holds: no declared filters over them, and no board, calendar, inbox or sheet", async () => {
-    const view = defineView(tasks, { segments: [{ id: "open", label: "Open", where: { status: "todo" } }], filters: [{ field: "status" }], board: { field: "status" } });
-    const { unmount } = render(<ResourceView view={view} rows={ROWS} />, { wrapper: wrap(provider()) });
+    type Dated = Task & { due_on: string };
+    const dated = defineResource<Dated>()({ ...tasks, fields: [...tasks.fields, { name: "due_on", type: "datetime", dbType: "date" }] } as never);
+    const view = defineView(dated as typeof tasks, { segments: [{ id: "open", label: "Open", where: { status: "todo" } }], filters: [{ field: "status" }], board: { field: "status" }, calendar: { field: "due_on" as never } });
+    const p = provider();
+    const { unmount } = render(<ResourceView view={view} rows={ROWS} />, { wrapper: wrap(p) });
     await screen.findByText("Ship it");
     expect(screen.queryByTestId("view-segment-open")).toBeNull();
+    // Switching to the board or the calendar isn't offered over held rows, and nothing is read.
     expect(screen.queryByTestId("view-type-board")).toBeNull();
+    expect(screen.queryByTestId("view-type-calendar")).toBeNull();
+    expect(p.getList).not.toHaveBeenCalled();
     unmount();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     for (const type of ["board", "calendar", "inbox", "sheet"] as const) {
@@ -611,12 +619,94 @@ describe("review fixes: list state, actions and rows (second round)", () => {
     await waitFor(() => expect(screen.queryByText("All 3 matching selected")).toBeNull());
   });
 
-  it("exports a caller's data with the search and sort the page shows", async () => {
+  it("exports a caller's data with the search, sort and status chips the page shows", async () => {
     const onExport = vi.fn();
     render(
-      <ResourcePage<Task> title="Tasks" data={ROWS} columns={[{ key: "title", header: "Title" }]} searchFields={["title"]} onExport={onExport} />,
+      <ResourcePage<Task> title="Tasks" data={ROWS} columns={[{ key: "title", header: "Title", sortable: true }]} searchFields={["title"]} statusFilter="status" onExport={onExport} />,
       { wrapper: wrap(provider()) },
     );
+    await screen.findByText("Ship it");
+    fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: "l" } });
+    await waitFor(() => expect(screen.queryByText("Ship it")).toBeNull());
+    fireEvent.click(screen.getByTestId("status-chip-todo"));
+    fireEvent.click(within(screen.getByRole("columnheader", { name: /title/i })).getByRole("button"));
+    fireEvent.pointerDown(screen.getByLabelText("More actions"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByText("Export CSV"));
+    await waitFor(() => expect(onExport).toHaveBeenCalled());
+    expect(onExport.mock.calls[0]![0]).toMatchObject({
+      search: { query: "l", fields: ["title"] },
+      sorts: [{ field: "title", order: "asc" }],
+      filters: [{ field: "status", operator: "in", value: ["todo"] }],
+    });
+  });
+});
+
+describe("review fixes: held rows after a type was chosen, record scope", () => {
+  for (const how of ["types", "switcher"] as const) {
+    it(`falls back to the table when held rows arrive after the board was chosen (${how})`, async () => {
+      const view = how === "types" ? defineView(tasks, { types: ["table", "list", "board"], board: { field: "status" } } as never) : defineView(tasks, { board: { field: "status" } });
+      const store = createLocalSavedViewStore({ storage: createMemoryStorageAdapter() });
+      const extra = how === "switcher" ? { switcher: true } : {};
+      const { rerender } = render(<ResourceView view={view} rows={undefined} {...extra} />, { wrapper: wrap(provider(), { savedViews: store, children: null }) });
+      fireEvent.click(await screen.findByTestId("view-type-board"));
+      await screen.findByTestId("resource-board");
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      rerender(<ResourceView view={view} rows={ROWS} {...extra} />);
+      expect(await screen.findByText("Ship it")).toBeTruthy();
+      expect(screen.queryByTestId("resource-board")).toBeNull();
+      expect(screen.queryByTestId("view-type-board")).toBeNull();
+      // The person's choice wasn't overwritten: once the board is offered again, it's back.
+      expect(store.forViewer!(null).readCurrent!("tasks")).toEqual({ type: "board" });
+      rerender(<ResourceView view={view} rows={undefined} {...extra} />);
+      await screen.findByTestId("resource-board");
+    });
+  }
+
+  it("reads a deep-linked record off the loaded page in the list's scope", async () => {
+    const view = defineView(tasks, { segments: [{ id: "open", label: "Open", where: { status: "todo" } }] });
+    const p = provider();
+    render(<ResourceView view={view} />, { wrapper: wrap(p, { urlState: adapter("id=b"), children: null }) });
+    await waitFor(() => expect(p.getOne).toHaveBeenCalled());
+    expect(vi.mocked(p.getOne).mock.calls[0]![1]).toMatchObject({ id: "b", scope: [{ field: "status", operator: "eq", value: "todo" }] });
+  });
+
+  it("starts a screen's own ResourcePage again with a restored saved view's search and sort", async () => {
+    const view = defineView(tasks, { segments: [{ id: "all", label: "All" }] });
+    const store = createLocalSavedViewStore({ storage: createMemoryStorageAdapter() });
+    await store.forViewer!(null).save({ name: "Plans", scope: "personal", resource: "tasks", version: 1, state: { search: "plan", sort: { field: "hours", order: "desc" } } });
+    function Own() {
+      return <ResourcePage {...useResourceViewProps({ view })} />;
+    }
+    const p = provider();
+    render(<Own />, { wrapper: wrap(p, { savedViews: store, children: null }) });
+    await screen.findByText("Ship it");
+    fireEvent.click(screen.getByText("Views"));
+    fireEvent.click(await screen.findByText("Plans"));
+    await waitFor(() => expect((screen.getByPlaceholderText("Search...") as HTMLInputElement).value).toBe("plan"));
+    await waitFor(() => expect((p.getList.mock.calls.at(-1)![1] as ListParams).search?.query).toBe("plan"));
+  });
+
+  it("ends select-all-matching on a client-paged list when the browser's search changes, and runs on the rows", async () => {
+    const run = vi.fn();
+    const view = defineView(tasks, { actions: [{ name: "archive", label: "Archive", bulk: { matching: true, run } }] });
+    render(<ResourceView view={view} pagination="client" resourceOptions={{ defaultPerPage: 2 }} />, { wrapper: wrap(provider()) });
+    await screen.findByText("Write the plan");
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    fireEvent.click(await screen.findByTestId("bulk-select-all-matching"));
+    expect(await screen.findByText("All 3 matching selected")).toBeTruthy();
+    // Every row has a "t": the search matches as many rows, but it's another query.
+    fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: "t" } });
+    await waitFor(() => expect(screen.queryByText("All 3 matching selected")).toBeNull());
+    fireEvent.click(screen.getByTestId("bulk-archive"));
+    await waitFor(() => expect(run).toHaveBeenCalled());
+    expect(run.mock.calls[0]![0]).toMatchObject({ kind: "rows" });
+  });
+
+  it("exports a client-paged resource with the search and sort the page applies in the browser", async () => {
+    const onExport = vi.fn();
+    render(<ResourcePage<Task> resource="tasks" title="Tasks" pagination="client" columns={[{ key: "title", header: "Title" }]} searchFields={["title"]} onExport={onExport} />, {
+      wrapper: wrap(provider()),
+    });
     await screen.findByText("Ship it");
     fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: "ship" } });
     await waitFor(() => expect(screen.queryByText("Write the plan")).toBeNull());

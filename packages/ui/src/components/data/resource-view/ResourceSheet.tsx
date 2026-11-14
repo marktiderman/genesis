@@ -14,7 +14,7 @@ import { EmptyState } from "../../patterns/empty-state";
 import { toast } from "../../ui/sonner";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { useDisplayCell } from "./display";
-import { ListModelContext } from "./list-controls";
+import { ListModelContext, refuseHeldRows } from "./list-controls";
 import { useViewList } from "./use-view-list";
 import type { ResourceViewProps } from "./ResourceView";
 
@@ -63,6 +63,8 @@ interface UndoEntry {
  */
 export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) {
   const { view, preset, filter, scoped, resourceOptions, live, can, className } = props;
+  // Rendered directly too: held rows would be ignored and edits would skip the screen's onEdit.
+  refuseHeldRows(view.resource, "sheet", props.rows);
   const m = useUiMessages();
   const viewer = useViewer();
   const cell = useDisplayCell();
@@ -94,6 +96,8 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
   const writable = useMemo(() => new Set(props.allowEdit === false ? [] : view.writable("edit")), [view, props.allowEdit]);
   const columns = useMemo(() => view.columns(preset ?? "default"), [view, preset]);
   const undo = useRef<UndoEntry[]>([]);
+  // Bumped each time the sheet shows another resource (an undo entry only joins the showing it was made in).
+  const generation = useRef(0);
   const [, redraw] = useState(0);
 
   // A row's cells can't change when the screen's `can` or the view's guard refuses it.
@@ -127,7 +131,25 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
   const keyOf = (row: T) => String(encodeRecordKey(view.contract, row as T & DataRow));
 
   /** Save changes row by row; mark each cell that failed with its reason. */
-  async function commit(changes: SheetCellChange<T>[]) {
+  // Writes go one at a time: an undo waits for a save still out, and a save for an undo, so two
+  // restores of the same cell can't land in the wrong order. `undoing` is set synchronously, before
+  // the history changes, so a second Undo (button or keyboard) while one runs does nothing.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const undoing = useRef(false);
+  const serial = <R,>(work: () => Promise<R>): Promise<R> => {
+    const run = queue.current.then(work, work);
+    queue.current = run.catch(() => undefined);
+    return run;
+  };
+
+  function commit(changes: SheetCellChange<T>[]) {
+    // Which showing of the resource this edit was made in: a save that lands after the sheet moved
+    // to another resource (even back again) adds no undo entry, so a stale one is never offered.
+    const madeIn = generation.current;
+    return serial(() => commitNow(changes, madeIn));
+  }
+
+  async function commitNow(changes: SheetCellChange<T>[], madeIn: number) {
     const byRow = new Map<string, { row: T; data: Record<string, unknown>; before: Record<string, unknown> }>();
     const failed: { rowKey: string; column: string; message: string }[] = [];
     for (const change of changes) {
@@ -158,7 +180,7 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
         for (const column of Object.keys(data)) failed.push({ rowKey: key, column, message });
       }
     }
-    if (saved.length) {
+    if (saved.length && madeIn === generation.current) {
       undo.current = [...undo.current.slice(-19), { resource, rows: saved }];
       redraw((n) => n + 1);
     }
@@ -173,6 +195,7 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
   const shownResource = view.resource;
   const history = () => undo.current.filter((entry) => entry.resource === shownResource);
   useEffect(() => {
+    generation.current += 1;
     undo.current = undo.current.filter((entry) => entry.resource === shownResource);
     redraw((n) => n + 1);
   }, [shownResource]);
@@ -183,6 +206,17 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
    * refused, or whose write fails, stays in the history to try again; the ones restored leave it.
    */
   async function undoLast() {
+    if (undoing.current) return;
+    undoing.current = true;
+    try {
+      await serial(undoNow);
+    } finally {
+      undoing.current = false;
+      redraw((n) => n + 1);
+    }
+  }
+
+  async function undoNow() {
     const entries = history();
     const last = entries[entries.length - 1];
     if (!last) {
@@ -258,7 +292,7 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
         <Button size="sm" variant="outline" disabled={!list.hasMore} onClick={() => list.setPage(list.page + 1)} testID="resource-sheet-next">
           {m.sheet.next}
         </Button>
-        <Button size="sm" variant="ghost" className="ml-auto" disabled={history().length === 0} onClick={() => void undoLast()} testID="resource-sheet-undo">
+        <Button size="sm" variant="ghost" className="ml-auto" disabled={history().length === 0 || undoing.current} onClick={() => void undoLast()} testID="resource-sheet-undo">
           {m.sheet.undo}
         </Button>
       </div>
