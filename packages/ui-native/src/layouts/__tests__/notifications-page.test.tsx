@@ -29,6 +29,18 @@ describe("NotificationsPage groupByDate", () => {
     expect(sections[2].data).toHaveLength(1);
   });
 
+  it("puts a later day under Upcoming, first, rather than under Earlier", () => {
+    const items: NotificationItem[] = [
+      { id: "1", title: "Now", timestamp: NOW.toISOString() },
+      { id: "2", title: "Scheduled", timestamp: new Date(NOW.getTime() + 3 * 86_400_000).toISOString() },
+    ];
+    const sections = __test.groupByDate(items, NOW);
+    expect(sections.map((s) => [s.title, s.data.map((i) => i.id)])).toEqual([
+      ["Upcoming", ["2"]],
+      ["Today", ["1"]],
+    ]);
+  });
+
   it("omits empty buckets", () => {
     const items: NotificationItem[] = [
       { id: "1", title: "Today only", timestamp: NOW.toISOString() },

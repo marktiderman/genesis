@@ -51,6 +51,22 @@ already right; that re-derivation is where forks come from. Reach for rung 2
 first. When the app hand-builds something Genesis nearly had, that is a bug
 report against Genesis (`packages/ui/EXTENDING.md`), not a reason to fork.
 
+## When the ladder doesn't reach
+
+- **A Genesis piece is close and does the same job:** extend it. A prop, a variant, a slot, or
+  your own component that wraps it and adds on top. Never a parallel piece beside it.
+- **Nothing in Genesis does the job:** invent it in the app. Your own screens and components, as
+  many as the app needs, with nothing written up for Genesis or approved by it first (your
+  app's own design review still applies). Build on the semantic
+  tokens, compose Genesis primitives inside, keep it out of `src/components/ui`, and don't name
+  it like a Genesis export. A colour no Genesis role covers is the app's own token: a CSS
+  variable, never a literal in the component. Derive it from existing tokens (`color-mix`) or
+  put its literal in the file that already holds the app's colour values (EXTENDING.md says
+  why a new file trips `allow-grew`).
+- **Worth sharing?** Add a line to `docs/genesis-upstream.md` (`genesis upstream`). Optional.
+
+`EXTENDING.md`, beside this file, has the wrapper example under "Your own components".
+
 ## ResourcePage knobs a real screen needs
 
 Reach for these before a slot. Each one replaced a slot workaround in a real app.
@@ -134,7 +150,11 @@ and use it the same way.
 | Page title row with count, view toggle, options               | `PageHeader` (+ `options.configurable` for the in-header options popover)          | `/layout`                                                         |
 | A list screen over a resource                                 | a view (`defineView`) rendered by `ResourceView`; never a hand-built table        | `@marktiderman/genesis-core/resource-view` + `/data`              |
 | A record view: header, actions, sections, child lists         | a record view (`defineRecordView`) rendered by `RecordView`                    | `@marktiderman/genesis-core/resource-view` + `/data`              |
-| A view's rows on a calendar: month, 1–4 weeks, agenda (prints), lanes per person | the view's `calendar` block (`defineView`) and `<ResourceView view={…} mode="calendar" />`; `EventCalendar` for events that aren't a view's rows | `/data` (ranges and RRULE expansion in `@marktiderman/genesis-core/dates`) |
+| A view's rows on a calendar: month, 1–4 weeks, agenda (prints), lanes per person | the view's `calendar` block (`defineView`) and `<ResourceView view={…} type="calendar" />`; `EventCalendar` for events that aren't a view's rows | `/data` (ranges and RRULE expansion in `@marktiderman/genesis-core/dates`) |
+| How a view shows (a view type): table, list, grid, board, calendar, gallery, or the app's own | `<ResourceView view={…} type="board" />` (`mode` is its alias); an app's own with `defineViewType` + `registerViewType` | `/data` |
+| How a record opens: side peek, center peek or its page          | the view's `open` (`defineView`) and `recordView` (the record view a peek draws); a screen's `open` wins; `RecordPeek` on its own | `@marktiderman/genesis-core/resource-view` + `/data` |
+| A record page laid out like a document: cover, icon, title, properties, body | `defineRecordView(view, { template: "document", document: { … } })` rendered by `RecordView` | `@marktiderman/genesis-core/resource-view` + `/data` |
+| A screen the app draws itself over a view (a custom view)     | `<CustomView view type>{(state) => …}</CustomView>`: Genesis draws loading, empty and error; `useViewList`, `useViewBoard`, `useViewCalendarRange` underneath | `/data` |
 | The same list or record on the phone                          | `NativeResourceView`, `NativeRecordView` from the same view                 | `@marktiderman/genesis-ui-native/data`                            |
 | Reading and writing data                                      | the view and the resource's provider (`useWrite`, the view's form); never `supabase.from` in a screen | `@marktiderman/genesis-core`                     |
 | List page chrome: header, filters, loading/empty/error        | `DataPageShell` (`stats`, `filters` slots)                                         | `/data`                                                           |
@@ -142,7 +162,7 @@ and use it the same way.
 | Record detail side panel                                      | `DetailPanel`                                                                      | `/data`                                                           |
 | Dashboard / settings / form / detail page shape               | `DashboardPage`, `SettingsPage`, `FormPage`, `DetailPage`                          | `/dashboard-page`, `/settings-page`, `/form-page`, `/detail-page` |
 | A builder's outline, editor and live preview columns          | `BuilderLayout` (no tabs, rail or header: those are the shell's)                   | `/builder-layout`                                                 |
-| KPI tile                                                      | `StatCard`                                                                         | `/data`                                                           |
+| KPI tile                                                      | `<Widget>` over a view (`defineWidget`); `StatCard` for a fixed number          | `/data`                                                           |
 | The page around one publishable thing (a form, a course, a lesson): header, readiness chip, headline numbers, summary cards, follow-ups, settings with jump links, Share | `ResourceHeader`, `ReadinessChip`, `HeadlineNumbers`, `SummaryCard`, `FollowUpList`, `ResponsesToolbar`, `ResourceSettingsPage`, `SettingsSection`, `ShareDialog` (+ `readinessOf`, `dayLabel`, `prefilledUrl` on the server) | `/resource` (`/resource/rules`)                                   |
 | Table cells: dates, numbers, money, badges, links, thumbnails | `DateCell`, `NumberCell`, `CurrencyCell`, `BadgeCell`, `LinkCell`, `ThumbnailCell` | `/data`                                                           |
 | Search, sort, filters, status chips/tabs, saved views         | `DataFilters`                                                                      | `/data`                                                           |
@@ -251,8 +271,14 @@ same options and returns:
 - the open record (`handleRowClick`, `detailOpen`, `selectedItem`, `closeDetail`);
 - the built-in form and delete state.
 
-Build a board, a calendar or a custom card wall on it instead of re-deriving that wiring.
-`ResourcePage` is this hook plus Genesis's markup.
+Build a custom card wall on it instead of re-deriving that wiring. `ResourcePage` is this hook
+plus Genesis's markup. For a screen over a view that isn't a table at all (a leaderboard, a
+timeline), use a custom view: `<CustomView view={…}>{(state) => …}</CustomView>` keeps the view's
+data, URL, live updates and permissions and draws loading, empty and error, and `useViewList`,
+`useViewBoard` and `useViewCalendarRange` are the same data a table, board and calendar use
+([Custom views](https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#custom-views)).
+When more than one screen wants that drawing, make it a view type (`defineViewType`,
+`registerViewType`) and pick it with `<ResourceView type>`.
 
 ## Big tables
 
@@ -461,8 +487,40 @@ useAppShellSubNav([
 <AppShellSubNavEnd><Badge variant="success">Ready to publish</Badge></AppShellSubNavEnd>
 ```
 
+**Navigation style, frame and density (the app's layout, ADR 0022).** One option each, over the
+same tree and `NavItem`s; never draw a second shell.
+
+- `options.navigation`: `"sidebar"` (default, as always), `"rail"` (opens collapsed to the icon
+  rail), `"top-tabs"` (desktop: the top items as tabs in a bar with the brand and the account; an
+  active item's children as a second row), `"bottom-bar"` (the phone's top bar, drawer and
+  bottom bar on every width) or `"page-tree"` (a nested, collapsible tree indented by depth, as
+  in a notebook; `NavItem.children` nest to any depth). Phones keep the drawer and bottom bar.
+- `options.frame`: `"flush"` (default) or `"inset"` (the page area as a panel with a margin,
+  rounded corners and a border over the sidebar colour; `--shell-frame-gap`, `-radius`,
+  `-border-width`, `-shadow` change it). An inset *list* is the view's `surface`, not this.
+- `options.density`: `"compact"`, `"comfortable"` (default) or `"spacious"`: the same words as
+  `useViewSettings` and sites' design systems.
+- An app theme sets these as defaults: `options={{ ...appShellOptionsFromTheme(theme), …yours }}`.
+- Parts: `shell` (`data-density`, `data-navigation`, `data-frame`, `data-zone`), `shell-frame`,
+  `shell-top-tabs`, `shell-page-tree`, `shell-nav-item[depth]`, `sub-nav-item[active]`,
+  `tab-bar-item[active]`.
+
+```tsx
+<AppShell appName="Acme" navigation={tree} activePath={pathname}
+  options={{ navigation: "page-tree", frame: "inset", density: "spacious" }}>{children}</AppShell>
+```
+
+**A document page.** `DocumentPage` (`/layout` or `/document-page`): an optional `cover` (an
+image URL or a node), an `icon`, the `title`, `subtitle`, `actions` and the body in a centred
+reading column (`width: "full"` for wide content). For notes, journal entries, guides and lessons.
+
+**Zones.** Put `zone: "training"` on a `NavigationNode` (its descendants inherit it).
+`resolveNavigation` then returns the current `zone`, and `resolveNavigationZones(tree, pathname,
+{ zones, rollUp })` groups the tree into each zone's pages, the global pages and the roll-up
+(ADR 0003). Key a theme per zone on it; AppShell marks the shell with `data-zone`.
+
 For chrome outside AppShell, call the same resolver: `resolveNavigation(tree, pathname)` (from
-`/layout`, `/data` or the root barrel) returns `{ current, parent, items, trail, params }` with
+`/layout`, `/data` or the root barrel) returns `{ current, parent, items, trail, params, zone }` with
 every path interpolated from the URL's params.
 
 ```ts

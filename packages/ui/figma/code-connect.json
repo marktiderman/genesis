@@ -122,5 +122,18 @@
     "WizardForm",
     "WorkspaceSwitcher"
   ],
-  "notYet": []
+  "notYet": [
+    "DocumentPage",
+    "Banner",
+    "InlineAlert",
+    "ChoiceCard",
+    "ChipGroup",
+    "Combobox",
+    "NumberInput",
+    "RangeSlider",
+    "Stepper",
+    "TimePicker",
+    "WhatsNewSheet",
+    "NotificationsPage"
+  ]
 }

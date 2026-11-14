@@ -122,8 +122,12 @@ export interface HelpArticleInput {
   expectedUpdatedAt?: string | null;
 }
 
-/** An agent's queues (migration 0009): `mine` and `unassigned` hold open tickets, `all` every ticket. */
-export type TicketInboxView = "mine" | "unassigned" | "all";
+/**
+ * An agent's queues (migration 0009): `mine` and `unassigned` hold active tickets, `all` every
+ * ticket. `pending` (waiting on the requester) and `closed` need migration 0013, which also keeps
+ * pending tickets out of mine and unassigned.
+ */
+export type TicketInboxView = "mine" | "unassigned" | "all" | "pending" | "closed";
 
 /** A ticket in an agent's queue. `unread` here means a message from the requester no agent has read. */
 export interface AgentTicket extends Ticket {
@@ -143,10 +147,61 @@ export interface AgentTicket extends Ticket {
   activityAt: string;
   /** The latest words the requester can see. Never an internal note. */
   preview: string;
+  /**
+   * Since when the requester has waited for an answer: their first message after the last reply
+   * they saw, or when the ticket came in if nobody has answered. Null when it's answered, pending
+   * or closed. Before migration 0013, worked out from the reply times.
+   */
+  waitingSince: string | null;
 }
 
-/** How many tickets each queue holds. */
-export type AgentTicketCounts = Record<TicketInboxView, number>;
+/** How many active tickets the mine, unassigned and all queues hold (after migration 0013, never pending or closed ones). */
+export type AgentTicketCounts = Record<"mine" | "unassigned" | "all", number>;
+
+/** Another ticket from the same requester, for an agent's details panel (migration 0013). */
+export interface EarlierTicket {
+  id: string;
+  title: string | null;
+  message: string;
+  status: FeedbackStatus;
+  createdAt: string;
+  activityAt: string;
+}
+
+/** A tenant's saved reply (migration 0014). Its body may hold `{first_name}`-style variables, filled as it's inserted. */
+export interface SavedReply {
+  id: string;
+  title: string;
+  body: string;
+  updatedAt: string;
+}
+
+/** A mention of the signed-in agent in a ticket's internal note (migration 0014). */
+export interface AgentMention {
+  id: string;
+  reportId: string;
+  messageId: string;
+  authorId: string | null;
+  createdAt: string;
+}
+
+/** A tenant's help desk over a date range (migration 0014). Times are in seconds; null with nothing to measure. */
+export interface AgentReport {
+  fromAt: string;
+  toAt: string;
+  /** Tickets that came in during the range. */
+  opened: number;
+  /** Tickets closed during the range. */
+  closed: number;
+  /** Open now: active and pending. */
+  openNow: number;
+  /** For tickets that came in during the range: the first reply the requester saw. */
+  medianFirstResponseSeconds: number | null;
+  /** For tickets closed during the range: from coming in to closing. */
+  medianCloseSeconds: number | null;
+  /** Open tickets by whom their requester is with, most first. Empty unless the app's hook says (`label` null: unknown). */
+  byRequester: { label: string | null; open: number }[];
+}
 
 /** An agent's role in a tenant: `admin` also manages the tenant's agents. */
 export type TicketAgentRole = "agent" | "admin";
@@ -223,6 +278,18 @@ export interface SupportClient extends FeedbackSink {
   agentTicket?(id: string, options?: { tenantId?: string | null }): Promise<AgentTicket | null>;
   /** Agents: how many tickets each queue holds. Needs migration 0009. */
   agentTicketCounts?(options?: { tenantId?: string | null }): Promise<AgentTicketCounts>;
+  /** Agents: the same requester's other tickets in this ticket's tenant, newest first. Needs migration 0013. */
+  agentEarlierTickets?(ticketId: string, options?: { limit?: number }): Promise<EarlierTicket[]>;
+  /** Agents: where the signed-in agent was mentioned in an internal note, newest first. Needs migration 0014. */
+  agentMentions?(options?: { limit?: number }): Promise<AgentMention[]>;
+  /** Agents: the tenant's saved replies, by title. Needs migration 0014. */
+  savedReplies?(options?: { tenantId?: string | null }): Promise<SavedReply[]>;
+  /** Agents: save a reply (no `id` makes a new one in the tenant); returns its id. A title taken in the tenant is refused (`23505`). */
+  saveSavedReply?(input: { id?: string | null; tenantId?: string | null; title: string; body: string }): Promise<string>;
+  /** Agents: delete a saved reply. */
+  deleteSavedReply?(id: string): Promise<void>;
+  /** Agents: the help desk over `[from, to)` (default the last 30 days, at most 366). Needs migration 0014. */
+  agentReport?(options?: { tenantId?: string | null; from?: Date | string | null; to?: Date | string | null }): Promise<AgentReport>;
   /** A help center's collections, in their order (migration 0010). Null is the app's own tenant; left out, the client's `tenantId`, else the app's own. The same for every help center call. */
   helpCollections?(options?: { tenantId?: string | null }): Promise<HelpCollection[]>;
   /** Its articles, without their bodies. `includeDrafts` is for an agent's list; others get published ones either way. */
@@ -391,9 +458,19 @@ function toReport(r: Row): SupportReport {
   return { ...report, unread: isUnread(report) };
 }
 
+/** Since when a ticket's requester has waited, from its reply times: for a queue read before migration 0013. */
+export function waitingSinceOf(t: Pick<Ticket, "status" | "createdAt" | "lastStaffReplyAt" | "lastUserReplyAt">): string | null {
+  if (t.status === "pending" || t.status === "addressed" || t.status === "wont_fix") return null;
+  if (!t.lastStaffReplyAt) return t.createdAt;
+  if (t.lastUserReplyAt && new Date(t.lastUserReplyAt).getTime() > new Date(t.lastStaffReplyAt).getTime()) return t.lastUserReplyAt;
+  return null;
+}
+
 function toAgentTicket(r: Row): AgentTicket {
+  const report = toReport(r);
   return {
-    ...toReport(r),
+    ...report,
+    waitingSince: "waiting_since" in r ? ((r["waiting_since"] as string | null) ?? null) : waitingSinceOf(report),
     tenantId: String(r["tenant_id"]),
     severity: (r["severity"] as string | null) ?? null,
     channel: (r["channel"] as string | null) ?? null,
@@ -699,6 +776,55 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       const rows = must<Row[]>("agentTicketCounts", await supabase.rpc("support_agent_ticket_counts", { tenant: tenantId }));
       const count = (view: TicketInboxView) => Number((rows ?? []).find((r) => r["inbox_view"] === view)?.["tickets"] ?? 0);
       return { mine: count("mine"), unassigned: count("unassigned"), all: count("all") };
+    },
+    async agentEarlierTickets(ticketId, { limit = 20 } = {}) {
+      const rows = must<Row[]>("agentEarlierTickets", await supabase.rpc("support_agent_requester_tickets", { report: ticketId, max_rows: limit }));
+      return (rows ?? []).map((r) => ({
+        id: String(r["id"]),
+        title: (r["title"] as string | null) ?? null,
+        message: String(r["message"] ?? ""),
+        status: r["status"] as FeedbackStatus,
+        createdAt: String(r["created_at"]),
+        activityAt: String(r["activity_at"] ?? r["created_at"]),
+      }));
+    },
+    async agentMentions({ limit = 50 } = {}) {
+      const rows = must<Row[]>(
+        "agentMentions",
+        await supabase.from("ticket_mentions").select("id, report_id, message_id, author_id, created_at").order("created_at", { ascending: false }).limit(limit),
+      );
+      return (rows ?? []).map((r) => ({
+        id: String(r["id"]),
+        reportId: String(r["report_id"]),
+        messageId: String(r["message_id"]),
+        authorId: (r["author_id"] as string | null) ?? null,
+        createdAt: String(r["created_at"]),
+      }));
+    },
+    async savedReplies({ tenantId } = {}) {
+      const rows = must<Row[]>("savedReplies", await supabase.rpc("support_saved_replies", { tenant: await scope(tenantId) }));
+      return (rows ?? []).map((r) => ({ id: String(r["id"]), title: String(r["title"] ?? ""), body: String(r["body"] ?? ""), updatedAt: String(r["updated_at"]) }));
+    },
+    async saveSavedReply({ id = null, tenantId, title, body }) {
+      return String(must("saveSavedReply", await supabase.rpc("support_save_reply", { saved: id, tenant: id ? null : await scope(tenantId), title, body })));
+    },
+    async deleteSavedReply(id) {
+      must("deleteSavedReply", await supabase.rpc("support_delete_saved_reply", { saved: id }));
+    },
+    async agentReport({ tenantId, from = null, to = null } = {}) {
+      const iso = (d: Date | string | null) => (d === null ? null : typeof d === "string" ? d : d.toISOString());
+      const r = must<Row | null>("agentReport", await supabase.rpc("support_agent_report", { tenant: await scope(tenantId), from_at: iso(from), to_at: iso(to) })) ?? {};
+      const seconds = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+      return {
+        fromAt: String(r["from_at"] ?? ""),
+        toAt: String(r["to_at"] ?? ""),
+        opened: Number(r["opened"] ?? 0),
+        closed: Number(r["closed"] ?? 0),
+        openNow: Number(r["open_now"] ?? 0),
+        medianFirstResponseSeconds: seconds(r["median_first_response_seconds"]),
+        medianCloseSeconds: seconds(r["median_close_seconds"]),
+        byRequester: ((r["by_requester"] as Row[] | undefined) ?? []).map((g) => ({ label: (g["label"] as string | null) ?? null, open: Number(g["open"] ?? 0) })),
+      };
     },
 
     currentTenant: () => scope(undefined),

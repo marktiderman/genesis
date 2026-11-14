@@ -7,30 +7,30 @@ import { cn } from "../../utils";
 // target a thumb can hit reliably. `min-` sizes, so a screen's own `h-8 w-8` grows too. A mouse
 // keeps the compact sizes.
 const buttonVariants = cva(
-  "pointer-coarse:min-h-11 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "pointer-coarse:min-h-11 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--control-radius)] text-sm font-[number:var(--control-font-weight)] [text-transform:var(--control-text-transform)] tracking-[var(--control-letter-spacing)] ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring focus-visible:ring-offset-[length:var(--focus-ring-offset)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-primary/90",
+          "bg-primary text-primary-foreground shadow-[var(--control-shadow)] hover:bg-primary/90",
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+          "bg-destructive text-destructive-foreground shadow-[var(--control-shadow)] hover:bg-destructive/90",
         outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+          "border border-input bg-background shadow-[var(--control-shadow)] hover:bg-accent hover:text-accent-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "bg-secondary text-secondary-foreground shadow-[var(--control-shadow)] hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary-text underline-offset-4 hover:underline",
         // The brand's `gradients.primary` (`--brand-gradient-primary`) over the primary: a brand
         // without one leaves the variable unset, the image is `none` and the button is `default`.
         gradient:
-          "bg-primary bg-[image:var(--brand-gradient-primary)] text-primary-foreground hover:opacity-90",
+          "bg-primary bg-[image:var(--brand-gradient-primary)] text-primary-foreground shadow-[var(--control-shadow)] hover:opacity-90",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10 pointer-coarse:min-w-11",
+        default: "h-[var(--control-height)] px-[var(--control-padding-x)] py-2",
+        sm: "h-[var(--control-height-sm)] px-[var(--control-padding-x-sm)]",
+        lg: "h-[var(--control-height-lg)] px-[var(--control-padding-x-lg)]",
+        icon: "h-[var(--control-height)] w-[var(--control-height)] pointer-coarse:min-w-11",
       },
     },
     defaultVariants: {
@@ -181,6 +181,8 @@ export function Button(
       <SlotPrimitive.Root
         ref={ref}
         data-slot="button"
+        data-variant={variant ?? "default"}
+        data-size={size ?? "default"}
         data-testid={testID}
         aria-busy={loading || undefined}
         // NOT the `disabled` attribute: Slot forwards these onto the child,
@@ -245,6 +247,8 @@ export function Button(
     <button
       ref={ref}
       data-slot="button"
+        data-variant={variant ?? "default"}
+        data-size={size ?? "default"}
       data-testid={testID}
       className={cn(buttonVariants({ variant, size, className }))}
       disabled={disabled || loading}

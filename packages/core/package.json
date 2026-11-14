@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-core",
-  "version": "2.14.0",
+  "version": "2.15.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -104,6 +104,10 @@
       "types": "./dist/csv.d.ts",
       "import": "./dist/csv.js"
     },
+    "./headless": {
+      "types": "./dist/headless/index.d.ts",
+      "import": "./dist/headless/index.js"
+    },
     "./errors": {
       "types": "./dist/errors.d.ts",
       "import": "./dist/errors.js"
@@ -133,7 +137,7 @@
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "fake-indexeddb": "6.2.5",
+    "fake-indexeddb": "6.2.7",
     "happy-dom": "^21.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

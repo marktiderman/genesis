@@ -190,6 +190,7 @@ const KNOWN = new Set<string>([
   "forbiddenImports",
   "rules",
   "allow",
+  "extend",
   "patterns",
   "plugins",
   "packs",
@@ -208,7 +209,12 @@ const LEVELS = new Set(["error", "warn", "info", "off"]);
  * The rules that guard `allow`, `rules` and `packageRules` themselves under `--base`. Config can't
  * lower or allow them (an entry for one would switch its own check off), and the ratchet never lowers them.
  */
-export const META_RULES: ReadonlySet<string> = new Set(["allow-grew", "rules-weakened", "ratchet-skipped"]);
+export const META_RULES: ReadonlySet<string> = new Set(["allow-grew", "rules-weakened", "ratchet-skipped", "extension-invalid"]);
+/** Rules about the config's own entries: an extension can't cover them. */
+const CONFIG_RULES = new Set(["stale-exception", "stale-extension", "package-rule-override"]);
+const EXTENSION_KEYS = new Set(["rule", "file", "buildsOn", "reason", "upstream"]);
+/** A declared extension's reason is a sentence a reviewer can check, not a word. */
+export const EXTENSION_REASON_MIN = { chars: 40, words: 6 } as const;
 const PATTERN_KEYS = new Set(["id", "level", "files", "exclude", "forbid", "require", "path", "message", "newOnly"]);
 const PACKAGE_RULE_KEYS = new Set(["level", "files", "exclude", "reason"]);
 const CONTRACT_KEYS = new Set(["out", "schemas", "databaseEnv"]);
@@ -468,6 +474,30 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
       for (const k of ["file", "match"]) {
         if (entry[k] !== undefined && typeof entry[k] !== "string") fail(`allow[${i}].${k} must be a string`);
       }
+    });
+  }
+  if (c.extend !== undefined) {
+    if (!Array.isArray(c.extend)) fail(`"extend" must be a list of { rule, file, buildsOn, reason, upstream? }`);
+    const seen = new Set<string>();
+    (c.extend as unknown[]).forEach((e, i) => {
+      const where = `extend[${i}]`;
+      if (!isObject(e)) return fail(`${where} must be an object`);
+      for (const k of Object.keys(e)) if (!EXTENSION_KEYS.has(k)) fail(`${where}: unknown key "${k}" (known: ${[...EXTENSION_KEYS].join(", ")})`);
+      for (const k of ["rule", "file", "buildsOn", "reason"]) if (typeof e[k] !== "string" || !(e[k] as string).trim()) fail(`${where} needs "${k}"`);
+      const { rule, file, buildsOn, reason } = e as Record<string, string>;
+      if (META_RULES.has(rule!) || CONFIG_RULES.has(rule!)) fail(`${where} can't extend ${rule}: it is about the config, not the app's code`);
+      if (!rule!.includes("/")) fail(`${where} can't extend ${rule}: only package rules declare extension points (a built-in rule's findings are fixed, or recorded as allow debt)`);
+      if (/[*?[\]{}]/.test(file!)) fail(`${where}.file must be one file, not a glob: each extension is reviewed on its own`);
+      e.file = appPath(file, `${where}.file`, fail);
+      if (!/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(buildsOn!)) fail(`${where}.buildsOn must name a Genesis export, or a part of one ("FormBuilder", "ResourceView.slots")`);
+      const text = reason!.trim();
+      if (text.length < EXTENSION_REASON_MIN.chars || text.split(/\s+/).length < EXTENSION_REASON_MIN.words) {
+        fail(`${where} (${rule}) needs a reason of at least ${EXTENSION_REASON_MIN.words} words and ${EXTENSION_REASON_MIN.chars} characters: why the rule's primitive doesn't fit this file`);
+      }
+      if (e.upstream !== undefined && (typeof e.upstream !== "string" || !e.upstream.trim())) fail(`${where}.upstream must be a link to the gap's write-up`);
+      const key = `${rule}\0${e.file as string}`;
+      if (seen.has(key)) fail(`${where} extends ${rule} in ${e.file as string} twice`);
+      seen.add(key);
     });
   }
   if (c.patterns !== undefined) {

@@ -191,7 +191,7 @@ const WEB_SUBPARTS = new Set([
   "ResizablePanel", "ResizableHandle", "AppShellSubNavEnd", "AppShellPageHeader", "BandLead",
 ]);
 /** Web names that look like parent + suffix but are components in their own right. */
-const WEB_NOT_SUBPARTS = new Set(["ToggleGroup", "ToggleRow", "ButtonGroup", "InputGroup", "ResizablePanelGroup"]);
+const WEB_NOT_SUBPARTS = new Set(["ToggleGroup", "ToggleRow", "ButtonGroup", "InputGroup", "ResizablePanelGroup", "ChipGroup"]);
 /** Web exports that are not Figma components: typography, auto-layout primitives, cell-formatter factories. */
 const WEB_EXCLUDED = new Set([
   "H1", "H2", "H3", "H4", "P", "Lead", "Large", "Small", "Muted",

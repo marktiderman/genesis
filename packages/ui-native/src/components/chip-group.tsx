@@ -26,49 +26,69 @@ interface ChipContextValue {
 
 const ChipContext = createContext<ChipContextValue | null>(null);
 
-export interface NativeChipGroupProps {
-  mode?: NativeChipGroupMode;
-  value: string | string[];
-  onChange: (value: string | string[]) => void;
+/** What a group of `mode` holds: one value in `single`, a list in `multiple`. */
+export type NativeChipGroupValue<M extends NativeChipGroupMode> = M extends "single" ? string : string[];
+
+/**
+ * The props, as the web's ChipGroup: with `mode="single"`, `onChange` gets one string; with
+ * `mode="multiple"`, a list. With `mode` left out the group is `multiple` and `onChange` is typed
+ * for either, as before. `value` is one string in `single` mode and a list in `multiple`; its type
+ * still takes either, so a screen's existing `string | string[]` state keeps compiling.
+ */
+export interface NativeChipGroupProps<M extends NativeChipGroupMode = NativeChipGroupMode> {
+  mode?: M;
+  value: string | readonly string[];
+  onChange: (value: NativeChipGroupValue<M>) => void;
+  /**
+   * In `single` mode, pressing the chosen chip clears it (`onChange("")`). Default false: pressing
+   * it calls `onChange` with its own value again, as it always has (the web's ChipGroup sends
+   * nothing then).
+   */
+  allowEmpty?: boolean;
   disabled?: boolean;
   className?: string;
   children: React.ReactNode;
   testID?: string;
 }
 
-export function NativeChipGroup({
-  mode = "multiple",
+export function NativeChipGroup<M extends NativeChipGroupMode = NativeChipGroupMode>({
+  mode = "multiple" as M,
   value,
   onChange,
+  allowEmpty = false,
   disabled,
   className,
   children,
   testID,
-}: NativeChipGroupProps) {
+}: NativeChipGroupProps<M>) {
+  const single = mode === "single";
   const selected = new Set<string>(
-    mode === "single"
-      ? typeof value === "string"
+    single
+      ? typeof value === "string" && value
         ? [value]
         : []
       : Array.isArray(value)
-      ? value
+      ? (value as readonly string[])
       : []
   );
+  const emit = onChange as (value: string | string[]) => void;
   const toggle = (v: string) => {
-    if (mode === "single") {
-      onChange(v);
+    if (single) {
+      // Pressing the chosen chip again: cleared with `allowEmpty`; otherwise reported as it always
+      // was (`onChange` with the same value), so a screen's own handler can still decide.
+      emit(selected.has(v) && allowEmpty ? "" : v);
       return;
     }
     const next = new Set(selected);
     if (next.has(v)) next.delete(v);
     else next.add(v);
-    onChange(Array.from(next));
+    emit(Array.from(next));
   };
   return (
     <ChipContext.Provider value={{ mode, selected, toggle, disabled }}>
       <View
         testID={testID ?? "native-chip-group"}
-        accessibilityRole={mode === "single" ? "radiogroup" : undefined}
+        accessibilityRole={single ? "radiogroup" : undefined}
         className={cn("flex-row flex-wrap gap-2", className)}
       >
         {children}

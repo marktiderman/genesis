@@ -37,6 +37,12 @@ interface FilterComboboxProps {
   labelMap?: Record<string, string> | undefined;
 }
 
+/**
+ * FilterCombobox — a filter bar's multi-select: any number of values, each with its count, an
+ * "All" row that clears them, and a trigger that names the one chosen or says how many. For a
+ * form field that picks one value and shows it, use `Combobox`; neither is a subset of the other,
+ * and both are Command in a Popover.
+ */
 export function FilterCombobox({
   label,
   icon: Icon,

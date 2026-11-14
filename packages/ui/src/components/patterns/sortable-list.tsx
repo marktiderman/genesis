@@ -3,6 +3,7 @@
 import * as React from "react";
 import { GripVertical, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { moveItem } from "@marktiderman/genesis-core/headless";
 import { cn } from "../../utils";
 import { useAnnouncer } from "./use-announcer";
 import { fillMessage, useUiMessages } from "../../messages";
@@ -71,12 +72,8 @@ const DRAG_TYPE = "application/x-genesis-sortable-item";
 // useLayoutEffect warns during server rendering; nothing needs refocusing there.
 const useIsomorphicLayoutEffect = typeof window === "undefined" ? React.useEffect : React.useLayoutEffect;
 
-function moved(keys: readonly string[], from: number, to: number) {
-  const next = keys.slice();
-  const [key] = next.splice(from, 1);
-  next.splice(to, 0, key!);
-  return next;
-}
+// The order arithmetic is genesis-core's, shared with the phone's NativeSortableList.
+const moved = (keys: readonly string[], from: number, to: number) => moveItem(keys, from, to);
 
 /**
  * A vertical list the user can rearrange: course steps, lesson blocks, form

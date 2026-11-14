@@ -81,6 +81,10 @@ export const BUILTIN_RULES = [
   "ratchet-skipped",
   "allow-grew",
   "rules-weakened",
+  "extension-added",
+  // declared extensions (extensions.ts)
+  "stale-extension",
+  "extension-invalid",
   // agent guide (primitives.ts)
   "agent-guide-stale",
   // supabase pack: contracts (contracts.ts)
@@ -91,6 +95,10 @@ export const BUILTIN_RULES = [
   "database-elsewhere",
   // the app's eslint config loads Genesis's lint rules (eslint-config.ts)
   "genesis-eslint-config",
+  // custom views and app parts (custom-views.ts)
+  "app-part-colors",
+  "app-part-name",
+  "custom-view-states",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];
@@ -118,7 +126,7 @@ export function checkProjectLayout(ctx: DoctorContext): void {
         rule: "local-primitives",
         file: dir,
         subject: dir,
-        message: `is a local design-system primitive folder; use ${ctx.genesis.uiPackage} (or extend it upstream)`,
+        message: `is a local design-system primitive folder; use ${ctx.genesis.uiPackage} for those, and keep the app's own components in another folder`,
       });
     }
   }

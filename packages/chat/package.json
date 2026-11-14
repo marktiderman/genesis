@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-chat",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -179,7 +179,7 @@
     }
   },
   "devDependencies": {
-    "@ai-sdk/anthropic": "4.0.88",
+    "@ai-sdk/anthropic": "4.0.98",
     "@marktiderman/genesis-ai": "workspace:^",
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-notifications": "workspace:^",
@@ -191,9 +191,9 @@
     "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "ai": "7.0.153",
+    "ai": "7.0.164",
     "happy-dom": "^21.0.4",
-    "hls.js": "1.7.3",
+    "hls.js": "1.7.4",
     "lucide-react": "^1.28.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",

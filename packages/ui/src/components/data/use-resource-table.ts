@@ -5,6 +5,7 @@
  * apart from ResourcePage.tsx so importing the hook (e.g. from `/hooks`)
  * does not pull in the page's components and icons.
  */
+import { detailMode } from "./resource-view/open-modes";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { cascadeSelection } from "@marktiderman/genesis-core/resource-view";
 import type { ResourcePageTreeState } from "../../hooks/use-resource-page";
@@ -58,7 +59,7 @@ export function useResourceTableModel<
     columns: columnsProp,
     getKey: getKeyProp,
     tree: treeProp,
-    detail = "panel",
+    detail: detailProp = "panel",
     detailWidth = "md",
     titleField: titleFieldProp,
     subtitleField: subtitleFieldProp,
@@ -137,6 +138,7 @@ export function useResourceTableModel<
     slotProps,
     className,
   } = props;
+  const detail = detailMode(detailProp);
   const messages = useUiMessages();
 
   // ── Determine mode ──

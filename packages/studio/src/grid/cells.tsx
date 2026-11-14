@@ -44,7 +44,7 @@ export function FieldIcon({ field, isKey }: FieldIconProps) {
     case "json":
       return <Braces className={className} />;
     case "datetime":
-      return field.dbType === "date" || field.widget === "date" ? <Calendar className={className} /> : <Clock className={className} />;
+      return field.dbType === "date" || (field.control ?? field.widget) === "date" ? <Calendar className={className} /> : <Clock className={className} />;
     default:
       return <Type className={className} />;
   }
@@ -129,7 +129,7 @@ export function CellValue({ field, value, linkLabel }: { field: FieldSchema; val
       </span>
     );
   }
-  if (field.type === "datetime" && !(field.dbType === "date" || field.widget === "date")) {
+  if (field.type === "datetime" && !(field.dbType === "date" || (field.control ?? field.widget) === "date")) {
     return <span title={text}>{shortTimestamp(text)}</span>;
   }
   if (field.type === "json") return <span className="font-mono text-xs">{text}</span>;

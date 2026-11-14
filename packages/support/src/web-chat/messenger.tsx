@@ -35,6 +35,7 @@ import { useOptionalChatDock, type ResolveUser } from "@marktiderman/genesis-cha
 import { reportHeading, SupportError, type HelpArticleSummary, type HelpSearchHit, type SupportClient, type Ticket } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { useHelpAsk, type HelpAnswerResponse, type UseHelpAsk } from "../help-ask";
+import { officeHoursState, type OfficeHours } from "../office-hours";
 import type { FeedbackContext } from "../record";
 import { scopeOf, useResolvedTenant } from "./tenant";
 import { threadAttachments } from "./thread-files";
@@ -72,6 +73,13 @@ export interface SupportMessengerProps {
   resolveUser?: ResolveUser;
   /** What's sent with a new message: the page they're on, the app's version. Default the path of the page. */
   context?: () => FeedbackContext;
+  /**
+   * How soon people hear back, in your words, after "We usually reply" ("within a few hours",
+   * "in under a day"). Shown on the compose screen and under a conversation nobody has answered.
+   */
+  replyExpectation?: string;
+  /** When someone answers. Outside them, the messenger says you're away and when you're back, in the person's own time. */
+  officeHours?: OfficeHours;
   copy?: SupportCopyOverrides;
   /** Every refused or failed read and change, for reporting. */
   onError?: (error: unknown) => void;
@@ -106,6 +114,43 @@ interface Shared {
   go: (screen: Screen) => void;
   here: Screen;
   report: (error: unknown) => void;
+  expectation: Expectation;
+}
+
+/** What to say about an answer: when someone's back (away), else how soon they usually reply. */
+interface Expectation {
+  /** Away: when someone's back, in the person's own time. */
+  back: string | null;
+  within: string | null;
+}
+
+/**
+ * Away or not, worked out in the browser (the server's HTML says nothing) and again each minute.
+ * The next opening is shown in the person's own time.
+ */
+function useExpectation(replyExpectation: string | undefined, officeHours: OfficeHours | undefined): Expectation {
+  const [back, setBack] = useState<string | null>(null);
+  useEffect(() => {
+    if (!officeHours) {
+      setBack(null);
+      return;
+    }
+    const check = () => {
+      const state = officeHoursState(officeHours);
+      setBack(!state.open && state.nextOpen ? new Intl.DateTimeFormat(undefined, { weekday: "long", hour: "numeric", minute: "2-digit" }).format(state.nextOpen) : null);
+    };
+    check();
+    const timer = setInterval(check, 60_000);
+    return () => clearInterval(timer);
+  }, [officeHours]);
+  return { back, within: replyExpectation?.trim() || null };
+}
+
+/** The line about an answer on the compose screen, if there's one to say. */
+function expectationLine(expectation: Expectation, copy: SupportCopy): string | null {
+  if (expectation.back) return fill(copy.messenger.away, { when: expectation.back });
+  if (expectation.within) return fill(copy.messenger.replyExpectation, { expectation: expectation.within });
+  return null;
 }
 
 function ticketItems(tickets: readonly Ticket[], copy: SupportCopy, open: (id: string) => void): InboxItem[] {
@@ -451,8 +496,9 @@ function Article({ client, tenantId, scope, copy, go, here, report, slug }: Shar
   );
 }
 
-function Compose({ client, tenantId, scope, copy, go, report, context, from }: Shared & { context: () => FeedbackContext; from: Screen }) {
+function Compose({ client, tenantId, scope, copy, go, report, expectation, context, from }: Shared & { context: () => FeedbackContext; from: Screen }) {
   const id = useId();
+  const line = expectationLine(expectation, copy);
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -479,6 +525,11 @@ function Compose({ client, tenantId, scope, copy, go, report, context, from }: S
   return (
     <form onSubmit={send} data-testid="genesis-support-messenger-compose" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
       <h2 className="text-lg font-semibold">{copy.messenger.composeTitle}</h2>
+      {line ? (
+        <p data-testid="genesis-support-messenger-expectation" className="text-sm text-muted-foreground">
+          {line}
+        </p>
+      ) : null}
       <div className="flex flex-1 flex-col gap-1">
         <Label htmlFor={id}>{copy.messenger.composeLabel}</Label>
         <Textarea id={id} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={copy.messenger.composePlaceholder} rows={6} maxLength={10000} data-testid="genesis-support-messenger-compose-input" />
@@ -496,7 +547,7 @@ function Compose({ client, tenantId, scope, copy, go, report, context, from }: S
 }
 
 /** A person's conversation. Keyed by ticket, so a draft never follows them to another one. */
-function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
+function Conversation({ client, tenantId, scope, copy, report, expectation, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -560,6 +611,8 @@ function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, 
       </div>
     );
   }
+  // Until support first answers, say where the answer will come.
+  const awaiting = replies.isSuccess && !shown.some((r) => r.fromStaff);
   const send = () => {
     const body = draft.trim();
     if (!body || sending) return;
@@ -612,7 +665,15 @@ function Conversation({ client, tenantId, scope, copy, report, id, resolveUser, 
                         </p>
                       ),
                     }
-                  : {}),
+                  : awaiting
+                    ? {
+                        above: (
+                          <p data-testid="genesis-support-messenger-awaiting" className="px-3 pt-2 text-sm text-muted-foreground">
+                            {expectation.back ? fill(copy.messenger.awaitingReplyAway, { when: expectation.back }) : expectation.within ? fill(copy.messenger.awaitingReplyWithin, { expectation: expectation.within }) : copy.messenger.awaitingReply}
+                          </p>
+                        ),
+                      }
+                    : {}),
               }
         }
       />
@@ -640,7 +701,7 @@ export function SupportMessenger(props: SupportMessengerProps) {
   return <Messenger key={scopeOf(props.client, tenant.tenantId)} {...props} tenantId={tenant.tenantId} />;
 }
 
-function Messenger({ client, tenantId: tenantProp, spaces = SPACES, greeting, askAi, onAiConsent, active = true, resolveUser, context = defaultContext, copy: copyOverrides, onError, className }: SupportMessengerProps) {
+function Messenger({ client, tenantId: tenantProp, spaces = SPACES, greeting, askAi, onAiConsent, active = true, resolveUser, context = defaultContext, replyExpectation, officeHours, copy: copyOverrides, onError, className }: SupportMessengerProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
   const tenantId = tenantProp ?? null;
   const scope = scopeOf(client, tenantId);
@@ -659,7 +720,8 @@ function Messenger({ client, tenantId: tenantProp, spaces = SPACES, greeting, as
   useReported(ai.error, report);
   const ask = useHelpAsk({ client, tenantId, askAi, context, onError: report });
   const aiOn = Boolean(askAi && ai.data);
-  const shared: Shared = { client, tenantId, scope, copy, go: setScreen, here: screen, report };
+  const expectation = useExpectation(replyExpectation, officeHours);
+  const shared: Shared = { client, tenantId, scope, copy, go: setScreen, here: screen, report, expectation };
 
   const search = (next: string) => {
     setQuery(next);

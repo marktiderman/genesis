@@ -10,7 +10,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import "../sections/index";
-import { createMemorySiteStore, type PageDoc, type SiteStore } from "../index";
+import { createMemorySiteStore, landingPage, type PageDoc, type SiteStore } from "../index";
 import { SiteEditor, type SiteEditorProps } from "../editor/site-editor";
 import { brand } from "./fixtures";
 
@@ -265,5 +265,65 @@ describe("SiteEditor publishing", () => {
     // Their save stays; this editor's change meets the conflict instead of overwriting it.
     expect((await store.getDraft(siteId))!.site.name).toBe("Their Works");
     await waitFor(() => el.querySelector('header [role="status"]')?.textContent === "Someone else saved: choose a version", "the conflict");
+  });
+});
+
+describe("SiteEditor landing pages", () => {
+  it("keeps a one-click landing site's home page among the pages, and Add page offers no landing template", async () => {
+    const store = createMemorySiteStore();
+    const t = landingPage({ brand, message: { headline: "Make things with people who know your name" } });
+    expect(t.pages[0]).toMatchObject({ path: "/", kind: "landing" });
+    const { siteId } = await store.createSite({ site: t.site, pages: t.pages });
+    const el = await mount({ siteId, store });
+    await openTab(el, "Pages");
+    expect(el.querySelector('ul[aria-label="Pages"]')?.textContent).toContain("/");
+    const section = await waitFor(() => el.querySelector<HTMLElement>("[data-gs-landing]"), "the Landing pages section");
+    expect(section.textContent).toContain("No landing pages yet.");
+
+    await act(async () => buttons(el, "Add page")[0]!.click());
+    const dialog = await waitFor(() => document.querySelector<HTMLElement>('[role="dialog"]'), "the Add page dialog");
+    expect(dialog.textContent).toContain("Blank page");
+    expect(dialog.textContent).not.toContain("Landing page from your brand");
+  });
+
+  it("lists landing pages apart from the pages, and makes a new one that opens in the same canvas", async () => {
+    const { store, siteId } = await publishableSite();
+    await store.createPage(siteId, { path: "/go/spring", kind: "landing", doc: { schemaVersion: 1, root: { props: { title: "Spring" } }, content: [] } });
+    const el = await mount({ siteId, store });
+    await openTab(el, "Pages");
+
+    const section = await waitFor(() => el.querySelector<HTMLElement>("[data-gs-landing]"), "the Landing pages section");
+    expect(section.textContent).toContain("/go/spring");
+    expect(section.textContent).toContain("Draft");
+    expect(el.querySelector('ul[aria-label="Pages"]')?.textContent).not.toContain("/go/spring");
+
+    await act(async () => buttons(el, "New landing page")[0]!.click());
+    const dialog = await waitFor(() => document.querySelector<HTMLElement>('[role="dialog"]'), "the New landing page dialog");
+    await type(field(dialog, "Title"), "Summer sale");
+    expect(field(dialog, "Address").value).toBe("summer-sale");
+    await act(async () => dialog.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    await waitFor(() => el.textContent?.includes("Added the landing page Summer sale at /go/summer-sale."), "the landing page to be made");
+
+    const made = (await store.listPages(siteId)).find((p) => p.path === "/go/summer-sale");
+    expect(made?.kind).toBe("landing");
+    // Opened in the same editor, and kept out of the menu.
+    expect(el.querySelector("header")?.textContent).toContain("(/go/summer-sale)");
+    expect((await store.getDraft(siteId))!.site.nav).toEqual([]);
+  });
+
+  it("changes the directory and moves the landing pages with it", async () => {
+    const { store, siteId } = await publishableSite();
+    const spring = await store.createPage(siteId, { path: "/go/spring", kind: "landing", doc: { schemaVersion: 1, root: { props: { title: "Spring" } }, content: [] } });
+    const el = await mount({ siteId, store });
+    await openTab(el, "Pages");
+    await act(async () => buttons(el, "Change the directory")[0]!.click());
+    const dialog = await waitFor(() => document.querySelector<HTMLElement>('[role="dialog"]'), "the directory dialog");
+    await type(field(dialog, "Directory"), "/offers");
+    expect(dialog.textContent).toMatch(/Their old addresses redirect/);
+    await act(async () => dialog.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    await waitFor(() => el.textContent?.includes("New landing pages go in /offers."), "the directory to change");
+    expect((await store.getPageDraft(spring.id))!.path).toBe("/offers/spring");
+    expect((await store.getDraft(siteId))!.site.landing).toEqual({ directory: "/offers" });
+    expect(el.querySelector("[data-gs-landing]")?.textContent).toContain("/offers/spring");
   });
 });

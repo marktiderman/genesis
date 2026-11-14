@@ -7,8 +7,9 @@ function Card({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
+      data-slot="card"
       className={cn(
-        "rounded-xl border bg-card text-card-foreground shadow-sm",
+        "rounded-[var(--card-radius)] border-[length:var(--card-border-width)] bg-card text-card-foreground shadow-[var(--card-shadow)]",
         className
       )}
       {...props}
@@ -22,7 +23,8 @@ function CardHeader({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex flex-col space-y-1.5 p-6", className)}
+      data-slot="card-header"
+      className={cn("flex flex-col space-y-1.5 p-[var(--card-padding)]", className)}
       {...props}
     />
   );
@@ -34,8 +36,9 @@ function CardTitle({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
+      data-slot="card-title"
       className={cn(
-        "text-2xl font-semibold leading-none tracking-tight",
+        "text-2xl font-[number:var(--title-font-weight)] leading-none tracking-[var(--title-letter-spacing)] [text-transform:var(--title-text-transform)]",
         className
       )}
       {...props}
@@ -49,6 +52,7 @@ function CardDescription({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
+      data-slot="card-description"
       className={cn("text-sm text-muted-foreground", className)}
       {...props}
     />
@@ -59,7 +63,7 @@ function CardContent({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("p-6 pt-0", className)} {...props} />;
+  return <div data-slot="card-content" className={cn("p-[var(--card-padding)] pt-0", className)} {...props} />;
 }
 
 function CardFooter({
@@ -68,7 +72,8 @@ function CardFooter({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex items-center p-6 pt-0", className)}
+      data-slot="card-footer"
+      className={cn("flex items-center p-[var(--card-padding)] pt-0", className)}
       {...props}
     />
   );

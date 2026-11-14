@@ -13,7 +13,7 @@ export interface DashboardPageProps
   /** Trailing controls — a period picker, an export, a refresh. */
   actions?: React.ReactNode;
   /**
-   * The stat row: `StatCard`s, or anything tile-shaped. Laid out in a `Grid`
+   * The stat row: `<Widget>`s, `StatCard`s, or anything tile-shaped. Laid out in a `Grid`
    * that ramps down to one column on a phone. Omit it and no grid renders.
    */
   stats?: React.ReactNode;
@@ -63,10 +63,9 @@ export interface DashboardPageProps
  * wrap, don't duplicate.
  *
  * This is a **layout**: it positions tiles and regions and never fetches a
- * metric. There is deliberately no data-bound twin — binding a dashboard
- * needs an aggregate/metric contract, and `genesis-core` ships none. Adding
- * a template ahead of its contract is what `docs/FRAMEWORK.md` warns against
- * in "Why templates need the contract first".
+ * metric. A live number is a widget (ADR 0023): pass `<Widget>`s from
+ * `@marktiderman/genesis-ui/data` to `stats` as they are, and lay a body of
+ * widgets out with `WidgetGrid`. The layout itself stays free of data.
  *
  * @stability Beta
  */
@@ -102,7 +101,7 @@ export const DashboardPage = React.forwardRef<
         <div className="flex min-w-0 flex-col gap-1">
           <h1
             data-slot="dashboard-page-title"
-            className="truncate text-xl font-bold tracking-tight sm:text-2xl"
+            className="truncate text-xl font-[number:var(--page-title-font-weight)] tracking-[var(--page-title-letter-spacing)] [text-transform:var(--page-title-text-transform)] sm:text-2xl"
           >
             {title}
           </h1>

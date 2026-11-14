@@ -3,10 +3,11 @@
  * `SiteStore`: check and publish, add, move, delete and reorder pages, and
  * the page templates. No React, so each is tested against the memory store.
  */
-import { PublishBlockedError, prepareRelease, type PublishOptions, type SiteStore } from "../core/store";
+import { PublishBlockedError, SiteConflictError, isConflict, prepareRelease, type PublishOptions, type SiteStore } from "../core/store";
 import type { SiteIssue } from "../core/a11y";
 import type { PageDoc, PageKind, PageMeta, Release } from "../core/schemas";
 import { exampleBrands } from "../core/examples";
+import { landingDirectory, landingDirectoryProblems, landingMoves, landingPath, landingSlugProblems } from "../core/landing";
 import { landingPage, starterSite } from "../core/templates";
 import type { BrandInput } from "../core/theme";
 import { DEFAULT_RESERVED_PATHS, pagePathProblems, type ReservedPaths } from "../core/urls";
@@ -153,15 +154,143 @@ export function pageTemplates(): PageTemplate[] {
   return templates;
 }
 
-/** Move one page up or down the list (through `reorderPages`, when the store has it). */
-export async function movePageInList(store: EditorSiteStore, siteId: string, pageId: string, by: -1 | 1): Promise<PageMeta[]> {
+/**
+ * Move one page up or down the list (through `reorderPages`, when the store has it). `within`
+ * limits the list being reordered (the Pages panel's own pages, not the landing pages): the page
+ * swaps with the next one that passes it.
+ */
+export async function movePageInList(store: EditorSiteStore, siteId: string, pageId: string, by: -1 | 1, options: { within?: (page: PageMeta) => boolean } = {}): Promise<PageMeta[]> {
   if (!store.reorderPages) throw new Error("This store keeps pages in its own order.");
   const pages = await store.listPages(siteId);
   const i = pages.findIndex((p) => p.id === pageId);
-  const j = i + by;
+  let j = i + by;
+  if (options.within) while (j >= 0 && j < pages.length && !options.within(pages[j]!)) j += by;
   if (i < 0 || j < 0 || j >= pages.length) return pages;
   const ids = pages.map((p) => p.id);
   [ids[i], ids[j]] = [ids[j]!, ids[i]!];
   await store.reorderPages(siteId, ids);
   return store.listPages(siteId);
+}
+
+// ── Landing pages ─────────────────────────────────────────────────────────────
+
+/**
+ * Make a landing page: the brand's landing page template (kind `landing`) at
+ * `<directory>/<slug>`, under the site's landing directory. It isn't added to
+ * the menu. Refuses a slug, reserved path or taken address before asking the
+ * store.
+ *
+ * @stability Beta
+ */
+export async function createLandingPage(store: SiteStore, siteId: string, input: { title: string; slug: string; brand: BrandInput; reserved?: ReservedPaths }): Promise<PageMeta> {
+  const title = input.title.trim();
+  if (!title) throw new Error("Give the landing page a title.");
+  const draft = await store.getDraft(siteId);
+  if (!draft) throw new Error(`There's no site ${siteId}, or you can't edit it.`);
+  const directory = landingDirectory(draft.site);
+  const path = landingPath(directory, input.slug);
+  const problems = landingSlugProblems(directory, input.slug, input.reserved ?? DEFAULT_RESERVED_PATHS);
+  if ((await store.listPages(siteId)).some((p) => p.path === path)) problems.push(`A page is already at ${path}.`);
+  if (problems.length) throw new Error(problems.join(" "));
+  const template = pageTemplates().find((t) => t.id === "landing")!;
+  return store.createPage(siteId, { path, kind: "landing", doc: template.doc({ title, brand: input.brand }) });
+}
+
+/**
+ * Give a landing page a new slug under the site's landing directory (a page
+ * outside the directory moves into it). The old address redirects (301), as
+ * for any page move.
+ *
+ * @stability Beta
+ */
+export async function moveLandingPage(store: SiteStore, pageId: string, slug: string, options: { reserved?: ReservedPaths } = {}): Promise<PageMeta> {
+  const current = await store.getPageDraft(pageId);
+  if (!current) throw new Error("That page no longer exists.");
+  const draft = await store.getDraft(current.siteId);
+  if (!draft) throw new Error("You can't edit this site.");
+  const directory = landingDirectory(draft.site);
+  const problems = landingSlugProblems(directory, slug, options.reserved ?? DEFAULT_RESERVED_PATHS);
+  if (problems.length) throw new Error(problems.join(" "));
+  return renamePage(store, pageId, landingPath(directory, slug), options);
+}
+
+/**
+ * Change where new landing pages go (`site.landing.directory`). With
+ * `movePages`, every landing page under the old directory moves to the same
+ * slug under the new one, and its old address redirects (301); every new
+ * address is checked before anything moves. Without it, existing pages keep
+ * their addresses and only new landing pages use the new directory.
+ *
+ * The moves and the save are separate store calls, not one transaction. If
+ * one fails partway, it throws a `LandingDirectoryError` whose `moved` lists
+ * the pages that already moved (its message names them); running the same
+ * change again finishes it (the pages still under the old directory move,
+ * and the directory is saved). The final save re-reads the site and tries
+ * once more when someone saved it meanwhile, then throws
+ * `SiteConflictError` (as the `cause` of a `LandingDirectoryError` when
+ * pages had already moved).
+ *
+ * A move onto the old address of another landing page that is also moving
+ * is refused before anything moves: that address must keep redirecting to
+ * the page that had it.
+ *
+ * @stability Beta
+ */
+export async function setLandingDirectory(store: SiteStore, siteId: string, directory: string, options: { movePages?: boolean; reserved?: ReservedPaths } = {}): Promise<{ directory: string; moved: PageMeta[] }> {
+  const reserved = options.reserved ?? DEFAULT_RESERVED_PATHS;
+  const problems = landingDirectoryProblems(directory, reserved);
+  if (problems.length) throw new Error(problems.join(" "));
+  const before = await store.getDraft(siteId);
+  if (!before) throw new Error(`There's no site ${siteId}, or you can't edit it.`);
+  const moved: PageMeta[] = [];
+  const partly = (err: unknown) => (moved.length ? new LandingDirectoryError(moved, err) : err);
+  if (options.movePages) {
+    const pages = await store.listPages(siteId);
+    const moves = landingMoves(pages, landingDirectory(before.site), directory);
+    const moving = new Set(moves.map((m) => m.page.id));
+    const staying = pages.filter((p) => !moving.has(p.id));
+    const errors = moves.flatMap((m) => pathProblems(m.path, staying, { reserved }));
+    // An old address of a moving page must keep redirecting to it: another page can't take it over.
+    const leaving = new Set(moves.map((m) => m.page.path));
+    for (const m of moves) if (leaving.has(m.path)) errors.push(`${m.path} is the old address of another landing page, and must keep redirecting to it.`);
+    if (errors.length) throw new Error(`The landing pages can't move to ${directory}: ${[...new Set(errors)].join(" ")}`);
+    for (const m of moves) {
+      try {
+        moved.push(await store.movePage(m.page.id, m.path));
+      } catch (err) {
+        throw partly(err);
+      }
+    }
+  }
+  // Moves write redirects into the site document: save on top of what they left, and once more if someone saved meanwhile.
+  for (let attempt = 0; ; attempt++) {
+    const draft = attempt === 0 && !moved.length ? before : await store.getDraft(siteId);
+    if (!draft) throw partly(new Error(`There's no site ${siteId}, or you can't edit it.`));
+    let saved;
+    try {
+      saved = await store.saveSiteDraft(siteId, draft.rev, { ...draft.site, landing: { ...draft.site.landing, directory } });
+    } catch (err) {
+      throw partly(err);
+    }
+    if (!isConflict(saved)) break;
+    if (attempt >= 1) throw moved.length ? partly(new SiteConflictError()) : new SiteConflictError();
+  }
+  return { directory, moved };
+}
+
+/**
+ * `setLandingDirectory` stopped after moving some landing pages: `moved`
+ * lists them (their old addresses already redirect), and `cause` is what
+ * stopped it. Running the same change again finishes it.
+ *
+ * @stability Beta
+ */
+export class LandingDirectoryError extends Error {
+  constructor(
+    readonly moved: PageMeta[],
+    cause: unknown,
+  ) {
+    super(`Moved ${moved.map((m) => m.path).join(", ")}, then stopped: ${(cause as Error)?.message ?? String(cause)} Change the directory to the same place again to finish.`, { cause });
+    this.name = "LandingDirectoryError";
+  }
 }

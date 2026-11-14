@@ -3,7 +3,7 @@
 //   comment on table public.customers is
 //     'Customers of the business. @genesis {"label": "Customers", "labelField": "name"}';
 //   comment on column public.customers.notes is
-//     'Private to staff. @genesis {"label": "Internal notes", "widget": "textarea"}';
+//     'Private to staff. @genesis {"label": "Internal notes", "control": "textarea"}';
 //
 // The text before `@genesis` stays the description. Settings are a generator
 // input only: the checked-in contract is what the app reviews and ships.
@@ -14,7 +14,8 @@ const MARKER = "@genesis";
 // Each setting and the JSON type it takes.
 // `key` is a column name or a list of them: a view's key, which the catalog can't see once it joins.
 const TABLE_KEYS = { label: "string", labelField: "string", description: "string", noun: "string", nounPlural: "string", key: "key" } as const;
-const FIELD_KEYS = { label: "string", description: "string", widget: "string", readonly: "boolean", sensitive: "boolean" } as const;
+// `control` is a field's form-control hint; `widget` is its older name, still read.
+const FIELD_KEYS = { label: "string", description: "string", control: "string", widget: "string", readonly: "boolean", sensitive: "boolean" } as const;
 type Kinds = Record<string, "string" | "boolean" | "key">;
 
 export interface ParsedComment<S> {

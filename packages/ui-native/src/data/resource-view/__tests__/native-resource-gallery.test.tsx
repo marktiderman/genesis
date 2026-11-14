@@ -122,4 +122,12 @@ describe("NativeResourceView gallery", () => {
     await waitFor(() => expect(tile("p1")).not.toBeNull());
     expect(tile("p3")).not.toBeNull();
   });
+
+  it("takes the view type as `type` (ADR 0021): gallery is the grid as photos, and needs a gallery block", async () => {
+    render(<NativeResourceView view={view} type="gallery" onRowPress={() => undefined} />, { wrapper: wrap(provider()) });
+    await measured();
+    await waitFor(() => expect(tile("p1")).not.toBeNull());
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => render(<NativeResourceView view={plain} type="gallery" />, { wrapper: wrap(provider()) })).toThrow(/needs a gallery block/);
+  });
 });

@@ -221,7 +221,7 @@ export const brandsView = defineView(contracts["public.brands"], {
 ```tsx
 <ResourceView view={brandsView} />
 <ResourceView view={brandsView} columns="compact" layout="embedded" filter={{ org_id }} />
-<ResourceView view={sessionsView} layout="embedded" filter={{ client_id: id }} mode="grid" />
+<ResourceView view={sessionsView} layout="embedded" filter={{ client_id: id }} type="grid" />
 ```
 
 Screen settings:
@@ -237,16 +237,20 @@ Screen settings:
   filled hidden and sent on create, like `filter`. The filter wins a clash;
 - `onSaved(row, action)`: after the built-in form saves, e.g. to open a builder for a new row.
   A pessimistic save gives the server's row with its key;
-- `mode`: `table`, `grid` (cards), `list`, `calendar` ([Calendar](#calendar)) or `board`
-  ([Board](#board)); `sheet` is
+- `type`: the view type ([View types](#view-types)): `table`, `grid` (cards), `list`, `calendar`
+  ([Calendar](#calendar)), `board` ([Board](#board)), `gallery` ([Gallery](#gallery)) or one the
+  app registered;
+- `mode`: `type`'s older name, kept as its alias; `sheet` is
   **Planned** ([`resource-view-sheet`](../features.ts));
+- `open`: how a record opens, `side-peek`, `center-peek` or `page` ([Record pages](#record-pages));
+- `recordView`: the record view a peek draws, over the view's own;
 - `header`: `page` (the full header) or `toolbar` (its actions without the title block);
 - `toolbar`: content beside the header's actions;
 - `cells`: draw some cells this screen's way, by column key;
 - `slots` and `slotProps`: replace or adjust ResourcePage's parts (`shell`, `filters`, `bulkBar`,
   `grid`, `table`, `detail`, `form`, `deleteDialog`);
 - `tree`: nested rows from a flat list ([Tree mode](#tree-mode)).
-- `calendar` and `board`: the screen's settings for those modes, over the view's blocks.
+- `calendar` and `board`: the screen's settings for those view types, over the view's blocks.
 
 Every other ResourcePage prop passes through (`renderCard`, `renderDetail`, `live`, `pagination`).
 
@@ -763,6 +767,48 @@ export const photosView = defineView(contracts["public.photos"], {
 - **Not yet:** selecting photos, and a pull to refresh on the phone's gallery. GalleryGrid stays
   the component for photos that aren't records (a message's attachments, a form's uploads).
 
+## Widgets
+
+<!-- api: WidgetProps, WidgetGridProps, NumberWidget<any, any>, ProgressWidget<any, any>, StreakWidget<any, any>, ListWidget<any, any>, ChartWidget<any, any>, AggregateParams -->
+
+A widget is a small tile on a dashboard or a record page's sidebar (a number, progress, a streak,
+a short list, a chart), fed by a view (ADR 0023). It reads through its view, so it is in the
+viewer's scope, under row security, and live, and a field the viewer can't read hides it.
+
+```ts
+export const openDeals = defineWidget({ id: "open-deals", kind: "number", label: "Open deals", view: dealsView, preset: "open" });
+export const pipeline = defineWidget({
+  id: "pipeline",
+  kind: "number",
+  label: "Pipeline",
+  view: dealsView,
+  preset: "open",
+  metric: { fn: "sum", field: "amount" },
+  format: { currency: "USD" },
+});
+export const won = defineWidget({ id: "won", kind: "progress", label: "Won", view: dealsView, preset: "won", goal: { fn: "count" } });
+```
+
+```tsx
+<DashboardPage title="Sales" stats={<><Widget widget={openDeals} /><Widget widget={pipeline} /></>}>
+  <WidgetGrid widgets={[won, { widget: byStage, span: 2 }]} />
+</DashboardPage>
+```
+
+- **Kinds:** `number` (a `metric`, default a count), `progress` (a `metric` toward a `goal`: a
+  number, or a total over the scope and `goalFilter`), `streak` (days or weeks in a row with a row
+  on `dateField`), `list` (the first `limit` rows, named by the view's `labelField`) and `chart`
+  (a bar or point per value of `groupBy`, from up to `limit` rows).
+- **Totals** come from the provider's `aggregate` (count, and `sum`, `avg`, `min`, `max` of a
+  field), with `resolveAggregate` falling back to `getList` for a provider without it.
+  `useAggregate` reads them for a screen of your own.
+- **States:** loading, an error with a retry, and empty are the widget's; `<Widget>` sets
+  `data-state` and `data-kind` on its tile.
+- **One tile:** `StatCard`, `HeadlineNumbers` and `SummaryCard` draw the same `WidgetTile`, so an
+  app style reaches every tile through `widget-label`, `widget-value` and `widget-detail`.
+- **Not yet:** a widget on the phone (**Planned**, [`widgets`](../features.ts)), group totals in
+  one request and footer totals ([`resource-view-shaping`](../features.ts)).
+
 ## Security model
 
 ResourceView adds **no authority**. The layers, in order:
@@ -1008,6 +1054,133 @@ export const brandRecordView = defineRecordView(brandsView, {
 - **Saving** sends only the section's changed, listed, visible keys. A save that matches no rows
   is a refusal, shown inline; a number field never saves NaN.
 
+## View types
+
+<!-- api: ViewTypeDefinition, ResourceViewProps -->
+
+A **view** is the rules for a resource's list; a **view type** is how it shows. One view shows as
+any of them, picked by the screen with `type` (`mode` is its older alias, and `type` wins):
+
+| View type | What it draws |
+| --- | --- |
+| `table`, `list`, `grid` | rows, cards or a list, through ResourcePage; the person switches between them and their pick is remembered |
+| `board` | a column per value of the view's `board` field ([Board](#board)) |
+| `calendar` | the rows placed by a date field ([Calendar](#calendar)) |
+| `gallery` | a photo per row, from the view's `gallery` block ([Gallery](#gallery)); `type="grid"` with a gallery block still draws it too |
+
+An app adds its own, and every screen picks it the same way:
+
+```tsx
+import { defineViewType, registerViewType, useViewList, type ResourceViewProps } from "@marktiderman/genesis-ui/data";
+
+function Timeline({ view }: ResourceViewProps) {
+  const list = useViewList(view);
+  return <ol>{list.rows.map((row) => <li key={list.keyOf(row)}>{String(row.title)}</li>)}</ol>;
+}
+export const timelineType = defineViewType({ id: "timeline", label: "Timeline", render: Timeline });
+registerViewType(timelineType); // once, at start-up
+```
+
+- `id`: lowercase letters, digits and hyphens; a built-in id can't be taken and a second
+  registration under one id throws unless `{ replace: true }`.
+- `render`: gets the screen's ResourceView props. The headless hooks give it the view's data
+  ([Custom views](#custom-views)): scope, filters, paging, permissions and live updates are the
+  view's, whatever it draws.
+- The registry reads with `resolveViewType(id)` and `listViewTypes()`; an unknown `type` throws,
+  naming the registered ones.
+- The doctor's `ui/lists-use-resource-view` rule accepts a file that defines or registers a view
+  type: its lists are the type's own drawing.
+- On the phone, `NativeResourceView` takes `type` too: `list`, `grid` or `gallery`; its board and
+  calendar aren't built yet.
+
+## Record pages
+
+<!-- api: ViewDefinition<any>, RecordViewDefinition<any>, RecordPeekProps<any>, RecordViewProps<any> -->
+
+A record opened from a view is a **record page**, shown one of three ways. The view says which,
+so the list, the board and the calendar open records alike:
+
+```ts
+export const tasksView = defineView(tasksContract, {
+  open: "center-peek",                 // "side-peek" (default), "center-peek" or "page"
+  recordView: (): AnyRecordView => taskRecordView, // the record view a peek draws (its type named)
+});
+export const taskRecordView = defineRecordView(tasksView, { sections: [{ id: "about", label: "About" }] });
+```
+
+- `open`: a **side peek** (a sheet at the edge, the list beside it), a **center peek** (a dialog)
+  or the record's full **page** (`/{resource}/{id}` through `onNavigate`). A screen's `open`, or
+  ResourcePage's older `detail` (`panel`, `modal`, `route`, which it still takes beside the new
+  words), wins.
+- `recordView`: a function, since the record view is defined from the view; name its return
+  type (`AnyRecordView`), or TypeScript can't infer the view and the record view from each other.
+  A peek then draws
+  `RecordView` inline (`presentation="peek"`: its header, its sections as tabs that switch in place,
+  its actions and settings), the same page a full-page route draws. Without one, a peek shows the
+  view's columns, as before.
+- To open one by hand: `<RecordPeek view={taskRecordView} row={task} open onClose={close} mode="center-peek" />`.
+- **Templates:** a record view is `standard` (a header, then the sections) or `document`: a cover,
+  an icon, a large title, the properties, then the body, from the fields its `document` names:
+
+```ts
+export const noteRecordView = defineRecordView(notesView, {
+  template: "document",
+  document: { cover: "cover_url", icon: "emoji", properties: ["status", "due_on"], body: "body" },
+  sections: [], // a document may have none
+});
+```
+
+  `defineRecordView` checks each is a field (cover, icon and body text fields). A part whose field
+  is empty on a row isn't drawn. Parts: `record-page` (`data-template`, `data-presentation`),
+  `record-peek` (`data-open`), `record-page-cover`, `record-page-icon`, `record-page-title`,
+  `record-page-properties` and `record-page-body`.
+
+## Custom views
+
+<!-- api: CustomViewProps<any>, UseViewListOptions<any> -->
+
+A **custom view** is a screen an app draws itself over a view (ADR 0019): a leaderboard whose
+rows slide into place, a streak strip, a day's timeline. Genesis keeps the view's data and states;
+the app draws the rows.
+
+```tsx
+import { CustomView } from "@marktiderman/genesis-ui/data";
+
+<CustomView view={playersView} sort={{ field: "points", order: "desc" }} perPage={10} live>
+  {({ rows, reducedMotion }) => <Leaderboard players={rows} animate={!reducedMotion} />}
+</CustomView>;
+```
+
+- `type`: `list` (default, a page of rows), `board` (the board block's columns, with moves) or
+  `calendar` (one window's rows; `range`, default this month's grid). Fixed for a component's life.
+- **States are Genesis's.** Loading (skeleton rows), empty (EmptyState in the view's
+  `copy.empty` words) and error (the reason and a retry) are drawn for you, as parts
+  `custom-view-loading`, `custom-view-empty` and `custom-view-error` inside `custom-view`
+  (`data-view-type`, `data-state`). `loading`, `empty` and `error` replace one; `empty={false}` hands
+  an empty view to the function too (a calendar that still draws its days). The doctor's
+  `custom-view-states` rule warns when a custom view draws its own.
+- **The function gets** `rows`, `status`, `groups()` (the rows under the view's `groupBy`, through
+  core's `groupRows`), `can` (the view's guards for the viewer, each `true` or its reason, narrowed
+  by the screen's `can`), `params`, `reducedMotion`, and the data of its type: `list`
+  (`useViewList`'s state), `board` (`useViewBoard`'s) or `calendar` and `range`
+  (`useViewCalendarRange`'s).
+- **The view's rules hold**: `preset`, `filter`, `scoped` and `resourceOptions` work as on
+  `<ResourceView>`, and `urlState` keeps the page, sort, search and open record in the URL.
+- **The app's own elements** inside are its parts: `data-slot="app-…"`, coloured from roles only
+  (`bg-card`, `hsl(var(--primary))`), so an app style and brand reach them. The doctor's
+  `app-part-name` and `app-part-colors` rules say when one isn't.
+
+The headless pieces underneath are exported for a screen that needs them, and every view type
+shares them, so a custom view asks for exactly what the table, board and calendar ask for:
+
+| Hook | What it gives |
+| --- | --- |
+| `useViewListParams(options)` | the scope, preset and screen filters as provider params, with select, enabled and live |
+| `useViewList(view, options)` | a page of rows with paging, sort, search, a selection by record key, the open record, `urlState` and `can` |
+| `useViewBoard(view, options)` | the board's columns, paged per column, and `move` with the guards, a refusal's reason and the conflict sheet's choices (ResourceBoard draws it) |
+| `useViewCalendarRange(view, range, options)` | one calendar window's rows, capped, on the field's clock (ResourceCalendar loads through it) |
+| `useReducedMotion()` | the person's motion preference |
+
 ## Native
 
 <!-- api: NativeResourceViewProps<any>, ViewDefinition<any> -->
@@ -1070,7 +1243,7 @@ exactly as above.
   It owns the whole row: no inset group cell or separator is drawn around it, and the screen still
   wraps it in `swipeable` when it has actions. Pass a stable function (`useCallback`) for long lists.
 
-## Other surfaces (extensions, popups, side panels)
+## Other channels (extensions, popups, side panels)
 
 - The view entry has no React and no DOM, so a service worker, content script or server code can
   use `summary`, labels, the `select` list and form data.

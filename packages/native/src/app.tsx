@@ -34,7 +34,7 @@ import { GenesisThemeProvider, useTheme } from "@marktiderman/genesis-design-sys
 import { brandRoleVariables, type CanonicalBrand } from "@marktiderman/genesis-design-system";
 import { GenesisProvider, createSupabaseProvider, type DataProvider, type SupabaseClientInput } from "@marktiderman/genesis-core/provider";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { KeyboardScrollProvider, type KeyboardScrollProps, type KeyboardToolbarProps } from "@marktiderman/genesis-ui-native/layouts";
+import { KeyboardScrollProvider, type KeyboardScrollProps, type KeyboardStickyProps, type KeyboardToolbarProps } from "@marktiderman/genesis-ui-native/layouts";
 import {
   GenesisModulesProvider,
   NativeSheetProvider,
@@ -158,6 +158,11 @@ export interface GenesisNativeAppProps {
    * (and so `keyboardProvider`); without them it is ignored.
    */
   keyboardToolbar?: ComponentType<KeyboardToolbarProps>;
+  /**
+   * `KeyboardStickyView` from react-native-keyboard-controller: keeps FormPage's Save / Cancel
+   * bar above the keyboard. Needs `keyboardScroll`; without it, the bar ends the scrolling form.
+   */
+  keyboardSticky?: ComponentType<KeyboardStickyProps>;
   /**
    * The optional native modules the app installed, for Genesis components to
    * use (`GenesisModulesProvider` from `@marktiderman/genesis-ui-native`):
@@ -300,18 +305,18 @@ const MISSING_KEYBOARD_PROVIDER =
   'Pass `keyboardProvider={KeyboardProvider}` from "react-native-keyboard-controller" too.';
 
 const TOOLBAR_WITHOUT_SCROLL =
-  "GenesisNativeApp: `keyboardToolbar` was given without `keyboardScroll`, so it is ignored. " +
+  "GenesisNativeApp: `keyboardToolbar` or `keyboardSticky` was given without `keyboardScroll`, so it is ignored. " +
   'Pass `keyboardScroll={KeyboardAwareScrollView}` and `keyboardProvider={KeyboardProvider}` from "react-native-keyboard-controller" too.';
 
 function ThemedShell(props: GenesisNativeAppProps) {
-  const { brand, keyboardScroll, keyboardToolbar } = props;
+  const { brand, keyboardScroll, keyboardToolbar, keyboardSticky } = props;
   // Frozen: a new component type here (an inline wrapper) would remount the shell and reset the app.
   const [Keyboard] = useState(() => props.keyboardProvider);
   // Frozen too: an inline object would hand every component a new module set each render.
   const [modules] = useState(() => props.modules);
   const [toast] = useState(() => (props.toast === null ? null : { position: "top" as const, ...props.toast }));
   const missingProvider = Boolean(keyboardScroll) && !Keyboard;
-  const toolbarWithoutScroll = Boolean(keyboardToolbar) && !keyboardScroll;
+  const toolbarWithoutScroll = Boolean(keyboardToolbar || keyboardSticky) && !keyboardScroll;
   useEffect(() => {
     if (typeof __DEV__ === "undefined" || !__DEV__) return;
     // genesis-allow-console: development-only set-up mistakes, shown as LogBox errors on purpose.
@@ -322,7 +327,7 @@ function ThemedShell(props: GenesisNativeAppProps) {
   // Inside the modules: a toast animates with Reanimated and draws Liquid Glass when the app gave them.
   if (toast) body = <NativeToastProvider {...toast}>{body}</NativeToastProvider>;
   if (modules) body = <GenesisModulesProvider modules={modules}>{body}</GenesisModulesProvider>;
-  if (keyboardScroll) body = <KeyboardScrollProvider component={keyboardScroll} toolbar={keyboardToolbar}>{body}</KeyboardScrollProvider>;
+  if (keyboardScroll) body = <KeyboardScrollProvider component={keyboardScroll} toolbar={keyboardToolbar} sticky={keyboardSticky}>{body}</KeyboardScrollProvider>;
   if (Keyboard) body = <Keyboard>{body}</Keyboard>;
   if (modules?.navigation && props.navigationTheme !== false) {
     body = (

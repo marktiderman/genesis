@@ -1,5 +1,6 @@
 "use client";
 
+import { detailMode } from "./resource-view/open-modes";
 import {
   Fragment,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -281,8 +282,12 @@ export interface ResourcePageProps<
   getKey?: (item: T) => string;
 
   // Detail view
-  /** How row-click detail is shown. Default "panel". */
-  detail?: "panel" | "modal" | "route" | "none";
+  /**
+   * How a row opens (a record page, ADR 0021): `"panel"` (default) or `"side-peek"`, a sheet at
+   * the edge; `"modal"` or `"center-peek"`, a centered dialog; `"route"` or `"page"`, the
+   * record's own route through `onNavigate`; `"none"`. The peek words are the preferred ones.
+   */
+  detail?: "panel" | "modal" | "route" | "none" | "side-peek" | "center-peek" | "page";
   detailWidth?: "sm" | "md" | "lg";
   titleField?: string | undefined;
   subtitleField?: string | undefined;
@@ -921,7 +926,7 @@ export function ResourcePage<
     countFormat,
     formTitles,
     createdToast = false,
-    detail = "panel",
+    detail: detailProp = "panel",
     detailFields,
     detailWidth = "md",
     emptyDescription,
@@ -975,6 +980,8 @@ export function ResourcePage<
     title,
     toolbar,
   } = props;
+  // The record open modes (side-peek, center-peek, page) are the same choices in ADR 0021's words.
+  const detail = detailMode(detailProp);
   const m = useUiMessages();
   const createLabel = createLabelProp ?? m.page.create;
   const embedded = props.variant === "embedded";

@@ -32,7 +32,7 @@ Then, as `genesis add` prints:
 | The built-in sections | `@marktiderman/genesis-sites/sections` |
 | Serving: `handleSiteRequest` | `@marktiderman/genesis-sites/web` |
 | The Supabase store | `@marktiderman/genesis-sites/supabase` |
-| The visual editor, `<SiteEditor>` | `@marktiderman/genesis-sites/editor` |
+| The visual editor, `<SiteEditor>`, and landing pages (`createLandingPage`, `setLandingDirectory`) | `@marktiderman/genesis-sites/editor` |
 | Importing an old site's assets (Node) | `@marktiderman/genesis-sites/import` |
 
 ## Rules
@@ -42,5 +42,9 @@ Then, as `genesis add` prints:
 - Forms on a page embed Genesis Forms (the `forms` primitive); don't build a contact form by hand.
 - Never write to `genesis_sites` from outside the module's functions: the schema is the module's.
 - Which plan unlocks Sites is the app's call, in its own `features.ts`.
+- A campaign page is a landing page (kind `landing`) under the site's landing directory
+  (`landing.directory`, `/go` by default), made in the editor's Landing pages section or with
+  `createLandingPage`; it is a page like any other, edited and published in the same editor and
+  release, never a second builder.
 
 Details: the package README and [docs/SITES.md](https://github.com/marktiderman/genesis/blob/main/docs/SITES.md).

@@ -25,6 +25,7 @@ export default defineConfig({
     "src/urls.ts",
     "src/csv.ts",
     "src/errors.ts",
+    "src/headless/index.ts",
     "src/offline/index.ts",
   ],
   format: ["esm"],

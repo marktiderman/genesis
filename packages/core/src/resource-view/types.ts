@@ -384,6 +384,18 @@ export interface ViewGallery<Name extends string = string> {
   rowHeight?: number;
 }
 
+/**
+ * How a record opens from a view (a record page, ADR 0021): a **side peek** (a panel at the edge,
+ * the list still beside it), a **center peek** (a dialog over the list) or a full **page** (the
+ * record's own route).
+ *
+ * @stability Beta
+ */
+export type RecordOpen = "side-peek" | "center-peek" | "page";
+
+/** The open modes, in the order a picker lists them. @stability Beta */
+export const RECORD_OPEN_MODES: readonly RecordOpen[] = Object.freeze(["side-peek", "center-peek", "page"]);
+
 /** What `defineView` accepts. */
 export interface ViewDefinition<C extends ResourceContract, Row extends DataRow = RowOf<C>> {
   copy?: ViewCopy;
@@ -418,6 +430,18 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   gallery?: ViewGallery<FieldNameOf<C>>;
   /** Group rows under headers by this field. */
   groupBy?: FieldNameOf<C>;
+  /**
+   * How a record opens from every view type of this view (ADR 0021): `side-peek` (default),
+   * `center-peek` or `page`. A screen's own `open` (or ResourcePage's older `detail`) wins.
+   */
+  open?: RecordOpen;
+  /**
+   * The record view a peek renders: a function, because the record view is defined from this
+   * view, with its return type named so TypeScript needn't infer one from the other:
+   * `recordView: (): AnyRecordView => brandRecordView`. Without one, a peek shows the view's
+   * columns as today.
+   */
+  recordView?: () => import("./record-view").AnyRecordView;
   /**
    * Default order; `manual: true` turns on drag to reorder, writing this field. `nulls` says where
    * rows with no value go (unset, the store decides: Postgres puts them first on a descending sort).

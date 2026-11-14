@@ -67,6 +67,9 @@ export type NativeResourceSwipeableProps = Omit<InboxPageSlotMap["swipeable"], "
 /** How rows show: a list (the default) or cards in columns, as the web's `mode`. */
 export type NativeResourceViewMode = "list" | "grid";
 
+/** The view types the phone draws: list, grid and gallery (ADR 0021). @stability Beta */
+export type NativeResourceViewType = NativeResourceViewMode | "gallery";
+
 /**
  * Spread onto your card's Pressable: the press (the screen's `onRowPress`, else the peek), the
  * long press (the row's actions), and the label and actions screen readers use. The same wiring
@@ -118,9 +121,15 @@ export interface NativeResourceViewProps<T extends Row = Row> extends NativeReso
   /**
    * `"grid"`: cards in `numColumns` columns, as the web's `mode="grid"`. Sections, paging, pull to
    * refresh, the empty and error states, long press, accessibility and swipe actions all stay.
-   * Default `"list"`.
+   * Default `"list"`. Prefer `type`; `mode` stays as its alias.
    */
   mode?: NativeResourceViewMode;
+  /**
+   * The view type (ADR 0021), as the web's `<ResourceView type>`: `"list"` (default), `"grid"`, or
+   * `"gallery"` (the grid as photos, from the view's `gallery` block). The phone has no board or
+   * calendar yet. Wins over `mode`.
+   */
+  type?: NativeResourceViewType;
   /** Columns in grid mode (React Native's FlatList name). Default 2. */
   numColumns?: number;
   /**
@@ -466,7 +475,8 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     header,
     emptyState,
     searchable,
-    mode = "list",
+    mode: modeProp = "list",
+    type,
     numColumns: columnsProp,
     gallery: screenGallery,
     renderCard,
@@ -474,6 +484,11 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     testID = "native-resource-view",
     ...options
   } = props;
+  // `type` is the view type's name (ADR 0021); `mode` its alias. A gallery is the grid as photos.
+  const mode: NativeResourceViewMode = type === "gallery" ? "grid" : (type ?? modeProp);
+  if (type === "gallery" && !view.definition.gallery && !screenGallery?.image) {
+    throw new Error(`NativeResourceView(${view.resource}): type="gallery" needs a gallery block: the view's gallery.image, or gallery={{ image }}`);
+  }
   void _zone;
   const state = useNativeResourceView<T>(view, options);
   const keyExtractor = useCallback((row: T) => recordKey(view as AnyResourceView<Row>, row), [view]);

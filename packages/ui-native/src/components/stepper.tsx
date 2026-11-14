@@ -7,6 +7,7 @@
  * @stability Beta
  */
 import { Text, View } from "react-native";
+import { stepState } from "@marktiderman/genesis-core/headless";
 import { cn } from "../utils";
 
 export interface NativeStepperStep {
@@ -38,8 +39,9 @@ export function NativeStepper({
     >
       <View className="flex-row items-center">
         {steps.map((s, i) => {
-          const isCompleted = i < current;
-          const isCurrent = i === current;
+          const state = stepState(i, current);
+          const isCompleted = state === "complete";
+          const isCurrent = state === "current";
           return (
             <View key={i} className="flex-1 flex-row items-center">
               <View

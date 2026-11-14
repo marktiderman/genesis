@@ -15,6 +15,7 @@
  */
 
 import { RADIUS_SCALE, radiusStep } from "./spacing";
+import { renderComponentTokenDefaults } from "./component-tokens";
 
 export interface ThemeBrand {
   name: string;
@@ -250,7 +251,13 @@ export function renderThemeCss(brand: ThemeBrand, fonts: FontFamilies): string {
  */
 
 ${renderBlock(":root", "light", light)}
-${renderBlock(".dark", "dark", dark)}`;
+${renderBlock(".dark", "dark", dark)}
+/* Component tokens: sizes, shapes and type genesis-ui reads (src/tokens/component-tokens.ts).
+   Every default is what the component's class said before; a theme sets its own. */
+:root {
+${renderComponentTokenDefaults()}
+}
+`;
 }
 
 /** Render dist/themes/genesis-tailwind4.css. Brand-agnostic: it maps variables only. */
