@@ -5,7 +5,7 @@
  * the view says (side peek, center peek, page) from the list, the board and the calendar, with a
  * peek drawing the view's record view (standard or document template) when it names one.
  */
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -197,5 +197,29 @@ describe("record pages in a peek", () => {
     await waitFor(() => expect(document.querySelector('[data-slot="record-peek"]')).not.toBeNull());
     // Its row's cover is empty, so no cover is drawn.
     expect(document.querySelector('[data-slot="record-page-cover"]')).toBeNull();
+  });
+
+  it("drops a held delete when the peek shows another record, or closes and opens again", async () => {
+    const onDelete = vi.fn();
+    const peek = (row: Note, open = true) => <RecordPeek view={noteRecord} row={row} open={open} onClose={() => {}} onDelete={onDelete} />;
+    const { rerender } = render(peek(ROWS[0]!), { wrapper: wrap() });
+    fireEvent.click(await screen.findByTestId("record-peek-page-delete"));
+    await screen.findByTestId("confirm-delete-confirm");
+    // Back to another record while the confirm is open: Confirm can't delete the first one.
+    rerender(peek(ROWS[1]!));
+    const stale = screen.queryByTestId("confirm-delete-confirm");
+    if (stale) fireEvent.click(stale);
+    await act(async () => undefined);
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("confirm-delete-dialog")).toBeNull();
+
+    // Asked, closed, then opened again: no confirm left over.
+    fireEvent.click(await screen.findByTestId("record-peek-page-delete"));
+    await screen.findByTestId("confirm-delete-confirm");
+    rerender(peek(ROWS[1]!, false));
+    rerender(peek(ROWS[1]!));
+    await act(async () => undefined);
+    expect(screen.queryByTestId("confirm-delete-dialog")).toBeNull();
+    expect(onDelete).not.toHaveBeenCalled();
   });
 });

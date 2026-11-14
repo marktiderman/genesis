@@ -89,9 +89,11 @@ export function NativeRecordPeek<T extends Row = Row>({
       setDeleting(false);
     }
   };
+  // A handler that confirms on its own owns the rest (its confirm, the write, closing the peek), as
+  // on the web: the peek hands the call straight through and stays open.
   const confirmDelete = (r: T) =>
     !confirmFirst
-      ? void runDelete(r)
+      ? void onDelete?.(r)
       : Alert.alert(labels.deleteTitle ?? fill(words.confirmTitle, { name: title }), labels.deleteBody ?? words.confirmBody, [
       { text: labels.cancel ?? messages.common.cancel, style: "cancel" },
       { text: deleteLabel, style: "destructive", onPress: () => void runDelete(r) },

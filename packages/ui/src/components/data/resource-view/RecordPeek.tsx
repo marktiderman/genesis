@@ -5,8 +5,8 @@
 // (`RecordView presentation="peek"`), the same page a full-page route draws, so a record looks
 // the same however it was opened.
 
-import { useState, type ComponentProps, type ReactNode } from "react";
-import type { DataRow, ResourceContract } from "@marktiderman/genesis-core";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
+import { encodeRecordKey, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
 import { useCapabilities } from "@marktiderman/genesis-core/hooks";
 import type { RecordOpen, RecordView as RecordViewDef } from "@marktiderman/genesis-core/resource-view";
 import { cn } from "../../../utils";
@@ -66,6 +66,14 @@ export function RecordPeek<T extends Row = Row>({ view, row, open, onClose, mode
   const title = row ? view.view.summary(row as T & DataRow).title : "";
   const softDelete = useCapabilities(view.view.resource, { enabled: !!onDelete && confirmDelete }).data?.softDelete === true;
   const [deleting, setDeleting] = useState<T | null>(null);
+  // The held delete belongs to the record it was asked for: closing the peek, or showing another
+  // record in it (back and forward on a deep link), drops it, so Confirm can't delete a record
+  // that's no longer the one shown.
+  const keyOf = (r: T | null) => (r === null ? null : String(encodeRecordKey(view.view.contract, r as T & DataRow)));
+  const shownKey = open ? keyOf(row) : null;
+  useEffect(() => {
+    setDeleting(null);
+  }, [shownKey]);
   // The record page's Delete: straight to a handler that confirms itself, else this peek's one confirm.
   const requestDelete = onDelete ? (r: T) => (confirmDelete ? setDeleting(r) : void onDelete(r)) : undefined;
   const body = row ? (
@@ -79,6 +87,10 @@ export function RecordPeek<T extends Row = Row>({ view, row, open, onClose, mode
           onOpenChange={(next) => !next && setDeleting(null)}
           onConfirm={async () => {
             if (!deleting) return;
+            if (keyOf(deleting) !== shownKey) {
+              setDeleting(null);
+              return;
+            }
             await onDelete(deleting);
             setDeleting(null);
             onClose();
