@@ -110,7 +110,8 @@ type ThreadProps = Pick<ThreadPageProps, "messages" | "composer" | "closedNotice
   /**
    * Until support first answers: where the answer will come, and how soon (`replyExpectation`) or
    * when someone's back (`officeHours`). Shown above the composer, and here for a screen of your own.
-   * Null without either option, once support has answered, or while the replies load.
+   * Null without either option, once support has answered, while the replies load, or once the
+   * report is closed (addressed or won't fix), when no answer is coming.
    */
   awaiting: string | null;
   report: SupportReport | null;
@@ -235,7 +236,7 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
   // Until support first answers, say where the answer will come. Only when the app set when people
   // hear back: this screen shows bug reports too, which said nothing before.
   const expects = Boolean(block.options.replyExpectation?.trim() || block.options.officeHours);
-  const awaiting = expects && r && replies.isSuccess && !(replies.data ?? []).some((reply) => reply.fromStaff && !reply.internal) ? awaitingReplyLine(expectation, copy) : null;
+  const awaiting = expects && r && !closed && replies.isSuccess && !(replies.data ?? []).some((reply) => reply.fromStaff && !reply.internal) ? awaitingReplyLine(expectation, copy) : null;
   return {
     testID: "genesis-support-thread",
     headerTitle: r ? r.title || copy.feedback.types[r.type] : copy.thread.title,

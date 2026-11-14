@@ -159,6 +159,8 @@ export const supportCopy = {
     articlesLabel: "Help articles",
     pickerEmpty: "Nothing matches",
     pickerLoading: "Loading",
+    /** Under an open picker: Enter is held while it's open (so a trigger isn't sent), and Escape closes it. */
+    pickerHint: "Esc to close",
     /** An article as it's inserted: `{title}` and `{url}`. */
     articleLink: "{title}: {url}",
     /** Send held: someone wrote while the agent was writing. */

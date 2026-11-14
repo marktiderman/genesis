@@ -2,11 +2,16 @@
  * The agent composer's pickers: typing `@` in an internal note offers the tenant's agents to
  * mention, `!` the tenant's saved replies, `?` its help articles, in a reply or a note. A trigger
  * counts at the start of the draft or after a space, and what follows it filters; `!` and `?` open
- * only once a letter follows them, so "Merci !" or a "?" on its own is just words. Arrow keys move
- * into the list and Tab inserts; Enter inserts only once the agent has moved into the list with the
- * arrows, and otherwise sends as it always does. Escape closes. A mention goes in as genesis-chat's markdown (`@[Name](user:<uuid>)`), which the
- * database reads to tell the agent (migration 0014); a saved reply with its `{first_name}`-style
- * variables filled; an article as its title and link.
+ * only once a letter follows them, so "Merci !", "Prix ?1" or a "?" on its own is just words. Arrow
+ * keys move into the list and Tab inserts the option they're on (the first, before they move); Enter
+ * inserts only once the agent has moved into the list with the arrows. While the list offers
+ * something, or is still loading, and the arrows haven't moved into it, Enter does nothing, so
+ * "!refund" is never sent to the customer by habit: Escape closes the list (the list says so), and
+ * Enter then sends. With no match, Enter sends.
+ *
+ * A mention goes in as genesis-chat's markdown (`@[Name](user:<uuid>)`), which the database reads
+ * to tell the agent (migration 0014); a saved reply with its `{first_name}`-style variables filled;
+ * an article as its title and link.
  *
  * Drawn above genesis-ui's `ComposerBar` through `ThreadPage`'s `composer` slot.
  */
@@ -31,8 +36,8 @@ const MAX_OPTIONS = 8;
 
 /**
  * The trigger being typed at the end of a draft, if any: its kind, where it starts and what follows
- * it. `!` and `?` are punctuation too ("Merci !", "Ça marche ?"), so they need a character after
- * them; `@` (notes only) doesn't.
+ * it. `!` and `?` are punctuation too ("Merci !", "Ça marche ?", "Prix ?1"), so they need a letter
+ * (any script's) right after them; `@` (notes only) doesn't.
  */
 export function pickerToken(draft: string): { kind: PickerKind; start: number; query: string } | null {
   const match = /(^|\s)([@!?])([^\s@!?]{0,40})$/.exec(draft);
@@ -40,7 +45,7 @@ export function pickerToken(draft: string): { kind: PickerKind; start: number; q
   const kind = TRIGGERS[match[2]!];
   if (!kind) return null;
   const query = match[3] ?? "";
-  if (kind !== "mention" && !query) return null;
+  if (kind !== "mention" && !/^\p{L}/u.test(query)) return null;
   return { kind, start: match.index + match[1]!.length, query };
 }
 
@@ -56,14 +61,45 @@ export function showMentions(body: string): string {
 }
 
 /**
+ * Horizontal space between words: any Unicode space separator (a plain space, a non-breaking space
+ * from text pasted out of rich text, a thin space) or a tab.
+ */
+const GAP = String.raw`[\p{Zs}\t]`;
+/** The clause goes on after a variable: a word (a letter or a digit) follows it, after a gap. */
+const CLAUSE_GOES_ON = new RegExp(String.raw`^${GAP}+[\p{L}\p{N}]`, "u");
+/** An empty variable alone at the start of a line, its indentation, and the separator after it. */
+const LINE_START = new RegExp(String.raw`^(${GAP}*)\{(\w+)\}[,;:]?${GAP}*`, "gmu");
+/** A variable elsewhere, with the gap and any comma before it. */
+const IN_LINE = new RegExp(String.raw`(,?)${GAP}*\{(\w+)\}`, "gu");
+
+/**
  * A saved reply with its variables filled. A variable that's known and empty (the requester has no
- * name) goes with the space before it, and at the start of a line with the comma after it, so
- * "Hi {first_name}," reads "Hi," and "{first_name}, thanks" reads "thanks". Unknown ones stay as written.
+ * name) is a word taken out of its sentence, and the separator that joined it goes with it:
+ *
+ * - Where nothing comes before it on its line (only indentation, which stays), the comma, colon or
+ *   semicolon and the spaces after it go: "{first_name}, thanks" and "{first_name}: here's the
+ *   fix" read "thanks" and "here's the fix".
+ * - Elsewhere the spaces before it go, and a comma before it goes too, since that comma set the
+ *   name off ("Thanks, {first_name}." reads "Thanks.", "Thanks, {first_name} 🙂" reads
+ *   "Thanks 🙂"). The comma stays only when the sentence goes on with a word after the name: then
+ *   it belongs to the clause before ("As discussed, {first_name} will call you." reads "As
+ *   discussed, will call you."). A name used as a sentence's subject can't be taken out cleanly:
+ *   give it a stand-in with `replyVariables`.
+ *
+ * "Spaces" here are any Unicode space (a non-breaking one pasted from rich text too) or a tab.
+ *
+ * Unknown variables stay as written.
  */
 export function fillReply(body: string, variables: Readonly<Record<string, string>>): string {
+  const empty = (name: string) => variables[name] === "";
   const tidied = body
-    .replace(/^\{(\w+)\}[,;:]?[ \t]*/gm, (token, name: string) => (variables[name] === "" ? "" : token))
-    .replace(/[ \t]*\{(\w+)\}/g, (token, name: string) => (variables[name] === "" ? "" : token));
+    .replace(LINE_START, (token, indent: string, name: string) =>
+      empty(name) ? indent : token,
+    )
+    .replace(IN_LINE, (token: string, comma: string, name: string, at: number, text: string) => {
+      if (!empty(name)) return token;
+      return comma && CLAUSE_GOES_ON.test(text.slice(at + token.length)) ? comma : "";
+    });
   return fill(tidied, variables);
 }
 
@@ -91,9 +127,11 @@ export interface ComposerPicker {
   kind: PickerKind | null;
   options: PickerOption[];
   loading: boolean;
-  /** The option the arrows are on, or -1 until the agent moves into the list (Enter sends until then). */
+  /** The option the arrows are on, or -1 until the agent moves into the list (Enter does nothing until then, while there are options). */
   active: number;
   listId: string;
+  /** The id of the line under an open picker that says Escape closes it, for the input's `aria-describedby`. */
+  hintId: string;
   optionId: (index: number) => string;
   choose: (index: number) => void;
   /** The composer's keys, before its own: true when a picker key was used. */
@@ -156,7 +194,7 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
     return [];
   }, [usable, kind, agents, query, saved.data, articles.data, variables, articleHref, copy]);
 
-  // A new list starts at its first option, with Enter sending until the agent moves into it.
+  // A new list starts at its first option, with Enter held until the agent moves into it.
   useEffect(() => {
     setActive(0);
     setEngaged(false);
@@ -180,6 +218,7 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
     loading: open && ((kind === "saved" && saved.isPending) || (kind === "article" && articles.isPending)),
     active: engaged && options.length ? Math.min(active, options.length - 1) : -1,
     listId,
+    hintId: `${listId}-hint`,
     optionId: (index) => `${listId}-option-${index}`,
     setActive,
     choose,
@@ -189,7 +228,12 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
         setDismissed(token?.start ?? null);
         return true;
       }
-      if (!options.length) return false;
+      // Nothing to choose (no match, or a failed load): the keys are the composer's, and Enter sends.
+      const loading = (kind === "saved" && saved.isPending) || (kind === "article" && articles.isPending);
+      if (!options.length) {
+        // Still loading what may match: hold Enter rather than send the trigger text.
+        return loading && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing;
+      }
       if (event.key === "ArrowDown") {
         // The first press moves into the list, onto its first option.
         setActive((i) => (engaged ? (i + 1) % options.length : 0));
@@ -201,8 +245,14 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
         setEngaged(true);
         return true;
       }
-      if ((engaged && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) || event.key === "Tab") {
-        choose(Math.min(active, options.length - 1));
+      if (event.key === "Tab") {
+        choose(engaged ? Math.min(active, options.length - 1) : 0);
+        return true;
+      }
+      if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+        // Before the arrows move into the list, Enter would send the trigger text ("!refund") to the
+        // customer: it does nothing until the agent chooses (arrows, Tab, a click) or closes (Escape).
+        if (engaged) choose(Math.min(active, options.length - 1));
         return true;
       }
       return false;
@@ -226,7 +276,7 @@ export function ComposerPickerList({ picker, copy, testID }: { picker: ComposerP
           {copy.agentInbox.pickerEmpty}
         </p>
       ) : (
-        <ul role="listbox" id={picker.listId} aria-labelledby={`${picker.listId}-label`} className="flex flex-col p-1">
+        <ul role="listbox" id={picker.listId} aria-labelledby={`${picker.listId}-label`} aria-describedby={picker.hintId} className="flex flex-col p-1">
           {picker.options.map((option, index) => (
             <li
               key={option.id}
@@ -245,6 +295,13 @@ export function ComposerPickerList({ picker, copy, testID }: { picker: ComposerP
           ))}
         </ul>
       )}
+      {/*
+        Enter is held while the list is loading or offers options, so say how to leave it; with
+        "Nothing matches", Enter sends, and Escape still closes. The composer's input points here too.
+      */}
+      <p className="px-3 pb-2 text-xs text-muted-foreground" id={picker.hintId} data-testid={`${testID}-hint`}>
+        {copy.agentInbox.pickerHint}
+      </p>
     </div>
   );
 }
