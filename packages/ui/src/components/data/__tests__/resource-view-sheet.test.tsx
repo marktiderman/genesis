@@ -351,5 +351,55 @@ describe("<ResourceView type=\"sheet\">", () => {
     expect(p.update).toHaveBeenCalledTimes(1);
     expect(p.update.mock.calls.every((c) => c[0] === "tasks")).toBe(true);
   });
-});
 
+  it("refuses a yes-or-no cell whose text is neither, instead of saving false", async () => {
+    const p = provider();
+    const flags = defineView(tasks, { columns: { default: ["title", "locked"] } });
+    render(<ResourceView view={flags} type="sheet" />, { wrapper: wrap(p) });
+    await screen.findByText("Write the plan");
+    // A yes-or-no cell edits through a true/false menu: free text reaches it by paste.
+    const grid = screen.getByRole("grid");
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    await act(async () => {
+      fireEvent.paste(grid, { clipboardData: { getData: () => "maybe" } });
+    });
+    await act(async () => undefined);
+    expect(p.update).not.toHaveBeenCalled();
+    expect(document.body.innerHTML).toContain("That isn't true or false.");
+  });
+
+  it("undoes a save queued behind another to the same cell back to what the first one wrote", async () => {
+    const p = provider();
+    render(<ResourceView view={view} type="sheet" />, { wrapper: wrap(p) });
+    await screen.findByText("Write the plan");
+    // 2 → 5 is out when 5 → 7 is typed into the same cell, which still shows 2.
+    let release: () => void = () => undefined;
+    p.update.mockImplementationOnce(async (_r: string, { id, data }: { id: string; data: Partial<Task> }) => {
+      await new Promise<void>((resolve) => (release = resolve));
+      Object.assign(p.rows.find((r) => r.id === id)!, data);
+      return { data: {} };
+    });
+    const type = async (value: string) => {
+      const grid = screen.getByRole("grid");
+      fireEvent.keyDown(grid, { key: value[0]! });
+      const input = screen.getByLabelText(/Hours, row 1/i);
+      fireEvent.change(input, { target: { value } });
+      await act(async () => {
+        fireEvent.keyDown(input, { key: "Enter" });
+      });
+      fireEvent.keyDown(screen.getByRole("grid"), { key: "ArrowUp" });
+    };
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "ArrowRight" });
+    await type("5");
+    await type("7");
+    await act(async () => release());
+    await waitFor(() => expect(p.update).toHaveBeenCalledTimes(2));
+    expect(p.update.mock.calls[1]![1]).toMatchObject({ id: "a", data: { hours: 7 } });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    fireEvent.click(screen.getByTestId("resource-sheet-undo"));
+    await waitFor(() => expect(p.update).toHaveBeenCalledTimes(3));
+    expect(p.update.mock.calls[2]![1]).toMatchObject({ id: "a", data: { hours: 5 } });
+  });
+});

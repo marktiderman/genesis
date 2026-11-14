@@ -178,6 +178,8 @@ export const uiMessages = {
     viewsFailed: "Saved views couldn't be loaded.",
   },
   bulk: {
+    /** A batch the page stopped because the list moved to another resource while it ran. */
+    resourceChanged: "The list changed before these were deleted, so they were left as they were.",
     /** `{count}`: selected rows. */
     selected: "{count} selected",
     /** After a full page is selected. `{total}`: every row the list's filters match. */
@@ -227,6 +229,8 @@ export const uiMessages = {
     moved: "Not saved: the sheet moved to another list before this change went out.",
     notNumber: "That isn't a number.",
     notJson: "That isn't valid JSON.",
+    /** A yes/no cell takes true or false (yes or no, 1 or 0). */
+    notBoolean: "That isn't true or false.",
     undo: "Undo last change",
     undone: "Undone.",
     nothingToUndo: "Nothing to undo.",

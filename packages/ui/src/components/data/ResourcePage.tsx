@@ -1209,6 +1209,8 @@ function ResourcePageBody<
   // With the caller's data (no `resource`) it is the page's own search, sort and status chips:
   // filters the caller applies itself (a view's segment, its own controls) are the caller's to add.
   const listQuery = (): ResourceListQuery => listQueryOf().query;
+  const resourceRef = useRef(props.resource);
+  resourceRef.current = props.resource;
   /**
    * The list's query, and whether it says exactly what the list shows. Every part of the search is
    * the page's one normalized `searchQuery` (what the browser filters by and the provider is sent).
@@ -1225,7 +1227,8 @@ function ResourcePageBody<
           ...(typed ? { search: { query: typed, fields } } : {}),
           ...(displayTotal >= 0 ? { total: displayTotal } : {}),
         },
-        exact: !typed || fields.length > 0,
+        // No rows means no text fields to search, and nothing to export either way: not a refusal.
+        exact: !typed || fields.length > 0 || displayTotal === 0,
       };
     }
     // The params the rows were fetched with (the infinite query's under cursor paging), with what
@@ -1244,10 +1247,14 @@ function ResourcePageBody<
     const server = params.search?.query ? params.search : undefined;
     let search = server;
     let exact = true;
-    if (b.search) {
+    if (b.search && (resourceServerPaging || loadMore)) {
+      // The provider searches: the typed text is on its way there (the debounce) and replaces its
+      // search, never narrows on top of it.
+      search = b.search;
+    } else if (b.search) {
       if (!server) {
         search = b.search;
-        exact = b.search.fields.length > 0;
+        exact = b.search.fields.length > 0 || displayTotal === 0;
       } else if (b.search.fields.length === 1) filters.push({ field: b.search.fields[0]!, operator: "contains", value: b.search.query });
       else exact = false;
     }
@@ -1295,12 +1302,16 @@ function ResourcePageBody<
   const browserNarrows = !isClientMode || browserNarrowing(browserQuery());
   // "Select all matching": every row the query matches, past the loaded page, for the query it was
   // chosen on. A new search, sort or filter (even one that loads as many rows) ends it.
+  // The key holds what the browser applies too: a query that can't carry a multi-field browser
+  // search still changes key when that search does.
   const { total: _total, ...shownQuery } = listQuery();
-  const queryKey = JSON.stringify(shownQuery);
+  const { search: browserSearch, chip: browserChip } = isClientMode ? browserQuery() : { search: undefined, chip: undefined };
+  const queryKey = JSON.stringify([shownQuery, browserSearch ?? null, browserChip ?? null]);
   const [matchingFor, setMatchingFor] = useState<string | null>(null);
   const fullPage = selectedIds.size > 0 && selectedIds.size === page.data.length;
   if (matchingFor !== null && (!fullPage || matchingFor !== queryKey)) setMatchingFor(null);
-  const allMatching = matchingFor !== null && matchingFor === queryKey && fullPage;
+  // Never while the browser narrows the rows: the provider's query would reach rows it hides.
+  const allMatching = matchingFor !== null && matchingFor === queryKey && fullPage && !browserNarrows;
   const setAllMatching = (on: boolean) => setMatchingFor(on ? queryKey : null);
   // Bulk Delete over the page's own delete path (`bulkDelete`): the built-in delete only.
   const [bulkDeleting, setBulkDeleting] = useState<T[] | null>(null);
@@ -1327,7 +1338,15 @@ function ResourcePageBody<
     let done = 0;
     let failed = 0;
     let firstError: string | undefined;
+    // The page's resource when the batch starts: the delete path uses the latest one, so a batch
+    // that outlives a resource change stops, never sending these ids to another resource.
+    const started = resourceRef.current;
     for (const row of allowed) {
+      if (resourceRef.current !== started) {
+        failed += 1;
+        firstError ??= m.bulk.resourceChanged;
+        continue;
+      }
       try {
         await performDelete(row);
         done += 1;

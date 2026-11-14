@@ -28,7 +28,7 @@ function cellText(value: unknown): string {
 }
 
 /** What a cell's text means for its field; throws, in words, when it can't be one. */
-function parseCell(field: FieldSchema, text: string, words: { notNumber: string; notJson: string }): unknown {
+function parseCell(field: FieldSchema, text: string, words: { notNumber: string; notJson: string; notBoolean: string }): unknown {
   const trimmed = text.trim();
   if (trimmed === "") return field.optional || field.nullable ? null : "";
   if (field.type === "number") {
@@ -36,7 +36,13 @@ function parseCell(field: FieldSchema, text: string, words: { notNumber: string;
     if (!Number.isFinite(n)) throw new Error(words.notNumber);
     return n;
   }
-  if (field.type === "boolean") return /^(true|yes|1)$/i.test(trimmed);
+  // Only explicit spellings: anything else is refused out loud, as a number that isn't one, never
+  // saved as false.
+  if (field.type === "boolean") {
+    if (/^(true|yes|1)$/i.test(trimmed)) return true;
+    if (/^(false|no|0)$/i.test(trimmed)) return false;
+    throw new Error(words.notBoolean);
+  }
   if (field.type === "json") {
     try {
       return JSON.parse(trimmed);
@@ -96,6 +102,12 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
   const writable = useMemo(() => new Set(props.allowEdit === false ? [] : view.writable("edit")), [view, props.allowEdit]);
   const columns = useMemo(() => view.columns(preset ?? "default"), [view, preset]);
   const undo = useRef<UndoEntry[]>([]);
+  // What this sheet last wrote to each row (a save or an undo), with the rows drawn when it wrote,
+  // and the rows as last drawn: a queued save reads them when it runs. Once the list has read the
+  // rows again, the row is the truth (it holds the write, and anyone else's since). Both start
+  // again with a new resource.
+  const lastWritten = useRef(new Map<string, { values: Record<string, unknown>; rows: readonly T[] }>());
+  const rowsRef = useRef<T[]>([]);
   // Bumped each time the sheet shows another resource (an undo entry only joins the showing it was made in).
   const generation = useRef(0);
   const [, redraw] = useState(0);
@@ -129,6 +141,13 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
   );
 
   const keyOf = (row: T) => String(encodeRecordKey(view.contract, row as T & DataRow));
+  rowsRef.current = list.rows;
+
+  const noteWritten = (key: string, data: Record<string, unknown>) => {
+    const prior = lastWritten.current.get(key);
+    const values = prior && prior.rows === rowsRef.current ? { ...prior.values, ...data } : { ...data };
+    lastWritten.current.set(key, { values, rows: rowsRef.current });
+  };
 
   /** Save changes row by row; mark each cell that failed with its reason. */
   // Writes go one at a time: an undo waits for a save still out, and a save for an undo, so two
@@ -162,8 +181,13 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
       }
       const entry = byRow.get(change.rowKey) ?? { row: change.row, data: {}, before: {} };
       try {
-        entry.data[field.name] = parseCell(field, change.value, { notNumber: m.sheet.notNumber, notJson: m.sheet.notJson });
-        entry.before[field.name] = (change.row as Row)[field.name] ?? null;
+        entry.data[field.name] = parseCell(field, change.value, { notNumber: m.sheet.notNumber, notJson: m.sheet.notJson, notBoolean: m.sheet.notBoolean });
+        // The value before this save, as it is when the save runs: a save queued behind another
+        // to the same cell restores what that one wrote, not what the row held when it was edited.
+        const written = lastWritten.current.get(change.rowKey);
+        const latest = rowsRef.current.find((r) => keyOf(r) === change.rowKey) ?? change.row;
+        entry.before[field.name] =
+          written && written.rows === rowsRef.current && field.name in written.values ? written.values[field.name] : ((latest as Row)[field.name] ?? null);
         byRow.set(change.rowKey, entry);
       } catch (error) {
         failed.push({ rowKey: change.rowKey, column: change.column, message: (error as Error).message });
@@ -181,6 +205,7 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
       try {
         await update(key, data as Partial<T & BaseRecord>);
         saved.push({ key, before });
+        noteWritten(key, data);
       } catch (error) {
         const message = error instanceof Error && error.message ? error.message : m.sheet.saveFailed;
         for (const column of Object.keys(data)) failed.push({ rowKey: key, column, message });
@@ -202,6 +227,7 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
   const history = () => undo.current.filter((entry) => entry.resource === shownResource);
   useEffect(() => {
     generation.current += 1;
+    lastWritten.current = new Map();
     undo.current = undo.current.filter((entry) => entry.resource === shownResource);
     redraw((n) => n + 1);
   }, [shownResource]);
@@ -254,6 +280,7 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
       }
       try {
         await update(item.key, item.before as Partial<T & BaseRecord>);
+        noteWritten(item.key, item.before);
       } catch (error) {
         left.push(item);
         problem ??= error instanceof Error && error.message ? error.message : m.sheet.saveFailed;

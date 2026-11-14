@@ -996,3 +996,95 @@ describe("one normalized search, in every paging mode", () => {
   });
 });
 
+describe("review fixes: round three", () => {
+  it("ends select-all-matching when a browser search over several fields, on top of a provider search, keeps every loaded row but not the rest", async () => {
+    const onAction = vi.fn();
+    render(
+      <ResourcePage<Task>
+        resource="tasks"
+        title="Tasks"
+        pagination="client"
+        searchFields={["title", "status"]}
+        // A provider search too (this provider matches every row): the browser's two-field search
+        // can't join it in one query, so the query alone doesn't change when it does.
+        resourceOptions={{ defaultPerPage: 2, defaultSearch: "e", searchFields: ["title"] } as never}
+        columns={[{ key: "title", header: "Title" }]}
+        bulkActions={[{ label: "Archive", matching: true, onAction, testId: "bulk-archive" }]}
+      />,
+      { wrapper: wrap(provider()) },
+    );
+    await screen.findByText("Write the plan");
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    fireEvent.click(await screen.findByTestId("bulk-select-all-matching"));
+    expect(await screen.findByText("All 3 matching selected")).toBeTruthy();
+    // "i" keeps both loaded rows (Write the plan, Ship it) and leaves out the one not loaded (Tell people, todo).
+    fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: "i" } });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    expect(screen.getByText("Write the plan")).toBeTruthy();
+    expect(screen.getByText("Ship it")).toBeTruthy();
+    expect(screen.queryByText("All 3 matching selected")).toBeNull();
+    fireEvent.click(await screen.findByTestId("bulk-archive"));
+    await waitFor(() => expect(onAction).toHaveBeenCalled());
+    expect(onAction.mock.calls[0]![1]).toMatchObject({ allMatching: false });
+  });
+
+  it("exports the typed search alone while it waits out the debounce under server paging", async () => {
+    const onExport = vi.fn();
+    render(
+      <ResourcePage<Task> resource="tasks" title="Tasks" pagination="server" searchFields={["title"]} columns={[{ key: "title", header: "Title" }]} onExport={onExport} />,
+      { wrapper: wrap(provider()) },
+    );
+    await screen.findByText("Ship it");
+    const box = screen.getByPlaceholderText("Search...");
+    fireEvent.change(box, { target: { value: "alpha" } });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    fireEvent.change(box, { target: { value: "beta" } });
+    fireEvent.pointerDown(screen.getByLabelText("More actions"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByText("Export CSV"));
+    await waitFor(() => expect(onExport).toHaveBeenCalled());
+    const query = onExport.mock.calls[0]![0];
+    expect(query.search).toEqual({ query: "beta", fields: ["title"] });
+    expect(JSON.stringify(query.filters ?? [])).not.toContain("beta");
+  });
+
+  it("exports an empty list the screen holds, with a search typed", async () => {
+    const onExport = vi.fn();
+    const failed = vi.spyOn(toast, "error");
+    render(<ResourcePage<Task> title="Tasks" data={[]} columns={[{ key: "title", header: "Title" }]} onExport={onExport} />, { wrapper: wrap(provider()) });
+    fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: "x" } });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    });
+    fireEvent.pointerDown(screen.getByLabelText("More actions"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByText("Export CSV"));
+    await waitFor(() => expect(onExport).toHaveBeenCalled());
+    expect(failed).not.toHaveBeenCalled();
+  });
+
+  it("stops a bulk delete when the page moves to another resource, never deleting those ids there", async () => {
+    let release: () => void = () => undefined;
+    const deleteOne = vi.fn(async (_r: string, { id }: { id: string | number }) => {
+      if (deleteOne.mock.calls.length === 1) await new Promise<void>((resolve) => (release = resolve));
+      return { data: { id } };
+    });
+    const p = provider({ deleteOne });
+    const page = (resource: string) => <ResourcePage<Task> resource={resource} title="Tasks" pagination="client" allowDelete bulkDelete columns={[{ key: "title", header: "Title" }]} />;
+    const { rerender } = render(page("tasks"), { wrapper: wrap(p) });
+    await screen.findByText("Ship it");
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    fireEvent.click(await screen.findByTestId("bulk-delete"));
+    await screen.findByText("Delete 3 records?");
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(deleteOne).toHaveBeenCalledTimes(1));
+    rerender(page("notes"));
+    await act(async () => release());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(deleteOne.mock.calls.map((c) => c[0])).toEqual(["tasks"]);
+  });
+});
