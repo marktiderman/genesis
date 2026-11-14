@@ -219,6 +219,16 @@ starter:
 | `version` in app.config.ts | unchanged (the fingerprint leaves the version out) |
 | `.eas/`, `eas.json`, `.maestro/` | not hashed |
 | a `package.json` script, `APP_VARIANT`, `app.easProjectId` | changed |
+| `@marktiderman/genesis-native`'s version alone (any Genesis release) | unchanged (below) |
+| genesis-native's `rich-push-plugin.js`, or its `ios/` Swift | changed |
+
+`fingerprint.config.js` hashes config plugins by the files they load (`configPluginSourceType:
+"files"`) rather than by their package's `package.json`, and adds genesis-native's `ios/` folder
+(the Notification Service Swift the rich push plugin copies into the build) as an extra source.
+Hashed by `package.json`, an app that installs Genesis from npm gets a new runtime version from
+every Genesis release, since each one bumps genesis-native's version, and so a new store build on
+every Genesis upgrade instead of an update. (Inside this repository the package is a workspace
+link and isn't hashed that way, so the starter itself doesn't show it.)
 
 ## Maestro
 

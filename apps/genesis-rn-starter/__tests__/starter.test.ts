@@ -136,6 +136,14 @@ describe("fingerprint", () => {
     expect(imports).toEqual(["expo/config", "./starter.config", "./src/lib/define-starter"]);
   });
 
+  // Hashed by package.json, a config plugin's package changes the runtime version on every
+  // release (a version bump), so an app on npm Genesis would build on every Genesis upgrade.
+  it("hashes config plugins by the files they load, plus the rich push Swift", () => {
+    const config = read("fingerprint.config.js");
+    expect(config).toMatch(/configPluginSourceType:\s*"files"/);
+    expect(config).toContain('filePath: "node_modules/@marktiderman/genesis-native/ios"');
+  });
+
   it("app.config.ts reads no JavaScript-only switch", () => {
     expect(read("app.config.ts")).not.toMatch(/features\.(updates|queryPersistence|queryLifecycle|keyboardScroll|deepLinks|notifications|accountDeletion|wipeSessionOnReinstall|refreshWhileActive|observability|devtools)/);
   });
