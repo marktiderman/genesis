@@ -1,5 +1,21 @@
 # @marktiderman/genesis
 
+## 0.10.23
+
+### Patch Changes
+
+- Updated dependencies [1cc95c3]
+- Updated dependencies [d0b5676]
+- Updated dependencies [a6b65a9]
+- Updated dependencies [a6b65a9]
+- Updated dependencies [a6b65a9]
+  - @marktiderman/genesis-native@0.11.0
+  - @marktiderman/genesis-ui@2.35.0
+  - @marktiderman/genesis-core@2.16.0
+  - @marktiderman/genesis-design-system@1.12.0
+  - @marktiderman/genesis-ui-native@3.12.0
+  - @marktiderman/genesis-forms@0.11.1
+
 ## 0.10.22
 
 ### Patch Changes

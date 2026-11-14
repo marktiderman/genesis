@@ -1,5 +1,11 @@
 # @marktiderman/genesis-supabase
 
+## 0.15.0
+
+### Minor Changes
+
+- 5431861: The support intake function's wire contract knows the `pending` ticket status (waiting on the requester), in step with genesis-support's copy and its migration 0013.
+
 ## 0.14.2
 
 ### Patch Changes
