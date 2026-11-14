@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-core",
-  "version": "2.15.0",
+  "version": "2.16.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -125,19 +125,19 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@hookform/resolvers": "^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0",
+    "@hookform/resolvers": "^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0",
     "@tanstack/react-query": "^5.0.0",
     "react": "^19.0.0",
     "react-hook-form": "^7.0.0",
     "zod": "^3.0.0 || ^4.0.0"
   },
   "devDependencies": {
-    "@hookform/resolvers": "^6.0.0",
+    "@hookform/resolvers": "^7.0.1",
     "@tanstack/react-query": "^5.105.0",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "fake-indexeddb": "6.2.5",
+    "fake-indexeddb": "6.2.7",
     "happy-dom": "^21.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -251,6 +251,12 @@
           "need": "a list's segment and filters in the URL, or as provider filters",
           "use": "readListUrl, listUrlParams and the view's filterParams and segmentFilters",
           "import": "@marktiderman/genesis-core/resource-view"
+        },
+        {
+          "need": "an organization's own brand and defaults inside the app",
+          "use": "WorkspaceTheme's brand and defaults, read with resolveWorkspaceBrand and resolveWorkspaceAppearance",
+          "import": "@marktiderman/genesis-core/workspaces",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0024-who-sets-what.md"
         }
       ]
     }

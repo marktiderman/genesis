@@ -22,6 +22,7 @@ import { NativeButton } from "@marktiderman/genesis-ui-native/components";
 import { defineSupportBlock, supportPaths, SUPPORT_BLOCK_ID, type SupportPaths } from "../block";
 import { createSupportClient, type SupportClient, type SupportSupabase } from "../client";
 import type { HelpAnswerResponse } from "../help-ask";
+import type { OfficeHours } from "../office-hours";
 import type { SupportChatClient } from "../chat";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { composeCollectors, createContextCollector, type ContextCollector, type ScreenshotContentType } from "../record";
@@ -62,6 +63,14 @@ export interface SupportOptions {
   askAi?: (questionId: string) => Promise<HelpAnswerResponse>;
   /** The person hasn't agreed to share with the AI's vendor: opens your screen for that. */
   onAiConsent?: () => void;
+  /**
+   * How soon people hear back, in your words, after "We usually reply" ("within a few hours",
+   * "in under a day"): `useStartConversation` says it, and `useSupportThread` under a conversation
+   * nobody has answered yet. The same as `SupportMessenger`'s on the web.
+   */
+  replyExpectation?: string;
+  /** When someone answers. Outside them, the same screens say you're away and when you're back, in the person's own time. */
+  officeHours?: OfficeHours;
   /** `Platform.OS`. Default from React Native. */
   platform?: string;
   /** The version signature sent with each report (`useVersionSignature().short`, or a function that reads it). */

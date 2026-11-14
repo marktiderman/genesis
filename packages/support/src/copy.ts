@@ -202,6 +202,8 @@ export const supportCopy = {
     timeToClose: "Median time to close",
     byRequester: "Open by customer",
     unknownRequester: "Unknown",
+    /** Under the list when it counts only some open tickets. `{count}`: how many it counts. */
+    byRequesterCapped: "Counted from the {count} most recently changed open conversations.",
     /** A time with nothing to measure. */
     none: "None yet",
     errorTitle: "Couldn't load the report",

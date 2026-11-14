@@ -68,7 +68,7 @@ const PACKAGES = [
   "@tanstack/react-virtual@^3.14",
   "react-hook-form@^7",
   "zod@^4",
-  "@hookform/resolvers@>=5.1.0 <7",
+  "@hookform/resolvers@>=5.1.0 <8",
 ];
 
 const ROLE = /^[a-z_][a-z0-9_]{0,62}$/;
