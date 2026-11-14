@@ -251,10 +251,18 @@ describe("native pack", () => {
     const plugins = { expo: { plugins: ["@marktiderman/genesis-cli", "@marktiderman/genesis-native/rich-push-plugin"] } };
     expect(brief((await nativeApp({ "app.json": "{}", "app.config.json": JSON.stringify(plugins) })).findings, "fingerprint-plugin-files")).toHaveLength(1);
     expect(brief((await nativeApp({ "app.json": JSON.stringify(plugins), "app.config.js": "module.exports = ({ config }) => config;\n" })).findings, "fingerprint-plugin-files")).toHaveLength(1);
-    const wrapped = 'import { withGenesis } from "@marktiderman/genesis-cli/expo";\nexport default withGenesis({ plugins: ["@marktiderman/genesis-native/rich-push-plugin"] });\n';
+    const wrapped = 'import { withGenesis } from "@marktiderman/genesis-cli/expo";\nexport default withGenesis({ plugins: ["@marktiderman/genesis-native/rich-push-plugin"], extra: { fingerprint: false } });\n';
+    // The wrapper's call counts; `fingerprint: false` in the app's own config (extra) isn't its option.
     expect(brief((await nativeApp({ "app.config.ts": wrapped })).findings, "fingerprint-plugin-files")).toHaveLength(1);
-    // withGenesis told not to set the fingerprint policy: nothing to say.
-    expect(brief((await nativeApp({ "app.config.ts": wrapped.replace("withGenesis({", "withGenesis({ fingerprint: false,") })).findings, "fingerprint-plugin-files")).toEqual([]);
+    // withGenesis told not to set the fingerprint policy (its options, the second argument): nothing to say.
+    expect(brief((await nativeApp({ "app.config.ts": wrapped.replace("extra: { fingerprint: false } })", "extra: { fingerprint: false } }, { fingerprint: false })") })).findings, "fingerprint-plugin-files")).toEqual([]);
+    // The plugin entry's own options, the same; another key named fingerprint doesn't turn it off.
+    const entry = (options: string) => JSON.stringify({ expo: { extra: { fingerprint: false }, plugins: [["@marktiderman/genesis-cli", JSON.parse(options)], "@marktiderman/genesis-native/rich-push-plugin"] } });
+    expect(brief((await nativeApp({ "app.json": entry('{"fingerprint": false}') })).findings, "fingerprint-plugin-files")).toEqual([]);
+    expect(brief((await nativeApp({ "app.json": entry('{"privacy": {}}') })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    // Imported but never called, and not a plugin: Genesis sets nothing.
+    const imported = 'import { withGenesis } from "@marktiderman/genesis-cli/expo";\nexport default { plugins: ["@marktiderman/genesis-native/rich-push-plugin"] };\n';
+    expect(brief((await nativeApp({ "app.config.ts": imported })).findings, "fingerprint-plugin-files")).toEqual([]);
     // No genesis-native plugin: nothing to say.
     expect(brief((await nativeApp({ "app.config.ts": 'export default { runtimeVersion: { policy: "fingerprint" } };\n' })).findings, "fingerprint-plugin-files")).toEqual([]);
   });

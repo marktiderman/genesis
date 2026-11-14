@@ -56,7 +56,7 @@ import { renderRelease, type ReleaseContext } from "../blocks/release-render.js"
 function pinsAtLeast(text: string, workflow: string, release: ReleasePin): boolean {
   const escaped = workflow.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const callers = [...text.matchAll(new RegExp(`/${escaped}@([0-9a-f]{40})\\s*#\\s*@marktiderman/genesis@(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)`, "g"))];
-  return callers.length > 0 && callers.every((m) => m[1] === release.sha || compareVersions(m[2]!, release.version) >= 0);
+  return callers.length > 0 && callers.every((m) => (release.sha !== "" && m[1] === release.sha) || compareVersions(m[2]!, release.version) >= 0);
 }
 
 /** The old lane's push-triggered workflow, which the new lane's version replaces only on adoption. */
@@ -640,9 +640,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       const called = theirs === null ? [] : calledWorkflows(theirs);
       // The newest release whose template change the copy waits on: this one when it changes the
       // template (applying it applies every earlier one), else the one already recorded.
-      const waitingOn = changedNow ? newPin : (entry.awaiting ?? newPin);
+      // Without the release's commit (git ls-remote failed), its version still marks it.
+      const thisRelease = newPin ?? { sha: "", version: release.version };
+      const waitingOn = changedNow ? thisRelease : (entry.awaiting ?? thisRelease);
       // The app moved the pin itself, with that change: the copy pins that release or a later one.
-      const appliedByHand = Boolean(waitingOn && repoText !== null && called.length && called.every((w) => pinsAtLeast(repoText!, w, waitingOn)));
+      const appliedByHand = Boolean(repoText !== null && called.length && called.every((w) => pinsAtLeast(repoText!, w, waitingOn)));
       let pinned = false;
       if (newPin && templateSame && repoText !== null) {
         const after = bumpCallerPins(repoText, newPin, called);
@@ -660,13 +662,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
         if (applied) {
           const { awaiting: _done, ...rest } = entry;
           lock.files[file] = { ...rest, sha256: sha256(theirs), ...(version ? { version } : {}) };
-        } else if (waitingOn) lock.files[file] = { ...entry, awaiting: waitingOn };
+        } else lock.files[file] = { ...entry, awaiting: waitingOn };
         refreshed.push(
           pinned
             ? { path: file, outcome: "updated", detail: `the repository's copy: its Genesis pin moved to ${newPin!.version} (${newPin!.sha.slice(0, 7)}); the template is otherwise unchanged` }
             : appliedByHand || templateSame
               ? { path: file, outcome: "updated", detail: "the repository's copy already has this release's changes" }
-              : { path: file, outcome: "repository", detail: `the template changed; your copy is in the repository's own .github/workflows (with working-directory: ${appFolder}), so compare it with ${entry.source}${newPin && called.length ? `, and move its Genesis pin to ${newPin.version} (${newPin.sha}) with those changes. Until its pin names ${waitingOn?.version ?? newPin.version} or later, upgrades leave it and say so again` : ""}` },
+              : { path: file, outcome: "repository", detail: `the template changed; your copy is in the repository's own .github/workflows (with working-directory: ${appFolder}), so compare it with ${entry.source}${called.length ? `, and move its Genesis pin to ${waitingOn.version}${waitingOn.sha ? ` (${waitingOn.sha})` : ""} with those changes. Until its pin names ${waitingOn.version} or later, upgrades leave it and say so again` : ""}` },
         );
       } else refreshed.push({ path: file, outcome: "unchanged" });
       continue;

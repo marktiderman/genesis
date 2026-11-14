@@ -46,7 +46,7 @@ export interface OwnedFile {
    * changed in this release and wasn't applied yet: the release the change came with. It counts as
    * applied once the repository's copy pins that release or a later one.
    */
-  awaiting?: { sha: string; version: string };
+  awaiting?: { sha: string; version: string }; // sha "" when the release's commit couldn't be found: the version marks it
 }
 
 export interface GenesisLock {

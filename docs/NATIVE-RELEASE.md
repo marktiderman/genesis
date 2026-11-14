@@ -270,7 +270,8 @@ left with the new text in `.genesis-next`. So:
   moves in place only when the template didn't change between the two releases; when it did, the
   reusable workflow may want new inputs, so the pin stays and the summary says to move it with
   those changes. That change stays outstanding in the lock (its checksum isn't advanced, and
-  `awaiting` names the newest release that changed the template; a later change moves it forward)
+  `awaiting` names the newest release that changed the template, by its version alone when its
+  commit can't be looked up; a later change moves it forward)
   until the repository's copy pins that release or a later one, so a later release whose template didn't change can't move the pin past it; once you
   have applied it and moved the pin, the next upgrade takes it and moves the pin on from there. The pin is read and written through the same path checks as owned files: a
   symlink there is refused, never followed. A workflow Genesis doesn't own is left as it is.

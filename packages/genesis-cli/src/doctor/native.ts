@@ -59,6 +59,80 @@ export function checkNativePack(ctx: DoctorContext): void {
 const APP_CONFIGS = ["app.json", "app.config.json", "app.config.ts", "app.config.js", "app.config.mjs", "app.config.cjs"];
 const FINGERPRINT_CONFIGS = ["fingerprint.config.js", "fingerprint.config.cjs", "fingerprint.config.mjs"];
 
+/** The text inside the bracket that opens at `open` (`{`, `[` or `(`), strings skipped; null when it never closes. */
+function bracketed(text: string, open: number): string | null {
+  const pairs: Record<string, string> = { "{": "}", "[": "]", "(": ")" };
+  const stack: string[] = [];
+  for (let i = open; i < text.length; i++) {
+    const c = text[i]!;
+    if (c === '"' || c === "'" || c === "`") {
+      for (i++; i < text.length && text[i] !== c; i++) if (text[i] === "\\") i++;
+      continue;
+    }
+    if (pairs[c]) stack.push(pairs[c]!);
+    else if (c === stack.at(-1)) {
+      stack.pop();
+      if (!stack.length) return text.slice(open + 1, i);
+    }
+  }
+  return null;
+}
+
+/** The comma-separated items at the top level of a bracket's text. */
+function topLevelItems(inner: string): string[] {
+  const items: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i]!;
+    if (c === '"' || c === "'" || c === "`") {
+      for (i++; i < inner.length && inner[i] !== c; i++) if (inner[i] === "\\") i++;
+      continue;
+    }
+    if ("{[(".includes(c)) depth++;
+    else if ("}])".includes(c)) depth--;
+    else if (c === "," && depth === 0) {
+      items.push(inner.slice(start, i));
+      start = i + 1;
+    }
+  }
+  items.push(inner.slice(start));
+  return items.map((s) => s.trim()).filter(Boolean);
+}
+
+/** True when an options object (`{ … }`) sets `fingerprint: false` at its own top level. */
+function fingerprintOff(options: string | undefined): boolean {
+  if (!options?.startsWith("{")) return false;
+  const inner = bracketed(options, 0);
+  return inner !== null && topLevelItems(inner).some((item) => /^["']?fingerprint["']?\s*:\s*false$/.test(item));
+}
+
+/**
+ * True when the Expo config uses the Genesis plugin with its default fingerprint policy: a
+ * `"@marktiderman/genesis-cli"` plugin entry (alone, or `[name, options]`), or a `withGenesis(config,
+ * options)` call; never when that entry's or call's own options set `fingerprint: false` (another
+ * `fingerprint` key, in `extra` say, doesn't count), and never for an import alone.
+ */
+export function genesisPluginSetsFingerprint(text: string): boolean {
+  const uses: (string | undefined)[] = [];
+  for (const m of text.matchAll(/\[\s*["']@marktiderman\/genesis-cli["']\s*(,)?/g)) {
+    const entry = bracketed(text, m.index!);
+    uses.push(entry === null ? undefined : topLevelItems(entry)[1]);
+  }
+  // A plain entry in a plugins list: the name alone, not inside a [name, options] pair.
+  for (const m of text.matchAll(/(?<!\[\s*)["']@marktiderman\/genesis-cli["'](?=\s*[,\]])/g)) {
+    const before = text.slice(0, m.index!);
+    if (!/\[\s*$/.test(before)) uses.push(undefined);
+  }
+  for (const m of text.matchAll(/(?<![\w.$])withGenesis\s*\(/g)) {
+    // A declaration (`function withGenesis(`) isn't a call.
+    if (/\bfunction\s+$/.test(text.slice(0, m.index!))) continue;
+    const args = bracketed(text, m.index! + m[0].length - 1);
+    uses.push(args === null ? undefined : topLevelItems(args)[1]);
+  }
+  return uses.length > 0 && uses.some((options) => !fingerprintOff(options));
+}
+
 /**
  * `fingerprint-plugin-files`: the runtime version is the fingerprint (`runtimeVersion: { policy:
  * "fingerprint" }`, which the Genesis plugin sets, as a plugin entry or the `withGenesis()`
@@ -72,7 +146,7 @@ export function checkFingerprintConfig(ctx: DoctorContext): void {
   const configs = APP_CONFIGS.filter((f) => existsSync(path.join(ctx.root, f)));
   if (!configs.length) return;
   const text = configs.map((f) => readFileSync(path.join(ctx.root, f), "utf8")).join("\n");
-  const genesisPlugin = /["']@marktiderman\/genesis-cli(?:\/expo)?["']|\bwithGenesis\s*\(/.test(text) && !/\bfingerprint["']?\s*:\s*false\b/.test(text);
+  const genesisPlugin = genesisPluginSetsFingerprint(text);
   const fingerprint = /\bpolicy["']?\s*:\s*["']fingerprint["']/.test(text) || genesisPlugin;
   const nativePlugin = /["']@marktiderman\/genesis-native\/rich-push-plugin["']/.test(text);
   if (!fingerprint || !nativePlugin) return;

@@ -16,6 +16,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import * as path from "node:path";
+import { parse as parseYaml } from "yaml";
 import { readGenesisConfig } from "../doctor/config.js";
 import { appFolderOf, folderSubstitutions, renderOwned } from "./app-folder.js";
 import { CLI_PACKAGE } from "./discover.js";
@@ -266,7 +267,16 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
       continue;
     }
     write(next, text);
-    record({ pending: sha256(text), pendingMine: sha256(mine) });
+    // Only the pending markers change: the checksum stays what the app's file last took, so the next
+    // upgrade merges against that, not against text the app hasn't merged. A file never in the
+    // lock took no Genesis text: its checksum matches nothing, so no base is assumed.
+    lock.files[target] = {
+      ...(entry ?? { source }),
+      sha256: entry?.sha256 ?? sha256(`genesis:not-merged-yet\n${text}`),
+      ...(options.version && !entry ? { version: options.version } : {}),
+      pending: sha256(text),
+      pendingMine: sha256(mine),
+    };
     done("next", `yours differs: the new text is in ${next}. Merge it in (or move your edits into genesis.config.json and run again with --replace)`);
   }
   if (options.pin && templates.some((t) => t.startsWith("ci/") || t.startsWith("vercel/"))) lock.pin = checkPin(options.pin);
@@ -289,27 +299,6 @@ export function branchGlob(glob: string): RegExp {
   return new RegExp(`^${re}$`);
 }
 
-const indentOf = (line: string) => line.length - line.trimStart().length;
-const unquote = (s: string) => s.trim().replace(/^["']|["']$/g, "");
-
-/** A key's list under a block (`branches: [a, b]`, or `- a` items), or undefined when the key isn't there. */
-function listUnder(lines: string[], key: RegExp): string[] | undefined {
-  const at = lines.findIndex((l) => key.test(l.trimStart()));
-  if (at < 0) return undefined;
-  const inline = lines[at]!.trimStart().replace(key, "").replace(/#.*$/, "").trim();
-  if (inline) return inline.replace(/^\[|\]$/g, "").split(",").map(unquote).filter(Boolean);
-  const own = indentOf(lines[at]!);
-  const items: string[] = [];
-  for (const line of lines.slice(at + 1)) {
-    if (!line.trim() || /^\s*#/.test(line)) continue;
-    if (indentOf(line) <= own && !line.trimStart().startsWith("-")) break;
-    const item = /^\s*-\s*(.+?)\s*(?:#.*)?$/.exec(line);
-    if (!item) break;
-    items.push(unquote(item[1]!));
-  }
-  return items;
-}
-
 interface PushFilter {
   branches?: string[] | undefined;
   ignore?: string[] | undefined;
@@ -330,24 +319,6 @@ function pushFires(filter: PushFilter, branch: string): boolean {
   return fires;
 }
 
-/** A YAML flow collection (`{push: {branches: [main]}}`, `{"push": …}`) as a value, or undefined when it can't be read. */
-export function parseFlow(text: string): unknown {
-  const attempt = (t: string) => {
-    try {
-      return JSON.parse(t) as unknown;
-    } catch {
-      return undefined;
-    }
-  };
-  const direct = attempt(text);
-  if (direct !== undefined) return direct;
-  // Single quotes to double, then every bare scalar quoted.
-  const quoted = text
-    .replace(/'((?:[^']|'')*)'/g, (_m, inner: string) => JSON.stringify(inner.replace(/''/g, "'")))
-    .replace(/("(?:[^"\\]|\\.)*")|([^\s"{}[\],:][^"{}[\],:]*?)(?=\s*[:,\]}])/g, (m, str: string | undefined, bare: string | undefined) => (str ? m : JSON.stringify(bare!.trim())));
-  return attempt(quoted);
-}
-
 const asList = (v: unknown): string[] | undefined => (v === undefined || v === null ? undefined : (Array.isArray(v) ? v : [v]).map(String));
 
 /** The filters of a parsed `push` value: null or {} for none. */
@@ -357,56 +328,39 @@ function filterOf(push: unknown): PushFilter {
   return { branches: asList(o.branches), ignore: asList(o.branches_ignore ?? o["branches-ignore"]), tags: asList(o.tags ?? o.tags_ignore ?? o["tags-ignore"]) };
 }
 
+/** A workflow file, parsed (YAML 1.2, so `on` is a key, not a boolean), or null when it isn't a mapping YAML can read. */
+function parseWorkflow(text: string): Record<string, unknown> | null {
+  try {
+    const doc = parseYaml(text) as unknown;
+    return doc && typeof doc === "object" && !Array.isArray(doc) ? (doc as Record<string, unknown>) : null;
+  } catch {
+    return null; // Not a workflow EAS or GitHub would run either.
+  }
+}
+
 /**
- * True when a workflow's top-level `on:` has a `push` trigger that can fire on `branch` (default
- * `main`): no branch filter (and no tag filter, which makes it a tag push), or a `branches` pattern
- * that matches it (globs, with `!` excluding), and no `branches_ignore` (or `branches-ignore`)
- * pattern that does. A push trigger only for other branches (a preview lane on `preview`), or
- * only for tags, isn't one. Block and flow forms (`on: {"push": {"branches": ["main"]}}`) are read.
+ * True when a workflow's `on:` has a `push` trigger that can fire on `branch` (default `main`): no
+ * branch filter (and no tag filter, which makes it a tag push), or a `branches` pattern that
+ * matches it (globs, with `!` excluding), and no `branches_ignore` (or `branches-ignore`) pattern
+ * that does. A push trigger only for other branches (a preview lane on `preview`), or only for
+ * tags, isn't one. Read with the `yaml` package, so every YAML form counts the same.
  */
 export function hasPushTrigger(text: string, branch = "main"): boolean {
-  const lines = text.split("\n");
-  const at = lines.findIndex((l) => /^["']?on["']?\s*:/.test(l));
-  if (at < 0) return false;
-  const inline = lines[at]!.replace(/^["']?on["']?\s*:/, "").replace(/\s#.*$/, "").trim();
-  if (inline) {
-    if (inline.startsWith("{")) {
-      const on = parseFlow(inline);
-      if (on && typeof on === "object" && !Array.isArray(on)) return "push" in on && pushFires(filterOf((on as Record<string, unknown>).push), branch);
-      // Unreadable: a push in it counts.
-      return /["']?\bpush\b["']?\s*:/.test(inline);
-    }
-    return /(?:^|[\s,[])["']?push["']?(?=\s*(?:[,\]]|$))/.test(inline);
-  }
-  let indent: number | null = null;
-  for (const [i, line] of lines.entries()) {
-    if (i <= at || !line.trim() || /^\s*#/.test(line)) continue;
-    if (/^\S/.test(line)) break;
-    const own = indentOf(line);
-    indent ??= own;
-    if (own !== indent || !/^["']?push["']?\s*:/.test(line.trimStart())) continue;
-    const value = line.trimStart().replace(/^["']?push["']?\s*:/, "").replace(/\s#.*$/, "").trim();
-    if (value && !/^(?:\{\s*\}|null|~)$/.test(value)) {
-      const flow = value.startsWith("{") ? parseFlow(value) : undefined;
-      return flow === undefined ? true : pushFires(filterOf(flow), branch);
-    }
-    // The push block: its lines, more indented than `push:`.
-    const block: string[] = [];
-    for (const next of lines.slice(i + 1)) {
-      if (!next.trim() || /^\s*#/.test(next)) continue;
-      if (indentOf(next) <= own) break;
-      block.push(next);
-    }
-    return pushFires(
-      {
-        branches: listUnder(block, /^["']?branches["']?\s*:/),
-        ignore: listUnder(block, /^["']?branches[_-]ignore["']?\s*:/),
-        tags: listUnder(block, /^["']?tags(?:[_-]ignore)?["']?\s*:/),
-      },
-      branch,
-    );
-  }
-  return false;
+  const on = parseWorkflow(text)?.on;
+  if (typeof on === "string") return on === "push";
+  if (Array.isArray(on)) return on.map(String).includes("push");
+  if (!on || typeof on !== "object" || !("push" in on)) return false;
+  return pushFires(filterOf((on as Record<string, unknown>).push), branch);
+}
+
+/** True when a workflow (EAS) has a job of type update or build. */
+function hasReleaseJob(text: string): boolean {
+  const jobs = parseWorkflow(text)?.jobs;
+  if (!jobs || typeof jobs !== "object") return false;
+  return Object.values(jobs as Record<string, unknown>).some((job) => {
+    const type = job && typeof job === "object" ? (job as Record<string, unknown>).type : undefined;
+    return type === "update" || type === "build";
+  });
 }
 
 /** The app's EAS workflows that release on push: a `push` trigger and an update or build job. */
@@ -417,8 +371,7 @@ export function pushTriggeredEasWorkflows(root: string): string[] {
     .filter((f) => /\.ya?ml$/.test(f))
     .filter((f) => {
       const text = readFileSync(path.join(dir, f), "utf8");
-      // A job type, quoted or not, a comment after it allowed.
-      return hasPushTrigger(text) && /^\s+["']?type["']?\s*:\s*["']?(?:update|build)["']?\s*(?:#.*)?$/m.test(text);
+      return hasPushTrigger(text) && hasReleaseJob(text);
     })
     .map((f) => `.eas/workflows/${f}`);
 }

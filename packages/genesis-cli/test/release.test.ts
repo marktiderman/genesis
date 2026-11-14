@@ -459,7 +459,10 @@ describe("genesis add template", () => {
     const next = read(root, ".eas/workflows/deploy-production.yml.genesis-next");
     expect(Object.keys(parse(next).jobs).filter((j) => j.includes("android"))).toEqual([]);
     const lock = readLock(root);
-    expect(lock.files[".eas/workflows/deploy-production.yml"]).toMatchObject({ source: `${CLI}:templates/eas/workflows/deploy-production.yml`, sha256: sha256(next), pending: sha256(next), pendingMine: sha256("name: mine\n") });
+    expect(lock.files[".eas/workflows/deploy-production.yml"]).toMatchObject({ source: `${CLI}:templates/eas/workflows/deploy-production.yml`, pending: sha256(next), pendingMine: sha256("name: mine\n") });
+    // The app's file never took that text: the checksum isn't it (nor the app's own), so no base is assumed.
+    expect(lock.files[".eas/workflows/deploy-production.yml"]!.sha256).not.toBe(sha256(next));
+    expect(lock.files[".eas/workflows/deploy-production.yml"]!.sha256).not.toBe(sha256("name: mine\n"));
     expect(lock.files[".github/workflows/native-release.yml"]!.sha256).toBe(sha256(read(root, ".github/workflows/native-release.yml")));
     // Run again: nothing new; .genesis-next is left for the app.
     expect(adoptTemplates(root, ["eas/workflows/deploy-production.yml"])[0]).toMatchObject({ outcome: "next" });
@@ -528,6 +531,24 @@ describe("genesis add template", () => {
     const rival = makeApp({ "app.json": "{}", "pnpm-lock.yaml": "", ".eas/workflows/ship.yml": push("    branches: [main, preview]\n") });
     expect(competingReleaseWorkflows(rival, null)).toEqual([".eas/workflows/ship.yml"]);
     expect(adoptTemplates(rival, resolveTemplateNames(["release"])).find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "held" });
+  });
+
+  it("leaves the lock's checksum where the app's file was when the new text goes to .genesis-next", () => {
+    const root = nativeApp();
+    adoptTemplates(root, ["eas/workflows/rollout.yml"]);
+    const taken = readLock(root).files[".eas/workflows/rollout.yml"]!.sha256;
+    // The app edits the file; then the release block changes what the template renders.
+    writeTree(root, { ".eas/workflows/rollout.yml": read(root, ".eas/workflows/rollout.yml").replace("name: Rollout", "name: Our rollout") });
+    adoptTemplates(root, ["eas/workflows/deploy-production.yml"]);
+    writeTree(root, { ".eas/workflows/deploy-production.yml": read(root, ".eas/workflows/deploy-production.yml") + "# ours\n", "genesis.config.json": JSON.stringify({ release: { platforms: ["ios"] } }) });
+    const deployTaken = readLock(root).files[".eas/workflows/deploy-production.yml"]!.sha256;
+    const [result] = adoptTemplates(root, ["eas/workflows/deploy-production.yml"]);
+    expect(result).toMatchObject({ outcome: "next" });
+    const entry = readLock(root).files[".eas/workflows/deploy-production.yml"]!;
+    // Only the pending markers moved: the next upgrade still merges against what the file took.
+    expect(entry.sha256).toBe(deployTaken);
+    expect(entry.pending).toBe(sha256(read(root, ".eas/workflows/deploy-production.yml.genesis-next")));
+    expect(readLock(root).files[".eas/workflows/rollout.yml"]!.sha256).toBe(taken);
   });
 
   it("applies a changed release block to the files the app hasn't edited", () => {
@@ -706,6 +727,32 @@ describe("genesis upgrade and the release lane", () => {
     // Applying P3 (pinning it) settles it.
     writeTree(repo, { ".github/workflows/ci.yml": caller(p3) });
     const settled = await runUpgrade({ root, lookup: release({ [CLI]: "1.4.0" }), install: (r) => void ship(r, "1.4.0", { "ci/app-ci.yml": v3 }), doctor: false, pin: () => p3 });
+    expect(settled.refreshed.find((r) => r.path === ".github/workflows/ci.yml")).toMatchObject({ outcome: "updated" });
+    expect(readLock(root).files[".github/workflows/ci.yml"]!.awaiting).toBeUndefined();
+  });
+
+  it("without the release's commit, a template change still moves `awaiting` to this release, by version", async () => {
+    const { repo, root } = monorepo({});
+    const v1 = template("ci/app-ci.yml");
+    const v2 = v1.replace("name: CI", "name: App CI");
+    const v3 = v2.replace("name: App CI", "name: App CI 3");
+    ship(root, "1.0.0", { "ci/app-ci.yml": v1 });
+    writeLock(root, { version: 1, blocks: {}, files: { ".github/workflows/ci.yml": { source: `${CLI}:templates/ci/app-ci.yml`, sha256: sha256(v1) } } });
+    const caller = (pin: { sha: string; version: string }) => `jobs:\n  app:\n    uses: marktiderman/genesis/.github/workflows/app-ci.yml@${pin.sha} # @marktiderman/genesis@${pin.version}\n`;
+    writeTree(repo, { ".github/workflows/ci.yml": caller({ sha: "b".repeat(40), version: "1.9.0" }) });
+    const p2 = { sha: "2".repeat(40), version: "2.0.0" };
+    await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }, "2.0.0"), install: (r) => void ship(r, "1.2.0", { "ci/app-ci.yml": v2 }), doctor: false, pin: () => p2 });
+    expect(readLock(root).files[".github/workflows/ci.yml"]!.awaiting).toEqual(p2);
+    writeTree(repo, { ".github/workflows/ci.yml": caller(p2) });
+    // P3 changes the template again, and git ls-remote fails: the marker still moves, to 3.0.0.
+    const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.3.0" }, "3.0.0"), install: (r) => void ship(r, "1.3.0", { "ci/app-ci.yml": v3 }), doctor: false, pin: () => null });
+    expect(report.refreshed.find((r) => r.path === ".github/workflows/ci.yml")).toMatchObject({ outcome: "repository" });
+    expect(readLock(root).files[".github/workflows/ci.yml"]!.awaiting).toEqual({ sha: "", version: "3.0.0" });
+    // The copy pinned at P2 doesn't settle it; one pinned at 3.0.0 does, by version.
+    await runUpgrade({ root, lookup: release({ [CLI]: "1.3.1" }, "3.0.1"), install: (r) => void ship(r, "1.3.1", { "ci/app-ci.yml": v3 }), doctor: false, pin: () => null });
+    expect(readLock(root).files[".github/workflows/ci.yml"]!.awaiting).toEqual({ sha: "", version: "3.0.0" });
+    writeTree(repo, { ".github/workflows/ci.yml": caller({ sha: "3".repeat(40), version: "3.0.0" }) });
+    const settled = await runUpgrade({ root, lookup: release({ [CLI]: "1.3.2" }, "3.0.2"), install: (r) => void ship(r, "1.3.2", { "ci/app-ci.yml": v3 }), doctor: false, pin: () => null });
     expect(settled.refreshed.find((r) => r.path === ".github/workflows/ci.yml")).toMatchObject({ outcome: "updated" });
     expect(readLock(root).files[".github/workflows/ci.yml"]!.awaiting).toBeUndefined();
   });
