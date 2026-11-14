@@ -124,6 +124,21 @@ describe("client/one-view-per-resource", () => {
     expect(found).toEqual([]);
   });
 
+  it("doesn't take method parameters with a call as their default for the import", async () => {
+    const found = await only("client/one-view-per-resource", {
+      ...LAYER,
+      "src/client/contract.ts": "export const contract = {};",
+      "src/client/factory.ts": [
+        'import { contract } from "./contract";',
+        "export class Views {",
+        "  tasksOf(contract = fallback()) { return defineView(contract, {}); }",
+        "  notesOf(contract = fallback()) { return defineView(contract, {}); }",
+        "}",
+      ].join("\n"),
+    });
+    expect(found).toEqual([]);
+  });
+
   it("doesn't take parameters that shadow an imported contract for the import", async () => {
     const found = await only("client/one-view-per-resource", {
       ...LAYER,
@@ -147,6 +162,18 @@ describe("shadowed-export and the app's wrappers", () => {
       "src/commented/button.tsx": 'import { Button as GenesisButton } from "@marktiderman/genesis-ui";\n// TODO: replace this with GenesisButton.\nexport const Button = () => <span title="GenesisButton" />;',
     });
     expect(found.map((f) => f.file).sort()).toEqual(["src/commented/button.tsx", "src/own/button.tsx", "src/unused/button.tsx"]);
+  });
+
+  it("never takes the alias in a string, an attribute value, JSX text or a comment for a use", async () => {
+    const IMPORT = 'import { Button as GenesisButton } from "@marktiderman/genesis-ui";';
+    const found = await only("shadowed-export", {
+      "src/a/button.tsx": `${IMPORT}\nexport const Button = () => <button title="GenesisButton." />;`,
+      "src/b/button.tsx": `${IMPORT}\nexport const Button = () => <p>{"call GenesisButton()"}</p>;`,
+      "src/c/button.tsx": `${IMPORT}\nexport const Button = () => <div><p>Don't</p>{/* <GenesisButton */}</div>;`,
+      "src/d/button.tsx": `${IMPORT}\nconst note = "GenesisButton()";\nexport const Button = () => <span>{note}</span>;`,
+      "src/e/button.tsx": `${IMPORT}\nexport const Button = () => <p>Wraps GenesisButton (the Genesis one).</p>;`,
+    });
+    expect(found.map((f) => f.file).sort()).toEqual(["src/a/button.tsx", "src/b/button.tsx", "src/c/button.tsx", "src/d/button.tsx", "src/e/button.tsx"]);
   });
 
   it("still sees a wrapper whose JSX text has apostrophes, or that uses the alias in a template literal", async () => {

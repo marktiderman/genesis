@@ -17,6 +17,7 @@ import { existsSync } from "node:fs";
 import * as path from "node:path";
 import { readGenesisConfig } from "./config.js";
 import { lineAt } from "./scan.js";
+import { boundAsParameter } from "./js-scan.js";
 import { escapeRegExp } from "../regexp.js";
 import type { DoctorContext } from "./types.js";
 
@@ -100,7 +101,7 @@ export function checkClientLayer(ctx: DoctorContext): void {
       if (!imported && !declaredAtTop(file.code, base)) continue;
       // A function parameter of the same name shadows the import or the top-level binding where
       // it's in scope, and the text can't tell which one a call means: skip the name in this file.
-      if (boundAsParameter(file.code, base)) continue;
+      if (boundAsParameter(file.code, base, { jsx: file.ext !== ".ts" && file.ext !== ".mts" })) continue;
       const identity = `${imported ?? `${file.path}#${base}`}${access}`;
       const shown = `${base}${access}`;
       const line = lineAt(file.code, m.index ?? 0);
@@ -129,20 +130,6 @@ export function checkClientLayer(ctx: DoctorContext): void {
 function declaredAtTop(code: string, name: string): boolean {
   const escaped = escapeRegExp(name);
   return new RegExp(`^(?:export\\s+)?(?:const|let|var)\\s+${escaped}\\b`, "m").test(code);
-}
-
-/**
- * Whether a function in the file takes `name` as a parameter: `function f(name)`, `(name) =>`,
- * `name =>`, or an object or class method `f(name) {`. Broad on purpose (an `if (name) {` counts
- * too): a missed warning is the safe direction.
- */
-function boundAsParameter(code: string, name: string): boolean {
-  const n = escapeRegExp(name);
-  const inList = new RegExp(`(?:^|[,({\\s])\\.{0,3}${n}\\s*(?:[,):=?]|$)`);
-  for (const m of code.matchAll(/\bfunction\b[^(]*\(([^)]*)\)|\(([^()]*)\)\s*(?::[^=;{]*)?=>|[\w$]\s*\(([^()]*)\)\s*(?::[^{;=]*)?\{/g)) {
-    if (inList.test(m[1] ?? m[2] ?? m[3] ?? "")) return true;
-  }
-  return new RegExp(`(?<![\\w$.])${n}\\s*=>`).test(code);
 }
 
 /** Stories and tests define views to show or try one. */

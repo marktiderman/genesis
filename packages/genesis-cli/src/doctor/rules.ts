@@ -6,7 +6,8 @@ import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { findColorFunctions, findHexLiterals } from "../../../../scripts/lib/color-literals.mjs";
 import { globMatcher } from "./glob.js";
-import { declaredTokens, stripComments } from "./genesis.js";
+import { declaredTokens } from "./genesis.js";
+import { usesAsCode } from "./js-scan.js";
 import { escapeRegExp } from "../regexp.js";
 import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext, SourceFile } from "./types.js";
@@ -259,7 +260,7 @@ export function checkShadowedExports(ctx: Pick<DoctorContext, "root" | "files" |
   const re = /\bexport\s+(?:default\s+)?(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Z][\w$]*)/g;
   for (const file of ctx.files) {
     if (!SCRIPT_EXTS.has(file.ext) || insideOverlayOf(overlays, file, ctx.genesis.uiPackage)) continue;
-    const wrapped = wrappedGenesisNames(file.code, ctx.genesis.uiPackage);
+    const wrapped = wrappedGenesisNames(file.code, ctx.genesis.uiPackage, { jsx: file.ext !== ".ts" && file.ext !== ".mts" });
     file.code.split("\n").forEach((text, i) => {
       for (const m of text.matchAll(re)) {
         if (!ctx.genesis.values.has(m[1])) continue;
@@ -276,9 +277,10 @@ export function checkShadowedExports(ctx: Pick<DoctorContext, "root" | "files" |
  * The Genesis names a file imports under an alias from the component package (or a subpath) and
  * then uses: `import { ResourceView as GenesisResourceView } …` with `<GenesisResourceView`. An
  * unused alias doesn't count, so the import alone can't excuse a parallel component; nor does one
- * that appears only in a comment, a string or JSX text (see `usesAsCode`).
+ * that appears only in a comment, a string, an attribute's name or JSX text, read by a scanner that
+ * knows which is which (`usesAsCode`, in js-scan.ts).
  */
-export function wrappedGenesisNames(code: string, uiPackage: string): Set<string> {
+export function wrappedGenesisNames(code: string, uiPackage: string, options: { jsx?: boolean } = {}): Set<string> {
   const out = new Set<string>();
   const pkg = uiPackage.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
   const re = new RegExp(`\\bimport\\s+(?:type\\s+)?\\{([^}]*)\\}\\s*from\\s*["']${pkg}(?:/[^"']*)?["']`, "g");
@@ -289,26 +291,13 @@ export function wrappedGenesisNames(code: string, uiPackage: string): Set<string
       if (!spec || spec.startsWith("type ")) continue;
       const [imported, local] = spec.split(/\s+as\s+/).map((x) => x.trim());
       if (!imported || !local || local === imported) continue;
-      if (usesAsCode(code, local)) out.add(imported);
+      if (usesAsCode(code, local, options)) out.add(imported);
     }
   }
   return out;
 }
 
-/**
- * Whether `name` is used as code: rendered (`<Name`), called or read through (`Name(`, `Name.x`),
- * or passed as a value (after `=`, `(`, `,`, `:`, `?`, `{` (a JSX or template `${…}`), `[` or
- * `return`). Comments are blanked first. Strings aren't: an apostrophe in JSX text ("Don't") isn't
- * a quote, so a quote-pairing pass would blank real code. A name inside a string is still no use,
- * since none of these forms matches it there (`title="Name"`), and the import specifier itself
- * (`X as Name`) isn't one either.
- */
-export function usesAsCode(code: string, name: string): boolean {
-  const plain = stripComments(code);
-  const n = escapeRegExp(name);
-  const use = new RegExp(`<${n}(?![\\w$])|(?<![\\w$.])${n}\\s*[(.]|(?:[=(,:?{\\[]|\\breturn)\\s*${n}(?![\\w$])`);
-  return use.test(plain);
-}
+export { usesAsCode } from "./js-scan.js";
 
 /** Genesis components that no scanned file imports (named imports or re-exports from the package or its subpaths). */
 export function unusedComponents(ctx: Pick<DoctorContext, "files" | "genesis">): string[] {
