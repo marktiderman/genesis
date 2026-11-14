@@ -104,6 +104,68 @@ describe("resource source", () => {
     expect(call("eq")).toEqual([["id", "p1"]]);
   });
 
+  it("gives a function's args the list's filters, and leaves out the ones it takes", async () => {
+    const p = provider({
+      resources: { progress: { source: { rpc: "group_progress", args: ({ take, filters }) => ({ group_id: take("group_id"), n: filters.length }) } } },
+    });
+    queue.push({ data: [], error: null, count: 0 });
+    await p.getList("progress", {
+      filters: [
+        { field: "group_id", operator: "eq", value: "g9" },
+        { field: "done", operator: "gt", value: 2 },
+      ],
+    });
+    expect(call("rpc")).toEqual([["group_progress", { group_id: "g9", n: 2 }, { count: "exact" }]]);
+    // The scope went in as an argument, so it isn't a column filter too.
+    expect(call("eq")).toEqual([]);
+    expect(call("gt")).toEqual([["done", 2]]);
+
+    // An aggregate reads through the same path.
+    calls = [];
+    queue.push({ data: [], error: null, count: 4 });
+    expect((await p.aggregate!("progress", { metrics: { n: { fn: "count" } }, filters: [{ field: "group_id", operator: "eq", value: "g1" }] })).values).toEqual({ n: 4 });
+    expect(call("rpc")[0]![1]).toEqual({ group_id: "g1", n: 1 });
+    expect(call("eq")).toEqual([]);
+  });
+
+  it("a filter one function read took still filters the next read that passes the same array", async () => {
+    const p = provider({
+      resources: {
+        queue: { source: { rpc: "agent_queue", args: ({ take }) => ({ tenant: take("tenant_id") }) } },
+        tickets: {},
+      },
+    });
+    const filters = [{ field: "tenant_id", operator: "eq" as const, value: "ta" }];
+    queue.push({ data: [], error: null, count: 0 });
+    await p.getList("queue", { filters });
+    expect(call("eq")).toEqual([]);
+    // A table read with the very same array: tenant_id is its filter, not a function's argument.
+    calls = [];
+    queue.push({ data: [], error: null, count: 0 });
+    await p.getList("tickets", { filters });
+    expect(call("eq")).toEqual([["tenant_id", "ta"]]);
+  });
+
+  it("a record read from a function source takes its scope from the list's filters", async () => {
+    const p = provider({ resources: { queue: { source: { rpc: "agent_queue", args: ({ take }) => ({ tenant: take("tenant_id") ?? null }) } } } });
+    const scope = [
+      { field: "tenant_id", operator: "eq" as const, value: "ta" },
+      { field: "status", operator: "eq" as const, value: "open" },
+    ];
+    queue.push({ data: { id: "t1" }, error: null });
+    await p.getOne("queue", { id: "t1", scope });
+    queue.push({ data: [{ id: "t1" }], error: null });
+    await p.getMany("queue", { ids: ["t1"], scope });
+    expect(call("rpc").map((c) => c[1])).toEqual([{ tenant: "ta" }, { tenant: "ta" }]);
+    // The filters it didn't take choose a list, not the record: only the id narrows it.
+    expect(call("eq")).toEqual([["id", "t1"]]);
+    // Without a scope the function's own default applies, as before.
+    calls = [];
+    queue.push({ data: { id: "t1" }, error: null });
+    await p.getOne("queue", { id: "t1" });
+    expect(call("rpc")[0]![1]).toEqual({ tenant: null });
+  });
+
   it("uses the resource's default columns unless the caller names some", async () => {
     const p = provider({ resources: { tasks: { select: "*, person:people(full_name)" } } });
     queue.push({ data: [], error: null, count: 0 });
@@ -143,5 +205,83 @@ describe("resource source", () => {
     queue.push({ data: [], error: null, count: 12 });
     expect(await p.getList("progress", {})).toEqual({ data: [], total: 12, totalIsEstimate: true });
     expect(call("rpc")).toEqual([["group_progress", {}, { count: "planned" }]]);
+  });
+
+  it("takeIn takes an eq or in filter's values once, and leaves a second filter on the same field in the query", async () => {
+    const seen: unknown[] = [];
+    const p = provider({
+      resources: {
+        tickets: {
+          source: {
+            rpc: "queue",
+            args: ({ takeIn }) => {
+              const first = takeIn("status");
+              const again = takeIn("status");
+              seen.push([first, again]);
+              return { statuses: first ?? null };
+            },
+          },
+        },
+      },
+    });
+    queue.push({ data: [], error: null, count: 0 });
+    await p.getList("tickets", { filters: [{ field: "status", operator: "eq", value: "open" }] });
+    queue.push({ data: [], error: null, count: 0 });
+    await p.getList("tickets", { filters: [{ field: "status", operator: "in", value: ["open", "pending"] }] });
+    // Two filters on status (a segment and a chip): the first is taken, the second is the next
+    // takeIn's; with one takeIn the other stays on the query, so both still apply.
+    calls = [];
+    queue.push({ data: [], error: null, count: 0 });
+    await p.getList("tickets", {
+      filters: [
+        { field: "status", operator: "in", value: ["open", "pending"] },
+        { field: "status", operator: "eq", value: "open" },
+      ],
+    });
+    expect(seen).toEqual([
+      [["open"], undefined],
+      [["open", "pending"], undefined],
+      [["open", "pending"], ["open"]],
+    ]);
+    // Taken twice: neither stays on the query.
+    expect(call("in")).toEqual([]);
+    expect(call("eq")).toEqual([]);
+
+    const once = provider({ resources: { tickets: { source: { rpc: "queue", args: ({ takeIn }) => ({ statuses: takeIn("status") ?? null }) } } } });
+    calls = [];
+    queue.push({ data: [], error: null, count: 0 });
+    await once.getList("tickets", {
+      filters: [
+        { field: "status", operator: "in", value: ["open", "pending"] },
+        { field: "status", operator: "eq", value: "open" },
+      ],
+    });
+    expect(call("rpc")[0]![1]).toEqual({ statuses: ["open", "pending"] });
+    expect(call("eq")).toEqual([["status", "open"]]);
+  });
+
+  it("a source that pages itself gets the page, counts with page_limit 0, and reads the total of a page past the end alone", async () => {
+    const p = provider({ resources: { tickets: { source: { rpc: "queue", args: () => ({}), pages: { order: [{ field: "at", order: "desc" }] } } } } });
+    queue.push({ data: [{ id: "a", total_count: 12 }, { id: "b", total_count: 12 }], error: null });
+    expect(await p.getList("tickets", { pagination: { page: 2, perPage: 2 } })).toEqual({ data: [{ id: "a", total_count: 12 }, { id: "b", total_count: 12 }], total: 12 });
+    expect(call("rpc")[0]![1]).toEqual({ page_limit: 2, page_offset: 2 });
+    expect(call("range")).toEqual([]);
+
+    // A count alone: page_limit 0, and the function's one row carries it.
+    calls = [];
+    queue.push({ data: [{ id: null, total_count: 12 }], error: null });
+    const counted = await p.aggregate!("tickets", { metrics: { n: { fn: "count" } } } as never);
+    expect(call("rpc").map((c) => c[1])).toEqual([{ page_limit: 0, page_offset: 0 }]);
+    expect(counted.values["n"]).toBe(12);
+
+    // Past the end: no row carries the total, so it's read with the count alone.
+    calls = [];
+    queue.push({ data: [], error: null });
+    queue.push({ data: [{ id: null, total_count: 12 }], error: null });
+    expect(await p.getList("tickets", { pagination: { page: 9, perPage: 2 } })).toEqual({ data: [], total: 12 });
+    expect(call("rpc").map((c) => c[1])).toEqual([
+      { page_limit: 2, page_offset: 16 },
+      { page_limit: 0, page_offset: 0 },
+    ]);
   });
 });

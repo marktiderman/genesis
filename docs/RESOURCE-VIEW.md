@@ -186,7 +186,8 @@ export const brandsView = defineView(contracts["public.brands"], {
   column list) and **row actions** (`actions`, shaped like the resource's) are part of the view.
 - **Presets carry filters as well as columns.** `presets: { short: { filter: { term: "short" }, columns: "compact" } }` (a column preset by name) show as tabs (team or private, short- or long-term, this quarter).
 - **Grouping:** `groupBy: "owner_id"`. NativeResourceView shows the groups as sections, sorted on
-  the server. On the web, group headers with counts are **Planned** ([`resource-view-shaping`](../features.ts)).
+  the server. On the web, the table, grid and list draw a header per group with its count, its
+  totals and a toggle to close it ([Lists](#lists-what-a-view-declares)).
 - **Empty values in a sort:** `orderBy: { field: "rating", direction: "desc", nulls: "last" }` keeps rows
   with no value below the rated ones; unset, the store decides, and Postgres puts them first on a
   descending sort. Each of a screen's own sort options in the filters slot takes the same `nulls`,
@@ -194,8 +195,8 @@ export const brandsView = defineView(contracts["public.brands"], {
 - **Order:** `orderBy: { field: "rank", direction: "asc" }` is the default sort. Drag to reorder
   with `manual: true` (keyboard pick-up, the Move menu, the rank written through the provider) is
   **Planned** ([`resource-view-shaping`](../features.ts)): today `manual` is accepted and ignored.
-- **Footer totals** (a figure such as a week's completion %), overall and per group for
-  assessment-style lists: **Planned** ([`resource-view-shaping`](../features.ts)).
+- **Totals:** `totals: { hours: "sum" }` (`sum`, `avg`, `min`, `max`, `count`) shows in each
+  group's header and the table's footer, over the rows loaded ([Lists](#lists-what-a-view-declares)).
 - **Dates are days or instants, never confused.** The `date` hint formats a calendar day
   (`YYYY-MM-DD`) from its parts, never `new Date(day)`. A timestamp renders on the viewer's clock
   with `genesis-core/dates` (`wallClock(personTimeZone(viewer), at)`). `timeZone: "scope"` renders it
@@ -418,29 +419,26 @@ On phones:
 
 ## Sheet mode
 
-**Planned** ([`resource-view-sheet`](../features.ts)): none of this section is built. Today's modes are `table`, `grid`,
-`list` and `calendar`.
+<!-- api: ResourceViewProps -->
 
-`mode="sheet"` is the "studio" switch: a spreadsheet with inline editing for this one resource.
+`<ResourceView view={tasksView} type="sheet" />` (or `sheet` among a view's `types`, for the
+switcher) draws the view's rows as a spreadsheet on genesis-ui's `SheetGrid`, the grid the Data
+Studio's sheet uses. Segments, declared filters and the switcher sit above it, as for a board.
 
-- It is built on genesis-ui's `SheetGrid`, loaded with `React.lazy` the first time it's used.
-  `genesis-studio` already depends on genesis-ui, so the reverse dependency isn't possible.
-- Edits go through `useResource`, so they get the same cache updates, undo and refusal handling as
-  the form. Nothing writes around the provider.
-- **Editable cells are an allow-list.** Only fields the view's `form` names are editable. Tenant,
-  owner and `readonly` columns never are. Without that rule, a provider with no `describe()` would
-  offer every column.
-- **Multi-cell paste needs the provider's `bulkWrites` capability** (`updateMany` in one
-  transaction; the Supabase provider reports `false`). Otherwise it is off, and it is never a
-  non-transactional loop. When it's on, the paste is one undoable unit and each row is still
-  checked for refusal.
-- Version checks apply only where the provider supports them (`versionedWrites`). The Supabase
-  provider doesn't today, and the doc doesn't claim otherwise.
-- Rows and columns are virtualised.
-- **Who can switch modes:**
-  - The developer makes sheet mode available with `mode` or `modes={["table", "sheet"]}`.
-  - A user toggle for it sits behind the feature gate and an admin permission. Otherwise every
-    list grows a spreadsheet button.
+- **Editable cells are an allow-list:** the view's writable fields (`view.writable("edit")`), and
+  only on rows the view's update guard and the screen's `can("edit", row)` allow. A refused
+  cell stays read-only with the guard's sentence on it; a read-only column says "Read-only". A
+  paste fills a block and leaves read-only cells as they were.
+- **Writes go through the resource's own update** (`useResource`), row by row, so the provider's
+  rules, its cache patching and a versioned resource's check apply. A cell that wasn't saved is
+  marked with its reason, and the others in the paste stay saved.
+- **Undo** (the button, or Ctrl/Cmd+Z in the grid) puts the last change back through the same
+  update.
+- **The keyboard** is SheetGrid's: arrows, Tab, Enter to edit and save, Escape to cancel, Shift to
+  extend a range, copy and paste as TSV.
+
+**Planned** ([`resource-view-sheet`](../features.ts)): big pastes, imports and exports as jobs,
+and a paste in one transaction where the provider serves bulk writes.
 
 ## Phones
 
@@ -560,8 +558,12 @@ export const eventsView = defineView(contracts["public.events"], {
   `durationUnit` (`minutes`, the default, `hours` or `days`) give each row an end: its start
   plus the duration. A timestamp ends that long after it starts; a date runs that many days
   (rounded up, at least one). A row whose `endField` has a value keeps it; a row with no
-  duration shows on its start alone. The window is still asked for by start only, so a row that
-  began before the window and runs into it isn't loaded: give it an `endField` when that matters.
+  duration shows on its start alone. `maxDuration` (in `durationUnit`s, the longest a row runs)
+  reads the rows that started that long before the window too, those with no end of their own,
+  so one that began before the window and runs into it is drawn (the latest starts first, when
+  there are more than the limit); without it such a row isn't loaded, and a calendar with no
+  `endField` warns once. `defineView` refuses a `maxDuration` that isn't a number
+  above 0 or has no `durationField`.
 - **Layouts.** `month` (the month's whole weeks), `weeks` (1 to 4 weeks from the anchor's week, 2
   by default), `agenda` (the same weeks day by day) and `lanes` (a row per lane, a column per day).
 - **The toolbar.** `weeksOptions` (`[1, 2, 4]`) adds a weeks switch beside `layouts`' switch, for
@@ -1054,6 +1056,151 @@ export const brandRecordView = defineRecordView(brandsView, {
 - **Saving** sends only the section's changed, listed, visible keys. A save that matches no rows
   is a refusal, shown inline; a number field never saves NaN.
 
+## Lists: what a view declares
+
+<!-- api: ViewDefinition<any>, ResourceViewProps, ViewSegment<any>, ViewField<any>, ViewExport<any> -->
+
+A list's behaviour is declared on its view (ADR 0017), so every screen of the resource gets it
+with no screen code, and a screen's own props still win.
+
+```ts
+import { defineView } from "@marktiderman/genesis-core/resource-view";
+
+export const tasksView = defineView(tasksContract, {
+  fields: { title: { emphasis: "title" }, hours: { emphasis: "secondary", hideBelow: "md", width: 96 } },
+  segments: [
+    { id: "open", label: "Open", where: { status: ["todo", "doing"] }, count: true },
+    { id: "mine", label: "Mine", where: (viewer) => ({ owner_id: viewer.id }) },
+    { id: "all", label: "All" },
+  ],
+  filters: [{ field: "status" }, { field: "hours" }],
+  actions: [{ name: "finish", label: "Finish", bulk: true, can: (t) => (t.status === "done" ? "It's already done." : true) }],
+  groupBy: "status",
+  totals: { hours: "sum" },
+  rowTone: (t) => (t.overdue ? "danger" : undefined),
+  export: true,
+});
+```
+
+- **Segments** are named tabs over the list, each with its own filter (`where`, or a function of
+  the viewer) and, with `count: true`, a count from the provider. They sit above the search row;
+  the first is the default.
+- **Filters** name the fields a person narrows the list by. A field with choices gets a
+  multi-select, a date or number a range, a text field "contains". Every value goes to the server
+  (`view.filterParams`), never to loaded rows, and only declared filters are read from the URL.
+- **The URL.** Register the router's adapter once (`ResourceViewDefaultsProvider urlState`) and
+  every page list keeps its segment (`seg`), filters (`f.<field>`), search, sort and page in it. A
+  screen's `urlState={false}` keeps a list out; an embedded list passes `urlState` to join.
+- **Row actions.** With `rowActions` (on the screen, or app-wide on the provider for this minor), each
+  table row gets a "More" menu and the same on right-click: edit, the view's actions, delete. A
+  refused one stays, disabled, with the guard's sentence under it; `refusals: "hide"` leaves it out.
+  An action runs through the provider's `runAction`, or the screen's `onAction`.
+- **Bulk actions.** An action with `bulk` joins the bulk bar. It runs per selected row through the
+  provider, skipping and naming the rows its guard refuses, or once through its own `run`.
+  Shift-click selects a range. With `bulk.matching` and a `run` that takes the list's filters, the
+  bar offers "Select all matching" past the loaded page; while every matching row is selected,
+  actions that take only the loaded rows wait, with a reason. A `matching` run gets filters, not
+  rows: it checks access itself and treats the filters as untrusted.
+- **Bulk delete.** A view with bulk actions also deletes many, through the page's own delete
+  (`ResourcePage bulkDelete`): the provider's delete under the screen's `can` and the view's guard,
+  one confirm step with the count, and the recycle-bin wording when the provider has one. A screen
+  that deletes through `onDelete`, or a list of `rows`, adds its own bulk action instead.
+- **Saved views.** Give the provider a `SavedViewStore` (`savedViews`): page lists offer Views
+  (save, load, delete), each holding the segment, filters, search, sort, columns, view type and
+  grouping, stamped with the view's `version`; an older one applies as far as it still fits
+  (`applicableListState`). `createLocalSavedViewStore()` keeps them on the device, each viewer's
+  apart (`forViewer`); an app's store over its own table shares them, scoped to the viewer by its
+  row-level security.
+- **The type switcher.** A page list whose view supports more than table, list and grid (a board,
+  a calendar, a gallery, a registered type, or `types`) shows one switcher in its header, and each
+  person's choice goes through the same store. A screen that sets `type` opens fixed there.
+- **Grouping and totals.** A screen's `groupBy` (or a saved view's) groups the table (a header row
+  per group, with a toggle to close it) and the grid and list. Rows sort by the group first, then
+  by the view's `orderBy`. A view's own `groupBy` doesn't group a table by itself. Totals sit in
+  each group's header and a footer; on a server-paged list they cover the rows loaded, and say so.
+- **Tone and emphasis.** `rowTone(row)` gives a row a leading bar and a tint from the status
+  tokens; a field's `emphasis` (`title`, `secondary`, `muted`) sets how strongly its column reads.
+- **Column hints.** A field's `sortable: false`, `hideBelow` and `width` reach the table.
+- **Export.** With `export`, the header's menu offers "Export CSV": every row the list matches,
+  paged through the provider by core's `exportCsv` (formula-safe), with values in words unless the
+  export block's `raw` says otherwise, up to its `maxRows`.
+- **Rows the screen holds.** `rows` draws rows the screen already read, searched, sorted and paged
+  in the browser, with nothing fetched; writes stay the screen's. The view's declared segments
+  and filters aren't drawn over them (they'd narrow nothing), only the screen's own `filters` and
+  `filterSlot`. Only the table, list, grid and gallery draw them: `type="board"`, `"calendar"`,
+  `"inbox"`, `"sheet"` or an app's type with `rows` throws, and the switcher offers none of those.
+- **Defaults and the URL.** A filter's `default` holds on a list kept in the URL too: a filter at
+  its default stays out of the address, one the person cleared is written empty (`f.status=`), and
+  Clear goes back to the defaults.
+- **Custom layouts.** `useResourceViewProps` returns the page's props with an action's
+  confirmation in `dialogs`, which `<ResourcePage>` draws, so a screen that renders its own page
+  keeps the confirm step, and `restoreKey`, which starts the page again with a restored saved
+  view's search and sort. Spread the props whole and both work.
+
+One list state holds all of this on every platform: core's `useListState` (the URL both ways,
+text filters after a pause, filters on the viewer's clock), with `useSegmentCounts` for the
+counts. The phone draws the same state ([Native](#native)).
+
+Planned with the same ADR: link filters with a picker, cards from parts and detail routes, and
+**Planned** ([`resource-view-sheet`](../features.ts)) export jobs.
+
+## Inbox
+
+<!-- api: ViewDefinition<any>, ViewInbox<any>, ResourceViewProps, ResourceInboxOptions<any> -->
+
+Any view can show as a three-pane inbox, like a mail or help-desk client: the view's segments
+with their counts (and saved views) in a rail, its rows as messages, and the open record beside
+them. The view's `inbox` block says which field is which:
+
+```ts
+import { defineView } from "@marktiderman/genesis-core/resource-view";
+
+export const ticketsView = defineView(ticketsContract, {
+  segments: [
+    { id: "open", label: "Open", where: { status: "open" }, count: true },
+    { id: "solved", label: "Solved", where: { status: "solved" }, count: true },
+  ],
+  actions: [{ name: "done", label: "Solve", bulk: true }],
+  inbox: { preview: "body", time: "updated_at", from: "requester", unread: "unread", badge: "status" },
+  types: ["inbox", "table"],
+});
+```
+
+```tsx
+import { ResourceView } from "@marktiderman/genesis-ui/data";
+
+export function Tickets({ open, setOpen }: { open: string | null; setOpen: (id: string | null) => void }) {
+  return <ResourceView view={ticketsView} type="inbox" inbox={{ selected: open, onSelectedChange: setOpen }} />;
+}
+```
+
+- **The block.** `title` (default the `labelField`), `preview`, `time` (a date or timestamp,
+  shown as a short relative time), `from` and `avatar`, `unread` (a yes/no field, or a function of
+  the row: the row is bold, with a dot), and `badge` (a field drawn in its tones). `defineView`
+  names a field that isn't there.
+- **The rail** is the view's segments, each with its count, and the saved views under Saved
+  (`rail: "none"` leaves it out). A segment's `args` reach a function-backed source as its
+  arguments (a queue's `mine` or `unassigned`).
+- **The list** pages through the provider, as the table does, with search over it and the view's
+  declared filters. Each row's menu has the view's actions, and with bulk actions the rows get
+  checkboxes (Shift picks a range) and the bulk bar.
+- **The reading pane** is the open record's record view (the view's `recordView`, else a document
+  page of its fields), with its actions and the screen's `onEdit` and `onDelete`. An app's own
+  reading pane (a ticket's thread and its reply box, a conversation) goes in `inbox.renderReading`,
+  which gets the row and `close`; `inbox.renderContext` fills the sidebar beside it.
+- **Selection** is the app's, like a peek: `inbox.selected` and `inbox.onSelectedChange` hold it
+  in its router's URL. A key no row has (deleted, or hidden from the viewer) shows "Not available".
+- **Narrow screens** show one pane at a time, with Back. Keys: j and k move, e runs the view's
+  done action (`doneAction`, else an action named `done` or `close`), Escape closes.
+- **Mark read.** Opening an unread row runs the view's `markRead` action when it declares one.
+  Genesis never writes on its own.
+- **On the phone**, `NativeResourceView type="inbox"` draws the rows as InboxPage's, with the
+  same swipe actions; a press opens the row as the list's does.
+
+genesis-support exports `ticketInbox`, `ticketSegments` and `supportQueueSource()` for its agent
+queue, and genesis-chat `conversationInbox()` for a list of conversations; their READMEs show the
+reading pane each takes.
+
 ## View types
 
 <!-- api: ViewTypeDefinition, ResourceViewProps -->
@@ -1067,6 +1214,9 @@ any of them, picked by the screen with `type` (`mode` is its older alias, and `t
 | `board` | a column per value of the view's `board` field ([Board](#board)) |
 | `calendar` | the rows placed by a date field ([Calendar](#calendar)) |
 | `gallery` | a photo per row, from the view's `gallery` block ([Gallery](#gallery)); `type="grid"` with a gallery block still draws it too |
+| `inbox` | a three-pane inbox from the view's `inbox` block ([Inbox](#inbox)) |
+
+A view's `types` lists the ones a person may switch between ([Lists](#lists-what-a-view-declares)).
 
 An app adds its own, and every screen picks it the same way:
 
@@ -1090,8 +1240,8 @@ registerViewType(timelineType); // once, at start-up
   naming the registered ones.
 - The doctor's `ui/lists-use-resource-view` rule accepts a file that defines or registers a view
   type: its lists are the type's own drawing.
-- On the phone, `NativeResourceView` takes `type` too: `list`, `grid` or `gallery`; its board and
-  calendar aren't built yet.
+- On the phone, `NativeResourceView` takes `type` too: `list`, `grid`, `gallery`, `inbox`,
+  `board` and `calendar` ([Native](#native)).
 
 ## Record pages
 
@@ -1200,6 +1350,15 @@ shares them, so a custom view asks for exactly what the table, board and calenda
 - **Paging and writes:** cursor paging with `onEndReached`. Search debounced at 300 ms. Zero-row
   refusals and optimistic updates with rollback.
 - **Doctor:** `native-screen-layout` counts `NativeResourceView` as a layout.
+- **Lists ([Lists: what a view declares](#lists-what-a-view-declares)):** the same list state as
+  the web (core's `useListState`). The view's segments are a row of chips with their counts, its
+  declared filters a Filters sheet, and its `types` a segmented switcher (the choice kept in
+  `savedViews`, the same `SavedViewStore`). Each row's swipe and long-press menu has edit, the
+  view's own actions and delete, a refused one with its reason.
+- **Board and calendar:** `type="board"` draws the view's columns side by side, a long press
+  moving a card through the resource's update (core's `useViewBoard`, as on the web);
+  `type="calendar"` draws an agenda or a month from core's `useViewCalendarRange`,
+  `calendarEvents` and `placeEvents`.
 
 ### Cards and custom rows
 

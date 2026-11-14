@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { ViewMode } from "../../patterns/view-toggle";
+import type { SavedViewStore } from "@marktiderman/genesis-core/resource-view";
+import type { SearchParamsAdapter } from "../../../navigation";
 
 /**
  * App-wide defaults for every `<ResourceView>` below. A screen's own `mode` (or `defaultView`)
@@ -36,6 +38,29 @@ export interface ResourceViewDefaults {
    * pagers draw as before; `false` turns an outer provider's off.
    */
   pagerJumps?: boolean | undefined;
+  /**
+   * Where saved views live (ADR 0017 §4): a `SavedViewStore` (`list`, `save`, `remove`, personal
+   * or team). With one, page lists offer "Views" (save, load, delete), stamped with each view's
+   * `version`, and each person's choices (their view type) go through it too. Genesis ships a
+   * device store (`createLocalSavedViewStore`); an app supplies a server one over its own table.
+   * Unset, no saved views, and the view type is remembered on this device. `null` turns an outer
+   * provider's off.
+   */
+  savedViews?: SavedViewStore | null | undefined;
+  /**
+   * The router's search-params adapter (`useTanStackRouterSearchParams()`,
+   * `useReactRouterSearchParams()`, `useBrowserSearchParams()`), registered once: every page
+   * list (`layout="page"`) keeps its segment (`seg`), declared filters (`f.<field>`), search, sort
+   * and page in the URL. Embedded lists stay out unless they pass `urlState`; a screen's
+   * `urlState={false}` opts out. `null` turns an outer provider's off.
+   */
+  urlState?: SearchParamsAdapter | null | undefined;
+  /**
+   * Draw a view's actions in its lists (ADR 0017 §2): a "More" menu on each row (edit, the view's
+   * actions, delete) and the same on right-click, refusals shown with their reasons. Off by
+   * default for this minor; a screen's `rowActions` wins.
+   */
+  rowActions?: boolean | undefined;
 }
 
 const ResourceViewDefaultsContext = createContext<ResourceViewDefaults>({});
@@ -44,7 +69,7 @@ const ResourceViewDefaultsContext = createContext<ResourceViewDefaults>({});
  * Set list defaults for the whole app, once, near the root:
  *
  * ```tsx
- * <ResourceViewDefaultsProvider phoneMode="grid" clipCells sizeColumns pagerJumps>
+ * <ResourceViewDefaultsProvider phoneMode="grid" clipCells sizeColumns pagerJumps savedViews={store} urlState={useTanStackRouterSearchParams()} rowActions>
  *   <App />
  * </ResourceViewDefaultsProvider>
  * ```
@@ -64,7 +89,13 @@ export function ResourceViewDefaultsProvider({
   const clipCells = defaults.clipCells ?? parent.clipCells;
   const sizeColumns = defaults.sizeColumns ?? parent.sizeColumns;
   const pagerJumps = defaults.pagerJumps ?? parent.pagerJumps;
-  const value = useMemo(() => ({ phoneMode, clipCells, sizeColumns, pagerJumps }), [phoneMode, clipCells, sizeColumns, pagerJumps]);
+  const savedViews = defaults.savedViews === undefined ? parent.savedViews : defaults.savedViews;
+  const urlState = defaults.urlState === undefined ? parent.urlState : defaults.urlState;
+  const rowActions = defaults.rowActions ?? parent.rowActions;
+  const value = useMemo(
+    () => ({ phoneMode, clipCells, sizeColumns, pagerJumps, savedViews, urlState, rowActions }),
+    [phoneMode, clipCells, sizeColumns, pagerJumps, savedViews, urlState, rowActions],
+  );
   return <ResourceViewDefaultsContext.Provider value={value}>{children}</ResourceViewDefaultsContext.Provider>;
 }
 

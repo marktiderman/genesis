@@ -87,6 +87,33 @@ describe("DataTable row open action", () => {
     expect(document.activeElement).toBe(c);
   });
 
+  it("keeps the tab stop and the arrows on rows a closed group still shows", () => {
+    // Grouped by team: b's run (Cara), then a's (Ada, Bo).
+    const items = [rows[0]!, rows[1]!, rows[2]!];
+    render(
+      <DataTable
+        items={items}
+        columns={columns}
+        getKey={(r) => r.id}
+        onRowClick={() => {}}
+        groups={{ of: (r) => ({ key: r.team, label: r.team }) }}
+      />,
+    );
+    // Close the first group: its row is gone, and the tab stop moves to the first row still drawn.
+    fireEvent.click(screen.getAllByRole("button", { expanded: true })[0]!);
+    const opens = () => screen.getAllByRole("button").filter((b) => b.hasAttribute("data-row-open"));
+    const [ada, bo] = opens();
+    expect(opens().map((b) => b.textContent)).toEqual(["Ada", "Bo"]);
+    expect([ada!.tabIndex, bo!.tabIndex]).toEqual([0, -1]);
+    ada!.focus();
+    fireEvent.keyDown(ada!, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(ada);
+    fireEvent.keyDown(ada!, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(bo);
+    fireEvent.keyDown(bo!, { key: "Home" });
+    expect(document.activeElement).toBe(ada);
+  });
+
   it("ignores modifier chords, so app shortcuts keep working", () => {
     render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} onRowClick={() => {}} />);
     const [a] = openButtons();

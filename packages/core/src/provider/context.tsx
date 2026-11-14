@@ -180,7 +180,7 @@ export function GenesisProvider({
       <StorageContext.Provider value={resolvedStorage}>
         <DataProviderRoot provider={resolvedProvider}>
           <PersistedViewerContext.Provider value={persist && typeof persistScope === "string" ? userOf(persistScope) : undefined}>
-            {restored ? children : null}
+            <PersistedClientContext.Provider value={queryClient}>{restored ? children : null}</PersistedClientContext.Provider>
           </PersistedViewerContext.Provider>
         </DataProviderRoot>
       </StorageContext.Provider>
@@ -267,4 +267,11 @@ function useRestoredReads(
  * `ViewerScope` inside keeps them for that viewer instead of emptying the cache.
  */
 export const PersistedViewerContext = createContext<string | undefined>(undefined);
+
+/**
+ * The QueryClient those reads were restored into. A `ViewerScope` keeps a cache for the persisted
+ * viewer only when it's this one: another client under a nested QueryClientProvider was never
+ * restored for that person. Internal.
+ */
+export const PersistedClientContext = createContext<unknown>(undefined);
 

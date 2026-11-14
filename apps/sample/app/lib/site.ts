@@ -41,6 +41,7 @@ export const SITE_PAGES: SitePage[] = [
   { path: "/dashboard", title: "Dashboard", description: "Stat tiles, a board and an activity feed built from Genesis components." },
   { path: "/items", title: "Items", description: "A list screen with grid, table and list modes, search, sort and a detail panel, on in-browser data." },
   { path: "/items-custom", title: "Items, composed by hand", description: "The same list composed from the lower-level data parts, for screens that need it." },
+  { path: "/tickets", title: "Support inbox", description: "One view drawn as a three-pane inbox: segments with counts, unread rows, the open ticket, and a switch to the table." },
   { path: "/tasks", title: "Tasks", description: "A table with a column picker, filter chips, bulk actions and a modal detail." },
   { path: "/orders", title: "Orders", description: "A paginated table of orders with filters." },
   { path: "/design-system", title: "Design system", description: "Every Genesis web component on one page, in the current theme." },

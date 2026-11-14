@@ -219,6 +219,30 @@ export const inbox = (
 );
 ```
 
+**Or as a view's inbox.** The same queue can be a Genesis view drawn by
+`<ResourceView type="inbox">` (genesis-ui), beside its table and with saved views, when your app
+reads it through the data provider. This package exports the pieces: `supportQueueSource()` (the
+provider `source` over migration 0018's `support_agent_queue`, which pages and counts every ticket; pass `{ tenant }`, or scope the view by `tenant_id`), `ticketInbox` (which column is the title, preview,
+time, requester, unread and status) and `ticketSegments` (Mine, Unassigned, Open, Pending, Closed, All; Mine,
+Unassigned, Pending and Closed pass the queue's view as a segment's `args`). Each segment's page, Open's status filter included, is read inside the function: it picks the page and the count from the tickets' own columns and builds the message preview for the page's rows only, and a segment's count builds none. A text search, or a sort other than newest activity, reads every ticket in the segment and builds each one's preview, by design: the database can only search or sort what the function returned (about 130 to 210 ms a page at 5,000 tickets with 20,000 messages, against 6 to 28 ms for a paged page). The reading pane is the ticket's
+thread with its reply box, through `renderReading`:
+
+<!-- docs-check: skip -->
+```tsx
+createSupabaseProvider(supabase, { resources: { support_queue: { source: supportQueueSource(), writeColumns: [] } } });
+export const queueView = defineView(supportQueueContract, { inbox: ticketInbox, segments: ticketSegments, types: ["inbox", "table"] });
+
+<ResourceView
+  view={queueView}
+  type="inbox"
+  inbox={{
+    selected: ticketId,
+    onSelectedChange: (id) => navigate(id ? `/help/inbox/${id}` : "/help/inbox"),
+    renderReading: (ticket) => <SupportStaffThread client={support} reportId={String(ticket.id)} resolveUser={resolveUser} staff={agents} />,
+  }}
+/>;
+```
+
 Only a tenant's agents get in: `client.agentTickets`, `agentTicket` and `agentTicketCounts` read
 through `support_agent_tickets` and `support_agent_ticket_counts`, which refuse anyone else. An
 agent's own ticket isn't in their queue, since another agent answers it.
@@ -471,10 +495,24 @@ feature id, vote counts and read receipts are the server's. See the migration's 
   with support-chat is pushed as the marker's message. If it can't be posted, the status change
   still goes through without it.
 
+  Genesis sends no notification of its own for it. An app that notifies on new replies tells the
+  verify prompt apart by `support_replies.prompt = 'verify'`, never by the reply's words: the words
+  are a sentence an app may translate or change.
+
 It also replaces the reply trigger that `0002_genesis_support_email.sql` (support-email) replaces;
 its version keeps the email rules when that block is already installed. Adding support-email after
 it, handlers can't reply (their status changes still work, without the prompt) until 0003's
 `genesis_support_new_reply` is applied again.
+
+## Fixes to tickets (migration 0016) and to help answers (migration 0017)
+
+- 0016 (with the support block, after 0004): the Data Studio's audit log and outbox move from the
+  old table names to `public.tickets` and `public.ticket_attachments`, wherever those tables exist,
+  so a ticket's history reads on past the rename. `support_agent_unread_count(tenant)` is an
+  agent's count of active tickets (not pending, not closed) with a requester's message no agent has read (`client.agentUnreadCount`),
+  for a badge without reading the queue.
+- 0017 (with support-helpdesk, after 0010): a question the safety protocol routes elsewhere, or one
+  asked before the person agreed, keeps no answer and no cited articles, as well as no words.
 
 ## Tickets and tenants (migration 0004)
 

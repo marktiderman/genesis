@@ -741,15 +741,18 @@
         "date field"
       ],
       "platforms": {
-        "web": "building"
+        "web": "building",
+        "native": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-ui/data"
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
       },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
-        "web"
+        "web",
+        "native"
       ],
       "audience": [
         "developer"
@@ -847,15 +850,17 @@
       ],
       "platforms": {
         "web": "building",
-        "native": "planned"
+        "native": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-ui/data"
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
       },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
-        "web"
+        "web",
+        "native"
       ],
       "audience": [
         "developer"
@@ -939,6 +944,365 @@
         "docs": [
           "docs/adr/0019-custom-views.md",
           "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "view-filters",
+      "name": "Segments and filters on a view",
+      "summary": "A view declares its segments (named tabs with their own filter and an optional count from the provider) and its filters (choices, a range or contains, from the field), and ResourceView draws them on every view type: the segments above the search row, the filters in the filter row, a bar above a board, a calendar or an app's type. Every value goes to the server, only declared filters are read from the URL (seg, f.<field>) once the app registers its router adapter on ResourceViewDefaultsProvider, and they count toward Clear filters. Core resolves them (view.filters(), segments(), segmentFilters(), filterParams()) and reads and writes the URL (readListUrl, listUrlParams).",
+      "status": "building",
+      "claimedBy": "claude/lists-vnext",
+      "kind": "pattern",
+      "keywords": [
+        "segments",
+        "tabs",
+        "filters",
+        "filter bar",
+        "counts",
+        "url state",
+        "f.",
+        "seg",
+        "facets",
+        "list filters"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A view's segments draw above its list with their counts, and picking one sends its filter to the provider.",
+        "A view's declared filters send their values to the provider; the URL keeps them, and a value no filter accepts is never sent."
+      ],
+      "reviewedAt": "2026-11-13",
+      "links": {
+        "code": [
+          "packages/core/src/resource-view/list-state.ts",
+          "packages/ui/src/components/data/resource-view/list-controls.tsx"
+        ],
+        "docs": [
+          "docs/adr/0017-lists-vnext.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "view-actions",
+      "name": "Row and bulk actions in lists",
+      "summary": "A view's actions in its lists: a More menu on each table row and the same on right-click (edit, the view's actions, delete; behind rowActions for this minor), and the bulk bar for actions with bulk, run through the provider per row or once through the action's own run. A refused action keeps its guard's reason, shown disabled (refusals: hide leaves it out). Shift-click selects a range, and Select all matching reaches every row the list matches for a run that takes its filters. ResourcePage gains rowMenu, heldFilters and a bulk context for its own users.",
+      "status": "building",
+      "claimedBy": "claude/lists-vnext",
+      "kind": "pattern",
+      "keywords": [
+        "row actions",
+        "bulk actions",
+        "row menu",
+        "context menu",
+        "right-click",
+        "select all matching",
+        "range select",
+        "shift-click",
+        "refusal reason"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A row's menu lists the view's actions, and a refused one shows disabled with its guard's sentence.",
+        "A bulk action runs on the selected rows its guard allows and says which it skipped and why."
+      ],
+      "reviewedAt": "2026-11-13",
+      "links": {
+        "code": [
+          "packages/ui/src/components/data/RowMenu.tsx",
+          "packages/ui/src/components/data/resource-view/list-controls.tsx",
+          "packages/ui/src/components/data/DataBulkBar.tsx"
+        ],
+        "docs": [
+          "docs/adr/0017-lists-vnext.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "saved-views",
+      "name": "Saved views and the type switcher",
+      "summary": "A SavedViewStore (list, save, remove; personal or team; readCurrent and writeCurrent for each person's choices) passed once to ResourceViewDefaultsProvider: page lists offer Views that store the segment, filters, search, sort, columns, view type and grouping, stamped with the view's version and applied as far as they still fit. createLocalSavedViewStore keeps them on the device; an app's store over its own table shares them. A view's types (or the blocks it has) give a page list one switcher across table, list, grid, board, calendar, gallery and registered types, and the person's choice goes through the same store.",
+      "status": "building",
+      "claimedBy": "claude/lists-vnext",
+      "kind": "pattern",
+      "keywords": [
+        "saved views",
+        "views",
+        "SavedViewStore",
+        "type switcher",
+        "view switcher",
+        "remember view",
+        "team views"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A saved view restores its segment, filters, type and grouping, and one from an older view version applies as far as it still fits.",
+        "A view with a board shows a type switcher, and the person's choice is read back from the store."
+      ],
+      "reviewedAt": "2026-11-13",
+      "links": {
+        "code": [
+          "packages/core/src/resource-view/saved-views.ts",
+          "packages/ui/src/components/data/resource-view/defaults.tsx",
+          "packages/ui/src/components/data/resource-view/ResourceView.tsx"
+        ],
+        "docs": [
+          "docs/adr/0017-lists-vnext.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "view-export",
+      "name": "Export a list to CSV",
+      "summary": "A view's export (true, or its columns, file name, cap and raw values) offers Export CSV in a list's header menu: every row the list's segment, filters, search and sort match, paged through the provider by core's exportCsv (formula-safe), with the view's words for coded values. exportCsv takes a format for headers and values. ResourcePage's onExport gets the list's query for an export of its own. Jobs past a threshold stay with resource-view-sheet.",
+      "status": "building",
+      "claimedBy": "claude/lists-vnext",
+      "kind": "pattern",
+      "keywords": [
+        "export",
+        "csv",
+        "download",
+        "spreadsheet",
+        "exportCsv"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "Export CSV writes every row the list matches, in the view's words, and says when it stopped at the cap."
+      ],
+      "reviewedAt": "2026-11-13",
+      "links": {
+        "code": [
+          "packages/core/src/csv.ts",
+          "packages/ui/src/components/data/resource-view/list-controls.tsx"
+        ],
+        "docs": [
+          "docs/adr/0017-lists-vnext.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "list-emphasis",
+      "name": "Row tone, emphasis and column hints",
+      "summary": "A view's rowTone(row) gives a row a leading bar and a tinted surface from the status tokens; a field's emphasis (title, secondary, muted) sets how strongly its column reads; a field's sortable, hideBelow and width reach the table. DataTable gains rowTone, rowClassName, groups, footer and rowContextMenu, and a column's emphasis.",
+      "status": "building",
+      "claimedBy": "claude/lists-vnext",
+      "kind": "pattern",
+      "keywords": [
+        "row tone",
+        "overdue row",
+        "emphasis",
+        "column width",
+        "hide column",
+        "not sortable"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A row whose view gives it a tone draws its leading bar and tint, and a secondary field's column reads quieter."
+      ],
+      "reviewedAt": "2026-11-13",
+      "links": {
+        "code": [
+          "packages/ui/src/components/data/DataTable.tsx",
+          "packages/core/src/resource-view/define-view.ts"
+        ],
+        "docs": [
+          "docs/adr/0017-lists-vnext.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "view-inbox",
+      "name": "Inbox view type",
+      "summary": "Any view drawn as a three-pane inbox, like a mail or help-desk client: <ResourceView type=\"inbox\"> (or inbox among a view's types in the switcher) puts the view's segments with their counts and saved views in a rail (InboxViews), its rows as messages (InboxPage: unread in bold, a preview, a relative time, a badge, the row's actions, checkboxes for bulk actions), paged through the provider, and the open record beside them (RecordView with the screen's Edit and Delete, or the app's renderReading: a ticket thread, a conversation). The view's inbox block (core) says which field is which; selection is a URL param the app owns; narrow screens show one pane with Back; j, k, e and Escape work; a declared markRead action runs on opening an unread row. NativeResourceView type=\"inbox\" draws the rows as InboxPage's. genesis-support exports ticketInbox, ticketSegments and supportQueueSource; genesis-chat conversationInbox().",
+      "status": "building",
+      "claimedBy": "claude/lists-vnext",
+      "kind": "pattern",
+      "keywords": [
+        "inbox",
+        "three-pane",
+        "mail",
+        "help desk",
+        "reading pane",
+        "unread",
+        "tickets",
+        "conversations",
+        "InboxLayout",
+        "renderReading"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A view with an inbox block draws its segments with counts, its rows with unread in bold, and the open record's page with Edit and Delete.",
+        "A selected key no row has shows Not available, and on a narrow screen Back returns to the list."
+      ],
+      "reviewedAt": "2026-11-13",
+      "links": {
+        "code": [
+          "packages/ui/src/components/data/resource-view/ResourceInbox.tsx",
+          "packages/core/src/resource-view/define-view.ts",
+          "packages/support/src/inbox.ts",
+          "packages/chat/src/core/inbox.ts"
+        ],
+        "docs": [
+          "docs/adr/0017-lists-vnext.md",
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "client-layer",
+      "name": "The app client layer",
+      "summary": "An app's own layer over Genesis in one folder (ADR 0020): src/client/ (or genesis.config.json client.dir) with client-layer.tsx (the provider, defaults, saved-view store and URL adapter), resource-view.tsx (the app's ResourceView), a folder per record type with its view.ts and appearance.tsx, and cells/, components/ and view-types/. genesis client init scaffolds it; the doctor warns where a screen renders Genesis's ResourceView or RecordView directly once the layer exists (client/layer) and on a second view over one contract (client/one-view-per-resource).",
+      "status": "building",
+      "claimedBy": "claude/lists-vnext",
+      "kind": "tool",
+      "keywords": [
+        "client layer",
+        "src/client",
+        "app layer",
+        "wrapper",
+        "one view per resource",
+        "client init"
+      ],
+      "platforms": {
+        "web": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-cli"
+      },
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "genesis client init writes the layer's files, keeping any that exist.",
+        "With a layer, the doctor warns on a screen that renders Genesis's ResourceView directly and on a second view over one contract."
+      ],
+      "reviewedAt": "2026-11-13",
+      "links": {
+        "code": [
+          "packages/genesis-cli/src/client/init.ts",
+          "packages/genesis-cli/src/doctor/client-layer.ts"
+        ],
+        "docs": [
+          "docs/adr/0020-client-layer.md"
         ]
       },
       "visibility": "customer",
@@ -1156,9 +1520,10 @@
     {
       "id": "resource-view-sheet",
       "name": "Sheet mode for lists",
-      "summary": "ResourceView's `mode=\"sheet\"`: a spreadsheet over one view on SheetGrid, editing only the view's form fields through the provider, multi-cell paste only where the provider serves bulk writes, and big pastes, imports and exports run as jobs.",
+      "summary": "ResourceView's `type=\"sheet\"` (or `sheet` among a view's types): a view's rows as a spreadsheet on SheetGrid, the grid the Data Studio's sheet uses. Only the view's writable fields are editable; each row goes through the view's guards and the screen's can, and a refused cell is read-only with the reason on it. Every change goes through the resource's own update, row by row, so the provider's rules and a versioned resource's check apply; a cell that failed is marked with its reason. Arrows, Tab, Enter and Escape move and edit, a paste fills a block and skips read-only cells, and the last change can be undone. Big pastes, imports and exports as jobs are still to come.",
       "category": "Data",
-      "status": "planned",
+      "status": "building",
+      "claimedBy": "claude/lists-vnext",
       "horizon": "next",
       "kind": "pattern",
       "keywords": [
@@ -1169,6 +1534,13 @@
         "bulk edit",
         "csv"
       ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
@@ -1178,8 +1550,16 @@
         "developer"
       ],
       "visibility": "public",
-      "reviewedAt": "2026-11-01",
+      "reviewedAt": "2026-11-13",
+      "acceptance": [
+        "A writable cell saves through the resource's update; a guard-refused row's cells and read-only columns can't be edited and say why.",
+        "Undo puts the last change back through the same update."
+      ],
       "links": {
+        "code": [
+          "packages/ui/src/components/data/resource-view/ResourceSheet.tsx",
+          "packages/ui/src/components/sheet-grid/sheet-grid.tsx"
+        ],
         "docs": [
           "docs/RESOURCE-VIEW.md"
         ]
@@ -1243,10 +1623,10 @@
     {
       "id": "resource-view-shaping",
       "name": "Grouping, manual order and totals for lists",
-      "summary": "A view's `groupBy` drawn as group headers with counts on the web (the phone already shows sections), `orderBy.manual` drag to reorder written through the provider, and footer totals, overall and per group.",
+      "summary": "A view's `groupBy` drawn as group headers with counts, totals and a toggle on the web (table, grid and list; the phone already shows sections), and its `totals` per group and in the table's footer (groupTotals, core). Still planned: `orderBy.manual` drag to reorder written through the provider, and group counts from the server under server paging.",
       "category": "Data",
-      "status": "planned",
-      "horizon": "later",
+      "status": "building",
+      "claimedBy": "claude/lists-vnext",
       "kind": "pattern",
       "keywords": [
         "group by",

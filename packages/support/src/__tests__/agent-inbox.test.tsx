@@ -103,6 +103,13 @@ describe("the client's read path", () => {
     expect(rpcs[0]).toEqual({ fn: "support_agent_tickets", args: { tenant: "ta", only_id: "t1" } });
     expect(await support.agentTicketCounts!()).toEqual({ mine: 1, unassigned: 2, all: 3 });
   });
+
+  it("reads an agent's unread count", async () => {
+    const { client, rpcs } = fakeSupabase({ rpc: (fn) => (fn === "support_agent_unread_count" ? { data: 4, error: null } : { data: null, error: null }) });
+    const support = createSupportClient(client);
+    expect(await support.agentUnreadCount!({ tenantId: "ta" })).toBe(4);
+    expect(rpcs.at(-1)).toEqual({ fn: "support_agent_unread_count", args: { tenant: "ta" } });
+  });
 });
 
 const ticket = (over: Partial<AgentTicket> = {}): AgentTicket => ({

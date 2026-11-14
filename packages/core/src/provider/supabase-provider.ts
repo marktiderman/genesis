@@ -144,7 +144,38 @@ export interface SupabaseUpdateContext {
   expectedVersion?: string;
 }
 
+/**
+ * A function source that pages itself (`SupabaseResourceConfig.source`'s `pages`): the order its
+ * rows come in, and the column that carries the whole result's count. A count alone asks the
+ * function for `page_limit: 0`, which it answers with one row that carries the count (and builds
+ * no other row).
+ *
+ * @stability Beta
+ */
+export interface SourcePages {
+  readonly order?: readonly { field: string; order: "asc" | "desc" }[];
+  readonly total?: string;
+}
+
 /** Per-resource rules for `createSupabaseProvider`. Every field is optional. */
+/**
+ * What a function source's `args` gets (`SupabaseResourceConfig.source`): the list's filters,
+ * which carry the viewer's scope, and `take`, which reads one equality filter's value (`null` for
+ * "is empty") and keeps that filter out of the query.
+ *
+ * @stability Beta
+ */
+export interface SourceArgsContext {
+  readonly resource: string;
+  readonly filters: readonly FilterParam[];
+  take(field: string): string | number | boolean | null | undefined;
+  /**
+   * The values of a filter on `field` that an `in` (or an `eq`, as one value) gives, taken out of
+   * the query like `take`; undefined when there's none. For a function that filters by a list.
+   */
+  takeIn(field: string): readonly unknown[] | undefined;
+}
+
 export interface SupabaseResourceConfig {
   /** Singular noun for failure messages, e.g. "project". Defaults to "record". */
   noun?: string;
@@ -245,11 +276,31 @@ export interface SupabaseResourceConfig {
    * ```ts
    * resources: {
    *   tasks: { source: "tasks_with_people" },
-   *   course_progress: { source: { rpc: "group_progress", args: () => ({ group_id: currentGroup() }) } },
+   *   course_progress: { source: { rpc: "group_progress", args: ({ take }) => ({ group_id: take("group_id") }) } },
    * }
    * ```
+   *
+   * A function's `args` gets the list's filters (`context.filters`), which hold the viewer's scope
+   * as ResourceView applies it (a view's `scope: ["group_id"]` filters `group_id`), so a function
+   * that takes its scope as an argument reads it there rather than from a module variable.
+   * `context.take(field)` returns an equality filter's value and leaves that filter out of the
+   * query, for a scope the function takes as an argument and doesn't return as a column. A record
+   * read (`getOne`, `getMany`) gets the list's filters from `scope` (less a text search's
+   * `contains`, which `useOne` leaves out) when the caller passes them
+   * (`useOne`'s `scope`, which ResourceView's table, inbox and NativeResourceView's peek and
+   * edit sheet pass for a record off the loaded page), else none, and
+   * the function's own default scope applies.
+   *
+   * A function that pages itself declares `pages`: it takes `page_limit` and `page_offset`
+   * arguments, returns its rows in `pages.order` (newest first, say) and carries the whole
+   * result's count on each row (`pages.total`, default `total_count`). A list page whose filters
+   * the function all took, with no search and no sort other than `pages.order`, then passes the
+   * page to the function instead of a `range`, and reads its total from that column, so the
+   * function never builds rows outside the page. A count alone (a segment's) sends
+   * `page_limit: 0`: the function returns one row carrying the count, and builds no other. Any other list reads every row, as without
+   * `pages`, since PostgREST can only filter, search or sort what the function returned.
    */
-  source?: string | { rpc: string; args?: () => Record<string, unknown> };
+  source?: string | { rpc: string; args?: (context: SourceArgsContext) => Record<string, unknown>; pages?: SourcePages };
   /**
    * How lists of this resource count their total (default `exact`). Use
    * `estimated` for large tables, or `none` when no screen shows a count.
@@ -744,6 +795,8 @@ export function createSupabaseProvider(
     resource: string,
     columns: string | undefined,
     count?: "exact" | "estimated" | "planned",
+    filters?: FilterParam[],
+    used: Set<FilterParam> = new Set(),
   ): SupabaseQueryBuilder {
     const config = configFor(resource);
     const cols = columns ?? config.select ?? "*";
@@ -752,12 +805,87 @@ export function createSupabaseProvider(
       if (!client.rpc) {
         throw new DataReadError("error", `[SupabaseProvider] "${resource}" reads from ${source.rpc}(), but the client has no rpc.`);
       }
-      const builder = client.rpc(source.rpc, source.args?.() ?? {}, count ? { count } : undefined) as SupabaseQueryBuilder;
+      const builder = client.rpc(source.rpc, source.args?.(sourceArgs(resource, filters, used)) ?? {}, count ? { count } : undefined) as SupabaseQueryBuilder;
       return builder.select(cols);
     }
     const table = relation(source ?? resource);
     return count ? table.select(cols, { count }) : table.select(cols);
   }
+
+  // The filters a function's `args` took (`take`) land in `used`, which belongs to one read: a
+  // later read that passes the same array (a table read, another function) starts from none taken.
+  function sourceArgs(resource: string, filters: FilterParam[] | undefined, used: Set<FilterParam>): SourceArgsContext {
+    const list = filters ?? [];
+    return {
+      resource,
+      filters: list,
+      take: (field: string) => {
+        const f = list.find((x) => x.field === field && (x.operator === "eq" || x.operator === "is_null"));
+        if (!f) return undefined;
+        used.add(f);
+        return f.operator === "eq" ? f.value : null;
+      },
+      takeIn: (field: string) => {
+        const f = list.find((x) => x.field === field && (x.operator === "in" || x.operator === "eq") && !used.has(x));
+        if (!f) return undefined;
+        used.add(f);
+        const value = (f as { value?: unknown }).value;
+        return f.operator === "in" ? [...(value as unknown[])] : [value];
+      },
+    };
+  }
+
+  /** A read with the list's filters: a function source sees them first, and the ones it took aren't applied again. */
+  function readFiltered(
+    resource: string,
+    columns: string | undefined,
+    count: "exact" | "estimated" | "planned" | undefined,
+    filters: FilterParam[] | undefined,
+  ): SupabaseQueryBuilder {
+    const used = new Set<FilterParam>();
+    const query = read(resource, columns, count, filters, used);
+    return applyFilters(query, used.size ? filters!.filter((f) => !used.has(f)) : filters);
+  }
+  /**
+   * A page read by a function that pages itself (`source.pages`), or undefined when this list can't
+   * be: a filter the function didn't take, a search or another sort would apply after the function,
+   * so it has to return every row. `limit` 0 reads only the total (the one row the function answers with).
+   */
+  async function readSourcePage(
+    resource: string,
+    params: ListParams,
+    offset: number,
+    limit: number,
+  ): Promise<{ data: Record<string, unknown>[]; total: number } | undefined> {
+    const source = configFor(resource).source;
+    if (!source || typeof source !== "object" || !source.pages || !client.rpc) return undefined;
+    if (searchClauses(resource, params)) return undefined;
+    const order = source.pages.order ?? [];
+    const requested = params.sorts && params.sorts.length > 0 ? params.sorts : params.sort ? [params.sort] : [];
+    if (requested.length > 0 && (requested.length > order.length || requested.some((r, k) => r.field !== order[k]!.field || r.order !== order[k]!.order))) {
+      return undefined;
+    }
+    const used = new Set<FilterParam>();
+    const args = source.args?.(sourceArgs(resource, params.filters, used)) ?? {};
+    if ((params.filters ?? []).some((f) => !used.has(f))) return undefined;
+    const totalColumn = source.pages.total ?? "total_count";
+    const cols = params.select ?? configFor(resource).select ?? "*";
+    const select = cols.trim() === "*" ? cols : `${cols},${totalColumn}`;
+    const call = async (from: number, take: number) => {
+      const builder = client.rpc!(source.rpc, { ...args, page_limit: take, page_offset: from }) as SupabaseQueryBuilder;
+      const result = (await builder.select(select)) as unknown as { data: Record<string, unknown>[] | null; error: unknown };
+      await throwIfReadError(result, resource, "getList");
+      return result.data ?? [];
+    };
+    const totalOf = (rows: Record<string, unknown>[]) => Number(rows[0]?.[totalColumn] ?? 0);
+    // A count alone (limit 0): the function's one row carries it, and no row is data.
+    if (limit === 0) return { data: [], total: totalOf(await call(0, 0)) };
+    const data = await call(offset, limit);
+    // A page past the end has no row to carry the total: ask for the count alone.
+    const total = data.length > 0 || offset === 0 ? totalOf(data) : totalOf(await call(0, 0));
+    return { data, total };
+  }
+
   /** A resource's rules, keyed either way: `"public.goals"` finds `goals`, and `goals` finds `"public.goals"`. */
   const configFor = (resource: string): SupabaseResourceConfig =>
     options.resources?.[resource] ?? options.resources?.[otherSpelling(resource)] ?? {};
@@ -1056,8 +1184,7 @@ export function createSupabaseProvider(
     }
 
     const mode = countMode(resource, params);
-    let query = read(resource, params.select, cursor || mode === "none" ? undefined : mode);
-    query = applyFilters(query, params.filters);
+    let query = readFiltered(resource, params.select, cursor || mode === "none" ? undefined : mode, params.filters);
     const search = searchClauses(resource, params);
     const keyset = after ? keysetClauses(after) : "";
     // Both are OR groups that must hold together: nest them in one `or`.
@@ -1140,10 +1267,13 @@ export function createSupabaseProvider(
         return getCursorPage(resource, params, configuredKey === undefined ? "id" : configuredKey) as never;
       }
       const mode = countMode(resource, params);
+      if (params.pagination) {
+        const { page, perPage } = params.pagination;
+        const paged = await readSourcePage(resource, params, (page - 1) * perPage, perPage);
+        if (paged) return { data: paged.data, total: mode === "none" ? -1 : paged.total } as never;
+      }
       const run = (key: string | false) => {
-        let query = read(resource, params.select, mode === "none" ? undefined : mode);
-
-        query = applyFilters(query, params.filters);
+        let query = readFiltered(resource, params.select, mode === "none" ? undefined : mode, params.filters);
 
         // Search — convert to OR of ilike. A resource's configured
         // `searchFields` win over the caller's.
@@ -1218,14 +1348,17 @@ export function createSupabaseProvider(
           resource,
           "getList",
         );
-      const narrow = (query: SupabaseQueryBuilder) => {
-        query = applyFilters(query, params.filters);
+      const narrow = (columns: string, count?: "exact" | "estimated" | "planned") => {
+        const query = readFiltered(resource, columns, count, params.filters);
         const clauses = searchClauses(resource, { search: params.search });
         return clauses ? query.or(clauses) : query;
       };
-      if (counts.length > 0) {
+      const pagedTotal = counts.length > 0 ? await readSourcePage(resource, { filters: params.filters, search: params.search }, 0, 0) : undefined;
+      if (pagedTotal) {
+        for (const [name] of counts) values[name] = pagedTotal.total;
+      } else if (counts.length > 0) {
         const mode = params.count ?? "exact";
-        const result = (await narrow(read(resource, "*", mode)).range(0, 0)) as unknown as { error: unknown; count?: number | null };
+        const result = (await narrow("*", mode).range(0, 0)) as unknown as { error: unknown; count?: number | null };
         await throwIfReadError(result, resource, "getList");
         for (const [name] of counts) values[name] = result.count ?? 0;
         isEstimate = mode !== "exact";
@@ -1236,7 +1369,7 @@ export function createSupabaseProvider(
             if (!SAFE.test(name) || !("field" in m) || !SAFE.test(m.field)) await refuse(`"${name}" and its field must be plain column names.`);
           }
           const cols = others.map(([name, m]) => `${name}:${(m as { field: string }).field}.${m.fn}()`).join(",");
-          const result = (await narrow(read(resource, cols))) as unknown as { data: Record<string, unknown>[] | null; error: unknown };
+          const result = (await narrow(cols)) as unknown as { data: Record<string, unknown>[] | null; error: unknown };
           await throwIfReadError(result, resource, "getList");
           const row = result.data?.[0] ?? {};
           for (const [name] of others) {
@@ -1261,7 +1394,9 @@ export function createSupabaseProvider(
     },
 
     async getOne(resource, params) {
-      const result = (await read(resource, params.select)
+      // A function source reads in the list's scope (`scope`), never the RPC's default; the
+      // filters it doesn't take aren't applied: they choose a list, not the record.
+      const result = (await read(resource, params.select, undefined, params.scope)
         .eq("id", params.id)
         .single()) as { data: unknown; error: unknown };
       await throwIfReadError(result, resource, "getOne");
@@ -1270,7 +1405,7 @@ export function createSupabaseProvider(
 
     async getMany(resource, params) {
       if (params.ids.length === 0) return { data: [] } as never;
-      const result = (await read(resource, undefined)
+      const result = (await read(resource, undefined, undefined, params.scope)
         .in("id", params.ids)) as { data: unknown[]; error: unknown };
       await throwIfReadError(result, resource, "getMany");
       return { data: result.data ?? [] } as never;

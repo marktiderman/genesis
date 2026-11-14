@@ -34,6 +34,7 @@ import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, check
 import { checkIsoDateSlices } from "./dates.js";
 import { checkRemovedScopeNames, checkStudioServerImports, checkTreeViews } from "./api-usage.js";
 import { checkAppParts } from "./custom-views.js";
+import { checkClientLayer } from "./client-layer.js";
 import { checkStabilityImports } from "./stability.js";
 import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules, unknownPackageRuleSettings } from "./package-rules.js";
 import { allowGrew, applyRatchet, changedSince, configAtBase, countFindings, countKey, extensionsAdded, isRatcheted, originsSince, rulesWeakened, snapshotAtBase, touched } from "./ratchet.js";
@@ -305,6 +306,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "studio-server-imports", check: checkStudioServerImports },
     { name: "removed-scope-names", check: checkRemovedScopeNames },
     { name: "app-parts", check: checkAppParts },
+    { name: "client-layer", check: checkClientLayer },
     { name: "stability-imports", check: checkStabilityImports },
     { name: "agent-guide", check: (ctx: DoctorContext) => { checkAgentGuide(ctx); checkAgentHooks(ctx); } },
     { name: "overlays", check: (ctx: DoctorContext) => checkOverlays(ctx) },

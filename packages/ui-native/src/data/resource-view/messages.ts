@@ -86,7 +86,77 @@ export interface NativeResourceViewMessages {
     deleteFailed: string;
     dismiss: string;
   };
+  /**
+   * A list's segments, declared filters, view types, board and calendar (ADR 0017). Optional, so
+   * a catalogue written before it still fits; the English is used for what's missing.
+   */
+  lists?: Partial<NativeListMessages>;
 }
+
+/** The words of a list's controls, board and calendar on the phone. @stability Beta */
+export interface NativeListMessages {
+  segments: string;
+  filters: string;
+  /** `{count}`: declared filters set. */
+  filtersSet: string;
+  clear: string;
+  done: string;
+  from: string;
+  to: string;
+  /** The view types, by name. */
+  types: Readonly<Record<string, string>>;
+  /** The switcher's accessible name. */
+  type: string;
+  /** Board: the column of rows with no value. */
+  noValue: string;
+  /** A card the screen won't let this viewer move. */
+  notAllowed: string;
+  /** `{name}`: a card whose last move is still saving. */
+  stillSaving: string;
+  /** `{noun}`: a move that matched no row. */
+  notChanged: string;
+  /** `{name}`: a move that failed with no words of its own. */
+  moveFailed: string;
+  /** `{column}`: a card's move, in its menu. */
+  moveTo: string;
+  loadMore: string;
+  today: string;
+  previous: string;
+  next: string;
+  agenda: string;
+  month: string;
+  noEvents: string;
+  allDay: string;
+  /** `{count}`: rows the calendar's limit left out. */
+  more: string;
+}
+
+export const defaultNativeListMessages: NativeListMessages = {
+  segments: "Segments",
+  filters: "Filters",
+  filtersSet: "Filters ({count})",
+  clear: "Clear",
+  done: "Done",
+  from: "From",
+  to: "To",
+  types: { list: "List", table: "List", grid: "Grid", gallery: "Gallery", inbox: "Inbox", board: "Board", calendar: "Calendar" },
+  type: "View",
+  noValue: "No value",
+  notAllowed: "You can't move this card.",
+  stillSaving: "{name} is still moving. Try again in a moment.",
+  notChanged: "This {noun} was not changed.",
+  moveFailed: "Couldn’t move {name}.",
+  moveTo: "Move to {column}",
+  loadMore: "Load more",
+  today: "Today",
+  previous: "Previous",
+  next: "Next",
+  agenda: "Agenda",
+  month: "Month",
+  noEvents: "Nothing on this day",
+  allDay: "All day",
+  more: "{count} more not shown",
+};
 
 export const defaultNativeResourceViewMessages: NativeResourceViewMessages = {
   common: {

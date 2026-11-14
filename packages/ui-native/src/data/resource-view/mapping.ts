@@ -140,6 +140,11 @@ export interface SwipeActionOptions<T> {
   onDelete: (row: T) => void;
   /** A refused action was pressed: say why. */
   onRefused: (label: string, reason: string) => void;
+  /**
+   * Runs one of the view's own actions (ADR 0017 §2) on the row. With it, the view's actions sit
+   * between Edit and Delete, each refused one with its reason (`view.canAction`).
+   */
+  onAction?: ((name: string, row: T) => void) | undefined;
 }
 
 /**
@@ -166,6 +171,11 @@ export function swipeActionsFor<T extends Row>(
     });
   };
   if (editable) add("edit", messages.common.edit, "edit", allowed(view, "update", row, screen, viewer), () => onEdit(row));
+  if (options.onAction) {
+    for (const action of view.actions()) {
+      add(action.name, action.label, "bolt", view.canAction(action.name, row as T & DataRow, viewer), () => options.onAction!(action.name, row), !!action.destructive);
+    }
+  }
   add(
     "delete",
     softDelete ? messages.bin.action : messages.delete.action,

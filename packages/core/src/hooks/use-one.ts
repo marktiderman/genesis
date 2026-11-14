@@ -1,6 +1,7 @@
+import { useMemo } from "react";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useDataProvider } from "../provider/context";
-import type { BaseRecord, Identifier } from "../provider/types";
+import type { BaseRecord, FilterParam, Identifier } from "../provider/types";
 import { useLiveInvalidation, type LiveOptions } from "./use-live";
 import { resourceKeys } from "../query-keys";
 
@@ -19,6 +20,12 @@ export interface UseOneOptions {
    * `UseResourceOptions.live`. Off by default.
    */
   live?: boolean | LiveOptions;
+  /**
+   * The list's filters, when the record is opened from a list (`GetOneParams.scope`): a resource
+   * read from a function takes its scope from them. Text searches (`contains`) are left out; the
+   * rest are kept, and they're part of the cache key when there are any.
+   */
+  scope?: FilterParam[] | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -39,6 +46,11 @@ export function useOne<T extends BaseRecord = BaseRecord>(
   const provider = useDataProvider();
 
   const { select, enabled, live } = options;
+  // The list's filters as a function source's `args` gets them (`filters`, `take`), less a text
+  // search: `contains` narrows a list, never a scope, and keeping it would make a new record read
+  // per keystroke. An `in` scope (a link filter, a multi-value segment) and ranges stay.
+  const scopeKey = JSON.stringify((options.scope ?? []).filter((f) => f.operator !== "contains"));
+  const scope = useMemo(() => JSON.parse(scopeKey) as FilterParam[], [scopeKey]);
   const isEnabled = enabled ?? !!id;
 
   // Only this record's events; `changed` (events may have been missed) too.
@@ -60,10 +72,10 @@ export function useOne<T extends BaseRecord = BaseRecord>(
     // — no error, no refetch, just absent data. `useResource`'s list key has
     // always included `select` (it keys on the whole `params` object); this
     // was the one place it did not.
-    queryKey: resourceKeys(resource).detail(id, select),
+    queryKey: scope?.length ? [...resourceKeys(resource).detail(id, select), { scope }] : resourceKeys(resource).detail(id, select),
     queryFn: async () => {
       if (id == null) throw new Error("Missing id");
-      const result = await provider.getOne<T>(resource, { id, select });
+      const result = await provider.getOne<T>(resource, { id, select, ...(scope?.length ? { scope } : {}) });
       return result.data;
     },
     enabled: isEnabled,

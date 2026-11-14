@@ -30,6 +30,7 @@ export default [
     route("dashboard", "routes/dashboard.tsx"),
     route("items", "routes/items.tsx"),
     route("items-custom", "routes/items-custom.tsx"),
+    route("tickets", "routes/tickets.tsx"),
     route("tasks", "routes/tasks.tsx"),
     route("orders", "routes/orders.tsx"),
     route("design-system", "routes/design-system.tsx"),

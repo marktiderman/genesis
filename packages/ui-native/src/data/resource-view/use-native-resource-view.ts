@@ -67,6 +67,10 @@ export interface NativeResourceViewOptions<T extends Row = Row> {
   can?: NativeResourceScreenCan<T>;
   /** Refetch loaded pages when the provider reports a change. */
   live?: boolean;
+  /** The list state's filters (core `useListState`: a segment and the declared filters), on top of the screen's. */
+  listFilters?: readonly FilterParam[];
+  /** False while another type (a board, a calendar) draws the rows: the list reads nothing. Default true. */
+  enabled?: boolean;
 }
 
 export type SaveResult = { ok: true } | { ok: false; message?: string; fields: Record<string, string> };
@@ -104,7 +108,7 @@ export interface UseNativeResourceViewReturn<T extends Row = Row> {
   dismissRefusal: () => void;
   item: (row: T) => NativeResourceRowItem;
   /** The row's swipe actions. Edit and delete call `onEdit` / `onDelete` you pass here. */
-  actions: (row: T, handlers: { onEdit: (row: T) => void; onDelete: (row: T) => void; onRefused: (label: string, reason: string) => void }) => NativeResourceSwipeAction[];
+  actions: (row: T, handlers: { onEdit: (row: T) => void; onDelete: (row: T) => void; onRefused: (label: string, reason: string) => void; onAction?: ((name: string, row: T) => void) | undefined }) => NativeResourceSwipeAction[];
   /** Whether a new row may be created: true, or the guard's reason. False when the screen turns it off or there's no form. */
   canCreate: Allowed | false;
   /** The form sheet's fields. */
@@ -119,6 +123,8 @@ export interface UseNativeResourceViewReturn<T extends Row = Row> {
   remove: (row: T) => void;
   /** The provider bins deleted rows (they can be restored). */
   softDelete: boolean;
+  /** The screen's and the tab's filters, before the list state's: what segment counts start from. */
+  baseFilters: FilterParam[];
 }
 
 function filterParams(filter: Filter | undefined): FilterParam[] {
@@ -176,7 +182,7 @@ export function useNativeResourceView<T extends Row = Row>(
   view: AnyResourceView<T>,
   options: NativeResourceViewOptions<T> = {},
 ): UseNativeResourceViewReturn<T> {
-  const { preset, filter, perPage, maxPages = DEFAULT_MAX_PAGES, searchFields: searchOption, can, live } = options;
+  const { preset, filter, perPage, maxPages = DEFAULT_MAX_PAGES, searchFields: searchOption, can, live, listFilters, enabled = true } = options;
   const messages = useNativeResourceViewMessages();
   const tab = preset ? view.definition.presets?.[preset] : undefined;
   if (preset && !tab) throw new Error(`NativeResourceView(${view.resource}): no preset "${preset}"`);
@@ -200,13 +206,16 @@ export function useNativeResourceView<T extends Row = Row>(
     () => searchOption ?? (view.labelField ? [view.labelField] : undefined),
     [searchOption, view.labelField],
   );
+  const listStateKey = JSON.stringify(listFilters ?? []);
+  const readFilters = useMemo(() => [...defaultFilters, ...(JSON.parse(listStateKey) as FilterParam[])], [defaultFilters, listStateKey]);
   const pages = useInfiniteResource<T & BaseRecord>(view.resource, {
-    defaultFilters,
+    defaultFilters: readFilters,
     ...(sorts.length ? { defaultSorts: sorts } : {}),
     ...(perPage ? { perPage } : {}),
     maxPages,
     ...(searchFields ? { searchFields } : {}),
     keepPreviousData: true,
+    enabled,
     ...(live ? { live } : {}),
   });
 
@@ -372,6 +381,7 @@ export function useNativeResourceView<T extends Row = Row>(
     save,
     remove,
     softDelete,
+    baseFilters: defaultFilters,
   };
 }
 

@@ -47,6 +47,11 @@ export interface BulkAction {
    * keeps a parallel implementation alive.
    */
   testId?: string | undefined;
+  /**
+   * Why the action can't run (ADR 0017): the button stays disabled and says this as its tooltip
+   * and accessible description, so people learn why rather than meeting a dead button.
+   */
+  reason?: string | undefined;
 }
 
 export interface DataBulkBarProps {
@@ -57,6 +62,15 @@ export interface DataBulkBarProps {
   actions: BulkAction[];
   /** Merged onto the bar, not replacing its positioning. */
   className?: string;
+  /**
+   * Every row the list's filters match, when more than are loaded: with every loaded row
+   * selected, the bar offers "Select all {total} matching".
+   */
+  matchingTotal?: number | undefined;
+  /** Every matching row is selected (not only the loaded ones). */
+  allMatching?: boolean | undefined;
+  /** Select (true) or stop selecting (false) every matching row. */
+  onSelectAllMatching?: ((on: boolean) => void) | undefined;
 }
 
 export function DataBulkBar({
@@ -66,6 +80,9 @@ export function DataBulkBar({
   onClearSelection,
   actions,
   className,
+  matchingTotal,
+  allMatching = false,
+  onSelectAllMatching,
 }: DataBulkBarProps) {
   const m = useUiMessages();
   if (selected.size === 0) return null;
@@ -81,21 +98,46 @@ export function DataBulkBar({
         checked={selected.size === totalCount}
         onCheckedChange={onToggleAll}
       />
-      <Badge variant="secondary">{fillMessage(m.bulk.selected, { count: selected.size })}</Badge>
+      <Badge variant="secondary">
+        {allMatching && matchingTotal !== undefined
+          ? fillMessage(m.bulk.allMatching, { total: matchingTotal.toLocaleString() })
+          : fillMessage(m.bulk.selected, { count: selected.size })}
+      </Badge>
+      {onSelectAllMatching && matchingTotal !== undefined && matchingTotal > totalCount && (allMatching || selected.size === totalCount) ? (
+        <Button
+          size="sm"
+          variant="link"
+          className="h-auto px-1"
+          aria-pressed={allMatching}
+          onClick={() => onSelectAllMatching(!allMatching)}
+          data-testid="bulk-select-all-matching"
+        >
+          {allMatching ? m.common.clear : fillMessage(m.bulk.selectAllMatching, { total: matchingTotal.toLocaleString() })}
+        </Button>
+      ) : null}
       {actions.map((action) => {
         const ActionIcon = action.icon;
-        return (
+        const button = (
           <Button
             key={action.label}
             size="sm"
             variant={action.variant || "outline"}
             onClick={action.onClick}
-            disabled={action.disabled}
+            disabled={action.disabled || !!action.reason}
             data-testid={action.testId}
+            {...(action.reason ? { "aria-description": action.reason, title: action.reason } : {})}
           >
             <ActionIcon className="h-3.5 w-3.5 mr-1" />
             {action.label}
           </Button>
+        );
+        // A disabled button gets no pointer events: its reason is on a wrapper that does.
+        return action.reason ? (
+          <span key={action.label} title={action.reason} className="inline-flex" tabIndex={0} aria-label={`${action.label}: ${action.reason}`}>
+            {button}
+          </span>
+        ) : (
+          button
         );
       })}
       <Button

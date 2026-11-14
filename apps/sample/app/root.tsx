@@ -13,7 +13,7 @@ import {
   GENESIS_THEME_V2,
   genesisBrand,
 } from "@marktiderman/genesis-design-system";
-import { items, tasks, orders } from "./lib/data";
+import { items, tasks, orders, tickets } from "./lib/data";
 import { metaFor } from "./lib/site";
 import type { Route } from "./+types/root";
 import "./app.css";
@@ -61,7 +61,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const tree = (
-    <GenesisProvider mock={{ datasets: { items, tasks, orders } }}>
+    <GenesisProvider mock={{ datasets: { items, tasks, orders, tickets } }}>
       {/* Every full-page list opens in cards on a phone unless its screen says otherwise, and
           table cells clip at their column's edge. */}
       <ResourceViewDefaultsProvider phoneMode="grid" clipCells>

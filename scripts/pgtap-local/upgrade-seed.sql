@@ -12,3 +12,8 @@ insert into public.support_replies (report_id, body) select id, 'A reply from be
 reset role;
 select set_config('request.jwt.claims', '', false);
 select set_config('request.jwt.claim.sub', '', false);
+
+-- A dev database that ran an earlier draft of support 0018, whose support_agent_queue took
+-- (uuid, text, integer, integer): 0018 drops that overload, so a call by name stays unambiguous.
+create function public.support_agent_queue(tenant uuid, inbox_view text, page_limit integer, page_offset integer)
+returns integer language sql as $$ select 1 $$;

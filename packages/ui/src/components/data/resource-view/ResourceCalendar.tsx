@@ -8,19 +8,18 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { useDataProvider, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
-import { addDays, dayIn, isTimeZone, readEventTime, type Day } from "@marktiderman/genesis-core/dates";
+import { dayIn, isTimeZone, type Day } from "@marktiderman/genesis-core/dates";
 import { loadRelationLabel, useOptionalViewerScope, type LiveOptions } from "@marktiderman/genesis-core/hooks";
-import { calendarProblems, type RecordOpen, type RecordView as RecordViewDef, type ResourceView as View, type ViewCalendar, type ViewCalendarDurationUnit } from "@marktiderman/genesis-core/resource-view";
+import { calendarEvents, calendarProblems, type RecordOpen, type RecordView as RecordViewDef, type ResourceView as View, type ViewCalendar } from "@marktiderman/genesis-core/resource-view";
 import { defaultNavigate, type NavigateFn } from "../../../navigation";
 import { Button } from "../../ui/button";
 import { cn } from "../../../utils";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { EventCalendar } from "../calendar/EventCalendar";
-import { calendarLanes, calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout, type CalendarWeeks } from "../calendar/placement";
+import { calendarLanes, calendarWindow, type CalendarLane, type CalendarLayout, type CalendarWeeks } from "../calendar/placement";
 import { PrintableAgenda, type PrintableSection } from "../calendar/PrintableAgenda";
-import { timeStorage } from "../calendar/values";
 import { useFollowedState } from "../calendar/use-followed-state";
-import { anchorOr, layoutOr, warnOnce } from "../calendar/guard";
+import { anchorOr, layoutOr } from "../calendar/guard";
 import { useViewDetailFields } from "./view-list";
 import { CALENDAR_LIMIT, displayZone, useViewCalendarRange } from "./use-view-calendar-range";
 import { recordViewOf, resolveRecordOpen, ViewRecordPeek } from "./record-open";
@@ -132,48 +131,11 @@ export interface ResourceCalendarProps<T extends Row = Row> extends ResourceCale
   testID?: string;
 }
 
-const UNIT_MS: Readonly<Record<ViewCalendarDurationUnit, number>> = { minutes: 60_000, hours: 3_600_000, days: 86_400_000 };
-
-/** A duration field's value as a count of its unit, or null when it isn't a positive number. */
-function durationOf(value: unknown): number | null {
-  const n = typeof value === "string" && value.trim() ? Number(value) : value;
-  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null;
-}
-
-/** An instant at 00:00:00.000 UTC: how an all-day event is stored as an instant. */
-const atUtcMidnight = (at: Date) => at.getTime() % UNIT_MS.days === 0;
-
-/** The latest instant a Date holds (ECMAScript's limit, about the year 275760). */
-const MAX_TIME = 8.64e15;
-
-/**
- * A row's end from its start and a duration in ms: the last day (inclusive) for a date or an
- * all-day row, the end instant for a timed one; null when it can't be represented.
- */
-function durationEnd(start: Day | Date, startDay: Day, allDay: boolean, ms: number): Day | Date | null {
-  if (!Number.isFinite(ms)) return null;
-  if (typeof start === "string" || allDay) {
-    const days = Math.max(1, Math.ceil(ms / UNIT_MS.days));
-    if (!Number.isSafeInteger(days) || days * UNIT_MS.days > MAX_TIME) return null;
-    try {
-      return addDays(startDay, days - 1);
-    } catch {
-      return null;
-    }
-  }
-  const end = start.getTime() + ms;
-  return Number.isFinite(end) && Math.abs(end) <= MAX_TIME ? new Date(end) : null;
-}
-
 function withoutUndefined<O extends object>(o: O): Partial<O> {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<O>;
 }
 
 
-function laneKeys(value: unknown): string[] {
-  if (Array.isArray(value)) return value.filter((v) => v !== null && v !== undefined).map(String);
-  return value === null || value === undefined || value === "" ? [] : [String(value)];
-}
 
 /**
  * A view's rows on a calendar, as its `calendar` block describes them. Prefer
@@ -186,7 +148,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   // The view's block, then the screen's settings over it.
   const settings = { ...view.definition.calendar, ...withoutUndefined(props) } as ResourceCalendarOptions<T>;
   const {
-    field: fieldName, endField, durationField, durationUnit = "minutes", allDayField, layout: layoutProp, phoneLayout, layouts, onLayoutChange,
+    field: fieldName, endField, durationField, durationUnit = "minutes", maxDuration, allDayField, layout: layoutProp, phoneLayout, layouts, onLayoutChange,
     weeks: weeksProp = 2, weeksOptions, onWeeksChange, toolbar, colorLanes, weekStartsOn = 1, timeZone, anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, classNameOf, statusOf,
     limit = CALENDAR_LIMIT, showEmptyDays, onSelect, print, onNavigate,
   } = settings;
@@ -201,15 +163,12 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const { layout: _urlLayout, ...configured } = settings;
   const problems = calendarProblems(view.contract.fields, configured);
   if (problems.length) throw new Error(`ResourceView(${view.resource}): ${problems.join("; ")}`);
-  const field = view.field(fieldName)!;
   const badWeeks = (weeksOptions ?? []).filter((w) => ![1, 2, 3, 4].includes(w));
   if (badWeeks.length) throw new Error(`ResourceView(${view.resource}): calendar weeksOptions are 1 to 4, not ${badWeeks.join(", ")}`);
   if (timeZone !== undefined && !isTimeZone(timeZone)) {
     throw new Error(`ResourceView(${view.resource}): calendar timeZone "${timeZone}" isn't a time zone the runtime knows`);
   }
   const zone = timeZone ?? displayZone(view.definition.fields?.[fieldName as never]?.timeZone, viewerScope?.timeZone, viewerScope?.scopeTimeZone);
-  const storage = timeStorage(field);
-  const endStorage = endField ? timeStorage(view.field(endField)) : storage;
   const where = `ResourceView(${view.resource})`;
 
   const [ownLayout, setOwnLayout] = useFollowedState<CalendarLayout>(layoutProp, () => "month");
@@ -231,6 +190,9 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
     field: fieldName,
     endField,
     allDayField,
+    durationField,
+    durationUnit,
+    maxDuration,
     filters,
     select,
     enabled,
@@ -244,53 +206,23 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const total = data.total;
   const error = data.error;
 
+  // The rows as events: core's calendarEvents, the same reading the phone's calendar uses.
   const events = useMemo(
     () =>
-      rows.flatMap((row): CalendarEvent<T>[] => {
-        const start = readEventTime(row[fieldName], { dateOnly: storage === "date", timeZone: zone });
-        if (start === null) return [];
-        const ownEnd = endField ? readEventTime(row[endField], { dateOnly: endStorage === "date", timeZone: zone }) : null;
-        const allDay = allDayField ? Boolean(row[allDayField]) : typeof start === "string";
-        // An all-day row's days. Stored as days (`YYYY-MM-DD`), they are those days, with no clock
-        // at all. Stored as instants at UTC midnight (how Google's API and most sources write an
-        // all-day event), they are read on UTC: on a clock behind UTC that midnight is the
-        // evening before. Any other instants (a midnight on the viewer's clock) are read on the
-        // viewer's clock, as before.
-        const clock = allDay && typeof start !== "string" && atUtcMidnight(start) && (ownEnd === null || typeof ownEnd === "string" || atUtcMidnight(ownEnd)) ? "UTC" : zone;
-        const startDay = typeof start === "string" ? start : dayIn(clock, start);
-        // No end of its own: the start plus its duration. A timed row ends that long after it
-        // starts (exclusive, like a stored end); a date or an all-day row runs that many days
-        // from its start day, so its last day is the one before (two days from the 3rd end on
-        // the 4th), and never before its first. An end that can't be represented (a typo of
-        // 1e308 days) leaves the row on its start alone, never breaking the calendar.
-        const length = ownEnd === null && durationField ? durationOf(row[durationField]) : null;
-        const rowEnd = length === null ? ownEnd : durationEnd(start, startDay, allDay, length * UNIT_MS[durationUnit]);
-        // An all-day row stored as instants runs to an exclusive end: its last day is the one
-        // before the end instant, and never before its first.
-        const lastDay = (v: Day | Date) => {
-          const d = typeof v === "string" ? v : dayIn(clock, new Date(v.getTime() - 1));
-          return d < startDay ? startDay : d;
-        };
-        const rowLanes = lanesOf ? lanesOf(row) : laneBy ? laneKeys(row[laneBy]) : undefined;
-        const colors = colorsOf?.(row);
-        const look = classNameOf?.(row);
-        const status = statusOf?.(row);
-        return [
-          {
-            key: String(encodeRecordKey(view.contract, row as DataRow)),
-            title: view.summary(row as T & DataRow).title,
-            start: allDay ? startDay : start,
-            ...(rowEnd !== null ? { end: allDay ? lastDay(rowEnd) : rowEnd } : {}),
-            allDay,
-            ...(rowLanes ? { lanes: rowLanes } : {}),
-            ...(colors ? { colors } : {}),
-            ...(look ? { className: look } : {}),
-            ...(status ? { status } : {}),
-            row,
-          },
-        ];
+      calendarEvents<T>(view, rows, {
+        field: fieldName,
+        endField,
+        durationField,
+        durationUnit,
+        allDayField,
+        laneBy,
+        timeZone: zone,
+        lanesOf,
+        colorsOf,
+        classNameOf,
+        statusOf,
       }),
-    [rows, fieldName, endField, durationField, durationUnit, allDayField, storage, endStorage, zone, lanesOf, laneBy, colorsOf, classNameOf, statusOf, view],
+    [rows, fieldName, endField, durationField, durationUnit, allDayField, zone, lanesOf, laneBy, colorsOf, classNameOf, statusOf, view],
   );
 
   // The peek holds the record's key and reads the row from the current data, so it shows the row

@@ -3,6 +3,9 @@
 import { detailMode } from "./resource-view/open-modes";
 import {
   Fragment,
+  useEffect,
+  useRef,
+  useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type ComponentProps,
   type ComponentType,
@@ -12,6 +15,7 @@ import type { LucideIcon } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import {
   AlertTriangle,
+  Download,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -32,6 +36,7 @@ import { DataTable, type DataTableSort } from "./DataTable";
 import { TreeIndent } from "./TreeIndent";
 import type { ResourceTree } from "@marktiderman/genesis-core/resource-view";
 import { DataBulkBar } from "./DataBulkBar";
+import { RowContextMenuItems, RowMenuButton, type ResourceRowMenuItem } from "./RowMenu";
 import { DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
 import { ResourceForm } from "./ResourceForm";
@@ -43,6 +48,7 @@ import {
 } from "../../slots";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewModeDefault } from "../../hooks/use-view-preference";
+import type { ViewMode } from "../patterns/view-toggle";
 // Types only: the behaviour lives in `useResourceTableModel`.
 import type {
   useResource,
@@ -75,6 +81,46 @@ import {
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
+
+/**
+ * The query a list is showing: its filters (segment, declared filters, scope), sort and search.
+ * What `onExport` and a bulk action's context receive.
+ *
+ * @stability Beta
+ */
+export interface ResourceListQuery {
+  filters: FilterParam[];
+  sorts: SortParam[];
+  search?: { query: string; fields: string[] } | undefined;
+  /** Rows the query matches, when counted. */
+  total?: number | undefined;
+}
+
+/**
+ * The page's own Edit and Delete for a row, for a row menu (`rowMenu`). `refused` marks one the
+ * page's `can` refuses on this row: the menu shows it disabled, or leaves it out.
+ *
+ * @stability Beta
+ */
+export interface ResourceRowMenuBuiltIn {
+  edit?: () => void;
+  delete?: () => void;
+  refused?: { edit?: boolean; delete?: boolean };
+}
+
+/**
+ * What a bulk action's `onAction` gets beside the selected ids.
+ *
+ * @stability Beta
+ */
+export interface ResourceBulkContext<T> {
+  /** The selected rows that are loaded. */
+  rows: T[];
+  /** Every row the list matches is selected ("Select all matching"), not only `ids`. */
+  allMatching: boolean;
+  /** The list's query, for an action that runs on every matching row. */
+  query: ResourceListQuery;
+}
 
 /**
  * What a user may do with a list's records, for ResourcePage's `can`.
@@ -640,7 +686,21 @@ export interface ResourcePageProps<
     label: string;
     icon?: LucideIcon | undefined;
     variant?: "default" | "destructive" | undefined;
-    onAction: (ids: string[]) => void | Promise<void>;
+    /**
+     * Runs on the selected ids. The second argument has the loaded rows, whether every matching
+     * row is selected, and the list's query (ADR 0017).
+     */
+    onAction: (ids: string[], context: ResourceBulkContext<T>) => void | Promise<void>;
+    /**
+     * Why it can't run on this selection: shown on the disabled button. A function gets the
+     * selected rows that are loaded (and isn't asked while every matching row is selected).
+     */
+    reason?: string | ((rows: T[]) => string | undefined) | undefined;
+    /**
+     * It accepts every matching row (`context.allMatching` with the list's query), so the bar
+     * offers "Select all {total} matching" past the loaded rows.
+     */
+    matching?: boolean | undefined;
     /**
      * Forwarded straight to the rendered bulk button (see `BulkAction`).
      * Exists so a consumer can kill every bulk action while one of them is
@@ -736,6 +796,17 @@ export interface ResourcePageProps<
 
   // Slots
   toolbar?: ReactNode;
+  /**
+   * Dialogs the page's own actions open, drawn with the page in every layout (a view action's
+   * confirmation, from `useResourceViewProps`). Rendered as given.
+   */
+  dialogs?: ReactNode;
+  /**
+   * The page starts again (its search, sort and status from `initialFilters`) when this changes:
+   * `useResourceViewProps` sets it when a saved view is restored, so a screen that renders its own
+   * `<ResourcePage {...props}>` picks the saved search and sort up as `<ResourceView>` does.
+   */
+  restoreKey?: string | number | undefined;
   /** The empty state's action, e.g. the create button. */
   emptyState?: ReactNode;
   /**
@@ -830,6 +901,13 @@ export interface ResourcePageProps<
    */
   defaultView?: ViewModeDefault;
   /**
+   * The view mode (`table`, `list`, `grid`), held by the caller: the person's stored pick is
+   * neither read nor written while it's set (ResourceView's type switcher holds it).
+   */
+  viewMode?: ViewMode | undefined;
+  /** Hears the view toggle, with `viewMode` or without. */
+  onViewModeChange?: ((mode: ViewMode) => void) | undefined;
+  /**
    * Persist key for density / page size via `useViewSettings`.
    * Defaults to `resource` or a slug of `title`.
    */
@@ -854,7 +932,47 @@ export interface ResourcePageProps<
   slotProps?: ResourcePageSlotProps<T>;
   /** Merged onto the page shell's root. */
   className?: string;
+  /**
+   * Offer "Export CSV" in the header's menu (ADR 0017 §8): called with the list's query (its
+   * filters, sort and search) to export every row it matches, not one page. With a `resource`, that
+   * is the resource's query plus what the page applies in the browser (`pagination="client"`): its
+   * search, sort and status chips. With the caller's `data`, it carries the page's search, sort and
+   * status chips, but not filters the caller applies to its data itself: the caller adds those.
+   * "Select all matching" bulk actions get the same query. With server or cursor paging the search
+   * is the provider's own. `total` is the server's count, left out while a client-paged page
+   * narrows its rows in the browser (a search or a chip the provider didn't see).
+   */
+  onExport?: ((query: ResourceListQuery) => void | Promise<void>) | undefined;
+  /**
+   * A menu on each table row (ADR 0017 §2): a trailing "More" button and the same items on
+   * right-click. It gets the row and the page's own edit and delete for it (when the page offers
+   * them), so it can place them around its own items; an item with a `reason` shows disabled
+   * with those words. ResourceView builds it from the view's actions and guards.
+   */
+  rowMenu?: ((item: T, builtIn: ResourceRowMenuBuiltIn) => ResourcePageRowMenuItem[]) | undefined;
+  /**
+   * Offer Delete in the bulk bar, over the page's own delete path (ADR 0017 §2): the provider's
+   * delete under `can`, with the recycle-bin wording when the provider has one, one confirm step
+   * for the rows chosen. Only for a list the page loads itself with its built-in delete: a screen
+   * that deletes through `onDelete`, or a list of `data` rows, adds its own bulk action. `reason`
+   * words a row `can` refuses. Default off.
+   */
+  bulkDelete?: boolean | { reason?: ((item: T) => string | undefined) | undefined } | undefined;
+  /**
+   * Filters the caller holds (a view's segment and declared filters, ADR 0017): while `active`,
+   * they count toward "Clear filters" and the empty state's filtered wording, and clearing the
+   * list calls `clear` too.
+   */
+  heldFilters?: { active: boolean; clear: () => void } | undefined;
+  /**
+   * Hears the list's search and sort as they change (it only listens: the page keeps them). A
+   * saved view stores them from here.
+   */
+  onQueryChange?: ((query: { search: string; sort: SortParam | null }) => void) | undefined;
 }
+
+/** One item in a ResourcePage row menu (`rowMenu`). @stability Beta */
+export type ResourcePageRowMenuItem = ResourceRowMenuItem;
 
 // ---------------------------------------------------------------------------
 // Created toast (`createdToast`)
@@ -900,6 +1018,9 @@ function focusToastAction(marker: string) {
   tryFocus();
 }
 
+/** Two provider filters that say the same thing (the chip a server-paged page already sent). */
+const sameFilter = (a: FilterParam, b: FilterParam) => JSON.stringify(a) === JSON.stringify(b);
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -910,6 +1031,13 @@ function focusToastAction(marker: string) {
  * {@link useResourceTable} is the same behaviour without this markup.
  */
 export function ResourcePage<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(props: ResourcePageProps<T>) {
+  // `initialFilters` is read when the page mounts: a new `restoreKey` mounts it again with them.
+  return <ResourcePageBody<T> key={props.restoreKey ?? "page"} {...props} />;
+}
+
+function ResourcePageBody<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(props: ResourcePageProps<T>) {
   const {
@@ -979,6 +1107,12 @@ export function ResourcePage<
     subtitle,
     title,
     toolbar,
+    dialogs,
+    onExport,
+    rowMenu,
+    bulkDelete,
+    heldFilters,
+    onQueryChange,
   } = props;
   // The record open modes (side-peek, center-peek, page) are the same choices in ADR 0021's words.
   const detail = detailMode(detailProp);
@@ -1007,7 +1141,7 @@ export function ResourcePage<
     formAction,
     formItem,
     formOpen,
-    handleClearFilters,
+    handleClearFilters: handlePageClearFilters,
     handleClearSelection,
     handleCreate,
     handleEdit,
@@ -1035,6 +1169,7 @@ export function ResourcePage<
     rangeFrom,
     rangeTo,
     resourceHook,
+    listParams,
     resourceServerPaging,
     selectedDeletable,
     selectedEditable,
@@ -1056,6 +1191,195 @@ export function ResourcePage<
   } = useResourceTableModel<T>(props);
   // Tree mode's state (the `tree` option): each row's node and how to open or close one.
   const pageTree = page.tree;
+  // Tell the caller the search and sort as they change.
+  const queryListener = useRef(onQueryChange);
+  queryListener.current = onQueryChange;
+  const sortKey = page.sort ? `${page.sort.field}:${page.sort.order}` : "";
+  useEffect(() => {
+    queryListener.current?.({ search: page.search, sort: page.sort ?? null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- by value: the search and the sort's key
+  }, [page.search, sortKey]);
+  // The caller's own filters (a view's segment and declared filters) count as filtering too.
+  const anyFilters = page.hasActiveFilters || !!heldFilters?.active;
+  const handleClearFilters = () => {
+    handlePageClearFilters();
+    heldFilters?.clear();
+  };
+  // The list's query: what an export and a bulk action over every matching row read.
+  // With the caller's data (no `resource`) it is the page's own search, sort and status chips:
+  // filters the caller applies itself (a view's segment, its own controls) are the caller's to add.
+  const listQuery = (): ResourceListQuery => listQueryOf().query;
+  const resourceRef = useRef(props.resource);
+  resourceRef.current = props.resource;
+  /**
+   * The list's query, and whether it says exactly what the list shows. Every part of the search is
+   * the page's one normalized `searchQuery` (what the browser filters by and the provider is sent).
+   */
+  const listQueryOf = (): { query: ResourceListQuery; exact: boolean } => {
+    if (!isClientMode) {
+      const statusField = typeof props.statusFilter === "string" ? props.statusFilter : props.statusFilter?.field;
+      const typed = page.searchQuery;
+      const fields = [...page.searchFields];
+      return {
+        query: {
+          filters: statusField && page.statusValue.length ? [{ field: statusField, operator: "in", value: [...page.statusValue] }] : [],
+          sorts: page.sort ? [page.sort] : [],
+          ...(typed ? { search: { query: typed, fields } } : {}),
+          ...(displayTotal >= 0 ? { total: displayTotal } : {}),
+        },
+        // No rows means no text fields to search, and nothing to export either way: not a refusal.
+        exact: !typed || fields.length > 0 || displayTotal === 0,
+      };
+    }
+    // The params the rows were fetched with (the infinite query's under cursor paging), with what
+    // the page applies in the browser when it pages there (`pagination="client"`) on top.
+    const b = browserQuery();
+    const { params, chip, sort } = b;
+    const filters = [...(params.filters ?? [])];
+    // The chip narrows on top of a provider filter on the same field (a default), never instead.
+    if (chip && !filters.some((f) => sameFilter(f, chip))) filters.push(chip);
+    const own = params.sorts?.length ? params.sorts : params.sort ? [params.sort] : [];
+    // The person's sort wins over a provider default; the same sort keeps the params' tie-breakers.
+    const sorts = sort && !(own[0]?.field === sort.field && own[0]?.order === sort.order) ? [sort] : own;
+    // The provider's own search stays (a default one included); a browser search narrows on top of
+    // it. One query holds one search, so on top of another it goes as a `contains` filter when it
+    // searches one field; over several it can't be said, and the query isn't exact.
+    const server = params.search?.query ? params.search : undefined;
+    let search = server;
+    let exact = true;
+    if (b.search && (resourceServerPaging || loadMore)) {
+      // The provider searches: the typed text is on its way there (the debounce) and replaces its
+      // search, never narrows on top of it.
+      search = b.search;
+    } else if (b.search) {
+      if (!server) {
+        search = b.search;
+        exact = b.search.fields.length > 0 || displayTotal === 0;
+      } else if (b.search.fields.length === 1) filters.push({ field: b.search.fields[0]!, operator: "contains", value: b.search.query });
+      else exact = false;
+    }
+    return {
+      query: {
+        filters,
+        sorts,
+        ...(search?.query ? { search } : {}),
+        // The server's count, unless the browser narrowed the rows past it: then no count, rather
+        // than one the narrowed list doesn't have.
+        ...(displayTotal >= 0 && !browserNarrowing(b) ? { total: displayTotal } : {}),
+      },
+      exact,
+    };
+  };
+  /** What the browser applies on top of the fetched params: the search, status chip and sort. */
+  const browserQuery = () => {
+    const params = listParams;
+    const statusField = typeof props.statusFilter === "string" ? props.statusFilter : props.statusFilter?.field;
+    const chip: FilterParam | undefined = statusField && page.statusValue.length ? { field: statusField, operator: "in", value: [...page.statusValue] } : undefined;
+    const typed = page.searchQuery;
+    const server = params.search?.query ? params.search : undefined;
+    let search: { query: string; fields: string[] } | undefined;
+    if (typed) {
+      if (resourceServerPaging || loadMore) {
+        // The provider searches the same normalized text: its search is the list's. The typed text
+        // counts only while it's on its way there (the debounce), with the fields it will use.
+        search = server && server.query === typed ? undefined : { query: typed, fields: [...(serverSearchFields ?? [])] };
+      } else {
+        // The browser searches its own fields: narrowing unless the provider already searches the
+        // same text in the same fields.
+        const fields = [...page.searchFields];
+        const same = !!server && server.query.trim() === typed && fields.length > 0 && JSON.stringify([...server.fields].sort()) === JSON.stringify([...fields].sort());
+        search = same ? undefined : { query: typed, fields };
+      }
+    }
+    return { params, chip, search, sort: page.sort ?? undefined };
+  };
+  // Rows the browser narrowed (a search or a chip the provider never saw) aren't what the server
+  // counts: "all matching" would reach the rows the person searched or filtered away, and its
+  // count would be the unfiltered total. It's offered only while the browser narrows nothing.
+  function browserNarrowing({ params, chip, search }: Pick<ReturnType<typeof browserQuery>, "params" | "chip" | "search">) {
+    return !!search || (!!chip && !(params.filters ?? []).some((f) => sameFilter(f, chip)));
+  }
+  const browserNarrows = !isClientMode || browserNarrowing(browserQuery());
+  // "Select all matching": every row the query matches, past the loaded page, for the query it was
+  // chosen on. A new search, sort or filter (even one that loads as many rows) ends it.
+  // The key holds what the browser applies too: a query that can't carry a multi-field browser
+  // search still changes key when that search does.
+  const { total: _total, ...shownQuery } = listQuery();
+  const { search: browserSearch, chip: browserChip } = isClientMode ? browserQuery() : { search: undefined, chip: undefined };
+  const queryKey = JSON.stringify([shownQuery, browserSearch ?? null, browserChip ?? null]);
+  const [matchingFor, setMatchingFor] = useState<string | null>(null);
+  const fullPage = selectedIds.size > 0 && selectedIds.size === page.data.length;
+  if (matchingFor !== null && (!fullPage || matchingFor !== queryKey)) setMatchingFor(null);
+  // Never while the browser narrows the rows: the provider's query would reach rows it hides.
+  const allMatching = matchingFor !== null && matchingFor === queryKey && fullPage && !browserNarrows;
+  const setAllMatching = (on: boolean) => setMatchingFor(on ? queryKey : null);
+  // Bulk Delete over the page's own delete path (`bulkDelete`): the built-in delete only.
+  const [bulkDeleting, setBulkDeleting] = useState<T[] | null>(null);
+  const bulkDeleteReason = typeof bulkDelete === "object" ? bulkDelete.reason : undefined;
+  const ownBulkDelete: NonNullable<ResourcePageProps<T>["bulkActions"]> =
+    bulkDelete && useBuiltInDelete
+      ? [
+          {
+            label: m.common.delete,
+            variant: "destructive",
+            testId: "bulk-delete",
+            reason: (rows: T[]) =>
+              rows.length && rows.every((row) => !allows("delete", row))
+                ? fillMessage(m.bulk.noneAllowed, { reason: bulkDeleteReason?.(rows[0]!) ?? m.table.notAllowed })
+                : undefined,
+            onAction: (_ids, context) => setBulkDeleting(context.rows),
+          },
+        ]
+      : [];
+  const allBulkActions = bulkActions || ownBulkDelete.length ? [...(bulkActions ?? []), ...ownBulkDelete] : undefined;
+  const runBulkDelete = async (rows: T[]) => {
+    const allowed = rows.filter((row) => allows("delete", row));
+    const refused = rows.length - allowed.length;
+    let done = 0;
+    let failed = 0;
+    let firstError: string | undefined;
+    // The page's resource when the batch starts: the delete path uses the latest one, so a batch
+    // that outlives a resource change stops, never sending these ids to another resource.
+    const started = resourceRef.current;
+    for (const row of allowed) {
+      if (resourceRef.current !== started) {
+        failed += 1;
+        firstError ??= m.bulk.resourceChanged;
+        continue;
+      }
+      try {
+        await performDelete(row);
+        done += 1;
+      } catch (error) {
+        failed += 1;
+        firstError ??= error instanceof Error ? error.message : String(error);
+      }
+    }
+    handleClearSelection();
+    if (done > 0) toast.success(fillMessage(m.bulk.done, { label: m.common.delete, done }));
+    const skipped = refused + failed;
+    if (skipped > 0) {
+      toast(fillMessage(m.bulk.skipped, { count: skipped, reason: firstError ?? (refused && rows[0] ? (bulkDeleteReason?.(rows.find((r) => !allows("delete", r))!) ?? m.table.notAllowed) : m.table.notAllowed) }));
+    }
+  };
+  const matchingOffered =
+    isClientMode && !browserNarrows && !!allBulkActions?.some((a) => a.matching) && displayTotal > page.data.length;
+  const headerActions: PageHeaderAction[] | undefined = onExport
+    ? [
+        ...(secondaryActions ?? []),
+        {
+          label: m.export.action,
+          icon: Download,
+          testId: "resource-page-export",
+          onClick: () => {
+            const { query, exact } = listQueryOf();
+            // Never export rows the list doesn't show: say why instead.
+            if (!exact) toast.error(m.export.searchNotExportable);
+            else void onExport(query);
+          },
+        },
+      ]
+    : secondaryActions;
   // An embedded list shows a filter row only when it has something to filter by, or when
   // something is already filtering it (a `?q=` in the URL, say): never filtered with no way
   // to see why or clear it.
@@ -1083,7 +1407,7 @@ export function ResourcePage<
   // `emptyCreate`: an empty list that nothing filters offers its create button once, in the empty
   // state, and drops the filter row it has no use for.
   const filtering =
-    page.hasActiveFilters || !!filtersProp?.some((f) => f.selected.length > 0) || emptyFiltered;
+    anyFilters || !!filtersProp?.some((f) => f.selected.length > 0) || emptyFiltered;
   const emptyUnfiltered = emptyCreate && isEmpty && !filtering;
   const createInEmpty = emptyUnfiltered && !emptyState && !!createButton;
   const headerCreate = createInEmpty ? null : createButton;
@@ -1094,7 +1418,7 @@ export function ResourcePage<
     embedded &&
     !isLoading &&
     displayTotal <= 10 &&
-    !page.hasActiveFilters &&
+    !anyFilters &&
     !filtersProp?.some((f) => f.selected.length > 0);
 
   const createAction =
@@ -1139,6 +1463,20 @@ export function ResourcePage<
       action: { label: m.common.open, onClick: () => handleRowClick(row) },
     });
     focusToastAction(marker);
+  };
+
+  // The menu's Edit and Delete go through the page's own checks: `handleEdit` asks `can`, and a
+  // refused row's items come marked so the menu shows them disabled.
+  const rowMenuFor = (item: T): ResourceRowMenuItem[] => {
+    if (!rowMenu) return [];
+    const editable = useBuiltInEdit || !!onEdit;
+    const refusedEdit = editable && !allows("edit", item);
+    const refusedDelete = !!deleteHandler && !allows("delete", item);
+    return rowMenu(item, {
+      ...(editable ? { edit: () => handleEdit(item) } : {}),
+      ...(deleteHandler ? { delete: () => (allows("delete", item) ? deleteHandler(item) : undefined) } : {}),
+      ...(refusedEdit || refusedDelete ? { refused: { ...(refusedEdit ? { edit: true } : {}), ...(refusedDelete ? { delete: true } : {}) } } : {}),
+    });
   };
 
   const cardActionsFor = (item: T): ResourceCardActions<T> => ({
@@ -1317,8 +1655,8 @@ export function ResourcePage<
       density={settings.density}
       onDensityChange={(d) => updateSetting("density", d)}
       createAction={createAction}
-      secondaryActions={secondaryActions}
-      hasActiveFilters={page.hasActiveFilters}
+      secondaryActions={headerActions}
+      hasActiveFilters={anyFilters}
       onClearFilters={handleClearFilters}
       emptyAction={emptyState ?? (createInEmpty ? createButton : undefined)}
       emptyIcon={emptyIcon}
@@ -1346,7 +1684,7 @@ export function ResourcePage<
           onSaveView,
           onDeleteView,
           canSaveViews,
-          onClearAll: page.hasActiveFilters ? handleClearFilters : undefined,
+          onClearAll: anyFilters ? handleClearFilters : undefined,
           showSearch:
             capabilities?.search !== false &&
             // Server and cursor paging search on the server, which needs the columns.
@@ -1370,8 +1708,8 @@ export function ResourcePage<
         : {})}
       className={cn(className, shellSlotProps?.className)}
     >
-      {bulkActions &&
-        bulkActions.length > 0 &&
+      {allBulkActions &&
+        allBulkActions.length > 0 &&
         renderSlot(
           DataBulkBar,
           slots?.bulkBar,
@@ -1380,14 +1718,29 @@ export function ResourcePage<
             totalCount: page.data.length,
             onToggleAll: handleToggleAll,
             onClearSelection: handleClearSelection,
-            actions: bulkActions.map((a) => ({
+            ...(matchingOffered
+              ? { matchingTotal: displayTotal, allMatching, onSelectAllMatching: setAllMatching }
+              : {}),
+            actions: allBulkActions.map((a) => ({
               label: a.label,
               icon: a.icon ?? Trash2,
               variant: a.variant,
               disabled: a.disabled,
               testId: a.testId,
+              // With every matching row selected, an action that takes only the loaded rows says so
+              // and waits: it would act on the page, not on the rows the badge counts.
+              reason:
+                allMatching && !a.matching
+                  ? fillMessage(m.bulk.loadedOnly, { count: page.data.length })
+                  : typeof a.reason === "function"
+                    ? allMatching && a.matching
+                      ? undefined
+                      : a.reason(page.data.filter((row) => selectedIds.has(keyOf(row))))
+                    : a.reason,
               onClick: () => {
-                void a.onAction(Array.from(selectedIds));
+                const ids = Array.from(selectedIds);
+                const rows = page.data.filter((row) => selectedIds.has(keyOf(row)));
+                void a.onAction(ids, { rows, allMatching: allMatching && !!a.matching, query: listQuery() });
               },
             })),
           },
@@ -1416,7 +1769,7 @@ export function ResourcePage<
                 columns: tableColumns,
                 getKey: keyOf,
                 onRowClick: detail !== "none" ? handleRowClick : undefined,
-                selectable: !!bulkActions && bulkActions.length > 0,
+                selectable: !!allBulkActions && allBulkActions.length > 0,
                 selected: selectedIds,
                 onToggleSelect: handleToggleSelect,
                 onToggleAll: handleToggleAll,
@@ -1442,6 +1795,19 @@ export function ResourcePage<
                   : { sort: tableSort, onSortChange: handleTableSort }),
                 // Tree mode: the rows come in the tree's order; the table draws depth and arrows.
                 ...(pageTree ? { tree: { node: (id: string) => pageTree.nodes.get(id), setExpanded: pageTree.setExpanded } } : {}),
+                // The row's menu: "More" at the end, and the same on right-click.
+                ...(rowMenu
+                  ? {
+                      renderActions: (item: T) => (
+                        <RowMenuButton
+                          items={rowMenuFor(item)}
+                          label={fillMessage(m.table.rowActions, { name: titleOf(item) })}
+                          testID="resource-row-menu"
+                        />
+                      ),
+                      rowContextMenu: (item: T) => <RowContextMenuItems items={rowMenuFor(item)} />,
+                    }
+                  : {}),
               },
               slotProps?.table,
             )
@@ -1756,6 +2122,24 @@ export function ResourcePage<
           },
           slotProps?.deleteDialog,
         )}
+      {ownBulkDelete.length > 0 &&
+        renderSlot(
+          ConfirmDeleteDialog,
+          slots?.deleteDialog,
+          {
+            open: bulkDeleting !== null,
+            onOpenChange: (open: boolean) => {
+              if (!open) setBulkDeleting(null);
+            },
+            onConfirm: () => (bulkDeleting ? runBulkDelete(bulkDeleting) : undefined),
+            kind: deleteKind,
+            title: fillMessage(m.bulk.deleteTitle, { count: (bulkDeleting ?? []).filter((row) => allows("delete", row)).length }),
+            confirmLabel: deleteCopy?.confirmLabel,
+            cancelLabel: deleteCopy?.cancelLabel,
+          },
+          slotProps?.deleteDialog,
+        )}
+      {dialogs}
     </>
   );
 }

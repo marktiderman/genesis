@@ -21,6 +21,11 @@ export interface SheetGridColumn<T> {
   editable?: boolean | undefined;
   /** Why the cells can't be edited, shown on hover. */
   readOnlyReason?: string;
+  /**
+   * Why one row's cell in an editable column can't be edited (a guard that refuses the row), or
+   * undefined when it can. The cell is read-only with these words on hover, and a paste skips it.
+   */
+  cellReadOnly?: ((row: T) => string | undefined) | undefined;
   /** Fixed choices: the editor becomes a select. */
   options?: string[];
   /** Shown before the header text, e.g. an icon for the field's type. */
@@ -221,10 +226,14 @@ export function SheetGrid<T>({
     [onCommit],
   );
 
+  /** Why a cell can't be edited: its column's reason, then its row's; undefined when it can. */
+  const refusalOf = (column: SheetGridColumn<T>, row: T): string | undefined =>
+    !column.editable ? (column.readOnlyReason ?? "") : column.cellReadOnly?.(row);
+
   const startEdit = (cell: Cell, draft?: string) => {
     const column = columns[cell.c];
     const row = rows[cell.r];
-    if (!column?.editable || !row) return;
+    if (!column || !row || refusalOf(column, row) !== undefined) return;
     setEditing({ cell, rowKey: getKey(row), draft: draft ?? textOf(row, column) });
   };
 
@@ -240,6 +249,12 @@ export function SheetGrid<T>({
     // The row left the grid while it was being edited: drop the draft rather
     // than save it to whichever row now sits at that position.
     if (!row) return;
+    // The row may have become read-only while its editor was open (a save, a live change): the
+    // grid's own contract is that a refused cell is never committed, whoever draws it.
+    if (refusalOf(column, row) !== undefined) {
+      if (draft !== textOf(row, column)) onSkipped?.(1);
+      return;
+    }
     if (draft !== textOf(row, column)) {
       await commit([{ row, rowKey, column: column.key, value: draft }]);
     }
@@ -254,7 +269,7 @@ export function SheetGrid<T>({
         const row = rows[origin.r + dr];
         const column = columns[origin.c + dc];
         if (!row || !column) return;
-        if (!column.editable) {
+        if (refusalOf(column, row) !== undefined) {
           skipped++;
           return;
         }
@@ -423,6 +438,7 @@ export function SheetGrid<T>({
                   const selected = inRange(item.index, c);
                   const state = status[cellKey(rowKey, column.key)];
                   const isEditing = editing && editing.rowKey === rowKey && editing.cell.c === c;
+                  const refusal = refusalOf(column, row);
                   return (
                     <div
                       key={column.key}
@@ -430,10 +446,11 @@ export function SheetGrid<T>({
                       role="gridcell"
                       aria-colindex={c + 1}
                       aria-selected={selected}
-                      aria-readonly={!column.editable || undefined}
+                      aria-readonly={refusal !== undefined || undefined}
                       aria-invalid={state?.error ? true : undefined}
                       aria-busy={state?.saving || undefined}
-                      title={state?.error ?? (!column.editable ? column.readOnlyReason : undefined)}
+                      title={state?.error ?? (refusal || undefined)}
+                      data-refused={column.editable && refusal !== undefined ? "" : undefined}
                       className={cn(
                         "relative flex shrink-0 items-center border-r px-2",
                         selected && (range.r1 > range.r0 || range.c1 > range.c0) && "bg-primary/5",

@@ -283,6 +283,8 @@ export interface SupportClient extends FeedbackSink {
   agentTicket?(id: string, options?: { tenantId?: string | null }): Promise<AgentTicket | null>;
   /** Agents: how many tickets each queue holds. Needs migration 0009. */
   agentTicketCounts?(options?: { tenantId?: string | null }): Promise<AgentTicketCounts>;
+  /** Agents: how many active tickets (not pending, not closed) hold a requester's message no agent has read (a badge). Needs migration 0016. */
+  agentUnreadCount?(options?: { tenantId?: string | null }): Promise<number>;
   /** Agents: the same requester's other tickets in this ticket's tenant, newest first. Needs migration 0013. */
   agentEarlierTickets?(ticketId: string, options?: { limit?: number }): Promise<EarlierTicket[]>;
   /** Agents: where the signed-in agent was mentioned in an internal note, newest first. Needs migration 0014. */
@@ -781,6 +783,9 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       const rows = must<Row[]>("agentTicketCounts", await supabase.rpc("support_agent_ticket_counts", { tenant: tenantId }));
       const count = (view: TicketInboxView) => Number((rows ?? []).find((r) => r["inbox_view"] === view)?.["tickets"] ?? 0);
       return { mine: count("mine"), unassigned: count("unassigned"), all: count("all") };
+    },
+    async agentUnreadCount({ tenantId = null } = {}) {
+      return Number(must<number>("agentUnreadCount", await supabase.rpc("support_agent_unread_count", { tenant: tenantId })) ?? 0);
     },
     async agentEarlierTickets(ticketId, { limit = 20 } = {}) {
       const rows = must<Row[]>("agentEarlierTickets", await supabase.rpc("support_agent_requester_tickets", { report: ticketId, max_rows: limit }));
