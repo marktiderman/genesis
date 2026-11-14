@@ -283,12 +283,18 @@ export function createUploader(options: UploaderOptions) {
     path: string,
     init: { body?: RequestInit["body"]; headers?: Record<string, string> } = {},
     signal?: AbortSignal,
+    /** Called each time the request is handed to `fetch`, just before. */
+    onSend?: () => void,
   ): Promise<{ status: number; body: unknown }> {
     for (let attempt = 1; ; attempt++) {
       if (signal?.aborted) throw cancelledError();
       let res: Response;
       try {
-        res = await doFetch(`${endpoint}${path}`, { method, body: init.body, headers: { ...(await options.headers?.()), ...init.headers }, ...(signal ? { signal } : {}) });
+        const headers = { ...(await options.headers?.()), ...init.headers };
+        // A cancel while the app's headers were being made: the request never goes.
+        if (signal?.aborted) throw cancelledError();
+        onSend?.();
+        res = await doFetch(`${endpoint}${path}`, { method, body: init.body, headers, ...(signal ? { signal } : {}) });
       } catch (e) {
         if (signal?.aborted) throw cancelledError();
         if (attempt >= retries) throw new UploadClientError(e instanceof Error ? e.message : "The network failed.", "network");
@@ -406,9 +412,8 @@ export function createUploader(options: UploaderOptions) {
       if (!status) {
         // The id is chosen here, so a create retried after a lost answer finds the session the first try made.
         const uploadId = newUploadId();
-        // Known before the create goes, so a cancel while it is in flight can remove the session the
-        // server may already have made (cancel() deletes `run.id`).
-        run.id = uploadId;
+        // Whether the create has been handed to fetch: before that, the server can't have this id.
+        let sent = false;
         let r: Awaited<ReturnType<typeof call>>;
         try {
           r = await call(
@@ -419,12 +424,20 @@ export function createUploader(options: UploaderOptions) {
               body: JSON.stringify({ name: o.name, contentType: o.contentType, size: source.size, purpose: o.purpose, uploadId, ...(sha256 ? { sha256 } : {}), ...(o.targets ? { targets: o.targets } : {}) }),
             },
             signal,
+            () => {
+              sent = true;
+              // Known as the create goes, so cancel() deletes it even when the create never answers
+              // (a fetch that ignores its signal, a request the network holds).
+              run.id = uploadId;
+            },
           );
         } catch (e) {
-          // Cancelled with the create in flight: the server may have made the session before the
-          // abort reached it. Remove it (a 404 when it never was).
+          // Cancelled with the create sent: the server may have made the session before the abort
+          // reached it. Remove it (a 404 when it never was). A create that reaches the server after
+          // this DELETE and cancel()'s both still makes a session, and the client can't close that
+          // window: the session's expiry bounds it.
           if (signal.aborted || (e instanceof UploadClientError && e.code === "cancelled")) {
-            await call("DELETE", `/${uploadId}`).catch(() => {});
+            if (sent) await call("DELETE", `/${uploadId}`).catch(() => {});
             throw cancelledError();
           }
           throw e;

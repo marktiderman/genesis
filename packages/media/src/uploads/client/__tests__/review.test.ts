@@ -118,6 +118,45 @@ describe("3. cancel stops requests in flight and back-off waits", () => {
     expect(s.store.sessions.size).toBe(0);
   });
 
+  it("cancel() removes the session when the create never answers (a fetch that ignores its signal)", async () => {
+    // Only cancel()'s own DELETE can clean up here: the create never settles, so the upload's catch never runs.
+    const s = setup();
+    let created!: () => void;
+    const createdOnServer = new Promise<void>((r) => (created = r));
+    const { uploader, log } = client(s, {
+      hook: async (m, _p, _i, forward) => {
+        if (m !== "POST") return forward();
+        await forward();
+        created();
+        return new Promise<Response>(() => {});
+      },
+    });
+    const handle = uploader.upload(fromBytes(bytesOf(12)), { name: "a", contentType: "a/b", purpose: "media" });
+    await createdOnServer;
+    expect(s.store.sessions.size).toBe(1);
+    await handle.cancel();
+    expect(log.filter((l) => l.startsWith("DELETE /"))).toHaveLength(1);
+    expect(s.store.sessions.size).toBe(0);
+  });
+
+  it("a cancel before the create is sent sends no DELETE: the server never saw the id", async () => {
+    const s = setup();
+    let handle!: UploadHandle;
+    let calls = 0;
+    const { uploader, log } = client(s, {
+      // The first request is the create (no key, so nothing remembered to look up): cancel while its headers are made.
+      headers: async () => {
+        if (++calls === 1) await handle.cancel();
+        return {};
+      },
+    });
+    handle = uploader.upload(fromBytes(bytesOf(12)), { name: "a", contentType: "a/b", purpose: "media" });
+    await expect(handle.done).rejects.toMatchObject({ code: "cancelled" });
+    expect(calls).toBeGreaterThanOrEqual(1);
+    expect(log).toEqual([]);
+    expect(s.store.sessions.size).toBe(0);
+  });
+
   it("the uploader's and the upload's own `signal` cancel too, during a back-off", async () => {
     const s = setup();
     const outer = new AbortController();
