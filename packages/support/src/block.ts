@@ -124,8 +124,8 @@ export function defineSupportBlock(options: SupportBlockOptions = {}) {
  * The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of
  * its own (the support block's thread route renders the conversation); it brings migrations
  * `0005_genesis_support_chat_on_tickets.sql`, `0006_genesis_support_chat_tenants.sql`,
- * `0009_genesis_support_inbox.sql`, `0013_genesis_support_queues.sql` and `0014_genesis_support_agent_tools.sql`
- * from this package, after support 0004 and genesis-chat's migrations.
+ * `0009_genesis_support_inbox.sql`, `0013_genesis_support_queues.sql`, `0014_genesis_support_agent_tools.sql`
+ * and `0015_genesis_support_agent_tools_bounds.sql` from this package, after support 0004 and genesis-chat's migrations.
  */
 export function defineSupportChatBlock(options: { requires?: readonly string[] } = {}) {
   return defineBlock({
@@ -142,6 +142,8 @@ export function defineSupportChatBlock(options: { requires?: readonly string[] }
         { package: "@marktiderman/genesis-support", file: "migrations/0013_genesis_support_queues.sql", test: "migrations/tests/0013_genesis_support_queues.test.sql" },
         // Mentions in notes, saved replies, reports.
         { package: "@marktiderman/genesis-support", file: "migrations/0014_genesis_support_agent_tools.sql", test: "migrations/tests/0014_genesis_support_agent_tools.test.sql" },
+        // Bounds: the report labels open tickets in one call or at most 1,000; mentions end with the agent.
+        { package: "@marktiderman/genesis-support", file: "migrations/0015_genesis_support_agent_tools_bounds.sql", test: "migrations/tests/0015_genesis_support_agent_tools_bounds.test.sql" },
       ],
     },
   });
