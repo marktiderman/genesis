@@ -1,0 +1,21 @@
+packages/genesis-cli/test/release.test.ts
+  s_a2e5357843c63e::t_ce65ae30ba888a 993-999
+templates/eas/workflows/deploy-production.yml
+  s_a2e5357843c63e::t_7fa907e156d4ad 176-179,317-320
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "66609888f18908a323380d614b2ff783646a8475",
+  "prompts": {},
+  "sessions": {
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
