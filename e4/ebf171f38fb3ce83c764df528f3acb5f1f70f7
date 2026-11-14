@@ -1,0 +1,31 @@
+apps/genesis-rn-starter/.eas/scripts/native-release.mjs
+  s_a2e5357843c63e::t_06c44fc0f7433b 268-269
+docs/NATIVE-RELEASE.md
+  s_a2e5357843c63e::t_5ef197c7ecfe3a 273-274
+packages/genesis-cli/src/upgrade/index.ts
+  s_a2e5357843c63e::t_2802d28575e960 437-439,454,626-630,641-643,659,663,667
+packages/genesis-cli/test/fixtures/eas-cli-26.0.0-commands.json
+  s_a2e5357843c63e::t_3db7671a063311 1-256
+packages/genesis-cli/test/fixtures/eas-cli-commands.cjs
+  s_a2e5357843c63e::t_fe30353567a466 1-12
+packages/genesis-cli/test/release.test.ts
+  s_a2e5357843c63e::t_d58873780979a0 7,398,684-712,760-849
+templates/eas/scripts/native-release.mjs
+  s_a2e5357843c63e::t_3473e563d513ed 268-269
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4ebf171f38fb3ce83c764df528f3acb5f1f70f7",
+  "prompts": {},
+  "sessions": {
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
