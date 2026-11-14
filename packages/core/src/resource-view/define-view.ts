@@ -139,7 +139,7 @@ const LAYOUTS: readonly string[] = ["month", "weeks", "agenda", "lanes"];
 
 /** A calendar block's keys: anything else in one is a mistake `defineView` names. */
 const CALENDAR_KEYS: readonly string[] = [
-  "field", "endField", "durationField", "durationUnit", "allDayField", "laneBy", "layout", "phoneLayout", "weeks", "weekStartsOn",
+  "field", "endField", "durationField", "durationUnit", "maxDuration", "allDayField", "laneBy", "layout", "phoneLayout", "weeks", "weekStartsOn",
 ];
 
 /**
@@ -166,6 +166,11 @@ export function calendarProblems(fields: readonly Pick<FieldSchema, "name" | "ty
     problems.push(`calendar.durationUnit "${String(calendar.durationUnit)}" isn't minutes, hours or days`);
   }
   if (calendar.durationUnit !== undefined && calendar.durationField === undefined) problems.push("calendar.durationUnit needs a durationField");
+  if (calendar.maxDuration !== undefined) {
+    if (typeof calendar.maxDuration !== "number" || !Number.isFinite(calendar.maxDuration) || calendar.maxDuration <= 0) {
+      problems.push(`calendar.maxDuration is a number above 0, not ${JSON.stringify(calendar.maxDuration)}`);
+    } else if (calendar.durationField === undefined) problems.push("calendar.maxDuration needs a durationField");
+  }
   if (calendar.laneBy !== undefined && !byName.has(calendar.laneBy)) problems.push(`calendar.laneBy names "${calendar.laneBy}", which isn't a field`);
   for (const key of ["layout", "phoneLayout"] as const) {
     const value = calendar[key];

@@ -198,6 +198,67 @@ describe("AppearancePreferencesProvider", () => {
     ]);
   });
 
+  it("drops a read older than a value the store's subscription delivered, and merges a held choice onto the newer one", async () => {
+    let answer: (values: AppearancePreferenceValues) => void = () => undefined;
+    let deliver: (values: AppearancePreferenceValues) => void = () => undefined;
+    const write = vi.fn();
+    const store: AppearancePreferencesStore = {
+      read: () => new Promise<AppearancePreferenceValues>((resolve) => (answer = resolve)),
+      write,
+      subscribe: (listener) => {
+        deliver = listener as (values: AppearancePreferenceValues) => void;
+        return () => undefined;
+      },
+    };
+    render(
+      <AppearancePreferencesProvider preferences={defineAppearancePreferences({ store })}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    act(() => screen.getByText("dark").click());
+    // Newer values arrive by subscription while the first read is still out.
+    await act(async () => deliver({ density: "spacious" }));
+    await act(async () => answer({ density: "compact" }));
+    await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+    expect(write).toHaveBeenCalledWith({ appearance: "dark", density: "spacious" }, { previous: { density: "spacious" } });
+    expect(screen.getByTestId("density").textContent).toBe("spacious:person");
+  });
+
+  it("never sends a write queued for one store to the store that replaced it", async () => {
+    let release: () => void = () => undefined;
+    const writeA = vi.fn(() => new Promise<void>((resolve) => (release = resolve)));
+    const writeB = vi.fn();
+    const a = defineAppearancePreferences({ store: { read: () => null, write: writeA } });
+    let answerB: (values: AppearancePreferenceValues) => void = () => undefined;
+    const b = defineAppearancePreferences({ store: { read: () => new Promise<AppearancePreferenceValues>((resolve) => (answerB = resolve)), write: writeB } });
+    const { rerender } = render(
+      <AppearancePreferencesProvider preferences={a}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("ready").textContent).toBe("true"));
+    act(() => screen.getByText("dark").click());
+    await waitFor(() => expect(writeA).toHaveBeenCalledTimes(1));
+    // A second choice waits behind the first write; then the store changes.
+    act(() => screen.getByText("compact").click());
+    rerender(
+      <AppearancePreferencesProvider preferences={b}>
+        <Probe />
+      </AppearancePreferencesProvider>,
+    );
+    await act(async () => release());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    // A's waiting write didn't go to B, and B's first read hasn't even answered.
+    expect(writeB).not.toHaveBeenCalled();
+    await act(async () => answerB({ appearance: "light" }));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(writeB).not.toHaveBeenCalled();
+  });
+
   it("tells onWriteError about a write the store refused, and keeps the device's copy", async () => {
     const onWriteError = vi.fn();
     const refusal = new Error("stale");

@@ -287,4 +287,41 @@ describe("review fixes", () => {
     expect(device.forViewer!(null).list("public.tasks")).toEqual([]);
     expect(device.list("public.tasks")).toEqual([]);
   });
+
+  it("drops a calendar bound whose day or time isn't real, not only one of the wrong shape", () => {
+    const timed = defineView(events, { filters: [{ field: "starts_at" }, { field: "done_on" }] });
+    expect(timed.filterParams({ done_on: { gte: "2026-99-99", lte: "2026-02-30" } })).toEqual([]);
+    expect(timed.filterParams({ done_on: { gte: "2024-02-29" } })).toEqual([{ field: "done_on", operator: "gte", value: "2024-02-29" }]);
+    // Out-of-range times reach no clock conversion (which would throw): they're dropped.
+    expect(() => timed.filterParams({ starts_at: { gte: "2024-05-01T25:00", lte: "2024-05-01T10:60" } }, "Europe/Paris")).not.toThrow();
+    expect(timed.filterParams({ starts_at: { gte: "2024-05-01T25:00", lte: "2024-05-01T10:60" } }, "Europe/Paris")).toEqual([]);
+    expect(timed.filterParams({ starts_at: { gte: "2024-05-01T10:00+24:00" } })).toEqual([]);
+    expect(timed.filterParams({ starts_at: { lte: "2024-05-01T23:59:59Z" } })).toEqual([{ field: "starts_at", operator: "lte", value: "2024-05-01T23:59:59Z" }]);
+  });
+
+  it("keeps a filter's default when the URL names no value, and says so when a person cleared it", () => {
+    const defaulted = defineView(tasks, { filters: [{ field: "status", default: ["todo"] }, { field: "notes" }] });
+    // Nothing in the URL: the default.
+    expect(readListUrl(defaulted, () => null)).toEqual({ filters: { status: ["todo"] } });
+    // At its default, a filter stays out of the URL; cleared, it's written empty and read back as cleared.
+    expect(listUrlParams(defaulted, { filters: { status: ["todo"] } })["f.status"]).toBeNull();
+    expect(listUrlParams(defaulted, { filters: {} })["f.status"]).toBe("");
+    expect(listUrlParams(defaulted, { filters: {} })["f.notes"]).toBeNull();
+    expect(readListUrl(defaulted, (k) => (k === "f.status" ? "" : null))).toEqual({});
+    expect(readListUrl(defaulted, (k) => (k === "f.status" ? "done" : null))).toEqual({ filters: { status: ["done"] } });
+  });
+
+  it("keeps a saved view the storage refused for the page's life", () => {
+    const storage = createMemoryStorageAdapter();
+    const store = createLocalSavedViewStore({ storage });
+    store.save({ name: "Old", scope: "personal", resource: "public.tasks", version: 1, state: {} });
+    // The storage reads, but refuses writes (full): the new view and the current state stay.
+    storage.setItem = () => {
+      throw new Error("QuotaExceededError");
+    };
+    store.save({ name: "New", scope: "personal", resource: "public.tasks", version: 1, state: { search: "x" } });
+    expect((store.list("public.tasks") as readonly { name: string }[]).map((v) => v.name)).toEqual(["Old", "New"]);
+    store.writeCurrent!("public.tasks", { type: "board" });
+    expect(store.readCurrent!("public.tasks")).toEqual({ type: "board" });
+  });
 });

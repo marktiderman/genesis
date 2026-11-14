@@ -89,6 +89,10 @@ function defaultValues(filters: readonly ResolvedFilter[]): Record<string, ViewF
   return Object.fromEntries(filters.filter((f) => f.default !== undefined && isFilterSet(f.default)).map((f) => [f.field, f.default!]));
 }
 
+/** The values that narrow anything, in field order, for comparing. */
+const setOnly = (values: Readonly<Record<string, ViewFilterValue>>) =>
+  Object.fromEntries(Object.entries(values).filter(([, v]) => isFilterSet(v)).sort(([a], [b]) => a.localeCompare(b)));
+
 const sameValues = (a: Readonly<Record<string, ViewFilterValue>>, b: Readonly<Record<string, ViewFilterValue>>) => JSON.stringify(a) === JSON.stringify(b);
 
 /**
@@ -111,7 +115,10 @@ export function useListState(options: UseListStateOptions): ListStateResult {
   const fromUrl = useCallback(() => (url ? readListUrl(view, (key) => url.searchParams.get(key)) : {}), [url, view]);
   const [seeded] = useState(fromUrl);
   const [segment, setSegmentRaw] = useState<string | undefined>(seeded.segment ?? firstSegment);
-  const [values, setValuesRaw] = useState<Readonly<Record<string, ViewFilterValue>>>(() => seeded.filters ?? defaultValues(view.filters()));
+  // The declared defaults: what a list starts with, what Clear goes back to, and what the URL
+  // means when it names no value for a filter (readListUrl fills them in; an empty one is cleared).
+  const defaults = useMemo(() => defaultValues(view.filters()), [view]);
+  const [values, setValuesRaw] = useState<Readonly<Record<string, ViewFilterValue>>>(() => (url ? (seeded.filters ?? {}) : defaults));
   // What the query uses: a text filter's value lands here after a pause.
   const [settled, setSettled] = useState(values);
   const [groupBy, setGroupBy] = useState<string | null | undefined>(undefined);
@@ -128,7 +135,16 @@ export function useListState(options: UseListStateOptions): ListStateResult {
   const typeChosen = useRef(false);
   const [type, setTypeRaw] = useState<string | undefined>(defaultType);
   const typesKey = types.join(",");
+  // Whose type this is: a new viewer (or another list under the same hook) starts again from the
+  // screen's type and reads their own, never keeping the last person's choice.
+  const typeOwner = useRef(`${viewer.id ?? ""}\u0000${currentKey}`);
   useEffect(() => {
+    const owner = `${viewer.id ?? ""}\u0000${currentKey}`;
+    if (typeOwner.current !== owner) {
+      typeOwner.current = owner;
+      typeChosen.current = false;
+      setTypeRaw(defaultType);
+    }
     if (!rememberType || !store?.readCurrent) return;
     let live = true;
     const take = (state: ListState | null | undefined) => {
@@ -146,14 +162,14 @@ export function useListState(options: UseListStateOptions): ListStateResult {
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per list and store
-  }, [store, currentKey, rememberType, typesKey]);
+  }, [store, currentKey, rememberType, typesKey, viewer.id]);
 
   // ── The URL ──
   const urlRef = useRef(url);
   urlRef.current = url;
   const written = useRef<string | null>(null);
   const writeUrl = useCallback(
-    (next: { segment?: string | undefined; filters: Readonly<Record<string, ViewFilterValue>> }) => {
+    (next: { segment?: string | undefined; filters: Readonly<Record<string, ViewFilterValue>>; query?: { search: string; sort: ListSort | null } }) => {
       const adapter = urlRef.current;
       if (!adapter) return;
       const params = new URLSearchParams(adapter.searchParams);
@@ -161,6 +177,14 @@ export function useListState(options: UseListStateOptions): ListStateResult {
       for (const [key, value] of Object.entries(listUrlParams(view, state, firstSegment))) {
         if (value === null) params.delete(key);
         else params.set(key, value);
+      }
+      // A saved view's search and sort go in the same replacement as its segment and filters: a
+      // second one would start from the URL before the first landed.
+      if (next.query) {
+        if (next.query.search) params.set("q", next.query.search);
+        else params.delete("q");
+        if (next.query.sort) params.set("sort", `${next.query.sort.field}:${next.query.sort.order}`);
+        else params.delete("sort");
       }
       // A new filter is a new list: back to its first page.
       params.delete("page");
@@ -227,10 +251,10 @@ export function useListState(options: UseListStateOptions): ListStateResult {
   const clear = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     setSegmentRaw(firstSegment);
-    valuesRef.current = {};
-    setValuesRaw({});
-    commit({}, firstSegment);
-  }, [firstSegment, commit]);
+    valuesRef.current = defaults;
+    setValuesRaw(defaults);
+    commit(defaults, firstSegment);
+  }, [firstSegment, commit, defaults]);
   const setType = useCallback(
     (next: string) => {
       typeChosen.current = true;
@@ -255,33 +279,23 @@ export function useListState(options: UseListStateOptions): ListStateResult {
       setGroupBy(state.groupBy);
       setColumns(state.columns);
       if (state.type && types.includes(state.type)) setType(state.type);
-      commit(filters, seg);
-      // The search and sort: the list starts again with them (and the URL holds them, if it's kept).
+      // The search and sort: the list starts again with them (and the URL holds them, if it's kept),
+      // written with the segment and filters in one replacement.
       const search = state.search ?? "";
       const sort = state.sort ? { field: state.sort.field, order: state.sort.order } : null;
       queryRef.current = { search, sort };
-      const adapter = urlRef.current;
-      if (adapter) {
-        const params = new URLSearchParams(adapter.searchParams);
-        if (search) params.set("q", search);
-        else params.delete("q");
-        if (sort) params.set("sort", `${sort.field}:${sort.order}`);
-        else params.delete("sort");
-        params.delete("page");
-        if (params.toString() !== adapter.searchParams.toString()) {
-          written.current = params.toString();
-          adapter.setSearchParams(params, { replace: true });
-        }
-      }
+      setSettled(filters);
+      writeUrl({ segment: seg, filters, query: { search, sort } });
       setRestore((before) => ({ nonce: before.nonce + 1, search, sort }));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- types by value
-    [view, firstSegment, typesKey, setType, commit],
+    [view, firstSegment, typesKey, setType, writeUrl],
   );
 
   const valueFilters = useMemo(() => view.filterParams(settled, zone), [view, settled, zone]);
   const filters = useMemo(() => [...(segment ? view.segmentFilters(segment, viewer) : []), ...valueFilters], [view, segment, viewer, valueFilters]);
-  const active = (segment !== undefined && segment !== firstSegment) || Object.values(values).some(isFilterSet);
+  // Clear has something to do: the segment or a filter isn't where the list starts.
+  const active = (segment !== undefined && segment !== firstSegment) || !sameValues(setOnly(values), setOnly(defaults));
   const snapshot = useCallback(
     (shown?: string): ListState => {
       const { search, sort } = queryRef.current;

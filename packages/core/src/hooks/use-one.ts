@@ -1,6 +1,6 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useDataProvider } from "../provider/context";
-import type { BaseRecord, Identifier } from "../provider/types";
+import type { BaseRecord, FilterParam, Identifier } from "../provider/types";
 import { useLiveInvalidation, type LiveOptions } from "./use-live";
 import { resourceKeys } from "../query-keys";
 
@@ -19,6 +19,11 @@ export interface UseOneOptions {
    * `UseResourceOptions.live`. Off by default.
    */
   live?: boolean | LiveOptions;
+  /**
+   * The list's filters, when the record is opened from a list (`GetOneParams.scope`): a resource
+   * read from a function takes its scope from them. Part of the cache key when given.
+   */
+  scope?: FilterParam[] | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -38,7 +43,7 @@ export function useOne<T extends BaseRecord = BaseRecord>(
 ): UseQueryResult<T> {
   const provider = useDataProvider();
 
-  const { select, enabled, live } = options;
+  const { select, enabled, live, scope } = options;
   const isEnabled = enabled ?? !!id;
 
   // Only this record's events; `changed` (events may have been missed) too.
@@ -60,10 +65,10 @@ export function useOne<T extends BaseRecord = BaseRecord>(
     // — no error, no refetch, just absent data. `useResource`'s list key has
     // always included `select` (it keys on the whole `params` object); this
     // was the one place it did not.
-    queryKey: resourceKeys(resource).detail(id, select),
+    queryKey: scope?.length ? [...resourceKeys(resource).detail(id, select), { scope }] : resourceKeys(resource).detail(id, select),
     queryFn: async () => {
       if (id == null) throw new Error("Missing id");
-      const result = await provider.getOne<T>(resource, { id, select });
+      const result = await provider.getOne<T>(resource, { id, select, ...(scope?.length ? { scope } : {}) });
       return result.data;
     },
     enabled: isEnabled,

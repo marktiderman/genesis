@@ -164,6 +164,12 @@ export interface GetOneParams {
   id: Identifier;
   /** Supabase select syntax, e.g. "*, author:profiles(name)". Defaults to "*". */
   select?: string;
+  /**
+   * The list's filters, when the record is opened from a list: a resource read from a function
+   * whose `args` take its scope from them (`take`) reads in that scope. They never narrow the
+   * record itself, and a provider without function sources ignores them.
+   */
+  scope?: FilterParam[];
 }
 
 /** Result of `getOne`. */
@@ -174,6 +180,8 @@ export interface GetOneResult<T> {
 /** Parameters for `getMany`. */
 export interface GetManyParams {
   ids: Identifier[];
+  /** As `GetOneParams.scope`: the list's filters a function source takes its scope from. */
+  scope?: FilterParam[];
 }
 
 /** Result of `getMany`. */

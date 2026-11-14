@@ -161,8 +161,26 @@ function rangeEnd(value: unknown, input: ResolvedFilter["input"]): string | numb
     const n = Number(v);
     return Number.isFinite(n) ? n : undefined;
   }
-  if (input === "date") return DAY.test(v) ? v : undefined;
-  return INSTANT.test(v) ? v : undefined;
+  if (input === "date") return DAY.test(v) && realDay(v) ? v : undefined;
+  return INSTANT.test(v) && realInstant(v) ? v : undefined;
+}
+
+/** A day the calendar has: `2026-02-30` and `2026-13-01` match the pattern but aren't days. */
+function realDay(v: string): boolean {
+  const y = Number(v.slice(0, 4));
+  const m = Number(v.slice(5, 7));
+  const d = Number(v.slice(8, 10));
+  if (m < 1 || m > 12 || d < 1) return false;
+  return d <= new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
+/** An instant whose day, time and offset are real: `T25:00`, `T10:60` and `+24:00` aren't. */
+function realInstant(v: string): boolean {
+  if (!realDay(v.slice(0, 10))) return false;
+  const time = /^[T ](\d{2}):(\d{2})(?::(\d{2}))?/.exec(v.slice(10));
+  if (time && (Number(time[1]) > 23 || Number(time[2]) > 59 || (time[3] !== undefined && Number(time[3]) > 59))) return false;
+  const offset = /([+-])(\d{2}):?(\d{2})$/.exec(v.length > 16 ? v.slice(16) : "");
+  return !offset || (Number(offset[2]) <= 23 && Number(offset[3]) <= 59);
 }
 
 /**
@@ -317,7 +335,12 @@ export function readListUrl(
   if (seg && view.segments().some((s) => s.id === seg)) out.segment = seg;
   for (const f of view.filters()) {
     const raw = get(`${LIST_URL_KEYS.filterPrefix}${f.field}`);
-    if (raw === null || raw === undefined || raw === "") continue;
+    // Not in the URL: the filter's declared default. Present and empty: cleared on purpose.
+    if (raw === null || raw === undefined) {
+      if (f.default !== undefined && isFilterSet(f.default)) (out.filters ??= {})[f.field] = f.default;
+      continue;
+    }
+    if (raw === "") continue;
     const value = decodeFilterValue(f.kind, raw);
     if (value !== undefined) (out.filters ??= {})[f.field] = value;
   }
@@ -339,7 +362,13 @@ export function listUrlParams(
   if (view.segments().length) out[LIST_URL_KEYS.segment] = state.segment && state.segment !== defaultSegment ? state.segment : null;
   for (const f of view.filters()) {
     const value = state.filters?.[f.field];
-    out[`${LIST_URL_KEYS.filterPrefix}${f.field}`] = value !== undefined && isFilterSet(value) ? encodeFilterValue(value) : null;
+    const set = value !== undefined && isFilterSet(value);
+    const declared = f.default !== undefined && isFilterSet(f.default);
+    const key = `${LIST_URL_KEYS.filterPrefix}${f.field}`;
+    // A filter at its default stays out of the URL (absent reads back as the default); a defaulted
+    // filter the person cleared is written empty, so the URL says it was cleared.
+    if (!set) out[key] = declared ? "" : null;
+    else out[key] = declared && encodeFilterValue(value) === encodeFilterValue(f.default!) ? null : encodeFilterValue(value);
   }
   return out;
 }

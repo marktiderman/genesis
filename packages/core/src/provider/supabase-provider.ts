@@ -266,7 +266,10 @@ export interface SupabaseResourceConfig {
    * as ResourceView applies it (a view's `scope: ["group_id"]` filters `group_id`), so a function
    * that takes its scope as an argument reads it there rather than from a module variable.
    * `context.take(field)` returns an equality filter's value and leaves that filter out of the
-   * query, for a scope the function takes as an argument and doesn't return as a column.
+   * query, for a scope the function takes as an argument and doesn't return as a column. A record
+   * read (`getOne`, `getMany`) gets the list's filters from `scope` when the caller passes them
+   * (`useOne`'s `scope`; ResourceView's inbox does for a row off the loaded page), else none, and
+   * the function's own default scope applies.
    */
   source?: string | { rpc: string; args?: (context: SourceArgsContext) => Record<string, unknown> };
   /**
@@ -764,6 +767,7 @@ export function createSupabaseProvider(
     columns: string | undefined,
     count?: "exact" | "estimated" | "planned",
     filters?: FilterParam[],
+    used: Set<FilterParam> = new Set(),
   ): SupabaseQueryBuilder {
     const config = configFor(resource);
     const cols = columns ?? config.select ?? "*";
@@ -772,19 +776,17 @@ export function createSupabaseProvider(
       if (!client.rpc) {
         throw new DataReadError("error", `[SupabaseProvider] "${resource}" reads from ${source.rpc}(), but the client has no rpc.`);
       }
-      const builder = client.rpc(source.rpc, source.args?.(sourceArgs(resource, filters)) ?? {}, count ? { count } : undefined) as SupabaseQueryBuilder;
+      const builder = client.rpc(source.rpc, source.args?.(sourceArgs(resource, filters, used)) ?? {}, count ? { count } : undefined) as SupabaseQueryBuilder;
       return builder.select(cols);
     }
     const table = relation(source ?? resource);
     return count ? table.select(cols, { count }) : table.select(cols);
   }
 
-  // The filters a function's `args` took (`take`), per list call: left out of the query.
-  const taken = new WeakMap<FilterParam[], Set<FilterParam>>();
-  function sourceArgs(resource: string, filters: FilterParam[] | undefined): SourceArgsContext {
+  // The filters a function's `args` took (`take`) land in `used`, which belongs to one read: a
+  // later read that passes the same array (a table read, another function) starts from none taken.
+  function sourceArgs(resource: string, filters: FilterParam[] | undefined, used: Set<FilterParam>): SourceArgsContext {
     const list = filters ?? [];
-    const used = new Set<FilterParam>();
-    if (filters) taken.set(filters, used);
     return {
       resource,
       filters: list,
@@ -804,9 +806,9 @@ export function createSupabaseProvider(
     count: "exact" | "estimated" | "planned" | undefined,
     filters: FilterParam[] | undefined,
   ): SupabaseQueryBuilder {
-    const query = read(resource, columns, count, filters);
-    const used = filters ? taken.get(filters) : undefined;
-    return applyFilters(query, used?.size ? filters!.filter((f) => !used.has(f)) : filters);
+    const used = new Set<FilterParam>();
+    const query = read(resource, columns, count, filters, used);
+    return applyFilters(query, used.size ? filters!.filter((f) => !used.has(f)) : filters);
   }
   /** A resource's rules, keyed either way: `"public.goals"` finds `goals`, and `goals` finds `"public.goals"`. */
   const configFor = (resource: string): SupabaseResourceConfig =>
@@ -1308,7 +1310,9 @@ export function createSupabaseProvider(
     },
 
     async getOne(resource, params) {
-      const result = (await read(resource, params.select)
+      // A function source reads in the list's scope (`scope`), never the RPC's default; the
+      // filters it doesn't take aren't applied: they choose a list, not the record.
+      const result = (await read(resource, params.select, undefined, params.scope)
         .eq("id", params.id)
         .single()) as { data: unknown; error: unknown };
       await throwIfReadError(result, resource, "getOne");
@@ -1317,7 +1321,7 @@ export function createSupabaseProvider(
 
     async getMany(resource, params) {
       if (params.ids.length === 0) return { data: [] } as never;
-      const result = (await read(resource, undefined)
+      const result = (await read(resource, undefined, undefined, params.scope)
         .in("id", params.ids)) as { data: unknown[]; error: unknown };
       await throwIfReadError(result, resource, "getMany");
       return { data: result.data ?? [] } as never;

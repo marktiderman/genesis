@@ -229,7 +229,9 @@ export function useViewBoard<T extends Row = Row>(
 
   const movable = view.writable("edit").includes(fieldName);
   // Guards only narrow: the view's rule AND the screen's own `can`.
+  // A read-only or scope field moves no card, whatever the row's guards say.
   const canMove = (row: T): true | string => {
+    if (!movable) return words.notAllowed;
     if (can && !can("edit", row)) return words.notAllowed;
     return view.can("update", row as T & DataRow, viewer);
   };
@@ -254,6 +256,8 @@ export function useViewBoard<T extends Row = Row>(
     if (inFlight.current.has(key)) throw new Error(words.stillSaving(titleOf(row)));
     inFlight.current.add(key);
     setRefusal(null);
+    // A custom board's own drop handler calls `move` directly: the field and the guards are
+    // checked here, not only by what draws the cards.
     const verdict = canMove(row);
     setSaving(new Set(inFlight.current));
     const data = { [fieldName]: stored(to) };
@@ -283,6 +287,15 @@ export function useViewBoard<T extends Row = Row>(
     if (!conflict) return;
     const { id, data, conflict: c } = conflict;
     if (inFlight.current.has(id)) return;
+    // The retry overrides only the stale version: the field and the guards are asked again, on
+    // the row as it is now (theirs), and a refusal ends the conflict with its reason.
+    const verdict = canMove(c.theirs as T);
+    if (verdict !== true) {
+      setConflict(null);
+      setRefusal(verdict);
+      void refresh();
+      throw new Error(verdict);
+    }
     inFlight.current.add(id);
     setSaving(new Set(inFlight.current));
     try {

@@ -184,18 +184,25 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
   // patches, then go out merged onto what the store said, with that as `previous`.
   const firstRead = useRef<"pending" | "settled">(store ? "pending" : "settled");
   const waiting = useRef<AppearancePreferenceValues | null>(null);
-  // How many writes the store has accepted: a read that started before one is older than it.
+  // How many newer values the store has given since a read started (a write it accepted, or a
+  // value its `subscribe` delivered): a read that started before one is older than it.
   const writesDone = useRef(0);
+  // Which store the queue and its writes belong to: a store change drops what was waiting for the
+  // old one, and an old write that completes afterwards changes nothing here.
+  const generation = useRef(0);
   // What the store last answered or accepted, for a conditional write.
   const confirmed = useRef<AppearancePreferenceValues | null>(null);
   // One write at a time, in order; the newest waiting write replaces an older waiting one.
-  const queue = useRef<{ running: boolean; next: AppearancePreferenceValues | null }>({ running: false, next: null });
+  const queue = useRef<{ running: boolean; next: { values: AppearancePreferenceValues; generation: number } | null }>({ running: false, next: null });
   const deviceSetter = useRef(setDevice);
   deviceSetter.current = setDevice;
   const writeErrorHandler = useRef(onWriteError ?? preferences.onWriteError);
   writeErrorHandler.current = onWriteError ?? preferences.onWriteError;
 
   useEffect(() => {
+    generation.current += 1;
+    // What waited for the last store isn't this one's to write.
+    queue.current.next = null;
     if (!store) return;
     let active = true;
     firstRead.current = "pending";
@@ -209,7 +216,7 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
       const merged = toAppearancePreferenceValues({ ...(base ?? {}), ...patch });
       setStored(merged);
       deviceSetter.current(Object.keys(merged).length ? merged : undefined);
-      queue.current.next = merged;
+      queue.current.next = { values: merged, generation: generation.current };
       void drainRef.current();
     };
     Promise.resolve()
@@ -218,8 +225,10 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
         (values) => {
           if (!active) return;
           const read = values ? toAppearancePreferenceValues(values) : null;
-          // A read older than an accepted write says nothing new: drop it.
-          if (writesDone.current === writesAtStart) {
+          // A read older than an accepted write or a delivered value says nothing new: drop it, and
+          // put a held patch onto the newest values instead.
+          const fresh = writesDone.current === writesAtStart;
+          if (fresh) {
             confirmed.current = read;
             if (!waiting.current) {
               setStored(read);
@@ -227,7 +236,7 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
               if (read) deviceSetter.current(Object.keys(read).length ? read : undefined);
             }
           }
-          release(read);
+          release(fresh ? read : confirmed.current);
           setReady(true);
         },
         (error: unknown) => {
@@ -242,6 +251,7 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
       if (!active) return;
       const next = values ? toAppearancePreferenceValues(values) : null;
       confirmed.current = next;
+      writesDone.current += 1;
       setStored(next);
       if (next) deviceSetter.current(Object.keys(next).length ? next : undefined);
     });
@@ -263,12 +273,16 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
     q.running = true;
     try {
       while (q.next) {
-        const values = q.next;
+        const { values, generation: owner } = q.next;
         q.next = null;
         const target = latestStore.current;
         if (!target) break;
+        // Queued for a store that has since been replaced: not this one's to write.
+        if (owner !== generation.current) continue;
         try {
           await target.write(values, { previous: confirmed.current });
+          // The store changed while it was out: the new one's state isn't this write's.
+          if (owner !== generation.current) continue;
           confirmed.current = values;
           writesDone.current += 1;
         } catch (error: unknown) {
@@ -296,7 +310,7 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
           waiting.current = { ...(waiting.current ?? {}), ...patch };
           return;
         }
-        queue.current.next = next;
+        queue.current.next = { values: next, generation: generation.current };
         void drain();
       }
     },

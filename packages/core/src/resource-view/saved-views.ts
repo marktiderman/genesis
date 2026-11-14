@@ -102,16 +102,22 @@ function localStore(options: { storage?: StorageAdapter; prefix?: string }, memo
   const storage = (): StorageAdapter =>
     options.storage ??
     defaultStorage() ?? { getItem: (k) => memory.get(k) ?? null, setItem: (k, v) => void memory.set(k, v), removeItem: (k) => void memory.delete(k) };
-  const read = (resource: string): SavedView[] =>
-    parse(storage().getItem(`${prefix}:${resource}`), (v): v is unknown[] => Array.isArray(v))?.filter(isSaved) ?? [];
-  const write = (resource: string, views: readonly SavedView[]) => {
+  // A write storage refused (full, or turned off) is kept here for the page's life, and read back
+  // over storage's older copy until a later write of the same key is accepted.
+  const refused = new Map<string, string | null>();
+  const get = (key: string): string | null => (refused.has(key) ? refused.get(key)! : storage().getItem(key));
+  const put = (key: string, value: string | null) => {
     try {
-      if (views.length) storage().setItem(`${prefix}:${resource}`, JSON.stringify(views));
-      else storage().removeItem(`${prefix}:${resource}`);
+      if (value === null) storage().removeItem(key);
+      else storage().setItem(key, value);
+      refused.delete(key);
     } catch {
-      // Storage refused (full, or turned off): the view lasts for this page only.
+      refused.set(key, value);
     }
   };
+  const read = (resource: string): SavedView[] =>
+    parse(get(`${prefix}:${resource}`), (v): v is unknown[] => Array.isArray(v))?.filter(isSaved) ?? [];
+  const write = (resource: string, views: readonly SavedView[]) => put(`${prefix}:${resource}`, views.length ? JSON.stringify(views) : null);
   let seq = 0;
   return Object.freeze({
     scopes: Object.freeze(["personal" as const]),
@@ -123,14 +129,8 @@ function localStore(options: { storage?: StorageAdapter; prefix?: string }, memo
       return saved;
     },
     remove: (id: string, resource: string) => write(resource, read(resource).filter((v) => v.id !== id)),
-    readCurrent: (key: string) => parse(storage().getItem(`${prefix}:current:${key}`), isObject) as ListState | undefined,
-    writeCurrent: (key: string, state: ListState) => {
-      try {
-        storage().setItem(`${prefix}:current:${key}`, JSON.stringify(state));
-      } catch {
-        // As above: kept for this page only.
-      }
-    },
+    readCurrent: (key: string) => parse(get(`${prefix}:current:${key}`), isObject) as ListState | undefined,
+    writeCurrent: (key: string, state: ListState) => put(`${prefix}:current:${key}`, JSON.stringify(state)),
     forViewer: (viewer: string | null): SavedViewStore => {
       // Under the store's own prefix: a viewer id can't reach another prefix's keys.
       const id = `${options.prefix ?? "genesis-saved-views"}:viewer:${encodeURIComponent(viewer ?? "signed-out")}`;

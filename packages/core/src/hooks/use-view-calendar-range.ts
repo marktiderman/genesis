@@ -25,6 +25,8 @@ type Row = Record<string, unknown>;
  */
 export const CALENDAR_LIMIT = 500;
 
+const DURATION_MS = { minutes: 60_000, hours: 3_600_000, days: 86_400_000 } as const;
+
 /** The days a calendar shows: `start` inclusive, `end` exclusive, as `calendarWindow` gives them. @stability Beta */
 export interface ViewCalendarRange {
   start: Day;
@@ -52,6 +54,12 @@ export interface UseViewCalendarRangeOptions {
    * else the viewer's, else the device's: the clock the field's cells use.
    */
   timeZone?: string | undefined;
+  /** Default the view's `calendar.durationField`. */
+  durationField?: string | undefined;
+  /** Default the view's `calendar.durationUnit`, else minutes. */
+  durationUnit?: "minutes" | "hours" | "days" | undefined;
+  /** Default the view's `calendar.maxDuration`: how far before the window a row with a duration is read. */
+  maxDuration?: number | undefined;
   /**
    * Fields the rows must carry besides the date, end and all-day fields, for the select check.
    * Default the view's `calendar.durationField` and `laneBy`.
@@ -122,7 +130,10 @@ export function useViewCalendarRange<T extends Row = Row>(
   const endField = options.endField ?? own?.endField;
   const allDayField = options.allDayField ?? own?.allDayField;
   const { filters = [], select, enabled = true, live, limit = CALENDAR_LIMIT } = options;
-  const needs = options.needs ?? [own?.durationField, own?.laneBy];
+  const durationField = options.durationField ?? own?.durationField;
+  const durationUnit = options.durationUnit ?? own?.durationUnit ?? "minutes";
+  const maxDuration = options.maxDuration ?? own?.maxDuration;
+  const needs = options.needs ?? [durationField, own?.laneBy];
   const provider = useDataProvider();
   const viewerScope = useOptionalViewerScope();
   if (!fieldName) throw new Error(`ResourceView(${view.resource}): a calendar needs a date field: the view's calendar.field, or { field }`);
@@ -141,8 +152,18 @@ export function useViewCalendarRange<T extends Row = Row>(
     const missing = selectMissing(select, [fieldName, endField, allDayField, ...needs]);
     if (missing.length) warnOnce(`ResourceView(${view.resource}): calendar select "${select}" leaves out ${missing.join(", ")}; events need them`);
   }
+  // A row whose end is its start plus a duration (no end column, or an empty one) can start before
+  // the window and run into it: with `maxDuration`, the rows that started that long before are read
+  // too (whole days, so the start's clock doesn't matter), and placement keeps only the ones that
+  // reach the window. Without it, such a row shows only from the days it starts on: said once.
+  const leadDays = durationField && maxDuration && maxDuration > 0 ? Math.ceil((maxDuration * DURATION_MS[durationUnit]) / DURATION_MS.days) : 0;
+  if (durationField && !leadDays) {
+    warnOnce(`ResourceView(${view.resource}): calendar durationField "${durationField}" has no maxDuration, so a row that starts before the window and runs into it isn't read; set calendar.maxDuration`);
+  }
+  const lookback = leadDays ? windowBounds(fetched, storage, zone, leadDays).from : undefined;
+
   // Everything the rows depend on except the window: what decides whether the last rows may stand in.
-  const listScope = JSON.stringify([filters, select ?? null, fieldName, endField ?? null, limit]);
+  const listScope = JSON.stringify([filters, select ?? null, fieldName, endField ?? null, limit, durationField ?? null, leadDays]);
   const base = { pagination: { page: 1, perPage: limit }, sort: { field: fieldName, order: "asc" as const }, ...(select ? { select } : {}) };
   const starting: ListParams = {
     ...base,
@@ -154,13 +175,27 @@ export function useViewCalendarRange<T extends Row = Row>(
     ...base,
     filters: [...filters, { field: fieldName, operator: "lt", value: from }, { field: endField!, operator: endStorage === "date" ? "gte" : "gt", value: end.from }],
   };
+  // Rows that started within `maxDuration` before the window with no end of their own (no end
+  // column, or an empty one): their end is their duration's, which a filter can't compute.
+  const lasting: ListParams | undefined = lookback !== undefined
+    ? {
+        ...base,
+        filters: [
+          ...filters,
+          { field: fieldName, operator: "gte", value: lookback },
+          { field: fieldName, operator: "lt", value: from },
+          ...(endField ? [{ field: endField, operator: "is_null" as const }] : []),
+        ],
+      }
+    : undefined;
+  const reads = [starting, ...(running ? [running] : []), ...(lasting ? [lasting] : [])];
   const query = useQuery({
-    queryKey: [...resourceKeys(view.resource).lists, { calendar: running ? [starting, running] : [starting], scope: listScope }],
+    queryKey: [...resourceKeys(view.resource).lists, { calendar: reads, scope: listScope }],
     placeholderData: (previous, previousQuery) =>
       (previousQuery?.queryKey[2] as { scope?: string } | undefined)?.scope === listScope ? keepPreviousData(previous) : undefined,
     enabled,
     queryFn: async () => {
-      const lists = await Promise.all([starting, ...(running ? [running] : [])].map((params) => provider.getList<BaseRecord>(view.resource, params)));
+      const lists = await Promise.all(reads.map((params) => provider.getList<BaseRecord>(view.resource, params)));
       return {
         data: lists.flatMap((l) => l.data),
         total: lists.reduce((n, l) => n + (l.total ?? l.data.length), 0),

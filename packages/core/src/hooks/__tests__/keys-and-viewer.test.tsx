@@ -328,6 +328,26 @@ describe("ViewerScope", () => {
     expect(other.client.getQueryData(["loaded"])).toBeUndefined();
   });
 
+  it("a nested ViewerScope over another QueryClient empties that cache, even for the same viewer", async () => {
+    const { wrap } = setup();
+    const innerClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    innerClient.setQueryData(["loaded"], "the last viewer's rows");
+    render(
+      wrap(
+        <ViewerScope viewer="ann">
+          <QueryClientProvider client={innerClient}>
+            <ViewerScope viewer="ann">
+              <p>inner ann</p>
+            </ViewerScope>
+          </QueryClientProvider>
+        </ViewerScope>,
+      ),
+    );
+    await screen.findByText("inner ann");
+    // The outer scope guarded its own cache, not this one: it's emptied before the children mount.
+    expect(innerClient.getQueryData(["loaded"])).toBeUndefined();
+  });
+
   it("passes the viewer and scope down, and a new scope re-renders readers without remounting them", async () => {
     const { wrap } = setup();
     const mounts: string[] = [];

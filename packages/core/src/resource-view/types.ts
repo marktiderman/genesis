@@ -468,6 +468,13 @@ export interface ViewCalendar<Name extends string = string> {
   durationField?: Name;
   /** What `durationField` counts. Default `minutes`. */
   durationUnit?: ViewCalendarDurationUnit;
+  /**
+   * The longest a row with a `durationField` runs, in `durationUnit`s. The calendar reads rows that
+   * started up to this long before its window too, so one that runs into the window from before
+   * it (a session at 23:00 for two hours) is drawn. Without it, such a row is drawn only on the
+   * days it starts in the window, and the calendar warns once.
+   */
+  maxDuration?: number;
   /** A yes/no field: the row is all day, its timestamp shown without a time. */
   allDayField?: Name;
   /** The field whose value (or list of values) names a row's lanes: a dot each, a lane each. */
