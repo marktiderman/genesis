@@ -1,18 +1,38 @@
-# The "Adversarial review" check: runs on every pull request into a staging batch
-# (`staging/**`), so no pull request merges into the batch (auto-merge included) until an
-# independent reviewer has reviewed its latest commit. The release PR from a batch into main is
-# the maintainer's to merge and isn't gated here.
+# The "Adversarial review" check, required on every pull request into a staging batch
+# (`staging/**`) and into the default branch (the batch's release PR included): no pull request
+# merges (auto-merge included) until an independent reviewer has reviewed its latest commit.
 #
 # The reviewer (triage: a session that didn't write the code) runs the adversarial review, posts
-# the verdict and findings on the PR, and when every finding is answered adds the label
-# `review: approved`. That label is what passes this check. Any new commit takes the label off
-# again, so the check fails until the new head is reviewed too.
+# a formal review of the head commit with the verdict and findings, and when every finding (lows
+# included) is fixed, or declined with a reason the reviewer accepts, adds the label
+# `review: approved`. Adding the label is what runs this check, so the review comes first. The
+# check passes only with both: the label, and an approving latest verdict on the current head SHA
+# (an APPROVED review, or, since GitHub refuses an approval from the PR author's own account, a
+# comment review whose body starts "Verdict: approve", in any case). A later "Verdict: changes
+# requested" (or CHANGES_REQUESTED) on the same head overrides an earlier approve, and a dismissed
+# review never counts. Any new commit, a merge of the base included, takes the label off, and a
+# review of an older head never counts, so a stale label can't pass an unreviewed head.
+#
+# Both the label and the review count only from a person's account, never an app's or a bot's.
+# That filter doesn't tell the reviewer from the author: every agent acts as the account that
+# opened the PR, so keeping the reviewer apart from the author is process ("Never approve or
+# label your own PR").
+#
+# It runs on `pull_request_target`, so the copy of this file that judges a PR is always the base
+# branch's: a PR can't rewrite its own gate. It checks nothing out and runs no PR code; it only
+# reads the PR through the API. Its check run lands on the PR's head SHA. A push made with
+# Actions' `GITHUB_TOKEN` (a release bot's, say) starts no run: the reviewer reviews the new head,
+# then removes and re-adds the label. To re-run it after a changed verdict, the reviewer removes
+# the label.
+# Add and remove the label with the REST API, e.g.
+# `gh api -X POST repos/<owner>/<repo>/issues/<n>/labels -f "labels[]=review: approved"`:
+# `gh pr edit` can fail on GitHub's deprecated Projects (classic) field.
 name: Adversarial review
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, labeled, unlabeled, ready_for_review]
-    branches: ['staging/**']
+  pull_request_target:
+    types: [opened, reopened, synchronize, labeled, unlabeled, ready_for_review, edited]
+    branches: ['staging/**', 'main']
 
 permissions:
   pull-requests: write
@@ -27,11 +47,32 @@ jobs:
     name: Adversarial review
     runs-on: ubuntu-latest
     steps:
+      # No job-level `if`: a skipped job would satisfy a required check. A base that isn't gated
+      # fails here instead (no ruleset requires the check there, so that red run is harmless).
+      - name: Gated base?
+        run: |
+          case "$BASE" in
+            staging/*|"$DEFAULT") echo "Gated base: $BASE" ;;
+            *) echo "::error::'$BASE' isn't a staging batch or the default branch, so this gate doesn't apply."; exit 1 ;;
+          esac
+        env:
+          BASE: ${{ github.event.pull_request.base.ref }}
+          DEFAULT: ${{ github.event.repository.default_branch }}
       - name: A new commit needs a new review
         if: "${{ github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'review: approved') }}"
         run: |
-          gh pr edit "$PR" --repo "$REPO" --remove-label "review: approved"
-          gh pr comment "$PR" --repo "$REPO" --body "New commits since the review: \`review: approved\` is removed until the latest head is reviewed."
+          # The token is the base branch's, with write access, Dependabot's and forks' PRs included.
+          # If the revoke still fails, the label stays, but a review of an older head never counts.
+          # REST, not `gh pr edit` or `gh pr comment`: their GraphQL queries can fail on GitHub's
+          # deprecated Projects (classic) field. A 404 means the label is already off.
+          if ! out=$(gh api -X DELETE "repos/$REPO/issues/$PR/labels/review:%20approved" 2>&1); then
+            case "$out" in
+              *"HTTP 404"*) echo "'review: approved' was already off." ;;
+              *) echo "::warning::Couldn't remove 'review: approved' ($out). It no longer counts: the new head needs its own review." ;;
+            esac
+          fi
+          gh api "repos/$REPO/issues/$PR/comments" \
+            -f body="New commits since the review: \`review: approved\` is removed until the latest head is reviewed." >/dev/null || true
           echo "::error::New commits since the review. Review the latest head, then label the PR 'review: approved'."
           exit 1
         env:
@@ -41,11 +82,39 @@ jobs:
       - name: Reviewed?
         if: "${{ !(github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'review: approved')) }}"
         run: |
-          if [ "$APPROVED" = "true" ]; then
-            echo "Reviewed: the PR carries 'review: approved'."
-          else
-            echo "::error::Waiting for an independent adversarial review. The reviewer adds 'review: approved' when every finding is answered."
+          # Read the label now, not from the event, so a label a failed revoke left behind or one
+          # added since still counts as it stands.
+          if ! gh api "repos/$REPO/issues/$PR/labels" --jq '.[].name' | grep -Fxq 'review: approved'; then
+            echo "::error::Waiting for an independent adversarial review. The reviewer adds 'review: approved' once every finding (lows included) is fixed, or declined with a reason the reviewer accepts."
             exit 1
           fi
+          # An app or bot token can add a label and post a "Verdict: approve" comment; neither
+          # passes here.
+          labeler=$(gh api --paginate "repos/$REPO/issues/$PR/events" \
+            --jq '.[] | select(.event == "labeled" and .label.name == "review: approved") | .actor.type' | tail -n 1)
+          if [ "$labeler" != "User" ]; then
+            echo "::error::'review: approved' was added by an app or bot ($labeler), not a reviewer. A reviewer adds it from their own account."
+            exit 1
+          fi
+          # The latest verdict on the head from a person decides: dismissed reviews are ignored,
+          # and a later "changes requested" overrides an earlier approve. Each page is reduced to
+          # "time<TAB>verdict" lines, then sorted across pages.
+          verdict=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews" --jq "
+            .[] | select(.commit_id == \"$HEAD\" and .user.type == \"User\" and .state != \"DISMISSED\")
+            | ((.body // \"\") | ascii_downcase | sub(\"^[\\\\s#*_>]+\"; \"\")) as \$b
+            | (if .state == \"CHANGES_REQUESTED\" then \"changes\"
+               elif (\$b | startswith(\"verdict: approve\")) then \"approve\"
+               elif (\$b | startswith(\"verdict:\")) then \"changes\"
+               elif .state == \"APPROVED\" then \"approve\"
+               else empty end) as \$v
+            | \"\(.submitted_at)\t\(\$v)\"" | sort | tail -n 1 | cut -f 2)
+          if [ "$verdict" != "approve" ]; then
+            echo "::error::'review: approved' is on, but the latest verdict on the head ($HEAD) is '${verdict:-none}', not an approve. Review the latest head."
+            exit 1
+          fi
+          echo "Reviewed: the latest verdict on $HEAD approves, and 'review: approved' is on."
         env:
-          APPROVED: "${{ contains(github.event.pull_request.labels.*.name, 'review: approved') }}"
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
