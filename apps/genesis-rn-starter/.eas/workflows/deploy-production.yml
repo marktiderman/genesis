@@ -3,7 +3,13 @@
 # .github/workflows/native-release.yml (GitHub Actions, which starts in seconds where an EAS job
 # can queue for most of an hour) for the commit it couldn't publish itself:
 #
-#   eas workflow:run .eas/workflows/deploy-production.yml --ref <commit> -F commit_sha=<commit> …
+#   eas workflow:run .eas/workflows/deploy-production.yml --ref <commit> -F commit_sha=<commit> \
+#     -F ios=true -F ios_runtime_version=<…> -F android=false -F android_runtime_version=<…>
+#
+# The runtime versions come from native-release.yml, which computes them with the build profile's
+# env (eas fingerprint:generate --build-profile, or your release.runtimeVersion command), so a
+# build here is matched on the same value. To start a release by hand, run native-release.yml
+# ("Run workflow" on main), which hands this workflow what it needs.
 #
 # native-release.yml runs on every push to main that changes the app. Per platform it finds the
 # commit's runtime version; when a FINISHED production build has it and no run of this workflow
@@ -29,6 +35,9 @@
 #   runs publish in the order their commits reached main. EAS drops waiting runs in between; the
 #   newest carries their code, and every platform (while a run is open, native-release.yml hands
 #   every platform here).
+# - The updates are published by the same steps as on GitHub (.eas/scripts/native-release.mjs):
+#   the build profile's env (with the platform's overrides), the runtime version checked before
+#   publishing and after. They need EXPO_TOKEN (an Expo robot token) in the EAS environment.
 # - Updates go to every install, not a staged share (a staged one would make the next update
 #   fail); rollout.yml promotes or reverts one you staged by hand.
 # - A build is submitted in the run that made it, so an update never goes to a build nobody has.
@@ -59,6 +68,10 @@ on:
         options: ["true", "false"]
         default: "true"
         description: Release iOS in this run.
+      ios_runtime_version:
+        type: string
+        required: true
+        description: iOS's runtime version, as native-release.yml computed it with the build profile's env.
       android:
         # A choice, compared as text: eas workflow:run -F sends every value as a string, so a
         # boolean "false" would read as true.
@@ -66,29 +79,24 @@ on:
         options: ["true", "false"]
         default: "true"
         description: Release Android in this run.
+      android_runtime_version:
+        type: string
+        required: true
+        description: Android's runtime version, as native-release.yml computed it with the build profile's env.
 
 # One release at a time. No cancel_in_progress: the running one always finishes.
 concurrency:
   group: ${{ workflow.filename }}
 
 jobs:
-  fingerprint:
-    name: Fingerprint
-    type: fingerprint
-    environment: production
-    env:
-      APP_VARIANT: production
-      EXPO_PUBLIC_APP_VARIANT: production
-
   get_ios_build:
     name: Find a production iOS build with this runtime version
-    needs: [fingerprint]
     if: ${{ inputs.ios == 'true' }}
     type: get-build
     params:
       platform: ios
-      profile: production
-      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+      profile: "production"
+      fingerprint_hash: ${{ inputs.ios_runtime_version }}
       # A JavaScript-only merge that landed while an earlier merge's build was running: wait for
       # that build and ship this commit as an update on it, instead of starting a second build.
       wait_for_in_progress: true
@@ -98,49 +106,59 @@ jobs:
     needs: [get_ios_build]
     if: ${{ inputs.ios == 'true' && !needs.get_ios_build.outputs.build_id }}
     type: build
-    environment: production
+    environment: "production"
     params:
       platform: ios
-      profile: production
+      profile: "production"
 
   submit_ios:
     name: Submit iOS to TestFlight
     needs: [build_ios]
     if: ${{ needs.build_ios.outputs.build_id }}
     type: submit
-    environment: production
+    environment: "production"
     params:
       build_id: ${{ needs.build_ios.outputs.build_id }}
-      profile: production
+      profile: "production"
 
+  # The same steps as native-release.yml's publish: the build profile's env (eas update doesn't
+  # apply eas.json's), the runtime version checked before and after, every install (no rollout).
   update_ios:
     name: Update iOS (every production install)
     needs: [get_ios_build]
     if: ${{ inputs.ios == 'true' && needs.get_ios_build.outputs.build_id }}
-    type: update
-    # The environment the fingerprint and the build profile read, so the update's JavaScript is
-    # built with the values the binary was.
-    environment: production
+    environment: "production"
     env:
-      APP_VARIANT: production
-      EXPO_PUBLIC_APP_VARIANT: production
-    params:
-      channel: production
-      platform: ios
-      # No rollout_percentage: unset, the update goes to every install.
-      # Explicit: unset, EAS tries an upload whenever @sentry/react-native is installed and hides a
-      # failure. genesis.config.json release.sentry turns it on.
-      upload_sentry_sourcemaps: false
+      COMMIT_SHA: ${{ inputs.commit_sha }}
+      RUNTIME_VERSION: ${{ needs.get_ios_build.outputs.runtime_version }}
+    outputs:
+      update_group: ${{ steps.publish.outputs.update_group }}
+    steps:
+      - uses: eas/checkout
+      # EAS CLI evaluates app.config.ts (and expo-updates resolves the runtime), so it needs the packages.
+      - uses: eas/install_node_modules
+      - id: publish
+        name: Publish the iOS update
+        run: |
+          set -eo pipefail
+          eval "$(node .eas/scripts/native-release.mjs profile-env eas.json "production" ios --shell)"
+          npx expo-updates runtimeversion:resolve --platform ios > resolved-ios.txt
+          node .eas/scripts/native-release.mjs runtime resolved-ios.txt ios "$RUNTIME_VERSION"
+          npx --yes eas-cli@26.0.0 update --channel "production" --platform ios --environment "production" --message "Release $COMMIT_SHA" --json --non-interactive > update-ios.json
+          out=$(node .eas/scripts/native-release.mjs update update-ios.json ios "$RUNTIME_VERSION")
+          echo "$out"
+          set-output update_group "$(echo "$out" | sed -n 's/^ios_update_group=//p')"
 
   get_android_build:
     name: Find a production Android build with this runtime version
-    needs: [fingerprint]
     if: ${{ inputs.android == 'true' }}
     type: get-build
     params:
       platform: android
-      profile: production
-      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      profile: "production"
+      fingerprint_hash: ${{ inputs.android_runtime_version }}
+      # A JavaScript-only merge that landed while an earlier merge's build was running: wait for
+      # that build and ship this commit as an update on it, instead of starting a second build.
       wait_for_in_progress: true
 
   build_android:
@@ -148,32 +166,45 @@ jobs:
     needs: [get_android_build]
     if: ${{ inputs.android == 'true' && !needs.get_android_build.outputs.build_id }}
     type: build
-    environment: production
+    environment: "production"
     params:
       platform: android
-      profile: production
+      profile: "production"
 
   submit_android:
     name: Submit Android to the internal track (draft)
     needs: [build_android]
     if: ${{ needs.build_android.outputs.build_id }}
     type: submit
-    environment: production
+    environment: "production"
     params:
       build_id: ${{ needs.build_android.outputs.build_id }}
-      profile: production
+      profile: "production"
 
+  # The same steps as native-release.yml's publish: the build profile's env (eas update doesn't
+  # apply eas.json's), the runtime version checked before and after, every install (no rollout).
   update_android:
     name: Update Android (every production install)
     needs: [get_android_build]
     if: ${{ inputs.android == 'true' && needs.get_android_build.outputs.build_id }}
-    type: update
-    environment: production
+    environment: "production"
     env:
-      APP_VARIANT: production
-      EXPO_PUBLIC_APP_VARIANT: production
-    params:
-      channel: production
-      platform: android
-      # No rollout_percentage: unset, the update goes to every install.
-      upload_sentry_sourcemaps: false
+      COMMIT_SHA: ${{ inputs.commit_sha }}
+      RUNTIME_VERSION: ${{ needs.get_android_build.outputs.runtime_version }}
+    outputs:
+      update_group: ${{ steps.publish.outputs.update_group }}
+    steps:
+      - uses: eas/checkout
+      # EAS CLI evaluates app.config.ts (and expo-updates resolves the runtime), so it needs the packages.
+      - uses: eas/install_node_modules
+      - id: publish
+        name: Publish the Android update
+        run: |
+          set -eo pipefail
+          eval "$(node .eas/scripts/native-release.mjs profile-env eas.json "production" android --shell)"
+          npx expo-updates runtimeversion:resolve --platform android > resolved-android.txt
+          node .eas/scripts/native-release.mjs runtime resolved-android.txt android "$RUNTIME_VERSION"
+          npx --yes eas-cli@26.0.0 update --channel "production" --platform android --environment "production" --message "Release $COMMIT_SHA" --json --non-interactive > update-android.json
+          out=$(node .eas/scripts/native-release.mjs update update-android.json android "$RUNTIME_VERSION")
+          echo "$out"
+          set-output update_group "$(echo "$out" | sed -n 's/^android_update_group=//p')"

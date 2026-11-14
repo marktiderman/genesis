@@ -14,8 +14,10 @@ export interface AddTemplateOptions {
   list?: boolean;
   dryRun?: boolean;
   replace?: boolean;
-  /** The release the CI callers pin; default: the installed umbrella's tag, looked up with git. */
+  /** The release the CI callers pin; default: the installed umbrella's tag, looked up with git, else the lock's. */
   pin?: ReleasePin | null;
+  /** How the installed release's pin is found (default: git ls-remote); null when it can't be. */
+  findPin?: (root: string) => ReleasePin | null;
   log?: (msg: string) => void;
 }
 
@@ -47,7 +49,7 @@ export async function addTemplates(root: string, names: string[], options: AddTe
     return names.length || options.list ? 0 : 1;
   }
   const templates = resolveTemplateNames(names);
-  const pin = options.pin !== undefined ? options.pin : templates.some((t) => t.startsWith("ci/") || t.startsWith("vercel/")) ? installedPin(root) : null;
+  const pin = options.pin !== undefined ? options.pin : templates.some((t) => t.startsWith("ci/") || t.startsWith("vercel/")) ? ((options.findPin ?? installedPin)(root) ?? readLock(root).pin ?? null) : null;
   const version = pinnedVersion(root, CLI_PACKAGE)?.version;
   const results = adoptTemplates(root, templates, { ...(options.dryRun ? { dryRun: true } : {}), ...(options.replace ? { replace: true } : {}), pin, ...(version ? { version } : {}) });
   const attention = (o: AdoptResult["outcome"]) => o === "next" || o === "pending" || o === "held";

@@ -611,9 +611,8 @@ pass `--no-install` or `--dry-run` and the doctor is on.)
 
 **The release lane, pins and missing templates.** Owned templates are rendered with the app's
 `genesis.config.json` `release` block (docs/NATIVE-RELEASE.md). An app whose lock still has the
-push-triggered `deploy-production.yml` gets the rest of the release lane in the same upgrade, once
-that file takes the new version (an edited one that lands in `.genesis-next` holds it back, and the
-summary says how to finish). Every Genesis caller in the repository's workflows
+push-triggered `deploy-production.yml` (and no `native-release.yml`) isn't switched: that file is
+held as it is, and the summary says how to adopt the new lane (`genesis add release`). Every Genesis caller in the repository's workflows
 (`uses: marktiderman/genesis/.github/workflows/…@<commit> # @marktiderman/genesis@<version>`) in
 an owned workflow takes the commit the release is tagged at with the file's new text, and the lock
 records it (`pin`); a shared workflow it only names moves its pin only when the template didn't

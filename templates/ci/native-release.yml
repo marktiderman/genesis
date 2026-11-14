@@ -69,13 +69,13 @@ jobs:
     # The release secrets live in the environment, not repository-wide; its branch policy limits it
     # to main. `deployment: false` keeps this job out of the environment's deployment history.
     environment:
-      name: GENESIS_RELEASE_ENVIRONMENT
+      name: "GENESIS_RELEASE_ENVIRONMENT"
       deployment: false
     defaults:
       run:
         # bash runs every step with -eo pipefail, so a failure before `| tee` fails the step.
         shell: bash
-        working-directory: GENESIS_RELEASE_WORKING_DIRECTORY
+        working-directory: "GENESIS_RELEASE_WORKING_DIRECTORY"
     # No job-wide EXPO_TOKEN: the install runs every dependency's scripts. expo-github-action
     # (`token:`) hands it to the eas steps after it.
     steps:
@@ -93,6 +93,8 @@ jobs:
         with:
           # Nothing here pushes; don't leave a token in .git/config for later steps.
           persist-credentials: false
+          # main's history, to tell whether the channel's latest update already carries this commit.
+          fetch-depth: 0
 #@if pnpm
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 #@end
@@ -132,47 +134,60 @@ jobs:
           eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT "node .eas/scripts/native-release.mjs mask $RUNNER_TEMP/release/runner-env.json" --non-interactive
 
       # Each platform's runtime version, as a production build records it, matched against the
-      # finished builds; the open EAS release runs decide the order.
+      # finished builds; the open EAS release runs decide the order. And the channel's latest
+      # update: GitHub may run a later commit's release first, and one that already shipped this
+      # commit's code (or newer) must not be overwritten by it.
       - name: Runtime versions, builds and EAS's release runs
         id: plan
         run: |
           for platform in ${PLATFORMS//,/ }; do
 #@if fingerprint
-            eas fingerprint:generate --platform "$platform" --build-profile GENESIS_RELEASE_PROFILE --json --non-interactive > "$RUNNER_TEMP/release/fingerprint-$platform.json"
+            eas fingerprint:generate --platform "$platform" --build-profile "$PROFILE" --json --non-interactive > "$RUNNER_TEMP/release/fingerprint-$platform.json"
             hash=$(node -p 'require(process.argv[1]).hash' "$RUNNER_TEMP/release/fingerprint-$platform.json")
-            eas build:list --platform "$platform" --build-profile GENESIS_RELEASE_PROFILE --fingerprint-hash "$hash" --limit 50 --json --non-interactive > "$RUNNER_TEMP/release/builds-$platform.json"
+            eas build:list --platform "$platform" --build-profile "$PROFILE" --fingerprint-hash "$hash" --limit 50 --json --non-interactive > "$RUNNER_TEMP/release/builds-$platform.json"
 #@end
 #@if !fingerprint
             export RELEASE_PLATFORM="$platform"
             { GENESIS_RELEASE_RUNTIME_COMMAND
             } > "$RUNNER_TEMP/release/runtime-$platform.txt"
             runtime=$(tr -d '[:space:]' < "$RUNNER_TEMP/release/runtime-$platform.txt")
-            eas build:list --platform "$platform" --build-profile GENESIS_RELEASE_PROFILE --runtime-version "$runtime" --limit 50 --json --non-interactive > "$RUNNER_TEMP/release/builds-$platform.json"
+            eas build:list --platform "$platform" --build-profile "$PROFILE" --runtime-version "$runtime" --limit 50 --json --non-interactive > "$RUNNER_TEMP/release/builds-$platform.json"
 #@end
+            eas update:list --branch "$CHANNEL" --platform "$platform" --limit 1 --json --non-interactive > "$RUNNER_TEMP/release/latest-$platform.json"
+            latest=$(node .eas/scripts/native-release.mjs latest-commit "$RUNNER_TEMP/release/latest-$platform.json" "$platform")
+            if [ -n "$latest" ] && git merge-base --is-ancestor "$GITHUB_SHA" "$latest" 2>/dev/null; then
+              echo "$latest" > "$RUNNER_TEMP/release/shipped-$platform.txt"
+            fi
           done
           eas workflow:runs --workflow deploy-production.yml --limit 50 --json > "$RUNNER_TEMP/release/runs.json"
-          node .eas/scripts/native-release.mjs plan "$RUNNER_TEMP/release" "$PLATFORMS" GENESIS_RELEASE_PROFILE | tee -a "$GITHUB_OUTPUT"
+          node .eas/scripts/native-release.mjs plan "$RUNNER_TEMP/release" "$PLATFORMS" "$PROFILE" | tee -a "$GITHUB_OUTPUT"
         env:
-          PLATFORMS: GENESIS_RELEASE_PLATFORMS
+          PLATFORMS: "GENESIS_RELEASE_PLATFORMS"
+          PROFILE: "GENESIS_RELEASE_PROFILE"
+          # EAS names an update's branch after the channel it was published to (eas update --channel).
+          CHANNEL: "GENESIS_RELEASE_CHANNEL"
 
       # Nothing below runs without a plan; a green job that did nothing would hide that.
       - name: The plan decided
-        if: steps.plan.outputs.publish_platforms == '' && steps.plan.outputs.eas_platforms == ''
+        if: steps.plan.outputs.publish_platforms == '' && steps.plan.outputs.eas_platforms == '' && steps.plan.outputs.skipped_platforms == ''
         run: |
           echo "::error::The plan gave no action. Nothing was published or built."
           exit 1
 
-      # eas update reads the EAS environment but not the build profile's `env` (eas.json), which
-      # the build and the EAS lane's updates use (APP_VARIANT…): the update's JavaScript is built
-      # with the same values.
-      - name: The build profile's env
-        if: steps.plan.outputs.publish_platforms != ''
-        run: node .eas/scripts/native-release.mjs profile-env eas.json GENESIS_RELEASE_PROFILE >> "$GITHUB_ENV"
+      # Said out loud: a skipped release is never a quiet green.
+      - name: Already shipped
+        if: steps.plan.outputs.skipped_platforms != ''
+        env:
+          SKIPPED: ${{ steps.plan.outputs.skipped_platforms }}
+        run: |
+          echo "::warning title=Not published::The production channel's latest update for $SKIPPED already carries $GITHUB_SHA (or a later commit): nothing is published or built for it here."
+          echo "Not published for $SKIPPED: the channel's latest update already carries $GITHUB_SHA or a later commit." >> "$GITHUB_STEP_SUMMARY"
 #@if sentry
 
       # The source map upload has to work, or the update's crashes are unreadable: stop before
       # publishing rather than after.
       - name: Sentry can take the source maps
+        id: sentry_check
         if: steps.plan.outputs.publish_platforms != ''
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -183,20 +198,28 @@ jobs:
       # ---- iOS: a finished build has this runtime version, and no EAS release run is open. ----
       - name: Publish the iOS update
         id: update_ios
-        if: steps.plan.outputs.ios_action == 'publish'
+#@if sentry
+        if: ${{ steps.plan.outputs.ios_action == 'publish' && steps.plan.outcome == 'success' && steps.sentry_check.outcome == 'success' }}
+#@end
+#@if !sentry
+        if: ${{ steps.plan.outputs.ios_action == 'publish' && steps.plan.outcome == 'success' }}
+#@end
         env:
           RUNTIME_VERSION: ${{ steps.plan.outputs.ios_runtime_version }}
         run: |
+          # eas update reads the EAS environment but not the build profile's `env` (eas.json, with
+          # its ios overrides), which the build used: the update is bundled with the same values.
+          eval "$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" ios --shell)"
           # The runtime version this checkout gives, checked against the build's before publishing.
           eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx expo-updates runtimeversion:resolve --platform ios' --non-interactive > "$RUNNER_TEMP/release/resolved-ios.txt"
           node .eas/scripts/native-release.mjs runtime "$RUNNER_TEMP/release/resolved-ios.txt" ios "$RUNTIME_VERSION"
           message=$(git log -1 --format=%s)
-          eas update --channel GENESIS_RELEASE_CHANNEL --platform ios --environment GENESIS_RELEASE_EAS_ENVIRONMENT --message "$message" --json --non-interactive > "$RUNNER_TEMP/release/update-ios.json"
+          eas update --channel "GENESIS_RELEASE_CHANNEL" --platform ios --environment GENESIS_RELEASE_EAS_ENVIRONMENT --message "$message" --json --non-interactive > "$RUNNER_TEMP/release/update-ios.json"
           node .eas/scripts/native-release.mjs update "$RUNNER_TEMP/release/update-ios.json" ios "$RUNTIME_VERSION" | tee -a "$GITHUB_OUTPUT"
 #@if sentry
 
       - name: Upload the iOS update's source maps to Sentry
-        if: steps.update_ios.outcome == 'success'
+        if: ${{ !cancelled() && steps.update_ios.outcome == 'success' }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx sentry-expo-upload-sourcemaps dist' --non-interactive
@@ -204,13 +227,13 @@ jobs:
 #@if pushHook
 
       - name: Run the release hook (iOS update)
-        if: steps.update_ios.outcome == 'success'
+        if: ${{ !cancelled() && steps.update_ios.outcome == 'success' }}
         env:
           RELEASE_KIND: update
           RELEASE_PLATFORM: ios
           RELEASE_COMMIT: ${{ github.sha }}
           RELEASE_REPOSITORY: ${{ github.repository }}
-          RELEASE_CHANNEL: GENESIS_RELEASE_CHANNEL
+          RELEASE_CHANNEL: "GENESIS_RELEASE_CHANNEL"
           RELEASE_APP_VERSION: ${{ steps.plan.outputs.ios_app_version }}
           RELEASE_RUNTIME_VERSION: ${{ steps.update_ios.outputs.ios_runtime_version }}
           RELEASE_UPDATE_GROUP: ${{ steps.update_ios.outputs.ios_update_group }}
@@ -221,18 +244,26 @@ jobs:
 #@end
 #@if android
 
-      # ---- Android: the same, on its own: an iOS failure doesn't hold it back. ----
+      # ---- Android: a finished build has this runtime version, and no EAS release run is open. An iOS failure doesn't hold it back; the shared checks above do. ----
       - name: Publish the Android update
         id: update_android
-        if: ${{ !cancelled() && steps.plan.outputs.android_action == 'publish' }}
+#@if sentry
+        if: ${{ !cancelled() && steps.plan.outputs.android_action == 'publish' && steps.plan.outcome == 'success' && steps.sentry_check.outcome == 'success' }}
+#@end
+#@if !sentry
+        if: ${{ !cancelled() && steps.plan.outputs.android_action == 'publish' && steps.plan.outcome == 'success' }}
+#@end
         env:
           RUNTIME_VERSION: ${{ steps.plan.outputs.android_runtime_version }}
         run: |
+          # eas update reads the EAS environment but not the build profile's `env` (eas.json, with
+          # its android overrides), which the build used: the update is bundled with the same values.
+          eval "$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" android --shell)"
           # The runtime version this checkout gives, checked against the build's before publishing.
           eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx expo-updates runtimeversion:resolve --platform android' --non-interactive > "$RUNNER_TEMP/release/resolved-android.txt"
           node .eas/scripts/native-release.mjs runtime "$RUNNER_TEMP/release/resolved-android.txt" android "$RUNTIME_VERSION"
           message=$(git log -1 --format=%s)
-          eas update --channel GENESIS_RELEASE_CHANNEL --platform android --environment GENESIS_RELEASE_EAS_ENVIRONMENT --message "$message" --json --non-interactive > "$RUNNER_TEMP/release/update-android.json"
+          eas update --channel "GENESIS_RELEASE_CHANNEL" --platform android --environment GENESIS_RELEASE_EAS_ENVIRONMENT --message "$message" --json --non-interactive > "$RUNNER_TEMP/release/update-android.json"
           node .eas/scripts/native-release.mjs update "$RUNNER_TEMP/release/update-android.json" android "$RUNTIME_VERSION" | tee -a "$GITHUB_OUTPUT"
 #@if sentry
 
@@ -251,7 +282,7 @@ jobs:
           RELEASE_PLATFORM: android
           RELEASE_COMMIT: ${{ github.sha }}
           RELEASE_REPOSITORY: ${{ github.repository }}
-          RELEASE_CHANNEL: GENESIS_RELEASE_CHANNEL
+          RELEASE_CHANNEL: "GENESIS_RELEASE_CHANNEL"
           RELEASE_APP_VERSION: ${{ steps.plan.outputs.android_app_version }}
           RELEASE_RUNTIME_VERSION: ${{ steps.update_android.outputs.android_runtime_version }}
           RELEASE_UPDATE_GROUP: ${{ steps.update_android.outputs.android_update_group }}
@@ -264,9 +295,10 @@ jobs:
       # ---- Every other platform: EAS takes this commit. ----
 
       # The EAS workflow runs from this exact commit (--ref; nothing local is uploaded) and is told
-      # the commit, since a run started this way has no github.sha. </dev/null: never wait on a prompt.
+      # the commit and each platform's runtime version (computed here with the build profile's env),
+      # since a run started this way has no github.sha. </dev/null: never wait on a prompt.
       - name: Hand the release to EAS
-        if: ${{ !cancelled() && steps.plan.outputs.eas_platforms != '' }}
+        if: ${{ !cancelled() && steps.plan.outcome == 'success' && steps.plan.outputs.eas_platforms != '' }}
         env:
           EAS_PLATFORMS: ${{ steps.plan.outputs.eas_platforms }}
           LANE_OPEN: ${{ steps.plan.outputs.lane_open }}
@@ -277,15 +309,9 @@ jobs:
           args=(-F "commit_sha=$GITHUB_SHA" -F "repository=$GITHUB_REPOSITORY")
 #@if ios
           # Choices, compared as text on EAS: -F sends every value as a string.
-          args+=(-F "ios=$([[ ",$EAS_PLATFORMS," == *,ios,* ]] && echo true || echo false)")
-#@if !fingerprint
-          args+=(-F "ios_runtime_version=$IOS_RUNTIME")
-#@end
+          args+=(-F "ios=$([[ ",$EAS_PLATFORMS," == *,ios,* ]] && echo true || echo false)" -F "ios_runtime_version=$IOS_RUNTIME")
 #@end
 #@if android
-          args+=(-F "android=$([[ ",$EAS_PLATFORMS," == *,android,* ]] && echo true || echo false)")
-#@if !fingerprint
-          args+=(-F "android_runtime_version=$ANDROID_RUNTIME")
-#@end
+          args+=(-F "android=$([[ ",$EAS_PLATFORMS," == *,android,* ]] && echo true || echo false)" -F "android_runtime_version=$ANDROID_RUNTIME")
 #@end
           eas workflow:run .eas/workflows/deploy-production.yml --ref "$GITHUB_SHA" "${args[@]}" --non-interactive --json </dev/null

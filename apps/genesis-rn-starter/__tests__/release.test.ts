@@ -111,6 +111,8 @@ describe("EAS workflows", () => {
     // Unset, EAS tries an upload whenever @sentry/react-native is installed and hides a failure.
     for (const [id, job] of Object.entries(workflow(file).jobs)) {
       if (job.type === "update") expect(job.params?.upload_sentry_sourcemaps, `${file} ${id}`).toBe(false);
+      // The release lane's scripted updates upload source maps only with release.sentry.
+      for (const step of job.steps ?? []) expect(step.run ?? "", `${file} ${id}`).not.toContain("sentry-expo-upload-sourcemaps");
     }
   });
 
@@ -157,10 +159,13 @@ describe("EAS workflows", () => {
 
   it("deploy-production updates every install, and submits each build in the run that made it", () => {
     const { jobs } = workflow("deploy-production.yml");
-    const updates = Object.values(jobs).filter((j) => j.type === "update");
-    expect(updates).toHaveLength(2);
-    for (const job of updates) expect(job.params?.rollout_percentage).toBeUndefined();
+    // Published by the lane's script (the profile's env, the runtime checked), to every install:
+    // eas update with no --rollout-percentage.
     for (const platform of ["ios", "android"]) {
+      const publish = jobs[`update_${platform}`]?.steps?.map((st) => st.run ?? "").join("\n") ?? "";
+      expect(publish).toContain(`update --channel "production" --platform ${platform}`);
+      expect(publish).not.toContain("rollout-percentage");
+      expect(publish).toContain(`profile-env eas.json "production" ${platform} --shell`);
       expect(jobs[`get_${platform}_build`]?.if).toBe(`\${{ inputs.${platform} == 'true' }}`);
       expect(jobs[`update_${platform}`]?.if).toBe(`\${{ inputs.${platform} == 'true' && needs.get_${platform}_build.outputs.build_id }}`);
       expect(jobs[`update_${platform}`]?.needs).toEqual([`get_${platform}_build`]);

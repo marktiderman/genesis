@@ -56,6 +56,37 @@ export function checkNativePack(ctx: DoctorContext): void {
   checkReleaseLaneTwice(ctx);
 }
 
+const APP_CONFIGS = ["app.json", "app.config.json", "app.config.ts", "app.config.js", "app.config.mjs", "app.config.cjs"];
+const FINGERPRINT_CONFIGS = ["fingerprint.config.js", "fingerprint.config.cjs", "fingerprint.config.mjs"];
+
+/**
+ * `fingerprint-plugin-files`: the runtime version is the fingerprint (`runtimeVersion: { policy:
+ * "fingerprint" }`, which the Genesis plugin sets, as a plugin entry or the `withGenesis()`
+ * wrapper, unless given `fingerprint: false`) and the app loads genesis-native's config plugin,
+ * but no fingerprint config hashes config plugins by their files. Hashed by package.json, each new
+ * version of the plugin's package gives a new runtime version, so a Genesis upgrade makes a store
+ * build instead of an update (`genesis add template expo` writes it). Every Expo config file is
+ * read together: a dynamic `app.config.js` passes on what `app.json` sets.
+ */
+export function checkFingerprintConfig(ctx: DoctorContext): void {
+  const configs = APP_CONFIGS.filter((f) => existsSync(path.join(ctx.root, f)));
+  if (!configs.length) return;
+  const text = configs.map((f) => readFileSync(path.join(ctx.root, f), "utf8")).join("\n");
+  const genesisPlugin = /["']@marktiderman\/genesis-cli(?:\/expo)?["']|\bwithGenesis\s*\(/.test(text) && !/\bfingerprint["']?\s*:\s*false\b/.test(text);
+  const fingerprint = /\bpolicy["']?\s*:\s*["']fingerprint["']/.test(text) || genesisPlugin;
+  const nativePlugin = /["']@marktiderman\/genesis-native\/rich-push-plugin["']/.test(text);
+  if (!fingerprint || !nativePlugin) return;
+  const own = FINGERPRINT_CONFIGS.find((f) => existsSync(path.join(ctx.root, f)));
+  if (own && /\bconfigPluginSourceType["']?\s*:\s*["']files["']/.test(readFileSync(path.join(ctx.root, own), "utf8"))) return;
+  const config = configs.find((f) => /["']@marktiderman\/genesis-native\/rich-push-plugin["']/.test(readFileSync(path.join(ctx.root, f), "utf8"))) ?? configs[0]!;
+  ctx.report({
+    rule: "fingerprint-plugin-files",
+    level: "warn",
+    file: own ?? config,
+    message: `${configs.join(" and ")} use${configs.length === 1 ? "s" : ""} the fingerprint runtime version and genesis-native's config plugin, but ${own ?? "no fingerprint.config.js"} ${own ? "doesn't hash" : "hashes"} config plugins by their files (configPluginSourceType: "files"): every new Genesis version would make a store build instead of an update. Run \`genesis add template expo\` (docs/NATIVE-RELEASE.md, "Fingerprints")`,
+  });
+}
+
 /**
  * `release-lane-twice`: the app has the release lane's native-release.yml and another workflow
  * that also releases (an EAS workflow with a push trigger and an update or build job, the old
@@ -80,33 +111,6 @@ export function checkReleaseLaneTwice(ctx: DoctorContext): void {
       message: `${rival} also releases (EAS updates or builds) beside .github/workflows/native-release.yml, so each release would go out twice. Make it the lane's dispatch-only deploy-production.yml (genesis add template release --replace), or remove it (docs/NATIVE-RELEASE.md, "Adopting the lane")`,
     });
   }
-}
-
-const APP_CONFIGS = ["app.config.ts", "app.config.js", "app.config.mjs", "app.config.cjs", "app.json"];
-const FINGERPRINT_CONFIGS = ["fingerprint.config.js", "fingerprint.config.cjs", "fingerprint.config.mjs"];
-
-/**
- * `fingerprint-plugin-files`: the runtime version is the fingerprint (`runtimeVersion: { policy:
- * "fingerprint" }`, which the Genesis plugin `@marktiderman/genesis-cli` sets) and the app loads
- * genesis-native's config plugin, but no fingerprint config hashes config plugins by their files.
- * Hashed by package.json, each new version of the plugin's package gives a new runtime version, so
- * a Genesis upgrade makes a store build instead of an update (`genesis add template expo` writes it).
- */
-export function checkFingerprintConfig(ctx: DoctorContext): void {
-  const config = APP_CONFIGS.find((f) => existsSync(path.join(ctx.root, f)));
-  if (!config) return;
-  const text = readFileSync(path.join(ctx.root, config), "utf8");
-  const fingerprint = /\bpolicy["']?\s*:\s*["']fingerprint["']/.test(text) || /["']@marktiderman\/genesis-cli["']/.test(text);
-  const nativePlugin = /["']@marktiderman\/genesis-native\/rich-push-plugin["']/.test(text);
-  if (!fingerprint || !nativePlugin) return;
-  const own = FINGERPRINT_CONFIGS.find((f) => existsSync(path.join(ctx.root, f)));
-  if (own && /\bconfigPluginSourceType["']?\s*:\s*["']files["']/.test(readFileSync(path.join(ctx.root, own), "utf8"))) return;
-  ctx.report({
-    rule: "fingerprint-plugin-files",
-    level: "warn",
-    file: own ?? config,
-    message: `${config} uses the fingerprint runtime version and genesis-native's config plugin, but ${own ?? "no fingerprint.config.js"} ${own ? "doesn't hash" : "hashes"} config plugins by their files (configPluginSourceType: "files"): every new Genesis version would make a store build instead of an update. Run \`genesis add template expo\` (docs/NATIVE-RELEASE.md, "Fingerprints")`,
-  });
 }
 
 /**

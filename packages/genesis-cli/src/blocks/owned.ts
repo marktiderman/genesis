@@ -52,7 +52,7 @@ export function copyOwned(root: string, lock: GenesisLock, write: OwnedWrite, dr
 }
 
 export type RefreshOutcome =
-  | { path: string; outcome: "unchanged" | "updated" | "merged" | "conflict" | "kept-deleted" | "gone-upstream" | "kept-mine" | "refused" | "deferred" | "resolved" | "repository"; detail?: string };
+  | { path: string; outcome: "unchanged" | "updated" | "merged" | "conflict" | "kept-deleted" | "gone-upstream" | "kept-mine" | "refused" | "deferred" | "resolved" | "repository" | "held"; detail?: string };
 
 const CLI = "@marktiderman/genesis-cli";
 

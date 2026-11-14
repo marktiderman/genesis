@@ -310,18 +310,74 @@ function listUnder(lines: string[], key: RegExp): string[] | undefined {
   return items;
 }
 
+interface PushFilter {
+  branches?: string[] | undefined;
+  ignore?: string[] | undefined;
+  tags?: string[] | undefined;
+}
+
+/** Whether a push trigger with these filters runs for a push to `branch`. */
+function pushFires(filter: PushFilter, branch: string): boolean {
+  if (filter.ignore?.some((p) => branchGlob(p).test(branch))) return false;
+  // Tags alone: a tag push, never a branch push (an empty branch list, as EAS and GitHub read it).
+  if (!filter.branches) return !filter.tags;
+  // GitHub's order rule: the last pattern that matches decides; `!` excludes.
+  let fires = false;
+  for (const p of filter.branches) {
+    const negated = p.startsWith("!");
+    if (branchGlob(negated ? p.slice(1) : p).test(branch)) fires = !negated;
+  }
+  return fires;
+}
+
+/** A YAML flow collection (`{push: {branches: [main]}}`, `{"push": …}`) as a value, or undefined when it can't be read. */
+export function parseFlow(text: string): unknown {
+  const attempt = (t: string) => {
+    try {
+      return JSON.parse(t) as unknown;
+    } catch {
+      return undefined;
+    }
+  };
+  const direct = attempt(text);
+  if (direct !== undefined) return direct;
+  // Single quotes to double, then every bare scalar quoted.
+  const quoted = text
+    .replace(/'((?:[^']|'')*)'/g, (_m, inner: string) => JSON.stringify(inner.replace(/''/g, "'")))
+    .replace(/("(?:[^"\\]|\\.)*")|([^\s"{}[\],:][^"{}[\],:]*?)(?=\s*[:,\]}])/g, (m, str: string | undefined, bare: string | undefined) => (str ? m : JSON.stringify(bare!.trim())));
+  return attempt(quoted);
+}
+
+const asList = (v: unknown): string[] | undefined => (v === undefined || v === null ? undefined : (Array.isArray(v) ? v : [v]).map(String));
+
+/** The filters of a parsed `push` value: null or {} for none. */
+function filterOf(push: unknown): PushFilter {
+  if (!push || typeof push !== "object") return {};
+  const o = push as Record<string, unknown>;
+  return { branches: asList(o.branches), ignore: asList(o.branches_ignore ?? o["branches-ignore"]), tags: asList(o.tags ?? o.tags_ignore ?? o["tags-ignore"]) };
+}
+
 /**
  * True when a workflow's top-level `on:` has a `push` trigger that can fire on `branch` (default
- * `main`): no branch filter, or a `branches` pattern that matches it (globs, with `!` excluding),
- * and no `branches_ignore` (or `branches-ignore`) pattern that does. A push trigger only for
- * other branches (a preview lane on `preview`) isn't one.
+ * `main`): no branch filter (and no tag filter, which makes it a tag push), or a `branches` pattern
+ * that matches it (globs, with `!` excluding), and no `branches_ignore` (or `branches-ignore`)
+ * pattern that does. A push trigger only for other branches (a preview lane on `preview`), or
+ * only for tags, isn't one. Block and flow forms (`on: {"push": {"branches": ["main"]}}`) are read.
  */
 export function hasPushTrigger(text: string, branch = "main"): boolean {
   const lines = text.split("\n");
   const at = lines.findIndex((l) => /^["']?on["']?\s*:/.test(l));
   if (at < 0) return false;
-  const inline = lines[at]!.replace(/^["']?on["']?\s*:/, "").replace(/#.*$/, "").trim();
-  if (inline) return /(?:^|[\s,[{])push\b/.test(inline);
+  const inline = lines[at]!.replace(/^["']?on["']?\s*:/, "").replace(/\s#.*$/, "").trim();
+  if (inline) {
+    if (inline.startsWith("{")) {
+      const on = parseFlow(inline);
+      if (on && typeof on === "object" && !Array.isArray(on)) return "push" in on && pushFires(filterOf((on as Record<string, unknown>).push), branch);
+      // Unreadable: a push in it counts.
+      return /["']?\bpush\b["']?\s*:/.test(inline);
+    }
+    return /(?:^|[\s,[])["']?push["']?(?=\s*(?:[,\]]|$))/.test(inline);
+  }
   let indent: number | null = null;
   for (const [i, line] of lines.entries()) {
     if (i <= at || !line.trim() || /^\s*#/.test(line)) continue;
@@ -329,7 +385,11 @@ export function hasPushTrigger(text: string, branch = "main"): boolean {
     const own = indentOf(line);
     indent ??= own;
     if (own !== indent || !/^["']?push["']?\s*:/.test(line.trimStart())) continue;
-    if (line.replace(/#.*$/, "").trim().replace(/^["']?push["']?\s*:/, "").trim() && !/:\s*(?:\{\s*\}|null|~)\s*$/.test(line.replace(/#.*$/, ""))) return true;
+    const value = line.trimStart().replace(/^["']?push["']?\s*:/, "").replace(/\s#.*$/, "").trim();
+    if (value && !/^(?:\{\s*\}|null|~)$/.test(value)) {
+      const flow = value.startsWith("{") ? parseFlow(value) : undefined;
+      return flow === undefined ? true : pushFires(filterOf(flow), branch);
+    }
     // The push block: its lines, more indented than `push:`.
     const block: string[] = [];
     for (const next of lines.slice(i + 1)) {
@@ -337,17 +397,14 @@ export function hasPushTrigger(text: string, branch = "main"): boolean {
       if (indentOf(next) <= own) break;
       block.push(next);
     }
-    const branches = listUnder(block, /^["']?branches["']?\s*:/);
-    const ignore = listUnder(block, /^["']?branches[_-]ignore["']?\s*:/);
-    if (ignore?.some((p) => branchGlob(p).test(branch))) return false;
-    if (!branches) return true;
-    // GitHub's order rule: the last pattern that matches decides; `!` excludes.
-    let fires = false;
-    for (const p of branches) {
-      const negated = p.startsWith("!");
-      if (branchGlob(negated ? p.slice(1) : p).test(branch)) fires = !negated;
-    }
-    return fires;
+    return pushFires(
+      {
+        branches: listUnder(block, /^["']?branches["']?\s*:/),
+        ignore: listUnder(block, /^["']?branches[_-]ignore["']?\s*:/),
+        tags: listUnder(block, /^["']?tags(?:[_-]ignore)?["']?\s*:/),
+      },
+      branch,
+    );
   }
   return false;
 }
@@ -360,7 +417,8 @@ export function pushTriggeredEasWorkflows(root: string): string[] {
     .filter((f) => /\.ya?ml$/.test(f))
     .filter((f) => {
       const text = readFileSync(path.join(dir, f), "utf8");
-      return hasPushTrigger(text) && /^\s+type:\s*["']?(?:update|build)["']?\s*$/m.test(text);
+      // A job type, quoted or not, a comment after it allowed.
+      return hasPushTrigger(text) && /^\s+["']?type["']?\s*:\s*["']?(?:update|build)["']?\s*(?:#.*)?$/m.test(text);
     })
     .map((f) => `.eas/workflows/${f}`);
 }
@@ -375,7 +433,11 @@ export function competingReleaseWorkflows(root: string, appFolder: string | null
   const github = existsSync(dir)
     ? readdirSync(dir)
         .filter((f) => /\.ya?ml$/.test(f) && f !== "native-release.yml")
-        .filter((f) => /\beas\s+(?:update|workflow:run|build)\b/.test(readFileSync(path.join(dir, f), "utf8")))
+        .filter((f) => {
+          // Only one that releases by itself on a push to main: a manual-only one can't double a release.
+          const text = readFileSync(path.join(dir, f), "utf8");
+          return /\beas\s+(?:update|workflow:run|build)\b/.test(text) && hasPushTrigger(text);
+        })
         .map((f) => `.github/workflows/${f}`)
     : [];
   return [...github, ...pushTriggeredEasWorkflows(root)];

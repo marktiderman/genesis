@@ -22,13 +22,17 @@
 //     (<platform>_action=publish) unless an EAS release run is open; every other platform goes to
 //     EAS (<platform>_action=eas). Writes key=value lines (GITHUB_OUTPUT format), with
 //     publish_platforms and eas_platforms; exits 1 rather than guess when a file isn't what eas
-//     printed, or a build's runtime isn't its fingerprint.
+//     printed, or a build's runtime isn't its fingerprint. A platform with <dir>/shipped-<platform>.txt
+//     (the channel's latest update already carries this commit) is skipped (<platform>_action=skip).
 //   node .eas/scripts/native-release.mjs update <update.json> <platform> <runtime version>
 //     From `eas update --json`: the platform's update group, checked against the runtime version
 //     the plan matched (an update for another runtime reaches no phone).
-//   node .eas/scripts/native-release.mjs profile-env <eas.json> <profile>
-//     The build profile's `env` (following `extends`) as NAME=value lines for $GITHUB_ENV: eas
-//     update doesn't apply it, and the build and the EAS lane's updates do.
+//   node .eas/scripts/native-release.mjs profile-env <eas.json> <profile> [platform] [--shell]
+//     The build profile's `env` as EAS resolves it for the platform (along `extends`, with
+//     `<platform>.env` over it), as NAME=value lines, or `export` lines to eval: eas update doesn't
+//     apply it, and the build does.
+//   node .eas/scripts/native-release.mjs latest-commit <update-list.json> <platform>
+//     The commit of the channel's latest update for the platform (`eas update:list --json`), or "".
 //   node .eas/scripts/native-release.mjs runtime <resolved.txt> <platform> <runtime version>
 //     Before publishing: fails unless `expo-updates runtimeversion:resolve` (its output in
 //     <resolved.txt>) gives the runtime version the plan matched, so a mismatched update is never
@@ -115,7 +119,10 @@ export function laneOpen(runs) {
 
 /**
  * The plan's outputs, as `key=value` lines.
- * @param {Record<string, { runtime: string, by: "fingerprint" | "runtime", builds: unknown }>} byPlatform
+ * A platform whose channel already has an update carrying this commit or a later one (`shipped`,
+ * the later commit) is skipped: GitHub can run a later commit's release first, and publishing
+ * this one after it would put the older code back.
+ * @param {Record<string, { runtime: string, by: "fingerprint" | "runtime", builds: unknown, shipped?: string }>} byPlatform
  * @param {unknown} runs
  * @param {string} profile
  */
@@ -126,10 +133,12 @@ export function planOutputs(byPlatform, runs, profile) {
   const out = {};
   const publish = [];
   const eas = [];
+  const skipped = [];
   for (const platform of platforms) {
-    const { runtime, by, builds } = byPlatform[platform];
+    const { runtime, by, builds, shipped } = byPlatform[platform];
     if (by === "fingerprint" && (typeof runtime !== "string" || !/^[0-9a-f]{40}$/i.test(runtime))) throw new Error(`eas fingerprint:generate gave no ${platform} fingerprint hash.`);
-    if (by === "runtime" && (typeof runtime !== "string" || !/^[\w.+-]{1,200}$/.test(runtime))) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${runtime ?? ""}").`);
+    // Any runtime version Expo takes (`1.0.0`, `1.0.0(1)`, …): up to 255 characters, no spaces.
+    if (by === "runtime" && (typeof runtime !== "string" || !/^\S{1,255}$/.test(runtime))) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${runtime ?? ""}").`);
     // Read as "no build", a broken list would start a native build on every merge.
     if (!Array.isArray(builds)) throw new Error(`eas build:list --json did not print a list of ${platform} builds.`);
     const build = by === "fingerprint" ? pickBuild(builds, runtime, platform, profile) : pickBuildByRuntime(builds, runtime, platform, profile);
@@ -144,11 +153,12 @@ export function planOutputs(byPlatform, runs, profile) {
       out[`${platform}_build_id`] = build.id;
       out[`${platform}_app_version`] = build.appVersion ?? "";
     }
-    const action = build && !open ? "publish" : "eas";
+    const action = shipped ? "skip" : build && !open ? "publish" : "eas";
     out[`${platform}_action`] = action;
-    (action === "publish" ? publish : eas).push(platform);
+    if (shipped) out[`${platform}_shipped_by`] = shipped;
+    (action === "publish" ? publish : action === "eas" ? eas : skipped).push(platform);
   }
-  return Object.entries({ ...out, lane_open: open ? "true" : "false", publish_platforms: publish.join(","), eas_platforms: eas.join(",") }).map(([k, v]) => `${k}=${v}`);
+  return Object.entries({ ...out, lane_open: open ? "true" : "false", publish_platforms: publish.join(","), eas_platforms: eas.join(","), skipped_platforms: skipped.join(",") }).map(([k, v]) => `${k}=${v}`);
 }
 
 /** The finished store build of `profile` for `platform` recorded with `runtime` (an app's own runtime version), or null. */
@@ -183,11 +193,14 @@ export function updateOutputs(updates, platform, runtime) {
 }
 
 /**
- * The build profile's `env` from eas.json, following `extends` (the profile's own values win), as
- * `NAME=value` lines. A value with a line break can't be one line of $GITHUB_ENV: refused.
- * @param {{ build?: Record<string, { extends?: string, env?: Record<string, unknown> }> }} easJson
+ * The build profile's `env` for `platform`, as EAS resolves it: along `extends`, each profile's
+ * common `env` then its `<platform>.env` over it, the profile's own values over what it extends.
+ * Lines `NAME=value`, or with `shell`, `export NAME='value'` lines to `eval`. A value with a line
+ * break is refused.
+ * @param {{ build?: Record<string, { extends?: string, env?: Record<string, unknown>, ios?: { env?: Record<string, unknown> }, android?: { env?: Record<string, unknown> } }> }} easJson
  */
-export function profileEnv(easJson, profile) {
+export function profileEnv(easJson, profile, platform, shell = false) {
+  if (platform !== undefined && !PLATFORMS.includes(platform)) throw new Error(`profile-env: platform must be ios or android (got "${platform}").`);
   const build = easJson?.build ?? {};
   const seen = new Set();
   const resolve = (name) => {
@@ -195,14 +208,29 @@ export function profileEnv(easJson, profile) {
     seen.add(name);
     const own = build[name];
     if (!own) throw new Error(`eas.json has no build profile "${name}".`);
-    return { ...(own.extends ? resolve(own.extends) : {}), ...(own.env ?? {}) };
+    const base = own.extends ? resolve(own.extends) : { common: {}, platform: {} };
+    return { common: { ...base.common, ...(own.env ?? {}) }, platform: { ...base.platform, ...((platform && own[platform]?.env) ?? {}) } };
   };
-  return Object.entries(resolve(profile)).map(([key, value]) => {
+  const { common, platform: overrides } = resolve(profile);
+  return Object.entries({ ...common, ...overrides }).map(([key, value]) => {
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new Error(`eas.json build.${profile}.env has a name that isn't one: "${key}".`);
     const text = String(value);
     if (/[\r\n]/.test(text)) throw new Error(`eas.json build.${profile}.env.${key} has a line break; it can't be passed on.`);
-    return `${key}=${text}`;
+    return shell ? `export ${key}='${text.replace(/'/g, "'\\''")}'` : `${key}=${text}`;
   });
+}
+
+/**
+ * The commit of the latest update for `platform` in `eas update:list --json`, or "" when there is
+ * none (or it has no commit).
+ * @param {unknown} list
+ */
+export function latestCommit(list, platform) {
+  const items = Array.isArray(list) ? list : Array.isArray(list?.updates) ? list.updates : Array.isArray(list?.currentPage) ? list.currentPage : null;
+  if (!items) throw new Error("eas update:list --json did not print a list of updates.");
+  const latest = items.filter((u) => !u?.platform || u.platform === platform).sort((a, b) => String(b?.createdAt ?? "").localeCompare(String(a?.createdAt ?? "")))[0];
+  const sha = latest?.gitCommitHash ?? "";
+  return /^[0-9a-f]{40}$/i.test(sha) ? sha : "";
 }
 
 /** The runtime version in `expo-updates runtimeversion:resolve`'s output, or null. */
@@ -239,7 +267,9 @@ async function main(command, args, env) {
       parsePlatforms(list).map((p) => {
         const own = join(dir, `runtime-${p}.txt`);
         const runtime = existsSync(own) ? readFileSync(own, "utf8").trim() : readJson(join(dir, `fingerprint-${p}.json`))?.hash;
-        return [p, { runtime, by: existsSync(own) ? "runtime" : "fingerprint", builds: readJson(join(dir, `builds-${p}.json`)) }];
+        const shippedFile = join(dir, `shipped-${p}.txt`);
+        const shipped = existsSync(shippedFile) ? readFileSync(shippedFile, "utf8").trim() : "";
+        return [p, { runtime, by: existsSync(own) ? "runtime" : "fingerprint", builds: readJson(join(dir, `builds-${p}.json`)), ...(shipped ? { shipped } : {}) }];
       }),
     );
     for (const line of planOutputs(byPlatform, readJson(join(dir, "runs.json")), profile)) console.log(line);
@@ -249,14 +279,19 @@ async function main(command, args, env) {
     for (const line of updateOutputs(readJson(file), platform, runtime)) console.log(line);
   } else if (command === "profile-env") {
     const [file, profile] = args;
-    if (!file || !profile) throw new Error("profile-env needs <eas.json> <profile>.");
-    for (const line of profileEnv(readJson(file), profile)) console.log(line);
+    const [, , platform, flag] = args;
+    if (!file || !profile) throw new Error("profile-env needs <eas.json> <profile> [platform] [--shell].");
+    for (const line of profileEnv(readJson(file), profile, platform === "--shell" ? undefined : platform, platform === "--shell" || flag === "--shell")) console.log(line);
+  } else if (command === "latest-commit") {
+    const [file, platform] = args;
+    if (!file || !PLATFORMS.includes(platform)) throw new Error("latest-commit needs <update-list.json> <platform>.");
+    console.log(latestCommit(readJson(file), platform));
   } else if (command === "runtime") {
     const [file, platform, expected] = args;
     if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime needs <resolved.txt> <platform> <runtime version>.");
     checkRuntime(readFileSync(file, "utf8"), platform, expected);
   } else {
-    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env or runtime.`);
+    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, latest-commit or runtime.`);
   }
 }
 

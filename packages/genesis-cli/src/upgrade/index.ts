@@ -51,6 +51,9 @@ import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run,
 import { starterDir, templatesDir } from "../blocks/templates.js";
 import { adoptTemplates, bumpCallerPins, calledWorkflows, competingReleaseWorkflows, isDedicatedWorkflow, lookupPin, missingTemplateSets, ownedDir, releaseContext, renderPin, repositoryRoot, resolveTemplateNames, TEMPLATE_SETS, type ReleasePin } from "../blocks/release.js";
 import { renderRelease, type ReleaseContext } from "../blocks/release-render.js";
+
+/** The old lane's push-triggered workflow, which the new lane's version replaces only on adoption. */
+const OLD_LANE_FILE = ".eas/workflows/deploy-production.yml";
 import { bumpPackageJson, bumpSummary, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { breakLines, fetchChangelog, type ChangelogReader } from "./changelog.js";
 import { codemodInstallNote, codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
@@ -123,8 +126,8 @@ export interface UpgradeReport {
   pr?: string;
   /** Each overlay rebased onto the release (overlays.ts), with its checklist. */
   overlays: OverlayPlan[];
-  /** The release lane's files the upgrade added to an app on the push-triggered EAS lane (blocks/release.ts). */
-  adopted?: string[];
+  /** The app is on the old push-triggered EAS lane: its deploy-production.yml was held, and the summary says how to adopt the new lane. */
+  oldLane?: boolean;
   /** The release the CI callers now pin. */
   pin?: ReleasePin;
   /** What the upgrade dropped from bun.lock (with a dry run, would drop): nested Genesis copies the root's version satisfies, and deleted overlays' workspaces. */
@@ -405,6 +408,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
 
   // Owned files' base text, from what is installed now (before the upgrade replaces it).
   const lock = readLock(root);
+  // The lock as it was before the upgrade: the pull request carries it whenever anything in this
+  // run changed it, whichever step wrote it.
+  const lockTextBefore = readApp(root, LOCK_FILE);
   const home = databaseElsewhere(root);
   checkSubstitutions(lock.substitutions);
   const appFolder = appFolderOf(root);
@@ -576,6 +582,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     for (const m of missing ?? []) if (m.kind === "migration") newMigrations.push(`${m.what} (apply in ${home.app}: ${addThereCommand(m.block)})`);
   }
   const refreshed: RefreshOutcome[] = [];
+  const onOldLane = Boolean(lock.files[OLD_LANE_FILE]?.source.startsWith("@marktiderman/genesis-cli:templates/")) && !lock.files[".github/workflows/native-release.yml"];
   // The database's files are the other app's to refresh: entries under supabase/ are left alone.
   const elsewhereEntries = home ? Object.keys(lock.files).filter(isSupabasePath) : [];
   for (const [file, entry] of Object.entries(lock.files)) {
@@ -583,6 +590,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     if (offManifests.length && blockOfSource(entry.source, offManifests)) continue;
     if (!home && newMigrations.length && file.startsWith(`${TESTS_DIR}/`)) {
       refreshed.push({ path: file, outcome: "deferred", detail: "new package migrations are waiting: run genesis migrate, then genesis upgrade again" });
+      continue;
+    }
+    // An app on the old lane (a push-triggered deploy-production.yml, no native-release.yml): the
+    // new deploy-production.yml runs only when native-release.yml starts it, so taking it alone
+    // would stop every release. The app moves when it chooses: `genesis add release`.
+    if (file === OLD_LANE_FILE && onOldLane) {
+      refreshed.push({ path: file, outcome: "held", detail: "the native release lane changed: this file stays as it is until you adopt the new lane with `genesis add release` (docs/NATIVE-RELEASE.md, \"Adopting the lane\")" });
       continue;
     }
     const problem = ownedKeyProblem(file, entry.source, localPackageNames(root));
@@ -599,23 +613,39 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       const newWithOldPin = ownedText(file, entry.source, oldPin);
       const base = bases.get(file) ?? null;
       const templateSame = newWithOldPin !== null && base !== null && newWithOldPin === base;
+      const repo = repositoryRoot(root, appFolder);
+      const shownRepo = path.relative(root, path.join(repo, file)).split(path.sep).join("/");
+      // Read and written through appPath: a symlink there is refused, never followed.
+      let repoText: string | null = null;
+      try {
+        repoText = readApp(repo, file);
+      } catch (err) {
+        warnings.push(`${shownRepo}: ${err instanceof Error ? err.message : String(err)}; its Genesis pin wasn't moved.`);
+      }
+      const called = theirs === null ? [] : calledWorkflows(theirs);
+      // The app moved the pin itself, with the template's changes: that change is applied.
+      const appliedByHand = Boolean(newPin && repoText !== null && called.length && called.every((w) => repoText!.includes(`/${w}@${newPin.sha}`)));
       let pinned = false;
-      if (newPin && templateSame && theirs !== null) {
-        const repoFile = path.join(repositoryRoot(root, appFolder), file);
-        const before = readText(repoFile);
-        const after = before === null ? null : bumpCallerPins(before, newPin, calledWorkflows(theirs));
-        if (before !== null && after !== null && after !== before) {
-          if (!options.dryRun) writeFileSync(repoFile, after);
-          files.add(path.relative(root, repoFile).split(path.sep).join("/"));
+      if (newPin && templateSame && repoText !== null) {
+        const after = bumpCallerPins(repoText, newPin, called);
+        if (after !== repoText) {
+          if (!options.dryRun) replaceApp(repo, file, after);
+          files.add(shownRepo);
           pinned = true;
         }
       }
       if (theirs !== null && sha256(theirs) !== entry.sha256) {
-        lock.files[file] = { ...entry, sha256: sha256(theirs), ...(version ? { version } : {}) };
+        // The lock records only what reached the repository's copy: a template change still to
+        // apply keeps the old checksum, so a later release can't move the pin past it.
+        // A template that calls no Genesis workflow has no pin to wait on: it's named once.
+        const applied = templateSame || appliedByHand || !called.length;
+        if (applied) lock.files[file] = { ...entry, sha256: sha256(theirs), ...(version ? { version } : {}) };
         refreshed.push(
           pinned
             ? { path: file, outcome: "updated", detail: `the repository's copy: its Genesis pin moved to ${newPin!.version} (${newPin!.sha.slice(0, 7)}); the template is otherwise unchanged` }
-            : { path: file, outcome: "repository", detail: `the template changed; your copy is in the repository's own .github/workflows (with working-directory: ${appFolder}), so compare it with ${entry.source}${newPin ? `, and move its Genesis pin to ${newPin.version} (${newPin.sha}) with those changes` : ""}` },
+            : appliedByHand || templateSame
+              ? { path: file, outcome: "updated", detail: "the repository's copy already has this release's changes" }
+              : { path: file, outcome: "repository", detail: `the template changed; your copy is in the repository's own .github/workflows (with working-directory: ${appFolder}), so compare it with ${entry.source}${newPin && called.length ? `, and move its Genesis pin to ${newPin.version} (${newPin.sha}) with those changes. Until its pin names this release, upgrades leave it and say so again` : ""}` },
         );
       } else refreshed.push({ path: file, outcome: "unchanged" });
       continue;
@@ -633,41 +663,6 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     }
     if (outcome.outcome === "updated" || outcome.outcome === "merged") files.add(shown);
     if ((outcome.outcome === "conflict" || outcome.outcome === "kept-mine") && !outcome.detail?.includes("already there")) next.add(`${shown}.genesis-next`);
-  }
-
-  // An app on the push-triggered EAS lane: deploy-production.yml is now started by
-  // native-release.yml, so the rest of the release lane comes with it, or nothing would release.
-  // Only once deploy-production.yml took the new version: beside the old push-triggered one,
-  // native-release.yml would publish every update twice.
-  const deploy = ".eas/workflows/deploy-production.yml";
-  let adopted: string[] = [];
-  if (lock.files[deploy]?.source.startsWith("@marktiderman/genesis-cli:templates/") && !lock.files[".github/workflows/native-release.yml"]) {
-    const took = refreshed.find((r) => r.path === deploy)?.outcome;
-    if (took === "updated" || took === "merged") {
-      try {
-        const cliDir = packageDir(root, "@marktiderman/genesis-cli");
-        const cliVersion = cliDir ? packageVersion(cliDir) : undefined;
-        const missing = resolveTemplateNames(["release"], ...(cliDir ? [templatesDir(cliDir)] : [])).filter((t) => !Object.values(lock.files).some((e) => e.source === `@marktiderman/genesis-cli:templates/${t}`));
-        // The lock is written below; adoptTemplates reads and writes its own copy, so it goes first.
-        if (!options.dryRun) writeLock(root, lock);
-        const results = adoptTemplates(root, missing, { ...(options.dryRun ? { dryRun: true } : {}), pin: newPin, ...(cliVersion ? { version: cliVersion } : {}), ...(cliDir ? { dir: templatesDir(cliDir) } : {}) });
-        Object.assign(lock.files, readLock(root).files);
-        adopted = results.map((r) => `${r.location}: ${r.outcome}${r.detail ? ` (${r.detail})` : ""}`);
-        for (const r of results) {
-          if (r.outcome === "created" || r.outcome === "adopted") files.add(r.location);
-          if (r.outcome === "next") next.add(`${r.location}.genesis-next`);
-        }
-        warnings.push(
-          `The native release lane changed: ${deploy} now runs only when .github/workflows/native-release.yml starts it, which publishes JavaScript-only changes from GitHub. Before merging this upgrade, add EXPO_TOKEN (an Expo robot token) to the GitHub environment "${releaseCtx.release.environment}" (docs/NATIVE-RELEASE.md, "One-time setup"), or nothing releases. Your choices (platforms, paths, Sentry) go in genesis.config.json \`release\`.`,
-        );
-        const rivals = competingReleaseWorkflows(root, appFolder);
-        if (rivals.length) warnings.push(`These workflows also publish EAS updates or start EAS runs: ${rivals.join(", ")}. Beside native-release.yml a release would go out twice: remove them in this change.`);
-      } catch (err) {
-        warnings.push(`The release lane's new files weren't added: ${err instanceof Error ? err.message : String(err)}. Run genesis add template release.`);
-      }
-    } else if (took) {
-      warnings.push(`${deploy} kept your edits (${took}), so the release lane's new files weren't added: beside a push-triggered ${deploy}, native-release.yml would publish twice. Move your edits into genesis.config.json \`release\` (docs/NATIVE-RELEASE.md, "Adopting the lane"), then run \`genesis add template release --replace\`.`);
-    }
   }
 
   // Owned workflows took the new release's pin with their text (or kept the app's, merged); the lock
@@ -723,9 +718,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     }
   }
   if (!options.dryRun) {
-    const before = readApp(root, LOCK_FILE);
     writeLock(root, lock);
-    if (readApp(root, LOCK_FILE) !== before) files.add(LOCK_FILE);
+    if (readApp(root, LOCK_FILE) !== lockTextBefore) files.add(LOCK_FILE);
   }
 
   // 4. What's generated from the packages now installed, and what the release added that the app hand-builds.
@@ -789,7 +783,16 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   if (touched.length || added.length) {
     lines.push("", options.dryRun ? "Files Genesis owns (against the packages installed now; a real run compares with the new versions after the install):" : "Files Genesis owns:", "", ...touched.map((r) => `- ${r.path}: ${r.outcome}${r.detail ? ` (${r.detail})` : ""}`), ...added.map((a) => `- ${a}: added`));
   }
-  if (adopted.length) lines.push("", "The native release lane's new files (docs/NATIVE-RELEASE.md):", "", ...adopted.map((a) => `- ${a}`));
+  if (onOldLane) {
+    lines.push(
+      "",
+      "A new native release lane is available (docs/NATIVE-RELEASE.md): JavaScript-only merges publish from GitHub in minutes, and EAS builds only when native code changed. This app is on the old one, which keeps working; adopt the new one when you're ready:",
+      "",
+      "- put your choices (platforms, paths, Sentry, a release hook) in genesis.config.json `release`;",
+      `- run \`genesis add release\` (\`--replace\` over files you edited by hand);`,
+      `- add EXPO_TOKEN to the GitHub environment "${releaseCtx.release.environment}" before merging that change.`,
+    );
+  }
   if (next.size) lines.push("", "Review and delete these before merging (not committed by --pr):", "", ...[...next].map((n) => `- ${n}`));
   if (missingSets.length) lines.push("", "Templates this app doesn't have (add with `genesis add template <set>`):", "", ...missingSets.map((m) => `- ${m}: ${TEMPLATE_SETS[m]!.summary}`));
   if (lock.substitutions && Object.keys(lock.substitutions).length) lines.push("", `Templates renamed with genesis.lock.json's substitutions: ${Object.entries(lock.substitutions).map(([a, b]) => `${a} → ${b}`).join(", ")}.`);
@@ -812,7 +815,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   lines.push("", doctorProblem ? `\`genesis doctor\` couldn't run after the upgrade: ${doctorProblem}` : `\`genesis doctor\` ${doctor === "not run" ? "was not run" : doctor} after the upgrade.`);
   const summary = lines.join("\n");
 
-  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, switchedOff, newMigrations, swaps, doctor, files: [...files].sort(), summary, overlays, ...(bunLock ? { bunLock } : {}), ...(adopted.length ? { adopted } : {}), ...(newPin ? { pin: newPin } : {}) };
+  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, switchedOff, newMigrations, swaps, doctor, files: [...files].sort(), summary, overlays, ...(bunLock ? { bunLock } : {}), ...(onOldLane ? { oldLane: true } : {}), ...(newPin ? { pin: newPin } : {}) };
   if (options.pr && !options.dryRun && files.size) report.pr = openPullRequest(root, release.version, report, prBase!);
   return report;
 }

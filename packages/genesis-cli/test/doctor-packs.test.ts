@@ -247,6 +247,14 @@ describe("native pack", () => {
     expect(brief(byPackage.findings, "fingerprint-plugin-files")).toEqual(["fingerprint-plugin-files fingerprint.config.js:0"]);
     const ok = await nativeApp({ "app.config.ts": config, "fingerprint.config.js": 'module.exports = { configPluginSourceType: "files" };\n' });
     expect(brief(ok.findings, "fingerprint-plugin-files")).toEqual([]);
+    // app.config.json, a static app.json passed through a dynamic app.config.js, and the withGenesis() wrapper all count.
+    const plugins = { expo: { plugins: ["@marktiderman/genesis-cli", "@marktiderman/genesis-native/rich-push-plugin"] } };
+    expect(brief((await nativeApp({ "app.json": "{}", "app.config.json": JSON.stringify(plugins) })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    expect(brief((await nativeApp({ "app.json": JSON.stringify(plugins), "app.config.js": "module.exports = ({ config }) => config;\n" })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    const wrapped = 'import { withGenesis } from "@marktiderman/genesis-cli/expo";\nexport default withGenesis({ plugins: ["@marktiderman/genesis-native/rich-push-plugin"] });\n';
+    expect(brief((await nativeApp({ "app.config.ts": wrapped })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    // withGenesis told not to set the fingerprint policy: nothing to say.
+    expect(brief((await nativeApp({ "app.config.ts": wrapped.replace("withGenesis({", "withGenesis({ fingerprint: false,") })).findings, "fingerprint-plugin-files")).toEqual([]);
     // No genesis-native plugin: nothing to say.
     expect(brief((await nativeApp({ "app.config.ts": 'export default { runtimeVersion: { policy: "fingerprint" } };\n' })).findings, "fingerprint-plugin-files")).toEqual([]);
   });
@@ -254,7 +262,13 @@ describe("native pack", () => {
   it("release-lane-twice: native-release.yml beside a workflow that also releases (warn)", async () => {
     const lane = { ".github/workflows/native-release.yml": "name: Native release\n" };
     const pushEas = { ".eas/workflows/deploy-production.yml": "on:\n  push:\n    branches: [main]\njobs:\n  update:\n    type: update\n" };
-    const twice = await nativeApp({ ...lane, ...pushEas, ".github/workflows/ota.yml": "jobs:\n  a:\n    steps:\n      - run: eas update --channel production\n" });
+    const twice = await nativeApp({
+      ...lane,
+      ...pushEas,
+      ".github/workflows/ota.yml": "on:\n  push:\n    branches: [main]\njobs:\n  a:\n    steps:\n      - run: eas update --channel production\n",
+      // Only by hand: it can't double a release.
+      ".github/workflows/manual.yml": "on:\n  workflow_dispatch: {}\njobs:\n  a:\n    steps:\n      - run: eas update --channel production\n",
+    });
     expect(brief(twice.findings, "release-lane-twice")).toEqual(["release-lane-twice .eas/workflows/deploy-production.yml:0 .eas/workflows/deploy-production.yml", "release-lane-twice .github/workflows/ota.yml:0 .github/workflows/ota.yml"]);
     expect(levels(twice.findings, "release-lane-twice")).toEqual(["warn", "warn"]);
     // The lane's own dispatch-only file, or no native-release.yml at all: nothing to say.
