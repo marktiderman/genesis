@@ -10,8 +10,7 @@
 # is open, it publishes the update itself. Every other platform comes here, so each platform of
 # each commit takes exactly one path and an update is never published twice. Here, per platform:
 # - a build with the runtime version, finished or still building (get-build waits for one in
-#   progress): publish this commit as an update on it, unless the release branch already has a
-#   later app change (the `newest` job; that commit's release ships this code too);
+#   progress): publish this commit as an update on it;
 # - none (native code changed): build, then submit to TestFlight / Google Play's internal track as
 #   a draft. Releasing to the stores stays a person's step in App Store Connect and Play Console.
 # A build EAS has queued but not started has no record yet, so a merge in that window builds
@@ -25,10 +24,11 @@
 # Safety:
 # - Started only by hand or by native-release.yml, never on push: two triggers would race on
 #   every merge. Always start it with --ref: without it, `eas workflow:run` uploads the working
-#   directory as it is, and nothing here can tell. commit_sha is required, and the update path
-#   checks with GitHub that it's on the release branch (RELEASE_GITHUB_TOKEN on EAS).
-# - Runs are serialized (`concurrency`): the running one always finishes, and EAS drops waiting
-#   runs in between, whose code the newest run carries.
+#   directory as it is, and nothing here can tell. commit_sha is required.
+# - Runs are serialized (`concurrency`): the running one always finishes before the next starts, so
+#   runs publish in the order their commits reached main. EAS drops waiting runs in between; the
+#   newest carries their code, and every platform (while a run is open, native-release.yml hands
+#   every platform here).
 # - Updates go to every install, not a staged share (a staged one would make the next update
 #   fail); rollout.yml promotes or reverts one you staged by hand.
 # - A build is submitted in the run that made it, so an update never goes to a build nobody has.
@@ -51,14 +51,20 @@ on:
       repository:
         type: string
         required: false
-        description: owner/name on GitHub, for the order check and the release hook.
+        description: owner/name on GitHub, for the release hook.
       ios:
-        type: boolean
-        default: true
+        # A choice, compared as text: eas workflow:run -F sends every value as a string, so a
+        # boolean "false" would read as true.
+        type: choice
+        options: ["true", "false"]
+        default: "true"
         description: Release iOS in this run.
       android:
-        type: boolean
-        default: true
+        # A choice, compared as text: eas workflow:run -F sends every value as a string, so a
+        # boolean "false" would read as true.
+        type: choice
+        options: ["true", "false"]
+        default: "true"
         description: Release Android in this run.
 
 # One release at a time. No cancel_in_progress: the running one always finishes.
@@ -74,32 +80,10 @@ jobs:
       APP_VARIANT: production
       EXPO_PUBLIC_APP_VARIANT: production
 
-  # Runs on EAS for most of an hour, and two runs waiting on one build can reach their update jobs
-  # in either order: a run publishes only when the release branch has no later commit that changes
-  # what the app bundles (.eas/scripts/native-release.mjs `newest`; RELEASE_PATHS is
-  # native-release.yml's paths). Without RELEASE_GITHUB_TOKEN on EAS it can't check, and publishes.
-  newest:
-    name: Check this is the release branch's latest app change
-    environment: production
-    env:
-      COMMIT_SHA: ${{ inputs.commit_sha }}
-      RELEASE_REPOSITORY: ${{ inputs.repository }}
-      RELEASE_PATHS: ""
-      RELEASE_PATHS_IGNORE: "**/*.md docs/** .github/** .eas/** .maestro/**"
-    outputs:
-      newest: ${{ steps.check.outputs.newest }}
-    steps:
-      - uses: eas/checkout
-      - id: check
-        run: |
-          set -eo pipefail
-          out=$(node .eas/scripts/native-release.mjs newest "$COMMIT_SHA")
-          set-output newest "${out#newest=}"
-
   get_ios_build:
     name: Find a production iOS build with this runtime version
     needs: [fingerprint]
-    if: ${{ inputs.ios }}
+    if: ${{ inputs.ios == 'true' }}
     type: get-build
     params:
       platform: ios
@@ -112,7 +96,7 @@ jobs:
   build_ios:
     name: Build iOS (native code changed)
     needs: [get_ios_build]
-    if: ${{ inputs.ios && !needs.get_ios_build.outputs.build_id }}
+    if: ${{ inputs.ios == 'true' && !needs.get_ios_build.outputs.build_id }}
     type: build
     environment: production
     params:
@@ -131,8 +115,8 @@ jobs:
 
   update_ios:
     name: Update iOS (every production install)
-    needs: [get_ios_build, newest]
-    if: ${{ inputs.ios && needs.get_ios_build.outputs.build_id && needs.newest.outputs.newest == 'true' }}
+    needs: [get_ios_build]
+    if: ${{ inputs.ios == 'true' && needs.get_ios_build.outputs.build_id }}
     type: update
     # The environment the fingerprint and the build profile read, so the update's JavaScript is
     # built with the values the binary was.
@@ -151,7 +135,7 @@ jobs:
   get_android_build:
     name: Find a production Android build with this runtime version
     needs: [fingerprint]
-    if: ${{ inputs.android }}
+    if: ${{ inputs.android == 'true' }}
     type: get-build
     params:
       platform: android
@@ -162,7 +146,7 @@ jobs:
   build_android:
     name: Build Android (native code changed)
     needs: [get_android_build]
-    if: ${{ inputs.android && !needs.get_android_build.outputs.build_id }}
+    if: ${{ inputs.android == 'true' && !needs.get_android_build.outputs.build_id }}
     type: build
     environment: production
     params:
@@ -181,8 +165,8 @@ jobs:
 
   update_android:
     name: Update Android (every production install)
-    needs: [get_android_build, newest]
-    if: ${{ inputs.android && needs.get_android_build.outputs.build_id && needs.newest.outputs.newest == 'true' }}
+    needs: [get_android_build]
+    if: ${{ inputs.android == 'true' && needs.get_android_build.outputs.build_id }}
     type: update
     environment: production
     env:

@@ -414,8 +414,10 @@ the sets and which the app has.
   block"); the CI callers are pinned to the Genesis release the app is on
   (`@<commit> # @marktiderman/genesis@<version>`, found with `git ls-remote`).
 - With `appFolder`, `.github/workflows` files go to the repository's root.
-- It names any other workflow in the repository that runs `eas update` or starts EAS runs, which
-  would release twice beside `native-release.yml`, and the secrets to add.
+- `native-release.yml` is held back while an EAS workflow in the app still releases on push (the
+  app's old `deploy-production.yml`, kept with `.genesis-next`). It names any other workflow that
+  releases (a GitHub workflow running `eas update`, a push-triggered EAS workflow with an update or
+  build job), and the secrets to add.
 
 ### genesis migrate
 
@@ -611,8 +613,10 @@ pass `--no-install` or `--dry-run` and the doctor is on.)
 push-triggered `deploy-production.yml` gets the rest of the release lane in the same upgrade, once
 that file takes the new version (an edited one that lands in `.genesis-next` holds it back, and the
 summary says how to finish). Every Genesis caller in the repository's workflows
-(`uses: marktiderman/genesis/.github/workflows/…@<commit> # @marktiderman/genesis@<version>`) moves
-to the commit the release is tagged at, owned or not, and the lock records it (`pin`). Template
+(`uses: marktiderman/genesis/.github/workflows/…@<commit> # @marktiderman/genesis@<version>`) in
+an owned workflow takes the commit the release is tagged at with the file's new text, and the lock
+records it (`pin`); a shared workflow it only names moves its pin only when the template didn't
+change between the releases (docs/NATIVE-RELEASE.md, "Upgrading and customising"). Template
 sets the app has none of are listed at the end, with the `genesis add template` line.
 
 **An app in a sub-folder of its repository.** Set `"appFolder"` at the top of
@@ -637,7 +641,8 @@ sets the app has none of are listed at the end, with the `genesis add template` 
   file that holds the rest of its CI too, so nothing is written, merged or left beside it. A
   template's change is named once in the summary (your copy passes `working-directory: mobile`;
   see docs/APP-CI.md), and the doctor's `lock-files` doesn't ask for the file here. Their Genesis
-  pins move in place.
+  pins move in place when the template didn't change between the releases; otherwise the summary
+  says to move the pin with the template's changes.
 
 A conflict in a workflow in an app below its repository's root says to set it.
 
@@ -986,6 +991,7 @@ keep `raw-color`).
 | `store-readiness` | warn | Static checks of `app.json`, `app.config.json` and (as text, best-effort) `app.config.{ts,js,mjs,cjs}`. **Usage strings**: Expo applies an installed module's config plugin even when it isn't listed, with a generic default string (`Allow $(PRODUCT_NAME) to access your camera`), and App Review rejects generic purpose strings; so a module without its own sentence (`ios.infoPlist.<Key>` or the plugin option) is flagged, and `false` (Expo's opt-out) counts as set. Covered: `expo-camera`, `expo-image-picker` (photos; camera only "if the app takes photos"), `expo-media-library`, `expo-location`, `expo-av` / `expo-audio` (microphone "if the app records audio"), `expo-contacts`, `expo-local-authentication` (Face ID). **Sign in with Apple**: third-party sign-in (`@react-native-google-signin/google-signin`, `react-native-fbsdk-next`, or a Supabase `signInWithOAuth` / `signInWithIdToken` with a non-Apple provider) without Apple sign-in (`expo-apple-authentication`, or Supabase's `apple` provider). Guideline 4.8 accepts any equivalent privacy-focused login, so this is a warning to `allow` with the reason when another option qualifies; `expo-auth-session` alone doesn't trigger it (it serves non-login OAuth too). Also the export-compliance flag (`ios.config.usesNonExemptEncryption` or `ITSAppUsesNonExemptEncryption`), `ios.privacyManifests`, and a missing Expo config. Those two count as set when the [Expo config plugin](#expo-config-plugin) (`@marktiderman/genesis-cli` in `plugins`) will set them: export compliance unless `exportCompliance: false`, the privacy manifest unless `privacyManifest: false` and only when a dependency needs one. |
 | `eas-placeholder` | warn | A `REPLACE_WITH_…` placeholder from the EAS templates still in `eas.json` or `.eas/workflows/*.yml` (YAML comment lines aren't read), each with what replaces it: the store ids in `eas.json` `submit.production` (the App Store Connect Apple ID, the Apple Team ID, the Google Play service account key's path), or `REPLACE_WITH_APP_FOLDER` in `pr-preview.yml`'s `paths`, which otherwise matches nothing, so code changes never start a preview. `genesis init --template native` fills the app folder in (`src`). |
 | `fingerprint-plugin-files` | warn | The app's Expo config uses the fingerprint runtime version (the Genesis plugin sets it) and loads `@marktiderman/genesis-native/rich-push-plugin`, but no `fingerprint.config.js` sets `configPluginSourceType: "files"`. Hashed by `package.json`, each new Genesis version would make a store build instead of an update. `genesis add template expo` writes the config (docs/NATIVE-RELEASE.md, "Fingerprints"). |
+| `release-lane-twice` | warn | The app has `.github/workflows/native-release.yml` (at the repository's root under `appFolder`) and another workflow that also releases: a GitHub workflow running `eas update`, `eas build` or `eas workflow:run`, or an EAS workflow with a `push` trigger and an update or build job (the old push-triggered `deploy-production.yml`). Each release would go out twice. |
 
 **`supabase`**, for `supabase/migrations/*.sql` (`supabase.migrations`). The SQL is read
 statement by statement with comments removed and string (`'…'`, `E'…'`) and dollar-quoted

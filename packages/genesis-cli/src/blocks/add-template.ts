@@ -33,6 +33,7 @@ const WORDS: Record<AdoptResult["outcome"], string> = {
   next: "yours kept",
   replaced: "written over",
   pending: "left alone",
+  held: "held back",
 };
 
 /** Runs the command; the exit code (1 when something needs the app's attention). */
@@ -49,10 +50,11 @@ export async function addTemplates(root: string, names: string[], options: AddTe
   const pin = options.pin !== undefined ? options.pin : templates.some((t) => t.startsWith("ci/") || t.startsWith("vercel/")) ? installedPin(root) : null;
   const version = pinnedVersion(root, CLI_PACKAGE)?.version;
   const results = adoptTemplates(root, templates, { ...(options.dryRun ? { dryRun: true } : {}), ...(options.replace ? { replace: true } : {}), pin, ...(version ? { version } : {}) });
-  for (const r of results) log(`${r.outcome === "next" || r.outcome === "pending" ? "!" : "✔"} ${r.location}: ${WORDS[r.outcome]}${r.detail ? ` (${r.detail})` : ""}`);
+  const attention = (o: AdoptResult["outcome"]) => o === "next" || o === "pending" || o === "held";
+  for (const r of results) log(`${attention(r.outcome) ? "!" : "✔"} ${r.location}: ${WORDS[r.outcome]}${r.detail ? ` (${r.detail})` : ""}`);
   const steps: string[] = [];
   if (templates.some((t) => t.startsWith("ci/") || t.startsWith("vercel/")) && !pin) steps.push("Replace GENESIS_SHA in the workflows with the commit of the Genesis release you run (docs/APP-CI.md, \"Which ref to call\"); genesis upgrade moves it from then on.");
-  if (templates.includes("ci/native-release.yml")) {
+  if (results.some((r) => r.path === ".github/workflows/native-release.yml" && r.outcome !== "held")) {
     const ctx = releaseContext(root);
     steps.push(`Add EXPO_TOKEN (an Expo robot token)${ctx.release.sentry ? ", SENTRY_AUTH_TOKEN" : ""}${ctx.release.pushHook?.secrets.length ? `, ${ctx.release.pushHook.secrets.join(", ")}` : ""} to the GitHub environment "${ctx.release.environment}", limited to main (docs/NATIVE-RELEASE.md, "One-time setup").`);
     const rivals = competingReleaseWorkflows(root, ctx.appFolder);
@@ -65,5 +67,5 @@ export async function addTemplates(root: string, names: string[], options: AddTe
     steps.forEach((s, i) => log(`  ${i + 1}. ${s}`));
   }
   if (options.dryRun) log("\nDry run: nothing written.");
-  return results.some((r) => r.outcome === "next" || r.outcome === "pending") ? 1 : 0;
+  return results.some((r) => attention(r.outcome)) ? 1 : 0;
 }

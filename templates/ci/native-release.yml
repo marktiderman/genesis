@@ -31,8 +31,9 @@ on:
   push:
     branches: [main]
 #@if appFolder
-    # What the app's bundle is built from, from the repository root: the app's folder and
-    # genesis.config.json release.paths (every folder its Metro config reads outside it).
+    # What the app's bundle is built from, from the repository root: the app's folder,
+    # genesis.config.json release.paths (every folder its Metro config reads outside it), and the
+    # root's package.json and lockfiles (a workspace's install).
     paths:
       #@paths
 #@end
@@ -75,11 +76,13 @@ jobs:
         # bash runs every step with -eo pipefail, so a failure before `| tee` fails the step.
         shell: bash
         working-directory: GENESIS_RELEASE_WORKING_DIRECTORY
-    env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    # No job-wide EXPO_TOKEN: the install runs every dependency's scripts. expo-github-action
+    # (`token:`) hands it to the eas steps after it.
     steps:
       - name: EXPO_TOKEN is set
         working-directory: .
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           if [ -z "$EXPO_TOKEN" ]; then
             echo "::error title=EXPO_TOKEN missing::Add an Expo robot token to the GitHub environment GENESIS_RELEASE_ENVIRONMENT. Nothing was published."
@@ -140,7 +143,9 @@ jobs:
             eas build:list --platform "$platform" --build-profile GENESIS_RELEASE_PROFILE --fingerprint-hash "$hash" --limit 50 --json --non-interactive > "$RUNNER_TEMP/release/builds-$platform.json"
 #@end
 #@if !fingerprint
-            RELEASE_PLATFORM="$platform" GENESIS_RELEASE_RUNTIME_COMMAND > "$RUNNER_TEMP/release/runtime-$platform.txt"
+            export RELEASE_PLATFORM="$platform"
+            { GENESIS_RELEASE_RUNTIME_COMMAND
+            } > "$RUNNER_TEMP/release/runtime-$platform.txt"
             runtime=$(tr -d '[:space:]' < "$RUNNER_TEMP/release/runtime-$platform.txt")
             eas build:list --platform "$platform" --build-profile GENESIS_RELEASE_PROFILE --runtime-version "$runtime" --limit 50 --json --non-interactive > "$RUNNER_TEMP/release/builds-$platform.json"
 #@end
@@ -156,6 +161,13 @@ jobs:
         run: |
           echo "::error::The plan gave no action. Nothing was published or built."
           exit 1
+
+      # eas update reads the EAS environment but not the build profile's `env` (eas.json), which
+      # the build and the EAS lane's updates use (APP_VARIANT…): the update's JavaScript is built
+      # with the same values.
+      - name: The build profile's env
+        if: steps.plan.outputs.publish_platforms != ''
+        run: node .eas/scripts/native-release.mjs profile-env eas.json GENESIS_RELEASE_PROFILE >> "$GITHUB_ENV"
 #@if sentry
 
       # The source map upload has to work, or the update's crashes are unreadable: stop before
@@ -175,6 +187,9 @@ jobs:
         env:
           RUNTIME_VERSION: ${{ steps.plan.outputs.ios_runtime_version }}
         run: |
+          # The runtime version this checkout gives, checked against the build's before publishing.
+          eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx expo-updates runtimeversion:resolve --platform ios' --non-interactive > "$RUNNER_TEMP/release/resolved-ios.txt"
+          node .eas/scripts/native-release.mjs runtime "$RUNNER_TEMP/release/resolved-ios.txt" ios "$RUNTIME_VERSION"
           message=$(git log -1 --format=%s)
           eas update --channel GENESIS_RELEASE_CHANNEL --platform ios --environment GENESIS_RELEASE_EAS_ENVIRONMENT --message "$message" --json --non-interactive > "$RUNNER_TEMP/release/update-ios.json"
           node .eas/scripts/native-release.mjs update "$RUNNER_TEMP/release/update-ios.json" ios "$RUNTIME_VERSION" | tee -a "$GITHUB_OUTPUT"
@@ -213,6 +228,9 @@ jobs:
         env:
           RUNTIME_VERSION: ${{ steps.plan.outputs.android_runtime_version }}
         run: |
+          # The runtime version this checkout gives, checked against the build's before publishing.
+          eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx expo-updates runtimeversion:resolve --platform android' --non-interactive > "$RUNNER_TEMP/release/resolved-android.txt"
+          node .eas/scripts/native-release.mjs runtime "$RUNNER_TEMP/release/resolved-android.txt" android "$RUNTIME_VERSION"
           message=$(git log -1 --format=%s)
           eas update --channel GENESIS_RELEASE_CHANNEL --platform android --environment GENESIS_RELEASE_EAS_ENVIRONMENT --message "$message" --json --non-interactive > "$RUNNER_TEMP/release/update-android.json"
           node .eas/scripts/native-release.mjs update "$RUNNER_TEMP/release/update-android.json" android "$RUNTIME_VERSION" | tee -a "$GITHUB_OUTPUT"
@@ -258,6 +276,7 @@ jobs:
           echo "EAS takes $EAS_PLATFORMS for $GITHUB_SHA (an EAS release run open: $LANE_OPEN); nothing is published here for them."
           args=(-F "commit_sha=$GITHUB_SHA" -F "repository=$GITHUB_REPOSITORY")
 #@if ios
+          # Choices, compared as text on EAS: -F sends every value as a string.
           args+=(-F "ios=$([[ ",$EAS_PLATFORMS," == *,ios,* ]] && echo true || echo false)")
 #@if !fingerprint
           args+=(-F "ios_runtime_version=$IOS_RUNTIME")

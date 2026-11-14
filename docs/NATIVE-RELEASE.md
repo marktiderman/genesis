@@ -10,7 +10,7 @@ them in its own `genesis.config.json`, not by editing them.
 | --- | --- | --- |
 | `.github/workflows/native-release.yml` | `templates/ci/native-release.yml` | Every push to `main` that changes the app: per platform, an over-the-air update published here, or the commit handed to EAS ([The release path](#the-release-path)). |
 | `.eas/workflows/deploy-production.yml` | `templates/eas/workflows/deploy-production.yml` | Only when started (by `native-release.yml`): per platform, a store build submitted in the same run, or an update on a build that is still being made. |
-| `.eas/scripts/native-release.mjs` | `templates/eas/scripts/native-release.mjs` | The lane's decisions (plan, masks, the update check, the order check), kept out of the YAML so they are tested. |
+| `.eas/scripts/native-release.mjs` | `templates/eas/scripts/native-release.mjs` | The lane's decisions (plan, masks, the build profile's env, the runtime checks), kept out of the YAML so they are tested. |
 | `fingerprint.config.js`, `.fingerprintignore` | `templates/expo/` | What the runtime version hashes ([Fingerprints](#fingerprints)). |
 | `.eas/workflows/pr-preview.yml` | `templates/eas/workflows/pr-preview.yml` | A pull request into `main` that changes the app, or one labeled `Preview` ([Build cost](#build-cost)): repack a preview build with the same fingerprint (or build one), publish to the channel `pr-<number>`, comment the install link. iOS only once `PREVIEW_IOS=true`. |
 | `.eas/workflows/rollout.yml`, `.eas/scripts/rollout-health.mjs` | `templates/eas/` | By hand: promote an update you staged by hand (after a failed-launch check), or roll it back. |
@@ -37,22 +37,24 @@ them current ([Upgrading and customising](#upgrading-and-customising)).
    block](#the-release-block)) and the finished production store builds that have it, and lists
    the open runs of `deploy-production.yml`:
    - **A finished build has it, and no EAS release run is open** (most merges: JavaScript only):
-     it publishes the update to the `production` channel for that platform, checks the update went
-     to the build's runtime version, then uploads the source maps to Sentry and runs your release
-     hook, when those are on.
+     it checks this checkout's runtime version (`expo-updates runtimeversion:resolve`) is the
+     build's, then publishes the update to the `production` channel for that platform with the build
+     profile's `env` (eas.json, which `eas update` doesn't apply by itself), checks the update went to
+     that runtime version, then uploads the source maps to Sentry and runs your release hook, when
+     those are on.
    - **Otherwise** (native code changed, or the build with this runtime version is still being
      made, or an EAS release run is open): nothing is published here for that platform. The job
      starts `deploy-production.yml` on EAS for that commit and those platforms
-     (`eas workflow:run --ref <commit> -F commit_sha=<commit> -F ios=true …`).
+     (`eas workflow:run --ref <commit> -F commit_sha=<commit> -F ios=true -F android=false`).
+     `ios` and `android` are choices compared as text (`inputs.ios == 'true'`): `-F` sends every
+     value as a string, so a boolean `false` would read as true.
 
    Each platform of each commit takes exactly one of the two paths, so an update is never published
    twice. A failure on one platform doesn't hold the other back: the Android update still publishes
    after a failed iOS one, and EAS still gets what it should.
 4. **`deploy-production.yml`** (EAS, only when started), per platform it was given:
    - a build with the runtime version, finished or still being made (`get-build` waits for one in
-     progress): publish this commit as an update on it, unless `main` already has a later commit
-     that changes what the app bundles (the `newest` job: that commit's release ships this code
-     too, and publishing after it would roll phones back);
+     progress): publish this commit as an update on it;
    - none (native code changed): build, then submit to TestFlight and Google Play's internal track
      as a draft. Releasing to the stores stays your step in App Store Connect and Play Console.
 5. **To take an update back**, republish the update group before it:
@@ -75,14 +77,14 @@ from git, with the commit twice: `eas workflow:run .eas/workflows/deploy-product
 
 **Order.** GitHub publishes within minutes, an EAS run perhaps an hour later. So while any run of
 `deploy-production.yml` is open (new, in progress, waiting or awaiting approval), every later
-commit goes to EAS too, instead of publishing an update the older EAS run would then overwrite.
-Runs on EAS are serialized (`concurrency`), and EAS drops waiting runs in between, whose code the
-newest carries. Two runs waiting on one build could still reach their update jobs in either order,
-so each checks first (`newest`, GitHub's compare API with `RELEASE_GITHUB_TOKEN`) that `main` has
-no later app change. Left over: without `RELEASE_GITHUB_TOKEN` on EAS the check can't run and the
-run publishes anyway; a later commit skipped with `[eas skip]`, or whose release fails, leaves its
-code unshipped until the next merge or a re-run; and two runs checking in the same moment can still
-race.
+commit goes to EAS too, for every platform, instead of publishing an update the older EAS run would
+then overwrite. On EAS, runs are serialized (`concurrency`, never cancelling one in progress): each
+finishes before the next starts, in the order GitHub started them, which is the order the commits
+reached `main` (GitHub's runs are serialized too). EAS drops waiting runs in between; the newest one
+carries their code, on every platform. There is no check that skips a run's publish: a skip that
+assumed a later commit would ship could drop a release silently (that commit skipped with
+`[eas skip]`, or its run failed). Left over: a build EAS has queued but not started has no record
+yet, so a merge in that window builds again (a wasted build, nothing missed).
 
 ## The release block
 
@@ -112,7 +114,7 @@ typo can't silently do nothing.
 | --- | --- | --- |
 | `platforms` | `["ios", "android"]` | The platforms released, in `native-release.yml`, `deploy-production.yml` and `pr-preview.yml`: the other platform's jobs and steps aren't written. |
 | `environment` | `production` | The GitHub environment that holds the release secrets (`EXPO_TOKEN`; `SENTRY_AUTH_TOKEN`; the hook's). Limit it to `main`. |
-| `paths` | none | Folders outside the app its bundle reads (every folder its Metro config watches), from the repository root. One list for every workflow: `native-release.yml` runs on them, `deploy-production.yml`'s order check counts them, `pr-preview.yml` previews them. |
+| `paths` | none | Folders outside the app its bundle reads (every folder its Metro config watches), from the repository root. One list for every workflow: `native-release.yml` runs on them and `pr-preview.yml` previews them. |
 | `sentry` | `false` | Uploads each update's source maps to Sentry (`upload_sentry_sourcemaps` on EAS; `sentry-expo-upload-sourcemaps` on GitHub), and stops before publishing when `SENTRY_AUTH_TOKEN` is missing. |
 | `pushHook` | none | A script in the app (`node <script>`) run once a release is out, per platform: after an update (GitHub or EAS) and after a submitted build (EAS). A string, or `{ "script", "secrets" }`: `secrets` are GitHub secret names passed to it on GitHub. |
 | `profile` | `production` | The EAS build profile releases build with, and whose fingerprint they match. |
@@ -122,7 +124,8 @@ typo can't silently do nothing.
 | `runtimeVersion` | `"fingerprint"` | How a commit's runtime version is found. `"fingerprint"`: Expo's fingerprint (`runtimeVersion: { policy: "fingerprint" }`, which `withGenesis` sets). Or `{ "command": "node scripts/runtime-version.mjs" }`: one line that prints the runtime version of the platform in `RELEASE_PLATFORM`, for an app that sets its own per-platform `runtimeVersion` (one derived from the native inputs it tracks, say, where the fingerprint can't see them). Builds are then matched by runtime version, EAS's `get-build` by `runtime_version`, and the fingerprint job isn't written. |
 
 `appFolder` (top level) is where the app sits in its repository. With it, `native-release.yml`
-runs on `<appFolder>/**` and `paths`, works in that folder, and lives in the repository's own
+runs on `<appFolder>/**`, `paths`, and the root's `package.json`, `pnpm-workspace.yaml` and
+lockfiles (a workspace installs from there), works in that folder, and lives in the repository's own
 `.github/workflows`; without it the app is the repository, and every push but documentation and CI
 files (`**/*.md`, `docs/**`, `.github/**`, `.eas/**`, `.maestro/**`) releases. A phone app beside a
 web app ([below](#a-phone-app-beside-a-web-app)) whose bundle reads the web app's code lists that
@@ -167,7 +170,7 @@ Nothing in the templates names a real account. Before the first run:
    | Environment | Variables |
    | --- | --- |
    | `development`, `preview`, `production` | `APP_VARIANT` (the environment's name), `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
-   | `production` | `EXPO_TOKEN` (secret), for `rollout.yml`'s EAS CLI steps; `RELEASE_GITHUB_TOKEN` (secret): a fine-grained token for the repository only, Contents: Read (and Pull requests: Read for a hook that reads them), for the order check; `SENTRY_AUTH_TOKEN` with `release.sentry` |
+   | `production` | `EXPO_TOKEN` (secret), for `rollout.yml`'s EAS CLI steps; `SENTRY_AUTH_TOKEN` with `release.sentry`; whatever your release hook reads on EAS |
    | `development` | `MAESTRO_TEST_EMAIL`, `MAESTRO_TEST_PASSWORD` (secret), for the `account` flows |
 
    `preview` also takes `PREVIEW_IOS=true` once an iOS device is registered ([Build cost](#build-cost)).
@@ -198,9 +201,12 @@ genesis add template release --dry-run  # what it would do
 It writes each file that's missing, adopts one that already has the same text, and records them in
 `genesis.lock.json`. A file of the same name the app already has is never written over: the new
 text goes beside it as `<file>.genesis-next`, for you to merge, and the lock remembers both, so the
-next upgrade merges against it. It names any other workflow in the repository that runs
-`eas update` or starts EAS runs: beside `native-release.yml` it would release twice, so remove it
-in the same change. Then add the secrets ([One-time setup](#one-time-setup)).
+next upgrade merges against it. `native-release.yml` is written last, and held back while an EAS
+workflow in the app still releases on push (your old `deploy-production.yml`, kept with the new
+text in `.genesis-next`): together they would publish every release twice. It names any other
+workflow that releases (a GitHub workflow running `eas update`, or a push-triggered EAS workflow
+with an update or build job); remove it in the same change, and `genesis doctor` warns
+(`release-lane-twice`) while one is there. Then add the secrets ([One-time setup](#one-time-setup)).
 
 **An app that edited its choices into the files** (iPhone only, a path list): move each choice
 into `release` (`platforms`, `paths`, `sentry`, `pushHook`…), then write the files from the config
@@ -238,9 +244,13 @@ left with the new text in `.genesis-next`. So:
   an edit is a merge on every release.
 - **With `appFolder`**, `native-release.yml` (a workflow that is Genesis's alone) is refreshed and
   merged in the repository's `.github/workflows` like any owned file. Shared CI files (`ci.yml`,
-  which a repository fills with its own jobs) are still only named, and their Genesis pins moved.
+  which a repository fills with its own jobs) are still only named.
 - **The CI callers' pins** (`uses: marktiderman/genesis/.github/workflows/…@<commit> # @marktiderman/genesis@<version>`)
-  move to the release the upgrade installs, in every workflow of the repository, owned or not.
+  move with the files the upgrade writes: an owned workflow it refreshes or merges takes the new
+  release's pin with its text. In a shared workflow it only names (under `appFolder`), the pin
+  moves in place only when the template didn't change between the two releases; when it did, the
+  reusable workflow may want new inputs, so the pin stays and the summary says to move it with
+  those changes. A workflow Genesis doesn't own is left as it is.
 - **Templates the app doesn't have** are listed at the end of the summary, with the
   `genesis add template` line; nothing is added by itself.
 
@@ -279,7 +289,8 @@ push to `main` on EAS. On upgrade:
   workflows for pull requests from forks.
 - **No secrets in the files.** Tokens live in the GitHub environment and the EAS environments; the
   workflows pass inputs to shell steps only through `env`; the job masks the values `eas env:exec`
-  hands over.
+  hands over. `EXPO_TOKEN` is never in the job's `env`, which the dependency install's scripts would
+  see: one step checks it, and expo-github-action hands it to the eas steps after the install.
 
 ## Cost
 
@@ -318,10 +329,12 @@ pull request that already matches the paths can start a second run; `pr-preview.
   Sentry), from which it was promoted. These templates, with Android, both runtime strategies and
   the `ios`/`android` inputs, haven't run on a live EAS project yet: watch the first native change
   and the first JavaScript-only merge after adopting them.
-- Not checked against EAS: `eas build:list --runtime-version` (the `runtimeVersion` command
-  strategy), and boolean `workflow_dispatch` inputs passed with `-F ios=true` reading as true in a
-  job's `if`. If an input reads as a string, `${{ inputs.ios }}` is still truthy for `"false"`:
-  check the first run that hands only one platform to EAS.
+- Checked against eas-cli 26.0.0's source (the version the workflow pins): `build:list
+  --fingerprint-hash` and `--runtime-version`, `fingerprint:generate --build-profile`, and that
+  `workflow:run -F` sends values as strings (hence the `choice` inputs compared with `'true'`).
+  Not run against EAS: the `runtimeVersion` command strategy, and `expo-updates
+  runtimeversion:resolve` agreeing with `eas fingerprint:generate` on GitHub's runner (if they
+  disagree, the check stops the publish before anything goes out).
 - The pull request preview's iOS gate (`env.PREVIEW_IOS`) and `github.event.pull_request` on a
   labeled run are as the EAS docs describe, not yet seen on a live run.
 

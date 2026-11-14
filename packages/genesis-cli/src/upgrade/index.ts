@@ -49,7 +49,7 @@ import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from ".
 import { localPackageNames } from "../blocks/local.js";
 import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
 import { starterDir, templatesDir } from "../blocks/templates.js";
-import { adoptTemplates, bumpCallerPins, competingReleaseWorkflows, isDedicatedWorkflow, lookupPin, missingTemplateSets, ownedDir, releaseContext, renderPin, repositoryRoot, resolveTemplateNames, TEMPLATE_SETS, type ReleasePin } from "../blocks/release.js";
+import { adoptTemplates, bumpCallerPins, calledWorkflows, competingReleaseWorkflows, isDedicatedWorkflow, lookupPin, missingTemplateSets, ownedDir, releaseContext, renderPin, repositoryRoot, resolveTemplateNames, TEMPLATE_SETS, type ReleasePin } from "../blocks/release.js";
 import { renderRelease, type ReleaseContext } from "../blocks/release-render.js";
 import { bumpPackageJson, bumpSummary, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { breakLines, fetchChangelog, type ChangelogReader } from "./changelog.js";
@@ -593,9 +593,30 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     // nothing is written or merged, the template's change is only named, once. A workflow that is
     // Genesis's alone is refreshed there like any owned file.
     if (appFolder && !problem && isRepositoryWorkflow(file) && !isDedicatedWorkflow(file)) {
+      // Its Genesis pin moves only when the template itself didn't change between the releases
+      // (the old and new text, both with the old pin, are the same): a reusable workflow that
+      // gained an input or a secret would otherwise break the app's CI on the upgrade.
+      const newWithOldPin = ownedText(file, entry.source, oldPin);
+      const base = bases.get(file) ?? null;
+      const templateSame = newWithOldPin !== null && base !== null && newWithOldPin === base;
+      let pinned = false;
+      if (newPin && templateSame && theirs !== null) {
+        const repoFile = path.join(repositoryRoot(root, appFolder), file);
+        const before = readText(repoFile);
+        const after = before === null ? null : bumpCallerPins(before, newPin, calledWorkflows(theirs));
+        if (before !== null && after !== null && after !== before) {
+          if (!options.dryRun) writeFileSync(repoFile, after);
+          files.add(path.relative(root, repoFile).split(path.sep).join("/"));
+          pinned = true;
+        }
+      }
       if (theirs !== null && sha256(theirs) !== entry.sha256) {
         lock.files[file] = { ...entry, sha256: sha256(theirs), ...(version ? { version } : {}) };
-        refreshed.push({ path: file, outcome: "repository", detail: `the template changed; your copy is in the repository's own .github/workflows (with working-directory: ${appFolder}), so compare it with ${entry.source}` });
+        refreshed.push(
+          pinned
+            ? { path: file, outcome: "updated", detail: `the repository's copy: its Genesis pin moved to ${newPin!.version} (${newPin!.sha.slice(0, 7)}); the template is otherwise unchanged` }
+            : { path: file, outcome: "repository", detail: `the template changed; your copy is in the repository's own .github/workflows (with working-directory: ${appFolder}), so compare it with ${entry.source}${newPin ? `, and move its Genesis pin to ${newPin.version} (${newPin.sha}) with those changes` : ""}` },
+        );
       } else refreshed.push({ path: file, outcome: "unchanged" });
       continue;
     }
@@ -649,22 +670,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     }
   }
 
-  // The Genesis callers in the repository's workflows (owned or not) move to the new release.
+  // Owned workflows took the new release's pin with their text (or kept the app's, merged); the lock
+  // records the pin they were written with.
   if (newPin) {
-    const repo = appFolder ? repositoryRoot(root, appFolder) : root;
-    const wf = path.join(repo, ".github", "workflows");
-    if (existsSync(wf)) {
-      for (const name of readdirSync(wf).filter((f) => /\.ya?ml$/.test(f)).sort()) {
-        const rel = path.relative(root, path.join(wf, name)).split(path.sep).join("/");
-        const before = readText(path.join(wf, name));
-        if (before === null) continue;
-        const after = bumpCallerPins(before, newPin);
-        if (after === before) continue;
-        if (!options.dryRun) writeFileSync(path.join(wf, name), after);
-        files.add(rel);
-        refreshed.push({ path: rel, outcome: "updated", detail: `Genesis workflows pinned to ${newPin.version} (${newPin.sha.slice(0, 7)})` });
-      }
-    }
     if (Object.values(lock.files).some((e) => /:templates\/(?:ci|vercel)\//.test(e.source))) lock.pin = newPin;
   } else if (pinLookup && Object.values(lock.files).some((e) => /:templates\/ci\//.test(e.source))) {
     warnings.push(`Couldn't find the commit of @marktiderman/genesis@${release.version} (git ls-remote), so the workflows' Genesis pins weren't moved; docs/APP-CI.md, "Which ref to call".`);

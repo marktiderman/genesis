@@ -51,6 +51,7 @@ export const BUILTIN_RULES = [
   "store-readiness",
   "eas-placeholder",
   "fingerprint-plugin-files",
+  "release-lane-twice",
   // supabase pack
   "migration-grants",
   "migration-rls",

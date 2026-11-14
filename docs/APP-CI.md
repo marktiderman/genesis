@@ -50,8 +50,8 @@ Call the workflows at the commit of a Genesis release, never at `@main`.
 - Why a SHA rather than the tag: a tag can be moved and a commit can't, and the tag's name
   (`@` and `/` in it) is awkward in a `uses:` ref.
 - Keep the ref on the release your packages are on. `genesis init`, `genesis add template ci` and
-  `genesis upgrade` write it for you: the upgrade moves every Genesis caller in the repository's
-  workflows to the release it installs (genesis-cli README, "genesis upgrade"). The weekly upgrade
+  `genesis upgrade` write it for you: the upgrade moves the pin of the Genesis workflows it owns
+  with their new text (genesis-cli README, "genesis upgrade"). The weekly upgrade
   workflow can't commit that part with the default `GITHUB_TOKEN`, which may not edit workflow
   files: run `genesis upgrade` locally, or give the workflow a token that may.
 

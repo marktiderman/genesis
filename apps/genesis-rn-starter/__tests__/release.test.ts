@@ -145,8 +145,9 @@ describe("EAS workflows", () => {
     expect(Object.keys(on)).toEqual(["workflow_dispatch"]);
     const inputs = (on.workflow_dispatch as { inputs: Record<string, { type?: string; required?: boolean }> }).inputs;
     expect(inputs.commit_sha).toMatchObject({ type: "string", required: true });
-    expect(inputs.ios?.type).toBe("boolean");
-    expect(inputs.android?.type).toBe("boolean");
+    // Choices compared as text: eas workflow:run -F sends every value as a string.
+    expect(inputs.ios?.type).toBe("choice");
+    expect(inputs.android?.type).toBe("choice");
     // main's merge is the approval: an approval job would hold every merge's release.
     expect(Object.values(jobs).filter((j) => j.type === "require-approval")).toEqual([]);
     // One deploy at a time, and the running one always finishes: never cancel_in_progress.
@@ -154,21 +155,19 @@ describe("EAS workflows", () => {
     expect(concurrency).toEqual({ group: "${{ workflow.filename }}" });
   });
 
-  it("deploy-production updates every install, only when it's the newest app change, and submits each build in the run that made it", () => {
+  it("deploy-production updates every install, and submits each build in the run that made it", () => {
     const { jobs } = workflow("deploy-production.yml");
     const updates = Object.values(jobs).filter((j) => j.type === "update");
     expect(updates).toHaveLength(2);
     for (const job of updates) expect(job.params?.rollout_percentage).toBeUndefined();
     for (const platform of ["ios", "android"]) {
-      expect(jobs[`get_${platform}_build`]?.if).toBe(`\${{ inputs.${platform} }}`);
-      expect(jobs[`update_${platform}`]?.if).toBe(`\${{ inputs.${platform} && needs.get_${platform}_build.outputs.build_id && needs.newest.outputs.newest == 'true' }}`);
-      expect(jobs[`update_${platform}`]?.needs).toEqual([`get_${platform}_build`, "newest"]);
-      expect(jobs[`build_${platform}`]?.if).toBe(`\${{ inputs.${platform} && !needs.get_${platform}_build.outputs.build_id }}`);
+      expect(jobs[`get_${platform}_build`]?.if).toBe(`\${{ inputs.${platform} == 'true' }}`);
+      expect(jobs[`update_${platform}`]?.if).toBe(`\${{ inputs.${platform} == 'true' && needs.get_${platform}_build.outputs.build_id }}`);
+      expect(jobs[`update_${platform}`]?.needs).toEqual([`get_${platform}_build`]);
+      expect(jobs[`build_${platform}`]?.if).toBe(`\${{ inputs.${platform} == 'true' && !needs.get_${platform}_build.outputs.build_id }}`);
       expect(jobs[`submit_${platform}`]?.needs).toEqual([`build_${platform}`]);
       expect(jobs[`submit_${platform}`]?.params?.build_id).toBe(`\${{ needs.build_${platform}.outputs.build_id }}`);
     }
-    // The order check reads the commit it was told, never a computed one.
-    expect(jobs.newest?.env?.COMMIT_SHA).toBe("${{ inputs.commit_sha }}");
   });
 
   it.each(["pr-preview.yml", "e2e.yml"])("%s can't reach production", (file) => {

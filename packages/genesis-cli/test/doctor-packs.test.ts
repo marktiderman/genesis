@@ -77,7 +77,7 @@ describe("packs config", () => {
   });
 
   it("pack rule ids are built-in, so rules and allow work and patterns can't take them", async () => {
-    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files"]) {
+    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files", "release-lane-twice"]) {
       expect(BUILTIN_RULES).toContain(id);
     }
     for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited", "migration-testing-kit", "migration-view-rls"]) expect(BUILTIN_RULES).toContain(id);
@@ -249,6 +249,17 @@ describe("native pack", () => {
     expect(brief(ok.findings, "fingerprint-plugin-files")).toEqual([]);
     // No genesis-native plugin: nothing to say.
     expect(brief((await nativeApp({ "app.config.ts": 'export default { runtimeVersion: { policy: "fingerprint" } };\n' })).findings, "fingerprint-plugin-files")).toEqual([]);
+  });
+
+  it("release-lane-twice: native-release.yml beside a workflow that also releases (warn)", async () => {
+    const lane = { ".github/workflows/native-release.yml": "name: Native release\n" };
+    const pushEas = { ".eas/workflows/deploy-production.yml": "on:\n  push:\n    branches: [main]\njobs:\n  update:\n    type: update\n" };
+    const twice = await nativeApp({ ...lane, ...pushEas, ".github/workflows/ota.yml": "jobs:\n  a:\n    steps:\n      - run: eas update --channel production\n" });
+    expect(brief(twice.findings, "release-lane-twice")).toEqual(["release-lane-twice .eas/workflows/deploy-production.yml:0 .eas/workflows/deploy-production.yml", "release-lane-twice .github/workflows/ota.yml:0 .github/workflows/ota.yml"]);
+    expect(levels(twice.findings, "release-lane-twice")).toEqual(["warn", "warn"]);
+    // The lane's own dispatch-only file, or no native-release.yml at all: nothing to say.
+    expect(brief((await nativeApp({ ...lane, ".eas/workflows/deploy-production.yml": "on:\n  workflow_dispatch: {}\njobs:\n  u:\n    type: update\n" })).findings, "release-lane-twice")).toEqual([]);
+    expect(brief((await nativeApp(pushEas)).findings, "release-lane-twice")).toEqual([]);
   });
 
   it("store-readiness: a ready app.json passes", async () => {

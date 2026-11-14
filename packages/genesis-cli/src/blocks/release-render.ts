@@ -82,15 +82,21 @@ export const DEFAULT_RELEASE_CONTEXT: ReleaseContext = { release: resolveRelease
 
 /**
  * Files an app at its repository's root never ships (no path filter there, so every other change
- * counts): `on.push.paths-ignore` in native-release.yml and `RELEASE_PATHS_IGNORE` in the EAS
- * lane's order check are this list.
+ * counts): `on.push.paths-ignore` in native-release.yml.
  */
 export const ROOT_APP_IGNORED = ["**/*.md", "docs/**", ".github/**", ".eas/**", ".maestro/**"];
 
-/** What the app's bundle is built from, from the repository root: the app's folder and `paths`. Empty for an app at the root: everything but {@link ROOT_APP_IGNORED}. */
+/** A workspace's root files an app's install reads, in a repository with the app in a folder. */
+export const ROOT_INSTALL_FILES = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", "bun.lock", "bun.lockb", "yarn.lock", "package-lock.json"];
+
+/**
+ * What the app's bundle is built from, from the repository root: the app's folder, `paths`, and the
+ * root's package.json and lockfiles (a workspace installs from there). Empty for an app at the
+ * root: everything but {@link ROOT_APP_IGNORED}.
+ */
 export function releaseSourcePaths(ctx: ReleaseContext): string[] {
   if (!ctx.appFolder) return [];
-  return [...new Set([ctx.appFolder, ...ctx.release.paths])].map((p) => `${p}/**`);
+  return [...[...new Set([ctx.appFolder, ...ctx.release.paths])].map((p) => `${p}/**`), ...ROOT_INSTALL_FILES];
 }
 
 /** The `GENESIS_RELEASE_*` tokens and their values. */
@@ -105,8 +111,6 @@ export function releaseTokens(ctx: ReleaseContext): Record<string, string> {
     GENESIS_RELEASE_UPDATE_PLATFORM: r.platforms.length === 2 ? "all" : r.platforms[0]!,
     GENESIS_RELEASE_WORKING_DIRECTORY: ctx.appFolder ?? ".",
     GENESIS_RELEASE_PUSH_HOOK: r.pushHook?.script ?? "",
-    GENESIS_RELEASE_PATHS_IGNORE: ctx.appFolder ? "" : ROOT_APP_IGNORED.join(" "),
-    GENESIS_RELEASE_PATHS: releaseSourcePaths(ctx).join(" "),
     GENESIS_RELEASE_RUNTIME_COMMAND: r.runtimeCommand ?? "",
   };
 }
@@ -198,7 +202,8 @@ export function renderRelease(text: string, ctx: ReleaseContext): string {
     }
     const secrets = HOOK_SECRETS.exec(line);
     if (secrets) {
-      for (const s of ctx.release.pushHook?.secrets ?? []) out.push(`${secrets[1]}${s}: \${{ secrets.${s} }}`);
+      // GitHub's expression, written out: "$" and "{{" apart, so nothing reads it as a template.
+      for (const name of ctx.release.pushHook?.secrets ?? []) out.push(secrets[1] + name + ": $" + "{{ secrets." + name + " }}");
       continue;
     }
     out.push(

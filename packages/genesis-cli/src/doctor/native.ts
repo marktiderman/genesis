@@ -19,6 +19,8 @@ import { lineAt } from "./scan.js";
 import { localImports, readSource } from "./source.js";
 import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
+import { appFolderOf } from "../blocks/app-folder.js";
+import { competingReleaseWorkflows, repositoryRoot } from "../blocks/release.js";
 
 const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
 const JSX_EXTS = new Set([".tsx", ".jsx"]);
@@ -51,6 +53,33 @@ export function checkNativePack(ctx: DoctorContext): void {
   checkStoreReadiness(ctx);
   checkEasPlaceholders(ctx);
   checkFingerprintConfig(ctx);
+  checkReleaseLaneTwice(ctx);
+}
+
+/**
+ * `release-lane-twice`: the app has the release lane's native-release.yml and another workflow
+ * that also releases (an EAS workflow with a push trigger and an update or build job, the old
+ * push-triggered deploy-production.yml say, or a GitHub workflow running `eas update`). Each release
+ * would go out twice.
+ */
+export function checkReleaseLaneTwice(ctx: DoctorContext): void {
+  let appFolder: string | null = null;
+  try {
+    appFolder = appFolderOf(ctx.root);
+  } catch {
+    return; // An invalid genesis.config.json is the config's own error.
+  }
+  const repo = appFolder ? repositoryRoot(ctx.root, appFolder) : ctx.root;
+  if (!existsSync(path.join(repo, ".github", "workflows", "native-release.yml"))) return;
+  for (const rival of competingReleaseWorkflows(ctx.root, appFolder)) {
+    ctx.report({
+      rule: "release-lane-twice",
+      level: "warn",
+      file: rival.startsWith(".github/") && appFolder ? path.relative(ctx.root, path.join(repo, rival)).split(path.sep).join("/") : rival,
+      subject: rival,
+      message: `${rival} also releases (EAS updates or builds) beside .github/workflows/native-release.yml, so each release would go out twice. Make it the lane's dispatch-only deploy-production.yml (genesis add template release --replace), or remove it (docs/NATIVE-RELEASE.md, "Adopting the lane")`,
+    });
+  }
 }
 
 const APP_CONFIGS = ["app.config.ts", "app.config.js", "app.config.mjs", "app.config.cjs", "app.json"];

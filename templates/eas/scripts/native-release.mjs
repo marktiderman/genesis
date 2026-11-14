@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // The decisions of the native release lane (docs/NATIVE-RELEASE.md in the Genesis repository):
 // .github/workflows/native-release.yml (GitHub Actions) runs these on every push to main that
-// changes the app, and .eas/workflows/deploy-production.yml (EAS, started by that job) runs
-// `newest`. Kept here, not in the YAML, so they are tested and can be dry-run without publishing.
-// Node's built-ins only: EAS runs it without installing the app's packages.
+// changes the app. Kept here, not in the YAML, so they are tested and can be dry-run without
+// publishing.
+// Node's built-ins only.
 //
 //   node .eas/scripts/native-release.mjs snapshot <env.json>
 //     Run first, outside `eas env:exec`: writes a SHA-256 of every value in the runner's environment.
@@ -26,12 +26,13 @@
 //   node .eas/scripts/native-release.mjs update <update.json> <platform> <runtime version>
 //     From `eas update --json`: the platform's update group, checked against the runtime version
 //     the plan matched (an update for another runtime reaches no phone).
-//   node .eas/scripts/native-release.mjs newest <commit>
-//     Run by the EAS lane before it publishes: newest=false when the release branch has a later
-//     commit that changes what the app bundles (that commit's release ships this one's code too),
-//     else newest=true. Reads GitHub with RELEASE_GITHUB_TOKEN (RELEASE_REPOSITORY, RELEASE_BRANCH,
-//     RELEASE_PATHS, RELEASE_PATHS_IGNORE); without a token it prints newest=true and says so. Refuses
-//     a commit that isn't on the release branch.
+//   node .eas/scripts/native-release.mjs profile-env <eas.json> <profile>
+//     The build profile's `env` (following `extends`) as NAME=value lines for $GITHUB_ENV: eas
+//     update doesn't apply it, and the build and the EAS lane's updates do.
+//   node .eas/scripts/native-release.mjs runtime <resolved.txt> <platform> <runtime version>
+//     Before publishing: fails unless `expo-updates runtimeversion:resolve` (its output in
+//     <resolved.txt>) gives the runtime version the plan matched, so a mismatched update is never
+//     published.
 //
 // Genesis template (templates/eas/scripts/native-release.mjs). genesis upgrade refreshes it; change
 // the lane through genesis.config.json `release`, not here.
@@ -181,46 +182,44 @@ export function updateOutputs(updates, platform, runtime) {
   return [`${platform}_update_group=${update.group}`, `${platform}_runtime_version=${update.runtimeVersion}`];
 }
 
-/** A path glob (`apps/mobile/**`, `**\/*.md`) as a regular expression on repository paths. */
-export function globToRegExp(glob) {
-  let re = "";
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i];
-    if (c === "*" && glob[i + 1] === "*") {
-      re += glob[i + 2] === "/" ? "(?:.*/)?" : ".*";
-      i += glob[i + 2] === "/" ? 2 : 1;
-    } else if (c === "*") re += "[^/]*";
-    else re += /[.+?^${}()|[\]\\]/.test(c) ? `\\${c}` : c;
+/**
+ * The build profile's `env` from eas.json, following `extends` (the profile's own values win), as
+ * `NAME=value` lines. A value with a line break can't be one line of $GITHUB_ENV: refused.
+ * @param {{ build?: Record<string, { extends?: string, env?: Record<string, unknown> }> }} easJson
+ */
+export function profileEnv(easJson, profile) {
+  const build = easJson?.build ?? {};
+  const seen = new Set();
+  const resolve = (name) => {
+    if (seen.has(name)) throw new Error(`eas.json build profiles extend each other in a loop at "${name}".`);
+    seen.add(name);
+    const own = build[name];
+    if (!own) throw new Error(`eas.json has no build profile "${name}".`);
+    return { ...(own.extends ? resolve(own.extends) : {}), ...(own.env ?? {}) };
+  };
+  return Object.entries(resolve(profile)).map(([key, value]) => {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new Error(`eas.json build.${profile}.env has a name that isn't one: "${key}".`);
+    const text = String(value);
+    if (/[\r\n]/.test(text)) throw new Error(`eas.json build.${profile}.env.${key} has a line break; it can't be passed on.`);
+    return `${key}=${text}`;
+  });
+}
+
+/** The runtime version in `expo-updates runtimeversion:resolve`'s output, or null. */
+export function resolvedRuntime(text) {
+  return /"runtimeVersion"\s*:\s*"([^"]+)"/.exec(String(text ?? ""))?.[1] ?? null;
+}
+
+/** Refuses, before publishing, an update whose runtime version isn't the build's. */
+export function checkRuntime(text, platform, expected) {
+  const resolved = resolvedRuntime(text);
+  if (!resolved) throw new Error(`expo-updates runtimeversion:resolve printed no ${platform} runtime version. Nothing was published.`);
+  if (expected && resolved !== expected) {
+    throw new Error(`This commit's ${platform} runtime version here is ${resolved}, but the build found has ${expected}: an update would reach no phone with that build. Nothing was published.`);
   }
-  return new RegExp(`^${re}$`);
+  return resolved;
 }
 
-/**
- * Whether a file changes what the app bundles: it matches one of `paths` (when there are any) and
- * none of `ignore`. The same lists as native-release.yml's `paths` / `paths-ignore`.
- */
-export function shipsFile(file, paths, ignore) {
-  const name = String(file ?? "");
-  if (paths.length && !paths.some((p) => globToRegExp(p).test(name))) return false;
-  return !ignore.some((p) => globToRegExp(p).test(name));
-}
-
-/**
- * From GitHub's compare of `<commit>...<branch>`: whether the branch has a later change to what the
- * app bundles. Throws when the commit isn't on the branch (a run started from another commit).
- * @param {{ status?: string, files?: Array<{ filename?: string }> }} compare
- */
-export function newerBundleChange(compare, paths = [], ignore = []) {
-  if (!compare || typeof compare !== "object") throw new Error("GitHub's compare gave no result.");
-  if (compare.status === "identical") return false;
-  if (compare.status !== "ahead") throw new Error(`The commit isn't on the release branch (compare status "${compare.status}"). Nothing was published.`);
-  const files = Array.isArray(compare.files) ? compare.files : [];
-  // GitHub lists at most 300 files; a list that long most likely includes the app.
-  if (files.length >= 300) return true;
-  return files.some((f) => shipsFile(f?.filename, paths, ignore));
-}
-
-const words = (value) => String(value ?? "").split(/\s+/).filter(Boolean);
 const readJson = (file) => JSON.parse(readFileSync(file, "utf8"));
 
 async function main(command, args, env) {
@@ -248,29 +247,16 @@ async function main(command, args, env) {
     const [file, platform, runtime] = args;
     if (!file || !PLATFORMS.includes(platform)) throw new Error("update needs <update.json> <platform> <runtime version>.");
     for (const line of updateOutputs(readJson(file), platform, runtime)) console.log(line);
-  } else if (command === "newest") {
-    const sha = args[0] ?? "";
-    if (!/^[0-9a-f]{40}$/i.test(sha)) throw new Error(`newest needs the full commit being released (got "${sha}").`);
-    const token = env.RELEASE_GITHUB_TOKEN?.trim();
-    const repo = env.RELEASE_REPOSITORY?.trim();
-    if (!token || !repo) {
-      console.error(`No ${token ? "RELEASE_REPOSITORY" : "RELEASE_GITHUB_TOKEN"}: can't check for a newer commit, so publishing (order unchecked).`);
-      console.log("newest=true");
-      return;
-    }
-    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error(`RELEASE_REPOSITORY must be owner/name (got "${repo}").`);
-    const branch = env.RELEASE_BRANCH?.trim() || "main";
-    const api = env.GITHUB_API_URL || "https://api.github.com";
-    const res = await fetch(`${api}/repos/${repo}/compare/${sha}...${encodeURIComponent(branch)}`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" },
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!res.ok) throw new Error(`GitHub compare ${sha}...${branch} answered ${res.status}. Nothing was published.`);
-    const newer = newerBundleChange(await res.json(), words(env.RELEASE_PATHS), words(env.RELEASE_PATHS_IGNORE));
-    if (newer) console.error(`${branch} has a later app change than ${sha}; its release ships this code. Not publishing.`);
-    console.log(`newest=${newer ? "false" : "true"}`);
+  } else if (command === "profile-env") {
+    const [file, profile] = args;
+    if (!file || !profile) throw new Error("profile-env needs <eas.json> <profile>.");
+    for (const line of profileEnv(readJson(file), profile)) console.log(line);
+  } else if (command === "runtime") {
+    const [file, platform, expected] = args;
+    if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime needs <resolved.txt> <platform> <runtime version>.");
+    checkRuntime(readFileSync(file, "utf8"), platform, expected);
   } else {
-    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update or newest.`);
+    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env or runtime.`);
   }
 }
 

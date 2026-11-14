@@ -51,9 +51,18 @@ export function renderPin(text: string, pin: ReleasePin | null | undefined): str
 /** A reusable Genesis workflow's pin in a caller, whatever release it names now. */
 const CALLER_PIN = /(marktiderman\/genesis\/\.github\/workflows\/[\w.-]+\.ya?ml@)([0-9a-f]{40}|GENESIS_SHA)(\s*#\s*@marktiderman\/genesis@)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?|X\.Y\.Z)/g;
 
-/** A workflow file's Genesis callers moved to `pin`; the text unchanged when it calls none. */
-export function bumpCallerPins(text: string, pin: ReleasePin): string {
-  return text.replace(CALLER_PIN, (_all, head: string, _sha: string, mid: string) => `${head}${pin.sha}${mid}${pin.version}`);
+/** The Genesis reusable workflows a workflow calls (`app-ci.yml`). */
+export function calledWorkflows(text: string): string[] {
+  return [...new Set([...text.matchAll(/marktiderman\/genesis\/\.github\/workflows\/([\w.-]+\.ya?ml)@/g)].map((m) => m[1]!))];
+}
+
+/** A workflow file's Genesis callers (only those of `only`, when given) moved to `pin`; the text unchanged when it calls none. */
+export function bumpCallerPins(text: string, pin: ReleasePin, only?: readonly string[]): string {
+  return text.replace(CALLER_PIN, (all, head: string, _sha: string, mid: string) => {
+    const name = /workflows\/([\w.-]+\.ya?ml)@$/.exec(head)?.[1];
+    if (only && (!name || !only.includes(name))) return all;
+    return `${head}${pin.sha}${mid}${pin.version}`;
+  });
 }
 
 /** The commit a Genesis release is tagged at (`@marktiderman/genesis@<version>`), from the repository, or null. */
@@ -161,7 +170,9 @@ export function resolveTemplateNames(names: readonly string[], dir = templatesDi
   return out;
 }
 
-export type AdoptOutcome = "created" | "adopted" | "updated" | "unchanged" | "next" | "replaced" | "pending";
+export type AdoptOutcome = "created" | "adopted" | "updated" | "unchanged" | "next" | "replaced" | "pending" | "held";
+
+const NATIVE_RELEASE = "ci/native-release.yml";
 
 export interface AdoptResult {
   template: string;
@@ -194,6 +205,9 @@ export interface AdoptOptions {
  *   the app hasn't edited it; an edited one gets `.genesis-next`. So after changing `release`,
  *   `genesis add template release` applies it.
  * - `replace`: the app's file is written over, and a `.genesis-next` beside it removed.
+ * - native-release.yml is written last, and held back while an EAS workflow still releases on push
+ *   (the app's own deploy-production.yml, kept with the new text in .genesis-next): together they
+ *   would publish every release twice.
  */
 export function adoptTemplates(root: string, templates: readonly string[], options: AdoptOptions = {}): AdoptResult[] {
   const dir = options.dir ?? templatesDir();
@@ -201,7 +215,17 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
   const ctx = releaseContext(root);
   const appFolder = ctx.appFolder;
   const results: AdoptResult[] = [];
-  for (const template of templates) {
+  const ordered = [...templates.filter((t) => t !== NATIVE_RELEASE), ...templates.filter((t) => t === NATIVE_RELEASE)];
+  for (const template of ordered) {
+    if (template === NATIVE_RELEASE) {
+      // In a dry run nothing was written: a workflow this run would write anew isn't a rival.
+      const rewritten = (rel: string) => results.some((r) => r.path === rel && ["created", "updated", "replaced"].includes(r.outcome));
+      const rivals = pushTriggeredEasWorkflows(root).filter((rel) => !(options.dryRun && rewritten(rel)));
+      if (rivals.length) {
+        results.push({ template, path: ".github/workflows/native-release.yml", location: ".github/workflows/native-release.yml", outcome: "held", detail: `not written: ${rivals.join(", ")} still releases on every push, and both would publish each release. Merge its .genesis-next (or move your edits into genesis.config.json and run again with --replace), then run this again` });
+        continue;
+      }
+    }
     const raw = readFileSync(path.join(dir, template), "utf8");
     const target = templateTarget(template, raw);
     const text = renderTemplate(target, raw, { release: ctx, substitutions: lock.substitutions, pin: options.pin ?? null });
@@ -250,17 +274,51 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
   return results;
 }
 
+/** True when a workflow's top-level `on:` has a `push` trigger. */
+export function hasPushTrigger(text: string): boolean {
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => /^["']?on["']?\s*:/.test(l));
+  if (at < 0) return false;
+  const inline = lines[at]!.replace(/^["']?on["']?\s*:/, "").replace(/#.*$/, "").trim();
+  if (inline) return /(?:^|[\s,[{])push\b/.test(inline);
+  let indent: number | null = null;
+  for (const line of lines.slice(at + 1)) {
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    if (/^\S/.test(line)) break;
+    const own = line.length - line.trimStart().length;
+    indent ??= own;
+    if (own === indent && /^["']?push["']?\s*:/.test(line.trimStart())) return true;
+  }
+  return false;
+}
+
+/** The app's EAS workflows that release on push: a `push` trigger and an update or build job. */
+export function pushTriggeredEasWorkflows(root: string): string[] {
+  const dir = path.join(root, ".eas", "workflows");
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => /\.ya?ml$/.test(f))
+    .filter((f) => {
+      const text = readFileSync(path.join(dir, f), "utf8");
+      return hasPushTrigger(text) && /^\s+type:\s*["']?(?:update|build)["']?\s*$/m.test(text);
+    })
+    .map((f) => `.eas/workflows/${f}`);
+}
+
 /**
- * Other workflows in the repository that publish EAS updates or start EAS builds on their own:
- * beside native-release.yml they would release twice.
+ * Other workflows that publish EAS updates or start EAS runs on their own: in the repository's
+ * .github/workflows, and the app's EAS workflows that release on push. Beside native-release.yml
+ * they would release twice.
  */
 export function competingReleaseWorkflows(root: string, appFolder: string | null): string[] {
   const dir = path.join(appFolder ? repositoryRoot(root, appFolder) : root, ".github", "workflows");
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((f) => /\.ya?ml$/.test(f) && f !== "native-release.yml")
-    .filter((f) => /\beas\s+(?:update|workflow:run|build)\b/.test(readFileSync(path.join(dir, f), "utf8")))
-    .map((f) => `.github/workflows/${f}`);
+  const github = existsSync(dir)
+    ? readdirSync(dir)
+        .filter((f) => /\.ya?ml$/.test(f) && f !== "native-release.yml")
+        .filter((f) => /\beas\s+(?:update|workflow:run|build)\b/.test(readFileSync(path.join(dir, f), "utf8")))
+        .map((f) => `.github/workflows/${f}`)
+    : [];
+  return [...github, ...pushTriggeredEasWorkflows(root)];
 }
 
 /** The lock's GitHub workflows under `appFolder` that are the repository's (not Genesis's alone). */
