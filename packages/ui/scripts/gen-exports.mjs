@@ -9,7 +9,7 @@
  * run `node scripts/gen-exports.mjs` after adding/removing a component.
  *
  * The curated subpaths (`.`, `./data`, `./patterns`, `./layout`, `./resource`, `./hooks`,
- * `./utils`, `./status-colors`, `./provider`, `./styles.css`) are preserved
+ * `./utils`, `./status-colors`, `./provider`, `./themes`, `./styles.css`) are preserved
  * verbatim.
  *
  * PER-COMPONENT SUBPATHS NOW SPAN THREE FOLDERS. Since the layer split
@@ -107,6 +107,8 @@ const LAYOUT_SUBPATH_COMPONENTS = [
   "builder-layout",
   "dashboard-page",
   "detail-page",
+  // ADR 0022: the document page template (cover, icon, title, reading column).
+  "document-page",
   "form-page",
   "settings-page",
 ];
@@ -185,6 +187,11 @@ const baseExports = {
   "./layout": {
     types: "./dist/components/layout/index.d.ts",
     import: "./dist/components/layout/index.js",
+  },
+  // App themes (a brand, a style and a layout), ADR 0018.
+  "./themes": {
+    types: "./dist/themes/index.d.ts",
+    import: "./dist/themes/index.js",
   },
   // The resource workspace (a form's, a course's page: header, readiness, settings,
   // share) and its pure rules, safe on a server. Each needs its `tsup.config.ts` entry.

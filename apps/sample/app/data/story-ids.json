@@ -18,6 +18,7 @@
   "chip": "resource-chip--status",
   "collapsible": "foundation-ui-collapsible--default",
   "conflictsheet": "data-conflictsheet--default",
+  "customview": "foundation-data-customview--animated-leaderboard",
   "detailpanel": "foundation-data-detailpanel--sheet",
   "dialog": "foundation-ui-dialog--default",
   "dropdownmenu": "foundation-ui-dropdownmenu--default",
@@ -31,6 +32,7 @@
   "input": "foundation-ui-input--plain",
   "inputotp": "foundation-ui-inputotp--default",
   "kbd": "foundation-ui-kbd--default",
+  "layouts": "foundation-layout-layouts--sidebar",
   "lightbox": "patterns-lightbox--default",
   "liveindicator": "patterns-liveindicator--live",
   "messaging": "patterns-messaging--inbox",
@@ -73,5 +75,6 @@
   "tooltip": "foundation-ui-tooltip--default",
   "typography": "foundation-ui-typography--all",
   "useravatar": "foundation-ui-useravatar--initials-fallback",
+  "widget": "foundation-data-widget--kinds",
   "workspaceswitcher": "foundation-layout-workspaceswitcher--sidebar"
 }

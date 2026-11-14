@@ -280,6 +280,13 @@ export const SiteDoc = z.object({
    * Unset: any https host, and an image elsewhere is a warning.
    */
   images: z.enum(["any", "own"]).optional(),
+  /**
+   * Landing pages (pages of kind `landing`): `directory` is the path the
+   * editor makes new ones under (`/go/spring-offer`). Unset: `/go`
+   * (`DEFAULT_LANDING_DIRECTORY`). It is where new landing pages go, not a
+   * rule: each page's own path is checked when it is made or moved.
+   */
+  landing: z.object({ directory: PagePath.refine((p) => p !== "/", { message: "Landing pages need a directory of their own, not /." }) }).optional(),
 });
 export type SiteDoc = z.infer<typeof SiteDoc>;
 /** A `SiteDoc` as written, before defaults. */

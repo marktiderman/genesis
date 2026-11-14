@@ -9,8 +9,8 @@ import { addDays, rangeIn, type DayRange } from "@marktiderman/genesis-core/date
 export type TimeStorage = "date" | "zoned" | "wall";
 
 /** How a field stores time, from its database type (an unknown type with a time counts as an instant). @stability Beta */
-export function timeStorage(field: { dbType?: string | undefined; widget?: string | undefined } | undefined): TimeStorage {
-  if (!field || field.dbType === "date" || field.widget === "date") return "date";
+export function timeStorage(field: { dbType?: string | undefined; control?: string | undefined; widget?: string | undefined } | undefined): TimeStorage {
+  if (!field || field.dbType === "date" || (field.control ?? field.widget) === "date") return "date";
   if (field.dbType === undefined || /with time zone|timestamptz/.test(field.dbType)) return "zoned";
   return "wall";
 }

@@ -60,6 +60,8 @@ declare module "react-native" {
 
   export interface ViewProps {
     style?: ViewStyle | ViewStyle[];
+    /** Seen as a touch starts inside the view, before its children; true takes the touch. */
+    onStartShouldSetResponderCapture?: (e: any) => boolean;
     className?: string;
     children?: React.ReactNode;
     accessible?: boolean;
@@ -117,6 +119,8 @@ declare module "react-native" {
 
   export interface TextInputProps {
     style?: TextStyle | TextStyle[];
+    /** Hides the caret (a one-time-code field draws its own). */
+    caretHidden?: boolean;
     className?: string;
     value?: string;
     defaultValue?: string;
@@ -124,6 +128,7 @@ declare module "react-native" {
     onBlur?: (e: any) => void;
     onFocus?: (e: any) => void;
     onSubmitEditing?: (e: any) => void;
+    onEndEditing?: (e: any) => void;
     placeholder?: string;
     placeholderTextColor?: string;
     editable?: boolean;
@@ -192,6 +197,8 @@ declare module "react-native" {
     className?: string;
     onPress?: (e: GestureResponderEvent) => void;
     onLongPress?: () => void;
+    /** Milliseconds a press must last to be a long press. */
+    delayLongPress?: number;
     disabled?: boolean;
     children?: React.ReactNode | ((state: { pressed: boolean }) => React.ReactNode);
     accessible?: boolean;
@@ -286,6 +293,11 @@ declare module "react-native" {
     bouncesZoom?: boolean;
     centerContent?: boolean;
     alwaysBounceVertical?: boolean;
+    /** Stops on each page (a carousel). */
+    pagingEnabled?: boolean;
+    /** iOS: insets the content for the keyboard. */
+    automaticallyAdjustKeyboardInsets?: boolean;
+    onMomentumScrollEnd?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
     ref?: React.Ref<unknown>;
   }
 
@@ -409,6 +421,7 @@ declare module "react-native" {
   export const SafeAreaView: ComponentType<ViewProps>;
   export const RefreshControl: ComponentType<RefreshControlProps>;
   export const KeyboardAvoidingView: ComponentType<KeyboardAvoidingViewProps>;
+  export const Keyboard: { dismiss(): void };
   export const StatusBar: ComponentType<StatusBarProps>;
   export const Appearance: AppearanceModule;
   export interface AlertButton {

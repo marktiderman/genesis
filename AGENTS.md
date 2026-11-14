@@ -18,12 +18,12 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
   `pnpm check:private-names` runs in CI.
 - Before building anything, read Part 1 of `docs/FRAMEWORK.md` ("The Genesis way"): reuse, then
   extend, then invent, and invent in the app before Genesis. Slots, variants and configuration
-  are config; recreating something that exists, or should, is the custom code we remove. Cite
+  are config; recreating something Genesis already has a piece for is the custom code we remove. Cite
   the principle IDs (G1–G6) in reviews.
 - Design lives in Figma: the library file and one file per consumer app. A new screen, flow or
   layout change is designed as a proposal section on its route page in the app file, wired into
   the live prototype (a new library component, on its page in the library file), and approved by the maintainer before its code is written, from
-  library instances where they exist (a plain frame only for a written-up library gap); fixes,
+  library instances where they exist (an app component that wraps one where it is close, one of the app's own where nothing does the job); fixes,
   copy, new states from existing components and small tweaks go code-first.
   `docs/FIGMA-GUIDELINES.md` has the setup and the rules, `docs/DESIGN-LIBRARY.md` the
   library's internals.
@@ -43,7 +43,12 @@ AGENTS.md and skill):
 - **On the phone**, the same view through `NativeResourceView` (`@marktiderman/genesis-ui-native/data`).
 - **Data** goes through the view and the resource's provider rules. A screen never calls
   `supabase.from`, `.rpc` or `.schema(…).from` itself.
-- Never copy an older screen as a template, and write a gap up for Genesis before inventing.
+- Never copy an older screen as a template.
+- When a Genesis piece is close and does the same job, extend it: a prop, a variant, a slot, or the
+  app's own component that wraps it. Never a parallel piece beside it.
+- When nothing in Genesis does the job, invent it in the app. Genesis asks for no write-up or
+  approval first, and recommending it to Genesis (`genesis upstream`) is optional. The app's own
+  design review (the Figma proposal above) is a separate thing and still applies.
 
 A package that adds a primitive declares its rule in its package.json (`genesis.doctor`); see
 the genesis-cli README, "Package rules". Every published package must declare one, or say why
@@ -125,7 +130,7 @@ Every PR into a staging batch (`staging/**`) carries the check "Adversarial revi
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 159 features (27 planned, 75 building, 22 beta, 27 live, 1 deprecated, 7 retired).
+Every feature is in `features.ts`: 169 features (27 planned, 85 building, 22 beta, 27 live, 1 deprecated, 7 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

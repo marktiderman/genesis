@@ -133,7 +133,7 @@ export interface StudioContract {
   label?: string;
   labelField?: string;
   description?: string;
-  fields?: readonly { name: string; label?: string; description?: string; widget?: string }[];
+  fields?: readonly { name: string; label?: string; description?: string; control?: string; /** @deprecated Renamed `control`. */ widget?: string }[];
 }
 
 export interface StudioHandlerOptions {

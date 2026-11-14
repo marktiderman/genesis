@@ -41,7 +41,8 @@ import { overlayState } from "./overlays.js";
 import { loadPlugins } from "./plugins.js";
 import { routesDir } from "./routes.js";
 import { lineAt } from "./scan.js";
-import { localImportedNames } from "./source.js";
+import { localImportedNames, openElementsAt, readSource } from "./source.js";
+import { stripBlockComments } from "../../../../scripts/lib/color-literals.mjs";
 import { importSpecifiers } from "./rules.js";
 import type { DeclaringPackage, DoctorContext, DoctorPlugin, FindingInput, Level, PackageDeclaration, PackageRuleSetting, PreferRule, PrimitiveEntry, SourceFile } from "./types.js";
 
@@ -54,9 +55,9 @@ export class PackageDeclarationError extends Error {
 const GENESIS = /^@marktiderman\/genesis(?:-([a-z0-9-]+))?$/;
 const ID = /^[a-z0-9][a-z0-9-]*$/;
 const LEVELS = new Set(["error", "warn", "info"]);
-const PREFER_KEYS = new Set(["id", "need", "level", "platform", "files", "exclude", "forbid", "unless", "use", "import", "docs", "why", "newOnly"]);
+const PREFER_KEYS = new Set(["id", "need", "level", "platform", "files", "exclude", "forbid", "unless", "use", "import", "docs", "why", "newOnly", "extensible"]);
 const FORBID_KEYS = new Set(["jsx", "imports", "pattern"]);
-const UNLESS_KEYS = new Set(["renders", "pattern"]);
+const UNLESS_KEYS = new Set(["renders", "inside", "pattern"]);
 const PRIMITIVE_KEYS = new Set(["need", "use", "import", "docs"]);
 const DECLARATION_KEYS = new Set(["enforce", "reason", "prefer", "catalog", "primitives", "plugin", "$comment"]);
 const SCRIPT_GLOBS = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mts", "**/*.cts", "**/*.mjs", "**/*.cjs"];
@@ -188,6 +189,9 @@ function validatePrefer(raw: unknown, where: string, fail: (msg: string) => neve
   if (raw.platform !== undefined && raw.platform !== "web" && raw.platform !== "native") fail(`${at}.platform must be "web" or "native"`);
   if (raw.newOnly !== undefined && typeof raw.newOnly !== "boolean") fail(`${at}.newOnly must be true or false`);
   for (const key of ["files", "exclude"]) if (raw[key] !== undefined && !isStringList(raw[key])) fail(`${at}.${key} must be a list of globs`);
+  if (raw.extensible !== undefined && !(isStringList(raw.extensible) && raw.extensible.every((n) => /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(n)))) {
+    fail(`${at}.extensible must be a list of export names, or parts of one ("ResourceView.slots")`);
+  }
   if (!isObject(raw.forbid)) fail(`${at} needs "forbid": { jsx?, imports?, pattern? }`);
   const forbid = raw.forbid as Record<string, unknown>;
   for (const key of Object.keys(forbid)) if (!FORBID_KEYS.has(key)) unknownKey(`${at}.forbid`, key);
@@ -200,6 +204,7 @@ function validatePrefer(raw: unknown, where: string, fail: (msg: string) => neve
     const unless = raw.unless as Record<string, unknown>;
     for (const key of Object.keys(unless)) if (!UNLESS_KEYS.has(key)) narrowing(`${at}.unless`, key, UNLESS_KEYS);
     if (unless.renders !== undefined && !isStringList(unless.renders)) fail(`${at}.unless.renders must be a list of component names`);
+    if (unless.inside !== undefined && !(isStringList(unless.inside) && unless.inside.every((n) => /^[A-Z][\w.]*$/.test(n)))) fail(`${at}.unless.inside must be a list of component names`);
     if (unless.pattern !== undefined) checkPattern(unless.pattern, `${at}.unless.pattern`, fail);
   }
   return raw as unknown as PreferRule;
@@ -340,6 +345,7 @@ interface CompiledPrefer {
   imports: Array<(spec: string) => boolean>;
   pattern?: RegExp;
   unlessRenders: Set<string>;
+  unlessInside: Set<string>;
   unlessPattern?: RegExp;
 }
 
@@ -362,6 +368,7 @@ function compile(rule: ResolvedPreferRule, setting: PackageRuleSetting | undefin
     imports: (rule.forbid.imports ?? []).map(specMatcher),
     ...(rule.forbid.pattern ? { pattern: toRegExp(rule.forbid.pattern, "g") } : {}),
     unlessRenders: new Set(rule.unless?.renders ?? []),
+    unlessInside: new Set(rule.unless?.inside ?? []),
     ...(rule.unless?.pattern ? { unlessPattern: toRegExp(rule.unless.pattern) } : {}),
   };
 }
@@ -378,6 +385,9 @@ function messageFor(rule: ResolvedPreferRule, found: string): string {
   return `${found}; use ${rule.use}${from}. ${rule.why}${docs}`;
 }
 
+/** Where a component renders what it was given: `{children}` or `{props.children}`. */
+const CHILDREN = /\{\s*(?:props\.)?children\s*\}/g;
+
 /** A top-level declaration (at the start of a line): whether it is exported, and its name. */
 const TOP_LEVEL = /^(export\s+(default\s+)?)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([\w$]+)/gm;
 /** `export { A, B as C }` without `from`: names exported after their declaration. */
@@ -386,11 +396,12 @@ const EXPORT_LIST = /\bexport\s*\{([^}]*)\}(?!\s*from)/g;
 const EXPORT_DEFAULT_NAME = /^export\s+default\s+([A-Z][\w$]*)\s*;?\s*$/gm;
 
 /**
- * The components a file exports whose own declaration renders a forbidden element, keyed by the
- * name they are imported under (`default` for the default export). A declaration runs from its
- * line to the next top-level declaration, so a sibling export that doesn't render it isn't one.
+ * The components a file exports whose own declaration renders one of `names`, keyed by the name
+ * they are imported under (`default` for the default export), with the element they render. A
+ * declaration runs from its line to the next top-level declaration, so a sibling export that
+ * doesn't render it isn't one.
  */
-function wrappersIn(file: SourceFile, elements: RegExpMatchArray[], c: CompiledPrefer): Map<string, string> {
+function wrappersIn(file: Pick<SourceFile, "code">, elements: RegExpMatchArray[], names: ReadonlySet<string>, accept?: (start: number, end: number) => boolean): Map<string, string> {
   const out = new Map<string, string>();
   const decls = [...file.code.matchAll(TOP_LEVEL)];
   const listed = new Map<string, string[]>();
@@ -403,12 +414,12 @@ function wrappersIn(file: SourceFile, elements: RegExpMatchArray[], c: CompiledP
   for (const m of file.code.matchAll(EXPORT_DEFAULT_NAME)) listed.set(m[1]!, [...(listed.get(m[1]!) ?? []), "default"]);
   decls.forEach((d, i) => {
     const name = d[3]!;
-    if (!/^[A-Z]/.test(name) || c.jsx.has(name)) return;
+    if (!/^[A-Z]/.test(name) || names.has(name)) return;
     const end = decls[i + 1]?.index ?? file.code.length;
-    const hit = elements.find((m) => m.index! > d.index! && m.index! < end && c.jsx.has(m[1]!));
-    if (!hit) return;
-    const names = [...(d[1] ? [d[2] ? "default" : name] : []), ...(listed.get(name) ?? [])];
-    for (const n of names) out.set(n, hit[1]!);
+    const hit = elements.find((m) => m.index! > d.index! && m.index! < end && names.has(m[1]!));
+    if (!hit || (accept && !accept(d.index!, end))) return;
+    const exported = [...(d[1] ? [d[2] ? "default" : name] : []), ...(listed.get(name) ?? [])];
+    for (const n of exported) out.set(n, hit[1]!);
   });
   return out;
 }
@@ -418,11 +429,44 @@ function wrappersIn(file: SourceFile, elements: RegExpMatchArray[], c: CompiledP
  * where it is rendered and, one level up, wherever an app component that
  * renders it is used: a local wrapper (`RecordTable` around `DataTable`) is
  * flagged once, and every screen that imports and renders the wrapper is flagged too.
+ * `unless.inside` exempts elements, not files: one nested inside an `inside`
+ * element, or inside an app component the file imports whose own body renders
+ * one (a page around `<BuilderLayout>`), is the builder's own and left alone.
  */
 function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
   const own = c.rule.packageDir;
   const checked = ctx.files.filter((file) => SCRIPT.has(file.ext) && c.includes(file.path) && !c.excludes(file.path) && !inside(own, file.absolutePath));
   const exempt = (file: SourceFile, rendered: string[]) => rendered.some((n) => c.unlessRenders.has(n)) || (c.unlessPattern?.test(file.code) ?? false);
+  const scanned = new Map(ctx.files.map((f) => [f.absolutePath, f]));
+  const importedBy = new Map<SourceFile, ReturnType<typeof localImportedNames>>();
+  const importsOf = (file: SourceFile) => {
+    if (!importedBy.has(file)) importedBy.set(file, localImportedNames(ctx.root, file));
+    return importedBy.get(file)!;
+  };
+  // Components, by file, whose own body renders an `unless.inside` element.
+  const builders = new Map<string, Map<string, string>>();
+  const buildersIn = (abs: string) => {
+    if (!builders.has(abs)) {
+      const target = scanned.get(abs) ?? readSource(abs);
+      const code = target ? ("ext" in target ? target.code : stripBlockComments(target.code, true)) : "";
+      // A builder wrapper renders what it's given inside the builder: `{children}` nested in it.
+      const childrenInside = (start: number, end: number) =>
+        [...code.slice(start, end).matchAll(CHILDREN)].some((m) => openElementsAt(code, start + m.index!, (n) => c.unlessInside.has(n)).length > 0);
+      builders.set(abs, code ? wrappersIn({ code }, [...code.matchAll(ELEMENT)], c.unlessInside, childrenInside) : new Map());
+    }
+    return builders.get(abs)!;
+  };
+  /** Whether the element at `index` sits inside an `inside` element, or an imported app component around one. */
+  const nestedInBuilder = (file: SourceFile, index: number) => {
+    if (!c.unlessInside.size) return false;
+    const imported = importsOf(file);
+    const isBuilder = (name: string) => {
+      if (c.unlessInside.has(name)) return true;
+      const from = name.includes(".") ? undefined : imported.get(name);
+      return from !== undefined && buildersIn(from.file).has(from.name);
+    };
+    return openElementsAt(file.code, index, isBuilder).length > 0;
+  };
   // Wrappers, by file: exported components whose own body renders a forbidden element, in files that aren't exempt.
   const wrappers = new Map<string, Map<string, string>>();
   const renderedBy = new Map<SourceFile, RegExpMatchArray[]>();
@@ -431,7 +475,7 @@ function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
     const elements = [...file.code.matchAll(ELEMENT)];
     renderedBy.set(file, elements);
     if (!c.jsx.size || exempt(file, elements.map((m) => m[1]!))) continue;
-    const found = wrappersIn(file, elements, c);
+    const found = wrappersIn(file, elements, c.jsx);
     if (found.size) wrappers.set(file.absolutePath, found);
   }
   for (const file of checked) {
@@ -439,9 +483,10 @@ function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
     if (exempt(file, elements.map((m) => m[1]!))) continue;
     const report = (line: number, subject: string, found: string) =>
       ctx.report({ rule: c.rule.ruleId, level: c.level, file: file.path, line, subject, message: messageFor(c.rule, found) });
-    const imported = wrappers.size && elements.length ? localImportedNames(ctx.root, file) : null;
+    const imported = wrappers.size && elements.length ? importsOf(file) : null;
     for (const m of elements) {
       const name = m[1]!;
+      if (nestedInBuilder(file, m.index!)) continue;
       if (c.jsx.has(name)) {
         report(lineAt(file.code, m.index!), name, `renders <${name}>`);
         continue;
@@ -458,6 +503,7 @@ function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
     if (c.pattern) {
       c.pattern.lastIndex = 0;
       for (const m of file.code.matchAll(c.pattern)) {
+        if (nestedInBuilder(file, m.index!)) continue;
         const text = m[0].trim().replace(/\s+/g, " ").slice(0, 60);
         report(lineAt(file.code, m.index!), text, `has ${text}`);
       }

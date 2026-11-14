@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09",
+  "generatedAt": "2026-11-13",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 165
+      "count": 182
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -5650,7 +5650,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "`\"grid\"`: cards in `numColumns` columns, as the web's `mode=\"grid\"`. Sections, paging, pull to\nrefresh, the empty and error states, long press, accessibility and swipe actions all stay.\nDefault `\"list\"`."
+              "description": "`\"grid\"`: cards in `numColumns` columns, as the web's `mode=\"grid\"`. Sections, paging, pull to\nrefresh, the empty and error states, long press, accessibility and swipe actions all stay.\nDefault `\"list\"`. Prefer `type`; `mode` stays as its alias."
             },
             {
               "name": "numColumns",
@@ -5735,6 +5735,13 @@
               "required": false,
               "defaultValue": null,
               "description": "The heading above the list. Default the view's title; `false` when the navigation bar shows it."
+            },
+            {
+              "name": "type",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "The view type (ADR 0021), as the web's `<ResourceView type>`: `\"list\"` (default), `\"grid\"`, or\n`\"gallery\"` (the grid as photos, from the view's `gallery` block). The phone has no board or\ncalendar yet. Wins over `mode`."
             }
           ]
         },
@@ -10090,6 +10097,66 @@
       ]
     },
     {
+      "slug": "appearance",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/themes/appearance.tsx",
+      "stability": "beta",
+      "summary": "The person's **appearance** (light, dark or system), by its glossary name: `GenesisThemeProvider`\nfed from the person's appearance preferences. Inside an `AppearancePreferencesProvider`\n(genesis-core) it shows their appearance in the written order (the app's lock, the person, the\norganization's default, the theme's) and saves their changes (`useTheme().setMode`) there.\nOutside one it is `GenesisThemeProvider` as it was, with the same props.",
+      "primaryComponent": "AppearanceProvider",
+      "components": [
+        {
+          "name": "AppearanceProvider",
+          "summary": "The person's **appearance** (light, dark or system), by its glossary name: `GenesisThemeProvider`\nfed from the person's appearance preferences. Inside an `AppearancePreferencesProvider`\n(genesis-core) it shows their appearance in the written order (the app's lock, the person, the\norganization's default, the theme's) and saves their changes (`useTheme().setMode`) there.\nOutside one it is `GenesisThemeProvider` as it was, with the same props.",
+          "props": [
+            {
+              "name": "brand",
+              "type": "CanonicalBrand",
+              "required": true,
+              "defaultValue": null,
+              "description": "The brand object to theme this subtree with."
+            },
+            {
+              "name": "defaultMode",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Initial uncontrolled mode (used only when `mode` prop is omitted).\nDefaults to `\"system\"`."
+            },
+            {
+              "name": "mode",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Color mode. Uncontrolled when omitted (defaults to `\"system\"`); the\nprovider tracks state internally and exposes `setMode` via\n`useTheme()`.\n\nPass an explicit value to control the mode externally; in that case\n`setMode` becomes a no-op (with dev-only warning)."
+            },
+            {
+              "name": "onModeChange",
+              "type": "((mode: ResolvedThemeMode) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Notified when the resolved mode changes (controlled or uncontrolled)."
+            },
+            {
+              "name": "onModeSelect",
+              "type": "((mode: ThemeMode) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called with the person's new appearance whenever `setMode` is asked for one (a toggle, a\npicker), controlled or not: where to save it. A controlled provider with it doesn't warn;\nits owner saves the choice and passes it back as `mode` (genesis-ui's `AppearanceProvider`\ndoes this with the person's appearance preferences)."
+            },
+            {
+              "name": "syncDocument",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Also set `.dark` on `<html>` for the appearance showing, as AppShell's toggle does, so\nTailwind's `dark:` and portalled menus follow it. Default true."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "aspect-ratio",
       "aliases": [],
       "surface": "web",
@@ -10538,6 +10605,23 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "brand",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/themes/brand.tsx",
+      "stability": "beta",
+      "summary": "AppShell's `appName` and `logo` from an app brand: its `appName` (else `fallbackName`), and its\nsquare `mark` in the shell's logo tile (else its `logo`), each with its dark version. Spread\nthem under any of the app's own:\n\n```tsx\n<AppShell {...appShellBrandProps(acmeBrand, \"Acme\")} navigation={nav}>…</AppShell>\n```\n\nNothing but the name for a brand without images, so AppShell's letter tile (`appLogo`) stands.",
+      "primaryComponent": "appShellBrandProps",
+      "components": [
+        {
+          "name": "appShellBrandProps",
+          "summary": "AppShell's `appName` and `logo` from an app brand: its `appName` (else `fallbackName`), and its\nsquare `mark` in the shell's logo tile (else its `logo`), each with its dark version. Spread\nthem under any of the app's own:\n\n```tsx\n<AppShell {...appShellBrandProps(acmeBrand, \"Acme\")} navigation={nav}>…</AppShell>\n```\n\nNothing but the name for a brand without images, so AppShell's letter tile (`appLogo`) stands.",
+          "props": []
         }
       ]
     },
@@ -13904,18 +13988,294 @@
       ]
     },
     {
+      "slug": "custom-view",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/CustomView.tsx",
+      "stability": "beta",
+      "summary": "A screen an app draws itself over a view (ADR 0019): Genesis loads the view's data with its\nscope, filters, URL state, live updates and permissions, and draws loading, empty and error;\nthe app draws the rest.\n\n```tsx\n<CustomView view={playersView} sort={{ field: \"points\", order: \"desc\" }} perPage={10} live>\n  {({ rows, reducedMotion }) => <Leaderboard players={rows} animate={!reducedMotion} />}\n</CustomView>\n```\n\nParts: `custom-view` (with `data-view-type` and `data-state`), `custom-view-loading`,\n`custom-view-empty` and `custom-view-error`. An app's own parts inside are named `app-…`.",
+      "primaryComponent": "CustomView",
+      "components": [
+        {
+          "name": "useCustomView",
+          "summary": "A custom view's data and states, headless (ADR 0019). `<CustomView>` calls it and draws the\nstates; call it yourself only to draw them yourself too, and the doctor's\n`custom-view-states` rule will ask why.",
+          "props": [
+            {
+              "name": "view",
+              "type": "ResourceView<ResourceContract<any>, T & DataRow>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "board",
+              "type": "Omit<UseViewBoardOptions<T>, \"live\" | \"filters\" | \"select\" | \"enabled\">",
+              "required": false,
+              "defaultValue": null,
+              "description": "`board`: the board block over the view's, and its write options."
+            },
+            {
+              "name": "calendar",
+              "type": "Omit<UseViewCalendarRangeOptions, \"live\" | \"filters\" | \"select\" | \"enabled\">",
+              "required": false,
+              "defaultValue": null,
+              "description": "`calendar`: the calendar block's fields, limit and clock over the view's."
+            },
+            {
+              "name": "can",
+              "type": "ViewScreenCan<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own rule; it only narrows the view's guards."
+            },
+            {
+              "name": "filter",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "perPage",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "`list`: rows per page."
+            },
+            {
+              "name": "preset",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "range",
+              "type": "ViewCalendarRange",
+              "required": false,
+              "defaultValue": null,
+              "description": "`calendar`: the days to load. Default this month's grid on the viewer's clock."
+            },
+            {
+              "name": "resourceOptions",
+              "type": "{ defaultFilters?: FilterParam[]; select?: string; enabled?: boolean | undefined; live?: boolean | LiveOptions | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "scoped",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "search",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "`list`: the first search."
+            },
+            {
+              "name": "sort",
+              "type": "SortParam | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "`list`: the first sort (default the view's `orderBy`)."
+            },
+            {
+              "name": "type",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Default `list`. Fixed for the component's life: give the component a `key` per type to switch."
+            },
+            {
+              "name": "urlState",
+              "type": "SearchParamsAdapter | ResourceUrlStateOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "`list`: keep page, sort, search and the open record in the URL (ResourcePage's `urlState`)."
+            }
+          ]
+        },
+        {
+          "name": "CustomView",
+          "summary": "A screen an app draws itself over a view (ADR 0019): Genesis loads the view's data with its\nscope, filters, URL state, live updates and permissions, and draws loading, empty and error;\nthe app draws the rest.\n\n```tsx\n<CustomView view={playersView} sort={{ field: \"points\", order: \"desc\" }} perPage={10} live>\n  {({ rows, reducedMotion }) => <Leaderboard players={rows} animate={!reducedMotion} />}\n</CustomView>\n```\n\nParts: `custom-view` (with `data-view-type` and `data-state`), `custom-view-loading`,\n`custom-view-empty` and `custom-view-error`. An app's own parts inside are named `app-…`.",
+          "props": [
+            {
+              "name": "children",
+              "type": "(state: CustomViewState<T>) => ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": "Draws the view once there's something to show. Genesis draws loading, empty and error."
+            },
+            {
+              "name": "view",
+              "type": "ResourceView<ResourceContract<any>, T & DataRow>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "board",
+              "type": "Omit<UseViewBoardOptions<T>, \"live\" | \"filters\" | \"select\" | \"enabled\">",
+              "required": false,
+              "defaultValue": null,
+              "description": "`board`: the board block over the view's, and its write options."
+            },
+            {
+              "name": "calendar",
+              "type": "Omit<UseViewCalendarRangeOptions, \"live\" | \"filters\" | \"select\" | \"enabled\">",
+              "required": false,
+              "defaultValue": null,
+              "description": "`calendar`: the calendar block's fields, limit and clock over the view's."
+            },
+            {
+              "name": "can",
+              "type": "ViewScreenCan<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own rule; it only narrows the view's guards."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "empty",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the empty state. `false` hands an empty view to `children` too (a calendar that\nstill draws its days)."
+            },
+            {
+              "name": "error",
+              "type": "ReactNode | ((error: unknown, retry: () => void) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the error state; a function gets the error and a retry."
+            },
+            {
+              "name": "filter",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "loading",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces the loading state."
+            },
+            {
+              "name": "perPage",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "`list`: rows per page."
+            },
+            {
+              "name": "preset",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "range",
+              "type": "ViewCalendarRange",
+              "required": false,
+              "defaultValue": null,
+              "description": "`calendar`: the days to load. Default this month's grid on the viewer's clock."
+            },
+            {
+              "name": "resourceOptions",
+              "type": "{ defaultFilters?: FilterParam[]; select?: string; enabled?: boolean | undefined; live?: boolean | LiveOptions | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "scoped",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "search",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "`list`: the first search."
+            },
+            {
+              "name": "sort",
+              "type": "SortParam | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "`list`: the first sort (default the view's `orderBy`)."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "type",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Default `list`. Fixed for the component's life: give the component a `key` per type to switch."
+            },
+            {
+              "name": "urlState",
+              "type": "SearchParamsAdapter | ResourceUrlStateOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "`list`: keep page, sort, search and the open record in the URL (ResourcePage's `urlState`)."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "dashboard-page",
       "aliases": [],
       "surface": "web",
       "subpath": "@marktiderman/genesis-ui/layout",
       "filePath": "packages/ui/src/components/layout/dashboard-page.tsx",
       "stability": "beta",
-      "summary": "DashboardPage — a stat row over a flexible region of charts, tables and\nsections.\n\n```tsx\n<DashboardPage\n  title=\"This quarter\"\n  subtitle=\"1 Apr – 30 Jun\"\n  actions={<DatePicker … />}\n  stats={\n    <>\n      <StatCard label=\"Active clients\" value={42} />\n      <StatCard label=\"Sessions\" value={318} trend={{ value: 12, label: \"vs Q1\" }} />\n    </>\n  }\n>\n  <Section title=\"Revenue\"><ChartContainer …/></Section>\n  <Section title=\"At risk\"><DataTable …/></Section>\n</DashboardPage>\n```\n\nThe two regions are separated on purpose. Stats are a fixed-shape row that\nmust reflow as a unit; everything below is free-form and stacks. Folding\nboth into one `children` is how the stat row ends up hand-gridded per page,\nwith a different breakpoint each time — the exact drift `Grid` exists to\nstop.\n\nChildren stack at `gap-8`, wider than the page's own `gap-6`, so a chart\nand the table under it don't read as one block.\n\nThe header row is markup, not a component, and deliberately not\n`PageHeader` — see `./detail-page` for the measured reasons composing it\nwas rejected across all four templates. Width is left to `Container` —\nwrap, don't duplicate.\n\nThis is a **layout**: it positions tiles and regions and never fetches a\nmetric. There is deliberately no data-bound twin — binding a dashboard\nneeds an aggregate/metric contract, and `genesis-core` ships none. Adding\na template ahead of its contract is what `docs/FRAMEWORK.md` warns against\nin \"Why templates need the contract first\".",
+      "summary": "DashboardPage — a stat row over a flexible region of charts, tables and\nsections.\n\n```tsx\n<DashboardPage\n  title=\"This quarter\"\n  subtitle=\"1 Apr – 30 Jun\"\n  actions={<DatePicker … />}\n  stats={\n    <>\n      <StatCard label=\"Active clients\" value={42} />\n      <StatCard label=\"Sessions\" value={318} trend={{ value: 12, label: \"vs Q1\" }} />\n    </>\n  }\n>\n  <Section title=\"Revenue\"><ChartContainer …/></Section>\n  <Section title=\"At risk\"><DataTable …/></Section>\n</DashboardPage>\n```\n\nThe two regions are separated on purpose. Stats are a fixed-shape row that\nmust reflow as a unit; everything below is free-form and stacks. Folding\nboth into one `children` is how the stat row ends up hand-gridded per page,\nwith a different breakpoint each time — the exact drift `Grid` exists to\nstop.\n\nChildren stack at `gap-8`, wider than the page's own `gap-6`, so a chart\nand the table under it don't read as one block.\n\nThe header row is markup, not a component, and deliberately not\n`PageHeader` — see `./detail-page` for the measured reasons composing it\nwas rejected across all four templates. Width is left to `Container` —\nwrap, don't duplicate.\n\nThis is a **layout**: it positions tiles and regions and never fetches a\nmetric. A live number is a widget (ADR 0023): pass `<Widget>`s from\n`@marktiderman/genesis-ui/data` to `stats` as they are, and lay a body of\nwidgets out with `WidgetGrid`. The layout itself stays free of data.",
       "primaryComponent": "DashboardPage",
       "components": [
         {
           "name": "DashboardPage",
-          "summary": "DashboardPage — a stat row over a flexible region of charts, tables and\nsections.\n\n```tsx\n<DashboardPage\n  title=\"This quarter\"\n  subtitle=\"1 Apr – 30 Jun\"\n  actions={<DatePicker … />}\n  stats={\n    <>\n      <StatCard label=\"Active clients\" value={42} />\n      <StatCard label=\"Sessions\" value={318} trend={{ value: 12, label: \"vs Q1\" }} />\n    </>\n  }\n>\n  <Section title=\"Revenue\"><ChartContainer …/></Section>\n  <Section title=\"At risk\"><DataTable …/></Section>\n</DashboardPage>\n```\n\nThe two regions are separated on purpose. Stats are a fixed-shape row that\nmust reflow as a unit; everything below is free-form and stacks. Folding\nboth into one `children` is how the stat row ends up hand-gridded per page,\nwith a different breakpoint each time — the exact drift `Grid` exists to\nstop.\n\nChildren stack at `gap-8`, wider than the page's own `gap-6`, so a chart\nand the table under it don't read as one block.\n\nThe header row is markup, not a component, and deliberately not\n`PageHeader` — see `./detail-page` for the measured reasons composing it\nwas rejected across all four templates. Width is left to `Container` —\nwrap, don't duplicate.\n\nThis is a **layout**: it positions tiles and regions and never fetches a\nmetric. There is deliberately no data-bound twin — binding a dashboard\nneeds an aggregate/metric contract, and `genesis-core` ships none. Adding\na template ahead of its contract is what `docs/FRAMEWORK.md` warns against\nin \"Why templates need the contract first\".",
+          "summary": "DashboardPage — a stat row over a flexible region of charts, tables and\nsections.\n\n```tsx\n<DashboardPage\n  title=\"This quarter\"\n  subtitle=\"1 Apr – 30 Jun\"\n  actions={<DatePicker … />}\n  stats={\n    <>\n      <StatCard label=\"Active clients\" value={42} />\n      <StatCard label=\"Sessions\" value={318} trend={{ value: 12, label: \"vs Q1\" }} />\n    </>\n  }\n>\n  <Section title=\"Revenue\"><ChartContainer …/></Section>\n  <Section title=\"At risk\"><DataTable …/></Section>\n</DashboardPage>\n```\n\nThe two regions are separated on purpose. Stats are a fixed-shape row that\nmust reflow as a unit; everything below is free-form and stacks. Folding\nboth into one `children` is how the stat row ends up hand-gridded per page,\nwith a different breakpoint each time — the exact drift `Grid` exists to\nstop.\n\nChildren stack at `gap-8`, wider than the page's own `gap-6`, so a chart\nand the table under it don't read as one block.\n\nThe header row is markup, not a component, and deliberately not\n`PageHeader` — see `./detail-page` for the measured reasons composing it\nwas rejected across all four templates. Width is left to `Container` —\nwrap, don't duplicate.\n\nThis is a **layout**: it positions tiles and regions and never fetches a\nmetric. A live number is a widget (ADR 0023): pass `<Widget>`s from\n`@marktiderman/genesis-ui/data` to `stats` as they are, and lay a body of\nwidgets out with `WidgetGrid`. The layout itself stays free of data.",
           "props": [
             {
               "name": "title",
@@ -13943,7 +14303,7 @@
               "type": "ReactNode",
               "required": false,
               "defaultValue": null,
-              "description": "The stat row: `StatCard`s, or anything tile-shaped. Laid out in a `Grid`\nthat ramps down to one column on a phone. Omit it and no grid renders."
+              "description": "The stat row: `<Widget>`s, `StatCard`s, or anything tile-shaped. Laid out in a `Grid`\nthat ramps down to one column on a phone. Omit it and no grid renders."
             },
             {
               "name": "subtitle",
@@ -14541,7 +14901,7 @@
             },
             {
               "name": "onDensityChange",
-              "type": "((density: Density) => void)",
+              "type": "((density: \"compact\" | \"comfortable\" | \"spacious\") => void)",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -15007,6 +15367,211 @@
       ]
     },
     {
+      "slug": "define",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/themes/define.ts",
+      "stability": "beta",
+      "summary": "Every problem with an app theme input; empty when it is sound.",
+      "primaryComponent": "validateAppTheme",
+      "components": [
+        {
+          "name": "validateAppTheme",
+          "summary": "Every problem with an app theme input; empty when it is sound.",
+          "props": [
+            {
+              "name": "description",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Its name in a picker."
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Lowercase letters, digits and hyphens."
+            },
+            {
+              "name": "brand",
+              "type": "AppBrand",
+              "required": false,
+              "defaultValue": null,
+              "description": "Colours and typefaces. Unset keeps the app's own brand."
+            },
+            {
+              "name": "feel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The kind of product whose feel it follows, in words (\"keyboard-first issue trackers\")."
+            },
+            {
+              "name": "layout",
+              "type": "AppThemeLayout",
+              "required": false,
+              "defaultValue": null,
+              "description": "The shell's layout. Unset keeps the app's own `AppShell` options."
+            },
+            {
+              "name": "style",
+              "type": "AppStyle",
+              "required": false,
+              "defaultValue": null,
+              "description": "Every component's size and shape. Unset keeps Genesis's default style."
+            },
+            {
+              "name": "suits",
+              "type": "readonly string[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The work it suits, for a picker or a zone map (\"issues\", \"tasks\", \"journal\")."
+            }
+          ]
+        },
+        {
+          "name": "defineAppTheme",
+          "summary": "Define an app theme (a brand, a style and a layout, each optional): checks\nit and returns it frozen, with its id. Throws with every problem when it\nisn't sound.",
+          "props": [
+            {
+              "name": "description",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Its name in a picker."
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Lowercase letters, digits and hyphens."
+            },
+            {
+              "name": "brand",
+              "type": "AppBrand",
+              "required": false,
+              "defaultValue": null,
+              "description": "Colours and typefaces. Unset keeps the app's own brand."
+            },
+            {
+              "name": "feel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The kind of product whose feel it follows, in words (\"keyboard-first issue trackers\")."
+            },
+            {
+              "name": "layout",
+              "type": "AppThemeLayout",
+              "required": false,
+              "defaultValue": null,
+              "description": "The shell's layout. Unset keeps the app's own `AppShell` options."
+            },
+            {
+              "name": "style",
+              "type": "AppStyle",
+              "required": false,
+              "defaultValue": null,
+              "description": "Every component's size and shape. Unset keeps Genesis's default style."
+            },
+            {
+              "name": "suits",
+              "type": "readonly string[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The work it suits, for a picker or a zone map (\"issues\", \"tasks\", \"journal\")."
+            }
+          ]
+        },
+        {
+          "name": "appThemeAttributes",
+          "summary": "The attributes that put a theme's brand and style on an element: spread on\n`<html>` (or set them there in an effect) so portalled menus and dialogs\nwear it too. A piece the theme leaves unset gets no attribute, so the app's\nown stands.",
+          "props": [
+            {
+              "name": "description",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "id",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Its name in a picker."
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Lowercase letters, digits and hyphens."
+            },
+            {
+              "name": "brand",
+              "type": "AppBrand",
+              "required": false,
+              "defaultValue": null,
+              "description": "Colours and typefaces. Unset keeps the app's own brand."
+            },
+            {
+              "name": "feel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The kind of product whose feel it follows, in words (\"keyboard-first issue trackers\")."
+            },
+            {
+              "name": "layout",
+              "type": "AppThemeLayout",
+              "required": false,
+              "defaultValue": null,
+              "description": "The shell's layout. Unset keeps the app's own `AppShell` options."
+            },
+            {
+              "name": "style",
+              "type": "AppStyle",
+              "required": false,
+              "defaultValue": null,
+              "description": "Every component's size and shape. Unset keeps Genesis's default style."
+            },
+            {
+              "name": "suits",
+              "type": "readonly string[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The work it suits, for a picker or a zone map (\"issues\", \"tasks\", \"journal\")."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "detail-page",
       "aliases": [],
       "surface": "web",
@@ -15363,6 +15928,73 @@
           "name": "webDisplayRenderers",
           "summary": "Genesis's web renderers. Every one shows text it can't draw, never a broken cell.",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "document-page",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/layout",
+      "filePath": "packages/ui/src/components/layout/document-page.tsx",
+      "stability": "beta",
+      "summary": "DocumentPage — a page that reads like a document: an optional cover across\nthe top, an icon, a large title and the body in a centred reading column,\nas in a notebook app. The page template for writing (notes, a journal\nentry, a guide, a lesson); the record page's `document` template uses it.\n\n```tsx\n<DocumentPage\n  cover=\"/covers/ocean.jpg\"\n  icon=\"🌊\"\n  title=\"Trip notes\"\n  subtitle=\"Edited 2 days ago\"\n  actions={<Button variant=\"ghost\" size=\"sm\">Share</Button>}\n>\n  <RichText value={doc.body} />\n</DocumentPage>\n```\n\nThe cover bleeds to the page area's edges (it undoes AppShell's content\npadding with negative margins on the sides and top), and the icon overlaps\nits bottom edge. Everything else sits in one column, centred, so long text\nkeeps a readable line length on a wide screen. Parts: `document-page`\n(with `data-width`), `document-page-cover`, `document-page-icon` and\n`document-page-title`, which reads the page-title tokens like the other\npage templates.\n\nThis is a **layout**: it positions a cover, a header and a body and never\nfetches the document.",
+      "primaryComponent": "DocumentPage",
+      "components": [
+        {
+          "name": "DocumentPage",
+          "summary": "DocumentPage — a page that reads like a document: an optional cover across\nthe top, an icon, a large title and the body in a centred reading column,\nas in a notebook app. The page template for writing (notes, a journal\nentry, a guide, a lesson); the record page's `document` template uses it.\n\n```tsx\n<DocumentPage\n  cover=\"/covers/ocean.jpg\"\n  icon=\"🌊\"\n  title=\"Trip notes\"\n  subtitle=\"Edited 2 days ago\"\n  actions={<Button variant=\"ghost\" size=\"sm\">Share</Button>}\n>\n  <RichText value={doc.body} />\n</DocumentPage>\n```\n\nThe cover bleeds to the page area's edges (it undoes AppShell's content\npadding with negative margins on the sides and top), and the icon overlaps\nits bottom edge. Everything else sits in one column, centred, so long text\nkeeps a readable line length on a wide screen. Parts: `document-page`\n(with `data-width`), `document-page-cover`, `document-page-icon` and\n`document-page-title`, which reads the page-title tokens like the other\npage templates.\n\nThis is a **layout**: it positions a cover, a header and a body and never\nfetches the document.",
+          "props": [
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": "Page title. Rendered as the page's single `<h1>`."
+            },
+            {
+              "name": "actions",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Controls for the whole document (Share, a menu), at the end of the title row."
+            },
+            {
+              "name": "cover",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A cover across the top: an image URL (drawn as a decorative, cropped\nimage) or any node (a `Band`, a gradient, your own image). Omit it and\nthe page starts at the icon or the title."
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The page's icon above the title: an emoji, an `<img>` or an icon. Overlaps\nthe cover's bottom edge when there is a cover."
+            },
+            {
+              "name": "subtitle",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A line under the title: an author, a date, where it sits."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Stable test/automation selector (emitted as `data-testid`)."
+            },
+            {
+              "name": "width",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "reading",
+              "description": "The reading column's width: `reading` (default, about 70 characters a\nline) or `full` (the page's width, for tables and boards in the body)."
+            }
+          ]
         }
       ]
     },
@@ -16932,12 +17564,12 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/components/resource/HeadlineNumbers.tsx",
       "stability": "stable",
-      "summary": "A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen.",
+      "summary": "A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen. Each\nis the one widget tile (`WidgetTile`, variant `headline`, part `headline-number`).",
       "primaryComponent": "HeadlineNumbers",
       "components": [
         {
           "name": "HeadlineNumbers",
-          "summary": "A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen.",
+          "summary": "A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen. Each\nis the one widget tile (`WidgetTile`, variant `headline`, part `headline-number`).",
           "props": [
             {
               "name": "numbers",
@@ -17748,6 +18380,31 @@
       ]
     },
     {
+      "slug": "layout",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/themes/layout.ts",
+      "stability": "beta",
+      "summary": "The `AppShell` options an app theme starts from (`theme.layout`: navigation,\nframe, density, rail width, a collapsed rail, sub-navigation), to spread\nunder the app's own:\n\n```tsx\n<AppShell options={{ ...appShellOptionsFromTheme(theme), scrollRoot: \"window\" }} … />\n```\n\nNothing for no theme, or one that leaves the layout alone, so the app's\noptions and their defaults stand. These are defaults: where the shell is\n`configurable`, the person's own choice still wins.",
+      "primaryComponent": "appShellOptionsFromTheme",
+      "components": [
+        {
+          "name": "appShellOptionsFromTheme",
+          "summary": "The `AppShell` options an app theme starts from (`theme.layout`: navigation,\nframe, density, rail width, a collapsed rail, sub-navigation), to spread\nunder the app's own:\n\n```tsx\n<AppShell options={{ ...appShellOptionsFromTheme(theme), scrollRoot: \"window\" }} … />\n```\n\nNothing for no theme, or one that leaves the layout alone, so the app's\noptions and their defaults stand. These are defaults: where the shell is\n`configurable`, the person's own choice still wins.",
+          "props": [
+            {
+              "name": "layout",
+              "type": "AppThemeLayout",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "lightbox",
       "aliases": [],
       "surface": "web",
@@ -18181,7 +18838,7 @@
               "type": "DeepPartial<{ title: string; description: string; same: string; field: string; theirs: string; mine: string; empty: string; unknown: string; keepMine: string; takeTheirs: string; failed: string; record: string; }>",
               "required": false,
               "defaultValue": null,
-              "description": "ConflictSheet: a save met someone else's change."
+              "description": ""
             },
             {
               "name": "detail",
@@ -18261,6 +18918,13 @@
               "description": ""
             },
             {
+              "name": "widget",
+              "type": "DeepPartial<{ empty: string; emptyList: string; error: string; retry: string; progressOf: string; day: string; days: string; week: string; weeks: string; streakOpen: string; streakToday: string; seeAll: string; partial: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Widgets (`<Widget>`): tiles fed by a view."
+            },
+            {
               "name": "workspace",
               "type": "DeepPartial<{ save: string; saved: string; notChanged: string; run: string; noRunner: string; checks: string; checkDone: string; checkTodo: string; notANumber: string; }>",
               "required": false,
@@ -18280,7 +18944,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 17 more ...; shell: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 18 more ...; shell: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -18308,8 +18972,8 @@
           "props": []
         },
         {
-          "name": "conflict",
-          "summary": "ConflictSheet: a save met someone else's change.",
+          "name": "widget",
+          "summary": "Widgets (`<Widget>`): tiles fed by a view.",
           "props": []
         },
         {
@@ -18345,8 +19009,8 @@
           "props": []
         },
         {
-          "name": "conflict",
-          "summary": "ConflictSheet: a save met someone else's change.",
+          "name": "widget",
+          "summary": "Widgets (`<Widget>`): tiles fed by a view.",
           "props": []
         }
       ]
@@ -18382,6 +19046,11 @@
           "props": []
         },
         {
+          "name": "resolveNavigationZones",
+          "summary": "Lay an app's zones over its navigation tree (ADR 0003 §1 and §4): which zone\nthe location is in, each zone's pages, the global pages and the roll-up.\nPure, so web and native shells use the same answer; an app with no zones\ngets every top page in `global` and no `zone`.\n\n```ts\nconst { zone } = resolveNavigationZones(tree, pathname, { zones: ZONES });\nconst theme = THEMES[zone?.id ?? \"home\"]; // a theme per zone\n```\n\nA zone id the tree names but `zones` doesn't list is ignored (its pages\nread as global), so a stale id never invents a zone.",
+          "props": []
+        },
+        {
           "name": "IsPathActiveOptions",
           "summary": "Options for {@link isPathActive}.",
           "props": []
@@ -18392,8 +19061,18 @@
           "props": []
         },
         {
+          "name": "NavigationZone",
+          "summary": "One zone of an app's navigation (ADR 0003 §1): an ordered entry with an id\nthe tree's `zone` names, a label and an optional icon (the app's own icon\ntype, `I`).",
+          "props": []
+        },
+        {
           "name": "ResolvedNavigation",
           "summary": "Result of {@link resolveNavigation}. `current`, `parent` and every `trail`\nentry are shallow copies of their tree nodes with `path` interpolated from\n`params` (a param the URL did not supply stays as `$name`).",
+          "props": []
+        },
+        {
+          "name": "ResolvedNavigationZones",
+          "summary": "Result of {@link resolveNavigationZones}.",
           "props": []
         },
         {
@@ -18537,6 +19216,28 @@
       ]
     },
     {
+      "slug": "open-modes",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/open-modes.ts",
+      "stability": "stable",
+      "summary": "A record open mode or ResourcePage's `detail`, as ResourcePage's `detail`.",
+      "primaryComponent": "detailMode",
+      "components": [
+        {
+          "name": "detailMode",
+          "summary": "A record open mode or ResourcePage's `detail`, as ResourcePage's `detail`.",
+          "props": []
+        },
+        {
+          "name": "recordOpen",
+          "summary": "ResourcePage's `detail` or a record open mode, as a record open mode (`none` stays).",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "page-header",
       "aliases": [],
       "surface": "web",
@@ -18650,7 +19351,7 @@
             },
             {
               "name": "onDensityChange",
-              "type": "((density: Density) => void)",
+              "type": "((density: \"compact\" | \"comfortable\" | \"spacious\") => void)",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -19508,18 +20209,365 @@
       ]
     },
     {
+      "slug": "record-open",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/record-open.tsx",
+      "stability": "beta",
+      "summary": "ResourcePage's `detail` or a record open mode, as a record open mode (`none` stays).",
+      "primaryComponent": "recordOpen",
+      "components": [
+        {
+          "name": "resolveRecordOpen",
+          "summary": "How a record opens here: the screen's choice first, then the view's, then a side peek.",
+          "props": []
+        },
+        {
+          "name": "recordViewOf",
+          "summary": "The record view a peek draws: the screen's, else the one the view names.",
+          "props": []
+        },
+        {
+          "name": "ViewRecordPeek",
+          "summary": "The peek a board or calendar opens: the record view when there is one, else the view's columns\nin DetailPanel, at the edge (side peek) or centered (center peek).",
+          "props": [
+            {
+              "name": "fields",
+              "type": "{ key: string; label: string; render?: ((value: unknown, item: T) => ReactNode) | undefined; }[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onClose",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "open",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "recordView",
+              "type": "RecordView<ResourceContract<any>, any> | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "row",
+              "type": "Row | null",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "view",
+              "type": "ResourceView<ResourceContract<any>, T & DataRow>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "detailMode",
+          "summary": "A record open mode or ResourcePage's `detail`, as ResourcePage's `detail`.",
+          "props": []
+        },
+        {
+          "name": "recordOpen",
+          "summary": "ResourcePage's `detail` or a record open mode, as a record open mode (`none` stays).",
+          "props": []
+        },
+        {
+          "name": "DetailMode",
+          "summary": "ResourcePage's older words for the same choice.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "record-peek",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/RecordPeek.tsx",
+      "stability": "beta",
+      "summary": "A record page in a peek: the view's record view, drawn inline in a sheet at the edge\n(`side-peek`) or a centered dialog (`center-peek`).\n\n```tsx\n<RecordPeek view={brandRecordView} row={open} open={open !== null} onClose={() => setOpen(null)} mode=\"center-peek\" />\n```\n\n`<ResourceView>`, the board and the calendar open one by themselves when the view names its\nrecord view (`defineView(…, { recordView: (): AnyRecordView => brandRecordView })`).",
+      "primaryComponent": "RecordPeek",
+      "components": [
+        {
+          "name": "RecordPeek",
+          "summary": "A record page in a peek: the view's record view, drawn inline in a sheet at the edge\n(`side-peek`) or a centered dialog (`center-peek`).\n\n```tsx\n<RecordPeek view={brandRecordView} row={open} open={open !== null} onClose={() => setOpen(null)} mode=\"center-peek\" />\n```\n\n`<ResourceView>`, the board and the calendar open one by themselves when the view names its\nrecord view (`defineView(…, { recordView: (): AnyRecordView => brandRecordView })`).",
+          "props": [
+            {
+              "name": "onClose",
+              "type": "() => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "row",
+              "type": "Row | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "The record, or null while none is open."
+            },
+            {
+              "name": "view",
+              "type": "RecordView<ResourceContract<any>, T & DataRow>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "can",
+              "type": "((action: string, row: T) => false | Allowed)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own rule for a header action. It only narrows the view's guards: `false` hides\nthe action, a sentence refuses it with that reason."
+            },
+            {
+              "name": "header",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the record page, inside the peek (a link to the full page, say)."
+            },
+            {
+              "name": "lists",
+              "type": "Partial<Record<string, Partial<Omit<ResourceViewProps, \"view\" | \"filter\">>>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "More props for a list section's ResourceView, by section id."
+            },
+            {
+              "name": "mode",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "side-peek",
+              "description": "`side-peek` (default) or `center-peek`. A full `page` is the app's route, not a peek."
+            },
+            {
+              "name": "onAction",
+              "type": "((name: string, row: T) => unknown)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Runs a header action once allowed (and confirmed). Default: the provider's `runAction`. A\nrejection shows inline."
+            },
+            {
+              "name": "onSaved",
+              "type": "((row: T) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "After a settings section saved, with the stored row."
+            },
+            {
+              "name": "parent",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The breadcrumb's parent link: one element, so the host's router renders it."
+            },
+            {
+              "name": "readinessLabels",
+              "type": "ReadinessLabels",
+              "required": false,
+              "defaultValue": null,
+              "description": "The readiness chip's words."
+            },
+            {
+              "name": "section",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The section showing now: the route's segment. Default the first section. In a peek, the\nsection it opens on; its tabs then switch in place."
+            },
+            {
+              "name": "sectionIcons",
+              "type": "Partial<Record<string, LucideIcon>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Each section's icon, by section id, for the shell's tabs and the phone's bottom bar (which\notherwise shows the label's first letter)."
+            },
+            {
+              "name": "settingsLocked",
+              "type": "((sectionId: string, row: T) => string | null)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Why a settings section is read-only for this viewer, when the screen knows more than the\nview's guards (a role the viewer lacks): the reason, or null. It only narrows: a section the\nview's update guard locks stays locked."
+            },
+            {
+              "name": "slots",
+              "type": "Partial<Record<string, ReactNode>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own sections, by id (sections with neither list nor settings)."
+            },
+            {
+              "name": "switcher",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "In the header's leading area, before the title: a switcher between records."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "record-peek",
+              "description": ""
+            },
+            {
+              "name": "width",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "md",
+              "description": "A side peek's width. Default `md`."
+            }
+          ]
+        },
+        {
+          "name": "recordPeekSlot",
+          "summary": "A ResourcePage `detail` slot that opens the record view instead of the view's columns: the\npanel layout is a side peek, the modal one a center peek.",
+          "props": [
+            {
+              "name": "document",
+              "type": "Readonly<RecordViewDocument<string>>",
+              "required": true,
+              "defaultValue": null,
+              "description": "The document template's fields (frozen); empty for `standard`."
+            },
+            {
+              "name": "hasReadiness",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "headerActions",
+              "type": "readonly string[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The header's action names, in order."
+            },
+            {
+              "name": "headerFor",
+              "type": "(row: T & DataRow, options?: RecordViewHeaderOptions<T & DataRow> | undefined) => RecordViewHeader",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "listFilter",
+              "type": "(sectionId: string, row: T & DataRow) => Readonly<Record<string, string | number | boolean | null>>",
+              "required": true,
+              "defaultValue": null,
+              "description": "A list section's filter for this row. In development, a filter with no key, or a value that\nisn't a string, number, boolean or null, throws: it would show every child row."
+            },
+            {
+              "name": "readinessFor",
+              "type": "(row: T & DataRow) => readonly ResolvedReadinessItem[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The readiness checks for this row, tones resolved; empty without `readiness`."
+            },
+            {
+              "name": "readinessSummary",
+              "type": "(row: T & DataRow) => Readiness | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "The checks in one chip's terms (genesis-core/resource's `readinessOf`): an unmet `danger`\ncheck is a problem, any other unmet check one to look at. `null` without `readiness`. Draw\nit with `readinessChip`."
+            },
+            {
+              "name": "recordId",
+              "type": "(row: T & DataRow) => Identifier",
+              "required": true,
+              "defaultValue": null,
+              "description": "The record's address for the provider: its key fields (`keyFields`), composite keys encoded."
+            },
+            {
+              "name": "section",
+              "type": "(id: string) => ResolvedRecordViewSection | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "sections",
+              "type": "readonly ResolvedRecordViewSection[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "settingsFields",
+              "type": "(sectionId?: string | undefined) => readonly ResolvedFormField[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "Settings fields as the view's form resolves them (`view.form(\"edit\")`), in the order listed:\none section's, or every settings section's without an id."
+            },
+            {
+              "name": "settingsLocked",
+              "type": "(row: T & DataRow, viewer?: Viewer | undefined) => string | null",
+              "required": true,
+              "defaultValue": null,
+              "description": "Why settings can't be saved for this row and viewer: the view's `can(\"update\", row, viewer)`\nreason, or `null` when they can. Renderers then show the settings read-only with the reason.\nWithout a viewer the guard gets no one, so one that needs the viewer locks them."
+            },
+            {
+              "name": "settingsPatch",
+              "type": "(sectionId: string, values: Readonly<Record<string, unknown>>) => Record<string, unknown>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Only the section's listed keys that `values` has: what a save sends."
+            },
+            {
+              "name": "template",
+              "type": "enum",
+              "required": true,
+              "defaultValue": null,
+              "description": "The record page template: `standard` unless the definition says `document`."
+            },
+            {
+              "name": "view",
+              "type": "ResourceView<ResourceContract<any>, T & DataRow>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "record-view",
       "aliases": [],
       "surface": "web",
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/resource-view/RecordView.tsx",
-      "stability": "stable",
-      "summary": "One record's screen, from its record view (defineRecordView):\n\n```tsx\n<RecordView view={brandRecordView} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />\n```",
+      "stability": "deprecated",
+      "summary": "One record's screen, from its record view (defineRecordView):\n\n```tsx\n<RecordView view={brandRecordView} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />\n```\n\nA record page (ADR 0021): a full page in the shell by default, or `presentation=\"peek\"` inline\nin a side or center peek (`RecordPeek`). A record view's `template: \"document\"` lays it out as\na cover, an icon, a title, the properties and the body. Parts: `record-page` and, for a\ndocument, `record-page-cover`, `-icon`, `-title`, `-properties` and `-body`.",
       "primaryComponent": "RecordView",
       "components": [
         {
           "name": "RecordView",
-          "summary": "One record's screen, from its record view (defineRecordView):\n\n```tsx\n<RecordView view={brandRecordView} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />\n```",
+          "summary": "One record's screen, from its record view (defineRecordView):\n\n```tsx\n<RecordView view={brandRecordView} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />\n```\n\nA record page (ADR 0021): a full page in the shell by default, or `presentation=\"peek\"` inline\nin a side or center peek (`RecordPeek`). A record view's `template: \"document\"` lays it out as\na cover, an icon, a title, the properties and the body. Parts: `record-page` and, for a\ndocument, `record-page-cover`, `-icon`, `-title`, `-properties` and `-body`.",
           "props": [
             {
               "name": "row",
@@ -19527,20 +20575,6 @@
               "required": true,
               "defaultValue": null,
               "description": "The record, as the screen loaded it (`useOne`). A save refreshes it through the cache."
-            },
-            {
-              "name": "section",
-              "type": "string",
-              "required": true,
-              "defaultValue": null,
-              "description": "The section showing now: the route's segment."
-            },
-            {
-              "name": "sectionHref",
-              "type": "(id: string) => string",
-              "required": true,
-              "defaultValue": null,
-              "description": "Each section's route, for the shell's tabs: `(id) => \\`/brands/${brand.id}/${id}\\``."
             },
             {
               "name": "view",
@@ -19585,11 +20619,32 @@
               "description": "The breadcrumb's parent link: one element, so the host's router renders it."
             },
             {
+              "name": "presentation",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Where the record page is drawn (ADR 0021): `page` (default) puts the header and the section\ntabs in the app shell, as a full page; `peek` draws them inline, for a side or center peek\n(`RecordPeek`, a view's `open`), with the tabs switching in place."
+            },
+            {
               "name": "readinessLabels",
               "type": "ReadinessLabels",
               "required": false,
               "defaultValue": null,
               "description": "The readiness chip's words."
+            },
+            {
+              "name": "section",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The section showing now: the route's segment. Default the first section. In a peek, the\nsection it opens on; its tabs then switch in place."
+            },
+            {
+              "name": "sectionHref",
+              "type": "((id: string) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Each section's route, for the shell's tabs: `(id) => \\`/brands/${brand.id}/${id}\\``. A full\npage needs it for its tabs; a peek switches sections in place and doesn't."
             },
             {
               "name": "sectionIcons",
@@ -19640,20 +20695,6 @@
               "description": "The record, as the screen loaded it (`useOne`). A save refreshes it through the cache."
             },
             {
-              "name": "section",
-              "type": "string",
-              "required": true,
-              "defaultValue": null,
-              "description": "The section showing now: the route's segment."
-            },
-            {
-              "name": "sectionHref",
-              "type": "(id: string) => string",
-              "required": true,
-              "defaultValue": null,
-              "description": "Each section's route, for the shell's tabs: `(id) => \\`/brands/${brand.id}/${id}\\``."
-            },
-            {
               "name": "workspace",
               "type": "RecordView<ResourceContract<any>, T & DataRow>",
               "required": true,
@@ -19696,11 +20737,32 @@
               "description": "The breadcrumb's parent link: one element, so the host's router renders it."
             },
             {
+              "name": "presentation",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Where the record page is drawn (ADR 0021): `page` (default) puts the header and the section\ntabs in the app shell, as a full page; `peek` draws them inline, for a side or center peek\n(`RecordPeek`, a view's `open`), with the tabs switching in place."
+            },
+            {
               "name": "readinessLabels",
               "type": "ReadinessLabels",
               "required": false,
               "defaultValue": null,
               "description": "The readiness chip's words."
+            },
+            {
+              "name": "section",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The section showing now: the route's segment. Default the first section. In a peek, the\nsection it opens on; its tabs then switch in place."
+            },
+            {
+              "name": "sectionHref",
+              "type": "((id: string) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Each section's route, for the shell's tabs: `(id) => \\`/brands/${brand.id}/${id}\\``. A full\npage needs it for its tabs; a peek switches sections in place and doesn't."
             },
             {
               "name": "sectionIcons",
@@ -20161,6 +21223,13 @@
               "description": "A move was refused (a guard, the server, a conflict with someone else's edit). The card is\nalready back where it was. Default: the reason shows above the board."
             },
             {
+              "name": "onNavigate",
+              "type": "NavigateFn",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `open=\"page\"`: how to go to the record's page. Default a full-page navigation."
+            },
+            {
               "name": "onSelect",
               "type": "((row: T) => void)",
               "required": false,
@@ -20168,11 +21237,25 @@
               "description": "A card was chosen. Default: the view's peek."
             },
             {
+              "name": "open",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "How a card opens (ADR 0021): `side-peek`, `center-peek` or `page` (navigates to\n`/{resource}/{id}` through `onNavigate`), or `none`. Default the view's `open`, else a side peek."
+            },
+            {
               "name": "perPage",
               "type": "number",
               "required": false,
               "defaultValue": null,
               "description": "Cards per column page. Default 50."
+            },
+            {
+              "name": "recordView",
+              "type": "RecordView<ResourceContract<any>, any>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The record view a peek draws. Default the view's `recordView`, else the view's columns."
             },
             {
               "name": "renderCard",
@@ -20396,11 +21479,18 @@
               "description": ""
             },
             {
+              "name": "onNavigate",
+              "type": "NavigateFn",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `open=\"page\"`: how to go to the record's page. Default a full-page navigation."
+            },
+            {
               "name": "onSelect",
               "type": "((row: T) => void)",
               "required": false,
               "defaultValue": null,
-              "description": "A row was chosen. Default: the view's peek."
+              "description": "A row was chosen. Default: the view's peek (or page, with `open=\"page\"`)."
             },
             {
               "name": "onWeeksChange",
@@ -20408,6 +21498,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "open",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "How an event's record opens (ADR 0021): `side-peek`, `center-peek` or `page` (navigates to\n`/{resource}/{id}` through `onNavigate`), or `none`. Default the view's `open`, else a side peek."
             },
             {
               "name": "phoneLayout",
@@ -20422,6 +21519,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Print one sheet per lane (PrintableAgenda) for the week the calendar shows, instead of the\ncalendar itself: the same rows, scope and filters, with no screen code reading data. Lanes\ncome from `lanes`, else the linked rows' words (`laneBy` on a link), else the lane values."
+            },
+            {
+              "name": "recordView",
+              "type": "RecordView<ResourceContract<any>, any>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The record view a peek draws. Default the view's `recordView`, else the view's columns."
             },
             {
               "name": "select",
@@ -21217,7 +22321,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "How row-click detail is shown. Default \"panel\"."
+              "description": "How a row opens (a record page, ADR 0021): `\"panel\"` (default) or `\"side-peek\"`, a sheet at\nthe edge; `\"modal\"` or `\"center-peek\"`, a centered dialog; `\"route\"` or `\"page\"`, the\nrecord's own route through `onNavigate`; `\"none\"`. The peek words are the preferred ones."
             },
             {
               "name": "detailFields",
@@ -21842,7 +22946,7 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/resource-view/ResourceView.tsx",
       "stability": "stable",
-      "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n<ResourceView view={leaguesView} tree={{ getParentId: (l) => l.parent_id, defaultExpanded: 1 }} />\n```\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
+      "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n<ResourceView view={leaguesView} tree={{ getParentId: (l) => l.parent_id, defaultExpanded: 1 }} />\n<ResourceView view={tasksView} type=\"board\" open=\"center-peek\" />\n```\n\n`type` picks the view type (ADR 0021): Genesis's table, list, grid, board, calendar and gallery,\nor one registered with `registerViewType`. A record opens as the view's `open` says.\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
       "primaryComponent": "ResourceView",
       "components": [
         {
@@ -22043,7 +23147,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "How row-click detail is shown. Default \"panel\"."
+              "description": "How a row opens (a record page, ADR 0021): `\"panel\"` (default) or `\"side-peek\"`, a sheet at\nthe edge; `\"modal\"` or `\"center-peek\"`, a centered dialog; `\"route\"` or `\"page\"`, the\nrecord's own route through `onNavigate`; `\"none\"`. The peek words are the preferred ones."
             },
             {
               "name": "detailFields",
@@ -22253,7 +23357,7 @@
               "type": "ViewModeDefault | \"calendar\" | \"board\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
             },
             {
               "name": "mutationMode",
@@ -22382,6 +23486,13 @@
               "description": "Called when the user changes the sort, with `null` when the sort is cleared."
             },
             {
+              "name": "open",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "How a record opens from this screen (ADR 0021): a `side-peek`, a `center-peek` or its `page`.\nDefault the view's `open`, else a side peek. ResourcePage's `detail` (`panel`, `modal`,\n`route`) still works, and wins when set."
+            },
+            {
               "name": "openOnCardClick",
               "type": "boolean",
               "required": false,
@@ -22429,6 +23540,13 @@
               "required": false,
               "defaultValue": null,
               "description": "A tab the view defines: its columns and its filter."
+            },
+            {
+              "name": "recordView",
+              "type": "RecordView<ResourceContract<any>, any>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The record view a peek draws. Default the view's `recordView`. Without either, a peek shows\nthe view's columns, as before."
             },
             {
               "name": "renderCard",
@@ -22597,6 +23715,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
+            },
+            {
+              "name": "type",
+              "type": "\"grid\" | \"table\" | \"list\" | ResponsiveViewMode | \"calendar\" | \"board\" | \"gallery\" | (string & {})",
+              "required": false,
+              "defaultValue": null,
+              "description": "The view type (ADR 0021): how the view shows. `table`, `list` and `grid` (the person can\nswitch between them, and their pick is remembered), `board`, `calendar`, `gallery` (the grid\nas photos, from the view's `gallery` block), or a type the app registered with\n`registerViewType` (`\"timeline\"`). `{ mobile, desktop }` picks per screen size, as `mode` does."
             },
             {
               "name": "urlState",
@@ -22616,7 +23741,7 @@
         },
         {
           "name": "ResourceView",
-          "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n<ResourceView view={leaguesView} tree={{ getParentId: (l) => l.parent_id, defaultExpanded: 1 }} />\n```\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
+          "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n<ResourceView view={leaguesView} tree={{ getParentId: (l) => l.parent_id, defaultExpanded: 1 }} />\n<ResourceView view={tasksView} type=\"board\" open=\"center-peek\" />\n```\n\n`type` picks the view type (ADR 0021): Genesis's table, list, grid, board, calendar and gallery,\nor one registered with `registerViewType`. A record opens as the view's `open` says.\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
           "props": [
             {
               "name": "view",
@@ -22812,7 +23937,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "How row-click detail is shown. Default \"panel\"."
+              "description": "How a row opens (a record page, ADR 0021): `\"panel\"` (default) or `\"side-peek\"`, a sheet at\nthe edge; `\"modal\"` or `\"center-peek\"`, a centered dialog; `\"route\"` or `\"page\"`, the\nrecord's own route through `onNavigate`; `\"none\"`. The peek words are the preferred ones."
             },
             {
               "name": "detailFields",
@@ -23022,7 +24147,7 @@
               "type": "ViewModeDefault | \"calendar\" | \"board\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
             },
             {
               "name": "mutationMode",
@@ -23151,6 +24276,13 @@
               "description": "Called when the user changes the sort, with `null` when the sort is cleared."
             },
             {
+              "name": "open",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "How a record opens from this screen (ADR 0021): a `side-peek`, a `center-peek` or its `page`.\nDefault the view's `open`, else a side peek. ResourcePage's `detail` (`panel`, `modal`,\n`route`) still works, and wins when set."
+            },
+            {
               "name": "openOnCardClick",
               "type": "boolean",
               "required": false,
@@ -23198,6 +24330,13 @@
               "required": false,
               "defaultValue": null,
               "description": "A tab the view defines: its columns and its filter."
+            },
+            {
+              "name": "recordView",
+              "type": "RecordView<ResourceContract<any>, any>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The record view a peek draws. Default the view's `recordView`. Without either, a peek shows\nthe view's columns, as before."
             },
             {
               "name": "renderCard",
@@ -23366,6 +24505,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
+            },
+            {
+              "name": "type",
+              "type": "\"grid\" | \"table\" | \"list\" | ResponsiveViewMode | \"calendar\" | \"board\" | \"gallery\" | (string & {})",
+              "required": false,
+              "defaultValue": null,
+              "description": "The view type (ADR 0021): how the view shows. `table`, `list` and `grid` (the person can\nswitch between them, and their pick is remembered), `board`, `calendar`, `gallery` (the grid\nas photos, from the view's `gallery` block), or a type the app registered with\n`registerViewType` (`\"timeline\"`). `{ mobile, desktop }` picks per screen size, as `mode` does."
             },
             {
               "name": "urlState",
@@ -23385,7 +24531,7 @@
         },
         {
           "name": "useResourceView",
-          "summary": "The headless form: the same state as `useResourceTable`, from a view.",
+          "summary": "The headless form: the same state as `useResourceTable`, from a view. Table, list, grid and\ngallery only; a board, a calendar or an app's view type has no table state (`useViewBoard`,\n`useViewCalendarRange` and `useViewList` are theirs).",
           "props": [
             {
               "name": "view",
@@ -23581,7 +24727,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "How row-click detail is shown. Default \"panel\"."
+              "description": "How a row opens (a record page, ADR 0021): `\"panel\"` (default) or `\"side-peek\"`, a sheet at\nthe edge; `\"modal\"` or `\"center-peek\"`, a centered dialog; `\"route\"` or `\"page\"`, the\nrecord's own route through `onNavigate`; `\"none\"`. The peek words are the preferred ones."
             },
             {
               "name": "detailFields",
@@ -23791,7 +24937,7 @@
               "type": "ViewModeDefault | \"calendar\" | \"board\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
             },
             {
               "name": "mutationMode",
@@ -23920,6 +25066,13 @@
               "description": "Called when the user changes the sort, with `null` when the sort is cleared."
             },
             {
+              "name": "open",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "How a record opens from this screen (ADR 0021): a `side-peek`, a `center-peek` or its `page`.\nDefault the view's `open`, else a side peek. ResourcePage's `detail` (`panel`, `modal`,\n`route`) still works, and wins when set."
+            },
+            {
               "name": "openOnCardClick",
               "type": "boolean",
               "required": false,
@@ -23967,6 +25120,13 @@
               "required": false,
               "defaultValue": null,
               "description": "A tab the view defines: its columns and its filter."
+            },
+            {
+              "name": "recordView",
+              "type": "RecordView<ResourceContract<any>, any>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The record view a peek draws. Default the view's `recordView`. Without either, a peek shows\nthe view's columns, as before."
             },
             {
               "name": "renderCard",
@@ -24135,6 +25295,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
+            },
+            {
+              "name": "type",
+              "type": "\"grid\" | \"table\" | \"list\" | ResponsiveViewMode | \"calendar\" | \"board\" | \"gallery\" | (string & {})",
+              "required": false,
+              "defaultValue": null,
+              "description": "The view type (ADR 0021): how the view shows. `table`, `list` and `grid` (the person can\nswitch between them, and their pick is remembered), `board`, `calendar`, `gallery` (the grid\nas photos, from the view's `gallery` block), or a type the app registered with\n`registerViewType` (`\"timeline\"`). `{ mobile, desktop }` picks per screen size, as `mode` does."
             },
             {
               "name": "urlState",
@@ -25851,18 +27018,109 @@
       ]
     },
     {
+      "slug": "starters",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/themes/starters.ts",
+      "stability": "stable",
+      "summary": "A starter theme by id, or undefined.",
+      "primaryComponent": "getStarterTheme",
+      "components": [
+        {
+          "name": "getStarterTheme",
+          "summary": "A starter theme by id, or undefined.",
+          "props": []
+        },
+        {
+          "name": "withPairedBrand",
+          "summary": "A starter theme worn in the starter brand it was designed with: for a preview or a picker.",
+          "props": [
+            {
+              "name": "description",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "id",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Its name in a picker."
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Lowercase letters, digits and hyphens."
+            },
+            {
+              "name": "brand",
+              "type": "AppBrand",
+              "required": false,
+              "defaultValue": null,
+              "description": "Colours and typefaces. Unset keeps the app's own brand."
+            },
+            {
+              "name": "feel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The kind of product whose feel it follows, in words (\"keyboard-first issue trackers\")."
+            },
+            {
+              "name": "layout",
+              "type": "AppThemeLayout",
+              "required": false,
+              "defaultValue": null,
+              "description": "The shell's layout. Unset keeps the app's own `AppShell` options."
+            },
+            {
+              "name": "style",
+              "type": "AppStyle",
+              "required": false,
+              "defaultValue": null,
+              "description": "Every component's size and shape. Unset keeps Genesis's default style."
+            },
+            {
+              "name": "suits",
+              "type": "readonly string[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The work it suits, for a picker or a zone map (\"issues\", \"tasks\", \"journal\")."
+            }
+          ]
+        },
+        {
+          "name": "STARTER_THEMES",
+          "summary": "Every starter theme Genesis ships, in picker order.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "stat-card",
       "aliases": [],
       "surface": "web",
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/StatCard.tsx",
-      "stability": "stable",
-      "summary": "",
+      "stability": "beta",
+      "summary": "A labelled number on a dashboard: the stat tile. Draws the one widget tile\n(`WidgetTile`, variant `stat`, part `stat-card`), so an app style changes it with every other\ntile. For a number fed by a view, use `<Widget>` with a `number` widget.",
       "primaryComponent": "StatCard",
       "components": [
         {
           "name": "StatCard",
-          "summary": "",
+          "summary": "A labelled number on a dashboard: the stat tile. Draws the one widget tile\n(`WidgetTile`, variant `stat`, part `stat-card`), so an app style changes it with every other\ntile. For a number fed by a view, use `<Widget>` with a `number` widget.",
           "props": [
             {
               "name": "label",
@@ -25910,7 +27168,7 @@
               "name": "linkComponent",
               "type": "LinkComponent",
               "required": false,
-              "defaultValue": "({\n  href,\n  children,\n  testID,\n  ...rest\n}) => (\n  <a href={href} data-testid={testID} {...rest}>\n    {children}\n  </a>\n)",
+              "defaultValue": null,
               "description": "Injectable link component used when `href` is set. Defaults to a plain\n`<a>` (no router). Pass a router adapter for client-side navigation."
             },
             {
@@ -26080,12 +27338,12 @@
       "subpath": "@marktiderman/genesis-ui",
       "filePath": "packages/ui/src/components/resource/SummaryCard.tsx",
       "stability": "stable",
-      "summary": "One card of a summary column: an icon and a title, a short line on the right (\"24\nresponses · average 4.1\"), then whatever summarises it (bars, quotes, a split bar).",
+      "summary": "One card of a summary column: an icon and a title, a short line on the right (\"24\nresponses · average 4.1\"), then whatever summarises it (bars, quotes, a split bar). The one\nwidget tile (`WidgetTile`, variant `summary`, part `summary-card`).",
       "primaryComponent": "SummaryCard",
       "components": [
         {
           "name": "SummaryCard",
-          "summary": "One card of a summary column: an icon and a title, a short line on the right (\"24\nresponses · average 4.1\"), then whatever summarises it (bars, quotes, a split bar).",
+          "summary": "One card of a summary column: an icon and a title, a short line on the right (\"24\nresponses · average 4.1\"), then whatever summarises it (bars, quotes, a split bar). The one\nwidget tile (`WidgetTile`, variant `summary`, part `summary-card`).",
           "props": [
             {
               "name": "title",
@@ -27821,7 +29079,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "How row-click detail is shown. Default \"panel\"."
+              "description": "How a row opens (a record page, ADR 0021): `\"panel\"` (default) or `\"side-peek\"`, a sheet at\nthe edge; `\"modal\"` or `\"center-peek\"`, a centered dialog; `\"route\"` or `\"page\"`, the\nrecord's own route through `onNavigate`; `\"none\"`. The peek words are the preferred ones."
             },
             {
               "name": "detailFields",
@@ -28527,7 +29785,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "How row-click detail is shown. Default \"panel\"."
+              "description": "How a row opens (a record page, ADR 0021): `\"panel\"` (default) or `\"side-peek\"`, a sheet at\nthe edge; `\"modal\"` or `\"center-peek\"`, a centered dialog; `\"route\"` or `\"page\"`, the\nrecord's own route through `onNavigate`; `\"none\"`. The peek words are the preferred ones."
             },
             {
               "name": "detailFields",
@@ -29066,6 +30324,77 @@
       ]
     },
     {
+      "slug": "use-view-board",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/use-view-board.ts",
+      "stability": "beta",
+      "summary": "A view's rows as board columns, with moves:\n\n```tsx\nconst board = useViewBoard(tasksView, { filters: useViewListParams({ view: tasksView }).filters });\nboard.columns.map((c) => <Lane key={c.value} title={c.label} cards={c.items} onDrop={(row) => board.move(row, c.value)} />);\n```\n\nThrows when the view has no board field and the options name none, or names one a board can't\nuse (a field without choices).",
+      "primaryComponent": "useViewBoard",
+      "components": [
+        {
+          "name": "useViewBoard",
+          "summary": "A view's rows as board columns, with moves:\n\n```tsx\nconst board = useViewBoard(tasksView, { filters: useViewListParams({ view: tasksView }).filters });\nboard.columns.map((c) => <Lane key={c.value} title={c.label} cards={c.items} onDrop={(row) => board.move(row, c.value)} />);\n```\n\nThrows when the view has no board field and the options name none, or names one a board can't\nuse (a field without choices).",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "use-view-calendar-range",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/use-view-calendar-range.ts",
+      "stability": "beta",
+      "summary": "A view's rows in one calendar window, for a screen that places them itself (a custom view,\nADR 0019). ResourceCalendar loads its rows through it.\n\n```tsx\nconst range = calendarWindow(\"weeks\", today, { weeks: 1 });\nconst week = useViewCalendarRange(sessionsView, range, { filters: useViewListParams({ view: sessionsView }).filters });\n```\n\nAt most two requests, each a plain filter list the provider rules apply to, that neither\noverlap nor leave a gap: rows that start in the window, and, with an end field, rows that\nstarted before it and end inside or after it. One query for both, under core's list keys, so a\nsave refreshes it; the last window's rows stand in while the next loads, never across a change\nof filters.",
+      "primaryComponent": "useViewCalendarRange",
+      "components": [
+        {
+          "name": "displayZone",
+          "summary": "The clock a field's cells use (display.tsx): its own zone, the scope's, the viewer's, the device's.",
+          "props": []
+        },
+        {
+          "name": "useViewCalendarRange",
+          "summary": "A view's rows in one calendar window, for a screen that places them itself (a custom view,\nADR 0019). ResourceCalendar loads its rows through it.\n\n```tsx\nconst range = calendarWindow(\"weeks\", today, { weeks: 1 });\nconst week = useViewCalendarRange(sessionsView, range, { filters: useViewListParams({ view: sessionsView }).filters });\n```\n\nAt most two requests, each a plain filter list the provider rules apply to, that neither\noverlap nor leave a gap: rows that start in the window, and, with an end field, rows that\nstarted before it and end inside or after it. One query for both, under core's list keys, so a\nsave refreshes it; the last window's rows stand in while the next loads, never across a change\nof filters.",
+          "props": []
+        },
+        {
+          "name": "CALENDAR_LIMIT",
+          "summary": "Most rows one request loads (a calendar with an `endField` makes two, so up to twice this).\nA month grid is six weeks: 500 is about a dozen a day, more than a\nbusy shared calendar holds, and still one quick request. Past it the calendar says how many it\nleft out (\"+N more\") rather than dropping them silently.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "use-view-list",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/use-view-list.ts",
+      "stability": "beta",
+      "summary": "A view's list, headless: the same scope, filters and permissions as `<ResourceView>`, one page\nat a time, for a screen that draws the rows itself (a custom view, ADR 0019):\n\n```tsx\nconst list = useViewList(playersView, { perPage: 10, sort: { field: \"points\", order: \"desc\" } });\nif (list.loading) return null; // <CustomView> draws loading, empty and error for you\nreturn list.rows.map((p) => <Row key={list.keyOf(p)} player={p} />);\n```\n\nReads go under core's list keys, so a save to the resource refreshes it; `live` refetches on a\nprovider's change, as a list's does.",
+      "primaryComponent": "useViewList",
+      "components": [
+        {
+          "name": "useViewPermissions",
+          "summary": "The view's guards for the viewer, narrowed by a screen's own rule. Shared by every view type\nand custom view, so they can't disagree.",
+          "props": []
+        },
+        {
+          "name": "useViewList",
+          "summary": "A view's list, headless: the same scope, filters and permissions as `<ResourceView>`, one page\nat a time, for a screen that draws the rows itself (a custom view, ADR 0019):\n\n```tsx\nconst list = useViewList(playersView, { perPage: 10, sort: { field: \"points\", order: \"desc\" } });\nif (list.loading) return null; // <CustomView> draws loading, empty and error for you\nreturn list.rows.map((p) => <Row key={list.keyOf(p)} player={p} />);\n```\n\nReads go under core's list keys, so a save to the resource refreshes it; `live` refetches on a\nprovider's change, as a list's does.",
+          "props": []
+        },
+        {
+          "name": "VIEW_LIST_PAGE",
+          "summary": "Rows per page a view list asks for by default.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "user-avatar",
       "aliases": [],
       "surface": "web",
@@ -29145,6 +30474,13 @@
           "summary": "How a field stores time, from its database type (an unknown type with a time counts as an instant).",
           "props": [
             {
+              "name": "control",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "dbType",
               "type": "string",
               "required": false,
@@ -29195,7 +30531,7 @@
       "surface": "web",
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/resource-view/view-list.tsx",
-      "stability": "stable",
+      "stability": "beta",
       "summary": "",
       "primaryComponent": "filterParams",
       "components": [
@@ -29206,7 +30542,7 @@
         },
         {
           "name": "useViewListParams",
-          "summary": "The filters, select, enabled and live a screen's options make for a view's list. The list path\n(`useResourceViewProps`) and the calendar path both use it.",
+          "summary": "The filters, select, enabled and live a screen's options make for a view's list: the viewer's\nscope, the preset's filter and the screen's own, as provider params. Every view type (the\ntable's `useResourceViewProps`, the board, the calendar) and every custom view (`useViewList`,\n`useViewBoard`, `useViewCalendarRange`, `<CustomView>`) starts from it, so they ask the same.",
           "props": [
             {
               "name": "view",
@@ -29282,7 +30618,7 @@
             },
             {
               "name": "onDensityChange",
-              "type": "(density: Density) => void",
+              "type": "(density: \"compact\" | \"comfortable\" | \"spacious\") => void",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -29338,6 +30674,87 @@
       ]
     },
     {
+      "slug": "view-types",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/view-types.tsx",
+      "stability": "beta",
+      "summary": "A view type an app adds (ADR 0021): a name and the component that draws a view that way.\nRegister it once at start-up with {@link registerViewType}.\n\n```tsx\nexport const timelineType = defineViewType({ id: \"timeline\", label: \"Timeline\", render: Timeline });\nregisterViewType(timelineType);\n<ResourceView view={sessionsView} type=\"timeline\" />;\n```\n\nThrows for an id that isn't lowercase letters, digits and hyphens, or a `render` that isn't a component.",
+      "primaryComponent": "defineViewType",
+      "components": [
+        {
+          "name": "defineViewType",
+          "summary": "A view type an app adds (ADR 0021): a name and the component that draws a view that way.\nRegister it once at start-up with {@link registerViewType}.\n\n```tsx\nexport const timelineType = defineViewType({ id: \"timeline\", label: \"Timeline\", render: Timeline });\nregisterViewType(timelineType);\n<ResourceView view={sessionsView} type=\"timeline\" />;\n```\n\nThrows for an id that isn't lowercase letters, digits and hyphens, or a `render` that isn't a component.",
+          "props": [
+            {
+              "name": "id",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Lowercase letters, digits and hyphens: `\"timeline\"`."
+            },
+            {
+              "name": "render",
+              "type": "ComponentType<ResourceViewProps<any>>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Draws a view as this type. It gets the screen's ResourceView props (the view, `filter`,\n`preset`, `open`, `cells`…); `useViewListParams`, `useViewList`, `useViewBoard` and\n`useViewCalendarRange` give it the view's data, scope and permissions, and `<CustomView>`\nits loading, empty and error states."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Its name in words, for a type switcher. Default the id in title case."
+            }
+          ]
+        },
+        {
+          "name": "registerViewType",
+          "summary": "Make a view type available to every `<ResourceView type>` in the app. Returns a function that\nremoves it again (tests, a module unloaded). Registering a second type under a taken id throws\nunless `replace` is set; a built-in type can't be replaced.",
+          "props": []
+        },
+        {
+          "name": "registerBuiltInViewType",
+          "summary": "Genesis's own types, registered by ResourceView.",
+          "props": [
+            {
+              "name": "id",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Lowercase letters, digits and hyphens: `\"timeline\"`."
+            },
+            {
+              "name": "render",
+              "type": "ComponentType<ResourceViewProps<any>>",
+              "required": true,
+              "defaultValue": null,
+              "description": "Draws a view as this type. It gets the screen's ResourceView props (the view, `filter`,\n`preset`, `open`, `cells`…); `useViewListParams`, `useViewList`, `useViewBoard` and\n`useViewCalendarRange` give it the view's data, scope and permissions, and `<CustomView>`\nits loading, empty and error states."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Its name in words, for a type switcher. Default the id in title case."
+            }
+          ]
+        },
+        {
+          "name": "resolveViewType",
+          "summary": "A registered view type by name, or undefined.",
+          "props": []
+        },
+        {
+          "name": "listViewTypes",
+          "summary": "Every registered view type, built-ins first, in the order registered.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "visually-hidden",
       "aliases": [],
       "surface": "web",
@@ -29364,6 +30781,277 @@
               "required": false,
               "defaultValue": null,
               "description": "Stable test/automation selector (emitted as `data-testid`)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "widget",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/widget/Widget.tsx",
+      "stability": "beta",
+      "summary": "One widget, drawn on the one widget tile (`WidgetTile`). Reads through the data provider in\nthe viewer's scope (ViewerScope), under row security, and keeps itself current (`live`,\ndefault on). Hidden when the viewer can't read a field it totals or the widget's `can` says no.\n\n```tsx\n<DashboardPage title=\"Sales\" stats={<><Widget widget={openDeals} /><Widget widget={pipeline} /></>} />\n```",
+      "primaryComponent": "Widget",
+      "components": [
+        {
+          "name": "Widget",
+          "summary": "One widget, drawn on the one widget tile (`WidgetTile`). Reads through the data provider in\nthe viewer's scope (ViewerScope), under row security, and keeps itself current (`live`,\ndefault on). Hidden when the viewer can't read a field it totals or the widget's `can` says no.\n\n```tsx\n<DashboardPage title=\"Sales\" stats={<><Widget widget={openDeals} /><Widget widget={pipeline} /></>} />\n```",
+          "props": [
+            {
+              "name": "widget",
+              "type": "DefinedWidget | WidgetDefinition",
+              "required": true,
+              "defaultValue": null,
+              "description": "From `defineWidget`."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "An icon beside the label."
+            },
+            {
+              "name": "linkComponent",
+              "type": "LinkComponent",
+              "required": false,
+              "defaultValue": "({\n  href,\n  children,\n  testID,\n  ...rest\n}) => (\n  <a href={href} data-testid={testID} {...rest}>\n    {children}\n  </a>\n)",
+              "description": "Router link for `href` and `rowHref`. Default a plain `<a>`."
+            },
+            {
+              "name": "locale",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Number locale (`Intl`). Default the runtime's."
+            },
+            {
+              "name": "refused",
+              "type": "((reason: string) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown in place of the tile when the viewer may not see it. Default nothing."
+            },
+            {
+              "name": "rowHref",
+              "type": "((row: Record<string, unknown>) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A list widget's link for one row (its record page)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "widget-grid",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/widget/WidgetGrid.tsx",
+      "stability": "beta",
+      "summary": "A dashboard's widgets on a responsive grid: one column on a phone, `columns` at the widest,\nwith a chart or a list spanning more. For the stat row of a `DashboardPage`, pass `<Widget>`s\nto its `stats` instead: that row is a grid already.",
+      "primaryComponent": "WidgetGrid",
+      "components": [
+        {
+          "name": "WidgetGrid",
+          "summary": "A dashboard's widgets on a responsive grid: one column on a phone, `columns` at the widest,\nwith a chart or a list spanning more. For the stat row of a `DashboardPage`, pass `<Widget>`s\nto its `stats` instead: that row is a grid already.",
+          "props": [
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "More tiles after the widgets: a `StatCard`, a `<Widget>` with its own props."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "columns",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "4",
+              "description": "Columns at the widest breakpoint (Grid's scale). Default 4."
+            },
+            {
+              "name": "linkComponent",
+              "type": "LinkComponent",
+              "required": false,
+              "defaultValue": null,
+              "description": "Router link for `href` and `rowHref`. Default a plain `<a>`."
+            },
+            {
+              "name": "locale",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Number locale (`Intl`). Default the runtime's."
+            },
+            {
+              "name": "refused",
+              "type": "((reason: string) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Shown in place of the tile when the viewer may not see it. Default nothing."
+            },
+            {
+              "name": "rowHref",
+              "type": "((row: Record<string, unknown>) => string)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A list widget's link for one row (its record page)."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "widgets",
+              "type": "readonly (DefinedWidget | WidgetDefinition | WidgetGridItem)[]",
+              "required": false,
+              "defaultValue": "[]",
+              "description": "The widgets, in order: each a widget, or `{ widget, span }`."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "widget-tile",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/widget/WidgetTile.tsx",
+      "stability": "beta",
+      "summary": "The tile every widget draws. Use the component that names the job (`StatCard`,\n`HeadlineNumbers`, `SummaryCard`, `<Widget>`); reach for this one for a tile none of them\ndraws, so it still wears the app style's tile parts.",
+      "primaryComponent": "WidgetTile",
+      "components": [
+        {
+          "name": "WidgetTile",
+          "summary": "The tile every widget draws. Use the component that names the job (`StatCard`,\n`HeadlineNumbers`, `SummaryCard`, `<Widget>`); reach for this one for a tile none of them\ndraws, so it still wears the app style's tile parts.",
+          "props": [
+            {
+              "name": "label",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "What the tile is called."
+            },
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Under the value: a bar, a list, a chart, a summary's body."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "detail",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A short line under the value."
+            },
+            {
+              "name": "detailClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The detail's class (a tone's colour)."
+            },
+            {
+              "name": "href",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Makes the whole tile a link (stat, widget)."
+            },
+            {
+              "name": "icon",
+              "type": "ReactNode | LucideIcon",
+              "required": false,
+              "defaultValue": null,
+              "description": "An icon beside the label (stat, widget) or the title (summary)."
+            },
+            {
+              "name": "iconClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The icon's class (a colour)."
+            },
+            {
+              "name": "kind",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The widget kind, set as `data-kind` (widget)."
+            },
+            {
+              "name": "linkComponent",
+              "type": "LinkComponent",
+              "required": false,
+              "defaultValue": "({\n  href,\n  children,\n  testID,\n  ...rest\n}) => (\n  <a href={href} data-testid={testID} {...rest}>\n    {children}\n  </a>\n)",
+              "description": ""
+            },
+            {
+              "name": "meta",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A short line on the header's right (summary, widget)."
+            },
+            {
+              "name": "state",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "ready",
+              "description": "What a widget is showing; set as `data-state`."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The number, or whatever stands for it."
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "widget",
+              "description": ""
             }
           ]
         }

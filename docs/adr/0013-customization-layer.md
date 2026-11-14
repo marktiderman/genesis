@@ -22,20 +22,22 @@ it offers, in its README and SKILL.md, with these names.
 | Level | What changes | How | Where it lives |
 | --- | --- | --- | --- |
 | 1. **Configure** | behaviour, by data | options, props, variants, view descriptions (fields, columns, `can`, scope), feature flags | the app's config and descriptions |
-| 2. **Brand** | the look, everywhere at once | design tokens, a brand or design system, fonts, icons | the app's brand (design-system schema) |
+| 2. **Brand** | the look, everywhere at once | design tokens, an app brand (colours, typefaces) and an app style (sizes, shapes, parts; ADR 0018), a design system for sites, icons | the app's brand and style (design-system), or an app theme that bundles them with a layout (genesis-ui) |
 | 3. **Compose** | the shape of a screen | slots, `slotProps`, named parts and `classNames`; Genesis elements arranged in the app's own pages | the app's routes, using Genesis parts |
 | 4. **Adapt** | what sits behind a seam | adapters: data provider, storage, video, email, SMS, AI vendor, payments | an adapter object passed in config |
-| 5. **Own** | something Genesis doesn't do | the app's own components, routes, workflows and tables | the app's repository; an entry in `docs/genesis-upstream.md` when it is a gap or worth sharing |
+| 5. **Own** | something Genesis doesn't do | the app's own components, routes, workflows and tables | the app's repository; optionally an entry in `docs/genesis-upstream.md` when it is a gap or worth sharing |
 
 Rules:
 
 1. **Lowest level first.** An agent or a person tries Configure before Brand, Brand before
    Compose, and so on. `genesis doctor` keeps steering away from re-implementing what a lower
    level already does.
-2. **Own is legitimate.** Code at level 5 stays in the app. It is registered in
+2. **Own is legitimate.** Code at level 5 stays in the app. It may be registered in
    `docs/genesis-upstream.md` when it works around something Genesis should do (a gap) or could
-   serve another app (an extension or invention); what is unique to the app needs no entry (G3).
-   When a second app needs it, it is promoted into Genesis (G4) and the app deletes its copy.
+   serve another app (an extension or invention), as a recommendation and never as a condition
+   for building it (amended 2026-11-11); what is unique to the app needs no entry (G3).
+   When more than one app wants it, or Genesis decides to own the capability, it can be promoted
+   into Genesis (G4, a decision and not an automatic step); the app then deletes its copy.
 3. **No eject.** An app never copies a Genesis component to change it (PACKAGE-STRATEGY, R6).
    When levels 1–4 can't reach a need that a Genesis part should cover, the gap names the missing
    extension point and Genesis adds it; a need no Genesis part covers is level 5.
@@ -66,6 +68,15 @@ a primitive at level 4, **Adapt**, never as a dependency:
 
 This is how a public engine and premium parts can coexist: the engine is complete on its own,
 and premium parts plug into ports it defines.
+
+### Registering is a recommendation (added 2026-11-11)
+
+Rule 2's entry in `docs/genesis-upstream.md` is a recommendation an app makes when it thinks
+Genesis should have the piece. It is never a condition for building at level 5: the app builds
+first, and nothing is written up or approved beforehand. A piece that is close to a Genesis part
+and does the same job is not level 5 at all: it is configured at level 1 (a prop or a variant) or
+composed at level 3 (a slot, or the app's own component wrapping the part), and never rebuilt
+beside it (FRAMEWORK G2 and G5).
 
 ## Consequences
 

@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { brandRoleVariables, genesisBrand } from "@marktiderman/genesis-design-system";
 import { createMockProvider } from "@marktiderman/genesis-core/provider";
 import { Appearance } from "react-native";
-import { useKeyboardScroll, useKeyboardToolbar } from "@marktiderman/genesis-ui-native/layouts";
+import { useKeyboardScroll, useKeyboardSticky, useKeyboardToolbar } from "@marktiderman/genesis-ui-native/layouts";
 import { useGenesisModules, useToast, type GenesisNavigationTheme } from "@marktiderman/genesis-ui-native/components";
 import { GenesisNativeApp, type GenesisNativeAppProps } from "../app";
 import { useBoot } from "../boot";
@@ -461,6 +461,17 @@ describe("GenesisNativeApp", () => {
     expect(screen.getByTestId("probe").textContent).toBe("true");
   });
 
+  it("provides the keyboard sticky view with the scroll view", async () => {
+    const Scroll = () => null;
+    const Sticky = () => null;
+    function Probe() {
+      return <span data-testid="probe">{String(useKeyboardSticky() === Sticky)}</span>;
+    }
+    setup({ keyboardProvider: ({ children }) => <>{children}</>, keyboardScroll: Scroll, keyboardSticky: Sticky, children: <Probe /> });
+    await act(flush);
+    expect(screen.getByTestId("probe").textContent).toBe("true");
+  });
+
   it("says in development that a keyboard toolbar without a scroll view is ignored", async () => {
     (globalThis as { __DEV__?: boolean }).__DEV__ = true;
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -471,7 +482,7 @@ describe("GenesisNativeApp", () => {
       setup({ keyboardToolbar: () => null, children: <Probe /> });
       await act(flush);
       expect(screen.getByTestId("probe").textContent).toBe("null");
-      expect(error.mock.calls.some(([m]) => String(m).includes("`keyboardToolbar` was given without `keyboardScroll`"))).toBe(true);
+      expect(error.mock.calls.some(([m]) => String(m).includes("`keyboardToolbar` or `keyboardSticky` was given without `keyboardScroll`"))).toBe(true);
     } finally {
       error.mockRestore();
       delete (globalThis as { __DEV__?: boolean }).__DEV__;

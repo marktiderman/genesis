@@ -11,8 +11,9 @@
  *
  * @stability Beta
  */
-import { useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
+import { canStepNumber, clampNumber, commitNumberDraft, readNumberDraft, stepNumber } from "@marktiderman/genesis-core/headless";
 import { cn } from "../utils";
 
 export interface NativeNumberInputProps {
@@ -24,6 +25,11 @@ export interface NativeNumberInputProps {
   step?: number;
   /** Decimal places shown. Default 0 (integer). */
   precision?: number;
+  /**
+   * The locale whose marks typed numbers use ("de-DE" reads "1.234,5"). Default: worked out from
+   * the text ("1,234" is 1234, "1,5" is 1.5), genesis-core's `parseNumberInput`, as on the web.
+   */
+  locale?: string;
   /** Disable both stepper buttons and the input. */
   disabled?: boolean;
   /** Disable just the typed input; keep stepper. */
@@ -33,12 +39,6 @@ export interface NativeNumberInputProps {
   testID?: string;
 }
 
-function clamp(v: number, min?: number, max?: number) {
-  if (min !== undefined && v < min) return min;
-  if (max !== undefined && v > max) return max;
-  return v;
-}
-
 export function NativeNumberInput({
   value,
   onChange,
@@ -46,6 +46,7 @@ export function NativeNumberInput({
   max,
   step = 1,
   precision = 0,
+  locale,
   disabled,
   readOnlyInput,
   className,
@@ -55,13 +56,32 @@ export function NativeNumberInput({
   const setValue = useCallback(
     (next: number) => {
       if (Number.isNaN(next)) return;
-      onChange(clamp(next, min, max));
+      onChange(clampNumber(next, min, max));
     },
     [max, min, onChange]
   );
 
-  const decBlocked = disabled || (min !== undefined && value <= min);
-  const incBlocked = disabled || (max !== undefined && value >= max);
+  // What's typed: the field shows it, and a number that is ready (in range, within the precision,
+  // not a comma that may still become a group) is passed on as it is typed. Ending the edit (blur,
+  // submit, or the keyboard dismissed: FormPage's actions dismiss it before they run) commits what's
+  // typed, rounded and clamped, and shows the value again, as on the web. A ref keeps the draft so
+  // the edit's several ending events commit it once.
+  const [draft, setDraftState] = useState<string | null>(null);
+  const draftRef = useRef<string | null>(null);
+  const setDraft = (next: string | null) => {
+    draftRef.current = next;
+    setDraftState(next);
+  };
+  const commit = () => {
+    const text = draftRef.current;
+    if (text === null) return;
+    setDraft(null);
+    const typed = commitNumberDraft(text, { min, max, precision, locale });
+    if (typed !== null && typed !== value) onChange(typed);
+  };
+
+  const decBlocked = disabled || !canStepNumber(value, -1, { min, max });
+  const incBlocked = disabled || !canStepNumber(value, 1, { min, max });
 
   return (
     <View
@@ -78,7 +98,10 @@ export function NativeNumberInput({
         accessibilityRole="button"
         accessibilityLabel="Decrement"
         disabled={decBlocked}
-        onPress={() => setValue(value - step)}
+        onPress={() => {
+          setDraft(null);
+          setValue(stepNumber(value, -1, { step, min, max }));
+        }}
         className={cn(
           "min-h-[44px] min-w-[44px] items-center justify-center px-3",
           decBlocked && "opacity-40"
@@ -88,14 +111,18 @@ export function NativeNumberInput({
       </Pressable>
       <TextInput
         testID={testID ? `${testID}-field` : "number-input-field"}
-        value={value.toFixed(precision)}
+        value={draft ?? value.toFixed(precision)}
         editable={!disabled && !readOnlyInput}
         keyboardType="numeric"
         accessibilityLabel="Numeric value"
         onChangeText={(t) => {
-          const parsed = Number(t.replace(/[^0-9.\-]/g, ""));
-          setValue(parsed);
+          setDraft(t);
+          const typed = readNumberDraft(t, { min, max, precision, locale });
+          if (typed.ready && typed.value !== null && typed.value !== value) onChange(typed.value);
         }}
+        onBlur={commit}
+        onEndEditing={commit}
+        onSubmitEditing={commit}
         className={cn(
           "min-w-[64px] flex-1 border-x border-input bg-background text-center text-base text-foreground",
           inputClassName
@@ -106,7 +133,10 @@ export function NativeNumberInput({
         accessibilityRole="button"
         accessibilityLabel="Increment"
         disabled={incBlocked}
-        onPress={() => setValue(value + step)}
+        onPress={() => {
+          setDraft(null);
+          setValue(stepNumber(value, 1, { step, min, max }));
+        }}
         className={cn(
           "min-h-[44px] min-w-[44px] items-center justify-center px-3",
           incBlocked && "opacity-40"

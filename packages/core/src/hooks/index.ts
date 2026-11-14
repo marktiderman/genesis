@@ -23,6 +23,7 @@
 
 export { useResource, type UpdateOptions, type UseResourceOptions, type UseResourceReturn } from "./use-resource";
 export { useOne, type UseOneOptions } from "./use-one";
+export { useAggregate, type UseAggregateOptions } from "./use-aggregate";
 export { useRelationLabel, loadRelationLabel, relationNamingField, type UseRelationLabelOptions } from "./use-relation-label";
 export {
   useLinkOptions,

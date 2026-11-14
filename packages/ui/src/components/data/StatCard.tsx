@@ -1,6 +1,7 @@
-import { cn } from "../../utils";
 import type { LucideIcon } from "lucide-react";
-import { DefaultLink, type LinkComponent } from "../../navigation";
+import type { LinkComponent } from "../../navigation";
+import { formatTrend } from "@marktiderman/genesis-core/headless";
+import { WidgetTile } from "./widget/WidgetTile";
 
 export type StatCardColor = "primary" | "success" | "warning" | "info" | "destructive" | "muted";
 
@@ -34,52 +35,37 @@ function resolveColor(color: string): string {
   return (colorMap as Record<string, string>)[color] ?? color;
 }
 
+/**
+ * A labelled number on a dashboard: the stat tile. Draws the one widget tile
+ * (`WidgetTile`, variant `stat`, part `stat-card`), so an app style changes it with every other
+ * tile. For a number fed by a view, use `<Widget>` with a `number` widget.
+ *
+ * @stability Beta
+ */
 export function StatCard({
   label,
   value,
-  icon: Icon,
+  icon,
   color = "primary",
   href,
-  linkComponent: Link = DefaultLink,
+  linkComponent,
   trend,
   className,
 }: StatCardProps) {
-  const content = (
-    <>
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">{label}</span>
-        {Icon && <Icon className={cn("h-4 w-4", resolveColor(color))} />}
-      </div>
-      <p className="mt-2 text-2xl font-bold">{value}</p>
-      {trend && (
-        <p
-          className={cn(
-            "mt-1 text-xs font-medium",
-            trend.value >= 0
-              ? "text-primary-text"
-              : "text-destructive",
-          )}
-        >
-          {trend.value >= 0 ? "+" : ""}
-          {trend.value}% {trend.label}
-        </p>
-      )}
-    </>
+  // The trend line is genesis-core's, as NativeStatCard's.
+  const t = trend ? formatTrend(trend) : null;
+  return (
+    <WidgetTile
+      variant="stat"
+      label={label}
+      value={value}
+      icon={icon}
+      iconClassName={resolveColor(color)}
+      href={href}
+      {...(linkComponent ? { linkComponent } : {})}
+      className={className}
+      detail={t?.text}
+      detailClassName={t ? (t.positive ? "text-primary-text" : "text-destructive") : undefined}
+    />
   );
-
-  const cardClasses = cn(
-    "rounded-xl border border-border bg-card p-4 transition-all hover:shadow-md",
-    href && "cursor-pointer hover:border-primary/30",
-    className,
-  );
-
-  if (href) {
-    return (
-      <Link href={href} className={cardClasses}>
-        {content}
-      </Link>
-    );
-  }
-
-  return <div className={cardClasses}>{content}</div>;
 }

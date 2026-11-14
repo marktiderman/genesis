@@ -255,6 +255,10 @@ void same; void key;
       { source: "x" },
     );
     expect(compileErrors(bad).join("\n")).toMatch(/rainbow/);
+    // `control` is the hint's name now (ADR 0021, decision F); a comment's `widget` keeps its word.
+    const named = emitContracts([{ ...t, columns: [...t.columns.slice(0, 3), { ...t.columns[3]!, settings: { control: "textarea" } }] }], { source: "x" });
+    expect(compileErrors(named)).toEqual([]);
+    expect(named).toContain('control: "textarea"');
   });
 
   it("quotes names that aren't identifiers", () => {

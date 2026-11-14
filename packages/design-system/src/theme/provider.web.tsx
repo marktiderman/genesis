@@ -67,6 +67,13 @@ export interface GenesisThemeProviderProps {
    * Notified when the resolved mode changes (controlled or uncontrolled).
    */
   onModeChange?: (mode: ResolvedThemeMode) => void;
+  /**
+   * Called with the person's new appearance whenever `setMode` is asked for one (a toggle, a
+   * picker), controlled or not: where to save it. A controlled provider with it doesn't warn;
+   * its owner saves the choice and passes it back as `mode` (genesis-ui's `AppearanceProvider`
+   * does this with the person's appearance preferences).
+   */
+  onModeSelect?: (mode: ThemeMode) => void;
   children: ReactNode;
 }
 
@@ -78,11 +85,21 @@ function resolveSystemMode(): ResolvedThemeMode {
     : "light";
 }
 
+/**
+ * The person's **appearance**: light, dark or system (the glossary's word; the props keep their
+ * older `mode` names). It is the person's choice, never an app brand's, style's or theme's: pass
+ * it controlled from where the person's choice is kept (`mode` + `onModeSelect`), or wrap the app
+ * in genesis-ui's `AppearanceProvider`, which reads the person's appearance preferences
+ * (`defineAppearancePreferences`, genesis-core) and saves their changes.
+ *
+ * @stability Beta
+ */
 export function GenesisThemeProvider({
   brand,
   mode: controlledMode,
   defaultMode = "system",
   onModeChange,
+  onModeSelect,
   children,
 }: GenesisThemeProviderProps) {
   const isControlled = controlledMode !== undefined;
@@ -125,7 +142,9 @@ export function GenesisThemeProvider({
 
   const setMode = useCallback(
     (next: ThemeMode) => {
+      onModeSelect?.(next);
       if (isControlled) {
+        if (onModeSelect) return;
         if (process.env.NODE_ENV !== "production") {
           // eslint-disable-next-line no-console
           console.warn(
@@ -137,7 +156,7 @@ export function GenesisThemeProvider({
       }
       setInternalChoice(next);
     },
-    [isControlled]
+    [isControlled, onModeSelect]
   );
 
   const tokens: ResolvedTokens = useMemo(

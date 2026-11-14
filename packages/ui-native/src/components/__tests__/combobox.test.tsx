@@ -33,6 +33,26 @@ describe("NativeCombobox", () => {
     expect(screen.getByTestId("cb-option-b")).toBeTruthy();
   });
 
+  it("matches every word typed, in any order, ignoring accents and case", () => {
+    const places: NativeComboboxOption[] = [
+      { value: "cafe", label: "Café Lumière" },
+      { value: "park", label: "Central Park" },
+      { value: "pier", label: "Pier 39" },
+    ];
+    render(<NativeCombobox testID="pl" options={places} value={undefined} onChange={() => {}} />);
+    const input = screen.getByTestId("pl-input");
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "cafe" } });
+    expect(screen.getByTestId("pl-option-cafe")).toBeTruthy();
+    expect(screen.queryByTestId("pl-option-park")).toBeNull();
+    // Word order is free; every word must match.
+    fireEvent.change(input, { target: { value: "LUMIERE caf" } });
+    expect(screen.getByTestId("pl-option-cafe")).toBeTruthy();
+    fireEvent.change(input, { target: { value: "park pier" } });
+    expect(screen.queryByTestId("pl-option-park")).toBeNull();
+    expect(screen.queryByTestId("pl-option-pier")).toBeNull();
+  });
+
   it("selects an option on press", () => {
     render(<Wrapper />);
     fireEvent.focus(screen.getByTestId("cb-input"));

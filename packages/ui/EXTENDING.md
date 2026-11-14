@@ -97,10 +97,71 @@ the markup.
 | Add a class or a `data-testid` | **2 — `slotProps`, or `className`** |
 | Lay the page out differently | 3 |
 | Keep the behaviour, none of the look | 4 |
+| Add to a Genesis component that is close | a wrapper ([below](#your-own-components)) |
+| Build something Genesis has nothing for | your own component ([below](#your-own-components)) |
 
 Dropping to rung 3 because one part was wrong means re-deriving all the
 wiring that was already correct — and that re-derivation is where forks come
 from. Reach for rung 2 first.
+
+## Your own components
+
+The ladder is for a need a Genesis pattern already answers. Two more cases are the app's own
+code, and both are the Genesis way (FRAMEWORK G2 and G3).
+
+### A wrapper: a Genesis piece is close
+
+When a Genesis component does the job but lacks something (a preset, an extra part, one of your
+domain's words), build your component on it. The Genesis piece stays inside; yours adds on top.
+
+```tsx
+import type { ComponentProps } from "react";
+import { Button } from "@marktiderman/genesis-ui/button";
+
+// The app's own button for one job. Underneath it is still a Genesis Button, so it follows
+// the theme, the focus ring and every later fix.
+export function StartRoundButton({ live, ...props }: ComponentProps<typeof Button> & { live?: boolean }) {
+  return <Button variant={live ? "destructive" : "default"} {...props} />;
+}
+```
+
+Never the other way round. A second component that does the same job beside the Genesis one (a
+local `Button`, a hand-built table) is a recreation (G5), and `genesis doctor` reports it
+(`shadowed-export`, `local-genesis-copy`, `raw-tag`). When a rule doesn't recognize how you
+built on a primitive, record it as a declared extension (`doctor.extend`, in the genesis-cli
+README).
+
+### An invention: nothing in Genesis does the job
+
+Build it in the app. There is no limit on how many, and nothing to write up for Genesis or get
+approved by it first; your app's own design review is a separate thing and still applies. Three
+things keep an invention at home in a Genesis app:
+
+- **Build on the tokens.** Semantic classes (`bg-primary`, `text-muted-foreground`), never
+  literal colours, so it follows the brand and dark mode.
+- **Compose Genesis primitives inside it** wherever a part already exists (a button, an input,
+  a dialog), so only the new part is new.
+- **Keep it out of Genesis's names.** Put it in the app's own folders (`src/components/<area>/`,
+  or `components/` in an Expo app), not in `src/components/ui`, which is where a shadcn starter
+  copies primitives and what `local-primitives` reports. Don't name it like a Genesis export.
+
+An invention sometimes needs a colour no Genesis role covers (a rank, a category, a chart
+series). That is the app's own token, not a literal: declare it as a CSS variable and use the
+variable in the component. `genesis doctor` counts a variable the app's CSS declares as defined
+(`undefined-token`). Where its value comes from decides whether `raw-color` passes:
+
+- **Derived from existing tokens**
+  (`color-mix(in oklch, hsl(var(--primary)) 60%, hsl(var(--foreground)))`): no literal, so
+  nothing to allow. The role variables hold HSL channels (`243 75% 59%`), so each goes inside
+  `hsl()`.
+- **A literal** (`#8a6400`): put it in the file that already holds the app's colour values, the
+  one with the app's `raw-color` `allow` entry. That entry has to cover the file (no `match`),
+  since `allow` compares a `match` exactly. A literal in a new file needs a new entry, and under
+  `--base` a new entry is an `allow-grew` error, so a second colour file is not the way.
+
+When you think other apps would want it, add a line to `docs/genesis-upstream.md`
+(`genesis upstream`). That is a recommendation, and optional. If Genesis takes it, you swap to
+the Genesis one and delete yours.
 
 ## The rules that keep this true
 

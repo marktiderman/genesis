@@ -14,6 +14,7 @@ export * from "./form-types";
 // "./provider" above, so only the rest is listed here.
 export type {
   StorageType,
+  ControlHint,
   WidgetHint,
   DataRow,
   FieldPermissions,
@@ -33,7 +34,7 @@ export type {
   RecordComment,
 } from "./schema/types";
 export { keyFields, encodeRecordKey, decodeRecordKey } from "./schema/keys";
-export { defineResource } from "./schema/types";
+export { defineResource, fieldControl } from "./schema/types";
 export { writeConflict, type WriteConflict, type WriteConflictOptions, type WriteState } from "./schema/write-state";
 
 // Query keys
@@ -67,3 +68,32 @@ export {
 
 // Utils
 export { titleCase } from "./utils";
+
+// Appearance and density: the person's, with the app's lock and the organization's and
+// theme's defaults under it (ADR 0024).
+export {
+  APPEARANCES,
+  DENSITIES,
+  GENESIS_APPEARANCE_DEFAULTS,
+  isAppearance,
+  isDensity,
+  resolveAppearancePreferences,
+  toAppearancePreferenceValues,
+  type Appearance,
+  type AppearancePreferenceLayers,
+  type AppearancePreferenceSource,
+  type AppearancePreferenceValues,
+  type Density,
+  type ResolvedAppearancePreferences,
+} from "./appearance-values";
+export {
+  AppearancePreferencesProvider,
+  defineAppearancePreferences,
+  useAppearancePreferences,
+  useOptionalAppearancePreferences,
+  type AppearancePreferences,
+  type AppearancePreferencesDefinition,
+  type AppearancePreferencesProviderProps,
+  type AppearancePreferencesStore,
+  type UseAppearancePreferencesReturn,
+} from "./appearance";

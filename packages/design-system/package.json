@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-design-system",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "private": false,
   "type": "module",
   "description": "Genesis brand-agnostic design tokens, canonical brand schema (with extensions slot), brand-genesis OOTB fallback, and theme generation. Part of the Genesis framework.",
@@ -83,6 +83,10 @@
       "types": "./dist/design-systems/index.d.ts",
       "import": "./dist/design-systems/index.js"
     },
+    "./app-styles": {
+      "types": "./dist/app-styles/index.d.ts",
+      "import": "./dist/app-styles/index.js"
+    },
     "./fonts": {
       "types": "./dist/fonts.d.ts",
       "import": "./dist/fonts.js"
@@ -119,6 +123,12 @@
           "use": "a brand file (the brand schema) and tailwindFromBrand",
           "import": "@marktiderman/genesis-design-system",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/design-system/README.md"
+        },
+        {
+          "need": "an app's brand (colours and typefaces) or style (every component's size, shape and parts), light and dark",
+          "use": "defineAppBrand and defineAppStyle (or the starters, STARTER_BRANDS and STARTER_STYLES) rendered with appBrandCss and appStyleCss or themes/starter.css, set with data-app-brand and data-app-style; a whole theme (brand, style and layout) is genesis-ui's defineAppTheme",
+          "import": "@marktiderman/genesis-design-system/app-styles",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/design-system/README.md#app-brands-and-app-styles"
         }
       ]
     }

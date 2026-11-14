@@ -2,6 +2,7 @@
 // function, or from the switchboard.
 export type {
   StorageType,
+  ControlHint,
   WidgetHint,
   DataRow,
   FieldPermissions,
@@ -20,7 +21,7 @@ export type {
   RecordComment,
   RowOf,
 } from "./types";
-export { defineResource } from "./types";
+export { defineResource, fieldControl } from "./types";
 export { keyFields, encodeRecordKey, decodeRecordKey } from "./keys";
 export {
   DataWriteError,

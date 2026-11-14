@@ -4,6 +4,7 @@ export {
   type NativeResourceViewProps,
   type NativeResourceSwipeableProps,
   type NativeResourceViewMode,
+  type NativeResourceViewType,
   type NativeResourceCardActions,
   type NativeResourceCardPressableProps,
 } from "./NativeResourceView";

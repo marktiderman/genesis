@@ -38,12 +38,13 @@ const seed = (over: Partial<AgentTicket> & Pick<AgentTicket, "id" | "title" | "m
   conversationId: `conv-${over.id}`,
   assigneeId: null,
   activityAt: at(4),
+  waitingSince: null,
   ...over,
 });
 
 const TICKETS: AgentTicket[] = [
-  seed({ id: "t1", title: "The export button does nothing", message: "On the Reports page it never downloads.", userId: "client-ada", createdAt: at(42), preview: "It also happens on the Invoices page.", unread: true, assigneeId: ME, severity: "high" }),
-  seed({ id: "t2", title: "How do I add a second admin?", message: "We have a new office manager.", userId: "client-grace", preview: "We have a new office manager.", type: "question", unread: true, activityAt: at(90), route: null }),
+  seed({ id: "t1", title: "The export button does nothing", message: "On the Reports page it never downloads.", userId: "client-ada", createdAt: at(42), preview: "It also happens on the Invoices page.", unread: true, assigneeId: ME, severity: "high", waitingSince: at(4) }),
+  seed({ id: "t2", title: "How do I add a second admin?", message: "We have a new office manager.", userId: "client-grace", preview: "We have a new office manager.", type: "question", unread: true, activityAt: at(90), route: null, waitingSince: at(300) }),
   seed({ id: "t3", title: "Love the new schedule view", message: "Much faster.", userId: "client-alan", preview: "Thanks, passing it on.", type: "praise", status: "addressed", assigneeId: "agent-kit", activityAt: at(1500) }),
 ];
 
@@ -58,7 +59,10 @@ function sampleClient(): SupportClient {
   const tickets = new Map(TICKETS.map((t) => [t.id, t]));
   const replies = new Map<string, SupportReply[]>([["t1", [...REPLIES]]]);
   const inView = (t: AgentTicket, view: string) => {
-    const open = t.status !== "addressed" && t.status !== "wont_fix";
+    const closed = t.status === "addressed" || t.status === "wont_fix";
+    const open = !closed && t.status !== "pending";
+    if (view === "pending") return t.status === "pending";
+    if (view === "closed") return closed;
     return view === "mine" ? open && t.assigneeId === ME : view === "unassigned" ? open && !t.assigneeId : true;
   };
   const client: Partial<SupportClient> = {
@@ -66,7 +70,7 @@ function sampleClient(): SupportClient {
     agentTicket: async (id) => tickets.get(id) ?? null,
     agentTicketCounts: async () => {
       const all = [...tickets.values()];
-      return { mine: all.filter((t) => inView(t, "mine")).length, unassigned: all.filter((t) => inView(t, "unassigned")).length, all: all.length };
+      return { mine: all.filter((t) => inView(t, "mine")).length, unassigned: all.filter((t) => inView(t, "unassigned")).length, all: all.filter((t) => t.status !== "pending" && t.status !== "addressed" && t.status !== "wont_fix").length };
     },
     thread: async (id) => ({ mode: "chat", conversationId: `conv-${id}` }),
     replies: async (id) => replies.get(id) ?? [],

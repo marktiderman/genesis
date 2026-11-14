@@ -23,6 +23,9 @@ export {
   AppShell,
   type AppShellProps,
   type AppShellOptions,
+  type AppShellNavigation,
+  type AppShellFrame,
+  type AppShellDensity,
   type NavItem,
   type ParentNavigation,
 } from "./AppShell";
@@ -41,10 +44,13 @@ export {
 // layout-only import has everything it needs.
 export {
   resolveNavigation,
+  resolveNavigationZones,
   type GenesisLinkProps,
   type LinkComponent,
   type NavigationNode,
+  type NavigationZone,
   type ResolvedNavigation,
+  type ResolvedNavigationZones,
 } from "../../navigation";
 // Where the viewer is working: one organization, the roll-up, or personal (ADR 0004).
 export {
@@ -78,7 +84,9 @@ export { PageHeader, type PageHeaderProps, type PageHeaderOptions } from "./Page
 // `@marktiderman/genesis-ui/data`.
 export { DetailPage, type DetailPageProps } from "./detail-page";
 export { FormPage, type FormPageProps } from "./form-page";
+export { DocumentPage, type DocumentPageProps } from "./document-page";
 export { DashboardPage, type DashboardPageProps } from "./dashboard-page";
+export { NotificationsPage, type NotificationsPageProps, type NotificationItem } from "./notifications-page";
 export {
   SettingsPage,
   type SettingsPageProps,

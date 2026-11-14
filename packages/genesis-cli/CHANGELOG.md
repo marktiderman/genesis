@@ -1,5 +1,49 @@
 # @marktiderman/genesis-cli
 
+## 1.26.0
+
+### Minor Changes
+
+- a5a8fdf: Custom views (ADR 0019): a screen an app draws itself over a view, while Genesis keeps the view's data and states.
+
+  - genesis-ui (`/data`): `<CustomView view type="list|board|calendar">{(state) => …}</CustomView>` and `useCustomView` load the view's rows with its scope, preset, filters, URL state, live updates and permissions, and draw loading, empty (the view's `copy.empty` words) and error with a retry, each replaceable (`loading`, `empty`, `error`). The headless view query every view type shares is exported: `useViewListParams`, `useViewList` (paging, sort, search, selection, the open record, `urlState`, `can`), `useViewPermissions`, `useViewBoard` (columns from the board block, the move with its guards, refusal and conflict) and `useViewCalendarRange` (one window's rows, live). ResourceBoard and ResourceCalendar now load through `useViewBoard` and `useViewCalendarRange`, unchanged on screen. `useReducedMotion` (`/hooks`, `/data`).
+  - genesis-core (`/resource-view`): `groupRows(view, rows, options)` groups rows by the view's `groupBy` on any platform.
+  - genesis-design-system: `THEME_PARTS` gains `custom-view` (`data-view-type`, `data-state`), `custom-view-loading`, `custom-view-empty` and `custom-view-error`.
+  - genesis-cli: doctor rules `app-part-name` (an app's own `data-slot` starts `app-` and doesn't clash with a Genesis part), `app-part-colors` (custom views and app parts take colours from roles only) and `custom-view-states` (a custom view doesn't draw its own loading, empty or error), all warn.
+
+  View types and record pages (ADR 0021):
+
+  - genesis-ui (`/data`): a view-type registry (`defineViewType`, `registerViewType`, `resolveViewType`, `listViewTypes`); `<ResourceView type>` is the preferred prop (`mode` stays as its alias) and dispatches through it, with `gallery` now its own type. `open` (`side-peek`, `center-peek`, `page`) and `recordView` on ResourceView; ResourcePage's `detail` takes the same words beside `panel`, `modal` and `route` (`detailMode`, `recordOpen`). The board and the calendar honour the open mode (`open`, `recordView`, `onNavigate`). A peek draws the view's record view when it names one: `RecordPeek`, and `RecordView presentation="peek"` (sections as tabs that switch in place; `section` and `sectionHref` are optional there). RecordView draws the document template.
+  - genesis-core (`/resource-view`): `defineView`'s `open` (`RecordOpen`, `RECORD_OPEN_MODES`) and `recordView`; `defineRecordView`'s `template` (`standard`, `document`) and `document` (`cover`, `icon`, `properties`, `body`). A field's form-control hint is `control` (`ControlHint`, `fieldControl`); `widget` and `WidgetHint` stay as deprecated aliases every reader still reads.
+  - genesis-ui-native: `NativeResourceView` takes `type` (`list`, `grid`, `gallery`), `mode` its alias; `NativeResourceViewType`.
+  - genesis-studio, genesis-studio-server and `genesis introspect` read `control` beside `widget`.
+  - genesis-design-system: parts `board`, `board-column`, `board-card`, `calendar`, `calendar-event`, `gallery`, `record-page`, `record-peek` and the document template's `record-page-cover`, `-icon`, `-title`, `-properties` and `-body`.
+  - genesis-cli: the ui doctor rule `lists-use-resource-view` accepts a file that defines or registers a view type, and a KanbanBoard fed by `useViewBoard`.
+
+### Patch Changes
+
+- 5f9f52c: Agent guidance: extend a close Genesis piece, invent freely in the app.
+
+  - **genesis-cli.** The guide `genesis agents` writes no longer tells an app to write a gap up for Genesis before inventing. It now says: when a Genesis piece is close and does the same job, extend it (a prop, a variant, a slot, or your own component that wraps it), never a parallel copy; when nothing does the job, invent it in the app, with nothing written up or approved first, and add it to `docs/genesis-upstream.md` when Genesis should have it. The catalog gains a row for the first case. `local-primitives` now says where the app's own components go. Run `genesis agents` after upgrading; `agent-guide-stale` warns until you do.
+  - **genesis-ui.** `EXTENDING.md` gains "Your own components" (a wrapper around a Genesis component, and an invention of the app's own), and `SKILL.md` gains "When the ladder doesn't reach".
+
+- Updated dependencies [234414b]
+- Updated dependencies [a5a8fdf]
+  - @marktiderman/genesis-features@0.9.0
+  - @marktiderman/genesis-studio-server@0.5.4
+
+## 1.25.0
+
+### Minor Changes
+
+- 9c33383: Doctor: a sanctioned path for defensible customizations, one finding per element, and a ratchet that counts.
+
+  - **Declared extensions.** A package rule may declare extension points (`extensible`: the Genesis exports an app may build on in ways the rule doesn't recognize), and an app records a file that uses one in `doctor.extend: [{ rule, file, buildsOn, reason, upstream? }]`. Unlike `allow` (debt, which only shrinks), an extension is a reviewed decision, bounded three ways: only package rules with declared points can be extended, at those points (built-in rules such as `deprecated-import` can't); it covers only the findings its file had when declared (under `--base`, a file with more than at the merge base reports them all); and a new one is an `extension-added` info, listed with its reason in the report's summary (`extensionsAdded` in `--json`) for the pull request's review, which is where it is accepted. `allow-grew` and `rules-weakened` don't count it. `reason` needs at least six words and 40 characters, `file` is one file (no globs), `extension-invalid` (error) refuses one outside the rule's points, whose file doesn't import `buildsOn` from a Genesis package or doesn't use it (renders or calls it, or passes the slot prop on its element), whose `buildsOn` is what a package rule replaces, or that the doctor flags in that file, and `stale-extension` (warn) reports one whose file no longer has the finding. (The key is `extend` because `extensions` already lists the file extensions to scan.)
+  - **One finding per element.** Findings of different rules on the same file, line and subject (an app's own rule and a package rule on the same element) are reported once, at the higher level, with every rule id in the finding's new `rules` field and in the report.
+  - **Count-based ratchet.** Under `--base`, a ratcheted rule's findings keep their level only in a new file or in a file that now has more of them than at the merge base; an edit to a file with old debt no longer makes all of it due. Counts are per rule and file. A renamed or moved file keeps its count (git's rename detection); a copy's findings are new debt. The base counts come from the changed files as they were at the merge base; only the package rules run again when they are all that's counted, and never the build, the database contract or Figma. When git can't read them, a changed file keeps every level, as before. An unreadable base now also fails a config with `extend` (`ratchet-skipped`).
+  - **Package rules:** a new `unless.inside` exempts elements, not files: a forbidden element nested inside one of its elements, or inside an app component the file imports that renders its `{children}` inside one. Tags in strings and template literals don't count. A rule with `extensible` or `unless.inside` needs this genesis-cli (an older one skips it with a `package-rules-invalid` warning).
+  - **genesis-ui:** `ui/records-use-record-view` no longer flags `ResourceHeader` and `AppShellPageHeader`, Genesis's own parts for the page around one publishable thing; it still flags `DetailPage`, except inside `BuilderLayout` (directly or inside an app component around it), which replaces the file-wide `BuilderLayout` exemption. `ui/lists-use-resource-view` and `ui/records-use-record-view` declare their extension points.
+
 ## 1.24.0
 
 ### Minor Changes

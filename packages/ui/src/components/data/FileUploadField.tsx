@@ -6,18 +6,14 @@ import { Upload, X, FileIcon, ImageIcon, AlertCircle } from "lucide-react";
 import { cn } from "../../utils";
 import type { ResourceFormFieldDef } from "./ResourceFormField";
 import { compact } from "./compact";
+import { DEFAULT_MAX_FILE_SIZE, fieldAccept, formatFileSize } from "@marktiderman/genesis-core/headless";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MAX_SIZE = 10 * 1024 * 1024; // 10MB
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+// The size limit and its words are genesis-core's, as NativeFileUploadField's.
+const DEFAULT_MAX_SIZE = DEFAULT_MAX_FILE_SIZE;
 
 function parseAcceptProp(accept?: string): Record<string, string[]> | undefined {
   if (!accept) return undefined;
@@ -79,7 +75,7 @@ export function FileUploadField({
   const maxSize = field.maxSize ?? DEFAULT_MAX_SIZE;
   const isImage = field.type === "image";
   const acceptObj = useMemo(
-    () => parseAcceptProp(field.accept ?? (isImage ? "image/*" : undefined)),
+    () => parseAcceptProp(fieldAccept(field)),
     [field.accept, isImage],
   );
 

@@ -49,7 +49,13 @@ function toDom<T extends AnyProps>(
   void accessibilityViewIsModal;
   void accessibilityLiveRegion;
 
-  const out: Record<string, unknown> = { ...rest, children };
+  const { onStartShouldSetResponderCapture, ...domRest } = rest as AnyProps & { onStartShouldSetResponderCapture?: () => boolean };
+  const out: Record<string, unknown> = { ...domRest, children };
+  // A touch starting inside the view, seen before its children's: a pointer or mouse down, captured.
+  if (onStartShouldSetResponderCapture) {
+    out["onPointerDownCapture"] = () => onStartShouldSetResponderCapture();
+    out["onMouseDownCapture"] = () => onStartShouldSetResponderCapture();
+  }
   // Press-in and press-out as pointer down and up, so a test can hold a press (fireEvent.pointerDown).
   if (onPressIn) out["onPointerDown"] = onPressIn;
   if (onPressOut) out["onPointerUp"] = onPressOut;
@@ -192,6 +198,7 @@ export const TextInput = React.forwardRef<HTMLInputElement, AnyProps>(
       testID,
       onFocus,
       onBlur,
+      onEndEditing,
       ...rest
     } = props as AnyProps & {
       value?: string;
@@ -211,12 +218,19 @@ export const TextInput = React.forwardRef<HTMLInputElement, AnyProps>(
       clearButtonMode?: string;
       onFocus?: () => void;
       onBlur?: () => void;
+      onEndEditing?: () => void;
     };
     // The keyboard and autofill a field asks for, as data attributes a test can read.
-    const { autoComplete, enterKeyHint, onSelectionChange, ...others } = rest as {
+    const { autoComplete, enterKeyHint, onSelectionChange, accessibilityValue, accessibilityState, className, style, caretHidden, selection, ...others } = rest as {
       autoComplete?: string;
       enterKeyHint?: string;
       onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
+      accessibilityValue?: { text?: string };
+      accessibilityState?: { disabled?: boolean };
+      className?: string;
+      style?: unknown;
+      caretHidden?: boolean;
+      selection?: { start: number; end?: number };
     };
     void others;
     void autoCapitalize;
@@ -236,6 +250,14 @@ export const TextInput = React.forwardRef<HTMLInputElement, AnyProps>(
       "data-keyboard-type": keyboardType,
       "data-autocomplete": autoComplete,
       "data-enter-key-hint": enterKeyHint,
+      "aria-valuetext": accessibilityValue?.text,
+      "aria-disabled": accessibilityState?.disabled === undefined ? undefined : String(accessibilityState.disabled),
+      className,
+      // RN styles aren't CSS; tests read them back with `JSON.parse(el.dataset.style)`.
+      "data-style": style === undefined ? undefined : JSON.stringify(style),
+      "data-caret-hidden": caretHidden ? "true" : undefined,
+      // The selection the field was asked to hold, for tests that check a cursor is kept.
+      "data-selection": selection ? JSON.stringify(selection) : undefined,
       "aria-label": accessibilityLabel,
       "aria-describedby": accessibilityHint,
       role: accessibilityRole,
@@ -250,7 +272,8 @@ export const TextInput = React.forwardRef<HTMLInputElement, AnyProps>(
             onSelectionChange({ nativeEvent: { selection: { start: e.currentTarget.selectionStart ?? 0, end: e.currentTarget.selectionEnd ?? 0 } } })
         : undefined,
       onFocus,
-      onBlur,
+      // RN ends editing as the field loses focus: onBlur, then onEndEditing.
+      onBlur: onBlur || onEndEditing ? () => { onBlur?.(); onEndEditing?.(); } : undefined,
       ref,
     });
   }
@@ -554,6 +577,12 @@ export const Appearance = {
   addChangeListener(_cb: (e: { colorScheme: "light" | "dark" | null }) => void) {
     return { remove: () => {} };
   },
+};
+
+/** The keyboard: dismissing it blurs the focused field, as on a device. */
+export const Keyboard = {
+  dismiss: () => (document.activeElement as HTMLElement | null)?.blur?.(),
+  addListener: () => ({ remove: () => {} }),
 };
 
 export const KeyboardAvoidingView = (props: AnyProps) =>

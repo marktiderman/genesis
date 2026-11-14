@@ -41,7 +41,7 @@ export function galleryGridSlot<T extends Row>(
     if (viewMode !== "grid") return <DataGrid<T> {...props} />;
     const rowHeight = override?.rowHeight ?? view.definition.gallery?.rowHeight;
     return (
-      <div data-testid="resource-gallery">
+      <div data-slot="gallery" data-testid="resource-gallery">
         <GalleryGrid
           items={photos.list}
           {...(rowHeight !== undefined ? { rowHeight } : {})}
