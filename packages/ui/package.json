@@ -822,7 +822,7 @@
         },
         {
           "need": "a time of day",
-          "use": "TimePicker (value: Date), the twin of NativeTimePicker",
+          "use": "TimePicker (value: a Date, or an \"HH:MM\" string), the twin of NativeTimePicker",
           "import": "@marktiderman/genesis-ui",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
         },
