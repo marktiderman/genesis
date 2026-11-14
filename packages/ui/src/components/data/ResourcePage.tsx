@@ -938,7 +938,9 @@ export interface ResourcePageProps<
    * is the resource's query plus what the page applies in the browser (`pagination="client"`): its
    * search, sort and status chips. With the caller's `data`, it carries the page's search, sort and
    * status chips, but not filters the caller applies to its data itself: the caller adds those.
-   * "Select all matching" bulk actions get the same query.
+   * "Select all matching" bulk actions get the same query. With server or cursor paging the search
+   * is the provider's own. `total` is the server's count, left out while a client-paged page
+   * narrows its rows in the browser (a search or a chip the provider didn't see).
    */
   onExport?: ((query: ResourceListQuery) => void | Promise<void>) | undefined;
   /**
@@ -1230,7 +1232,9 @@ function ResourcePageBody<
       filters,
       sorts,
       ...(query?.query ? { search: query } : {}),
-      ...(displayTotal >= 0 ? { total: displayTotal } : {}),
+      // The server's count, unless the browser narrowed the rows past it: then no count, rather
+      // than one the narrowed list doesn't have.
+      ...(displayTotal >= 0 && !browserNarrowing({ params, chip, search }) ? { total: displayTotal } : {}),
     };
   };
   /** What the browser applies on top of the resource's params: the search, status chip and sort. */
@@ -1239,17 +1243,30 @@ function ResourcePageBody<
     const statusField = typeof props.statusFilter === "string" ? props.statusFilter : props.statusFilter?.field;
     const chip: FilterParam | undefined = statusField && page.statusValue.length ? { field: statusField, operator: "in", value: [...page.statusValue] } : undefined;
     const typed = page.search.trim();
-    const search = typed && params.search?.query !== typed ? { query: typed, fields: props.searchFields ?? props.resourceOptions?.searchFields ?? [] } : undefined;
+    const server = params.search?.query?.trim() ? params.search : undefined;
+    let search: { query: string; fields: string[] } | undefined;
+    if (typed) {
+      if (resourceServerPaging || loadMore) {
+        // The provider searches: its search is the list's, padded or not. The typed text counts
+        // only while it's on its way there (the debounce), with the fields the server will use.
+        search = server && server.query.trim() === typed ? undefined : { query: typed, fields: [...(serverSearchFields ?? [])] };
+      } else {
+        // The browser searches its own fields (the page's, else the rows' text): narrowing unless
+        // the provider already searches the same text in the same fields.
+        const fields = props.searchFields ?? props.resourceOptions?.searchFields ?? [];
+        const same = !!server && server.query.trim() === typed && fields.length > 0 && JSON.stringify([...server.fields].sort()) === JSON.stringify([...fields].sort());
+        search = same ? undefined : { query: typed, fields: [...fields] };
+      }
+    }
     return { params, chip, search, sort: page.sort ?? undefined };
   };
   // Rows the browser narrowed (a search or a chip the provider never saw) aren't what the server
   // counts: "all matching" would reach the rows the person searched or filtered away, and its
   // count would be the unfiltered total. It's offered only while the browser narrows nothing.
-  const browserNarrows = (() => {
-    if (!isClientMode) return true;
-    const { params, chip, search } = browserQuery();
+  function browserNarrowing({ params, chip, search }: Pick<ReturnType<typeof browserQuery>, "params" | "chip" | "search">) {
     return !!search || (!!chip && !(params.filters ?? []).some((f) => sameFilter(f, chip)));
-  })();
+  }
+  const browserNarrows = !isClientMode || browserNarrowing(browserQuery());
   // "Select all matching": every row the query matches, past the loaded page, for the query it was
   // chosen on. A new search, sort or filter (even one that loads as many rows) ends it.
   const { total: _total, ...shownQuery } = listQuery();

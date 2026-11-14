@@ -769,5 +769,76 @@ describe("review fixes: held rows after a type was chosen, record scope", () => 
     ]);
     expect(query.sorts).toEqual([{ field: "title", order: "asc" }]);
   });
+
+  it("gives export the server's own search on a server-paged list, padded or not, and keeps \"all matching\"", async () => {
+    const onExport = vi.fn();
+    const p = provider();
+    const view = defineView(tasks, { actions: [{ name: "archive", label: "Archive", bulk: { matching: true, run: vi.fn() } }] });
+    render(<ResourceView view={view} onExport={onExport} resourceOptions={{ defaultPerPage: 2 }} />, { wrapper: wrap(p) });
+    await screen.findByText("Write the plan");
+    fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: " p" } });
+    await waitFor(() => expect((p.getList.mock.calls.at(-1)![1] as ListParams).search?.query).toBe(" p"));
+    const server = (p.getList.mock.calls.at(-1)![1] as ListParams).search;
+    await screen.findByText("Write the plan");
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    expect(await screen.findByTestId("bulk-select-all-matching")).toBeTruthy();
+    fireEvent.pointerDown(screen.getByLabelText("More actions"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByText("Export CSV"));
+    await waitFor(() => expect(onExport).toHaveBeenCalled());
+    expect(onExport.mock.calls[0]![0].search).toEqual(server);
+  });
+
+  it("counts a browser search over other fields than the provider's as its own query", async () => {
+    const onExport = vi.fn();
+    // A provider that applies its search: the page's default search is over status.
+    const p = provider({
+      getList: vi.fn(async (_r: string, params: ListParams) => {
+        const q = params.search?.query.toLowerCase();
+        const data = ROWS.filter((row) => !q || (params.search?.fields ?? []).some((f) => String(row[f as keyof Task]).toLowerCase().includes(q)));
+        return { data, total: data.length };
+      }),
+    } as never);
+    render(
+      <ResourcePage<Task>
+        resource="tasks"
+        title="Tasks"
+        pagination="client"
+        searchFields={["title"]}
+        resourceOptions={{ defaultSearch: "o", searchFields: ["status"] } as never}
+        columns={[{ key: "title", header: "Title" }]}
+        onExport={onExport}
+      />,
+      { wrapper: wrap(p) },
+    );
+    await screen.findByText("Write the plan");
+    fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: "o" } });
+    fireEvent.pointerDown(screen.getByLabelText("More actions"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByText("Export CSV"));
+    await waitFor(() => expect(onExport).toHaveBeenCalled());
+    expect(onExport.mock.calls[0]![0].search).toEqual({ query: "o", fields: ["title"] });
+  });
+
+  it("leaves the server's total out while a client-paged page narrows its rows", async () => {
+    const onAction = vi.fn();
+    render(
+      <ResourcePage<Task>
+        resource="tasks"
+        title="Tasks"
+        pagination="client"
+        statusFilter="status"
+        resourceOptions={{ defaultPerPage: 2 }}
+        columns={[{ key: "title", header: "Title" }]}
+        bulkActions={[{ label: "Tag", onAction, testId: "bulk-tag" }]}
+      />,
+      { wrapper: wrap(provider()) },
+    );
+    await screen.findByText("Write the plan");
+    fireEvent.click(screen.getByTestId("status-chip-todo"));
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    fireEvent.click(await screen.findByTestId("bulk-tag"));
+    const query = onAction.mock.calls[0]![1].query;
+    expect(query.filters).toEqual([{ field: "status", operator: "in", value: ["todo"] }]);
+    expect(query.total).toBeUndefined();
+  });
 });
 
