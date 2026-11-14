@@ -92,8 +92,12 @@ export function checkClientLayer(ctx: DoctorContext): void {
     for (const m of file.code.matchAll(/\bdefineView\s*(?:<[^>]*>)?\s*\(\s*([A-Za-z_$][\w$]*)((?:\s*(?:\.\s*[A-Za-z_$][\w$]*|\[\s*["'`][^"'`]+["'`]\s*\]))*)\s*[,)]/g)) {
       const base = m[1]!;
       const access = m[2]!.replace(/\s+/g, "").replace(/'|`/g, '"');
-      // The contract's identity: the module it is imported from and its name there, else this file.
-      const identity = `${imports.get(base) ?? `${file.path}#${base}`}${access}`;
+      // The contract's identity: the module it is imported from and its name there, else this
+      // file's own top-level binding. A name bound anywhere else (a function's parameter, a local)
+      // can't be told apart from another of the same name by reading the text, so it isn't counted.
+      const imported = imports.get(base);
+      if (!imported && !declaredAtTop(file.code, base)) continue;
+      const identity = `${imported ?? `${file.path}#${base}`}${access}`;
       const shown = `${base}${access}`;
       const line = lineAt(file.code, m.index ?? 0);
       const first = seen.get(identity);
@@ -111,6 +115,12 @@ export function checkClientLayer(ctx: DoctorContext): void {
       });
     }
   }
+}
+
+/** Whether a file binds `name` at its top level (`const`, `let`, `var`, unindented, exported or not). */
+function declaredAtTop(code: string, name: string): boolean {
+  const escaped = name.replace(/[$]/g, "\\$&");
+  return new RegExp(`^(?:export\\s+)?(?:const|let|var)\\s+${escaped}\\b`, "m").test(code);
 }
 
 /** Stories and tests define views to show or try one. */

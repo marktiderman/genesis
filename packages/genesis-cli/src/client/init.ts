@@ -38,7 +38,9 @@ export function normalizeClientDir(raw: string): string {
   return dir;
 }
 
-const TYPE = /^[a-z][a-z0-9-]{0,39}$/;
+// Lowercase words joined by single dashes (no leading, trailing or doubled dash), so every name the
+// templates make from it (`tasksContract`, `clientNotesView`) is an identifier.
+const TYPE = /^(?=.{1,40}$)[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
 /** `tasks` → `tasks`, `client-notes` → `clientNotes`. */
 const camel = (name: string) => name.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
@@ -169,7 +171,7 @@ export const ${name}Cells: Partial<Record<string, (row: ${name[0]!.toUpperCase()
  */
 export function planClientInit(options: ClientInitOptions = {}): ClientInitPlan {
   const dir = normalizeClientDir(options.dir ?? DEFAULT_CLIENT_DIR);
-  if (options.type !== undefined && !TYPE.test(options.type)) throw new Error(`client init: the type "${options.type}" is lowercase letters, digits and dashes`);
+  if (options.type !== undefined && !TYPE.test(options.type)) throw new Error(`client init: the type "${options.type}" is lowercase words of letters and digits joined by single dashes, like tasks or client-notes`);
   const files: ClientFile[] = [
     { path: `${dir}/client-layer.tsx`, content: layerFile() },
     { path: `${dir}/resource-view.tsx`, content: resourceViewFile() },

@@ -97,6 +97,33 @@ describe("client/one-view-per-resource", () => {
     expect(twice.map((f) => [f.file, f.subject])).toEqual([["src/a/view.ts", "contract"]]);
     expect(twice[0]!.message).toContain("src/a/other.ts:2");
   });
+
+  it("doesn't count two functions' parameters of the same name as one contract", async () => {
+    const found = await only("client/one-view-per-resource", {
+      ...LAYER,
+      "src/client/factory.ts": [
+        "export function tasksOf(contract) { return defineView(contract, {}); }",
+        "export function notesOf(contract) { return defineView(contract, {}); }",
+      ].join("\n"),
+    });
+    expect(found).toEqual([]);
+  });
+});
+
+describe("shadowed-export and the app's wrappers", () => {
+  it("lets a file wrap the Genesis component it names through an aliased import it uses", async () => {
+    const found = await only("shadowed-export", {
+      "src/client/button.tsx": 'import { Button as GenesisButton } from "@marktiderman/genesis-ui";\nexport function Button(p) { return <GenesisButton {...p} />; }',
+      "src/own/button.tsx": "export const Button = () => <span />;",
+      "src/unused/button.tsx": 'import { Button as Unused } from "@marktiderman/genesis-ui";\nexport const Button = () => <span />;',
+    });
+    expect(found.map((f) => f.file).sort()).toEqual(["src/own/button.tsx", "src/unused/button.tsx"]);
+  });
+
+  it("finds nothing in a freshly scaffolded client layer", async () => {
+    const files = Object.fromEntries(planClientInit({ type: "tasks" }).files.map((f) => [f.path, f.content]));
+    expect(await only("shadowed-export", files)).toEqual([]);
+  });
 });
 
 describe("client config and scaffold", () => {
@@ -126,6 +153,9 @@ describe("client config and scaffold", () => {
     expect(plan.files.find((f) => f.path.endsWith("record-view.tsx"))!.content).toContain("export function RecordView");
     expect(planClientInit({ dir: "app/layer" }).steps.join("\n")).toContain('"client": { "dir": "app/layer" }');
     expect(() => planClientInit({ type: "Bad Name" })).toThrow(/lowercase/);
+    // Every name the templates make from the type has to be an identifier.
+    for (const bad of ["tasks-", "client--notes", "-tasks", "a".repeat(41)]) expect(() => planClientInit({ type: bad }), bad).toThrow(/lowercase/);
+    expect(planClientInit({ type: "a2-b3" }).files.some((f) => f.content.includes("a2B3View"))).toBe(true);
   });
 
   it("takes only a plain folder inside the app, written normalized", () => {

@@ -258,13 +258,40 @@ export function checkShadowedExports(ctx: Pick<DoctorContext, "root" | "files" |
   const re = /\bexport\s+(?:default\s+)?(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Z][\w$]*)/g;
   for (const file of ctx.files) {
     if (!SCRIPT_EXTS.has(file.ext) || insideOverlayOf(overlays, file, ctx.genesis.uiPackage)) continue;
+    const wrapped = wrappedGenesisNames(file.code, ctx.genesis.uiPackage);
     file.code.split("\n").forEach((text, i) => {
       for (const m of text.matchAll(re)) {
         if (!ctx.genesis.values.has(m[1])) continue;
+        // The app's own wrapper around that very component (G2, extend): it imports Genesis's under
+        // another name and uses it, as the client layer's ResourceView and RecordView do.
+        if (wrapped.has(m[1])) continue;
         ctx.report({ rule: "shadowed-export", file: file.path, line: i + 1, subject: m[1], message: `shadows the Genesis export '${m[1]}'; reuse or extend ${m[1]} from ${ctx.genesis.uiPackage} (or rename yours if it's a different thing)` });
       }
     });
   }
+}
+
+/**
+ * The Genesis names a file imports under an alias from the component package (or a subpath) and
+ * then uses: `import { ResourceView as GenesisResourceView } …` with `<GenesisResourceView`. An
+ * unused alias doesn't count, so the import alone can't excuse a parallel component.
+ */
+export function wrappedGenesisNames(code: string, uiPackage: string): Set<string> {
+  const out = new Set<string>();
+  const pkg = uiPackage.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+  const re = new RegExp(`\\bimport\\s+(?:type\\s+)?\\{([^}]*)\\}\\s*from\\s*["']${pkg}(?:/[^"']*)?["']`, "g");
+  for (const m of code.matchAll(re)) {
+    if (/^import\s+type\b/.test(m[0])) continue;
+    for (const part of m[1]!.split(",")) {
+      const spec = part.trim();
+      if (!spec || spec.startsWith("type ")) continue;
+      const [imported, local] = spec.split(/\s+as\s+/).map((x) => x.trim());
+      if (!imported || !local || local === imported) continue;
+      const uses = code.match(new RegExp(`(?<![\\w$.])${local.replace(/[$]/g, "\\$&")}(?![\\w$])`, "g"))?.length ?? 0;
+      if (uses > 1) out.add(imported);
+    }
+  }
+  return out;
 }
 
 /** Genesis components that no scanned file imports (named imports or re-exports from the package or its subpaths). */
