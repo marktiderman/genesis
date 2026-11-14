@@ -1,8 +1,8 @@
 ---
-"@marktiderman/genesis-support": patch
+"@marktiderman/genesis-support": minor
 ---
 
-**`pending` is a new `FeedbackStatus`, and it can break code that reads statuses.** This release adds `pending` (waiting on the requester) to the exported `FeedbackStatus` union and to `FEEDBACK_STATUSES`. Handle it everywhere you read a status before you upgrade:
+**In 0.7.0, `FeedbackStatus` gained `pending`** (waiting on the requester), in the exported union and in `FEEDBACK_STATUSES`, and that release didn't say it can break code that reads statuses. If you've upgraded to 0.7.0 or later, handle it everywhere you read a status:
 
 - A `switch` over the status with a `never` check stops typechecking; add a `pending` case.
 - A `switch` with a `default` still compiles, but quietly puts `pending` in the default bucket. Decide where it belongs (it is neither active nor closed: the desk shows it in its own Pending view) and add a case.
