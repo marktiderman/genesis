@@ -66,6 +66,11 @@ export interface InboxPageProps extends ScreenHeaderProps {
   onRefresh?: () => void | Promise<void>;
   /** Called near the end of the list, to load the next page. */
   onEndReached?: () => void;
+  /**
+   * Called near the top, to load back a page the list dropped from the front (a list that keeps a
+   * bounded number of pages). The rows on screen keep their place while it's added above.
+   */
+  onStartReached?: () => void;
   /** A next page is loading: the default footer shows a spinner. */
   loadingMore?: boolean;
   /** Above the group (a filter, a call to action). Prefer `slots.header` for a component. */
@@ -126,6 +131,7 @@ export function InboxPage({
   refreshing,
   onRefresh,
   onEndReached,
+  onStartReached,
   loadingMore = false,
   header,
   sectionTitle,
@@ -229,6 +235,7 @@ export function InboxPage({
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 32 }}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.5}
+        {...(onStartReached ? { onStartReached, onStartReachedThreshold: 0.5, maintainVisibleContentPosition: { minIndexForVisible: 0 } } : {})}
         refreshControl={refreshControl}
         renderItem={({ item: row }) => {
           const content = renderSlot(DefaultRow, slots.row, row, slotProps.row);

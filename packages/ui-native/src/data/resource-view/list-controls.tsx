@@ -7,11 +7,12 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, SectionList, View } from "react-native";
 import type { DataRow, FilterParam } from "@marktiderman/genesis-core";
 import { dayIn, type Day } from "@marktiderman/genesis-core/dates";
-import { useOptionalViewerScope, useSegmentCounts, useViewBoard, useViewCalendarRange, type ListStateResult } from "@marktiderman/genesis-core/hooks";
+import { useSegmentCounts, useViewBoard, useViewCalendarRange, type ListStateResult } from "@marktiderman/genesis-core/hooks";
 import { calendarEvents, calendarWindow, displayZone, placeEvents, shiftAnchor, type PlacedEvent, type ViewFilterValue } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
 import { NativeButton } from "../../components/button";
 import { NativeChip, NativeChipGroup } from "../../components/chip-group";
+import { NativeEmptyState } from "../../components/empty-state";
 import { NativeInlineAlert } from "../../components/inline-alert";
 import { NativeInput } from "../../components/input";
 import { NativeListItem } from "../../components/list-item";
@@ -21,7 +22,7 @@ import { NativeSheet, NativeSheetScrollView } from "../../components/sheet";
 import { NativeText } from "../../components/text";
 import { useThemeRoles } from "../../hooks/use-theme-roles";
 import { showInboxActions } from "../../layouts/inbox-page";
-import { badgeVariant, useNativeResourceViewMessages } from "./display";
+import { badgeVariant, useDisplayTimeZones, useNativeResourceViewMessages } from "./display";
 import type { AnyResourceView, NativeResourceScreenCan } from "./mapping";
 import { defaultNativeListMessages, fill, type NativeListMessages } from "./messages";
 
@@ -209,6 +210,7 @@ export function NativeResourceBoard({
   onOpen,
   header,
   testID,
+  enabled = true,
 }: {
   view: AnyResourceView<Row>;
   filters: readonly FilterParam[];
@@ -216,11 +218,14 @@ export function NativeResourceBoard({
   onOpen: (row: Row) => void;
   header?: ReactNode;
   testID: string;
+  /** False while the screen waits: nothing is fetched. */
+  enabled?: boolean;
 }) {
   const words = useNativeListMessages();
   const colors = useThemeRoles();
   const board = useViewBoard<Row>(view as never, {
     filters,
+    enabled,
     // The screen's rule, in the board's words: a card moves only when the screen allows `update`.
     ...(can
       ? {
@@ -318,25 +323,31 @@ export function NativeResourceCalendar({
   onOpen,
   header,
   testID,
+  enabled = true,
 }: {
   view: AnyResourceView<Row>;
   filters: readonly FilterParam[];
   onOpen: (row: Row) => void;
   header?: ReactNode;
   testID: string;
+  /** False while the screen waits: nothing is fetched. */
+  enabled?: boolean;
 }) {
   const words = useNativeListMessages();
+  const listWords = useNativeResourceViewMessages().list;
   const colors = useThemeRoles();
   const block = view.definition.calendar;
   if (!block?.field) throw new Error(`NativeResourceView(${view.resource}): type="calendar" needs the view's calendar block (calendar.field)`);
   const [layout, setLayout] = useState<"agenda" | "month">(block.phoneLayout === "month" || block.layout === "month" ? "month" : "agenda");
   const weekStartsOn = block.weekStartsOn ?? 1;
-  const scope = useOptionalViewerScope();
-  const zone = displayZone(view.definition.fields?.[block.field as never]?.timeZone, scope?.timeZone, scope?.scopeTimeZone);
+  // The clocks the cells use (the screen's `scopeTimeZone` over ViewerScope's): one clock for the
+  // calendar's window, its placement and its times, and the field's cells.
+  const zones = useDisplayTimeZones();
+  const zone = displayZone(view.definition.fields?.[block.field as never]?.timeZone, zones.viewer, zones.scope);
   const [anchor, setAnchor] = useState<Day>(() => dayIn(zone));
   const [picked, setPicked] = useState<Day>(() => dayIn(zone));
   const range = calendarWindow(layout === "month" ? "month" : "agenda", anchor, { weeks: 2, weekStartsOn });
-  const data = useViewCalendarRange<Row>(view as never, range, { filters, timeZone: zone });
+  const data = useViewCalendarRange<Row>(view as never, range, { filters, timeZone: zone, enabled });
   const events = useMemo(
     () => calendarEvents<Row>(view as never, data.rows, { field: block.field, endField: block.endField, durationField: block.durationField, durationUnit: block.durationUnit, allDayField: block.allDayField, laneBy: block.laneBy, timeZone: zone }),
     [view, data.rows, block, zone],
@@ -391,6 +402,29 @@ export function NativeResourceCalendar({
       {data.total > data.rows.length ? <NativeText preset="caption">{fill(words.more, { count: data.total - data.rows.length })}</NativeText> : null}
     </View>
   );
+
+  // A failed read is said, with a retry: never an empty calendar.
+  const failed = data.error ? (
+    <NativeEmptyState
+      testID={`${testID}-calendar-error`}
+      variant="error"
+      title={fill(listWords.loadFailed, { nounPlural: view.nounPlural })}
+      primaryAction={
+        <NativeButton variant="outline" size="sm" onPress={() => data.refetch()} testID={`${testID}-calendar-retry`}>
+          {listWords.retry}
+        </NativeButton>
+      }
+    />
+  ) : null;
+  if (failed) {
+    return (
+      <ScrollView testID={`${testID}-calendar-failed`} contentContainerStyle={{ gap: 12, paddingBottom: 32 }}>
+        {header}
+        {toolbar}
+        {failed}
+      </ScrollView>
+    );
+  }
 
   if (layout === "agenda") {
     const sections = [...byDay.entries()].filter(([, list]) => list.length).map(([day, list]) => ({ key: day, title: day, data: list }));

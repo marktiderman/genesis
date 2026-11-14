@@ -536,7 +536,8 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     throw new Error(`NativeResourceView(${view.resource}): type="inbox" needs the view's inbox block (which field is the title, the time, unread)`);
   }
   void _zone;
-  const state = useNativeResourceView<T>(view, { ...options, listFilters: list.filters, enabled: !board && !calendar });
+  // The board and the calendar read their own rows; the list waits for them, and for the screen.
+  const state = useNativeResourceView<T>(view, { ...options, listFilters: list.filters, enabled: options.enabled !== false && !board && !calendar });
   // The view's own actions, run through the provider (or the screen's `onAction`) after their confirm.
   const provider = useDataProvider();
   const queryClient = useQueryClient();
@@ -819,13 +820,14 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
         <NativeResourceBoard
           view={view as AnyResourceView<Row>}
           filters={[...state.baseFilters, ...list.filters]}
+          enabled={options.enabled !== false}
           {...(options.can ? { can: options.can as never } : {})}
           onOpen={(row) => press(row as T)}
           header={listHeader}
           testID={testID}
         />
       ) : calendar ? (
-        <NativeResourceCalendar view={view as AnyResourceView<Row>} filters={[...state.baseFilters, ...list.filters]} onOpen={(row) => press(row as T)} header={listHeader} testID={testID} />
+        <NativeResourceCalendar view={view as AnyResourceView<Row>} filters={[...state.baseFilters, ...list.filters]} enabled={options.enabled !== false} onOpen={(row) => press(row as T)} header={listHeader} testID={testID} />
       ) : inbox ? (
         <InboxPage
           testID={`${testID}-inbox`}
@@ -853,6 +855,8 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
           onRefresh={() => state.refresh()}
           loadingMore={state.loadingMore}
           {...(state.hasMore ? { onEndReached: state.loadMore } : {})}
+          // maxPages drops pages from the front, as in the list: reaching the top loads them back.
+          {...(state.hasPrevious ? { onStartReached: state.loadPrevious } : {})}
           {...(view.definition.copy?.empty?.title ? { emptyTitle: view.definition.copy.empty.title } : {})}
           {...(view.definition.copy?.empty?.body ? { emptyBody: view.definition.copy.empty.body } : {})}
         />

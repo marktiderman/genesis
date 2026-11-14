@@ -190,3 +190,48 @@ describe("the inbox on the phone", () => {
     expect(runAction).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("review fixes on the phone", () => {
+  it("fetches nothing while the screen holds enabled off, in every type", async () => {
+    const inbox = defineView(tasks, { inbox: { unread: "unread" }, calendar: { field: "due_on" }, board: { field: "status" } });
+    for (const type of ["list", "inbox", "calendar", "board"] as const) {
+      const p = provider();
+      const { unmount } = render(<NativeResourceView view={inbox} type={type} enabled={false} />, { wrapper: wrap(p) });
+      await act(async () => undefined);
+      expect(p.getList, type).not.toHaveBeenCalled();
+      unmount();
+    }
+  });
+
+  it("says a calendar read failed, with a retry, instead of an empty calendar", async () => {
+    const view = defineView(tasks, { calendar: { field: "due_on" } });
+    const p = provider({ getList: vi.fn(async () => Promise.reject(new Error("The server is down."))) } as never);
+    render(<NativeResourceView view={view} type="calendar" />, { wrapper: wrap(p) });
+    expect(await screen.findByTestId("native-resource-view-calendar-error")).toBeTruthy();
+    expect(screen.queryByText("Nothing on this day")).toBeNull();
+    fireEvent.click(screen.getByTestId("native-resource-view-calendar-retry"));
+    await waitFor(() => expect(p.getList.mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it("places the calendar on the screen's scopeTimeZone, the clock its cells use", async () => {
+    type Session = { id: string; title: string; starts_at: string };
+    const sessions = defineResource<Session>()({
+      name: "sessions",
+      key: "id",
+      labelField: "title",
+      fields: [
+        { name: "id", type: "string" },
+        { name: "title", type: "string" },
+        { name: "starts_at", type: "datetime", dbType: "timestamptz" },
+      ],
+    });
+    const view = defineView(sessions, { fields: { starts_at: { timeZone: "scope" } }, calendar: { field: "starts_at" } });
+    const p = provider();
+    render(<NativeResourceView view={view} type="calendar" scopeTimeZone="Pacific/Kiritimati" />, { wrapper: wrap(p) });
+    await waitFor(() => expect(p.getList).toHaveBeenCalled());
+    const gte = (p.getList.mock.calls[0]![1] as ListParams).filters!.find((f) => f.operator === "gte") as { value: unknown };
+    // The window starts at a Kiritimati midnight (UTC+14): 10:00 UTC the day before.
+    expect(String(gte.value)).toMatch(/T10:00:00\.000Z$/);
+  });
+});
+
