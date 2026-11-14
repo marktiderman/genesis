@@ -153,8 +153,8 @@ export const tasksView = defineView(tasksContract, {
   picked); a date or number gets a range (`kind: "range"`); a text field gets "contains". A filter
   can name `options` to narrow the choices and `default` to start set.
 - **The view declares** `segments`: the named tabs over a list ("Open", "Mine", "All"), each with
-  an `id`, a `label`, a `where` (the equality, list and `null` filter shape presets already use,
-  plus `{ gte, lte }` ranges, or a function of the viewer) and `count: true` for a count beside the
+  an `id`, a `label`, a `where` (the equality and `null` values presets use, plus what segments
+  add: lists, which become `in`, and `{ gte, lte }` ranges; or a function of the viewer) and `count: true` for a count beside the
   label. A segment may name a column `preset`. `presets` stay as they are: a screen still picks
   one, and pickers still read them (`ViewLink.preset`).
 - **Default behaviour.** With `filters` or `segments`, the list draws them with no screen code: on
@@ -197,8 +197,10 @@ export const tasksView = defineView(tasksContract, {
 - **Default behaviour.** On the web, selection appears when the view has a bulk action. Shift-click
   selects a range (the multi-sort moves to Shift-click on the header only, where it already is),
   and the bar offers "Select all {total} matching" after a full page is selected; a selection of
-  everything matching is sent as the list's filters, never as ids, and only to a `run` that
-  accepts filters (otherwise the bar caps it at the loaded rows and says so). On a phone, a
+  everything matching is sent as the list's whole query (its filters and its search), never as ids,
+  and only to a `run` that accepts it (otherwise the bar caps it at the loaded rows and says so). It
+  isn't offered while the page narrows its rows in the browser (a search or chip the provider never
+  saw), so it never reaches rows the person searched away. On a phone, a
   "Select" button in the header puts the list in edit mode (checkmarks, a bottom action bar), as
   in the platform's own lists.
 - **Extension points.** `slots.bulkBar` (exists) and `slotProps.bulkBar`; a screen's `bulkActions`
@@ -269,11 +271,11 @@ export const tasksView = defineView(tasksContract, {
   are the current column preset's, minus sensitive fields and computed columns that have no value
   function; values are written as the list shows them (words, not codes) unless `raw: true`.
 - **Default behaviour.** An "Export CSV" item in the list's header menu exports the current list
-  (segment, filters, search, sort) through `exportCsv`, formula-safe as today. Past a threshold
-  (where the provider doesn't serve the rows quickly, or above about 500 rows), the export runs as
-  a job through `genesis-supabase/jobs` behind an app server function and the person is told when
-  it is ready (the job path planned under `resource-view-sheet`). A phone shares the file through
-  the system share sheet.
+  (segment, filters, search, sort) through `exportCsv`, formula-safe as today, paged through the
+  provider and capped at `maxRows` (10 000 by default; the file says when it was cut short). That
+  is the default in every app and needs no server. **Planned** (`resource-view-sheet`): when an app
+  provides a `genesis-supabase/jobs` server function, an export past the cap runs as a job instead
+  and the person is told when it is ready. A phone shares the file through the system share sheet.
 - **Extension points.** `onExport({ filters, sort, search, columns })` on the screen or the view
   replaces the export (another format, a server report); `export: false` on a screen turns it off.
 
@@ -282,9 +284,10 @@ export const tasksView = defineView(tasksContract, {
 - **The view declares** `card`: `title`, `subtitle` (a field or a list, joined), `media` (an image
   field, or the gallery block's), `chips` (fields drawn as badges), `meta` (small values with
   their labels) and `footer` (fields along the bottom). Each is a field name, so the block is plain
-  data. Without `card`, the card is built from `summary` and, when the view has no `summary`, from
-  the first columns of the default preset: the second column becomes the subtitle and badge
-  columns become chips. That closes the phone's one-line rows.
+  data. Without `card`, a view's card stays as it is today (its `summary`, else the title alone), so
+  no existing row changes. Building the card from the default preset's first columns (the second
+  column as the subtitle, badge columns as chips) is opt-in, which closes the phone's one-line rows
+  for a view that asks.
 - **Default behaviour.** The web's grid and list cards and the phone's rows and grid cards draw
   the same parts in the same order, each in its platform's idiom, with `emphasis` and `rowTone`
   applied.
@@ -384,7 +387,9 @@ Defaults make a list correct; they must not make every app the same.
 
 ## Migration and compatibility
 
-All of it is additive, in minor releases:
+New keys and props are additive and ship in minor releases. A default that changes what an
+existing screen shows or does is a behaviour change, so it waits for a major release on a 1.x or
+later package (and is opt-in until then):
 
 - Every new view key is optional; a view without it renders as today. `presets`, `groupBy`,
   `actions`, `summary` and `renderCard` keep their meaning.
@@ -392,7 +397,7 @@ All of it is additive, in minor releases:
   the URL once an app registers its adapter (nothing changes until it does), and row actions
   appear in lists for views that already declare `actions`. The second is visible to existing
   screens, so it ships behind `ResourceViewDefaultsProvider rowActions` (on in new apps' templates)
-  for one minor, and on by default in the next.
+  and turns on by default only in the next major release.
 - Web refusals change from hidden to disabled-with-reason for row and bulk actions; `refusals:
   "hide"` restores today's behaviour per view or app-wide.
 - A string `detail="route"`, `bulkActions`, `filters` (`DataFilterConfig`), `statusFilter`,
