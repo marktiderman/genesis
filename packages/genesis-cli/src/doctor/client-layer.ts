@@ -98,6 +98,9 @@ export function checkClientLayer(ctx: DoctorContext): void {
       // can't be told apart from another of the same name by reading the text, so it isn't counted.
       const imported = imports.get(base);
       if (!imported && !declaredAtTop(file.code, base)) continue;
+      // A function parameter of the same name shadows the import or the top-level binding where
+      // it's in scope, and the text can't tell which one a call means: skip the name in this file.
+      if (boundAsParameter(file.code, base)) continue;
       const identity = `${imported ?? `${file.path}#${base}`}${access}`;
       const shown = `${base}${access}`;
       const line = lineAt(file.code, m.index ?? 0);
@@ -118,10 +121,24 @@ export function checkClientLayer(ctx: DoctorContext): void {
   }
 }
 
-/** Whether a file binds `name` at its top level (`const`, `let`, `var`, unindented, exported or not). */
+/**
+ * Whether a file binds `name` at its top level (`const`, `let`, `var`, unindented, exported or not).
+ * A destructured binding (`const { tasks } = contracts`) isn't seen, so it's never counted: a
+ * missed warning, the safe direction (the README says so).
+ */
 function declaredAtTop(code: string, name: string): boolean {
   const escaped = escapeRegExp(name);
   return new RegExp(`^(?:export\\s+)?(?:const|let|var)\\s+${escaped}\\b`, "m").test(code);
+}
+
+/** Whether a function in the file takes `name` as a parameter (`function f(name)`, `(name) =>`, `name =>`). */
+function boundAsParameter(code: string, name: string): boolean {
+  const n = escapeRegExp(name);
+  const inList = new RegExp(`(?:^|[,({\\s])\\.{0,3}${n}\\s*(?:[,):=?]|$)`);
+  for (const m of code.matchAll(/\bfunction\b[^(]*\(([^)]*)\)|\(([^()]*)\)\s*(?::[^=;{]*)?=>/g)) {
+    if (inList.test(m[1] ?? m[2] ?? "")) return true;
+  }
+  return new RegExp(`(?<![\\w$.])${n}\\s*=>`).test(code);
 }
 
 /** Stories and tests define views to show or try one. */

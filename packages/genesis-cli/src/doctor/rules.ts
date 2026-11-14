@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { findColorFunctions, findHexLiterals } from "../../../../scripts/lib/color-literals.mjs";
 import { globMatcher } from "./glob.js";
-import { declaredTokens } from "./genesis.js";
+import { declaredTokens, stripComments } from "./genesis.js";
 import { escapeRegExp } from "../regexp.js";
 import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext, SourceFile } from "./types.js";
@@ -275,7 +275,8 @@ export function checkShadowedExports(ctx: Pick<DoctorContext, "root" | "files" |
 /**
  * The Genesis names a file imports under an alias from the component package (or a subpath) and
  * then uses: `import { ResourceView as GenesisResourceView } …` with `<GenesisResourceView`. An
- * unused alias doesn't count, so the import alone can't excuse a parallel component.
+ * unused alias doesn't count, so the import alone can't excuse a parallel component; nor does one
+ * that appears only in a comment, a string or JSX text (see `usesAsCode`).
  */
 export function wrappedGenesisNames(code: string, uiPackage: string): Set<string> {
   const out = new Set<string>();
@@ -288,11 +289,23 @@ export function wrappedGenesisNames(code: string, uiPackage: string): Set<string
       if (!spec || spec.startsWith("type ")) continue;
       const [imported, local] = spec.split(/\s+as\s+/).map((x) => x.trim());
       if (!imported || !local || local === imported) continue;
-      const uses = code.match(new RegExp(`(?<![\\w$.])${escapeRegExp(local)}(?![\\w$])`, "g"))?.length ?? 0;
-      if (uses > 1) out.add(imported);
+      if (usesAsCode(code, local)) out.add(imported);
     }
   }
   return out;
+}
+
+/**
+ * Whether `name` is used as code: rendered (`<Name`), called or read through (`Name(`, `Name.x`),
+ * or passed as a value (after `=`, `(`, `,`, `:`, `?`, `{`, `[`, `return`). Comments and the
+ * contents of strings and template literals are blanked first; the import specifier itself
+ * (`X as Name`) isn't a use.
+ */
+export function usesAsCode(code: string, name: string): boolean {
+  const plain = stripComments(code).replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, (q) => q[0] + " ".repeat(Math.max(0, q.length - 2)) + q[0]);
+  const n = escapeRegExp(name);
+  const use = new RegExp(`<${n}(?![\\w$])|(?<![\\w$.])${n}\\s*[(.]|(?:[=(,:?{\\[]|\\breturn)\\s*${n}(?![\\w$])`);
+  return use.test(plain);
 }
 
 /** Genesis components that no scanned file imports (named imports or re-exports from the package or its subpaths). */
