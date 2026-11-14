@@ -11,7 +11,7 @@
  * @stability Beta
  */
 import type { ReactNode } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { flattenChildren } from "../components/flatten-children";
 import { NativeImage } from "../components/image";
@@ -166,12 +166,19 @@ export interface FormPageProps extends ContainerProps {
    * The Save / Cancel row. It stays above the keyboard: through the app's keyboard-aware scroll
    * view and `KeyboardStickyView` when it gave them (`KeyboardScrollProvider`), else in a
    * KeyboardAvoidingView. With a keyboard-aware scroll view but no sticky view, it ends the form.
+   * A touch on it dismisses the keyboard first, so the focused field commits what's typed before
+   * the button's press runs.
    */
   actions?: ReactNode;
   hideTitle?: boolean;
   children?: ReactNode;
   testID?: string;
 }
+
+const dismissKeyboard = () => {
+  Keyboard.dismiss();
+  return false;
+};
 
 /** FormPage's action bar: a row of buttons with its padding, kept clear of the focused field. */
 const FORM_ACTIONS_HEIGHT = 64;
@@ -201,6 +208,11 @@ export function FormPage({ title, description, errors, actions, hideTitle, child
     actions ? (
       <View
         testID={`${testID}-actions`}
+        // A touch on Save or Cancel first dismisses the keyboard, so the focused field ends its edit
+        // (a NativeNumberInput commits what's typed) before the press runs. The scroll keeps taps
+        // ("handled"), which otherwise leaves the field focused. Returning false lets the button
+        // take the touch.
+        onStartShouldSetResponderCapture={dismissKeyboard}
         className={cn("flex-row flex-wrap items-center justify-end gap-2", !inFlow && "border-t border-border bg-background px-4 py-3")}
       >
         {actions}

@@ -406,7 +406,10 @@ alone (an opening hour, a class's start), the same value `<input type="time">` g
 when the time belongs to a day, which keeps its day. `onChange` gives back the same kind. A typed
 time ("2:30 pm", "1430") is listed first and highlighted, so Enter picks it; the arrow keys move
 the highlight, and Enter always picks what is highlighted. 12- or 24-hour follows the viewer's
-locale once the page has hydrated; pass `hour12` to fix it from the first paint.
+locale once the page has hydrated; pass `hour12` to fix it from the first paint. A `Date` is read
+on the browser's clock once hydrated (the trigger shows no time before), or on `timeZone`'s from
+the first render, server included. The trigger is named by its visible `<label htmlFor={id}>` (or
+`aria-label`, or `aria-labelledby`) followed by the time.
 
 ```tsx
 import { useState } from "react";

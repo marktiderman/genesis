@@ -7,7 +7,11 @@
  * radio or checkbox to VoiceOver and TalkBack, named "title, description".
  * Selected, the border and indicator take the primary colour and the card a
  * light primary wash; `invalid` draws the border in the destructive colour
- * (and says "Needs an answer"). Controlled: the parent owns `selected`.
+ * (and says "Needs an answer").
+ *
+ * As the web's ChoiceCard: one of several is a card with a `value` inside a NativeRadioGroup, and
+ * with `multiple` it is a checkbox with `selected` and `onSelectedChange(next)`. The older
+ * `selected` with `onPress` still works in either mode.
  *
  * Use a column of them for a question with pictures or explanations per
  * option; for a plain list of words use NativeRadioGroup or NativeChipGroup.
@@ -16,17 +20,14 @@
  */
 import { Pressable, Text, View } from "react-native";
 import { cn } from "../utils";
+import { useNativeRadioGroupContext } from "./radio-group";
 
-export interface NativeChoiceCardProps {
+interface NativeChoiceCardBaseProps {
   title: string;
   /** A second line under the title, muted. */
   description?: string;
   /** Slot left of the text: a thumbnail (NativeImage), an icon. */
   media?: React.ReactNode;
-  selected: boolean;
-  onPress: () => void;
-  /** A checkbox (several can be chosen) rather than a radio. */
-  multiple?: boolean;
   disabled?: boolean;
   /** The question still needs an answer: a destructive border and hint. */
   invalid?: boolean;
@@ -35,6 +36,44 @@ export interface NativeChoiceCardProps {
   className?: string;
   testID?: string;
 }
+
+/**
+ * One of several, inside a `NativeRadioGroup`, as the web's ChoiceCard sits in a RadioGroup: the
+ * group holds which is chosen (`value`, `onValueChange`), and the card is chosen when its `value` is.
+ */
+export interface NativeChoiceCardRadioProps extends NativeChoiceCardBaseProps {
+  multiple?: false;
+  /** This card's value in its NativeRadioGroup. */
+  value: string;
+  selected?: undefined;
+  onPress?: undefined;
+  onSelectedChange?: undefined;
+}
+
+/** Any number can be chosen: a checkbox with its own state, as the web's `multiple` ChoiceCard. */
+export interface NativeChoiceCardCheckboxProps extends NativeChoiceCardBaseProps {
+  multiple: true;
+  selected: boolean;
+  /** Called when it is pressed, with the new state. */
+  onSelectedChange: (selected: boolean) => void;
+  value?: undefined;
+  onPress?: undefined;
+}
+
+/**
+ * The parent owns `selected` and answers `onPress` itself, in either mode.
+ * @deprecated Use `value` in a NativeRadioGroup, or `multiple` with `onSelectedChange`, as the web's ChoiceCard.
+ */
+export interface NativeChoiceCardPressProps extends NativeChoiceCardBaseProps {
+  /** A checkbox (several can be chosen) rather than a radio. */
+  multiple?: boolean;
+  selected: boolean;
+  onPress: () => void;
+  value?: undefined;
+  onSelectedChange?: undefined;
+}
+
+export type NativeChoiceCardProps = NativeChoiceCardRadioProps | NativeChoiceCardCheckboxProps | NativeChoiceCardPressProps;
 
 function Indicator({ on, multiple, testID }: { on: boolean; multiple: boolean; testID?: string | undefined }) {
   return (
@@ -58,19 +97,17 @@ function Indicator({ on, multiple, testID }: { on: boolean; multiple: boolean; t
   );
 }
 
-export function NativeChoiceCard({
-  title,
-  description,
-  media,
-  selected,
-  onPress,
-  multiple = false,
-  disabled = false,
-  invalid = false,
-  hint,
-  className,
-  testID = "native-choice-card",
-}: NativeChoiceCardProps) {
+export function NativeChoiceCard(props: NativeChoiceCardProps) {
+  const { title, description, media, disabled = false, invalid = false, hint, className, testID = "native-choice-card" } = props;
+  const group = useNativeRadioGroupContext();
+  if (props.value !== undefined && !group) throw new Error("A NativeChoiceCard with a `value` must be inside <NativeRadioGroup>.");
+  const multiple = props.multiple === true;
+  const selected = props.value !== undefined ? group!.value === props.value : props.selected;
+  const onPress = () => {
+    if (props.value !== undefined) group!.onValueChange(props.value);
+    else if (props.onSelectedChange) props.onSelectedChange(!props.selected);
+    else props.onPress?.();
+  };
   const name = description ? `${title}, ${description}` : title;
   const accessibilityHint = [hint, invalid ? "Needs an answer" : ""].filter(Boolean).join(". ") || undefined;
   return (

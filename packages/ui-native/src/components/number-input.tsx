@@ -11,9 +11,9 @@
  *
  * @stability Beta
  */
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { canStepNumber, clampNumber, readNumberDraft, stepNumber } from "@marktiderman/genesis-core/headless";
+import { canStepNumber, clampNumber, commitNumberDraft, readNumberDraft, stepNumber } from "@marktiderman/genesis-core/headless";
 import { cn } from "../utils";
 
 export interface NativeNumberInputProps {
@@ -61,15 +61,23 @@ export function NativeNumberInput({
     [max, min, onChange]
   );
 
-  // What's typed: the field shows it, and a number inside the range is passed on as it is typed.
-  // Leaving the field clamps what's typed and shows the value again, so typing "1" on the way to
-  // "15" with min 10 never sends 10, and "", "-" or "1." never replace the value (as on the web).
-  const [draft, setDraft] = useState<string | null>(null);
+  // What's typed: the field shows it, and a number that is ready (in range, within the precision,
+  // not a comma that may still become a group) is passed on as it is typed. Ending the edit (blur,
+  // submit, or the keyboard dismissed: FormPage's actions dismiss it before they run) commits what's
+  // typed, rounded and clamped, and shows the value again, as on the web. A ref keeps the draft so
+  // the edit's several ending events commit it once.
+  const [draft, setDraftState] = useState<string | null>(null);
+  const draftRef = useRef<string | null>(null);
+  const setDraft = (next: string | null) => {
+    draftRef.current = next;
+    setDraftState(next);
+  };
   const commit = () => {
-    if (draft === null) return;
-    const { value: typed } = readNumberDraft(draft, { min, max, locale });
+    const text = draftRef.current;
+    if (text === null) return;
     setDraft(null);
-    if (typed !== null && clampNumber(typed, min, max) !== value) setValue(typed);
+    const typed = commitNumberDraft(text, { min, max, precision, locale });
+    if (typed !== null && typed !== value) onChange(typed);
   };
 
   const decBlocked = disabled || !canStepNumber(value, -1, { min, max });
@@ -109,10 +117,11 @@ export function NativeNumberInput({
         accessibilityLabel="Numeric value"
         onChangeText={(t) => {
           setDraft(t);
-          const typed = readNumberDraft(t, { min, max, locale });
-          if (typed.inRange && typed.value !== null && typed.value !== value) onChange(typed.value);
+          const typed = readNumberDraft(t, { min, max, precision, locale });
+          if (typed.ready && typed.value !== null && typed.value !== value) onChange(typed.value);
         }}
         onBlur={commit}
+        onEndEditing={commit}
         onSubmitEditing={commit}
         className={cn(
           "min-w-[64px] flex-1 border-x border-input bg-background text-center text-base text-foreground",

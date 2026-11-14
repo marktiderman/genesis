@@ -21,6 +21,11 @@ function useRadioGroup() {
   return context;
 }
 
+/** The group a radio item sits in, or null outside one (NativeChoiceCard reads it). */
+export function useNativeRadioGroupContext(): RadioGroupContextValue | null {
+  return useContext(RadioGroupContext);
+}
+
 export interface NativeRadioGroupProps {
   className?: string;
   value?: string;

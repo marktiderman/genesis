@@ -94,6 +94,7 @@ export type {
   NativeChipProps,
   NativeChipGroupProps,
   NativeChipGroupMode,
+  NativeChipGroupValue,
 } from "./chip-group";
 
 export { NativePagination } from "./pagination";
@@ -200,7 +201,7 @@ export { NativeLabel } from "./label";
 export type { NativeLabelProps } from "./label";
 
 export { NativeChoiceCard } from "./choice-card";
-export type { NativeChoiceCardProps } from "./choice-card";
+export type { NativeChoiceCardProps, NativeChoiceCardRadioProps, NativeChoiceCardCheckboxProps, NativeChoiceCardPressProps } from "./choice-card";
 export { NativeRadioGroup, NativeRadioGroupItem } from "./radio-group";
 export type {
   NativeRadioGroupProps,

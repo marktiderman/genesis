@@ -208,6 +208,37 @@ describe("NumberInput", () => {
   });
 });
 
+describe("NumberInput rounding and drafts", () => {
+  it("rounds a typed number to the precision when it is left, so the value is what the field shows", () => {
+    const onChange = vi.fn();
+    render(<NumberInput aria-label="Seats" value={0} onChange={onChange} precision={0} />);
+    const field = screen.getByRole("spinbutton") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "1.5" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(field);
+    expect(onChange.mock.calls).toEqual([[2]]);
+  });
+  it("doesn't send 1.2 and 1.23 while \"1,234\" is typed key by key", () => {
+    const onChange = vi.fn();
+    render(<NumberInput aria-label="Price" value={0} onChange={onChange} />);
+    const field = screen.getByRole("spinbutton");
+    for (const t of ["1", "1,", "1,2", "1,23", "1,234"]) fireEvent.change(field, { target: { value: t } });
+    const sent = onChange.mock.calls.map((c) => c[0] as number);
+    expect(sent).not.toContain(1.2);
+    expect(sent).not.toContain(1.23);
+    expect(sent.at(-1)).toBe(1234);
+  });
+  it("doesn't read \"1,5\" as 15 in an en-US field", () => {
+    const onChange = vi.fn();
+    render(<NumberInput aria-label="Price" value={3} onChange={onChange} locale="en-US" />);
+    const field = screen.getByRole("spinbutton") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "1,5" } });
+    fireEvent.blur(field);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(field.value).toBe("3");
+  });
+});
+
 describe("RangeSlider", () => {
   it("draws two named thumbs", () => {
     render(<RangeSlider value={[20, 80]} onChange={() => {}} labels={["Lowest price", "Highest price"]} />);
@@ -284,6 +315,71 @@ describe("TimePicker", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("TimePicker's zone and name", () => {
+  const withTZ = <T,>(zone: string, run: () => T): T => {
+    const before = process.env.TZ;
+    process.env.TZ = zone;
+    try {
+      return run();
+    } finally {
+      if (before === undefined) delete process.env.TZ;
+      else process.env.TZ = before;
+    }
+  };
+  const at = new Date("2026-06-10T18:30:00Z");
+
+  it("renders no Date time on the server without a timeZone, so servers in any zone agree", () => {
+    const html = (zone: string) => withTZ(zone, () => renderToString(<TimePicker value={at} onChange={() => {}} hour12={false} />));
+    const utc = html("UTC");
+    expect(utc).toBe(html("Asia/Tokyo"));
+    expect(utc).not.toContain("18:30");
+    expect(utc).not.toContain("03:30");
+  });
+
+  it("renders and picks a Date's time on the timeZone given, whatever the machine's zone", () => {
+    for (const zone of ["UTC", "America/New_York"]) {
+      expect(withTZ(zone, () => renderToString(<TimePicker value={at} onChange={() => {}} hour12={false} timeZone="Asia/Tokyo" />))).toContain("03:30");
+    }
+    const onChange = vi.fn<(next: Date) => void>();
+    withTZ("UTC", () => {
+      render(<TimePicker value={at} onChange={onChange} hour12={false} timeZone="Asia/Tokyo" />);
+      expect(screen.getByTestId("time-picker-trigger").textContent).toContain("03:30");
+      fireEvent.click(screen.getByTestId("time-picker-trigger"));
+      fireEvent.click(screen.getByTestId("time-picker-option-08:15"));
+    });
+    // 08:15 in Tokyo on the same Tokyo day (11 June) is 23:15 on 10 June in UTC.
+    expect(onChange.mock.calls[0]![0].toISOString()).toBe("2026-06-10T23:15:00.000Z");
+  });
+
+  it("is named by its visible label and the time, not an aria-label over them", async () => {
+    render(
+      <>
+        <label htmlFor="starts">Starts</label>
+        <TimePicker id="starts" value="14:30" onChange={() => {}} hour12={false} />
+      </>,
+    );
+    const trigger = screen.getByTestId("time-picker-trigger");
+    expect(trigger.hasAttribute("aria-label")).toBe(false);
+    expect(screen.getByRole("button", { name: "Starts 14:30" })).toBe(trigger);
+  });
+
+  it("takes aria-label or aria-labelledby, and says only 'Pick a time' with neither and no label", () => {
+    const { unmount } = render(<TimePicker aria-label="Starts" value="14:30" onChange={() => {}} hour12={false} />);
+    expect(screen.getByRole("button", { name: "Starts, 14:30" })).toBeTruthy();
+    unmount();
+    const second = render(
+      <>
+        <span id="ends-word">Ends</span>
+        <TimePicker aria-labelledby="ends-word" value="16:00" onChange={() => {}} hour12={false} />
+      </>,
+    );
+    expect(screen.getByRole("button", { name: "Ends 16:00" })).toBeTruthy();
+    second.unmount();
+    render(<TimePicker value="" onChange={() => {}} hour12={false} />);
+    expect(screen.getByRole("button", { name: "Pick a time" })).toBeTruthy();
   });
 });
 

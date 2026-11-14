@@ -97,9 +97,19 @@ export function parseNumberInput(text: string, options: ParseNumberOptions = {})
 /** The longest text `parseNumberInput` reads; anything longer isn't a number a person typed. */
 const MAX_NUMBER_INPUT = 64;
 
-/** Whether `int` is digits grouped in threes by `mark` ("1,234,567"), at least one group. */
-function isGrouped(int: string, mark: "," | "."): boolean {
-  return (mark === "," ? /^-?\d{1,3}(?:,\d{3})+$/ : /^-?\d{1,3}(?:\.\d{3})+$/).test(int);
+/** `mark` escaped for a RegExp. */
+function escapeMark(mark: string): string {
+  return mark.replace(/[.*+?^${}()|[\]\\/-]/g, "\\$&");
+}
+
+/**
+ * Whether `int` is digits grouped by `mark`, at least one group: in threes ("1,234,567"), or with
+ * `lakh` as South Asian locales group them ("12,34,567": threes last, then twos).
+ */
+function isGrouped(int: string, mark: string, lakh = false): boolean {
+  const m = escapeMark(mark);
+  if (new RegExp(`^-?\\d{1,3}(?:${m}\\d{3})+$`).test(int)) return true;
+  return lakh && new RegExp(`^-?\\d{1,2}(?:${m}\\d{2})*${m}\\d{3}$`).test(int);
 }
 
 /** `t` with "." as its only decimal mark and no group marks, or `null` when the marks can't be read. */
@@ -126,44 +136,80 @@ function withGuessedMarks(t: string): string | null {
   return t.replace(",", ".");
 }
 
-/** `t` read with `locale`'s group and decimal marks. */
+/**
+ * `t` read with `locale`'s marks, as strictly as the guess: the decimal mark at most once, the
+ * group mark only in the whole part and only between whole groups ("1,234" in en-US, never
+ * "1,5" or "1,2,3"), and no other mark ("1.5" in de-DE is `null`, not 15).
+ */
 function withLocaleMarks(t: string, locale: string): string | null {
-  const { group, decimal } = numberMarks(locale);
-  let out = t;
+  const { group, decimal, lakh } = numberMarks(locale);
+  const parts = t.split(decimal);
+  if (parts.length > 2) return null;
+  const [int = "", fraction] = parts;
   // A space-like group mark was already taken out with the other spaces.
-  if (group && !/\s/.test(group)) out = out.split(group).join("");
-  if (decimal !== ".") {
-    if (out.includes(".")) return null;
-    out = out.split(decimal).join(".");
+  const groupMark = group && !/\s/.test(group) ? group : "";
+  if (groupMark && fraction?.includes(groupMark)) return null;
+  let whole = int;
+  if (groupMark && int.includes(groupMark)) {
+    if (!isGrouped(int, groupMark, lakh)) return null;
+    whole = int.split(groupMark).join("");
   }
-  return out;
+  const out = fraction === undefined ? whole : `${whole}.${fraction}`;
+  // Anything left that isn't a digit, the sign or the one decimal point is a mark this locale doesn't use.
+  return /^-?[\d.]*$/.test(out) && out.indexOf(".") === out.lastIndexOf(".") && (decimal === "." || !int.includes(".") || groupMark === ".") ? out : null;
 }
 
-function numberMarks(locale: string): { group: string; decimal: string } {
+function numberMarks(locale: string): { group: string; decimal: string; lakh: boolean } {
   try {
-    const parts = new Intl.NumberFormat(locale).formatToParts(12345.6);
-    return {
-      group: parts.find((p) => p.type === "group")?.value ?? "",
-      decimal: parts.find((p) => p.type === "decimal")?.value ?? ".",
-    };
+    const format = new Intl.NumberFormat(locale);
+    const parts = format.formatToParts(12345.6);
+    const group = parts.find((p) => p.type === "group")?.value ?? "";
+    // South Asian grouping puts a mark after the first two digits of 1234567 ("12,34,567").
+    const lakh = format.formatToParts(1234567).filter((p) => p.type === "integer")[0]?.value.length === 2;
+    return { group, decimal: parts.find((p) => p.type === "decimal")?.value ?? ".", lakh };
   } catch {
-    return { group: ",", decimal: "." };
+    return { group: ",", decimal: ".", lakh: false };
   }
+}
+
+export interface NumberDraftOptions {
+  min?: number | undefined;
+  max?: number | undefined;
+  /** Decimal places the field keeps. A typed number with more is passed on only when it is committed, rounded. */
+  precision?: number | undefined;
+  locale?: string | undefined;
 }
 
 /**
- * What a number field does with its text. `value` is the number it reads (`null` while it isn't
- * one: "", "-", "1."), and `inRange` whether that number is inside `min` and `max` already. A
- * field passes a number on as it is typed only while it is in range, and clamps when it is left
- * (`clampNumber(value, min, max)`), so typing "1" on the way to "15" with `min` 10 never sends 10.
+ * What a number field does with its text as it is typed. `value` is the number it reads (`null`
+ * while it isn't one: "", "-", "1."), and `ready` whether to pass it on now: inside `min` and
+ * `max`, within `precision`, and not text that may still be a thousands group ("1,2" and "1,23",
+ * with no `locale`, may be on the way to "1,234"). Anything not ready is passed on when the field
+ * is left, through `commitNumberDraft`, so typing "1" on the way to "15" with `min` 10 never
+ * sends 10, and typing "1,234" never sends 1.2.
  */
-export function readNumberDraft(
-  text: string,
-  options: { min?: number | undefined; max?: number | undefined; locale?: string | undefined } = {},
-): { value: number | null; inRange: boolean } {
+export function readNumberDraft(text: string, options: NumberDraftOptions = {}): { value: number | null; ready: boolean } {
   const value = parseNumberInput(text, { locale: options.locale });
-  if (value === null) return { value, inRange: false };
-  return { value, inRange: clampNumber(value, options.min, options.max) === value };
+  if (value === null) return { value, ready: false };
+  const mayBeGroup = options.locale === undefined && /^-?[1-9]\d{0,2},\d{1,2}$/.test(text.trim());
+  const ready = !mayBeGroup && clampNumber(value, options.min, options.max) === value && roundTo(value, options.precision) === value;
+  return { value, ready };
+}
+
+/**
+ * The number a field keeps when it is left: what's typed, rounded to `precision` and clamped to
+ * `min` and `max`, so what is stored is what the field then shows. `null` when the text isn't a number.
+ */
+export function commitNumberDraft(text: string, options: NumberDraftOptions = {}): number | null {
+  const value = parseNumberInput(text, { locale: options.locale });
+  if (value === null) return null;
+  return clampNumber(roundTo(value, options.precision), options.min, options.max);
+}
+
+function roundTo(value: number, precision: number | undefined): number {
+  if (precision === undefined || !Number.isFinite(value)) return value;
+  const places = Math.max(0, Math.min(20, Math.floor(precision)));
+  return Number(value.toFixed(places));
 }
 
 /**

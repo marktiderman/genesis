@@ -11,6 +11,8 @@ export {
   canStepNumber,
   parseNumberInput,
   readNumberDraft,
+  commitNumberDraft,
+  type NumberDraftOptions,
   clampRange,
   type NumberStepOptions,
   type ParseNumberOptions,

@@ -27,6 +27,7 @@ import {
   otpSlots,
   parseNumberInput,
   readNumberDraft,
+  commitNumberDraft,
   stripOtpSeparators,
   parseTimeOfDay,
   sanitizeOtp,
@@ -83,9 +84,25 @@ describe("numbers", () => {
     expect(parseNumberInput("1.234", { locale: "de-DE" })).toBe(1234);
     expect(parseNumberInput("1.234,5", { locale: "de-DE" })).toBe(1234.5);
     expect(parseNumberInput("1,234", { locale: "en-US" })).toBe(1234);
-    expect(parseNumberInput("1,5", { locale: "en-US" })).toBe(15);
     expect(parseNumberInput("1 234,5", { locale: "fr-FR" })).toBe(1234.5);
     expect(parseNumberInput("1.5", { locale: "fr-FR" })).toBeNull();
+  });
+  it("reads a locale's marks as strictly as it guesses: groups only in the whole part, one decimal mark", () => {
+    // Each of these was read 10 or 1000 times off.
+    expect(parseNumberInput("1,5", { locale: "en-US" })).toBeNull();
+    expect(parseNumberInput("1,2,3", { locale: "en-US" })).toBeNull();
+    expect(parseNumberInput("1.234,5", { locale: "en-US" })).toBeNull();
+    expect(parseNumberInput("1.5", { locale: "de-DE" })).toBeNull();
+    expect(parseNumberInput("1,2,3", { locale: "de-DE" })).toBeNull();
+    expect(parseNumberInput("1.234.5", { locale: "en-US" })).toBeNull();
+    expect(parseNumberInput("1,234.5,6", { locale: "en-US" })).toBeNull();
+    // Still read.
+    expect(parseNumberInput("1,234,567.25", { locale: "en-US" })).toBe(1234567.25);
+    expect(parseNumberInput("1.5", { locale: "en-US" })).toBe(1.5);
+    expect(parseNumberInput("1.234.567,5", { locale: "de-DE" })).toBe(1234567.5);
+    expect(parseNumberInput("1,5", { locale: "de-DE" })).toBe(1.5);
+    expect(parseNumberInput("12,34,567", { locale: "en-IN" })).toBe(1234567);
+    expect(parseNumberInput("12,34,567", { locale: "en-US" })).toBeNull();
   });
   it("guards the edges: tiny steps, NaN, and a min above max", () => {
     expect(snapToStep(3.2e-7, 1e-7, 0, 1)).toBe(3e-7);
@@ -98,9 +115,26 @@ describe("numbers", () => {
     expect(() => clampNumber(5, 10, 0)).toThrow(/min \(10\) is greater than max \(0\)/);
   });
   it("passes a typed number on only while it is in range", () => {
-    expect(readNumberDraft("1", { min: 10, max: 20 })).toEqual({ value: 1, inRange: false });
-    expect(readNumberDraft("15", { min: 10, max: 20 })).toEqual({ value: 15, inRange: true });
-    expect(readNumberDraft("-", { min: 10 })).toEqual({ value: null, inRange: false });
+    expect(readNumberDraft("1", { min: 10, max: 20 })).toEqual({ value: 1, ready: false });
+    expect(readNumberDraft("15", { min: 10, max: 20 })).toEqual({ value: 15, ready: true });
+    expect(readNumberDraft("-", { min: 10 })).toEqual({ value: null, ready: false });
+  });
+  it("holds back a comma that may still become a thousands group, and digits past the precision", () => {
+    // "1,234" typed key by key: "1,2" and "1,23" are not sent as 1.2 and 1.23.
+    expect(readNumberDraft("1,2").ready).toBe(false);
+    expect(readNumberDraft("1,23").ready).toBe(false);
+    expect(readNumberDraft("1,234")).toEqual({ value: 1234, ready: true });
+    expect(readNumberDraft("0,5")).toEqual({ value: 0.5, ready: true });
+    expect(readNumberDraft("1,2", { locale: "de-DE" })).toEqual({ value: 1.2, ready: true });
+    expect(readNumberDraft("1.5", { precision: 0 })).toEqual({ value: 1.5, ready: false });
+    expect(readNumberDraft("1.5", { precision: 1 }).ready).toBe(true);
+  });
+  it("commits what's typed rounded to the precision and clamped, so the value is what the field shows", () => {
+    expect(commitNumberDraft("1.5", { precision: 0 })).toBe(2);
+    expect(commitNumberDraft("1.26", { precision: 1 })).toBe(1.3);
+    expect(commitNumberDraft("1,2")).toBe(1.2);
+    expect(commitNumberDraft("99", { max: 20, precision: 0 })).toBe(20);
+    expect(commitNumberDraft("-")).toBeNull();
   });
   it("keeps a range's thumbs apart, stopping the one that moved", () => {
     expect(clampRange([60, 40], { min: 0, max: 100, moving: 0 })).toEqual([40, 40]);

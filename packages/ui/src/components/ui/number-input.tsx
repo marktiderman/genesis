@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Minus, Plus } from "lucide-react";
-import { canStepNumber, clampNumber, readNumberDraft, stepNumber } from "@marktiderman/genesis-core/headless";
+import { canStepNumber, clampNumber, commitNumberDraft, readNumberDraft, stepNumber } from "@marktiderman/genesis-core/headless";
 import { cn } from "../../utils";
 import { Button } from "./button";
 import { InputGroup, InputGroupInput } from "./input-group";
@@ -83,9 +83,9 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
   /** What's typed, clamped and passed on; the field then shows the value again. */
   const commit = () => {
     if (draft === null) return;
-    const { value: typed } = readNumberDraft(draft, { min, max, locale });
+    const typed = commitNumberDraft(draft, { min, max, precision, locale });
     setDraft(null);
-    if (typed !== null && clampNumber(typed, min, max) !== value) set(typed);
+    if (typed !== null && typed !== value) onChange(typed);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -142,8 +142,8 @@ export const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
         value={draft ?? value.toFixed(precision)}
         onChange={(e) => {
           setDraft(e.target.value);
-          const typed = readNumberDraft(e.target.value, { min, max, locale });
-          if (typed.inRange && typed.value !== null && typed.value !== value) onChange(typed.value);
+          const typed = readNumberDraft(e.target.value, { min, max, precision, locale });
+          if (typed.ready && typed.value !== null && typed.value !== value) onChange(typed.value);
         }}
         onBlur={(e) => {
           commit();

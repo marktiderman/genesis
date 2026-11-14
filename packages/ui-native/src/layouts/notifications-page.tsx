@@ -72,6 +72,11 @@ export type NotificationsPageSlotMap = {
 export interface NotificationsPageProps extends ScreenHeaderProps {
   /** Notification items. Empty array → empty state. */
   items: NotificationItem[];
+  /**
+   * The zone whose days the headings count (an IANA name), as the web's NotificationsPage takes
+   * it. Default the device's, which is the person's own.
+   */
+  timeZone?: string;
   /** When true, the SectionList shows the refresh spinner. */
   refreshing?: boolean;
   /** Pull-to-refresh handler. */
@@ -163,8 +168,8 @@ interface Section {
   data: NotificationItem[];
 }
 
-function groupByDate(items: NotificationItem[], now = new Date()): Section[] {
-  return groupNotificationsByDay(items, { now });
+function groupByDate(items: NotificationItem[], now = new Date(), timeZone?: string): Section[] {
+  return groupNotificationsByDay(items, { now, timeZone });
 }
 
 type FlatRow = { kind: "header"; title: string } | { kind: "item"; item: NotificationItem; last: boolean };
@@ -214,6 +219,7 @@ export const __test = { bucketFor, groupByDate, flattenSections };
 
 export function NotificationsPage({
   items,
+  timeZone,
   refreshing,
   onRefresh,
   emptyState,
@@ -233,7 +239,7 @@ export function NotificationsPage({
   // ergonomics but consumed by getNotificationsPageStackOptions() at the
   // consumer's <Stack.Screen> level — not by this component.
 
-  const sections = useMemo(() => groupByDate(items), [items]);
+  const sections = useMemo(() => groupByDate(items, new Date(), timeZone), [items, timeZone]);
   // FlashList v2 (`modules.list`) has no SectionList: the sections become one
   // flat list whose header rows stick (FlashList's own section-list recipe).
   const { list: FlashList } = useGenesisModules();

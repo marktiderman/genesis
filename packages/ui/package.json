@@ -652,7 +652,7 @@
             "**/*.jsx"
           ],
           "forbid": {
-            "pattern": "<(?:Input|input)\\b(?:[^>{t]|t(?!ype\\s*=)|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*type\\s*=\\s*(?:\\{\\s*)?[\"']time[\"']"
+            "pattern": "<(?:Input|input)\\b(?:[^>{t]|(?<![-\\w])t(?!ype\\s*=)|(?<=[-\\w])t|\\{(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*\\})*(?<![-\\w])type\\s*=\\s*(?:\\{\\s*)?[\"']time[\"']"
           },
           "use": "TimePicker (value: an \"HH:MM\" string or a Date, onChange), the twin of the phone's NativeTimePicker",
           "import": "@marktiderman/genesis-ui",

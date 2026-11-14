@@ -60,6 +60,8 @@ declare module "react-native" {
 
   export interface ViewProps {
     style?: ViewStyle | ViewStyle[];
+    /** Seen as a touch starts inside the view, before its children; true takes the touch. */
+    onStartShouldSetResponderCapture?: (e: any) => boolean;
     className?: string;
     children?: React.ReactNode;
     accessible?: boolean;
@@ -126,6 +128,7 @@ declare module "react-native" {
     onBlur?: (e: any) => void;
     onFocus?: (e: any) => void;
     onSubmitEditing?: (e: any) => void;
+    onEndEditing?: (e: any) => void;
     placeholder?: string;
     placeholderTextColor?: string;
     editable?: boolean;
@@ -418,6 +421,7 @@ declare module "react-native" {
   export const SafeAreaView: ComponentType<ViewProps>;
   export const RefreshControl: ComponentType<RefreshControlProps>;
   export const KeyboardAvoidingView: ComponentType<KeyboardAvoidingViewProps>;
+  export const Keyboard: { dismiss(): void };
   export const StatusBar: ComponentType<StatusBarProps>;
   export const Appearance: AppearanceModule;
   export interface AlertButton {
