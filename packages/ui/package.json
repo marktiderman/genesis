@@ -687,13 +687,13 @@
         },
         {
           "need": "a calendar over a list (month, 1-4 weeks, agenda, lanes per person)",
-          "use": "the view's calendar block (defineView) rendered by <ResourceView mode=\"calendar\">; EventCalendar for events that aren't one view's rows",
+          "use": "the view's calendar block (defineView) rendered by `<ResourceView mode=\"calendar\">`; EventCalendar for events that aren't one view's rows",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#calendar"
         },
         {
           "need": "a board over a list (a column per status, cards moved between them)",
-          "use": "the view's board block (defineView) rendered by <ResourceView mode=\"board\">; KanbanBoard fed by useBoardColumns for rows that aren't one view's",
+          "use": "the view's board block (defineView) rendered by `<ResourceView mode=\"board\">`; KanbanBoard fed by useBoardColumns for rows that aren't one view's",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#board"
         },
@@ -738,7 +738,7 @@
         },
         {
           "need": "a photo gallery over a list (a photo per record, in justified rows)",
-          "use": "the view's gallery block (defineView) rendered by <ResourceView mode=\"grid\">; GalleryGrid for photos that aren't records (attachments, uploads)",
+          "use": "the view's gallery block (defineView) rendered by `<ResourceView mode=\"grid\">`; GalleryGrid for photos that aren't records (attachments, uploads)",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#gallery"
         },
@@ -821,10 +821,10 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
         },
         {
-          "need": "a time of day",
-          "use": "TimePicker (value: a Date, or an \"HH:MM\" string), the twin of NativeTimePicker",
+          "need": "a time of day on a set time zone's clock (a session at 9 am where it's held, whatever the viewer's zone)",
+          "use": "TimePicker (value: an \"HH:MM\" string, or a Date with timeZone to read it on a set zone's clock from the first render), the twin of NativeTimePicker",
           "import": "@marktiderman/genesis-ui",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md"
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md#a-time-of-day-timepicker"
         },
         {
           "need": "a selectable option card (radio or checkbox, with a picture or a description)",
