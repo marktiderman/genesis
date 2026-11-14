@@ -1,0 +1,23 @@
+docs/NATIVE-RELEASE.md
+  s_a2e5357843c63e::t_c87f4184012582 222-231
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_a2e5357843c63e::t_e286baee290907 139-146
+apps/genesis-rn-starter/fingerprint.config.js
+  s_a2e5357843c63e::t_a8553b46414fb5 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4e1540a6dc15ede061d23695120575c0da8f23c4",
+  "prompts": {},
+  "sessions": {
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
