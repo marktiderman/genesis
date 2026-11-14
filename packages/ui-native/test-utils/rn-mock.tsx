@@ -213,10 +213,16 @@ export const TextInput = React.forwardRef<HTMLInputElement, AnyProps>(
       onBlur?: () => void;
     };
     // The keyboard and autofill a field asks for, as data attributes a test can read.
-    const { autoComplete, enterKeyHint, onSelectionChange, ...others } = rest as {
+    const { autoComplete, enterKeyHint, onSelectionChange, accessibilityValue, accessibilityState, className, style, caretHidden, selection, ...others } = rest as {
       autoComplete?: string;
       enterKeyHint?: string;
       onSelectionChange?: (e: { nativeEvent: { selection: { start: number; end: number } } }) => void;
+      accessibilityValue?: { text?: string };
+      accessibilityState?: { disabled?: boolean };
+      className?: string;
+      style?: unknown;
+      caretHidden?: boolean;
+      selection?: { start: number; end?: number };
     };
     void others;
     void autoCapitalize;
@@ -236,6 +242,14 @@ export const TextInput = React.forwardRef<HTMLInputElement, AnyProps>(
       "data-keyboard-type": keyboardType,
       "data-autocomplete": autoComplete,
       "data-enter-key-hint": enterKeyHint,
+      "aria-valuetext": accessibilityValue?.text,
+      "aria-disabled": accessibilityState?.disabled === undefined ? undefined : String(accessibilityState.disabled),
+      className,
+      // RN styles aren't CSS; tests read them back with `JSON.parse(el.dataset.style)`.
+      "data-style": style === undefined ? undefined : JSON.stringify(style),
+      "data-caret-hidden": caretHidden ? "true" : undefined,
+      // The selection the field was asked to hold, for tests that check a cursor is kept.
+      "data-selection": selection ? JSON.stringify(selection) : undefined,
       "aria-label": accessibilityLabel,
       "aria-describedby": accessibilityHint,
       role: accessibilityRole,

@@ -31,9 +31,15 @@ export interface NativeListItemProps {
   disabled?: boolean;
   /**
    * What a pressable row is to a screen reader. Default `button`; a row that flips its switch
-   * (NativeToggleRow) is a `switch`, with `accessibilityState.checked`.
+   * (NativeToggleRow) is a `switch`, and one choice of several (NativeWorkspaceSwitcher) a
+   * `radio`, each with `accessibilityState.checked`.
    */
-  accessibilityRole?: "button" | "switch" | "link" | "menuitem";
+  accessibilityRole?: "button" | "switch" | "link" | "menuitem" | "radio";
+  /**
+   * What a screen reader reads for the row. Default its title and subtitle. The row is one
+   * element, so a `trailing` badge's own label is not read: put its words here too.
+   */
+  accessibilityLabel?: string;
   /** Merged over the row's own (`disabled`). */
   accessibilityState?: { checked?: boolean; selected?: boolean };
   className?: string;
@@ -50,6 +56,7 @@ export function NativeListItem({
   disabled,
   accessibilityRole = "button",
   accessibilityState,
+  accessibilityLabel,
   className,
   testID,
 }: NativeListItemProps) {
@@ -79,7 +86,7 @@ export function NativeListItem({
       <Pressable
         testID={testID ?? "native-list-item"}
         accessibilityRole={accessibilityRole}
-        accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
+        accessibilityLabel={accessibilityLabel ?? (subtitle ? `${title}, ${subtitle}` : title)}
         accessibilityState={{ disabled, ...accessibilityState }}
         disabled={disabled}
         onPress={onPress}
@@ -97,7 +104,7 @@ export function NativeListItem({
   return (
     <View
       testID={testID ?? "native-list-item"}
-      accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
+      accessibilityLabel={accessibilityLabel ?? (subtitle ? `${title}, ${subtitle}` : title)}
       className={cn(
         "min-h-[44px] flex-row items-center bg-background px-4 py-3",
         className

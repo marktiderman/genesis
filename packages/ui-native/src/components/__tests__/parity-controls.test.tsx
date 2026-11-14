@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AccessibilityInfo, Text } from "react-native";
+import { AccessibilityInfo, PanResponder, Text } from "react-native";
 import { NativeButton } from "../button";
 import { NativeButtonGroup } from "../button-group";
 import { NativeCalendar } from "../calendar";
@@ -44,6 +44,20 @@ describe("NativeInputGroup and NativePasswordToggleField", () => {
     expect(screen.getByTestId("pw-toggle").getAttribute("aria-label")).toBe("Hide password");
     expect((screen.getByTestId("pw") as HTMLInputElement).value).toBe("hunter2");
   });
+
+  it("keeps the cursor where it was across a toggle, and is a plain button to a screen reader", () => {
+    render(<NativePasswordToggleField testID="pw" value="hunter2" onChangeText={() => {}} />);
+    const input = screen.getByTestId("pw") as HTMLInputElement;
+    input.setSelectionRange(3, 3);
+    fireEvent.select(input);
+    fireEvent.click(screen.getByTestId("pw-toggle"));
+    // Asked for again with the new secureTextEntry, so Android doesn't send it to the start.
+    expect(JSON.parse(screen.getByTestId("pw").dataset.selection!)).toEqual({ start: 3, end: 3 });
+    expect(screen.getByTestId("pw-toggle").getAttribute("aria-checked")).toBeNull();
+    // Typing hands the cursor back to the field.
+    fireEvent.change(screen.getByTestId("pw"), { target: { value: "hunter23" } });
+    expect(screen.getByTestId("pw").dataset.selection).toBeUndefined();
+  });
 });
 
 describe("NativeInputOTP", () => {
@@ -58,6 +72,30 @@ describe("NativeInputOTP", () => {
     expect(screen.getByTestId("native-input-otp-slot-3").textContent).toBe("4");
     expect(done).toHaveBeenCalledWith("1234");
     expect(screen.getByTestId("native-input-otp-input").getAttribute("aria-label")).toBe("One-time code");
+  });
+  it.each(["123-456", "123 456", " 12 34 56 "])("keeps a pasted or autofilled %j whole: no native cap cuts it first", (pasted) => {
+    const done = vi.fn();
+    function Six() {
+      const [v, setV] = useState("");
+      return <NativeInputOTP value={v} onChange={setV} onComplete={done} />;
+    }
+    render(<Six />);
+    const input = screen.getByTestId("native-input-otp-input");
+    // The native maxLength filter runs before onChangeText; with one, "123-456" arrived as "123-45".
+    expect(input.getAttribute("maxlength")).toBeNull();
+    fireEvent.change(input, { target: { value: pasted } });
+    expect(done).toHaveBeenCalledWith("123456");
+  });
+  it("is one labelled field VoiceOver can reach: not at 0 opacity, its text transparent", () => {
+    render(<NativeInputOTP value="12" onChange={() => {}} />);
+    const input = screen.getByTestId("native-input-otp-input");
+    expect((JSON.parse(input.dataset.style!) as { opacity: number }).opacity).toBeGreaterThan(0.01);
+    expect(input.className).not.toContain("opacity-0");
+    expect(input.className).toContain("text-transparent");
+    expect(input.dataset.caretHidden).toBe("true");
+    expect(input.getAttribute("aria-label")).toBe("One-time code");
+    // The boxes are drawing only: hidden, so the field is the one element.
+    expect(screen.getByTestId("native-input-otp-slot-0").closest("[aria-hidden='true']")).toBeTruthy();
   });
 });
 
@@ -104,13 +142,60 @@ describe("NativeCarousel", () => {
         <Text>Three</Text>
       </NativeCarousel>,
     );
-    const root = screen.getByTestId("native-carousel");
-    expect(root.getAttribute("aria-valuetext")).toBe("Slide 1 of 3");
+    const dots = screen.getByTestId("native-carousel-dots");
+    expect(dots.getAttribute("role")).toBe("adjustable");
+    expect(dots.getAttribute("aria-label")).toBe("Featured");
+    expect(dots.getAttribute("aria-valuetext")).toBe("Slide 1 of 3");
     fireEvent.click(screen.getByTestId("native-carousel-dot-2"));
     expect(onIndexChange).toHaveBeenLastCalledWith(2);
     expect(screen.getByTestId("native-carousel-next").getAttribute("aria-disabled")).toBe("true");
-    a11y(root, "decrement");
+    a11y(dots, "decrement");
     expect(onIndexChange).toHaveBeenLastCalledWith(1);
+  });
+
+  it("leaves the slide's own buttons and the arrows reachable: the carousel isn't one element", () => {
+    render(
+      <NativeCarousel accessibilityLabel="Featured" showControls>
+        <NativeButton testID="book">Book</NativeButton>
+        <Text>Two</Text>
+      </NativeCarousel>,
+    );
+    const root = screen.getByTestId("native-carousel");
+    // No role on the container, so iOS doesn't fold the subtree into a single element.
+    expect(root.getAttribute("role")).toBeNull();
+    expect(root.getAttribute("aria-valuetext")).toBeNull();
+    expect(screen.getByTestId("book").closest("[aria-hidden='true']")).toBeNull();
+    expect(screen.getByTestId("native-carousel-next").getAttribute("role")).toBe("button");
+    // The slide off screen is hidden while dots and arrows move the pages.
+    expect(screen.getByTestId("native-carousel-slide-1").getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("with no dots or arrows, keeps every slide reachable for the screen reader", () => {
+    render(
+      <NativeCarousel showDots={false}>
+        <Text>One</Text>
+        <Text>Two</Text>
+      </NativeCarousel>,
+    );
+    expect(screen.getByTestId("native-carousel-slide-1").getAttribute("aria-hidden")).toBeNull();
+  });
+
+  it("slides to a dot's page without the effect cutting the animation short", () => {
+    render(
+      <NativeCarousel>
+        <Text>One</Text>
+        <Text>Two</Text>
+        <Text>Three</Text>
+      </NativeCarousel>,
+    );
+    const pages = screen.getByTestId("native-carousel-pages") as HTMLElement & { scrollTo: unknown };
+    const scrollTo = vi.fn();
+    pages.scrollTo = scrollTo;
+    act(() => void screen.getByTestId("native-carousel").dispatchEvent(new CustomEvent("layout", { detail: { width: 300, height: 100 } })));
+    expect(scrollTo).toHaveBeenLastCalledWith({ x: 0, animated: false });
+    scrollTo.mockClear();
+    fireEvent.click(screen.getByTestId("native-carousel-dot-2"));
+    expect(scrollTo.mock.calls).toEqual([[{ x: 600, animated: true }]]);
   });
 });
 
@@ -172,5 +257,100 @@ describe("NativeSortableList", () => {
     await act(async () => {});
     expect(screen.getByTestId("row-0").textContent).toBe("A");
     expect(announce).toHaveBeenCalledWith("Couldn’t move A.");
+  });
+  type PanConfig = {
+    onPanResponderGrant: () => void;
+    onPanResponderMove: (e: unknown, g: { dy: number }) => void;
+    onPanResponderRelease: (e: unknown, g: { dy: number }) => void;
+    onPanResponderTerminationRequest: () => boolean;
+    onShouldBlockNativeResponder: () => boolean;
+  };
+  /** The responders built for the list's current order, one per row in order (the mock draws no gesture). */
+  function capturePans() {
+    const made: PanConfig[] = [];
+    const create = vi.spyOn(PanResponder, "create").mockImplementation((config: unknown) => {
+      made.push(config as PanConfig);
+      return { panHandlers: {} } as never;
+    });
+    return { rows: (n: number) => made.slice(-n), restore: () => create.mockRestore() };
+  }
+
+  it("drags a row by its handle, keeps the gesture from a parent ScrollView, and tells the screen", async () => {
+    const pans = capturePans();
+    const onReorder = vi.fn();
+    const onDragChange = vi.fn();
+    function Dragged() {
+      const [items, setItems] = useState(["A", "B", "C"]);
+      return (
+        <NativeSortableList
+          label="Weeks"
+          items={items}
+          getKey={(i) => i}
+          getItemLabel={(i) => i}
+          onDragChange={onDragChange}
+          onReorder={(from, to) => {
+            const next = items.slice();
+            const [x] = next.splice(from, 1);
+            next.splice(to, 0, x!);
+            setItems(next);
+            onReorder(from, to);
+          }}
+          renderItem={(item, ctx) => (
+            <Text testID={`row-${ctx.index}`}>
+              {item}
+              {ctx.handle}
+            </Text>
+          )}
+        />
+      );
+    }
+    render(<Dragged />);
+    const [a] = pans.rows(3);
+    // A parent ScrollView asking for the gesture mid-drag is refused; Android's native scroll is blocked.
+    expect(a!.onPanResponderTerminationRequest()).toBe(false);
+    expect(a!.onShouldBlockNativeResponder()).toBe(true);
+    act(() => a!.onPanResponderGrant());
+    expect(onDragChange).toHaveBeenLastCalledWith(true);
+    // Two rows down (the default row height is 56).
+    act(() => a!.onPanResponderMove(null, { dy: 112 }));
+    expect(screen.getByTestId("row-2").textContent).toBe("A⋮⋮");
+    act(() => a!.onPanResponderRelease(null, { dy: 112 }));
+    expect(onDragChange).toHaveBeenLastCalledWith(false);
+    expect(onReorder).toHaveBeenCalledWith(0, 2);
+    await act(async () => {});
+    expect(screen.getByTestId("row-2").textContent).toBe("A⋮⋮");
+    pans.restore();
+  });
+
+  it("calls the latest onReorder on a drop, not the one from when the order last changed", () => {
+    const pans = capturePans();
+    const calls: number[] = [];
+    function Counting() {
+      const [version, setVersion] = useState(1);
+      return (
+        <>
+          <Text testID="bump" onPress={() => setVersion((v) => v + 1)}>
+            bump
+          </Text>
+          <NativeSortableList
+            label="Weeks"
+            items={["A", "B"]}
+            getKey={(i) => i}
+            getItemLabel={(i) => i}
+            onReorder={() => {
+              calls.push(version);
+            }}
+            renderItem={(item) => <Text>{item}</Text>}
+          />
+        </>
+      );
+    }
+    render(<Counting />);
+    const [a] = pans.rows(2);
+    fireEvent.click(screen.getByTestId("bump"));
+    act(() => a!.onPanResponderGrant());
+    act(() => a!.onPanResponderRelease(null, { dy: 56 }));
+    expect(calls).toEqual([2]);
+    pans.restore();
   });
 });

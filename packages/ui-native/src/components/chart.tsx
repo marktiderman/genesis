@@ -58,6 +58,21 @@ export interface NativeChartContainerProps {
 
 const AXIS_WIDTH = 36;
 
+/**
+ * A config colour the phone can draw. A theme variable the web resolves in CSS (`hsl(var(--primary))`,
+ * `var(--success)`) is read from the native theme's hex map; one the theme doesn't have is the
+ * foreground, so a series is never drawn in nothing. A plain colour (`#e11d48`, `rgb(…)`, `tomato`)
+ * is used as it is.
+ */
+export function nativeColor(color: string, tokens: Readonly<Record<string, string>>): string | undefined {
+  if (!color.includes("var(")) return color;
+  // Bounded and with one way to match, so a long string can't make it backtrack.
+  const name = /var\(\s*--([a-z0-9-]{1,40})\s*\)/i.exec(color.slice(0, 120))?.[1];
+  if (!name) return undefined;
+  const key = name.toLowerCase().replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+  return tokens[key] ?? (key === "primary" ? tokens.primaryText : undefined);
+}
+
 export function NativeChartContainer({
   config,
   data,
@@ -83,7 +98,7 @@ export function NativeChartContainer({
       keys.map((key, i) => {
         const color = chartSeriesColor(config[key], scheme);
         const token = chartTokenOf(color) ?? (color ? undefined : defaultChartToken(i));
-        const hex = token ? (tokens as Record<string, string>)[token.replace("-", "")] : color;
+        const hex = token ? (tokens as Record<string, string>)[token.replace("-", "")] : nativeColor(color!, tokens);
         return { key, label: config[key]?.label ?? key, color: (hex ?? tokens.foreground) as ColorValue };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keys are config's

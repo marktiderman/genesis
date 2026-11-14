@@ -107,8 +107,10 @@ export {
   KEYBOARD_TOOLBAR_HEIGHT,
   KeyboardScrollProvider,
   useKeyboardScroll,
+  useKeyboardSticky,
   useKeyboardToolbar,
   type KeyboardScrollProps,
+  type KeyboardStickyProps,
   type KeyboardToolbarProps,
 } from "./keyboard";
 

@@ -66,8 +66,9 @@ From the outside in:
    development, `keyboardScroll` without `keyboardProvider` logs an error.
    `keyboardToolbar` (`KeyboardToolbar`) adds the previous / next / done bar
    above the keyboard on Genesis's form layouts (`AuthScreen`,
-   `SettingsSubPage`); it needs `keyboardScroll`, and logs an error in
-   development without it.
+   `SettingsSubPage`, `FormPage`); it needs `keyboardScroll`, and logs an error in
+   development without it. `keyboardSticky` (`KeyboardStickyView`) keeps
+   `FormPage`'s Save / Cancel bar above the keyboard; it needs `keyboardScroll` too.
    Then `modules`, the optional native modules your app installed
    (`GenesisModulesProvider` from `@marktiderman/genesis-ui-native`: FlashList,
    expo-image, Reanimated, expo-glass-effect, expo-symbols, a lucide icon

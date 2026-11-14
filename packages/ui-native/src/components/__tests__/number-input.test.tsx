@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { NativeNumberInput } from "../number-input";
 
 function Wrapper(props: { initial?: number; min?: number; max?: number; step?: number }) {
@@ -42,5 +42,26 @@ describe("NativeNumberInput", () => {
     fireEvent.click(screen.getByTestId("qty-increment"));
     expect((screen.getByTestId("qty-field") as HTMLInputElement).value).toBe("5");
     expect(screen.getByTestId("qty-increment").getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("clearing the field keeps the value and shows it again on leaving, so the field never shows a number it doesn't hold", () => {
+    const onChange = vi.fn();
+    render(<NativeNumberInput testID="qty" value={7} onChange={onChange} />);
+    const field = screen.getByTestId("qty-field") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "" } });
+    expect(field.value).toBe("");
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(field);
+    expect(field.value).toBe("7");
+  });
+
+  it("keeps a half-typed number while typing, and commits each whole one", () => {
+    const onChange = vi.fn();
+    render(<NativeNumberInput testID="qty" value={1} onChange={onChange} precision={1} />);
+    const field = screen.getByTestId("qty-field") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "-" } });
+    expect(field.value).toBe("-");
+    fireEvent.change(field, { target: { value: "-2" } });
+    expect(onChange).toHaveBeenLastCalledWith(-2);
   });
 });

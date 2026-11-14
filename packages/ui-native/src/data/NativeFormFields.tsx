@@ -5,7 +5,7 @@
 // fieldArrayLimits, fileProblem, wizardStepFields; `useWizard`, `buildArrayItemDefaults`), so a
 // form definition behaves the same on both platforms.
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { useFieldArray, useWatch, type Control, type FieldErrors, type UseFormReturn } from "react-hook-form";
 import { titleCase, type ResourceFormFieldDef } from "@marktiderman/genesis-core";
@@ -37,8 +37,8 @@ export interface NativeFieldArrayRendererProps {
   control: Control<Record<string, unknown>>;
   action: "create" | "edit";
   watchedValues?: Record<string, unknown>;
-  /** The words. `{n}`: the item's number. */
-  labels?: { item?: string; remove?: string; add?: string };
+  /** The words. `{n}`: the item's number. `remove` is what a screen reader hears, `removeButton` the button's visible word. */
+  labels?: { item?: string; remove?: string; removeButton?: string; add?: string };
 }
 
 /** A field of `type: "array"`: one card per item, each with the field's `arrayFields`, and Add / Remove within `arrayMin` and `arrayMax`. */
@@ -69,7 +69,7 @@ export function NativeFieldArrayRenderer({ field, control, action, watchedValues
               testID={`field-array-${field.key}-${index}-remove`}
               textClassName="text-destructive"
             >
-              Remove
+              {labels.removeButton ?? "Remove"}
             </NativeButton>
           </View>
           {subFields.map((sub) => (
@@ -99,8 +99,8 @@ export interface NativeFileUploadFieldProps {
   disabled?: boolean;
   /** Opens the picker. Default `GenesisModules.filePicker`. */
   pickFiles?: GenesisFilePicker;
-  /** The words. */
-  labels?: { choose?: string; chooseMore?: string; remove?: string; noPicker?: string };
+  /** The words. `pickFailed`: the picker rejected (a permission denied, a download that failed). */
+  labels?: { choose?: string; chooseMore?: string; remove?: string; noPicker?: string; pickFailed?: string };
   error?: string;
   testID?: string;
 }
@@ -113,11 +113,26 @@ export function NativeFileUploadField({ field, value, onChange, disabled, pickFi
   const accept = fieldAccept(field);
   const files = value ? (Array.isArray(value) ? value : [value]) : [];
   const [problems, setProblems] = useState<string[]>([]);
+  // One picker at a time: a second tap while one is open does nothing (iOS throws on a second one).
+  const picking = useRef(false);
+  const [busy, setBusy] = useState(false);
   const label = field.label ?? titleCase(field.key);
 
   const choose = async () => {
-    if (!pick) return;
-    const picked = await pick({ multiple, accept });
+    if (!pick || picking.current) return;
+    picking.current = true;
+    setBusy(true);
+    let picked: NativePickedFile[];
+    try {
+      picked = await pick({ multiple, accept });
+    } catch {
+      // The picker's own error is for developers (E_NO_PERMISSIONS); the person gets a sentence.
+      setProblems([labels.pickFailed ?? "Couldn't open the picker. Check that the app may use your photos and files, then try again."]);
+      return;
+    } finally {
+      picking.current = false;
+      setBusy(false);
+    }
     if (!picked.length) return;
     const bad = picked.map((f) => fileProblem(f, { accept, maxSize: field.maxSize })).filter((p): p is string => p !== null);
     const good = picked.filter((f) => fileProblem(f, { accept, maxSize: field.maxSize }) === null);
@@ -158,7 +173,7 @@ export function NativeFileUploadField({ field, value, onChange, disabled, pickFi
       {multiple || files.length === 0 ? (
         <NativeButton
           variant="outline"
-          disabled={disabled || !pick}
+          disabled={disabled || !pick || busy}
           onPress={() => void choose()}
           testID={`${testID}-choose`}
           accessibilityHint={field.description}

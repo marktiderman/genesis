@@ -3,8 +3,11 @@
  * Carousel (Embla on the web). Each child is a slide, as full width as the carousel.
  *
  * Swiping pages natively (a paging ScrollView); the dots and the previous and next buttons move
- * it too, and a screen reader adjusts it (swipe up or down on it) and hears "Slide 2 of 5". Which
- * slide a scroll rests on comes from genesis-core's `carouselIndex`.
+ * it too. For a screen reader, each part is its own element, as on iOS: the slide shown (its
+ * buttons and text reachable one by one), the previous and next buttons, and the dots as one page
+ * control ("Featured, Slide 2 of 5", swipe up or down to move, like UIPageControl). With neither
+ * dots nor buttons, every slide stays reachable and the pages follow the screen reader's focus.
+ * Which slide a scroll rests on comes from genesis-core's `carouselIndex`.
  *
  * For photos with zoom and a full-screen view, use NativeLightbox; a carousel is for cards,
  * onboarding pages and featured content.
@@ -28,7 +31,7 @@ export interface NativeCarouselProps {
   showDots?: boolean;
   /** Previous and next buttons. Default false (a swipe is the phone's way). */
   showControls?: boolean;
-  /** What the carousel shows, read by screen readers ("Featured classes"). */
+  /** What the carousel shows, read by screen readers with the page control ("Featured classes"). */
   accessibilityLabel?: string;
   /** Words: "Slide {index} of {count}", and the buttons'. */
   labels?: { slide?: string; previous?: string; next?: string };
@@ -63,27 +66,33 @@ export function NativeCarousel({
     if (indexProp === undefined) setIndexState(next);
     onIndexChange?.(next);
   };
+  // Where the slides were last sent (or came to rest), so the effect below doesn't redo a move:
+  // jumping there again without animation would cut short the slide a dot or arrow started.
+  const scrolledTo = useRef<number | null>(null);
+  const scrollTo = (x: number, animated: boolean) => {
+    scrolledTo.current = x;
+    scroll.current?.scrollTo?.({ x, animated });
+  };
   const goTo = (next: number) => {
     const target = Math.max(0, Math.min(count - 1, next));
-    scroll.current?.scrollTo?.({ x: carouselOffset(target, width), animated: true });
+    scrollTo(carouselOffset(target, width), true);
     settle(target);
   };
 
-  // A controlled index that changes from outside scrolls the slides there.
+  // A controlled index that changes from outside (or a new width) scrolls the slides there.
   useEffect(() => {
-    if (width > 0) scroll.current?.scrollTo?.({ x: carouselOffset(index, width), animated: false });
+    if (width <= 0) return;
+    const x = carouselOffset(index, width);
+    if (scrolledTo.current !== x) scrollTo(x, false);
   }, [index, width]);
+
+  // The slides off screen are hidden from screen readers only where something else moves the pages.
+  const navigable = showDots || showControls;
 
   return (
     <View
       testID={testID}
       className={cn("w-full", className)}
-      accessible
-      accessibilityRole="adjustable"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityValue={{ text: slideWords(index) }}
-      accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
-      onAccessibilityAction={(e: { nativeEvent: { actionName: string } }) => goTo(index + (e.nativeEvent.actionName === "increment" ? 1 : -1))}
       onLayout={(e: { nativeEvent?: { layout?: { width?: number } } }) => setWidth(e.nativeEvent?.layout?.width ?? 0)}
     >
       <ScrollView
@@ -92,7 +101,10 @@ export function NativeCarousel({
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(e: { nativeEvent: { contentOffset: { x: number } } }) => settle(carouselIndex(e.nativeEvent.contentOffset.x, width, count))}
+        onMomentumScrollEnd={(e: { nativeEvent: { contentOffset: { x: number } } }) => {
+          scrolledTo.current = e.nativeEvent.contentOffset.x;
+          settle(carouselIndex(e.nativeEvent.contentOffset.x, width, count));
+        }}
       >
         {slides.map((slide, i) => (
           <View
@@ -100,8 +112,8 @@ export function NativeCarousel({
             testID={`${testID}-slide-${i}`}
             style={width ? { width } : undefined}
             className={cn("w-full", slideClassName)}
-            importantForAccessibility={i === index ? "auto" : "no-hide-descendants"}
-            accessibilityElementsHidden={i !== index}
+            importantForAccessibility={!navigable || i === index ? "auto" : "no-hide-descendants"}
+            accessibilityElementsHidden={navigable && i !== index}
           >
             {slide}
           </View>
@@ -113,14 +125,23 @@ export function NativeCarousel({
             <ArrowButton testID={`${testID}-previous`} label={labels.previous ?? "Previous slide"} glyph="‹" disabled={index === 0} onPress={() => goTo(index - 1)} />
           ) : null}
           {showDots ? (
-            <View className="flex-row items-center gap-1.5">
+            // The page control: one adjustable element, as UIPageControl is; the dots are for touch.
+            <View
+              testID={`${testID}-dots`}
+              className="flex-row items-center gap-1.5"
+              accessible
+              accessibilityRole="adjustable"
+              accessibilityLabel={accessibilityLabel}
+              accessibilityValue={{ text: slideWords(index) }}
+              accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+              onAccessibilityAction={(e: { nativeEvent: { actionName: string } }) => goTo(index + (e.nativeEvent.actionName === "increment" ? 1 : -1))}
+            >
               {slides.map((_, i) => (
                 <Pressable
                   key={i}
                   testID={`${testID}-dot-${i}`}
-                  accessibilityRole="button"
+                  accessible={false}
                   accessibilityLabel={slideWords(i)}
-                  accessibilityState={{ selected: i === index }}
                   hitSlop={8}
                   onPress={() => goTo(i)}
                   className={cn("h-2 rounded-full", i === index ? "w-5 bg-primary" : "w-2 bg-muted-foreground/40")}

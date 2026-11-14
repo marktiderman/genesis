@@ -6,7 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WorkspaceScope } from "@marktiderman/genesis-core/hooks";
 import type { Workspace } from "@marktiderman/genesis-core/workspaces";
 import { GenesisModulesProvider } from "../../native-modules";
-import { NativeChartContainer } from "../chart";
+import { NativeChartContainer, nativeColor } from "../chart";
+import { nativeThemeLight } from "@marktiderman/genesis-design-system/tokens";
 import { NativeNoFeaturesFound, NativeNoFeedbackFound, NativeNoSearchResults } from "../empty-state";
 import { NativeFollowUpList, NativeHeadlineNumbers, NativeReadinessChip, NativeResponsesToolbar, NativeSummaryCard } from "../resource";
 import { NativeResourceSettingsPage, NativeSettingsRow, NativeToggleRow } from "../settings-row";
@@ -26,6 +27,30 @@ describe("NativeChartContainer", () => {
     expect(screen.getByRole("image").getAttribute("aria-label")).toBe("Traffic. Visits: Jan 120, Feb 140. Signups: Jan 12, Feb 18.");
     expect(screen.getByTestId("native-chart-bar-1").children).toHaveLength(2);
     expect(screen.getByText("Visits")).toBeTruthy(); // the legend, with two series
+  });
+
+  it("draws a theme colour that isn't a chart token from the native theme, and the foreground for one it lacks", () => {
+    const themed = {
+      a: { label: "A", color: "hsl(var(--success))" },
+      b: { label: "B", color: "var(--not-a-token)" },
+      c: { label: "C", color: "#123456" },
+      d: { label: "D", color: "hsl(var(--primary))" },
+    };
+    render(<NativeChartContainer config={themed} data={[{ month: "Jan", a: 1, b: 2, c: 3, d: 4 }]} xKey="month" />);
+    const fills = Array.from(screen.getByTestId("native-chart-bar-0").children).map(
+      (bar) => (JSON.parse((bar as HTMLElement).dataset.style!) as { backgroundColor: string }).backgroundColor,
+    );
+    expect(fills).toEqual([nativeThemeLight.success, nativeThemeLight.foreground, "#123456", nativeThemeLight.primaryText]);
+  });
+
+  it("reads a theme variable in linear time, however long the string", () => {
+    const evil = ["var(" + " ".repeat(50_000) + "--x", "hsl(var(--" + "a-".repeat(25_000) + ")", "var(--" + "-".repeat(50_000)];
+    nativeColor("var(--chart-1)", nativeThemeLight);
+    for (const color of evil) {
+      const start = performance.now();
+      expect(nativeColor(color, nativeThemeLight)).toBeUndefined();
+      expect(performance.now() - start).toBeLessThan(50);
+    }
   });
 
   it("draws lines with the SVG module, and the points without it", () => {
@@ -148,6 +173,46 @@ describe("settings rows", () => {
   });
 });
 
+describe("Fragment children", () => {
+  it("counts each row inside a Fragment: a stat tile each, and dividers between settings rows", () => {
+    render(
+      <>
+        <DashboardPage
+          title="Today"
+          stats={
+            <>
+              <Text>one</Text>
+              {false}
+              <>
+                <Text>two</Text>
+                <Text>three</Text>
+              </>
+            </>
+          }
+        />
+        <NativeResourceSettingsPage
+          sections={[
+            {
+              id: "general",
+              title: "General",
+              content: (
+                <>
+                  <NativeToggleRow label="Open" rowTestID="r1" />
+                  <NativeToggleRow label="Public" rowTestID="r2" />
+                  <NativeToggleRow label="Listed" rowTestID="r3" />
+                </>
+              ),
+            },
+          ]}
+        />
+      </>,
+    );
+    expect(screen.getByTestId("dashboard-page-stats").children).toHaveLength(3);
+    const section = screen.getByTestId("resource-settings-page-section-general");
+    expect(section.querySelectorAll(".h-px.bg-border")).toHaveLength(2);
+  });
+});
+
 describe("empty-state presets", () => {
   it("say the web's words", () => {
     const onClear = vi.fn();
@@ -218,6 +283,12 @@ describe("NativeWorkspaceSwitcher", () => {
     fireEvent.click(trigger);
     expect(await screen.findByText("Organizations")).toBeTruthy();
     expect(screen.getByLabelText("3 new")).toBeTruthy();
+    // Rows are radios in their group, the current one checked, and a row reads its badge.
+    const acme = screen.getByTestId("workspace-switcher-option-acme");
+    expect(acme.getAttribute("role")).toBe("radio");
+    expect(acme.getAttribute("aria-checked")).toBe("true");
+    expect(acme.getAttribute("aria-label")).toBe("Acme Studio, 3 new");
+    expect(screen.getByTestId("workspace-switcher-option-west").getAttribute("aria-checked")).toBe("false");
     fireEvent.click(screen.getByTestId("workspace-switcher-option-west"));
     expect(onSelect).toHaveBeenCalledWith(workspaces[2], "/o/west/classes");
   });

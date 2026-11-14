@@ -224,7 +224,12 @@ export interface NativePickedFile {
   size?: number | undefined;
 }
 
-/** Opens the system's picker; resolves to what was picked, `[]` when cancelled. */
+/**
+ * Opens the system's picker; resolves to what was picked, `[]` when the person cancelled. Reject
+ * when it can't pick (a permission denied, an iCloud download that failed): the field shows its
+ * `labels.pickFailed` sentence, never the raw error. If your app explains a denial itself (with a
+ * link to Settings, say), do that and resolve `[]`.
+ */
 export type GenesisFilePicker = (options: { multiple: boolean; accept?: string | undefined }) => Promise<NativePickedFile[]>;
 
 /** The react-native-svg parts NativeChartContainer draws with. */

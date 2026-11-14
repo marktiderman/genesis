@@ -5,13 +5,18 @@
  * and placeholder colour.
  *
  * PasswordToggleField — a password field with a Show / Hide button that keeps the typed text:
- * the twin of genesis-ui's PasswordToggleField, on the same input group.
+ * the twin of genesis-ui's PasswordToggleField, on the same input group. Toggling keeps the cursor
+ * where it was (Android otherwise moves it to the start). On iOS, the system clears a hidden
+ * password field when typing resumes after it was shown and hidden again; that rule is the OS's
+ * (it guards against a shoulder-surfed edit), and the field follows it.
  *
  * @stability Beta
  */
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Pressable, Text } from "react-native";
 import { NativeInput, type NativeInputProps } from "./input";
+
+type Selection = { start: number; end: number };
 
 export interface NativeInputGroupProps extends Omit<NativeInputProps, "leading" | "trailing"> {
   /** Before the text: an icon, "$", "https://". */
@@ -42,11 +47,17 @@ export function NativePasswordToggleField({
   onVisibleChange,
   labels = {},
   testID,
+  onSelectionChange,
+  onChangeText,
   ...props
 }: NativePasswordToggleFieldProps) {
   const [visibleState, setVisibleState] = useState(defaultVisible);
   const visible = visibleProp ?? visibleState;
+  // The cursor, kept so a toggle can put it back; held only until the person moves it or types.
+  const selection = useRef<Selection | null>(null);
+  const [restore, setRestore] = useState<Selection | null>(null);
   const toggle = () => {
+    if (selection.current) setRestore(selection.current);
     if (visibleProp === undefined) setVisibleState(!visible);
     onVisibleChange?.(!visible);
   };
@@ -60,12 +71,22 @@ export function NativePasswordToggleField({
       {...props}
       testID={id}
       secureTextEntry={!visible}
+      {...(restore ? { selection: restore } : {})}
+      onSelectionChange={(e) => {
+        selection.current = e.nativeEvent.selection;
+        if (restore && (e.nativeEvent.selection.start !== restore.start || e.nativeEvent.selection.end !== restore.end)) setRestore(null);
+        onSelectionChange?.(e);
+      }}
+      onChangeText={(text) => {
+        if (restore) setRestore(null);
+        onChangeText?.(text);
+      }}
       trailing={
         <Pressable
           testID={`${id}-toggle`}
           accessibilityRole="button"
+          // A plain button whose name says what it does next; no checked state, which VoiceOver reads as a checkbox's.
           accessibilityLabel={visible ? (labels.hideAccessible ?? "Hide password") : (labels.showAccessible ?? "Show password")}
-          accessibilityState={{ checked: visible }}
           onPress={toggle}
           hitSlop={8}
           className="min-h-[36px] min-w-[44px] items-center justify-center px-2"

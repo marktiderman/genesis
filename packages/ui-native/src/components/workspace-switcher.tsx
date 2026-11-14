@@ -174,7 +174,10 @@ export function NativeWorkspaceSwitcher<W extends Workspace = Workspace>({
                       title={w.label}
                       subtitle={w.description}
                       leading={picture(w, 32)}
-                      accessibilityState={{ selected }}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selected }}
+                      // One element: its badge's words go in its name, or they're never read.
+                      accessibilityLabel={[w.label, w.description, badge !== null ? badgeLabel(w, badge) : null].filter(Boolean).join(", ")}
                       trailing={
                         <View className="flex-row items-center gap-2">
                           {badge !== null ? (

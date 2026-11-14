@@ -11,10 +11,13 @@
  * @stability Beta
  */
 import type { ReactNode } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { flattenChildren } from "../components/flatten-children";
 import { NativeImage } from "../components/image";
 import { NativeInlineAlert } from "../components/inline-alert";
 import { cn } from "../utils";
+import { KEYBOARD_TOOLBAR_HEIGHT, useKeyboardScroll, useKeyboardSticky, useKeyboardToolbar } from "./keyboard";
 import { ScreenContainer, type ScreenContainerProps } from "./screen-container";
 
 type ContainerProps = Pick<ScreenContainerProps, "onRefresh" | "refreshing" | "loading" | "loadingLabel" | "safeAreaEdges" | "className" | "contentClassName">;
@@ -63,7 +66,7 @@ export interface DashboardPageProps extends PageTitleProps, ContainerProps {
 }
 
 export function DashboardPage({ title, subtitle, actions, hideTitle, stats, statColumns = 2, children, testID = "dashboard-page", ...container }: DashboardPageProps) {
-  const tiles = (Array.isArray(stats) ? stats : stats ? [stats] : []).flat();
+  const tiles = flattenChildren(stats);
   const basis = statColumns === 1 ? "w-full" : statColumns === 3 ? "min-w-[30%]" : "min-w-[45%]";
   return (
     <ScreenContainer {...container} scroll testID={testID} contentClassName={cn("gap-6 p-4", container.contentClassName)}>
@@ -72,7 +75,7 @@ export function DashboardPage({ title, subtitle, actions, hideTitle, stats, stat
         <View testID={`${testID}-stats`} className="flex-row flex-wrap gap-3">
           {tiles.map((tile, i) => (
             <View key={i} className={cn("flex-1", basis)}>
-              {tile as ReactNode}
+              {tile}
             </View>
           ))}
         </View>
@@ -159,39 +162,89 @@ export interface FormPageProps extends ContainerProps {
   description?: ReactNode;
   /** A summary of what to fix, over the fields. */
   errors?: ReactNode;
-  /** The Save / Cancel row, kept at the bottom above the keyboard. */
+  /**
+   * The Save / Cancel row. It stays above the keyboard: through the app's keyboard-aware scroll
+   * view and `KeyboardStickyView` when it gave them (`KeyboardScrollProvider`), else in a
+   * KeyboardAvoidingView. With a keyboard-aware scroll view but no sticky view, it ends the form.
+   */
   actions?: ReactNode;
   hideTitle?: boolean;
   children?: ReactNode;
   testID?: string;
 }
 
+/** FormPage's action bar: a row of buttons with its padding, kept clear of the focused field. */
+const FORM_ACTIONS_HEIGHT = 64;
+
 export function FormPage({ title, description, errors, actions, hideTitle, children, testID = "form-page", onRefresh: _onRefresh, refreshing: _refreshing, ...container }: FormPageProps) {
-  return (
-    <ScreenContainer testID={testID} {...container}>
-      <ScrollView
-        testID={`${testID}-scroll`}
-        className="flex-1"
-        contentContainerClassName={cn("gap-6 p-4", container.contentClassName)}
-        keyboardShouldPersistTaps="handled"
-        automaticallyAdjustKeyboardInsets
-        contentInsetAdjustmentBehavior="automatic"
-      >
-        <PageTitle title={title} subtitle={description} hideTitle={hideTitle} testID={testID} />
-        {errors ? (
-          <NativeInlineAlert variant="destructive" testID={`${testID}-errors`}>
-            {text(errors, "text-sm text-foreground")}
-          </NativeInlineAlert>
-        ) : null}
-        <View testID={`${testID}-body`} className="gap-6">
-          {children}
-        </View>
-      </ScrollView>
-      {actions ? (
-        <View testID={`${testID}-actions`} className="flex-row flex-wrap items-center justify-end gap-2 border-t border-border bg-background px-4 py-3">
-          {actions}
-        </View>
+  // The package's keyboard handling, as AuthScreen and SettingsSubPage use it.
+  const KeyboardScroll = useKeyboardScroll();
+  const KeyboardToolbar = useKeyboardToolbar();
+  const Sticky = useKeyboardSticky();
+  const insets = useSafeAreaInsets();
+  // The padding is the form's own: ScreenContainer's body gets none, so it isn't doubled.
+  const { contentClassName, ...outer } = container;
+  const form = (
+    <>
+      <PageTitle title={title} subtitle={description} hideTitle={hideTitle} testID={testID} />
+      {errors ? (
+        <NativeInlineAlert variant="destructive" testID={`${testID}-errors`}>
+          {text(errors, "text-sm text-foreground")}
+        </NativeInlineAlert>
       ) : null}
-    </ScreenContainer>
+      <View testID={`${testID}-fields`} className="gap-6">
+        {children}
+      </View>
+    </>
+  );
+  const bar = (inFlow: boolean) =>
+    actions ? (
+      <View
+        testID={`${testID}-actions`}
+        className={cn("flex-row flex-wrap items-center justify-end gap-2", !inFlow && "border-t border-border bg-background px-4 py-3")}
+      >
+        {actions}
+      </View>
+    ) : null;
+
+  if (KeyboardScroll) {
+    const toolbar = KeyboardToolbar ? KEYBOARD_TOOLBAR_HEIGHT : 0;
+    const sticky = Boolean(Sticky && actions);
+    return (
+      <ScreenContainer testID={testID} {...outer}>
+        <KeyboardScroll
+          testID={`${testID}-scroll`}
+          keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="automatic"
+          bottomOffset={24 + toolbar + (sticky ? FORM_ACTIONS_HEIGHT : 0)}
+        >
+          <View className={cn("gap-6 p-4", contentClassName)}>
+            {form}
+            {sticky ? null : bar(true)}
+          </View>
+        </KeyboardScroll>
+        {sticky && Sticky ? (
+          // Open, the bar meets the keyboard (or its toolbar) rather than floating the home indicator's height above it.
+          <Sticky offset={{ closed: 0, opened: insets.bottom - toolbar }}>{bar(false)}</Sticky>
+        ) : null}
+        {KeyboardToolbar ? <KeyboardToolbar /> : null}
+      </ScreenContainer>
+    );
+  }
+  return (
+    <KeyboardAvoidingView testID={`${testID}-kav`} style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <ScreenContainer testID={testID} {...outer}>
+        <ScrollView
+          testID={`${testID}-scroll`}
+          className="flex-1"
+          contentContainerClassName={cn("gap-6 p-4", contentClassName)}
+          keyboardShouldPersistTaps="handled"
+          contentInsetAdjustmentBehavior="automatic"
+        >
+          {form}
+        </ScrollView>
+        {bar(false)}
+      </ScreenContainer>
+    </KeyboardAvoidingView>
   );
 }

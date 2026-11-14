@@ -15,6 +15,7 @@ import { GenesisModulesProvider, type NativePickedFile } from "../../native-modu
 import { NativeCustomView } from "../NativeCustomView";
 import { NativeFieldArrayRenderer, NativeFileUploadField, NativeRelationField, NativeWizardForm } from "../NativeFormFields";
 import { NativeRecordPeek } from "../NativeRecordPeek";
+import { NativeResourceFormFieldRenderer } from "../NativeResourceFormField";
 
 type Person = { id: string; full_name: string };
 const people = defineResource<Person>()({
@@ -69,6 +70,16 @@ describe("NativeFieldArrayRenderer", () => {
     fireEvent.click(screen.getByTestId("field-array-contacts-0-remove"));
     expect(screen.queryByTestId("field-array-contacts-1")).toBeNull();
   });
+  it("takes the Remove button's visible word from labels", () => {
+    function Translated() {
+      const form = useForm<Record<string, unknown>>({ defaultValues: { contacts: [{ name: "" }] } });
+      return <NativeFieldArrayRenderer field={field} control={form.control} action="create" labels={{ removeButton: "Entfernen", remove: "Eintrag {n} entfernen" }} />;
+    }
+    render(<Translated />);
+    const remove = screen.getByTestId("field-array-contacts-0-remove");
+    expect(remove.textContent).toBe("Entfernen");
+    expect(remove.getAttribute("aria-label")).toBe("Eintrag 1 entfernen");
+  });
 });
 
 describe("NativeFileUploadField", () => {
@@ -98,6 +109,34 @@ describe("NativeFileUploadField", () => {
     expect(screen.getByText('"c.jpg" exceeds 1000 B limit')).toBeTruthy();
     fireEvent.click(screen.getByTestId("file-upload-photo-remove-0"));
     expect(screen.queryByTestId("file-upload-photo-file-0")).toBeNull();
+  })
+  it("says so when the picker rejects (a permission denied), and opens one picker at a time", async () => {
+    let reject!: (e: Error) => void;
+    const filePicker = vi.fn(
+      () =>
+        new Promise<NativePickedFile[]>((_, no) => {
+          reject = no;
+        }),
+    );
+    render(
+      <GenesisModulesProvider modules={{ filePicker }}>
+        <Field />
+      </GenesisModulesProvider>,
+    );
+    const choose = screen.getByTestId("file-upload-photo-choose");
+    fireEvent.click(choose);
+    fireEvent.click(choose);
+    expect(filePicker).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      reject(Object.assign(new Error("User denied access"), { code: "E_NO_PERMISSIONS" }));
+    });
+    expect(screen.getByRole("alert").textContent).toBe("Couldn't open the picker. Check that the app may use your photos and files, then try again.");
+    // The button is back for another try.
+    filePicker.mockImplementationOnce(async () => []);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("file-upload-photo-choose"));
+    });
+    expect(filePicker).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -109,6 +148,65 @@ describe("NativeRelationField", () => {
     fireEvent.click(screen.getByTestId("relation-owner_id-trigger"));
     fireEvent.click(await screen.findByTestId("relation-owner_id-option-grace"));
     expect(onChange).toHaveBeenCalledWith("grace");
+  });
+});
+
+describe("NativeResourceFormFieldRenderer", () => {
+  const fields: ResourceFormFieldDef[] = [
+    { key: "contacts", label: "Contacts", type: "array", arrayFields: [{ key: "name", label: "Name" }] },
+    { key: "doc", label: "Document", type: "file" },
+    { key: "photo", label: "Photo", type: "image" },
+    { key: "owner_id", label: "Owner", type: "relation", relation: { resource: "people", labelField: "full_name" } },
+  ];
+  let values: Record<string, unknown> = {};
+  function Form() {
+    const form = useForm<Record<string, unknown>>({ defaultValues: { contacts: [], doc: null, photo: null, owner_id: "" } });
+    values = form.watch();
+    return (
+      <>
+        {fields.map((f) => (
+          <NativeResourceFormFieldRenderer key={f.key} field={f} control={form.control} action="create" />
+        ))}
+      </>
+    );
+  }
+
+  it("draws array, file, image and relation fields with their pieces, writing to the form", async () => {
+    const filePicker = vi.fn(async ({ accept }: { accept?: string }) => [
+      accept === "image/*" ? { uri: "file://p.jpg", name: "p.jpg", type: "image/jpeg", size: 9 } : { uri: "file://d.pdf", name: "d.pdf", type: "application/pdf", size: 4 },
+    ]);
+    const Wrapper = wrap();
+    render(
+      <Wrapper>
+        <GenesisModulesProvider modules={{ filePicker }}>
+          <Form />
+        </GenesisModulesProvider>
+      </Wrapper>,
+    );
+    // Array: one card per item.
+    fireEvent.click(screen.getByTestId("field-array-contacts-add"));
+    expect(screen.getByTestId("field-array-contacts-0")).toBeTruthy();
+    // File and image: the picker, asked for the field's types.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("file-upload-doc-choose"));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("file-upload-photo-choose"));
+    });
+    expect(filePicker).toHaveBeenCalledWith({ multiple: false, accept: undefined });
+    expect(filePicker).toHaveBeenCalledWith({ multiple: false, accept: "image/*" });
+    expect(screen.getByTestId("file-upload-doc-file-0").textContent).toContain("d.pdf");
+    expect(screen.getByTestId("file-upload-photo-file-0").textContent).toContain("p.jpg");
+    // Relation: the linked rows through the provider.
+    fireEvent.click(screen.getByTestId("relation-owner_id-trigger"));
+    fireEvent.click(await screen.findByTestId("relation-owner_id-option-ada"));
+    await act(async () => {});
+    expect(values).toMatchObject({
+      contacts: [{ name: "" }],
+      doc: { name: "d.pdf" },
+      photo: { name: "p.jpg" },
+      owner_id: "ada",
+    });
   });
 });
 
@@ -184,8 +282,69 @@ describe("NativeRecordPeek", () => {
     expect(onEdit).toHaveBeenCalledWith(PEOPLE[0]);
     fireEvent.click(screen.getByTestId("record-peek-delete"));
     const buttons = alert.mock.calls[0]![2] as { text: string; onPress?: () => void }[];
-    buttons.find((b) => b.text === "Delete")!.onPress!();
+    await act(async () => {
+      buttons.find((b) => b.text === "Delete")!.onPress!();
+    });
     expect(onDelete).toHaveBeenCalledWith(PEOPLE[0]);
     expect(onClose).toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
+  it("hides what the screen's can turns off and explains what the view's guard refuses", async () => {
+    const guarded = defineRecordView(
+      defineView(people, { can: { delete: () => "Only owners delete people." } }),
+      { sections: [{ id: "about", label: "About" }] },
+    );
+    const onDelete = vi.fn();
+    const alert = vi.spyOn(Alert, "alert").mockImplementation(() => {});
+    render(
+      <NativeRecordPeek
+        view={guarded}
+        row={PEOPLE[0]!}
+        open
+        onClose={() => {}}
+        onEdit={() => {}}
+        onDelete={onDelete}
+        can={(action) => action !== "update"}
+      />,
+      { wrapper: wrap() },
+    );
+    await screen.findByTestId("record-peek-page");
+    expect(screen.queryByTestId("record-peek-edit")).toBeNull();
+    fireEvent.click(screen.getByTestId("record-peek-delete"));
+    // The guard's reason, not a confirm: no second step offers to delete.
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(alert.mock.calls[0]![1]).toBe("Only owners delete people.");
+    expect(alert.mock.calls[0]![2]).toBeUndefined();
+    expect(onDelete).not.toHaveBeenCalled();
+    alert.mockRestore();
+  });
+
+  it("confirms once in the bin's words, and keeps the sheet open with the refusal when the delete fails", async () => {
+    const onClose = vi.fn();
+    const refused = Object.assign(new Error("You can't delete Ada."), { name: "DataWriteError" });
+    const onDelete = vi.fn(async () => {
+      throw refused;
+    });
+    const alert = vi.spyOn(Alert, "alert").mockImplementation(() => {});
+    const capabilities = vi.fn(async () => ({ softDelete: true })) as unknown as DataProvider["capabilities"];
+    render(<NativeRecordPeek view={recordView} row={PEOPLE[0]!} open onClose={onClose} onDelete={onDelete} />, {
+      wrapper: wrap(PEOPLE, { capabilities }),
+    });
+    await screen.findByTestId("record-peek-page");
+    await act(async () => {});
+    expect(screen.getByTestId("record-peek-delete").textContent).toBe("Move to Bin");
+    fireEvent.click(screen.getByTestId("record-peek-delete"));
+    expect(alert.mock.calls[0]![0]).toBe("Move “Ada Lovelace” to the bin?");
+    expect(alert.mock.calls[0]![1]).toBe("You can restore it from the bin.");
+    const buttons = alert.mock.calls[0]![2] as { text: string; onPress?: () => void }[];
+    await act(async () => {
+      buttons.find((b) => b.text === "Move to Bin")!.onPress!();
+    });
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledTimes(2);
+    expect(alert.mock.calls[1]![1]).toBe("You can't delete Ada.");
+    alert.mockRestore();
   });
 });

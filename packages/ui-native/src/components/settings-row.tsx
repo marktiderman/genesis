@@ -15,6 +15,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { NativeCard } from "./card";
+import { flattenChildren } from "./flatten-children";
 import { NativeListItem, NativeListItemDivider } from "./list-item";
 import { NativeSwitch } from "./switch";
 import { cn } from "../utils";
@@ -179,13 +180,13 @@ export function NativeResourceSettingsPage({ sections, navLabel = "On this page"
 
 /** The section's rows with a line between each, as the web's divided card. */
 function SectionRows({ children }: { children: ReactNode }) {
-  const rows = (Array.isArray(children) ? children : [children]).flat().filter((c) => c !== null && c !== undefined && c !== false);
+  const rows = flattenChildren(children);
   return (
     <View>
       {rows.map((row, i) => (
         <View key={i}>
           {i > 0 ? <NativeListItemDivider /> : null}
-          {row as ReactNode}
+          {row}
         </View>
       ))}
     </View>

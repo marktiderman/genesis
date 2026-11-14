@@ -4,7 +4,9 @@
  * `onReorder(from, to, { key })`.
  *
  * Every way to move an item does the same thing, so dragging is never the only one:
- * - drag the row's handle (`context.handle`, render it in the row);
+ * - drag the row's handle (`context.handle`, render it in the row). Once a drag starts it keeps
+ *   the gesture (a parent ScrollView can't take it over); `onDragChange` tells the screen, so it
+ *   can also stop its scroll view (`scrollEnabled={!dragging}`), which iOS needs for a native one;
  * - long press the row for a Move menu (up, down, to top, to bottom; `moveMenu`, on by default);
  * - a screen reader's actions on the row (swipe up or down on it: the same four moves);
  * - `moveUp` / `moveDown` / `moveTo` from the render context, for buttons of your own.
@@ -61,6 +63,8 @@ export interface NativeSortableListProps<T> {
   disabled?: boolean;
   /** The Move menu on a long press. Default true. */
   moveMenu?: boolean;
+  /** A drag started (`true`) or ended (`false`): stop the screen's ScrollView while it runs. */
+  onDragChange?: (dragging: boolean) => void;
   labels?: NativeSortableListLabels;
   className?: string;
   itemClassName?: string;
@@ -89,6 +93,7 @@ export function NativeSortableList<T>({
   label,
   disabled = false,
   moveMenu = true,
+  onDragChange,
   labels: labelsProp,
   className,
   itemClassName,
@@ -137,6 +142,11 @@ export function NativeSortableList<T>({
       });
   };
 
+  // The responders are built once per order; what they call is read at release time, so a screen's
+  // `onReorder` that closes over newer state (a mutation's latest value) is the one that runs.
+  const latest = useRef({ move, onDragChange });
+  latest.current = { move, onDragChange };
+
   const responders = useMemo(() => {
     const map = new Map<string, ReturnType<typeof PanResponder.create>>();
     for (const [i, key] of baseKeys.entries()) {
@@ -145,13 +155,24 @@ export function NativeSortableList<T>({
         PanResponder.create({
           onStartShouldSetPanResponder: () => !disabled && !pending.current,
           onMoveShouldSetPanResponder: () => !disabled && !pending.current,
-          onPanResponderGrant: () => setDrag({ key, from: i, dy: 0 }),
+          // A drag in progress keeps the gesture: a parent ScrollView asking for it is refused, and
+          // on Android the native scroll is blocked while the handle holds it.
+          onPanResponderTerminationRequest: () => false,
+          onShouldBlockNativeResponder: () => true,
+          onPanResponderGrant: () => {
+            setDrag({ key, from: i, dy: 0 });
+            latest.current.onDragChange?.(true);
+          },
           onPanResponderMove: (_e, g) => setDrag({ key, from: i, dy: g.dy }),
           onPanResponderRelease: (_e, g) => {
             setDrag(null);
-            move(key, dropIndex(i, g.dy, rowHeight.current, baseKeys.length));
+            latest.current.onDragChange?.(false);
+            latest.current.move(key, dropIndex(i, g.dy, rowHeight.current, baseKeys.length));
           },
-          onPanResponderTerminate: () => setDrag(null),
+          onPanResponderTerminate: () => {
+            setDrag(null);
+            latest.current.onDragChange?.(false);
+          },
         }),
       );
     }

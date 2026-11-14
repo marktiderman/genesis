@@ -11,7 +11,7 @@
  *
  * @stability Beta
  */
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { canStepNumber, clampNumber, parseNumberInput, stepNumber } from "@marktiderman/genesis-core/headless";
 import { cn } from "../utils";
@@ -55,6 +55,10 @@ export function NativeNumberInput({
     [max, min, onChange]
   );
 
+  // What's typed, while it isn't a number yet ("", "-", "1."): the field shows it and the value
+  // stays; leaving the field puts the value's own text back, so the two never disagree (as on the web).
+  const [draft, setDraft] = useState<string | null>(null);
+
   const decBlocked = disabled || !canStepNumber(value, -1, { min, max });
   const incBlocked = disabled || !canStepNumber(value, 1, { min, max });
 
@@ -73,7 +77,10 @@ export function NativeNumberInput({
         accessibilityRole="button"
         accessibilityLabel="Decrement"
         disabled={decBlocked}
-        onPress={() => setValue(stepNumber(value, -1, { step, min, max }))}
+        onPress={() => {
+          setDraft(null);
+          setValue(stepNumber(value, -1, { step, min, max }));
+        }}
         className={cn(
           "min-h-[44px] min-w-[44px] items-center justify-center px-3",
           decBlocked && "opacity-40"
@@ -83,14 +90,16 @@ export function NativeNumberInput({
       </Pressable>
       <TextInput
         testID={testID ? `${testID}-field` : "number-input-field"}
-        value={value.toFixed(precision)}
+        value={draft ?? value.toFixed(precision)}
         editable={!disabled && !readOnlyInput}
         keyboardType="numeric"
         accessibilityLabel="Numeric value"
         onChangeText={(t) => {
+          setDraft(t);
           const parsed = parseNumberInput(t);
           if (parsed !== null) setValue(parsed);
         }}
+        onBlur={() => setDraft(null)}
         className={cn(
           "min-w-[64px] flex-1 border-x border-input bg-background text-center text-base text-foreground",
           inputClassName
@@ -101,7 +110,10 @@ export function NativeNumberInput({
         accessibilityRole="button"
         accessibilityLabel="Increment"
         disabled={incBlocked}
-        onPress={() => setValue(stepNumber(value, 1, { step, min, max }))}
+        onPress={() => {
+          setDraft(null);
+          setValue(stepNumber(value, 1, { step, min, max }));
+        }}
         className={cn(
           "min-h-[44px] min-w-[44px] items-center justify-center px-3",
           incBlocked && "opacity-40"

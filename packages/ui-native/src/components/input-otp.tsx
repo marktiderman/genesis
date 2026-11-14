@@ -1,10 +1,14 @@
 /**
  * InputOTP — a one-time code in boxes: the twin of genesis-ui's InputOTP.
  *
- * One real text field sits over the boxes (invisible), so the system's code autofill (iOS's
- * "From Messages", Android's SMS retriever with `autoComplete="sms-otp"`), paste and the screen
- * reader all work on a single field; the boxes only draw what it holds. The characters it keeps
- * and the caret's box come from genesis-core's `sanitizeOtp` and `otpSlots`, as on the web.
+ * One real text field sits over the boxes, so the system's code autofill (iOS's "From Messages",
+ * Android's SMS retriever with `autoComplete="sms-otp"`), paste and the screen reader all work on
+ * a single field; the boxes only draw what it holds and are hidden from screen readers. The field
+ * is all but invisible (transparent text, no caret, 1% opacity) rather than at 0 opacity, which
+ * iOS drops from VoiceOver; it is the one labelled element, and a screen reader reads its text.
+ * The characters it keeps and the caret's box come from genesis-core's `sanitizeOtp` and
+ * `otpSlots`, as on the web. The field has no native length cap: `sanitizeOtp` keeps the first
+ * `maxLength` characters after it strips spaces and dashes, so a pasted "123-456" stays whole.
  *
  * @stability Beta
  */
@@ -28,9 +32,14 @@ export interface NativeInputOTPProps {
   autoFocus?: boolean;
   /** Read by screen readers. Default "One-time code". */
   accessibilityLabel?: string;
+  /** Read after the label. Default "{maxLength} characters". */
+  accessibilityHint?: string;
   className?: string;
   testID?: string;
 }
+
+/** iOS leaves views at or under 0.01 opacity out of VoiceOver; just above it, the field stays reachable. */
+const HIDDEN_BUT_READABLE = 0.011;
 
 export function NativeInputOTP({
   maxLength = 6,
@@ -42,6 +51,7 @@ export function NativeInputOTP({
   disabled,
   autoFocus,
   accessibilityLabel = "One-time code",
+  accessibilityHint,
   className,
   testID = "native-input-otp",
 }: NativeInputOTPProps) {
@@ -89,7 +99,6 @@ export function NativeInputOTP({
         onChangeText={change}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
-        maxLength={maxLength}
         editable={!disabled}
         autoFocus={autoFocus}
         keyboardType={digits ? "number-pad" : "default"}
@@ -97,9 +106,10 @@ export function NativeInputOTP({
         textContentType="oneTimeCode"
         autoComplete={digits ? "sms-otp" : "one-time-code"}
         accessibilityLabel={accessibilityLabel}
-        accessibilityHint={`${maxLength} characters`}
+        accessibilityHint={accessibilityHint ?? `${maxLength} characters`}
         caretHidden
-        className="absolute inset-0 text-transparent opacity-0"
+        className="absolute inset-0 text-transparent"
+        style={{ opacity: HIDDEN_BUT_READABLE }}
       />
     </Pressable>
   );
