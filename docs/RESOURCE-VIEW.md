@@ -558,8 +558,11 @@ export const eventsView = defineView(contracts["public.events"], {
   `durationUnit` (`minutes`, the default, `hours` or `days`) give each row an end: its start
   plus the duration. A timestamp ends that long after it starts; a date runs that many days
   (rounded up, at least one). A row whose `endField` has a value keeps it; a row with no
-  duration shows on its start alone. The window is still asked for by start only, so a row that
-  began before the window and runs into it isn't loaded: give it an `endField` when that matters.
+  duration shows on its start alone. `maxDuration` (in `durationUnit`s, the longest a row runs)
+  reads the rows that started that long before the window too, those with no end of their own,
+  so one that began before the window and runs into it is drawn; without it such a row isn't
+  loaded, and the calendar warns once. `defineView` refuses a `maxDuration` that isn't a number
+  above 0 or has no `durationField`.
 - **Layouts.** `month` (the month's whole weeks), `weeks` (1 to 4 weeks from the anchor's week, 2
   by default), `agenda` (the same weeks day by day) and `lanes` (a row per lane, a column per day).
 - **The toolbar.** `weeksOptions` (`[1, 2, 4]`) adds a weeks switch beside `layouts`' switch, for
@@ -1121,7 +1124,16 @@ export const tasksView = defineView(tasksContract, {
   paged through the provider by core's `exportCsv` (formula-safe), with values in words unless the
   export block's `raw` says otherwise, up to its `maxRows`.
 - **Rows the screen holds.** `rows` draws rows the screen already read, searched, sorted and paged
-  in the browser, with nothing fetched; writes stay the screen's.
+  in the browser, with nothing fetched; writes stay the screen's. The view's declared segments
+  and filters aren't drawn over them (they'd narrow nothing), only the screen's own `filters` and
+  `filterSlot`. Only the table, list, grid and gallery draw them: `type="board"`, `"calendar"`,
+  `"inbox"`, `"sheet"` or an app's type with `rows` throws, and the switcher offers none of those.
+- **Defaults and the URL.** A filter's `default` holds on a list kept in the URL too: a filter at
+  its default stays out of the address, one the person cleared is written empty (`f.status=`), and
+  Clear goes back to the defaults.
+- **Custom layouts.** `useResourceViewProps` returns the page's props with an action's
+  confirmation in `dialogs`, which `<ResourcePage>` draws, so a screen that renders its own page
+  keeps the confirm step.
 
 One list state holds all of this on every platform: core's `useListState` (the URL both ways,
 text filters after a pause, filters on the viewer's clock), with `useSegmentCounts` for the
@@ -1226,8 +1238,8 @@ registerViewType(timelineType); // once, at start-up
   naming the registered ones.
 - The doctor's `ui/lists-use-resource-view` rule accepts a file that defines or registers a view
   type: its lists are the type's own drawing.
-- On the phone, `NativeResourceView` takes `type` too: `list`, `grid` or `gallery`; its board and
-  calendar aren't built yet.
+- On the phone, `NativeResourceView` takes `type` too: `list`, `grid`, `gallery`, `inbox`,
+  `board` and `calendar` ([Native](#native)).
 
 ## Record pages
 

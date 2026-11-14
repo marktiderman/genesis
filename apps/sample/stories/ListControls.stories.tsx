@@ -57,7 +57,7 @@ function Controls() {
   });
   return (
     <div className="flex flex-col gap-3">
-      <ViewSegments view={dealsView} value={state.segment} onChange={state.setSegment} baseFilters={[]} />
+      <ViewSegments view={dealsView} value={state.segment} onChange={state.setSegment} baseFilters={state.valueFilters} />
       <div className="flex flex-wrap items-center gap-2">
         <ViewFilterControls view={dealsView} state={state} />
         <span className="ml-auto">

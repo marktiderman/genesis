@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, waitFor, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { createMemoryStorageAdapter, defineResource } from "@marktiderman/genesis-core";
 import { createLocalSavedViewStore, defineView } from "@marktiderman/genesis-core/resource-view";
 import { ResourceView, ResourceViewDefaultsProvider } from "@marktiderman/genesis-ui/data";
@@ -51,7 +51,18 @@ const seed = (): Task[] => [
 ];
 
 function WithTasks({ children }: { children: ReactNode }) {
-  const [provider] = useState(() => createMockProvider({ tasks: seed() }));
+  // The in-memory provider runs no actions of its own: Finish moves the task to done here, as an
+  // app's provider or `onAction` would, so the row menu and the bulk bar offer it.
+  const [provider] = useState(() => {
+    const base = createMockProvider({ tasks: seed() });
+    return {
+      ...base,
+      runAction: async (resource: string, { id, action }: { id: string | number; action: string }) => {
+        if (action === "finish") await base.update(resource, { id, data: { stage: "done" } });
+        return { data: null };
+      },
+    };
+  });
   const [store] = useState(() => createLocalSavedViewStore({ storage: createMemoryStorageAdapter() }));
   return (
     <GenesisProvider provider={provider}>
@@ -78,7 +89,7 @@ type Story = StoryObj<typeof ResourceView>;
 export const Declared: Story = {
   render: () => (
     <WithTasks>
-      <ResourceView view={tasksView} />
+      <ResourceView view={tasksView} groupBy={tasksView.definition.groupBy} />
     </WithTasks>
   ),
   play: async ({ canvasElement }) => {
@@ -86,6 +97,11 @@ export const Declared: Story = {
     await waitFor(() => expect(canvas.getByText("Draft the brief")).toBeInTheDocument());
     expect(canvas.getByTestId("view-segment-open")).toBeInTheDocument();
     expect(canvas.getByTestId("view-type-board")).toBeInTheDocument();
+    // The groups, each with its total: To do holds 2 + 1 hours.
+    await waitFor(() => expect(canvasElement.querySelector('[data-slot="table-group"][data-group="todo"]')?.textContent).toContain("Hours: 3"));
+    // Finish is offered on the rows, and in the bulk bar once a row is chosen.
+    await userEvent.click(canvas.getByLabelText("Select Draft the brief"));
+    await waitFor(() => expect(canvas.getByTestId("bulk-finish")).toBeInTheDocument());
   },
 };
 

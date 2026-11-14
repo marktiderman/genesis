@@ -42,7 +42,18 @@ const seed = (): Ticket[] => [
 ];
 
 function WithTickets({ children }: { children: ReactNode }) {
-  const [provider] = useState(() => createMockProvider({ tickets: seed() }));
+  // The in-memory provider runs no actions of its own: Solve (the view's `done`, also the e key)
+  // sets the ticket's status here, as an app's provider or `onAction` would.
+  const [provider] = useState(() => {
+    const base = createMockProvider({ tickets: seed() });
+    return {
+      ...base,
+      runAction: async (resource: string, { id, action }: { id: string | number; action: string }) => {
+        if (action === "done") await base.update(resource, { id, data: { status: "solved" } });
+        return { data: null };
+      },
+    };
+  });
   return <GenesisProvider provider={provider}>{children}</GenesisProvider>;
 }
 
