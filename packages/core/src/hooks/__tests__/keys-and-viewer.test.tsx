@@ -37,6 +37,31 @@ describe("resourceKeys are the keys the hooks cache under", () => {
     await waitFor(() => expect(cachedKeys(client)).toContain(JSON.stringify(resourceKeys("tasks").detail("t1", "id,title"))));
   });
 
+  it("useOne with a list's scope: an in scope and a range reach the provider and the key, a text search doesn't", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const provider = createMockProvider({ tasks: [{ id: "t1", title: "Ann's task" }] });
+    const getOne = vi.spyOn(provider, "getOne");
+    const scope = [
+      { field: "group_id", operator: "in" as const, value: ["g1", "g2"] },
+      { field: "due_on", operator: "gte" as const, value: "2026-01-01" },
+      { field: "title", operator: "contains" as const, value: "ann" },
+    ];
+    function One() {
+      useOne("tasks", "t1", { scope });
+      return null;
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <DataProviderRoot provider={provider}>
+          <One />
+        </DataProviderRoot>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(getOne).toHaveBeenCalled());
+    expect(getOne.mock.calls[0]![1]).toMatchObject({ id: "t1", scope: scope.slice(0, 2) });
+    expect(cachedKeys(client)).toContain(JSON.stringify([...resourceKeys("tasks").detail("t1", undefined), { scope: scope.slice(0, 2) }]));
+  });
+
   it("useResource", async () => {
     const { client, wrap } = setup();
     function List() {

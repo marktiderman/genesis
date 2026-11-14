@@ -22,8 +22,8 @@ export interface UseOneOptions {
   live?: boolean | LiveOptions;
   /**
    * The list's filters, when the record is opened from a list (`GetOneParams.scope`): a resource
-   * read from a function takes its scope from them. Only its equality and is-null filters are kept
-   * (all `take` reads), and they're part of the cache key when there are any.
+   * read from a function takes its scope from them. Text searches (`contains`) are left out; the
+   * rest are kept, and they're part of the cache key when there are any.
    */
   scope?: FilterParam[] | undefined;
 }
@@ -46,9 +46,10 @@ export function useOne<T extends BaseRecord = BaseRecord>(
   const provider = useDataProvider();
 
   const { select, enabled, live } = options;
-  // Only what a function source can take (`take` reads equality and is-null filters): a search's
-  // `contains` or a range never reaches its args, so it mustn't make a new record read per keystroke.
-  const scopeKey = JSON.stringify((options.scope ?? []).filter((f) => f.operator === "eq" || f.operator === "is_null"));
+  // The list's filters as a function source's `args` gets them (`filters`, `take`), less a text
+  // search: `contains` narrows a list, never a scope, and keeping it would make a new record read
+  // per keystroke. An `in` scope (a link filter, a multi-value segment) and ranges stay.
+  const scopeKey = JSON.stringify((options.scope ?? []).filter((f) => f.operator !== "contains"));
   const scope = useMemo(() => JSON.parse(scopeKey) as FilterParam[], [scopeKey]);
   const isEnabled = enabled ?? !!id;
 

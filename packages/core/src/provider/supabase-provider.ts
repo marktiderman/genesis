@@ -267,7 +267,8 @@ export interface SupabaseResourceConfig {
    * that takes its scope as an argument reads it there rather than from a module variable.
    * `context.take(field)` returns an equality filter's value and leaves that filter out of the
    * query, for a scope the function takes as an argument and doesn't return as a column. A record
-   * read (`getOne`, `getMany`) gets the list's filters from `scope` when the caller passes them
+   * read (`getOne`, `getMany`) gets the list's filters from `scope` (less a text search's
+   * `contains`, which `useOne` leaves out) when the caller passes them
    * (`useOne`'s `scope`, which ResourceView's table, inbox and NativeResourceView's peek and
    * edit sheet pass for a record off the loaded page), else none, and
    * the function's own default scope applies.
