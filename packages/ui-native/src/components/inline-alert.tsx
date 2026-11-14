@@ -51,7 +51,9 @@ const variantClasses: Record<NativeInlineAlertVariant, string> = {
 const titleClasses: Record<NativeInlineAlertVariant, string> = {
   info: "text-foreground",
   success: "text-primary-text",
-  warning: "text-warning",
+  // The warning token is an amber that reads at about 2:1 on the tint, under the 4.5:1 text
+  // needs: the tint and border carry the warning, as on the web's InlineAlert.
+  warning: "text-foreground",
   destructive: "text-destructive",
 };
 

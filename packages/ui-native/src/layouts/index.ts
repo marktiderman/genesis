@@ -91,13 +91,26 @@ export {
   type AuthBrandingProps,
 } from "./auth";
 
+export {
+  DashboardPage,
+  DetailPage,
+  DocumentPage,
+  FormPage,
+  type DashboardPageProps,
+  type DetailPageProps,
+  type DocumentPageProps,
+  type FormPageProps,
+} from "./pages";
+
 export { AuthScreen, type AuthScreenProps, type AuthScreenSlotMap } from "./auth-screen";
 export {
   KEYBOARD_TOOLBAR_HEIGHT,
   KeyboardScrollProvider,
   useKeyboardScroll,
+  useKeyboardSticky,
   useKeyboardToolbar,
   type KeyboardScrollProps,
+  type KeyboardStickyProps,
   type KeyboardToolbarProps,
 } from "./keyboard";
 

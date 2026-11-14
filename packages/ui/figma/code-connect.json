@@ -125,6 +125,17 @@
   "notYet": [
     "DocumentPage",
     "RowContextMenuItems",
-    "RowMenuButton"
+    "RowMenuButton",
+    "Banner",
+    "InlineAlert",
+    "ChoiceCard",
+    "ChipGroup",
+    "Combobox",
+    "NumberInput",
+    "RangeSlider",
+    "Stepper",
+    "TimePicker",
+    "WhatsNewSheet",
+    "NotificationsPage"
   ]
 }

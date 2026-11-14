@@ -57,6 +57,10 @@ import {
   orderedWorkspaces,
   workspaceHref,
   workspaceInitials,
+  hasWorkspaceBadge,
+  workspaceBadgeLabel,
+  DEFAULT_WORKSPACE_KIND_LABELS,
+  WORKSPACE_SWITCHER_SEARCH_THRESHOLD,
   WORKSPACE_KIND_ORDER,
   type Workspace,
   type WorkspaceKind,
@@ -141,15 +145,8 @@ export const WORKSPACE_SWITCHER_PARTS: readonly WorkspaceSwitcherPart[] = [
 /** The value of every part's `data-scope`. */
 export const WORKSPACE_SWITCHER_SCOPE = "workspace-switcher";
 
-/** With `search="auto"`, past this many workspaces the menu opens with a search box. */
-export const WORKSPACE_SWITCHER_SEARCH_THRESHOLD = 7;
-
-/** The default heading over each kind's group in the menu. */
-export const DEFAULT_WORKSPACE_KIND_LABELS: Readonly<Partial<Record<WorkspaceKind, string>>> = {
-  personal: "Personal",
-  rollup: "Overview",
-  tenant: "Organizations",
-};
+/** With `search="auto"`, past this many workspaces the menu opens with a search box (genesis-core's, shared with the phone). */
+export { WORKSPACE_SWITCHER_SEARCH_THRESHOLD, DEFAULT_WORKSPACE_KIND_LABELS };
 
 /** The default picture for a kind with no image of its own; tenants show their initials. */
 export const DEFAULT_WORKSPACE_KIND_ICONS: Readonly<Partial<Record<WorkspaceKind, LucideIcon>>> = {
@@ -397,12 +394,9 @@ export interface WorkspaceSwitcherProps<W extends Workspace = Workspace> {
 const part = (name: WorkspaceSwitcherPart) => ({ "data-scope": WORKSPACE_SWITCHER_SCOPE, "data-part": name });
 const flag = (on: boolean) => (on ? "" : undefined);
 
-function hasBadge(value: Workspace["badge"]): value is string | number {
-  // `null` is allowed for API data that sends it for "nothing".
-  return value !== undefined && value !== null && value !== "" && value !== 0;
-}
-
-const defaultBadgeLabel = (_w: Workspace, value: string | number) => (typeof value === "number" ? `${value} new` : String(value));
+// `null` is allowed for API data that sends it for "nothing". Both rules are genesis-core's, shared with the phone.
+const hasBadge = hasWorkspaceBadge;
+const defaultBadgeLabel = workspaceBadgeLabel;
 
 function composeRefs<T>(...refs: (Ref<T> | undefined)[]): RefCallback<T> {
   return (node) => {

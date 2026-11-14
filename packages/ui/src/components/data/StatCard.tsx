@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { LinkComponent } from "../../navigation";
+import { formatTrend } from "@marktiderman/genesis-core/headless";
 import { WidgetTile } from "./widget/WidgetTile";
 
 export type StatCardColor = "primary" | "success" | "warning" | "info" | "destructive" | "muted";
@@ -51,6 +52,8 @@ export function StatCard({
   trend,
   className,
 }: StatCardProps) {
+  // The trend line is genesis-core's, as NativeStatCard's.
+  const t = trend ? formatTrend(trend) : null;
   return (
     <WidgetTile
       variant="stat"
@@ -61,15 +64,8 @@ export function StatCard({
       href={href}
       {...(linkComponent ? { linkComponent } : {})}
       className={className}
-      detail={
-        trend ? (
-          <>
-            {trend.value >= 0 ? "+" : ""}
-            {trend.value}% {trend.label}
-          </>
-        ) : undefined
-      }
-      detailClassName={trend ? (trend.value >= 0 ? "text-primary-text" : "text-destructive") : undefined}
+      detail={t?.text}
+      detailClassName={t ? (t.positive ? "text-primary-text" : "text-destructive") : undefined}
     />
   );
 }

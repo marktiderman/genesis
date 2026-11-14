@@ -128,6 +128,8 @@ export interface ResourceFormFieldDef {
   arrayMin?: number;
   /** Maximum number of array items. */
   arrayMax?: number;
+  /** One array item's name, for the add button ("Address" makes "Add Address"). Default: the label, made singular. */
+  arrayItemLabel?: string;
   /** Group heading for field grouping in the form. */
   group?: string;
   /** Column span in 2-column layout. Default 1. */

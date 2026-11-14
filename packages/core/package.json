@@ -104,6 +104,10 @@
       "types": "./dist/csv.d.ts",
       "import": "./dist/csv.js"
     },
+    "./headless": {
+      "types": "./dist/headless/index.d.ts",
+      "import": "./dist/headless/index.js"
+    },
     "./errors": {
       "types": "./dist/errors.d.ts",
       "import": "./dist/errors.js"

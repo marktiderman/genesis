@@ -200,6 +200,43 @@ export interface GenesisModules {
   haptics?: GenesisHapticsModule;
   /** react-native-gesture-handler's `ReanimatedSwipeable`: NativeSwipeRow and InboxPage's rows. Without it, no swipe; the actions stay on long press. */
   swipeable?: GenesisSwipeableComponent;
+  /**
+   * react-native-svg (`import * as Svg from "react-native-svg"`): NativeChartContainer draws line
+   * and area charts with it. Without it, bars still draw (they're views) and a line chart shows its
+   * points only.
+   */
+  svg?: GenesisSvgModule;
+  /**
+   * Picks files for NativeFileUploadField (and a form's file and image fields): wrap
+   * expo-document-picker's `getDocumentAsync` or expo-image-picker's `launchImageLibraryAsync`
+   * and return the picked files, or `[]` when the person cancelled.
+   */
+  filePicker?: GenesisFilePicker;
+}
+
+/** A file a person picked on the phone: where it is, its name, and its type and size when known. */
+export interface NativePickedFile {
+  uri: string;
+  name: string;
+  /** MIME type, e.g. "image/jpeg". */
+  type?: string | undefined;
+  /** Bytes. */
+  size?: number | undefined;
+}
+
+/**
+ * Opens the system's picker; resolves to what was picked, `[]` when the person cancelled. Reject
+ * when it can't pick (a permission denied, an iCloud download that failed): the field shows its
+ * `labels.pickFailed` sentence, never the raw error. If your app explains a denial itself (with a
+ * link to Settings, say), do that and resolve `[]`.
+ */
+export type GenesisFilePicker = (options: { multiple: boolean; accept?: string | undefined }) => Promise<NativePickedFile[]>;
+
+/** The react-native-svg parts NativeChartContainer draws with. */
+export interface GenesisSvgModule {
+  default?: ComponentType<{ width?: number; height?: number; children?: ReactNode; testID?: string }>;
+  Svg?: ComponentType<{ width?: number; height?: number; children?: ReactNode; testID?: string }>;
+  Path: ComponentType<{ d: string; stroke?: ColorValue; strokeWidth?: number; fill?: ColorValue; fillOpacity?: number; testID?: string }>;
 }
 
 /** The props NativeSwipeRow passes; `ReanimatedSwipeable` takes them, and its ref has `close()`. */

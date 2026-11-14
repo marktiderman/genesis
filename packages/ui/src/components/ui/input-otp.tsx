@@ -3,15 +3,23 @@
 import * as React from "react";
 import { OTPInput, OTPInputContext } from "input-otp";
 import { Dot } from "lucide-react";
+import { stripOtpSeparators } from "@marktiderman/genesis-core/headless";
 
 import { cn } from "../../utils";
 
+/**
+ * InputOTP — a one-time code in boxes (input-otp), the twin of genesis-ui-native's NativeInputOTP.
+ * `pattern` is tested against the whole code, on both: pass genesis-core's `OTP_PATTERN_DIGITS`
+ * (input-otp's `REGEXP_ONLY_DIGITS`) for digits. A pasted code loses the spaces, dashes and dots
+ * it is often grouped with ("123-456"), as on the phone, unless `pasteTransformer` says otherwise.
+ */
 const InputOTP = React.forwardRef<
   React.ElementRef<typeof OTPInput>,
   React.ComponentPropsWithoutRef<typeof OTPInput>
->(({ className, containerClassName, ...props }, ref) => (
+>(({ className, containerClassName, pasteTransformer = stripOtpSeparators, ...props }, ref) => (
   <OTPInput
     ref={ref}
+    pasteTransformer={pasteTransformer}
     containerClassName={cn(
       "flex items-center gap-2 has-[:disabled]:opacity-50",
       containerClassName
