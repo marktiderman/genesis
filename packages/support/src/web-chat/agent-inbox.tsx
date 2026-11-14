@@ -182,7 +182,8 @@ function TicketComposer({ accessory, testID, ...composer }: ThreadPageSlotMap["c
     if (activeId) el.setAttribute("aria-activedescendant", activeId);
     else el.removeAttribute("aria-activedescendant");
     if (!hintId) return;
-    // Added to, never in place of, any description the input already has, and taken out again.
+    // Added to, never in place of, any description the input already has, and taken out again. The
+    // cleanup takes it out before every re-run, so `includes` only guards an id put there by others.
     const ids = (el.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
     if (!ids.includes(hintId)) el.setAttribute("aria-describedby", [...ids, hintId].join(" "));
     return () => {

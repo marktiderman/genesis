@@ -60,8 +60,17 @@ export function showMentions(body: string): string {
   return body.replace(/@\[([^\]\n]{1,80})\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
 }
 
-/** The clause goes on after a variable: a word (a letter or a digit) follows it, after a space. */
-const CLAUSE_GOES_ON = /^[ \t]+[\p{L}\p{N}]/u;
+/**
+ * Horizontal space between words: any Unicode space separator (a plain space, a non-breaking space
+ * from text pasted out of rich text, a thin space) or a tab.
+ */
+const GAP = String.raw`[\p{Zs}\t]`;
+/** The clause goes on after a variable: a word (a letter or a digit) follows it, after a gap. */
+const CLAUSE_GOES_ON = new RegExp(String.raw`^${GAP}+[\p{L}\p{N}]`, "u");
+/** An empty variable alone at the start of a line, its indentation, and the separator after it. */
+const LINE_START = new RegExp(String.raw`^(${GAP}*)\{(\w+)\}[,;:]?${GAP}*`, "gmu");
+/** A variable elsewhere, with the gap and any comma before it. */
+const IN_LINE = new RegExp(String.raw`(,?)${GAP}*\{(\w+)\}`, "gu");
 
 /**
  * A saved reply with its variables filled. A variable that's known and empty (the requester has no
@@ -77,15 +86,17 @@ const CLAUSE_GOES_ON = /^[ \t]+[\p{L}\p{N}]/u;
  *   discussed, will call you."). A name used as a sentence's subject can't be taken out cleanly:
  *   give it a stand-in with `replyVariables`.
  *
+ * "Spaces" here are any Unicode space (a non-breaking one pasted from rich text too) or a tab.
+ *
  * Unknown variables stay as written.
  */
 export function fillReply(body: string, variables: Readonly<Record<string, string>>): string {
   const empty = (name: string) => variables[name] === "";
   const tidied = body
-    .replace(/^([ \t]*)\{(\w+)\}[,;:]?[ \t]*/gm, (token, indent: string, name: string) =>
+    .replace(LINE_START, (token, indent: string, name: string) =>
       empty(name) ? indent : token,
     )
-    .replace(/(,?)[ \t]*\{(\w+)\}/g, (token: string, comma: string, name: string, at: number, text: string) => {
+    .replace(IN_LINE, (token: string, comma: string, name: string, at: number, text: string) => {
       if (!empty(name)) return token;
       return comma && CLAUSE_GOES_ON.test(text.slice(at + token.length)) ? comma : "";
     });

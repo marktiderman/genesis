@@ -337,6 +337,26 @@ describe("the composer's pickers", () => {
     await waitFor(() => expect(box.hasAttribute("aria-describedby")).toBe(false));
   });
 
+  it("adds the hint to a description the app already gave the input, and leaves only that once the picker closes", async () => {
+    const client = fakeClient();
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    // ComposerBar takes no description prop, so the app's own id goes straight on the textarea.
+    box.setAttribute("aria-describedby", "app-note");
+    const ids = () => (box.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
+    fireEvent.change(box, { target: { value: "!refund" } });
+    await screen.findByTestId("genesis-support-agent-thread-composer-picker");
+    const hintId = screen.getByTestId("genesis-support-agent-thread-composer-picker-hint").id;
+    await waitFor(() => expect(ids()).toEqual(["app-note", hintId]));
+    // Re-rendering while open (the list loads, the arrows move) doesn't add the hint twice.
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    await waitFor(() => expect(box.getAttribute("aria-activedescendant")).toBeTruthy());
+    expect(ids()).toEqual(["app-note", hintId]);
+    fireEvent.keyDown(box, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("genesis-support-agent-thread-composer-picker")).toBeNull());
+    expect(box.getAttribute("aria-describedby")).toBe("app-note");
+  });
+
   it("leaves Enter to an input method composing text, while the list loads", async () => {
     const client = fakeClient({ savedReplies: vi.fn(() => new Promise<never>(() => undefined)) });
     inbox(client, { ticketId: "t1" });
@@ -414,6 +434,21 @@ describe("a saved reply's name variables", () => {
     expect(fillReply("As discussed, {first_name} will call you.", none)).toBe("As discussed, will call you.");
     expect(fillReply("Comme convenu, {first_name} écrira.", none)).toBe("Comme convenu, écrira.");
     expect(fillReply("Done, {first_name} 2 refunds sent", none)).toBe("Done, 2 refunds sent");
+  });
+
+  it("count any Unicode space or a tab as the gap between words", () => {
+    const none = { first_name: "", name: "" };
+    // A non-breaking space (U+00A0), common in replies pasted from rich text, after the name or on both sides.
+    expect(fillReply("As discussed, {first_name}\u00a0will call", none)).toBe("As discussed,\u00a0will call");
+    expect(fillReply("As discussed,\u00a0{first_name}\u00a0will call", none)).toBe("As discussed,\u00a0will call");
+    expect(fillReply("Thanks,\u00a0{first_name}\u00a0🙂", none)).toBe("Thanks\u00a0🙂");
+    expect(fillReply("Hi\u00a0{first_name}, thanks", none)).toBe("Hi, thanks");
+    expect(fillReply("\u00a0{first_name}: here is the fix", none)).toBe("\u00a0here is the fix");
+    // A tab before a word: the sentence goes on, so the comma stays, as with a space.
+    expect(fillReply("Thanks, {first_name}\twe fixed it", none)).toBe("Thanks,\twe fixed it");
+    expect(fillReply("Thanks,\t{first_name}\t🙂", none)).toBe("Thanks\t🙂");
+    // A thin space (U+2009) is a space too.
+    expect(fillReply("As discussed, {first_name}\u2009will call", none)).toBe("As discussed,\u2009will call");
   });
 
   it("take the comma before them only when they end their clause", () => {
