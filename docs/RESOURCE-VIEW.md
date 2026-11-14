@@ -560,8 +560,9 @@ export const eventsView = defineView(contracts["public.events"], {
   (rounded up, at least one). A row whose `endField` has a value keeps it; a row with no
   duration shows on its start alone. `maxDuration` (in `durationUnit`s, the longest a row runs)
   reads the rows that started that long before the window too, those with no end of their own,
-  so one that began before the window and runs into it is drawn; without it such a row isn't
-  loaded, and the calendar warns once. `defineView` refuses a `maxDuration` that isn't a number
+  so one that began before the window and runs into it is drawn (the latest starts first, when
+  there are more than the limit); without it such a row isn't loaded, and a calendar with no
+  `endField` warns once. `defineView` refuses a `maxDuration` that isn't a number
   above 0 or has no `durationField`.
 - **Layouts.** `month` (the month's whole weeks), `weeks` (1 to 4 weeks from the anchor's week, 2
   by default), `agenda` (the same weeks day by day) and `lanes` (a row per lane, a column per day).
@@ -1133,7 +1134,8 @@ export const tasksView = defineView(tasksContract, {
   Clear goes back to the defaults.
 - **Custom layouts.** `useResourceViewProps` returns the page's props with an action's
   confirmation in `dialogs`, which `<ResourcePage>` draws, so a screen that renders its own page
-  keeps the confirm step.
+  keeps the confirm step, and `restoreKey`, which starts the page again with a restored saved
+  view's search and sort. Spread the props whole and both work.
 
 One list state holds all of this on every platform: core's `useListState` (the URL both ways,
 text filters after a pause, filters on the viewer's clock), with `useSegmentCounts` for the

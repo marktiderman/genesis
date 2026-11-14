@@ -79,5 +79,9 @@ export const SupportTickets: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(await canvas.findByText("Can't sign in on my phone"));
     await waitFor(() => expect(canvas.getByTestId("resource-inbox-reading")).toBeInTheDocument());
+    // Solve (the view's done action, also e) is offered: the provider runs it. It's in the bulk bar
+    // once a ticket is picked.
+    await userEvent.click(canvas.getByLabelText("Select Invoice copy for October"));
+    await waitFor(() => expect(within(canvas.getByTestId("bulk-done")).getByText("Solve")).toBeInTheDocument());
   },
 };
