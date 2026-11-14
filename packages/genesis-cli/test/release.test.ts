@@ -323,6 +323,38 @@ describe("the plan script", () => {
     expect(() => plan.planOutputs({ ios: { runtime: "1.0 0", by: "runtime", builds: [] } }, [], "production")).toThrow(/printed no ios runtime version/);
   });
 
+  it("skips a platform whose build was made from a later commit (B changed native code, built first, no update yet)", () => {
+    const A = "a".repeat(40);
+    const B = "b".repeat(40);
+    // eas-cli 26's build:list --json prints the builds' GraphQL fields, gitCommitHash among them (graphql/types/Build.js).
+    const builtFromB = [build("ios", FP, { gitCommitHash: B })];
+    const contains = (commit: string, later: string) => (commit === A && later === B ? true : commit === later ? true : false);
+    const skip = outputs(plan.planOutputs({ ios: { runtime: FP, by: "fingerprint", builds: builtFromB } }, [], "production", { commit: A, contains }));
+    expect(skip).toMatchObject({ ios_action: "skip", ios_built_by: B, ios_build_commit: B, skipped_platforms: "ios", publish_platforms: "" });
+    // A later commit than the build's: published as usual.
+    expect(outputs(plan.planOutputs({ ios: { runtime: FP, by: "fingerprint", builds: builtFromB } }, [], "production", { commit: "c".repeat(40), contains }))).toMatchObject({ ios_action: "publish" });
+    // Can't tell (null), or no commit recorded on the build: published.
+    expect(outputs(plan.planOutputs({ ios: { runtime: FP, by: "fingerprint", builds: builtFromB } }, [], "production", { commit: A, contains: () => null }))).toMatchObject({ ios_action: "publish" });
+    expect(outputs(plan.planOutputs({ ios: { runtime: FP, by: "fingerprint", builds: [build("ios", FP)] } }, [], "production", { commit: A, contains }))).toMatchObject({ ios_action: "publish" });
+  });
+
+  it("checks the build's commit with git, from GITHUB_SHA, when run as a script", () => {
+    const repo = tempDir("genesis-order-");
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
+    git("init", "-q");
+    git("-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "A");
+    const a = git("rev-parse", "HEAD");
+    git("-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "B");
+    const b = git("rev-parse", "HEAD");
+    const dir = tempDir("genesis-order-plan-");
+    writeTree(dir, { "fingerprint-ios.json": JSON.stringify({ hash: FP }), "builds-ios.json": JSON.stringify([build("ios", FP, { gitCommitHash: b })]), "runs.json": "[]" });
+    const run = (sha: string) => outputs(execFileSync("node", [path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "plan", dir, "ios", "production"], { cwd: repo, encoding: "utf8", env: { ...process.env, GITHUB_SHA: sha } }).trim().split("\n"));
+    expect(run(a)).toMatchObject({ ios_action: "skip", ios_built_by: b });
+    expect(run(b)).toMatchObject({ ios_action: "skip" });
+    // A commit git doesn't know: can't tell, so published.
+    expect(run("e".repeat(40))).toMatchObject({ ios_action: "publish" });
+  });
+
   it("skips a platform whose channel already carries this commit or a later one, and says which", () => {
     const out = outputs(plan.planOutputs({ ios: { runtime: FP, by: "fingerprint", builds: [build("ios", FP)], shipped: "d".repeat(40) }, android: { runtime: AP, by: "fingerprint", builds: [build("android", AP)] } }, [], "production"));
     expect(out).toMatchObject({ ios_action: "skip", ios_shipped_by: "d".repeat(40), android_action: "publish", skipped_platforms: "ios", publish_platforms: "android", eas_platforms: "" });
@@ -896,6 +928,8 @@ describe("every eas command the lane runs exists in eas-cli 26.0.0", () => {
     check(seen.map((a) => ({ command: a[0]!, flags: a.filter((t) => t.startsWith("-")), line: `eas ${a.join(" ")}` })), "native-release.mjs");
     // The script runs a command only through latestCommit's runner (eas, or RELEASE_EAS).
     expect([...readFileSync(path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "utf8").matchAll(/execFileSync\(/g)]).toHaveLength(1);
+    // Its only other command is git, for the order check.
+    expect([...readFileSync(path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "utf8").matchAll(/spawnSync\("([^"]+)"/g)].map((m) => m[1])).toEqual(["git", "git"]);
   });
 });
 
@@ -979,6 +1013,16 @@ describe("the EAS lane's updates check the channel's order too", () => {
       expect(run).toContain("Not published: the channel's latest");
       // The hook runs only when an update went out.
       expect(doc.jobs[`hook_${platform}_update`].if).toBe(`\${{ needs.update_${platform}.outputs.update_group }}`);
+    }
+  });
+
+  it("also skips when the build it would run on was made from this commit or a later one", () => {
+    for (const platform of ["ios", "android"]) {
+      const job = yaml("eas/workflows/deploy-production.yml", ctx()).jobs[`update_${platform}`];
+      expect(job.env.BUILD_COMMIT).toBe(`\${{ needs.get_${platform}_build.outputs.git_commit_hash }}`);
+      const run = (job.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+      expect(run.indexOf('git merge-base --is-ancestor "$COMMIT_SHA" "$BUILD_COMMIT"')).toBeGreaterThan(-1);
+      expect(run.indexOf('git merge-base --is-ancestor "$COMMIT_SHA" "$BUILD_COMMIT"')).toBeLessThan(run.indexOf("eas-cli@26.0.0 update --channel"));
     }
   });
 

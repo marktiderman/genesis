@@ -180,8 +180,8 @@ jobs:
         env:
           SKIPPED: ${{ steps.plan.outputs.skipped_platforms }}
         run: |
-          echo "::warning title=Not published::The production channel's latest update for $SKIPPED already carries $GITHUB_SHA (or a later commit): nothing is published or built for it here."
-          echo "Not published for $SKIPPED: the channel's latest update already carries $GITHUB_SHA or a later commit." >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning title=Not published::For $SKIPPED, the channel's latest update or the build an update would run on already carries $GITHUB_SHA (or a later commit): nothing is published or built for it here."
+          echo "Not published for $SKIPPED: the channel's latest update or the build it would run on already carries $GITHUB_SHA or a later commit." >> "$GITHUB_STEP_SUMMARY"
 #@if sentry
 
       # The source map upload has to work, or the update's crashes are unreadable: stop before

@@ -131,6 +131,9 @@ jobs:
     env:
       COMMIT_SHA: ${{ inputs.commit_sha }}
       RUNTIME_VERSION: ${{ needs.get_ios_build.outputs.runtime_version }}
+      # The commit the build was made from: a later commit that changed native code may have built
+      # (with no update yet) before this older one's run got here.
+      BUILD_COMMIT: ${{ needs.get_ios_build.outputs.git_commit_hash }}
     outputs:
       update_group: ${{ steps.publish.outputs.update_group }}
     steps:
@@ -148,6 +151,14 @@ jobs:
             git cat-file -e "$latest^{commit}" 2>/dev/null || git fetch --quiet origin "$latest" 2>/dev/null || true
             if git merge-base --is-ancestor "$COMMIT_SHA" "$latest" 2>/dev/null; then
               echo "Not published: the channel's latest iOS update ($latest) already carries $COMMIT_SHA or a later commit."
+              set-output update_group ""
+              exit 0
+            fi
+          fi
+          if [ -n "$BUILD_COMMIT" ]; then
+            git cat-file -e "$BUILD_COMMIT^{commit}" 2>/dev/null || git fetch --quiet origin "$BUILD_COMMIT" 2>/dev/null || true
+            if git merge-base --is-ancestor "$COMMIT_SHA" "$BUILD_COMMIT" 2>/dev/null; then
+              echo "Not published: the iOS build this update would run on was made from $BUILD_COMMIT, which already carries $COMMIT_SHA."
               set-output update_group ""
               exit 0
             fi
@@ -204,6 +215,9 @@ jobs:
     env:
       COMMIT_SHA: ${{ inputs.commit_sha }}
       RUNTIME_VERSION: ${{ needs.get_android_build.outputs.runtime_version }}
+      # The commit the build was made from: a later commit that changed native code may have built
+      # (with no update yet) before this older one's run got here.
+      BUILD_COMMIT: ${{ needs.get_android_build.outputs.git_commit_hash }}
     outputs:
       update_group: ${{ steps.publish.outputs.update_group }}
     steps:
@@ -221,6 +235,14 @@ jobs:
             git cat-file -e "$latest^{commit}" 2>/dev/null || git fetch --quiet origin "$latest" 2>/dev/null || true
             if git merge-base --is-ancestor "$COMMIT_SHA" "$latest" 2>/dev/null; then
               echo "Not published: the channel's latest Android update ($latest) already carries $COMMIT_SHA or a later commit."
+              set-output update_group ""
+              exit 0
+            fi
+          fi
+          if [ -n "$BUILD_COMMIT" ]; then
+            git cat-file -e "$BUILD_COMMIT^{commit}" 2>/dev/null || git fetch --quiet origin "$BUILD_COMMIT" 2>/dev/null || true
+            if git merge-base --is-ancestor "$COMMIT_SHA" "$BUILD_COMMIT" 2>/dev/null; then
+              echo "Not published: the Android build this update would run on was made from $BUILD_COMMIT, which already carries $COMMIT_SHA."
               set-output update_group ""
               exit 0
             fi

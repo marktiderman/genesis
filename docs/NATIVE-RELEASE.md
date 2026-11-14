@@ -96,10 +96,14 @@ group in `eas update:list --branch <channel>`, then its commit from `eas update:
 none before the first release, when the branch doesn't exist yet): when it already carries this
 commit or a later one (`git merge-base --is-ancestor`), the run skips that platform out loud. It never skips because a later commit is expected to ship, which could drop a release
 silently. Left over:
-- The EAS lane's update jobs make the same check just before they publish (eas-cli pinned through
-  `npx --yes eas-cli@26.0.0`, and the commit's history fetched when the checkout lacks it): an EAS
-  run that lands after a newer commit's update logs "Not published" and skips, and its release hook
-  doesn't run. When the checkout can't tell (the latest commit can't be fetched), it publishes.
+- Both paths also skip when the build the update would run on was made from this commit or a later
+  one (`gitCommitHash` from `eas build:list` on GitHub, get-build's `git_commit_hash` on EAS): a
+  later commit that changed native code may have run first and built, with no update yet.
+- The EAS lane's update jobs make both checks just before they publish (eas-cli pinned through
+  `npx --yes eas-cli@26.0.0`, and the commits fetched when the checkout lacks them): an EAS run that
+  lands after a newer commit's update or build logs "Not published" and skips, and its release hook
+  doesn't run. The checks fail open: when a commit can't be fetched or compared, or the build or
+  update records none, the run publishes, so a late run can still land over a newer one then.
 - A build EAS has queued but not started has no record yet, so a merge in that window builds again
   (a wasted build, nothing missed).
 

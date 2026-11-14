@@ -22,8 +22,10 @@
 //     (<platform>_action=publish) unless an EAS release run is open; every other platform goes to
 //     EAS (<platform>_action=eas). Writes key=value lines (GITHUB_OUTPUT format), with
 //     publish_platforms and eas_platforms; exits 1 rather than guess when a file isn't what eas
-//     printed, or a build's runtime isn't its fingerprint. A platform with <dir>/shipped-<platform>.txt
-//     (the channel's latest update already carries this commit) is skipped (<platform>_action=skip).
+//     printed, or a build's runtime isn't its fingerprint. A platform is skipped (<platform>_action=skip)
+//     when <dir>/shipped-<platform>.txt says the channel's latest update already carries this commit,
+//     or when the build it would publish on was made from this commit or a later one ($GITHUB_SHA,
+//     checked with git against the build's gitCommitHash; published when git can't tell).
 //   node .eas/scripts/native-release.mjs update <update.json> <platform> <runtime version>
 //     From `eas update --json`: the platform's update group, checked against the runtime version
 //     the plan matched (an update for another runtime reaches no phone).
@@ -44,7 +46,7 @@
 //
 // Genesis template (templates/eas/scripts/native-release.mjs). genesis upgrade refreshes it; change
 // the lane through genesis.config.json `release`, not here.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -124,14 +126,18 @@ export function laneOpen(runs) {
 
 /**
  * The plan's outputs, as `key=value` lines.
- * A platform whose channel already has an update carrying this commit or a later one (`shipped`,
- * the later commit) is skipped: GitHub can run a later commit's release first, and publishing
- * this one after it would put the older code back.
+ * A platform is skipped when its channel already has an update carrying this commit or a later one
+ * (`shipped`, the later commit), or when the build it would publish on was made from this commit or
+ * a later one (a later commit that changed native code ran first and built, with no update yet):
+ * GitHub can run a later commit's release first, and publishing this one after it would put the
+ * older code back. `order.contains(commit, buildCommit)` says whether the build's commit carries
+ * this one (true), doesn't (false) or can't tell (null, and the platform is published).
  * @param {Record<string, { runtime: string, by: "fingerprint" | "runtime", builds: unknown, shipped?: string }>} byPlatform
  * @param {unknown} runs
  * @param {string} profile
+ * @param {{ commit?: string, contains?: (commit: string, later: string) => boolean | null }} [order]
  */
-export function planOutputs(byPlatform, runs, profile) {
+export function planOutputs(byPlatform, runs, profile, order = {}) {
   const platforms = Object.keys(byPlatform);
   if (!platforms.length) throw new Error("plan needs at least one platform.");
   const open = laneOpen(runs);
@@ -154,13 +160,17 @@ export function planOutputs(byPlatform, runs, profile) {
     }
     out[`${platform}_runtime_version`] = runtime;
     out[`${platform}_has_build`] = build ? "true" : "false";
+    const buildCommit = build && /^[0-9a-f]{40}$/i.test(build.gitCommitHash ?? "") ? build.gitCommitHash : "";
     if (build) {
       out[`${platform}_build_id`] = build.id;
       out[`${platform}_app_version`] = build.appVersion ?? "";
+      if (buildCommit) out[`${platform}_build_commit`] = buildCommit;
     }
-    const action = shipped ? "skip" : build && !open ? "publish" : "eas";
+    const built = Boolean(buildCommit && order.commit && order.contains?.(order.commit, buildCommit) === true);
+    const action = shipped || built ? "skip" : build && !open ? "publish" : "eas";
     out[`${platform}_action`] = action;
     if (shipped) out[`${platform}_shipped_by`] = shipped;
+    else if (built) out[`${platform}_built_by`] = buildCommit;
     (action === "publish" ? publish : action === "eas" ? eas : skipped).push(platform);
   }
   return Object.entries({ ...out, lane_open: open ? "true" : "false", publish_platforms: publish.join(","), eas_platforms: eas.join(","), skipped_platforms: skipped.join(",") }).map(([k, v]) => `${k}=${v}`);
@@ -272,6 +282,17 @@ export function latestCommit(run, branch, platform) {
   return groupCommit(JSON.parse(run(["update:view", group, "--json"])), platform);
 }
 
+/**
+ * Whether `later` carries `commit` (git merge-base --is-ancestor): true, false, or null when git
+ * can't tell (a commit this checkout doesn't have).
+ */
+export function gitContains(commit, later, cwd = process.cwd()) {
+  const known = (c) => spawnSync("git", ["cat-file", "-e", `${c}^{commit}`], { cwd, stdio: "ignore" }).status === 0;
+  if (!known(commit) || !known(later)) return null;
+  const status = spawnSync("git", ["merge-base", "--is-ancestor", commit, later], { cwd, stdio: "ignore" }).status;
+  return status === 0 ? true : status === 1 ? false : null;
+}
+
 /** The folder `name` is installed in, looking up from `dir` the way Node resolves packages, or null. */
 export function installedAt(dir, name) {
   for (let at = resolve(dir); ; at = dirname(at)) {
@@ -320,7 +341,9 @@ async function main(command, args, env) {
         return [p, { runtime, by: existsSync(own) ? "runtime" : "fingerprint", builds: readJson(join(dir, `builds-${p}.json`)), ...(shipped ? { shipped } : {}) }];
       }),
     );
-    for (const line of planOutputs(byPlatform, readJson(join(dir, "runs.json")), profile)) console.log(line);
+    // The commit being released (GitHub's), checked against each build's commit with git.
+    const commit = env.GITHUB_SHA?.trim();
+    for (const line of planOutputs(byPlatform, readJson(join(dir, "runs.json")), profile, commit ? { commit, contains: gitContains } : {})) console.log(line);
   } else if (command === "update") {
     const [file, platform, runtime] = args;
     if (!file || !PLATFORMS.includes(platform)) throw new Error("update needs <update.json> <platform> <runtime version>.");
