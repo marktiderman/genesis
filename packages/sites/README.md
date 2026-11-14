@@ -34,7 +34,7 @@ pnpm add @marktiderman/genesis-sites zod@^4
 Peers: `react` and `react-dom` 19, `zod` 4, `@marktiderman/genesis-ui`,
 `@marktiderman/genesis-design-system`, `@marktiderman/genesis-forms` and
 `-forms-web` (the form embed), `lucide-react`, `@supabase/supabase-js` for
-the Supabase store, and `@puckeditor/core` 0.23 for the editor. The last two
+the Supabase store, and `@puckeditor/core` 0.23 or 0.24 for the editor. The last two
 are optional: install them only if you use the Supabase store or `/editor`.
 
 Then:
@@ -584,7 +584,7 @@ published site.
 ## The editor
 
 ```bash
-pnpm add @puckeditor/core@^0.23   # only where the editor runs
+pnpm add @puckeditor/core@^0.24   # only where the editor runs
 ```
 
 ```tsx
