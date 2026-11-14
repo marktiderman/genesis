@@ -1,5 +1,6 @@
 # Promote or roll back a staged production update: one published by hand with `--rollout-percentage`
-# (deploy-production.yml sends every merge's update to every install).
+# (the release lane, native-release.yml and deploy-production.yml, sends every merge's update to
+# every install).
 #
 # Run it by hand, from git:
 #
@@ -10,7 +11,7 @@
 # Always pass --ref: without it, eas workflow:run uploads your working directory as it is (the
 # health check included) and runs it with the production token.
 #
-# deploy-production.yml publishes one update group per platform: run this once per group.
+# The release lane publishes one update group per platform: run this once per group.
 #
 # promote: first a health check reads EAS's insights for the update group
 # (`eas update:insights --json`) and stops the promotion when fewer than 200 launches were
@@ -41,7 +42,7 @@ on:
       update_group_id:
         type: string
         required: true
-        description: One platform's update group you published by hand with `--rollout-percentage` (`eas update:list --branch production`). deploy-production.yml publishes at 100%, which has no rollout to promote or roll back.
+        description: One platform's update group you published by hand with `--rollout-percentage` (`eas update:list --branch production`). The release lane publishes at 100%, which has no rollout to promote or roll back.
       action:
         type: choice
         required: true

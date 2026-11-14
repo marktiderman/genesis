@@ -140,6 +140,102 @@ export interface GenesisConfigFile {
   environments?: GenesisEnvironments;
   /** The app's client layer (ADR 0020): see {@link validateClient}. */
   client?: GenesisClient;
+  /** The native release lane's settings (templates/ci/native-release.yml and the EAS build lane): see {@link validateRelease}. */
+  release?: GenesisRelease;
+}
+
+/**
+ * The `release` block: how the native release lane is rendered into the app's release files
+ * (docs/NATIVE-RELEASE.md). Every key is optional; {@link resolveRelease} fills in the defaults.
+ */
+export interface GenesisRelease {
+  /** The platforms released (default both). */
+  platforms?: ("ios" | "android")[];
+  /** The GitHub environment that holds the release secrets (default `production`). */
+  environment?: string;
+  /** Folders outside the app the bundle reads from, from the repository root (`packages/shared`). Default none. */
+  paths?: string[];
+  /** Upload each update's source maps to Sentry, and stop before publishing when it can't (default false). */
+  sentry?: boolean;
+  /** A script the app runs once a release is out, with the release facts in its environment (default none). */
+  pushHook?: { script: string; secrets: string[] };
+  /** The EAS build profile releases build with and fingerprint as (default `production`). */
+  profile?: string;
+  /** The EAS update channel production builds read (default `production`). */
+  channel?: string;
+  /** The EAS environment the release reads its variables from (default: the profile's name). */
+  easEnvironment?: string;
+  /** How CI installs the app (default: from the app's lockfile). */
+  packageManager?: "pnpm" | "bun" | "npm" | "yarn";
+  /**
+   * How a commit's runtime version is found, to match it with a build: `"fingerprint"` (the
+   * default: Expo's fingerprint, `runtimeVersion: { policy: "fingerprint" }`), or a command that
+   * prints the runtime version of the platform in `RELEASE_PLATFORM` (an app that sets its own
+   * per-platform `runtimeVersion`).
+   */
+  runtimeVersion?: "fingerprint" | { command: string };
+}
+
+const RELEASE_KEYS = ["platforms", "environment", "paths", "sentry", "pushHook", "profile", "channel", "easEnvironment", "packageManager", "runtimeVersion"];
+const RELEASE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}$/;
+const RELEASE_HOOK = /^[A-Za-z0-9_][A-Za-z0-9_./-]{0,119}\.(?:mjs|cjs|js)$/;
+const RELEASE_SECRET = /^[A-Z][A-Z0-9_]{0,63}$/;
+
+/** Check the top-level `release` block: unknown keys and values fail, so a typo can't silently do nothing. */
+export function validateRelease(raw: unknown, source = "config"): GenesisRelease {
+  const fail = (msg: string): never => {
+    throw new GenesisConfigError(`${source}: release.${msg}`);
+  };
+  if (!isObject(raw)) throw new GenesisConfigError(`${source}: "release" must be an object (docs/NATIVE-RELEASE.md, "The release block")`);
+  for (const key of Object.keys(raw)) if (key !== "$comment" && !RELEASE_KEYS.includes(key)) fail(`${key} isn't a setting (known: ${RELEASE_KEYS.join(", ")})`);
+  const out: GenesisRelease = {};
+  if (raw.platforms !== undefined) {
+    const list = raw.platforms;
+    if (!Array.isArray(list) || !list.length || list.some((p) => p !== "ios" && p !== "android") || new Set(list).size !== list.length) fail(`platforms must list "ios", "android" or both (got ${JSON.stringify(list)})`);
+    out.platforms = (["ios", "android"] as const).filter((p) => (list as string[]).includes(p));
+  }
+  for (const key of ["environment", "profile", "channel", "easEnvironment"] as const) {
+    if (raw[key] === undefined) continue;
+    if (typeof raw[key] !== "string" || !RELEASE_NAME.test(raw[key])) fail(`${key} must be a plain name: letters, digits, _ . - (got ${JSON.stringify(raw[key])})`);
+    out[key] = raw[key] as string;
+  }
+  if (raw.paths !== undefined) {
+    if (!Array.isArray(raw.paths)) fail(`paths must be a list of folders from the repository root, such as ["packages/shared"]`);
+    const paths = (raw.paths as unknown[]).map((p) => (typeof p === "string" ? p.replace(/^\.\//, "").replace(/\/+$/, "") : ""));
+    for (const [i, p] of paths.entries()) if (!isPlainFolder(p)) fail(`paths[${i}] must be a folder from the repository root, such as "packages/shared" (got ${JSON.stringify((raw.paths as unknown[])[i])})`);
+    out.paths = [...new Set(paths)];
+  }
+  if (raw.sentry !== undefined) {
+    if (typeof raw.sentry !== "boolean") fail(`sentry must be true or false`);
+    out.sentry = raw.sentry as boolean;
+  }
+  if (raw.pushHook !== undefined && raw.pushHook !== null && raw.pushHook !== false) {
+    const hook = typeof raw.pushHook === "string" ? { script: raw.pushHook } : raw.pushHook;
+    if (!isObject(hook)) return fail(`pushHook must be the script's path in the app ("scripts/release-push.mjs") or { "script": …, "secrets": [...] }`);
+    for (const key of Object.keys(hook)) if (key !== "script" && key !== "secrets" && key !== "$comment") fail(`pushHook.${key} isn't a setting (known: script, secrets)`);
+    const script = typeof hook.script === "string" ? hook.script.replace(/^\.\//, "") : "";
+    if (!RELEASE_HOOK.test(script) || script.split("/").includes("..")) fail(`pushHook.script must be a .mjs, .cjs or .js file in the app, such as "scripts/release-push.mjs" (got ${JSON.stringify(hook.script)})`);
+    const secrets = hook.secrets ?? [];
+    if (!Array.isArray(secrets) || secrets.some((s) => typeof s !== "string" || !RELEASE_SECRET.test(s) || s.startsWith("GITHUB_"))) {
+      fail(`pushHook.secrets must list GitHub secret names in capitals, such as ["RELEASE_PUSH_SECRET"] (got ${JSON.stringify(secrets)})`);
+    }
+    out.pushHook = { script, secrets: [...new Set(secrets as string[])] };
+  }
+  if (raw.packageManager !== undefined) {
+    if (!["pnpm", "bun", "npm", "yarn"].includes(raw.packageManager as string)) fail(`packageManager must be "pnpm", "bun", "npm" or "yarn" (got ${JSON.stringify(raw.packageManager)})`);
+    out.packageManager = raw.packageManager as GenesisRelease["packageManager"];
+  }
+  if (raw.runtimeVersion !== undefined && raw.runtimeVersion !== "fingerprint") {
+    const rv = raw.runtimeVersion;
+    const command = isObject(rv) ? rv.command : undefined;
+    if (isObject(rv)) for (const key of Object.keys(rv)) if (key !== "command" && key !== "$comment") fail(`runtimeVersion.${key} isn't a setting (known: command)`);
+    // One shell line, run in a workflow's script: no new line, and nothing GitHub would expand.
+    if (typeof command !== "string" || !command.trim() || command.length > 200 || /[\r\n]/.test(command) || command.includes("${{")) {
+      fail(`runtimeVersion must be "fingerprint" or { "command": "<one line that prints the runtime version of $RELEASE_PLATFORM>" } (got ${JSON.stringify(rv)})`);
+    }
+    out.runtimeVersion = { command: (command as string).trim() };
+  } else if (raw.runtimeVersion === "fingerprint") out.runtimeVersion = "fingerprint";
+  return out;
 }
 
 /** The `client` block: where the app's client layer lives (ADR 0020). */
@@ -317,6 +413,7 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
   if (raw.appFolder !== undefined) out.appFolder = validateAppFolder(raw.appFolder, file);
   if (raw.environments !== undefined) out.environments = validateEnvironments(raw.environments, file);
   if (raw.client !== undefined) out.client = validateClient(raw.client, file);
+  if (raw.release !== undefined) out.release = validateRelease(raw.release, file);
   // localPackages is read and validated by blocks/local.ts where it's used (doctor, add, migrate);
   // the Expo config plugin loads this file too and must not pull the CLI's block code in.
   return out;

@@ -138,10 +138,22 @@ describe("fingerprint", () => {
 
   // Hashed by package.json, a config plugin's package changes the runtime version on every
   // release (a version bump), so an app on npm Genesis would build on every Genesis upgrade.
-  it("hashes config plugins by the files they load, plus the rich push Swift", () => {
-    const config = read("fingerprint.config.js");
-    expect(config).toMatch(/configPluginSourceType:\s*"files"/);
-    expect(config).toContain('filePath: "node_modules/@marktiderman/genesis-native/ios"');
+  it("hashes config plugins by the files they load, plus the rich push Swift wherever it's installed", async () => {
+    const config = (await import("../fingerprint.config.js")).default as {
+      configPluginSourceType: string;
+      extraSources: { type: string; filePath: string; overrideHashKey?: string }[];
+    };
+    expect(config.configPluginSourceType).toBe("files");
+    // Each Swift file the plugin copies, at the path the config names (resolved from the
+    // installed package), under a key without the install folder (which carries the version in
+    // an isolated layout).
+    const swift = config.extraSources.filter((s) => s.filePath.endsWith(".swift"));
+    expect(swift.length).toBeGreaterThan(0);
+    for (const s of swift) {
+      expect(s.type).toBe("file");
+      expect(existsSync(join(root, s.filePath)), s.filePath).toBe(true);
+      expect(s.overrideHashKey).toMatch(/^genesis-native\/ios\/.+\.swift$/);
+    }
   });
 
   it("app.config.ts reads no JavaScript-only switch", () => {

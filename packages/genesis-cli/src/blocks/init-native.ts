@@ -40,6 +40,8 @@ import { pinnedVersion } from "./pm.js";
 import { blocksSwitchedOff, parseStarterBlocks, parseStarterFeatures, setStarterFeatures, STARTER_CONFIG } from "./starter-features.js";
 import { findPlaceholders, placeholderStep } from "../eas-placeholders.js";
 import { STARTER_EXCLUDE, starterDir, templateTarget, templatesDir, walk } from "./templates.js";
+import { checkPin, lookupPin, renderTemplate, type ReleasePin } from "./release.js";
+import { resolveRelease } from "./release-render.js";
 import { PACKED_GITIGNORE } from "./walk.js";
 
 export interface InitNativeOptions {
@@ -58,6 +60,8 @@ export interface InitNativeOptions {
   blocks: BlockManifest[];
   /** The web app this phone app sits beside: when it has a supabase/ folder, its database is this app's. */
   beside?: string;
+  /** The Genesis release the CI callers pin (`GENESIS_SHA`); null or absent leaves the placeholder. */
+  pin?: ReleasePin | null;
 }
 
 export interface InitNativeResult {
@@ -79,6 +83,9 @@ export interface InitNativeResult {
 
 /** The CLI templates that are database files: never written into an app whose database is elsewhere. */
 export const DATABASE_TEMPLATES: ReadonlySet<string> = new Set(["ci/supabase-ci.yml"]);
+
+/** Template folders a native app doesn't take (a web app's: `genesis add template vercel`). */
+const WEB_TEMPLATES = /^vercel\//;
 
 /** The EAS workflow templates' placeholder for the app's code folder (pr-preview.yml `paths`). */
 export const APP_FOLDER_PLACEHOLDER = "REPLACE_WITH_APP_FOLDER";
@@ -142,8 +149,11 @@ An Expo app made with \`genesis init ${slug} --template native\` from the Genesi
 - Add a block: \`genesis add <block>\` (for example \`genesis add tenant-features\`).
 - New package migrations: \`genesis migrate\`. Move every Genesis package to one release:
   \`genesis upgrade\`.
-- The CI workflows in \`.github/workflows\` name \`GENESIS_SHA\`: replace it with the commit of the
-  Genesis release you run (see docs/APP-CI.md in marktiderman/genesis).
+- The CI workflows in \`.github/workflows\` pin the Genesis release you run; \`genesis upgrade\`
+  moves the pin with your packages (see docs/APP-CI.md in marktiderman/genesis).
+- Releases: every push to main ships (\`.github/workflows/native-release.yml\` and
+  \`.eas/workflows/deploy-production.yml\`); change the lane in \`genesis.config.json\` \`release\`
+  (docs/NATIVE-RELEASE.md in marktiderman/genesis).
 `;
 }
 
@@ -243,10 +253,16 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
   const lock: GenesisLock = { ...emptyLock(), substitutions };
   const cliVersion = pinnedVersion(target, CLI_PACKAGE)?.version;
   const templates = templatesDir();
+  // The default release lane (a new app's genesis.config.json has no `release` block), its CI
+  // installing with pnpm (the starter's package manager) from the new repository's root.
+  const release = { release: resolveRelease({}, "pnpm"), appFolder: null };
+  if (options.pin) lock.pin = checkPin(options.pin);
   for (const rel of walk(templates)) {
     if (shared && DATABASE_TEMPLATES.has(rel)) continue;
-    const text = substitute(readFileSync(path.join(templates, rel), "utf8"), substitutions);
-    const to = templateTarget(rel, text);
+    if (WEB_TEMPLATES.test(rel)) continue;
+    const raw = readFileSync(path.join(templates, rel), "utf8");
+    const to = templateTarget(rel, raw);
+    const text = renderTemplate(to, raw, { release, substitutions, pin: options.pin ?? null });
     files.set(to, text);
     lock.files[to] = { source: `${CLI_PACKAGE}:templates/${rel}`, sha256: sha256(text), ...(cliVersion ? { version: cliVersion } : {}) };
   }
@@ -296,7 +312,8 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
     }
     writeLock(target, lock);
     steps.push(
-      "Replace GENESIS_SHA in .github/workflows/*.yml with the commit of the Genesis release you run.",
+      ...(options.pin ? [] : ["Replace GENESIS_SHA in .github/workflows/*.yml with the commit of the Genesis release you run (genesis upgrade writes it from then on)."]),
+      "Set up the release lane's secrets: EXPO_TOKEN in the GitHub environment production (docs/NATIVE-RELEASE.md, \"One-time setup\"); change the lane in genesis.config.json `release`.",
       "Run eas init and put the project id in starter.config.ts app.easProjectId (builds, previews, updates).",
       "Set links.hosts in genesis.config.json to your web domain, or delete the links block (no app links then).",
       // The store ids only the person has: the doctor's eas-placeholder warnings say the same.
@@ -418,4 +435,10 @@ function leaveOut(files: Map<string, string>, blocks: BlockManifest[]): void {
 export async function runInitNative(options: Omit<InitNativeOptions, "blocks">): Promise<InitNativeResult> {
   // The CLI's own catalog: the versions it was released with, not whatever a parent folder has installed.
   return initNative({ ...options, blocks: catalogBlocks() });
+}
+
+/** The Genesis release this CLI writes an app on, for the CI callers' pins (git ls-remote); null when it can't be found. */
+export function releasePinFor(target: string): ReleasePin | null {
+  const umbrella = pinnedVersion(target, "@marktiderman/genesis")?.version;
+  return umbrella ? lookupPin(umbrella) : null;
 }

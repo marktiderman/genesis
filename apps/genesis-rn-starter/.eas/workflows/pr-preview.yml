@@ -32,8 +32,9 @@
 # with the preview environment's variables, so keep nothing there that production depends on.
 # EAS doesn't run pull_request workflows for pull requests from forks.
 #
-# Genesis template (templates/eas/workflows/pr-preview.yml). Edit the copy in your app; see
-# docs/NATIVE-RELEASE.md in the Genesis repository.
+# Genesis template (templates/eas/workflows/pr-preview.yml), rendered with genesis.config.json
+# `release` (its platforms, and `paths` after the app's own); see docs/NATIVE-RELEASE.md in the
+# Genesis repository.
 name: PR preview
 
 on:
@@ -51,6 +52,7 @@ on:
       - "package-lock.json"
       - "bun.lock"
       - "bun.lockb"
+      # genesis.config.json release.paths: folders outside the app its bundle reads.
   pull_request_labeled:
     labels: [Preview]
 

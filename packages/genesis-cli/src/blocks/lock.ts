@@ -47,6 +47,11 @@ export interface GenesisLock {
   version: 1;
   /** The app's own values, substituted into templates it owns (`com.example.genesisstarter` → its bundle id). */
   substitutions?: Record<string, string>;
+  /**
+   * The Genesis release the CI callers' `GENESIS_SHA` was written as: its tag's commit and the
+   * umbrella's version. genesis upgrade writes the new release's and merges against this one.
+   */
+  pin?: { sha: string; version: string };
   /** Blocks added, by id. */
   blocks: Record<string, { package: string; version?: string }>;
   /** Files Genesis owns in the app, by app-relative path. */
@@ -67,6 +72,7 @@ export function readLock(root: string): GenesisLock {
   return {
     version: 1,
     ...(raw.substitutions ? { substitutions: raw.substitutions } : {}),
+    ...(raw.pin && typeof raw.pin.sha === "string" && typeof raw.pin.version === "string" ? { pin: { sha: raw.pin.sha, version: raw.pin.version } } : {}),
     blocks: raw.blocks ?? {},
     files: raw.files ?? {},
     ...(raw.migrations ? { migrations: raw.migrations } : {}),
@@ -79,6 +85,7 @@ export function writeLock(root: string, lock: GenesisLock): void {
   const out = {
     version: 1,
     ...(lock.substitutions ? { substitutions: lock.substitutions } : {}),
+    ...(lock.pin ? { pin: lock.pin } : {}),
     blocks: sorted(lock.blocks),
     files: sorted(lock.files),
     ...(lock.migrations && Object.keys(lock.migrations).length ? { migrations: sorted(lock.migrations) } : {}),

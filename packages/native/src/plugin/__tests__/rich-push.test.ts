@@ -220,3 +220,16 @@ describe("the Xcode target", () => {
     for (const s of settingsOf(p, "Svc")) expect(s.DEVELOPMENT_TEAM).toBe("ABCDE12345");
   });
 });
+
+describe("the plugin's build", () => {
+  // Apps hash config plugins by the files they load (the fingerprint config Genesis ships). tsup
+  // splits code two entries share into a hash-named chunk, whose name would change with unrelated
+  // code and with it every app's fingerprint: the plugin imports nothing of its own, so it has none.
+  it("imports no module of the package's own, so its build is one file", () => {
+    const source = readFileSync(path.join(__dirname, "..", "rich-push.ts"), "utf8");
+    const specifiers = [...source.matchAll(/^\s*(?:import|export)\s[^;]*?from\s+["']([^"']+)["']/gm)].map((m) => m[1]!);
+    expect(specifiers.length).toBeGreaterThan(0);
+    expect(specifiers.filter((s) => s.startsWith("."))).toEqual([]);
+    expect(source).not.toMatch(/\bimport\(\s*["']\./);
+  });
+});

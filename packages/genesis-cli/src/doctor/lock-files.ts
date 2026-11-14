@@ -24,6 +24,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { appFolderOf, isRepositoryWorkflow } from "../blocks/app-folder.js";
+import { isDedicatedWorkflow, repositoryRoot } from "../blocks/release.js";
 import { catalogBlocks, findBlock } from "../blocks/discover.js";
 import type { BlockManifest } from "../blocks/manifest.js";
 import { appPath, sha256 } from "../blocks/files.js";
@@ -122,7 +123,8 @@ export async function checkLockFiles(ctx: DoctorContext): Promise<void> {
     if (offManifests.length && blockOfSource(entry.source, offManifests)) continue;
     let file: string;
     try {
-      file = appPath(ctx.root, rel);
+      // A workflow that is Genesis's alone is the repository's file under appFolder.
+      file = appPath(appFolder && isDedicatedWorkflow(rel) ? repositoryRoot(ctx.root, appFolder) : ctx.root, rel);
     } catch {
       // A path that leaves the app (a symlink out): upgrade refuses it too.
       continue;
@@ -144,7 +146,7 @@ export async function checkLockFiles(ctx: DoctorContext): Promise<void> {
     if (text === null) {
       if (entry.deleted) continue;
       // GitHub reads this one from the repository's root; here it was never needed.
-      if (appFolder && isRepositoryWorkflow(rel)) continue;
+      if (appFolder && isRepositoryWorkflow(rel) && !isDedicatedWorkflow(rel)) continue;
       ctx.report({
         rule: "lock-files",
         level: "warn",

@@ -1,152 +1,320 @@
-# Deploy to production on every merge to main. main is protected (pull requests only, and only the
-# people allowed to merge into it), so that merge is the release's approval.
+# The native release lane's EAS half: a store build when native code changed, or an over-the-air
+# update on a build that is still being made. It runs only when started, by
+# .github/workflows/native-release.yml (GitHub Actions, which starts in seconds where an EAS job
+# can queue for most of an hour) for the commit it couldn't publish itself:
 #
-# 1. Fingerprint the native project as the production variant builds it.
-# 2. Per platform, look for a production build with that fingerprint.
-#    - One exists (JavaScript only): publish an over-the-air update to the `production` channel, to
-#      every install.
-#    - None (native code changed): build one and submit it in the same run. Installs can't take an
-#      update across a native change, so the new code reaches phones through the new build.
+#   eas workflow:run .eas/workflows/deploy-production.yml --ref <commit> -F commit_sha=<commit> …
+#
+# native-release.yml runs on every push to main that changes the app. Per platform it finds the
+# commit's runtime version; when a FINISHED production build has it and no run of this workflow
+# is open, it publishes the update itself. Every other platform comes here, so each platform of
+# each commit takes exactly one path and an update is never published twice. Here, per platform:
+# - a build with the runtime version, finished or still building (get-build waits for one in
+#   progress): publish this commit as an update on it, unless the release branch already has a
+#   later app change (the `newest` job; that commit's release ships this code too);
+# - none (native code changed): build, then submit to TestFlight / Google Play's internal track as
+#   a draft. Releasing to the stores stays a person's step in App Store Connect and Play Console.
+# A build EAS has queued but not started has no record yet, so a merge in that window builds
+# again: a wasted build, nothing missed. Each platform's jobs are its own: a failure on one doesn't
+# hold the other back.
 #
 # A merge that changes native code is a new store version once it's released: bump `version` in
 # app.config.ts in the same change when you mean to release it. The build number goes up by itself
 # (eas.json autoIncrement).
 #
 # Safety:
-# - A push to main is the only trigger, so a run always builds a commit in git, never a local
-#   folder. `eas workflow:run` can start it anyway (and without `--ref` uploads the working
-#   directory), so the first job runs only for a push to main and a manual run does nothing.
-# - Runs are serialized (`concurrency`): two quick merges never publish out of order.
-# - Updates go to every install, not a staged share: EAS refuses a second rollout on the same
-#   channel, platform and runtime while one is in progress, so a staged update would make the next
-#   merge's update fail. To take one back, republish the update before it
-#   (`eas update:republish --group <id>`); rollout.yml does that for a staged one.
-# - A build is submitted in the same run that made it, so an update never goes to a production
-#   build that nobody has. If a submit fails, submit that build by hand before the next merge
-#   (`eas submit --platform ios --id <build id> --profile production`).
-# - Builds go to TestFlight and to the Play internal track as a draft (eas.json `submit`);
-#   releasing to the stores stays a person's step in App Store Connect and Play Console.
-# - Each platform's build or update is its own: a failure on one doesn't hold the other back.
+# - Started only by hand or by native-release.yml, never on push: two triggers would race on
+#   every merge. Always start it with --ref: without it, `eas workflow:run` uploads the working
+#   directory as it is, and nothing here can tell. commit_sha is required, and the update path
+#   checks with GitHub that it's on the release branch (RELEASE_GITHUB_TOKEN on EAS).
+# - Runs are serialized (`concurrency`): the running one always finishes, and EAS drops waiting
+#   runs in between, whose code the newest run carries.
+# - Updates go to every install, not a staged share (a staged one would make the next update
+#   fail); rollout.yml promotes or reverts one you staged by hand.
+# - A build is submitted in the run that made it, so an update never goes to a build nobody has.
+#   If a submit fails, submit that build by hand before the next merge
+#   (`eas submit --platform ios --id <build id> --profile GENESIS_RELEASE_PROFILE`).
 #
-# Genesis template (templates/eas/workflows/deploy-production.yml). Edit the copy in your app; see
+# Genesis template (templates/eas/workflows/deploy-production.yml), rendered with genesis.config.json
+# `release`: change platforms, profile, channel, Sentry and the hook there, then
+# `genesis add template release` (or the next genesis upgrade) writes this file again.
 # docs/NATIVE-RELEASE.md in the Genesis repository.
 name: Deploy production
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        type: string
+        required: true
+        description: The commit being released, the same as --ref (a run started with workflow:run has no github.sha).
+      repository:
+        type: string
+        required: false
+        description: owner/name on GitHub, for the order check and the release hook.
+#@if ios
+      ios:
+        type: boolean
+        default: true
+        description: Release iOS in this run.
+#@if !fingerprint
+      ios_runtime_version:
+        type: string
+        required: false
+        description: iOS's runtime version (genesis.config.json release.runtimeVersion's command).
+#@end
+#@end
+#@if android
+      android:
+        type: boolean
+        default: true
+        description: Release Android in this run.
+#@if !fingerprint
+      android_runtime_version:
+        type: string
+        required: false
+        description: Android's runtime version (genesis.config.json release.runtimeVersion's command).
+#@end
+#@end
 
-# One deploy at a time. The running one always finishes (no cancel_in_progress); the newest merge
-# waits for it and EAS drops the runs in between, so an older merge never publishes last.
+# One release at a time. No cancel_in_progress: the running one always finishes.
 concurrency:
-  group: ${{ workflow.filename }}-${{ github.ref }}
+  group: ${{ workflow.filename }}
 
 jobs:
+#@if fingerprint
   fingerprint:
     name: Fingerprint
-    # Only a push to main. `eas workflow:run` starts any workflow whatever its `on` says, and
-    # without --ref it uploads a local folder; skipping here skips every job after it.
-    if: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
     type: fingerprint
-    environment: production
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
     env:
       APP_VARIANT: production
       EXPO_PUBLIC_APP_VARIANT: production
 
+#@end
+  # Runs on EAS for most of an hour, and two runs waiting on one build can reach their update jobs
+  # in either order: a run publishes only when the release branch has no later commit that changes
+  # what the app bundles (.eas/scripts/native-release.mjs `newest`; RELEASE_PATHS is
+  # native-release.yml's paths). Without RELEASE_GITHUB_TOKEN on EAS it can't check, and publishes.
+  newest:
+    name: Check this is the release branch's latest app change
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
+    env:
+      COMMIT_SHA: ${{ inputs.commit_sha }}
+      RELEASE_REPOSITORY: ${{ inputs.repository }}
+      RELEASE_PATHS: "GENESIS_RELEASE_PATHS"
+      RELEASE_PATHS_IGNORE: "GENESIS_RELEASE_PATHS_IGNORE"
+    outputs:
+      newest: ${{ steps.check.outputs.newest }}
+    steps:
+      - uses: eas/checkout
+      - id: check
+        run: |
+          set -eo pipefail
+          out=$(node .eas/scripts/native-release.mjs newest "$COMMIT_SHA")
+          set-output newest "${out#newest=}"
+#@if ios
+
   get_ios_build:
-    name: Find a production iOS build with this fingerprint
+    name: Find a production iOS build with this runtime version
+#@if fingerprint
     needs: [fingerprint]
+#@end
+    if: ${{ inputs.ios }}
     type: get-build
     params:
       platform: ios
-      profile: production
+      profile: GENESIS_RELEASE_PROFILE
+#@if fingerprint
       fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
-      wait_for_in_progress: true
-
-  get_android_build:
-    name: Find a production Android build with this fingerprint
-    needs: [fingerprint]
-    type: get-build
-    params:
-      platform: android
-      profile: production
-      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+#@end
+#@if !fingerprint
+      runtime_version: ${{ inputs.ios_runtime_version }}
+#@end
+      # A JavaScript-only merge that landed while an earlier merge's build was running: wait for
+      # that build and ship this commit as an update on it, instead of starting a second build.
       wait_for_in_progress: true
 
   build_ios:
     name: Build iOS (native code changed)
     needs: [get_ios_build]
-    if: ${{ !needs.get_ios_build.outputs.build_id }}
+    if: ${{ inputs.ios && !needs.get_ios_build.outputs.build_id }}
     type: build
-    environment: production
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
     params:
       platform: ios
-      profile: production
-
-  build_android:
-    name: Build Android (native code changed)
-    needs: [get_android_build]
-    if: ${{ !needs.get_android_build.outputs.build_id }}
-    type: build
-    environment: production
-    params:
-      platform: android
-      profile: production
+      profile: GENESIS_RELEASE_PROFILE
 
   submit_ios:
     name: Submit iOS to TestFlight
     needs: [build_ios]
     if: ${{ needs.build_ios.outputs.build_id }}
     type: submit
-    environment: production
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
     params:
       build_id: ${{ needs.build_ios.outputs.build_id }}
-      profile: production
+      profile: GENESIS_RELEASE_PROFILE
+
+  update_ios:
+    name: Update iOS (every production install)
+    needs: [get_ios_build, newest]
+    if: ${{ inputs.ios && needs.get_ios_build.outputs.build_id && needs.newest.outputs.newest == 'true' }}
+    type: update
+    # The environment the fingerprint and the build profile read, so the update's JavaScript is
+    # built with the values the binary was.
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
+    env:
+      APP_VARIANT: production
+      EXPO_PUBLIC_APP_VARIANT: production
+    params:
+      channel: GENESIS_RELEASE_CHANNEL
+      platform: ios
+      # No rollout_percentage: unset, the update goes to every install.
+#@if sentry
+      # A failed upload fails the job (needs SENTRY_AUTH_TOKEN in the EAS environment).
+      upload_sentry_sourcemaps: true
+#@end
+#@if !sentry
+      # Explicit: unset, EAS tries an upload whenever @sentry/react-native is installed and hides a
+      # failure. genesis.config.json release.sentry turns it on.
+      upload_sentry_sourcemaps: false
+#@end
+#@if pushHook
+
+  hook_ios_update:
+    name: Run the release hook (iOS update)
+    needs: [get_ios_build, update_ios]
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
+    env:
+      RELEASE_KIND: update
+      RELEASE_PLATFORM: ios
+      RELEASE_COMMIT: ${{ inputs.commit_sha }}
+      RELEASE_REPOSITORY: ${{ inputs.repository }}
+      RELEASE_CHANNEL: GENESIS_RELEASE_CHANNEL
+      RELEASE_APP_VERSION: ${{ needs.get_ios_build.outputs.app_version }}
+      RELEASE_RUNTIME_VERSION: ${{ needs.get_ios_build.outputs.runtime_version }}
+      RELEASE_UPDATE_GROUP: ${{ needs.update_ios.outputs.first_update_group_id }}
+    steps:
+      - uses: eas/checkout
+      - name: Run GENESIS_RELEASE_PUSH_HOOK
+        run: node GENESIS_RELEASE_PUSH_HOOK
+
+  hook_ios_build:
+    name: Run the release hook (iOS build)
+    needs: [build_ios, submit_ios]
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
+    env:
+      RELEASE_KIND: build
+      RELEASE_PLATFORM: ios
+      RELEASE_COMMIT: ${{ inputs.commit_sha }}
+      RELEASE_REPOSITORY: ${{ inputs.repository }}
+      RELEASE_CHANNEL: GENESIS_RELEASE_CHANNEL
+      RELEASE_APP_VERSION: ${{ needs.build_ios.outputs.app_version }}
+      RELEASE_RUNTIME_VERSION: ${{ needs.build_ios.outputs.runtime_version }}
+      RELEASE_BUILD_ID: ${{ needs.build_ios.outputs.build_id }}
+      RELEASE_BUILD_NUMBER: ${{ needs.build_ios.outputs.app_build_version }}
+    steps:
+      - uses: eas/checkout
+      - name: Run GENESIS_RELEASE_PUSH_HOOK
+        run: node GENESIS_RELEASE_PUSH_HOOK
+#@end
+#@end
+#@if android
+
+  get_android_build:
+    name: Find a production Android build with this runtime version
+#@if fingerprint
+    needs: [fingerprint]
+#@end
+    if: ${{ inputs.android }}
+    type: get-build
+    params:
+      platform: android
+      profile: GENESIS_RELEASE_PROFILE
+#@if fingerprint
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+#@end
+#@if !fingerprint
+      runtime_version: ${{ inputs.android_runtime_version }}
+#@end
+      wait_for_in_progress: true
+
+  build_android:
+    name: Build Android (native code changed)
+    needs: [get_android_build]
+    if: ${{ inputs.android && !needs.get_android_build.outputs.build_id }}
+    type: build
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
+    params:
+      platform: android
+      profile: GENESIS_RELEASE_PROFILE
 
   submit_android:
     name: Submit Android to the internal track (draft)
     needs: [build_android]
     if: ${{ needs.build_android.outputs.build_id }}
     type: submit
-    environment: production
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
     params:
       build_id: ${{ needs.build_android.outputs.build_id }}
-      profile: production
-
-  update_ios:
-    name: Update iOS (every production install)
-    needs: [get_ios_build]
-    if: ${{ needs.get_ios_build.outputs.build_id }}
-    type: update
-    environment: production
-    env:
-      APP_VARIANT: production
-      EXPO_PUBLIC_APP_VARIANT: production
-    params:
-      channel: production
-      platform: ios
-      # No rollout_percentage: unset, the update goes to every install. Set to 100, EAS published
-      # it as a rollout and a consumer app's update job failed ("GraphQL request failed").
-      # Explicit: unset, EAS tries a Sentry source map upload whenever @sentry/react-native is
-      # installed and only logs a failure. Set true once the Sentry plugin is on in app.config.ts
-      # (with SENTRY_AUTH_TOKEN), so a failed upload fails the job.
-      upload_sentry_sourcemaps: false
+      profile: GENESIS_RELEASE_PROFILE
 
   update_android:
     name: Update Android (every production install)
-    needs: [get_android_build]
-    if: ${{ needs.get_android_build.outputs.build_id }}
+    needs: [get_android_build, newest]
+    if: ${{ inputs.android && needs.get_android_build.outputs.build_id && needs.newest.outputs.newest == 'true' }}
     type: update
-    environment: production
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
     env:
       APP_VARIANT: production
       EXPO_PUBLIC_APP_VARIANT: production
     params:
-      channel: production
+      channel: GENESIS_RELEASE_CHANNEL
       platform: android
-      # No rollout_percentage: unset, the update goes to every install. Set to 100, EAS published
-      # it as a rollout and a consumer app's update job failed ("GraphQL request failed").
-      # Explicit: unset, EAS tries a Sentry source map upload whenever @sentry/react-native is
-      # installed and only logs a failure. Set true once the Sentry plugin is on in app.config.ts
-      # (with SENTRY_AUTH_TOKEN), so a failed upload fails the job.
+      # No rollout_percentage: unset, the update goes to every install.
+#@if sentry
+      upload_sentry_sourcemaps: true
+#@end
+#@if !sentry
       upload_sentry_sourcemaps: false
+#@end
+#@if pushHook
+
+  hook_android_update:
+    name: Run the release hook (Android update)
+    needs: [get_android_build, update_android]
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
+    env:
+      RELEASE_KIND: update
+      RELEASE_PLATFORM: android
+      RELEASE_COMMIT: ${{ inputs.commit_sha }}
+      RELEASE_REPOSITORY: ${{ inputs.repository }}
+      RELEASE_CHANNEL: GENESIS_RELEASE_CHANNEL
+      RELEASE_APP_VERSION: ${{ needs.get_android_build.outputs.app_version }}
+      RELEASE_RUNTIME_VERSION: ${{ needs.get_android_build.outputs.runtime_version }}
+      RELEASE_UPDATE_GROUP: ${{ needs.update_android.outputs.first_update_group_id }}
+    steps:
+      - uses: eas/checkout
+      - name: Run GENESIS_RELEASE_PUSH_HOOK
+        run: node GENESIS_RELEASE_PUSH_HOOK
+
+  hook_android_build:
+    name: Run the release hook (Android build)
+    needs: [build_android, submit_android]
+    environment: GENESIS_RELEASE_EAS_ENVIRONMENT
+    env:
+      RELEASE_KIND: build
+      RELEASE_PLATFORM: android
+      RELEASE_COMMIT: ${{ inputs.commit_sha }}
+      RELEASE_REPOSITORY: ${{ inputs.repository }}
+      RELEASE_CHANNEL: GENESIS_RELEASE_CHANNEL
+      RELEASE_APP_VERSION: ${{ needs.build_android.outputs.app_version }}
+      RELEASE_RUNTIME_VERSION: ${{ needs.build_android.outputs.runtime_version }}
+      RELEASE_BUILD_ID: ${{ needs.build_android.outputs.build_id }}
+      RELEASE_BUILD_NUMBER: ${{ needs.build_android.outputs.app_build_version }}
+    steps:
+      - uses: eas/checkout
+      - name: Run GENESIS_RELEASE_PUSH_HOOK
+        run: node GENESIS_RELEASE_PUSH_HOOK
+#@end
+#@end

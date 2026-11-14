@@ -77,7 +77,7 @@ describe("packs config", () => {
   });
 
   it("pack rule ids are built-in, so rules and allow work and patterns can't take them", async () => {
-    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder"]) {
+    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files"]) {
       expect(BUILTIN_RULES).toContain(id);
     }
     for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited", "migration-testing-kit", "migration-view-rls"]) expect(BUILTIN_RULES).toContain(id);
@@ -235,6 +235,20 @@ describe("native pack", () => {
     expect(r.findings.find((f) => f.subject === "REPLACE_WITH_APP_STORE_CONNECT_APP_ID")!.message).toMatch(/^ascAppId is the template placeholder REPLACE_WITH_APP_STORE_CONNECT_APP_ID; replace it with the app's Apple ID from App Store Connect/);
     const filled = await nativeApp({ ".eas/workflows/pr-preview.yml": 'on:\n  pull_request:\n    paths:\n      - "src/**"\n' });
     expect(brief(filled.findings, "eas-placeholder")).toEqual([]);
+  });
+
+  it("fingerprint-plugin-files: the fingerprint policy and genesis-native's plugin need plugins hashed by their files (warn)", async () => {
+    const config = 'export default { plugins: ["@marktiderman/genesis-cli", "@marktiderman/genesis-native/rich-push-plugin"] };\n';
+    const missing = await nativeApp({ "app.config.ts": config });
+    expect(brief(missing.findings, "fingerprint-plugin-files")).toEqual(["fingerprint-plugin-files app.config.ts:0"]);
+    expect(levels(missing.findings, "fingerprint-plugin-files")).toEqual(["warn"]);
+    expect(missing.findings.find((f) => f.rule === "fingerprint-plugin-files")!.message).toContain("genesis add template expo");
+    const byPackage = await nativeApp({ "app.config.ts": config, "fingerprint.config.js": 'module.exports = { configPluginSourceType: "package" };\n' });
+    expect(brief(byPackage.findings, "fingerprint-plugin-files")).toEqual(["fingerprint-plugin-files fingerprint.config.js:0"]);
+    const ok = await nativeApp({ "app.config.ts": config, "fingerprint.config.js": 'module.exports = { configPluginSourceType: "files" };\n' });
+    expect(brief(ok.findings, "fingerprint-plugin-files")).toEqual([]);
+    // No genesis-native plugin: nothing to say.
+    expect(brief((await nativeApp({ "app.config.ts": 'export default { runtimeVersion: { policy: "fingerprint" } };\n' })).findings, "fingerprint-plugin-files")).toEqual([]);
   });
 
   it("store-readiness: a ready app.json passes", async () => {

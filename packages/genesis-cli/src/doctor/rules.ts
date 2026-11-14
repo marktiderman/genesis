@@ -50,6 +50,7 @@ export const BUILTIN_RULES = [
   "native-screen-layout",
   "store-readiness",
   "eas-placeholder",
+  "fingerprint-plugin-files",
   // supabase pack
   "migration-grants",
   "migration-rls",

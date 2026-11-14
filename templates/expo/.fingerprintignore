@@ -1,0 +1,7 @@
+# app.config.ts imports these, so the fingerprint would hash them as files: then turning off a
+# JavaScript-only feature (queryPersistence, deepLinks…) would give a new runtime version and
+# `eas update` could no longer reach installed builds. What they mean for the native build
+# (name, ids, scheme, usesAppleSignIn, platforms) is already in the evaluated Expo config, which
+# the fingerprint hashes.
+starter.config.ts
+src/lib/define-starter.ts
