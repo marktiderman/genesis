@@ -224,7 +224,9 @@ through `support_agent_tickets` and `support_agent_ticket_counts`, which refuse 
 agent's own ticket isn't in their queue, since another agent answers it.
 
 **The agent's desk** (migrations `0013_genesis_support_queues.sql` and
-`0014_genesis_support_agent_tools.sql`, which `genesis add support-chat` copies after 0009):
+`0014_genesis_support_agent_tools.sql`, then `0015_genesis_support_agent_tools_bounds.sql`, which
+`genesis add support-chat` copies after 0009). The desk (the agent inbox, saved replies, reports)
+is web only, like the inbox before it:
 
 - **Pending.** An agent sets a ticket `pending` when they're waiting on the requester; it goes back
   to `open` by itself when the requester writes. Mine and Unassigned hold active tickets (not
@@ -237,15 +239,25 @@ agent's own ticket isn't in their queue, since another agent answers it.
 - **The composer.** In an internal note `@` mentions a teammate from `agents`; the database records
   it (`ticket_mentions`, read with `client.agentMentions`) and calls your optional
   `private.genesis_support_agent_mentioned(report, agent, author, message)` hook, which is where
-  you notify them. `!` inserts a saved reply with `{first_name}`, `{name}` and `{email}` filled
-  (`replyVariables` adds your own), and `?` inserts a help article's title and link
-  (`articleHref`). If someone writes while an agent is writing, Send first says so, with Send
+  you notify them. A mention is readable only while the agent still handles the ticket. `!`
+  inserts a saved reply with `{first_name}`, `{name}` and `{email}` filled (`replyVariables` adds
+  your own), and `?` inserts a help article's title and link (`articleHref`), in a reply or a
+  note. `!` and `?` open their list only once a letter follows them, so "Merci !" stays words, and
+  Enter inserts only after the arrow keys move into the list (Tab inserts the first); otherwise it
+  sends. Without a real name for the requester (an email with none, or `resolveUser` naming them
+  `""`), `{first_name}` and `{name}` fill as nothing and take the space before them: "Hi
+  {first_name}," reads "Hi,". A `resolveUser` that names unknown people ("Someone") should return
+  `""` for them, or set `first_name` in `replyVariables`. If someone writes while an agent is writing, Send first says so, with Send
   anyway and Review.
 - **Saved replies** are a tenant's own, written in `<SupportSavedRepliesAdmin>`
   (`client.savedReplies`, `saveSavedReply`, `deleteSavedReply`).
 - **Reports.** `<SupportAgentReports>` (`client.agentReport`, `support_agent_report`): opened,
   closed, median first response and time to close over a range of days, open now, and open by
-  the requester's company when you define `private.genesis_support_requester_label(report)`.
+  the requester's company when you define a label hook. Prefer the set-based
+  `private.genesis_support_requester_labels(reports uuid[]) returns table (report_id uuid, label
+  text)`, called once for every open ticket (0015). With only the one-ticket
+  `private.genesis_support_requester_label(report)`, the report labels the 1,000 most recently
+  changed open tickets and says so (`byRequesterCapped`).
 
 ```tsx
 import { SupportAgentReports, SupportSavedRepliesAdmin } from "@marktiderman/genesis-support/web-chat";
@@ -295,8 +307,12 @@ routes, with `tenantId` and `askAi` given to `createSupport`. Home and the help 
 route with `?q=` or `?collection=`: read them there and pass `initialQuery` and `collectionId`.
 
 Set expectations with `replyExpectation` (your words after "We usually reply") and `officeHours`
-(a time zone and spans of days): the compose screen and an unanswered conversation say how soon
-people hear back or, outside your hours, when someone is back, in the person's own time.
+(a time zone and spans of days, "HH:MM" up to "24:00"): the compose screen and an unanswered
+conversation say how soon people hear back or, outside your hours, when someone is back, in the
+person's own time. On the web they're props of `SupportMessenger` and the launcher; on the phone,
+options of `createSupport`, which `useStartConversation` and `useSupportThread` say above the
+composer (and return as `expectation` and `awaiting`). On the phone the line under an unanswered
+thread shows only with one of the two set, since `useSupportThread` shows bug reports too.
 `officeHoursState(hours, now)` is the same check anywhere.
 
 ```tsx
@@ -504,8 +520,10 @@ its own help desk and your app runs its own support the same way. With the suppo
 
 ## Not yet
 
-- No agent inbox or article editor on the phone yet: `SupportAgentInbox` and
-  `SupportHelpCenterAdmin` are web only. Without the support-chat block, staff work through the
+- No agent desk or article editor on the phone yet: `SupportAgentInbox` (with its pickers, held
+  reply and earlier conversations), `SupportSavedRepliesAdmin`, `SupportAgentReports` and
+  `SupportHelpCenterAdmin` are web only. The requester's side has both: the messenger's reply
+  expectation and office hours are on the web and the phone. Without the support-chat block, staff work through the
   database functions.
 - Collections can be added and deleted in `SupportHelpCenterAdmin`; to rename or reorder one, call
   `client.saveHelpCollection`. Search leaves out common English words only.

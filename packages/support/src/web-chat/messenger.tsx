@@ -35,7 +35,8 @@ import { useOptionalChatDock, type ResolveUser } from "@marktiderman/genesis-cha
 import { reportHeading, SupportError, type HelpArticleSummary, type HelpSearchHit, type SupportClient, type Ticket } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { useHelpAsk, type HelpAnswerResponse, type UseHelpAsk } from "../help-ask";
-import { officeHoursState, type OfficeHours } from "../office-hours";
+import type { OfficeHours } from "../office-hours";
+import { awaitingReplyLine, composeExpectationLine, useReplyExpectation, type ReplyExpectation } from "../reply-expectation";
 import type { FeedbackContext } from "../record";
 import { scopeOf, useResolvedTenant } from "./tenant";
 import { threadAttachments } from "./thread-files";
@@ -114,43 +115,7 @@ interface Shared {
   go: (screen: Screen) => void;
   here: Screen;
   report: (error: unknown) => void;
-  expectation: Expectation;
-}
-
-/** What to say about an answer: when someone's back (away), else how soon they usually reply. */
-interface Expectation {
-  /** Away: when someone's back, in the person's own time. */
-  back: string | null;
-  within: string | null;
-}
-
-/**
- * Away or not, worked out in the browser (the server's HTML says nothing) and again each minute.
- * The next opening is shown in the person's own time.
- */
-function useExpectation(replyExpectation: string | undefined, officeHours: OfficeHours | undefined): Expectation {
-  const [back, setBack] = useState<string | null>(null);
-  useEffect(() => {
-    if (!officeHours) {
-      setBack(null);
-      return;
-    }
-    const check = () => {
-      const state = officeHoursState(officeHours);
-      setBack(!state.open && state.nextOpen ? new Intl.DateTimeFormat(undefined, { weekday: "long", hour: "numeric", minute: "2-digit" }).format(state.nextOpen) : null);
-    };
-    check();
-    const timer = setInterval(check, 60_000);
-    return () => clearInterval(timer);
-  }, [officeHours]);
-  return { back, within: replyExpectation?.trim() || null };
-}
-
-/** The line about an answer on the compose screen, if there's one to say. */
-function expectationLine(expectation: Expectation, copy: SupportCopy): string | null {
-  if (expectation.back) return fill(copy.messenger.away, { when: expectation.back });
-  if (expectation.within) return fill(copy.messenger.replyExpectation, { expectation: expectation.within });
-  return null;
+  expectation: ReplyExpectation;
 }
 
 function ticketItems(tickets: readonly Ticket[], copy: SupportCopy, open: (id: string) => void): InboxItem[] {
@@ -498,7 +463,7 @@ function Article({ client, tenantId, scope, copy, go, here, report, slug }: Shar
 
 function Compose({ client, tenantId, scope, copy, go, report, expectation, context, from }: Shared & { context: () => FeedbackContext; from: Screen }) {
   const id = useId();
-  const line = expectationLine(expectation, copy);
+  const line = composeExpectationLine(expectation, copy);
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -669,7 +634,7 @@ function Conversation({ client, tenantId, scope, copy, report, expectation, id, 
                     ? {
                         above: (
                           <p data-testid="genesis-support-messenger-awaiting" className="px-3 pt-2 text-sm text-muted-foreground">
-                            {expectation.back ? fill(copy.messenger.awaitingReplyAway, { when: expectation.back }) : expectation.within ? fill(copy.messenger.awaitingReplyWithin, { expectation: expectation.within }) : copy.messenger.awaitingReply}
+                            {awaitingReplyLine(expectation, copy)}
                           </p>
                         ),
                       }
@@ -720,7 +685,7 @@ function Messenger({ client, tenantId: tenantProp, spaces = SPACES, greeting, as
   useReported(ai.error, report);
   const ask = useHelpAsk({ client, tenantId, askAi, context, onError: report });
   const aiOn = Boolean(askAi && ai.data);
-  const expectation = useExpectation(replyExpectation, officeHours);
+  const expectation = useReplyExpectation(replyExpectation, officeHours);
   const shared: Shared = { client, tenantId, scope, copy, go: setScreen, here: screen, report, expectation };
 
   const search = (next: string) => {

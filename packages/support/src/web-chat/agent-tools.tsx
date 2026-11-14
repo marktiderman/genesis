@@ -355,6 +355,11 @@ function AgentReports({ client, tenantId = null, from: fromProp, to: toProp, onR
                   </li>
                 ))}
               </ul>
+              {data.byRequesterCapped ? (
+                <p className="text-xs text-muted-foreground" data-testid="genesis-support-reports-by-requester-capped">
+                  {fill(copy.reports.byRequesterCapped, { count: data.byRequester.reduce((sum, g) => sum + g.open, 0).toLocaleString() })}
+                </p>
+              ) : null}
             </section>
           ) : null}
         </>

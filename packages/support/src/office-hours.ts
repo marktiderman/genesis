@@ -1,13 +1,14 @@
 /**
  * A help desk's office hours, and whether someone is in: platform-neutral, for the messenger's
- * reply expectation (`SupportMessenger`'s `officeHours`) on the web or a phone.
+ * reply expectation on the web (`SupportMessenger`'s `officeHours`) and on a phone
+ * (`createSupport`'s `officeHours`).
  */
 
 /** When someone answers, in the help desk's own time zone. */
 export interface OfficeHours {
   /** The IANA zone the hours are in ("America/New_York"). */
   timeZone: string;
-  /** Spans of a day: `days` 0 (Sunday) to 6 (Saturday), `open` and `close` as "HH:MM", close after open on the same day. */
+  /** Spans of a day: `days` 0 (Sunday) to 6 (Saturday), `open` and `close` as "HH:MM" from "00:00" to "24:00", close after open on the same day. A span it can't read is left out. */
   hours: readonly { days: readonly number[]; open: string; close: string }[];
 }
 
@@ -25,7 +26,8 @@ const minutesOf = (time: string): number | null => {
   if (!m) return null;
   const h = Number(m[1]);
   const min = Number(m[2]);
-  return h <= 24 && min < 60 ? h * 60 + min : null;
+  // "24:00" is the end of the day; nothing later is a time.
+  return min < 60 && (h < 24 || (h === 24 && min === 0)) ? h * 60 + min : null;
 };
 
 interface Zoned {

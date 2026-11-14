@@ -80,7 +80,10 @@ export interface SupportAgentInboxProps {
   context?: (ticket: AgentTicket) => ReactNode;
   /**
    * Variables a saved reply fills, besides the requester's `first_name`, `name` and `email`
-   * (the agent's own name as `agent_name`, say). Unknown ones stay as written.
+   * (the agent's own name as `agent_name`, say). Unknown ones stay as written. Without a real name
+   * for the requester (an email with none, or `resolveUser` naming them ""), `first_name` and `name`
+   * fill as nothing and take the space before them: "Hi {first_name}," reads "Hi,". A `resolveUser`
+   * that names people it doesn't know ("Someone") should return "" for them, or set `first_name` here.
    */
   replyVariables?: (ticket: AgentTicket) => Readonly<Record<string, string>>;
   /** An article's link, for `?`. Default this site's help center at the block's default path. */
@@ -166,19 +169,17 @@ function TicketComposer({ accessory, testID, ...composer }: ThreadPageSlotMap["c
   const input = useRef<HTMLTextAreaElement | null>(null);
   const picker = pane?.picker;
   const open = Boolean(picker?.open && picker.options.length);
-  const activeId = open && picker ? picker.optionId(picker.active) : null;
-  // The input names the list it drives, and the option in front.
+  const activeId = open && picker && picker.active >= 0 ? picker.optionId(picker.active) : null;
+  const listId = open && picker ? picker.listId : null;
+  // The input names the list it drives, and the option the arrows are on.
   useEffect(() => {
     const el = input.current;
     if (!el) return;
-    if (open && picker && activeId) {
-      el.setAttribute("aria-controls", picker.listId);
-      el.setAttribute("aria-activedescendant", activeId);
-    } else {
-      el.removeAttribute("aria-controls");
-      el.removeAttribute("aria-activedescendant");
-    }
-  }, [open, picker, activeId]);
+    if (listId) el.setAttribute("aria-controls", listId);
+    else el.removeAttribute("aria-controls");
+    if (activeId) el.setAttribute("aria-activedescendant", activeId);
+    else el.removeAttribute("aria-activedescendant");
+  }, [listId, activeId]);
   const above =
     picker?.open && pane ? (
       <>
@@ -206,6 +207,15 @@ function TicketComposer({ accessory, testID, ...composer }: ThreadPageSlotMap["c
 /** The requester's name: their person, or for an email ticket who it says it's from. */
 const requesterOf = (ticket: AgentTicket, resolveUser: ResolveUser, copy: SupportCopy) =>
   ticket.userId ? resolveUser(ticket.userId).name : (ticket.requesterName ?? ticket.requesterEmail ?? copy.agentInbox.emailSender);
+
+/**
+ * The requester's name for a saved reply, or "" when there's no real one: never their email
+ * address or a stand-in ("Sent by email", or an empty name from `resolveUser`).
+ */
+function greetingName(ticket: AgentTicket, resolveUser: ResolveUser, copy: SupportCopy): string {
+  const name = (ticket.userId ? resolveUser(ticket.userId).name : ticket.requesterName)?.trim() ?? "";
+  return name && !name.includes("@") && name !== copy.agentInbox.emailSender ? name : "";
+}
 
 interface PaneProps {
   client: SupportClient;
@@ -313,10 +323,12 @@ function TicketPane({ client, tenantId, ticket, resolveUser, agents, slots, cont
   const threadSlots = useMemo(() => ({ ...paneSlots, ...slots }), [slots]);
 
   const variables = useMemo(() => {
-    const own: Record<string, string> = { name: requester, first_name: requester.split(/\s+/)[0] ?? requester };
+    // No real name: both fill as nothing, and the reply reads "Hi," rather than "Hi jane@example.com,".
+    const name = greetingName(ticket, resolveUser, copy);
+    const own: Record<string, string> = { name, first_name: name.split(/\s+/)[0] ?? "" };
     if (ticket.requesterEmail) own["email"] = ticket.requesterEmail;
     return { ...own, ...(replyVariables?.(ticket) ?? {}) };
-  }, [requester, ticket, replyVariables]);
+  }, [ticket, resolveUser, copy, replyVariables]);
   const picker = useComposerPicker({
     client,
     tenantId,
