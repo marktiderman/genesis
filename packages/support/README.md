@@ -266,12 +266,22 @@ is web only, like the inbox before it:
   you notify them. A mention is readable only while the agent still handles the ticket. `!`
   inserts a saved reply with `{first_name}`, `{name}` and `{email}` filled (`replyVariables` adds
   your own), and `?` inserts a help article's title and link (`articleHref`), in a reply or a
-  note. `!` and `?` open their list only once a letter follows them, so "Merci !" stays words, and
-  Enter inserts only after the arrow keys move into the list (Tab inserts the first); otherwise it
-  sends. Without a real name for the requester (an email with none, or `resolveUser` naming them
-  `""`), `{first_name}` and `{name}` fill as nothing and take the space before them: "Hi
-  {first_name}," reads "Hi,". A `resolveUser` that names unknown people ("Someone") should return
-  `""` for them, or set `first_name` in `replyVariables`. If someone writes while an agent is writing, Send first says so, with Send
+  note. `!` and `?` open their list only once a letter follows them, so "Merci !" and "Prix ?1"
+  stay words. Enter inserts only after the arrow keys move into the list (Tab inserts the option
+  they're on, or the first). While the list offers something, or is still loading, and the arrows
+  haven't moved into it, Enter does nothing, so "!refund" isn't sent by habit: the list says "Esc
+  to close", and Enter sends once it's closed. With no match, Enter sends.
+- **Names in saved replies.** Without a real name for the requester (an email with none, or
+  `resolveUser` naming them `""`), `{first_name}` and `{name}` fill as nothing, with the separator
+  that joined them. At the start of a line the comma, colon or semicolon after them goes:
+  "{first_name}, thanks" reads "thanks". Elsewhere the space before them goes, and a comma before
+  them too, unless a word follows them: "Hi {first_name}," reads "Hi,", "Thanks, {first_name}." and
+  "Thanks, {first_name} 🙂" read "Thanks." and "Thanks 🙂", but "As discussed, {first_name} will call
+  you." reads "As discussed, will call you.". A name used as a sentence's subject can't be taken
+  out cleanly: give it a stand-in in `replyVariables`. The names follow `resolveUser` as it learns
+  them. A `resolveUser` that names unknown people ("Someone") should return `""` for them, or set
+  `first_name` in `replyVariables`.
+- **A held reply.** If someone writes while an agent is writing, Send first says so, with Send
   anyway and Review.
 - **Saved replies** are a tenant's own, written in `<SupportSavedRepliesAdmin>`
   (`client.savedReplies`, `saveSavedReply`, `deleteSavedReply`).
@@ -336,8 +346,10 @@ conversation say how soon people hear back or, outside your hours, when someone 
 person's own time. On the web they're props of `SupportMessenger` and the launcher; on the phone,
 options of `createSupport`, which `useStartConversation` and `useSupportThread` say above the
 composer (and return as `expectation` and `awaiting`). On the phone the line under an unanswered
-thread shows only with one of the two set, since `useSupportThread` shows bug reports too.
-`officeHoursState(hours, now)` is the same check anywhere.
+thread shows only with one of the two set, since `useSupportThread` shows bug reports too, and
+never on a closed one. `officeHoursState(hours, now)` is the same check anywhere. When it can't
+read the hours (an unknown zone, or a phone engine whose `Intl` has no time zones) it says the desk
+is open rather than away, and in a development build it says why with `console.warn`, once.
 
 ```tsx
 import { SupportMessengerLauncher } from "@marktiderman/genesis-support/web-chat";

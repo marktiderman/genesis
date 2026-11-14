@@ -171,7 +171,9 @@ function TicketComposer({ accessory, testID, ...composer }: ThreadPageSlotMap["c
   const open = Boolean(picker?.open && picker.options.length);
   const activeId = open && picker && picker.active >= 0 ? picker.optionId(picker.active) : null;
   const listId = open && picker ? picker.listId : null;
-  // The input names the list it drives, and the option the arrows are on.
+  // Focus stays in the input, so the hint under any open picker (loading, options or none) is read from here.
+  const hintId = picker?.open ? picker.hintId : null;
+  // The input names the list it drives, the option the arrows are on, and the hint.
   useEffect(() => {
     const el = input.current;
     if (!el) return;
@@ -179,7 +181,17 @@ function TicketComposer({ accessory, testID, ...composer }: ThreadPageSlotMap["c
     else el.removeAttribute("aria-controls");
     if (activeId) el.setAttribute("aria-activedescendant", activeId);
     else el.removeAttribute("aria-activedescendant");
-  }, [listId, activeId]);
+    if (!hintId) return;
+    // Added to, never in place of, any description the input already has, and taken out again. The
+    // cleanup takes it out before every re-run, so `includes` only guards an id put there by others.
+    const ids = (el.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
+    if (!ids.includes(hintId)) el.setAttribute("aria-describedby", [...ids, hintId].join(" "));
+    return () => {
+      const rest = (el.getAttribute("aria-describedby") ?? "").split(/\s+/).filter((id) => id && id !== hintId);
+      if (rest.length) el.setAttribute("aria-describedby", rest.join(" "));
+      else el.removeAttribute("aria-describedby");
+    };
+  }, [listId, activeId, hintId]);
   const above =
     picker?.open && pane ? (
       <>
@@ -322,13 +334,15 @@ function TicketPane({ client, tenantId, ticket, resolveUser, agents, slots, cont
   }, [agents, ticket.userId, ticket.assigneeId, resolveUser]);
   const threadSlots = useMemo(() => ({ ...paneSlots, ...slots }), [slots]);
 
+  // Read on every render, outside the memo: a `resolveUser` with a stable identity can name the
+  // requester later (from a cache filled after the first render), and the variables must follow.
+  // No real name: both fill as nothing, and the reply reads "Hi," rather than "Hi jane@example.com,".
+  const name = greetingName(ticket, resolveUser, copy);
   const variables = useMemo(() => {
-    // No real name: both fill as nothing, and the reply reads "Hi," rather than "Hi jane@example.com,".
-    const name = greetingName(ticket, resolveUser, copy);
     const own: Record<string, string> = { name, first_name: name.split(/\s+/)[0] ?? "" };
     if (ticket.requesterEmail) own["email"] = ticket.requesterEmail;
     return { ...own, ...(replyVariables?.(ticket) ?? {}) };
-  }, [ticket, resolveUser, copy, replyVariables]);
+  }, [ticket, name, replyVariables]);
   const picker = useComposerPicker({
     client,
     tenantId,

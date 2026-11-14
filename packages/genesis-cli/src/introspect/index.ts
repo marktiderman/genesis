@@ -1,4 +1,4 @@
-export { introspectPostgres } from "./postgres.js";
+export { introspectPostgres, type IntrospectSql } from "./postgres.js";
 export { introspectOpenApi, type OpenApiDocument } from "./openapi.js";
 export { emitContracts, EmitError, type EmitOptions } from "./emit.js";
 export { parseTableComment, parseColumnComment, CommentSettingsError } from "./comments.js";

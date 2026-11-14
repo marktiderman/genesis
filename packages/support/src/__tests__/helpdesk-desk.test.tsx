@@ -4,9 +4,9 @@
 // messenger's reply expectation and office hours.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import { createSupportClient, officeHoursState, SupportError, waitingSinceOf, type AgentTicket, type SupportClient, type SupportReply, type Ticket } from "..";
+import { createSupportClient, officeHoursState, SupportError, waitingSinceOf, type AgentTicket, type SavedReply, type SupportClient, type SupportReply, type Ticket } from "..";
 import { SupportAgentInbox, SupportAgentReports, SupportMessenger, SupportSavedRepliesAdmin } from "../web-chat";
 import { fillReply, mentionMarkup, pickerToken, showMentions } from "../web-chat/composer-pickers";
 import { fakeSupabase } from "./fake-supabase";
@@ -194,6 +194,12 @@ describe("the composer's pickers", () => {
     expect(pickerToken("Ça marche ?")).toBeNull();
     expect(pickerToken("Can you help?")).toBeNull();
     expect(pickerToken("mail me@x")).toBeNull();
+    // `!` and `?` need a letter, in any script, right after them.
+    expect(pickerToken("Prix ?1")).toBeNull();
+    expect(pickerToken("Ça marche ?)")).toBeNull();
+    expect(pickerToken("!!")).toBeNull();
+    expect(pickerToken("Voir ?été")).toEqual({ kind: "article", start: 5, query: "été" });
+    expect(pickerToken("!r2")).toEqual({ kind: "saved", start: 0, query: "r2" });
     expect(mentionMarkup({ id: AGENT, name: "Kit [lead]" })).toBe(`@[Kit lead](user:${AGENT})`);
     expect(showMentions(`Over to ${mentionMarkup({ id: AGENT, name: "Kit" })}`)).toBe("Over to @Kit");
   });
@@ -274,14 +280,115 @@ describe("the composer's pickers", () => {
     expect(client.savedReplies).not.toHaveBeenCalled();
   });
 
-  it("sends on Enter with a picker open until the agent moves into it", async () => {
+  it("never sends the trigger text on Enter while a picker offers something: Escape, then Enter sends", async () => {
     const client = fakeClient();
     inbox(client, { ticketId: "t1" });
     const box = await composer();
-    fireEvent.change(box, { target: { value: "Ça marche ?r" } });
-    expect(await within(await screen.findByTestId("genesis-support-agent-thread-composer-picker")).findByText("Reset your password")).toBeTruthy();
+    fireEvent.change(box, { target: { value: "!refund" } });
+    expect(await within(await screen.findByTestId("genesis-support-agent-thread-composer-picker")).findByText("Refund")).toBeTruthy();
     fireEvent.keyDown(box, { key: "Enter" });
-    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Ça marche ?r", { internal: false }));
+    await act(async () => undefined);
+    expect(client.reply).not.toHaveBeenCalled();
+    expect(box.value).toBe("!refund");
+    fireEvent.keyDown(box, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("genesis-support-agent-thread-composer-picker")).toBeNull());
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "!refund", { internal: false }));
+  });
+
+  it("holds Enter while the list is still loading, and says Escape closes it", async () => {
+    // Saved replies that never arrive: the list stays on "Loading".
+    const client = fakeClient({ savedReplies: vi.fn(() => new Promise<never>(() => undefined)) });
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!refund" } });
+    const picker = await screen.findByTestId("genesis-support-agent-thread-composer-picker");
+    expect(within(picker).getByText("Loading")).toBeTruthy();
+    expect(screen.getByTestId("genesis-support-agent-thread-composer-picker-hint").textContent).toBe("Esc to close");
+    fireEvent.keyDown(box, { key: "Enter" });
+    await act(async () => undefined);
+    expect(client.reply).not.toHaveBeenCalled();
+    expect(box.value).toBe("!refund");
+    fireEvent.keyDown(box, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("genesis-support-agent-thread-composer-picker")).toBeNull());
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "!refund", { internal: false }));
+  });
+
+  it("describes the input with the hint while a picker is open, loading or not, and stops once it closes", async () => {
+    let resolve: (replies: SavedReply[]) => void = () => undefined;
+    const client = fakeClient({ savedReplies: vi.fn(() => new Promise<SavedReply[]>((r) => (resolve = r))) });
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    expect(box.hasAttribute("aria-describedby")).toBe(false);
+    const describedText = () => (box.getAttribute("aria-describedby") ?? "").split(/\s+/).map((id) => (id ? document.getElementById(id)?.textContent : null));
+    fireEvent.change(box, { target: { value: "!refund" } });
+    // Loading: no list yet, and the hint is still what the input says.
+    await waitFor(() => expect(describedText()).toContain("Esc to close"));
+    expect(box.hasAttribute("aria-controls")).toBe(false);
+    await act(async () => resolve([{ id: "s1", title: "Refund", body: "Hi {first_name}.", updatedAt: "2026-11-01T00:00:00Z" }]));
+    await waitFor(() => expect(box.getAttribute("aria-controls")).toBeTruthy());
+    expect(describedText()).toContain("Esc to close");
+    // No match: still open, still described.
+    fireEvent.change(box, { target: { value: "!zzz" } });
+    await screen.findByTestId("genesis-support-agent-thread-composer-picker-empty");
+    expect(describedText()).toContain("Esc to close");
+    fireEvent.keyDown(box, { key: "Escape" });
+    await waitFor(() => expect(box.hasAttribute("aria-describedby")).toBe(false));
+  });
+
+  it("adds the hint to a description the app already gave the input, and leaves only that once the picker closes", async () => {
+    const client = fakeClient();
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    // ComposerBar takes no description prop, so the app's own id goes straight on the textarea.
+    box.setAttribute("aria-describedby", "app-note");
+    const ids = () => (box.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
+    fireEvent.change(box, { target: { value: "!refund" } });
+    await screen.findByTestId("genesis-support-agent-thread-composer-picker");
+    const hintId = screen.getByTestId("genesis-support-agent-thread-composer-picker-hint").id;
+    await waitFor(() => expect(ids()).toEqual(["app-note", hintId]));
+    // Re-rendering while open (the list loads, the arrows move) doesn't add the hint twice.
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    await waitFor(() => expect(box.getAttribute("aria-activedescendant")).toBeTruthy());
+    expect(ids()).toEqual(["app-note", hintId]);
+    fireEvent.keyDown(box, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("genesis-support-agent-thread-composer-picker")).toBeNull());
+    expect(box.getAttribute("aria-describedby")).toBe("app-note");
+  });
+
+  it("leaves Enter to an input method composing text, while the list loads", async () => {
+    const client = fakeClient({ savedReplies: vi.fn(() => new Promise<never>(() => undefined)) });
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!refund" } });
+    await screen.findByTestId("genesis-support-agent-thread-composer-picker");
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true });
+    box.dispatchEvent(enter);
+    // The picker didn't take it: the event wasn't cancelled for the picker's sake.
+    expect(enter.defaultPrevented).toBe(false);
+  });
+
+  it("inserts on Enter once the arrows move into the list", async () => {
+    const client = fakeClient();
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!reset" } });
+    expect(await within(await screen.findByTestId("genesis-support-agent-thread-composer-picker")).findByText("Reset password")).toBeTruthy();
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(box.value).toBe("Hi Ada, open Settings."));
+    expect(client.reply).not.toHaveBeenCalled();
+  });
+
+  it("sends on Enter when the picker matches nothing", async () => {
+    const client = fakeClient();
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "Bravo !zzz" } });
+    expect(await screen.findByTestId("genesis-support-agent-thread-composer-picker-empty")).toBeTruthy();
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Bravo !zzz", { internal: false }));
   });
 });
 
@@ -292,6 +399,74 @@ describe("a saved reply's name variables", () => {
     expect(fillReply("Hi {first_name}!", none)).toBe("Hi!");
     expect(fillReply("{first_name}, thanks.\nDear {name} and team", none)).toBe("thanks.\nDear and team");
     expect(fillReply("Hi {first_name}, {signature}", { first_name: "Ada" })).toBe("Hi Ada, {signature}");
+  });
+
+  it("take the comma that set them off, before them or, at the start of a line, after them", () => {
+    const none = { first_name: "", name: "" };
+    expect(fillReply("Thanks, {first_name}.", none)).toBe("Thanks.");
+    expect(fillReply("Hello, {first_name}, how are you?", none)).toBe("Hello, how are you?");
+    expect(fillReply("Hello\n  {first_name}, hi", none)).toBe("Hello\n  hi");
+    expect(fillReply("{first_name}, thanks", none)).toBe("thanks");
+    // Other punctuation, and a name that's there, stay.
+    expect(fillReply("Customer: {name}", none)).toBe("Customer:");
+    expect(fillReply("Thanks, {first_name}.", { first_name: "Ada" })).toBe("Thanks, Ada.");
+    expect(fillReply("Hello\n  {first_name}, hi", { first_name: "Ada" })).toBe("Hello\n  Ada, hi");
+  });
+
+  it("at the start of a line, take a colon or semicolon after them too", () => {
+    const none = { first_name: "", name: "" };
+    expect(fillReply("{first_name}: here is the fix", none)).toBe("here is the fix");
+    expect(fillReply("Hi\n  {name}; see below", none)).toBe("Hi\n  see below");
+  });
+
+  it("take the comma before them unless a word follows: it set the name off", () => {
+    const none = { first_name: "", name: "" };
+    // Whatever follows that isn't a word, the comma went with the name.
+    expect(fillReply("Thanks, {first_name} \nBest", none)).toBe("Thanks \nBest");
+    expect(fillReply("Thanks, {first_name} 🙂", none)).toBe("Thanks 🙂");
+    expect(fillReply("Thanks, {first_name} :)", none)).toBe("Thanks :)");
+    expect(fillReply("Thanks, {first_name}—we fixed it", none)).toBe("Thanks—we fixed it");
+    expect(fillReply("Thanks, {first_name}…", none)).toBe("Thanks…");
+    expect(fillReply('He said "Thanks, {first_name}"', none)).toBe('He said "Thanks"');
+    expect(fillReply("Note, {first_name}: see below", none)).toBe("Note: see below");
+    expect(fillReply("Note, {first_name}; see below", none)).toBe("Note; see below");
+    // A word goes on after it, a letter or a digit in any script: the comma belongs to the clause before.
+    expect(fillReply("As discussed, {first_name} will call you.", none)).toBe("As discussed, will call you.");
+    expect(fillReply("Comme convenu, {first_name} écrira.", none)).toBe("Comme convenu, écrira.");
+    expect(fillReply("Done, {first_name} 2 refunds sent", none)).toBe("Done, 2 refunds sent");
+  });
+
+  it("count any Unicode space or a tab as the gap between words", () => {
+    const none = { first_name: "", name: "" };
+    // A non-breaking space (U+00A0), common in replies pasted from rich text, after the name or on both sides.
+    expect(fillReply("As discussed, {first_name}\u00a0will call", none)).toBe("As discussed,\u00a0will call");
+    expect(fillReply("As discussed,\u00a0{first_name}\u00a0will call", none)).toBe("As discussed,\u00a0will call");
+    expect(fillReply("Thanks,\u00a0{first_name}\u00a0🙂", none)).toBe("Thanks\u00a0🙂");
+    expect(fillReply("Hi\u00a0{first_name}, thanks", none)).toBe("Hi, thanks");
+    expect(fillReply("\u00a0{first_name}: here is the fix", none)).toBe("\u00a0here is the fix");
+    // A tab before a word: the sentence goes on, so the comma stays, as with a space.
+    expect(fillReply("Thanks, {first_name}\twe fixed it", none)).toBe("Thanks,\twe fixed it");
+    expect(fillReply("Thanks,\t{first_name}\t🙂", none)).toBe("Thanks\t🙂");
+    // A thin space (U+2009) is a space too.
+    expect(fillReply("As discussed, {first_name}\u2009will call", none)).toBe("As discussed,\u2009will call");
+  });
+
+  it("take the comma before them only when they end their clause", () => {
+    const none = { first_name: "", name: "" };
+    // The comma belongs to "As discussed": it stays, and only the name and its space go.
+    expect(fillReply("As discussed, {first_name} will call you.", none)).toBe("As discussed, will call you.");
+    expect(fillReply("As discussed, {first_name} will call you.", { first_name: "Ada" })).toBe("As discussed, Ada will call you.");
+    // The name ends its clause (a comma, full stop, !, ?, closing bracket, the line's or text's end): its comma goes.
+    expect(fillReply("Thanks, {first_name}.", none)).toBe("Thanks.");
+    expect(fillReply("Thanks, {first_name}!", none)).toBe("Thanks!");
+    expect(fillReply("Ready, {first_name}?", none)).toBe("Ready?");
+    expect(fillReply("(Thanks, {first_name})", none)).toBe("(Thanks)");
+    expect(fillReply("Thanks, {first_name}\nBest", none)).toBe("Thanks\nBest");
+    expect(fillReply("Thanks, {first_name}", none)).toBe("Thanks");
+    // Shapes pinned in review.
+    expect(fillReply("Hi {first_name}, {last_name}", none)).toBe("Hi, {last_name}");
+    expect(fillReply("Hi {first_name}, {name}", none)).toBe("Hi");
+    expect(fillReply("Details: {email}, {name}, ok", { ...none, email: "a@b.c" })).toBe("Details: a@b.c, ok");
   });
 
   it("never greet an email ticket by its address", async () => {
@@ -308,6 +483,21 @@ describe("a saved reply's name variables", () => {
     fireEvent.change(box, { target: { value: "!reset" } });
     fireEvent.click(await screen.findByTestId("genesis-support-agent-thread-composer-picker-option-s2"));
     await waitFor(() => expect(box.value).toBe("Hi Jane, open Settings."));
+  });
+
+  it("follow resolveUser once it can name the person, after the first render", async () => {
+    // A stable resolveUser reading a cache that fills later (names loaded after the first render).
+    const cache: Record<string, string> = {};
+    const resolveUser = (id: string) => ({ name: cache[id] ?? "" });
+    inbox(fakeClient(), { ticketId: "t1", resolveUser });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!reset" } });
+    fireEvent.click(await screen.findByTestId("genesis-support-agent-thread-composer-picker-option-s2"));
+    await waitFor(() => expect(box.value).toBe("Hi, open Settings."));
+    cache["u1"] = "Ada Lovelace";
+    fireEvent.change(box, { target: { value: "!reset" } });
+    fireEvent.click(await screen.findByTestId("genesis-support-agent-thread-composer-picker-option-s2"));
+    await waitFor(() => expect(box.value).toBe("Hi Ada, open Settings."));
   });
 
   it("fill as nothing when resolveUser can't name the person", async () => {
@@ -464,7 +654,62 @@ describe("office hours", () => {
   });
 
   it("never says away when the hours can't be read", () => {
-    expect(officeHoursState({ timeZone: "Not/AZone", hours: office.hours }, new Date())).toEqual({ open: true, nextOpen: null });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      expect(officeHoursState({ timeZone: "Not/AZone", hours: office.hours }, new Date())).toEqual({ open: true, nextOpen: null });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('office hours in "Not/AZone" can\'t be read'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  // A phone's JavaScript engine may lack Intl time zones: it either throws, or ignores the option
+  // and formats in the device's own zone. Either way the desk says it's open, and development says why, once.
+  describe("on an engine without Intl time zones", () => {
+    const RealFormat = Intl.DateTimeFormat;
+    // Saturday noon in New York: away, if the hours were read.
+    const saturday = new Date("2026-11-14T17:00:00Z");
+    let warn: ReturnType<typeof vi.spyOn>;
+    const throwingFormat = function throwingFormat(): Intl.DateTimeFormat {
+      throw new RangeError("Unsupported time zone option");
+    };
+    beforeEach(() => {
+      warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("says open, and warns once, when Intl.DateTimeFormat throws", () => {
+      vi.spyOn(Intl, "DateTimeFormat").mockImplementation(throwingFormat);
+      const hours = { ...office, timeZone: "America/Chicago" };
+      expect(officeHoursState(hours, saturday)).toEqual({ open: true, nextOpen: null });
+      expect(officeHoursState(hours, saturday)).toEqual({ open: true, nextOpen: null });
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toContain("Unsupported time zone option");
+    });
+
+    it("says open, and warns, when Intl.DateTimeFormat ignores timeZone", () => {
+      vi.spyOn(Intl, "DateTimeFormat").mockImplementation(function ignoringZone(locale?: Intl.LocalesArgument, options?: Intl.DateTimeFormatOptions) {
+        const { timeZone: _ignored, ...rest } = options ?? {};
+        const real = new RealFormat(locale, { ...rest, timeZone: "UTC" });
+        return { formatToParts: (date: Date) => real.formatToParts(date), resolvedOptions: () => ({ ...real.resolvedOptions(), timeZone: undefined }) } as unknown as Intl.DateTimeFormat;
+      });
+      expect(officeHoursState({ ...office, timeZone: "America/Denver" }, saturday)).toEqual({ open: true, nextOpen: null });
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toContain("no time zone support");
+    });
+
+    it("stays silent in a production build", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      try {
+        vi.spyOn(Intl, "DateTimeFormat").mockImplementation(throwingFormat);
+        expect(officeHoursState({ ...office, timeZone: "Europe/Paris" }, saturday)).toEqual({ open: true, nextOpen: null });
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
   });
 });
 

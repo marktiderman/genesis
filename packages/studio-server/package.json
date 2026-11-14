@@ -77,7 +77,7 @@
   },
   "dependencies": {
     "jose": "^6.2.12",
-    "postgres": "^3.4.9"
+    "postgres": "^4.1.0"
   },
   "peerDependencies": {
     "@marktiderman/genesis-core": "^1.11.0 || ^2.0.0"

@@ -144,4 +144,18 @@ describe("the reply expectation on the phone", () => {
     await waitFor(() => expect(second.result.current.report).not.toBeNull());
     expect(second.result.current.awaiting).toBeNull();
   });
+
+  it("says nothing on a closed report, which no answer is coming to", async () => {
+    for (const status of ["addressed", "wont_fix"]) {
+      const closed = harness({ replyExpectation: "within a few hours" }, (call) =>
+        call.table === "support_reports" ? { data: { id: REPORT, type: "question", message: "Hello?", status, created_at: "2026-11-14T09:00:00Z", updated_at: "x" }, error: null } : unanswered(call),
+      );
+      const { result, unmount } = renderHook(() => useSupportThread(REPORT), { wrapper: closed.wrapper });
+      await waitFor(() => expect(result.current.report?.status).toBe(status));
+      await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+      expect(result.current.composer).toBeNull();
+      expect(result.current.awaiting).toBeNull();
+      unmount();
+    }
+  });
 });

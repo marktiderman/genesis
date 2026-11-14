@@ -19,6 +19,7 @@ export {
 
 export {
   introspectPostgres,
+  type IntrospectSql,
   introspectOpenApi,
   emitContracts,
   parseTableComment,
