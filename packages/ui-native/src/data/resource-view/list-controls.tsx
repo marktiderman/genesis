@@ -71,17 +71,20 @@ export function NativeViewSegments({
   view,
   state,
   baseFilters = [],
+  enabled = true,
   testID = "native-view-segments",
 }: {
   view: AnyResourceView<Row>;
   state: ListStateResult;
   /** The list's other filters (the screen's), which counts include. */
   baseFilters?: readonly FilterParam[];
+  /** False while the screen waits: no count is read. */
+  enabled?: boolean;
   testID?: string;
 }) {
   const words = useNativeListMessages();
   const segments = view.segments();
-  const counts = useSegmentCounts(view, useMemo(() => [...baseFilters, ...state.valueFilters], [baseFilters, state.valueFilters]));
+  const counts = useSegmentCounts(view, useMemo(() => [...baseFilters, ...state.valueFilters], [baseFilters, state.valueFilters]), { enabled });
   if (!segments.length) return null;
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityLabel={words.segments}>
@@ -178,18 +181,21 @@ export function NativeListControls({
   baseFilters,
   types,
   testID,
+  enabled = true,
 }: {
   view: AnyResourceView<Row>;
   state: ListStateResult;
   baseFilters: readonly FilterParam[];
   types: readonly string[];
   testID: string;
+  /** False while the screen waits: the segments' counts aren't read. */
+  enabled?: boolean;
 }) {
   if (!view.segments().length && !view.filters().length && types.length < 2) return null;
   return (
     <View style={{ gap: 8 }} testID={`${testID}-controls`}>
       <NativeViewTypeSwitcher state={state} types={types} testID={`${testID}-types`} />
-      <NativeViewSegments view={view} state={state} baseFilters={baseFilters} testID={`${testID}-segment`} />
+      <NativeViewSegments view={view} state={state} baseFilters={baseFilters} enabled={enabled} testID={`${testID}-segment`} />
       <NativeViewFilterControls view={view} state={state} testID={`${testID}-filters`} />
     </View>
   );

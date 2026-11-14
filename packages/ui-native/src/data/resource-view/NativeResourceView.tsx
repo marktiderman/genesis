@@ -740,7 +740,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
           onDismiss={state.dismissRefusal}
         />
       ) : null}
-      <NativeListControls view={view as AnyResourceView<Row>} state={list} baseFilters={state.baseFilters} types={switcherOn ? switchTypes : []} testID={testID} />
+      <NativeListControls view={view as AnyResourceView<Row>} state={list} baseFilters={state.baseFilters} types={switcherOn ? switchTypes : []} enabled={options.enabled !== false} testID={testID} />
       {header}
       {state.loadingPrevious ? (
         <NativeLoadingState fullScreen={false} size="small" label={messages.list.loadingMore} testID={`${testID}-previous`} />
@@ -774,9 +774,11 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     )))
   );
 
-  // The peek and the edit sheet read the row by id: the list's select may be narrower.
-  const peekRow = useOne<T & BaseRecord>(view.resource, peekId ? ((peekId.row as DataRow).id as string) : null);
-  const editRow = useOne<T & BaseRecord>(view.resource, sheet?.mode === "edit" ? ((sheet.row as DataRow).id as string) : null);
+  // The peek and the edit sheet read the row by id: the list's select may be narrower. They read in
+  // the list's scope (as the web's inbox and table do): a function source takes its scope there.
+  const recordScope = useMemo(() => [...state.baseFilters, ...list.filters], [state.baseFilters, list.filters]);
+  const peekRow = useOne<T & BaseRecord>(view.resource, peekId ? ((peekId.row as DataRow).id as string) : null, { scope: recordScope });
+  const editRow = useOne<T & BaseRecord>(view.resource, sheet?.mode === "edit" ? ((sheet.row as DataRow).id as string) : null, { scope: recordScope });
   const peek = peekId ? ((peekRow.data as T | undefined) ?? peekId.row) : null;
 
   // Peek: the view's full column list, drawn like the cells (so `when` hides there too), never

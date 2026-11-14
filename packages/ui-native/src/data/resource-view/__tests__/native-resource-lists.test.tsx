@@ -192,8 +192,8 @@ describe("the inbox on the phone", () => {
 });
 
 describe("review fixes on the phone", () => {
-  it("fetches nothing while the screen holds enabled off, in every type", async () => {
-    const inbox = defineView(tasks, { inbox: { unread: "unread" }, calendar: { field: "due_on" }, board: { field: "status" } });
+  it("fetches nothing while the screen holds enabled off, in every type, segment counts included", async () => {
+    const inbox = defineView(tasks, { inbox: { unread: "unread" }, calendar: { field: "due_on" }, board: { field: "status" }, segments: [{ id: "open", label: "Open", where: { status: "todo" }, count: true }] });
     for (const type of ["list", "inbox", "calendar", "board"] as const) {
       const p = provider();
       const { unmount } = render(<NativeResourceView view={inbox} type={type} enabled={false} />, { wrapper: wrap(p) });
@@ -232,6 +232,15 @@ describe("review fixes on the phone", () => {
     const gte = (p.getList.mock.calls[0]![1] as ListParams).filters!.find((f) => f.operator === "gte") as { value: unknown };
     // The window starts at a Kiritimati midnight (UTC+14): 10:00 UTC the day before.
     expect(String(gte.value)).toMatch(/T10:00:00\.000Z$/);
+  });
+
+  it("reads the peeked record in the list's scope, as the web's table and inbox do", async () => {
+    const view = defineView(tasks, { segments: [{ id: "open", label: "Open", where: { status: "todo" } }] });
+    const p = provider();
+    render(<NativeResourceView view={view} />, { wrapper: wrap(p) });
+    fireEvent.click(await screen.findByText("Write the plan"));
+    await waitFor(() => expect(p.getOne).toHaveBeenCalled());
+    expect(vi.mocked(p.getOne).mock.calls[0]![1]).toMatchObject({ id: "a", scope: [{ field: "status", operator: "eq", value: "todo" }] });
   });
 });
 
