@@ -1,0 +1,47 @@
+.changeset/hybrid-native-release.md
+  s_a2e5357843c63e::t_b71ebb0570b6d2 13
+docs/NATIVE-RELEASE.md
+  s_a2e5357843c63e::t_72e85b6a90ab28 273-274
+packages/genesis-cli/package.json
+  s_a2e5357843c63e::t_c4c8edbd88801f 90-91
+packages/genesis-cli/src/blocks/lock.ts
+  s_a2e5357843c63e::t_a569a9966c61f2 49
+packages/genesis-cli/src/blocks/release.ts
+  s_a2e5357843c63e::t_1b3e85244e6f24 19,270-279,331-340,342-346,349-363,374
+packages/genesis-cli/src/doctor/native.ts
+  s_a2e5357843c63e::t_875ff0343c221a 62-135,149
+packages/genesis-cli/src/upgrade/index.ts
+  s_9c94fb8fc662ae::t_d9461a9c4fdb0a 59,643-645,647,665,671
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_a2e5357843c63e::t_65c098aeff90dc 254-255,257-265
+packages/genesis-cli/test/release.test.ts
+  s_a2e5357843c63e::t_d25ac98eaee647 462-465,536-553,732-757
+packages/genesis-cli/tsup.config.ts
+  s_a2e5357843c63e::t_38cf437aaba867 51,81
+pnpm-lock.yaml
+  s_a2e5357843c63e::t_76d24b6bf58b0b 1295-1297
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "92238885ddbbec3b015803843d2aec926517bb33",
+  "prompts": {},
+  "sessions": {
+    "s_9c94fb8fc662ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "43574400-0d77-49f7-ac4b-1586a7ece165",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

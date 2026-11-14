@@ -1,0 +1,49 @@
+.changeset/hybrid-native-release.md
+  s_a2e5357843c63e::t_72825720076fe0 7,10
+apps/genesis-rn-starter/.eas/scripts/native-release.mjs
+  s_a2e5357843c63e::t_4bde67e3a08c0f 25-26,30-35,122-125,136,138,140-141,156,158-159,161,196-200,202-203,211-212,214-215,219,223-235,270-272,282-288,294
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_a2e5357843c63e::t_b7dc42afbbca67 6-12,38-40,71-74,82-85,98-99,109,112,119,122,124-125,130,132-150,158-161,169,172,179,182,184-185,190,192-210
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_a2e5357843c63e::t_e3e109f41bb55c 114-115,162-163,165-168
+docs/NATIVE-RELEASE.md
+  s_a2e5357843c63e::t_1651872793fc3b 37-42,44-47,53,55-56,60-61,64-66,84-85,93-102,139,188,222-226,271-274,279-284
+packages/genesis-cli/README.md
+  s_a2e5357843c63e::t_6796ed259f29bb 614-615
+packages/genesis-cli/src/blocks/add-template.ts
+  s_a2e5357843c63e::t_b39b11a6c46b04 17,19-20,52
+packages/genesis-cli/src/blocks/owned.ts
+  s_a2e5357843c63e::t_b4058a900b6b69 55
+packages/genesis-cli/src/blocks/release.ts
+  s_a2e5357843c63e::t_c36b3df931384f 313-359,362-365,371-380,388-392,400-407,420-421,436-440
+packages/genesis-cli/src/doctor/native.ts
+  s_a2e5357843c63e::t_4421e633916ce1 59-89
+packages/genesis-cli/src/upgrade/index.ts
+  s_a2e5357843c63e::t_54514a7c497f52 54-56,129-130,411-413,585,595-601,616-627,629-633,638-642,646-648,722,786-795,818
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_a2e5357843c63e::t_2228181c05bd9d 250-257,265-271
+packages/genesis-cli/test/release.test.ts
+  s_a2e5357843c63e::t_3f6f064d820022 7,16,93-95,97-98,103-129,189-193,212,214-232,306-318,336-365,408,453-462,467-475,506-514,582-622,625,628,630-639,643,645-650
+templates/ci/native-release.yml
+  s_a2e5357843c63e::t_8f03c9b923904a 72,78,96-97,137-139,145,147,154,156-160,163,165-168,172,177-184,190,201-206,210-212,217,222,230,236,247,250-255,259-261,266,285,298-299,301,312,315
+templates/eas/scripts/native-release.mjs
+  s_a2e5357843c63e::t_50bf55fcdbe7e3 25-26,30-35,122-125,136,138,140-141,156,158-159,161,196-200,202-203,211-212,214-215,219,223-235,270-272,282-288,294
+templates/eas/workflows/deploy-production.yml
+  s_a2e5357843c63e::t_0804c468679a75 6-12,38-40,74-75,87-88,103,105,119,122,129,132,134-135,140,142-160,162-163,170,176,179,188,194,213,215,220-221,229,232,239,242,244-245,250,252-270,272-273,280,286,289,298,304
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e6bb49f4ba9e5ba2a1251331e9aff33612cb4d20",
+  "prompts": {},
+  "sessions": {
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
