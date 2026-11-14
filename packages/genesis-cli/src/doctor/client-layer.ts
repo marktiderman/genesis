@@ -131,12 +131,16 @@ function declaredAtTop(code: string, name: string): boolean {
   return new RegExp(`^(?:export\\s+)?(?:const|let|var)\\s+${escaped}\\b`, "m").test(code);
 }
 
-/** Whether a function in the file takes `name` as a parameter (`function f(name)`, `(name) =>`, `name =>`). */
+/**
+ * Whether a function in the file takes `name` as a parameter: `function f(name)`, `(name) =>`,
+ * `name =>`, or an object or class method `f(name) {`. Broad on purpose (an `if (name) {` counts
+ * too): a missed warning is the safe direction.
+ */
 function boundAsParameter(code: string, name: string): boolean {
   const n = escapeRegExp(name);
   const inList = new RegExp(`(?:^|[,({\\s])\\.{0,3}${n}\\s*(?:[,):=?]|$)`);
-  for (const m of code.matchAll(/\bfunction\b[^(]*\(([^)]*)\)|\(([^()]*)\)\s*(?::[^=;{]*)?=>/g)) {
-    if (inList.test(m[1] ?? m[2] ?? "")) return true;
+  for (const m of code.matchAll(/\bfunction\b[^(]*\(([^)]*)\)|\(([^()]*)\)\s*(?::[^=;{]*)?=>|[\w$]\s*\(([^()]*)\)\s*(?::[^{;=]*)?\{/g)) {
+    if (inList.test(m[1] ?? m[2] ?? m[3] ?? "")) return true;
   }
   return new RegExp(`(?<![\\w$.])${n}\\s*=>`).test(code);
 }

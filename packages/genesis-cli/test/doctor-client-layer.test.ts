@@ -109,6 +109,21 @@ describe("client/one-view-per-resource", () => {
     expect(found).toEqual([]);
   });
 
+  it("doesn't take object-method parameters that shadow an imported contract for the import", async () => {
+    const found = await only("client/one-view-per-resource", {
+      ...LAYER,
+      "src/client/contract.ts": "export const contract = {};",
+      "src/client/factory.ts": [
+        'import { contract } from "./contract";',
+        "export const f = {",
+        "  tasksOf(contract) { return defineView(contract, {}); },",
+        "  notesOf(contract) { return defineView(contract, {}); },",
+        "};",
+      ].join("\n"),
+    });
+    expect(found).toEqual([]);
+  });
+
   it("doesn't take parameters that shadow an imported contract for the import", async () => {
     const found = await only("client/one-view-per-resource", {
       ...LAYER,
@@ -132,6 +147,22 @@ describe("shadowed-export and the app's wrappers", () => {
       "src/commented/button.tsx": 'import { Button as GenesisButton } from "@marktiderman/genesis-ui";\n// TODO: replace this with GenesisButton.\nexport const Button = () => <span title="GenesisButton" />;',
     });
     expect(found.map((f) => f.file).sort()).toEqual(["src/commented/button.tsx", "src/own/button.tsx", "src/unused/button.tsx"]);
+  });
+
+  it("still sees a wrapper whose JSX text has apostrophes, or that uses the alias in a template literal", async () => {
+    const found = await only("shadowed-export", {
+      "src/client/button.tsx": [
+        'import { Button as GenesisButton } from "@marktiderman/genesis-ui";',
+        "export function Button(props) {",
+        "  return (<div><p>Don't lose your place.</p><GenesisButton {...props} /><p>It's saved.</p></div>);",
+        "}",
+      ].join("\n"),
+      "src/client/named.tsx": [
+        'import { Button as GenesisButton } from "@marktiderman/genesis-ui";',
+        "export const Button = () => `${GenesisButton}`;",
+      ].join("\n"),
+    });
+    expect(found).toEqual([]);
   });
 
   it("finds nothing in a freshly scaffolded client layer", async () => {

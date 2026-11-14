@@ -297,12 +297,14 @@ export function wrappedGenesisNames(code: string, uiPackage: string): Set<string
 
 /**
  * Whether `name` is used as code: rendered (`<Name`), called or read through (`Name(`, `Name.x`),
- * or passed as a value (after `=`, `(`, `,`, `:`, `?`, `{`, `[`, `return`). Comments and the
- * contents of strings and template literals are blanked first; the import specifier itself
- * (`X as Name`) isn't a use.
+ * or passed as a value (after `=`, `(`, `,`, `:`, `?`, `{` (a JSX or template `${…}`), `[` or
+ * `return`). Comments are blanked first. Strings aren't: an apostrophe in JSX text ("Don't") isn't
+ * a quote, so a quote-pairing pass would blank real code. A name inside a string is still no use,
+ * since none of these forms matches it there (`title="Name"`), and the import specifier itself
+ * (`X as Name`) isn't one either.
  */
 export function usesAsCode(code: string, name: string): boolean {
-  const plain = stripComments(code).replace(/(["'`])(?:\\.|(?!\1)[^\\])*\1/g, (q) => q[0] + " ".repeat(Math.max(0, q.length - 2)) + q[0]);
+  const plain = stripComments(code);
   const n = escapeRegExp(name);
   const use = new RegExp(`<${n}(?![\\w$])|(?<![\\w$.])${n}\\s*[(.]|(?:[=(,:?{\\[]|\\breturn)\\s*${n}(?![\\w$])`);
   return use.test(plain);
