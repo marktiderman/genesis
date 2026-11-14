@@ -434,6 +434,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     return text === null ? null : renderOwned(file, text, appFolder);
   };
   const bases = new Map<string, string>();
+  // Each owned template as installed before the upgrade (the old pin), whatever the lock says: to
+  // tell whether this release changes it.
+  const installedBefore = new Map<string, string>();
   const basesFromPending = new Set<string>();
   for (const [file, entry] of Object.entries(lock.files)) {
     if (ownedKeyProblem(file, entry.source, localPackageNames(root))) continue;
@@ -448,6 +451,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     const at = ownedDir(root, file, appFolder);
     const mine = entry.pending && entry.pendingMine && taken.includes(entry.pending) && readApp(at, `${file}.genesis-next`) === null ? readApp(at, file) : null;
     const resolved = mine !== null && sha256(mine) !== entry.pendingMine;
+    installedBefore.set(file, text);
     if (taken.includes(entry.sha256)) bases.set(file, text);
     else if (resolved) {
       bases.set(file, text);
@@ -619,7 +623,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       // gained an input or a secret would otherwise break the app's CI on the upgrade.
       const newWithOldPin = ownedText(file, entry.source, oldPin);
       const base = bases.get(file) ?? null;
-      const templateSame = newWithOldPin !== null && base !== null && newWithOldPin === base;
+      // This release changes the template (from the one installed, whatever the lock records).
+      const before = installedBefore.get(file);
+      const changedNow = newWithOldPin === null || before === undefined || newWithOldPin !== before;
+      // Nothing outstanding and nothing new: the pin may move by itself.
+      const templateSame = !changedNow && !entry.awaiting && newWithOldPin !== null && base !== null && newWithOldPin === base;
       const repo = repositoryRoot(root, appFolder);
       const shownRepo = path.relative(root, path.join(repo, file)).split(path.sep).join("/");
       // Read and written through appPath: a symlink there is refused, never followed.
@@ -630,9 +638,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
         warnings.push(`${shownRepo}: ${err instanceof Error ? err.message : String(err)}; its Genesis pin wasn't moved.`);
       }
       const called = theirs === null ? [] : calledWorkflows(theirs);
-      // The release whose template change the copy still waits on: recorded the first time it
-      // isn't applied, else this release's.
-      const waitingOn = entry.awaiting ?? newPin;
+      // The newest release whose template change the copy waits on: this one when it changes the
+      // template (applying it applies every earlier one), else the one already recorded.
+      const waitingOn = changedNow ? newPin : (entry.awaiting ?? newPin);
       // The app moved the pin itself, with that change: the copy pins that release or a later one.
       const appliedByHand = Boolean(waitingOn && repoText !== null && called.length && called.every((w) => pinsAtLeast(repoText!, w, waitingOn)));
       let pinned = false;
@@ -648,15 +656,15 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
         // The lock records only what reached the repository's copy: a template change still to
         // apply keeps the old checksum, so a later release can't move the pin past it.
         // A template that calls no Genesis workflow has no pin to wait on: it's named once.
-        const applied = (templateSame && !entry.awaiting) || appliedByHand || !called.length;
+        const applied = templateSame || appliedByHand || !called.length;
         if (applied) {
           const { awaiting: _done, ...rest } = entry;
           lock.files[file] = { ...rest, sha256: sha256(theirs), ...(version ? { version } : {}) };
-        } else if (newPin && !entry.awaiting) lock.files[file] = { ...entry, awaiting: newPin };
+        } else if (waitingOn) lock.files[file] = { ...entry, awaiting: waitingOn };
         refreshed.push(
           pinned
             ? { path: file, outcome: "updated", detail: `the repository's copy: its Genesis pin moved to ${newPin!.version} (${newPin!.sha.slice(0, 7)}); the template is otherwise unchanged` }
-            : appliedByHand || (templateSame && !entry.awaiting)
+            : appliedByHand || templateSame
               ? { path: file, outcome: "updated", detail: "the repository's copy already has this release's changes" }
               : { path: file, outcome: "repository", detail: `the template changed; your copy is in the repository's own .github/workflows (with working-directory: ${appFolder}), so compare it with ${entry.source}${newPin && called.length ? `, and move its Genesis pin to ${newPin.version} (${newPin.sha}) with those changes. Until its pin names ${waitingOn?.version ?? newPin.version} or later, upgrades leave it and say so again` : ""}` },
         );

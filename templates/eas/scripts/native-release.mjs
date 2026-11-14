@@ -265,7 +265,8 @@ export function latestCommit(run, branch, platform) {
   }
   const group = latestGroup(JSON.parse(listed), platform);
   if (!group) return "";
-  return groupCommit(JSON.parse(run(["update:view", group, "--json", "--non-interactive"])), platform);
+  // update:view takes no --non-interactive (eas-cli 26 refuses an unknown flag); it never prompts with a group id.
+  return groupCommit(JSON.parse(run(["update:view", group, "--json"])), platform);
 }
 
 /** The runtime version in `expo-updates runtimeversion:resolve`'s output, or null. */

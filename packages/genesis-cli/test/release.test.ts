@@ -4,7 +4,7 @@
  * plan script's decisions, adopting the templates into an app, and upgrading one (docs/NATIVE-RELEASE.md).
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -395,7 +395,7 @@ describe("the plan script", () => {
     expect(plan.latestCommit(run, "production", "ios")).toBe(sha("c"));
     expect(calls).toEqual([
       ["update:list", "--branch", "production", "--platform", "ios", "--limit", "1", "--json", "--non-interactive"],
-      ["update:view", "group-new", "--json", "--non-interactive"],
+      ["update:view", "group-new", "--json"],
     ]);
     // No update yet on the branch: no update:view.
     expect(plan.latestCommit(() => JSON.stringify({ name: "production", id: "N/A", currentPage: [] }), "production", "ios")).toBe("");
@@ -681,6 +681,35 @@ describe("genesis upgrade and the release lane", () => {
     expect(read(repo, ".github/workflows/ci.yml")).toContain(`app-ci.yml@${p4.sha} # @marktiderman/genesis@4.0.0`);
   });
 
+  it("moves `awaiting` to the newest release that changes the template: applying P2 isn't applying P3", async () => {
+    const { repo, root } = monorepo({});
+    const v1 = template("ci/app-ci.yml");
+    const v2 = v1.replace("name: CI", "name: App CI");
+    const v3 = v2.replace("name: App CI", "name: App CI 3");
+    ship(root, "1.0.0", { "ci/app-ci.yml": v1 });
+    writeLock(root, { version: 1, blocks: {}, files: { ".github/workflows/ci.yml": { source: `${CLI}:templates/ci/app-ci.yml`, sha256: sha256(v1) } } });
+    const caller = (pin: { sha: string; version: string }) => `jobs:\n  app:\n    uses: marktiderman/genesis/.github/workflows/app-ci.yml@${pin.sha} # @marktiderman/genesis@${pin.version}\n`;
+    writeTree(repo, { ".github/workflows/ci.yml": caller({ sha: "b".repeat(40), version: "1.9.0" }) });
+    const p2 = { sha: "2".repeat(40), version: "2.0.0" };
+    const p3 = { sha: "3".repeat(40), version: "3.0.0" };
+    await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: (r) => void ship(r, "1.2.0", { "ci/app-ci.yml": v2 }), doctor: false, pin: () => p2 });
+    expect(readLock(root).files[".github/workflows/ci.yml"]!.awaiting).toEqual(p2);
+    // The app applies P2's change and pins P2; then P3 changes the template again.
+    writeTree(repo, { ".github/workflows/ci.yml": caller(p2) });
+    const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.3.0" }), install: (r) => void ship(r, "1.3.0", { "ci/app-ci.yml": v3 }), doctor: false, pin: () => p3 });
+    expect(report.refreshed.find((r) => r.path === ".github/workflows/ci.yml")).toMatchObject({ outcome: "repository" });
+    expect(report.refreshed.find((r) => r.path === ".github/workflows/ci.yml")!.detail).toContain("Until its pin names 3.0.0 or later");
+    const entry = readLock(root).files[".github/workflows/ci.yml"]!;
+    expect(entry.awaiting).toEqual(p3);
+    expect(entry.sha256).toBe(sha256(v1));
+    expect(read(repo, ".github/workflows/ci.yml")).toBe(caller(p2));
+    // Applying P3 (pinning it) settles it.
+    writeTree(repo, { ".github/workflows/ci.yml": caller(p3) });
+    const settled = await runUpgrade({ root, lookup: release({ [CLI]: "1.4.0" }), install: (r) => void ship(r, "1.4.0", { "ci/app-ci.yml": v3 }), doctor: false, pin: () => p3 });
+    expect(settled.refreshed.find((r) => r.path === ".github/workflows/ci.yml")).toMatchObject({ outcome: "updated" });
+    expect(readLock(root).files[".github/workflows/ci.yml"]!.awaiting).toBeUndefined();
+  });
+
   it("never writes a pin through a symlinked workflow", async () => {
     const { repo, root } = monorepo({});
     const ci = template("ci/app-ci.yml");
@@ -726,5 +755,95 @@ describe("genesis upgrade and the release lane", () => {
     writeLock(root, { version: 1, blocks: {}, files: { ".eas/workflows/rollout.yml": { source: `${CLI}:templates/eas/workflows/rollout.yml`, sha256: sha256(v1) } } });
     const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: (r) => void ship(r, "1.2.0", { "eas/workflows/rollout.yml": v1.replace("name: Rollout", "name: Rollout 2") }), doctor: false });
     expect(report.files).toContain("genesis.lock.json");
+  });
+});
+
+describe("every eas command the lane runs exists in eas-cli 26.0.0", () => {
+  // The commands' flag definitions, read from eas-cli 26.0.0's command classes
+  // (test/fixtures/eas-cli-commands.cjs writes this file from an installed eas-cli).
+  const FIXTURE = path.join(__dirname, "fixtures", "eas-cli-26.0.0-commands.json");
+  const spec = JSON.parse(readFileSync(FIXTURE, "utf8")) as { "eas-cli": string; commands: Record<string, { args: string[]; flags: Record<string, { char?: string }> }> };
+
+  /** Each `eas <command> …` (or `npx --yes eas-cli@26.0.0 <command> …`) in a shell text, with its flags; quoted strings removed first. */
+  const easCalls = (text: string) => {
+    const calls: { command: string; flags: string[]; line: string }[] = [];
+    for (const raw of text.split("\n")) {
+      const line = raw.replace(/'[^']*'/g, "''").replace(/"(?:[^"\\]|\\.)*"/g, '""');
+      const args = /^\s*args\+?=\((.*)\)\s*$/.exec(line);
+      if (args) {
+        calls.push({ command: "workflow:run", flags: [...args[1]!.matchAll(/(?:^|\s)(-{1,2}[A-Za-z][\w-]*)/g)].map((m) => m[1]!), line: raw });
+        continue;
+      }
+      for (const m of line.matchAll(/(?:^|[\s;(&|])(?:eas|npx --yes eas-cli@26\.0\.0)\s+([a-z][a-z:-]*)((?:\s+[^\s;|&<>]+)*)/g)) {
+        const tokens = (m[2] ?? "").trim().split(/\s+/).filter(Boolean);
+        calls.push({ command: m[1]!, flags: tokens.filter((t) => /^-{1,2}[A-Za-z]/.test(t)).map((t) => t.replace(/=.*$/, "")), line: raw });
+      }
+    }
+    return calls;
+  };
+  const check = (calls: ReturnType<typeof easCalls>, where: string) => {
+    for (const call of calls) {
+      const command = spec.commands[call.command];
+      expect(command, `${where}: eas ${call.command} isn't a command this test knows (${call.line.trim()})`).toBeDefined();
+      for (const flag of call.flags) {
+        const known = flag.startsWith("--") ? flag.slice(2) in command!.flags : Object.values(command!.flags).some((f) => f.char === flag.slice(1));
+        expect(known, `${where}: eas ${call.command} has no flag ${flag} in eas-cli 26.0.0 (${call.line.trim()})`).toBe(true);
+      }
+    }
+  };
+
+  it("the fixture is eas-cli 26.0.0's, and matches an installed copy when there is one", () => {
+    expect(spec["eas-cli"]).toBe("26.0.0");
+    const caches = path.join(process.env.HOME ?? "", ".npm", "_npx");
+    const installed = existsSync(caches)
+      ? readdirSync(caches).map((d) => path.join(caches, d, "node_modules", "eas-cli")).find((d) => {
+          try {
+            return JSON.parse(readFileSync(path.join(d, "package.json"), "utf8")).version === "26.0.0";
+          } catch {
+            return false;
+          }
+        })
+      : undefined;
+    if (!installed) return;
+    const fresh = execFileSync("node", [path.join(__dirname, "fixtures", "eas-cli-commands.cjs"), installed], { encoding: "utf8" });
+    expect(JSON.parse(fresh)).toEqual(spec);
+  });
+
+  it("finds the calls it checks, and catches a flag that doesn't exist", () => {
+    expect(easCalls('eas update:view "$g" --json --non-interactive')).toEqual([{ command: "update:view", flags: ["--json", "--non-interactive"], line: 'eas update:view "$g" --json --non-interactive' }]);
+    const bad = easCalls("eas update:view group --non-interactive")[0]!;
+    expect(bad.flags.some((f) => !(f.slice(2) in spec.commands["update:view"]!.flags))).toBe(true);
+  });
+
+  it("in every render of the workflows", () => {
+    for (const platforms of [["ios", "android"], ["ios"], ["android"]] as const) {
+      for (const sentry of [false, true]) {
+        for (const runtimeCommand of [null, "node scripts/rv.mjs"]) {
+          for (const pushHook of [null, { script: "scripts/p.mjs", secrets: [] }]) {
+            const c = ctx({ platforms: [...platforms], sentry, runtimeCommand, pushHook });
+            for (const rel of ["ci/native-release.yml", "eas/workflows/deploy-production.yml"]) {
+              const doc = parse(renderRelease(template(rel), c)) as { jobs: Record<string, { steps?: { run?: string }[] }> };
+              const runs = Object.values(doc.jobs).flatMap((j) => (j.steps ?? []).map((st) => st.run ?? "")).join("\n");
+              const calls = easCalls(runs);
+              expect(calls.length, rel).toBeGreaterThanOrEqual(rel.startsWith("ci/") ? 6 : 1);
+              check(calls, rel);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it("in the script", () => {
+    const seen: string[][] = [];
+    const run = (args: string[]) => {
+      seen.push(args);
+      return JSON.stringify(args[0] === "update:list" ? { name: "production", id: "x", currentPage: [{ group: "g", platforms: "ios" }] } : [{ platform: "ios", gitCommitHash: "c".repeat(40) }]);
+    };
+    plan.latestCommit(run, "production", "ios");
+    expect(seen.map((a) => a[0])).toEqual(["update:list", "update:view"]);
+    check(seen.map((a) => ({ command: a[0]!, flags: a.filter((t) => t.startsWith("-")), line: `eas ${a.join(" ")}` })), "native-release.mjs");
+    // The script calls eas only through latestCommit.
+    expect([...readFileSync(path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "utf8").matchAll(/execFileSync\("eas"/g)]).toHaveLength(1);
   });
 });
