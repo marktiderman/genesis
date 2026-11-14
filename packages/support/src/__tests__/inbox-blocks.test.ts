@@ -84,5 +84,12 @@ describe("the agent queue's inbox blocks", () => {
     // A fixed tenant wins over the list's.
     expect(supportQueueSource({ tenant: "tb" }).args({ take: () => "ta" })).toEqual({ tenant: "tb", inbox_view: "ta" });
     expect(supportQueueSource().args({ take: () => undefined })).toEqual({ tenant: null, inbox_view: "all" });
+
+    // Under a fixed tenant the list's tenant_id is still taken: it doesn't stay on as a column filter.
+    calls.length = 0;
+    const fixed = createSupabaseProvider(client as never, { resources: { support_queue: { source: supportQueueSource({ tenant: "tb" }) } } });
+    await fixed.getList("support_queue", { filters: [{ field: "tenant_id", operator: "eq", value: "ta" }] });
+    expect(calls.find((c) => c.method === "rpc")?.args).toEqual(["support_agent_queue", { tenant: "tb", inbox_view: "all" }]);
+    expect(calls.filter((c) => c.method === "eq")).toEqual([]);
   });
 });

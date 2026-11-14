@@ -22,10 +22,15 @@
 export function supportQueueSource(options: { tenant?: string | null } = {}) {
   return {
     rpc: "support_agent_queue",
-    args: (context: { take(field: string): unknown }) => ({
-      tenant: options.tenant !== undefined ? options.tenant : (context.take("tenant_id") ?? null),
-      inbox_view: context.take("inbox_view") ?? "all",
-    }),
+    args: (context: { take(field: string): unknown }) => {
+      // Always taken: under a fixed tenant the list's own tenant_id filter would otherwise stay on
+      // the query and match none of that tenant's rows.
+      const listed = context.take("tenant_id");
+      return {
+        tenant: options.tenant !== undefined ? options.tenant : (listed ?? null),
+        inbox_view: context.take("inbox_view") ?? "all",
+      };
+    },
   };
 }
 
