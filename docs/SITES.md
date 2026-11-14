@@ -5,7 +5,7 @@ Status: the landing-page and multi-page MVP is built in `packages/sites`
 V1: the sections a real multi-page small-business site needs (timetable, team, blog,
 map, timeline, downloads, grouped pricing, numbered steps, a trust bar,
 outbound booking links), the blog, a guarded import of an old site's
-files, and the editor (`/editor`, on Puck 0.23).
+files, and the editor (`/editor`, on Puck 0.23 or 0.24).
 This document records the design and why it was chosen. The package's
 [README](../packages/sites/README.md) is the reference for using it.
 
