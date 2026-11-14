@@ -17,6 +17,7 @@ import { existsSync } from "node:fs";
 import * as path from "node:path";
 import { readGenesisConfig } from "./config.js";
 import { lineAt } from "./scan.js";
+import { escapeRegExp } from "../regexp.js";
 import type { DoctorContext } from "./types.js";
 
 const JSX_EXTS = new Set([".tsx", ".jsx"]);
@@ -119,7 +120,7 @@ export function checkClientLayer(ctx: DoctorContext): void {
 
 /** Whether a file binds `name` at its top level (`const`, `let`, `var`, unindented, exported or not). */
 function declaredAtTop(code: string, name: string): boolean {
-  const escaped = name.replace(/[$]/g, "\\$&");
+  const escaped = escapeRegExp(name);
   return new RegExp(`^(?:export\\s+)?(?:const|let|var)\\s+${escaped}\\b`, "m").test(code);
 }
 

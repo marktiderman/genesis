@@ -7,6 +7,7 @@ import * as path from "node:path";
 import { findColorFunctions, findHexLiterals } from "../../../../scripts/lib/color-literals.mjs";
 import { globMatcher } from "./glob.js";
 import { declaredTokens } from "./genesis.js";
+import { escapeRegExp } from "../regexp.js";
 import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext, SourceFile } from "./types.js";
 
@@ -287,7 +288,7 @@ export function wrappedGenesisNames(code: string, uiPackage: string): Set<string
       if (!spec || spec.startsWith("type ")) continue;
       const [imported, local] = spec.split(/\s+as\s+/).map((x) => x.trim());
       if (!imported || !local || local === imported) continue;
-      const uses = code.match(new RegExp(`(?<![\\w$.])${local.replace(/[$]/g, "\\$&")}(?![\\w$])`, "g"))?.length ?? 0;
+      const uses = code.match(new RegExp(`(?<![\\w$.])${escapeRegExp(local)}(?![\\w$])`, "g"))?.length ?? 0;
       if (uses > 1) out.add(imported);
     }
   }
