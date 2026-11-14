@@ -58,11 +58,15 @@ export interface BootConfig {
 }
 
 export type FeedbackReportType = "bug" | "idea" | "question" | "praise";
-export type FeedbackStatus = "open" | "submitted" | "in_progress" | "addressed" | "wont_fix";
+/**
+ * A ticket's status. Active: open, submitted, in_progress. `pending`: an agent is waiting on the
+ * requester, and it goes back to open when they write (migration 0013). Closed: addressed, wont_fix.
+ */
+export type FeedbackStatus = "open" | "submitted" | "in_progress" | "pending" | "addressed" | "wont_fix";
 export type FindingSeverity = "low" | "medium" | "high" | "critical";
 
 export const FEEDBACK_REPORT_TYPES: readonly FeedbackReportType[] = ["bug", "idea", "question", "praise"];
-export const FEEDBACK_STATUSES: readonly FeedbackStatus[] = ["open", "submitted", "in_progress", "addressed", "wont_fix"];
+export const FEEDBACK_STATUSES: readonly FeedbackStatus[] = ["open", "submitted", "in_progress", "pending", "addressed", "wont_fix"];
 const SEVERITIES: readonly FindingSeverity[] = ["low", "medium", "high", "critical"];
 
 /** Client to server: open a report. Screenshots go to storage, not in this body. */

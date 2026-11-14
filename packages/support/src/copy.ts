@@ -104,13 +104,13 @@ export const supportCopy = {
     failed: "That change wasn't saved. Try again.",
   },
   agentInbox: {
-    views: { mine: "Mine", unassigned: "Unassigned", all: "All" },
+    views: { mine: "Mine", unassigned: "Unassigned", all: "All", pending: "Pending", closed: "Closed" },
     viewLabel: "View",
     listLabel: "Tickets",
     /** Each view's count, for a screen reader. `{count}` tickets. */
     count: "{count} tickets",
     oneTicket: "1 ticket",
-    emptyTitle: { mine: "Nothing assigned to you", unassigned: "Nothing waiting", all: "No tickets yet" },
+    emptyTitle: { mine: "Nothing assigned to you", unassigned: "Nothing waiting", all: "No tickets yet", pending: "Nothing waiting on a customer", closed: "Nothing closed yet" },
     emptyBody: "New tickets show up here.",
     errorTitle: "Couldn't load the tickets",
     retry: "Try again",
@@ -144,8 +144,69 @@ export const supportCopy = {
     appVersion: "App version",
     screenshots: "Screenshots",
     openFile: "Open file",
-    /** A row's status line. `{status}` · `{assignee}`. */
-    rowMeta: "{status} · {assignee}",
+    /** A row's status line: `{requester}`, `{status}`, `{assignee}`. */
+    rowMeta: "{requester} · {status} · {assignee}",
+    /** Added to a row's status line while the requester waits for an answer. `{duration}`: how long. */
+    rowWaiting: "waiting {duration}",
+    /** How long, for a row: under an hour, under a day, longer. `{count}`. */
+    durations: { minutes: "{count}m", hours: "{count}h", days: "{count}d" },
+    earlier: "Earlier conversations",
+    earlierEmpty: "No earlier conversations",
+    earlierFailed: "Couldn't load the earlier conversations.",
+    /** The composer's pickers: `@` a teammate (in a note), `!` a saved reply, `?` a help article. */
+    mentionsLabel: "Mention a teammate",
+    savedRepliesLabel: "Saved replies",
+    articlesLabel: "Help articles",
+    pickerEmpty: "Nothing matches",
+    pickerLoading: "Loading",
+    /** An article as it's inserted: `{title}` and `{url}`. */
+    articleLink: "{title}: {url}",
+    /** Send held: someone wrote while the agent was writing. */
+    heldTitle: "This conversation changed while you were writing",
+    heldBody: "Read what's new before you send, or send it as it is.",
+    sendAnyway: "Send anyway",
+    review: "Review",
+  },
+  savedReplies: {
+    listLabel: "Saved replies",
+    newReply: "New saved reply",
+    emptyTitle: "No saved replies yet",
+    emptyBody: "Save an answer you give often, then type ! in a reply to use it.",
+    errorTitle: "Couldn't load the saved replies",
+    errorBody: "Check your connection and try again.",
+    pickTitle: "No saved reply open",
+    pickBody: "Pick one, or write a new one.",
+    notFound: "That saved reply isn't here any more.",
+    title: "Name",
+    body: "Reply",
+    bodyHint: "{first_name}, {name} and {email} become the customer's as it's inserted.",
+    save: "Save",
+    saving: "Saving",
+    saved: "Saved",
+    delete: "Delete",
+    deleteConfirmTitle: "Delete this saved reply?",
+    deleteConfirmBody: "It goes for everyone on the team and can't be brought back.",
+    cancel: "Cancel",
+    failed: "That wasn't saved. Try again.",
+    titleTaken: "Another saved reply has that name.",
+    invalid: "Give it a name and some words.",
+  },
+  reports: {
+    rangeLabel: "Dates",
+    from: "From",
+    to: "To",
+    opened: "Conversations opened",
+    closed: "Conversations closed",
+    openNow: "Open now",
+    firstResponse: "Median first response",
+    timeToClose: "Median time to close",
+    byRequester: "Open by customer",
+    unknownRequester: "Unknown",
+    /** A time with nothing to measure. */
+    none: "None yet",
+    errorTitle: "Couldn't load the report",
+    errorBody: "Check your connection and try again.",
+    invalidRange: "Pick a start date before the end date, at most a year apart.",
   },
   messenger: {
     /** The launcher's name, and the panel's title. */
@@ -168,6 +229,14 @@ export const supportCopy = {
     composeFailed: "That wasn't sent. Your words are still here; try again.",
     /** Under a conversation nobody has answered yet: where the answer will come. */
     awaitingReply: "We've got your message. Our reply will show up here, and we'll let you know when it does.",
+    /** The same, with the app's reply expectation. `{expectation}`: its words ("within a few hours"). */
+    awaitingReplyWithin: "We've got your message. We usually reply {expectation}. Our reply will show up here, and we'll let you know when it does.",
+    /** The same, outside office hours. `{when}`: when someone is back, in the person's own time. */
+    awaitingReplyAway: "We've got your message. We're away right now and back {when}. Our reply will show up here, and we'll let you know when it does.",
+    /** On the compose screen, with a reply expectation. */
+    replyExpectation: "We usually reply {expectation}.",
+    /** On the compose screen, outside office hours. */
+    away: "We're away right now, and back {when}.",
     messagesEmptyTitle: "No conversations yet",
     messagesEmptyBody: "When you send us a message, it's here with our replies.",
     messagesErrorTitle: "Couldn't load your conversations",
@@ -235,6 +304,7 @@ export const supportCopy = {
     open: "Open",
     submitted: "Received",
     in_progress: "In progress",
+    pending: "Pending",
     addressed: "Fixed",
     wont_fix: "Closed",
   },
