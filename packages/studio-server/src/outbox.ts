@@ -18,6 +18,7 @@
 // ---------------------------------------------------------------------------
 
 import postgres from "postgres";
+import type { PostgresPool } from "./db";
 import type { AuditEntry } from "@marktiderman/genesis-core/schema";
 
 /** Throw this from `deliver` when retrying can't help (the receiver rejected the payload). */
@@ -49,8 +50,8 @@ export interface DeadLetter {
 }
 
 export interface OutboxWorkerOptions {
-  /** The worker role's connection string, or a postgres.js pool. */
-  database: string | postgres.Sql;
+  /** The worker role's connection string, or a postgres.js pool (3.4 or 4). */
+  database: string | PostgresPool;
   /** Send one entry. Resolve on success; throw to retry; throw PermanentDeliveryError to give up. */
   deliver(entry: OutboxEntry): Promise<void>;
   /** Called when an entry moves to the dead-letter table. Wire your alerting here. */
@@ -127,7 +128,10 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 export function createOutboxWorker(options: OutboxWorkerOptions): OutboxWorker {
   const owned = typeof options.database === "string";
-  const sql = owned ? postgres(options.database as string, { max: 2, prepare: false, onnotice: () => {} }) : (options.database as postgres.Sql);
+  const sql: PostgresPool =
+    typeof options.database === "string"
+      ? postgres(options.database, { max: 2, prepare: false, onnotice: () => {} })
+      : options.database;
   const batchSize = options.batchSize ?? 20;
   const maxAttempts = options.maxAttempts ?? 10;
   const base = options.baseDelayMs ?? 180_000;

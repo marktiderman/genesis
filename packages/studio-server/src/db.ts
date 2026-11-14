@@ -22,11 +22,31 @@ export interface Query {
   savepoint<T>(fn: (query: Query) => Promise<T>): Promise<T>;
 }
 
-function queryOver(tx: postgres.TransactionSql): Query {
-  const query = (async (text: string, params: readonly unknown[] = []) =>
-    (await tx.unsafe(text, params as postgres.ParameterOrJSON<never>[])) as unknown as SqlRow[]) as Query;
-  query.savepoint = <T>(fn: (inner: Query) => Promise<T>) =>
-    tx.savepoint((sp) => fn(queryOver(sp as unknown as postgres.TransactionSql))) as Promise<T>;
+/**
+ * A postgres.js transaction, as far as Studio uses one. Typed by the methods
+ * Studio calls rather than by postgres.js's own `TransactionSql`, so a pool
+ * from postgres.js 3.4 or 4 both fit without a cast.
+ */
+export interface PostgresTransaction {
+  unsafe(query: string, parameters?: readonly unknown[]): PromiseLike<readonly SqlRow[]>;
+  savepoint(fn: (tx: PostgresTransaction) => unknown): Promise<unknown>;
+}
+
+/**
+ * A postgres.js pool, as far as Studio uses one: `postgres(url)` from
+ * postgres.js 3.4 or 4. Only these methods are called on a pool you pass in.
+ */
+export interface PostgresPool {
+  unsafe(query: string, parameters?: readonly unknown[]): PromiseLike<readonly SqlRow[]>;
+  begin(fn: (tx: PostgresTransaction) => unknown): Promise<unknown>;
+  begin(options: string, fn: (tx: PostgresTransaction) => unknown): Promise<unknown>;
+  end(options?: { timeout?: number }): Promise<void>;
+}
+
+function queryOver(tx: PostgresTransaction): Query {
+  // The rows come back as postgres.js's own array, untouched.
+  const query = (async (text: string, params: readonly unknown[] = []) => (await tx.unsafe(text, params)) as SqlRow[]) as Query;
+  query.savepoint = <T>(fn: (inner: Query) => Promise<T>) => tx.savepoint((sp) => fn(queryOver(sp))) as Promise<T>;
   return query;
 }
 
@@ -108,14 +128,14 @@ export function onCloudflareWorkers(): boolean {
  * skipped the switch would find no table privileges at all (see the README).
  */
 export function createPostgresDatabase(
-  connection: string | postgres.Sql,
+  connection: string | PostgresPool,
   options: PostgresOptions = {},
 ): StudioDatabase {
   if (typeof connection === "string" && (options.perRequest ?? onCloudflareWorkers())) {
     return perRequest(connection, options);
   }
   const owned = typeof connection === "string";
-  const sql = owned ? connect(connection, options) : (connection as postgres.Sql);
+  const sql = typeof connection === "string" ? connect(connection, options) : connection;
   return wrap(sql, owned);
 }
 
@@ -137,7 +157,7 @@ function perRequest(connectionString: string, options: PostgresOptions): StudioD
   };
 }
 
-function connect(connectionString: string, options: PostgresOptions): postgres.Sql {
+function connect(connectionString: string, options: PostgresOptions): PostgresPool {
   return postgres(connectionString, {
     max: options.max ?? 5,
     prepare: options.prepare ?? false,
@@ -147,17 +167,19 @@ function connect(connectionString: string, options: PostgresOptions): postgres.S
       dateTime: {
         to: 1184,
         from: DATE_TIME_OIDS,
-        serialize: (value: unknown) => String(value),
+        // A JS Date goes as its UTC instant. `String(date)` would send the
+        // local `Sun Mar 08 2026 01:59:59 GMT-0500 (…)`, which Postgres refuses.
+        serialize: (value: unknown) => (value instanceof Date ? value.toISOString() : String(value)),
         parse: (value: string) => value,
       },
     },
-  }) as unknown as postgres.Sql;
+  });
 }
 
-function wrap(sql: postgres.Sql, owned: boolean): StudioDatabase {
+function wrap(sql: PostgresPool, owned: boolean): StudioDatabase {
   return {
     async asUser(identity, { readOnly, statementTimeoutMs }, fn) {
-      const run = async (tx: postgres.TransactionSql) => {
+      const run = async (tx: PostgresTransaction) => {
         const query = queryOver(tx);
         // `set_config(..., true)` is `SET LOCAL`: it ends with the
         // transaction, so nothing leaks to the next request on this

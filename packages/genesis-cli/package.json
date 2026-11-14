@@ -87,7 +87,7 @@
     "@marktiderman/genesis-studio-server": "workspace:^",
     "commander": "^15.0.0",
     "jiti": "^2.4.0",
-    "postgres": "^3.4.9"
+    "postgres": "^4.1.0"
   },
   "devDependencies": {
     "@expo/config": "^55.0.19",
