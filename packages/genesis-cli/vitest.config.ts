@@ -6,6 +6,8 @@ export default defineConfig({
     environment: "node",
     globals: false,
     include: ["test/**/*.test.ts"],
+    // npx and eas fail at once in tests: none may reach the network.
+    setupFiles: ["test/setup-no-network.ts"],
     // test/introspect.test.ts type-checks emitted contracts with the real
     // TypeScript compiler, which blocks synchronously for several seconds
     // on a cold run (~7.5s measured). Vitest 2 let a blocking test overrun

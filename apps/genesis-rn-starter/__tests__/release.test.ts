@@ -48,7 +48,8 @@ describe("templates", () => {
   const pairs: [string, string][] = [
     ["eas.json", "eas/eas.json"],
     ...readdirSync(join(root, ".eas/scripts")).map((f): [string, string] => [`.eas/scripts/${f}`, `eas/scripts/${f}`]),
-    ...workflowFiles.map((f): [string, string] => [`.eas/workflows/${f}`, `eas/workflows/${f}`]),
+    // The release lane's workflows moved to templates/release/ when they took the release markup.
+    ...workflowFiles.map((f): [string, string] => [`.eas/workflows/${f}`, ["deploy-production.yml", "pr-preview.yml"].includes(f) ? `release/${f}` : `eas/workflows/${f}`]),
     ["fingerprint.config.js", "expo/fingerprint.config.js"],
     [".fingerprintignore", "expo/.fingerprintignore"],
     [".maestro/config.yaml", "maestro/config.yaml"],
@@ -63,7 +64,7 @@ describe("templates", () => {
 
   it("every template has its copy in the starter", () => {
     const listed = new Set(pairs.map(([, t]) => t));
-    const all = ["eas", "expo", "maestro"].flatMap((dir) =>
+    const all = ["eas", "expo", "maestro", "release"].flatMap((dir) =>
       readdirSync(join(templates, dir), { recursive: true, withFileTypes: true })
         .filter((e) => e.isFile())
         .map((e) => join(e.parentPath, e.name).slice(templates.length + 1)),

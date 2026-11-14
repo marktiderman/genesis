@@ -17,6 +17,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import * as path from "node:path";
 import { parse as parseYaml } from "yaml";
+import { compareVersions } from "../upgrade/bump-core.mjs";
 import { readGenesisConfig } from "../doctor/config.js";
 import { appFolderOf, folderSubstitutions, renderOwned } from "./app-folder.js";
 import { CLI_PACKAGE } from "./discover.js";
@@ -57,11 +58,16 @@ export function calledWorkflows(text: string): string[] {
   return [...new Set([...text.matchAll(/marktiderman\/genesis\/\.github\/workflows\/([\w.-]+\.ya?ml)@/g)].map((m) => m[1]!))];
 }
 
-/** A workflow file's Genesis callers (only those of `only`, when given) moved to `pin`; the text unchanged when it calls none. */
+/**
+ * A workflow file's Genesis callers (only those of `only`, when given) moved to `pin`; the text
+ * unchanged when it calls none. Never backwards: a caller that already names a later release (the
+ * repository's maintainer, or another app in it, moved it on) keeps its pin.
+ */
 export function bumpCallerPins(text: string, pin: ReleasePin, only?: readonly string[]): string {
-  return text.replace(CALLER_PIN, (all, head: string, _sha: string, mid: string) => {
+  return text.replace(CALLER_PIN, (all, head: string, _sha: string, mid: string, version: string) => {
     const name = /workflows\/([\w.-]+\.ya?ml)@$/.exec(head)?.[1];
     if (only && (!name || !only.includes(name))) return all;
+    if (version !== "X.Y.Z" && compareVersions(version, pin.version) > 0) return all;
     return `${head}${pin.sha}${mid}${pin.version}`;
   });
 }
@@ -118,6 +124,24 @@ export function renderTemplate(target: string, raw: string, options: RenderOptio
   return renderOwned(target, text, folder);
 }
 
+/**
+ * Templates that moved, by their old path under templates/. The release lane's EAS workflows moved
+ * when they took the release markup: a previous genesis-cli refreshing an app from these templates
+ * finds nothing at the old path ("gone upstream") and leaves the app's file as it is, instead of
+ * writing unrendered markup or the dispatch-only lane over it. This CLI maps the lock over.
+ */
+export const MOVED_TEMPLATES: Readonly<Record<string, string>> = {
+  "eas/workflows/deploy-production.yml": "release/deploy-production.yml",
+  "eas/workflows/pr-preview.yml": "release/pr-preview.yml",
+};
+
+/** A lock source with a moved template's path brought to the new one; others unchanged. */
+export function currentSource(source: string): string {
+  const m = /^(@marktiderman\/genesis-cli:templates\/)(.+)$/.exec(source);
+  const moved = m ? MOVED_TEMPLATES[m[2]!] : undefined;
+  return moved ? `${m![1]}${moved}` : source;
+}
+
 /** Workflows that are Genesis's alone: with `appFolder`, written and refreshed at the repository's root. */
 export const DEDICATED_WORKFLOWS: ReadonlySet<string> = new Set([".github/workflows/native-release.yml"]);
 
@@ -140,9 +164,9 @@ export function ownedDir(root: string, rel: string, appFolder: string | null): s
 export const TEMPLATE_SETS: Readonly<Record<string, { summary: string; templates: readonly string[] }>> = {
   release: {
     summary: "the native release lane: native-release.yml (GitHub), deploy-production.yml and pr-preview.yml (EAS), its script, the fingerprint config",
-    templates: ["ci/native-release.yml", "eas/workflows/deploy-production.yml", "eas/workflows/pr-preview.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"],
+    templates: ["ci/native-release.yml", "release/deploy-production.yml", "release/pr-preview.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"],
   },
-  eas: { summary: "eas.json and every EAS workflow and script", templates: ["eas/"] },
+  eas: { summary: "eas.json and every EAS workflow and script", templates: ["eas/", "release/"] },
   expo: { summary: "the fingerprint config and .fingerprintignore", templates: ["expo/"] },
   maestro: { summary: "the Maestro smoke flows", templates: ["maestro/"] },
   ci: { summary: "app CI, Claude review and the weekly Genesis upgrade (GitHub)", templates: ["ci/app-ci.yml", "ci/claude-review.yml", "ci/genesis-upgrade.yml"] },

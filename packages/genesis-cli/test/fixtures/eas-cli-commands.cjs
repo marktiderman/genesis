@@ -1,6 +1,6 @@
 const path = require("path");
 const root = process.argv[2];
-const ids = ["update", "update:list", "update:view", "build:list", "fingerprint:generate", "workflow:run", "workflow:runs", "env:exec"];
+const ids = ["update", "update:list", "update:view", "build:list", "channel:view", "fingerprint:generate", "workflow:run", "workflow:runs", "env:exec"];
 const out = {};
 for (const id of ids) {
   const file = path.join(root, "build", "commands", ...id.split(":")) + (id.includes(":") ? ".js" : path.sep + "index.js");

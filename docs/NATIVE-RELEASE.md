@@ -9,10 +9,10 @@ them in its own `genesis.config.json`, not by editing them.
 | File (in the app) | Template | What it does |
 | --- | --- | --- |
 | `.github/workflows/native-release.yml` | `templates/ci/native-release.yml` | Every push to `main` that changes the app: per platform, an over-the-air update published here, or the commit handed to EAS ([The release path](#the-release-path)). |
-| `.eas/workflows/deploy-production.yml` | `templates/eas/workflows/deploy-production.yml` | Only when started (by `native-release.yml`): per platform, a store build submitted in the same run, or an update on a build that is still being made. |
+| `.eas/workflows/deploy-production.yml` | `templates/release/deploy-production.yml` | Only when started (by `native-release.yml`): per platform, a store build submitted in the same run, or an update on a build that is still being made. |
 | `.eas/scripts/native-release.mjs` | `templates/eas/scripts/native-release.mjs` | The lane's decisions (plan, masks, the build profile's env, the runtime checks), kept out of the YAML so they are tested. |
 | `fingerprint.config.js`, `.fingerprintignore` | `templates/expo/` | What the runtime version hashes ([Fingerprints](#fingerprints)). |
-| `.eas/workflows/pr-preview.yml` | `templates/eas/workflows/pr-preview.yml` | A pull request into `main` that changes the app, or one labeled `Preview` ([Build cost](#build-cost)): repack a preview build with the same fingerprint (or build one), publish to the channel `pr-<number>`, comment the install link. iOS only once `PREVIEW_IOS=true`. |
+| `.eas/workflows/pr-preview.yml` | `templates/release/pr-preview.yml` | A pull request into `main` that changes the app, or one labeled `Preview` ([Build cost](#build-cost)): repack a preview build with the same fingerprint (or build one), publish to the channel `pr-<number>`, comment the install link. iOS only once `PREVIEW_IOS=true`. |
 | `.eas/workflows/rollout.yml`, `.eas/scripts/rollout-health.mjs` | `templates/eas/` | By hand: promote an update you staged by hand (after a failed-launch check), or roll it back. |
 | `.eas/workflows/e2e.yml`, `.maestro/` | `templates/eas/`, `templates/maestro/` | By hand (Maestro needs a paid EAS plan): the Maestro flows on an iOS simulator build. |
 | `eas.json` | `templates/eas/eas.json` | Build profiles `development`, `preview`, `e2e` and `production`, each with its `APP_VARIANT`, EAS environment and channel; store submission with placeholder ids. |
@@ -91,9 +91,10 @@ then overwrite. On EAS, runs are serialized (`concurrency`, never cancelling one
 finishes before the next starts, in the order GitHub started them, which is the order the commits
 reached `main` (GitHub's runs are serialized too). EAS drops waiting runs in between; the newest one
 carries their code, on every platform. GitHub doesn't promise to start runs in push order, so before
-publishing or handing a platform to EAS, each run checks the channel's latest update (the newest
-group in `eas update:list --branch <channel>`, then its commit from `eas update:view <group>`;
-none before the first release, when the branch doesn't exist yet): when it already carries this
+publishing or handing a platform to EAS, each run checks the channel's latest update (the branch or branches the channel serves, from
+`eas channel:view <channel>`, which needn't be named after it; the newest group on each from
+`eas update:list --branch`, then its commit from `eas update:view <group>`; none before the first
+release, when the channel or its branch doesn't exist yet): when it already carries this
 commit or a later one (`git merge-base --is-ancestor`), the run skips that platform out loud. It never skips because a later commit is expected to ship, which could drop a release
 silently. Left over:
 - Both paths also skip when the build the update would run on was made from this commit or a later
@@ -142,7 +143,7 @@ typo can't silently do nothing.
 | `channel` | `production` | The update channel the production builds read. |
 | `easEnvironment` | the profile's name | The EAS environment the lane reads its variables from (`eas env:exec`, `environment:` on EAS jobs). |
 | `packageManager` | from the app's lockfile | How `native-release.yml` installs: `pnpm`, `bun`, `npm` or `yarn`. |
-| `runtimeVersion` | `"fingerprint"` | How a commit's runtime version is found. `"fingerprint"`: Expo's fingerprint (`runtimeVersion: { policy: "fingerprint" }`, which `withGenesis` sets). Or `{ "command": "node scripts/runtime-version.mjs" }`: one line that prints the runtime version of the platform in `RELEASE_PLATFORM` (any form Expo takes, `1.0.0(1)` included; it runs grouped, so a pipeline or `&&` sees the platform and writes all its output), for an app that sets its own per-platform `runtimeVersion` (one derived from the native inputs it tracks, say, where the fingerprint can't see them). Builds are then matched by runtime version, and EAS's `get-build` by `runtime_version`. |
+| `runtimeVersion` | `"fingerprint"` | How a commit's runtime version is found. `"fingerprint"`: Expo's fingerprint (`runtimeVersion: { policy: "fingerprint" }`, which `withGenesis` sets). Or `{ "command": "node scripts/runtime-version.mjs" }`: one line that prints the runtime version of the platform in `RELEASE_PLATFORM` (any form Expo takes, `1.0.0(1)` included; it runs as a script of its own under `eas env:exec` with the build profile's env for the platform, so it sees what the build saw, and a pipeline or `&&` runs whole; its last line is taken, and an empty, `undefined` or `null` one stops the release), for an app that sets its own per-platform `runtimeVersion` (one derived from the native inputs it tracks, say, where the fingerprint can't see them). Builds are then matched by runtime version, and EAS's `get-build` by `runtime_version`. |
 
 `appFolder` (top level) is where the app sits in its repository. With it, `native-release.yml`
 runs on `<appFolder>/**`, `paths`, and the root's `package.json`, `pnpm-workspace.yaml` and
@@ -274,7 +275,7 @@ left with the new text in `.genesis-next`. So:
   release's pin with its text. In a shared workflow it only names (under `appFolder`), the pin
   moves in place only when the template didn't change between the two releases; when it did, the
   reusable workflow may want new inputs, so the pin stays and the summary says to move it with
-  those changes. That change stays outstanding in the lock (its checksum isn't advanced, and
+  those changes. A pin never moves backwards: a caller already on a later release keeps it. That change stays outstanding in the lock (its checksum isn't advanced, and
   `awaiting` names the newest release that changed the template, by its version alone when its
   commit can't be looked up; a later change moves it forward)
   until the repository's copy pins that release or a later one, so a later release whose template didn't change can't move the pin past it; once you
@@ -291,14 +292,23 @@ old way, and the summary says how to adopt the new lane when you're ready: put y
 the GitHub environment before merging that change. Its other owned files (`pr-preview.yml`,
 `rollout.yml`…) refresh as usual.
 
+**An upgrade run by the previous genesis-cli** (the weekly upgrade workflow runs the app's installed
+CLI, which installs this release and refreshes with its own code): the release lane's EAS
+workflows moved to `templates/release/` when they took the release markup, so that CLI finds
+nothing at their old paths and leaves the app's `deploy-production.yml` and `pr-preview.yml` as they
+are ("gone upstream"), rather than writing unrendered markup or the dispatch-only lane over them.
+The next upgrade, by this CLI, names them at their new paths in the lock and goes on as above.
+
 ## Safety
 
 - **Production ships only from `main`.** `native-release.yml` runs on pushes to `main` (and by
   hand, only on `main`), in a GitHub environment whose branch policy limits it to `main`.
   `deploy-production.yml` has no trigger but a dispatch, takes the commit as a required input,
-  and the job that starts it always passes `--ref`. Started by hand without `--ref`, `eas
-  workflow:run` would upload the working directory as it is, and nothing in the workflow can tell:
-  always pass `--ref`. Its update path checks with GitHub that the commit is on `main`.
+  and the job that starts it always passes `--ref`. Its first job, `source`, which every other job
+  waits on, fails unless the checkout is that commit (started with `--ref`, not an uploaded
+  folder) and `main` contains it (`git fetch origin main`, then `merge-base --is-ancestor`): a
+  manual run from a feature branch builds and publishes nothing. It fails closed when the fetch
+  does.
 - **One path per commit and platform**, so an update is never published twice, and serialized
   runs on both sides (`concurrency`, never cancelling a release in progress).
 - **An update only reaches what it should.** GitHub publishes only on a finished store build of the
@@ -315,7 +325,8 @@ the GitHub environment before merging that change. Its other owned files (`pr-pr
   workflows for pull requests from forks.
 - **No secrets in the files.** Tokens live in the GitHub environment and the EAS environments; the
   workflows pass inputs to shell steps only through `env`; the job masks the values `eas env:exec`
-  hands over. `EXPO_TOKEN` is never in the job's `env`, which the dependency install's scripts would
+  hands over. On EAS the update jobs check `SENTRY_AUTH_TOKEN` (with Sentry on) before they
+  publish, as GitHub's Sentry check step does. `EXPO_TOKEN` is never in the job's `env`, which the dependency install's scripts would
   see: one step checks it, and expo-github-action hands it to the eas steps after the install.
 - **npx never fetches an unpinned package.** The app's own tools run with `npx --no`
   (`expo-updates`, `sentry-expo-upload-sourcemaps`), which fails rather than install one; a

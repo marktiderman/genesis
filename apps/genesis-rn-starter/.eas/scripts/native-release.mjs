@@ -33,9 +33,13 @@
 //     The build profile's `env` as EAS resolves it for the platform (along `extends`, with
 //     `<platform>.env` over it), as NAME=value lines, or `export` lines to eval: eas update doesn't
 //     apply it, and the build does.
-//   node .eas/scripts/native-release.mjs latest-commit <branch> <platform>
-//     The commit of the branch's latest update for the platform (`eas update:list`, then
-//     `eas update:view` for its commit), or "" when there is none or no branch yet.
+//   node .eas/scripts/native-release.mjs latest-commit <channel> <platform>
+//     The commits of the latest updates for the platform on the branches the channel serves
+//     (`eas channel:view`, `eas update:list`, `eas update:view`), one per line; none before the
+//     first release.
+//   node .eas/scripts/native-release.mjs runtime-printed <file> <platform>
+//     The runtime version release.runtimeVersion's command printed (its last line), refused when
+//     empty or `undefined`/`null` (a variable the command read wasn't set).
 //   node .eas/scripts/native-release.mjs installed <package>
 //     Fails, saying so, unless the package is installed (node_modules from here up): the release
 //     runs only the app's own tools (npx --no), never one npx would fetch.
@@ -149,7 +153,7 @@ export function planOutputs(byPlatform, runs, profile, order = {}) {
     const { runtime, by, builds, shipped } = byPlatform[platform];
     if (by === "fingerprint" && (typeof runtime !== "string" || !/^[0-9a-f]{40}$/i.test(runtime))) throw new Error(`eas fingerprint:generate gave no ${platform} fingerprint hash.`);
     // Any runtime version Expo takes (`1.0.0`, `1.0.0(1)`, …): up to 255 characters, no spaces.
-    if (by === "runtime" && (typeof runtime !== "string" || !/^\S{1,255}$/.test(runtime))) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${runtime ?? ""}").`);
+    if (by === "runtime" && !isRuntimeVersion(runtime)) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${runtime ?? ""}").`);
     // Read as "no build", a broken list would start a native build on every merge.
     if (!Array.isArray(builds)) throw new Error(`eas build:list --json did not print a list of ${platform} builds.`);
     const build = by === "fingerprint" ? pickBuild(builds, runtime, platform, profile) : pickBuildByRuntime(builds, runtime, platform, profile);
@@ -261,25 +265,54 @@ export function groupCommit(updates, platform) {
   return /^[0-9a-f]{40}$/i.test(sha) ? sha : "";
 }
 
+/** Whether eas-cli's failure says `pattern` (stderr, stdout or the message). */
+const easSaid = (error, pattern) => pattern.test([error?.stderr, error?.stdout, error?.message].map((v) => (v == null ? "" : String(v))).join("\n"));
+
 /**
- * The commit of the channel's latest update for `platform`, read with eas-cli (`run(args)` runs
- * `eas <args>` and returns its output): "" when there is none, including a branch that doesn't
- * exist yet (the first release, which eas-cli reports as `Could not find branch`).
- * @param {(args: string[]) => string} run
+ * The branches a channel serves, from eas-cli 26's `eas channel:view <channel> --json`:
+ * `{ currentPage: { name, …, updateBranches: [{ id, name, updateGroups }] } }` (channel/queries.js
+ * renderPageOfBranchesOnChannel). More than one while a branch rollout is on.
+ * @param {unknown} view
  */
-export function latestCommit(run, branch, platform) {
+export function channelBranches(view) {
+  const branches = view && typeof view === "object" ? view.currentPage?.updateBranches : undefined;
+  if (!Array.isArray(branches)) throw new Error("eas channel:view --json printed no updateBranches.");
+  return branches.map((b) => b?.name).filter((n) => typeof n === "string" && n);
+}
+
+/** The commit of `branch`'s latest update for `platform` (update:list, then update:view), or "" when it has none or doesn't exist. */
+export function branchCommit(run, branch, platform) {
   let listed;
   try {
     listed = run(["update:list", "--branch", branch, "--platform", platform, "--limit", "1", "--json", "--non-interactive"]);
   } catch (error) {
-    const said = [error?.stderr, error?.stdout, error?.message].map((v) => (v == null ? "" : String(v))).join("\n");
-    if (/Could not find branch/.test(said)) return "";
+    if (easSaid(error, /Could not find branch/)) return "";
     throw error;
   }
   const group = latestGroup(JSON.parse(listed), platform);
   if (!group) return "";
   // update:view takes no --non-interactive (eas-cli 26 refuses an unknown flag); it never prompts with a group id.
   return groupCommit(JSON.parse(run(["update:view", group, "--json"])), platform);
+}
+
+/**
+ * The commits of the latest `platform` updates a channel serves, read with eas-cli (`run(args)`
+ * runs `eas <args>` and returns its output): the channel's linked branch (or branches, during a
+ * rollout), which needn't be named after it, each branch's latest update, and its commit. Empty
+ * before the first release (no channel yet, or no update on its branch).
+ * @param {(args: string[]) => string} run
+ */
+export function latestCommits(run, channel, platform) {
+  let viewed;
+  try {
+    viewed = run(["channel:view", channel, "--json", "--non-interactive"]);
+  } catch (error) {
+    if (easSaid(error, /Could not find channels? with the name/)) return [];
+    throw error;
+  }
+  return channelBranches(JSON.parse(viewed))
+    .map((branch) => branchCommit(run, branch, platform))
+    .filter(Boolean);
 }
 
 /**
@@ -291,6 +324,16 @@ export function gitContains(commit, later, cwd = process.cwd()) {
   if (!known(commit) || !known(later)) return null;
   const status = spawnSync("git", ["merge-base", "--is-ancestor", commit, later], { cwd, stdio: "ignore" }).status;
   return status === 0 ? true : status === 1 ? false : null;
+}
+
+/** A runtime version Expo takes (`1.0.0`, `1.0.0(1)`, …): up to 255 characters, no spaces, and not what an unset value prints. */
+export function isRuntimeVersion(value) {
+  return typeof value === "string" && /^\S{1,255}$/.test(value) && !["undefined", "null", "NaN"].includes(value);
+}
+
+/** What release.runtimeVersion's command printed: its last non-empty line (eas env:exec may print before it), trimmed. */
+export function printedRuntime(text) {
+  return String(text ?? "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean).at(-1) ?? "";
 }
 
 /** The folder `name` is installed in, looking up from `dir` the way Node resolves packages, or null. */
@@ -328,14 +371,14 @@ async function main(command, args, env) {
   } else if (command === "require") {
     const name = args[0] ?? "";
     if (!name) throw new Error("require needs a variable name.");
-    if (!env[name]?.trim()) throw new Error(`${name} is not set. Add it to the GitHub environment that holds the release secrets (docs/NATIVE-RELEASE.md, "One-time setup"). Nothing was published.`);
+    if (!env[name]?.trim()) throw new Error(`${name} is not set. Add it where the release reads its secrets: the GitHub environment for native-release.yml, the EAS environment for deploy-production.yml (docs/NATIVE-RELEASE.md, "One-time setup"). Nothing was published.`);
   } else if (command === "plan") {
     const [dir, list, profile] = args;
     if (!dir || !profile) throw new Error("plan needs <dir> <platforms> <profile>.");
     const byPlatform = Object.fromEntries(
       parsePlatforms(list).map((p) => {
         const own = join(dir, `runtime-${p}.txt`);
-        const runtime = existsSync(own) ? readFileSync(own, "utf8").trim() : readJson(join(dir, `fingerprint-${p}.json`))?.hash;
+        const runtime = existsSync(own) ? printedRuntime(readFileSync(own, "utf8")) : readJson(join(dir, `fingerprint-${p}.json`))?.hash;
         const shippedFile = join(dir, `shipped-${p}.txt`);
         const shipped = existsSync(shippedFile) ? readFileSync(shippedFile, "utf8").trim() : "";
         return [p, { runtime, by: existsSync(own) ? "runtime" : "fingerprint", builds: readJson(join(dir, `builds-${p}.json`)), ...(shipped ? { shipped } : {}) }];
@@ -354,12 +397,18 @@ async function main(command, args, env) {
     if (!file || !profile) throw new Error("profile-env needs <eas.json> <profile> [platform] [--shell].");
     for (const line of profileEnv(readJson(file), profile, platform === "--shell" ? undefined : platform, platform === "--shell" || flag === "--shell")) console.log(line);
   } else if (command === "latest-commit") {
-    const [branch, platform] = args;
-    if (!branch || !PLATFORMS.includes(platform)) throw new Error("latest-commit needs <branch> <platform>.");
+    const [channel, platform] = args;
+    if (!channel || !PLATFORMS.includes(platform)) throw new Error("latest-commit needs <channel> <platform>.");
     // RELEASE_EAS: how to run eas-cli where it isn't on PATH (EAS's workers: a pinned `npx --yes eas-cli@<version>`).
     const [cmd, ...pre] = (env.RELEASE_EAS?.trim() || "eas").split(/\s+/);
     const run = (eas) => execFileSync(cmd, [...pre, ...eas], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-    console.log(latestCommit(run, branch, platform));
+    for (const commit of latestCommits(run, channel, platform)) console.log(commit);
+  } else if (command === "runtime-printed") {
+    const [file, platform] = args;
+    if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime-printed needs <file> <platform>.");
+    const printed = printedRuntime(readFileSync(file, "utf8"));
+    if (!isRuntimeVersion(printed)) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${printed}"). Nothing was published.`);
+    console.log(printed);
   } else if (command === "installed") {
     const name = args[0] ?? "";
     if (!name) throw new Error("installed needs a package name.");
@@ -369,7 +418,7 @@ async function main(command, args, env) {
     if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime needs <resolved.txt> <platform> <runtime version>.");
     checkRuntime(readFileSync(file, "utf8"), platform, expected);
   } else {
-    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, latest-commit, installed or runtime.`);
+    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, latest-commit, runtime-printed, installed or runtime.`);
   }
 }
 

@@ -220,7 +220,9 @@ describe("an app in a sub-folder of its repository", () => {
     rmSync(path.join(root, `${FILE}.genesis-next`));
     writeTree(root, { [FILE]: `${inMobile(YML())}# unrelated\n` });
     const report = await upgrade(root, next(YML('      - "global.css"\n').replace("# Paths are the app's.", "# Paths are from here.")), "1.3.0");
-    expect(report.refreshed.find((r) => r.path === FILE)).toMatchObject({ outcome: "merged", detail: expect.stringContaining(`because this file changed since; if that was unrelated, compare with ${CLI}:${TEMPLATE}`) });
+    expect(report.refreshed.find((r) => r.path === FILE)).toMatchObject({ outcome: "merged", detail: expect.stringContaining(`because this file changed since; if that was unrelated, compare with ${CLI}:templates/release/pr-preview.yml`) });
+    // The lock names the template at its new path (MOVED_TEMPLATES), whichever path the CLI shipped it at.
+    expect(readLock(root).files[FILE]!.source).toBe(`${CLI}:templates/release/pr-preview.yml`);
   });
 
   it("doesn't count a lock from before pendingMine as resolved", async () => {

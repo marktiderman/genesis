@@ -1,3 +1,5 @@
+# Copy to .eas/workflows/deploy-production.yml.
+#
 # The native release lane's EAS half: a store build when native code changed, or an over-the-air
 # update on a build that is still being made. It runs only when started, by
 # .github/workflows/native-release.yml (GitHub Actions, which starts in seconds where an EAS job
@@ -29,8 +31,8 @@
 #
 # Safety:
 # - Started only by hand or by native-release.yml, never on push: two triggers would race on
-#   every merge. Always start it with --ref: without it, `eas workflow:run` uploads the working
-#   directory as it is, and nothing here can tell. commit_sha is required.
+#   every merge. The first job (`source`) fails, and so stops every other, unless the checkout is
+#   commit_sha (started with --ref, not an uploaded folder) and main contains it.
 # - Runs are serialized (`concurrency`): the running one always finishes before the next starts, so
 #   runs publish in the order their commits reached main. EAS drops waiting runs in between; the
 #   newest carries their code, and every platform (while a run is open, native-release.yml hands
@@ -44,7 +46,7 @@
 #   If a submit fails, submit that build by hand before the next merge
 #   (`eas submit --platform ios --id <build id> --profile GENESIS_RELEASE_PROFILE`).
 #
-# Genesis template (templates/eas/workflows/deploy-production.yml), rendered with genesis.config.json
+# Genesis template (templates/release/deploy-production.yml), rendered with genesis.config.json
 # `release`: change platforms, profile, channel, Sentry and the hook there, then
 # `genesis add template release` (or the next genesis upgrade) writes this file again.
 # docs/NATIVE-RELEASE.md in the Genesis repository.
@@ -93,9 +95,32 @@ concurrency:
   group: ${{ workflow.filename }}
 
 jobs:
+  # Production releases only from main, fail-closed: the checkout must be commit_sha (started with
+  # --ref <commit_sha>, not an uploaded folder) and main must contain it. Every other job waits on it.
+  source:
+    name: Check the commit is on main
+    env:
+      COMMIT_SHA: ${{ inputs.commit_sha }}
+    steps:
+      - uses: eas/checkout
+      - name: The checkout is commit_sha, and main contains it
+        run: |
+          set -eo pipefail
+          head=$(git rev-parse HEAD)
+          if [ "$head" != "$COMMIT_SHA" ]; then
+            echo "The checkout is $head, not commit_sha $COMMIT_SHA: start this workflow with --ref $COMMIT_SHA. Nothing was built or published."
+            exit 1
+          fi
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$COMMIT_SHA" FETCH_HEAD; then
+            echo "$COMMIT_SHA isn't on main: production releases only from main. Nothing was built or published."
+            exit 1
+          fi
+
 #@if ios
   get_ios_build:
     name: Find a production iOS build with this runtime version
+    needs: [source]
     if: ${{ inputs.ios == 'true' }}
     type: get-build
     params:
@@ -157,14 +182,14 @@ jobs:
           # Runs can land out of order: when the channel's latest iOS update already carries this
           # commit or a later one, publishing would put older code back. Said, and nothing published.
           latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" ios)
-          if [ -n "$latest" ]; then
-            git cat-file -e "$latest^{commit}" 2>/dev/null || git fetch --quiet origin "$latest" 2>/dev/null || true
-            if git merge-base --is-ancestor "$COMMIT_SHA" "$latest" 2>/dev/null; then
-              echo "Not published: the channel's latest iOS update ($latest) already carries $COMMIT_SHA or a later commit."
+          for commit in $latest; do
+            git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
+            if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
+              echo "Not published: the channel's latest iOS update ($commit) already carries $COMMIT_SHA or a later commit."
               set-output update_group ""
               exit 0
             fi
-          fi
+          done
           if [ -n "$BUILD_COMMIT" ]; then
             git cat-file -e "$BUILD_COMMIT^{commit}" 2>/dev/null || git fetch --quiet origin "$BUILD_COMMIT" 2>/dev/null || true
             if git merge-base --is-ancestor "$COMMIT_SHA" "$BUILD_COMMIT" 2>/dev/null; then
@@ -174,7 +199,9 @@ jobs:
             fi
           fi
 #@if sentry
-          # Before anything is published: the source map upload after it runs the app's own uploader.
+          # Before anything is published: the source map upload after it needs its token and the
+          # app's own uploader.
+          node .eas/scripts/native-release.mjs require SENTRY_AUTH_TOKEN
           node .eas/scripts/native-release.mjs installed @sentry/react-native
 #@end
           # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
@@ -237,6 +264,7 @@ jobs:
 
   get_android_build:
     name: Find a production Android build with this runtime version
+    needs: [source]
     if: ${{ inputs.android == 'true' }}
     type: get-build
     params:
@@ -298,14 +326,14 @@ jobs:
           # Runs can land out of order: when the channel's latest Android update already carries this
           # commit or a later one, publishing would put older code back. Said, and nothing published.
           latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" android)
-          if [ -n "$latest" ]; then
-            git cat-file -e "$latest^{commit}" 2>/dev/null || git fetch --quiet origin "$latest" 2>/dev/null || true
-            if git merge-base --is-ancestor "$COMMIT_SHA" "$latest" 2>/dev/null; then
-              echo "Not published: the channel's latest Android update ($latest) already carries $COMMIT_SHA or a later commit."
+          for commit in $latest; do
+            git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
+            if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
+              echo "Not published: the channel's latest Android update ($commit) already carries $COMMIT_SHA or a later commit."
               set-output update_group ""
               exit 0
             fi
-          fi
+          done
           if [ -n "$BUILD_COMMIT" ]; then
             git cat-file -e "$BUILD_COMMIT^{commit}" 2>/dev/null || git fetch --quiet origin "$BUILD_COMMIT" 2>/dev/null || true
             if git merge-base --is-ancestor "$COMMIT_SHA" "$BUILD_COMMIT" 2>/dev/null; then
@@ -315,7 +343,9 @@ jobs:
             fi
           fi
 #@if sentry
-          # Before anything is published: the source map upload after it runs the app's own uploader.
+          # Before anything is published: the source map upload after it needs its token and the
+          # app's own uploader.
+          node .eas/scripts/native-release.mjs require SENTRY_AUTH_TOKEN
           node .eas/scripts/native-release.mjs installed @sentry/react-native
 #@end
           # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).

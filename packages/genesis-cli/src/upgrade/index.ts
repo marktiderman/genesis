@@ -49,7 +49,7 @@ import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from ".
 import { localPackageNames } from "../blocks/local.js";
 import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
 import { starterDir, templatesDir } from "../blocks/templates.js";
-import { adoptTemplates, bumpCallerPins, calledWorkflows, competingReleaseWorkflows, isDedicatedWorkflow, lookupPin, missingTemplateSets, ownedDir, releaseContext, renderPin, repositoryRoot, resolveTemplateNames, TEMPLATE_SETS, type ReleasePin } from "../blocks/release.js";
+import { adoptTemplates, bumpCallerPins, calledWorkflows, currentSource, MOVED_TEMPLATES, competingReleaseWorkflows, isDedicatedWorkflow, lookupPin, missingTemplateSets, ownedDir, releaseContext, renderPin, repositoryRoot, resolveTemplateNames, TEMPLATE_SETS, type ReleasePin } from "../blocks/release.js";
 import { renderRelease, type ReleaseContext } from "../blocks/release-render.js";
 
 /** Whether a workflow pins its Genesis caller of `workflow` to `release` or a later one (by the `# @marktiderman/genesis@<version>` beside it, or the same commit). */
@@ -348,7 +348,11 @@ function sourceText(root: string, source: string, substitutions: Record<string, 
   try {
     if (pkg === "@marktiderman/genesis-cli" && rel.startsWith("templates/")) {
       const templates = templatesDir(dir);
-      const text = readPackageFile(templates, rel.slice("templates/".length));
+      const name = rel.slice("templates/".length);
+      // A template that moved: a CLI from before the move (installed before the upgrade, the base)
+      // ships it at its old path.
+      const oldName = Object.entries(MOVED_TEMPLATES).find(([, now]) => now === name)?.[0];
+      const text = readPackageFile(templates, name) ?? (oldName ? readPackageFile(templates, oldName) : null);
       if (text === null) return null;
       return render ? renderPin(substitute(renderRelease(text, render.release), substitutions), render.pin) : substitute(text, substitutions);
     }
@@ -418,6 +422,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   // The lock as it was before the upgrade: the pull request carries it whenever anything in this
   // run changed it, whichever step wrote it.
   const lockTextBefore = readApp(root, LOCK_FILE);
+  // Templates that moved (blocks/release.ts MOVED_TEMPLATES): the lock names them at their new path.
+  for (const [file, entry] of Object.entries(lock.files)) {
+    const now = currentSource(entry.source);
+    if (now !== entry.source) lock.files[file] = { ...entry, source: now };
+  }
   const home = databaseElsewhere(root);
   checkSubstitutions(lock.substitutions);
   const appFolder = appFolderOf(root);

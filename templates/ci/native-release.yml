@@ -140,6 +140,12 @@ jobs:
       - name: Runtime versions, builds and EAS's release runs
         id: plan
         run: |
+#@if !fingerprint
+          # release.runtimeVersion's command, as a script of its own (any pipeline or && in it runs whole).
+          cat > "$RUNNER_TEMP/release/runtime-version.sh" <<'GENESIS_RUNTIME_COMMAND'
+          GENESIS_RELEASE_RUNTIME_COMMAND
+          GENESIS_RUNTIME_COMMAND
+#@end
           for platform in ${PLATFORMS//,/ }; do
 #@if fingerprint
             eas fingerprint:generate --platform "$platform" --build-profile "$PROFILE" --json --non-interactive > "$RUNNER_TEMP/release/fingerprint-$platform.json"
@@ -147,24 +153,30 @@ jobs:
             eas build:list --platform "$platform" --build-profile "$PROFILE" --fingerprint-hash "$hash" --limit 50 --json --non-interactive > "$RUNNER_TEMP/release/builds-$platform.json"
 #@end
 #@if !fingerprint
-            export RELEASE_PLATFORM="$platform"
-            { GENESIS_RELEASE_RUNTIME_COMMAND
-            } > "$RUNNER_TEMP/release/runtime-$platform.txt"
-            runtime=$(tr -d '[:space:]' < "$RUNNER_TEMP/release/runtime-$platform.txt")
+            # With what the build had: the EAS environment and the build profile's env for the platform.
+            profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "$PROFILE" "$platform" --shell)
+            (
+              eval "$profile_env"
+              export RELEASE_PLATFORM="$platform"
+              eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT "bash $RUNNER_TEMP/release/runtime-version.sh" --non-interactive
+            ) > "$RUNNER_TEMP/release/runtime-$platform.txt"
+            runtime=$(node .eas/scripts/native-release.mjs runtime-printed "$RUNNER_TEMP/release/runtime-$platform.txt" "$platform")
             eas build:list --platform "$platform" --build-profile "$PROFILE" --runtime-version "$runtime" --limit 50 --json --non-interactive > "$RUNNER_TEMP/release/builds-$platform.json"
 #@end
-            # The channel's latest update for the platform and its commit ("" before the first one).
+            # The latest update for the platform on each branch the channel serves, and its commit (none before the first).
             latest=$(node .eas/scripts/native-release.mjs latest-commit "$CHANNEL" "$platform")
-            if [ -n "$latest" ] && git merge-base --is-ancestor "$GITHUB_SHA" "$latest" 2>/dev/null; then
-              echo "$latest" > "$RUNNER_TEMP/release/shipped-$platform.txt"
-            fi
+            for commit in $latest; do
+              if git merge-base --is-ancestor "$GITHUB_SHA" "$commit" 2>/dev/null; then
+                echo "$commit" > "$RUNNER_TEMP/release/shipped-$platform.txt"
+              fi
+            done
           done
           eas workflow:runs --workflow deploy-production.yml --limit 50 --json > "$RUNNER_TEMP/release/runs.json"
           node .eas/scripts/native-release.mjs plan "$RUNNER_TEMP/release" "$PLATFORMS" "$PROFILE" | tee -a "$GITHUB_OUTPUT"
         env:
           PLATFORMS: "GENESIS_RELEASE_PLATFORMS"
           PROFILE: "GENESIS_RELEASE_PROFILE"
-          # EAS names an update's branch after the channel it was published to (eas update --channel).
+          # The channel; latest-commit reads the branch (or branches) it serves.
           CHANNEL: "GENESIS_RELEASE_CHANNEL"
 
       # Nothing below runs without a plan; a green job that did nothing would hide that.

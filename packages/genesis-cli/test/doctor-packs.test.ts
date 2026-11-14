@@ -265,6 +265,11 @@ describe("native pack", () => {
     expect(brief((await nativeApp({ "app.json": viaExpo("@marktiderman/genesis-cli/expo") })).findings, "fingerprint-plugin-files")).toHaveLength(1);
     expect(brief((await nativeApp({ "app.json": viaExpo(["@marktiderman/genesis-cli/expo", { privacy: {} }]) })).findings, "fingerprint-plugin-files")).toHaveLength(1);
     expect(brief((await nativeApp({ "app.json": viaExpo(["@marktiderman/genesis-cli/expo", { fingerprint: false }]) })).findings, "fingerprint-plugin-files")).toEqual([]);
+    // An explicit runtimeVersion wins over the plugin's default (withGenesis keeps it): no fingerprint, nothing to say.
+    const pinnedRuntime = (runtimeVersion: unknown) => JSON.stringify({ expo: { runtimeVersion, plugins: ["@marktiderman/genesis-cli", "@marktiderman/genesis-native/rich-push-plugin"] } });
+    expect(brief((await nativeApp({ "app.json": pinnedRuntime("1.0.0") })).findings, "fingerprint-plugin-files")).toEqual([]);
+    expect(brief((await nativeApp({ "app.json": pinnedRuntime({ policy: "appVersion" }) })).findings, "fingerprint-plugin-files")).toEqual([]);
+    expect(brief((await nativeApp({ "app.json": pinnedRuntime({ policy: "fingerprint" }) })).findings, "fingerprint-plugin-files")).toHaveLength(1);
     // Imported but never called, and not a plugin: Genesis sets nothing.
     const imported = 'import { withGenesis } from "@marktiderman/genesis-cli/expo";\nexport default { plugins: ["@marktiderman/genesis-native/rich-push-plugin"] };\n';
     expect(brief((await nativeApp({ "app.config.ts": imported })).findings, "fingerprint-plugin-files")).toEqual([]);

@@ -172,6 +172,25 @@
         }
       }
     },
+    "channel:view": {
+      "args": [
+        "name"
+      ],
+      "flags": {
+        "json": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "option"
+        },
+        "non-interactive": {
+          "type": "boolean"
+        },
+        "offset": {
+          "type": "option"
+        }
+      }
+    },
     "fingerprint:generate": {
       "args": [],
       "flags": {

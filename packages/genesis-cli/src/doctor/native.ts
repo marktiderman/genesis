@@ -147,7 +147,10 @@ export function checkFingerprintConfig(ctx: DoctorContext): void {
   const configs = APP_CONFIGS.filter((f) => existsSync(path.join(ctx.root, f)));
   if (!configs.length) return;
   const text = configs.map((f) => readFileSync(path.join(ctx.root, f), "utf8")).join("\n");
-  const genesisPlugin = genesisPluginSetsFingerprint(text);
+  // An explicit runtimeVersion (a string, or a policy other than fingerprint, at the root or for a
+  // platform) wins over the plugin's default: withGenesis keeps it.
+  const explicit = /\bruntimeVersion["']?\s*:\s*(?!\{\s*["']?policy["']?\s*:\s*["']fingerprint["'])\S/.test(text);
+  const genesisPlugin = !explicit && genesisPluginSetsFingerprint(text);
   const fingerprint = /\bpolicy["']?\s*:\s*["']fingerprint["']/.test(text) || genesisPlugin;
   const nativePlugin = /["']@marktiderman\/genesis-native\/rich-push-plugin["']/.test(text);
   if (!fingerprint || !nativePlugin) return;

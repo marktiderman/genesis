@@ -1,3 +1,5 @@
+# Copy to .eas/workflows/pr-preview.yml.
+#
 # PR preview: an installable build of each pull request, and an update on its own channel.
 #
 # 1. Fingerprint the native project as the preview variant builds it.
@@ -32,7 +34,7 @@
 # with the preview environment's variables, so keep nothing there that production depends on.
 # EAS doesn't run pull_request workflows for pull requests from forks.
 #
-# Genesis template (templates/eas/workflows/pr-preview.yml), rendered with genesis.config.json
+# Genesis template (templates/release/pr-preview.yml), rendered with genesis.config.json
 # `release` (its platforms, and `paths` after the app's own); see docs/NATIVE-RELEASE.md in the
 # Genesis repository.
 name: PR preview

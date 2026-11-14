@@ -10,11 +10,11 @@ import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { renderOwned } from "../src/blocks/app-folder.js";
 import { sha256 } from "../src/blocks/files.js";
-import { readLock, writeLock } from "../src/blocks/lock.js";
-import { ownedKeyProblem } from "../src/blocks/owned.js";
+import { readLock, substitute, writeLock } from "../src/blocks/lock.js";
+import { ownedKeyProblem, refreshOwned } from "../src/blocks/owned.js";
 import { DEFAULT_RELEASE_CONTEXT, renderRelease, resolveRelease, type ReleaseContext } from "../src/blocks/release-render.js";
 import { addTemplates } from "../src/blocks/add-template.js";
-import { adoptTemplates, bumpCallerPins, competingReleaseWorkflows, hasPushTrigger, missingTemplateSets, renderPin, renderTemplate, resolveTemplateNames } from "../src/blocks/release.js";
+import { adoptTemplates, bumpCallerPins, competingReleaseWorkflows, currentSource, MOVED_TEMPLATES, hasPushTrigger, missingTemplateSets, renderPin, renderTemplate, resolveTemplateNames } from "../src/blocks/release.js";
 import { templateTarget } from "../src/blocks/templates.js";
 import { GenesisConfigError, validateRelease } from "../src/doctor/config.js";
 import { runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
@@ -52,12 +52,12 @@ describe("the release block", () => {
 });
 
 describe("rendering the templates", () => {
-  const MARKED = ["ci/native-release.yml", "eas/workflows/deploy-production.yml", "eas/workflows/pr-preview.yml"];
+  const MARKED = ["ci/native-release.yml", "release/deploy-production.yml", "release/pr-preview.yml"];
 
   it("the starter's copies are the default render, with no markup left", () => {
     const copies: [string, string][] = [
-      ["eas/workflows/deploy-production.yml", ".eas/workflows/deploy-production.yml"],
-      ["eas/workflows/pr-preview.yml", ".eas/workflows/pr-preview.yml"],
+      ["release/deploy-production.yml", ".eas/workflows/deploy-production.yml"],
+      ["release/pr-preview.yml", ".eas/workflows/pr-preview.yml"],
       ["eas/scripts/native-release.mjs", ".eas/scripts/native-release.mjs"],
       ["expo/fingerprint.config.js", "fingerprint.config.js"],
       ["expo/.fingerprintignore", ".fingerprintignore"],
@@ -88,12 +88,12 @@ describe("rendering the templates", () => {
   });
 
   it("deploy-production: one platform drops the other's jobs and inputs; Sentry and the hook switch on", () => {
-    const ios = yaml("eas/workflows/deploy-production.yml", ctx({ platforms: ["ios"] }));
+    const ios = yaml("release/deploy-production.yml", ctx({ platforms: ["ios"] }));
     expect(Object.keys(ios.jobs).filter((j) => j.includes("android"))).toEqual([]);
     expect(Object.keys(ios.on.workflow_dispatch.inputs)).toEqual(["commit_sha", "repository", "ios", "ios_runtime_version"]);
     expect(ios.on.workflow_dispatch.inputs.ios_runtime_version).toMatchObject({ type: "string", required: true });
     expect(ios.jobs.update_ios.steps[2].run).not.toContain("sentry-expo-upload-sourcemaps");
-    const full = yaml("eas/workflows/deploy-production.yml", ctx({ sentry: true, pushHook: { script: "scripts/push.mjs", secrets: [] }, profile: "store", channel: "live", easEnvironment: "prod" }));
+    const full = yaml("release/deploy-production.yml", ctx({ sentry: true, pushHook: { script: "scripts/push.mjs", secrets: [] }, profile: "store", channel: "live", easEnvironment: "prod" }));
     expect(full.jobs.update_android.steps[2].run).toContain('--channel "live" --platform android --environment "prod"');
     expect(full.jobs.update_android.steps[2].run).toContain("sentry-expo-upload-sourcemaps dist");
     expect(full.jobs.build_ios.params.profile).toBe("store");
@@ -103,8 +103,42 @@ describe("rendering the templates", () => {
     expect(full.jobs.hook_ios_update.env.RELEASE_UPDATE_GROUP).toBe("${{ needs.update_ios.outputs.update_group }}");
   });
 
+  it("deploy-production releases only a commit on main, fail-closed, before anything else", () => {
+    for (const platforms of [["ios", "android"], ["ios"], ["android"]] as const) {
+      const doc = yaml("release/deploy-production.yml", ctx({ platforms: [...platforms] }));
+      expect(Object.keys(doc.jobs)[0]).toBe("source");
+      const run = (doc.jobs.source.steps as { run?: string }[])[1]!.run!;
+      expect(run).toContain('if [ "$head" != "$COMMIT_SHA" ]; then');
+      expect(run).toContain("git fetch --quiet origin main");
+      expect(run).toContain('if ! git merge-base --is-ancestor "$COMMIT_SHA" FETCH_HEAD; then');
+      // Every job waits on it, through get-build.
+      for (const p of platforms) expect(doc.jobs[`get_${p}_build`].needs).toEqual(["source"]);
+      const waits = (id: string): boolean => id === "source" || (doc.jobs[id].needs ?? []).some((n: string) => waits(n));
+      for (const id of Object.keys(doc.jobs)) expect(waits(id), id).toBe(true);
+    }
+    // The check itself, on a real repository: a commit off main fails, one on main passes.
+    const repo = tempDir("genesis-source-");
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
+    git("init", "-q", "-b", "main");
+    git("-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "on main");
+    const onMain = git("rev-parse", "HEAD");
+    const remote = tempDir("genesis-source-remote-");
+    execFileSync("git", ["clone", "-q", "--bare", repo, remote]);
+    git("remote", "add", "origin", remote);
+    git("switch", "-q", "-c", "feature");
+    git("-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "off main");
+    const offMain = git("rev-parse", "HEAD");
+    const script = (yaml("release/deploy-production.yml", ctx()).jobs.source.steps as { run?: string }[])[1]!.run!;
+    const check = (sha: string) => spawnSync("bash", ["-c", script], { cwd: repo, encoding: "utf8", env: { ...process.env, COMMIT_SHA: sha } });
+    expect(check(offMain).status).toBe(1);
+    expect(check(offMain).stdout).toContain("isn't on main");
+    git("switch", "-q", "main");
+    expect(check(onMain).status).toBe(0);
+    expect(check(offMain).stdout).toContain("start this workflow with --ref");
+  });
+
   it("deploy-production publishes like GitHub does: the platform's profile env, the runtime checked before eas update", () => {
-    const doc = yaml("eas/workflows/deploy-production.yml", ctx());
+    const doc = yaml("release/deploy-production.yml", ctx());
     // No fingerprint job of its own: it matches the runtime version GitHub computed with the profile's env.
     expect(doc.jobs.fingerprint).toBeUndefined();
     expect(doc.jobs.get_ios_build.params.fingerprint_hash).toBe("${{ inputs.ios_runtime_version }}");
@@ -118,7 +152,7 @@ describe("rendering the templates", () => {
 
   it("names render as YAML strings, so a profile 123 or a channel null stay text", () => {
     const c = ctx({ profile: "123", channel: "null", environment: "007", easEnvironment: "true" });
-    const deploy = yaml("eas/workflows/deploy-production.yml", c);
+    const deploy = yaml("release/deploy-production.yml", c);
     expect(deploy.jobs.build_ios.params.profile).toBe("123");
     expect(deploy.jobs.build_ios.environment).toBe("true");
     expect(deploy.jobs.get_android_build.params.profile).toBe("123");
@@ -130,7 +164,7 @@ describe("rendering the templates", () => {
   });
 
   it("deploy-production gates each platform on its input compared as text, since eas workflow:run -F sends strings", () => {
-    const doc = yaml("eas/workflows/deploy-production.yml", ctx());
+    const doc = yaml("release/deploy-production.yml", ctx());
     for (const p of ["ios", "android"]) {
       expect(doc.on.workflow_dispatch.inputs[p]).toEqual({ type: "choice", options: ["true", "false"], default: "true", description: expect.any(String) });
       expect(doc.jobs[`get_${p}_build`].if).toBe(`\${{ inputs.${p} == 'true' }}`);
@@ -138,7 +172,7 @@ describe("rendering the templates", () => {
       expect(doc.jobs[`update_${p}`].if).toBe(`\${{ inputs.${p} == 'true' && needs.get_${p}_build.outputs.build_id }}`);
     }
     // Every `inputs.<platform>` reference in the file is the text comparison.
-    const text = renderRelease(template("eas/workflows/deploy-production.yml"), ctx());
+    const text = renderRelease(template("release/deploy-production.yml"), ctx());
     expect([...text.matchAll(/inputs\.(ios|android)\b(?!_)(?! == 'true')/g)]).toEqual([]);
     // No order check that could skip a release green: EAS's concurrency keeps the order.
     expect(doc.jobs.newest).toBeUndefined();
@@ -146,7 +180,7 @@ describe("rendering the templates", () => {
   });
 
   it("deploy-production with the app's own runtime version: no fingerprint job, get-build by runtime_version", () => {
-    const own = yaml("eas/workflows/deploy-production.yml", ctx({ runtimeCommand: "node scripts/rv.mjs" }));
+    const own = yaml("release/deploy-production.yml", ctx({ runtimeCommand: "node scripts/rv.mjs" }));
     expect(own.jobs.fingerprint).toBeUndefined();
     expect(own.jobs.get_ios_build.params).toMatchObject({ runtime_version: "${{ inputs.ios_runtime_version }}" });
     expect(own.jobs.get_ios_build.params.fingerprint_hash).toBeUndefined();
@@ -197,16 +231,33 @@ describe("rendering the templates", () => {
 
   it("native-release.yml with the app's own runtime version runs its command per platform", () => {
     const run = (yaml("ci/native-release.yml", ctx({ runtimeCommand: "node scripts/rv.mjs" })).jobs.release.steps as { id?: string; run?: string }[]).find((s) => s.id === "plan")!.run!;
-    expect(run).toMatch(/export RELEASE_PLATFORM="\$platform"\n\s*\{ node scripts\/rv\.mjs\n\s*\} > "\$RUNNER_TEMP\/release\/runtime-\$platform\.txt"/);
+    // The command as a script of its own, run with the EAS environment and the platform's profile env.
+    expect(run).toContain("cat > \"$RUNNER_TEMP/release/runtime-version.sh\" <<'GENESIS_RUNTIME_COMMAND'\nnode scripts/rv.mjs\nGENESIS_RUNTIME_COMMAND\n");
+    expect(run).toMatch(/profile_env=\$\(node \.eas\/scripts\/native-release\.mjs profile-env eas\.json "\$PROFILE" "\$platform" --shell\)\n\s*\(\n\s*eval "\$profile_env"\n\s*export RELEASE_PLATFORM="\$platform"\n\s*eas env:exec production "bash \$RUNNER_TEMP\/release\/runtime-version\.sh" --non-interactive\n\s*\) > "\$RUNNER_TEMP\/release\/runtime-\$platform\.txt"/);
+    expect(run).toContain('runtime=$(node .eas/scripts/native-release.mjs runtime-printed "$RUNNER_TEMP/release/runtime-$platform.txt" "$platform")');
     expect(run).not.toContain("fingerprint:generate");
   });
 
   it("a piped runtime command sees RELEASE_PLATFORM in every part, and its whole output is written", () => {
     const run = (yaml("ci/native-release.yml", ctx({ runtimeCommand: 'echo "$RELEASE_PLATFORM" | tr a-z A-Z && echo "-$RELEASE_PLATFORM"' })).jobs.release.steps as { id?: string; run?: string }[]).find((st) => st.id === "plan")!.run!;
-    const loop = run.slice(run.indexOf("export RELEASE_PLATFORM"), run.indexOf("runtime=$("));
+    // The lines that write the script, then the script as eas env:exec runs it (bash <file>).
+    const write = run.slice(run.indexOf("cat > "), run.indexOf("GENESIS_RUNTIME_COMMAND\n", run.indexOf("<<'GENESIS_RUNTIME_COMMAND'") + 30) + "GENESIS_RUNTIME_COMMAND\n".length);
     const dir = tempDir("genesis-runtime-");
-    execFileSync("bash", ["-eo", "pipefail", "-c", `platform=ios\nRUNNER_TEMP=${dir}\nmkdir -p "$RUNNER_TEMP/release"\n${loop}`]);
-    expect(readFileSync(path.join(dir, "release", "runtime-ios.txt"), "utf8")).toBe("IOS\n-ios\n");
+    execFileSync("bash", ["-eo", "pipefail", "-c", `RUNNER_TEMP=${dir}\nmkdir -p "$RUNNER_TEMP/release"\n${write}`]);
+    const out = execFileSync("bash", [path.join(dir, "release", "runtime-version.sh")], { encoding: "utf8", env: { ...process.env, RELEASE_PLATFORM: "ios" } });
+    expect(out).toBe("IOS\n-ios\n");
+    // What's taken is the last line it printed (eas env:exec may print before it), and an unset value is refused.
+    const file = path.join(dir, "printed.txt");
+    writeTree(dir, { "printed.txt": "Loading environment…\nios-7f3a\n\n" });
+    expect(execFileSync("node", [path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "runtime-printed", file, "ios"], { encoding: "utf8" })).toBe("ios-7f3a\n");
+    for (const bad of ["undefined\n", "null\n", "\n"]) {
+      writeTree(dir, { "printed.txt": bad });
+      const refused = spawnSync("node", [path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "runtime-printed", file, "ios"], { encoding: "utf8" });
+      expect(refused.status, bad).toBe(1);
+      expect(refused.stderr).toContain("printed no ios runtime version");
+    }
+    expect(plan.isRuntimeVersion("undefined")).toBe(false);
+    expect(() => plan.planOutputs({ ios: { runtime: "undefined", by: "runtime", builds: [] } }, [], "production")).toThrow(/printed no ios runtime version/);
   });
 
   it("native-release.yml publishes with the platform's build profile env, and checks the runtime version before publishing", () => {
@@ -221,11 +272,13 @@ describe("rendering the templates", () => {
 
   it("a profile-env that fails fails the publish step, on GitHub and on EAS", () => {
     const gh = (yaml("ci/native-release.yml", ctx()).jobs.release.steps as { name?: string; run?: string }[]).find((st) => st.name === "Publish the iOS update")!.run!;
-    const eas = (yaml("eas/workflows/deploy-production.yml", ctx()).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+    const eas = (yaml("release/deploy-production.yml", ctx()).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
     for (const run of [gh, eas]) {
+      // Just the profile-env lines: the rest of the step reaches EAS.
       const lines = run.split("\n");
-      const upTo = lines.slice(0, lines.findIndex((l) => l.startsWith("eval ")) + 1).join("\n");
-      expect(upTo).toContain("profile_env=$(node .eas/scripts/native-release.mjs profile-env");
+      const from = lines.findIndex((l) => l.startsWith("profile_env=$("));
+      const upTo = lines.slice(from, lines.findIndex((l) => l.startsWith("eval ")) + 1).join("\n");
+      expect(upTo).toMatch(/^profile_env=\$\(node \.eas\/scripts\/native-release\.mjs profile-env[^\n]*\neval "\$profile_env"$/);
       const app = tempDir("genesis-profile-env-");
       writeTree(app, { ".eas/scripts/native-release.mjs": readFileSync(path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "utf8"), "eas.json": JSON.stringify({ build: {} }) });
       const result = spawnSync("bash", ["-eo", "pipefail", "-c", `${upTo}\necho reached`], { cwd: app, encoding: "utf8" });
@@ -240,7 +293,8 @@ describe("rendering the templates", () => {
     expect((steps as { uses?: string; with?: Record<string, unknown> }[]).find((st) => st.uses?.startsWith("actions/checkout"))!.with!["fetch-depth"]).toBe(0);
     const plan = steps.find((st) => st.name === "Runtime versions, builds and EAS's release runs")!.run!;
     expect(plan).toContain('latest=$(node .eas/scripts/native-release.mjs latest-commit "$CHANNEL" "$platform")');
-    expect(plan).toContain('git merge-base --is-ancestor "$GITHUB_SHA" "$latest"');
+    expect(plan).toContain("for commit in $latest; do");
+    expect(plan).toContain('git merge-base --is-ancestor "$GITHUB_SHA" "$commit"');
     const shipped = steps.find((st) => st.name === "Already shipped")!;
     expect(shipped.if).toBe("steps.plan.outputs.skipped_platforms != ''");
     expect(shipped.run).toContain("::warning title=Not published::");
@@ -249,7 +303,7 @@ describe("rendering the templates", () => {
 
   it("pr-preview: release.paths join the app's own, kept from the repository root under appFolder; one platform drops the other", () => {
     const c = ctx({ platforms: ["ios"], paths: ["app/src"] }, "mobile");
-    const raw = template("eas/workflows/pr-preview.yml");
+    const raw = template("release/pr-preview.yml");
     const text = renderTemplate(".eas/workflows/pr-preview.yml", raw, { release: c, substitutions: { REPLACE_WITH_APP_FOLDER: "src" } });
     const doc = parse(text) as Record<string, any>;
     expect(doc.on.pull_request.paths[0]).toBe("mobile/src/**");
@@ -268,6 +322,10 @@ describe("rendering the templates", () => {
     const old = "    uses: marktiderman/genesis/.github/workflows/app-ci.yml@" + "b".repeat(40) + " # @marktiderman/genesis@2.31.0\n";
     expect(bumpCallerPins(old, PIN)).toBe(`    uses: marktiderman/genesis/.github/workflows/app-ci.yml@${PIN.sha} # @marktiderman/genesis@2.40.0\n`);
     expect(bumpCallerPins("uses: actions/checkout@v4\n", PIN)).toBe("uses: actions/checkout@v4\n");
+    // Never backwards: a caller already on a later release keeps it.
+    const later = "    uses: marktiderman/genesis/.github/workflows/app-ci.yml@" + "d".repeat(40) + " # @marktiderman/genesis@2.41.0\n";
+    expect(bumpCallerPins(later, PIN)).toBe(later);
+    expect(bumpCallerPins("    uses: marktiderman/genesis/.github/workflows/app-ci.yml@GENESIS_SHA # @marktiderman/genesis@X.Y.Z\n", PIN)).toContain(`@${PIN.sha} # @marktiderman/genesis@2.40.0`);
   });
 
   it("every template goes where it says, Vercel's too", () => {
@@ -278,7 +336,7 @@ describe("rendering the templates", () => {
     for (const [key, t] of [["vercel.json", "vercel/vercel.json"], ["scripts/vercel-ignore-build.sh", "vercel/ignore-build.sh"], ["fingerprint.config.js", "expo/fingerprint.config.js"], [".fingerprintignore", "expo/.fingerprintignore"]]) {
       expect(ownedKeyProblem(key!, `${CLI}:templates/${t}`)).toBeNull();
     }
-    expect(resolveTemplateNames(["release"])).toEqual(["ci/native-release.yml", "eas/workflows/deploy-production.yml", "eas/workflows/pr-preview.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"]);
+    expect(resolveTemplateNames(["release"])).toEqual(["ci/native-release.yml", "release/deploy-production.yml", "release/pr-preview.yml", "eas/scripts/native-release.mjs", "expo/fingerprint.config.js", "expo/.fingerprintignore"]);
     expect(() => resolveTemplateNames(["nope"])).toThrow(/isn't a template set/);
   });
 });
@@ -413,38 +471,51 @@ describe("the plan script", () => {
     { id: "u-2", createdAt: "2026-11-14T11:00:00.000Z", group: "group-new", branch: "production", message: "Fix the header", runtimeVersion: sha("e"), platform: "android", manifestPermalink: "https://u.expo.dev/y", isRollBackToEmbedded: false, gitCommitHash: sha("c"), assetMapUrl: null, sourceMapUrl: null },
   ];
 
+  // eas-cli 26.0.0's channel:view --json (channel/queries.js renderPageOfBranchesOnChannel): the
+  // channel with its branches, which needn't be named after it.
+  const CHANNEL = (...branches: string[]) => ({ currentPage: { id: "c-1", name: "production", isPaused: false, isProtected: false, branchMapping: "{}", updateBranches: branches.map((name, i) => ({ id: `b-${i}`, name, updateGroups: [] })) } });
+
   it("reads the latest group from update:list and its commit from update:view, as eas-cli 26 prints them", () => {
     expect(plan.latestGroup(LIST, "ios")).toBe("group-new");
     expect(plan.latestGroup({ name: "production", id: "N/A", currentPage: [] }, "ios")).toBe("");
     expect(() => plan.latestGroup([], "ios")).toThrow(/no currentPage/);
     expect(plan.groupCommit(VIEW, "android")).toBe(sha("c"));
     expect(plan.groupCommit([{ ...VIEW[0], gitCommitHash: null }], "ios")).toBe("");
+    expect(plan.channelBranches(CHANNEL("stable"))).toEqual(["stable"]);
+    expect(() => plan.channelBranches({ currentPage: {} })).toThrow(/updateBranches/);
+  });
+
+  it("resolves the channel's own branch (not one named after it), and every branch during a rollout", () => {
     const calls: string[][] = [];
     const run = (args: string[]) => {
       calls.push(args);
-      return JSON.stringify(args[0] === "update:list" ? LIST : VIEW);
+      if (args[0] === "channel:view") return JSON.stringify(CHANNEL("stable", "next"));
+      if (args[0] === "update:list") return JSON.stringify(args[2] === "stable" ? LIST : { name: "next", id: "x", currentPage: [] });
+      return JSON.stringify(VIEW);
     };
-    expect(plan.latestCommit(run, "production", "ios")).toBe(sha("c"));
+    expect(plan.latestCommits(run, "production", "ios")).toEqual([sha("c")]);
     expect(calls).toEqual([
-      ["update:list", "--branch", "production", "--platform", "ios", "--limit", "1", "--json", "--non-interactive"],
+      ["channel:view", "production", "--json", "--non-interactive"],
+      ["update:list", "--branch", "stable", "--platform", "ios", "--limit", "1", "--json", "--non-interactive"],
       ["update:view", "group-new", "--json"],
+      ["update:list", "--branch", "next", "--platform", "ios", "--limit", "1", "--json", "--non-interactive"],
     ]);
-    // No update yet on the branch: no update:view.
-    expect(plan.latestCommit(() => JSON.stringify({ name: "production", id: "N/A", currentPage: [] }), "production", "ios")).toBe("");
   });
 
-  it("a channel with no branch yet (the first release) has no latest update; any other failure stops the plan", () => {
+  it("a channel or branch that doesn't exist yet (the first release) has no latest update; any other failure stops the plan", () => {
     const fails = (stderr: string) => () => {
-      throw Object.assign(new Error("Command failed: eas update:list"), { status: 1, stderr });
+      throw Object.assign(new Error("Command failed: eas"), { status: 1, stderr });
     };
-    expect(plan.latestCommit(fails('    Error: update:list command failed.\nCould not find branch "production"\n'), "production", "ios")).toBe("");
-    expect(() => plan.latestCommit(fails("Error: Entity not authorized\n"), "production", "ios")).toThrow(/Command failed/);
-    // The command itself, with a stand-in `eas` that answers as eas-cli does for a missing branch.
+    expect(plan.latestCommits(fails("Error: channel:view command failed.\nCould not find channel with the name production\n"), "production", "ios")).toEqual([]);
+    expect(plan.branchCommit(fails('Could not find branch "production"\n'), "production", "ios")).toBe("");
+    expect(() => plan.latestCommits(fails("Error: Entity not authorized\n"), "production", "ios")).toThrow(/Command failed/);
+    // The command itself, with a stand-in `eas` that answers as eas-cli does: the channel names its
+    // branch, which doesn't exist yet.
     const bin = tempDir("genesis-eas-bin-");
-    writeTree(bin, { eas: '#!/usr/bin/env bash\necho "Could not find branch \\"$3\\"" >&2\nexit 1\n' });
+    writeTree(bin, { eas: `#!/usr/bin/env bash\nif [ "$1" = channel:view ]; then echo '${JSON.stringify(CHANNEL("production"))}'; exit 0; fi\necho "Could not find branch \\"$3\\"" >&2\nexit 1\n` });
     execFileSync("chmod", ["+x", path.join(bin, "eas")]);
     const out = execFileSync("node", [path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "latest-commit", "production", "ios"], { encoding: "utf8", env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}` } });
-    expect(out).toBe("\n");
+    expect(out).toBe("");
   });
 
   it("refuses before publishing when this checkout's runtime version isn't the build's", () => {
@@ -491,15 +562,15 @@ describe("genesis add template", () => {
     const next = read(root, ".eas/workflows/deploy-production.yml.genesis-next");
     expect(Object.keys(parse(next).jobs).filter((j) => j.includes("android"))).toEqual([]);
     const lock = readLock(root);
-    expect(lock.files[".eas/workflows/deploy-production.yml"]).toMatchObject({ source: `${CLI}:templates/eas/workflows/deploy-production.yml`, pending: sha256(next), pendingMine: sha256("name: mine\n") });
+    expect(lock.files[".eas/workflows/deploy-production.yml"]).toMatchObject({ source: `${CLI}:templates/release/deploy-production.yml`, pending: sha256(next), pendingMine: sha256("name: mine\n") });
     // The app's file never took that text: the checksum isn't it (nor the app's own), so no base is assumed.
     expect(lock.files[".eas/workflows/deploy-production.yml"]!.sha256).not.toBe(sha256(next));
     expect(lock.files[".eas/workflows/deploy-production.yml"]!.sha256).not.toBe(sha256("name: mine\n"));
     expect(lock.files[".github/workflows/native-release.yml"]!.sha256).toBe(sha256(read(root, ".github/workflows/native-release.yml")));
     // Run again: nothing new; .genesis-next is left for the app.
-    expect(adoptTemplates(root, ["eas/workflows/deploy-production.yml"])[0]).toMatchObject({ outcome: "next" });
+    expect(adoptTemplates(root, ["release/deploy-production.yml"])[0]).toMatchObject({ outcome: "next" });
     // --replace, once the app's choices are in genesis.config.json.
-    expect(adoptTemplates(root, ["eas/workflows/deploy-production.yml"], { replace: true })[0]).toMatchObject({ outcome: "replaced" });
+    expect(adoptTemplates(root, ["release/deploy-production.yml"], { replace: true })[0]).toMatchObject({ outcome: "replaced" });
     expect(read(root, ".eas/workflows/deploy-production.yml")).toBe(next);
     expect(existsSync(path.join(root, ".eas/workflows/deploy-production.yml.genesis-next"))).toBe(false);
   });
@@ -575,10 +646,10 @@ describe("genesis add template", () => {
     const taken = readLock(root).files[".eas/workflows/rollout.yml"]!.sha256;
     // The app edits the file; then the release block changes what the template renders.
     writeTree(root, { ".eas/workflows/rollout.yml": read(root, ".eas/workflows/rollout.yml").replace("name: Rollout", "name: Our rollout") });
-    adoptTemplates(root, ["eas/workflows/deploy-production.yml"]);
+    adoptTemplates(root, ["release/deploy-production.yml"]);
     writeTree(root, { ".eas/workflows/deploy-production.yml": read(root, ".eas/workflows/deploy-production.yml") + "# ours\n", "genesis.config.json": JSON.stringify({ release: { platforms: ["ios"] } }) });
     const deployTaken = readLock(root).files[".eas/workflows/deploy-production.yml"]!.sha256;
-    const [result] = adoptTemplates(root, ["eas/workflows/deploy-production.yml"]);
+    const [result] = adoptTemplates(root, ["release/deploy-production.yml"]);
     expect(result).toMatchObject({ outcome: "next" });
     const entry = readLock(root).files[".eas/workflows/deploy-production.yml"]!;
     // Only the pending markers moved: the next upgrade still merges against what the file took.
@@ -793,6 +864,18 @@ describe("genesis upgrade and the release lane", () => {
     expect(readLock(root).files[".github/workflows/ci.yml"]!.awaiting).toBeUndefined();
   });
 
+  it("never moves a shared workflow's pin back to an older release", async () => {
+    const { repo, root } = monorepo({});
+    const ci = template("ci/app-ci.yml");
+    ship(root, "1.0.0", { "ci/app-ci.yml": ci });
+    writeLock(root, { version: 1, blocks: {}, files: { ".github/workflows/ci.yml": { source: `${CLI}:templates/ci/app-ci.yml`, sha256: sha256(ci) } } });
+    // The repository's caller already names P4; this app upgrades to P3 with an unchanged template.
+    const p4 = `jobs:\n  app:\n    uses: marktiderman/genesis/.github/workflows/app-ci.yml@${"4".repeat(40)} # @marktiderman/genesis@4.0.0\n`;
+    writeTree(repo, { ".github/workflows/ci.yml": p4 });
+    await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }, "3.0.0"), install: (r) => void ship(r, "1.2.0", { "ci/app-ci.yml": ci }), doctor: false, pin: () => ({ sha: "3".repeat(40), version: "3.0.0" }) });
+    expect(read(repo, ".github/workflows/ci.yml")).toBe(p4);
+  });
+
   it("never writes a pin through a symlinked workflow", async () => {
     const { repo, root } = monorepo({});
     const ci = template("ci/app-ci.yml");
@@ -812,12 +895,14 @@ describe("genesis upgrade and the release lane", () => {
   it("an app on the push-triggered EAS lane isn't switched by an upgrade: its deploy-production.yml is held, and the summary says how to adopt", async () => {
     const root = makeApp({ "package.json": JSON.stringify({ name: "a", devDependencies: { [CLI]: "^1.0.0" } }), "app.json": "{}", "pnpm-lock.yaml": "" });
     const old = "name: Deploy production\non:\n  push:\n    branches: [main]\njobs: {}\n";
+    // The previous release shipped it at its old path, and the lock says so.
     ship(root, "1.0.0", { "eas/workflows/deploy-production.yml": old });
     writeTree(root, { ".eas/workflows/deploy-production.yml": old });
     writeLock(root, { version: 1, blocks: {}, files: { ".eas/workflows/deploy-production.yml": { source: `${CLI}:templates/eas/workflows/deploy-production.yml`, sha256: sha256(old) } } });
     const release2 = (r: string) => void ship(r, "1.2.0", Object.fromEntries(resolveTemplateNames(["release"]).map((t) => [t, template(t)])));
     const report = await runUpgrade({ root, lookup: release({ [CLI]: "1.2.0" }), install: release2, doctor: false });
     expect(report.refreshed.find((r) => r.path === ".eas/workflows/deploy-production.yml")).toMatchObject({ outcome: "held" });
+    expect(readLock(root).files[".eas/workflows/deploy-production.yml"]!.source).toBe(`${CLI}:templates/release/deploy-production.yml`);
     expect(read(root, ".eas/workflows/deploy-production.yml")).toBe(old);
     expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(false);
     expect(readLock(root).files[".github/workflows/native-release.yml"]).toBeUndefined();
@@ -904,7 +989,7 @@ describe("every eas command the lane runs exists in eas-cli 26.0.0", () => {
         for (const runtimeCommand of [null, "node scripts/rv.mjs"]) {
           for (const pushHook of [null, { script: "scripts/p.mjs", secrets: [] }]) {
             const c = ctx({ platforms: [...platforms], sentry, runtimeCommand, pushHook });
-            for (const rel of ["ci/native-release.yml", "eas/workflows/deploy-production.yml"]) {
+            for (const rel of ["ci/native-release.yml", "release/deploy-production.yml"]) {
               const doc = parse(renderRelease(template(rel), c)) as { jobs: Record<string, { steps?: { run?: string }[] }> };
               const runs = Object.values(doc.jobs).flatMap((j) => (j.steps ?? []).map((st) => st.run ?? "")).join("\n");
               const calls = easCalls(runs);
@@ -921,10 +1006,11 @@ describe("every eas command the lane runs exists in eas-cli 26.0.0", () => {
     const seen: string[][] = [];
     const run = (args: string[]) => {
       seen.push(args);
+      if (args[0] === "channel:view") return JSON.stringify({ currentPage: { name: "production", updateBranches: [{ name: "production" }] } });
       return JSON.stringify(args[0] === "update:list" ? { name: "production", id: "x", currentPage: [{ group: "g", platforms: "ios" }] } : [{ platform: "ios", gitCommitHash: "c".repeat(40) }]);
     };
-    plan.latestCommit(run, "production", "ios");
-    expect(seen.map((a) => a[0])).toEqual(["update:list", "update:view"]);
+    plan.latestCommits(run, "production", "ios");
+    expect(seen.map((a) => a[0])).toEqual(["channel:view", "update:list", "update:view"]);
     check(seen.map((a) => ({ command: a[0]!, flags: a.filter((t) => t.startsWith("-")), line: `eas ${a.join(" ")}` })), "native-release.mjs");
     // The script runs a command only through latestCommit's runner (eas, or RELEASE_EAS).
     expect([...readFileSync(path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "utf8").matchAll(/execFileSync\(/g)]).toHaveLength(1);
@@ -978,7 +1064,7 @@ describe("npx never fetches a package the lane didn't pin", () => {
   it("in every render of the release templates", () => {
     for (const sentry of [false, true]) {
       for (const runtimeCommand of [null, "node scripts/rv.mjs"]) {
-        for (const rel of ["ci/native-release.yml", "eas/workflows/deploy-production.yml"]) {
+        for (const rel of ["ci/native-release.yml", "release/deploy-production.yml"]) {
           const text = renderRelease(template(rel), ctx({ sentry, runtimeCommand }));
           for (const words of npxCalls(text)) expect(safe(words), `${rel}: npx ${words.join(" ")}`).toBe(true);
         }
@@ -989,14 +1075,16 @@ describe("npx never fetches a package the lane didn't pin", () => {
   it("checks the app's own Sentry uploader is installed before running it", () => {
     const gh = (yaml("ci/native-release.yml", ctx({ sentry: true })).jobs.release.steps as { name?: string; run?: string }[]).find((st) => st.name === "Sentry can take the source maps")!.run!;
     expect(gh).toContain("native-release.mjs installed @sentry/react-native");
-    const eas = (yaml("eas/workflows/deploy-production.yml", ctx({ sentry: true })).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
-    // Before anything is published, not only before the upload.
+    const eas = (yaml("release/deploy-production.yml", ctx({ sentry: true })).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+    // Before anything is published, not only before the upload: the token and the uploader.
+    expect(eas.indexOf("native-release.mjs require SENTRY_AUTH_TOKEN")).toBeGreaterThan(-1);
+    expect(eas.indexOf("native-release.mjs require SENTRY_AUTH_TOKEN")).toBeLessThan(eas.indexOf("eas-cli@26.0.0 update --channel"));
     expect(eas.indexOf("installed @sentry/react-native")).toBeGreaterThan(-1);
     expect(eas.indexOf("installed @sentry/react-native")).toBeLessThan(eas.indexOf("eas-cli@26.0.0 update --channel"));
-    const easAndroid = (yaml("eas/workflows/deploy-production.yml", ctx({ sentry: true })).jobs.update_android.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+    const easAndroid = (yaml("release/deploy-production.yml", ctx({ sentry: true })).jobs.update_android.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
     expect(easAndroid.indexOf("installed @sentry/react-native")).toBeLessThan(easAndroid.indexOf("eas-cli@26.0.0 update --channel"));
     // Without Sentry, no check.
-    expect((yaml("eas/workflows/deploy-production.yml", ctx()).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!).not.toContain("installed @sentry/react-native");
+    expect((yaml("release/deploy-production.yml", ctx()).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!).not.toContain("installed @sentry/react-native");
     const script = path.join(TEMPLATES, "eas/scripts/native-release.mjs");
     const app = tempDir("genesis-installed-");
     writeTree(app, { "node_modules/@sentry/react-native/package.json": "{}" });
@@ -1011,7 +1099,7 @@ describe("npx never fetches a package the lane didn't pin", () => {
 describe("the EAS lane's updates check the channel's order too", () => {
   it("before publishing, skips out loud when the channel's latest update carries this commit or a later one", () => {
     for (const platform of ["ios", "android"]) {
-      const doc = yaml("eas/workflows/deploy-production.yml", ctx({ pushHook: { script: "scripts/p.mjs", secrets: [] } }));
+      const doc = yaml("release/deploy-production.yml", ctx({ pushHook: { script: "scripts/p.mjs", secrets: [] } }));
       const run = (doc.jobs[`update_${platform}`].steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
       const at = (needle: string) => run.indexOf(needle);
       expect(at(`RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "production" ${platform}`)).toBeGreaterThan(-1);
@@ -1024,7 +1112,7 @@ describe("the EAS lane's updates check the channel's order too", () => {
 
   it("also skips when the build it would run on was made from this commit or a later one", () => {
     for (const platform of ["ios", "android"]) {
-      const job = yaml("eas/workflows/deploy-production.yml", ctx()).jobs[`update_${platform}`];
+      const job = yaml("release/deploy-production.yml", ctx()).jobs[`update_${platform}`];
       expect(job.env.BUILD_COMMIT).toBe(`\${{ needs.get_${platform}_build.outputs.git_commit_hash }}`);
       const run = (job.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
       expect(run.indexOf('git merge-base --is-ancestor "$COMMIT_SHA" "$BUILD_COMMIT"')).toBeGreaterThan(-1);
@@ -1034,12 +1122,72 @@ describe("the EAS lane's updates check the channel's order too", () => {
 
   it("runs eas-cli the way RELEASE_EAS says, where eas isn't on PATH", () => {
     const bin = tempDir("genesis-eas-wrapper-");
-    writeTree(bin, { "fake-eas": '#!/usr/bin/env bash\nshift\necho "Could not find branch \\"$3\\"" >&2\nexit 1\n' });
+    writeTree(bin, { "fake-eas": '#!/usr/bin/env bash\nshift\necho "Could not find channel with the name $2" >&2\nexit 1\n' });
     execFileSync("chmod", ["+x", path.join(bin, "fake-eas")]);
     const out = execFileSync("node", [path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "latest-commit", "production", "ios"], {
       encoding: "utf8",
       env: { ...process.env, RELEASE_EAS: `${path.join(bin, "fake-eas")} --pinned` },
     });
-    expect(out).toBe("\n");
+    expect(out).toBe("");
+  });
+});
+
+describe("tests never reach the network", () => {
+  it("npx and eas fail at once here (test/setup-no-network.ts)", () => {
+    for (const name of ["npx", "eas"]) {
+      const result = spawnSync(name, ["--yes", "eas-cli@26.0.0", "--version"], { encoding: "utf8" });
+      expect(result.status, name).toBe(97);
+      expect(result.stderr).toContain("blocked, a test never reaches the network");
+    }
+  });
+});
+
+describe("a previous genesis-cli refreshing an app from these templates", () => {
+  // genesis-cli 1.28.0's templates: the paths a previous CLI reads its lock entries from. Its
+  // `genesis upgrade` installs this release and refreshes from its templates with its own code,
+  // which has no release renderer and no old-lane hold (the weekly upgrade workflow does just that).
+  const PREVIOUS = [
+    "ci/app-ci.yml", "ci/claude-review.yml", "ci/genesis-upgrade.yml", "ci/supabase-ci.yml", "eas/eas.json", "eas/scripts/rollout-health.mjs",
+    "eas/workflows/deploy-production.yml", "eas/workflows/e2e.yml", "eas/workflows/pr-preview.yml", "eas/workflows/rollout.yml",
+    "maestro/config.yaml", "maestro/flows/deep-link.yaml", "maestro/flows/launch.yaml", "maestro/flows/settings-version.yaml", "maestro/flows/sign-in-screen.yaml", "maestro/subflows/sign-in.yaml",
+    "vercel/ignore-build.sh", "vercel/vercel.json",
+  ];
+  const MARKUP = /^\s*#@(?:if|end|paths|extra-paths|hook-secrets)\b|\bGENESIS_RELEASE_[A-Z_]*[A-Z]\b/m;
+
+  it("finds no release markup at any path it knows: the templated ones moved", () => {
+    for (const rel of PREVIOUS) {
+      const file = path.join(TEMPLATES, rel);
+      if (existsSync(file)) expect(readFileSync(file, "utf8"), rel).not.toMatch(MARKUP);
+    }
+    expect(Object.keys(MOVED_TEMPLATES).every((old) => !existsSync(path.join(TEMPLATES, old)))).toBe(true);
+    for (const now of Object.values(MOVED_TEMPLATES)) expect(readFileSync(path.join(TEMPLATES, now), "utf8"), now).toMatch(MARKUP);
+  });
+
+  it("leaves an unedited app on the old lane as it is, then this CLI maps its lock over", async () => {
+    const old = "name: Deploy production\non:\n  push:\n    branches: [main]\njobs: {}\n";
+    const preview = "name: PR preview\non:\n  pull_request:\n    branches: [main]\njobs: {}\n";
+    const root = makeApp({ "app.json": "{}", ".eas/workflows/deploy-production.yml": old, ".eas/workflows/pr-preview.yml": preview });
+    const files = {
+      ".eas/workflows/deploy-production.yml": { source: `${CLI}:templates/eas/workflows/deploy-production.yml`, sha256: sha256(old) },
+      ".eas/workflows/pr-preview.yml": { source: `${CLI}:templates/eas/workflows/pr-preview.yml`, sha256: sha256(preview) },
+    };
+    writeLock(root, { version: 1, blocks: {}, files });
+    // What the previous CLI does for each entry: read its source from the installed templates
+    // (substituted, never rendered) and refresh three ways.
+    const lock = readLock(root);
+    for (const [file, entry] of Object.entries(lock.files)) {
+      const at = path.join(TEMPLATES, entry.source.slice(`${CLI}:templates/`.length));
+      const theirs = existsSync(at) ? substitute(readFileSync(at, "utf8"), lock.substitutions) : null;
+      const outcome = refreshOwned(root, lock, { path: file, theirs, base: file.endsWith("deploy-production.yml") ? old : preview });
+      expect(outcome.outcome, file).toBe("gone-upstream");
+    }
+    expect(read(root, ".eas/workflows/deploy-production.yml")).toBe(old);
+    expect(read(root, ".eas/workflows/pr-preview.yml")).toBe(preview);
+    expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(false);
+    // And no file anywhere in the app carries unrendered markup.
+    expect(read(root, ".eas/workflows/deploy-production.yml")).not.toMatch(MARKUP);
+    // This CLI names the moved templates at their new paths.
+    expect(currentSource(files[".eas/workflows/deploy-production.yml"].source)).toBe(`${CLI}:templates/release/deploy-production.yml`);
+    expect(currentSource(files[".eas/workflows/pr-preview.yml"].source)).toBe(`${CLI}:templates/release/pr-preview.yml`);
   });
 });
