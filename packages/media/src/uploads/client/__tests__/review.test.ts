@@ -131,12 +131,64 @@ describe("3. cancel stops requests in flight and back-off waits", () => {
         return new Promise<Response>(() => {});
       },
     });
+    // `handle.done` is deliberately left pending: the create never settles, so the upload never ends.
+    // This test is about the session cancel() removes, not about how `done` ends.
     const handle = uploader.upload(fromBytes(bytesOf(12)), { name: "a", contentType: "a/b", purpose: "media" });
     await createdOnServer;
     expect(s.store.sessions.size).toBe(1);
     await handle.cancel();
     expect(log.filter((l) => l.startsWith("DELETE /"))).toHaveLength(1);
     expect(s.store.sessions.size).toBe(0);
+  });
+
+  describe("offline, a cancel settles at once: one try at the cleanup DELETE and no back-off", () => {
+    /**
+     * The network goes down at `when`, and the upload is cancelled there. Every back-off the uploader asks
+     * for after that is recorded (and returns at once, so a slow back-off shows up as a count, not a hang).
+     */
+    async function cancelOffline(when: "POST" | "PUT") {
+      const s = setup();
+      let offline = false;
+      const waits: number[] = [];
+      let handle!: UploadHandle;
+      let reached!: () => void;
+      const there = new Promise<void>((r) => (reached = r));
+      const { uploader, log } = client(s, {
+        retries: 6,
+        sleep: async (ms) => void (offline && waits.push(ms)),
+        hook: async (m, _p, init, forward) => {
+          if (offline) throw new TypeError("network down");
+          if (m !== when) return forward();
+          // The server has the session; then the network drops with this request in flight.
+          if (when === "POST") await forward();
+          offline = true;
+          return new Promise<Response>((_, reject) => {
+            init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+            reached();
+          });
+        },
+      });
+      handle = uploader.upload(fromBytes(bytesOf(12)), { name: "a", contentType: "a/b", purpose: "media" });
+      await Promise.race([
+        there,
+        handle.done.then((r) => {
+          throw new Error(`The upload ended (${r.state}) before the ${when} was in flight.`);
+        }),
+      ]);
+      await handle.cancel();
+      await expect(handle.done).rejects.toMatchObject({ code: "cancelled" });
+      return { waits, deletes: log.filter((l) => l.startsWith("DELETE /")).length, sessions: s.store.sessions.size };
+    }
+
+    it("with a part in flight", async () => {
+      // cancel()'s DELETE and the upload's own, one try each.
+      expect(await cancelOffline("PUT")).toEqual({ waits: [], deletes: 2, sessions: 1 });
+    });
+
+    it("with the create in flight", async () => {
+      // cancel()'s DELETE and the cancelled create's, one try each.
+      expect(await cancelOffline("POST")).toEqual({ waits: [], deletes: 2, sessions: 1 });
+    });
   });
 
   it("a cancel before the create is sent sends no DELETE: the server never saw the id", async () => {

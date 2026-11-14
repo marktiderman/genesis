@@ -285,6 +285,8 @@ export function createUploader(options: UploaderOptions) {
     signal?: AbortSignal,
     /** Called each time the request is handed to `fetch`, just before. */
     onSend?: () => void,
+    /** Tries before a network failure or a transient status is final. Default `retries`. */
+    attempts = retries,
   ): Promise<{ status: number; body: unknown }> {
     for (let attempt = 1; ; attempt++) {
       if (signal?.aborted) throw cancelledError();
@@ -297,11 +299,11 @@ export function createUploader(options: UploaderOptions) {
         res = await doFetch(`${endpoint}${path}`, { method, body: init.body, headers, ...(signal ? { signal } : {}) });
       } catch (e) {
         if (signal?.aborted) throw cancelledError();
-        if (attempt >= retries) throw new UploadClientError(e instanceof Error ? e.message : "The network failed.", "network");
+        if (attempt >= attempts) throw new UploadClientError(e instanceof Error ? e.message : "The network failed.", "network");
         await backoff(attempt, signal);
         continue;
       }
-      if (transient(res.status) && attempt < retries) {
+      if (transient(res.status) && attempt < attempts) {
         await res.body?.cancel().catch(() => {});
         await backoff(attempt, signal, res.headers.get("retry-after"));
         continue;
@@ -316,6 +318,15 @@ export function createUploader(options: UploaderOptions) {
       return { status: res.status, body };
     }
   }
+
+  /**
+   * Removes a cancelled upload's session: best effort, one try and no back-off, so a cancel
+   * settles at once even offline. A session this misses lapses when it expires.
+   */
+  const discard = (id: string) => call("DELETE", `/${id}`, {}, undefined, undefined, 1).then(
+    () => {},
+    () => {},
+  );
 
   const fail = (status: number, body: unknown): never => {
     const e = (body ?? {}) as Partial<UploadError>;
@@ -437,7 +448,7 @@ export function createUploader(options: UploaderOptions) {
           // this DELETE and cancel()'s both still makes a session, and the client can't close that
           // window: the session's expiry bounds it.
           if (signal.aborted || (e instanceof UploadClientError && e.code === "cancelled")) {
-            if (sent) await call("DELETE", `/${uploadId}`).catch(() => {});
+            if (sent) await discard(uploadId);
             throw cancelledError();
           }
           throw e;
@@ -464,7 +475,7 @@ export function createUploader(options: UploaderOptions) {
         return done(memo, await send(source, status, sha256, run, progress));
       } catch (e) {
         if (signal.aborted || (e instanceof UploadClientError && e.code === "cancelled")) {
-          await call("DELETE", `/${id}`).catch(() => {});
+          await discard(id);
           if (memo) await resumeStore.delete(memo);
           throw cancelledError();
         }
@@ -568,7 +579,7 @@ export function createUploader(options: UploaderOptions) {
           return;
         }
         // Running: it stops at once and removes its session; this makes sure of it.
-        if (run.id) await call("DELETE", `/${run.id}`).catch(() => {});
+        if (run.id) await discard(run.id);
       };
       for (const s of outer) {
         if (s.aborted) void cancel();

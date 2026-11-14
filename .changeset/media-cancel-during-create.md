@@ -7,3 +7,5 @@ Cancelling an upload while its create request is in flight now removes the sessi
 A cancel before the create is sent sends no delete, since the server never saw that id.
 
 One window remains, and the client can't close it: a create that reaches the server after both deletes still makes a session. That session stays open until it expires, so its expiry bounds the window.
+
+The deletes a cancel sends are now best effort: one try, with no back-off. Before, each could retry with the full back-off, so offline, `await handle.cancel()` and the cancelled `done` took about 15 to 30 seconds to settle. Now they settle at once. A session such a delete misses lapses when it expires. Upload requests keep their retries.
