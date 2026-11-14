@@ -5,7 +5,7 @@
  * to an Expo-generated project (a prebuild of the starter, in fixtures/).
  */
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { IOSConfig } from "expo/config-plugins";
@@ -218,5 +218,28 @@ describe("the Xcode target", () => {
     const p = project();
     addNotificationServiceTarget(p, { targetName: "Svc", bundleId: "com.example.app.Svc", developmentTeam: "ABCDE12345" });
     for (const s of settingsOf(p, "Svc")) expect(s.DEVELOPMENT_TEAM).toBe("ABCDE12345");
+  });
+});
+
+describe("the plugin stays one file", () => {
+  // Apps fingerprint the built plugin as one file (fingerprint.config.js, configPluginSourceType
+  // "files"). A relative import would make tsup split it into a shared chunk-*.js, so changes
+  // elsewhere in genesis-native would change every app's fingerprint and force a store build.
+  it("imports only node: built-ins and expo", () => {
+    const source = readFileSync(path.join(__dirname, "..", "rich-push.ts"), "utf8");
+    const patterns = [
+      /^\s*(?:import|export)\s[^"';]*?\sfrom\s*["']([^"']+)["']/gm, // import … from, export … from
+      /^\s*import\s*["']([^"']+)["']/gm, // side-effect import
+      /\b(?:import|require)\s*\(\s*["']([^"']+)["']/g, // dynamic import(), require()
+    ];
+    const specifiers = patterns.flatMap((re) => [...source.matchAll(re)].map((m) => m[1]));
+    expect(specifiers.length).toBeGreaterThan(0);
+    for (const spec of specifiers) expect(spec).toMatch(/^(node:|expo\/)/);
+  });
+
+  // The built entry is what apps hash: it must not pull in a shared chunk.
+  const built = path.join(packageRoot(), "dist", "rich-push-plugin.js");
+  it.skipIf(!existsSync(built))("the built plugin imports no chunk", () => {
+    expect(readFileSync(built, "utf8")).not.toMatch(/["']\.\/chunk-/);
   });
 });
