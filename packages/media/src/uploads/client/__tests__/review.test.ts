@@ -191,6 +191,51 @@ describe("3. cancel stops requests in flight and back-off waits", () => {
     });
   });
 
+  it("a cleanup DELETE that never answers can't hold the cancel, its `done` or its queue slot", async () => {
+    const s = setup();
+    let reached!: () => void;
+    const partInFlight = new Promise<void>((r) => (reached = r));
+    let deletes = 0;
+    const { uploader } = client(s, {
+      filesAtOnce: 1,
+      cleanupTimeoutMs: 20,
+      hook: async (m, p, init, forward) => {
+        // A DELETE the network holds for ever, ignoring its signal: only the uploader's own deadline ends the wait.
+        if (m === "DELETE") return deletes++, new Promise<Response>(() => {});
+        // The first upload's parts wait for the cancel; the second upload's go through.
+        if (m === "PUT") first ||= p.split("/")[1]!;
+        if (m === "PUT" && p.startsWith(`/${first}/`))
+          return new Promise<Response>((_, reject) => {
+            init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+            reached();
+          });
+        return forward();
+      },
+    });
+    let first = "";
+    const handle = uploader.upload(fromBytes(bytesOf(12)), { name: "a", contentType: "a/b", purpose: "media" });
+    // filesAtOnce is 1: this one starts only when the first gives its slot back.
+    const next = uploader.upload(fromBytes(bytesOf(8, 3)), { name: "b", contentType: "a/b", purpose: "media" });
+    await Promise.race([
+      partInFlight,
+      handle.done.then((r) => {
+        throw new Error(`The upload ended (${r.state}) before any part was in flight.`);
+      }),
+    ]);
+    // Fails with a message (not the test's timeout) if a cleanup DELETE still holds the cancel.
+    let guard: ReturnType<typeof setTimeout> | undefined;
+    const stuck = new Promise<never>((_, reject) => {
+      guard = setTimeout(() => reject(new Error("cancel() or the cancelled `done` was still waiting on a DELETE 3 s after a 20 ms cleanup deadline")), 3000);
+    });
+    try {
+      await Promise.race([Promise.all([handle.cancel(), expect(handle.done).rejects.toMatchObject({ code: "cancelled" })]), stuck]);
+      expect((await Promise.race([next.done, stuck])).state).toBe("done");
+    } finally {
+      clearTimeout(guard);
+    }
+    expect(deletes).toBe(2);
+  });
+
   it("a cancel before the create is sent sends no DELETE: the server never saw the id", async () => {
     const s = setup();
     let handle!: UploadHandle;

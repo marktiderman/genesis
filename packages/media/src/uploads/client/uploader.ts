@@ -87,6 +87,12 @@ export interface UploaderOptions {
   retries?: number | undefined;
   /** How often to ask whether a big upload's read-back is done, in ms. Default 2000. */
   pollMs?: number | undefined;
+  /**
+   * The longest a cancel waits for the DELETE that removes its session, in ms: making the headers,
+   * the request and reading the answer. Then it gives up, and the session lapses when it expires.
+   * Default 5000.
+   */
+  cleanupTimeoutMs?: number | undefined;
   /** Stops every upload on this uploader (as `cancel()` does each). */
   signal?: AbortSignal | undefined;
   /** For tests. */
@@ -210,6 +216,7 @@ export function createUploader(options: UploaderOptions) {
   const partsAtOnce = Math.max(1, options.partsAtOnce ?? 4);
   const filesAtOnce = Math.max(1, options.filesAtOnce ?? 2);
   const pollMs = options.pollMs ?? 2000;
+  const cleanupTimeoutMs = options.cleanupTimeoutMs ?? 5000;
   const limit = createSpeedLimiter(options.bytesPerSecond ?? (() => 0), (ms, signal) => sleep(ms, signal));
 
   // Remembering an id is a convenience: a store that fails (private browsing, a full disk) never stops an upload.
@@ -320,13 +327,23 @@ export function createUploader(options: UploaderOptions) {
   }
 
   /**
-   * Removes a cancelled upload's session: best effort, one try and no back-off, so a cancel
-   * settles at once even offline. A session this misses lapses when it expires.
+   * Removes a cancelled upload's session: best effort, one try and no back-off, and never longer
+   * than `cleanupTimeoutMs` (headers, request and answer), so a cancel settles even offline or when
+   * the DELETE never answers. Its own deadline, not the upload's signal, which is already aborted.
+   * A session this misses lapses when it expires.
    */
-  const discard = (id: string) => call("DELETE", `/${id}`, {}, undefined, undefined, 1).then(
-    () => {},
-    () => {},
-  );
+  const discard = async (id: string): Promise<void> => {
+    const deadline = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<void>((resolve) => {
+      timer = setTimeout(() => (deadline.abort(), resolve()), cleanupTimeoutMs);
+    });
+    try {
+      await Promise.race([call("DELETE", `/${id}`, {}, deadline.signal, undefined, 1).catch(() => {}), expired]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 
   const fail = (status: number, body: unknown): never => {
     const e = (body ?? {}) as Partial<UploadError>;

@@ -627,7 +627,10 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
   `partsAtOnce`, `bytesPerSecond`, `retries`.
 - Failures the client won't retry reject with an `UploadClientError` carrying the server's `code`.
 - `cancel()` (or the uploader's or the upload's `signal`) stops at once: requests in flight and
-  back-off waits are aborted, a queued upload never starts, and the session is removed. Pause
+  back-off waits are aborted, a queued upload never starts, and the session is removed: one
+  best-effort DELETE with no retries, which waits at most `cleanupTimeoutMs` (default 5000), so a
+  cancel settles even offline. A session it misses, or a create that reaches the server after it,
+  lapses when it expires. A cancel before the create is sent sends no DELETE. Pause
   holds before the next hash slice, part or finalize. A resume store that fails (private
   browsing) never stops an upload. With the Web Worker hasher, a pause during hashing takes
   effect once the whole-file hash is done (the worker hashes the file in one go; a cancel stops
