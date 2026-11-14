@@ -193,7 +193,12 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
   // What the store last answered or accepted, for a conditional write.
   const confirmed = useRef<AppearancePreferenceValues | null>(null);
   // One write at a time, in order; the newest waiting write replaces an older waiting one.
-  const queue = useRef<{ running: boolean; next: { values: AppearancePreferenceValues; generation: number } | null }>({ running: false, next: null });
+  // One write at a time per store: each store generation gets its own queue, so a store never
+  // waits behind the last one's write. What waits is a patch (the person's choices), merged onto
+  // the store's latest confirmed values when it goes out, so a newer value from another device
+  // isn't overwritten by a stale snapshot.
+  type Queue = { running: boolean; next: { patch: AppearancePreferenceValues; generation: number } | null };
+  const queue = useRef<Queue>({ running: false, next: null });
   const deviceSetter = useRef(setDevice);
   deviceSetter.current = setDevice;
   const writeErrorHandler = useRef(onWriteError ?? preferences.onWriteError);
@@ -203,7 +208,7 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
     generation.current += 1;
     // What waited for the last store isn't this one's to write: neither a queued write nor a
     // choice held while that store's first read was out (the device keeps its copy).
-    queue.current.next = null;
+    queue.current = { running: false, next: null };
     waiting.current = null;
     // What the last store confirmed isn't this one's `previous`: a conditional write to the new
     // store must start from what it says (its read), or from nothing.
@@ -221,7 +226,7 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
       const merged = toAppearancePreferenceValues({ ...(base ?? {}), ...patch });
       setStored(merged);
       deviceSetter.current(Object.keys(merged).length ? merged : undefined);
-      queue.current.next = { values: merged, generation: generation.current };
+      queue.current.next = { patch: merged, generation: generation.current };
       void drainRef.current();
     };
     Promise.resolve()
@@ -257,8 +262,11 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
       const next = values ? toAppearancePreferenceValues(values) : null;
       confirmed.current = next;
       writesDone.current += 1;
-      setStored(next);
-      if (next) deviceSetter.current(Object.keys(next).length ? next : undefined);
+      // The store's values are the baseline; a choice still held for the first read stays on top,
+      // shown and kept on the device, until it goes out.
+      const shown = waiting.current ? toAppearancePreferenceValues({ ...(next ?? {}), ...waiting.current }) : next;
+      setStored(shown);
+      if (shown) deviceSetter.current(Object.keys(shown).length ? shown : undefined);
     });
     return () => {
       active = false;
@@ -278,12 +286,13 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
     q.running = true;
     try {
       while (q.next) {
-        const { values, generation: owner } = q.next;
+        const { patch, generation: owner } = q.next;
         q.next = null;
         const target = latestStore.current;
         if (!target) break;
         // Queued for a store that has since been replaced: not this one's to write.
         if (owner !== generation.current) continue;
+        const values = toAppearancePreferenceValues({ ...(confirmed.current ?? {}), ...patch });
         try {
           // Newer values the store's subscription delivers while this write is out win over it.
           const freshAtStart = writesDone.current;
@@ -317,7 +326,9 @@ export function AppearancePreferencesProvider({ preferences = DEVICE_ONLY, organ
           waiting.current = { ...(waiting.current ?? {}), ...patch };
           return;
         }
-        queue.current.next = { values: next, generation: generation.current };
+        const q = queue.current;
+        // Kept raw: an undefined value (a cleared choice) must survive to clear the key on write.
+        q.next = { patch: { ...(q.next?.generation === generation.current ? q.next.patch : {}), ...patch }, generation: generation.current };
         void drain();
       }
     },
