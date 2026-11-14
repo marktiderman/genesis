@@ -93,7 +93,7 @@ jobs:
         run: |
           # Read the label now, not from the event, so a label a failed revoke left behind or one
           # added since still counts as it stands.
-          labels=$(gh api "repos/$REPO/issues/$PR/labels" --jq '.[].name')
+          labels=$(gh api --paginate "repos/$REPO/issues/$PR/labels" --jq '.[].name')
           if ! grep -Fxq 'review: approved' <<< "$labels"; then
             echo "::error::Waiting for an independent adversarial review. The reviewer adds 'review: approved' once every finding (lows included) is fixed, or declined with a reason the reviewer accepts."
             exit 1
@@ -109,15 +109,16 @@ jobs:
           # The latest verdict on the head from a person decides: dismissed reviews are ignored,
           # and a later "changes requested" overrides an earlier approve. A review's verdict is
           # read from its first non-empty line, lowercased, with every * _ ` removed and leading
-          # # > and whitespace stripped, then matched as "verdict: approve" or
-          # "verdict: changes requested". A line that starts "verdict" but parses to neither
-          # counts as not approving. Each review becomes a "time<TAB>verdict" line; the latest wins.
+          # # > and whitespace stripped. The whole line must then be "verdict: approve" or
+          # "verdict: changes requested" (an optional trailing . or !), so "approve=false" or
+          # "approve, but…" don't count. A line that starts "verdict" but parses to neither counts
+          # as not approving. Each review becomes a "time<TAB>verdict" line; the latest wins.
           VERDICT_JQ=$(cat <<'JQ'
           .[]
           | select(.commit_id == $head and .user.type == "User" and .state != "DISMISSED")
           | ((.body // "") | ascii_downcase | split("\n") | map(select(test("\\S"))) | (.[0] // "")
              | gsub("[*_`]"; "") | sub("^[\\s#>]+"; "")) as $line
-          | ([$line | capture("^verdict\\s*:\\s*(?<v>approve|changes requested)")] | .[0].v) as $parsed
+          | ([$line | capture("^verdict\\s*:\\s*(?<v>approve|changes requested)\\s*[.!]?\\s*$")] | .[0].v) as $parsed
           | (if .state == "CHANGES_REQUESTED" then "changes"
              elif $parsed == "approve" then "approve"
              elif $parsed == "changes requested" then "changes"
