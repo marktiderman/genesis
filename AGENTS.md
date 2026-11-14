@@ -84,7 +84,8 @@ is written here when a contract ships. Don't open a PR here that only proposes a
 
 1. **The session that opens a PR owns it until it merges.** Turn on Auto-fix for it (the Claude
    desktop app's CI monitor), keep its required checks green, merge its base in whenever it falls
-   behind or conflicts, and answer every review finding: fix it, or decline it with the reason.
+   behind or conflicts, and fix every review finding itself, in the PR, lows included (a follow-up card is not a fix),
+   or decline it with a reason the reviewer accepts.
 2. **Hand it to triage when it's ready.** Triage is the session that reviews PRs into staging
    batches. It runs an independent, adversarial review (a reviewer that didn't write the code),
    checks that every finding is addressed, approves the PR and merges it into the batch. A PR whose
@@ -102,15 +103,21 @@ whenever nobody owned them.
 
 ### Adversarial review gate
 
-Every PR into a staging batch (`staging/**`) carries the check "Adversarial review"
-(`.github/workflows/review-gate.yml`). It passes only while the PR has the label `review: approved`.
+Every PR into a staging batch (`staging/**`) or into `main` (the release PR included) carries the
+required check "Adversarial review" (`.github/workflows/review-gate.yml`). It passes only with the
+label `review: approved` and an approving review of the PR's current head commit, both from a
+person's account, never an app or a bot.
 
 - An independent adversarial reviewer, never the PR's author, reviews the latest head and posts a
-  formal GitHub review with its findings: `gh pr review <n> --approve` or `--request-changes`.
-- The reviewer adds `review: approved` once every high or medium finding is fixed or declined with
-  a reason. Never approve or label your own PR.
-- A new commit removes the label, so every push needs a review of the new head. Claude review
-  (`claude-code-review.yml`, which calls the reusable `claude-review.yml` that apps call too) also re-runs on every push.
+  formal GitHub review with its findings. Every agent acts as the account that opened the PR, and
+  GitHub refuses `--approve` and `--request-changes` from a PR's author, so post
+  `gh pr review <n> --comment` with a body that starts `Verdict: approve` or
+  `Verdict: changes requested`, then lists the findings.
+- Every finding, lows included, is fixed before merge, or declined with a reason the reviewer
+  accepts. The author fixes it itself, in the PR: a follow-up card is not a fix. The reviewer adds
+  `review: approved` only then. Never approve or label your own PR.
+- A new commit, a merge of the base included, removes the label, and a review of an older head
+  doesn't count, so every push needs a review of the new head. Batch pushes. Claude review (`claude-code-review.yml`, which calls the reusable `claude-review.yml` that apps call too) also re-runs on every push; it is not the adversarial review.
 - The author turns on Auto-fix for every PR it opens.
 
 ## Releasing, and how apps get a release
