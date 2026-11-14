@@ -1,5 +1,17 @@
 # @marktiderman/genesis-ui
 
+## 2.35.1
+
+### Patch Changes
+
+- cd2d239: The catalog names the look-and-feel pieces, so `genesis agents` writes them into an app's guide (and `genesis catalog` lists them): custom views, view types of your own, record pages (open modes and the document template), widgets, the shell's navigation style and frame, DocumentPage, appearance preferences, and an organization's brand.
+
+  The TimePicker row names its `timeZone` prop and points at the README's TimePicker section, beside the rule for a time of day in a form; the calendar, board and gallery rows write `<ResourceView mode="…">` as code, so a rendered guide keeps it.
+
+- Updated dependencies [cd2d239]
+- Updated dependencies [e7c1f1a]
+  - @marktiderman/genesis-core@2.16.1
+
 ## 2.35.0
 
 ### Minor Changes
