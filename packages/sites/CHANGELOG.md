@@ -1,5 +1,12 @@
 # @marktiderman/genesis-sites
 
+## 0.7.2
+
+### Patch Changes
+
+- Updated dependencies [3dc9f4c]
+  - @marktiderman/genesis-media@0.3.0
+
 ## 0.7.1
 
 ### Patch Changes

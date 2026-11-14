@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 845 components · 4756 other exports · 3969 standalone types across 214 entry points in 31 packages.
+**Totals:** 845 components · 4756 other exports · 3972 standalone types across 214 entry points in 31 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -7414,7 +7414,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `validateFigmaConfig` | value | — | _(no summary)_ |
 | `validateLinks` | value | — | _(no summary)_ |
 
-### Types (30)
+### Types (31)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -7436,6 +7436,7 @@ export type { GenesisLinks };
 export type { GenesisSupabase };
 export type { InitOptions };
 export type { InitPlan };
+export type { IntrospectSql };
 export type { IntrospectedColumn };
 export type { IntrospectedTable };
 export type { NavTarget };
@@ -10103,7 +10104,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`supabaseVerifier`](../packages/studio-server/src/auth.ts) | function | — | `supabaseAuth`'s check on a raw token, e.g. a socket handshake's. |
 | [`switchToUser`](../packages/studio-server/src/switch.ts) | function | — | Switch the current transaction to `identity`, then check, in SQL, that it took: `current_user` must be `identity.role` and must not bypass RLS, or the transaction is aborted and it throws `IdentitySwitchError`. Call it first, inside a tr... |
 
-### Types (48)
+### Types (50)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10130,6 +10131,8 @@ export type { OutboxEntry };
 export type { OutboxWorker };
 export type { OutboxWorkerOptions };
 export type { PostgresOptions };
+export type { PostgresPool };
+export type { PostgresTransaction };
 export type { Query };
 export type { ReadResponse };
 export type { ResourceRule };
