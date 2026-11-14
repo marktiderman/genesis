@@ -1,0 +1,56 @@
+.changeset/support-helpdesk-desk.md
+  s_5cf92f35ac2d0a::t_f04f97c69aa2ae 1-12
+packages/support/src/web-chat/index.ts
+  s_5cf92f35ac2d0a::t_c0a551710738c6 21
+packages/support/src/__tests__/chat.test.tsx
+  s_5cf92f35ac2d0a::t_c0a551710738c6 178-179
+packages/support/src/__tests__/agent-inbox.test.tsx
+  s_5cf92f35ac2d0a::t_f04f97c69aa2ae 136,181-182
+packages/support/src/web-chat/agent-tools.tsx
+  s_5cf92f35ac2d0a::t_c0a551710738c6 1-364
+packages/support/src/copy.ts
+  s_5cf92f35ac2d0a::t_c0a551710738c6 107,113,147-209,232-239,307
+packages/support/src/web-chat/messenger.tsx
+  s_5cf92f35ac2d0a::t_c0a551710738c6 38,76-82,117-153,499,501,528-532,550,672,704,723-724
+packages/support/src/office-hours.ts
+  s_5cf92f35ac2d0a::t_c0a551710738c6 1-87
+apps/sample/stories/SupportAgentInbox.stories.tsx
+  s_5cf92f35ac2d0a::t_f04f97c69aa2ae 41,46-47,62-65,73
+.changeset/support-intake-pending-status.md
+  s_5cf92f35ac2d0a::t_5a3c9b9e06eae7 1-5
+packages/support/src/index.ts
+  s_5cf92f35ac2d0a::t_c0a551710738c6 22
+packages/support/src/web-chat/agent-inbox.tsx
+  s_5cf92f35ac2d0a::t_c0a551710738c6 2-4,10-13,15-16,20,23-24,40,43,56,73,77,79,81-87,105,117-125,136,163-205,212,219-220,226-229,232,239,242,289-298,315-333,345-346,362-387,396,399-417,455,469,487-545,588,601-603,616-617,671-672,675-678,680-690,694,749-762,778
+packages/support/src/client.ts
+  s_5cf92f35ac2d0a::t_c0a551710738c6 125-130,150-168,171-204,281-292,461-468,470,472-473,780-828
+packages/supabase/functions/genesis-support-intake/contract.ts
+  s_5cf92f35ac2d0a::t_5a3c9b9e06eae7 61-65,69
+packages/support/src/block.ts
+  s_5cf92f35ac2d0a::t_c0a551710738c6 126-128,141-144
+packages/support/src/contract.ts
+  s_5cf92f35ac2d0a::t_7d86dfa96a38a9 61-65,69
+packages/support/README.md
+  s_5cf92f35ac2d0a::t_f04f97c69aa2ae 226-264,297-301,309-316
+packages/support/src/__tests__/helpdesk-desk.test.tsx
+  s_5cf92f35ac2d0a::t_f04f97c69aa2ae 1-169,171-180,182-201,203-429
+  s_5cf92f35ac2d0a::t_5a3c9b9e06eae7 170,181,202
+packages/support/src/web-chat/composer-pickers.tsx
+  s_5cf92f35ac2d0a::t_c0a551710738c6 1-222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c5ef37352ef709b0c5ae4ae6a5367209cea4d493",
+  "prompts": {},
+  "sessions": {
+    "s_5cf92f35ac2d0a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "63f176d9-9b0f-4f51-bb21-a1ffbd02cc4c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
