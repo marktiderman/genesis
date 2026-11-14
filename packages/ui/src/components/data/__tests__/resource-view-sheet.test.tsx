@@ -236,5 +236,83 @@ describe("<ResourceView type=\"sheet\">", () => {
     await act(async () => undefined);
     expect((screen.getByTestId("resource-sheet-undo") as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("waits for a save still out before an undo writes", async () => {
+    const p = provider();
+    render(<ResourceView view={view} type="sheet" />, { wrapper: wrap(p) });
+    await editHours(p, "5");
+    // A second edit whose save is still out.
+    let release: () => void = () => undefined;
+    p.update.mockImplementationOnce(() => new Promise((resolve) => (release = () => resolve({ data: {} }))));
+    const grid = screen.getByRole("grid");
+    // Enter moved down to row 2: back up to row 1's title.
+    fireEvent.keyDown(grid, { key: "ArrowUp" });
+    fireEvent.keyDown(grid, { key: "ArrowLeft" });
+    fireEvent.keyDown(grid, { key: "N" });
+    const input = screen.getByLabelText(/Title, row 1/i);
+    fireEvent.change(input, { target: { value: "New plan" } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+    expect(p.update).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByTestId("resource-sheet-undo"));
+    await act(async () => undefined);
+    // The undo hasn't written while the save is out.
+    expect(p.update).toHaveBeenCalledTimes(2);
+    await act(async () => release());
+    await waitFor(() => expect(p.update).toHaveBeenCalledTimes(3));
+    // It undid the save that just landed, not the one before it.
+    expect(p.update.mock.calls[2]![1]).toMatchObject({ id: "a", data: { title: "Write the plan" } });
+  });
+
+  it("ignores a second keyboard undo while one is out, and undoes again afterwards", async () => {
+    const p = provider();
+    render(<ResourceView view={view} type="sheet" />, { wrapper: wrap(p) });
+    await editHours(p, "5");
+    const grid = screen.getByRole("grid");
+    fireEvent.keyDown(grid, { key: "ArrowUp" });
+    fireEvent.keyDown(grid, { key: "6" });
+    const input = screen.getByLabelText(/Hours, row 1/i);
+    fireEvent.change(input, { target: { value: "6" } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+    await waitFor(() => expect(p.update).toHaveBeenCalledTimes(2));
+    let release: () => void = () => undefined;
+    p.update.mockImplementationOnce(() => new Promise((resolve) => (release = () => resolve({ data: {} }))));
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "z", ctrlKey: true });
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "z", ctrlKey: true });
+    await act(async () => undefined);
+    expect(p.update).toHaveBeenCalledTimes(3);
+    await act(async () => release());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    // No second undo started from the press that came while the first was out.
+    expect(p.update).toHaveBeenCalledTimes(3);
+    // A later undo still works: the earlier change comes back.
+    fireEvent.keyDown(screen.getByRole("grid"), { key: "z", ctrlKey: true });
+    await waitFor(() => expect(p.update).toHaveBeenCalledTimes(4));
+    expect(p.update.mock.calls[3]![1]).toMatchObject({ id: "a", data: { hours: 2 } });
+  });
+
+  it("doesn't put back an undo that fails after the sheet moved to another resource and back", async () => {
+    const p = provider();
+    const notes = defineResource<Task>()({ ...tasks, name: "notes" });
+    const notesView = defineView(notes, { columns: { default: ["title", "hours"] } });
+    const { rerender } = render(<ResourceView view={view} type="sheet" />, { wrapper: wrap(p) });
+    await editHours(p, "9");
+    let fail: () => void = () => undefined;
+    p.update.mockImplementationOnce(() => new Promise((_, reject) => (fail = () => reject(new Error("Offline.")))));
+    fireEvent.click(screen.getByTestId("resource-sheet-undo"));
+    await waitFor(() => expect(p.update).toHaveBeenCalledTimes(2));
+    rerender(<ResourceView view={notesView as never} type="sheet" />);
+    await screen.findByText("Write the plan");
+    rerender(<ResourceView view={view} type="sheet" />);
+    await screen.findByText("Write the plan");
+    await act(async () => fail());
+    await act(async () => undefined);
+    expect((screen.getByTestId("resource-sheet-undo") as HTMLButtonElement).disabled).toBe(true);
+  });
 });
 

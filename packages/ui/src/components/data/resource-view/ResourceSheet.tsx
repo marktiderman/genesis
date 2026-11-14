@@ -217,6 +217,9 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
   }
 
   async function undoNow() {
+    // The showing this undo runs in: if the sheet moves to another resource (and back) before it
+    // fails, what's left of it isn't put back into a history it no longer belongs to.
+    const madeIn = generation.current;
     const entries = history();
     const last = entries[entries.length - 1];
     if (!last) {
@@ -245,7 +248,7 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
       }
     }
     if (left.length) {
-      undo.current = [...undo.current, { resource: last.resource, rows: left }];
+      if (madeIn === generation.current) undo.current = [...undo.current, { resource: last.resource, rows: left }];
       redraw((n) => n + 1);
       toast.error(problem ?? m.sheet.saveFailed);
     } else toast.success(m.sheet.undone);

@@ -1016,6 +1016,9 @@ function focusToastAction(marker: string) {
   tryFocus();
 }
 
+/** Two provider filters that say the same thing (the chip a server-paged page already sent). */
+const sameFilter = (a: FilterParam, b: FilterParam) => JSON.stringify(a) === JSON.stringify(b);
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -1215,22 +1218,38 @@ function ResourcePageBody<
     }
     // The resource's own query, with what the page applies in the browser when it pages there
     // (`pagination="client"`): its search, sort and status chips, which never reach the params.
-    const params = resourceHook.params;
-    const statusField = typeof props.statusFilter === "string" ? props.statusFilter : props.statusFilter?.field;
+    const { params, chip, search, sort } = browserQuery();
     const filters = [...(params.filters ?? [])];
-    if (statusField && page.statusValue.length && !filters.some((f) => f.field === statusField)) {
-      filters.push({ field: statusField, operator: "in", value: [...page.statusValue] });
-    }
-    const sorts = params.sorts?.length ? params.sorts : params.sort ? [params.sort] : page.sort ? [page.sort] : [];
-    const query = page.search.trim();
-    const search = params.search?.query ? params.search : query ? { query, fields: props.searchFields ?? props.resourceOptions?.searchFields ?? [] } : undefined;
+    // The chip narrows on top of a provider filter on the same field (a default), never instead.
+    if (chip && !filters.some((f) => sameFilter(f, chip))) filters.push(chip);
+    const own = params.sorts?.length ? params.sorts : params.sort ? [params.sort] : [];
+    // The person's sort wins over a provider default; the same sort keeps the params' tie-breakers.
+    const sorts = sort && !(own[0]?.field === sort.field && own[0]?.order === sort.order) ? [sort] : own;
+    const query = search ?? params.search;
     return {
       filters,
       sorts,
-      ...(search ? { search } : {}),
+      ...(query?.query ? { search: query } : {}),
       ...(displayTotal >= 0 ? { total: displayTotal } : {}),
     };
   };
+  /** What the browser applies on top of the resource's params: the search, status chip and sort. */
+  const browserQuery = () => {
+    const params = resourceHook.params;
+    const statusField = typeof props.statusFilter === "string" ? props.statusFilter : props.statusFilter?.field;
+    const chip: FilterParam | undefined = statusField && page.statusValue.length ? { field: statusField, operator: "in", value: [...page.statusValue] } : undefined;
+    const typed = page.search.trim();
+    const search = typed && params.search?.query !== typed ? { query: typed, fields: props.searchFields ?? props.resourceOptions?.searchFields ?? [] } : undefined;
+    return { params, chip, search, sort: page.sort ?? undefined };
+  };
+  // Rows the browser narrowed (a search or a chip the provider never saw) aren't what the server
+  // counts: "all matching" would reach the rows the person searched or filtered away, and its
+  // count would be the unfiltered total. It's offered only while the browser narrows nothing.
+  const browserNarrows = (() => {
+    if (!isClientMode) return true;
+    const { params, chip, search } = browserQuery();
+    return !!search || (!!chip && !(params.filters ?? []).some((f) => sameFilter(f, chip)));
+  })();
   // "Select all matching": every row the query matches, past the loaded page, for the query it was
   // chosen on. A new search, sort or filter (even one that loads as many rows) ends it.
   const { total: _total, ...shownQuery } = listQuery();
@@ -1282,7 +1301,7 @@ function ResourcePageBody<
     }
   };
   const matchingOffered =
-    isClientMode && !!allBulkActions?.some((a) => a.matching) && displayTotal > page.data.length;
+    isClientMode && !browserNarrows && !!allBulkActions?.some((a) => a.matching) && displayTotal > page.data.length;
   const headerActions: PageHeaderAction[] | undefined = onExport
     ? [
         ...(secondaryActions ?? []),

@@ -715,5 +715,59 @@ describe("review fixes: held rows after a type was chosen, record scope", () => 
     await waitFor(() => expect(onExport).toHaveBeenCalled());
     expect(onExport.mock.calls[0]![0]).toMatchObject({ search: { query: "ship", fields: ["title"] } });
   });
+
+  it("offers no client-paged \"all matching\" while the browser's search narrows the rows", async () => {
+    const onAction = vi.fn();
+    render(
+      <ResourcePage<Task>
+        resource="tasks"
+        title="Tasks"
+        pagination="client"
+        resourceOptions={{ defaultPerPage: 2 }}
+        columns={[{ key: "title", header: "Title" }]}
+        bulkActions={[{ label: "Archive", matching: true, onAction, testId: "bulk-archive" }]}
+      />,
+      { wrapper: wrap(provider()) },
+    );
+    await screen.findByText("Write the plan");
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    expect(await screen.findByTestId("bulk-select-all-matching")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: "plan" } });
+    await waitFor(() => expect(screen.queryByText("Ship it")).toBeNull());
+    fireEvent.click(screen.getByLabelText("Select all rows"));
+    await screen.findByTestId("bulk-archive");
+    expect(screen.queryByTestId("bulk-select-all-matching")).toBeNull();
+    fireEvent.click(screen.getByTestId("bulk-archive"));
+    expect(onAction.mock.calls[0]![1]).toMatchObject({ allMatching: false });
+  });
+
+  it("puts a client-paged page's status chip on top of a provider filter on the same field, and its sort over a default", async () => {
+    const onExport = vi.fn();
+    render(
+      <ResourcePage<Task>
+        resource="tasks"
+        title="Tasks"
+        pagination="client"
+        statusFilter="status"
+        resourceOptions={{ defaultFilters: [{ field: "status", operator: "in", value: ["todo", "done"] }], defaultSort: { field: "hours", order: "asc" } }}
+        columns={[{ key: "title", header: "Title", sortable: true }]}
+        onExport={onExport}
+      />,
+      { wrapper: wrap(provider()) },
+    );
+    await screen.findByText("Ship it");
+    fireEvent.click(screen.getByTestId("status-chip-todo"));
+    fireEvent.click(within(screen.getByRole("columnheader", { name: /title/i })).getByRole("button"));
+    fireEvent.pointerDown(screen.getByLabelText("More actions"), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByText("Export CSV"));
+    await waitFor(() => expect(onExport).toHaveBeenCalled());
+    const query = onExport.mock.calls[0]![0];
+    expect(query.filters).toEqual([
+      { field: "status", operator: "in", value: ["todo", "done"] },
+      { field: "status", operator: "in", value: ["todo"] },
+    ]);
+    expect(query.sorts).toEqual([{ field: "title", order: "asc" }]);
+  });
 });
 
