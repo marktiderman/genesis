@@ -2,7 +2,7 @@
 -- Genesis support 0018: the agent queue as a list a data provider pages (after
 -- 0009_genesis_support_inbox.sql).
 --
---   public.support_agent_queue(tenant, inbox_view, page_limit, page_offset)
+--   public.support_agent_queue(tenant, inbox_view, statuses, page_limit, page_offset)
 --     A tenant's tickets for its agents, with the same columns as 0009's support_agent_tickets plus
 --     `total_count`, and no keyset paging of its own, so a provider pages, counts and filters it.
 --     A Genesis view reads it as its source (genesis-support's `supportQueueSource()`), so its
@@ -14,12 +14,17 @@
 --     rows and pages by keyset, where a provider pages by range and counts. Each row says since
 --     when the requester has waited (`waiting_since`), as support_agent_tickets does.
 --
+--     statuses (optional) keeps the tickets whose status is one of them (the Open segment, a
+--     status chip), applied before paging.
+--
 --     Paging happens inside: with page_limit (and page_offset), the function picks that page of the
 --     queue (newest activity first) and counts the whole queue (`total_count`) from the tickets'
 --     own columns, and only then reads each page row's latest message (`preview`) and waiting
---     time, so a page costs its rows, not the tenant's history. The provider passes the page when
---     nothing would be filtered, searched or sorted after the function (a `pages` source); a list
---     that does any of those reads every row (no page_limit), as PostgREST then has to.
+--     time, so a page costs its rows, not the tenant's history. page_limit 0 is a count alone: one
+--     row whose only value is `total_count`, and no preview built. The provider passes the page
+--     when nothing would be filtered, searched or sorted after the function (a `pages` source).
+--     A text search or another sort reads every row (no page_limit), by design: PostgREST can
+--     only search or sort what the function returned, so those reads build every row's preview.
 --
 -- A null tenant means the app's own. Only an agent of the tenant may read it (42501 otherwise),
 -- through 0009's private.genesis_support_inbox_tenant; an agent's own ticket stays out.
@@ -50,9 +55,14 @@ $$;
 
 revoke execute on function private.genesis_support_queue_preview(uuid, text) from public, anon, authenticated;
 
+-- An earlier draft of this migration had no `statuses`: drop its overload, so a database that ran
+-- it doesn't keep two functions a call by name can't choose between.
+drop function if exists public.support_agent_queue(uuid, text, integer, integer);
+
 create or replace function public.support_agent_queue(
   tenant uuid default null,
   inbox_view text default 'all',
+  statuses text[] default null,
   page_limit integer default null,
   page_offset integer default 0
 )
@@ -96,6 +106,28 @@ begin
   if page_limit < 0 or page_offset < 0 then
     raise exception 'support_agent_queue: page_limit and page_offset are zero or more' using errcode = '22023';
   end if;
+  -- A count alone: one row carrying it, from the tickets' own columns, and nothing else built.
+  if page_limit = 0 then
+    return query
+      select null::uuid, null::uuid, null::uuid, null::text, null::text, null::text, null::text, null::text,
+             null::timestamptz, null::timestamptz, null::timestamptz, null::timestamptz, null::timestamptz, null::timestamptz,
+             null::text, null::text, null::uuid, null::uuid, null::timestamptz, null::text, null::boolean, null::timestamptz,
+             count(*)
+        from public.tickets t
+        left join genesis_chat.conversations c
+          on c.kind = 'support' and c.subject_type = 'support_report' and c.subject_id = t.id::text
+       where t.tenant_id = resolved
+         and t.user_id is distinct from me
+         and (statuses is null or t.status = any (statuses))
+         and case inbox_view
+               when 'mine' then c.assignee_id = me and t.status not in ('pending', 'addressed', 'wont_fix')
+               when 'unassigned' then c.assignee_id is null and t.status not in ('pending', 'addressed', 'wont_fix')
+               when 'pending' then t.status = 'pending'
+               when 'closed' then t.status in ('addressed', 'wont_fix')
+               else true
+             end;
+    return;
+  end if;
   return query
     -- The page, from the tickets' own columns: which tickets, in what order, and how many in all.
     with page as (
@@ -107,6 +139,7 @@ begin
           on c.kind = 'support' and c.subject_type = 'support_report' and c.subject_id = t.id::text
        where t.tenant_id = resolved
          and t.user_id is distinct from me
+         and (statuses is null or t.status = any (statuses))
          and case inbox_view
                when 'mine' then c.assignee_id = me and t.status not in ('pending', 'addressed', 'wont_fix')
                when 'unassigned' then c.assignee_id is null and t.status not in ('pending', 'addressed', 'wont_fix')
@@ -143,7 +176,7 @@ begin
 end;
 $$;
 
-comment on function public.support_agent_queue(uuid, text, integer, integer) is
-  'A tenant''s tickets for its agents, paged inside when given page_limit, with the whole queue''s total_count. Genesis support.';
-revoke execute on function public.support_agent_queue(uuid, text, integer, integer) from public, anon;
-grant execute on function public.support_agent_queue(uuid, text, integer, integer) to authenticated;
+comment on function public.support_agent_queue(uuid, text, text[], integer, integer) is
+  'A tenant''s tickets for its agents, filtered by status and paged inside when given, with the whole queue''s total_count (page_limit 0: the count alone). Genesis support.';
+revoke execute on function public.support_agent_queue(uuid, text, text[], integer, integer) from public, anon;
+grant execute on function public.support_agent_queue(uuid, text, text[], integer, integer) to authenticated;

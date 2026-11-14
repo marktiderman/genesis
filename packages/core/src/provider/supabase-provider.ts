@@ -146,7 +146,9 @@ export interface SupabaseUpdateContext {
 
 /**
  * A function source that pages itself (`SupabaseResourceConfig.source`'s `pages`): the order its
- * rows come in, and the column that carries the whole result's count.
+ * rows come in, and the column that carries the whole result's count. A count alone asks the
+ * function for `page_limit: 0`, which it answers with one row that carries the count (and builds
+ * no other row).
  *
  * @stability Beta
  */
@@ -167,6 +169,11 @@ export interface SourceArgsContext {
   readonly resource: string;
   readonly filters: readonly FilterParam[];
   take(field: string): string | number | boolean | null | undefined;
+  /**
+   * The values of a filter on `field` that an `in` (or an `eq`, as one value) gives, taken out of
+   * the query like `take`; undefined when there's none. For a function that filters by a list.
+   */
+  takeIn(field: string): readonly unknown[] | undefined;
 }
 
 export interface SupabaseResourceConfig {
@@ -289,7 +296,8 @@ export interface SupabaseResourceConfig {
    * result's count on each row (`pages.total`, default `total_count`). A list page whose filters
    * the function all took, with no search and no sort other than `pages.order`, then passes the
    * page to the function instead of a `range`, and reads its total from that column, so the
-   * function never builds rows outside the page. Any other list reads every row, as without
+   * function never builds rows outside the page. A count alone (a segment's) sends
+   * `page_limit: 0`: the function returns one row carrying the count, and builds no other. Any other list reads every row, as without
    * `pages`, since PostgREST can only filter, search or sort what the function returned.
    */
   source?: string | { rpc: string; args?: (context: SourceArgsContext) => Record<string, unknown>; pages?: SourcePages };
@@ -817,6 +825,13 @@ export function createSupabaseProvider(
         used.add(f);
         return f.operator === "eq" ? f.value : null;
       },
+      takeIn: (field: string) => {
+        const f = list.find((x) => x.field === field && (x.operator === "in" || x.operator === "eq") && !used.has(x));
+        if (!f) return undefined;
+        used.add(f);
+        const value = (f as { value?: unknown }).value;
+        return f.operator === "in" ? [...(value as unknown[])] : [value];
+      },
     };
   }
 
@@ -834,7 +849,7 @@ export function createSupabaseProvider(
   /**
    * A page read by a function that pages itself (`source.pages`), or undefined when this list can't
    * be: a filter the function didn't take, a search or another sort would apply after the function,
-   * so it has to return every row. `limit` null reads only the total (one row's `total_count`).
+   * so it has to return every row. `limit` 0 reads only the total (the one row the function answers with).
    */
   async function readSourcePage(
     resource: string,
@@ -863,9 +878,11 @@ export function createSupabaseProvider(
       return result.data ?? [];
     };
     const totalOf = (rows: Record<string, unknown>[]) => Number(rows[0]?.[totalColumn] ?? 0);
+    // A count alone (limit 0): the function's one row carries it, and no row is data.
+    if (limit === 0) return { data: [], total: totalOf(await call(0, 0)) };
     const data = await call(offset, limit);
-    // A page past the end has no row to carry the total: read it from the first row.
-    const total = data.length > 0 || offset === 0 ? totalOf(data) : totalOf(await call(0, 1));
+    // A page past the end has no row to carry the total: ask for the count alone.
+    const total = data.length > 0 || offset === 0 ? totalOf(data) : totalOf(await call(0, 0));
     return { data, total };
   }
 
@@ -1336,7 +1353,7 @@ export function createSupabaseProvider(
         const clauses = searchClauses(resource, { search: params.search });
         return clauses ? query.or(clauses) : query;
       };
-      const pagedTotal = counts.length > 0 ? await readSourcePage(resource, { filters: params.filters, search: params.search }, 0, 1) : undefined;
+      const pagedTotal = counts.length > 0 ? await readSourcePage(resource, { filters: params.filters, search: params.search }, 0, 0) : undefined;
       if (pagedTotal) {
         for (const [name] of counts) values[name] = pagedTotal.total;
       } else if (counts.length > 0) {

@@ -222,9 +222,9 @@ export const inbox = (
 **Or as a view's inbox.** The same queue can be a Genesis view drawn by
 `<ResourceView type="inbox">` (genesis-ui), beside its table and with saved views, when your app
 reads it through the data provider. This package exports the pieces: `supportQueueSource()` (the
-provider `source` over migration 0018's `support_agent_queue`, which pages and counts every ticket, a segment's page inside the function; pass `{ tenant }`, or scope the view by `tenant_id`), `ticketInbox` (which column is the title, preview,
+provider `source` over migration 0018's `support_agent_queue`, which pages and counts every ticket; pass `{ tenant }`, or scope the view by `tenant_id`), `ticketInbox` (which column is the title, preview,
 time, requester, unread and status) and `ticketSegments` (Mine, Unassigned, Open, Pending, Closed, All; Mine,
-Unassigned, Pending and Closed pass the queue's view as a segment's `args`). The reading pane is the ticket's
+Unassigned, Pending and Closed pass the queue's view as a segment's `args`). Each segment's page, Open's status filter included, is read inside the function: it picks the page and the count from the tickets' own columns and builds the message preview for the page's rows only, and a segment's count builds none. A text search, or a sort other than newest activity, reads every ticket in the segment and builds each one's preview, by design: the database can only search or sort what the function returned (about 130 to 210 ms a page at 5,000 tickets with 20,000 messages, against 6 to 28 ms for a paged page). The reading pane is the ticket's
 thread with its reply box, through `renderReading`:
 
 <!-- docs-check: skip -->

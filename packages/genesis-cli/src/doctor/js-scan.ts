@@ -269,6 +269,21 @@ function boundNames(list: CodeToken[]): string[] {
     d = 0;
     for (let k = 0; k < pattern.length; k++) {
       const t = pattern[k]!;
+      // A computed key (`{ [expr]: name }`): its `[…]` is followed by `:`, and the names in it are
+      // read, never bound. (An array pattern's `]` is followed by `,`, `}`, `]` or `=`.)
+      if (t.value === "[" && skipping < 0) {
+        let depth = 0;
+        let close = k;
+        for (; close < pattern.length; close++) {
+          const v = pattern[close]!.value;
+          if (OPENS.has(v)) depth++;
+          else if (CLOSES.has(v) && --depth === 0) break;
+        }
+        if (pattern[close + 1]?.value === ":") {
+          k = close;
+          continue;
+        }
+      }
       if (OPENS.has(t.value)) d++;
       else if (CLOSES.has(t.value)) {
         d--;

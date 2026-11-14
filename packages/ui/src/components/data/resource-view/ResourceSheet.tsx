@@ -149,6 +149,12 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
     lastWritten.current.set(key, { values, rows: rowsRef.current });
   };
 
+  const latestRow = (rowKey: string, edited: T): T => {
+    const loaded = rowsRef.current.find((r) => keyOf(r) === rowKey) ?? edited;
+    const written = lastWritten.current.get(rowKey);
+    return written && written.rows === rowsRef.current ? ({ ...loaded, ...written.values } as T) : loaded;
+  };
+
   /** Save changes row by row; mark each cell that failed with its reason. */
   // Writes go one at a time: an undo waits for a save still out, and a save for an undo, so two
   // restores of the same cell can't land in the wrong order. `undoing` is set synchronously, before
@@ -174,20 +180,20 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
     for (const change of changes) {
       const field = view.field(change.column);
       if (!field || !writable.has(field.name) || field.array) continue;
-      const refusal = rowRefusal(change.row);
+      // The row as it is when the save runs: the loaded row with what this sheet wrote to it since
+      // (a save queued behind another sees that one's values). Its guards and its `before` read it.
+      const current = latestRow(change.rowKey, change.row);
+      const refusal = rowRefusal(current);
       if (refusal) {
         failed.push({ rowKey: change.rowKey, column: change.column, message: refusal });
         continue;
       }
-      const entry = byRow.get(change.rowKey) ?? { row: change.row, data: {}, before: {} };
+      const entry = byRow.get(change.rowKey) ?? { row: current, data: {}, before: {} };
       try {
         entry.data[field.name] = parseCell(field, change.value, { notNumber: m.sheet.notNumber, notJson: m.sheet.notJson, notBoolean: m.sheet.notBoolean });
-        // The value before this save, as it is when the save runs: a save queued behind another
-        // to the same cell restores what that one wrote, not what the row held when it was edited.
-        const written = lastWritten.current.get(change.rowKey);
-        const latest = rowsRef.current.find((r) => keyOf(r) === change.rowKey) ?? change.row;
-        entry.before[field.name] =
-          written && written.rows === rowsRef.current && field.name in written.values ? written.values[field.name] : ((latest as Row)[field.name] ?? null);
+        // The value before this save: a save queued behind another to the same cell restores what
+        // that one wrote, not what the row held when it was edited.
+        entry.before[field.name] = (current as Row)[field.name] ?? null;
         byRow.set(change.rowKey, entry);
       } catch (error) {
         failed.push({ rowKey: change.rowKey, column: change.column, message: (error as Error).message });
@@ -269,7 +275,10 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
         problem ??= m.sheet.moved;
         continue;
       }
-      const row = list.rows.find((r) => keyOf(r) === item.key);
+      // The row as it is now, not when Undo was pressed: a save queued ahead of this undo (or a
+      // refetch) may have changed what its guards read.
+      const loaded = rowsRef.current.find((r) => keyOf(r) === item.key);
+      const row = loaded ? latestRow(item.key, loaded) : undefined;
       const refusal = !row
         ? m.table.notAllowed
         : (rowRefusal(row) ?? (Object.keys(item.before).every((name) => writable.has(name)) ? undefined : m.sheet.readOnly));
