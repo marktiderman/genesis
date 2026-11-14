@@ -1,0 +1,19 @@
+.github/workflows/tarball-integrity.yml
+  s_a2e5357843c63e::t_424731281a45b7 14-19,27-29,68-93,95,100,106,110,143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cfedb7e3e4e548497e117f21e7c011d2f1f7efac",
+  "prompts": {},
+  "sessions": {
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
