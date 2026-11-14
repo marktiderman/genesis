@@ -106,8 +106,10 @@ whenever nobody owned them.
 Every PR into a staging batch (`staging/**`) or into `main` (the release PR included) carries the
 check "Adversarial review" (`.github/workflows/review-gate.yml`), required on staging and main. It
 passes only with the label `review: approved` and an approving latest verdict on the PR's current
-head commit, both from a person's account, never an app or a bot. It runs the base branch's copy
-of the workflow (`pull_request_target`), so a PR can't change its own gate.
+head commit, both from a person's account, never an app or a bot. It runs the default branch's
+copy of the workflow (`pull_request_target` always loads it from `main`, whatever the PR's
+base), so a PR can't change its own gate, and a gate change takes effect only once it is on
+`main`.
 
 - An independent adversarial reviewer, never the PR's author, reviews the latest head and posts a
   formal GitHub review with its findings. Every agent acts as the account that opened the PR, and

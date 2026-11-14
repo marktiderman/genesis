@@ -18,8 +18,10 @@
 # opened the PR, so keeping the reviewer apart from the author is process ("Never approve or
 # label your own PR").
 #
-# It runs on `pull_request_target`, so the copy of this file that judges a PR is always the base
-# branch's: a PR can't rewrite its own gate. It checks nothing out and runs no PR code; it only
+# It runs on `pull_request_target`, which always loads this file from the default branch (main),
+# whatever the PR's base: a PR into `staging/**` is judged by main's copy too. So a PR can't
+# rewrite its own gate, and a change to this file takes effect only once it is on main (merging it
+# into a staging batch changes nothing). It checks nothing out and runs no PR code; it only
 # reads the PR through the API. Its check run lands on the PR's head SHA. A push made with
 # Actions' `GITHUB_TOKEN` (a release bot's, say) starts no run: the reviewer reviews the new head,
 # then removes and re-adds the label. To re-run it after a changed verdict, the reviewer removes
@@ -63,7 +65,7 @@ jobs:
         if: "${{ github.event.action == 'synchronize' && contains(github.event.pull_request.labels.*.name, 'review: approved') }}"
         shell: bash
         run: |
-          # The token is the base branch's, with write access, Dependabot's and forks' PRs included.
+          # The token is the default branch's, with write access, Dependabot's and forks' PRs included.
           # If the revoke still fails, the label stays, but a review of an older head never counts.
           # REST, not `gh pr edit` or `gh pr comment`: their GraphQL queries can fail on GitHub's
           # deprecated Projects (classic) field. A 404 means the label is already off.
@@ -73,8 +75,10 @@ jobs:
               *) echo "::warning::Couldn't remove 'review: approved' ($out). It no longer counts: the new head needs its own review." ;;
             esac
           fi
-          gh api "repos/$REPO/issues/$PR/comments" \
-            -f body="New commits since the review: \`review: approved\` is removed until the latest head is reviewed." >/dev/null || true
+          if ! out=$(gh api "repos/$REPO/issues/$PR/comments" \
+            -f body="New commits since the review: \`review: approved\` is removed until the latest head is reviewed." 2>&1 >/dev/null); then
+            echo "::warning::Couldn't post the 'new commits' comment ($out)."
+          fi
           echo "::error::New commits since the review. Review the latest head, then label the PR 'review: approved'."
           exit 1
         env:
