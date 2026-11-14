@@ -219,7 +219,10 @@ function widthOf(width: number | string | undefined): number | string | undefine
 
 /** Whether a screen shows the view-type switcher, and the types it offers. */
 function switcherFor(props: ResourceViewProps<Row>) {
-  const types = switchableTypes(props.view as never, props.types);
+  // Rows the screen holds are drawn by the list page only: the board, the calendar, the inbox and
+  // the sheet read their own, so they aren't offered over them.
+  const offered = switchableTypes(props.view as never, props.types);
+  const types = props.rows !== undefined ? offered.filter((t) => PAGE_DRAWN.has(t)) : offered;
   const fixed = (props.type ?? props.mode) !== undefined;
   const beyondPage = types.some((t) => t !== "table" && t !== "list" && t !== "grid");
   const on = props.switcher ?? ((props.layout ?? "page") === "page" && !fixed && (beyondPage || !!props.view.definition.types));
@@ -229,6 +232,15 @@ function switcherFor(props: ResourceViewProps<Row>) {
 /** The list's state: the root's when there is one, else this list's own. */
 function useListModel(props: ResourceViewProps<Row>): ListModel {
   const shared = useContext(ListModelContext);
+  const own = useOwnListModel(props);
+  return shared ?? own;
+}
+
+/**
+ * This list's own state. Every ResourceView root makes its own, so a list nested in another (a
+ * record view's list section) never reads or writes its parent's segment, filters or type.
+ */
+function useOwnListModel(props: ResourceViewProps<Row>): ListModel {
   const defaults = useResourceViewDefaults();
   const { on, types } = switcherFor(props);
   const url = props.urlState === false ? undefined : (adapterOf(props.urlState) ?? ((props.layout ?? "page") === "page" ? (defaults.urlState ?? undefined) : undefined));
@@ -243,7 +255,7 @@ function useListModel(props: ResourceViewProps<Row>): ListModel {
     types,
     rememberType: on,
   });
-  return shared ?? { state: own, url, switcher: null };
+  return useMemo(() => ({ state: own, url, switcher: null }), [own, url]);
 }
 
 /** What useResourceViewProps makes, with the confirmation an action asks for. */
@@ -259,7 +271,10 @@ interface ResourceViewModel<T extends Row> {
  * `<ResourceView>` both use it; call it yourself to hand the props to your own layout.
  */
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
-  return useResourceViewModel(props).pageProps;
+  const { pageProps, confirm } = useResourceViewModel(props);
+  // A view action's confirmation travels with the props (`dialogs`), so a screen that hands them to
+  // its own <ResourcePage> gets the dialog too, and the action runs once it's confirmed.
+  return { ...pageProps, dialogs: <>{confirm}{pageProps.dialogs}</> };
 }
 
 function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): ResourceViewModel<T> {
@@ -413,19 +428,22 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
       }
     : undefined;
   const paged = !screenTree && rows === undefined;
-  const filtersRow = view.segments().length || view.filters().length || filterSlot;
+  // Rows the screen holds are drawn as given: the declared segments and filters would narrow
+  // nothing, so they aren't offered over them (the screen's own `filterSlot` and `filters` are).
+  const declaredFilters = rows === undefined && (view.segments().length > 0 || view.filters().length > 0);
+  const filtersRow = declaredFilters || filterSlot || (rows !== undefined && rest.filters?.length);
   const listFilters = listState.filters;
-  const segmentsNode = view.segments().length ? (
+  const segmentsNode = rows === undefined && view.segments().length ? (
     <ViewSegments view={view as never} value={listState.segment} onChange={listState.setSegment} baseFilters={[...defaultFilters, ...listState.valueFilters]} enabled={rows === undefined} />
   ) : null;
   const extraFilters =
-    view.filters().some((f) => f.kind !== "choice") || filterSlot ? (
+    (rows === undefined && view.filters().some((f) => f.kind !== "choice")) || filterSlot ? (
       <>
-        <ViewFilterControls view={view as never} state={listState} />
+        {rows === undefined ? <ViewFilterControls view={view as never} state={listState} /> : null}
         {filterSlot}
       </>
     ) : null;
-  const choiceFilters = choiceFilterConfigs(view as never, listState);
+  const choiceFilters = rows === undefined ? choiceFilterConfigs(view as never, listState) : [];
   const shellOptions = model.switcher ? { headerOptions: { showViewToggle: false, ...rest.slotProps?.shell?.headerOptions } } : {};
   const typeMode = model.switcher
     ? listState.type === "table" || listState.type === "list" || listState.type === "grid"
@@ -533,13 +551,13 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
   // row's comboboxes, ranges and text beside them; they count as filtering.
   if (filtersRow) {
     pageProps.filters = [...choiceFilters, ...(rest.filters ?? [])];
-    pageProps.heldFilters = { active: listState.active, clear: listState.clear };
+    if (rows === undefined) pageProps.heldFilters = { active: listState.active, clear: listState.clear };
     pageProps.slotProps = {
       ...pageProps.slotProps,
       filters: {
         ...(segmentsNode ? { leading: segmentsNode } : {}),
         ...(extraFilters ? { extra: extraFilters } : {}),
-        extraActive: Object.entries(listState.values).some(([field]) => view.filters().find((f) => f.field === field)?.kind !== "choice"),
+        extraActive: rows === undefined && Object.entries(listState.values).some(([field]) => view.filters().find((f) => f.field === field)?.kind !== "choice"),
         ...rest.slotProps?.filters,
       },
     };
@@ -655,7 +673,7 @@ const PAGE_DRAWN: ReadonlySet<string> = new Set(["table", "list", "grid", "galle
  * type switcher with the person's choice kept in the app's store (ADR 0017).
  */
 function ResourceViewRoot<T extends Row>(props: ResourceViewProps<T>) {
-  const own = useListModel(props as ResourceViewProps<Row>);
+  const own = useOwnListModel(props as ResourceViewProps<Row>);
   const { on, types } = switcherFor(props as ResourceViewProps<Row>);
   const fixed = props.type ?? props.mode;
   const type = on ? (own.state.type ?? types[0]!) : typeof fixed === "string" ? fixed : undefined;
@@ -702,6 +720,14 @@ function ListBar<T extends Row>(props: ResourceViewProps<T>) {
 function ResourceViewOfType<T extends Row = Row>(props: ResourceViewProps<T>) {
   // Each view type is its own component, so switching type swaps children rather than hooks.
   const shown = props.type ?? props.mode;
+  // Rows the screen holds go to the list page (table, list, grid, gallery). The board, the
+  // calendar, the inbox, the sheet and an app's type read their own: rather than show rows other
+  // than the screen's, say so.
+  if (props.rows !== undefined && typeof shown === "string" && !PAGE_DRAWN.has(shown)) {
+    throw new Error(
+      `ResourceView(${props.view.resource}): rows are drawn by the table, list, grid and gallery only; type "${shown}" reads its own rows. Leave rows out, or pick one of those types.`,
+    );
+  }
   const model = useContext(ListModelContext);
   if (model && (shown === undefined || shown === "table" || shown === "list" || shown === "grid")) return <ResourceViewPage<T> {...props} />;
   if (shown === undefined || typeof shown !== "string") return <ResourceViewPage<T> {...props} />;

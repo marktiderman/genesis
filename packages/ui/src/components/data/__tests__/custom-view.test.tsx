@@ -7,7 +7,7 @@ import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-li
 import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams } from "@marktiderman/genesis-core";
+import { DataWriteError, defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
 import { CustomView, useViewBoard, useViewCalendarRange, useViewList } from "../resource-view";
 import { useBrowserSearchParams } from "../../../navigation";
@@ -162,6 +162,40 @@ describe("useViewBoard", () => {
     });
     expect(result.current.refusal).toBe("Locked.");
   });
+
+  it("refuses a move when the board's field can't be written, even through move() directly", async () => {
+    const readOnly = defineResource<Player>()({ ...players, fields: players.fields.map((f) => (f.name === "team" ? { ...f, readOnly: true } : f)) });
+    const frozen = defineView(readOnly, { board: { field: "team" } });
+    const p = provider();
+    const { result } = renderHook(() => useViewBoard(frozen), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.movable).toBe(false);
+    expect(result.current.canMove(ROWS[0]!)).not.toBe(true);
+    await act(async () => {
+      await expect(result.current.move({ ...ROWS[0]! }, "blue")).rejects.toThrow();
+    });
+    expect(p.update).not.toHaveBeenCalled();
+  });
+
+  it("asks the guards again before keeping my move over a conflict", async () => {
+    const p = provider();
+    let locked = false;
+    vi.mocked(p.update).mockRejectedValueOnce(new DataWriteError("conflict", "changed", { current: { ...ROWS[0]!, team: "red", points: 31 }, currentVersion: "2" }));
+    const { result } = renderHook(() => useViewBoard(view, { can: () => !locked }), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => {
+      await expect(result.current.move({ ...ROWS[0]! }, "blue")).rejects.toThrow("changed");
+    });
+    expect(result.current.conflict).not.toBeNull();
+    // While the conflict is open, the screen stops letting this viewer move cards.
+    locked = true;
+    await act(async () => {
+      await expect(result.current.keepMine()).rejects.toThrow();
+    });
+    expect(p.update).toHaveBeenCalledTimes(1);
+    expect(result.current.conflict).toBeNull();
+    expect(result.current.refusal).toBeTruthy();
+  });
 });
 
 describe("useViewCalendarRange", () => {
@@ -175,6 +209,24 @@ describe("useViewCalendarRange", () => {
       { field: "played_on", operator: "gte", value: "2026-11-01" },
       { field: "played_on", operator: "lt", value: "2026-11-08" },
     ]);
+  });
+
+  it("reads rows whose duration runs into the window from before it, as far back as maxDuration", async () => {
+    const lasting = defineView(players, { calendar: { field: "played_on", durationField: "points", durationUnit: "days", maxDuration: 2 } });
+    const p = provider([{ id: "x", name: "Xi", team: "red", points: 3, played_on: "2026-10-31", locked: false }]);
+    const { result } = renderHook(() => useViewCalendarRange(lasting, { start: "2026-11-01", end: "2026-11-08" }), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const reads = vi.mocked(p.getList).mock.calls.map((c) => c[1].filters);
+    expect(reads).toContainEqual([
+      { field: "played_on", operator: "gte", value: "2026-10-30" },
+      { field: "played_on", operator: "lt", value: "2026-11-01" },
+    ]);
+    expect(result.current.rows.map((r) => r.id)).toEqual(["x"]);
+  });
+
+  it("refuses a maxDuration that isn't a positive number or has no durationField", () => {
+    expect(() => defineView(players, { calendar: { field: "played_on", maxDuration: 2 } })).toThrow(/maxDuration needs a durationField/);
+    expect(() => defineView(players, { calendar: { field: "played_on", durationField: "points", maxDuration: -1 } })).toThrow(/maxDuration is a number above 0/);
   });
 });
 

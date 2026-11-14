@@ -138,6 +138,26 @@ describe("<ResourceView type=\"inbox\">", () => {
     expect(await screen.findByTestId("resource-inbox-nothing")).toBeTruthy();
   });
 
+  it("asks the done action's confirm on the e key, as the row menu does", async () => {
+    const runAction = vi.fn(async () => ({ data: null }));
+    const solving = defineView(tickets, { inbox: { unread: "unread" }, actions: [{ name: "done", label: "Solve", confirm: "Solve this ticket?" }] });
+    render(<ResourceView view={solving} type="inbox" inbox={{ selected: "t1" }} />, { wrapper: wrap(provider({ runAction })) });
+    await screen.findByTestId("resource-inbox-reading");
+    fireEvent.keyDown(screen.getByTestId("resource-inbox-layout"), { key: "e" });
+    expect(await screen.findByText("Solve this ticket?")).toBeTruthy();
+    expect(runAction).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Solve" }));
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith("tickets", { id: "t1", action: "done" }));
+  });
+
+  it("reads an open ticket that isn't on the loaded page in the list's scope", async () => {
+    const p = provider();
+    const scoped = defineView(tickets, { inbox: { unread: "unread" }, segments: [{ id: "open", label: "Open", where: { status: "open" } }] });
+    render(<ResourceView view={scoped} type="inbox" inbox={{ selected: "t3" }} />, { wrapper: wrap(p) });
+    await waitFor(() => expect(p.getOne).toHaveBeenCalled());
+    expect(vi.mocked(p.getOne).mock.calls[0]![1]).toMatchObject({ id: "t3", scope: [{ field: "status", operator: "eq", value: "open" }] });
+  });
+
   it("moves with j and k", async () => {
     render(<ResourceView view={view} type="inbox" />, { wrapper: wrap(provider()) });
     await screen.findByText("Invoice copy");

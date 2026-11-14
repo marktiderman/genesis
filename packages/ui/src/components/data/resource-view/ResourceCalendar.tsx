@@ -148,7 +148,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   // The view's block, then the screen's settings over it.
   const settings = { ...view.definition.calendar, ...withoutUndefined(props) } as ResourceCalendarOptions<T>;
   const {
-    field: fieldName, endField, durationField, durationUnit = "minutes", allDayField, layout: layoutProp, phoneLayout, layouts, onLayoutChange,
+    field: fieldName, endField, durationField, durationUnit = "minutes", maxDuration, allDayField, layout: layoutProp, phoneLayout, layouts, onLayoutChange,
     weeks: weeksProp = 2, weeksOptions, onWeeksChange, toolbar, colorLanes, weekStartsOn = 1, timeZone, anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, classNameOf, statusOf,
     limit = CALENDAR_LIMIT, showEmptyDays, onSelect, print, onNavigate,
   } = settings;
@@ -190,6 +190,9 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
     field: fieldName,
     endField,
     allDayField,
+    durationField,
+    durationUnit,
+    maxDuration,
     filters,
     select,
     enabled,

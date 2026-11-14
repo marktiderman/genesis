@@ -796,6 +796,11 @@ export interface ResourcePageProps<
 
   // Slots
   toolbar?: ReactNode;
+  /**
+   * Dialogs the page's own actions open, drawn with the page in every layout (a view action's
+   * confirmation, from `useResourceViewProps`). Rendered as given.
+   */
+  dialogs?: ReactNode;
   /** The empty state's action, e.g. the create button. */
   emptyState?: ReactNode;
   /**
@@ -1080,6 +1085,7 @@ export function ResourcePage<
     subtitle,
     title,
     toolbar,
+    dialogs,
     onExport,
     rowMenu,
     bulkDelete,
@@ -1177,8 +1183,20 @@ export function ResourcePage<
     heldFilters?.clear();
   };
   // The list's query: what an export and a bulk action over every matching row read.
+  // With the caller's data (no `resource`) it is the page's own search, sort and status chips:
+  // filters the caller applies itself (a view's segment, its own controls) are the caller's to add.
   const listQuery = (): ResourceListQuery => {
-    const params = isClientMode ? resourceHook.params : {};
+    if (!isClientMode) {
+      const statusField = typeof props.statusFilter === "string" ? props.statusFilter : props.statusFilter?.field;
+      const query = page.search.trim();
+      return {
+        filters: statusField && page.statusValue.length ? [{ field: statusField, operator: "in", value: [...page.statusValue] }] : [],
+        sorts: page.sort ? [page.sort] : [],
+        ...(query ? { search: { query, fields: props.searchFields ?? [] } } : {}),
+        ...(displayTotal >= 0 ? { total: displayTotal } : {}),
+      };
+    }
+    const params = resourceHook.params;
     const sorts = params.sorts?.length ? params.sorts : params.sort ? [params.sort] : [];
     return {
       filters: params.filters ?? [],
@@ -1187,10 +1205,15 @@ export function ResourcePage<
       ...(displayTotal >= 0 ? { total: displayTotal } : {}),
     };
   };
-  // "Select all matching": every row the query matches, past the loaded page.
-  const [allMatching, setAllMatching] = useState(false);
+  // "Select all matching": every row the query matches, past the loaded page, for the query it was
+  // chosen on. A new search, sort or filter (even one that loads as many rows) ends it.
+  const { total: _total, ...shownQuery } = listQuery();
+  const queryKey = JSON.stringify(shownQuery);
+  const [matchingFor, setMatchingFor] = useState<string | null>(null);
   const fullPage = selectedIds.size > 0 && selectedIds.size === page.data.length;
-  if (allMatching && !fullPage) setAllMatching(false);
+  if (matchingFor !== null && (!fullPage || matchingFor !== queryKey)) setMatchingFor(null);
+  const allMatching = matchingFor !== null && matchingFor === queryKey && fullPage;
+  const setAllMatching = (on: boolean) => setMatchingFor(on ? queryKey : null);
   // Bulk Delete over the page's own delete path (`bulkDelete`): the built-in delete only.
   const [bulkDeleting, setBulkDeleting] = useState<T[] | null>(null);
   const bulkDeleteReason = typeof bulkDelete === "object" ? bulkDelete.reason : undefined;
@@ -2004,6 +2027,7 @@ export function ResourcePage<
           },
           slotProps?.deleteDialog,
         )}
+      {dialogs}
     </>
   );
 }

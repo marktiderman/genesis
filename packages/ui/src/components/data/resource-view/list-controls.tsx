@@ -5,7 +5,7 @@
 // export. ResourceView composes these onto ResourcePage's own slots and props, so the engine stays
 // ResourcePage and DataTable; nothing here is a second list.
 
-import { createContext, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Filter, Images, Inbox, Kanban, LayoutGrid, List, Sheet, Table2, X, type LucideIcon } from "lucide-react";
 import {
@@ -320,6 +320,11 @@ export interface ListActionsResult<T extends Row> {
   }>;
   confirming: Confirming | null;
   setConfirming: (c: Confirming | null) => void;
+  /**
+   * Run one of the view's actions on a row as its row menu does: only when it's offered and the
+   * row allows it, after its confirm, and not again while it's running. False when it wasn't run.
+   */
+  run: (name: string, row: T) => boolean;
 }
 
 /**
@@ -338,10 +343,32 @@ export function useListActions<T extends Row>(
   const [confirming, setConfirming] = useState<Confirming | null>(null);
   const hide = options.refusals === "hide";
 
-  const visible = useMemo(
-    () => view.actions().filter((a) => (options.onRun || runnable) && (!served || served.has(a.name))),
-    [view, options.onRun, runnable, served],
+  // An action is offered when something runs it: the screen's `onRun` (the app's executor, which
+  // the provider's description doesn't speak for), else the provider, when it runs actions and
+  // serves this one. A bulk action with its own `run` needs neither (below).
+  const providerRuns = useCallback((name: string) => runnable && (!served || served.has(name)), [runnable, served]);
+  const visible = useMemo(() => view.actions().filter((a) => !!options.onRun || providerRuns(a.name)), [view, options.onRun, providerRuns]);
+  const bulkable = useMemo(
+    () =>
+      view.actions().filter((a) => {
+        if (!a.bulk) return false;
+        const declared = view.definition.actions?.find((d) => d.name === a.name);
+        const ownRun = !!declared && typeof declared.bulk === "object" && typeof declared.bulk.run === "function";
+        return ownRun || !!options.onRun || providerRuns(a.name);
+      }),
+    [view, options.onRun, providerRuns],
   );
+  // What's running: a second click (or key) while it is would submit it twice.
+  const running = useRef(new Set<string>());
+  const once = useCallback((key: string, run: () => Promise<void> | void) => async () => {
+    if (running.current.has(key)) return;
+    running.current.add(key);
+    try {
+      await run();
+    } finally {
+      running.current.delete(key);
+    }
+  }, []);
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: resourceKeys(view.resource).all }), [queryClient, view.resource]);
   const idOf = useCallback((row: T) => encodeRecordKey(view.contract, row as T & DataRow), [view]);
 
@@ -384,13 +411,13 @@ export function useListActions<T extends Row>(
           label: a.label,
           destructive: a.destructive,
           reason: reasonOf(view.canAction(a.name, row as T & DataRow, viewer)),
-          onSelect: () => start(a.confirm, a.label, !!a.destructive, () => runRow(a, row)),
+          onSelect: () => start(a.confirm, a.label, !!a.destructive, once(`row:${a.name}:${String(idOf(row))}`, () => runRow(a, row))),
         });
       }
       if (builtIn.delete) add({ key: "delete", label: m.common.delete, destructive: true, onSelect: builtIn.delete, reason: refusal("delete", builtIn.refused?.delete) });
       return items;
     },
-    [hide, m, view, viewer, visible, start, runRow],
+    [hide, m, view, viewer, visible, start, runRow, once, idOf],
   );
 
   const bulkActions = useMemo(() => {
@@ -399,7 +426,7 @@ export function useListActions<T extends Row>(
       if (skipped.count > 0) toast(fillMessage(m.bulk.skipped, { count: skipped.count, reason: skipped.reason ?? "" }));
     };
     const out: ListActionsResult<T>["bulkActions"] = [];
-    for (const a of visible) {
+    for (const a of bulkable) {
       if (!a.bulk) continue;
       const declared = view.definition.actions?.find((d) => d.name === a.name);
       const run = declared && typeof declared.bulk === "object" ? declared.bulk.run : undefined;
@@ -416,7 +443,7 @@ export function useListActions<T extends Row>(
         onAction: (_ids, context) => {
           const total = context.allMatching ? (context.query.total ?? context.rows.length) : context.rows.length;
           const confirm = a.bulk!.confirm ? fillMessage(a.bulk!.confirm, { count: total }) : undefined;
-          start(confirm, a.bulk!.label, !!a.destructive, async () => {
+          start(confirm, a.bulk!.label, !!a.destructive, once(`bulk:${a.name}`, async () => {
             try {
               if (context.allMatching && a.bulk!.matching && run) {
                 await run(
@@ -456,14 +483,24 @@ export function useListActions<T extends Row>(
             } finally {
               await refresh();
             }
-          });
+          }));
         },
       });
     }
     return out;
-  }, [visible, view, viewer, m, options, provider, idOf, refresh, start]);
+  }, [bulkable, view, viewer, m, options, provider, idOf, refresh, start, once]);
 
-  return { rowMenu, bulkActions, confirming, setConfirming };
+  const run = useCallback(
+    (name: string, row: T) => {
+      const a = visible.find((x) => x.name === name);
+      if (!a || view.canAction(a.name, row as T & DataRow, viewer) !== true) return false;
+      start(a.confirm, a.label, !!a.destructive, once(`row:${a.name}:${String(idOf(row))}`, () => runRow(a, row)));
+      return true;
+    },
+    [visible, view, viewer, start, once, idOf, runRow],
+  );
+
+  return { rowMenu, bulkActions, confirming, setConfirming, run };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -567,11 +604,16 @@ export function useViewSavedViews(
     onSaveView: (name: string) => {
       // Everything the person set: the list's own search and sort as it reported them.
       const saved = state.snapshot(extra.columns);
-      void Promise.resolve(store.save({ name, scope: "personal", resource: view.resource, version, state: saved })).then(refresh, () => toast.error(m.filters.viewsFailed));
+      // Deferred, so a store that throws (not only one that rejects) is reported too.
+      void Promise.resolve()
+        .then(() => store.save({ name, scope: "personal", resource: view.resource, version, state: saved }))
+        .then(refresh, () => toast.error(m.filters.viewsFailed));
     },
     onLoadView: (filters: Record<string, unknown>) => state.apply(filters as ListState),
     onDeleteView: (id: string) => {
-      void Promise.resolve(store.remove(id, view.resource)).then(refresh, () => toast.error(m.filters.viewsFailed));
+      void Promise.resolve()
+        .then(() => store.remove(id, view.resource))
+        .then(refresh, () => toast.error(m.filters.viewsFailed));
     },
   };
 }

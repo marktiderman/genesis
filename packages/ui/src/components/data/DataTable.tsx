@@ -973,9 +973,24 @@ export function DataTable<T>({
   });
   const virtualRows = virtualizing ? rowVirtualizer.getVirtualItems() : null;
 
+  // A closed group's rows aren't drawn: they hold no tab stop and the arrows skip them.
+  const closedSet = groups && closedGroups.length ? new Set(closedGroups) : null;
+  const shownIndexes = closedSet ? displayItems.flatMap((item, i) => (closedSet.has(groups!.of(item).key) ? [] : [i])) : null;
+  /** The drawn row `step` rows from `index` (clamped to the first and last drawn). */
+  const shownStep = (index: number, step: number): number => {
+    if (!shownIndexes) return index + step;
+    if (!shownIndexes.length) return -1;
+    const at = shownIndexes.indexOf(index);
+    const from = at >= 0 ? at : step > 0 ? shownIndexes.findIndex((i) => i > index) - 1 : shownIndexes.findIndex((i) => i >= index);
+    return shownIndexes[Math.max(0, Math.min(shownIndexes.length - 1, from + step))]!;
+  };
+  const firstShown = shownIndexes ? (shownIndexes[0] ?? -1) : 0;
+  const lastShown = shownIndexes ? (shownIndexes[shownIndexes.length - 1] ?? -1) : displayItems.length - 1;
+
   /** Move the roving focus to row `index`, scrolling it into view first when virtualized. */
   const focusRow = (index: number) => {
     const last = displayItems.length - 1;
+    if (index < 0) return;
     const target = Math.max(0, Math.min(last, index));
     if (focusRowAt(bodyRef.current, target)) return;
     if (!virtualizing) return;
@@ -996,7 +1011,9 @@ export function DataTable<T>({
   // has no button, and Tab would then skip the table.
   const renderedItems = virtualRows
     ? virtualRows.map((vr) => displayItems[vr.index]!).filter(Boolean)
-    : displayItems;
+    : shownIndexes
+      ? shownIndexes.map((i) => displayItems[i]!)
+      : displayItems;
   // Without a focused row, the first row in view: the overscan rows above
   // the viewport are rendered too, and tabbing to one would scroll back.
   const scrollTop = rowVirtualizer.scrollOffset ?? 0;
@@ -1192,10 +1209,10 @@ export function DataTable<T>({
                               }
                               return;
                             }
-                            if (e.key === "ArrowDown" || e.key === "j") move(index + 1);
-                            else if (e.key === "ArrowUp" || e.key === "k") move(index - 1);
-                            else if (e.key === "Home") move(0);
-                            else if (e.key === "End") move(displayItems.length - 1);
+                            if (e.key === "ArrowDown" || e.key === "j") move(shownStep(index, 1));
+                            else if (e.key === "ArrowUp" || e.key === "k") move(shownStep(index, -1));
+                            else if (e.key === "Home") move(firstShown);
+                            else if (e.key === "End") move(lastShown);
                             else if (e.key === "x" && selectable) {
                               e.preventDefault();
                               onToggleSelect?.(id);

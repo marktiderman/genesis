@@ -27,7 +27,6 @@ import { InboxViews, type InboxView } from "../../patterns/messaging/inbox-views
 import { EmptyState } from "../../patterns/empty-state";
 import { Chip } from "../../resource/chip";
 import { Input } from "../../ui/input";
-import { toast } from "../../ui/sonner";
 import { ConfirmDeleteDialog } from "../ConfirmDeleteDialog";
 import { DataBulkBar } from "../DataBulkBar";
 import { fillMessage, useUiMessages } from "../../../messages";
@@ -209,8 +208,11 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
     [options.selected, onSelectedChange, list, markRead, view, viewer, runAction],
   );
   const onPage = selected === null ? undefined : list.rows.find((r) => list.keyOf(r) === selected);
+  // A row not on the loaded page is read on its own, in the list's scope: a resource read from a
+  // function that takes its scope from the list's filters (a tenant, say) reads it in that scope.
   const fetched = useOne<T & BaseRecord>(view.resource, selected !== null && !onPage ? selected : null, {
     enabled: selected !== null && !onPage && list.params.enabled,
+    scope: list.params.filters,
   });
   const openRow: T | null = onPage ?? ((fetched.data as T | undefined) ?? null);
   const gone = selected !== null && !openRow && !fetched.isLoading;
@@ -389,11 +391,11 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
           onNext: () => move(1),
           onPrevious: () => move(-1),
           onBack: close,
+          // e: the view's done action, as its row menu runs it (its confirm, once at a time).
           ...(done && openRow
             ? {
                 onClose: () => {
-                  if (view.canAction(done, openRow as T & DataRow, viewer) !== true) return;
-                  void runAction(done, openRow).catch((error: unknown) => toast.error(error instanceof Error ? error.message : String(error)));
+                  actions.run(done, openRow);
                 },
               }
             : {}),

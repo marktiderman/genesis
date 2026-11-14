@@ -6,10 +6,11 @@
 // and every change goes through the resource's own update, row by row, so the provider's rules
 // and a versioned resource's check apply. The last change can be undone.
 
-import { useContext, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { encodeRecordKey, useResource, useViewer, type BaseRecord, type DataRow, type FieldSchema } from "@marktiderman/genesis-core";
 import { SheetCommitError, SheetGrid, type SheetCellChange, type SheetGridColumn } from "../../sheet-grid/sheet-grid";
 import { Button } from "../../ui/button";
+import { EmptyState } from "../../patterns/empty-state";
 import { toast } from "../../ui/sonner";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { useDisplayCell } from "./display";
@@ -47,6 +48,8 @@ function parseCell(field: FieldSchema, text: string, words: { notNumber: string;
 }
 
 interface UndoEntry {
+  /** The resource the change was saved to: undo never writes it into another one. */
+  resource: string;
   /** Each row the change saved, by key, with its cells' values before. */
   rows: { key: string; before: Record<string, unknown> }[];
 }
@@ -63,7 +66,8 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
   const m = useUiMessages();
   const viewer = useViewer();
   const cell = useDisplayCell();
-  const listFilters = useContext(ListModelContext)?.state.filters ?? [];
+  const listState = useContext(ListModelContext)?.state;
+  const listFilters = listState?.filters ?? [];
   const list = useViewList<T>(view, {
     ...(preset !== undefined ? { preset } : {}),
     ...(filter !== undefined ? { filter } : {}),
@@ -71,6 +75,20 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
     ...(live !== undefined ? { live } : {}),
     resourceOptions: { ...resourceOptions, defaultFilters: [...(resourceOptions?.defaultFilters ?? []), ...listFilters] },
   });
+  // A saved view's search and sort come back here too, as on every list; the sheet's own reach the
+  // list state, for saving.
+  const restoreNonce = listState?.restore.nonce ?? 0;
+  useEffect(() => {
+    if (!restoreNonce || !listState) return;
+    list.setSearch(listState.restore.search);
+    list.setSort(listState.restore.sort);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per restore
+  }, [restoreNonce]);
+  const observe = listState?.observeQuery;
+  useEffect(() => {
+    observe?.({ search: list.search, sort: list.sort ? { field: list.sort.field, order: list.sort.order } : null });
+  }, [observe, list.search, list.sort]);
+
   // The resource's own update: the provider's rules, its version check and its cache patching.
   const { update } = useResource<T & BaseRecord>(view.resource, { enabled: false, onError: () => {} });
   const writable = useMemo(() => new Set(props.allowEdit === false ? [] : view.writable("edit")), [view, props.allowEdit]);
@@ -89,7 +107,8 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
     () =>
       columns.map((column) => {
         const field = column.field;
-        const editable = !!field && writable.has(field.name);
+        // A list field (`array`) shows as text the sheet can't turn back into a list: read-only.
+        const editable = !!field && writable.has(field.name) && !field.array;
         return {
           key: column.key,
           header: column.label,
@@ -113,7 +132,7 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
     const failed: { rowKey: string; column: string; message: string }[] = [];
     for (const change of changes) {
       const field = view.field(change.column);
-      if (!field || !writable.has(field.name)) continue;
+      if (!field || !writable.has(field.name) || field.array) continue;
       const refusal = rowRefusal(change.row);
       if (refusal) {
         failed.push({ rowKey: change.rowKey, column: change.column, message: refusal });
@@ -128,6 +147,7 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
         failed.push({ rowKey: change.rowKey, column: change.column, message: (error as Error).message });
       }
     }
+    const resource = view.resource;
     const saved: UndoEntry["rows"] = [];
     for (const [key, { data, before }] of byRow) {
       try {
@@ -139,7 +159,7 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
       }
     }
     if (saved.length) {
-      undo.current = [...undo.current.slice(-19), { rows: saved }];
+      undo.current = [...undo.current.slice(-19), { resource, rows: saved }];
       redraw((n) => n + 1);
     }
     if (failed.length) {
@@ -149,19 +169,71 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
     }
   }
 
-  async function undoLast() {
-    const last = undo.current.pop();
+  // Undo belongs to the resource it was made on: a sheet that now shows another one starts clean.
+  const shownResource = view.resource;
+  const history = () => undo.current.filter((entry) => entry.resource === shownResource);
+  useEffect(() => {
+    undo.current = undo.current.filter((entry) => entry.resource === shownResource);
     redraw((n) => n + 1);
+  }, [shownResource]);
+
+  /**
+   * Undo the last change, row by row, each through the same checks an edit has now: the row as it
+   * is loaded, the screen's `can`, the view's guard and the fields it may write. A row that's
+   * refused, or whose write fails, stays in the history to try again; the ones restored leave it.
+   */
+  async function undoLast() {
+    const entries = history();
+    const last = entries[entries.length - 1];
     if (!last) {
       toast(m.sheet.nothingToUndo);
       return;
     }
-    try {
-      for (const { key, before } of last.rows) await update(key, before as Partial<T & BaseRecord>);
-      toast.success(m.sheet.undone);
-    } catch (error) {
-      toast.error(error instanceof Error && error.message ? error.message : m.sheet.saveFailed);
+    undo.current = undo.current.filter((entry) => entry !== last);
+    redraw((n) => n + 1);
+    const left: UndoEntry["rows"] = [];
+    let problem: string | undefined;
+    for (const item of last.rows) {
+      const row = list.rows.find((r) => keyOf(r) === item.key);
+      const refusal = !row
+        ? m.table.notAllowed
+        : (rowRefusal(row) ?? (Object.keys(item.before).every((name) => writable.has(name)) ? undefined : m.sheet.readOnly));
+      if (refusal) {
+        left.push(item);
+        problem ??= refusal;
+        continue;
+      }
+      try {
+        await update(item.key, item.before as Partial<T & BaseRecord>);
+      } catch (error) {
+        left.push(item);
+        problem ??= error instanceof Error && error.message ? error.message : m.sheet.saveFailed;
+      }
     }
+    if (left.length) {
+      undo.current = [...undo.current, { resource: last.resource, rows: left }];
+      redraw((n) => n + 1);
+      toast.error(problem ?? m.sheet.saveFailed);
+    } else toast.success(m.sheet.undone);
+  }
+
+  // A failed read says so, with a retry: never an empty sheet.
+  if (list.error && list.rows.length === 0) {
+    return (
+      <div data-slot="resource-sheet" className={className ?? "space-y-2"} data-testid="resource-sheet">
+        <div role="alert" data-testid="resource-sheet-error">
+          <EmptyState
+            title={m.page.errorTitle}
+            description={fillMessage(m.page.errorBody, { entity: view.noun })}
+            action={
+              <Button size="sm" variant="outline" onClick={() => list.refetch()} testID="resource-sheet-retry">
+                {m.page.retry}
+              </Button>
+            }
+          />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -186,7 +258,7 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
         <Button size="sm" variant="outline" disabled={!list.hasMore} onClick={() => list.setPage(list.page + 1)} testID="resource-sheet-next">
           {m.sheet.next}
         </Button>
-        <Button size="sm" variant="ghost" className="ml-auto" disabled={undo.current.length === 0} onClick={() => void undoLast()} testID="resource-sheet-undo">
+        <Button size="sm" variant="ghost" className="ml-auto" disabled={history().length === 0} onClick={() => void undoLast()} testID="resource-sheet-undo">
           {m.sheet.undo}
         </Button>
       </div>

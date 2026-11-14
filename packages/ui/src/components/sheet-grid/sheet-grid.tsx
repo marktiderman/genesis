@@ -249,6 +249,12 @@ export function SheetGrid<T>({
     // The row left the grid while it was being edited: drop the draft rather
     // than save it to whichever row now sits at that position.
     if (!row) return;
+    // The row may have become read-only while its editor was open (a save, a live change): the
+    // grid's own contract is that a refused cell is never committed, whoever draws it.
+    if (refusalOf(column, row) !== undefined) {
+      if (draft !== textOf(row, column)) onSkipped?.(1);
+      return;
+    }
     if (draft !== textOf(row, column)) {
       await commit([{ row, rowKey, column: column.key, value: draft }]);
     }

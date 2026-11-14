@@ -178,7 +178,8 @@ export function DataGrid<T>({
       return (
         <div ref={keyboardContainerRef} className="space-y-3">
           {runsOf(items, groupOf).map((run) => (
-            <section key={run.key} data-group={run.key}>
+            // A group can come back in a later run (rows not sorted by it): the run's first row makes it unique.
+            <section key={`${run.key}\u0000${keyFnList(run.items[0]!)}`} data-group={run.key}>
               <GroupHeader label={run.label} count={run.items.length} summary={groupSummary?.(run.items)} />
               <div className="mt-1 divide-y divide-border rounded-lg border">
                 {run.items.map((item, j) => listRow(item, run.start + j))}
@@ -232,7 +233,7 @@ export function DataGrid<T>({
       {groupOf ? (
         <div ref={keyboardContainerRef} className="space-y-4">
           {runsOf(visible, groupOf).map((run) => (
-            <section key={run.key} data-group={run.key}>
+            <section key={`${run.key}\u0000${keyFn(run.items[0]!)}`} data-group={run.key}>
               <GroupHeader label={run.label} count={run.items.length} summary={groupSummary?.(run.items)} />
               <div className={`mt-2 grid ${gridCols} gap-4`}>{run.items.map((item, j) => card(item, run.start + j))}</div>
             </section>

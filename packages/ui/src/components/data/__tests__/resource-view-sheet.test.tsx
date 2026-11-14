@@ -109,4 +109,82 @@ describe("<ResourceView type=\"sheet\">", () => {
     expect(screen.queryByLabelText(/Hours, row 2/i)).toBeNull();
     expect(p.update).not.toHaveBeenCalled();
   });
+
+  /** Edit row 1's hours to `value` and wait for the save. */
+  async function editHours(p: ReturnType<typeof provider>, value: string) {
+    await screen.findByText("Write the plan");
+    const grid = screen.getByRole("grid");
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    fireEvent.keyDown(grid, { key: value[0]! });
+    const input = screen.getByLabelText(/Hours, row 1/i);
+    fireEvent.change(input, { target: { value } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+    });
+    await waitFor(() => expect(p.update).toHaveBeenCalledWith("tasks", expect.objectContaining({ id: "a", data: { hours: Number(value) } })));
+  }
+
+  it("checks the guards again before undoing, and keeps a refused undo to try later", async () => {
+    const p = provider();
+    let allowed = true;
+    const { rerender } = render(<ResourceView view={view} type="sheet" can={() => allowed} />, { wrapper: wrap(p) });
+    await editHours(p, "5");
+    allowed = false;
+    rerender(<ResourceView view={view} type="sheet" can={() => allowed} />);
+    fireEvent.click(screen.getByTestId("resource-sheet-undo"));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(p.update).toHaveBeenCalledTimes(1);
+    expect((screen.getByTestId("resource-sheet-undo") as HTMLButtonElement).disabled).toBe(false);
+    // Allowed again: the same undo goes through.
+    allowed = true;
+    rerender(<ResourceView view={view} type="sheet" can={() => allowed} />);
+    fireEvent.click(screen.getByTestId("resource-sheet-undo"));
+    await waitFor(() => expect(p.update).toHaveBeenLastCalledWith("tasks", expect.objectContaining({ id: "a", data: { hours: 2 } })));
+    await waitFor(() => expect((screen.getByTestId("resource-sheet-undo") as HTMLButtonElement).disabled).toBe(true));
+  });
+
+  it("keeps an undo whose write failed, so it can be tried again", async () => {
+    const p = provider();
+    render(<ResourceView view={view} type="sheet" />, { wrapper: wrap(p) });
+    await editHours(p, "6");
+    p.update.mockRejectedValueOnce(new Error("Offline."));
+    fireEvent.click(screen.getByTestId("resource-sheet-undo"));
+    await waitFor(() => expect(p.update).toHaveBeenCalledTimes(2));
+    expect((screen.getByTestId("resource-sheet-undo") as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(screen.getByTestId("resource-sheet-undo"));
+    await waitFor(() => expect(p.update).toHaveBeenLastCalledWith("tasks", expect.objectContaining({ id: "a", data: { hours: 2 } })));
+  });
+
+  it("never undoes one resource's change into another the sheet now shows", async () => {
+    const p = provider();
+    const notes = defineResource<Task>()({ ...tasks, name: "notes" });
+    const notesView = defineView(notes, { columns: { default: ["title", "hours"] } });
+    const { rerender } = render(<ResourceView view={view} type="sheet" />, { wrapper: wrap(p) });
+    await editHours(p, "7");
+    rerender(<ResourceView view={notesView as never} type="sheet" />);
+    await screen.findByText("Write the plan");
+    expect((screen.getByTestId("resource-sheet-undo") as HTMLButtonElement).disabled).toBe(true);
+    expect(p.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a list field read-only: its text can't be turned back into a list", async () => {
+    type Tagged = Task & { tags: string[] };
+    const tagged = defineResource<Tagged>()({ ...tasks, fields: [...tasks.fields, { name: "tags", type: "string", array: true }] } as never);
+    const taggedView = defineView(tagged as typeof tasks, { columns: { default: ["title", "tags" as never] } });
+    const p = provider();
+    p.rows.forEach((r) => Object.assign(r, { tags: ["red", "blue"] }));
+    render(<ResourceView view={taggedView} type="sheet" />, { wrapper: wrap(p) });
+    await screen.findByText("Write the plan");
+    expect(cellOf(0, 1).getAttribute("aria-readonly")).toBe("true");
+  });
+
+  it("says a failed read failed, with a retry, instead of showing an empty sheet", async () => {
+    const p = provider();
+    vi.mocked(p.getList).mockRejectedValue(new Error("The server is down."));
+    render(<ResourceView view={view} type="sheet" />, { wrapper: wrap(p) });
+    expect(await screen.findByTestId("resource-sheet-error")).toBeTruthy();
+    expect(screen.getByTestId("resource-sheet-retry")).toBeTruthy();
+  });
 });
