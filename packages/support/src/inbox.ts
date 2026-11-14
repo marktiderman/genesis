@@ -12,10 +12,10 @@
  */
 
 /**
- * A provider `source` for the agent queue: migration 0013's `support_agent_queue`, which returns
+ * A provider `source` for the agent queue: migration 0018's `support_agent_queue`, which returns
  * every ticket (no limit of its own) so the provider pages, counts and filters it. The queue
- * (`mine`, `unassigned`, `all`) comes from the list's `inbox_view` filter, which the Mine and
- * Unassigned segments set as `args`. The tenant is `options.tenant` when given, else the list's
+ * (`mine`, `unassigned`, `pending`, `closed`, `all`, with 0013's meanings: Mine and Unassigned hold
+ * active tickets only) comes from the list's `inbox_view` filter, which the segments set as `args`. The tenant is `options.tenant` when given, else the list's
  * `tenant_id` filter (a view with `scope: ["tenant_id"]`, under the viewer's workspace), else the
  * app's own.
  */
@@ -39,6 +39,7 @@ export const TICKET_STATUS_TONES = Object.freeze({
   open: "info",
   submitted: "info",
   in_progress: "warning",
+  pending: "muted",
   addressed: "success",
   wont_fix: "muted",
 } as const);
@@ -54,13 +55,16 @@ export const ticketInbox = Object.freeze({
 } as const);
 
 /**
- * The queue's segments, the inbox's rail: Mine and Unassigned (the queue function's own views),
- * then by status. Waiting on the requester is the app's to add, by its own status or column.
+ * The queue's segments, the inbox's rail, with the agent inbox's (SupportAgentInbox's) meanings:
+ * Mine and Unassigned hold active tickets (not pending, not closed); Open every active one; Pending
+ * those waiting on the requester; Closed the addressed and won't-fix ones; All every ticket. The
+ * queue's own views are passed as `args`, so the server decides which ticket is in which.
  */
 export const ticketSegments = Object.freeze([
   { id: "mine", label: "Mine", args: { inbox_view: "mine" }, count: true },
   { id: "unassigned", label: "Unassigned", args: { inbox_view: "unassigned" }, count: true },
   { id: "open", label: "Open", where: { status: ["open", "submitted", "in_progress"] }, count: true },
-  { id: "solved", label: "Solved", where: { status: ["addressed", "wont_fix"] } },
+  { id: "pending", label: "Pending", args: { inbox_view: "pending" }, count: true },
+  { id: "closed", label: "Closed", args: { inbox_view: "closed" } },
   { id: "all", label: "All" },
 ] as const);

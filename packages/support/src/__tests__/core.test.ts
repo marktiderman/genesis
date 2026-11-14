@@ -255,8 +255,8 @@ describe("the block", () => {
       },
       {
         package: "@marktiderman/genesis-support",
-        file: "migrations/0011_genesis_support_ticket_fixes.sql",
-        test: "migrations/tests/0011_genesis_support_ticket_fixes.test.sql",
+        file: "migrations/0016_genesis_support_ticket_fixes.sql",
+        test: "migrations/tests/0016_genesis_support_ticket_fixes.test.sql",
         feature: SUPPORT_BLOCK_ID,
       },
     ]);

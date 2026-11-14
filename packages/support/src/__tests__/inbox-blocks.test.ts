@@ -23,7 +23,7 @@ const queue = defineResource<QueueRow>()({
     { name: "activity_at", type: "datetime" },
     { name: "requester_name", type: "string", nullable: true },
     { name: "agent_unread", type: "boolean" },
-    { name: "status", type: "string", enumValues: ["open", "submitted", "in_progress", "addressed", "wont_fix"] },
+    { name: "status", type: "string", enumValues: ["open", "submitted", "in_progress", "pending", "addressed", "wont_fix"] },
   ],
 });
 
@@ -49,7 +49,13 @@ describe("the agent queue's inbox blocks", () => {
     });
     expect(view.segmentFilters("mine")).toEqual([{ field: "inbox_view", operator: "eq", value: "mine" }]);
     expect(view.segmentFilters("unassigned")).toEqual([{ field: "inbox_view", operator: "eq", value: "unassigned" }]);
-    expect(view.segmentFilters("solved")).toEqual([{ field: "status", operator: "in", value: ["addressed", "wont_fix"] }]);
+    // Pending and Closed are the queue's own views too, as SupportAgentInbox has them, so a pending
+    // ticket stays reachable while Mine and Unassigned leave it out.
+    expect(view.segments().map((s) => s.id)).toEqual(["mine", "unassigned", "open", "pending", "closed", "all"]);
+    expect(view.segmentFilters("pending")).toEqual([{ field: "inbox_view", operator: "eq", value: "pending" }]);
+    expect(view.segmentFilters("closed")).toEqual([{ field: "inbox_view", operator: "eq", value: "closed" }]);
+    expect(view.segmentFilters("open")).toEqual([{ field: "status", operator: "in", value: ["open", "submitted", "in_progress"] }]);
+    expect(view.inboxRow({ id: "t2", tenant_id: "ta", title: "Waiting", preview: null, activity_at: "2026-11-13T09:00:00Z", requester_name: "Bo", agent_unread: false, status: "pending" }).badge).toEqual({ label: "Pending", tone: "muted" });
     expect(view.segmentFilters("all")).toEqual([]);
   });
 

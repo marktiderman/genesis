@@ -1,5 +1,5 @@
 -- @feat:support-helpdesk
--- pgTAP test for 0012_genesis_support_help_answers.sql: a question routed elsewhere, or asked
+-- pgTAP test for 0017_genesis_support_help_answers.sql: a question routed elsewhere, or asked
 -- without consent, keeps no answer and no cited articles. Copy into your app's
 -- `supabase/tests/database/` and run `supabase test db`. Rolls everything back.
 begin;

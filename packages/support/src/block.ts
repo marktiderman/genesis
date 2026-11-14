@@ -94,7 +94,7 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       // Tickets and tenants: the rename, tenant_id, agents (needs the app's default-tenant hook).
       { package: "@marktiderman/genesis-support", file: "migrations/0004_genesis_support_tickets.sql", test: "migrations/tests/0004_genesis_support_tickets.test.sql" },
       // The Data Studio's keys after the rename, and an agent's unread count.
-      { package: "@marktiderman/genesis-support", file: "migrations/0011_genesis_support_ticket_fixes.sql", test: "migrations/tests/0011_genesis_support_ticket_fixes.test.sql" },
+      { package: "@marktiderman/genesis-support", file: "migrations/0016_genesis_support_ticket_fixes.sql", test: "migrations/tests/0016_genesis_support_ticket_fixes.test.sql" },
     ],
     privacy: {
       collects: [
@@ -125,8 +125,9 @@ export function defineSupportBlock(options: SupportBlockOptions = {}) {
 /**
  * The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of
  * its own (the support block's thread route renders the conversation); it brings migrations
- * `0005_genesis_support_chat_on_tickets.sql`, `0006_genesis_support_chat_tenants.sql` and
- * `0009_genesis_support_inbox.sql` from this package, after support 0004 and genesis-chat's migrations.
+ * `0005_genesis_support_chat_on_tickets.sql`, `0006_genesis_support_chat_tenants.sql`,
+ * `0009_genesis_support_inbox.sql`, `0013_genesis_support_queues.sql` and `0014_genesis_support_agent_tools.sql`
+ * from this package, after support 0004 and genesis-chat's migrations.
  */
 export function defineSupportChatBlock(options: { requires?: readonly string[] } = {}) {
   return defineBlock({
@@ -139,7 +140,12 @@ export function defineSupportChatBlock(options: { requires?: readonly string[] }
         { package: "@marktiderman/genesis-support", file: "migrations/0006_genesis_support_chat_tenants.sql", test: "migrations/tests/0006_genesis_support_chat_tenants.test.sql" },
         // The agent inbox's read path.
         { package: "@marktiderman/genesis-support", file: "migrations/0009_genesis_support_inbox.sql", test: "migrations/tests/0009_genesis_support_inbox.test.sql" },
-      { package: "@marktiderman/genesis-support", file: "migrations/0013_genesis_support_agent_queue.sql", test: "migrations/tests/0013_genesis_support_agent_queue.test.sql" },
+        // Pending tickets, active queues, a requester's earlier conversations.
+        { package: "@marktiderman/genesis-support", file: "migrations/0013_genesis_support_queues.sql", test: "migrations/tests/0013_genesis_support_queues.test.sql" },
+        // Mentions in notes, saved replies, reports.
+        { package: "@marktiderman/genesis-support", file: "migrations/0014_genesis_support_agent_tools.sql", test: "migrations/tests/0014_genesis_support_agent_tools.test.sql" },
+        // The queue as a list a provider pages and counts (no cap of its own); after 0013's queues.
+        { package: "@marktiderman/genesis-support", file: "migrations/0018_genesis_support_agent_queue.sql", test: "migrations/tests/0018_genesis_support_agent_queue.test.sql" },
       ],
     },
   });
@@ -196,7 +202,7 @@ export function defineSupportHelpdeskBlock(options: { basePath?: string; require
       migrations: [
         { package: "@marktiderman/genesis-support", file: "migrations/0010_genesis_support_help_center.sql", test: "migrations/tests/0010_genesis_support_help_center.test.sql" },
         // A question routed elsewhere keeps no answer.
-        { package: "@marktiderman/genesis-support", file: "migrations/0012_genesis_support_help_answers.sql", test: "migrations/tests/0012_genesis_support_help_answers.test.sql" },
+        { package: "@marktiderman/genesis-support", file: "migrations/0017_genesis_support_help_answers.sql", test: "migrations/tests/0017_genesis_support_help_answers.test.sql" },
       ],
       privacy: {
         notes: ["With AI answers on, a question the person chooses to ask and its answer are kept with their account and readable by the tenant's agents, and the question and the tenant's published articles go to the AI vendor. People agree first, unless the app's terms cover it. A question the app's safety protocol routes elsewhere isn't kept."],

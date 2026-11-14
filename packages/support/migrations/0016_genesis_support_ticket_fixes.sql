@@ -1,5 +1,5 @@
 -- @feat:support-feedback
--- Genesis support 0011: fixes to tickets (after 0004_genesis_support_tickets.sql).
+-- Genesis support 0016: fixes to tickets (after 0004_genesis_support_tickets.sql).
 --
 --   1. The Data Studio's records of support rows follow the rename. 0004 renamed
 --      public.support_reports to public.tickets and public.support_attachments to
@@ -20,7 +20,7 @@
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0011_genesis_support_ticket_fixes.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0016_genesis_support_ticket_fixes.test.sql`).
 
 create schema if not exists private;
 
@@ -101,13 +101,15 @@ begin
       from public.tickets t
      where t.tenant_id = resolved
        and t.user_id is distinct from me
-       and t.status not in ('addressed', 'wont_fix')
+       -- Active tickets only, as 0013's queues count them: not pending (waiting on the requester),
+       -- not closed.
+       and t.status not in ('pending', 'addressed', 'wont_fix')
        and (t.staff_read_at is null or coalesce(t.last_user_reply_at > t.staff_read_at, false))
   );
 end;
 $$;
 
 comment on function public.support_agent_unread_count(uuid) is
-  'How many open tickets of a tenant hold a requester''s message no agent has read, for its agents. Genesis support.';
+  'How many active tickets (not pending, not closed) of a tenant hold a requester''s message no agent has read, for its agents. Genesis support.';
 revoke execute on function public.support_agent_unread_count(uuid) from public, anon;
 grant execute on function public.support_agent_unread_count(uuid) to authenticated;

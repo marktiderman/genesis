@@ -1,5 +1,5 @@
 -- @feat:support-helpdesk
--- Genesis support 0012: a question the safety protocol routes elsewhere keeps nothing (after
+-- Genesis support 0017: a question the safety protocol routes elsewhere keeps nothing (after
 -- 0010_genesis_support_help_center.sql).
 --
 -- When a help question ends `safety_routed` or `no_consent`, 0010 dropped the person's words but
@@ -12,7 +12,7 @@
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0012_genesis_support_help_answers.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0017_genesis_support_help_answers.test.sql`).
 
 create or replace function public.support_record_answer(question uuid, outcome text, answer text default null, article_ids uuid[] default '{}')
 returns text

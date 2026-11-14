@@ -247,6 +247,45 @@ Only a tenant's agents get in: `client.agentTickets`, `agentTicket` and `agentTi
 through `support_agent_tickets` and `support_agent_ticket_counts`, which refuse anyone else. An
 agent's own ticket isn't in their queue, since another agent answers it.
 
+**The agent's desk** (migrations `0013_genesis_support_queues.sql` and
+`0014_genesis_support_agent_tools.sql`, which `genesis add support-chat` copies after 0009):
+
+- **Pending.** An agent sets a ticket `pending` when they're waiting on the requester; it goes back
+  to `open` by itself when the requester writes. Mine and Unassigned hold active tickets (not
+  pending, not closed), Pending and Closed are views of their own, and the counts on Mine,
+  Unassigned and All are active tickets only. Each row says who wrote, the status, who has it and,
+  while the requester waits for an answer, for how long (`waitingSince`).
+- **Earlier conversations.** The details panel lists the requester's other tickets in the tenant
+  (`client.agentEarlierTickets`, `support_agent_requester_tickets`), each opening in the inbox,
+  under your own `context` cards.
+- **The composer.** In an internal note `@` mentions a teammate from `agents`; the database records
+  it (`ticket_mentions`, read with `client.agentMentions`) and calls your optional
+  `private.genesis_support_agent_mentioned(report, agent, author, message)` hook, which is where
+  you notify them. `!` inserts a saved reply with `{first_name}`, `{name}` and `{email}` filled
+  (`replyVariables` adds your own), and `?` inserts a help article's title and link
+  (`articleHref`). If someone writes while an agent is writing, Send first says so, with Send
+  anyway and Review.
+- **Saved replies** are a tenant's own, written in `<SupportSavedRepliesAdmin>`
+  (`client.savedReplies`, `saveSavedReply`, `deleteSavedReply`).
+- **Reports.** `<SupportAgentReports>` (`client.agentReport`, `support_agent_report`): opened,
+  closed, median first response and time to close over a range of days, open now, and open by
+  the requester's company when you define `private.genesis_support_requester_label(report)`.
+
+```tsx
+import { SupportAgentReports, SupportSavedRepliesAdmin } from "@marktiderman/genesis-support/web-chat";
+import type { SupportClient } from "@marktiderman/genesis-support";
+
+declare const support: SupportClient;
+declare const workspaceId: string;
+declare const replyId: string | null;
+declare const navigate: (to: string) => void;
+
+export const savedReplies = (
+  <SupportSavedRepliesAdmin client={support} tenantId={workspaceId} replyId={replyId} onReplyChange={(id) => navigate(id ? `/help/replies/${id}` : "/help/replies")} />
+);
+export const reports = <SupportAgentReports client={support} tenantId={workspaceId} />;
+```
+
 Kept in step by the migration: the report's status and the conversation's (open and submitted
 are open, in_progress pending, addressed solved, wont_fix closed; a status set in chat moves the
 report the same way), the report's reply times and read state from messages and
@@ -279,6 +318,11 @@ the app has `ChatDockProvider`, else in a sheet. The dock's windows sit bottom-r
 routes, with `tenantId` and `askAi` given to `createSupport`. Home and the help center open the help
 route with `?q=` or `?collection=`: read them there and pass `initialQuery` and `collectionId`.
 
+Set expectations with `replyExpectation` (your words after "We usually reply") and `officeHours`
+(a time zone and spans of days): the compose screen and an unanswered conversation say how soon
+people hear back or, outside your hours, when someone is back, in the person's own time.
+`officeHoursState(hours, now)` is the same check anywhere.
+
 ```tsx
 import { SupportMessengerLauncher } from "@marktiderman/genesis-support/web-chat";
 import type { SupportClient } from "@marktiderman/genesis-support";
@@ -286,7 +330,14 @@ import type { SupportClient } from "@marktiderman/genesis-support";
 declare const support: SupportClient;
 declare const workspaceId: string;
 
-export const help = <SupportMessengerLauncher client={support} tenantId={workspaceId} />;
+export const help = (
+  <SupportMessengerLauncher
+    client={support}
+    tenantId={workspaceId}
+    replyExpectation="within a few hours"
+    officeHours={{ timeZone: "America/New_York", hours: [{ days: [1, 2, 3, 4, 5], open: "09:00", close: "17:00" }] }}
+  />
+);
 ```
 
 **The help center.** Articles are a tenant's own: collections, drafts, and published articles its

@@ -1,5 +1,5 @@
 -- @feat:support-chat
--- pgTAP test for 0013_genesis_support_agent_queue.sql: the queue as a list a provider pages and
+-- pgTAP test for 0018_genesis_support_agent_queue.sql: the queue as a list a provider pages and
 -- counts, past 50 tickets, for a tenant's agents only. Copy into your app's
 -- `supabase/tests/database/` and run `supabase test db`. Rolls everything back.
 --
@@ -7,7 +7,7 @@
 -- agents of ta; e5 an agent of tb; f6 the app's staff; c9 the admin of ta.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(17);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -72,7 +72,8 @@ insert into public.tenant_features (tenant_id, feature_id, enabled, reason) valu
 on conflict (tenant_id, feature_id) do update set enabled = true;
 
 
--- 60 tickets in ta from a1, every tenth one solved; one in tb.
+-- 60 tickets in ta from a1, every tenth one solved and every one ending in 5 pending (0013's
+-- status: waiting on the requester); one in tb.
 -- A person files at most 20 an hour (0006's limit), so the test files them in three hours.
 select pg_temp.sign_in('a1');
 do $$
@@ -90,6 +91,7 @@ select pg_temp.sign_in('b2');
 insert into public.tickets (type, title, message, tenant_id) values ('question', 'queue tb', 'In tb', pg_temp.tenant('tb'));
 reset role;
 update public.tickets set status = 'addressed' where title ~ '^queue [0-9]*0$';
+update public.tickets set status = 'pending' where title ~ '^queue [0-9]*5$';
 
 select ok(not has_function_privilege('anon', 'public.support_agent_queue(uuid, text)', 'execute'), 'anon cannot read the queue');
 select ok(has_function_privilege('authenticated', 'public.support_agent_queue(uuid, text)', 'execute'), 'a signed-in agent can');
@@ -97,7 +99,22 @@ select ok(has_function_privilege('authenticated', 'public.support_agent_queue(uu
 set local role authenticated;
 select pg_temp.sign_in('c3');
 select is((select count(*)::int from public.support_agent_queue(pg_temp.tenant('ta'), 'all') q where q.title like 'queue %'), 60, 'every ticket, past 50: no limit of its own');
-select is((select count(*)::int from public.support_agent_queue(pg_temp.tenant('ta'), 'unassigned') q where q.title like 'queue %'), 54, 'unassigned holds the open ones');
+select is((select count(*)::int from public.support_agent_queue(pg_temp.tenant('ta'), 'unassigned') q where q.title like 'queue %'), 48, 'unassigned holds the active ones: not pending, not closed');
+select is((select count(*)::int from public.support_agent_queue(pg_temp.tenant('ta'), 'pending') q where q.title like 'queue %'), 6, 'pending holds the tickets waiting on the requester');
+select is((select count(*)::int from public.support_agent_queue(pg_temp.tenant('ta'), 'closed') q where q.title like 'queue %'), 6, 'closed holds the addressed ones');
+select is(
+  (select array_agg(v || ':' || array_to_string(array(select q.id::text from public.support_agent_queue(pg_temp.tenant('ta'), v) q order by q.id), ',') order by v)
+     from unnest(array['all', 'closed', 'mine', 'pending', 'unassigned']) v),
+  (select array_agg(v || ':' || array_to_string(array(select q.id::text from public.support_agent_tickets(pg_temp.tenant('ta'), v, null, null, 200) q order by q.id), ',') order by v)
+     from unnest(array['all', 'closed', 'mine', 'pending', 'unassigned']) v),
+  'each view holds exactly the tickets 0013''s support_agent_tickets puts in it');
+select is(
+  (select count(*)::int from public.support_agent_queue(pg_temp.tenant('ta'), 'all') q
+     join public.support_agent_tickets(pg_temp.tenant('ta'), 'all', null, null, 200) t using (id)
+    where q.waiting_since is not distinct from t.waiting_since),
+  60,
+  'waiting_since is support_agent_tickets'' for every ticket (null for pending and closed ones)');
+select is(public.support_agent_unread_count(pg_temp.tenant('ta')), 48, 'the unread badge counts active tickets only: a pending one waits on the requester');
 select is((select count(*)::int from public.support_agent_queue(pg_temp.tenant('ta'), 'all') q where q.title like 'queue %' and q.status = 'addressed'), 6, 'a status filter over it sees the old tickets too');
 select is((select count(*)::int from (select * from public.support_agent_queue(pg_temp.tenant('ta'), 'all') q where q.title like 'queue %' offset 50 limit 25) p), 10, 'a page past row 50 holds the rest');
 select is(

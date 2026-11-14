@@ -140,6 +140,7 @@ const ticket = (over: Partial<AgentTicket> = {}): AgentTicket => ({
   assigneeId: null,
   activityAt: "2026-11-03T11:00:00Z",
   preview: "Still broken",
+  waitingSince: null,
   ...over,
 });
 
@@ -184,8 +185,8 @@ describe("SupportAgentInbox", () => {
     const { onTicketChange } = show(client);
     expect(await screen.findByText("Export is broken")).toBeTruthy();
     expect(client.agentTickets).toHaveBeenCalledWith(expect.objectContaining({ tenantId: "ta", view: "mine" }));
-    expect(screen.getByText("Open · Nobody")).toBeTruthy();
-    expect(screen.getByText("Open · Sam")).toBeTruthy();
+    expect(screen.getByText("Ada · Open · Nobody")).toBeTruthy();
+    expect(screen.getByText("Ada · Open · Sam")).toBeTruthy();
     fireEvent.click(screen.getByTestId("genesis-support-agent-list-row-t2"));
     expect(onTicketChange).toHaveBeenCalledWith("t2");
   });

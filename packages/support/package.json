@@ -229,8 +229,8 @@
             ]
           },
           {
-            "file": "migrations/0011_genesis_support_ticket_fixes.sql",
-            "test": "migrations/tests/0011_genesis_support_ticket_fixes.test.sql"
+            "file": "migrations/0016_genesis_support_ticket_fixes.sql",
+            "test": "migrations/tests/0016_genesis_support_ticket_fixes.test.sql"
           }
         ],
         "functions": [
@@ -387,8 +387,8 @@
             "test": "migrations/tests/0009_genesis_support_inbox.test.sql"
           },
           {
-            "file": "migrations/0013_genesis_support_agent_queue.sql",
-            "test": "migrations/tests/0013_genesis_support_agent_queue.test.sql"
+            "file": "migrations/0018_genesis_support_agent_queue.sql",
+            "test": "migrations/tests/0018_genesis_support_agent_queue.test.sql"
           }
         ],
         "steps": [
@@ -433,8 +433,8 @@
             "test": "migrations/tests/0010_genesis_support_help_center.test.sql"
           },
           {
-            "file": "migrations/0012_genesis_support_help_answers.sql",
-            "test": "migrations/tests/0012_genesis_support_help_answers.test.sql"
+            "file": "migrations/0017_genesis_support_help_answers.sql",
+            "test": "migrations/tests/0017_genesis_support_help_answers.test.sql"
           }
         ],
         "steps": [

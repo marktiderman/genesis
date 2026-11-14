@@ -1,5 +1,5 @@
 -- @feat:support-feedback
--- pgTAP test for 0011_genesis_support_ticket_fixes.sql: the Data Studio's keys follow the rename,
+-- pgTAP test for 0016_genesis_support_ticket_fixes.sql: the Data Studio's keys follow the rename,
 -- and an agent's unread count. Copy into your app's `supabase/tests/database/` and run
 -- `supabase test db`. Rolls everything back; the app's hooks are replaced inside this transaction.
 --
