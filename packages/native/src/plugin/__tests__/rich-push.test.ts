@@ -220,3 +220,15 @@ describe("the Xcode target", () => {
     for (const s of settingsOf(p, "Svc")) expect(s.DEVELOPMENT_TEAM).toBe("ABCDE12345");
   });
 });
+
+describe("the plugin stays one file", () => {
+  // Apps fingerprint the built plugin as one file (fingerprint.config.js, configPluginSourceType
+  // "files"). A relative import would make tsup split it into a shared chunk-*.js, so changes
+  // elsewhere in genesis-native would change every app's fingerprint and force a store build.
+  it("imports only node: built-ins and expo", () => {
+    const source = readFileSync(path.join(__dirname, "..", "rich-push.ts"), "utf8");
+    const specifiers = [...source.matchAll(/^\s*import\s[^"']*["']([^"']+)["']/gm)].map((m) => m[1]);
+    expect(specifiers.length).toBeGreaterThan(0);
+    for (const spec of specifiers) expect(spec).toMatch(/^(node:|expo\/)/);
+  });
+});
