@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { bytesOf, client, setup, sha256Hex } from "../../server/__tests__/helpers";
 import { createIndexedDbResumeStore, createMemoryResumeStore, createSpeedLimiter, type IdbFactoryLike } from "../config";
 import { fromBlob, fromBytes } from "../sources";
+import type { UploadHandle } from "../uploader";
 import { createWorkerFileHasher, type WorkerLike } from "../worker-hasher";
 
 const waitFor = async (check: () => boolean) => {
@@ -37,20 +38,83 @@ describe("3. cancel stops requests in flight and back-off waits", () => {
       hook: (m, _p, init, forward) =>
         m === "PUT"
           ? new Promise<Response>((_, reject) => {
-              const abort = () => ((sawAbort = true), reject(new DOMException("aborted", "AbortError")));
-              // As fetch does: a signal already aborted rejects at once.
-              if (init.signal?.aborted) return abort();
-              init.signal?.addEventListener("abort", abort, { once: true });
+              const aborted = () => reject(new DOMException("aborted", "AbortError"));
+              // As fetch does: a signal already aborted rejects at once (not an abort of a part in flight).
+              if (init.signal?.aborted) return aborted();
+              init.signal?.addEventListener("abort", () => ((sawAbort = true), aborted()), { once: true });
               partInFlight();
             })
           : forward(),
     });
     const handle = uploader.upload(fromBytes(bytesOf(12)), { name: "a", contentType: "a/b", purpose: "media" });
-    await inFlight;
+    // An upload that ends before any part goes fails here with its own error, not a timeout.
+    await Promise.race([
+      inFlight,
+      handle.done.then((r) => {
+        throw new Error(`The upload ended (${r.state}) before any part was in flight.`);
+      }),
+    ]);
     expect(s.store.sessions.size).toBe(1);
     await handle.cancel();
     await expect(handle.done).rejects.toMatchObject({ code: "cancelled" });
     expect(sawAbort).toBe(true);
+    expect(s.store.sessions.size).toBe(0);
+  });
+
+  it("a cancel after the session is made and before any part sends no part and removes the session", async () => {
+    const s = setup();
+    let handle!: UploadHandle;
+    const { uploader, log } = client(s, {
+      hook: async (m, _p, _i, forward) => {
+        if (m !== "POST") return forward();
+        const res = await forward();
+        expect(s.store.sessions.size).toBe(1);
+        await handle.cancel();
+        return res;
+      },
+    });
+    handle = uploader.upload(fromBytes(bytesOf(12)), { name: "a", contentType: "a/b", purpose: "media" });
+    await expect(handle.done).rejects.toMatchObject({ code: "cancelled" });
+    expect(log.filter((l) => l.startsWith("PUT"))).toEqual([]);
+    expect(s.store.sessions.size).toBe(0);
+  });
+
+  it("a cancel with the create in flight removes the session the server made", async () => {
+    const s = setup();
+    let handle!: UploadHandle;
+    const { uploader, log } = client(s, {
+      hook: async (m, _p, _i, forward) => {
+        if (m !== "POST") return forward();
+        // The server makes the session, then the abort reaches the client before its answer does.
+        await forward();
+        expect(s.store.sessions.size).toBe(1);
+        await handle.cancel();
+        throw new DOMException("aborted", "AbortError");
+      },
+    });
+    handle = uploader.upload(fromBytes(bytesOf(12)), { name: "a", contentType: "a/b", purpose: "media" });
+    await expect(handle.done).rejects.toMatchObject({ code: "cancelled" });
+    expect(log.some((l) => l.startsWith("DELETE /"))).toBe(true);
+    expect(log.filter((l) => l.startsWith("PUT"))).toEqual([]);
+    expect(s.store.sessions.size).toBe(0);
+  });
+
+  it("a cancel that reaches the server before the create still removes the session", async () => {
+    // cancel()'s own DELETE can overtake the create (it finds nothing); the upload deletes the id once the create is aborted.
+    const s = setup();
+    let handle!: UploadHandle;
+    const { uploader } = client(s, {
+      hook: async (m, _p, _i, forward) => {
+        if (m !== "POST") return forward();
+        await handle.cancel();
+        expect(s.store.sessions.size).toBe(0);
+        await forward();
+        expect(s.store.sessions.size).toBe(1);
+        throw new DOMException("aborted", "AbortError");
+      },
+    });
+    handle = uploader.upload(fromBytes(bytesOf(12)), { name: "a", contentType: "a/b", purpose: "media" });
+    await expect(handle.done).rejects.toMatchObject({ code: "cancelled" });
     expect(s.store.sessions.size).toBe(0);
   });
 

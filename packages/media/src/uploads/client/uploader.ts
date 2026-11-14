@@ -405,15 +405,30 @@ export function createUploader(options: UploaderOptions) {
       }
       if (!status) {
         // The id is chosen here, so a create retried after a lost answer finds the session the first try made.
-        const r = await call(
-          "POST",
-          "",
-          {
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ name: o.name, contentType: o.contentType, size: source.size, purpose: o.purpose, uploadId: newUploadId(), ...(sha256 ? { sha256 } : {}), ...(o.targets ? { targets: o.targets } : {}) }),
-          },
-          signal,
-        );
+        const uploadId = newUploadId();
+        // Known before the create goes, so a cancel while it is in flight can remove the session the
+        // server may already have made (cancel() deletes `run.id`).
+        run.id = uploadId;
+        let r: Awaited<ReturnType<typeof call>>;
+        try {
+          r = await call(
+            "POST",
+            "",
+            {
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ name: o.name, contentType: o.contentType, size: source.size, purpose: o.purpose, uploadId, ...(sha256 ? { sha256 } : {}), ...(o.targets ? { targets: o.targets } : {}) }),
+            },
+            signal,
+          );
+        } catch (e) {
+          // Cancelled with the create in flight: the server may have made the session before the
+          // abort reached it. Remove it (a 404 when it never was).
+          if (signal.aborted || (e instanceof UploadClientError && e.code === "cancelled")) {
+            await call("DELETE", `/${uploadId}`).catch(() => {});
+            throw cancelledError();
+          }
+          throw e;
+        }
         if (r.status === 200 && (r.body as UploadSkipped).state === "skipped") {
           const skipped = r.body as UploadSkipped;
           progress({ phase: "sending", bytesDone: source.size, size: source.size });
