@@ -1,0 +1,19 @@
+packages/native/src/plugin/__tests__/rich-push.test.ts
+  s_a2e5357843c63e::t_2ba41af5c08b53 223-234
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "84018f6804c73eab8707482250545324b4593733",
+  "prompts": {},
+  "sessions": {
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
