@@ -93,7 +93,7 @@ export function FieldArrayRenderer({
         onClick={handleAdd}
       >
         <PlusIcon className="h-4 w-4 mr-1" />
-        {fieldArrayAddLabel(label)}
+        {fieldArrayAddLabel(label, field.arrayItemLabel)}
       </Button>
 
       <FormError id={`${field.key}-error`}>

@@ -13,7 +13,7 @@
  */
 import { useCallback, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { canStepNumber, clampNumber, parseNumberInput, stepNumber } from "@marktiderman/genesis-core/headless";
+import { canStepNumber, clampNumber, readNumberDraft, stepNumber } from "@marktiderman/genesis-core/headless";
 import { cn } from "../utils";
 
 export interface NativeNumberInputProps {
@@ -25,6 +25,11 @@ export interface NativeNumberInputProps {
   step?: number;
   /** Decimal places shown. Default 0 (integer). */
   precision?: number;
+  /**
+   * The locale whose marks typed numbers use ("de-DE" reads "1.234,5"). Default: worked out from
+   * the text ("1,234" is 1234, "1,5" is 1.5), genesis-core's `parseNumberInput`, as on the web.
+   */
+  locale?: string;
   /** Disable both stepper buttons and the input. */
   disabled?: boolean;
   /** Disable just the typed input; keep stepper. */
@@ -41,6 +46,7 @@ export function NativeNumberInput({
   max,
   step = 1,
   precision = 0,
+  locale,
   disabled,
   readOnlyInput,
   className,
@@ -55,9 +61,16 @@ export function NativeNumberInput({
     [max, min, onChange]
   );
 
-  // What's typed, while it isn't a number yet ("", "-", "1."): the field shows it and the value
-  // stays; leaving the field puts the value's own text back, so the two never disagree (as on the web).
+  // What's typed: the field shows it, and a number inside the range is passed on as it is typed.
+  // Leaving the field clamps what's typed and shows the value again, so typing "1" on the way to
+  // "15" with min 10 never sends 10, and "", "-" or "1." never replace the value (as on the web).
   const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    const { value: typed } = readNumberDraft(draft, { min, max, locale });
+    setDraft(null);
+    if (typed !== null && clampNumber(typed, min, max) !== value) setValue(typed);
+  };
 
   const decBlocked = disabled || !canStepNumber(value, -1, { min, max });
   const incBlocked = disabled || !canStepNumber(value, 1, { min, max });
@@ -96,10 +109,11 @@ export function NativeNumberInput({
         accessibilityLabel="Numeric value"
         onChangeText={(t) => {
           setDraft(t);
-          const parsed = parseNumberInput(t);
-          if (parsed !== null) setValue(parsed);
+          const typed = readNumberDraft(t, { min, max, locale });
+          if (typed.inRange && typed.value !== null && typed.value !== value) onChange(typed.value);
         }}
-        onBlur={() => setDraft(null)}
+        onBlur={commit}
+        onSubmitEditing={commit}
         className={cn(
           "min-w-[64px] flex-1 border-x border-input bg-background text-center text-base text-foreground",
           inputClassName

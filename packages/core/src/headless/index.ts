@@ -10,12 +10,13 @@ export {
   stepNumber,
   canStepNumber,
   parseNumberInput,
+  readNumberDraft,
   clampRange,
-  rangeRatio,
   type NumberStepOptions,
+  type ParseNumberOptions,
 } from "./number";
-export { foldText, matchesQuery, filterOptions, type ComboboxOption } from "./text";
-export { moveItem, moveTarget, dropIndex, movedAnnouncement } from "./reorder";
+export { matchesQuery, filterOptions, type ComboboxOption } from "./text";
+export { moveItem, dropIndex, movedAnnouncement } from "./reorder";
 export {
   parseTimeOfDay,
   timeToValue,
@@ -30,7 +31,6 @@ export {
   chartTokenOf,
   defaultChartToken,
   chartDomain,
-  niceTicks,
   chartPosition,
   chartSummary,
   type ChartScheme,
@@ -38,7 +38,7 @@ export {
 } from "./chart";
 export {
   OTP_PATTERN_DIGITS,
-  OTP_PATTERN_DIGITS_AND_CHARS,
+  stripOtpSeparators,
   sanitizeOtp,
   otpSlots,
   otpComplete,
@@ -51,7 +51,6 @@ export {
   wizardProgressLabel,
   DEFAULT_MAX_FILE_SIZE,
   formatFileSize,
-  fileAccepted,
   fileProblem,
   fieldAccept,
   type PickedFileInfo,
@@ -61,12 +60,14 @@ export {
   STATUS_BADGE_TONES,
   statusBadgeLabel,
   stepState,
+  NOTIFICATION_DAY_BUCKETS,
   notificationDayBucket,
   groupNotificationsByDay,
   customViewStatus,
   type StatusBadgeStatus,
   type StepState,
   type NotificationDayBucket,
+  type NotificationClock,
   type CustomViewStatus,
 } from "./display";
 export { carouselIndex, carouselOffset } from "./carousel";

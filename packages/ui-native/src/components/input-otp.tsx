@@ -7,8 +7,10 @@
  * is all but invisible (transparent text, no caret, 1% opacity) rather than at 0 opacity, which
  * iOS drops from VoiceOver; it is the one labelled element, and a screen reader reads its text.
  * The characters it keeps and the caret's box come from genesis-core's `sanitizeOtp` and
- * `otpSlots`, as on the web. The field has no native length cap: `sanitizeOtp` keeps the first
- * `maxLength` characters after it strips spaces and dashes, so a pasted "123-456" stays whole.
+ * `otpSlots`. The field has no native length cap: `sanitizeOtp` keeps the first `maxLength`
+ * characters after it strips spaces and dashes, so a pasted "123-456" stays whole. `pattern` is
+ * tested against the whole code, as the web's InputOTP (input-otp) tests it: a change the pattern
+ * refuses ("12a" in a digits field) leaves the code as it was, on both.
  *
  * @stability Beta
  */
@@ -24,7 +26,11 @@ export interface NativeInputOTPProps {
   onChange: (value: string) => void;
   /** Called once every box is filled. */
   onComplete?: (value: string) => void;
-  /** Which characters a box takes, as a RegExp source. Default digits (`OTP_PATTERN_DIGITS`). */
+  /**
+   * What the code may hold, as a RegExp source tested against the whole code typed so far (as
+   * input-otp's `pattern`). Default digits (`OTP_PATTERN_DIGITS`, the same as input-otp's
+   * `REGEXP_ONLY_DIGITS`). Match a partial code too: "^[A-Z0-9]+$", not "^[A-Z0-9]{8}$".
+   */
   pattern?: string;
   /** Draws a separator after these box indexes ([2] for 123-456). */
   separatorAfter?: number[];
@@ -62,6 +68,8 @@ export function NativeInputOTP({
 
   const change = (text: string) => {
     const next = sanitizeOtp(text, maxLength, pattern);
+    // Refused by the pattern: the field is controlled, so it keeps the code it had.
+    if (next === null) return;
     onChange(next);
     if (otpComplete(next, maxLength) && !otpComplete(value, maxLength)) onComplete?.(next);
   };

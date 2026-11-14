@@ -64,4 +64,32 @@ describe("NativeNumberInput", () => {
     fireEvent.change(field, { target: { value: "-2" } });
     expect(onChange).toHaveBeenLastCalledWith(-2);
   });
+
+  it("passes on a typed number only while it is in range, and clamps when the field is left", () => {
+    const onChange = vi.fn();
+    render(<NativeNumberInput testID="qty" value={12} onChange={onChange} min={10} max={20} />);
+    const field = screen.getByTestId("qty-field") as HTMLInputElement;
+    // "1" on the way to "15": below min, so nothing is sent yet.
+    fireEvent.change(field, { target: { value: "1" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(field, { target: { value: "15" } });
+    expect(onChange).toHaveBeenLastCalledWith(15);
+    // Out of range, then left: clamped once, on blur.
+    onChange.mockClear();
+    fireEvent.change(field, { target: { value: "99" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(field);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith(20);
+  });
+
+  it("reads a thousands comma as a group, or the locale's own marks", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<NativeNumberInput testID="qty" value={0} onChange={onChange} />);
+    fireEvent.change(screen.getByTestId("qty-field"), { target: { value: "1,234" } });
+    expect(onChange).toHaveBeenLastCalledWith(1234);
+    rerender(<NativeNumberInput testID="qty" value={0} onChange={onChange} locale="de-DE" />);
+    fireEvent.change(screen.getByTestId("qty-field"), { target: { value: "1.234" } });
+    expect(onChange).toHaveBeenLastCalledWith(1234);
+  });
 });

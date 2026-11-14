@@ -31,10 +31,12 @@ const TINT: Record<InlineAlertVariant, string> = {
   warning: "border-warning/30 bg-warning/10 text-foreground",
   destructive: "border-destructive/30 bg-destructive/10 text-foreground",
 };
+// A warning's title is the foreground token: the warning token is an amber that reads at about
+// 2:1 on the tint, under the 4.5:1 text needs, so the tint and border carry the warning instead.
 const TITLE: Record<InlineAlertVariant, string> = {
   info: "text-foreground",
   success: "text-primary-text",
-  warning: "text-amber-800 dark:text-amber-200",
+  warning: "text-foreground",
   destructive: "text-destructive",
 };
 

@@ -65,13 +65,23 @@ describe("NativeInputOTP", () => {
     const [v, setV] = useState("");
     return <NativeInputOTP maxLength={4} value={v} onChange={setV} onComplete={onComplete} />;
   }
-  it("keeps digits only, fills the boxes and completes once", () => {
+  it("fills the boxes and completes once", () => {
     const done = vi.fn();
     render(<Otp onComplete={done} />);
-    fireEvent.change(screen.getByTestId("native-input-otp-input"), { target: { value: "1a2 34" } });
+    fireEvent.change(screen.getByTestId("native-input-otp-input"), { target: { value: "12 34" } });
     expect(screen.getByTestId("native-input-otp-slot-3").textContent).toBe("4");
     expect(done).toHaveBeenCalledWith("1234");
     expect(screen.getByTestId("native-input-otp-input").getAttribute("aria-label")).toBe("One-time code");
+  });
+  it("tests the pattern against the whole code, as the web's input-otp does: a refused change keeps the code", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<NativeInputOTP maxLength={4} value="12" onChange={onChange} />);
+    fireEvent.change(screen.getByTestId("native-input-otp-input"), { target: { value: "12a" } });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByTestId("native-input-otp-slot-1").textContent).toBe("2");
+    rerender(<NativeInputOTP maxLength={4} value="" onChange={onChange} pattern="^[A-Z0-9]+$" />);
+    fireEvent.change(screen.getByTestId("native-input-otp-input"), { target: { value: "AB1" } });
+    expect(onChange).toHaveBeenLastCalledWith("AB1");
   });
   it.each(["123-456", "123 456", " 12 34 56 "])("keeps a pasted or autofilled %j whole: no native cap cuts it first", (pasted) => {
     const done = vi.fn();

@@ -1,7 +1,8 @@
 import * as React from "react";
 import { Bell } from "lucide-react";
-import { groupNotificationsByDay } from "@marktiderman/genesis-core/headless";
+import { groupNotificationsByDay, type NotificationDayBucket } from "@marktiderman/genesis-core/headless";
 import { cn } from "../../utils";
+import { useHydrated } from "../../hooks/use-mobile";
 import { EmptyState } from "../patterns/empty-state";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
@@ -35,15 +36,22 @@ export interface NotificationsPageProps {
   emptyTitle?: string | undefined;
   emptyBody?: string | undefined;
   /** The day headings' words, by bucket. */
-  dayLabels?: Partial<Record<"Today" | "Yesterday" | "Earlier", string>> | undefined;
-  /** The clock the day headings count from. Default now. */
+  dayLabels?: Partial<Record<NotificationDayBucket, string>> | undefined;
+  /** The moment the day headings count from. Default now, read in the browser. */
   now?: Date | undefined;
+  /**
+   * The zone whose days the headings count (an IANA name). Default the browser's. Pass it with
+   * `now` to group on the server too; without both, the server renders the list without headings
+   * and the browser adds them once it has hydrated, so the server's clock and zone never decide
+   * which day a notification is on.
+   */
+  timeZone?: string | undefined;
   className?: string | undefined;
   testID?: string | undefined;
 }
 
 /**
- * NotificationsPage — a person's notifications under day headings (Today, Yesterday, Earlier),
+ * NotificationsPage — a person's notifications under day headings (Upcoming, Today, Yesterday, Earlier),
  * unread ones marked, with Mark all read: the twin of genesis-ui-native's NotificationsPage, with
  * the same `items`, `onMarkAllRead` and empty words. The day groups are genesis-core's
  * (`groupNotificationsByDay`), so both platforms put a notification under the same heading.
@@ -64,10 +72,18 @@ export function NotificationsPage({
   emptyBody = "When something needs your attention, it'll show up here.",
   dayLabels = {},
   now,
+  timeZone,
   className,
   testID = "notifications-page",
 }: NotificationsPageProps) {
-  const groups = groupNotificationsByDay(items, now);
+  const hydrated = useHydrated();
+  // The days are the viewer's: grouped once the browser's clock is known, or from the clock given.
+  const grouped = hydrated || (now !== undefined && timeZone !== undefined);
+  const groups: { title: NotificationDayBucket | null; data: NotificationItem[] }[] = grouped
+    ? groupNotificationsByDay(items, { now, timeZone })
+    : items.length > 0
+      ? [{ title: null, data: [...items] }]
+      : [];
   const hasUnread = items.some((i) => i.unread);
   return (
     <div data-slot="notifications-page" data-testid={testID} className={cn("flex flex-col gap-6", className)}>
@@ -89,10 +105,12 @@ export function NotificationsPage({
         (emptyState ?? <EmptyState icon={Bell} title={emptyTitle} description={emptyBody} />)
       ) : (
         groups.map((group) => (
-          <section key={group.title} aria-labelledby={`${testID}-${group.title}`} className="flex flex-col gap-1">
-            <h2 id={`${testID}-${group.title}`} className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {dayLabels[group.title] ?? group.title}
-            </h2>
+          <section key={group.title ?? "all"} aria-labelledby={group.title ? `${testID}-${group.title}` : undefined} className="flex flex-col gap-1">
+            {group.title ? (
+              <h2 id={`${testID}-${group.title}`} className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {dayLabels[group.title] ?? group.title}
+              </h2>
+            ) : null}
             <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
               {group.data.map((item) => {
                 const inner = (

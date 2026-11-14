@@ -50,7 +50,7 @@ export function WizardForm({
   // Get fields for the current step
   // The step's visible fields and the progress words are genesis-core's, as NativeWizardForm's.
   const stepFields = wizardStepFields(fields, wizard.currentStepDef.fields, watchedValues);
-  const progress = wizardProgressLabel(wizard.currentStep, wizard.totalSteps);
+  const progress = wizardProgressLabel(wizard);
 
   const handleNext = async () => {
     if (wizard.isLast) {

@@ -373,10 +373,10 @@ The web side of components genesis-ui-native had first, with the native twin's p
 behaviour from genesis-core's `@marktiderman/genesis-core/headless`:
 
 - `Banner` and `InlineAlert` (NativeBanner, NativeInlineAlert): the Alert, tinted, with dismiss and actions.
-- `ChoiceCard` (NativeChoiceCard): an option card that is a radio, or with `multiple` a checkbox.
-- `ChipGroup` with `ChipGroupItem` (NativeChipGroup): the toggle Chip, single or multiple.
+- `ChoiceCard` (NativeChoiceCard): an option card. One of several is the RadioGroup's item, so the cards go in a `RadioGroup` (one tab stop, arrow keys); with `multiple` it is a checkbox.
+- `ChipGroup` with `ChipGroupItem` (NativeChipGroup): the toggle Chip on Radix's ToggleGroup, `multiple` (the default) or `single`.
 - `Combobox` (NativeCombobox): Command in a Popover, searched with genesis-core's `filterOptions`.
-- `NumberInput` (NativeNumberInput): a spinbutton with − and + on the InputGroup.
+- `NumberInput` (NativeNumberInput): a spinbutton with − and + on the InputGroup. A typed number is passed on while it is in range and clamped when the field is left; it takes a ref, `name` and `onBlur` for a form.
 - `RangeSlider` (NativeRangeSlider): the Slider with two thumbs (the Slider draws a thumb per value).
 - `Stepper` (NativeStepper), `TimePicker` (NativeTimePicker), `WhatsNewSheet` (NativeWhatsNewSheet, a dialog that rises as a sheet on a phone-width screen) and `NotificationsPage` (the phone's NotificationsPage).
 
@@ -397,6 +397,33 @@ export function ClassForm() {
   );
 }
 ```
+
+### A time of day: TimePicker
+
+`TimePicker` replaces a browser's `<Input type="time">` (the doctor's `times-use-time-picker`
+rule points there). Its `value` is what the field holds: an `"HH:MM"` string for a time of day
+alone (an opening hour, a class's start), the same value `<input type="time">` gives, or a `Date`
+when the time belongs to a day, which keeps its day. `onChange` gives back the same kind. A typed
+time ("2:30 pm", "1430") is listed first and highlighted, so Enter picks it; the arrow keys move
+the highlight, and Enter always picks what is highlighted. 12- or 24-hour follows the viewer's
+locale once the page has hydrated; pass `hour12` to fix it from the first paint.
+
+```tsx
+import { useState } from "react";
+import { TimePicker } from "@marktiderman/genesis-ui";
+
+export function OpeningHour() {
+  const [opens, setOpens] = useState("09:00");
+  return <TimePicker aria-label="Opens" value={opens} onChange={setOpens} minuteStep={30} />;
+}
+```
+
+### Combobox or FilterCombobox
+
+`Combobox` picks one value from a list and shows it on its trigger: a form field. The data
+layer's `FilterCombobox` is a filter bar's control: it picks any number of values, each with a
+count, and its trigger says how many are on. Neither is a subset of the other, so both stay; both
+are Command in a Popover.
 
 ## Read next
 

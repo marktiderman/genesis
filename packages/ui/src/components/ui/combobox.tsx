@@ -41,6 +41,9 @@ export interface ComboboxProps<T extends string | number = string> {
  *
  * The search is genesis-core's (`filterOptions`), so the web and the phone find the same options.
  *
+ * It is a form field that picks one value. A filter bar that picks several, with counts, is the
+ * data layer's `FilterCombobox`.
+ *
  * @stability Beta
  */
 export function Combobox<T extends string | number = string>({

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ChoiceCard } from "@marktiderman/genesis-ui";
+import { ChoiceCard, RadioGroup } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof ChoiceCard> = { title: "Foundation/UI/ChoiceCard", component: ChoiceCard };
 export default meta;
@@ -15,11 +15,11 @@ export const OneOfSeveral: Story = {
   render: () => {
     const [plan, setPlan] = useState("monthly");
     return (
-      <div role="radiogroup" aria-label="Plan" className="flex w-96 flex-col gap-2">
+      <RadioGroup aria-label="Plan" value={plan} onValueChange={setPlan} className="flex w-96 flex-col gap-2">
         {plans.map((p) => (
-          <ChoiceCard key={p.id} title={p.title} description={p.description} selected={plan === p.id} onSelectedChange={() => setPlan(p.id)} />
+          <ChoiceCard key={p.id} value={p.id} title={p.title} description={p.description} />
         ))}
-      </div>
+      </RadioGroup>
     );
   },
 };

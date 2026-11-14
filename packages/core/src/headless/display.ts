@@ -1,6 +1,9 @@
 // Small display rules several twins share: a stat's trend line, a status badge's tone, a
 // stepper's step states, the notification list's day groups and a custom view's state.
 
+import { addDays, dayIn, type Day } from "../dates";
+import { dayOfDate } from "./calendar";
+
 /** A stat's change: "+12% vs last week", and whether it went up. */
 export function formatTrend(trend: { value: number; label: string }): { text: string; positive: boolean } {
   const positive = trend.value >= 0;
@@ -34,38 +37,62 @@ export function stepState(index: number, current: number): StepState {
   return index < current ? "complete" : index === current ? "current" : "upcoming";
 }
 
-/** The day a notification falls on, from the person's clock: today, yesterday or earlier. */
-export type NotificationDayBucket = "Today" | "Yesterday" | "Earlier";
+/**
+ * The day group a notification goes under: "Upcoming" for a later day (scheduled, or a clock
+ * that runs ahead), then "Today", "Yesterday" and "Earlier".
+ */
+export type NotificationDayBucket = "Upcoming" | "Today" | "Yesterday" | "Earlier";
 
-/** Which day group `timestamp` belongs to, counted on the device's clock. */
-export function notificationDayBucket(timestamp: string | Date, now: Date = new Date()): NotificationDayBucket {
-  const d = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
-  const startOfDay = (date: Date) => {
-    const x = new Date(date);
-    x.setHours(0, 0, 0, 0);
-    return x.getTime();
-  };
-  const today = startOfDay(now);
-  const day = startOfDay(d);
+/** The day groups in the order a list shows them. */
+export const NOTIFICATION_DAY_BUCKETS: readonly NotificationDayBucket[] = ["Upcoming", "Today", "Yesterday", "Earlier"];
+
+export interface NotificationClock {
+  /** The moment the groups count from. Default now. */
+  now?: Date | undefined;
+  /**
+   * The zone whose days are counted (an IANA name, "Europe/Paris"). Default the device's. A
+   * server rendering the list passes the person's zone, or its days won't be theirs.
+   */
+  timeZone?: string | undefined;
+}
+
+function dayAt(at: Date, timeZone: string | undefined): Day {
+  return timeZone ? dayIn(timeZone, at) : dayOfDate(at);
+}
+
+/** Which day group `timestamp` belongs to, counted in calendar days on `timeZone`'s clock. */
+export function notificationDayBucket(timestamp: string | Date, clock: NotificationClock = {}): NotificationDayBucket {
+  const at = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
+  // A timestamp that isn't one has no day: it goes last rather than under a wrong heading.
+  if (Number.isNaN(at.getTime())) return "Earlier";
+  const today = dayAt(clock.now ?? new Date(), clock.timeZone);
+  const day = dayAt(at, clock.timeZone);
+  if (day > today) return "Upcoming";
   if (day === today) return "Today";
-  if (day === startOfDay(new Date(today - 12 * 60 * 60 * 1000))) return "Yesterday";
+  if (day === addDays(today, -1)) return "Yesterday";
   return "Earlier";
 }
 
 /**
- * Notifications under day headings (Today, Yesterday, Earlier), in that order, each keeping the
- * order given. Empty groups are left out.
+ * Notifications under day headings (Upcoming, Today, Yesterday, Earlier), in that order, each
+ * keeping the order given. Empty groups are left out.
  */
 export function groupNotificationsByDay<N extends { timestamp: string | Date }>(
   items: readonly N[],
-  now: Date = new Date(),
+  clock: NotificationClock = {},
 ): { title: NotificationDayBucket; data: N[] }[] {
+  const now = clock.now ?? new Date();
   const map = new Map<NotificationDayBucket, N[]>();
   for (const item of items) {
-    const bucket = notificationDayBucket(item.timestamp, now);
-    map.set(bucket, [...(map.get(bucket) ?? []), item]);
+    const bucket = notificationDayBucket(item.timestamp, { now, timeZone: clock.timeZone });
+    const group = map.get(bucket);
+    if (group) group.push(item);
+    else map.set(bucket, [item]);
   }
-  return (["Today", "Yesterday", "Earlier"] as const).filter((t) => map.has(t)).map((title) => ({ title, data: map.get(title)! }));
+  return NOTIFICATION_DAY_BUCKETS.flatMap((title) => {
+    const data = map.get(title);
+    return data ? [{ title, data }] : [];
+  });
 }
 
 /** Where a custom view is: the states Genesis draws, then `ready` for the app's own. */

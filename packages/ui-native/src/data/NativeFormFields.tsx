@@ -84,7 +84,7 @@ export function NativeFieldArrayRenderer({ field, control, action, watchedValues
         </NativeCard>
       ))}
       <NativeButton variant="outline" size="sm" disabled={!canAdd} onPress={() => append(buildArrayItemDefaults(subFields))} testID={`field-array-${field.key}-add`} className="self-start">
-        {labels.add ?? fieldArrayAddLabel(label)}
+        {labels.add ?? fieldArrayAddLabel(label, field.arrayItemLabel)}
       </NativeButton>
     </View>
   );
@@ -270,7 +270,7 @@ export function NativeWizardForm({ steps, form, fields, onSubmit, isSaving, acti
   const wizard = useWizard(steps, form);
   const watched = useWatch({ control: form.control }) as Record<string, unknown>;
   const stepFields = wizardStepFields(fields, wizard.currentStepDef.fields, watched);
-  const progress = wizardProgressLabel(wizard.currentStep, wizard.totalSteps);
+  const progress = wizardProgressLabel(wizard);
   const next = async () => {
     if (wizard.isLast) await form.handleSubmit(onSubmit, onInvalid)();
     else await wizard.next();

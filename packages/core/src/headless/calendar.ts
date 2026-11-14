@@ -1,7 +1,7 @@
 // A month grid picker's days, on genesis-core's calendar days (`Day`, "2026-06-03"): the phone's
 // NativeCalendar draws these weeks, and they are the same weeks a view's calendar mode lays out.
 
-import { addDays, eachDay, monthGridRange, startOfMonth, type Day } from "../dates";
+import { addDays, eachDay, monthGridRange, startOfMonth, startOfWeek, type Day } from "../dates";
 
 /** A Date's calendar day on the device's clock (a picker's dates are the person's own days). */
 export function dayOfDate(date: Date): Day {
@@ -14,8 +14,12 @@ export function dateOfDay(day: Day): Date {
   return new Date(y, m - 1, d);
 }
 
-/** The weeks a month's grid shows (whole weeks, from `weekStartsOn`, 0 Sunday to 6 Saturday). */
-export function monthWeeks(month: Day, weekStartsOn = 0): Day[][] {
+/**
+ * The weeks a month's grid shows: whole weeks, from `weekStartsOn` (0 Sunday to 6 Saturday;
+ * default 1, Monday, as genesis-core's `startOfWeek` and `monthGridRange`). Any other
+ * `weekStartsOn` throws a RangeError, as `weekdayDays` does.
+ */
+export function monthWeeks(month: Day, weekStartsOn = 1): Day[][] {
   const days = eachDay(monthGridRange(startOfMonth(month), weekStartsOn));
   const weeks: Day[][] = [];
   for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
@@ -35,8 +39,12 @@ export function pickRangeDay(range: { from?: Day | undefined; to?: Day | undefin
   return day < range.from ? { from: day, to: range.from } : { from: range.from, to: day };
 }
 
-/** The seven weekday dates of a week starting `weekStartsOn`, for the grid's header. */
-export function weekdayDays(weekStartsOn = 0): Day[] {
-  // 2023-01-01 was a Sunday.
-  return Array.from({ length: 7 }, (_, i) => addDays("2023-01-01", (weekStartsOn + i) % 7));
+/**
+ * The seven weekday dates of a week starting `weekStartsOn`, for the grid's header: the same
+ * default (1, Monday) and the same RangeError outside 0 to 6 as `monthWeeks`.
+ */
+export function weekdayDays(weekStartsOn = 1): Day[] {
+  // 2023-01-01 was a Sunday; startOfWeek checks weekStartsOn.
+  const start = startOfWeek("2023-01-07", weekStartsOn);
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
 }

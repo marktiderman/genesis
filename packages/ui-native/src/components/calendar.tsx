@@ -31,7 +31,10 @@ interface BaseProps {
   onMonthChange?: (month: Date) => void;
   /** Days that can't be picked. */
   disabled?: (date: Date) => boolean;
-  /** 0 Sunday to 6 Saturday. Default 0. */
+  /**
+   * 0 Sunday to 6 Saturday. Default 0, as the web's Calendar (react-day-picker) draws an en-US
+   * month; genesis-core's own default is 1, so it is passed to `monthWeeks` and `weekdayDays`.
+   */
   weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   /** Draw the days of the months before and after. Default true. */
   showOutsideDays?: boolean;

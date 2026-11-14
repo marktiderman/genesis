@@ -652,11 +652,11 @@
             "**/*.jsx"
           ],
           "forbid": {
-            "pattern": "<(?:Input|input)\\b(?:[^>t]|t(?!ype\\s*=))*type\\s*=\\s*(?:\\{\\s*)?[\"']time[\"']"
+            "pattern": "<(?:Input|input)\\b(?:[^>{t]|t(?!ype\\s*=)|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*type\\s*=\\s*(?:\\{\\s*)?[\"']time[\"']"
           },
-          "use": "TimePicker (value: Date, onChange), the twin of the phone's NativeTimePicker",
+          "use": "TimePicker (value: an \"HH:MM\" string or a Date, onChange), the twin of the phone's NativeTimePicker",
           "import": "@marktiderman/genesis-ui",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DESIGN-LIBRARY.md",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md#a-time-of-day-timepicker",
           "why": "A browser's time input looks and types differently in every browser and can't list the times a class runs at; TimePicker reads typed times (\"2:30 pm\", \"1430\") with genesis-core's parseTimeOfDay, as the phone does, and keeps the day."
         }
       ],

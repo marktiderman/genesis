@@ -97,8 +97,8 @@ export { VisuallyHidden, type VisuallyHiddenProps } from "./components/ui/visual
 export { AccessibleIcon, type AccessibleIconProps } from "./components/ui/accessible-icon";
 // Twins of genesis-ui-native components (ui-parity.json): the same props on the web.
 export { Banner, InlineAlert, type BannerProps, type InlineAlertProps, type InlineAlertVariant } from "./components/ui/inline-alert";
-export { ChoiceCard, type ChoiceCardProps } from "./components/ui/choice-card";
-export { ChipGroup, ChipGroupItem, type ChipGroupProps, type ChipGroupItemProps, type ChipGroupMode } from "./components/resource/chip-group";
+export { ChoiceCard, type ChoiceCardProps, type ChoiceCardRadioProps, type ChoiceCardCheckboxProps } from "./components/ui/choice-card";
+export { ChipGroup, ChipGroupItem, type ChipGroupProps, type ChipGroupSingleProps, type ChipGroupMultipleProps, type ChipGroupItemProps, type ChipGroupMode } from "./components/resource/chip-group";
 export { Combobox, type ComboboxProps, type ComboboxOption } from "./components/ui/combobox";
 export { NumberInput, type NumberInputProps } from "./components/ui/number-input";
 export { RangeSlider, type RangeSliderProps } from "./components/ui/range-slider";

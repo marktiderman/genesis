@@ -2,7 +2,7 @@
  * NotificationsPage — feed-style notifications list.
  *
  * Composes:
- *   - SectionList grouped by relative date (Today / Yesterday / Earlier)
+ *   - SectionList grouped by relative date (Upcoming / Today / Yesterday / Earlier)
  *   - Pull-to-refresh
  *   - Empty state slot (auto-rendered when `items` is empty)
  *   - Mark-all-read action surfaced via `headerRight` helper
@@ -156,7 +156,7 @@ export function getNotificationsPageStackOptions(props: {
 }
 
 // The day groups are genesis-core's, as the web's NotificationsPage draws them.
-const bucketFor = notificationDayBucket;
+const bucketFor = (ts: string | Date, now: Date = new Date()) => notificationDayBucket(ts, { now });
 
 interface Section {
   title: string;
@@ -164,7 +164,7 @@ interface Section {
 }
 
 function groupByDate(items: NotificationItem[], now = new Date()): Section[] {
-  return groupNotificationsByDay(items, now);
+  return groupNotificationsByDay(items, { now });
 }
 
 type FlatRow = { kind: "header"; title: string } | { kind: "item"; item: NotificationItem; last: boolean };

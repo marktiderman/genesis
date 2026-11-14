@@ -2,9 +2,17 @@
 // Every word typed must appear, ignoring case and accents ("cafe" finds "Café"), so the web's
 // Combobox and the phone's NativeCombobox find the same options.
 
-/** Text with its accents taken off and in lower case, for comparing what was typed. */
-export function foldText(text: string): string {
-  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+/**
+ * Text with the accents of Latin letters taken off and in lower case, for comparing what was
+ * typed ("Café" is "cafe"). Only marks on a Latin letter go: in other scripts a mark changes the
+ * letter (Devanagari's vowel signs, Japanese's dakuten: "ガ" is not "カ"), so it stays.
+ */
+function foldText(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/(\p{Script=Latin})\p{Mn}+/gu, (_, base: string) => base)
+    .normalize("NFC")
+    .toLowerCase();
 }
 
 /** Whether every word of `query` appears in one of `texts` (an empty query matches everything). */

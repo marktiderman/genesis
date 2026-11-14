@@ -48,6 +48,27 @@ function valuesOf(rows: readonly Record<string, unknown>[], keys: readonly strin
 }
 
 /**
+ * Where each row's stack reaches, both ways: its positive values summed upward and its negative
+ * ones downward, as a stacked bar draws them (recharts stacks them so too). Values that aren't
+ * finite numbers are left out.
+ */
+function stackedEnds(rows: readonly Record<string, unknown>[], keys: readonly string[]): number[] {
+  const out: number[] = [];
+  for (const row of rows) {
+    let up = 0;
+    let down = 0;
+    for (const key of keys) {
+      const v = row[key];
+      if (typeof v !== "number" || !Number.isFinite(v)) continue;
+      if (v >= 0) up += v;
+      else down += v;
+    }
+    out.push(up, down);
+  }
+  return out;
+}
+
+/**
  * The value axis for `keys` over `rows`: from 0 (or the lowest value, when below 0) to the
  * highest, widened to round ticks.
  */
@@ -56,9 +77,7 @@ export function chartDomain(
   keys: readonly string[],
   options: { ticks?: number | undefined; stacked?: boolean | undefined } = {},
 ): { min: number; max: number; ticks: number[] } {
-  const values = options.stacked
-    ? rows.map((row) => keys.reduce((sum, key) => sum + (typeof row[key] === "number" ? (row[key] as number) : 0), 0))
-    : valuesOf(rows, keys);
+  const values = options.stacked ? stackedEnds(rows, keys) : valuesOf(rows, keys);
   const low = Math.min(0, ...values);
   const high = Math.max(0, ...values);
   const ticks = niceTicks(low, high, options.ticks ?? 4);
@@ -66,7 +85,7 @@ export function chartDomain(
 }
 
 /** Round tick values covering `min` to `max`, about `count` of them (1, 2, 2.5 or 5 times a power of ten apart). */
-export function niceTicks(min: number, max: number, count = 4): number[] {
+function niceTicks(min: number, max: number, count = 4): number[] {
   if (max === min) return max === 0 ? [0, 1] : [Math.min(0, min), Math.max(0, max)];
   const raw = (max - min) / Math.max(1, count);
   const power = Math.pow(10, Math.floor(Math.log10(raw)));
@@ -97,7 +116,7 @@ export function chartSummary(
   return series
     .map(({ key, label }) => {
       const points = rows
-        .filter((row) => typeof row[key] === "number")
+        .filter((row) => typeof row[key] === "number" && Number.isFinite(row[key]))
         .map((row) => `${String(row[xKey] ?? "")} ${format(row[key] as number)}`.trim());
       return `${label}: ${points.join(", ")}.`;
     })

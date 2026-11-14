@@ -3,11 +3,15 @@
  * Combobox, NumberInput, RangeSlider, Stepper, TimePicker, WhatsNewSheet and NotificationsPage.
  * Each takes the native twin's props and keeps its behaviour in genesis-core.
  */
-import { useState } from "react";
+import { createRef, useState } from "react";
+import { renderToString } from "react-dom/server";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Banner, InlineAlert } from "../inline-alert";
 import { ChoiceCard } from "../choice-card";
+import { RadioGroup } from "../radio-group";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "../input-otp";
+import { OTP_PATTERN_DIGITS } from "@marktiderman/genesis-core/headless";
 import { ChipGroup, ChipGroupItem } from "../../resource/chip-group";
 import { Combobox } from "../combobox";
 import { NumberInput } from "../number-input";
@@ -33,17 +37,54 @@ describe("InlineAlert and Banner", () => {
     fireEvent.click(within(banner).getByRole("button", { name: "Dismiss" }));
     expect(onDismiss).toHaveBeenCalled();
   });
+  it("titles a warning with a token, not a literal colour", () => {
+    render(<InlineAlert variant="warning" title="Almost full" />);
+    const title = screen.getByText("Almost full");
+    expect(title.className).toContain("text-foreground");
+    expect(title.className).not.toMatch(/amber/);
+  });
 });
 
 describe("ChoiceCard", () => {
-  it("is a radio, or a checkbox with multiple, that reports its state", () => {
+  function Plans({ onValueChange }: { onValueChange?: (v: string) => void }) {
+    const [plan, setPlan] = useState("monthly");
+    return (
+      <RadioGroup
+        aria-label="Plan"
+        value={plan}
+        onValueChange={(v) => {
+          setPlan(v);
+          onValueChange?.(v);
+        }}
+      >
+        <ChoiceCard value="monthly" title="Monthly" description="$20" testID="card-monthly" />
+        <ChoiceCard value="yearly" title="Yearly" description="$200" testID="card-yearly" />
+        <ChoiceCard value="lifetime" title="Lifetime" testID="card-lifetime" />
+      </RadioGroup>
+    );
+  }
+  it("is a radio in the RadioGroup: one tab stop, and the arrow keys move the choice", async () => {
+    const onValueChange = vi.fn();
+    render(<Plans onValueChange={onValueChange} />);
+    const radios = screen.getAllByRole("radio");
+    expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["true", "false", "false"]);
+    // Roving focus: the group is the one tab stop, and tabbing in lands on the chosen card.
+    expect(radios.map((r) => r.getAttribute("tabindex"))).toEqual(["-1", "-1", "-1"]);
+    act(() => screen.getByRole("radiogroup", { name: "Plan" }).focus());
+    expect(document.activeElement?.getAttribute("data-testid")).toBe("card-monthly");
+    expect(radios.map((r) => r.getAttribute("tabindex"))).toEqual(["0", "-1", "-1"]);
+    fireEvent.keyDown(radios[0]!, { key: "ArrowDown" });
+    // Radix moves the focus on the next tick.
+    await act(async () => new Promise((r) => setTimeout(r, 0)));
+    expect(document.activeElement).toBe(radios[1]);
+    expect(onValueChange).toHaveBeenLastCalledWith("yearly");
+    expect(screen.getByTestId("card-yearly").getAttribute("data-state")).toBe("checked");
+    fireEvent.click(screen.getByRole("radio", { name: /Lifetime/ }));
+    expect(onValueChange).toHaveBeenLastCalledWith("lifetime");
+  });
+  it("is a checkbox with multiple, that reports its state", () => {
     const onSelectedChange = vi.fn();
-    const { rerender } = render(<ChoiceCard title="Monthly" description="$20" selected={false} onSelectedChange={onSelectedChange} />);
-    const card = screen.getByRole("radio", { name: /Monthly/ });
-    expect(card.getAttribute("aria-checked")).toBe("false");
-    fireEvent.click(card);
-    expect(onSelectedChange).toHaveBeenCalledWith(true);
-    rerender(<ChoiceCard title="Extras" selected multiple onSelectedChange={onSelectedChange} />);
+    render(<ChoiceCard title="Extras" selected multiple onSelectedChange={onSelectedChange} />);
     fireEvent.click(screen.getByRole("checkbox"));
     expect(onSelectedChange).toHaveBeenLastCalledWith(false);
   });
@@ -52,22 +93,46 @@ describe("ChoiceCard", () => {
 describe("ChipGroup", () => {
   it("keeps one chip on in single mode and any number in multiple", () => {
     function Single() {
-      const [v, setV] = useState<string | string[]>("all");
+      const [v, setV] = useState("all");
       return (
-        <ChipGroup value={v} onChange={setV} aria-label="Level">
+        <ChipGroup mode="single" value={v} onChange={setV} aria-label="Level">
           <ChipGroupItem value="all">All</ChipGroupItem>
           <ChipGroupItem value="new">New</ChipGroupItem>
         </ChipGroup>
       );
     }
     render(<Single />);
-    expect(screen.getByRole("group", { name: "Level" })).toBeTruthy();
+    // Single mode is a radio group, as Radix's single ToggleGroup is.
+    expect(screen.getByRole("radiogroup", { name: "Level" })).toBeTruthy();
     fireEvent.click(screen.getByTestId("chip-new"));
-    expect(screen.getByTestId("chip-new").getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByTestId("chip-all").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByTestId("chip-new").getAttribute("data-state")).toBe("on");
+    expect(screen.getByTestId("chip-all").getAttribute("data-state")).toBe("off");
     // Pressing the chosen one keeps it.
     fireEvent.click(screen.getByTestId("chip-new"));
-    expect(screen.getByTestId("chip-new").getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByTestId("chip-new").getAttribute("data-state")).toBe("on");
+  });
+  it("is the ToggleGroup: one tab stop and arrow keys; multiple is the default and gets a list", async () => {
+    const onChange = vi.fn<(value: string[]) => void>();
+    render(
+      <ChipGroup value={["mon"]} onChange={onChange} aria-label="Days">
+        <ChipGroupItem value="mon">Mon</ChipGroupItem>
+        <ChipGroupItem value="tue">Tue</ChipGroupItem>
+      </ChipGroup>,
+    );
+    const mon = screen.getByTestId("chip-mon");
+    const tue = screen.getByTestId("chip-tue");
+    expect(mon.getAttribute("aria-pressed")).toBe("true");
+    // The group is the one tab stop; tabbing in lands on the chip that is on.
+    expect([mon.tabIndex, tue.tabIndex]).toEqual([-1, -1]);
+    // Radix's multiple ToggleGroup is a toolbar.
+    act(() => screen.getByRole("toolbar", { name: "Days" }).focus());
+    expect(document.activeElement).toBe(mon);
+    expect([mon.tabIndex, tue.tabIndex]).toEqual([0, -1]);
+    fireEvent.keyDown(mon, { key: "ArrowRight" });
+    await act(async () => new Promise((r) => setTimeout(r, 0)));
+    expect(document.activeElement).toBe(tue);
+    fireEvent.click(tue);
+    expect(onChange).toHaveBeenLastCalledWith(["mon", "tue"]);
   });
 });
 
@@ -112,6 +177,35 @@ describe("NumberInput", () => {
     fireEvent.blur(field);
     expect(field.value).toBe("3");
   });
+  it("reads a thousands comma as a group, not a decimal mark", () => {
+    const onChange = vi.fn();
+    render(<NumberInput aria-label="Price" value={0} onChange={onChange} />);
+    fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "1,234" } });
+    expect(onChange).toHaveBeenLastCalledWith(1234);
+  });
+  it("passes a typed number on only while in range, clamps once when left, and works in a form", () => {
+    const onChange = vi.fn();
+    const onBlur = vi.fn();
+    const ref = createRef<HTMLInputElement>();
+    render(<NumberInput ref={ref} name="spots" aria-label="Spots" value={12} onChange={onChange} onBlur={onBlur} min={10} max={20} />);
+    const field = screen.getByRole("spinbutton") as HTMLInputElement;
+    expect(ref.current).toBe(field);
+    expect(field.name).toBe("spots");
+    // "1" on the way to "15": below min, so nothing is sent.
+    fireEvent.change(field, { target: { value: "1" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(field, { target: { value: "15" } });
+    expect(onChange).toHaveBeenLastCalledWith(15);
+    onChange.mockClear();
+    fireEvent.change(field, { target: { value: "5" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith(10);
+    fireEvent.blur(field);
+    expect(onBlur).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("RangeSlider", () => {
@@ -148,6 +242,67 @@ describe("TimePicker", () => {
     fireEvent.keyDown(search, { key: "Enter" });
     const picked = onChange.mock.calls[1]![0] as Date;
     expect([picked.getDate(), picked.getHours(), picked.getMinutes()]).toEqual([3, 14, 5]);
+  });
+  it("highlights the typed time first, and Enter picks what is highlighted, after arrows too", async () => {
+    const onChange = vi.fn();
+    render(<TimePicker value="09:00" onChange={onChange} hour12={false} minuteStep={30} />);
+    fireEvent.click(screen.getByTestId("time-picker-trigger"));
+    const search = await screen.findByTestId("time-picker-search");
+    fireEvent.change(search, { target: { value: "14" } });
+    await act(async () => {});
+    const highlighted = () => document.querySelector("[cmdk-item][data-selected='true']")?.getAttribute("data-value");
+    expect(highlighted()).toBe("14:00");
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(onChange).toHaveBeenLastCalledWith("14:00");
+
+    fireEvent.click(screen.getByTestId("time-picker-trigger"));
+    const again = await screen.findByTestId("time-picker-search");
+    fireEvent.change(again, { target: { value: "14" } });
+    await act(async () => {});
+    fireEvent.keyDown(again, { key: "ArrowDown" });
+    const next = highlighted();
+    expect(next).not.toBe("14:00");
+    fireEvent.keyDown(again, { key: "Enter" });
+    expect(onChange).toHaveBeenLastCalledWith(next);
+  });
+  it("takes and gives an HH:MM string, as <input type=time> holds it", async () => {
+    const onChange = vi.fn<(next: string) => void>();
+    const { rerender } = render(<TimePicker value="" onChange={onChange} hour12 />);
+    expect(screen.getByTestId("time-picker-trigger").textContent).toContain("Pick a time");
+    rerender(<TimePicker value="13:30" onChange={onChange} hour12 />);
+    expect(screen.getByTestId("time-picker-trigger").textContent).toContain("1:30 PM");
+    fireEvent.click(screen.getByTestId("time-picker-trigger"));
+    fireEvent.click(await screen.findByTestId("time-picker-option-08:15"));
+    expect(onChange).toHaveBeenLastCalledWith("08:15");
+  });
+  it("renders the same 24-hour time on the server whatever its locale, until it hydrates", () => {
+    const spy = vi.spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions").mockReturnValue({ hour12: true } as Intl.ResolvedDateTimeFormatOptions);
+    try {
+      expect(renderToString(<TimePicker value="14:30" onChange={() => {}} />)).toContain("14:30");
+      render(<TimePicker value="14:30" onChange={() => {}} />);
+      expect(screen.getByTestId("time-picker-trigger").textContent).toContain("2:30 PM");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("InputOTP", () => {
+  it("strips the separators of a pasted code, as the phone's does", () => {
+    const onChange = vi.fn();
+    render(
+      <InputOTP maxLength={6} onChange={onChange} pattern={OTP_PATTERN_DIGITS} data-testid="otp">
+        <InputOTPGroup>
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <InputOTPSlot key={i} index={i} />
+          ))}
+        </InputOTPGroup>
+      </InputOTP>,
+    );
+    const input = screen.getByTestId("otp");
+    act(() => input.focus());
+    fireEvent.paste(input, { clipboardData: { getData: () => "123-456" } });
+    expect(onChange).toHaveBeenLastCalledWith("123456");
   });
 });
 
@@ -186,6 +341,30 @@ describe("NotificationsPage", () => {
     expect(onPress).toHaveBeenCalled();
     fireEvent.click(screen.getByTestId("notifications-page-mark-all-read"));
     expect(onMarkAllRead).toHaveBeenCalled();
+  });
+
+  it("puts a later day under Upcoming", () => {
+    const now = new Date(2026, 5, 10, 12);
+    render(
+      <NotificationsPage
+        now={now}
+        items={[
+          { id: "1", title: "Today's", timestamp: new Date(2026, 5, 10, 9) },
+          { id: "2", title: "Tomorrow's class", timestamp: new Date(2026, 5, 11, 9) },
+        ]}
+      />,
+    );
+    expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual(["Upcoming", "Today"]);
+  });
+
+  it("leaves the day headings to the browser when the server has no clock and zone to count from", () => {
+    const items = [{ id: "1", title: "New message", timestamp: new Date() }];
+    const server = renderToString(<NotificationsPage items={items} />);
+    expect(server).toContain("New message");
+    expect(server).not.toContain("<h2");
+    // Given both, the server groups too.
+    const zoned = renderToString(<NotificationsPage items={[{ id: "1", title: "New message", timestamp: "2026-06-10T23:30:00Z" }]} now={new Date("2026-06-11T01:00:00Z")} timeZone="Asia/Tokyo" />);
+    expect(zoned).toContain(">Today</h2>");
   });
 
   it("says when there's nothing", () => {

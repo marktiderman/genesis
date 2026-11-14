@@ -8,9 +8,9 @@ type Story = StoryObj<typeof ChipGroup>;
 
 export const Single: Story = {
   render: () => {
-    const [level, setLevel] = useState<string | string[]>("all");
+    const [level, setLevel] = useState("all");
     return (
-      <ChipGroup value={level} onChange={setLevel} aria-label="Level">
+      <ChipGroup mode="single" value={level} onChange={setLevel} aria-label="Level">
         <ChipGroupItem value="all">All</ChipGroupItem>
         <ChipGroupItem value="beginner">Beginner</ChipGroupItem>
         <ChipGroupItem value="advanced">Advanced</ChipGroupItem>
@@ -21,7 +21,7 @@ export const Single: Story = {
 
 export const Multiple: Story = {
   render: () => {
-    const [days, setDays] = useState<string | string[]>(["mon"]);
+    const [days, setDays] = useState<string[]>(["mon"]);
     return (
       <ChipGroup mode="multiple" value={days} onChange={setDays} aria-label="Days">
         {["mon", "tue", "wed", "thu", "fri"].map((d) => (

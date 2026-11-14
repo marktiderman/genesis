@@ -11,7 +11,7 @@ export function moveItem<T>(items: readonly T[], from: number, to: number): T[] 
 }
 
 /** Where a move by `delta` places the item at `index` in a list of `total`, kept inside it. */
-export function moveTarget(index: number, delta: number, total: number): number {
+function moveTarget(index: number, delta: number, total: number): number {
   return Math.max(0, Math.min(total - 1, index + delta));
 }
 
@@ -29,5 +29,8 @@ export function dropIndex(start: number, offset: number, rowSize: number, total:
  * from 1) and `{total}`: "Week 1 moved to position 3 of 5."
  */
 export function movedAnnouncement(name: string, to: number, total: number, template = "{name} moved to position {n} of {total}."): string {
-  return template.replace("{name}", name).replace("{n}", String(to + 1)).replace("{total}", String(total));
+  // One pass with a replacer: the item's name goes in as it is ("$&" or "{n}" in a name stays
+  // literal), and nothing put in is read as a placeholder again.
+  const words: Record<string, string> = { name, n: String(to + 1), total: String(total) };
+  return template.replace(/\{(name|n|total)\}/g, (_, key: string) => words[key] ?? "");
 }
