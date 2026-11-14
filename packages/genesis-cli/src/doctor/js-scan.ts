@@ -22,7 +22,9 @@ const EXPRESSION_KEYWORDS = new Set(["return", "typeof", "case", "do", "else", "
 // `<Name,` or `<Name extends`: a generic's type parameters, never a JSX element.
 const TYPE_PARAMETERS = /^<\s*[A-Za-z_$][\w$]*\s*(?:,|extends\b)/;
 
-type Frame = { k: "code"; depth: number; stop: boolean } | { k: "template" } | { k: "tag" } | { k: "children" };
+// A code frame's `start` is the token count when it opened: `{` in JSX and `${` in a template start
+// a fresh expression, so what came before them (a tag's name, say) never decides what `<` or `/` is.
+type Frame = { k: "code"; depth: number; stop: boolean; start: number } | { k: "template" } | { k: "tag" } | { k: "children" };
 
 /**
  * The code tokens of a file, in order. `jsx` turns on JSX (`.jsx`, `.tsx`, `.js`); in plain `.ts` a
@@ -33,7 +35,8 @@ export function scanCode(code: string, options: { jsx?: boolean } = {}): CodeTok
   const tokens: CodeToken[] = [];
   const push = (kind: CodeToken["kind"], value: string) => tokens.push({ kind, value, index: tokens.length });
   // The standard rule: after a name, a literal, `)`, `]` or `}`, `/` divides and `<` compares.
-  const expressionNext = () => {
+  const expressionNext = (start: number) => {
+    if (tokens.length <= start) return true;
     const t = tokens[tokens.length - 1];
     if (!t) return true;
     if (t.kind === "ident") return EXPRESSION_KEYWORDS.has(t.value);
@@ -48,6 +51,12 @@ export function scanCode(code: string, options: { jsx?: boolean } = {}): CodeTok
       j++;
     }
     return j + 1;
+  };
+  // A JSX attribute's quoted value is plain text up to its closing quote, newlines included, and has
+  // no escapes (`title="a\"` ends at the second quote).
+  const skipAttribute = (i: number, quote: string): number => {
+    const end = code.indexOf(quote, i + 1);
+    return end < 0 ? code.length : end + 1;
   };
   const skipRegex = (i: number): number => {
     let j = i + 1;
@@ -80,7 +89,8 @@ export function scanCode(code: string, options: { jsx?: boolean } = {}): CodeTok
     }
   };
 
-  const stack: Frame[] = [{ k: "code", depth: 0, stop: false }];
+  const stack: Frame[] = [{ k: "code", depth: 0, stop: false, start: 0 }];
+  const openCode = () => stack.push({ k: "code", depth: 0, stop: true, start: tokens.length });
   // Open a JSX element at `<`: a fragment goes straight to its children, a tag to its attributes.
   const openElement = (i: number): number => {
     if (code[i + 1] === ">") {
@@ -122,10 +132,10 @@ export function scanCode(code: string, options: { jsx?: boolean } = {}): CodeTok
         while (j < code.length && /[\w.]/.test(code[j]!)) j++;
         push("literal", "0");
         i = j;
-      } else if (c === "/" && expressionNext()) {
+      } else if (c === "/" && expressionNext(top.start)) {
         i = skipRegex(i);
         push("literal", "//");
-      } else if (c === "<" && jsx && expressionNext() && /[A-Za-z_$>]/.test(code[i + 1] ?? "") && !TYPE_PARAMETERS.test(code.slice(i, i + 200))) {
+      } else if (c === "<" && jsx && expressionNext(top.start) && /[A-Za-z_$>]/.test(code[i + 1] ?? "") && !TYPE_PARAMETERS.test(code.slice(i, i + 200))) {
         i = openElement(i);
       } else if (c === "{") {
         top.depth++;
@@ -153,7 +163,7 @@ export function scanCode(code: string, options: { jsx?: boolean } = {}): CodeTok
         push("literal", "``");
         i++;
       } else if (c === "$" && code[i + 1] === "{") {
-        stack.push({ k: "code", depth: 0, stop: true });
+        openCode();
         i += 2;
       } else i++;
     } else if (top.k === "tag") {
@@ -167,9 +177,9 @@ export function scanCode(code: string, options: { jsx?: boolean } = {}): CodeTok
         stack[stack.length - 1] = { k: "children" };
         i++;
       } else if (c === "{") {
-        stack.push({ k: "code", depth: 0, stop: true });
+        openCode();
         i++;
-      } else if (c === '"' || c === "'") i = skipString(i, c);
+      } else if (c === '"' || c === "'") i = skipAttribute(i, c);
       else if (c === "<") i = openElement(i);
       else i++; // an attribute's name or `=`: not code
     } else {
@@ -180,7 +190,7 @@ export function scanCode(code: string, options: { jsx?: boolean } = {}): CodeTok
         closeElement();
       } else if (c === "<" && /[A-Za-z_$>]/.test(code[i + 1] ?? "")) i = openElement(i);
       else if (c === "{") {
-        stack.push({ k: "code", depth: 0, stop: true });
+        openCode();
         i++;
       } else i++; // JSX text
     }
@@ -209,20 +219,35 @@ export function usesAsCode(code: string, name: string, options: { jsx?: boolean 
 
 // Before `(`, these open a condition or a call, never a method's parameter list.
 const NOT_METHODS = new Set(["if", "for", "while", "switch", "with", "function", "return", "typeof", "await", "new"]);
+// What can come just before a method's name in a class or an object: the start of the body, the end
+// of the member before it, or a modifier. A call (`ok ? use(x) : y`, `case use(x):`) has none of them.
+const BEFORE_METHOD = new Set(["{", "}", ";", ",", "*", "async", "get", "set", "static", "public", "private", "protected", "readonly", "override", "abstract", "declare", "accessor"]);
+// How far back a `>` is followed to its `<`: type parameters are short, and a bound keeps a file of
+// comparisons (`a > (b)`) linear.
+const TYPE_PARAMETERS_REACH = 200;
 const OPENS = new Set(["(", "[", "{"]);
 const CLOSES = new Set([")", "]", "}"]);
 
 /** The names a parameter list binds: each parameter's pattern, without its default or its type. */
 function boundNames(list: CodeToken[]): string[] {
   const out: string[] = [];
-  // Split at top-level commas.
+  // Split at top-level commas. In a parameter's type (after its top-level `:`), `<…>` nests too, so
+  // `other: Map<string, typeof contract>` stays one parameter.
   const params: CodeToken[][] = [[]];
   let depth = 0;
+  let angles = 0;
+  let inType = false;
   for (const t of list) {
     if (OPENS.has(t.value)) depth++;
     else if (CLOSES.has(t.value)) depth--;
-    if (depth === 0 && t.value === ",") params.push([]);
-    else params[params.length - 1]!.push(t);
+    else if (depth === 0 && t.value === ":") inType = true;
+    else if (depth === 0 && t.value === "=") inType = false;
+    else if (inType && t.value === "<") angles++;
+    else if (inType && (t.value === ">" || t.value === ">>")) angles = Math.max(0, angles - t.value.length);
+    if (depth === 0 && angles === 0 && t.value === ",") {
+      params.push([]);
+      inType = false;
+    } else params[params.length - 1]!.push(t);
   }
   for (const param of params) {
     // The pattern ends at a top-level `=` (its default) or `:` (its type).
@@ -294,20 +319,24 @@ export function boundAsParameter(code: string, name: string, options: { jsx?: bo
     }
     return false;
   };
+  // The token before `(`, past any type parameters (`name<T, U>(`); -1 when `>` has no `<` near it.
+  const beforeTypeParameters = (paren: number): number => {
+    let k = paren - 1;
+    if (tokens[k]?.value !== ">" && tokens[k]?.value !== ">>") return k;
+    // `>>` closes two nested type arguments (`View<A, B>>`): it counts twice.
+    let depth = 0;
+    for (const stop = Math.max(0, k - TYPE_PARAMETERS_REACH); k >= stop; k--) {
+      const v = tokens[k]!.value;
+      if (v === ">") depth++;
+      else if (v === ">>") depth += 2;
+      else if (v === "<" && --depth === 0) return k - 1;
+    }
+    return -1;
+  };
   // `function name<T, U>(`: skip back over type parameters and the name to `function`.
   const isFunction = (paren: number): boolean => {
-    let k = paren - 1;
-    // `>>` closes two nested type arguments (`View<A, B>>`): it counts twice.
-    if (tokens[k]?.value === ">" || tokens[k]?.value === ">>") {
-      let depth = 0;
-      for (; k >= 0; k--) {
-        const v = tokens[k]!.value;
-        if (v === ">") depth++;
-        else if (v === ">>") depth += 2;
-        else if (v === "<" && --depth === 0) break;
-      }
-      k--;
-    }
+    let k = beforeTypeParameters(paren);
+    if (k < 0) return false;
     if (tokens[k]?.kind === "ident" && tokens[k]!.value !== "function") k--;
     if (tokens[k]?.value === "*") k--;
     return tokens[k]?.value === "function";
@@ -320,7 +349,16 @@ export function boundAsParameter(code: string, name: string, options: { jsx?: bo
     if (end < 0) continue;
     const before = tokens[i - 1];
     const catchClause = before?.value === "catch";
-    const method = !catchClause && before?.kind === "ident" && !NOT_METHODS.has(before.value) && (tokens[end + 1]?.value === "{" || (tokens[end + 1]?.value === ":" && !arrowAfter(end)));
+    // A method: its name (past any type parameters, `m<T>(`), then a body, or a return type and a
+    // body. With a return type, only where a member can start, so a ternary's `use(x) :` isn't one.
+    const nameAt = beforeTypeParameters(i);
+    const methodName = nameAt >= 0 ? tokens[nameAt] : undefined;
+    const typed = tokens[end + 1]?.value === ":" && !arrowAfter(end);
+    const method =
+      !catchClause &&
+      methodName?.kind === "ident" &&
+      !NOT_METHODS.has(methodName.value) &&
+      (tokens[end + 1]?.value === "{" || (typed && (nameAt === 0 || BEFORE_METHOD.has(tokens[nameAt - 1]!.value))));
     if ((catchClause || isFunction(i) || method || arrowAfter(end)) && boundNames(tokens.slice(i + 1, end)).includes(name)) return true;
   }
   return false;

@@ -83,5 +83,39 @@ describe("the doctor's code scanner", () => {
       expect(boundAsParameter(code, "contract"), code).toBe(true);
     }
   });
-});
 
+  it("reads a quoted attribute over newlines to its closing quote, and JSX text inside `{…}` as text", () => {
+    expect(usesAsCode('<div title="first\n<G />" />', "G")).toBe(false);
+    expect(usesAsCode('<div title="first\nsecond" />;\nG(1);', "G")).toBe(true);
+    expect(usesAsCode("<div>{<span>G</span>}</div>", "G")).toBe(false);
+    expect(usesAsCode("<div>{<span>x</span>}{G}</div>", "G")).toBe(true);
+    expect(usesAsCode("const s = `${<span>G</span>}`;", "G")).toBe(false);
+  });
+
+  it("doesn't take a call in a ternary for a method, or a comma in a parameter's type for a new parameter", () => {
+    for (const code of [
+      "const x = ok ? use(contract) : fallback;",
+      "switch (k) { case use(contract): break; }",
+      "function f(other: Map<string, typeof contract>) {}",
+      "function f(other: Record<string, Array<typeof contract>>, y = 1) {}",
+    ]) {
+      expect(boundAsParameter(code, "contract"), code).toBe(false);
+    }
+    for (const code of [
+      "class V { m(contract): number { return 1; } }",
+      "class V { async m(contract): Promise<number> { return 1; } }",
+      "class V { m<T>(contract: T) { return 1; } }",
+      "const o = { m<T>(contract: T): T { return contract; } };",
+      "function f(other: Map<string, number>, contract: X) {}",
+    ]) {
+      expect(boundAsParameter(code, "contract"), code).toBe(true);
+    }
+  });
+
+  it("stays linear on a file of comparisons before parentheses", () => {
+    const code = "const ok = a > (b);\n".repeat(20000);
+    const started = Date.now();
+    expect(boundAsParameter(code, "contract")).toBe(false);
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+});
