@@ -1,5 +1,22 @@
 # @marktiderman/genesis-ui
 
+## 2.35.0
+
+### Minor Changes
+
+- a6b65a9: Features: ui-twins
+  A web twin for every genesis-ui-native component that had none (ui-parity.json), with the phone component's props: `Banner` and `InlineAlert` (the Alert, tinted, with dismiss and actions), `ChoiceCard` (the RadioGroup's item, or with `multiple` a checkbox), `ChipGroup` with `ChipGroupItem` (the toggle Chip on Radix's ToggleGroup, `multiple` or `single`), `Combobox` (Command in a Popover), `NumberInput` (a spinbutton with − and + on the InputGroup, with a ref, `name` and `onBlur` for a form; a typed number is rounded to `precision` when it is committed), `RangeSlider`, `Stepper`, `TimePicker` (an "HH:MM" string or a Date, read on the browser's clock once hydrated or on a given `timeZone`, keeping its calendar day on that clock across a daylight-saving change; named by its visible label and the time; typed times read as on the phone), `WhatsNewSheet` (a dialog that rises as a sheet on a phone-width screen) and `NotificationsPage` (day headings counted in the browser or on a given `now` and `timeZone`, unread rows, Mark all read). Each takes its behaviour from `@marktiderman/genesis-core/headless`.
+
+  `Slider` draws a thumb per value and takes `thumbLabels`. SortableList, ChartContainer's ChartStyle, StatCard's trend, FieldArrayRenderer, WizardForm and FileUploadField now use the same genesis-core rules as their phone twins; what they render is unchanged.
+
+  A new doctor rule, `times-use-time-picker` (warn, new files), points a browser `<Input type="time">` at TimePicker. `InputOTP` strips the spaces, dashes and dots of a pasted code, as the phone's does.
+
+### Patch Changes
+
+- d0b5676: InboxPage rows shrink to their list (`min-w-0`), so a long title truncates instead of widening the row past a narrow panel such as the support messenger's sheet. The support messenger says where the answer will come (`copy.messenger.awaitingReply`) under a conversation support hasn't answered yet.
+- Updated dependencies [a6b65a9]
+  - @marktiderman/genesis-core@2.16.0
+
 ## 2.34.0
 
 ### Minor Changes
