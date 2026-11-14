@@ -222,9 +222,9 @@ export const inbox = (
 **Or as a view's inbox.** The same queue can be a Genesis view drawn by
 `<ResourceView type="inbox">` (genesis-ui), beside its table and with saved views, when your app
 reads it through the data provider. This package exports the pieces: `supportQueueSource()` (the
-provider `source` over migration 0013's `support_agent_queue`, which pages and counts every ticket; pass `{ tenant }`, or scope the view by `tenant_id`), `ticketInbox` (which column is the title, preview,
-time, requester, unread and status) and `ticketSegments` (Mine, Unassigned, Open, Solved, All; Mine
-and Unassigned pass the queue's view as a segment's `args`). The reading pane is the ticket's
+provider `source` over migration 0018's `support_agent_queue`, which pages and counts every ticket, a segment's page inside the function; pass `{ tenant }`, or scope the view by `tenant_id`), `ticketInbox` (which column is the title, preview,
+time, requester, unread and status) and `ticketSegments` (Mine, Unassigned, Open, Pending, Closed, All; Mine,
+Unassigned, Pending and Closed pass the queue's view as a segment's `args`). The reading pane is the ticket's
 thread with its reply box, through `renderReading`:
 
 <!-- docs-check: skip -->
@@ -492,14 +492,14 @@ its version keeps the email rules when that block is already installed. Adding s
 it, handlers can't reply (their status changes still work, without the prompt) until 0003's
 `genesis_support_new_reply` is applied again.
 
-## Fixes to tickets (migration 0011) and to help answers (migration 0012)
+## Fixes to tickets (migration 0016) and to help answers (migration 0017)
 
-- 0011 (with the support block, after 0004): the Data Studio's audit log and outbox move from the
+- 0016 (with the support block, after 0004): the Data Studio's audit log and outbox move from the
   old table names to `public.tickets` and `public.ticket_attachments`, wherever those tables exist,
   so a ticket's history reads on past the rename. `support_agent_unread_count(tenant)` is an
-  agent's count of open tickets with a requester's message no agent has read (`client.agentUnreadCount`),
+  agent's count of active tickets (not pending, not closed) with a requester's message no agent has read (`client.agentUnreadCount`),
   for a badge without reading the queue.
-- 0012 (with support-helpdesk, after 0010): a question the safety protocol routes elsewhere, or one
+- 0017 (with support-helpdesk, after 0010): a question the safety protocol routes elsewhere, or one
   asked before the person agreed, keeps no answer and no cited articles, as well as no words.
 
 ## Tickets and tenants (migration 0004)
