@@ -1,0 +1,31 @@
+packages/support/migrations/0013_genesis_support_queues.sql
+  s_5cf92f35ac2d0a::t_7d86dfa96a38a9 18,208,222,227,229-231,238
+  s_5cf92f35ac2d0a::t_6692fb9abb1779 1-17,19-207,209-221,223-226,228,232-237,239-292
+scripts/pgtap-local/suites.sh
+  s_5cf92f35ac2d0a::t_6692fb9abb1779 20,23
+packages/support/migrations/0014_genesis_support_agent_tools.sql
+  s_5cf92f35ac2d0a::t_6692fb9abb1779 1-289
+packages/support/migrations/tests/0014_genesis_support_agent_tools.test.sql
+  s_5cf92f35ac2d0a::t_6692fb9abb1779 1-9,11-23,25-170
+  s_5cf92f35ac2d0a::t_523e5b8c7db3bb 10
+  s_5cf92f35ac2d0a::t_7d86dfa96a38a9 24
+packages/support/migrations/tests/0013_genesis_support_queues.test.sql
+  s_5cf92f35ac2d0a::t_6692fb9abb1779 1-10,12-116,118-187
+  s_5cf92f35ac2d0a::t_7d86dfa96a38a9 11,117
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "849c17ccedb28910118a0e3713ed849631915a8a",
+  "prompts": {},
+  "sessions": {
+    "s_5cf92f35ac2d0a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "63f176d9-9b0f-4f51-bb21-a1ffbd02cc4c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
