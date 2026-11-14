@@ -39,7 +39,11 @@ export interface NativeChipGroupProps<M extends NativeChipGroupMode = NativeChip
   mode?: M;
   value: string | readonly string[];
   onChange: (value: NativeChipGroupValue<M>) => void;
-  /** In `single` mode, pressing the chosen chip clears it (`onChange("")`). Default false: one stays chosen. */
+  /**
+   * In `single` mode, pressing the chosen chip clears it (`onChange("")`). Default false: pressing
+   * it calls `onChange` with its own value again, as it always has (the web's ChipGroup sends
+   * nothing then).
+   */
   allowEmpty?: boolean;
   disabled?: boolean;
   className?: string;
@@ -70,11 +74,9 @@ export function NativeChipGroup<M extends NativeChipGroupMode = NativeChipGroupM
   const emit = onChange as (value: string | string[]) => void;
   const toggle = (v: string) => {
     if (single) {
-      if (selected.has(v)) {
-        if (allowEmpty) emit("");
-        return;
-      }
-      emit(v);
+      // Pressing the chosen chip again: cleared with `allowEmpty`; otherwise reported as it always
+      // was (`onChange` with the same value), so a screen's own handler can still decide.
+      emit(selected.has(v) && allowEmpty ? "" : v);
       return;
     }
     const next = new Set(selected);

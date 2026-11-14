@@ -284,6 +284,17 @@ export function Today({ visits }: { visits: { day: string; count: number }[] }) 
 }
 ```
 
+Where an older native component already shipped with its own props, its twin keeps them working
+and adds the web's, so these differ from the web on purpose:
+
+- `NativeChipGroup`: `onChange` follows `mode` as the web's ChipGroup's does, but `value` still
+  takes a string or a list in either mode (the web takes a string in `single` and a list in
+  `multiple`), so a screen's `string | string[]` state keeps compiling. In `single` mode, pressing
+  the chosen chip again calls `onChange` with its value, as it always has; the web's sends
+  nothing. Both clear it with `allowEmpty`.
+- `NativeChoiceCard`: `selected` with `onPress` still works, deprecated, beside the web's `value`
+  in a NativeRadioGroup and `multiple` with `onSelectedChange`.
+
 A file or image field needs a picker: pass one function, once, wrapping the picker the app installed.
 
 ```tsx

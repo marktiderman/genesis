@@ -38,12 +38,17 @@ interface TimePickerBaseProps {
 export interface TimePickerDateProps extends TimePickerBaseProps {
   value: Date;
   onChange: (next: Date) => void;
-  /** The trigger's words. Default the time, in 12 or 24 hours. */
+  /**
+   * The trigger's words. Default the time, in 12 or 24 hours. With `timeZone` it also runs on the
+   * server, so format on that same zone (`Intl.DateTimeFormat(…, { timeZone })`), or the server's
+   * words and the browser's differ.
+   */
   formatLabel?: (date: Date) => string;
   /**
    * The zone whose clock the time is read and picked on (an IANA name, "Europe/Paris"). Default
    * the browser's. Without it the trigger shows no time until the page has hydrated, so a
-   * server's zone never decides it; pass it to render the time from the server too.
+   * server's zone never decides it; pass it to render the time from the server too. A pick keeps
+   * the value's calendar day on this clock, daylight-saving days included (see the README).
    */
   timeZone?: string;
 }
@@ -80,16 +85,52 @@ function zonedTimeOf(date: Date, timeZone: string): TimeOfDay {
   return { hours: read("hour") % 24, minutes: read("minute") };
 }
 
-/** `date` moved to `time` on its own day on `timeZone`'s clock (seconds cleared). */
+const MINUTE = 60_000;
+
+/** How far `timeZone`'s clock is ahead of UTC at `at` (ms since the epoch), in minutes. */
+function zoneOffsetMinutes(at: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(at));
+  const read = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  const wall = Date.UTC(read("year"), read("month") - 1, read("day"), read("hour") % 24, read("minute"), read("second"));
+  return Math.round((wall - Math.floor(at / 1000) * 1000) / MINUTE);
+}
+
+/** `date`'s calendar day on `timeZone`'s clock. */
+function zonedDayOf(date: Date, timeZone: string): { year: number; month: number; day: number } {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const read = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return { year: read("year"), month: read("month"), day: read("day") };
+}
+
+/**
+ * `date` moved to `time` on its own calendar day on `timeZone`'s clock (seconds cleared). The
+ * instant is worked out from the zone's real UTC offset at that wall time, so a pick on a
+ * daylight-saving day stays on that day. Where the wall time happens twice (the hour repeated
+ * when clocks go back) it is the first, earlier one; where it doesn't happen at all (the hour
+ * skipped when clocks go forward) it moves forward by the gap, so 02:30 on a day New York skips
+ * 02:00 to 03:00 is 03:30. Both are what Temporal's `"compatible"` disambiguation and most date
+ * libraries do.
+ */
 function withZonedTime(date: Date, timeZone: string, time: TimeOfDay): Date {
-  const minutesOf = (t: TimeOfDay) => t.hours * 60 + t.minutes;
-  const start = new Date(date);
-  start.setSeconds(0, 0);
-  let next = new Date(start.getTime() + (minutesOf(time) - minutesOf(zonedTimeOf(start, timeZone))) * 60_000);
-  // Across a daylight-saving change the offset moves by the gap: correct once.
-  const off = minutesOf(time) - minutesOf(zonedTimeOf(next, timeZone));
-  if (off !== 0) next = new Date(next.getTime() + off * 60_000);
-  return next;
+  const { year, month, day } = zonedDayOf(date, timeZone);
+  // The wall time as if it were UTC; each candidate subtracts an offset the zone has near it.
+  const wall = Date.UTC(year, month - 1, day, time.hours, time.minutes);
+  const before = zoneOffsetMinutes(wall - 24 * 60 * MINUTE, timeZone);
+  const after = zoneOffsetMinutes(wall + 24 * 60 * MINUTE, timeZone);
+  const fits = (at: number) => zoneOffsetMinutes(at, timeZone) === Math.round((wall - at) / MINUTE);
+  const valid = [wall - before * MINUTE, wall - after * MINUTE].filter(fits);
+  // Repeated: the earlier. Skipped: neither fits, and the offset from before the change moves it forward.
+  const at = valid.length > 0 ? Math.min(...valid) : wall - before * MINUTE;
+  return new Date(at);
 }
 
 const same = (a: TimeOfDay, b: TimeOfDay | null) => b !== null && a.hours === b.hours && a.minutes === b.minutes;
@@ -138,24 +179,27 @@ export function TimePicker(props: TimePickerProps) {
   // The trigger's name: the visible label that points at it (or the one named) and then the time.
   const timeId = React.useId();
   const triggerRef = React.useRef<HTMLButtonElement>(null);
-  const [labelIds, setLabelIds] = React.useState<string | null>(null);
+  // The ids of the visible labels that name the trigger: a `<label htmlFor>`, or a `<label>` around
+  // it. A wrapping label's own copy of the time is skipped when its words are read (it is the
+  // control being named), so the time is said once, from the time's span.
+  const [labelling, setLabelling] = React.useState<string | null>(null);
   const ariaLabel = props["aria-label"];
   const ariaLabelledBy = props["aria-labelledby"];
+  // Every render, so a label that mounts after the picker is found; the state only changes when it does.
   React.useEffect(() => {
-    if (ariaLabel || ariaLabelledBy) return;
-    const labels = triggerRef.current?.labels;
-    if (!labels || labels.length === 0) {
-      setLabelIds(null);
-      return;
+    const trigger = triggerRef.current;
+    let next: string | null = null;
+    if (!ariaLabel && !ariaLabelledBy && trigger?.labels && trigger.labels.length > 0) {
+      next = Array.from(trigger.labels)
+        .map((el, i) => {
+          if (!el.id) el.id = `${timeId}-label-${i}`;
+          return el.id;
+        })
+        .join(" ");
     }
-    setLabelIds(
-      Array.from(labels, (el, i) => {
-        if (!el.id) el.id = `${timeId}-label-${i}`;
-        return el.id;
-      }).join(" "),
-    );
-  }, [ariaLabel, ariaLabelledBy, id, timeId]);
-  const named = ariaLabelledBy ?? labelIds;
+    setLabelling((prev) => (prev === next ? prev : next));
+  });
+  const named = ariaLabelledBy ?? labelling;
   // The time as it is said: none while pending or with no time chosen (the placeholder isn't one).
   const spoken = current || custom !== undefined ? label : "";
   const nameProps = ariaLabel

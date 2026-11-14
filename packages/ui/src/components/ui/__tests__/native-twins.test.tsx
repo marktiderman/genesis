@@ -354,6 +354,67 @@ describe("TimePicker's zone and name", () => {
     expect(onChange.mock.calls[0]![0].toISOString()).toBe("2026-06-10T23:15:00.000Z");
   });
 
+  // Picks through the real component, on a UTC machine, in a zone with daylight saving.
+  const pickIn = (zone: string, value: string, option: string) => {
+    const onChange = vi.fn<(next: Date) => void>();
+    withTZ("UTC", () => {
+      const { unmount } = render(<TimePicker value={new Date(value)} onChange={onChange} hour12={false} minuteStep={15} timeZone={zone} />);
+      fireEvent.click(screen.getByTestId("time-picker-trigger"));
+      const search = screen.getByTestId("time-picker-search");
+      fireEvent.change(search, { target: { value: option } });
+      fireEvent.click(screen.getByTestId(screen.queryByTestId(`time-picker-option-${option}`) ? `time-picker-option-${option}` : "time-picker-typed"));
+      unmount();
+    });
+    return onChange.mock.calls[0]![0].toISOString();
+  };
+
+  it.each([
+    // Spring forward in New York (8 March 2026, 02:00 skipped): from 00:10 EST to 23:45 EDT, same day.
+    ["America/New_York", "2026-03-08T05:10:00Z", "23:45", "2026-03-09T03:45:00.000Z"],
+    // From 23:00 EDT back to 00:15 EST, same day.
+    ["America/New_York", "2026-03-09T03:00:00Z", "00:15", "2026-03-08T05:15:00.000Z"],
+    // London's spring change (29 March 2026): from 00:30 GMT to 23:45 BST.
+    ["Europe/London", "2026-03-29T00:30:00Z", "23:45", "2026-03-29T22:45:00.000Z"],
+    // Fall back in New York (1 November 2026, 01:00-02:00 twice): from 00:30 EDT.
+    ["America/New_York", "2026-11-01T04:30:00Z", "23:30", "2026-11-02T04:30:00.000Z"],
+    ["America/New_York", "2026-11-01T04:30:00Z", "03:00", "2026-11-01T08:00:00.000Z"],
+    // A repeated time is the first of the two (EDT).
+    ["America/New_York", "2026-11-01T04:30:00Z", "01:30", "2026-11-01T05:30:00.000Z"],
+    // A skipped time moves forward by the gap: 02:30 is 03:30 EDT.
+    ["America/New_York", "2026-03-08T05:10:00Z", "02:30", "2026-03-08T07:30:00.000Z"],
+    ["Europe/London", "2026-03-29T00:30:00Z", "01:30", "2026-03-29T01:30:00.000Z"],
+  ])("in %s, from %s, picking %s gives %s (the same day on that clock)", (zone, value, option, expected) => {
+    expect(pickIn(zone, value, option)).toBe(expected);
+  });
+
+  it("is named once by a label that wraps it: the time isn't said twice", () => {
+    render(
+      <label>
+        Starts <TimePicker value="14:30" onChange={() => {}} hour12={false} />
+      </label>,
+    );
+    const trigger = screen.getByTestId("time-picker-trigger");
+    expect(trigger.hasAttribute("aria-label")).toBe(false);
+    // The label's words (its own copy of the trigger is skipped as the control it names), then the time once.
+    expect(screen.getByRole("button", { name: "Starts 14:30" })).toBe(trigger);
+    expect(trigger.textContent?.match(/14:30/g)).toHaveLength(1);
+  });
+
+  it("finds a label that mounts after the picker", () => {
+    function Late({ show }: { show: boolean }) {
+      return (
+        <>
+          {show ? <label htmlFor="late">Ends</label> : null}
+          <TimePicker id="late" value="16:00" onChange={() => {}} hour12={false} />
+        </>
+      );
+    }
+    const { rerender } = render(<Late show={false} />);
+    expect(screen.getByRole("button", { name: "Pick a time, 16:00" })).toBeTruthy();
+    rerender(<Late show />);
+    expect(screen.getByRole("button", { name: "Ends 16:00" })).toBeTruthy();
+  });
+
   it("is named by its visible label and the time, not an aria-label over them", async () => {
     render(
       <>

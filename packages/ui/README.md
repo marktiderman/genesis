@@ -408,8 +408,11 @@ time ("2:30 pm", "1430") is listed first and highlighted, so Enter picks it; the
 the highlight, and Enter always picks what is highlighted. 12- or 24-hour follows the viewer's
 locale once the page has hydrated; pass `hour12` to fix it from the first paint. A `Date` is read
 on the browser's clock once hydrated (the trigger shows no time before), or on `timeZone`'s from
-the first render, server included. The trigger is named by its visible `<label htmlFor={id}>` (or
-`aria-label`, or `aria-labelledby`) followed by the time.
+the first render, server included. With `timeZone`, a pick keeps the value's calendar day on that
+clock, daylight-saving days included: a time the clocks skip moves forward by the gap (02:30 on a
+day that jumps from 02:00 to 03:00 is 03:30), and a time that happens twice is the first. The
+trigger is named by its visible label (`<label htmlFor={id}>`, or a `<label>` around it), or
+`aria-label`, or `aria-labelledby`, followed by the time once.
 
 ```tsx
 import { useState } from "react";

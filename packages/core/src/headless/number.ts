@@ -73,18 +73,25 @@ export interface ParseNumberOptions {
 
 /**
  * A number as typed: "1.5", "-3", "1,234" and "1,234.5" (commas group thousands), "1,5" and
- * "1.234,5" (a comma as the decimal mark), "1 000". Anything else (an empty field, "abc",
- * "1.2.3") is `null`, so the field keeps its value instead of becoming NaN.
+ * "1.234,5" (a comma as the decimal mark), "1 000" and "1'000". Anything else (an empty field,
+ * "abc", "1.2.3", "1 5") is `null`, so the field keeps its value instead of becoming NaN. Only
+ * ASCII digits are read ("١٢٣" is `null`).
+ *
+ * A run of spaces (no-break and narrow ones too) or apostrophes (' and ’) is a group mark, read
+ * like any other: only between whole groups of three in the whole part ("1 000,25", "1’234.5";
+ * not "1 5" or "12 34,5"), with at most one "," or "." after it as the decimal mark.
  *
  * Without a `locale`, the last of "." and "," is the decimal mark when both appear; a mark that
  * appears more than once groups thousands; one comma followed by exactly three digits groups
  * thousands ("1,234" is 1234), any other single comma is the decimal mark ("1,5", "0,125").
- * Pass `locale` to read the text with that locale's marks instead.
+ * Pass `locale` to read the text with that locale's marks instead, as strictly.
  */
 export function parseNumberInput(text: string, options: ParseNumberOptions = {}): number | null {
-  // Spaces (narrow and no-break ones too) and apostrophes ("1'000") only ever group digits.
-  const t = text.trim().replace(/[\s']/g, "");
   // No number a person types is this long; capping it keeps every pattern below linear.
+  if (text.length > MAX_NUMBER_INPUT * 4) return null;
+  // A run of spaces (narrow and no-break ones too) or apostrophes ("1'000", "1’000") is one group
+  // mark, written as a single space and checked like "," and ".".
+  const t = text.trim().replace(SPACE_LIKE_RUN, SPACE_GROUP);
   if (t.length === 0 || t.length > MAX_NUMBER_INPUT) return null;
   const normalised = options.locale ? withLocaleMarks(t, options.locale) : withGuessedMarks(t);
   // Unambiguous: digits with an optional fraction, or a bare fraction. No nested quantifiers
@@ -96,6 +103,27 @@ export function parseNumberInput(text: string, options: ParseNumberOptions = {})
 
 /** The longest text `parseNumberInput` reads; anything longer isn't a number a person typed. */
 const MAX_NUMBER_INPUT = 64;
+
+/** Spaces of every width and apostrophes (ASCII and U+2019), in a run: one group mark. */
+const SPACE_LIKE_RUN = /[\s'\u2019]+/g;
+/** The group mark a space-like run is read as. */
+const SPACE_GROUP = " ";
+
+/**
+ * `t` (which holds a space-like group mark) with "." as its decimal mark: the spaces only between
+ * whole groups of the whole part, and at most one "," or "." after them as the decimal mark.
+ */
+function withSpaceGroups(t: string): string | null {
+  const comma = t.indexOf(",");
+  const dot = t.indexOf(".");
+  if (comma !== t.lastIndexOf(",") || dot !== t.lastIndexOf(".") || (comma !== -1 && dot !== -1)) return null;
+  const at = Math.max(comma, dot);
+  const int = at === -1 ? t : t.slice(0, at);
+  const fraction = at === -1 ? undefined : t.slice(at + 1);
+  if (fraction?.includes(SPACE_GROUP) || !isGrouped(int, SPACE_GROUP)) return null;
+  const whole = int.split(SPACE_GROUP).join("");
+  return fraction === undefined ? whole : `${whole}.${fraction}`;
+}
 
 /** `mark` escaped for a RegExp. */
 function escapeMark(mark: string): string {
@@ -114,6 +142,7 @@ function isGrouped(int: string, mark: string, lakh = false): boolean {
 
 /** `t` with "." as its only decimal mark and no group marks, or `null` when the marks can't be read. */
 function withGuessedMarks(t: string): string | null {
+  if (t.includes(SPACE_GROUP)) return withSpaceGroups(t);
   const comma = t.lastIndexOf(",");
   const dot = t.lastIndexOf(".");
   if (comma === -1 && dot === -1) return t;
@@ -142,12 +171,18 @@ function withGuessedMarks(t: string): string | null {
  * "1,5" or "1,2,3"), and no other mark ("1.5" in de-DE is `null`, not 15).
  */
 function withLocaleMarks(t: string, locale: string): string | null {
-  const { group, decimal, lakh } = numberMarks(locale);
+  const { group: localeGroup, decimal, lakh } = numberMarks(locale);
+  // The locale's space-like group mark (fr-FR's narrow space, de-CH's apostrophe) reads as a space.
+  const group = /^[\s'\u2019]+$/.test(localeGroup) ? SPACE_GROUP : localeGroup;
+  // A space groups in any locale, read as strictly; never beside the locale's other group mark.
+  if (t.includes(SPACE_GROUP) && group !== SPACE_GROUP) {
+    if (group && t.includes(group)) return null;
+    return decimal === "." || decimal === "," ? withLocaleSpaceGroups(t, decimal) : null;
+  }
   const parts = t.split(decimal);
   if (parts.length > 2) return null;
   const [int = "", fraction] = parts;
-  // A space-like group mark was already taken out with the other spaces.
-  const groupMark = group && !/\s/.test(group) ? group : "";
+  const groupMark = group;
   if (groupMark && fraction?.includes(groupMark)) return null;
   let whole = int;
   if (groupMark && int.includes(groupMark)) {
@@ -157,6 +192,12 @@ function withLocaleMarks(t: string, locale: string): string | null {
   const out = fraction === undefined ? whole : `${whole}.${fraction}`;
   // Anything left that isn't a digit, the sign or the one decimal point is a mark this locale doesn't use.
   return /^-?[\d.]*$/.test(out) && out.indexOf(".") === out.lastIndexOf(".") && (decimal === "." || !int.includes(".") || groupMark === ".") ? out : null;
+}
+
+/** `t` grouped by spaces in a locale whose decimal mark is `decimal`: only that mark may follow. */
+function withLocaleSpaceGroups(t: string, decimal: "." | ","): string | null {
+  const other = decimal === "." ? "," : ".";
+  return t.includes(other) ? null : withSpaceGroups(t);
 }
 
 function numberMarks(locale: string): { group: string; decimal: string; lakh: boolean } {

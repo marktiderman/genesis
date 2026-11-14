@@ -87,6 +87,32 @@ describe("numbers", () => {
     expect(parseNumberInput("1 234,5", { locale: "fr-FR" })).toBe(1234.5);
     expect(parseNumberInput("1.5", { locale: "fr-FR" })).toBeNull();
   });
+  it("reads spaces and apostrophes as a group mark, checked like the others", () => {
+    // Each of these was read as a different number.
+    expect(parseNumberInput("1 5")).toBeNull();
+    expect(parseNumberInput("1 5", { locale: "en-US" })).toBeNull();
+    expect(parseNumberInput("1 5", { locale: "fr-FR" })).toBeNull();
+    expect(parseNumberInput("12 34,5", { locale: "fr-FR" })).toBeNull();
+    expect(parseNumberInput("1'2'3")).toBeNull();
+    expect(parseNumberInput("1'5", { locale: "de-CH" })).toBeNull();
+    expect(parseNumberInput("1 000.5,2")).toBeNull();
+    expect(parseNumberInput("1 000,5 1")).toBeNull();
+    expect(parseNumberInput("1 234", { locale: "de-DE" })).toBe(1234);
+    expect(parseNumberInput("1 234.5", { locale: "de-DE" })).toBeNull();
+    // Still read.
+    expect(parseNumberInput("1 000")).toBe(1000);
+    expect(parseNumberInput("12 345 678,5")).toBe(12345678.5);
+    expect(parseNumberInput("1\u00a0234,5", { locale: "fr-FR" })).toBe(1234.5);
+    expect(parseNumberInput("1\u202f234\u202f567,25", { locale: "fr-FR" })).toBe(1234567.25);
+    expect(parseNumberInput("1'234.5", { locale: "de-CH" })).toBe(1234.5);
+    expect(parseNumberInput("1 234,5", { locale: "en-US" })).toBeNull();
+    expect(parseNumberInput("1 234.5", { locale: "en-US" })).toBe(1234.5);
+  });
+  it("reads the typographic apostrophe browsers write for de-CH", () => {
+    expect(parseNumberInput("1\u2019234.5")).toBe(1234.5);
+    expect(parseNumberInput("1\u2019234.5", { locale: "de-CH" })).toBe(1234.5);
+    expect(parseNumberInput("1\u2019234\u2019567")).toBe(1234567);
+  });
   it("reads a locale's marks as strictly as it guesses: groups only in the whole part, one decimal mark", () => {
     // Each of these was read 10 or 1000 times off.
     expect(parseNumberInput("1,5", { locale: "en-US" })).toBeNull();

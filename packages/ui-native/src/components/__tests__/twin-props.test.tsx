@@ -12,7 +12,7 @@ import { NativeRadioGroup } from "../radio-group";
 import { NotificationsPage } from "../../layouts/notifications-page";
 
 describe("NativeChipGroup, as the web's ChipGroup", () => {
-  it("in single mode gives one string, keeps the chosen chip on, and clears it with allowEmpty", () => {
+  it("in single mode gives one string, reports the chosen chip pressed again as before, and clears it with allowEmpty", () => {
     const onChange = vi.fn<(value: string) => void>();
     const { rerender } = render(
       <NativeChipGroup mode="single" value="all" onChange={onChange}>
@@ -20,8 +20,9 @@ describe("NativeChipGroup, as the web's ChipGroup", () => {
         <NativeChip value="new">New</NativeChip>
       </NativeChipGroup>,
     );
+    // As on main: the chosen chip pressed again still calls onChange with its value.
     fireEvent.click(screen.getByTestId("chip-all"));
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenLastCalledWith("all");
     fireEvent.click(screen.getByTestId("chip-new"));
     expect(onChange).toHaveBeenLastCalledWith("new");
     rerender(
