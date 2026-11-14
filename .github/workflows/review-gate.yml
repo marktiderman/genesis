@@ -91,7 +91,7 @@ jobs:
           # "time<TAB>verdict" lines, then sorted across pages.
           verdict=$(gh api --paginate "repos/$REPO/pulls/$PR/reviews" --jq "
             .[] | select(.commit_id == \"$HEAD\" and .user.type == \"User\" and .state != \"DISMISSED\")
-            | ((.body // \"\") | ascii_downcase | ltrimstr(\" \")) as \$b
+            | ((.body // \"\") | ascii_downcase | sub(\"^[\\\\s#*_>]+\"; \"\")) as \$b
             | (if .state == \"CHANGES_REQUESTED\" then \"changes\"
                elif (\$b | startswith(\"verdict: approve\")) then \"approve\"
                elif (\$b | startswith(\"verdict:\")) then \"changes\"
