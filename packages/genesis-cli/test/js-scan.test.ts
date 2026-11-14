@@ -98,6 +98,8 @@ describe("the doctor's code scanner", () => {
       "switch (k) { case use(contract): break; }",
       "function f(other: Map<string, typeof contract>) {}",
       "function f(other: Record<string, Array<typeof contract>>, y = 1) {}",
+      "function f({ [String(contract)]: other }) {}",
+      "const f = ({ [contract]: other, b }) => 1;",
     ]) {
       expect(boundAsParameter(code, "contract"), code).toBe(false);
     }
@@ -107,6 +109,9 @@ describe("the doctor's code scanner", () => {
       "class V { m<T>(contract: T) { return 1; } }",
       "const o = { m<T>(contract: T): T { return contract; } };",
       "function f(other: Map<string, number>, contract: X) {}",
+      "function f({ [key]: contract }) {}",
+      "function f([a, contract]) {}",
+      "function f({ x: [contract] }) {}",
     ]) {
       expect(boundAsParameter(code, "contract"), code).toBe(true);
     }
