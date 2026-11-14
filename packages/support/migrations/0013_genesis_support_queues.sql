@@ -7,7 +7,9 @@
 --      neither active nor closed, and goes back to `open` by itself when the requester writes
 --      (their message in the conversation, a reply, an email). On the conversation it is chat's
 --      `pending`, as in_progress already is; a ticket that is pending stays so when chat says
---      pending. Moving from closed to pending clears resolved_at, as reopening does.
+--      pending. Chat has one pending for both, so a pending set on the conversation (genesis_chat.set_status)
+--      makes an active ticket in_progress, as before; set a ticket pending on the ticket (support_set_report_status).
+--      Moving from closed to pending clears resolved_at, as reopening does.
 --   2. The agent queues. Active means not pending and not closed (addressed, wont_fix).
 --      public.support_agent_tickets takes two more views: `pending` (every pending ticket) and
 --      `closed`. `mine` and `unassigned` now hold active tickets only (a pending one is in
@@ -20,6 +22,8 @@
 --      tickets in the ticket's tenant, newest first, for an agent's details panel. Only an
 --      agent of that tenant may ask (42501 otherwise, the same for a ticket that isn't there);
 --      an agent's own tickets never show. An email ticket with no login matches on its address.
+--
+-- Numbered 0013: 0011 and 0012 are reserved by another change in flight.
 --
 -- support_agent_tickets gains a column, so it is dropped and made again (two signatures would leave
 -- PostgREST unable to choose); its grants are made again below.

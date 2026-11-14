@@ -37,7 +37,8 @@ import {
   type ThreadPageSlotMap,
 } from "@marktiderman/genesis-ui";
 import type { ResolveUser } from "@marktiderman/genesis-chat/web";
-import { reportHeading, SupportError, type AgentTicket, type HelpSearchHit, type SupportClient, type SupportReply, type TicketInboxView } from "../client";
+import { FEEDBACK_STATUSES, type FeedbackStatus } from "../contract";
+import { reportHeading, SupportError, type AgentDesk, type AgentTicket, type HelpSearchHit, type SupportClient, type SupportReply, type TicketInboxView } from "../client";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { isSitePath } from "../routes";
 import { ComposerPickerList, showMentions, useComposerPicker, type ComposerPicker } from "./composer-pickers";
@@ -134,6 +135,7 @@ interface PaneValue {
   onStatus: (status: AgentTicket["status"]) => void;
   onAssign: (userId: string | null) => void;
   picker: ComposerPicker;
+  statuses: readonly FeedbackStatus[];
 }
 
 const PaneContext = createContext<PaneValue | null>(null);
@@ -150,6 +152,7 @@ function TicketHeaderRegion({ testID }: ThreadPageSlotMap["headerRegion"]) {
       <TicketControls
         status={pane.ticket.status}
         assignee={pane.ticket.assigneeId}
+        statuses={pane.statuses}
         staff={pane.agents}
         onStatus={pane.onStatus}
         onAssign={pane.onAssign}
@@ -218,6 +221,8 @@ interface PaneProps {
   copy: SupportCopy;
   replyVariables?: ((ticket: AgentTicket) => Readonly<Record<string, string>>) | undefined;
   articleHref: (article: HelpSearchHit) => string;
+  /** Which of the desk's migrations the database has. */
+  desk: AgentDesk;
   onError?: ((error: unknown) => void) | undefined;
 }
 
@@ -225,11 +230,19 @@ const NOTE = "note";
 const REPLY = "reply";
 const paneSlots = { headerRegion: TicketHeaderRegion, composer: TicketComposer };
 
-/** The last message's id, "none" for none, or null while it isn't known. */
-const lastIdOf = (replies: readonly SupportReply[] | undefined): string | null => (replies ? (replies[replies.length - 1]?.id ?? "none") : null);
+/**
+ * The last message from someone else that the requester sees, "none" for none, or null while it
+ * isn't known. The agent's own messages and their team's notes never hold a reply.
+ */
+const lastOthersIdOf = (replies: readonly SupportReply[] | undefined): string | null => {
+  if (!replies) return null;
+  // On support_replies no author is readable: anything from support's side is the agent's.
+  const others = replies.filter((r) => !r.internal && (r.authorId !== undefined ? !r.mine : !r.fromStaff));
+  return others[others.length - 1]?.id ?? "none";
+};
 
 /** The open ticket's thread. Keyed by ticket, so a draft never follows you to another one. */
-function TicketPane({ client, tenantId, ticket, resolveUser, agents, slots, contextToggle, copy, replyVariables, articleHref, onError }: PaneProps) {
+function TicketPane({ client, tenantId, ticket, resolveUser, agents, slots, contextToggle, copy, replyVariables, articleHref, desk, onError }: PaneProps) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<string>(REPLY);
@@ -287,7 +300,7 @@ function TicketPane({ client, tenantId, ticket, resolveUser, agents, slots, cont
   }, [client, ticket.id, latest, queryClient]);
 
   // What the agent had in front of them when they started writing: Send compares against it.
-  const shownLast = lastIdOf(replies.data);
+  const shownLast = lastOthersIdOf(replies.data);
   const startedOn = useRef<string | null>(null);
   useEffect(() => {
     if (!draft.trim()) {
@@ -324,7 +337,9 @@ function TicketPane({ client, tenantId, ticket, resolveUser, agents, slots, cont
     draft,
     setDraft,
     note: mode === NOTE,
-    agents: assignable,
+    // Mentions and saved replies need migration 0014.
+    agents: desk.tools ? assignable : undefined,
+    savedReplies: desk.tools,
     variables,
     articleHref,
     copy,
@@ -362,15 +377,16 @@ function TicketPane({ client, tenantId, ticket, resolveUser, agents, slots, cont
   const send = () => {
     const body = draft.trim();
     if (!body || sending) return;
-    if (held) return deliver(body);
     const before = startedOn.current;
     setSending(true);
-    // The latest before sending: a message that came in while they wrote holds it.
+    // The latest before sending: someone else's message that came in while they wrote holds it.
+    // Held, it's what they've now been shown, so Send again (edited or not) checks from there.
     replies
       .refetch()
       .then((fresh) => {
-        const now = lastIdOf(fresh.data);
+        const now = lastOthersIdOf(fresh.data);
         if (before !== null && now !== null && now !== before) {
+          startedOn.current = now;
           setSending(false);
           setHeld(true);
           return;
@@ -382,7 +398,7 @@ function TicketPane({ client, tenantId, ticket, resolveUser, agents, slots, cont
 
   const review = () => {
     setHeld(false);
-    startedOn.current = lastIdOf(replies.data);
+    startedOn.current = lastOthersIdOf(replies.data);
   };
 
   const pane: PaneValue = {
@@ -394,6 +410,8 @@ function TicketPane({ client, tenantId, ticket, resolveUser, agents, slots, cont
     onStatus: (status) => void change(client.setStatus(ticket.id, status)),
     onAssign: (userId) => void change(client.assign(ticket.id, userId)),
     picker,
+    // Pending needs migration 0013.
+    statuses: desk.queues ? FEEDBACK_STATUSES : FEEDBACK_STATUSES.filter((s) => s !== "pending"),
   };
 
   const notice = held ? (
@@ -542,7 +560,8 @@ function TicketDetails({
   copy,
   onOpen,
   onError,
-}: Pick<PaneProps, "client" | "ticket" | "resolveUser" | "copy" | "onError"> & { context?: ((ticket: AgentTicket) => ReactNode) | undefined; onOpen: (id: string) => void }) {
+  earlier,
+}: Pick<PaneProps, "client" | "ticket" | "resolveUser" | "copy" | "onError"> & { context?: ((ticket: AgentTicket) => ReactNode) | undefined; onOpen: (id: string) => void; earlier: boolean }) {
   const shots = useQuery({ queryKey: supportWebKeys.attachments(ticket.id), queryFn: () => client.attachments(ticket.id), staleTime: 50 * 60_000 });
   const severities = copy.feedback.severities as Record<string, string>;
   // In the viewer's zone, so it waits for the browser: the server's HTML has none.
@@ -585,7 +604,7 @@ function TicketDetails({
         </section>
       ) : null}
       {context ? context(ticket) : null}
-      <EarlierConversations client={client} ticket={ticket} copy={copy} onOpen={onOpen} onError={onError} />
+      {earlier ? <EarlierConversations client={client} ticket={ticket} copy={copy} onOpen={onOpen} onError={onError} /> : null}
     </div>
   );
 }
@@ -626,15 +645,27 @@ function AgentInbox({
 }: SupportAgentInboxProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
   const pageSize = Math.min(Math.max(pageSizeProp, 1), MAX_PAGE);
+  const tenantKey = tenantId;
+  // A refusal doesn't change by asking again.
+  const poll = (query: { state: { error: unknown } }) => (isRefused(query.state.error) ? false : refreshInterval);
+
+  // Which of the desk's migrations are there: what isn't is hidden, never refused at every read.
+  // A client without the probe is taken to have them all.
+  const probe = useQuery({
+    queryKey: ["genesis-support", "agent-desk", scopeOf(client, tenantId)],
+    queryFn: () => client.agentDesk!(),
+    enabled: Boolean(client.agentDesk),
+    staleTime: Infinity,
+  });
+  const desk: AgentDesk = client.agentDesk ? (probe.data ?? { queues: false, tools: false }) : { queues: true, tools: true };
+  const shownViews = useMemo(() => views.filter((v) => desk.queues || (v !== "pending" && v !== "closed")), [views, desk.queues]);
   const [ownView, setOwnView] = useState<TicketInboxView>(defaultView ?? views[0] ?? "mine");
-  const view = viewProp ?? ownView;
+  const wanted = viewProp ?? ownView;
+  const view = shownViews.includes(wanted) || !views.includes(wanted) ? wanted : (shownViews[0] ?? "mine");
   const setView = (next: TicketInboxView) => {
     if (viewProp === undefined) setOwnView(next);
     onViewChange?.(next);
   };
-  const tenantKey = tenantId;
-  // A refusal doesn't change by asking again.
-  const poll = (query: { state: { error: unknown } }) => (isRefused(query.state.error) ? false : refreshInterval);
 
   const list = useInfiniteQuery({
     queryKey: supportInboxKeys.list(tenantKey, view),
@@ -713,9 +744,9 @@ function AgentInbox({
       views={
         <InboxViews
           testID="genesis-support-agent-views"
-          views={views.map((id) => {
+          views={shownViews.map((id) => {
             const count = viewCount(id);
-            return { id, label: copy.agentInbox.views[id], ...(count === undefined ? {} : { count, countLabel: count === 1 ? copy.agentInbox.oneTicket : fill(copy.agentInbox.count, { count }) }) };
+            return { id, label: copy.agentInbox.views[id], ...(count === undefined ? {} : { count, countLabel: desk.queues ? (count === 1 ? copy.agentInbox.oneActive : fill(copy.agentInbox.activeCount, { count })) : count === 1 ? copy.agentInbox.oneTicket : fill(copy.agentInbox.count, { count }) }) };
           })}
           activeId={view}
           onSelect={(id) => setView(id as TicketInboxView)}
@@ -758,6 +789,7 @@ function AgentInbox({
             copy={copy}
             replyVariables={replyVariables}
             articleHref={articleHref}
+            desk={desk}
             onError={onError}
           />
         ) : ticketId && open.isPending ? (
@@ -775,7 +807,7 @@ function AgentInbox({
           </div>
         )
       }
-      {...(ticket ? { context: <TicketDetails client={client} ticket={ticket} resolveUser={resolveUser} context={context} copy={copy} onOpen={onTicketChange} onError={onError} /> } : {})}
+      {...(ticket ? { context: <TicketDetails client={client} ticket={ticket} resolveUser={resolveUser} context={context} copy={copy} onOpen={onTicketChange} onError={onError} earlier={desk.queues} /> } : {})}
     />
   );
 }

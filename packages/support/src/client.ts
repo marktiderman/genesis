@@ -158,6 +158,14 @@ export interface AgentTicket extends Ticket {
 /** How many active tickets the mine, unassigned and all queues hold (after migration 0013, never pending or closed ones). */
 export type AgentTicketCounts = Record<"mine" | "unassigned" | "all", number>;
 
+/** Which of the agent desk's migrations the database has. */
+export interface AgentDesk {
+  /** Migration 0013: the pending status, the Pending and Closed views, earlier conversations. */
+  queues: boolean;
+  /** Migration 0014: mentions, saved replies, reports. */
+  tools: boolean;
+}
+
 /** Another ticket from the same requester, for an agent's details panel (migration 0013). */
 export interface EarlierTicket {
   id: string;
@@ -280,6 +288,12 @@ export interface SupportClient extends FeedbackSink {
   agentTicketCounts?(options?: { tenantId?: string | null }): Promise<AgentTicketCounts>;
   /** Agents: the same requester's other tickets in this ticket's tenant, newest first. Needs migration 0013. */
   agentEarlierTickets?(ticketId: string, options?: { limit?: number }): Promise<EarlierTicket[]>;
+  /**
+   * Agents: which of the desk's migrations the database has, learned once: `queues` (0013: the
+   * pending status, the Pending and Closed views, earlier conversations) and `tools` (0014:
+   * mentions, saved replies, reports). The inbox hides what's missing.
+   */
+  agentDesk?(): Promise<AgentDesk>;
   /** Agents: where the signed-in agent was mentioned in an internal note, newest first. Needs migration 0014. */
   agentMentions?(options?: { limit?: number }): Promise<AgentMention[]>;
   /** Agents: the tenant's saved replies, by title. Needs migration 0014. */
@@ -388,6 +402,9 @@ export interface SupportClientOptions {
    */
   tenantId?: string | null | (() => string | null | Promise<string | null>);
 }
+
+/** An id no row has, for probing whether a function exists. */
+const NO_ROW = "00000000-0000-0000-0000-000000000000";
 
 const REPORT_COLUMNS =
   "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at, pin:context->pin, about_label:context->>about_label";
@@ -557,6 +574,8 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
   let chatInstalled: boolean | null = chat ? null : false;
   const conversations = new Map<string, string>();
   const warn = options.onChatUnavailable ?? ((message: string) => console.warn(message));
+  // The agent desk's migrations, learned once.
+  let desk: Promise<AgentDesk> | null = null;
 
   async function thread(reportId: string): Promise<SupportThreadInfo> {
     if (!chat || chatInstalled === false) return { mode: "replies", conversationId: null };
@@ -777,8 +796,25 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       const count = (view: TicketInboxView) => Number((rows ?? []).find((r) => r["inbox_view"] === view)?.["tickets"] ?? 0);
       return { mine: count("mine"), unassigned: count("unassigned"), all: count("all") };
     },
+    agentDesk() {
+      // Each probe names no row: with the migration it's refused (42501), without it the function is missing.
+      const has = async (fn: string, args: Record<string, unknown>) => !isMissingFunction((await supabase.rpc(fn, args)).error);
+      desk ??= Promise.all([
+        has("support_agent_requester_tickets", { report: NO_ROW, max_rows: 1 }),
+        has("support_delete_saved_reply", { saved: NO_ROW }),
+      ])
+        .then(([queues, tools]) => ({ queues, tools }))
+        .catch((error: unknown) => {
+          desk = null;
+          throw error;
+        });
+      return desk;
+    },
     async agentEarlierTickets(ticketId, { limit = 20 } = {}) {
-      const rows = must<Row[]>("agentEarlierTickets", await supabase.rpc("support_agent_requester_tickets", { report: ticketId, max_rows: limit }));
+      const result = await supabase.rpc("support_agent_requester_tickets", { report: ticketId, max_rows: limit });
+      // Before migration 0013 there are none to show.
+      if (isMissingFunction(result.error)) return [];
+      const rows = must<Row[]>("agentEarlierTickets", result);
       return (rows ?? []).map((r) => ({
         id: String(r["id"]),
         title: (r["title"] as string | null) ?? null,

@@ -7,7 +7,7 @@
 -- agent of tb.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(33);
+select plan(34);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -162,6 +162,12 @@ select is((public.support_agent_report('00000000-0000-4000-8000-0000000000a0', n
           'opened, closed, the medians (a note is no response) and open by requester');
 select throws_ok($$ select public.support_agent_report('00000000-0000-4000-8000-0000000000a0', now(), now() - interval '1 day') $$, '22023', null,
                  'a range runs forward');
+reset role;
+create or replace function private.genesis_support_requester_label(report uuid) returns text
+language plpgsql stable set search_path = '' as $$ begin raise exception 'the directory is down'; end $$;
+set local role authenticated;
+select is(public.support_agent_report('00000000-0000-4000-8000-0000000000a0') -> 'by_requester', '[]'::jsonb,
+          'a label hook that fails costs the grouping, not the report');
 select pg_temp.sign_in('e5');
 select throws_ok($$ select public.support_agent_report('00000000-0000-4000-8000-0000000000a0') $$, '42501', null, 'another tenant''s agent reads no report');
 

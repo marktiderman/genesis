@@ -130,19 +130,22 @@ interface Expectation {
  */
 function useExpectation(replyExpectation: string | undefined, officeHours: OfficeHours | undefined): Expectation {
   const [back, setBack] = useState<string | null>(null);
+  // By value: an app that writes the hours inline makes a new object every render.
+  const key = officeHours ? JSON.stringify(officeHours) : null;
   useEffect(() => {
-    if (!officeHours) {
+    if (!key) {
       setBack(null);
       return;
     }
+    const hours = JSON.parse(key) as OfficeHours;
     const check = () => {
-      const state = officeHoursState(officeHours);
+      const state = officeHoursState(hours);
       setBack(!state.open && state.nextOpen ? new Intl.DateTimeFormat(undefined, { weekday: "long", hour: "numeric", minute: "2-digit" }).format(state.nextOpen) : null);
     };
     check();
     const timer = setInterval(check, 60_000);
     return () => clearInterval(timer);
-  }, [officeHours]);
+  }, [key]);
   return { back, within: replyExpectation?.trim() || null };
 }
 

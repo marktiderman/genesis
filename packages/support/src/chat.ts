@@ -67,6 +67,9 @@ export const SUPPORT_TO_CHAT_STATUS = {
   open: "open",
   submitted: "open",
   in_progress: "pending",
+  // Migration 0013. Chat's pending set on the conversation comes back as in_progress, unless the
+  // ticket is already pending (genesis_support_report_status keeps a status that maps there).
+  pending: "pending",
   addressed: "solved",
   wont_fix: "closed",
 } as const;

@@ -110,6 +110,9 @@ export const supportCopy = {
     /** Each view's count, for a screen reader. `{count}` tickets. */
     count: "{count} tickets",
     oneTicket: "1 ticket",
+    /** The same, once migration 0013 counts only active tickets (not pending, not closed). `{count}`. */
+    activeCount: "{count} active tickets",
+    oneActive: "1 active ticket",
     emptyTitle: { mine: "Nothing assigned to you", unassigned: "Nothing waiting", all: "No tickets yet", pending: "Nothing waiting on a customer", closed: "Nothing closed yet" },
     emptyBody: "New tickets show up here.",
     errorTitle: "Couldn't load the tickets",

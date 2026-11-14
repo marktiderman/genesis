@@ -1,7 +1,8 @@
 /**
  * The agent composer's pickers: typing `@` in an internal note offers the tenant's agents to
  * mention, `!` the tenant's saved replies, `?` its help articles. A trigger counts at the start of
- * the draft or after a space, and what follows it filters; arrow keys move, Enter or Tab inserts,
+ * the draft or after a space, and only with a letter after it, so "Merci !" or a closing "?" never
+ * opens a list that takes Enter. What follows it filters; arrow keys move, Enter or Tab inserts,
  * Escape closes. A mention goes in as genesis-chat's markdown (`@[Name](user:<uuid>)`), which the
  * database reads to tell the agent (migration 0014); a saved reply with its `{first_name}`-style
  * variables filled; an article as its title and link.
@@ -29,7 +30,7 @@ const MAX_OPTIONS = 8;
 
 /** The trigger being typed at the end of a draft, if any: its kind, where it starts and what follows it. */
 export function pickerToken(draft: string): { kind: PickerKind; start: number; query: string } | null {
-  const match = /(^|\s)([@!?])([^\s@!?]{0,40})$/.exec(draft);
+  const match = /(^|\s)([@!?])([^\s@!?]{1,40})$/.exec(draft);
   if (!match) return null;
   const kind = TRIGGERS[match[2]!];
   if (!kind) return null;
@@ -58,6 +59,8 @@ export interface UseComposerPickerOptions {
   /** Mentions are for internal notes only. */
   note: boolean;
   agents?: readonly { id: string; name: string }[] | undefined;
+  /** Offer saved replies (`!`). Default true. */
+  savedReplies?: boolean | undefined;
   /** Filled into a saved reply as it's inserted. */
   variables: Readonly<Record<string, string>>;
   /** An article's link. */
@@ -81,13 +84,13 @@ export interface ComposerPicker {
 }
 
 /** What the open picker offers, and the keys that drive it. */
-export function useComposerPicker({ client, tenantId, scope, draft, setDraft, note, agents, variables, articleHref, copy, onError }: UseComposerPickerOptions): ComposerPicker {
+export function useComposerPicker({ client, tenantId, scope, draft, setDraft, note, agents, savedReplies = true, variables, articleHref, copy, onError }: UseComposerPickerOptions): ComposerPicker {
   const listId = useId();
   const token = pickerToken(draft);
   const [dismissed, setDismissed] = useState<number | null>(null);
   const [active, setActive] = useState(0);
   const kind = token && token.start !== dismissed ? token.kind : null;
-  const usable = kind === "mention" ? note && Boolean(agents?.length) : kind === "saved" ? Boolean(client.savedReplies) : kind === "article" ? Boolean(client.searchHelp && client.helpArticles) : false;
+  const usable = kind === "mention" ? note && Boolean(agents?.length) : kind === "saved" ? savedReplies && Boolean(client.savedReplies) : kind === "article" ? Boolean(client.searchHelp) : false;
   const query = token?.query ?? "";
 
   const saved = useQuery({
@@ -99,7 +102,7 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
   const articles = useQuery({
     queryKey: ["genesis-support", "composer-articles", scope, query],
     queryFn: async (): Promise<HelpSearchHit[]> =>
-      query ? client.searchHelp!(query, { tenantId, limit: MAX_OPTIONS }) : (await client.helpArticles!({ tenantId })).filter((a) => a.status === "published"),
+      client.searchHelp!(query, { tenantId, limit: MAX_OPTIONS }),
     enabled: usable && kind === "article",
     staleTime: 60_000,
   });

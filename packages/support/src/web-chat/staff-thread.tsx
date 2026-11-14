@@ -32,6 +32,8 @@ export interface TicketControlsProps {
   assignee: string | null;
   /** The requester's name, when it should show. */
   reporter?: string | null | undefined;
+  /** The statuses offered. Default every status. */
+  statuses?: readonly FeedbackStatus[] | undefined;
   /** Who it can be given to. Without it there is no assignee picker. */
   staff?: readonly { id: string; name: string }[] | undefined;
   onStatus: (status: FeedbackStatus) => void;
@@ -41,7 +43,7 @@ export interface TicketControlsProps {
 }
 
 /** A ticket's status and assignee pickers: the staff thread and the agent inbox share them. */
-export function TicketControls({ status, assignee, reporter, staff, onStatus, onAssign, failed, copy }: TicketControlsProps) {
+export function TicketControls({ status, assignee, reporter, statuses = FEEDBACK_STATUSES, staff, onStatus, onAssign, failed, copy }: TicketControlsProps) {
   return (
     <div className="flex flex-wrap items-end gap-4">
       {reporter ? (
@@ -57,7 +59,7 @@ export function TicketControls({ status, assignee, reporter, staff, onStatus, on
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {FEEDBACK_STATUSES.map((s) => (
+            {(statuses.includes(status) ? statuses : [status, ...statuses]).map((s) => (
               <SelectItem key={s} value={s}>
                 {copy.status[s]}
               </SelectItem>

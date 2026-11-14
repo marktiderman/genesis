@@ -24,7 +24,7 @@
 --      opened in the range) and the median time to close (tickets closed in the range), in
 --      seconds, null with nothing to measure; how many are open now (active and pending); and,
 --      when the app defines the optional hook below, the open ones by the requester's
---      organization, most first. Without the hook that list is empty.
+--      organization, most first. Without the hook, or when it raises (a warning), that list is empty.
 --
 --        private.genesis_support_requester_label(report uuid) returns text         (optional)
 --          Whom the ticket's requester is with (their company, their workspace), or null.
@@ -271,12 +271,18 @@ begin
          )
     into result;
   if to_regprocedure('private.genesis_support_requester_label(uuid)') is not null then
-    select coalesce(jsonb_agg(jsonb_build_object('label', g.label, 'open', g.n) order by g.n desc, g.label), '[]'::jsonb)
-      into groups
-      from (select nullif(btrim(private.genesis_support_requester_label(t.id)), '') as label, count(*)::integer as n
-              from public.tickets t
-             where t.tenant_id = resolved and t.status not in ('addressed', 'wont_fix')
-             group by 1) g;
+    -- A hook that fails costs the grouping, never the report.
+    begin
+      select coalesce(jsonb_agg(jsonb_build_object('label', g.label, 'open', g.n) order by g.n desc, g.label), '[]'::jsonb)
+        into groups
+        from (select nullif(btrim(private.genesis_support_requester_label(t.id)), '') as label, count(*)::integer as n
+                from public.tickets t
+               where t.tenant_id = resolved and t.status not in ('addressed', 'wont_fix')
+               group by 1) g;
+    exception when others then
+      raise warning 'genesis-support: the app''s requester label hook failed: %', sqlerrm;
+      groups := '[]'::jsonb;
+    end;
   end if;
   return result || jsonb_build_object('by_requester', groups);
 end;

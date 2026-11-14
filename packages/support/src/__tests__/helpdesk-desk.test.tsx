@@ -6,7 +6,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import { createSupportClient, officeHoursState, SupportError, waitingSinceOf, type AgentTicket, type SupportClient, type SupportReply, type Ticket } from "..";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { createSupportClient, defineSupportChatBlock, defineSupportEmailBlock, defineSupportHelpdeskBlock, officeHoursState, SupportError, waitingSinceOf, type AgentTicket, type SupportClient, type SupportReply, type Ticket } from "..";
 import { SupportAgentInbox, SupportAgentReports, SupportMessenger, SupportSavedRepliesAdmin } from "../web-chat";
 import { mentionMarkup, pickerToken, showMentions } from "../web-chat/composer-pickers";
 import { fakeSupabase } from "./fake-supabase";
@@ -72,6 +74,7 @@ function fakeClient(over: Partial<SupportClient> = {}) {
     ]),
     searchHelp: vi.fn(async () => [{ id: "a1", collectionId: null, slug: "reset-password", title: "Reset your password", summary: null }]),
     helpArticles: vi.fn(async () => []),
+    agentDesk: vi.fn(async () => ({ queues: true, tools: true })),
     ...over,
   } as unknown as SupportClient & Record<string, ReturnType<typeof vi.fn>>;
 }
@@ -100,6 +103,17 @@ function inbox(client: SupportClient, props: Partial<Parameters<typeof SupportAg
 async function composer() {
   return (await screen.findByRole("textbox")) as HTMLTextAreaElement;
 }
+
+describe("the blocks' manifest", () => {
+  it("lists the same migrations in package.json (what genesis add reads) as each block declares", () => {
+    const pkg = JSON.parse(readFileSync(join(__dirname, "../../package.json"), "utf8"));
+    for (const block of [defineSupportChatBlock(), defineSupportHelpdeskBlock(), defineSupportEmailBlock()]) {
+      const manifest = pkg.genesis.blocks[block.id];
+      expect(manifest.migrations.map((m: { file: string }) => m.file), block.id).toEqual(block.contributes!.migrations!.map((m) => m.file));
+    }
+    expect(pkg.genesis.blocks["support-chat"].migrations.map((m: { file: string }) => m.file)).toContain("migrations/0014_genesis_support_agent_tools.sql");
+  });
+});
 
 describe("the client", () => {
   it("reads how long a requester has waited, and works it out without migration 0013", async () => {
@@ -186,7 +200,9 @@ describe("the queues", () => {
 describe("the composer's pickers", () => {
   it("finds the trigger being typed", () => {
     expect(pickerToken("Hi !ref")).toEqual({ kind: "saved", start: 3, query: "ref" });
-    expect(pickerToken("?")).toEqual({ kind: "article", start: 0, query: "" });
+    expect(pickerToken("?r")).toEqual({ kind: "article", start: 0, query: "r" });
+    expect(pickerToken("?")).toBeNull();
+    expect(pickerToken("Merci !")).toBeNull();
     expect(pickerToken("Can you help?")).toBeNull();
     expect(pickerToken("mail me@x")).toBeNull();
     expect(mentionMarkup({ id: AGENT, name: "Kit [lead]" })).toBe(`@[Kit lead](user:${AGENT})`);
@@ -246,12 +262,56 @@ describe("the composer's pickers", () => {
     const client = fakeClient();
     inbox(client, { ticketId: "t1" });
     const box = await composer();
-    fireEvent.change(box, { target: { value: "Is it ?" } });
+    fireEvent.change(box, { target: { value: "Is it ?res" } });
     await screen.findByTestId("genesis-support-agent-thread-composer-picker");
     fireEvent.keyDown(box, { key: "Escape" });
     await waitFor(() => expect(screen.queryByTestId("genesis-support-agent-thread-composer-picker")).toBeNull());
     fireEvent.click(screen.getByTestId("genesis-support-agent-thread-composer-send"));
-    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Is it ?", { internal: false }));
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Is it ?res", { internal: false }));
+  });
+
+  it("opens nothing on a bare ! or ?, so Enter sends", async () => {
+    const client = fakeClient();
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "Merci !" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Merci !", { internal: false }));
+    expect(screen.queryByTestId("genesis-support-agent-thread-composer-picker")).toBeNull();
+  });
+});
+
+describe("on a database without the desk's migrations", () => {
+  it("hides Pending and Closed, earlier conversations, mentions and saved replies", async () => {
+    const client = fakeClient({ agentDesk: vi.fn(async () => ({ queues: false, tools: false })) });
+    inbox(client, { ticketId: "t1", defaultView: "pending" });
+    await screen.findByTestId("genesis-support-agent-views-mine");
+    await waitFor(() => expect(client.agentDesk).toHaveBeenCalled());
+    expect(screen.queryByTestId("genesis-support-agent-views-pending")).toBeNull();
+    expect(screen.queryByTestId("genesis-support-agent-views-closed")).toBeNull();
+    expect(client.agentTickets).not.toHaveBeenCalledWith(expect.objectContaining({ view: "pending" }));
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!re" } });
+    fireEvent.click(screen.getByRole("radio", { name: "Internal note" }));
+    fireEvent.change(box, { target: { value: "@ki" } });
+    expect(screen.queryByTestId("genesis-support-agent-thread-composer-picker")).toBeNull();
+    expect(client.savedReplies).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("genesis-support-agent-inbox-toggle-context"));
+    await screen.findByTestId("genesis-support-agent-details");
+    expect(screen.queryByTestId("genesis-support-agent-earlier")).toBeNull();
+    expect(client.agentEarlierTickets).not.toHaveBeenCalled();
+  });
+
+  it("learns which migrations are there once, from whether their functions exist", async () => {
+    const missing = { data: null, error: { message: "not found", code: "PGRST202" } };
+    const refused = { data: null, error: { message: "only an agent", code: "42501" } };
+    const { client, rpcs } = fakeSupabase({ rpc: (fn) => (fn === "support_agent_requester_tickets" ? refused : missing) });
+    const support = createSupportClient(client);
+    expect(await support.agentDesk!()).toEqual({ queues: true, tools: false });
+    await support.agentDesk!();
+    expect(rpcs.filter((r) => r.fn === "support_delete_saved_reply")).toHaveLength(1);
+    const { client: old } = fakeSupabase({ rpc: () => missing });
+    expect(await createSupportClient(old).agentEarlierTickets!("t1")).toEqual([]);
   });
 });
 
@@ -300,6 +360,46 @@ describe("a held reply", () => {
     fireEvent.click(screen.getByTestId("genesis-support-agent-thread-composer-send"));
     await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Thanks", { internal: false }));
     expect(screen.queryByTestId("genesis-support-agent-held")).toBeNull();
+  });
+
+  it("is never held by the agent's own message or a teammate's note", async () => {
+    const first = [reply({ id: "m1", body: "It does nothing", authorId: "u1" })];
+    const replies = vi.fn(async () => first);
+    const client = fakeClient({ replies });
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    await waitFor(() => expect(replies).toHaveBeenCalled());
+    fireEvent.change(box, { target: { value: "And one more thing" } });
+    replies.mockImplementation(async () => [
+      ...first,
+      reply({ id: "mine", body: "My last reply", fromStaff: true, mine: true, authorId: "me" }),
+      reply({ id: "note", body: "A teammate's note", fromStaff: true, internal: true, authorId: AGENT }),
+    ]);
+    fireEvent.click(screen.getByTestId("genesis-support-agent-thread-composer-send"));
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "And one more thing", { internal: false }));
+    expect(screen.queryByTestId("genesis-support-agent-held")).toBeNull();
+  });
+
+  it("checks again when Send is pressed on an edited held draft", async () => {
+    const first = [reply({ id: "m1", body: "It does nothing", authorId: "u1" })];
+    const second = [...first, reply({ id: "m2", body: "Hello?", authorId: "u1" })];
+    const replies = vi.fn(async () => first);
+    const client = fakeClient({ replies });
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    await waitFor(() => expect(replies).toHaveBeenCalled());
+    fireEvent.change(box, { target: { value: "Try again?" } });
+    replies.mockImplementation(async () => second);
+    fireEvent.click(screen.getByTestId("genesis-support-agent-thread-composer-send"));
+    await screen.findByTestId("genesis-support-agent-held");
+    fireEvent.change(box, { target: { value: "Try again? Still there?" } });
+    replies.mockImplementation(async () => [...second, reply({ id: "m3", body: "Anyone?", authorId: "u1" })]);
+    fireEvent.click(screen.getByTestId("genesis-support-agent-thread-composer-send"));
+    await waitFor(() => expect(replies.mock.calls.length).toBeGreaterThanOrEqual(3));
+    expect(await screen.findByTestId("genesis-support-agent-held")).toBeTruthy();
+    expect(client.reply).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("genesis-support-agent-thread-composer-send"));
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Try again? Still there?", { internal: false }));
   });
 });
 
