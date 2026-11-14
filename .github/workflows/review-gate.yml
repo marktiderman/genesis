@@ -24,6 +24,9 @@
 # Actions' `GITHUB_TOKEN` (a release bot's, say) starts no run: the reviewer reviews the new head,
 # then removes and re-adds the label. To re-run it after a changed verdict, the reviewer removes
 # the label.
+# Add and remove the label with the REST API, e.g.
+# `gh api -X POST repos/<owner>/<repo>/issues/<n>/labels -f "labels[]=review: approved"`:
+# `gh pr edit` can fail on GitHub's deprecated Projects (classic) field.
 name: Adversarial review
 
 on:
@@ -60,9 +63,16 @@ jobs:
         run: |
           # The token is the base branch's, with write access, Dependabot's and forks' PRs included.
           # If the revoke still fails, the label stays, but a review of an older head never counts.
-          gh pr edit "$PR" --repo "$REPO" --remove-label "review: approved" \
-            || echo "::warning::Couldn't remove 'review: approved'. It no longer counts: the new head needs its own review."
-          gh pr comment "$PR" --repo "$REPO" --body "New commits since the review: \`review: approved\` is removed until the latest head is reviewed." || true
+          # REST, not `gh pr edit` or `gh pr comment`: their GraphQL queries can fail on GitHub's
+          # deprecated Projects (classic) field. A 404 means the label is already off.
+          if ! out=$(gh api -X DELETE "repos/$REPO/issues/$PR/labels/review:%20approved" 2>&1); then
+            case "$out" in
+              *"HTTP 404"*) echo "'review: approved' was already off." ;;
+              *) echo "::warning::Couldn't remove 'review: approved' ($out). It no longer counts: the new head needs its own review." ;;
+            esac
+          fi
+          gh api "repos/$REPO/issues/$PR/comments" \
+            -f body="New commits since the review: \`review: approved\` is removed until the latest head is reviewed." >/dev/null || true
           echo "::error::New commits since the review. Review the latest head, then label the PR 'review: approved'."
           exit 1
         env:
