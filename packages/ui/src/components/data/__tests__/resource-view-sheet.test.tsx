@@ -437,4 +437,31 @@ describe("<ResourceView type=\"sheet\">", () => {
     expect(p.update).toHaveBeenCalledTimes(1);
     expect(document.body.innerHTML).toContain("It's locked.");
   });
+
+  it("checks a queued undo against the row as the save before it left it: a row that save locked refuses it", async () => {
+    const p = provider();
+    const lockable = defineView(tasks, { columns: { default: ["title", "hours", "locked"] }, can: { update: (t) => (t.locked ? "It's locked." : true) } });
+    render(<ResourceView view={lockable} type="sheet" />, { wrapper: wrap(p) });
+    await editHours(p, "5");
+    // The next save (Locked to true) is held; Undo of the hours edit queues behind it.
+    let release: () => void = () => undefined;
+    p.update.mockImplementationOnce(async (_r: string, { id, data }: { id: string; data: Partial<Task> }) => {
+      await new Promise<void>((resolve) => (release = resolve));
+      Object.assign(p.rows.find((r) => r.id === id)!, data);
+      return { data: {} };
+    });
+    const grid = screen.getByRole("grid");
+    fireEvent.keyDown(grid, { key: "ArrowUp" });
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    await act(async () => {
+      fireEvent.paste(grid, { clipboardData: { getData: () => "true" } });
+    });
+    expect(p.update).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByTestId("resource-sheet-undo"));
+    await act(async () => release());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(p.update.mock.calls.map((c) => c[1].data)).toEqual([{ hours: 5 }, { locked: true }]);
+  });
 });

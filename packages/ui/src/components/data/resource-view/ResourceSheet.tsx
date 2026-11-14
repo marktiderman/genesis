@@ -275,7 +275,10 @@ export function ResourceSheet<T extends Row = Row>(props: ResourceViewProps<T>) 
         problem ??= m.sheet.moved;
         continue;
       }
-      const row = list.rows.find((r) => keyOf(r) === item.key);
+      // The row as it is now, not when Undo was pressed: a save queued ahead of this undo (or a
+      // refetch) may have changed what its guards read.
+      const loaded = rowsRef.current.find((r) => keyOf(r) === item.key);
+      const row = loaded ? latestRow(item.key, loaded) : undefined;
       const refusal = !row
         ? m.table.notAllowed
         : (rowRefusal(row) ?? (Object.keys(item.before).every((name) => writable.has(name)) ? undefined : m.sheet.readOnly));
