@@ -104,9 +104,10 @@ whenever nobody owned them.
 ### Adversarial review gate
 
 Every PR into a staging batch (`staging/**`) or into `main` (the release PR included) carries the
-required check "Adversarial review" (`.github/workflows/review-gate.yml`). It passes only with the
-label `review: approved` and an approving review of the PR's current head commit, both from a
-person's account, never an app or a bot.
+check "Adversarial review" (`.github/workflows/review-gate.yml`), required on staging and main. It
+passes only with the label `review: approved` and an approving latest verdict on the PR's current
+head commit, both from a person's account, never an app or a bot. It runs the base branch's copy
+of the workflow (`pull_request_target`), so a PR can't change its own gate.
 
 - An independent adversarial reviewer, never the PR's author, reviews the latest head and posts a
   formal GitHub review with its findings. Every agent acts as the account that opened the PR, and
@@ -115,10 +116,15 @@ person's account, never an app or a bot.
   `Verdict: changes requested`, then lists the findings.
 - Every finding, lows included, is fixed before merge, or declined with a reason the reviewer
   accepts. The author fixes it itself, in the PR: a follow-up card is not a fix. The reviewer adds
-  `review: approved` only then. Never approve or label your own PR.
+  `review: approved` only then, after posting the review: adding the label is what runs the check.
+  A later `Verdict: changes requested` on the same head overrides an earlier approve; to re-run
+  the check after a changed verdict, remove the label. Never approve or label your own PR.
 - A new commit, a merge of the base included, removes the label, and a review of an older head
   doesn't count, so every push needs a review of the new head. Batch pushes. Claude review (`claude-code-review.yml`, which calls the reusable `claude-review.yml` that apps call too) also re-runs on every push; it is not the adversarial review.
 - The author turns on Auto-fix for every PR it opens.
+- Bot PRs get the same review: triage reviews each "chore: version packages" PR and each Dependabot
+  PR like any other. The Release workflow pushes the version PR with Actions' `GITHUB_TOKEN`, which
+  starts no run, so after reviewing a new head the reviewer removes and re-adds the label.
 
 ## Releasing, and how apps get a release
 
@@ -126,6 +132,8 @@ person's account, never an app or a bot.
   then opens or updates "chore: version packages", and merging that publishes to npm
   (`docs/RELEASING.md`). Nothing is published before that second merge, so a blocker found after
   the first is fixed through a staging batch into `main` before the version PR merges, as #586 was.
+  Triage reviews the version PR, and every Dependabot PR, through the adversarial review gate
+  like any other PR.
 - **A change to a shared contract** (core types, ResourceView, the data layer, a published
   package's API) also gets an adversarial review from reviewers that didn't write it, before
   triage merges it into the batch.
