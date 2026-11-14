@@ -7,7 +7,7 @@
 -- agents of ta; e5 an agent of tb; f6 the app's staff; c9 the admin of ta.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(29);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -93,6 +93,9 @@ reset role;
 update public.tickets set status = 'addressed' where title ~ '^queue [0-9]*0$';
 update public.tickets set status = 'pending' where title ~ '^queue [0-9]*5$';
 
+select is((select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.proname = 'support_agent_queue'), 1,
+          'one support_agent_queue: an earlier draft''s overload is dropped');
 select ok(not has_function_privilege('anon', 'public.support_agent_queue(uuid, text, text[], integer, integer)', 'execute'), 'anon cannot read the queue');
 select ok(has_function_privilege('authenticated', 'public.support_agent_queue(uuid, text, text[], integer, integer)', 'execute'), 'a signed-in agent can');
 

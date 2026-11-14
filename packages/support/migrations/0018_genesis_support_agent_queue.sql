@@ -55,6 +55,10 @@ $$;
 
 revoke execute on function private.genesis_support_queue_preview(uuid, text) from public, anon, authenticated;
 
+-- An earlier draft of this migration had no `statuses`: drop its overload, so a database that ran
+-- it doesn't keep two functions a call by name can't choose between.
+drop function if exists public.support_agent_queue(uuid, text, integer, integer);
+
 create or replace function public.support_agent_queue(
   tenant uuid default null,
   inbox_view text default 'all',
