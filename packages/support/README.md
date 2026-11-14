@@ -244,14 +244,20 @@ is web only, like the inbox before it:
   your own), and `?` inserts a help article's title and link (`articleHref`), in a reply or a
   note. `!` and `?` open their list only once a letter follows them, so "Merci !" and "Prix ?1"
   stay words. Enter inserts only after the arrow keys move into the list (Tab inserts the option
-  they're on, or the first); while the list offers something and the arrows haven't moved into it,
-  Enter does nothing, so "!refund" isn't sent by habit: Escape closes the list and Enter then sends.
-  With no match, Enter sends. Without a real name for the requester (an email with none, or
-  `resolveUser` naming them `""`), `{first_name}` and `{name}` fill as nothing and take the comma
-  and space before them: "Hi {first_name}," reads "Hi," and "Thanks, {first_name}." reads
-  "Thanks."; at the start of a line they take the comma and space after: "{first_name}, thanks"
-  reads "thanks". The names follow `resolveUser` as it learns them. A `resolveUser` that names unknown people ("Someone") should return
-  `""` for them, or set `first_name` in `replyVariables`. If someone writes while an agent is writing, Send first says so, with Send
+  they're on, or the first). While the list offers something, or is still loading, and the arrows
+  haven't moved into it, Enter does nothing, so "!refund" isn't sent by habit: the list says "Esc
+  to close", and Enter sends once it's closed. With no match, Enter sends.
+- **Names in saved replies.** Without a real name for the requester (an email with none, or
+  `resolveUser` naming them `""`), `{first_name}` and `{name}` fill as nothing, with the separator
+  that joined them. At the start of a line the comma, colon or semicolon after them goes:
+  "{first_name}, thanks" reads "thanks". Elsewhere the space before them goes, and a comma before
+  them too when they end their clause: "Hi {first_name}," reads "Hi,", and "Thanks,
+  {first_name}." reads "Thanks.", but "As discussed, {first_name} will call you." reads "As
+  discussed, will call you.". A name used as a sentence's subject can't be taken out cleanly: give
+  it a stand-in in `replyVariables`. The names follow `resolveUser` as it learns them. A
+  `resolveUser` that names unknown people ("Someone") should return `""` for them, or set
+  `first_name` in `replyVariables`.
+- **A held reply.** If someone writes while an agent is writing, Send first says so, with Send
   anyway and Review.
 - **Saved replies** are a tenant's own, written in `<SupportSavedRepliesAdmin>`
   (`client.savedReplies`, `saveSavedReply`, `deleteSavedReply`).

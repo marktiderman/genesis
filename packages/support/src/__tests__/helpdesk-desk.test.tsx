@@ -296,6 +296,37 @@ describe("the composer's pickers", () => {
     await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "!refund", { internal: false }));
   });
 
+  it("holds Enter while the list is still loading, and says Escape closes it", async () => {
+    // Saved replies that never arrive: the list stays on "Loading".
+    const client = fakeClient({ savedReplies: vi.fn(() => new Promise<never>(() => undefined)) });
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!refund" } });
+    const picker = await screen.findByTestId("genesis-support-agent-thread-composer-picker");
+    expect(within(picker).getByText("Loading")).toBeTruthy();
+    expect(screen.getByTestId("genesis-support-agent-thread-composer-picker-hint").textContent).toBe("Esc to close");
+    fireEvent.keyDown(box, { key: "Enter" });
+    await act(async () => undefined);
+    expect(client.reply).not.toHaveBeenCalled();
+    expect(box.value).toBe("!refund");
+    fireEvent.keyDown(box, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("genesis-support-agent-thread-composer-picker")).toBeNull());
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "!refund", { internal: false }));
+  });
+
+  it("leaves Enter to an input method composing text, while the list loads", async () => {
+    const client = fakeClient({ savedReplies: vi.fn(() => new Promise<never>(() => undefined)) });
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!refund" } });
+    await screen.findByTestId("genesis-support-agent-thread-composer-picker");
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true });
+    box.dispatchEvent(enter);
+    // The picker didn't take it: the event wasn't cancelled for the picker's sake.
+    expect(enter.defaultPrevented).toBe(false);
+  });
+
   it("inserts on Enter once the arrows move into the list", async () => {
     const client = fakeClient();
     inbox(client, { ticketId: "t1" });
@@ -338,6 +369,30 @@ describe("a saved reply's name variables", () => {
     expect(fillReply("Customer: {name}", none)).toBe("Customer:");
     expect(fillReply("Thanks, {first_name}.", { first_name: "Ada" })).toBe("Thanks, Ada.");
     expect(fillReply("Hello\n  {first_name}, hi", { first_name: "Ada" })).toBe("Hello\n  Ada, hi");
+  });
+
+  it("at the start of a line, take a colon or semicolon after them too", () => {
+    const none = { first_name: "", name: "" };
+    expect(fillReply("{first_name}: here is the fix", none)).toBe("here is the fix");
+    expect(fillReply("Hi\n  {name}; see below", none)).toBe("Hi\n  see below");
+  });
+
+  it("take the comma before them only when they end their clause", () => {
+    const none = { first_name: "", name: "" };
+    // The comma belongs to "As discussed": it stays, and only the name and its space go.
+    expect(fillReply("As discussed, {first_name} will call you.", none)).toBe("As discussed, will call you.");
+    expect(fillReply("As discussed, {first_name} will call you.", { first_name: "Ada" })).toBe("As discussed, Ada will call you.");
+    // The name ends its clause (a comma, full stop, !, ?, closing bracket, the line's or text's end): its comma goes.
+    expect(fillReply("Thanks, {first_name}.", none)).toBe("Thanks.");
+    expect(fillReply("Thanks, {first_name}!", none)).toBe("Thanks!");
+    expect(fillReply("Ready, {first_name}?", none)).toBe("Ready?");
+    expect(fillReply("(Thanks, {first_name})", none)).toBe("(Thanks)");
+    expect(fillReply("Thanks, {first_name}\nBest", none)).toBe("Thanks\nBest");
+    expect(fillReply("Thanks, {first_name}", none)).toBe("Thanks");
+    // Shapes pinned in review.
+    expect(fillReply("Hi {first_name}, {last_name}", none)).toBe("Hi, {last_name}");
+    expect(fillReply("Hi {first_name}, {name}", none)).toBe("Hi");
+    expect(fillReply("Details: {email}, {name}, ok", { ...none, email: "a@b.c" })).toBe("Details: a@b.c, ok");
   });
 
   it("never greet an email ticket by its address", async () => {

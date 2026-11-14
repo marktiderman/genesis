@@ -5,10 +5,13 @@
  * only once a letter follows them, so "Merci !", "Prix ?1" or a "?" on its own is just words. Arrow
  * keys move into the list and Tab inserts the option they're on (the first, before they move); Enter
  * inserts only once the agent has moved into the list with the arrows. While the list offers
- * something and the arrows haven't moved into it, Enter does nothing, so "!refund" is never sent to
- * the customer by habit: Escape closes the list, and Enter then sends. With no match, Enter sends. A mention goes in as genesis-chat's markdown (`@[Name](user:<uuid>)`), which the
- * database reads to tell the agent (migration 0014); a saved reply with its `{first_name}`-style
- * variables filled; an article as its title and link.
+ * something, or is still loading, and the arrows haven't moved into it, Enter does nothing, so
+ * "!refund" is never sent to the customer by habit: Escape closes the list (the list says so), and
+ * Enter then sends. With no match, Enter sends.
+ *
+ * A mention goes in as genesis-chat's markdown (`@[Name](user:<uuid>)`), which the database reads
+ * to tell the agent (migration 0014); a saved reply with its `{first_name}`-style variables filled;
+ * an article as its title and link.
  *
  * Drawn above genesis-ui's `ComposerBar` through `ThreadPage`'s `composer` slot.
  */
@@ -57,19 +60,35 @@ export function showMentions(body: string): string {
   return body.replace(/@\[([^\]\n]{1,80})\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
 }
 
+/** What ends a clause right after a variable: a line's end, or closing punctuation. */
+const CLAUSE_END = /^(?:$|[\r\n,.;:!?)\]}])/;
+
 /**
  * A saved reply with its variables filled. A variable that's known and empty (the requester has no
- * name) is a word taken out of its sentence, and the separator that joined it goes too: a name is
- * set off by a space, and in direct address by a comma, so the comma and spaces before it go
- * ("Hi {first_name}," reads "Hi,", "Thanks, {first_name}." reads "Thanks."). Where nothing comes
- * before it on its line (only indentation, which stays), the comma and spaces after it go instead
- * ("{first_name}, thanks" reads "thanks"). Other punctuation stays. Unknown variables stay as written.
+ * name) is a word taken out of its sentence, and the separator that joined it goes with it:
+ *
+ * - Where nothing comes before it on its line (only indentation, which stays), the comma, colon or
+ *   semicolon and the spaces after it go: "{first_name}, thanks" and "{first_name}: here's the
+ *   fix" read "thanks" and "here's the fix".
+ * - Elsewhere the spaces before it go. A comma before it goes too only when the variable ends its
+ *   clause, that is when a comma, a full stop, `!`, `?`, `;`, `:`, a closing bracket or the end of the
+ *   line follows it: then the comma set the name off ("Thanks, {first_name}." reads "Thanks.").
+ *   Otherwise the comma belongs to the clause before ("As discussed, {first_name} will call you."
+ *   reads "As discussed, will call you."). A name used as a sentence's subject can't be taken
+ *   out cleanly: give it a stand-in with `replyVariables`.
+ *
+ * Unknown variables stay as written.
  */
 export function fillReply(body: string, variables: Readonly<Record<string, string>>): string {
   const empty = (name: string) => variables[name] === "";
   const tidied = body
-    .replace(/^([ \t]*)\{(\w+)\},?[ \t]*/gm, (token, indent: string, name: string) => (empty(name) ? indent : token))
-    .replace(/,?[ \t]*\{(\w+)\}/g, (token, name: string) => (empty(name) ? "" : token));
+    .replace(/^([ \t]*)\{(\w+)\}[,;:]?[ \t]*/gm, (token, indent: string, name: string) =>
+      empty(name) ? indent : token,
+    )
+    .replace(/(,?)[ \t]*\{(\w+)\}/g, (token: string, comma: string, name: string, at: number, text: string) => {
+      if (!empty(name)) return token;
+      return comma && !CLAUSE_END.test(text.slice(at + token.length)) ? comma : "";
+    });
   return fill(tidied, variables);
 }
 
@@ -199,7 +218,7 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
       const loading = (kind === "saved" && saved.isPending) || (kind === "article" && articles.isPending);
       if (!options.length) {
         // Still loading what may match: hold Enter rather than send the trigger text.
-        return loading && event.key === "Enter" && !event.shiftKey;
+        return loading && event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing;
       }
       if (event.key === "ArrowDown") {
         // The first press moves into the list, onto its first option.
@@ -243,7 +262,7 @@ export function ComposerPickerList({ picker, copy, testID }: { picker: ComposerP
           {copy.agentInbox.pickerEmpty}
         </p>
       ) : (
-        <ul role="listbox" id={picker.listId} aria-labelledby={`${picker.listId}-label`} className="flex flex-col p-1">
+        <ul role="listbox" id={picker.listId} aria-labelledby={`${picker.listId}-label`} aria-describedby={`${picker.listId}-hint`} className="flex flex-col p-1">
           {picker.options.map((option, index) => (
             <li
               key={option.id}
@@ -262,6 +281,10 @@ export function ComposerPickerList({ picker, copy, testID }: { picker: ComposerP
           ))}
         </ul>
       )}
+      {/* Enter is held while the list is open, so say how to leave it. */}
+      <p className="px-3 pb-2 text-xs text-muted-foreground" id={`${picker.listId}-hint`} data-testid={`${testID}-hint`}>
+        {copy.agentInbox.pickerHint}
+      </p>
     </div>
   );
 }
