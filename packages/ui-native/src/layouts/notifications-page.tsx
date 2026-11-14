@@ -2,7 +2,7 @@
  * NotificationsPage — feed-style notifications list.
  *
  * Composes:
- *   - SectionList grouped by relative date (Today / Yesterday / Earlier)
+ *   - SectionList grouped by relative date (Upcoming / Today / Yesterday / Earlier)
  *   - Pull-to-refresh
  *   - Empty state slot (auto-rendered when `items` is empty)
  *   - Mark-all-read action surfaced via `headerRight` helper
@@ -21,6 +21,7 @@
  * @stability Beta
  */
 import { useCallback, useContext, useMemo, type ReactNode } from "react";
+import { groupNotificationsByDay, notificationDayBucket } from "@marktiderman/genesis-core/headless";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import {
   Platform,
@@ -71,6 +72,11 @@ export type NotificationsPageSlotMap = {
 export interface NotificationsPageProps extends ScreenHeaderProps {
   /** Notification items. Empty array → empty state. */
   items: NotificationItem[];
+  /**
+   * The zone whose days the headings count (an IANA name), as the web's NotificationsPage takes
+   * it. Default the device's, which is the person's own.
+   */
+  timeZone?: string;
   /** When true, the SectionList shows the refresh spinner. */
   refreshing?: boolean;
   /** Pull-to-refresh handler. */
@@ -154,45 +160,16 @@ export function getNotificationsPageStackOptions(props: {
   });
 }
 
-// Returns a stable section title for a timestamp. Computes against the
-// caller's local clock for consistency with the rest of the app.
-function bucketFor(ts: string | Date, now = new Date()): string {
-  const d = typeof ts === "string" ? new Date(ts) : ts;
-  const startOfDay = (date: Date) => {
-    const x = new Date(date);
-    x.setHours(0, 0, 0, 0);
-    return x.getTime();
-  };
-  const today = startOfDay(now);
-  const yesterday = today - 24 * 60 * 60 * 1000;
-  const day = startOfDay(d);
-  if (day === today) return "Today";
-  if (day === yesterday) return "Yesterday";
-  return "Earlier";
-}
+// The day groups are genesis-core's, as the web's NotificationsPage draws them.
+const bucketFor = (ts: string | Date, now: Date = new Date()) => notificationDayBucket(ts, { now });
 
 interface Section {
   title: string;
   data: NotificationItem[];
 }
 
-function groupByDate(items: NotificationItem[], now = new Date()): Section[] {
-  const map = new Map<string, NotificationItem[]>();
-  // Iterate in input order so stable sort within bucket.
-  for (const item of items) {
-    const bucket = bucketFor(item.timestamp, now);
-    const arr = map.get(bucket) ?? [];
-    arr.push(item);
-    map.set(bucket, arr);
-  }
-  // Stable section order: Today / Yesterday / Earlier.
-  const order = ["Today", "Yesterday", "Earlier"];
-  return order
-    .filter((title) => map.has(title))
-    .map((title) => ({
-      title,
-      data: map.get(title) ?? [],
-    }));
+function groupByDate(items: NotificationItem[], now = new Date(), timeZone?: string): Section[] {
+  return groupNotificationsByDay(items, { now, timeZone });
 }
 
 type FlatRow = { kind: "header"; title: string } | { kind: "item"; item: NotificationItem; last: boolean };
@@ -242,6 +219,7 @@ export const __test = { bucketFor, groupByDate, flattenSections };
 
 export function NotificationsPage({
   items,
+  timeZone,
   refreshing,
   onRefresh,
   emptyState,
@@ -261,7 +239,7 @@ export function NotificationsPage({
   // ergonomics but consumed by getNotificationsPageStackOptions() at the
   // consumer's <Stack.Screen> level — not by this component.
 
-  const sections = useMemo(() => groupByDate(items), [items]);
+  const sections = useMemo(() => groupByDate(items, new Date(), timeZone), [items, timeZone]);
   // FlashList v2 (`modules.list`) has no SectionList: the sections become one
   // flat list whose header rows stick (FlashList's own section-list recipe).
   const { list: FlashList } = useGenesisModules();

@@ -474,6 +474,74 @@
       "flags": []
     },
     {
+      "id": "ui-twins",
+      "name": "Web and phone component twins",
+      "summary": "Every genesis-ui component has a genesis-ui-native twin, and the reverse, or a written reason in ui-parity.json (check-ui-parity runs in CI). The twins take the same props, and the behaviour both share is written once in genesis-core's headless module (@marktiderman/genesis-core/headless: number clamping and stepping, text matching for comboboxes, list reordering, time parsing, a chart's axis and colours, one-time codes, form repeat and upload limits, trend lines, status tones, step states and notification day groups), so only the drawing differs per platform.",
+      "status": "building",
+      "claimedBy": "claude",
+      "kind": "element",
+      "keywords": [
+        "parity",
+        "twin",
+        "native",
+        "web",
+        "headless",
+        "combobox",
+        "number input",
+        "range slider",
+        "time picker",
+        "stepper",
+        "chart",
+        "sortable",
+        "otp",
+        "calendar",
+        "carousel",
+        "dashboard page",
+        "workspace switcher"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui",
+        "native": "@marktiderman/genesis-ui-native"
+      },
+      "requires": [
+        "native-components"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/headless",
+          "packages/ui-native/src/components/chart.tsx",
+          "packages/ui-native/src/components/sortable-list.tsx",
+          "packages/ui-native/src/layouts/pages.tsx",
+          "packages/ui-native/src/data/NativeFormFields.tsx",
+          "packages/ui/src/components/ui/combobox.tsx",
+          "packages/ui/src/components/ui/time-picker.tsx",
+          "packages/ui/src/components/layout/notifications-page.tsx",
+          "ui-parity.json",
+          "scripts/check-ui-parity.mjs"
+        ],
+        "docs": [
+          "packages/ui-native/README.md",
+          "packages/ui/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "resource-page",
       "name": "ResourcePage",
       "summary": "A config-driven CRUD page over a DataProvider resource or static data: table, cards and list views, search, filters, detail panel and forms.",
@@ -815,7 +883,7 @@
     {
       "id": "custom-views",
       "name": "Custom views",
-      "summary": "A screen an app draws itself over a view (ADR 0019), while Genesis keeps the view's data and states: <CustomView view type=\"list|board|calendar\">{(state) => …}</CustomView> and useCustomView load the view's rows with its scope, filters, preset, URL state, live updates and permissions, and draw loading, empty (EmptyState in the view's words) and error with a retry, each replaceable. Underneath is one headless view query every view type shares: useViewListParams, useViewList (paging, sort, search, selection, the open record, urlState, can), useViewBoard (columns from the board block, paging per column, the move write with its guards and conflict sheet) and useViewCalendarRange (one window's rows, live). ResourceBoard and ResourceCalendar load through the same hooks. groupRows (core) and useReducedMotion help draw groups and motion. Doctor rules app-part-name, app-part-colors and custom-view-states keep an app's own drawing in its style.",
+      "summary": "A screen an app draws itself over a view (ADR 0019), while Genesis keeps the view's data and states: <CustomView view type=\"list|board|calendar\">{(state) => …}</CustomView> and useCustomView load the view's rows with its scope, filters, preset, URL state, live updates and permissions, and draw loading, empty (EmptyState in the view's words) and error with a retry, each replaceable. Underneath is one headless view query every view type shares: useViewListParams, useViewList (paging, sort, search, selection, the open record, urlState, can), useViewBoard (columns from the board block, paging per column, the move write with its guards and conflict sheet) and useViewCalendarRange (one window's rows, live). ResourceBoard and ResourceCalendar load through the same hooks. groupRows (core) and useReducedMotion help draw groups and motion. Doctor rules app-part-name, app-part-colors and custom-view-states keep an app's own drawing in its style. On the phone, NativeCustomView and useNativeCustomView (genesis-ui-native/data) do the same for the list type, over NativeResourceView's query, with the status from genesis-core's customViewStatus; the board and calendar types follow the native board and calendar.",
       "status": "building",
       "kind": "pattern",
       "keywords": [
@@ -837,15 +905,17 @@
       ],
       "platforms": {
         "web": "building",
-        "native": "planned"
+        "native": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-ui/data"
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
       },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
-        "web"
+        "web",
+        "native"
       ],
       "audience": [
         "developer"
@@ -863,7 +933,8 @@
           "packages/ui/src/components/data/resource-view/use-view-board.ts",
           "packages/ui/src/components/data/resource-view/use-view-calendar-range.ts",
           "packages/core/src/resource-view/group.ts",
-          "packages/genesis-cli/src/doctor/custom-views.ts"
+          "packages/genesis-cli/src/doctor/custom-views.ts",
+          "packages/ui-native/src/data/NativeCustomView.tsx"
         ],
         "docs": [
           "docs/adr/0019-custom-views.md",
@@ -948,15 +1019,17 @@
       ],
       "platforms": {
         "web": "building",
-        "native": "planned"
+        "native": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-ui/data"
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
       },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
-        "web"
+        "web",
+        "native"
       ],
       "audience": [
         "developer"
@@ -973,7 +1046,8 @@
           "packages/core/src/resource-view/record-view.ts",
           "packages/ui/src/components/data/resource-view/RecordPeek.tsx",
           "packages/ui/src/components/data/resource-view/RecordView.tsx",
-          "packages/ui/src/components/data/resource-view/record-open.tsx"
+          "packages/ui/src/components/data/resource-view/record-open.tsx",
+          "packages/ui-native/src/data/NativeRecordPeek.tsx"
         ],
         "docs": [
           "docs/adr/0021-view-types-and-record-pages.md",
@@ -3966,7 +4040,7 @@
     {
       "id": "widgets",
       "name": "Widgets",
-      "summary": "A small tile on a dashboard or a record page's sidebar (a number, progress toward a goal, a streak, a short list, a chart), fed by a view, so it reads in the viewer's scope, under row security, and stays live (ADR 0023). defineWidget (genesis-core/resource-view) declares it against a view, preset and filter; <Widget> and WidgetGrid (genesis-ui/data) draw it with its loading, error and empty states. Totals come from DataProvider.aggregate (count, and sum, average, lowest and highest of a field), which the mock and Supabase providers serve and resolveAggregate falls back from. StatCard, HeadlineNumbers and SummaryCard draw the same tile (WidgetTile), so an app style changes every tile through its parts.",
+      "summary": "A small tile on a dashboard or a record page's sidebar (a number, progress toward a goal, a streak, a short list, a chart), fed by a view, so it reads in the viewer's scope, under row security, and stays live (ADR 0023). defineWidget (genesis-core/resource-view) declares it against a view, preset and filter; <Widget> and WidgetGrid (genesis-ui/data) draw it with its loading, error and empty states. Totals come from DataProvider.aggregate (count, and sum, average, lowest and highest of a field), which the mock and Supabase providers serve and resolveAggregate falls back from. StatCard, HeadlineNumbers and SummaryCard draw the same tile (WidgetTile), so an app style changes every tile through its parts. On the phone, NativeStatCard, NativeHeadlineNumbers and NativeSummaryCard draw one tile too; a native <Widget> fed by a view is next.",
       "tagline": "A dashboard number that's always right, for whoever is looking.",
       "category": "Data",
       "status": "building",
@@ -3991,17 +4065,19 @@
       ],
       "platforms": {
         "web": "building",
-        "native": "planned"
+        "native": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-ui/data"
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native"
       },
       "requires": [
         "data-views"
       ],
       "owner": "mark",
       "apps": [
-        "web"
+        "web",
+        "native"
       ],
       "audience": [
         "developer"
@@ -4020,7 +4096,8 @@
           "packages/core/src/resource-view/widget.ts",
           "packages/core/src/provider/aggregate.ts",
           "packages/core/src/hooks/use-aggregate.ts",
-          "packages/ui/src/components/data/widget"
+          "packages/ui/src/components/data/widget",
+          "packages/ui-native/src/components/widget-tile.tsx"
         ],
         "docs": [
           "docs/adr/0023-widgets.md",

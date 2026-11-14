@@ -86,6 +86,7 @@ export { DetailPage, type DetailPageProps } from "./detail-page";
 export { FormPage, type FormPageProps } from "./form-page";
 export { DocumentPage, type DocumentPageProps } from "./document-page";
 export { DashboardPage, type DashboardPageProps } from "./dashboard-page";
+export { NotificationsPage, type NotificationsPageProps, type NotificationItem } from "./notifications-page";
 export {
   SettingsPage,
   type SettingsPageProps,

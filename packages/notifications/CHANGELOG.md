@@ -1,5 +1,12 @@
 # @marktiderman/genesis-notifications
 
+## 0.4.3
+
+### Patch Changes
+
+- Updated dependencies [234414b]
+  - @marktiderman/genesis-features@0.9.0
+
 ## 0.4.2
 
 ### Patch Changes

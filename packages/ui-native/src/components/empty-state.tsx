@@ -15,6 +15,7 @@
  */
 import { Text, View } from "react-native";
 import { cn } from "../utils";
+import { NativeButton } from "./button";
 
 export type NativeEmptyStateVariant = "first-run" | "no-results" | "error";
 
@@ -157,5 +158,44 @@ export function NativeEmptyState({
         </Text>
       ) : null}
     </View>
+  );
+}
+
+// Presets, the twins of genesis-ui's NoFeaturesFound, NoFeedbackFound and NoSearchResults: the
+// same words on NativeEmptyState, so a phone screen doesn't retype them.
+
+/** An empty roadmap or feature list. */
+export function NativeNoFeaturesFound({ onCreate, testID = "no-features-found" }: { onCreate?: () => void; testID?: string }) {
+  return (
+    <NativeEmptyState
+      testID={testID}
+      title="No features found"
+      body="Start building your product roadmap by creating your first epic."
+      primaryAction={onCreate ? <NativeButton onPress={onCreate} testID={`${testID}-create`}>Create Epic</NativeButton> : undefined}
+    />
+  );
+}
+
+/** A feedback inbox with nothing in it yet. */
+export function NativeNoFeedbackFound({ testID = "no-feedback-found" }: { testID?: string }) {
+  return <NativeEmptyState testID={testID} title="No feedback yet" body="Feedback from users will appear here as they use the app." />;
+}
+
+/** A search or filter that matched nothing. */
+export function NativeNoSearchResults({ query, onClear, testID = "no-search-results" }: { query?: string; onClear?: () => void; testID?: string }) {
+  return (
+    <NativeEmptyState
+      testID={testID}
+      variant="no-results"
+      title="No results found"
+      body={query ? `No results found for "${query}". Try a different search term.` : "No results match your current filters."}
+      primaryAction={
+        onClear ? (
+          <NativeButton variant="ghost" onPress={onClear} testID={`${testID}-clear`}>
+            Clear search
+          </NativeButton>
+        ) : undefined
+      }
+    />
   );
 }

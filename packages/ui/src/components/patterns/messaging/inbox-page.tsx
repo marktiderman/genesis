@@ -292,7 +292,7 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
         {...row.rowProps}
         aria-current={row.selected ? "true" : undefined}
         onClick={row.onPress}
-        className="flex min-h-14 flex-1 items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="flex min-h-14 min-w-0 flex-1 items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <span className="flex w-2.5 shrink-0 justify-center pt-1.5">
           {row.leading ?? (unread && !(row.unreadCount && row.unreadCount > 0) ? <span data-testid={`${row.testID}-unread`} className="size-2.5 rounded-full bg-primary" aria-hidden /> : null)}

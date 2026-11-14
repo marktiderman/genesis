@@ -367,6 +367,70 @@ they are, or lay a dashboard's body out with `WidgetGrid`. `StatCard`,
 app style changes all of them through `widget-label`, `widget-value` and
 `widget-detail`. See docs/RESOURCE-VIEW.md, "Widgets".
 
+## Twins of the phone's components
+
+The web side of components genesis-ui-native had first, with the native twin's props and its
+behaviour from genesis-core's `@marktiderman/genesis-core/headless`:
+
+- `Banner` and `InlineAlert` (NativeBanner, NativeInlineAlert): the Alert, tinted, with dismiss and actions.
+- `ChoiceCard` (NativeChoiceCard): an option card. One of several is the RadioGroup's item, so the cards go in a `RadioGroup` (one tab stop, arrow keys); with `multiple` it is a checkbox.
+- `ChipGroup` with `ChipGroupItem` (NativeChipGroup): the toggle Chip on Radix's ToggleGroup, `multiple` (the default) or `single`.
+- `Combobox` (NativeCombobox): Command in a Popover, searched with genesis-core's `filterOptions`.
+- `NumberInput` (NativeNumberInput): a spinbutton with − and + on the InputGroup. A typed number is passed on while it is in range and clamped when the field is left; it takes a ref, `name` and `onBlur` for a form.
+- `RangeSlider` (NativeRangeSlider): the Slider with two thumbs (the Slider draws a thumb per value).
+- `Stepper` (NativeStepper), `TimePicker` (NativeTimePicker), `WhatsNewSheet` (NativeWhatsNewSheet, a dialog that rises as a sheet on a phone-width screen) and `NotificationsPage` (the phone's NotificationsPage).
+
+```tsx
+import { useState } from "react";
+import { Combobox, NumberInput, TimePicker } from "@marktiderman/genesis-ui";
+
+export function ClassForm() {
+  const [room, setRoom] = useState<string | undefined>();
+  const [spots, setSpots] = useState(12);
+  const [at, setAt] = useState(() => new Date());
+  return (
+    <>
+      <Combobox aria-label="Room" options={[{ value: "a", label: "Studio A" }, { value: "b", label: "Studio B" }]} value={room} onChange={setRoom} />
+      <NumberInput aria-label="Spots" value={spots} onChange={setSpots} min={1} max={40} />
+      <TimePicker aria-label="Starts" value={at} onChange={setAt} minuteStep={15} />
+    </>
+  );
+}
+```
+
+### A time of day: TimePicker
+
+`TimePicker` replaces a browser's `<Input type="time">` (the doctor's `times-use-time-picker`
+rule points there). Its `value` is what the field holds: an `"HH:MM"` string for a time of day
+alone (an opening hour, a class's start), the same value `<input type="time">` gives, or a `Date`
+when the time belongs to a day, which keeps its day. `onChange` gives back the same kind. A typed
+time ("2:30 pm", "1430") is listed first and highlighted, so Enter picks it; the arrow keys move
+the highlight, and Enter always picks what is highlighted. 12- or 24-hour follows the viewer's
+locale once the page has hydrated; pass `hour12` to fix it from the first paint. A `Date` is read
+on the browser's clock once hydrated (the trigger shows no time before), or on `timeZone`'s from
+the first render, server included. With `timeZone`, a pick keeps the value's calendar day on that
+clock, daylight-saving days included: a time the clocks skip moves forward by the gap (02:30 on a
+day that jumps from 02:00 to 03:00 is 03:30), and a time that happens twice is the first. The
+trigger is named by its visible label (`<label htmlFor={id}>`, or a `<label>` around it), or
+`aria-label`, or `aria-labelledby`, followed by the time once.
+
+```tsx
+import { useState } from "react";
+import { TimePicker } from "@marktiderman/genesis-ui";
+
+export function OpeningHour() {
+  const [opens, setOpens] = useState("09:00");
+  return <TimePicker aria-label="Opens" value={opens} onChange={setOpens} minuteStep={30} />;
+}
+```
+
+### Combobox or FilterCombobox
+
+`Combobox` picks one value from a list and shows it on its trigger: a form field. The data
+layer's `FilterCombobox` is a filter bar's control: it picks any number of values, each with a
+count, and its trigger says how many are on. Neither is a subset of the other, so both stay; both
+are Command in a Popover.
+
 ## Read next
 
 - [SKILL.md](./SKILL.md): the reuse ladder (pattern, slots, elements, hooks) and which export

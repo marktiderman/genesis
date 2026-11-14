@@ -9,6 +9,7 @@
 
 import type { ResourceScope } from "./hooks/viewer-scope";
 import type { GenesisViewerRoles } from "./viewer";
+import { matchesQuery } from "./headless/text";
 import { toAppearancePreferenceValues, type AppearancePreferenceValues } from "./appearance-values";
 
 /**
@@ -276,16 +277,7 @@ export function workspaceInitials(label: string): string {
  * @stability Beta
  */
 export function filterWorkspaces<W extends Workspace>(workspaces: readonly W[], query: string): W[] {
-  const words = fold(query).split(/\s+/).filter(Boolean);
-  if (words.length === 0) return [...workspaces];
-  return workspaces.filter((w) => {
-    const text = fold(`${w.label} ${w.description ?? ""}`);
-    return words.every((word) => text.includes(word));
-  });
-}
-
-function fold(text: string): string {
-  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  return workspaces.filter((w) => matchesQuery([w.label, w.description], query));
 }
 
 /**
@@ -299,4 +291,24 @@ export function orderedWorkspaces<W extends Workspace>(
   order: readonly WorkspaceKind[] = WORKSPACE_KIND_ORDER,
 ): W[] {
   return groupWorkspaces(workspaces, order).flatMap((g) => g.workspaces);
+}
+
+/** With a switcher's `search="auto"`, past this many workspaces it opens with a search box. On the web and the phone. */
+export const WORKSPACE_SWITCHER_SEARCH_THRESHOLD = 7;
+
+/** The default heading over each kind's group in a switcher, on the web and the phone. */
+export const DEFAULT_WORKSPACE_KIND_LABELS: Readonly<Partial<Record<WorkspaceKind, string>>> = {
+  personal: "Personal",
+  rollup: "Overview",
+  tenant: "Organizations",
+};
+
+/** Whether a workspace's badge shows: `0`, an empty string, `null` and undefined show nothing. */
+export function hasWorkspaceBadge(value: Workspace["badge"]): value is string | number {
+  return value !== undefined && value !== null && value !== "" && value !== 0;
+}
+
+/** What a screen reader hears for a badge: "3 new" for a number, the text itself otherwise. */
+export function workspaceBadgeLabel(_workspace: Workspace, value: string | number): string {
+  return typeof value === "number" ? `${value} new` : String(value);
 }

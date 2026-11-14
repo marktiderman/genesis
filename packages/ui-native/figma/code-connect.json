@@ -69,7 +69,26 @@
     "ThreadPage"
   ],
   "notYet": [
-    "NativeWhatsNewSheet"
+    "NativeWhatsNewSheet",
+    "NativeButtonGroup",
+    "NativeInputGroup",
+    "NativePasswordToggleField",
+    "NativeInputOTP",
+    "NativeCalendar",
+    "NativeCarousel",
+    "NativeChartContainer",
+    "NativeSortableList",
+    "NativeStatCard",
+    "NativeStatusBadge",
+    "NativeUserAvatar",
+    "NativeReadinessChip",
+    "NativeHeadlineNumbers",
+    "NativeSummaryCard",
+    "NativeFollowUpList",
+    "NativeResponsesToolbar",
+    "NativeSettingsRow",
+    "NativeToggleRow",
+    "NativeWorkspaceSwitcher"
   ],
   "composed": [
     "SettingsPage",
@@ -79,6 +98,14 @@
     "AuthForm",
     "SocialAuthRow",
     "AuthBranding",
-    "AppleSignInButton"
+    "AppleSignInButton",
+    "DashboardPage",
+    "DetailPage",
+    "DocumentPage",
+    "FormPage",
+    "NativeResourceSettingsPage",
+    "NativeNoFeaturesFound",
+    "NativeNoFeedbackFound",
+    "NativeNoSearchResults"
   ]
 }

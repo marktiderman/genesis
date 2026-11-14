@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 715 components · 4441 other exports · 3702 standalone types across 202 entry points in 31 packages.
+**Totals:** 727 components · 4681 other exports · 3868 standalone types across 205 entry points in 31 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1286,21 +1286,24 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 
 **Barrel:** [`packages/core/src/index.ts`](../packages/core/src/index.ts)
 
-### Components (4)
+### Components (5)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
+| [`AppearancePreferencesProvider`](../packages/core/src/appearance.tsx) | `AppearancePreferencesProviderProps` | Beta | Serves a person's appearance and density to the tree, resolved in the written order. Reads the store once on mount (and on its `subscribe`), keeps a copy on the device, and writes both when the person changes a value. |
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (75)
+### Other exports (90)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`aggregateProblems`](../packages/core/src/provider/aggregate.ts) | function | — | Every problem with an aggregate request; empty when it is sound. |
+| [`APPEARANCES`](../packages/core/src/appearance-values.ts) | const | — | The appearances, in a picker's order. |
 | [`blankValues`](../packages/core/src/hooks/use-resource-form.ts) | function | — | What a save sends for an input left empty: `""`, or `undefined` (a cleared number input). Only a field whose column the form knows about (`nullable` set, as ResourceView sets it from a generated contract) is changed: a create leaves it o... |
 | [`buildArrayItemDefaults`](../packages/core/src/hooks/use-resource-form.ts) | function | — | Build default values for a single array item from its sub-field definitions |
 | [`callRpc`](../packages/core/src/provider/write-helpers.ts) | function | — | Calls a database function and returns its result. A failure throws a DataWriteError with the usual outcome and code, and words a person can read: yours for the code, a guard's own message (P0001), the defaults above, or a generic sentenc... |
@@ -1322,18 +1325,24 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DEFAULT_UNDO_DELAY_MS`](../packages/core/src/hooks/mutation-mode.ts) | const | — | How long an `undoable` write waits for an undo before it is sent. |
 | [`DEFAULT_UNSAVED_CHANGES_MESSAGE`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | const | — | _(no summary)_ |
 | [`defaultErrorReporter`](../packages/core/src/errors.ts) | const | — | The reporter used when the app registered none: `console.warn` in development, nothing in production. |
+| [`defineAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | Declare where a person's appearance and density are kept and what the app locks. Checks the lock and returns it frozen; throws on a value that isn't an appearance or a density. |
 | [`defineQueryKeys`](../packages/core/src/query-keys.ts) | function | — | The keys of one domain. Each query maps its arguments to the fields that make it distinct (sort arrays so order never makes two keys): |
 | [`defineResource`](../packages/core/src/schema/types.ts) | function | — | Declares a resource contract for a row type, keeping the literal contract (field names, key, labelField) and attaching the row type so views can read it with `RowOf`. `labelField` must be one of the row's fields. |
+| [`DENSITIES`](../packages/core/src/appearance-values.ts) | const | — | The densities, tightest first. |
 | [`DRAFT_NOT_SAVED`](../packages/core/src/hooks/draft-controller.ts) | const | — | _(no summary)_ |
 | [`DraftController`](../packages/core/src/hooks/draft-controller.ts) | class | — | The rules of a draft, without React: one write at a time, add then change, no write when nothing changed or for an empty value, merge into a row another tab started, start again on a new revision, retry network failures, and a final writ... |
 | [`dropPendingWrites`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Drops every write on this client not yet sent, without reporting them: the viewer who made them is gone, so they must never be sent (or re-applied) under the next one. Writes already sending finish under the old session. |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
 | [`errorMessages`](../packages/core/src/errors.ts) | const | — | The English catalogue. Plain words, never the store's text. |
+| [`fieldControl`](../packages/core/src/schema/types.ts) | function | Beta | A field's form-control hint: its `control`, else the deprecated `widget`. Every reader goes through this, so a contract written with either name works. |
 | [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. A unique vi... |
 | [`flushPendingWrites`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Sends every optimistic or undoable write still waiting on this client now, and resolves once all have settled. Call it while the session that made them still holds (a sign-out action, before signing out). |
+| [`GENESIS_APPEARANCE_DEFAULTS`](../packages/core/src/appearance-values.ts) | const | — | Genesis's own defaults, the last step of the order. |
 | [`getErrorReporter`](../packages/core/src/errors.ts) | function | — | The reporter `reportError` uses now. |
+| [`isAppearance`](../packages/core/src/appearance-values.ts) | const | — | Whether a value is an appearance. |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
+| [`isDensity`](../packages/core/src/appearance-values.ts) | const | — | Whether a value is a density. |
 | [`isNetworkFailure`](../packages/core/src/hooks/draft-controller.ts) | function | — | The default `isRetryable`: a request that never reached the store. A refusal never is. |
 | [`isSafeUrl`](../packages/core/src/urls.ts) | function | — | True when `url` is safe to put in an `href`: an absolute http(s), mailto or tel URL, a root-relative path (`/lessons/1`) or a fragment (`#notes`). |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
@@ -1347,13 +1356,19 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`relationNamingField`](../packages/core/src/hooks/use-relation-label.ts) | function | — | The linked resource's naming field, as a link's words find it: its `labelField` from `describe`, else a `name`/`title`-like field. Undefined when it can't say. Asked once per resource and provider; a picker uses it to search and sort the... |
 | [`rememberedWorkspaceId`](../packages/core/src/hooks/workspace-scope.tsx) | function | Beta | The workspace this viewer was last in on this device, for the app's front door (`defaultWorkspace(workspaces, rememberedWorkspaceId(viewer))`). Null when unknown. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
+| [`resolveAggregate`](../packages/core/src/provider/aggregate.ts) | function | Beta | Totals over a resource's rows through any provider: its `aggregate` when it has one, else a count from `getList`'s total (one row read), else the rows themselves, paged (`toAggregateValues`). Throws `DataReadError` for a request that isn... |
+| [`resolveAppearancePreferences`](../packages/core/src/appearance-values.ts) | function | Beta | The appearance and density that apply: app lock, then the person, then the organization's default, then the theme's, then Genesis's. Values that aren't known appearances or densities are skipped, so a bad stored value falls through to th... |
 | [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
 | [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
 | [`scopeClock`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The scope's clock: `scopeTimeZone` when the runtime knows it, else the viewer's. A zone it doesn't know is never a quiet fallback: it throws in development, and in production it is reported (`reportError`, once per zone) before the viewe... |
 | [`setErrorReporter`](../packages/core/src/errors.ts) | function | — | Send every `reportError` to `reporter` (`null` puts the default back). Returns a function that restores the reporter that was there before. The native observability block calls it when it is created. |
 | [`stableJson`](../packages/core/src/hooks/draft-controller.ts) | function | — | JSON with object keys sorted, so values compare equal whatever order a store keeps keys in. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
+| [`toAggregateValues`](../packages/core/src/provider/aggregate.ts) | function | Beta | The metrics' values over rows already in hand: what an in-memory provider, a test, or the paged fallback computes. `count` counts every row; the others skip rows with no number in the field and are `null` when none has one. |
+| [`toAppearancePreferenceValues`](../packages/core/src/appearance-values.ts) | function | — | Only the known values: a stored or typed-in value that isn't one is left out. |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
+| [`useAggregate`](../packages/core/src/hooks/use-aggregate.ts) | function | Beta | Totals over a resource's rows (count, and sum, average, lowest or highest of a field), through the data provider: its `aggregate`, or `resolveAggregate`'s fallback. Cached under the resource's key, so any write to the resource through Ge... |
+| [`useAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | The person's appearance and density, resolved, with setters. Throws outside an `AppearancePreferencesProvider`; a component that works with or without one reads `useOptionalAppearancePreferences`. |
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
@@ -1361,6 +1376,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by `orderBy` (else the naming field) then the key, `p... |
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
+| [`useOptionalAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | Like `useAppearancePreferences`, but null outside a provider: for a component (a shell, a theme provider) that keeps its own behaviour when an app hasn't set preferences up. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`usePersistedUiState`](../packages/core/src/hooks/use-persisted-ui-state.ts) | function | — | _(no summary)_ |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -1377,11 +1393,21 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`writeConflict`](../packages/core/src/schema/write-state.ts) | function | — | The conflict `error` reports for a write of `mine`, or null when `error` isn't a `conflict` that carries the row as it is now. A field `mine` has and their row doesn't (a column it doesn't read) counts as different: the person decides it... |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (122)
+### Types (138)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AggregateMetric };
+export type { AggregateParams };
+export type { AggregateResult };
+export type { Appearance };
+export type { AppearancePreferenceLayers };
+export type { AppearancePreferenceSource };
+export type { AppearancePreferenceValues };
+export type { AppearancePreferences };
+export type { AppearancePreferencesDefinition };
+export type { AppearancePreferencesStore };
 export type { ArrayFilter };
 export type { AuditEntry };
 export type { BaseRecord };
@@ -1390,6 +1416,7 @@ export type { BulkResult };
 export type { CallRpcOptions };
 export type { ClassifiedError };
 export type { ClassifyErrorOptions };
+export type { ControlHint };
 export type { CountMode };
 export type { CreateOrAdoptOptions };
 export type { CreateOrAdoptResult };
@@ -1401,6 +1428,7 @@ export type { DataRow };
 export type { DataWriteErrorOptions };
 export type { DeleteParams };
 export type { DeleteResult };
+export type { Density };
 export type { DraftAdoption };
 export type { DraftOptions };
 export type { DraftSeed };
@@ -1446,6 +1474,8 @@ export type { QueryKeys };
 export type { RangeFilter };
 export type { ReadOutcome };
 export type { RecordComment };
+export type { ResolveAggregateOptions };
+export type { ResolvedAppearancePreferences };
 export type { ResourceAccess };
 export type { ResourceChangeEvent };
 export type { ResourceContract };
@@ -1477,6 +1507,8 @@ export type { UndoableWrite };
 export type { UpdateOptions };
 export type { UpdateParams };
 export type { UpdateResult };
+export type { UseAggregateOptions };
+export type { UseAppearancePreferencesReturn };
 export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
@@ -1519,12 +1551,13 @@ export type { WriteState };
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 
-### Other exports (18)
+### Other exports (21)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`aggregateProblems`](../packages/core/src/provider/aggregate.ts) | function | — | Every problem with an aggregate request; empty when it is sound. |
 | [`callRpc`](../packages/core/src/provider/write-helpers.ts) | function | — | Calls a database function and returns its result. A failure throws a DataWriteError with the usual outcome and code, and words a person can read: yours for the code, a guard's own message (P0001), the defaults above, or a generic sentenc... |
 | [`createMockProvider`](../packages/core/src/provider/mock-provider.ts) | function | — | _(no summary)_ |
 | [`createOrAdopt`](../packages/core/src/provider/write-helpers.ts) | function | — | "One live row per key": creates the row, or, when one with the same key is already there (a `duplicate`), adopts it, optionally merging changes in. `adopted` says which, and `final` that the row already there is finished. Key fields that... |
@@ -1538,17 +1571,22 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NO_ROWS_MATCHED`](../packages/core/src/schema/write-outcome.ts) | const | — | `DataWriteError.code` when a write came back with no row: `useResource`'s `update` sets it. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
+| [`resolveAggregate`](../packages/core/src/provider/aggregate.ts) | function | Beta | Totals over a resource's rows through any provider: its `aggregate` when it has one, else a count from `getList`'s total (one row read), else the rows themselves, paged (`toAggregateValues`). Throws `DataReadError` for a request that isn... |
 | [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
+| [`toAggregateValues`](../packages/core/src/provider/aggregate.ts) | function | Beta | The metrics' values over rows already in hand: what an in-memory provider, a test, or the paged fallback computes. `count` counts every row; the others skip rows with no number in the field and are `null` when none has one. |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (50)
+### Types (54)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AggregateMetric };
+export type { AggregateParams };
+export type { AggregateResult };
 export type { ArrayFilter };
 export type { BaseRecord };
 export type { BulkChange };
@@ -1581,6 +1619,7 @@ export type { PaginationParam };
 export type { PostgrestFieldErrors };
 export type { RangeFilter };
 export type { ReadOutcome };
+export type { ResolveAggregateOptions };
 export type { ResourceChangeEvent };
 export type { RowFailure };
 export type { RpcClient };
@@ -1614,7 +1653,7 @@ export type { WriteOutcome };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (38)
+### Other exports (39)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1640,6 +1679,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`rememberedWorkspaceId`](../packages/core/src/hooks/workspace-scope.tsx) | function | Beta | The workspace this viewer was last in on this device, for the app's front door (`defaultWorkspace(workspaces, rememberedWorkspaceId(viewer))`). Null when unknown. |
 | [`scopeClock`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The scope's clock: `scopeTimeZone` when the runtime knows it, else the viewer's. A zone it doesn't know is never a quiet fallback: it throws in development, and in production it is reported (`reportError`, once per zone) before the viewe... |
 | [`stableJson`](../packages/core/src/hooks/draft-controller.ts) | function | — | JSON with object keys sorted, so values compare equal whatever order a store keeps keys in. |
+| [`useAggregate`](../packages/core/src/hooks/use-aggregate.ts) | function | Beta | Totals over a resource's rows (count, and sum, average, lowest or highest of a field), through the data provider: its `aggregate`, or `resolveAggregate`'s fallback. Cached under the resource's key, so any write to the resource through Ge... |
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
@@ -1659,7 +1699,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWrite`](../packages/core/src/hooks/use-write.ts) | function | — | A one-off write that isn't a resource page's create, update or remove: a database function, `createOrAdopt`, several writes in a row. It invalidates what it made stale and reports failures in plain words. |
 | [`WRITE_FAILED`](../packages/core/src/hooks/use-write.ts) | const | — | _(no summary)_ |
 
-### Types (37)
+### Types (38)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1681,6 +1721,7 @@ export type { PersistedUiStateOptions };
 export type { ResourceScope };
 export type { UndoableWrite };
 export type { UpdateOptions };
+export type { UseAggregateOptions };
 export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
@@ -1733,7 +1774,7 @@ export type { StorageAdapter };
 
 **Barrel:** [`packages/core/src/schema/index.ts`](../packages/core/src/schema/index.ts)
 
-### Other exports (11)
+### Other exports (12)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1744,6 +1785,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`decodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | The inverse of {@link encodeRecordKey}: field name → value. |
 | [`defineResource`](../packages/core/src/schema/types.ts) | function | — | Declares a resource contract for a row type, keeping the literal contract (field names, key, labelField) and attaching the row type so views can read it with `RowOf`. `labelField` must be one of the row's fields. |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
+| [`fieldControl`](../packages/core/src/schema/types.ts) | function | Beta | A field's form-control hint: its `control`, else the deprecated `widget`. Every reader goes through this, so a contract written with either name works. |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
@@ -1751,12 +1793,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`writeConflict`](../packages/core/src/schema/write-state.ts) | function | — | The conflict `error` reports for a write of `mine`, or null when `error` isn't a `conflict` that carries the row as it is now. A field `mine` has and their row doesn't (a column it doesn't read) counts as different: the person decides it... |
 
-### Types (25)
+### Types (26)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { AuditEntry };
+export type { ControlHint };
 export type { DataReadErrorOptions };
 export type { DataRow };
 export type { DataWriteErrorOptions };
@@ -1846,7 +1889,7 @@ export type { Slots };
 
 **Barrel:** [`packages/core/src/navigation.ts`](../packages/core/src/navigation.ts)
 
-### Other exports (4)
+### Other exports (5)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1854,17 +1897,20 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`isPathActive`](../packages/core/src/navigation.ts) | function | Beta | Default active-path matcher, mirroring React Router's `NavLink` (prefix match, with `/` treated as exact). Consumers can override via an `isActive` prop where components accept one. |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
+| [`resolveNavigationZones`](../packages/core/src/navigation.ts) | function | Beta | Lay an app's zones over its navigation tree (ADR 0003 §1 and §4): which zone the location is in, each zone's pages, the global pages and the roll-up. Pure, so web and native shells use the same answer; an app with no zones gets every top... |
 | [`splitTabBarItems`](../packages/core/src/navigation.ts) | function | Beta | A phone bottom tab bar's split: up to `max` items fit; beyond that, the first `max - 1` show and the rest go under "More" in the last slot. Pure, so the web `TabBar`, AppShell's phone bottom nav and genesis-ui-native's `NativeTabBar` all... |
 | [`TAB_BAR_MAX`](../packages/core/src/navigation.ts) | const | Beta | Most slots a phone bottom tab bar shows before the rest go under "More". |
 
-### Types (3)
+### Types (5)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { IsPathActiveOptions };
 export type { NavigationNode };
+export type { NavigationZone };
 export type { ResolvedNavigation };
+export type { ResolvedNavigationZones };
 ```
 
 ---
@@ -1873,7 +1919,7 @@ export type { ResolvedNavigation };
 
 **Barrel:** [`packages/core/src/workspaces.ts`](../packages/core/src/workspaces.ts)
 
-### Other exports (10)
+### Other exports (12)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1885,6 +1931,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`keepSection`](../packages/core/src/workspaces.ts) | function | — | The default `keep`: the same kind keeps the section (the first segment), never a record. |
 | [`orderedWorkspaces`](../packages/core/src/workspaces.ts) | function | Beta | The workspaces in the order the switcher lists them (grouped by kind, in `order`): the order its keyboard jump numbers them, 1 to 9. |
 | [`pathInWorkspace`](../packages/core/src/workspaces.ts) | function | Beta | The path inside a workspace: `/o/acme/clients/42` in `/o/acme` is `/clients/42`; the workspace's own landing page is `/`. |
+| [`resolveWorkspaceAppearance`](../packages/core/src/workspaces.ts) | function | Beta | The organization's appearance and density defaults, for `AppearancePreferencesProvider`'s `organization`: only known values, empty without a workspace. |
+| [`resolveWorkspaceBrand`](../packages/core/src/workspaces.ts) | function | Beta | The app brand that applies in a workspace: its `theme.brand` when the app ships a brand by that id (`available`, ids or anything with an `id`), else `fallback`. Without `available`, any brand id is taken as given. |
 | [`WORKSPACE_KIND_ORDER`](../packages/core/src/workspaces.ts) | const | — | The kinds in their default order: personal, roll-up, then each tenant. |
 | [`workspaceAt`](../packages/core/src/workspaces.ts) | function | Beta | The workspace a URL is in: the one whose `path` is the longest prefix of `pathname`, or undefined when the URL is in none (a sign-in page, the app's front door). |
 | [`workspaceHref`](../packages/core/src/workspaces.ts) | function | Beta | Where switching to `to` goes from `pathname`. The URL moves with the viewer: it lands in the same section of the new workspace when that makes sense (see `keep`), else on its landing page. |
@@ -2066,7 +2114,7 @@ export type { JustifiedTile };
 
 **Barrel:** [`packages/core/src/resource-view/index.ts`](../packages/core/src/resource-view/index.ts)
 
-### Other exports (25)
+### Other exports (36)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -2078,41 +2126,63 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`cascadeSelection`](../packages/core/src/resource-view/tree.ts) | function | — | The selection after toggling `id` with cascade: the node and every descendant take the node's new state. Without cascade, use a plain toggle; selection never cascades by default. |
 | [`defineRecordView`](../packages/core/src/resource-view/record-view.ts) | function | — | One record's screen from its view: |
 | [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | Describe what a resource means to people. The result is frozen and platform-neutral: |
-| [`defineWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | — | _(no summary)_ |
+| [`defineWidget`](../packages/core/src/resource-view/widget.ts) | function | Beta | Define a widget: a tile fed by a view. Checks it against the view (its fields, presets) and returns it frozen. Throws {@link ViewDefinitionError} with every problem. |
+| [`defineWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | Deprecated | _(no summary)_ |
 | [`deriveDisplay`](../packages/core/src/resource-view/define-view.ts) | function | — | The display a field gets when the view doesn't name one. |
 | [`filterParams`](../packages/core/src/resource-view/link.ts) | function | — | A screen's or a picker's filter as provider filters: a single value is `eq`, `null` is `is_null` and a list is `in`. |
 | [`galleryProblems`](../packages/core/src/resource-view/define-view.ts) | function | Beta | What's wrong with a gallery block for these fields, one sentence each (empty when it's fine). |
+| [`groupRows`](../packages/core/src/resource-view/group.ts) | function | Beta | A view's rows in groups, in the order each group first appears (the server's sort, so loading more never reorders what's on screen). Without a field (no `groupBy` and none given), one group holding every row, with an empty label. |
 | [`initialExpanded`](../packages/core/src/resource-view/tree.ts) | function | — | The open ids a tree starts with: `true` opens every parent, a number opens parents shallower than that depth (`1` opens the roots), `false` or nothing opens none. |
 | [`initialsOf`](../packages/core/src/resource-view/picture.ts) | function | — | First and last initial of a name, from letters only: "Ada Lovelace" → "AL", "Ana-María López" → "AL", "李 小龙" → "李小", "Cher" → "C". Empty when the name has no letters (" ", "🎉🎉"). |
 | [`isRecordView`](../packages/core/src/resource-view/record-view.ts) | function | — | Whether a value is a record view (`defineRecordView`'s result). |
-| [`isWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | — | _(no summary)_ |
+| [`isWidget`](../packages/core/src/resource-view/widget.ts) | function | — | Whether a value is a widget from `defineWidget`. |
+| [`isWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | Deprecated | _(no summary)_ |
 | [`NO_VIEWER`](../packages/core/src/viewer.ts) | const | — | The viewer outside any ViewerScope: no one, nowhere, no roles. |
 | [`plural`](../packages/core/src/resource-view/define-view.ts) | function | — | A noun's plural, the inverse of `singular`: entry → entries, box → boxes, person → people. |
+| [`RECORD_OPEN_MODES`](../packages/core/src/resource-view/types.ts) | const | Beta | The open modes, in the order a picker lists them. @stability Beta |
+| [`resolveChartSeries`](../packages/core/src/resource-view/widget.ts) | function | Beta | A chart widget's bars from its rows: one per value of `groupBy`, in the field's choice order when it has choices (else by value), each the metric over the rows with that value. |
+| [`resolveProgress`](../packages/core/src/resource-view/widget.ts) | function | Beta | Progress as a fraction from 0 to 1 (more than 1 when the goal is passed), or null without a goal to measure against. |
+| [`resolveStreak`](../packages/core/src/resource-view/widget.ts) | function | Beta | How many days (or weeks) in a row have at least one of `values` (dates or timestamps), ending today, or yesterday while today has none yet, so a streak isn't broken before the day is over. |
+| [`resolveWidgetAccess`](../packages/core/src/resource-view/widget.ts) | function | Beta | Whether this viewer sees the widget: `true`, or the reason not. A field it totals that the viewer can't read (`permissions.read: false` in the contract) hides it, then the widget's own `can`. Only narrows: row security still decides the ... |
+| [`resolveWidgetRequest`](../packages/core/src/resource-view/widget.ts) | function | Beta | What a widget needs from its provider, for a viewer working in `scope` (ViewerScope's): the filters its view would list with, and either the totals or the rows. `<Widget>` and a phone build their reads from this. |
 | [`rowPicture`](../packages/core/src/resource-view/picture.ts) | function | — | What to draw for a summary's picture: |
 | [`sameFormValue`](../packages/core/src/resource-view/record-view.ts) | function | — | Whether two values are the same as a settings form holds them: 2 and "2", and null, undefined and "", are the same. A settings section compares an edit with the row through it, so an edit back to the stored value isn't a change (web and ... |
 | [`scopeFilter`](../packages/core/src/resource-view/scope.ts) | function | — | The view's scope keys as a list filter, the way `ResourceView` applies them itself: like {@link scopeValues}, but a list (`{ orgId: ["o1", "o2"] }`, a roll-up across organizations) filters to any of its values, and a key the scope doesn'... |
 | [`scopeValues`](../packages/core/src/resource-view/scope.ts) | function | — | The view's declared scope keys with their values from the viewer's scope, ready to pass as a screen's `filter`: `scope: ["league_id"]` reads `scope.league_id`, then `scope.leagueId`. |
 | [`setExpanded`](../packages/core/src/resource-view/tree.ts) | function | — | The open set with `id` opened or closed: a new set, or the same one when nothing changes. |
 | [`singular`](../packages/core/src/resource-view/define-view.ts) | function | — | A table name's singular, for the default noun. A wrong guess is fixed with `@genesis {"noun"}`. |
+| [`toWidgetText`](../packages/core/src/resource-view/widget.ts) | function | Beta | A widget's number in words: `null` reads "—", a percent is of 1 (0.42 is 42%). |
 | [`treeRows`](../packages/core/src/resource-view/tree.ts) | function | — | Build the tree from flat rows. Siblings are sorted by `compare`, else keep the rows' order, so either way the sort applies within each set of siblings. A row whose parent isn't among `rows` is a root, and so is a row whose parent would c... |
 | [`valueText`](../packages/core/src/resource-view/define-view.ts) | function | — | A value in words: its entry in `labels`, else the value in title case (`draft` → "Draft"). |
 | [`ViewDefinitionError`](../packages/core/src/resource-view/errors.ts) | class | — | A view that names a field, preset or section its contract doesn't have. |
+| [`widgetProblems`](../packages/core/src/resource-view/widget.ts) | function | — | Every problem with a widget; empty when it is sound. |
 
-### Types (56)
+### Types (76)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { Allowed };
+export type { AnyRecordView };
+export type { ChartPoint };
+export type { ChartWidget };
 export type { ComputedColumn };
+export type { DefinedWidget };
 export type { DisplayHint };
 export type { FieldNameOf };
 export type { GenesisViewerRoles };
+export type { GroupRowsOptions };
 export type { LinkFilter };
 export type { LinkOrder };
 export type { LinkedView };
+export type { ListWidget };
+export type { NumberWidget };
+export type { ProgressWidget };
+export type { RecordOpen };
+export type { RecordPageTemplate };
 export type { RecordView };
 export type { RecordViewDefinition };
+export type { RecordViewDocument };
 export type { RecordViewFilter };
 export type { RecordViewHeader };
 export type { RecordViewHeaderAction };
@@ -2131,10 +2201,13 @@ export type { ResolvedViewAction };
 export type { ResourceTree };
 export type { ResourceView };
 export type { ResourceWorkspace };
+export type { RowGroup };
 export type { RowImage };
 export type { RowOf };
 export type { RowPicture };
 export type { RowSummary };
+export type { Streak };
+export type { StreakWidget };
 export type { TimeZoneName };
 export type { TreeNode };
 export type { TreeOptions };
@@ -2156,6 +2229,12 @@ export type { ViewPreset };
 export type { ViewTimeZone };
 export type { ViewTone };
 export type { Viewer };
+export type { WidgetBase };
+export type { WidgetDefinition };
+export type { WidgetFilter };
+export type { WidgetFormat };
+export type { WidgetKind };
+export type { WidgetRequest };
 export type { WorkspaceDefinition };
 export type { WorkspaceHeaderAction };
 export type { WorkspaceSection };
@@ -2286,19 +2365,32 @@ DTCG design tokens, brand schema, theme generators. Brand-agnostic; consumer bra
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (83)
+### Other exports (127)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`APP_BRAND_PAIRS`](../packages/design-system/src/app-styles/render.ts) | const | — | The pairs genesis-ui draws, foreground on background, with their WCAG minimum: 4.5:1 for text, 3:1 for the focus ring. The sidebar's active item is `text-sidebar-primary` on `bg-sidebar-accent`. |
+| [`appBrandContrastProblems`](../packages/design-system/src/app-styles/render.ts) | function | Beta | Every pair in {@link APP_BRAND_PAIRS} under its minimum, in either mode. Empty for every brand Genesis ships (a test holds it there). |
+| [`appBrandCss`](../packages/design-system/src/app-styles/render.ts) | function | Beta | An app brand as CSS, scoped to `[data-app-brand="<id>"]`: its colour roles and fonts, light and `.dark` (on the same element or an ancestor). On `<html>` it colours the whole app, portalled menus and dialogs too; on any other element, th... |
+| [`appBrandVariables`](../packages/design-system/src/app-styles/render.ts) | function | Beta | Every variable an app brand sets, per mode: its colour roles (`brandRoleVariables`, web overrides applied), the roles it sets by hand, then its font stacks. |
+| [`appStyleCss`](../packages/design-system/src/app-styles/render.ts) | function | Beta | An app style as CSS, scoped to `[data-app-style="<id>"]`: its component tokens, its part styles (`darkParts` after `parts`), then its raw `css` nested in its scope. Its colours come from whatever brand is set. |
+| [`appStyleVariables`](../packages/design-system/src/app-styles/render.ts) | function | Beta | Every variable an app style sets, per mode: its component tokens (`darkTokens` over `tokens` in dark mode). |
+| [`arenaBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Arena: A black rail, a hot orange with dark text on it, condensed headings and high contrast. Best in dark mode. |
+| [`arenaStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Arena layout: designed with the arena brand, at home with any. |
 | [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
 | [`brandContrastProblems`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | The brand's contrast problems: role pairs (per platform, when its `platformOverrides` make them differ) and extension colors. Empty when every pair reaches its minimum. Colors that aren't `#rgb` / `#rrggbb` are skipped. Assumes a brand o... |
 | [`brandExtraVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The opt-in brand variables, per mode, for what has no Genesis role: each is set only when the brand sets its field, so a brand without them gets an empty map. |
 | [`brandGradientCss`](../packages/design-system/src/factories/brand-roles.ts) | function | — | `gradients.primary` as CSS (`linear-gradient(135deg, #a, #b)`), or undefined. |
 | [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
+| [`checklistBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Checklist: A warm white page, a confident red, and a warm sidebar whose open list sits on a red tint. |
+| [`checklistStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Checklist layout: designed with the checklist brand, at home with any. |
 | [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
 | [`classicDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Today's look, unchanged: it emits no tokens, so every component keeps the stylesheet's own sizes, spacing and colours. The default for a brand that names no design system. |
+| [`COMPONENT_TOKENS`](../packages/design-system/src/tokens/component-tokens.ts) | const | — | Every component token, by group. |
+| [`componentTokenCss`](../packages/design-system/src/tokens/component-tokens.ts) | function | — | A token value as the stylesheet declares it: `none` for a shadow becomes {@link NO_SHADOW}. |
+| [`componentTokenProblem`](../packages/design-system/src/tokens/component-tokens.ts) | function | — | The problem with a token value, or null when it is sound. |
 | [`composite`](../packages/design-system/src/design-systems/color.ts) | function | — | `top` over `bottom` at `alpha` (0–1), blended in sRGB as browsers do: a hex. |
 | [`contrast`](../packages/design-system/src/design-systems/color.ts) | function | — | WCAG 2 contrast ratio (1–21) of two hex colours. |
 | [`CORNER_RADII`](../packages/design-system/src/design-systems/tokens.ts) | const | — | Radius per corners set, in px: chips and inputs, cards, feature images, buttons, photos. |
@@ -2311,8 +2403,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DEFAULT_FONT_CLASS_RULES`](../packages/design-system/src/design-systems/define.ts) | const | — | How each font class is set at display sizes, when a design system says nothing else. |
 | [`DEFAULT_LEADING`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
 | [`DEFAULT_RAMP`](../packages/design-system/src/design-systems/define.ts) | const | — | A ramp that suits most brands: 16 → 18px body, 48 → 112px display. |
+| [`defineAppBrand`](../packages/design-system/src/app-styles/define.ts) | function | Beta | Define an app brand (colours and fonts): checks it and returns it frozen, with its id. Throws with every problem when it isn't sound. |
+| [`defineAppStyle`](../packages/design-system/src/app-styles/define.ts) | function | Beta | Define an app style (every component's size and shape): checks it and returns it frozen, with its id. Throws with every problem when it isn't sound. |
 | [`defineDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | Beta | Define a design system: checks it and returns it frozen, with its id (`name@version`). Throws with every problem when it isn't sound. |
-| [`DENSITIES`](../packages/design-system/src/design-systems/define.ts) | const | — | Section padding. |
+| [`DENSITIES`](../packages/design-system/src/design-systems/define.ts) | const | — | Section padding. Genesis's one density vocabulary (`DENSITY_LEVELS`: compact, comfortable, spacious) is accepted too: `comfortable` means `normal` and `spacious` means `generous` (ADR 0022). |
+| [`DENSITY_LEVELS`](../packages/design-system/src/tokens/density.ts) | const | Beta | The three densities, tightest first. |
+| [`DENSITY_LEVELS`](../packages/design-system/src/tokens/density.ts) | const | Beta | The three densities, tightest first. |
 | [`designSystemTheme`](../packages/design-system/src/design-systems/tokens.ts) | function | Beta | The CSS variables for one design system and one brand, per mode, and the colour pairs they promise. |
 | [`fluid`](../packages/design-system/src/design-systems/tokens.ts) | function | — | `{ min: 3, max: 7 }` → `clamp(3rem, 1.6667rem + 5.9259vw, 7rem)`: `min` at a 360px viewport, `max` at 1440px, linear between. |
 | [`FONT_CHOICES`](../packages/design-system/src/fonts.ts) | const | — | The fonts a brand may choose. Every one but `system` is self-hosted. |
@@ -2329,12 +2425,18 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`genesisBrand`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | Genesis OOTB brand — the single source of truth for the full brand palette. |
 | [`genesisColors`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | _(no summary)_ |
 | [`genesisTheme`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | Genesis brand — indigo (distinct from the emerald `success`). |
+| [`getComponentToken`](../packages/design-system/src/tokens/component-tokens.ts) | function | — | A token by name, or undefined. |
 | [`getDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | A design system by id (`crisp@1`): a built-in one or a registered one. |
+| [`getStarterBrand`](../packages/design-system/src/app-styles/starters.ts) | function | — | A starter brand by id, or undefined. |
+| [`getStarterStyle`](../packages/design-system/src/app-styles/starters.ts) | function | — | A starter style by id, or undefined. |
+| [`getThemePart`](../packages/design-system/src/tokens/theme-parts.ts) | function | — | A part by name, or undefined. |
 | [`GROUNDS`](../packages/design-system/src/design-systems/color.ts) | const | — | The page's ground: warm, cool, the brand's own hue barely tinted, or dark. |
 | [`hexToHslTriplet`](../packages/design-system/src/design-systems/color.ts) | function | — | `#4f46e5` → `243 75% 59%`: the HSL triplet genesis-ui's role variables hold (`hsl(var(--primary))`). |
 | [`hexToOklch`](../packages/design-system/src/design-systems/color.ts) | function | — | sRGB hex → OKLCH. |
 | [`IMAGE_FILTERS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
 | [`isColorScale`](../packages/design-system/src/schema/brand.ts) | function | — | Type guard: returns true when `value` looks like a `ColorScale`. |
+| [`journalBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Journal: A paper ground, ink-brown text, a sage accent, serif headings over a soft sans. |
+| [`journalStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Journal layout: designed with the journal brand, at home with any. |
 | [`LATIN_UNICODE_RANGE`](../packages/design-system/src/fonts.ts) | const | — | The latin subset's `unicode-range`, so a page in another script falls back to the next font in the stack. |
 | [`listDesignSystems`](../packages/design-system/src/design-systems/registry.ts) | function | — | Every design system available: the built-in ones, then the registered ones. |
 | [`maxChroma`](../packages/design-system/src/design-systems/color.ts) | function | — | The most chroma sRGB can show at this lightness and hue, up to `c`. |
@@ -2345,14 +2447,25 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`motionCssVariables`](../packages/design-system/src/tokens/motion.ts) | function | — | The motion CSS variables for a level: `--ds-ease-*` and `--ds-dur-*`. |
 | [`neutral`](../packages/design-system/src/tokens/colors.ts) | const | — | Shared semantic colors used across all Genesis projects. Brand-specific primary colors belong in presets, not here. |
 | [`NEUTRAL_DESIGN_SYSTEMS`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Every neutral design system, by id. |
+| [`NO_SHADOW`](../packages/design-system/src/tokens/component-tokens.ts) | const | — | No shadow, in a form Tailwind can compose with its ring shadows (`none` can't be). |
+| [`notebookBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Notebook: A plain white page, warm grey ink, a sidebar a shade warmer and a calm blue. |
+| [`notebookStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Notebook layout: designed with the notebook brand, at home with any. |
 | [`oklchToHex`](../packages/design-system/src/design-systems/color.ts) | function | — | OKLCH → sRGB hex, reducing chroma (never lightness or hue) until it fits the gamut. |
 | [`palette`](../packages/design-system/src/design-systems/color.ts) | function | Beta | The palette for a brand: colour roles for light and dark, and the ramps. |
+| [`parsePartSelector`](../packages/design-system/src/app-styles/define.ts) | function | — | A part selector's compounds: `card [variant=x]:hover` parts, or a problem. |
+| [`pressBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Press: A dark rail beside a light grey canvas, white cards and a steady blue. |
+| [`pressStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Press layout: designed with the press brand, at home with any. |
 | [`ramp`](../packages/design-system/src/design-systems/color.ts) | function | — | An 11-step ramp from one colour, with the colour itself at its nearest step. |
 | [`RAMP_STEPS`](../packages/design-system/src/design-systems/color.ts) | const | — | The ramp's steps and their OKLCH lightness. |
 | [`readGenesisThemeV2Flag`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`registerDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | Beta | Make a design system available by its id, so a brand that names it (`brand.designSystem.id`) resolves to it. Registering an id again with a different definition throws: a changed look is a new version. |
 | [`relativeLuminance`](../packages/design-system/src/design-systems/color.ts) | function | — | WCAG 2 relative luminance of a hex colour. |
+| [`renderAppStylesCss`](../packages/design-system/src/app-styles/render.ts) | function | — | Brands' and styles' CSS in one stylesheet: what `dist/themes/starter.css` holds for the starters. |
+| [`repositoryBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Repository: A white page on a cool grey canvas, green for actions, blue for links, the system font and monospace. |
+| [`repositoryStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Repository layout: designed with the repository brand, at home with any. |
 | [`resolveChoices`](../packages/design-system/src/design-systems/define.ts) | function | — | The design system's choices for a brand: the brand's, else the design system's defaults. |
+| [`resolveDensity`](../packages/design-system/src/tokens/density.ts) | function | Beta | A density in the one vocabulary: `compact`, `comfortable` and `spacious` as they are, sites' older `normal` and `generous` as `comfortable` and `spacious`, and anything else as `undefined`. |
+| [`resolveDensity`](../packages/design-system/src/tokens/density.ts) | function | Beta | A density in the one vocabulary: `compact`, `comfortable` and `spacious` as they are, sites' older `normal` and `generous` as `comfortable` and `spacious`, and anything else as `undefined`. |
 | [`resolveMotion`](../packages/design-system/src/tokens/motion.ts) | function | — | The motion tokens for a level. Levels `calm`, `lively` and `bold` share durations, easings and springs (they differ in how far web reveals travel, which the design system's CSS carries); `none`, or `reducedMotion`, makes everything instant. |
 | [`resolveThemeRoles`](../packages/design-system/src/tokens/roles.ts) | function | Beta | Every role's color for one platform and scheme. |
 | [`resolveTokens`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
@@ -2363,24 +2476,43 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SHADOW_LEVELS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
 | [`softDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Warm and open: a warm ground, generous space, soft corners and shadows. |
 | [`spacing`](../packages/design-system/src/tokens/spacing.ts) | const | — | _(no summary)_ |
+| [`STARTER_BRANDS`](../packages/design-system/src/app-styles/starters.ts) | const | — | Every starter brand Genesis ships, in picker order: colours and fonts. |
+| [`STARTER_STYLES`](../packages/design-system/src/app-styles/starters.ts) | const | — | Every starter style Genesis ships, in picker order: component size and shape. Each pairs with the brand of its name. |
 | [`status`](../packages/design-system/src/tokens/colors.ts) | const | — | _(no summary)_ |
 | [`tailwindFromBrand`](../packages/design-system/src/factories/from-brand.ts) | function | — | Derive a Tailwind v4 preset from a {@link CanonicalBrand} config. |
+| [`THEME_FONTS`](../packages/design-system/src/app-styles/define.ts) | const | — | The font stacks a brand can set: `--font-sans`, `--font-display`, `--font-mono`. |
+| [`THEME_PARTS`](../packages/design-system/src/tokens/theme-parts.ts) | const | — | _(no summary)_ |
 | [`THEME_ROLES`](../packages/design-system/src/tokens/roles.ts) | const | Beta | _(no summary)_ |
+| [`THEME_ROLES`](../packages/design-system/src/app-styles/define.ts) | const | — | Every colour role a brand can set by hand: the names `themes/genesis.css` declares, without `--`. |
+| [`THEME_TOKEN_NAMES`](../packages/design-system/src/app-styles/define.ts) | const | — | Every component token's name, for a picker or an editor. |
 | [`themeFromBrand`](../packages/design-system/src/factories/from-brand.ts) | function | — | Derive a NativeWind v5 theme from a {@link CanonicalBrand} config. |
 | [`themeToCss`](../packages/design-system/src/tokens/themes.ts) | function | — | Convert a theme variable map to a CSS string block. |
+| [`trackerBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Tracker: Cool near-neutral greys, a sparing indigo, Inter and a sidebar a step quieter than the page. Best in dark mode. |
+| [`trackerStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Tracker layout: designed with the tracker brand, at home with any. |
 | [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
 | [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
 | [`useOptionalTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
+| [`validateAppBrand`](../packages/design-system/src/app-styles/define.ts) | function | — | Every problem with an app brand input; empty when it is sound. |
+| [`validateAppStyle`](../packages/design-system/src/app-styles/define.ts) | function | — | Every problem with an app style input; empty when it is sound. |
 | [`validateBrand`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | {@link validateBrandShape | The brand shape check} plus {@link brandContrastProblems}: contrast pairs under their minimum come back as `warnings` (`ok` stays true); body text under 1.5:1 on its page is an error. The package entry exports... |
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (62)
+### Types (82)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AppBrand };
+export type { AppBrandContrastProblem };
+export type { AppBrandImage };
+export type { AppBrandInput };
+export type { AppCssOptions };
+export type { AppCssVariables };
+export type { AppStyle };
+export type { AppStyleInput };
+export type { Appearance };
 export type { Bezier };
 export type { BrandContrastFinding };
 export type { BrandContrastProblem };
@@ -2395,11 +2527,15 @@ export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorRoles };
 export type { ColorScale };
+export type { ComponentTokenInfo };
+export type { ComponentTokenKind };
 export type { ContrastPair };
 export type { Corners };
 export type { Density };
+export type { DensityLevel };
 export type { DesignSystem };
 export type { DesignSystemChoice };
+export type { DesignSystemDensity };
 export type { DesignSystemInput };
 export type { DesignSystemPair };
 export type { DesignSystemTheme };
@@ -2429,6 +2565,7 @@ export type { PlatformOverridable };
 export type { RampStep };
 export type { ResolveMotionOptions };
 export type { ResolveThemeRolesOptions };
+export type { ResolvedAppearance };
 export type { ResolvedColorScale };
 export type { ResolvedThemeMode };
 export type { ResolvedTokens };
@@ -2438,8 +2575,14 @@ export type { ShadowLevel };
 export type { ShadowToken };
 export type { TailwindBrandOutput };
 export type { ThemeConfig };
+export type { ThemeDeclarations };
+export type { ThemeFont };
 export type { ThemeMode };
+export type { ThemePartInfo };
+export type { ThemePartStyles };
 export type { ThemeRole };
+export type { ThemeRoleColors };
+export type { ThemeTokenValues };
 export type { TypeStep };
 export type { TypographyTokens };
 export type { UseThemeReturn };
@@ -2643,7 +2786,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DEFAULT_LEADING`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
 | [`DEFAULT_RAMP`](../packages/design-system/src/design-systems/define.ts) | const | — | A ramp that suits most brands: 16 → 18px body, 48 → 112px display. |
 | [`defineDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | Beta | Define a design system: checks it and returns it frozen, with its id (`name@version`). Throws with every problem when it isn't sound. |
-| [`DENSITIES`](../packages/design-system/src/design-systems/define.ts) | const | — | Section padding. |
+| [`DENSITIES`](../packages/design-system/src/design-systems/define.ts) | const | — | Section padding. Genesis's one density vocabulary (`DENSITY_LEVELS`: compact, comfortable, spacious) is accepted too: `comfortable` means `normal` and `spacious` means `generous` (ADR 0022). |
 | [`designSystemTheme`](../packages/design-system/src/design-systems/tokens.ts) | function | Beta | The CSS variables for one design system and one brand, per mode, and the colour pairs they promise. |
 | [`fluid`](../packages/design-system/src/design-systems/tokens.ts) | function | — | `{ min: 3, max: 7 }` → `clamp(3rem, 1.6667rem + 5.9259vw, 7rem)`: `min` at a 360px viewport, `max` at 1440px, linear between. |
 | [`getDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | A design system by id (`crisp@1`): a built-in one or a registered one. |
@@ -2671,7 +2814,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (23)
+### Types (24)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -2682,6 +2825,7 @@ export type { Corners };
 export type { Density };
 export type { DesignSystem };
 export type { DesignSystemChoice };
+export type { DesignSystemDensity };
 export type { DesignSystemInput };
 export type { DesignSystemPair };
 export type { DesignSystemTheme };
@@ -2699,6 +2843,85 @@ export type { RampStep };
 export type { Scrim };
 export type { ShadowLevel };
 export type { TypeStep };
+```
+
+---
+
+## @marktiderman/genesis-design-system/app-styles
+
+**Barrel:** [`packages/design-system/src/app-styles/index.ts`](../packages/design-system/src/app-styles/index.ts)
+
+### Other exports (42)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`APP_BRAND_PAIRS`](../packages/design-system/src/app-styles/render.ts) | const | — | The pairs genesis-ui draws, foreground on background, with their WCAG minimum: 4.5:1 for text, 3:1 for the focus ring. The sidebar's active item is `text-sidebar-primary` on `bg-sidebar-accent`. |
+| [`appBrandContrastProblems`](../packages/design-system/src/app-styles/render.ts) | function | Beta | Every pair in {@link APP_BRAND_PAIRS} under its minimum, in either mode. Empty for every brand Genesis ships (a test holds it there). |
+| [`appBrandCss`](../packages/design-system/src/app-styles/render.ts) | function | Beta | An app brand as CSS, scoped to `[data-app-brand="<id>"]`: its colour roles and fonts, light and `.dark` (on the same element or an ancestor). On `<html>` it colours the whole app, portalled menus and dialogs too; on any other element, th... |
+| [`appBrandVariables`](../packages/design-system/src/app-styles/render.ts) | function | Beta | Every variable an app brand sets, per mode: its colour roles (`brandRoleVariables`, web overrides applied), the roles it sets by hand, then its font stacks. |
+| [`appStyleCss`](../packages/design-system/src/app-styles/render.ts) | function | Beta | An app style as CSS, scoped to `[data-app-style="<id>"]`: its component tokens, its part styles (`darkParts` after `parts`), then its raw `css` nested in its scope. Its colours come from whatever brand is set. |
+| [`appStyleVariables`](../packages/design-system/src/app-styles/render.ts) | function | Beta | Every variable an app style sets, per mode: its component tokens (`darkTokens` over `tokens` in dark mode). |
+| [`arenaBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Arena: A black rail, a hot orange with dark text on it, condensed headings and high contrast. Best in dark mode. |
+| [`arenaStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Arena layout: designed with the arena brand, at home with any. |
+| [`checklistBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Checklist: A warm white page, a confident red, and a warm sidebar whose open list sits on a red tint. |
+| [`checklistStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Checklist layout: designed with the checklist brand, at home with any. |
+| [`COMPONENT_TOKENS`](../packages/design-system/src/tokens/component-tokens.ts) | const | — | Every component token, by group. |
+| [`componentTokenCss`](../packages/design-system/src/tokens/component-tokens.ts) | function | — | A token value as the stylesheet declares it: `none` for a shadow becomes {@link NO_SHADOW}. |
+| [`componentTokenProblem`](../packages/design-system/src/tokens/component-tokens.ts) | function | — | The problem with a token value, or null when it is sound. |
+| [`defineAppBrand`](../packages/design-system/src/app-styles/define.ts) | function | Beta | Define an app brand (colours and fonts): checks it and returns it frozen, with its id. Throws with every problem when it isn't sound. |
+| [`defineAppStyle`](../packages/design-system/src/app-styles/define.ts) | function | Beta | Define an app style (every component's size and shape): checks it and returns it frozen, with its id. Throws with every problem when it isn't sound. |
+| [`DENSITY_LEVELS`](../packages/design-system/src/tokens/density.ts) | const | Beta | The three densities, tightest first. |
+| [`getComponentToken`](../packages/design-system/src/tokens/component-tokens.ts) | function | — | A token by name, or undefined. |
+| [`getStarterBrand`](../packages/design-system/src/app-styles/starters.ts) | function | — | A starter brand by id, or undefined. |
+| [`getStarterStyle`](../packages/design-system/src/app-styles/starters.ts) | function | — | A starter style by id, or undefined. |
+| [`getThemePart`](../packages/design-system/src/tokens/theme-parts.ts) | function | — | A part by name, or undefined. |
+| [`journalBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Journal: A paper ground, ink-brown text, a sage accent, serif headings over a soft sans. |
+| [`journalStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Journal layout: designed with the journal brand, at home with any. |
+| [`NO_SHADOW`](../packages/design-system/src/tokens/component-tokens.ts) | const | — | No shadow, in a form Tailwind can compose with its ring shadows (`none` can't be). |
+| [`notebookBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Notebook: A plain white page, warm grey ink, a sidebar a shade warmer and a calm blue. |
+| [`notebookStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Notebook layout: designed with the notebook brand, at home with any. |
+| [`parsePartSelector`](../packages/design-system/src/app-styles/define.ts) | function | — | A part selector's compounds: `card [variant=x]:hover` parts, or a problem. |
+| [`pressBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Press: A dark rail beside a light grey canvas, white cards and a steady blue. |
+| [`pressStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Press layout: designed with the press brand, at home with any. |
+| [`renderAppStylesCss`](../packages/design-system/src/app-styles/render.ts) | function | — | Brands' and styles' CSS in one stylesheet: what `dist/themes/starter.css` holds for the starters. |
+| [`repositoryBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Repository: A white page on a cool grey canvas, green for actions, blue for links, the system font and monospace. |
+| [`repositoryStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Repository layout: designed with the repository brand, at home with any. |
+| [`resolveDensity`](../packages/design-system/src/tokens/density.ts) | function | Beta | A density in the one vocabulary: `compact`, `comfortable` and `spacious` as they are, sites' older `normal` and `generous` as `comfortable` and `spacious`, and anything else as `undefined`. |
+| [`STARTER_BRANDS`](../packages/design-system/src/app-styles/starters.ts) | const | — | Every starter brand Genesis ships, in picker order: colours and fonts. |
+| [`STARTER_STYLES`](../packages/design-system/src/app-styles/starters.ts) | const | — | Every starter style Genesis ships, in picker order: component size and shape. Each pairs with the brand of its name. |
+| [`THEME_FONTS`](../packages/design-system/src/app-styles/define.ts) | const | — | The font stacks a brand can set: `--font-sans`, `--font-display`, `--font-mono`. |
+| [`THEME_PARTS`](../packages/design-system/src/tokens/theme-parts.ts) | const | — | _(no summary)_ |
+| [`THEME_ROLES`](../packages/design-system/src/app-styles/define.ts) | const | — | Every colour role a brand can set by hand: the names `themes/genesis.css` declares, without `--`. |
+| [`THEME_TOKEN_NAMES`](../packages/design-system/src/app-styles/define.ts) | const | — | Every component token's name, for a picker or an editor. |
+| [`trackerBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Tracker: Cool near-neutral greys, a sparing indigo, Inter and a sidebar a step quieter than the page. Best in dark mode. |
+| [`trackerStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Tracker layout: designed with the tracker brand, at home with any. |
+| [`validateAppBrand`](../packages/design-system/src/app-styles/define.ts) | function | — | Every problem with an app brand input; empty when it is sound. |
+| [`validateAppStyle`](../packages/design-system/src/app-styles/define.ts) | function | — | Every problem with an app style input; empty when it is sound. |
+
+### Types (17)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { AppBrand };
+export type { AppBrandContrastProblem };
+export type { AppBrandImage };
+export type { AppBrandInput };
+export type { AppCssOptions };
+export type { AppCssVariables };
+export type { AppStyle };
+export type { AppStyleInput };
+export type { ComponentTokenInfo };
+export type { ComponentTokenKind };
+export type { DensityLevel };
+export type { ThemeDeclarations };
+export type { ThemeFont };
+export type { ThemePartInfo };
+export type { ThemePartStyles };
+export type { ThemeRoleColors };
+export type { ThemeTokenValues };
 ```
 
 ---
@@ -2742,7 +2965,7 @@ export type { SelfHostedFont };
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
-| [`GenesisThemeProvider`](../packages/design-system/src/theme/provider.web.tsx) | `GenesisThemeProviderProps` | — | _(no summary)_ |
+| [`GenesisThemeProvider`](../packages/design-system/src/theme/provider.web.tsx) | `GenesisThemeProviderProps` | Beta | The person's **appearance**: light, dark or system (the glossary's word; the props keep their older `mode` names). It is the person's choice, never an app brand's, style's or theme's: pass it controlled from where the person's choice is ... |
 
 ### Other exports (5)
 
@@ -2756,11 +2979,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useOptionalTheme`](../packages/design-system/src/theme/use-theme.ts) | function | Beta | Read the active theme from the nearest `<GenesisThemeProvider>`. |
 | [`useTheme`](../packages/design-system/src/theme/use-theme.ts) | function | Stable | The theme, or throws outside a `<GenesisThemeProvider>`. A primitive that should still render without one uses {@link useOptionalTheme}. |
 
-### Types (5)
+### Types (7)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { Appearance };
+export type { ResolvedAppearance };
 export type { ResolvedColorScale };
 export type { ResolvedThemeMode };
 export type { ResolvedTokens };
@@ -4504,21 +4729,24 @@ export type { UploadHost };
 
 **Barrel:** [`packages/genesis/src/core.ts`](../packages/genesis/src/core.ts)
 
-### Components (4)
+### Components (5)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
+| [`AppearancePreferencesProvider`](../packages/core/src/appearance.tsx) | `AppearancePreferencesProviderProps` | Beta | Serves a person's appearance and density to the tree, resolved in the written order. Reads the store once on mount (and on its `subscribe`), keeps a copy on the device, and writes both when the person changes a value. |
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (75)
+### Other exports (90)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`aggregateProblems`](../packages/core/src/provider/aggregate.ts) | function | — | Every problem with an aggregate request; empty when it is sound. |
+| [`APPEARANCES`](../packages/core/src/appearance-values.ts) | const | — | The appearances, in a picker's order. |
 | [`blankValues`](../packages/core/src/hooks/use-resource-form.ts) | function | — | What a save sends for an input left empty: `""`, or `undefined` (a cleared number input). Only a field whose column the form knows about (`nullable` set, as ResourceView sets it from a generated contract) is changed: a create leaves it o... |
 | [`buildArrayItemDefaults`](../packages/core/src/hooks/use-resource-form.ts) | function | — | Build default values for a single array item from its sub-field definitions |
 | [`callRpc`](../packages/core/src/provider/write-helpers.ts) | function | — | Calls a database function and returns its result. A failure throws a DataWriteError with the usual outcome and code, and words a person can read: yours for the code, a guard's own message (P0001), the defaults above, or a generic sentenc... |
@@ -4540,18 +4768,24 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DEFAULT_UNDO_DELAY_MS`](../packages/core/src/hooks/mutation-mode.ts) | const | — | How long an `undoable` write waits for an undo before it is sent. |
 | [`DEFAULT_UNSAVED_CHANGES_MESSAGE`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | const | — | _(no summary)_ |
 | [`defaultErrorReporter`](../packages/core/src/errors.ts) | const | — | The reporter used when the app registered none: `console.warn` in development, nothing in production. |
+| [`defineAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | Declare where a person's appearance and density are kept and what the app locks. Checks the lock and returns it frozen; throws on a value that isn't an appearance or a density. |
 | [`defineQueryKeys`](../packages/core/src/query-keys.ts) | function | — | The keys of one domain. Each query maps its arguments to the fields that make it distinct (sort arrays so order never makes two keys): |
 | [`defineResource`](../packages/core/src/schema/types.ts) | function | — | Declares a resource contract for a row type, keeping the literal contract (field names, key, labelField) and attaching the row type so views can read it with `RowOf`. `labelField` must be one of the row's fields. |
+| [`DENSITIES`](../packages/core/src/appearance-values.ts) | const | — | The densities, tightest first. |
 | [`DRAFT_NOT_SAVED`](../packages/core/src/hooks/draft-controller.ts) | const | — | _(no summary)_ |
 | [`DraftController`](../packages/core/src/hooks/draft-controller.ts) | class | — | The rules of a draft, without React: one write at a time, add then change, no write when nothing changed or for an empty value, merge into a row another tab started, start again on a new revision, retry network failures, and a final writ... |
 | [`dropPendingWrites`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Drops every write on this client not yet sent, without reporting them: the viewer who made them is gone, so they must never be sent (or re-applied) under the next one. Writes already sending finish under the old session. |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
 | [`errorMessages`](../packages/core/src/errors.ts) | const | — | The English catalogue. Plain words, never the store's text. |
+| [`fieldControl`](../packages/core/src/schema/types.ts) | function | Beta | A field's form-control hint: its `control`, else the deprecated `widget`. Every reader goes through this, so a contract written with either name works. |
 | [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. A unique vi... |
 | [`flushPendingWrites`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Sends every optimistic or undoable write still waiting on this client now, and resolves once all have settled. Call it while the session that made them still holds (a sign-out action, before signing out). |
+| [`GENESIS_APPEARANCE_DEFAULTS`](../packages/core/src/appearance-values.ts) | const | — | Genesis's own defaults, the last step of the order. |
 | [`getErrorReporter`](../packages/core/src/errors.ts) | function | — | The reporter `reportError` uses now. |
+| [`isAppearance`](../packages/core/src/appearance-values.ts) | const | — | Whether a value is an appearance. |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
+| [`isDensity`](../packages/core/src/appearance-values.ts) | const | — | Whether a value is a density. |
 | [`isNetworkFailure`](../packages/core/src/hooks/draft-controller.ts) | function | — | The default `isRetryable`: a request that never reached the store. A refusal never is. |
 | [`isSafeUrl`](../packages/core/src/urls.ts) | function | — | True when `url` is safe to put in an `href`: an absolute http(s), mailto or tel URL, a root-relative path (`/lessons/1`) or a fragment (`#notes`). |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
@@ -4565,13 +4799,19 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`relationNamingField`](../packages/core/src/hooks/use-relation-label.ts) | function | — | The linked resource's naming field, as a link's words find it: its `labelField` from `describe`, else a `name`/`title`-like field. Undefined when it can't say. Asked once per resource and provider; a picker uses it to search and sort the... |
 | [`rememberedWorkspaceId`](../packages/core/src/hooks/workspace-scope.tsx) | function | Beta | The workspace this viewer was last in on this device, for the app's front door (`defaultWorkspace(workspaces, rememberedWorkspaceId(viewer))`). Null when unknown. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
+| [`resolveAggregate`](../packages/core/src/provider/aggregate.ts) | function | Beta | Totals over a resource's rows through any provider: its `aggregate` when it has one, else a count from `getList`'s total (one row read), else the rows themselves, paged (`toAggregateValues`). Throws `DataReadError` for a request that isn... |
+| [`resolveAppearancePreferences`](../packages/core/src/appearance-values.ts) | function | Beta | The appearance and density that apply: app lock, then the person, then the organization's default, then the theme's, then Genesis's. Values that aren't known appearances or densities are skipped, so a bad stored value falls through to th... |
 | [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
 | [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
 | [`scopeClock`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The scope's clock: `scopeTimeZone` when the runtime knows it, else the viewer's. A zone it doesn't know is never a quiet fallback: it throws in development, and in production it is reported (`reportError`, once per zone) before the viewe... |
 | [`setErrorReporter`](../packages/core/src/errors.ts) | function | — | Send every `reportError` to `reporter` (`null` puts the default back). Returns a function that restores the reporter that was there before. The native observability block calls it when it is created. |
 | [`stableJson`](../packages/core/src/hooks/draft-controller.ts) | function | — | JSON with object keys sorted, so values compare equal whatever order a store keeps keys in. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
+| [`toAggregateValues`](../packages/core/src/provider/aggregate.ts) | function | Beta | The metrics' values over rows already in hand: what an in-memory provider, a test, or the paged fallback computes. `count` counts every row; the others skip rows with no number in the field and are `null` when none has one. |
+| [`toAppearancePreferenceValues`](../packages/core/src/appearance-values.ts) | function | — | Only the known values: a stored or typed-in value that isn't one is left out. |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
+| [`useAggregate`](../packages/core/src/hooks/use-aggregate.ts) | function | Beta | Totals over a resource's rows (count, and sum, average, lowest or highest of a field), through the data provider: its `aggregate`, or `resolveAggregate`'s fallback. Cached under the resource's key, so any write to the resource through Ge... |
+| [`useAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | The person's appearance and density, resolved, with setters. Throws outside an `AppearancePreferencesProvider`; a component that works with or without one reads `useOptionalAppearancePreferences`. |
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
@@ -4579,6 +4819,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by `orderBy` (else the naming field) then the key, `p... |
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
+| [`useOptionalAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | Like `useAppearancePreferences`, but null outside a provider: for a component (a shell, a theme provider) that keeps its own behaviour when an app hasn't set preferences up. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`usePersistedUiState`](../packages/core/src/hooks/use-persisted-ui-state.ts) | function | — | _(no summary)_ |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -4595,11 +4836,21 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`writeConflict`](../packages/core/src/schema/write-state.ts) | function | — | The conflict `error` reports for a write of `mine`, or null when `error` isn't a `conflict` that carries the row as it is now. A field `mine` has and their row doesn't (a column it doesn't read) counts as different: the person decides it... |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (122)
+### Types (138)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AggregateMetric };
+export type { AggregateParams };
+export type { AggregateResult };
+export type { Appearance };
+export type { AppearancePreferenceLayers };
+export type { AppearancePreferenceSource };
+export type { AppearancePreferenceValues };
+export type { AppearancePreferences };
+export type { AppearancePreferencesDefinition };
+export type { AppearancePreferencesStore };
 export type { ArrayFilter };
 export type { AuditEntry };
 export type { BaseRecord };
@@ -4608,6 +4859,7 @@ export type { BulkResult };
 export type { CallRpcOptions };
 export type { ClassifiedError };
 export type { ClassifyErrorOptions };
+export type { ControlHint };
 export type { CountMode };
 export type { CreateOrAdoptOptions };
 export type { CreateOrAdoptResult };
@@ -4619,6 +4871,7 @@ export type { DataRow };
 export type { DataWriteErrorOptions };
 export type { DeleteParams };
 export type { DeleteResult };
+export type { Density };
 export type { DraftAdoption };
 export type { DraftOptions };
 export type { DraftSeed };
@@ -4664,6 +4917,8 @@ export type { QueryKeys };
 export type { RangeFilter };
 export type { ReadOutcome };
 export type { RecordComment };
+export type { ResolveAggregateOptions };
+export type { ResolvedAppearancePreferences };
 export type { ResourceAccess };
 export type { ResourceChangeEvent };
 export type { ResourceContract };
@@ -4695,6 +4950,8 @@ export type { UndoableWrite };
 export type { UpdateOptions };
 export type { UpdateParams };
 export type { UpdateResult };
+export type { UseAggregateOptions };
+export type { UseAppearancePreferencesReturn };
 export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
@@ -4730,7 +4987,7 @@ export type { WriteState };
 
 **Barrel:** [`packages/genesis/src/ui.ts`](../packages/genesis/src/ui.ts)
 
-### Components (57)
+### Components (58)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -4750,6 +5007,7 @@ export type { WriteState };
 | [`DatePicker`](../packages/ui/src/components/ui/date-picker.tsx) | `DatePickerProps` | — | _(no summary)_ |
 | [`DetailPage`](../packages/ui/src/components/layout/detail-page.tsx) | `DetailPageProps` | Beta | DetailPage — one record's full view: a title row with actions, a primary content region, and a metadata sidebar that drops below the content on small screens. |
 | [`Display`](../packages/ui/src/components/layout/band.tsx) | `DisplayProps` | Beta | Display: a heading in the marketing type scale (`displayVariants`). |
+| [`DocumentPage`](../packages/ui/src/components/layout/document-page.tsx) | `DocumentPageProps` | Beta | DocumentPage — a page that reads like a document: an optional cover across the top, an icon, a large title and the body in a centred reading column, as in a notebook app. The page template for writing (notes, a journal entry, a guide, a ... |
 | [`EmptyState`](../packages/ui/src/components/patterns/empty-state.tsx) | `EmptyStateProps` | Beta | EmptyState — what to show when a list, page, or panel has no data. |
 | [`FormPage`](../packages/ui/src/components/layout/form-page.tsx) | `FormPageProps` | Beta | FormPage — a titled form: header, validation summary, a body of sections, and a sticky action bar. |
 | [`GalleryCard`](../packages/ui/src/components/patterns/gallery-card.tsx) | `GalleryCardProps` | Beta | GalleryCard — a cover image with badges and actions overlaid, and a title/subtitle footer. The media-first card that galleries, libraries and course lists all draw: `Card` + `AspectRatio` + the two overlay slots. |
@@ -4792,7 +5050,7 @@ export type { WriteState };
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (273)
+### Other exports (274)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4936,7 +5194,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`H2`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
 | [`H3`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
 | [`H4`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
-| [`HeadlineNumbers`](../packages/ui/src/components/resource/HeadlineNumbers.tsx) | function | — | A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen. |
+| [`HeadlineNumbers`](../packages/ui/src/components/resource/HeadlineNumbers.tsx) | function | — | A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen. Each is the one widget tile (`WidgetTile`, variant `headline`, part `headline-number`). |
 | [`HoverCard`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
 | [`HoverCardContent`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
 | [`HoverCardTrigger`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
@@ -5009,6 +5267,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ResizablePanel`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanelGroup`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
+| [`resolveNavigationZones`](../packages/core/src/navigation.ts) | function | Beta | Lay an app's zones over its navigation tree (ADR 0003 §1 and §4): which zone the location is in, each zone's pages, the global pages and the roll-up. Pure, so web and native shells use the same answer; an app with no zones gets every top... |
 | [`resolveUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue with overrides merged over the English. |
 | [`ResourceSettingsPage`](../packages/ui/src/components/resource/ResourceSettingsPage.tsx) | function | — | Every setting of one thing (a form, a course, a worksheet) on one page: jump links on the left ("On this page", the one in view marked), the sections as cards on the right. On a phone the links sit above the sections as a row that scroll... |
 | [`ResponsesToolbar`](../packages/ui/src/components/resource/ResponsesToolbar.tsx) | function | — | The Responses tab's toolbar: a Summary / Each response switch, the host's filters (forms-studio's ResponsesFilters, or its own) and, on the right, its export actions (open a Sheet, Download CSV). `labels` renames the switch, e.g. "Each s... |
@@ -5043,7 +5302,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`splitVariants`](../packages/ui/src/components/layout/split.tsx) | value | — | _(no summary)_ |
 | [`stackVariants`](../packages/ui/src/components/layout/stack.tsx) | value | — | _(no summary)_ |
 | [`statusBadgeVariants`](../packages/ui/src/components/patterns/status-badge.tsx) | const | — | _(no summary)_ |
-| [`SummaryCard`](../packages/ui/src/components/resource/SummaryCard.tsx) | function | — | One card of a summary column: an icon and a title, a short line on the right ("24 responses · average 4.1"), then whatever summarises it (bars, quotes, a split bar). |
+| [`SummaryCard`](../packages/ui/src/components/resource/SummaryCard.tsx) | function | — | One card of a summary column: an icon and a title, a short line on the right ("24 responses · average 4.1"), then whatever summarises it (bars, quotes, a split bar). The one widget tile (`WidgetTile`, variant `summary`, part `summary-car... |
 | [`Switch`](../packages/ui/src/components/ui/switch.tsx) | value | — | _(no summary)_ |
 | [`TableBody`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
 | [`TableCaption`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
@@ -5072,7 +5331,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (69)
+### Types (71)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -5117,12 +5376,14 @@ export type { LiveIndicatorState };
 export type { MessageTone };
 export type { NavigateFn };
 export type { NavigationNode };
+export type { NavigationZone };
 export type { PrefillChoice };
 export type { Readiness };
 export type { ReadinessFinding };
 export type { ReadinessLabels };
 export type { ReadinessOptions };
 export type { ResolvedNavigation };
+export type { ResolvedNavigationZones };
 export type { ResourceSettingsSection };
 export type { ResponsesView };
 export type { SaveState };
@@ -5211,7 +5472,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`CommandPalette`](../packages/ui/src/components/ui/command-palette.tsx) | `CommandPaletteProps` | — | Thin action registry over `CommandDialog` / cmdk. Consumers register flat commands; optional `group` buckets them. |
 
-### Other exports (15)
+### Other exports (16)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5223,6 +5484,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useIsMobile`](../packages/ui/src/hooks/use-mobile.ts) | function | — | Whether the viewport is narrower than the mobile breakpoint (768px). The server renders desktop. |
 | [`useKeyboardNavigation`](../packages/ui/src/hooks/use-keyboard-navigation.ts) | function | Beta | _(no summary)_ |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
+| [`useReducedMotion`](../packages/ui/src/hooks/use-reduced-motion.ts) | function | Beta | Whether the person asked their device for less motion (`prefers-reduced-motion: reduce`), kept current as they change it. A custom view that animates (a leaderboard's rows sliding into place) skips or shortens the animation when it's tru... |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
 | [`useResourceForm`](../packages/core/src/hooks/use-resource-form.ts) | function | — | _(no summary)_ |
 | [`useResourcePage`](../packages/ui/src/hooks/use-resource-page.ts) | function | — | _(no summary)_ |
@@ -5281,19 +5543,32 @@ export type { WizardStep };
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (83)
+### Other exports (127)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`APP_BRAND_PAIRS`](../packages/design-system/src/app-styles/render.ts) | const | — | The pairs genesis-ui draws, foreground on background, with their WCAG minimum: 4.5:1 for text, 3:1 for the focus ring. The sidebar's active item is `text-sidebar-primary` on `bg-sidebar-accent`. |
+| [`appBrandContrastProblems`](../packages/design-system/src/app-styles/render.ts) | function | Beta | Every pair in {@link APP_BRAND_PAIRS} under its minimum, in either mode. Empty for every brand Genesis ships (a test holds it there). |
+| [`appBrandCss`](../packages/design-system/src/app-styles/render.ts) | function | Beta | An app brand as CSS, scoped to `[data-app-brand="<id>"]`: its colour roles and fonts, light and `.dark` (on the same element or an ancestor). On `<html>` it colours the whole app, portalled menus and dialogs too; on any other element, th... |
+| [`appBrandVariables`](../packages/design-system/src/app-styles/render.ts) | function | Beta | Every variable an app brand sets, per mode: its colour roles (`brandRoleVariables`, web overrides applied), the roles it sets by hand, then its font stacks. |
+| [`appStyleCss`](../packages/design-system/src/app-styles/render.ts) | function | Beta | An app style as CSS, scoped to `[data-app-style="<id>"]`: its component tokens, its part styles (`darkParts` after `parts`), then its raw `css` nested in its scope. Its colours come from whatever brand is set. |
+| [`appStyleVariables`](../packages/design-system/src/app-styles/render.ts) | function | Beta | Every variable an app style sets, per mode: its component tokens (`darkTokens` over `tokens` in dark mode). |
+| [`arenaBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Arena: A black rail, a hot orange with dark text on it, condensed headings and high contrast. Best in dark mode. |
+| [`arenaStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Arena layout: designed with the arena brand, at home with any. |
 | [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
 | [`brandContrastProblems`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | The brand's contrast problems: role pairs (per platform, when its `platformOverrides` make them differ) and extension colors. Empty when every pair reaches its minimum. Colors that aren't `#rgb` / `#rrggbb` are skipped. Assumes a brand o... |
 | [`brandExtraVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The opt-in brand variables, per mode, for what has no Genesis role: each is set only when the brand sets its field, so a brand without them gets an empty map. |
 | [`brandGradientCss`](../packages/design-system/src/factories/brand-roles.ts) | function | — | `gradients.primary` as CSS (`linear-gradient(135deg, #a, #b)`), or undefined. |
 | [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
+| [`checklistBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Checklist: A warm white page, a confident red, and a warm sidebar whose open list sits on a red tint. |
+| [`checklistStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Checklist layout: designed with the checklist brand, at home with any. |
 | [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
 | [`classicDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Today's look, unchanged: it emits no tokens, so every component keeps the stylesheet's own sizes, spacing and colours. The default for a brand that names no design system. |
+| [`COMPONENT_TOKENS`](../packages/design-system/src/tokens/component-tokens.ts) | const | — | Every component token, by group. |
+| [`componentTokenCss`](../packages/design-system/src/tokens/component-tokens.ts) | function | — | A token value as the stylesheet declares it: `none` for a shadow becomes {@link NO_SHADOW}. |
+| [`componentTokenProblem`](../packages/design-system/src/tokens/component-tokens.ts) | function | — | The problem with a token value, or null when it is sound. |
 | [`composite`](../packages/design-system/src/design-systems/color.ts) | function | — | `top` over `bottom` at `alpha` (0–1), blended in sRGB as browsers do: a hex. |
 | [`contrast`](../packages/design-system/src/design-systems/color.ts) | function | — | WCAG 2 contrast ratio (1–21) of two hex colours. |
 | [`CORNER_RADII`](../packages/design-system/src/design-systems/tokens.ts) | const | — | Radius per corners set, in px: chips and inputs, cards, feature images, buttons, photos. |
@@ -5306,8 +5581,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DEFAULT_FONT_CLASS_RULES`](../packages/design-system/src/design-systems/define.ts) | const | — | How each font class is set at display sizes, when a design system says nothing else. |
 | [`DEFAULT_LEADING`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
 | [`DEFAULT_RAMP`](../packages/design-system/src/design-systems/define.ts) | const | — | A ramp that suits most brands: 16 → 18px body, 48 → 112px display. |
+| [`defineAppBrand`](../packages/design-system/src/app-styles/define.ts) | function | Beta | Define an app brand (colours and fonts): checks it and returns it frozen, with its id. Throws with every problem when it isn't sound. |
+| [`defineAppStyle`](../packages/design-system/src/app-styles/define.ts) | function | Beta | Define an app style (every component's size and shape): checks it and returns it frozen, with its id. Throws with every problem when it isn't sound. |
 | [`defineDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | Beta | Define a design system: checks it and returns it frozen, with its id (`name@version`). Throws with every problem when it isn't sound. |
-| [`DENSITIES`](../packages/design-system/src/design-systems/define.ts) | const | — | Section padding. |
+| [`DENSITIES`](../packages/design-system/src/design-systems/define.ts) | const | — | Section padding. Genesis's one density vocabulary (`DENSITY_LEVELS`: compact, comfortable, spacious) is accepted too: `comfortable` means `normal` and `spacious` means `generous` (ADR 0022). |
+| [`DENSITY_LEVELS`](../packages/design-system/src/tokens/density.ts) | const | Beta | The three densities, tightest first. |
+| [`DENSITY_LEVELS`](../packages/design-system/src/tokens/density.ts) | const | Beta | The three densities, tightest first. |
 | [`designSystemTheme`](../packages/design-system/src/design-systems/tokens.ts) | function | Beta | The CSS variables for one design system and one brand, per mode, and the colour pairs they promise. |
 | [`fluid`](../packages/design-system/src/design-systems/tokens.ts) | function | — | `{ min: 3, max: 7 }` → `clamp(3rem, 1.6667rem + 5.9259vw, 7rem)`: `min` at a 360px viewport, `max` at 1440px, linear between. |
 | [`FONT_CHOICES`](../packages/design-system/src/fonts.ts) | const | — | The fonts a brand may choose. Every one but `system` is self-hosted. |
@@ -5324,12 +5603,18 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`genesisBrand`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | Genesis OOTB brand — the single source of truth for the full brand palette. |
 | [`genesisColors`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | _(no summary)_ |
 | [`genesisTheme`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | Genesis brand — indigo (distinct from the emerald `success`). |
+| [`getComponentToken`](../packages/design-system/src/tokens/component-tokens.ts) | function | — | A token by name, or undefined. |
 | [`getDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | A design system by id (`crisp@1`): a built-in one or a registered one. |
+| [`getStarterBrand`](../packages/design-system/src/app-styles/starters.ts) | function | — | A starter brand by id, or undefined. |
+| [`getStarterStyle`](../packages/design-system/src/app-styles/starters.ts) | function | — | A starter style by id, or undefined. |
+| [`getThemePart`](../packages/design-system/src/tokens/theme-parts.ts) | function | — | A part by name, or undefined. |
 | [`GROUNDS`](../packages/design-system/src/design-systems/color.ts) | const | — | The page's ground: warm, cool, the brand's own hue barely tinted, or dark. |
 | [`hexToHslTriplet`](../packages/design-system/src/design-systems/color.ts) | function | — | `#4f46e5` → `243 75% 59%`: the HSL triplet genesis-ui's role variables hold (`hsl(var(--primary))`). |
 | [`hexToOklch`](../packages/design-system/src/design-systems/color.ts) | function | — | sRGB hex → OKLCH. |
 | [`IMAGE_FILTERS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
 | [`isColorScale`](../packages/design-system/src/schema/brand.ts) | function | — | Type guard: returns true when `value` looks like a `ColorScale`. |
+| [`journalBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Journal: A paper ground, ink-brown text, a sage accent, serif headings over a soft sans. |
+| [`journalStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Journal layout: designed with the journal brand, at home with any. |
 | [`LATIN_UNICODE_RANGE`](../packages/design-system/src/fonts.ts) | const | — | The latin subset's `unicode-range`, so a page in another script falls back to the next font in the stack. |
 | [`listDesignSystems`](../packages/design-system/src/design-systems/registry.ts) | function | — | Every design system available: the built-in ones, then the registered ones. |
 | [`maxChroma`](../packages/design-system/src/design-systems/color.ts) | function | — | The most chroma sRGB can show at this lightness and hue, up to `c`. |
@@ -5340,14 +5625,25 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`motionCssVariables`](../packages/design-system/src/tokens/motion.ts) | function | — | The motion CSS variables for a level: `--ds-ease-*` and `--ds-dur-*`. |
 | [`neutral`](../packages/design-system/src/tokens/colors.ts) | const | — | Shared semantic colors used across all Genesis projects. Brand-specific primary colors belong in presets, not here. |
 | [`NEUTRAL_DESIGN_SYSTEMS`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Every neutral design system, by id. |
+| [`NO_SHADOW`](../packages/design-system/src/tokens/component-tokens.ts) | const | — | No shadow, in a form Tailwind can compose with its ring shadows (`none` can't be). |
+| [`notebookBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Notebook: A plain white page, warm grey ink, a sidebar a shade warmer and a calm blue. |
+| [`notebookStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Notebook layout: designed with the notebook brand, at home with any. |
 | [`oklchToHex`](../packages/design-system/src/design-systems/color.ts) | function | — | OKLCH → sRGB hex, reducing chroma (never lightness or hue) until it fits the gamut. |
 | [`palette`](../packages/design-system/src/design-systems/color.ts) | function | Beta | The palette for a brand: colour roles for light and dark, and the ramps. |
+| [`parsePartSelector`](../packages/design-system/src/app-styles/define.ts) | function | — | A part selector's compounds: `card [variant=x]:hover` parts, or a problem. |
+| [`pressBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Press: A dark rail beside a light grey canvas, white cards and a steady blue. |
+| [`pressStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Press layout: designed with the press brand, at home with any. |
 | [`ramp`](../packages/design-system/src/design-systems/color.ts) | function | — | An 11-step ramp from one colour, with the colour itself at its nearest step. |
 | [`RAMP_STEPS`](../packages/design-system/src/design-systems/color.ts) | const | — | The ramp's steps and their OKLCH lightness. |
 | [`readGenesisThemeV2Flag`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`registerDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | Beta | Make a design system available by its id, so a brand that names it (`brand.designSystem.id`) resolves to it. Registering an id again with a different definition throws: a changed look is a new version. |
 | [`relativeLuminance`](../packages/design-system/src/design-systems/color.ts) | function | — | WCAG 2 relative luminance of a hex colour. |
+| [`renderAppStylesCss`](../packages/design-system/src/app-styles/render.ts) | function | — | Brands' and styles' CSS in one stylesheet: what `dist/themes/starter.css` holds for the starters. |
+| [`repositoryBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Repository: A white page on a cool grey canvas, green for actions, blue for links, the system font and monospace. |
+| [`repositoryStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Repository layout: designed with the repository brand, at home with any. |
 | [`resolveChoices`](../packages/design-system/src/design-systems/define.ts) | function | — | The design system's choices for a brand: the brand's, else the design system's defaults. |
+| [`resolveDensity`](../packages/design-system/src/tokens/density.ts) | function | Beta | A density in the one vocabulary: `compact`, `comfortable` and `spacious` as they are, sites' older `normal` and `generous` as `comfortable` and `spacious`, and anything else as `undefined`. |
+| [`resolveDensity`](../packages/design-system/src/tokens/density.ts) | function | Beta | A density in the one vocabulary: `compact`, `comfortable` and `spacious` as they are, sites' older `normal` and `generous` as `comfortable` and `spacious`, and anything else as `undefined`. |
 | [`resolveMotion`](../packages/design-system/src/tokens/motion.ts) | function | — | The motion tokens for a level. Levels `calm`, `lively` and `bold` share durations, easings and springs (they differ in how far web reveals travel, which the design system's CSS carries); `none`, or `reducedMotion`, makes everything instant. |
 | [`resolveThemeRoles`](../packages/design-system/src/tokens/roles.ts) | function | Beta | Every role's color for one platform and scheme. |
 | [`resolveTokens`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
@@ -5358,24 +5654,43 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SHADOW_LEVELS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
 | [`softDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Warm and open: a warm ground, generous space, soft corners and shadows. |
 | [`spacing`](../packages/design-system/src/tokens/spacing.ts) | const | — | _(no summary)_ |
+| [`STARTER_BRANDS`](../packages/design-system/src/app-styles/starters.ts) | const | — | Every starter brand Genesis ships, in picker order: colours and fonts. |
+| [`STARTER_STYLES`](../packages/design-system/src/app-styles/starters.ts) | const | — | Every starter style Genesis ships, in picker order: component size and shape. Each pairs with the brand of its name. |
 | [`status`](../packages/design-system/src/tokens/colors.ts) | const | — | _(no summary)_ |
 | [`tailwindFromBrand`](../packages/design-system/src/factories/from-brand.ts) | function | — | Derive a Tailwind v4 preset from a {@link CanonicalBrand} config. |
+| [`THEME_FONTS`](../packages/design-system/src/app-styles/define.ts) | const | — | The font stacks a brand can set: `--font-sans`, `--font-display`, `--font-mono`. |
+| [`THEME_PARTS`](../packages/design-system/src/tokens/theme-parts.ts) | const | — | _(no summary)_ |
 | [`THEME_ROLES`](../packages/design-system/src/tokens/roles.ts) | const | Beta | _(no summary)_ |
+| [`THEME_ROLES`](../packages/design-system/src/app-styles/define.ts) | const | — | Every colour role a brand can set by hand: the names `themes/genesis.css` declares, without `--`. |
+| [`THEME_TOKEN_NAMES`](../packages/design-system/src/app-styles/define.ts) | const | — | Every component token's name, for a picker or an editor. |
 | [`themeFromBrand`](../packages/design-system/src/factories/from-brand.ts) | function | — | Derive a NativeWind v5 theme from a {@link CanonicalBrand} config. |
 | [`themeToCss`](../packages/design-system/src/tokens/themes.ts) | function | — | Convert a theme variable map to a CSS string block. |
+| [`trackerBrand`](../packages/design-system/src/app-styles/starters.ts) | const | — | Tracker: Cool near-neutral greys, a sparing indigo, Inter and a sidebar a step quieter than the page. Best in dark mode. |
+| [`trackerStyle`](../packages/design-system/src/app-styles/starters.ts) | const | — | Tracker layout: designed with the tracker brand, at home with any. |
 | [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
 | [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
 | [`useOptionalTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
+| [`validateAppBrand`](../packages/design-system/src/app-styles/define.ts) | function | — | Every problem with an app brand input; empty when it is sound. |
+| [`validateAppStyle`](../packages/design-system/src/app-styles/define.ts) | function | — | Every problem with an app style input; empty when it is sound. |
 | [`validateBrand`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | {@link validateBrandShape | The brand shape check} plus {@link brandContrastProblems}: contrast pairs under their minimum come back as `warnings` (`ok` stays true); body text under 1.5:1 on its page is an error. The package entry exports... |
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (62)
+### Types (82)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AppBrand };
+export type { AppBrandContrastProblem };
+export type { AppBrandImage };
+export type { AppBrandInput };
+export type { AppCssOptions };
+export type { AppCssVariables };
+export type { AppStyle };
+export type { AppStyleInput };
+export type { Appearance };
 export type { Bezier };
 export type { BrandContrastFinding };
 export type { BrandContrastProblem };
@@ -5390,11 +5705,15 @@ export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorRoles };
 export type { ColorScale };
+export type { ComponentTokenInfo };
+export type { ComponentTokenKind };
 export type { ContrastPair };
 export type { Corners };
 export type { Density };
+export type { DensityLevel };
 export type { DesignSystem };
 export type { DesignSystemChoice };
+export type { DesignSystemDensity };
 export type { DesignSystemInput };
 export type { DesignSystemPair };
 export type { DesignSystemTheme };
@@ -5424,6 +5743,7 @@ export type { PlatformOverridable };
 export type { RampStep };
 export type { ResolveMotionOptions };
 export type { ResolveThemeRolesOptions };
+export type { ResolvedAppearance };
 export type { ResolvedColorScale };
 export type { ResolvedThemeMode };
 export type { ResolvedTokens };
@@ -5433,8 +5753,14 @@ export type { ShadowLevel };
 export type { ShadowToken };
 export type { TailwindBrandOutput };
 export type { ThemeConfig };
+export type { ThemeDeclarations };
+export type { ThemeFont };
 export type { ThemeMode };
+export type { ThemePartInfo };
+export type { ThemePartStyles };
 export type { ThemeRole };
+export type { ThemeRoleColors };
+export type { ThemeTokenValues };
 export type { TypeStep };
 export type { TypographyTokens };
 export type { UseThemeReturn };
@@ -5500,7 +5826,7 @@ export type { ThemeRole };
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
-| [`GenesisThemeProvider`](../packages/design-system/src/theme/provider.web.tsx) | `GenesisThemeProviderProps` | — | _(no summary)_ |
+| [`GenesisThemeProvider`](../packages/design-system/src/theme/provider.web.tsx) | `GenesisThemeProviderProps` | Beta | The person's **appearance**: light, dark or system (the glossary's word; the props keep their older `mode` names). It is the person's choice, never an app brand's, style's or theme's: pass it controlled from where the person's choice is ... |
 
 ### Other exports (5)
 
@@ -5514,11 +5840,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useOptionalTheme`](../packages/design-system/src/theme/use-theme.ts) | function | Beta | Read the active theme from the nearest `<GenesisThemeProvider>`. |
 | [`useTheme`](../packages/design-system/src/theme/use-theme.ts) | function | Stable | The theme, or throws outside a `<GenesisThemeProvider>`. A primitive that should still render without one uses {@link useOptionalTheme}. |
 
-### Types (5)
+### Types (7)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { Appearance };
+export type { ResolvedAppearance };
 export type { ResolvedColorScale };
 export type { ResolvedThemeMode };
 export type { ResolvedTokens };
@@ -8817,7 +9145,7 @@ Sites and landing pages for Genesis apps: a section registry with zod 4 schemas,
 
 **Barrel:** [`packages/sites/src/index.ts`](../packages/sites/src/index.ts)
 
-### Other exports (121)
+### Other exports (131)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8842,6 +9170,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`contrastRatio`](../packages/sites/src/core/theme.ts) | function | — | WCAG contrast ratio (1–21) of two colours. |
 | [`Copy`](../packages/sites/src/core/schemas.ts) | const | — | A paragraph of plain copy. |
 | [`createMemorySiteStore`](../packages/sites/src/core/store.ts) | function | Beta | An in-memory `SiteStore`: the same rules as the database (compare-and-swap revisions, path checks, redirects on move, immutable releases), for tests, demos and local previews. Documents are copied in and out, so callers can't change stor... |
+| [`DEFAULT_LANDING_DIRECTORY`](../packages/sites/src/core/landing.ts) | const | — | Where new landing pages go when the site doesn't say. |
 | [`DEFAULT_RESERVED_PATHS`](../packages/sites/src/core/urls.ts) | const | — | Paths a site never owns, because it shares its hostname with the host app: the app's API and server functions, its auth callbacks, and this package's own assets. A host passes its own list (or a predicate) to `handleSiteRequest` and `val... |
 | [`defineSection`](../packages/sites/src/core/registry.ts) | function | Beta | Declare a section kind. Checks the definition (and every preset against its schema) and returns it frozen. It isn't registered until `registerSection`. |
 | [`escapeXml`](../packages/sites/src/core/seo.ts) | function | — | _(no summary)_ |
@@ -8857,6 +9186,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Image`](../packages/sites/src/core/schemas.ts) | const | — | An image. `alt` describes it for someone who can't see it; an image that adds nothing (a texture) is `decorative: true` and gets an empty alt. The accessibility check refuses to publish an image with neither. |
 | [`isConflict`](../packages/sites/src/core/store.ts) | const | — | _(no summary)_ |
 | [`isExternalHref`](../packages/sites/src/core/urls.ts) | function | — | Is this an external (absolute) link, opened with `rel="noopener noreferrer"`? |
+| [`isLandingPage`](../packages/sites/src/core/landing.ts) | function | — | Is this one of the site's landing pages? A page of kind `landing`, except the home page: a one-click landing site's `/` is the site's home page, and stays among the pages. |
 | [`isOwnUrl`](../packages/sites/src/core/a11y.ts) | function | Beta | Is this URL the site's own: a site path (`/photo.jpg`), or a URL on one of `origins` (the store's asset origin)? |
 | [`isPlainEmail`](../packages/sites/src/core/forms.ts) | function | — | A plain email address (no display name, no `%` escapes, no header injection): what a `mailto` form may write to. |
 | [`isPublishable`](../packages/sites/src/core/a11y.ts) | const | — | _(no summary)_ |
@@ -8864,7 +9194,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isSafeHref`](../packages/sites/src/core/urls.ts) | function | — | Is this a link a site may render: a site path, a fragment, or an http(s), mailto or tel URL? |
 | [`isSafeImageSrc`](../packages/sites/src/core/urls.ts) | function | — | Is this a URL an image may load from: a site path or an `https:` URL? |
 | [`isSiteBrand`](../packages/sites/src/core/theme.ts) | function | — | _(no summary)_ |
+| [`LANDING_SLUG`](../packages/sites/src/core/landing.ts) | const | — | A landing page's slug: one path segment of lowercase letters, digits and single hyphens. |
+| [`landingDirectory`](../packages/sites/src/core/landing.ts) | function | — | The site's landing page directory: `site.landing.directory`, or `/go`. |
+| [`landingDirectoryProblems`](../packages/sites/src/core/landing.ts) | function | — | Why `directory` can't hold landing pages (empty when it can): a page path other than `/`, and not reserved. |
+| [`landingMoves`](../packages/sites/src/core/landing.ts) | function | — | Where each landing page under `from` goes when the directory becomes `to`: `/go/spring` → `/offers/spring`. Pages outside `from` stay where they are. |
 | [`landingPage`](../packages/sites/src/core/templates.ts) | function | Beta | The one-click landing page: brand plus message, on one page. |
+| [`landingPages`](../packages/sites/src/core/landing.ts) | function | — | The site's landing pages (`isLandingPage`), in the store's order. |
+| [`landingPath`](../packages/sites/src/core/landing.ts) | function | — | The path of the landing page `slug` under `directory`: `("/go", "spring")` → `/go/spring`. |
+| [`landingSlugOf`](../packages/sites/src/core/landing.ts) | function | — | The slug of a page under `directory` (`/go/spring` → `spring`), or null for a path outside it. |
+| [`landingSlugProblems`](../packages/sites/src/core/landing.ts) | function | — | Why `slug` can't name a landing page under `directory` (empty when it can). |
 | [`LATIN_UNICODE_RANGE`](../packages/design-system/src/fonts.ts) | const | — | The latin subset's `unicode-range`, so a page in another script falls back to the next font in the stack. |
 | [`Line`](../packages/sites/src/core/schemas.ts) | const | — | A short line of copy (a heading, a label). |
 | [`Link`](../packages/sites/src/core/schemas.ts) | const | — | A labelled link: a button, a menu entry, a footer link, an outbound booking link. |
@@ -9025,7 +9363,7 @@ export type { ThemePair };
 
 **Barrel:** [`packages/sites/src/index.ts`](../packages/sites/src/index.ts)
 
-### Other exports (121)
+### Other exports (131)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9050,6 +9388,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`contrastRatio`](../packages/sites/src/core/theme.ts) | function | — | WCAG contrast ratio (1–21) of two colours. |
 | [`Copy`](../packages/sites/src/core/schemas.ts) | const | — | A paragraph of plain copy. |
 | [`createMemorySiteStore`](../packages/sites/src/core/store.ts) | function | Beta | An in-memory `SiteStore`: the same rules as the database (compare-and-swap revisions, path checks, redirects on move, immutable releases), for tests, demos and local previews. Documents are copied in and out, so callers can't change stor... |
+| [`DEFAULT_LANDING_DIRECTORY`](../packages/sites/src/core/landing.ts) | const | — | Where new landing pages go when the site doesn't say. |
 | [`DEFAULT_RESERVED_PATHS`](../packages/sites/src/core/urls.ts) | const | — | Paths a site never owns, because it shares its hostname with the host app: the app's API and server functions, its auth callbacks, and this package's own assets. A host passes its own list (or a predicate) to `handleSiteRequest` and `val... |
 | [`defineSection`](../packages/sites/src/core/registry.ts) | function | Beta | Declare a section kind. Checks the definition (and every preset against its schema) and returns it frozen. It isn't registered until `registerSection`. |
 | [`escapeXml`](../packages/sites/src/core/seo.ts) | function | — | _(no summary)_ |
@@ -9065,6 +9404,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Image`](../packages/sites/src/core/schemas.ts) | const | — | An image. `alt` describes it for someone who can't see it; an image that adds nothing (a texture) is `decorative: true` and gets an empty alt. The accessibility check refuses to publish an image with neither. |
 | [`isConflict`](../packages/sites/src/core/store.ts) | const | — | _(no summary)_ |
 | [`isExternalHref`](../packages/sites/src/core/urls.ts) | function | — | Is this an external (absolute) link, opened with `rel="noopener noreferrer"`? |
+| [`isLandingPage`](../packages/sites/src/core/landing.ts) | function | — | Is this one of the site's landing pages? A page of kind `landing`, except the home page: a one-click landing site's `/` is the site's home page, and stays among the pages. |
 | [`isOwnUrl`](../packages/sites/src/core/a11y.ts) | function | Beta | Is this URL the site's own: a site path (`/photo.jpg`), or a URL on one of `origins` (the store's asset origin)? |
 | [`isPlainEmail`](../packages/sites/src/core/forms.ts) | function | — | A plain email address (no display name, no `%` escapes, no header injection): what a `mailto` form may write to. |
 | [`isPublishable`](../packages/sites/src/core/a11y.ts) | const | — | _(no summary)_ |
@@ -9072,7 +9412,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isSafeHref`](../packages/sites/src/core/urls.ts) | function | — | Is this a link a site may render: a site path, a fragment, or an http(s), mailto or tel URL? |
 | [`isSafeImageSrc`](../packages/sites/src/core/urls.ts) | function | — | Is this a URL an image may load from: a site path or an `https:` URL? |
 | [`isSiteBrand`](../packages/sites/src/core/theme.ts) | function | — | _(no summary)_ |
+| [`LANDING_SLUG`](../packages/sites/src/core/landing.ts) | const | — | A landing page's slug: one path segment of lowercase letters, digits and single hyphens. |
+| [`landingDirectory`](../packages/sites/src/core/landing.ts) | function | — | The site's landing page directory: `site.landing.directory`, or `/go`. |
+| [`landingDirectoryProblems`](../packages/sites/src/core/landing.ts) | function | — | Why `directory` can't hold landing pages (empty when it can): a page path other than `/`, and not reserved. |
+| [`landingMoves`](../packages/sites/src/core/landing.ts) | function | — | Where each landing page under `from` goes when the directory becomes `to`: `/go/spring` → `/offers/spring`. Pages outside `from` stay where they are. |
 | [`landingPage`](../packages/sites/src/core/templates.ts) | function | Beta | The one-click landing page: brand plus message, on one page. |
+| [`landingPages`](../packages/sites/src/core/landing.ts) | function | — | The site's landing pages (`isLandingPage`), in the store's order. |
+| [`landingPath`](../packages/sites/src/core/landing.ts) | function | — | The path of the landing page `slug` under `directory`: `("/go", "spring")` → `/go/spring`. |
+| [`landingSlugOf`](../packages/sites/src/core/landing.ts) | function | — | The slug of a page under `directory` (`/go/spring` → `spring`), or null for a path outside it. |
+| [`landingSlugProblems`](../packages/sites/src/core/landing.ts) | function | — | Why `slug` can't name a landing page under `directory` (empty when it can). |
 | [`LATIN_UNICODE_RANGE`](../packages/design-system/src/fonts.ts) | const | — | The latin subset's `unicode-range`, so a page in another script falls back to the next font in the stack. |
 | [`Line`](../packages/sites/src/core/schemas.ts) | const | — | A short line of copy (a heading, a label). |
 | [`Link`](../packages/sites/src/core/schemas.ts) | const | — | A labelled link: a button, a menu entry, a footer link, an outbound booking link. |
@@ -9363,7 +9711,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`AssetPicker`](../packages/sites/src/editor/asset-picker.tsx) | `AssetPickerProps` | — | _(no summary)_ |
 | [`SiteEditor`](../packages/sites/src/editor/site-editor.tsx) | `SiteEditorProps` | Beta | The visual editor. |
 
-### Other exports (30)
+### Other exports (34)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9374,6 +9722,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`checkSite`](../packages/sites/src/editor/site-actions.ts) | function | Beta | Run the publish checks on the drafts as they are now (accessibility, contrast, placeholders, paths), without publishing: what the Publish panel lists, errors first. |
 | [`countTypes`](../packages/sites/src/editor/data.ts) | function | — | How many sections of each type the page holds, in every zone (for the Add picker's limits). |
 | [`createEditorConfig`](../packages/sites/src/editor/config.tsx) | function | Beta | The Puck config for one page kind, from the registry. |
+| [`createLandingPage`](../packages/sites/src/editor/site-actions.ts) | function | Beta | Make a landing page: the brand's landing page template (kind `landing`) at `<directory>/<slug>`, under the site's landing directory. It isn't added to the menu. Refuses a slug, reserved path or taken address before asking the store. |
 | `createUsePuck` | value | — | _(no summary)_ |
 | [`fromEditorData`](../packages/sites/src/editor/data.ts) | function | — | The editor's Puck data back as a page and the site's header and footer. |
 | [`genesisOverrides`](../packages/sites/src/editor/overrides.tsx) | function | — | _(no summary)_ |
@@ -9381,7 +9730,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`humanize`](../packages/sites/src/editor/fields.ts) | function | — | `primaryCta` → "Primary CTA"; `hideOn` → "Hide on". |
 | [`IMAGE_TYPES`](../packages/sites/src/editor/asset-picker.tsx) | const | — | Raster images only: the database refuses SVG (it can carry script). |
 | [`itemToNode`](../packages/sites/src/editor/data.ts) | function | — | A Puck item as a node. |
-| [`movePageInList`](../packages/sites/src/editor/site-actions.ts) | function | — | Move one page up or down the list (through `reorderPages`, when the store has it). |
+| [`LandingDirectoryError`](../packages/sites/src/editor/site-actions.ts) | class | Beta | `setLandingDirectory` stopped after moving some landing pages: `moved` lists them (their old addresses already redirect), and `cause` is what stopped it. Running the same change again finishes it. |
+| [`moveLandingPage`](../packages/sites/src/editor/site-actions.ts) | function | Beta | Give a landing page a new slug under the site's landing directory (a page outside the directory moves into it). The old address redirects (301), as for any page move. |
+| [`movePageInList`](../packages/sites/src/editor/site-actions.ts) | function | — | Move one page up or down the list (through `reorderPages`, when the store has it). `within` limits the list being reordered (the Pages panel's own pages, not the landing pages): the page swaps with the next one that passes it. |
 | [`NODE_KEYS`](../packages/sites/src/editor/data.ts) | const | — | Keys a section schema may not use: they carry the node's own fields. |
 | [`nodeToItem`](../packages/sites/src/editor/data.ts) | function | — | A node as a Puck item, at its section's current version. Unknown types keep their props, so nothing is lost. |
 | [`pageTemplates`](../packages/sites/src/editor/site-actions.ts) | function | Beta | The templates the Add page dialog offers: a blank page, the one-click landing page from the brand, and each page of the starter site (about, contact) after its home page. |
@@ -9395,6 +9746,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`safeSectionId`](../packages/sites/src/editor/data.ts) | function | — | A section id the schema accepts (1–64 letters, digits, `-`, `_`). Puck makes ids for dragged-in and duplicated sections from the component name and a UUID; the same id always maps to the same safe one, so saves stay stable. |
 | [`sectionFields`](../packages/sites/src/editor/fields.ts) | function | Beta | Every field of a section: its layout (variant) first, then its props from the JSON Schema, then where it shows. |
 | [`sectionTypeOf`](../packages/sites/src/editor/data.ts) | const | — | The section type a Puck component name stands for. |
+| [`setLandingDirectory`](../packages/sites/src/editor/site-actions.ts) | function | Beta | Change where new landing pages go (`site.landing.directory`). With `movePages`, every landing page under the old directory moves to the same slug under the new one, and its old address redirects (301); every new address is checked before... |
 | [`slugify`](../packages/sites/src/editor/site-actions.ts) | function | — | A page's title as a path segment: "Our services" → "/our-services". |
 | [`toEditorData`](../packages/sites/src/editor/data.ts) | function | — | A page (and its site's header and footer) as the editor's Puck data. |
 | [`uploadProblem`](../packages/sites/src/editor/asset-picker.tsx) | function | — | Why an upload can't be used (or null). |
@@ -10547,7 +10899,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (57)
+### Components (58)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -10567,6 +10919,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`DatePicker`](../packages/ui/src/components/ui/date-picker.tsx) | `DatePickerProps` | — | _(no summary)_ |
 | [`DetailPage`](../packages/ui/src/components/layout/detail-page.tsx) | `DetailPageProps` | Beta | DetailPage — one record's full view: a title row with actions, a primary content region, and a metadata sidebar that drops below the content on small screens. |
 | [`Display`](../packages/ui/src/components/layout/band.tsx) | `DisplayProps` | Beta | Display: a heading in the marketing type scale (`displayVariants`). |
+| [`DocumentPage`](../packages/ui/src/components/layout/document-page.tsx) | `DocumentPageProps` | Beta | DocumentPage — a page that reads like a document: an optional cover across the top, an icon, a large title and the body in a centred reading column, as in a notebook app. The page template for writing (notes, a journal entry, a guide, a ... |
 | [`EmptyState`](../packages/ui/src/components/patterns/empty-state.tsx) | `EmptyStateProps` | Beta | EmptyState — what to show when a list, page, or panel has no data. |
 | [`FormPage`](../packages/ui/src/components/layout/form-page.tsx) | `FormPageProps` | Beta | FormPage — a titled form: header, validation summary, a body of sections, and a sticky action bar. |
 | [`GalleryCard`](../packages/ui/src/components/patterns/gallery-card.tsx) | `GalleryCardProps` | Beta | GalleryCard — a cover image with badges and actions overlaid, and a title/subtitle footer. The media-first card that galleries, libraries and course lists all draw: `Card` + `AspectRatio` + the two overlay slots. |
@@ -10609,7 +10962,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (273)
+### Other exports (274)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10753,7 +11106,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`H2`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
 | [`H3`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
 | [`H4`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
-| [`HeadlineNumbers`](../packages/ui/src/components/resource/HeadlineNumbers.tsx) | function | — | A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen. |
+| [`HeadlineNumbers`](../packages/ui/src/components/resource/HeadlineNumbers.tsx) | function | — | A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen. Each is the one widget tile (`WidgetTile`, variant `headline`, part `headline-number`). |
 | [`HoverCard`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
 | [`HoverCardContent`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
 | [`HoverCardTrigger`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
@@ -10826,6 +11179,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ResizablePanel`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanelGroup`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
+| [`resolveNavigationZones`](../packages/core/src/navigation.ts) | function | Beta | Lay an app's zones over its navigation tree (ADR 0003 §1 and §4): which zone the location is in, each zone's pages, the global pages and the roll-up. Pure, so web and native shells use the same answer; an app with no zones gets every top... |
 | [`resolveUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue with overrides merged over the English. |
 | [`ResourceSettingsPage`](../packages/ui/src/components/resource/ResourceSettingsPage.tsx) | function | — | Every setting of one thing (a form, a course, a worksheet) on one page: jump links on the left ("On this page", the one in view marked), the sections as cards on the right. On a phone the links sit above the sections as a row that scroll... |
 | [`ResponsesToolbar`](../packages/ui/src/components/resource/ResponsesToolbar.tsx) | function | — | The Responses tab's toolbar: a Summary / Each response switch, the host's filters (forms-studio's ResponsesFilters, or its own) and, on the right, its export actions (open a Sheet, Download CSV). `labels` renames the switch, e.g. "Each s... |
@@ -10860,7 +11214,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`splitVariants`](../packages/ui/src/components/layout/split.tsx) | value | — | _(no summary)_ |
 | [`stackVariants`](../packages/ui/src/components/layout/stack.tsx) | value | — | _(no summary)_ |
 | [`statusBadgeVariants`](../packages/ui/src/components/patterns/status-badge.tsx) | const | — | _(no summary)_ |
-| [`SummaryCard`](../packages/ui/src/components/resource/SummaryCard.tsx) | function | — | One card of a summary column: an icon and a title, a short line on the right ("24 responses · average 4.1"), then whatever summarises it (bars, quotes, a split bar). |
+| [`SummaryCard`](../packages/ui/src/components/resource/SummaryCard.tsx) | function | — | One card of a summary column: an icon and a title, a short line on the right ("24 responses · average 4.1"), then whatever summarises it (bars, quotes, a split bar). The one widget tile (`WidgetTile`, variant `summary`, part `summary-car... |
 | [`Switch`](../packages/ui/src/components/ui/switch.tsx) | value | — | _(no summary)_ |
 | [`TableBody`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
 | [`TableCaption`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
@@ -10889,7 +11243,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (69)
+### Types (71)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10934,12 +11288,14 @@ export type { LiveIndicatorState };
 export type { MessageTone };
 export type { NavigateFn };
 export type { NavigationNode };
+export type { NavigationZone };
 export type { PrefillChoice };
 export type { Readiness };
 export type { ReadinessFinding };
 export type { ReadinessLabels };
 export type { ReadinessOptions };
 export type { ResolvedNavigation };
+export type { ResolvedNavigationZones };
 export type { ResourceSettingsSection };
 export type { ResponsesView };
 export type { SaveState };
@@ -10971,13 +11327,14 @@ export type { UiMessagesOverrides };
 
 **Barrel:** [`packages/ui/src/components/data/index.ts`](../packages/ui/src/components/data/index.ts)
 
-### Components (21)
+### Components (26)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`CommandPalette`](../packages/ui/src/components/ui/command-palette.tsx) | `CommandPaletteProps` | — | Thin action registry over `CommandDialog` / cmdk. Consumers register flat commands; optional `group` buckets them. |
 | [`ConfirmDeleteDialog`](../packages/ui/src/components/data/ConfirmDeleteDialog.tsx) | `ConfirmDeleteDialogProps` | Beta | The confirm step in front of a destructive delete: an `AlertDialog` (Radix owns focus trap, Escape and focus return), a pending state, and the failure shown in place rather than swallowed. `ResourcePage` renders it for `allowDelete` / `c... |
 | [`ConflictSheet`](../packages/ui/src/components/data/ConflictSheet.tsx) | `ConflictSheetProps` | Beta | Shown when a save met someone else's change: their value beside the one this person tried to save, for each field where the two differ, theirs first. "Keep mine" saves over theirs at the new version; "Take theirs" drops the changes. Reso... |
+| [`CustomView`](../packages/ui/src/components/data/resource-view/CustomView.tsx) | `CustomViewProps` | Beta | A screen an app draws itself over a view (ADR 0019): Genesis loads the view's data with its scope, filters, URL state, live updates and permissions, and draws loading, empty and error; the app draws the rest. |
 | [`DataList`](../packages/ui/src/components/data/DataList.tsx) | `DataListProps` | — | _(no summary)_ |
 | [`DataPageShell`](../packages/ui/src/components/data/DataPageShell.tsx) | `DataPageShellProps` | — | _(no summary)_ |
 | [`DataTable`](../packages/ui/src/components/data/DataTable.tsx) | `DataTableProps` | — | _(no summary)_ |
@@ -10986,6 +11343,7 @@ export type { UiMessagesOverrides };
 | [`KanbanBoard`](../packages/ui/src/components/data/KanbanBoard.tsx) | `KanbanBoardProps` | — | Columns of cards, optionally movable between columns. |
 | [`PrintableAgenda`](../packages/ui/src/components/data/calendar/PrintableAgenda.tsx) | `PrintableAgendaProps` | Beta | One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the sheets stack, so a page can show them before printing. Events that name no lane are left out: a sheet is someone's. |
 | [`PrintButton`](../packages/ui/src/components/data/calendar/PrintableAgenda.tsx) | `PrintButtonProps` | Beta | Prints the page (the browser's print dialog). Hidden on the printed page itself. @stability Beta |
+| [`RecordPeek`](../packages/ui/src/components/data/resource-view/RecordPeek.tsx) | `RecordPeekProps` | Beta | A record page in a peek: the view's record view, drawn inline in a sheet at the edge (`side-peek`) or a centered dialog (`center-peek`). |
 | [`RecordView`](../packages/ui/src/components/data/resource-view/RecordView.tsx) | `RecordViewProps` | — | One record's screen, from its record view (defineRecordView): |
 | [`ResourceBoard`](../packages/ui/src/components/data/resource-view/ResourceBoard.tsx) | `ResourceBoardProps` | Beta | A view's rows as a board. Prefer `<ResourceView view={v} mode="board" />`, which passes the scope and the screen's filters. |
 | [`ResourceCalendar`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | `ResourceCalendarProps` | Beta | A view's rows on a calendar, as its `calendar` block describes them. Prefer `<ResourceView view={v} mode="calendar" />`, which passes the scope and the screen's filters. |
@@ -10993,11 +11351,14 @@ export type { UiMessagesOverrides };
 | [`ResourceForm`](../packages/ui/src/components/data/ResourceForm.tsx) | `ResourceFormProps` | — | _(no summary)_ |
 | [`ResourcePage`](../packages/ui/src/components/data/ResourcePage.tsx) | `ResourcePageProps` | — | A list page for a resource: header, filters, table or cards, paging, the open record's panel, and the built-in form and confirmed delete. {@link useResourceTable} is the same behaviour without this markup. |
 | [`ResourceView`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | `ResourceViewProps` | — | A list screen from a view, in one line: |
-| [`ResourceWorkspace`](../packages/ui/src/components/data/resource-view/RecordView.tsx) | `ResourceWorkspaceProps` | — | _(no summary)_ |
-| [`StatCard`](../packages/ui/src/components/data/StatCard.tsx) | `StatCardProps` | — | _(no summary)_ |
+| [`ResourceWorkspace`](../packages/ui/src/components/data/resource-view/RecordView.tsx) | `ResourceWorkspaceProps` | Deprecated | _(no summary)_ |
+| [`StatCard`](../packages/ui/src/components/data/StatCard.tsx) | `StatCardProps` | Beta | A labelled number on a dashboard: the stat tile. Draws the one widget tile (`WidgetTile`, variant `stat`, part `stat-card`), so an app style changes it with every other tile. For a number fed by a view, use `<Widget>` with a `number` wid... |
 | [`TreeIndent`](../packages/ui/src/components/data/TreeIndent.tsx) | `TreeIndentProps` | — | The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content. |
+| [`Widget`](../packages/ui/src/components/data/widget/Widget.tsx) | `WidgetProps` | Beta | One widget, drawn on the one widget tile (`WidgetTile`). Reads through the data provider in the viewer's scope (ViewerScope), under row security, and keeps itself current (`live`, default on). Hidden when the viewer can't read a field it... |
+| [`WidgetGrid`](../packages/ui/src/components/data/widget/WidgetGrid.tsx) | `WidgetGridProps` | Beta | A dashboard's widgets on a responsive grid: one column on a phone, `columns` at the widest, with a chart or a list spanning more. For the stat row of a `DashboardPage`, pass `<Widget>`s to its `stats` instead: that row is a grid already. |
+| [`WidgetTile`](../packages/ui/src/components/data/widget/WidgetTile.tsx) | `WidgetTileProps` | Beta | The tile every widget draws. Use the component that names the job (`StatCard`, `HeadlineNumbers`, `SummaryCard`, `<Widget>`); reach for this one for a tile none of them draws, so it still wears the app style's tile parts. |
 
-### Other exports (56)
+### Other exports (70)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -11008,7 +11369,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`BOARD_NONE`](../packages/ui/src/components/data/board/use-board-columns.ts) | const | — | The column for rows whose field is empty. |
 | [`BOARD_PAGE`](../packages/ui/src/components/data/board/use-board-columns.ts) | const | — | Cards per column page. |
 | [`boardColumnFilter`](../packages/ui/src/components/data/board/use-board-columns.ts) | function | — | One column's own filter: its value, or "is empty". |
-| [`CALENDAR_LIMIT`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | const | — | Most rows one request loads (a calendar with an `endField` makes two, so up to twice this). A month grid is six weeks: 500 is about a dozen a day, more than a busy shared calendar holds, and still one quick request. Past it the calendar ... |
+| [`CALENDAR_LIMIT`](../packages/ui/src/components/data/resource-view/use-view-calendar-range.ts) | const | — | Most rows one request loads (a calendar with an `endField` makes two, so up to twice this). A month grid is six weeks: 500 is about a dozen a day, more than a busy shared calendar holds, and still one quick request. Past it the calendar ... |
 | [`calendarLanes`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The lanes a `lanes` layout draws: the ones given, in order, then any an event names that weren't given (labelled by key). @stability Beta |
 | [`calendarWindow`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The days a layout shows around `anchor`: a month grid's whole weeks, or `weeks` weeks from the week `anchor` is in. This is the window a calendar asks its data for. @stability Beta |
 | [`CurrencyCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | CurrencyCell -- currency formatting with string-safe parsing. |
@@ -11018,6 +11379,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DateCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | DateCell -- shows relative date by default, formatted date otherwise. `relative: "short"` words it as `relativeTime` does ("2 hours ago", "yesterday", "Oct 21") instead of date-fns' distance ("about 2 hours ago"), in `words` (a screen's ... |
 | [`DefaultLink`](../packages/ui/src/navigation.tsx) | const | Beta | Default link — a plain `<a>`. No router required. |
 | [`defaultNavigate`](../packages/ui/src/navigation.tsx) | const | Beta | Default navigate — a full-page navigation. No router required. |
+| [`defineViewType`](../packages/ui/src/components/data/resource-view/view-types.tsx) | function | Beta | A view type an app adds (ADR 0021): a name and the component that draws a view that way. Register it once at start-up with {@link registerViewType}. |
+| [`detailMode`](../packages/ui/src/components/data/resource-view/open-modes.ts) | function | — | A record open mode or ResourcePage's `detail`, as ResourcePage's `detail`. |
 | [`DisplayRenderersProvider`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | Replace some of the renderers for everything below (nested providers build on each other). Pass a stable object (a module constant or a `useMemo`): a new one each render redraws every column. |
 | [`EmptyState`](../packages/ui/src/components/patterns/empty-state.tsx) | function | Beta | EmptyState — what to show when a list, page, or panel has no data. |
 | [`eventDays`](../packages/ui/src/components/data/calendar/placement.ts) | function | — | The first and last day an event covers on `zone`'s clock. |
@@ -11028,15 +11391,19 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isPathActive`](../packages/core/src/navigation.ts) | function | Beta | Default active-path matcher, mirroring React Router's `NavLink` (prefix match, with `/` treated as exact). Consumers can override via an `isActive` prop where components accept one. |
 | [`laneColor`](../packages/ui/src/components/data/calendar/lane-color.ts) | function | Beta | A distinct CSS colour for lane `index` (0-based), from the theme, in light and dark: |
 | [`LinkCell`](../packages/ui/src/components/data/DataTable.tsx) | function | — | _(no summary)_ |
+| [`listViewTypes`](../packages/ui/src/components/data/resource-view/view-types.tsx) | function | Beta | Every registered view type, built-ins first, in the order registered. @stability Beta |
 | [`NumberCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | NumberCell -- locale-aware number formatting. |
 | [`PageHeader`](../packages/ui/src/components/data/index.ts) | const | Deprecated | _(no summary)_ |
 | [`placeEvents`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | Each day of `range` with the events on it: an event that spans days is on each one, all-day events (and the middle days of a long timed one) come first, then timed ones by start, then by title. @stability Beta |
 | [`readEventTime`](../packages/core/src/dates.ts) | function | Beta | A stored date or timestamp as a calendar value: a day for a `date` column (`dateOnly`) or a value with no time; an instant for a timestamp. A timestamp written without a zone (Postgres `timestamp without time zone`, `2026-11-02 09:30:00`... |
+| [`recordOpen`](../packages/ui/src/components/data/resource-view/open-modes.ts) | function | — | ResourcePage's `detail` or a record open mode, as a record open mode (`none` stays). |
+| [`registerViewType`](../packages/ui/src/components/data/resource-view/view-types.tsx) | function | Beta | Make a view type available to every `<ResourceView type>` in the app. Returns a function that removes it again (tests, a module unloaded). Registering a second type under a taken id throws unless `replace` is set; a built-in type can't b... |
 | [`RelationField`](../packages/ui/src/components/data/RelationField.tsx) | function | — | _(no summary)_ |
 | [`relativeDatetimeRenderer`](../packages/ui/src/components/data/resource-view/display.tsx) | const | — | The `datetime` renderer as a relative time with the exact time on hover. Opt in under a `DisplayRenderersProvider`: `renderers={{ datetime: relativeDatetimeRenderer }}`. |
 | [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
 | [`RelativeTime`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | A time as `relativeTime` says it, in the messages' words and locale, with the exact time (in `timeZone`) on hover. The server and the first paint show the exact time, so hydration matches; after mount it turns relative and keeps itself c... |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
+| [`resolveViewType`](../packages/ui/src/components/data/resource-view/view-types.tsx) | function | Beta | A registered view type by name, or undefined. @stability Beta |
 | [`ResourceViewDefaultsProvider`](../packages/ui/src/components/data/resource-view/defaults.tsx) | function | Beta | Set list defaults for the whole app, once, near the root: |
 | [`RowAvatar`](../packages/ui/src/components/data/resource-view/RowAvatar.tsx) | function | — | A row's picture from `rowPicture(view.summary(row))`: the image, or initials when there is no safe image or it fails to load. Decorative unless the view gave `alt`: the row's title beside it already names the row. |
 | [`shiftAnchor`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The anchor one step back (−1) or on (1): a month for `month`, else the window's weeks. @stability Beta |
@@ -11046,13 +11413,21 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`timeStorage`](../packages/ui/src/components/data/calendar/values.ts) | function | Beta | How a field stores time, from its database type (an unknown type with a time counts as an instant). @stability Beta |
 | [`useBoardColumns`](../packages/ui/src/components/data/board/use-board-columns.ts) | function | Beta | Load a board: one request per column page, each with the shared filters, sort and search plus the column's value. Columns page on their own (`loadMore`), and the pages a column has loaded reset when the filters, sort or search change. |
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
+| [`useCustomView`](../packages/ui/src/components/data/resource-view/CustomView.tsx) | function | Beta | A custom view's data and states, headless (ADR 0019). `<CustomView>` calls it and draws the states; call it yourself only to draw them yourself too, and the doctor's `custom-view-states` rule will ask why. |
 | [`useDisplayCell`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | Draw one cell: the empty mark for no value or a cell the row (or viewer) hides (`when`), else its hint's renderer. |
+| [`useReducedMotion`](../packages/ui/src/hooks/use-reduced-motion.ts) | function | Beta | Whether the person asked their device for less motion (`prefers-reduced-motion: reduce`), kept current as they change it. A custom view that animates (a leaderboard's rows sliding into place) skips or shortens the animation when it's tru... |
 | [`useResourceTable`](../packages/ui/src/components/data/use-resource-table.ts) | function | Beta | The list behind {@link ResourcePage}, without any markup: where the rows come from (a `resource` through the data provider, or `data` you pass), search, sort, status filter and paging, selection, the open record (and its URL state), the ... |
-| [`useResourceView`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | function | — | The headless form: the same state as `useResourceTable`, from a view. |
+| [`useResourceView`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | function | — | The headless form: the same state as `useResourceTable`, from a view. Table, list, grid and gallery only; a board, a calendar or an app's view type has no table state (`useViewBoard`, `useViewCalendarRange` and `useViewList` are theirs). |
 | [`useResourceViewDefaults`](../packages/ui/src/components/data/resource-view/defaults.tsx) | function | — | The list defaults in effect (empty without a provider). |
 | [`useResourceViewProps`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | function | — | The ResourcePage props a view and a screen's options make. `useResourceView` and `<ResourceView>` both use it; call it yourself to hand the props to your own layout. |
 | [`useSavedViews`](../packages/ui/src/hooks/use-saved-views.ts) | function | — | Persist `DataFilters` saved-view shape in the app's storage (localStorage on the web), through usePersistedUiState: SSR-safe, and in step across every list on the same key. |
+| [`useViewBoard`](../packages/ui/src/components/data/resource-view/use-view-board.ts) | function | Beta | A view's rows as board columns, with moves: |
+| [`useViewCalendarRange`](../packages/ui/src/components/data/resource-view/use-view-calendar-range.ts) | function | Beta | A view's rows in one calendar window, for a screen that places them itself (a custom view, ADR 0019). ResourceCalendar loads its rows through it. |
 | [`useViewFormFields`](../packages/ui/src/components/data/resource-view/view-form.ts) | function | Beta | The fields of a view's form, as ResourceForm takes them: what `<ResourceView>` builds its own form from. The viewer's scope narrows link pickers. Call it for a form of your own layout, or pass the view to `<ResourceForm view={…}>`, which... |
+| [`useViewList`](../packages/ui/src/components/data/resource-view/use-view-list.ts) | function | Beta | A view's list, headless: the same scope, filters and permissions as `<ResourceView>`, one page at a time, for a screen that draws the rows itself (a custom view, ADR 0019): |
+| [`useViewListParams`](../packages/ui/src/components/data/resource-view/view-list.tsx) | function | Beta | The filters, select, enabled and live a screen's options make for a view's list: the viewer's scope, the preset's filter and the screen's own, as provider params. Every view type (the table's `useResourceViewProps`, the board, the calend... |
+| [`useViewPermissions`](../packages/ui/src/components/data/resource-view/use-view-list.ts) | function | Beta | The view's guards for the viewer, narrowed by a screen's own rule. Shared by every view type and custom view, so they can't disagree. |
+| [`VIEW_LIST_PAGE`](../packages/ui/src/components/data/resource-view/use-view-list.ts) | const | — | Rows per page a view list asks for by default. |
 | [`ViewSettings`](../packages/ui/src/components/patterns/view-settings.tsx) | function | — | _(no summary)_ |
 | [`ViewToggle`](../packages/ui/src/components/patterns/view-toggle.tsx) | function | — | _(no summary)_ |
 | [`webDisplayRenderers`](../packages/ui/src/components/data/resource-view/display.tsx) | const | — | Genesis's web renderers. Every one shows text it can't draw, never a broken cell. |
@@ -11060,12 +11435,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WizardForm`](../packages/ui/src/components/data/WizardForm.tsx) | function | — | _(no summary)_ |
 | `X` | value | — | _(no summary)_ |
 
-### Types (60)
+### Types (86)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { BoardColumnData };
+export type { BuiltInViewType };
 export type { BulkAction };
 export type { CalendarEvent };
 export type { CalendarLane };
@@ -11074,11 +11450,15 @@ export type { CalendarWeeks };
 export type { CalendarWindowOptions };
 export type { ColumnStatus };
 export type { CommandPaletteItem };
+export type { CustomViewState };
+export type { CustomViewStatus };
+export type { CustomViewType };
 export type { DataFilterConfig };
 export type { DataTableColumn };
 export type { DataTableSort };
 export type { DataTableTree };
 export type { Density };
+export type { DetailMode };
 export type { DisplayContext };
 export type { DisplayRenderer };
 export type { DisplayRenderers };
@@ -11121,10 +11501,31 @@ export type { StatusChipsVariant };
 export type { TimeStorage };
 export type { UseBoardColumnsOptions };
 export type { UseBoardColumnsReturn };
+export type { UseCustomViewOptions };
 export type { UseSavedViewsReturn };
+export type { UseViewBoardOptions };
+export type { UseViewCalendarRangeOptions };
+export type { UseViewListOptions };
+export type { ViewBoardColumn };
+export type { ViewBoardConflict };
+export type { ViewBoardState };
+export type { ViewCalendarRange };
+export type { ViewCalendarRangeState };
 export type { ViewFormOptions };
+export type { ViewListOptions };
+export type { ViewListParams };
+export type { ViewListState };
 export type { ViewMode };
 export type { ViewModeDefault };
+export type { ViewPermissions };
+export type { ViewScreenCan };
+export type { ViewSelection };
+export type { ViewType };
+export type { ViewTypeDefinition };
+export type { ViewTypeName };
+export type { WidgetGridItem };
+export type { WidgetTileState };
+export type { WidgetTileVariant };
 ```
 
 ---
@@ -11236,7 +11637,7 @@ export type { ViewMode };
 
 **Barrel:** [`packages/ui/src/components/layout/index.ts`](../packages/ui/src/components/layout/index.ts)
 
-### Components (20)
+### Components (21)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -11249,6 +11650,7 @@ export type { ViewMode };
 | [`DashboardPage`](../packages/ui/src/components/layout/dashboard-page.tsx) | `DashboardPageProps` | Beta | DashboardPage — a stat row over a flexible region of charts, tables and sections. |
 | [`DetailPage`](../packages/ui/src/components/layout/detail-page.tsx) | `DetailPageProps` | Beta | DetailPage — one record's full view: a title row with actions, a primary content region, and a metadata sidebar that drops below the content on small screens. |
 | [`Display`](../packages/ui/src/components/layout/band.tsx) | `DisplayProps` | Beta | Display: a heading in the marketing type scale (`displayVariants`). |
+| [`DocumentPage`](../packages/ui/src/components/layout/document-page.tsx) | `DocumentPageProps` | Beta | DocumentPage — a page that reads like a document: an optional cover across the top, an icon, a large title and the body in a centred reading column, as in a notebook app. The page template for writing (notes, a journal entry, a guide, a ... |
 | [`FormPage`](../packages/ui/src/components/layout/form-page.tsx) | `FormPageProps` | Beta | FormPage — a titled form: header, validation summary, a body of sections, and a sticky action bar. |
 | [`Grid`](../packages/ui/src/components/layout/grid.tsx) | `GridProps` | Beta | Grid — two-dimensional flow for card and tile collections. |
 | [`PageHeader`](../packages/ui/src/components/layout/PageHeader.tsx) | `PageHeaderProps` | — | _(no summary)_ |
@@ -11261,7 +11663,7 @@ export type { ViewMode };
 | [`TabBar`](../packages/ui/src/components/layout/tab-bar.tsx) | `TabBarProps` | Beta | A bottom tab bar for a phone-width web screen, the twin of genesis-ui-native's `NativeTabBar`: any number of items, and past `max` (5) the last slot is "More", which opens a bottom sheet with the rest. AppShell's own phone bottom nav (li... |
 | [`WorkspaceSwitcher`](../packages/ui/src/components/layout/workspace-switcher.tsx) | `WorkspaceSwitcherProps` | Beta | The workspace switcher. Put it in AppShell's `headerSlot`, and the `rail` and `bar` variants in `collapsedHeaderSlot` and `mobileHeaderSlot`. |
 
-### Other exports (27)
+### Other exports (28)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -11284,6 +11686,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`parseColor`](../packages/ui/src/components/layout/brand-theme.ts) | function | — | Parses `#rgb`, `#rrggbb`, `rgb()`/`rgba()`, `hsl()`/`hsla()` (commas or spaces, optional `/` or `,` alpha, which is ignored) and bare HSL triplets like `"160 84% 39%"`. Anything else, including out-of-range channels: `null`. Never throws. |
 | [`relativeLuminance`](../packages/ui/src/components/layout/brand-theme.ts) | function | — | WCAG 2 relative luminance, 0 (black) to 1 (white). |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
+| [`resolveNavigationZones`](../packages/core/src/navigation.ts) | function | Beta | Lay an app's zones over its navigation tree (ADR 0003 §1 and §4): which zone the location is in, each zone's pages, the global pages and the roll-up. Pure, so web and native shells use the same answer; an app with no zones gets every top... |
 | [`sectionHeadingVariants`](../packages/ui/src/components/layout/section.tsx) | value | — | _(no summary)_ |
 | [`spaceScale`](../packages/ui/src/components/layout/spacing.ts) | const | — | Semantic spacing steps, in pixels, on the 4px design grid. |
 | [`splitVariants`](../packages/ui/src/components/layout/split.tsx) | value | — | _(no summary)_ |
@@ -11295,12 +11698,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WORKSPACE_SWITCHER_SEARCH_THRESHOLD`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | With `search="auto"`, past this many workspaces the menu opens with a search box. |
 | [`workspaceThemeStyle`](../packages/ui/src/components/layout/workspace-switcher.tsx) | function | Beta | The CSS variables for a workspace's brand (`workspace.theme.accent`): `--primary`, `--primary-foreground` and `--ring` pointed at an accessible shade of the accent, as `brandThemeStyle` does for a public page. Empty without a valid accen... |
 
-### Types (37)
+### Types (42)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { AccessibleAccent };
+export type { AppShellDensity };
+export type { AppShellFrame };
+export type { AppShellNavigation };
 export type { AppShellOptions };
 export type { AuthPageBrandingProps };
 export type { AuthPageSlotMap };
@@ -11310,11 +11716,13 @@ export type { GenesisLinkProps };
 export type { LinkComponent };
 export type { NavItem };
 export type { NavigationNode };
+export type { NavigationZone };
 export type { PageHeaderOptions };
 export type { ParentNavigation };
 export type { PublicBrand };
 export type { PublicPageSlotMap };
 export type { ResolvedNavigation };
+export type { ResolvedNavigationZones };
 export type { Rgb };
 export type { SettingsPageSection };
 export type { SpaceToken };
@@ -11341,6 +11749,51 @@ export type { WorkspaceSwitcherVariant };
 
 ---
 
+## @marktiderman/genesis-ui/themes
+
+**Barrel:** [`packages/ui/src/themes/index.ts`](../packages/ui/src/themes/index.ts)
+
+### Components (1)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`AppearanceProvider`](../packages/ui/src/themes/appearance.tsx) | `AppearanceProviderProps` | Beta | The person's **appearance** (light, dark or system), by its glossary name: `GenesisThemeProvider` fed from the person's appearance preferences. Inside an `AppearancePreferencesProvider` (genesis-core) it shows their appearance in the wri... |
+
+### Other exports (15)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`appShellBrandProps`](../packages/ui/src/themes/brand.tsx) | function | Beta | AppShell's `appName` and `logo` from an app brand: its `appName` (else `fallbackName`), and its square `mark` in the shell's logo tile (else its `logo`), each with its dark version. Spread them under any of the app's own: |
+| [`appShellOptionsFromTheme`](../packages/ui/src/themes/layout.ts) | function | Beta | The `AppShell` options an app theme starts from (`theme.layout`: navigation, frame, density, rail width, a collapsed rail, sub-navigation), to spread under the app's own: |
+| [`appThemeAttributes`](../packages/ui/src/themes/define.ts) | function | Beta | The attributes that put a theme's brand and style on an element: spread on `<html>` (or set them there in an effect) so portalled menus and dialogs wear it too. A piece the theme leaves unset gets no attribute, so the app's own stands. |
+| [`arenaTheme`](../packages/ui/src/themes/starters.ts) | const | — | _(no summary)_ |
+| [`checklistTheme`](../packages/ui/src/themes/starters.ts) | const | — | _(no summary)_ |
+| [`defineAppTheme`](../packages/ui/src/themes/define.ts) | function | Beta | Define an app theme (a brand, a style and a layout, each optional): checks it and returns it frozen, with its id. Throws with every problem when it isn't sound. |
+| [`getStarterTheme`](../packages/ui/src/themes/starters.ts) | function | — | A starter theme by id, or undefined. |
+| [`journalTheme`](../packages/ui/src/themes/starters.ts) | const | — | _(no summary)_ |
+| [`notebookTheme`](../packages/ui/src/themes/starters.ts) | const | — | _(no summary)_ |
+| [`pressTheme`](../packages/ui/src/themes/starters.ts) | const | — | _(no summary)_ |
+| [`repositoryTheme`](../packages/ui/src/themes/starters.ts) | const | — | _(no summary)_ |
+| [`STARTER_THEMES`](../packages/ui/src/themes/starters.ts) | const | — | Every starter theme Genesis ships, in picker order. |
+| [`trackerTheme`](../packages/ui/src/themes/starters.ts) | const | — | _(no summary)_ |
+| [`validateAppTheme`](../packages/ui/src/themes/define.ts) | function | — | Every problem with an app theme input; empty when it is sound. |
+| [`withPairedBrand`](../packages/ui/src/themes/starters.ts) | function | — | A starter theme worn in the starter brand it was designed with: for a preview or a picker. |
+
+### Types (4)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { AppShellBrandProps };
+export type { AppTheme };
+export type { AppThemeInput };
+export type { AppThemeLayout };
+```
+
+---
+
 ## @marktiderman/genesis-ui/resource
 
 **Barrel:** [`packages/ui/src/components/resource/index.ts`](../packages/ui/src/components/resource/index.ts)
@@ -11361,7 +11814,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`dayLabel`](../packages/core/src/resource/days.ts) | function | — | A day (YYYY-MM-DD) in words, given today on the same clock: "Today", "Yesterday", "Oct 21", "Oct 21, 2025". |
 | [`embedSnippet`](../packages/core/src/resource/share.ts) | function | — | An `<iframe>` that shows the page on another website, full width. |
 | [`FollowUpList`](../packages/ui/src/components/resource/FollowUpList.tsx) | function | — | Responses that need a follow-up (the host decides which; forms-studio's needsFollowUp is one rule), each with who answered, a tag, the day and context, their comment, its low score and the host's actions (Reply, Mark handled). Handled it... |
-| [`HeadlineNumbers`](../packages/ui/src/components/resource/HeadlineNumbers.tsx) | function | — | A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen. |
+| [`HeadlineNumbers`](../packages/ui/src/components/resource/HeadlineNumbers.tsx) | function | — | A row of headline numbers (KPI cards): two across on a phone, up to four on a wide screen. Each is the one widget tile (`WidgetTile`, variant `headline`, part `headline-number`). |
 | [`prefilledUrl`](../packages/core/src/resource/share.ts) | function | — | `url` with `values` set as search params (empty values left out), keeping what it has. An absolute link stays absolute; a relative one (`/f/a?x=1`) stays relative, so it never throws while a page is still working out its origin. |
 | [`readinessChip`](../packages/core/src/resource/status.ts) | function | — | The readiness chip's label and tone. |
 | [`ReadinessChip`](../packages/ui/src/components/resource/ReadinessChip.tsx) | function | — | "Ready to publish", or how many problems to fix: for the trailing slot of a resource page's row of tabs (genesis-ui's `<AppShellSubNavEnd>`). With `onClick` it is a button (open the checks). |
@@ -11371,7 +11824,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SAVE_STATE_LABEL`](../packages/core/src/resource/status.ts) | const | — | _(no summary)_ |
 | [`SettingsSection`](../packages/ui/src/components/resource/ResourceSettingsPage.tsx) | function | — | One group of settings as a card: an icon, a title and a sentence, then its rows (genesis-ui `SettingsRow` and `ToggleRow`: a label, a one-sentence description and the control), divided by lines. On a phone a row whose control isn't a swi... |
 | [`ShareDialog`](../packages/ui/src/components/resource/ShareDialog.tsx) | function | — | Sharing one published page (a form, a course, a worksheet), as Google Forms' Send step: its link with Copy, a QR code (and a printable poster when the host has one), an `<iframe>` to embed it on a website, and a builder for prefilled lin... |
-| [`SummaryCard`](../packages/ui/src/components/resource/SummaryCard.tsx) | function | — | One card of a summary column: an icon and a title, a short line on the right ("24 responses · average 4.1"), then whatever summarises it (bars, quotes, a split bar). |
+| [`SummaryCard`](../packages/ui/src/components/resource/SummaryCard.tsx) | function | — | One card of a summary column: an icon and a title, a short line on the right ("24 responses · average 4.1"), then whatever summarises it (bars, quotes, a split bar). The one widget tile (`WidgetTile`, variant `summary`, part `summary-car... |
 
 ### Types (11)
 
@@ -11436,7 +11889,7 @@ export type { SaveState };
 | --- | --- | --- | --- |
 | [`CommandPalette`](../packages/ui/src/components/ui/command-palette.tsx) | `CommandPaletteProps` | — | Thin action registry over `CommandDialog` / cmdk. Consumers register flat commands; optional `group` buckets them. |
 
-### Other exports (15)
+### Other exports (16)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -11448,6 +11901,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useIsMobile`](../packages/ui/src/hooks/use-mobile.ts) | function | — | Whether the viewport is narrower than the mobile breakpoint (768px). The server renders desktop. |
 | [`useKeyboardNavigation`](../packages/ui/src/hooks/use-keyboard-navigation.ts) | function | Beta | _(no summary)_ |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
+| [`useReducedMotion`](../packages/ui/src/hooks/use-reduced-motion.ts) | function | Beta | Whether the person asked their device for less motion (`prefers-reduced-motion: reduce`), kept current as they change it. A custom view that animates (a leaderboard's rows sliding into place) skips or shortens the animation when it's tru... |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
 | [`useResourceForm`](../packages/core/src/hooks/use-resource-form.ts) | function | — | _(no summary)_ |
 | [`useResourcePage`](../packages/ui/src/hooks/use-resource-page.ts) | function | — | _(no summary)_ |
@@ -11558,12 +12012,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 
-### Other exports (18)
+### Other exports (21)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`aggregateProblems`](../packages/core/src/provider/aggregate.ts) | function | — | Every problem with an aggregate request; empty when it is sound. |
 | [`callRpc`](../packages/core/src/provider/write-helpers.ts) | function | — | Calls a database function and returns its result. A failure throws a DataWriteError with the usual outcome and code, and words a person can read: yours for the code, a guard's own message (P0001), the defaults above, or a generic sentenc... |
 | [`createMockProvider`](../packages/core/src/provider/mock-provider.ts) | function | — | _(no summary)_ |
 | [`createOrAdopt`](../packages/core/src/provider/write-helpers.ts) | function | — | "One live row per key": creates the row, or, when one with the same key is already there (a `duplicate`), adopts it, optionally merging changes in. `adopted` says which, and `final` that the row already there is finished. Key fields that... |
@@ -11577,17 +12032,22 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NO_ROWS_MATCHED`](../packages/core/src/schema/write-outcome.ts) | const | — | `DataWriteError.code` when a write came back with no row: `useResource`'s `update` sets it. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
+| [`resolveAggregate`](../packages/core/src/provider/aggregate.ts) | function | Beta | Totals over a resource's rows through any provider: its `aggregate` when it has one, else a count from `getList`'s total (one row read), else the rows themselves, paged (`toAggregateValues`). Throws `DataReadError` for a request that isn... |
 | [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
+| [`toAggregateValues`](../packages/core/src/provider/aggregate.ts) | function | Beta | The metrics' values over rows already in hand: what an in-memory provider, a test, or the paged fallback computes. `count` counts every row; the others skip rows with no number in the field and are `null` when none has one. |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (50)
+### Types (54)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AggregateMetric };
+export type { AggregateParams };
+export type { AggregateResult };
 export type { ArrayFilter };
 export type { BaseRecord };
 export type { BulkChange };
@@ -11620,6 +12080,7 @@ export type { PaginationParam };
 export type { PostgrestFieldErrors };
 export type { RangeFilter };
 export type { ReadOutcome };
+export type { ResolveAggregateOptions };
 export type { ResourceChangeEvent };
 export type { RowFailure };
 export type { RpcClient };
@@ -11960,6 +12421,18 @@ Type-only exports not consumed as a component's `Props`.
 ```ts
 export type { DialogMobileLayout };
 ```
+
+---
+
+## @marktiderman/genesis-ui/document-page
+
+**Barrel:** [`packages/ui/src/components/layout/document-page.tsx`](../packages/ui/src/components/layout/document-page.tsx)
+
+### Components (1)
+
+| Name | Props | Stability | Summary |
+| --- | --- | --- | --- |
+| [`DocumentPage`](../packages/ui/src/components/layout/document-page.tsx) | `DocumentPageProps` | Beta | DocumentPage — a page that reads like a document: an optional cover across the top, an icon, a large title and the body in a centred reading column, as in a notebook app. The page template for writing (notes, a journal entry, a guide, a ... |
 
 ---
 
@@ -12788,7 +13261,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`validateValues`](../packages/ui-native/src/data/resource-view/mapping.ts) | function | — | Field errors for a save: required fields with no value, and text over `max`. |
 | [`writableValues`](../packages/ui-native/src/data/resource-view/mapping.ts) | function | — | What a save sends: only the keys `view.writable(mode)` lists and the form shows. Read-only, generated, key and scope fields, and anything else the values carry (joined columns), never go. An edit passes `dirty`, the fields the person cha... |
 
-### Types (26)
+### Types (27)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -12815,6 +13288,7 @@ export type { NativeResourceSwipeableProps };
 export type { NativeResourceViewMessages };
 export type { NativeResourceViewMode };
 export type { NativeResourceViewOptions };
+export type { NativeResourceViewType };
 export type { NativeResourceWorkspaceHeaderProps };
 export type { NativeResourceWorkspaceMessages };
 export type { SaveResult };
