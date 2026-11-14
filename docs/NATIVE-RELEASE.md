@@ -96,9 +96,10 @@ group in `eas update:list --branch <channel>`, then its commit from `eas update:
 none before the first release, when the branch doesn't exist yet): when it already carries this
 commit or a later one (`git merge-base --is-ancestor`), the run skips that platform out loud. It never skips because a later commit is expected to ship, which could drop a release
 silently. Left over:
-- Two EAS runs started out of order (GitHub ran the later commit's release first, while an EAS run
-  was open) publish in the order they were started; the check above happens on GitHub, before the
-  run is queued, not again on EAS.
+- The EAS lane's update jobs make the same check just before they publish (eas-cli pinned through
+  `npx --yes eas-cli@26.0.0`, and the commit's history fetched when the checkout lacks it): an EAS
+  run that lands after a newer commit's update logs "Not published" and skips, and its release hook
+  doesn't run. When the checkout can't tell (the latest commit can't be fetched), it publishes.
 - A build EAS has queued but not started has no record yet, so a merge in that window builds again
   (a wasted build, nothing missed).
 
@@ -312,6 +313,12 @@ the GitHub environment before merging that change. Its other owned files (`pr-pr
   workflows pass inputs to shell steps only through `env`; the job masks the values `eas env:exec`
   hands over. `EXPO_TOKEN` is never in the job's `env`, which the dependency install's scripts would
   see: one step checks it, and expo-github-action hands it to the eas steps after the install.
+- **npx never fetches an unpinned package.** The app's own tools run with `npx --no`
+  (`expo-updates`, `sentry-expo-upload-sourcemaps`), which fails rather than install one; a
+  package npm might serve under the same name (one with the Sentry uploader's name exists, from
+  someone else) is never run with the release's secrets. With Sentry on, the run first checks
+  `@sentry/react-native` is installed and says so if not. eas-cli on EAS runs pinned
+  (`npx --yes eas-cli@26.0.0`). genesis-cli's tests fail on any other npx form in the templates.
 
 ## Cost
 

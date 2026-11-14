@@ -894,7 +894,102 @@ describe("every eas command the lane runs exists in eas-cli 26.0.0", () => {
     plan.latestCommit(run, "production", "ios");
     expect(seen.map((a) => a[0])).toEqual(["update:list", "update:view"]);
     check(seen.map((a) => ({ command: a[0]!, flags: a.filter((t) => t.startsWith("-")), line: `eas ${a.join(" ")}` })), "native-release.mjs");
-    // The script calls eas only through latestCommit.
-    expect([...readFileSync(path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "utf8").matchAll(/execFileSync\("eas"/g)]).toHaveLength(1);
+    // The script runs a command only through latestCommit's runner (eas, or RELEASE_EAS).
+    expect([...readFileSync(path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "utf8").matchAll(/execFileSync\(/g)]).toHaveLength(1);
+  });
+});
+
+describe("npx never fetches a package the lane didn't pin", () => {
+  // An npx call may run the app's own installed tool (`npx --no <bin>`, which never installs), or a
+  // package pinned to an exact version from this list (`npx --yes <package>@<x.y.z>`). Anything
+  // else could fetch whatever npm serves under that name and run it with the release's secrets.
+  const PINNABLE = new Set(["eas-cli"]);
+  const files = [
+    ...walkFiles(TEMPLATES),
+    ...walkFiles(path.join(STARTER, ".eas")),
+    ...walkFiles(path.join(STARTER, ".maestro")),
+    path.join(STARTER, "package.json"),
+  ];
+  function walkFiles(dir: string): string[] {
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walkFiles(path.join(dir, e.name)) : [path.join(dir, e.name)]));
+  }
+  /** Each npx call in a text (comment lines skipped), as the words after `npx`. */
+  const npxCalls = (text: string) =>
+    text
+      .split("\n")
+      .filter((l) => !/^\s*(#|\/\/|\*)/.test(l))
+      .flatMap((l) => [...l.matchAll(/\bnpx\s+([^'"`;|&)\n]*)/g)].map((m) => m[1]!.trim().split(/\s+/)));
+  const safe = (words: string[]) => {
+    if (words[0] === "--no") return words.length > 1 && !words[1]!.startsWith("-");
+    if (words[0] === "--yes") {
+      const pin = /^((?:@[\w.-]+\/)?[\w.-]+)@(\d+\.\d+\.\d+)$/.exec(words[1] ?? "");
+      return Boolean(pin && PINNABLE.has(pin[1]!));
+    }
+    return false;
+  };
+
+  it("finds the calls it checks, and refuses the unsafe forms", () => {
+    expect(npxCalls("run: npx --no expo-updates x\n# npx anything\n")).toEqual([["--no", "expo-updates", "x"]]);
+    for (const bad of ["npx sentry-expo-upload-sourcemaps dist", "npx --yes sentry-expo-upload-sourcemaps dist", "npx --yes eas-cli update", "npx --yes eas-cli@latest update", "npx --yes left-pad@1.0.0", "npx -y eas-cli@26.0.0 update"]) {
+      expect(npxCalls(bad).every(safe), bad).toBe(false);
+    }
+    expect(npxCalls("npx --yes eas-cli@26.0.0 update").every(safe)).toBe(true);
+  });
+
+  it.each(files.map((f) => [path.relative(REPO, f), f]))("%s", (_rel, file) => {
+    for (const words of npxCalls(readFileSync(file, "utf8"))) expect(safe(words), `npx ${words.join(" ")}`).toBe(true);
+  });
+
+  it("in every render of the release templates", () => {
+    for (const sentry of [false, true]) {
+      for (const runtimeCommand of [null, "node scripts/rv.mjs"]) {
+        for (const rel of ["ci/native-release.yml", "eas/workflows/deploy-production.yml"]) {
+          const text = renderRelease(template(rel), ctx({ sentry, runtimeCommand }));
+          for (const words of npxCalls(text)) expect(safe(words), `${rel}: npx ${words.join(" ")}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("checks the app's own Sentry uploader is installed before running it", () => {
+    const gh = (yaml("ci/native-release.yml", ctx({ sentry: true })).jobs.release.steps as { name?: string; run?: string }[]).find((st) => st.name === "Sentry can take the source maps")!.run!;
+    expect(gh).toContain("native-release.mjs installed @sentry/react-native");
+    const eas = (yaml("eas/workflows/deploy-production.yml", ctx({ sentry: true })).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+    expect(eas.indexOf("installed @sentry/react-native")).toBeLessThan(eas.indexOf("npx --no sentry-expo-upload-sourcemaps dist"));
+    const script = path.join(TEMPLATES, "eas/scripts/native-release.mjs");
+    const app = tempDir("genesis-installed-");
+    writeTree(app, { "node_modules/@sentry/react-native/package.json": "{}" });
+    mkdirSync(path.join(app, "src"));
+    expect(spawnSync("node", [script, "installed", "@sentry/react-native"], { cwd: path.join(app, "src"), encoding: "utf8" }).status).toBe(0);
+    const missing = spawnSync("node", [script, "installed", "@sentry/react-native"], { cwd: tempDir("genesis-not-installed-"), encoding: "utf8" });
+    expect(missing.status).toBe(1);
+    expect(missing.stderr).toContain("isn't installed here");
+  });
+});
+
+describe("the EAS lane's updates check the channel's order too", () => {
+  it("before publishing, skips out loud when the channel's latest update carries this commit or a later one", () => {
+    for (const platform of ["ios", "android"]) {
+      const doc = yaml("eas/workflows/deploy-production.yml", ctx({ pushHook: { script: "scripts/p.mjs", secrets: [] } }));
+      const run = (doc.jobs[`update_${platform}`].steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+      const at = (needle: string) => run.indexOf(needle);
+      expect(at(`RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "production" ${platform}`)).toBeGreaterThan(-1);
+      expect(at('git merge-base --is-ancestor "$COMMIT_SHA" "$latest"')).toBeLessThan(at("eas-cli@26.0.0 update --channel"));
+      expect(run).toContain("Not published: the channel's latest");
+      // The hook runs only when an update went out.
+      expect(doc.jobs[`hook_${platform}_update`].if).toBe(`\${{ needs.update_${platform}.outputs.update_group }}`);
+    }
+  });
+
+  it("runs eas-cli the way RELEASE_EAS says, where eas isn't on PATH", () => {
+    const bin = tempDir("genesis-eas-wrapper-");
+    writeTree(bin, { "fake-eas": '#!/usr/bin/env bash\nshift\necho "Could not find branch \\"$3\\"" >&2\nexit 1\n' });
+    execFileSync("chmod", ["+x", path.join(bin, "fake-eas")]);
+    const out = execFileSync("node", [path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "latest-commit", "production", "ios"], {
+      encoding: "utf8",
+      env: { ...process.env, RELEASE_EAS: `${path.join(bin, "fake-eas")} --pinned` },
+    });
+    expect(out).toBe("\n");
   });
 });

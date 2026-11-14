@@ -151,24 +151,39 @@ jobs:
         name: Publish the iOS update
         run: |
           set -eo pipefail
+          # Runs can land out of order: when the channel's latest iOS update already carries this
+          # commit or a later one, publishing would put older code back. Said, and nothing published.
+          latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" ios)
+          if [ -n "$latest" ]; then
+            git cat-file -e "$latest^{commit}" 2>/dev/null || git fetch --quiet origin "$latest" 2>/dev/null || true
+            if git merge-base --is-ancestor "$COMMIT_SHA" "$latest" 2>/dev/null; then
+              echo "Not published: the channel's latest iOS update ($latest) already carries $COMMIT_SHA or a later commit."
+              set-output update_group ""
+              exit 0
+            fi
+          fi
           # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
           profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" ios --shell)
           eval "$profile_env"
-          npx expo-updates runtimeversion:resolve --platform ios > resolved-ios.txt
+          npx --no expo-updates runtimeversion:resolve --platform ios > resolved-ios.txt
           node .eas/scripts/native-release.mjs runtime resolved-ios.txt ios "$RUNTIME_VERSION"
           npx --yes eas-cli@26.0.0 update --channel "GENESIS_RELEASE_CHANNEL" --platform ios --environment "GENESIS_RELEASE_EAS_ENVIRONMENT" --message "Release $COMMIT_SHA" --json --non-interactive > update-ios.json
           out=$(node .eas/scripts/native-release.mjs update update-ios.json ios "$RUNTIME_VERSION")
           echo "$out"
           set-output update_group "$(echo "$out" | sed -n 's/^ios_update_group=//p')"
 #@if sentry
-          # A failed upload fails the job (needs SENTRY_AUTH_TOKEN in the EAS environment).
-          npx --yes sentry-expo-upload-sourcemaps dist
+          # A failed upload fails the job (needs SENTRY_AUTH_TOKEN in the EAS environment). The app's own
+          # sentry-expo-upload-sourcemaps: npx --no never installs one (an unrelated npm package has the name).
+          node .eas/scripts/native-release.mjs installed @sentry/react-native
+          npx --no sentry-expo-upload-sourcemaps dist
 #@end
 #@if pushHook
 
   hook_ios_update:
     name: Run the release hook (iOS update)
     needs: [get_ios_build, update_ios]
+    # Only when an update went out (not when the channel already carried this commit).
+    if: ${{ needs.update_ios.outputs.update_group }}
     environment: "GENESIS_RELEASE_EAS_ENVIRONMENT"
     env:
       RELEASE_KIND: update
@@ -263,24 +278,39 @@ jobs:
         name: Publish the Android update
         run: |
           set -eo pipefail
+          # Runs can land out of order: when the channel's latest Android update already carries this
+          # commit or a later one, publishing would put older code back. Said, and nothing published.
+          latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" android)
+          if [ -n "$latest" ]; then
+            git cat-file -e "$latest^{commit}" 2>/dev/null || git fetch --quiet origin "$latest" 2>/dev/null || true
+            if git merge-base --is-ancestor "$COMMIT_SHA" "$latest" 2>/dev/null; then
+              echo "Not published: the channel's latest Android update ($latest) already carries $COMMIT_SHA or a later commit."
+              set-output update_group ""
+              exit 0
+            fi
+          fi
           # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
           profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" android --shell)
           eval "$profile_env"
-          npx expo-updates runtimeversion:resolve --platform android > resolved-android.txt
+          npx --no expo-updates runtimeversion:resolve --platform android > resolved-android.txt
           node .eas/scripts/native-release.mjs runtime resolved-android.txt android "$RUNTIME_VERSION"
           npx --yes eas-cli@26.0.0 update --channel "GENESIS_RELEASE_CHANNEL" --platform android --environment "GENESIS_RELEASE_EAS_ENVIRONMENT" --message "Release $COMMIT_SHA" --json --non-interactive > update-android.json
           out=$(node .eas/scripts/native-release.mjs update update-android.json android "$RUNTIME_VERSION")
           echo "$out"
           set-output update_group "$(echo "$out" | sed -n 's/^android_update_group=//p')"
 #@if sentry
-          # A failed upload fails the job (needs SENTRY_AUTH_TOKEN in the EAS environment).
-          npx --yes sentry-expo-upload-sourcemaps dist
+          # A failed upload fails the job (needs SENTRY_AUTH_TOKEN in the EAS environment). The app's own
+          # sentry-expo-upload-sourcemaps: npx --no never installs one (an unrelated npm package has the name).
+          node .eas/scripts/native-release.mjs installed @sentry/react-native
+          npx --no sentry-expo-upload-sourcemaps dist
 #@end
 #@if pushHook
 
   hook_android_update:
     name: Run the release hook (Android update)
     needs: [get_android_build, update_android]
+    # Only when an update went out (not when the channel already carried this commit).
+    if: ${{ needs.update_android.outputs.update_group }}
     environment: "GENESIS_RELEASE_EAS_ENVIRONMENT"
     env:
       RELEASE_KIND: update

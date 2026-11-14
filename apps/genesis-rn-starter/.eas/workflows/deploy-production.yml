@@ -141,10 +141,21 @@ jobs:
         name: Publish the iOS update
         run: |
           set -eo pipefail
+          # Runs can land out of order: when the channel's latest iOS update already carries this
+          # commit or a later one, publishing would put older code back. Said, and nothing published.
+          latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "production" ios)
+          if [ -n "$latest" ]; then
+            git cat-file -e "$latest^{commit}" 2>/dev/null || git fetch --quiet origin "$latest" 2>/dev/null || true
+            if git merge-base --is-ancestor "$COMMIT_SHA" "$latest" 2>/dev/null; then
+              echo "Not published: the channel's latest iOS update ($latest) already carries $COMMIT_SHA or a later commit."
+              set-output update_group ""
+              exit 0
+            fi
+          fi
           # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
           profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "production" ios --shell)
           eval "$profile_env"
-          npx expo-updates runtimeversion:resolve --platform ios > resolved-ios.txt
+          npx --no expo-updates runtimeversion:resolve --platform ios > resolved-ios.txt
           node .eas/scripts/native-release.mjs runtime resolved-ios.txt ios "$RUNTIME_VERSION"
           npx --yes eas-cli@26.0.0 update --channel "production" --platform ios --environment "production" --message "Release $COMMIT_SHA" --json --non-interactive > update-ios.json
           out=$(node .eas/scripts/native-release.mjs update update-ios.json ios "$RUNTIME_VERSION")
@@ -203,10 +214,21 @@ jobs:
         name: Publish the Android update
         run: |
           set -eo pipefail
+          # Runs can land out of order: when the channel's latest Android update already carries this
+          # commit or a later one, publishing would put older code back. Said, and nothing published.
+          latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "production" android)
+          if [ -n "$latest" ]; then
+            git cat-file -e "$latest^{commit}" 2>/dev/null || git fetch --quiet origin "$latest" 2>/dev/null || true
+            if git merge-base --is-ancestor "$COMMIT_SHA" "$latest" 2>/dev/null; then
+              echo "Not published: the channel's latest Android update ($latest) already carries $COMMIT_SHA or a later commit."
+              set-output update_group ""
+              exit 0
+            fi
+          fi
           # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
           profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "production" android --shell)
           eval "$profile_env"
-          npx expo-updates runtimeversion:resolve --platform android > resolved-android.txt
+          npx --no expo-updates runtimeversion:resolve --platform android > resolved-android.txt
           node .eas/scripts/native-release.mjs runtime resolved-android.txt android "$RUNTIME_VERSION"
           npx --yes eas-cli@26.0.0 update --channel "production" --platform android --environment "production" --message "Release $COMMIT_SHA" --json --non-interactive > update-android.json
           out=$(node .eas/scripts/native-release.mjs update update-android.json android "$RUNTIME_VERSION")

@@ -34,6 +34,9 @@
 //   node .eas/scripts/native-release.mjs latest-commit <branch> <platform>
 //     The commit of the branch's latest update for the platform (`eas update:list`, then
 //     `eas update:view` for its commit), or "" when there is none or no branch yet.
+//   node .eas/scripts/native-release.mjs installed <package>
+//     Fails, saying so, unless the package is installed (node_modules from here up): the release
+//     runs only the app's own tools (npx --no), never one npx would fetch.
 //   node .eas/scripts/native-release.mjs runtime <resolved.txt> <platform> <runtime version>
 //     Before publishing: fails unless `expo-updates runtimeversion:resolve` (its output in
 //     <resolved.txt>) gives the runtime version the plan matched, so a mismatched update is never
@@ -44,7 +47,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const digest = (value) => createHash("sha256").update(value).digest("hex");
@@ -269,6 +272,15 @@ export function latestCommit(run, branch, platform) {
   return groupCommit(JSON.parse(run(["update:view", group, "--json"])), platform);
 }
 
+/** The folder `name` is installed in, looking up from `dir` the way Node resolves packages, or null. */
+export function installedAt(dir, name) {
+  for (let at = resolve(dir); ; at = dirname(at)) {
+    const pkg = join(at, "node_modules", ...name.split("/"), "package.json");
+    if (existsSync(pkg)) return dirname(pkg);
+    if (dirname(at) === at) return null;
+  }
+}
+
 /** The runtime version in `expo-updates runtimeversion:resolve`'s output, or null. */
 export function resolvedRuntime(text) {
   return /"runtimeVersion"\s*:\s*"([^"]+)"/.exec(String(text ?? ""))?.[1] ?? null;
@@ -321,14 +333,20 @@ async function main(command, args, env) {
   } else if (command === "latest-commit") {
     const [branch, platform] = args;
     if (!branch || !PLATFORMS.includes(platform)) throw new Error("latest-commit needs <branch> <platform>.");
-    const run = (eas) => execFileSync("eas", eas, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    // RELEASE_EAS: how to run eas-cli where it isn't on PATH (EAS's workers: a pinned `npx --yes eas-cli@<version>`).
+    const [cmd, ...pre] = (env.RELEASE_EAS?.trim() || "eas").split(/\s+/);
+    const run = (eas) => execFileSync(cmd, [...pre, ...eas], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     console.log(latestCommit(run, branch, platform));
+  } else if (command === "installed") {
+    const name = args[0] ?? "";
+    if (!name) throw new Error("installed needs a package name.");
+    if (!installedAt(process.cwd(), name)) throw new Error(`${name} isn't installed here (looked in node_modules from ${process.cwd()} up). Install it in the app: the release only runs tools the app installed, never one fetched for the run. Nothing was published.`);
   } else if (command === "runtime") {
     const [file, platform, expected] = args;
     if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime needs <resolved.txt> <platform> <runtime version>.");
     checkRuntime(readFileSync(file, "utf8"), platform, expected);
   } else {
-    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, latest-commit or runtime.`);
+    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, latest-commit, installed or runtime.`);
   }
 }
 

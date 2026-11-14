@@ -191,7 +191,11 @@ jobs:
         if: steps.plan.outputs.publish_platforms != ''
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'node .eas/scripts/native-release.mjs require SENTRY_AUTH_TOKEN' --non-interactive
+        run: |
+          eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'node .eas/scripts/native-release.mjs require SENTRY_AUTH_TOKEN' --non-interactive
+          # The upload runs the app's own sentry-expo-upload-sourcemaps (npx --no never installs one,
+          # and an unrelated package on npm has that name): it must be installed.
+          node .eas/scripts/native-release.mjs installed @sentry/react-native
 #@end
 #@if ios
 
@@ -213,7 +217,7 @@ jobs:
           profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" ios --shell)
           eval "$profile_env"
           # The runtime version this checkout gives, checked against the build's before publishing.
-          eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx expo-updates runtimeversion:resolve --platform ios' --non-interactive > "$RUNNER_TEMP/release/resolved-ios.txt"
+          eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no expo-updates runtimeversion:resolve --platform ios' --non-interactive > "$RUNNER_TEMP/release/resolved-ios.txt"
           node .eas/scripts/native-release.mjs runtime "$RUNNER_TEMP/release/resolved-ios.txt" ios "$RUNTIME_VERSION"
           message=$(git log -1 --format=%s)
           eas update --channel "GENESIS_RELEASE_CHANNEL" --platform ios --environment GENESIS_RELEASE_EAS_ENVIRONMENT --message "$message" --json --non-interactive > "$RUNNER_TEMP/release/update-ios.json"
@@ -224,7 +228,7 @@ jobs:
         if: ${{ !cancelled() && steps.update_ios.outcome == 'success' }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx sentry-expo-upload-sourcemaps dist' --non-interactive
+        run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no sentry-expo-upload-sourcemaps dist' --non-interactive
 #@end
 #@if pushHook
 
@@ -264,7 +268,7 @@ jobs:
           profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" android --shell)
           eval "$profile_env"
           # The runtime version this checkout gives, checked against the build's before publishing.
-          eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx expo-updates runtimeversion:resolve --platform android' --non-interactive > "$RUNNER_TEMP/release/resolved-android.txt"
+          eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no expo-updates runtimeversion:resolve --platform android' --non-interactive > "$RUNNER_TEMP/release/resolved-android.txt"
           node .eas/scripts/native-release.mjs runtime "$RUNNER_TEMP/release/resolved-android.txt" android "$RUNTIME_VERSION"
           message=$(git log -1 --format=%s)
           eas update --channel "GENESIS_RELEASE_CHANNEL" --platform android --environment GENESIS_RELEASE_EAS_ENVIRONMENT --message "$message" --json --non-interactive > "$RUNNER_TEMP/release/update-android.json"
@@ -275,7 +279,7 @@ jobs:
         if: ${{ !cancelled() && steps.update_android.outcome == 'success' }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx sentry-expo-upload-sourcemaps dist' --non-interactive
+        run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no sentry-expo-upload-sourcemaps dist' --non-interactive
 #@end
 #@if pushHook
 
