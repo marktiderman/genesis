@@ -206,4 +206,82 @@ describe("resource source", () => {
     expect(await p.getList("progress", {})).toEqual({ data: [], total: 12, totalIsEstimate: true });
     expect(call("rpc")).toEqual([["group_progress", {}, { count: "planned" }]]);
   });
+
+  it("takeIn takes an eq or in filter's values once, and leaves a second filter on the same field in the query", async () => {
+    const seen: unknown[] = [];
+    const p = provider({
+      resources: {
+        tickets: {
+          source: {
+            rpc: "queue",
+            args: ({ takeIn }) => {
+              const first = takeIn("status");
+              const again = takeIn("status");
+              seen.push([first, again]);
+              return { statuses: first ?? null };
+            },
+          },
+        },
+      },
+    });
+    queue.push({ data: [], error: null, count: 0 });
+    await p.getList("tickets", { filters: [{ field: "status", operator: "eq", value: "open" }] });
+    queue.push({ data: [], error: null, count: 0 });
+    await p.getList("tickets", { filters: [{ field: "status", operator: "in", value: ["open", "pending"] }] });
+    // Two filters on status (a segment and a chip): the first is taken, the second is the next
+    // takeIn's; with one takeIn the other stays on the query, so both still apply.
+    calls = [];
+    queue.push({ data: [], error: null, count: 0 });
+    await p.getList("tickets", {
+      filters: [
+        { field: "status", operator: "in", value: ["open", "pending"] },
+        { field: "status", operator: "eq", value: "open" },
+      ],
+    });
+    expect(seen).toEqual([
+      [["open"], undefined],
+      [["open", "pending"], undefined],
+      [["open", "pending"], ["open"]],
+    ]);
+    // Taken twice: neither stays on the query.
+    expect(call("in")).toEqual([]);
+    expect(call("eq")).toEqual([]);
+
+    const once = provider({ resources: { tickets: { source: { rpc: "queue", args: ({ takeIn }) => ({ statuses: takeIn("status") ?? null }) } } } });
+    calls = [];
+    queue.push({ data: [], error: null, count: 0 });
+    await once.getList("tickets", {
+      filters: [
+        { field: "status", operator: "in", value: ["open", "pending"] },
+        { field: "status", operator: "eq", value: "open" },
+      ],
+    });
+    expect(call("rpc")[0]![1]).toEqual({ statuses: ["open", "pending"] });
+    expect(call("eq")).toEqual([["status", "open"]]);
+  });
+
+  it("a source that pages itself gets the page, counts with page_limit 0, and reads the total of a page past the end alone", async () => {
+    const p = provider({ resources: { tickets: { source: { rpc: "queue", args: () => ({}), pages: { order: [{ field: "at", order: "desc" }] } } } } });
+    queue.push({ data: [{ id: "a", total_count: 12 }, { id: "b", total_count: 12 }], error: null });
+    expect(await p.getList("tickets", { pagination: { page: 2, perPage: 2 } })).toEqual({ data: [{ id: "a", total_count: 12 }, { id: "b", total_count: 12 }], total: 12 });
+    expect(call("rpc")[0]![1]).toEqual({ page_limit: 2, page_offset: 2 });
+    expect(call("range")).toEqual([]);
+
+    // A count alone: page_limit 0, and the function's one row carries it.
+    calls = [];
+    queue.push({ data: [{ id: null, total_count: 12 }], error: null });
+    const counted = await p.aggregate!("tickets", { metrics: { n: { fn: "count" } } } as never);
+    expect(call("rpc").map((c) => c[1])).toEqual([{ page_limit: 0, page_offset: 0 }]);
+    expect(counted.values["n"]).toBe(12);
+
+    // Past the end: no row carries the total, so it's read with the count alone.
+    calls = [];
+    queue.push({ data: [], error: null });
+    queue.push({ data: [{ id: null, total_count: 12 }], error: null });
+    expect(await p.getList("tickets", { pagination: { page: 9, perPage: 2 } })).toEqual({ data: [], total: 12 });
+    expect(call("rpc").map((c) => c[1])).toEqual([
+      { page_limit: 2, page_offset: 16 },
+      { page_limit: 0, page_offset: 0 },
+    ]);
+  });
 });
