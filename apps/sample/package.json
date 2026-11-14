@@ -23,7 +23,7 @@
     "studio:contract": "genesis introspect --database-env STUDIO_CONTRACT_DATABASE_URL --out studio/resources.genesis.ts"
   },
   "dependencies": {
-    "@hookform/resolvers": "^6.0.0",
+    "@hookform/resolvers": "^7.0.1",
     "@marktiderman/genesis-ai": "workspace:^",
     "@marktiderman/genesis-chat": "workspace:^",
     "@marktiderman/genesis-support": "workspace:^",
