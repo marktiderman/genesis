@@ -3,12 +3,18 @@
 // schemas' structure (any role can read pg_catalog); privileges and row
 // rules are the studio handler's business at runtime, not the contract's.
 
-import type postgres from "postgres";
 import { checkEnumValues, viewColumnOrigins } from "./catalog-text.js";
 import { parseColumnComment, parseTableComment, withKeySetting } from "./comments.js";
 import { qualifiedName, storageTypeOf, type IntrospectedColumn, type IntrospectedTable } from "./model.js";
 
-type Sql = postgres.Sql;
+/**
+ * A postgres.js pool, as far as introspection uses one: `postgres(url)` from
+ * postgres.js 3.4 or 4. Typed by the one method it calls, so either version's
+ * pool fits without a cast.
+ */
+export interface IntrospectSql {
+  unsafe(query: string, parameters?: readonly unknown[]): PromiseLike<readonly Record<string, unknown>[]>;
+}
 
 interface ColumnRow {
   oid: string;
@@ -45,8 +51,19 @@ type Scope = { schemas: string[] } | { oids: string[] };
 /** Catalog reads are bounded: a chain of views over views stops here. */
 const MAX_VIEW_DEPTH = 8;
 
-function where(sql: Sql, scope: Scope) {
-  return "schemas" in scope ? sql`n.nspname = any(${scope.schemas})` : sql`c.oid = any(${scope.oids}::oid[])`;
+/**
+ * The `where` condition for a scope, on parameter `$1`: the names or oids as a JSON array, sent as
+ * text and unpacked by Postgres, so postgres.js 3 and 4 send it the same way.
+ */
+function where(scope: Scope): { condition: string; param: string } {
+  return "schemas" in scope
+    ? { condition: "n.nspname = any(array(select jsonb_array_elements_text($1::text::jsonb)))", param: JSON.stringify(scope.schemas) }
+    : { condition: "c.oid = any(array(select jsonb_array_elements_text($1::text::jsonb)::oid))", param: JSON.stringify(scope.oids) };
+}
+
+/** One catalog query, typed by its caller: the SQL above is what decides the row shape. */
+async function read<Row>(sql: IntrospectSql, text: string, param: string): Promise<Row[]> {
+  return [...(await sql.unsafe(text, [param]))] as Row[];
 }
 
 /**
@@ -66,8 +83,9 @@ export function linkOf(columns: readonly string[], refColumns: readonly string[]
 }
 
 /** Read the relations in `scope` into `into`; returns the new ones' oids in name order. */
-async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>): Promise<string[]> {
-  const columns = await sql<ColumnRow[]>`
+async function readRelations(sql: IntrospectSql, scope: Scope, into: Map<string, Relation>): Promise<string[]> {
+  const { condition, param } = where(scope);
+  const columns = await read<ColumnRow>(sql, `
     select c.oid::text as oid, c.relkind::text as relkind, n.nspname as schema, c.relname as table,
            obj_description(c.oid, 'pg_class') as table_comment,
            a.attnum::int as attnum,
@@ -86,22 +104,22 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
       join pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
       join pg_type t on t.oid = a.atttypid
      where c.relkind in ('r', 'p', 'v', 'm', 'f')
-       and ${where(sql, scope)}
-     order by n.nspname, c.relname, a.attnum`;
+       and ${condition}
+     order by n.nspname, c.relname, a.attnum`, param);
 
-  const keys = await sql<{ oid: string; columns: number[] }[]>`
+  const keys = await read<{ oid: string; columns: number[] }>(sql, `
     select c.oid::text as oid, array_agg(k.attnum::int order by k.ord) as columns
       from pg_constraint con
       join pg_class c on c.oid = con.conrelid
       join pg_namespace n on n.oid = c.relnamespace
       cross join lateral unnest(con.conkey) with ordinality as k(attnum, ord)
-     where con.contype = 'p' and ${where(sql, scope)}
-     group by c.oid`;
+     where con.contype = 'p' and ${condition}
+     group by c.oid`, param);
 
   // Every foreign key, its columns paired in order with the ones it references. A single-column key
   // is a link; so is a composite one that carries a scope column along (see linkOf).
   // `ref_unique`: whether each referenced column is, on its own, the primary key or a unique index.
-  const links = await sql<{ oid: string; attnums: number[]; columns: string[]; ref_columns: string[]; ref_unique: boolean[]; ref_schema: string; ref_table: string }[]>`
+  const links = await read<{ oid: string; attnums: number[]; columns: string[]; ref_columns: string[]; ref_unique: boolean[]; ref_schema: string; ref_table: string }>(sql, `
     select c.oid::text as oid, con.conkey::int[] as attnums,
            array(select a.attname::text from unnest(con.conkey) with ordinality k(attnum, ord)
                    join pg_attribute a on a.attrelid = c.oid and a.attnum = k.attnum order by k.ord) as columns,
@@ -118,11 +136,11 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
       join pg_class rc on rc.oid = con.confrelid
       join pg_namespace rn on rn.oid = rc.relnamespace
      where con.contype = 'f'
-       and ${where(sql, scope)}
-     order by con.conname`;
+       and ${condition}
+     order by con.conname`, param);
 
   // Single-column CHECKs, read for the values they list (`status in ('a', 'b')`).
-  const checks = await sql<{ oid: string; attnum: number; column: string; definition: string }[]>`
+  const checks = await read<{ oid: string; attnum: number; column: string; definition: string }>(sql, `
     select c.oid::text as oid, con.conkey[1]::int as attnum, a.attname as column,
            pg_get_constraintdef(con.oid) as definition
       from pg_constraint con
@@ -130,14 +148,14 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
       join pg_namespace n on n.oid = c.relnamespace
       join pg_attribute a on a.attrelid = c.oid and a.attnum = con.conkey[1]
      where con.contype = 'c' and array_length(con.conkey, 1) = 1
-       and ${where(sql, scope)}
-     order by con.conname`;
+       and ${condition}
+     order by con.conname`, param);
 
   // Views Postgres can update and delete through on its own (one relation in
   // FROM, no joins, grouping or DISTINCT): their plain columns trace to it.
   // A view with a rule of its own may be updatable only through that rule,
   // whatever its query (an outer join, say), so it is left as read.
-  const views = await sql<{ oid: string; ev_action: string }[]>`
+  const views = await read<{ oid: string; ev_action: string }>(sql, `
     select c.oid::text as oid, r.ev_action::text as ev_action
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace
@@ -145,7 +163,7 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
      where c.relkind = 'v'
        and (pg_relation_is_updatable(c.oid, false) & 20) = 20
        and not exists (select 1 from pg_rewrite o where o.ev_class = c.oid and o.rulename <> '_RETURN')
-       and ${where(sql, scope)}`;
+       and ${condition}`, param);
 
   const added: string[] = [];
   for (const row of columns) {
@@ -294,7 +312,7 @@ function resolveViews(relations: Map<string, Relation>): void {
   for (const relation of relations.values()) resolve(relation, 0);
 }
 
-export async function introspectPostgres(sql: Sql, schemas: readonly string[], options: { warn?: (message: string) => void } = {}): Promise<IntrospectedTable[]> {
+export async function introspectPostgres(sql: IntrospectSql, schemas: readonly string[], options: { warn?: (message: string) => void } = {}): Promise<IntrospectedTable[]> {
   const relations = new Map<string, Relation>();
   const wanted = await readRelations(sql, { schemas: [...schemas] }, relations);
   // A view's source may sit in a schema that wasn't asked for: read it too, but don't emit it.

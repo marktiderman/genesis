@@ -46,6 +46,8 @@ export {
   type Query,
   type SqlRow,
   type PostgresOptions,
+  type PostgresPool,
+  type PostgresTransaction,
 } from "./db";
 export {
   studioSetupSql,
