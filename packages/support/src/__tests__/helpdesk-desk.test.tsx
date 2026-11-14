@@ -4,7 +4,7 @@
 // messenger's reply expectation and office hours.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { createSupportClient, officeHoursState, SupportError, waitingSinceOf, type AgentTicket, type SupportClient, type SupportReply, type Ticket } from "..";
 import { SupportAgentInbox, SupportAgentReports, SupportMessenger, SupportSavedRepliesAdmin } from "../web-chat";
@@ -194,6 +194,12 @@ describe("the composer's pickers", () => {
     expect(pickerToken("Ça marche ?")).toBeNull();
     expect(pickerToken("Can you help?")).toBeNull();
     expect(pickerToken("mail me@x")).toBeNull();
+    // `!` and `?` need a letter, in any script, right after them.
+    expect(pickerToken("Prix ?1")).toBeNull();
+    expect(pickerToken("Ça marche ?)")).toBeNull();
+    expect(pickerToken("!!")).toBeNull();
+    expect(pickerToken("Voir ?été")).toEqual({ kind: "article", start: 5, query: "été" });
+    expect(pickerToken("!r2")).toEqual({ kind: "saved", start: 0, query: "r2" });
     expect(mentionMarkup({ id: AGENT, name: "Kit [lead]" })).toBe(`@[Kit lead](user:${AGENT})`);
     expect(showMentions(`Over to ${mentionMarkup({ id: AGENT, name: "Kit" })}`)).toBe("Over to @Kit");
   });
@@ -274,14 +280,42 @@ describe("the composer's pickers", () => {
     expect(client.savedReplies).not.toHaveBeenCalled();
   });
 
-  it("sends on Enter with a picker open until the agent moves into it", async () => {
+  it("never sends the trigger text on Enter while a picker offers something: Escape, then Enter sends", async () => {
     const client = fakeClient();
     inbox(client, { ticketId: "t1" });
     const box = await composer();
-    fireEvent.change(box, { target: { value: "Ça marche ?r" } });
-    expect(await within(await screen.findByTestId("genesis-support-agent-thread-composer-picker")).findByText("Reset your password")).toBeTruthy();
+    fireEvent.change(box, { target: { value: "!refund" } });
+    expect(await within(await screen.findByTestId("genesis-support-agent-thread-composer-picker")).findByText("Refund")).toBeTruthy();
     fireEvent.keyDown(box, { key: "Enter" });
-    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Ça marche ?r", { internal: false }));
+    await act(async () => undefined);
+    expect(client.reply).not.toHaveBeenCalled();
+    expect(box.value).toBe("!refund");
+    fireEvent.keyDown(box, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("genesis-support-agent-thread-composer-picker")).toBeNull());
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "!refund", { internal: false }));
+  });
+
+  it("inserts on Enter once the arrows move into the list", async () => {
+    const client = fakeClient();
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!reset" } });
+    expect(await within(await screen.findByTestId("genesis-support-agent-thread-composer-picker")).findByText("Reset password")).toBeTruthy();
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(box.value).toBe("Hi Ada, open Settings."));
+    expect(client.reply).not.toHaveBeenCalled();
+  });
+
+  it("sends on Enter when the picker matches nothing", async () => {
+    const client = fakeClient();
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "Bravo !zzz" } });
+    expect(await screen.findByTestId("genesis-support-agent-thread-composer-picker-empty")).toBeTruthy();
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "Bravo !zzz", { internal: false }));
   });
 });
 
@@ -292,6 +326,18 @@ describe("a saved reply's name variables", () => {
     expect(fillReply("Hi {first_name}!", none)).toBe("Hi!");
     expect(fillReply("{first_name}, thanks.\nDear {name} and team", none)).toBe("thanks.\nDear and team");
     expect(fillReply("Hi {first_name}, {signature}", { first_name: "Ada" })).toBe("Hi Ada, {signature}");
+  });
+
+  it("take the comma that set them off, before them or, at the start of a line, after them", () => {
+    const none = { first_name: "", name: "" };
+    expect(fillReply("Thanks, {first_name}.", none)).toBe("Thanks.");
+    expect(fillReply("Hello, {first_name}, how are you?", none)).toBe("Hello, how are you?");
+    expect(fillReply("Hello\n  {first_name}, hi", none)).toBe("Hello\n  hi");
+    expect(fillReply("{first_name}, thanks", none)).toBe("thanks");
+    // Other punctuation, and a name that's there, stay.
+    expect(fillReply("Customer: {name}", none)).toBe("Customer:");
+    expect(fillReply("Thanks, {first_name}.", { first_name: "Ada" })).toBe("Thanks, Ada.");
+    expect(fillReply("Hello\n  {first_name}, hi", { first_name: "Ada" })).toBe("Hello\n  Ada, hi");
   });
 
   it("never greet an email ticket by its address", async () => {
@@ -308,6 +354,21 @@ describe("a saved reply's name variables", () => {
     fireEvent.change(box, { target: { value: "!reset" } });
     fireEvent.click(await screen.findByTestId("genesis-support-agent-thread-composer-picker-option-s2"));
     await waitFor(() => expect(box.value).toBe("Hi Jane, open Settings."));
+  });
+
+  it("follow resolveUser once it can name the person, after the first render", async () => {
+    // A stable resolveUser reading a cache that fills later (names loaded after the first render).
+    const cache: Record<string, string> = {};
+    const resolveUser = (id: string) => ({ name: cache[id] ?? "" });
+    inbox(fakeClient(), { ticketId: "t1", resolveUser });
+    const box = await composer();
+    fireEvent.change(box, { target: { value: "!reset" } });
+    fireEvent.click(await screen.findByTestId("genesis-support-agent-thread-composer-picker-option-s2"));
+    await waitFor(() => expect(box.value).toBe("Hi, open Settings."));
+    cache["u1"] = "Ada Lovelace";
+    fireEvent.change(box, { target: { value: "!reset" } });
+    fireEvent.click(await screen.findByTestId("genesis-support-agent-thread-composer-picker-option-s2"));
+    await waitFor(() => expect(box.value).toBe("Hi Ada, open Settings."));
   });
 
   it("fill as nothing when resolveUser can't name the person", async () => {
@@ -464,7 +525,62 @@ describe("office hours", () => {
   });
 
   it("never says away when the hours can't be read", () => {
-    expect(officeHoursState({ timeZone: "Not/AZone", hours: office.hours }, new Date())).toEqual({ open: true, nextOpen: null });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      expect(officeHoursState({ timeZone: "Not/AZone", hours: office.hours }, new Date())).toEqual({ open: true, nextOpen: null });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('office hours in "Not/AZone" can\'t be read'));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  // A phone's JavaScript engine may lack Intl time zones: it either throws, or ignores the option
+  // and formats in the device's own zone. Either way the desk says it's open, and development says why, once.
+  describe("on an engine without Intl time zones", () => {
+    const RealFormat = Intl.DateTimeFormat;
+    // Saturday noon in New York: away, if the hours were read.
+    const saturday = new Date("2026-11-14T17:00:00Z");
+    let warn: ReturnType<typeof vi.spyOn>;
+    const throwingFormat = function throwingFormat(): Intl.DateTimeFormat {
+      throw new RangeError("Unsupported time zone option");
+    };
+    beforeEach(() => {
+      warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("says open, and warns once, when Intl.DateTimeFormat throws", () => {
+      vi.spyOn(Intl, "DateTimeFormat").mockImplementation(throwingFormat);
+      const hours = { ...office, timeZone: "America/Chicago" };
+      expect(officeHoursState(hours, saturday)).toEqual({ open: true, nextOpen: null });
+      expect(officeHoursState(hours, saturday)).toEqual({ open: true, nextOpen: null });
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toContain("Unsupported time zone option");
+    });
+
+    it("says open, and warns, when Intl.DateTimeFormat ignores timeZone", () => {
+      vi.spyOn(Intl, "DateTimeFormat").mockImplementation(function ignoringZone(locale?: Intl.LocalesArgument, options?: Intl.DateTimeFormatOptions) {
+        const { timeZone: _ignored, ...rest } = options ?? {};
+        const real = new RealFormat(locale, { ...rest, timeZone: "UTC" });
+        return { formatToParts: (date: Date) => real.formatToParts(date), resolvedOptions: () => ({ ...real.resolvedOptions(), timeZone: undefined }) } as unknown as Intl.DateTimeFormat;
+      });
+      expect(officeHoursState({ ...office, timeZone: "America/Denver" }, saturday)).toEqual({ open: true, nextOpen: null });
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toContain("no time zone support");
+    });
+
+    it("stays silent in a production build", () => {
+      vi.stubEnv("NODE_ENV", "production");
+      try {
+        vi.spyOn(Intl, "DateTimeFormat").mockImplementation(throwingFormat);
+        expect(officeHoursState({ ...office, timeZone: "Europe/Paris" }, saturday)).toEqual({ open: true, nextOpen: null });
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
   });
 });
 

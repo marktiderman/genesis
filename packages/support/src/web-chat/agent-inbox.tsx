@@ -322,13 +322,15 @@ function TicketPane({ client, tenantId, ticket, resolveUser, agents, slots, cont
   }, [agents, ticket.userId, ticket.assigneeId, resolveUser]);
   const threadSlots = useMemo(() => ({ ...paneSlots, ...slots }), [slots]);
 
+  // Read on every render, outside the memo: a `resolveUser` with a stable identity can name the
+  // requester later (from a cache filled after the first render), and the variables must follow.
+  // No real name: both fill as nothing, and the reply reads "Hi," rather than "Hi jane@example.com,".
+  const name = greetingName(ticket, resolveUser, copy);
   const variables = useMemo(() => {
-    // No real name: both fill as nothing, and the reply reads "Hi," rather than "Hi jane@example.com,".
-    const name = greetingName(ticket, resolveUser, copy);
     const own: Record<string, string> = { name, first_name: name.split(/\s+/)[0] ?? "" };
     if (ticket.requesterEmail) own["email"] = ticket.requesterEmail;
     return { ...own, ...(replyVariables?.(ticket) ?? {}) };
-  }, [ticket, resolveUser, copy, replyVariables]);
+  }, [ticket, name, replyVariables]);
   const picker = useComposerPicker({
     client,
     tenantId,
