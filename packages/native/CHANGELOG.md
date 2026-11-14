@@ -1,5 +1,12 @@
 # @marktiderman/genesis-native
 
+## 0.11.0
+
+### Minor Changes
+
+- 1cc95c3: Features: native-layouts
+  `GenesisNativeApp` takes `keyboardSticky` (react-native-keyboard-controller's `KeyboardStickyView`), which keeps FormPage's Save / Cancel bar above the keyboard. Like `keyboardToolbar`, it needs `keyboardScroll`, and says so in development without it.
+
 ## 0.10.1
 
 ### Patch Changes
