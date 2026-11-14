@@ -28,15 +28,26 @@ describe("3. cancel stops requests in flight and back-off waits", () => {
   it("a part in flight is aborted, not waited for, and the session goes", async () => {
     const s = setup();
     let sawAbort = false;
+    // Resolves when a part's PUT has reached the network and is listening for the abort. The
+    // session existing isn't enough: hashing and reading the part come between the two, so a
+    // cancel there rightly sends no part at all and there is nothing in flight to abort.
+    let partInFlight!: () => void;
+    const inFlight = new Promise<void>((r) => (partInFlight = r));
     const { uploader } = client(s, {
       hook: (m, _p, init, forward) =>
         m === "PUT"
-          ? new Promise<Response>((_, reject) => init.signal?.addEventListener("abort", () => ((sawAbort = true), reject(new DOMException("aborted", "AbortError")))))
+          ? new Promise<Response>((_, reject) => {
+              const abort = () => ((sawAbort = true), reject(new DOMException("aborted", "AbortError")));
+              // As fetch does: a signal already aborted rejects at once.
+              if (init.signal?.aborted) return abort();
+              init.signal?.addEventListener("abort", abort, { once: true });
+              partInFlight();
+            })
           : forward(),
     });
     const handle = uploader.upload(fromBytes(bytesOf(12)), { name: "a", contentType: "a/b", purpose: "media" });
-    await waitFor(() => s.store.sessions.size === 1);
-    await new Promise((r) => setTimeout(r, 5));
+    await inFlight;
+    expect(s.store.sessions.size).toBe(1);
     await handle.cancel();
     await expect(handle.done).rejects.toMatchObject({ code: "cancelled" });
     expect(sawAbort).toBe(true);
