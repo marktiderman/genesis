@@ -331,7 +331,8 @@ function filterOf(push: unknown): PushFilter {
 /** A workflow file, parsed (YAML 1.2, so `on` is a key, not a boolean), or null when it isn't a mapping YAML can read. */
 function parseWorkflow(text: string): Record<string, unknown> | null {
   try {
-    const doc = parseYaml(text) as unknown;
+    // `merge`: a `<<: *defaults` merge key is read, so a filter it brings in counts (yaml v2 ignores it by default).
+    const doc = parseYaml(text, { merge: true }) as unknown;
     return doc && typeof doc === "object" && !Array.isArray(doc) ? (doc as Record<string, unknown>) : null;
   } catch {
     return null; // Not a workflow EAS or GitHub would run either.

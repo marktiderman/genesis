@@ -505,6 +505,10 @@ describe("genesis add template", () => {
     expect(hasPushTrigger(push("    branches_ignore: [main]\n"))).toBe(false);
     expect(hasPushTrigger(push("    branches-ignore:\n      - 'feature/*'\n"))).toBe(true);
     expect(hasPushTrigger(push("    tags: ['v*']\n    branches: [main]\n"))).toBe(true);
+    // A merge key brings its filters in: a preview-only push stays preview-only.
+    expect(hasPushTrigger("x-push: &preview\n  branches: [preview]\non:\n  push:\n    <<: *preview\n")).toBe(false);
+    expect(hasPushTrigger("x-push: &main\n  branches: [main]\non:\n  push:\n    <<: *main\n")).toBe(true);
+    expect(hasPushTrigger("x: &defaults\n  branches: [preview]\non:\n  push: { <<: *defaults }\n")).toBe(false);
     // Tags alone: a tag push, not a branch push.
     expect(hasPushTrigger(push("    tags: ['v*']\n"))).toBe(false);
     // Flow forms, quoted or not.

@@ -109,18 +109,19 @@ function fingerprintOff(options: string | undefined): boolean {
 
 /**
  * True when the Expo config uses the Genesis plugin with its default fingerprint policy: a
- * `"@marktiderman/genesis-cli"` plugin entry (alone, or `[name, options]`), or a `withGenesis(config,
+ * `"@marktiderman/genesis-cli"` (or `"@marktiderman/genesis-cli/expo"`) plugin entry (alone, or `[name, options]`), or a `withGenesis(config,
  * options)` call; never when that entry's or call's own options set `fingerprint: false` (another
  * `fingerprint` key, in `extra` say, doesn't count), and never for an import alone.
  */
 export function genesisPluginSetsFingerprint(text: string): boolean {
   const uses: (string | undefined)[] = [];
-  for (const m of text.matchAll(/\[\s*["']@marktiderman\/genesis-cli["']\s*(,)?/g)) {
+  // The plugin by its package name or its `/expo` export (both are the same plugin).
+  for (const m of text.matchAll(/\[\s*["']@marktiderman\/genesis-cli(?:\/expo)?["']\s*(,)?/g)) {
     const entry = bracketed(text, m.index!);
     uses.push(entry === null ? undefined : topLevelItems(entry)[1]);
   }
   // A plain entry in a plugins list: the name alone, not inside a [name, options] pair.
-  for (const m of text.matchAll(/(?<!\[\s*)["']@marktiderman\/genesis-cli["'](?=\s*[,\]])/g)) {
+  for (const m of text.matchAll(/(?<!\[\s*)["']@marktiderman\/genesis-cli(?:\/expo)?["'](?=\s*[,\]])/g)) {
     const before = text.slice(0, m.index!);
     if (!/\[\s*$/.test(before)) uses.push(undefined);
   }

@@ -260,6 +260,11 @@ describe("native pack", () => {
     const entry = (options: string) => JSON.stringify({ expo: { extra: { fingerprint: false }, plugins: [["@marktiderman/genesis-cli", JSON.parse(options)], "@marktiderman/genesis-native/rich-push-plugin"] } });
     expect(brief((await nativeApp({ "app.json": entry('{"fingerprint": false}') })).findings, "fingerprint-plugin-files")).toEqual([]);
     expect(brief((await nativeApp({ "app.json": entry('{"privacy": {}}') })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    // The plugin by its /expo export is the same plugin, alone or with options.
+    const viaExpo = (entry: unknown) => JSON.stringify({ expo: { plugins: [entry, "@marktiderman/genesis-native/rich-push-plugin"] } });
+    expect(brief((await nativeApp({ "app.json": viaExpo("@marktiderman/genesis-cli/expo") })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    expect(brief((await nativeApp({ "app.json": viaExpo(["@marktiderman/genesis-cli/expo", { privacy: {} }]) })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    expect(brief((await nativeApp({ "app.json": viaExpo(["@marktiderman/genesis-cli/expo", { fingerprint: false }]) })).findings, "fingerprint-plugin-files")).toEqual([]);
     // Imported but never called, and not a plugin: Genesis sets nothing.
     const imported = 'import { withGenesis } from "@marktiderman/genesis-cli/expo";\nexport default { plugins: ["@marktiderman/genesis-native/rich-push-plugin"] };\n';
     expect(brief((await nativeApp({ "app.config.ts": imported })).findings, "fingerprint-plugin-files")).toEqual([]);
