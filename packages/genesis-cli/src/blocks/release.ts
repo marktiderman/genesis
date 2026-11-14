@@ -274,20 +274,80 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
   return results;
 }
 
-/** True when a workflow's top-level `on:` has a `push` trigger. */
-export function hasPushTrigger(text: string): boolean {
+/** A branch glob (`main`, `release/*`, `**`) as a regular expression: `*` within a segment, `**` across them. */
+export function branchGlob(glob: string): RegExp {
+  let re = "";
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i]!;
+    if (c === "*" && glob[i + 1] === "*") {
+      re += ".*";
+      i++;
+    } else if (c === "*") re += "[^/]*";
+    else if (c === "?") re += "[^/]";
+    else re += /[.+^${}()|[\]\\]/.test(c) ? `\\${c}` : c;
+  }
+  return new RegExp(`^${re}$`);
+}
+
+const indentOf = (line: string) => line.length - line.trimStart().length;
+const unquote = (s: string) => s.trim().replace(/^["']|["']$/g, "");
+
+/** A key's list under a block (`branches: [a, b]`, or `- a` items), or undefined when the key isn't there. */
+function listUnder(lines: string[], key: RegExp): string[] | undefined {
+  const at = lines.findIndex((l) => key.test(l.trimStart()));
+  if (at < 0) return undefined;
+  const inline = lines[at]!.trimStart().replace(key, "").replace(/#.*$/, "").trim();
+  if (inline) return inline.replace(/^\[|\]$/g, "").split(",").map(unquote).filter(Boolean);
+  const own = indentOf(lines[at]!);
+  const items: string[] = [];
+  for (const line of lines.slice(at + 1)) {
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    if (indentOf(line) <= own && !line.trimStart().startsWith("-")) break;
+    const item = /^\s*-\s*(.+?)\s*(?:#.*)?$/.exec(line);
+    if (!item) break;
+    items.push(unquote(item[1]!));
+  }
+  return items;
+}
+
+/**
+ * True when a workflow's top-level `on:` has a `push` trigger that can fire on `branch` (default
+ * `main`): no branch filter, or a `branches` pattern that matches it (globs, with `!` excluding),
+ * and no `branches_ignore` (or `branches-ignore`) pattern that does. A push trigger only for
+ * other branches (a preview lane on `preview`) isn't one.
+ */
+export function hasPushTrigger(text: string, branch = "main"): boolean {
   const lines = text.split("\n");
   const at = lines.findIndex((l) => /^["']?on["']?\s*:/.test(l));
   if (at < 0) return false;
   const inline = lines[at]!.replace(/^["']?on["']?\s*:/, "").replace(/#.*$/, "").trim();
   if (inline) return /(?:^|[\s,[{])push\b/.test(inline);
   let indent: number | null = null;
-  for (const line of lines.slice(at + 1)) {
-    if (!line.trim() || /^\s*#/.test(line)) continue;
+  for (const [i, line] of lines.entries()) {
+    if (i <= at || !line.trim() || /^\s*#/.test(line)) continue;
     if (/^\S/.test(line)) break;
-    const own = line.length - line.trimStart().length;
+    const own = indentOf(line);
     indent ??= own;
-    if (own === indent && /^["']?push["']?\s*:/.test(line.trimStart())) return true;
+    if (own !== indent || !/^["']?push["']?\s*:/.test(line.trimStart())) continue;
+    if (line.replace(/#.*$/, "").trim().replace(/^["']?push["']?\s*:/, "").trim() && !/:\s*(?:\{\s*\}|null|~)\s*$/.test(line.replace(/#.*$/, ""))) return true;
+    // The push block: its lines, more indented than `push:`.
+    const block: string[] = [];
+    for (const next of lines.slice(i + 1)) {
+      if (!next.trim() || /^\s*#/.test(next)) continue;
+      if (indentOf(next) <= own) break;
+      block.push(next);
+    }
+    const branches = listUnder(block, /^["']?branches["']?\s*:/);
+    const ignore = listUnder(block, /^["']?branches[_-]ignore["']?\s*:/);
+    if (ignore?.some((p) => branchGlob(p).test(branch))) return false;
+    if (!branches) return true;
+    // GitHub's order rule: the last pattern that matches decides; `!` excludes.
+    let fires = false;
+    for (const p of branches) {
+      const negated = p.startsWith("!");
+      if (branchGlob(negated ? p.slice(1) : p).test(branch)) fires = !negated;
+    }
+    return fires;
   }
   return false;
 }

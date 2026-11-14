@@ -352,6 +352,26 @@ describe("genesis add template", () => {
     expect(hasPushTrigger("on:\n  pull_request:\n  # push:\n")).toBe(false);
   });
 
+  it("counts a push trigger only when it can fire on main: no filter, a matching branches glob, not ignored", () => {
+    const push = (filter: string) => `on:\n  push:\n${filter}jobs:\n  u:\n    type: update\n`;
+    expect(hasPushTrigger(push(""))).toBe(true);
+    expect(hasPushTrigger(push("    branches: [preview]\n"))).toBe(false);
+    expect(hasPushTrigger(push("    branches:\n      - preview\n      - 'release/*'\n"))).toBe(false);
+    expect(hasPushTrigger(push("    branches:\n      - preview\n      - \"ma*\"\n"))).toBe(true);
+    expect(hasPushTrigger(push("    branches: ['**']\n"))).toBe(true);
+    expect(hasPushTrigger(push("    branches: ['**', '!main']\n"))).toBe(false);
+    expect(hasPushTrigger(push("    branches_ignore: [main]\n"))).toBe(false);
+    expect(hasPushTrigger(push("    branches-ignore:\n      - 'feature/*'\n"))).toBe(true);
+    expect(hasPushTrigger(push("    tags: ['v*']\n    branches: [main]\n"))).toBe(true);
+    // A preview lane on its own branch is no rival: the lane goes in, and the doctor stays quiet.
+    const root = makeApp({ "app.json": "{}", "pnpm-lock.yaml": "", ".eas/workflows/preview.yml": push("    branches: [preview]\n") });
+    expect(competingReleaseWorkflows(root, null)).toEqual([]);
+    expect(adoptTemplates(root, resolveTemplateNames(["release"])).find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "created" });
+    const rival = makeApp({ "app.json": "{}", "pnpm-lock.yaml": "", ".eas/workflows/ship.yml": push("    branches: [main, preview]\n") });
+    expect(competingReleaseWorkflows(rival, null)).toEqual([".eas/workflows/ship.yml"]);
+    expect(adoptTemplates(rival, resolveTemplateNames(["release"])).find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "held" });
+  });
+
   it("applies a changed release block to the files the app hasn't edited", () => {
     const root = nativeApp();
     adoptTemplates(root, resolveTemplateNames(["release"]));

@@ -260,6 +260,8 @@ describe("native pack", () => {
     // The lane's own dispatch-only file, or no native-release.yml at all: nothing to say.
     expect(brief((await nativeApp({ ...lane, ".eas/workflows/deploy-production.yml": "on:\n  workflow_dispatch: {}\njobs:\n  u:\n    type: update\n" })).findings, "release-lane-twice")).toEqual([]);
     expect(brief((await nativeApp(pushEas)).findings, "release-lane-twice")).toEqual([]);
+    // A push trigger only for another branch (a preview lane) releases nothing from main.
+    expect(brief((await nativeApp({ ...lane, ".eas/workflows/preview.yml": "on:\n  push:\n    branches: [preview]\njobs:\n  update:\n    type: update\n" })).findings, "release-lane-twice")).toEqual([]);
   });
 
   it("store-readiness: a ready app.json passes", async () => {

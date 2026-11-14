@@ -202,8 +202,9 @@ It writes each file that's missing, adopts one that already has the same text, a
 `genesis.lock.json`. A file of the same name the app already has is never written over: the new
 text goes beside it as `<file>.genesis-next`, for you to merge, and the lock remembers both, so the
 next upgrade merges against it. `native-release.yml` is written last, and held back while an EAS
-workflow in the app still releases on push (your old `deploy-production.yml`, kept with the new
-text in `.genesis-next`): together they would publish every release twice. It names any other
+workflow in the app still releases on a push to `main` (your old `deploy-production.yml`, kept
+with the new text in `.genesis-next`; a push trigger limited to other branches, a preview lane say,
+doesn't count): together they would publish every release twice. It names any other
 workflow that releases (a GitHub workflow running `eas update`, or a push-triggered EAS workflow
 with an update or build job); remove it in the same change, and `genesis doctor` warns
 (`release-lane-twice`) while one is there. Then add the secrets ([One-time setup](#one-time-setup)).
