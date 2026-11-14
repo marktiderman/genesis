@@ -673,15 +673,18 @@
         "date field"
       ],
       "platforms": {
-        "web": "building"
+        "web": "building",
+        "native": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-ui/data"
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
       },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
-        "web"
+        "web",
+        "native"
       ],
       "audience": [
         "developer"
@@ -779,15 +782,17 @@
       ],
       "platforms": {
         "web": "building",
-        "native": "planned"
+        "native": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-ui/data"
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
       },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
-        "web"
+        "web",
+        "native"
       ],
       "audience": [
         "developer"
@@ -894,15 +899,17 @@
       ],
       "platforms": {
         "web": "building",
-        "native": "planned"
+        "native": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-ui/data"
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
       },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
-        "web"
+        "web",
+        "native"
       ],
       "audience": [
         "developer"
@@ -945,15 +952,17 @@
       ],
       "platforms": {
         "web": "building",
-        "native": "planned"
+        "native": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-ui/data"
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
       },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
-        "web"
+        "web",
+        "native"
       ],
       "audience": [
         "developer"
@@ -995,15 +1004,17 @@
       ],
       "platforms": {
         "web": "building",
-        "native": "planned"
+        "native": "building"
       },
       "entry": {
-        "web": "@marktiderman/genesis-ui/data"
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
       },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
-        "web"
+        "web",
+        "native"
       ],
       "audience": [
         "developer"
@@ -1122,7 +1133,7 @@
     {
       "id": "view-inbox",
       "name": "Inbox view type",
-      "summary": "Any view drawn as a three-pane inbox, like a mail or help-desk client: <ResourceView type=\"inbox\"> (or inbox among a view's types in the switcher) puts the view's segments with their counts and saved views in a rail (InboxViews), its rows as messages (InboxPage: unread in bold, a preview, a relative time, a badge, the row's actions, checkboxes for bulk actions), paged through the provider, and the open record beside them (RecordView with the screen's Edit and Delete, or the app's renderReading: a ticket thread, a conversation). The view's inbox block (core) says which field is which; selection is a URL param the app owns; narrow screens show one pane with Back; j, k, e and Escape work; a declared markRead action runs on opening an unread row. NativeResourceView type=\"inbox\" draws the rows as InboxPage's. genesis-support exports ticketInbox, ticketSegments and supportQueueSource; genesis-chat conversationInbox.",
+      "summary": "Any view drawn as a three-pane inbox, like a mail or help-desk client: <ResourceView type=\"inbox\"> (or inbox among a view's types in the switcher) puts the view's segments with their counts and saved views in a rail (InboxViews), its rows as messages (InboxPage: unread in bold, a preview, a relative time, a badge, the row's actions, checkboxes for bulk actions), paged through the provider, and the open record beside them (RecordView with the screen's Edit and Delete, or the app's renderReading: a ticket thread, a conversation). The view's inbox block (core) says which field is which; selection is a URL param the app owns; narrow screens show one pane with Back; j, k, e and Escape work; a declared markRead action runs on opening an unread row. NativeResourceView type=\"inbox\" draws the rows as InboxPage's. genesis-support exports ticketInbox, ticketSegments and supportQueueSource; genesis-chat conversationInbox().",
       "status": "building",
       "kind": "pattern",
       "keywords": [
@@ -1428,9 +1439,9 @@
     {
       "id": "resource-view-sheet",
       "name": "Sheet mode for lists",
-      "summary": "ResourceView's `mode=\"sheet\"`: a spreadsheet over one view on SheetGrid, editing only the view's form fields through the provider, multi-cell paste only where the provider serves bulk writes, and big pastes, imports and exports run as jobs.",
+      "summary": "ResourceView's `type=\"sheet\"` (or `sheet` among a view's types): a view's rows as a spreadsheet on SheetGrid, the grid the Data Studio's sheet uses. Only the view's writable fields are editable; each row goes through the view's guards and the screen's can, and a refused cell is read-only with the reason on it. Every change goes through the resource's own update, row by row, so the provider's rules and a versioned resource's check apply; a cell that failed is marked with its reason. Arrows, Tab, Enter and Escape move and edit, a paste fills a block and skips read-only cells, and the last change can be undone. Big pastes, imports and exports as jobs are still to come.",
       "category": "Data",
-      "status": "planned",
+      "status": "building",
       "horizon": "next",
       "kind": "pattern",
       "keywords": [
@@ -1441,6 +1452,13 @@
         "bulk edit",
         "csv"
       ],
+      "platforms": {
+        "web": "building",
+        "native": "planned"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
@@ -1450,8 +1468,16 @@
         "developer"
       ],
       "visibility": "public",
-      "reviewedAt": "2026-11-01",
+      "reviewedAt": "2026-11-13",
+      "acceptance": [
+        "A writable cell saves through the resource's update; a guard-refused row's cells and read-only columns can't be edited and say why.",
+        "Undo puts the last change back through the same update."
+      ],
       "links": {
+        "code": [
+          "packages/ui/src/components/data/resource-view/ResourceSheet.tsx",
+          "packages/ui/src/components/sheet-grid/sheet-grid.tsx"
+        ],
         "docs": [
           "docs/RESOURCE-VIEW.md"
         ]
