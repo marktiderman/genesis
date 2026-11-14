@@ -2,13 +2,13 @@
 // It tracks code, strings, templates (and their `${…}`), comments, regular expressions and JSX
 // (tags, attributes, `{…}` expressions and text), so a name inside a string, a comment or JSX text
 // is never taken for a use, and an apostrophe in JSX text ("Don't") is never taken for a quote.
-// It isn't a parser: it gives the code's tokens in order, which is what those rules read.
+// It isn't a parser: it gives the code's tokens in order, which is what those rules read. It runs
+// on an explicit stack (no recursion), so no nesting depth can overflow the call stack.
 
-/** One token of code: a name (`ident`), a JSX tag's name (`jsxTag`), or punctuation. */
+/** One token of code: a name (`ident`), a JSX tag's name (`jsxTag`), a literal, or punctuation. */
 export interface CodeToken {
-  kind: "ident" | "jsxTag" | "punct";
+  kind: "ident" | "jsxTag" | "literal" | "punct";
   value: string;
-  /** The token before it in code (punctuation included), for the rules' context checks. */
   index: number;
 }
 
@@ -16,26 +16,30 @@ const IDENT_START = /[A-Za-z_$]/;
 const IDENT = /[\w$]/;
 const PUNCT3 = ["...", "===", "!==", "**=", "<<=", ">>=", "??=", "&&=", "||="];
 const PUNCT2 = ["=>", "==", "!=", "<=", ">=", "&&", "||", "??", "?.", "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "**", "<<", ">>"];
-// After these, `/` starts a regular expression and `<` may start a JSX element.
-const EXPRESSION_KEYWORDS = new Set(["return", "typeof", "case", "do", "else", "in", "of", "new", "delete", "void", "throw", "yield", "await", "instanceof"]);
+// Keywords after which an expression starts, so `/` is a regular expression and `<` may open JSX.
+// (`of` isn't one: it's also an ordinary name, `of / 2`.)
+const EXPRESSION_KEYWORDS = new Set(["return", "typeof", "case", "do", "else", "in", "new", "delete", "void", "throw", "yield", "await", "instanceof"]);
+// `<Name,` or `<Name extends`: a generic's type parameters, never a JSX element.
+const TYPE_PARAMETERS = /^<\s*[A-Za-z_$][\w$]*\s*(?:,|extends\b)/;
+
+type Frame = { k: "code"; depth: number; stop: boolean } | { k: "template" } | { k: "tag" } | { k: "children" };
 
 /**
- * The code tokens of a file, in order. `jsx` turns on JSX (`.jsx`, `.tsx`); in plain `.ts` a `<`
- * after `=` is a generic, never an element.
+ * The code tokens of a file, in order. `jsx` turns on JSX (`.jsx`, `.tsx`, `.js`); in plain `.ts` a
+ * `<` after `=` is a generic, never an element.
  */
 export function scanCode(code: string, options: { jsx?: boolean } = {}): CodeToken[] {
   const jsx = options.jsx ?? true;
   const tokens: CodeToken[] = [];
   const push = (kind: CodeToken["kind"], value: string) => tokens.push({ kind, value, index: tokens.length });
-  const last = () => tokens[tokens.length - 1];
+  // The standard rule: after a name, a literal, `)`, `]` or `}`, `/` divides and `<` compares.
   const expressionNext = () => {
-    const t = last();
+    const t = tokens[tokens.length - 1];
     if (!t) return true;
     if (t.kind === "ident") return EXPRESSION_KEYWORDS.has(t.value);
-    if (t.kind === "jsxTag") return false;
-    return !(t.value === ")" || t.value === "]" || t.value === "}");
+    if (t.kind === "jsxTag" || t.kind === "literal") return false;
+    return !(t.value === ")" || t.value === "]" || t.value === "}" || t.value === "<>");
   };
-
   const skipString = (i: number, quote: string): number => {
     let j = i + 1;
     while (j < code.length && code[j] !== quote) {
@@ -62,7 +66,6 @@ export function scanCode(code: string, options: { jsx?: boolean } = {}): CodeTok
     }
     return j;
   };
-  /** Skip whitespace and comments; return the next index. */
   const skipTrivia = (i: number): number => {
     let j = i;
     for (;;) {
@@ -77,45 +80,64 @@ export function scanCode(code: string, options: { jsx?: boolean } = {}): CodeTok
     }
   };
 
-  // Code until the `}` that closes the brace this call was entered at (`stop`), or the end.
-  const codeUntil = (start: number, stop: boolean): number => {
-    let i = start;
-    let depth = 0;
-    while (i < code.length) {
+  const stack: Frame[] = [{ k: "code", depth: 0, stop: false }];
+  // Open a JSX element at `<`: a fragment goes straight to its children, a tag to its attributes.
+  const openElement = (i: number): number => {
+    if (code[i + 1] === ">") {
+      stack.push({ k: "children" });
+      return i + 2;
+    }
+    let j = i + 1;
+    while (j < code.length && /[\w$.:-]/.test(code[j]!)) j++;
+    const name = code.slice(i + 1, j);
+    if (name) push("jsxTag", name.split(/[.:]/)[0]!);
+    stack.push({ k: "tag" });
+    return j;
+  };
+  const closeElement = () => {
+    stack.pop();
+    push("punct", "<>");
+  };
+
+  let i = 0;
+  while (i < code.length) {
+    const top = stack[stack.length - 1]!;
+    if (top.k === "code") {
       i = skipTrivia(i);
       if (i >= code.length) break;
       const c = code[i]!;
       if (c === '"' || c === "'") {
         i = skipString(i, c);
-        push("punct", "''");
+        push("literal", "''");
       } else if (c === "`") {
-        i = template(i + 1);
-        push("punct", "``");
+        stack.push({ k: "template" });
+        i++;
       } else if (IDENT_START.test(c)) {
         let j = i + 1;
         while (j < code.length && IDENT.test(code[j]!)) j++;
         push("ident", code.slice(i, j));
         i = j;
-      } else if (/\d/.test(c)) {
+      } else if (/\d/.test(c) || (c === "." && /\d/.test(code[i + 1] ?? ""))) {
         let j = i + 1;
         while (j < code.length && /[\w.]/.test(code[j]!)) j++;
-        push("punct", "0");
+        push("literal", "0");
         i = j;
       } else if (c === "/" && expressionNext()) {
         i = skipRegex(i);
-        push("punct", "//");
-      } else if (c === "<" && jsx && expressionNext() && /[A-Za-z_$>]/.test(code[i + 1] ?? "")) {
-        i = element(i);
-        push("punct", "<>");
+        push("literal", "//");
+      } else if (c === "<" && jsx && expressionNext() && /[A-Za-z_$>]/.test(code[i + 1] ?? "") && !TYPE_PARAMETERS.test(code.slice(i, i + 200))) {
+        i = openElement(i);
       } else if (c === "{") {
-        depth++;
+        top.depth++;
         push("punct", "{");
         i++;
       } else if (c === "}") {
-        if (depth === 0 && stop) return i + 1;
-        depth = Math.max(0, depth - 1);
-        push("punct", "}");
         i++;
+        if (top.depth === 0 && top.stop) stack.pop();
+        else {
+          top.depth = Math.max(0, top.depth - 1);
+          push("punct", "}");
+        }
       } else {
         const three = code.slice(i, i + 3);
         const two = code.slice(i, i + 2);
@@ -123,64 +145,46 @@ export function scanCode(code: string, options: { jsx?: boolean } = {}): CodeTok
         push("punct", p);
         i += p.length;
       }
-    }
-    return i;
-  };
-
-  // A template's text, from just after its backtick: each `${…}` is code.
-  const template = (start: number): number => {
-    let i = start;
-    while (i < code.length) {
+    } else if (top.k === "template") {
       const c = code[i]!;
       if (c === "\\") i += 2;
-      else if (c === "`") return i + 1;
-      else if (c === "$" && code[i + 1] === "{") {
-        push("punct", "${");
-        i = codeUntil(i + 2, true);
+      else if (c === "`") {
+        stack.pop();
+        push("literal", "``");
+        i++;
+      } else if (c === "$" && code[i + 1] === "{") {
+        stack.push({ k: "code", depth: 0, stop: true });
+        i += 2;
       } else i++;
-    }
-    return i;
-  };
-
-  // A JSX element from its `<`: the tag's name, its attributes (`{…}` is code), then its children
-  // (text, `{…}`, nested elements) up to its closing tag.
-  const element = (start: number): number => {
-    let i = start + 1;
-    if (code[i] === ">") return children(i + 1);
-    let j = i;
-    while (j < code.length && /[\w$.:-]/.test(code[j]!)) j++;
-    const name = code.slice(i, j);
-    if (name) push("jsxTag", name.split(/[.:]/)[0]!);
-    i = j;
-    while (i < code.length) {
+    } else if (top.k === "tag") {
       i = skipTrivia(i);
       const c = code[i];
-      if (c === undefined) return i;
-      if (c === "/" && code[i + 1] === ">") return i + 2;
-      if (c === ">") return children(i + 1);
-      if (c === "{") i = codeUntil(i + 1, true);
-      else if (c === '"' || c === "'") i = skipString(i, c);
-      else if (c === "<") i = element(i);
+      if (c === undefined) break;
+      if (c === "/" && code[i + 1] === ">") {
+        closeElement();
+        i += 2;
+      } else if (c === ">") {
+        stack[stack.length - 1] = { k: "children" };
+        i++;
+      } else if (c === "{") {
+        stack.push({ k: "code", depth: 0, stop: true });
+        i++;
+      } else if (c === '"' || c === "'") i = skipString(i, c);
+      else if (c === "<") i = openElement(i);
       else i++; // an attribute's name or `=`: not code
-    }
-    return i;
-  };
-  const children = (start: number): number => {
-    let i = start;
-    while (i < code.length) {
+    } else {
       const c = code[i]!;
       if (c === "<" && code[i + 1] === "/") {
         const end = code.indexOf(">", i);
-        return end < 0 ? code.length : end + 1;
-      }
-      if (c === "<") i = element(i);
-      else if (c === "{") i = codeUntil(i + 1, true);
-      else i++; // JSX text
+        i = end < 0 ? code.length : end + 1;
+        closeElement();
+      } else if (c === "<" && /[A-Za-z_$>]/.test(code[i + 1] ?? "")) i = openElement(i);
+      else if (c === "{") {
+        stack.push({ k: "code", depth: 0, stop: true });
+        i++;
+      } else i++; // JSX text
     }
-    return i;
-  };
-
-  codeUntil(0, false);
+  }
   return tokens;
 }
 
@@ -197,39 +201,90 @@ export function usesAsCode(code: string, name: string, options: { jsx?: boolean 
     if (t.kind !== "ident") return false;
     const before = tokens[i - 1];
     const after = tokens[i + 1];
-    if (before?.value === "." || before?.value === "?." || before?.value === "as") return false;
+    if (before?.value === "." || before?.value === "?." || before?.value === "as" || before?.value === "import") return false;
     if (after?.value === ":" && (before?.value === "{" || before?.value === ",")) return false;
-    // The import line itself: `import { X as Name }` is skipped above; `import Name from` too.
-    if (before?.value === "import") return false;
     return true;
   });
 }
 
-const NOT_METHODS = new Set(["if", "for", "while", "switch", "catch", "with", "function", "return", "typeof", "await", "new"]);
+// Before `(`, these open a condition or a call, never a method's parameter list.
+const NOT_METHODS = new Set(["if", "for", "while", "switch", "with", "function", "return", "typeof", "await", "new"]);
+const OPENS = new Set(["(", "[", "{"]);
+const CLOSES = new Set([")", "]", "}"]);
+
+/** The names a parameter list binds: each parameter's pattern, without its default or its type. */
+function boundNames(list: CodeToken[]): string[] {
+  const out: string[] = [];
+  // Split at top-level commas.
+  const params: CodeToken[][] = [[]];
+  let depth = 0;
+  for (const t of list) {
+    if (OPENS.has(t.value)) depth++;
+    else if (CLOSES.has(t.value)) depth--;
+    if (depth === 0 && t.value === ",") params.push([]);
+    else params[params.length - 1]!.push(t);
+  }
+  for (const param of params) {
+    // The pattern ends at a top-level `=` (its default) or `:` (its type).
+    let d = 0;
+    let end = param.length;
+    for (let k = 0; k < param.length; k++) {
+      const v = param[k]!.value;
+      if (OPENS.has(v)) d++;
+      else if (CLOSES.has(v)) d--;
+      else if (d === 0 && (v === "=" || v === ":" || v === "?")) {
+        end = k;
+        break;
+      }
+    }
+    // Inside a pattern: a key before `:` isn't bound, and a default (`= …`) is skipped to its `,`
+    // or its closing bracket.
+    const pattern = param.slice(0, end);
+    let skipping = -1;
+    d = 0;
+    for (let k = 0; k < pattern.length; k++) {
+      const t = pattern[k]!;
+      if (OPENS.has(t.value)) d++;
+      else if (CLOSES.has(t.value)) {
+        d--;
+        if (skipping > d) skipping = -1;
+      }
+      if (skipping >= 0) {
+        if (t.value === "," && d === skipping) skipping = -1;
+        continue;
+      }
+      if (t.value === "=") {
+        skipping = d;
+        continue;
+      }
+      if (t.kind === "ident" && pattern[k + 1]?.value !== ":") out.push(t.value);
+    }
+  }
+  return out;
+}
 
 /**
- * Whether a function in the file takes `name` as a parameter, defaults and destructuring
- * included: `function f(name)`, `(name = x()) =>`, `name =>`, an object or class method
- * `f({ name }) {`. Parameter lists are matched by balanced parentheses.
+ * Whether a function in the file binds `name` as a parameter: `function f(name)`,
+ * `function f<T>(name: T)`, `(name = x()) =>`, `name =>`, `catch (name)`, an object or class method
+ * `f({ name }) {`. Only binding positions count: a default value or a type that mentions the name
+ * doesn't bind it. Parameter lists are matched by balanced parentheses in one pass.
  */
 export function boundAsParameter(code: string, name: string, options: { jsx?: boolean } = {}): boolean {
   const tokens = scanCode(code, options);
-  const close = (open: number): number => {
-    let depth = 0;
-    for (let k = open; k < tokens.length; k++) {
-      if (tokens[k]!.value === "(") depth++;
-      else if (tokens[k]!.value === ")" && --depth === 0) return k;
-    }
-    return -1;
-  };
-  const names = (open: number, end: number) => tokens.slice(open + 1, end).some((t) => t.kind === "ident" && t.value === name);
+  // Each `(`'s matching `)`, in one pass.
+  const match = new Int32Array(tokens.length).fill(-1);
+  const open: number[] = [];
+  tokens.forEach((t, k) => {
+    if (t.value === "(") open.push(k);
+    else if (t.value === ")" && open.length) match[open.pop()!] = k;
+  });
   const arrowAfter = (end: number): boolean => {
     const next = tokens[end + 1];
     if (next?.value === "=>") return true;
     if (next?.value !== ":") return false;
-    // A return type, then the arrow.
+    // A return type, then the arrow: bounded, so a long file can't make this quadratic.
     let depth = 0;
-    for (let k = end + 2; k < tokens.length; k++) {
+    for (let k = end + 2; k < Math.min(tokens.length, end + 200); k++) {
       const v = tokens[k]!.value;
       if (v === "(" || v === "{" || v === "[" || v === "<") depth++;
       else if (v === ")" || v === "}" || v === "]" || v === ">") depth--;
@@ -239,16 +294,34 @@ export function boundAsParameter(code: string, name: string, options: { jsx?: bo
     }
     return false;
   };
+  // `function name<T, U>(`: skip back over type parameters and the name to `function`.
+  const isFunction = (paren: number): boolean => {
+    let k = paren - 1;
+    // `>>` closes two nested type arguments (`View<A, B>>`): it counts twice.
+    if (tokens[k]?.value === ">" || tokens[k]?.value === ">>") {
+      let depth = 0;
+      for (; k >= 0; k--) {
+        const v = tokens[k]!.value;
+        if (v === ">") depth++;
+        else if (v === ">>") depth += 2;
+        else if (v === "<" && --depth === 0) break;
+      }
+      k--;
+    }
+    if (tokens[k]?.kind === "ident" && tokens[k]!.value !== "function") k--;
+    if (tokens[k]?.value === "*") k--;
+    return tokens[k]?.value === "function";
+  };
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i]!;
-    if (t.value === "=>" && tokens[i - 1]?.kind === "ident" && tokens[i - 1]!.value === name) return true;
+    if (t.value === "=>" && tokens[i - 1]?.kind === "ident" && tokens[i - 1]!.value === name && tokens[i - 2]?.value !== ".") return true;
     if (t.value !== "(") continue;
-    const end = close(i);
+    const end = match[i]!;
     if (end < 0) continue;
     const before = tokens[i - 1];
-    const fn = tokens.slice(Math.max(0, i - 3), i).some((x) => x.kind === "ident" && x.value === "function");
-    const method = before?.kind === "ident" && !NOT_METHODS.has(before.value) && (tokens[end + 1]?.value === "{" || (tokens[end + 1]?.value === ":" && !arrowAfter(end)));
-    if ((fn || method || arrowAfter(end)) && names(i, end)) return true;
+    const catchClause = before?.value === "catch";
+    const method = !catchClause && before?.kind === "ident" && !NOT_METHODS.has(before.value) && (tokens[end + 1]?.value === "{" || (tokens[end + 1]?.value === ":" && !arrowAfter(end)));
+    if ((catchClause || isFunction(i) || method || arrowAfter(end)) && boundNames(tokens.slice(i + 1, end)).includes(name)) return true;
   }
   return false;
 }
