@@ -2,9 +2,22 @@
 // See docs/RESOURCE-VIEW.md. genesis-ui's ResourceView and genesis-ui-native's
 // NativeResourceView draw it.
 
-export { boardChoices, boardProblems, calendarProblems, defineView, galleryProblems, deriveDisplay, plural, singular, valueText, ViewDefinitionError } from "./define-view";
+export { boardChoices, boardProblems, calendarProblems, defineView, galleryProblems, inboxProblems, deriveDisplay, plural, singular, valueText, ViewDefinitionError } from "./define-view";
 export { initialsOf, rowPicture } from "./picture";
-export { groupRows, type GroupRowsOptions, type RowGroup } from "./group";
+export { groupRows, groupTotals, type GroupRowsOptions, type RowGroup } from "./group";
+export {
+  decodeFilterValue,
+  encodeFilterValue,
+  filterOptionLabel,
+  isFilterSet,
+  filterValueFor,
+  LIST_URL_KEYS,
+  listUrlParams,
+  readListUrl,
+  whereParams,
+  type ListState,
+} from "./list-state";
+export { applicableListState, createLocalSavedViewStore, type SavedView, type SavedViewInput, type SavedViewStore } from "./saved-views";
 export { RECORD_OPEN_MODES } from "./types";
 export { scopeFilter, scopeValues } from "./scope";
 export { filterParams } from "./link";
@@ -12,7 +25,20 @@ export { cascadeSelection, initialExpanded, setExpanded, treeRows } from "./tree
 export type { ResourceTree, TreeNode, TreeOptions, TreeResult } from "./tree";
 export type {
   Allowed,
+  BulkTarget,
   ComputedColumn,
+  ResolvedFilter,
+  ResolvedSegment,
+  SegmentWhere,
+  ViewBreakpoint,
+  ViewBulkAction,
+  ViewEmphasis,
+  ViewExport,
+  ViewFilter,
+  ViewFilterKind,
+  ViewFilterValue,
+  ViewSegment,
+  ViewTotal,
   DisplayHint,
   FieldNameOf,
   LinkFilter,
@@ -33,6 +59,8 @@ export type {
   ViewAction,
   ViewBoard,
   ViewGallery,
+  ViewInbox,
+  InboxRow,
   ViewCalendar,
   ViewCalendarLayout,
   ViewDefinition,
@@ -100,3 +128,26 @@ export type {
   WidgetKind,
   WidgetRequest,
 } from "./widget";
+// Calendars over a view's rows: shared by the web's calendar, custom views and the phone's.
+export {
+  calendarEvents,
+  calendarLanes,
+  calendarWindow,
+  displayZone,
+  eventDays,
+  eventDots,
+  laneKeys,
+  placeEvents,
+  shiftAnchor,
+  timeStorage,
+  warnOnce,
+  windowBounds,
+  type CalendarEvent,
+  type CalendarEventOptions,
+  type CalendarLane,
+  type CalendarLayout,
+  type CalendarWeeks,
+  type CalendarWindowOptions,
+  type PlacedEvent,
+  type TimeStorage,
+} from "./calendar";

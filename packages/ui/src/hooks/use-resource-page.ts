@@ -32,6 +32,8 @@ export interface ResourceColumnDef<T> {
   minWidth?: number | undefined;
   /** Whether the column shows before the user picks columns. Default true. */
   defaultVisible?: boolean | undefined;
+  /** How much the column matters in a row (`DataTable`'s `emphasis`). */
+  emphasis?: DataTableColumn<T>["emphasis"];
   render?: ((
     item: T,
     value: unknown,
@@ -69,6 +71,12 @@ export interface UseResourcePageProps<T> {
    * a table on desktops); only an explicit pick is persisted.
    */
   defaultView?: ViewModeDefault;
+  /**
+   * The view mode, held by the caller (a view-type switcher, say): the stored pick is neither
+   * read nor written while it's set. `onViewModeChange` hears a change.
+   */
+  viewMode?: ViewMode | undefined;
+  onViewModeChange?: ((mode: ViewMode) => void) | undefined;
   /**
    * Where the table/cards/list choice is remembered. Default: `resource`,
    * else one key shared by every keyless page — so pages without a
@@ -143,7 +151,16 @@ export interface UseResourcePageReturn<T> {
   };
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
+  /** The search box's text, as typed. */
   search: string;
+  /**
+   * The search the list applies: the typed text trimmed, empty when it's only spaces. The one
+   * value the browser filters by, the provider is sent and a list's query (export, "all matching")
+   * carries, so none of them can disagree over a padded search.
+   */
+  searchQuery: string;
+  /** The fields the browser searches: `searchFields`, else the rows' text fields. */
+  searchFields: string[];
   setSearch: (value: string) => void;
   sort: SortParam | null;
   setSort: (sort: SortParam | null) => void;
@@ -300,12 +317,22 @@ export function useResourcePage<T = Record<string, unknown>>(
     viewKey,
     tree: treeProp,
     getKey: getKeyProp,
+    viewMode: viewModeProp,
+    onViewModeChange,
   } = props;
 
   // -- View mode --
-  const [viewMode, setViewMode] = useViewPreference(
+  const [storedViewMode, setStoredViewMode] = useViewPreference(
     viewKey ?? resource ?? "resource-page",
     defaultView,
+  );
+  const viewMode = viewModeProp ?? storedViewMode;
+  const setViewMode = useCallback(
+    (mode: ViewMode) => {
+      if (viewModeProp === undefined) setStoredViewMode(mode);
+      onViewModeChange?.(mode);
+    },
+    [viewModeProp, setStoredViewMode, onViewModeChange],
   );
 
   // -- Derive initial values from initialFilters --
@@ -339,6 +366,7 @@ export function useResourcePage<T = Record<string, unknown>>(
 
   // -- Search --
   const [search, setSearch] = useState(initialSearch);
+  const searchQuery = search.trim();
 
   // -- Sort --
   const [sort, setSort] = useState<SortParam | null>(initialSort);
@@ -420,9 +448,9 @@ export function useResourcePage<T = Record<string, unknown>>(
 
   const treeResult = useMemo(() => {
     if (!treeOn || !getParentId) return null;
-    const filtering = !!search || (!!statusFieldName && statusValue.length > 0);
+    const filtering = !!searchQuery || (!!statusFieldName && statusValue.length > 0);
     const matches = (item: T) => {
-      if (search && !matchesSearch(item, search, searchFields)) return false;
+      if (searchQuery && !matchesSearch(item, searchQuery, searchFields)) return false;
       if (statusFieldName && statusValue.length > 0) {
         const val = (item as Record<string, unknown>)[statusFieldName];
         return val != null && statusValue.includes(String(val));
@@ -436,7 +464,7 @@ export function useResourcePage<T = Record<string, unknown>>(
       ...(filtering ? { match: matches } : {}),
       ...(sort ? { compare: (a: T, b: T) => compareItems(a, b, sort) } : {}),
     });
-  }, [treeOn, getParentId, rawData, treeKey, expanded, search, searchFields, statusFieldName, statusValue, sort]);
+  }, [treeOn, getParentId, rawData, treeKey, expanded, searchQuery, searchFields, statusFieldName, statusValue, sort]);
 
   const filteredData = useMemo(() => {
     if (controlled) return rawData;
@@ -445,9 +473,9 @@ export function useResourcePage<T = Record<string, unknown>>(
     let result = rawData;
 
     // Text search
-    if (search) {
+    if (searchQuery) {
       result = result.filter((item) =>
-        matchesSearch(item, search, searchFields),
+        matchesSearch(item, searchQuery, searchFields),
       );
     }
 
@@ -465,7 +493,7 @@ export function useResourcePage<T = Record<string, unknown>>(
     }
 
     return result;
-  }, [controlled, rawData, search, searchFields, statusFieldName, statusValue, sort, treeResult]);
+  }, [controlled, rawData, searchQuery, searchFields, statusFieldName, statusValue, sort, treeResult]);
 
   const cascadeSelect = !!treeProp?.cascadeSelect;
   const treeState = useMemo<ResourcePageTreeState<T> | undefined>(
@@ -514,6 +542,7 @@ export function useResourcePage<T = Record<string, unknown>>(
         header: col.header ?? titleCase(col.key),
         sortable: col.sortable ?? true,
         hideBelow: col.hideBelow,
+        ...(col.emphasis ? { emphasis: col.emphasis } : {}),
         width: col.width,
         minWidth: col.minWidth,
         defaultVisible: col.defaultVisible,
@@ -621,6 +650,8 @@ export function useResourcePage<T = Record<string, unknown>>(
     viewMode,
     setViewMode,
     search,
+    searchQuery,
+    searchFields,
     setSearch,
     sort,
     setSort,

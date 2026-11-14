@@ -139,6 +139,7 @@
   "devDependencies": {
     "@marktiderman/genesis-ai": "workspace:^",
     "@marktiderman/genesis-chat": "workspace:^",
+    "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-native": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
@@ -226,6 +227,10 @@
                 "how": "a ticket's agents and the tenants a sender may write to come from it. Add a migration before support 0004 that defines private.genesis_viewer_people(viewer uuid) returns table (tenant_id uuid, person_id uuid). See genesis-supabase 0016's header."
               }
             ]
+          },
+          {
+            "file": "migrations/0016_genesis_support_ticket_fixes.sql",
+            "test": "migrations/tests/0016_genesis_support_ticket_fixes.test.sql"
           }
         ],
         "functions": [
@@ -380,6 +385,10 @@
           {
             "file": "migrations/0009_genesis_support_inbox.sql",
             "test": "migrations/tests/0009_genesis_support_inbox.test.sql"
+          },
+          {
+            "file": "migrations/0018_genesis_support_agent_queue.sql",
+            "test": "migrations/tests/0018_genesis_support_agent_queue.test.sql"
           }
         ],
         "steps": [
@@ -422,6 +431,10 @@
           {
             "file": "migrations/0010_genesis_support_help_center.sql",
             "test": "migrations/tests/0010_genesis_support_help_center.test.sql"
+          },
+          {
+            "file": "migrations/0017_genesis_support_help_answers.sql",
+            "test": "migrations/tests/0017_genesis_support_help_answers.test.sql"
           }
         ],
         "steps": [

@@ -138,6 +138,14 @@ export interface GenesisConfigFile {
   appFolder?: string;
   /** Preview defaults the templates read (templates/vercel/ignore-build.sh): see {@link validateEnvironments}. */
   environments?: GenesisEnvironments;
+  /** The app's client layer (ADR 0020): see {@link validateClient}. */
+  client?: GenesisClient;
+}
+
+/** The `client` block: where the app's client layer lives (ADR 0020). */
+export interface GenesisClient {
+  /** The layer's folder, relative to the app. Default `src/client`. */
+  dir: string;
 }
 
 /** The app's preview defaults. A variable set where the build runs wins over these; these win over Genesis's defaults. */
@@ -308,6 +316,7 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
   }
   if (raw.appFolder !== undefined) out.appFolder = validateAppFolder(raw.appFolder, file);
   if (raw.environments !== undefined) out.environments = validateEnvironments(raw.environments, file);
+  if (raw.client !== undefined) out.client = validateClient(raw.client, file);
   // localPackages is read and validated by blocks/local.ts where it's used (doctor, add, migrate);
   // the Expo config plugin loads this file too and must not pull the CLI's block code in.
   return out;
@@ -329,6 +338,18 @@ export function validateAppFolder(raw: unknown, source = "config"): string {
   const norm = typeof raw === "string" ? raw.replace(/^\.\//, "").replace(/\/+$/, "") : "";
   if (!isPlainFolder(norm)) throw new GenesisConfigError(`${source}: "appFolder" must be the app's folder from the repository root, such as "mobile" or "apps/phone" (got ${JSON.stringify(raw)})`);
   return norm;
+}
+
+/** Check the top-level `client` setting: `{ "dir": "<folder inside the app>" }` (ADR 0020). */
+export function validateClient(raw: unknown, source = "config"): GenesisClient {
+  const fail = (msg: string): never => {
+    throw new GenesisConfigError(`${source}: ${msg}`);
+  };
+  if (!isObject(raw)) return fail(`"client" must be { "dir": "<the client layer's folder, e.g. src/client>" }`);
+  for (const key of Object.keys(raw)) if (key !== "dir" && key !== "$comment") fail(`client: unknown setting "${key}" (known: dir)`);
+  const dir = typeof raw.dir === "string" ? raw.dir.replace(/^\.\//, "").replace(/\/+$/, "") : "";
+  if (!isPlainFolder(dir)) return fail(`client.dir must be a folder inside the app, such as "src/client" (got ${JSON.stringify(raw.dir)})`);
+  return { dir };
 }
 
 /** Check the top-level `supabase` setting: `true`, `false` or `{ "app": "<relative folder>" }`. */

@@ -95,5 +95,6 @@ export {
   type AppearancePreferencesDefinition,
   type AppearancePreferencesProviderProps,
   type AppearancePreferencesStore,
+  type AppearanceWriteContext,
   type UseAppearancePreferencesReturn,
 } from "./appearance";

@@ -7,7 +7,7 @@ import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-li
 import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams } from "@marktiderman/genesis-core";
+import { DataWriteError, defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
 import { CustomView, useViewBoard, useViewCalendarRange, useViewList } from "../resource-view";
 import { useBrowserSearchParams } from "../../../navigation";
@@ -162,6 +162,40 @@ describe("useViewBoard", () => {
     });
     expect(result.current.refusal).toBe("Locked.");
   });
+
+  it("refuses a move when the board's field can't be written, even through move() directly", async () => {
+    const readOnly = defineResource<Player>()({ ...players, fields: players.fields.map((f) => (f.name === "team" ? { ...f, readOnly: true } : f)) });
+    const frozen = defineView(readOnly, { board: { field: "team" } });
+    const p = provider();
+    const { result } = renderHook(() => useViewBoard(frozen), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.movable).toBe(false);
+    expect(result.current.canMove(ROWS[0]!)).not.toBe(true);
+    await act(async () => {
+      await expect(result.current.move({ ...ROWS[0]! }, "blue")).rejects.toThrow();
+    });
+    expect(p.update).not.toHaveBeenCalled();
+  });
+
+  it("asks the guards again before keeping my move over a conflict", async () => {
+    const p = provider();
+    let locked = false;
+    vi.mocked(p.update).mockRejectedValueOnce(new DataWriteError("conflict", "changed", { current: { ...ROWS[0]!, team: "red", points: 31 }, currentVersion: "2" }));
+    const { result } = renderHook(() => useViewBoard(view, { can: () => !locked }), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => {
+      await expect(result.current.move({ ...ROWS[0]! }, "blue")).rejects.toThrow("changed");
+    });
+    expect(result.current.conflict).not.toBeNull();
+    // While the conflict is open, the screen stops letting this viewer move cards.
+    locked = true;
+    await act(async () => {
+      await expect(result.current.keepMine()).rejects.toThrow();
+    });
+    expect(p.update).toHaveBeenCalledTimes(1);
+    expect(result.current.conflict).toBeNull();
+    expect(result.current.refusal).toBeTruthy();
+  });
 });
 
 describe("useViewCalendarRange", () => {
@@ -175,6 +209,73 @@ describe("useViewCalendarRange", () => {
       { field: "played_on", operator: "gte", value: "2026-11-01" },
       { field: "played_on", operator: "lt", value: "2026-11-08" },
     ]);
+  });
+
+  it("reads rows whose duration runs into the window from before it, as far back as maxDuration", async () => {
+    const lasting = defineView(players, { calendar: { field: "played_on", durationField: "points", durationUnit: "days", maxDuration: 2 } });
+    const p = provider([{ id: "x", name: "Xi", team: "red", points: 3, played_on: "2026-10-31", locked: false }]);
+    const { result } = renderHook(() => useViewCalendarRange(lasting, { start: "2026-11-01", end: "2026-11-08" }), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const reads = vi.mocked(p.getList).mock.calls.map((c) => c[1].filters);
+    expect(reads).toContainEqual([
+      { field: "played_on", operator: "gte", value: "2026-10-30" },
+      { field: "played_on", operator: "lt", value: "2026-11-01" },
+    ]);
+    expect(result.current.rows.map((r) => r.id)).toEqual(["x"]);
+  });
+
+  it("reads the lookback latest start first, so the limit keeps the rows nearest the window", async () => {
+    const lasting = defineView(players, { calendar: { field: "played_on", durationField: "points", durationUnit: "days", maxDuration: 2 } });
+    const p = provider();
+    const { result } = renderHook(() => useViewCalendarRange(lasting, { start: "2026-11-01", end: "2026-11-08" }, { limit: 500 }), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const lookback = vi.mocked(p.getList).mock.calls.map((c) => c[1]).find((params) => params.filters?.some((f) => f.operator === "gte" && f.value === "2026-10-30"))!;
+    expect(lookback.sort).toEqual({ field: "played_on", order: "desc" });
+    expect(lookback.pagination).toEqual({ page: 1, perPage: 500 });
+  });
+
+  it("with an end column, reads only lookback rows with no end of their own, and doesn't warn without maxDuration", async () => {
+    type Slot = { id: string; starts_at: string; ends_at: string | null; minutes: number };
+    const slots = defineResource<Slot>()({
+      name: "slots",
+      key: "id",
+      fields: [
+        { name: "id", type: "string" },
+        { name: "starts_at", type: "datetime", dbType: "timestamptz" },
+        { name: "ends_at", type: "datetime", dbType: "timestamptz", nullable: true },
+        { name: "minutes", type: "number" },
+      ],
+    });
+    const p = provider();
+    const ended = defineView(slots, { calendar: { field: "starts_at", endField: "ends_at", durationField: "minutes", maxDuration: 180 } });
+    const { result } = renderHook(() => useViewCalendarRange(ended, { start: "2026-11-01", end: "2026-11-08" }, { timeZone: "UTC" }), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const reads = vi.mocked(p.getList).mock.calls.map((c) => c[1].filters ?? []);
+    expect(reads).toContainEqual([
+      { field: "starts_at", operator: "gte", value: "2026-10-31T21:00:00.000Z" },
+      { field: "starts_at", operator: "lt", value: "2026-11-01T00:00:00.000Z" },
+      { field: "ends_at", operator: "is_null" },
+    ]);
+    // A zoned timestamp looks back by elapsed time: across spring forward (New York, 8 March 2026,
+    // a 23-hour day), 24 hours before the 9 March window is 04:00 UTC on the 8th, not that day's midnight.
+    const dst = provider();
+    const daylong = defineView(slots, { calendar: { field: "starts_at", durationField: "minutes", durationUnit: "hours", maxDuration: 24 } });
+    const spring = renderHook(() => useViewCalendarRange(daylong, { start: "2026-03-09", end: "2026-03-10" }, { timeZone: "America/New_York" }), { wrapper: wrap(dst) });
+    await waitFor(() => expect(spring.result.current.loading).toBe(false));
+    expect(vi.mocked(dst.getList).mock.calls.map((c) => c[1].filters ?? [])).toContainEqual([
+      { field: "starts_at", operator: "gte", value: "2026-03-08T04:00:00.000Z" },
+      { field: "starts_at", operator: "lt", value: "2026-03-09T04:00:00.000Z" },
+    ]);
+    // Without maxDuration, an end column already reads the rows from before the window: no warning.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const quiet = defineView(slots, { calendar: { field: "starts_at", endField: "ends_at", durationField: "minutes" } });
+    renderHook(() => useViewCalendarRange(quiet, { start: "2026-11-01", end: "2026-11-08" }, { timeZone: "UTC" }), { wrapper: wrap(provider()) });
+    expect(warn.mock.calls.some((c) => String(c[0]).includes("maxDuration"))).toBe(false);
+  });
+
+  it("refuses a maxDuration that isn't a positive number or has no durationField", () => {
+    expect(() => defineView(players, { calendar: { field: "played_on", maxDuration: 2 } })).toThrow(/maxDuration needs a durationField/);
+    expect(() => defineView(players, { calendar: { field: "played_on", durationField: "points", maxDuration: -1 } })).toThrow(/maxDuration is a number above 0/);
   });
 });
 

@@ -3,6 +3,8 @@
 // values a CHECK constraint allows. Both are pure, so they're tested without a
 // database. Anything they don't recognise comes back as "unknown", never a guess.
 
+import { escapeRegExp } from "../regexp.js";
+
 /** A view column that is a plain reference to a column of another relation. */
 export interface ViewColumnOrigin {
   /**
@@ -161,10 +163,6 @@ function splitTopLevel(expr: string, separator: string): string[] {
   }
   parts.push(expr.slice(from));
   return parts;
-}
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /** A type cast as `pg_get_constraintdef` prints it: `::text`, `::character varying(10)`. */

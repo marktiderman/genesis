@@ -53,3 +53,23 @@ export const orders: Order[] = [
   { id: "2", customer: "Bob Smith", email: "bob@example.com", status: "Pending", total: "$125.00", created: "2026-04-12" },
   { id: "3", customer: "Carol White", email: "carol@example.com", status: "Draft", total: "$0.00", created: "2026-04-14" },
 ];
+
+export interface Ticket {
+  [key: string]: unknown;
+  id: string;
+  subject: string;
+  body: string;
+  requester: string;
+  status: "open" | "waiting" | "solved";
+  unread: boolean;
+  updated_at: string;
+}
+
+// Support tickets for the inbox page: a support desk at a made-up company, Acme.
+export const tickets: Ticket[] = [
+  { id: "T-1001", subject: "Can't sign in on my phone", body: "The six-digit code never arrives, I've tried three times.", requester: "Ada at Acme Rentals", status: "open", unread: true, updated_at: "2026-11-13T09:12:00Z" },
+  { id: "T-1002", subject: "Invoice copy for October", body: "Could you resend October's invoice? Ours went to an old address.", requester: "Bo at Acme Studio", status: "open", unread: true, updated_at: "2026-11-13T08:40:00Z" },
+  { id: "T-1003", subject: "Export to CSV is greyed out", body: "On the Orders list the export option is there but disabled.", requester: "Cy at Acme Freight", status: "waiting", unread: false, updated_at: "2026-11-12T16:05:00Z" },
+  { id: "T-1004", subject: "Thanks for the quick fix", body: "All working again on our side, thank you.", requester: "Di at Acme Rentals", status: "solved", unread: false, updated_at: "2026-11-11T11:30:00Z" },
+  { id: "T-1005", subject: "Add a second admin", body: "We'd like Ed to manage the account while I'm away.", requester: "Fay at Acme Studio", status: "open", unread: false, updated_at: "2026-11-10T14:20:00Z" },
+];

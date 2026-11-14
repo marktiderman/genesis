@@ -103,6 +103,21 @@ describe("DataGrid onItemClick", () => {
     render(<DataGrid items={rows} viewMode="grid" getKey={(r) => r.id} renderCard={(r) => <span>{r.name}</span>} />);
     expect(screen.queryAllByRole("button")).toHaveLength(0);
   });
+
+  it("keys a group that comes back in a later run apart from its first run", () => {
+    const warn = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const items = [
+      { id: "1", team: "a" },
+      { id: "2", team: "b" },
+      { id: "3", team: "a" },
+    ];
+    const { container } = render(
+      <DataGrid items={items} viewMode="grid" staggerAnimation={false} getKey={(r) => r.id} groupOf={(r) => ({ key: r.team, label: r.team })} renderCard={(r) => <span>{r.id}</span>} />,
+    );
+    expect(container.querySelectorAll("section[data-group]")).toHaveLength(3);
+    expect(warn.mock.calls.some((c) => String(c[0]).includes("same key"))).toBe(false);
+    warn.mockRestore();
+  });
 });
 
 describe("AlertDialogAction variant", () => {

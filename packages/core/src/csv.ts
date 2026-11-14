@@ -19,9 +19,17 @@ export function csvField(value: unknown): string {
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-export function toCsv(fields: readonly FieldSchema[], rows: readonly Record<string, unknown>[]): string {
-  const lines = [fields.map((f) => csvField(f.name)).join(",")];
-  for (const row of rows) lines.push(fields.map((f) => csvField(row[f.name])).join(","));
+/** How `toCsv` and `exportCsv` write a file's header and values. */
+export interface CsvFormat {
+  /** A column's header. Default the field's name. */
+  header?: (field: FieldSchema) => string;
+  /** A cell's value as written (a code's words, say). Default the stored value. Still formula-safe. */
+  value?: (field: FieldSchema, value: unknown, row: Record<string, unknown>) => unknown;
+}
+
+export function toCsv(fields: readonly FieldSchema[], rows: readonly Record<string, unknown>[], format: CsvFormat = {}): string {
+  const lines = [fields.map((f) => csvField(format.header ? format.header(f) : f.name)).join(",")];
+  for (const row of rows) lines.push(fields.map((f) => csvField(format.value ? format.value(f, row[f.name], row) : row[f.name])).join(","));
   return `${lines.join("\r\n")}\r\n`;
 }
 
@@ -42,6 +50,8 @@ export interface ExportOptions {
   /** Stop after this many rows. Default 10 000. */
   maxRows?: number;
   onProgress?: (rows: number) => void;
+  /** The header's words and each value as written (a list's export writes words, not codes). */
+  format?: CsvFormat;
 }
 
 export async function exportCsv(options: ExportOptions): Promise<{ csv: string; rows: number; truncated: boolean }> {
@@ -67,7 +77,7 @@ export async function exportCsv(options: ExportOptions): Promise<{ csv: string; 
     }
     if (result.data.length < perPage || rows.length >= result.total) break;
   }
-  return { csv: toCsv(options.fields, rows), rows: rows.length, truncated };
+  return { csv: toCsv(options.fields, rows, options.format), rows: rows.length, truncated };
 }
 
 /**

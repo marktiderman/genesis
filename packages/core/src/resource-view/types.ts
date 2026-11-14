@@ -97,6 +97,143 @@ export interface ViewField<Row extends DataRow = DataRow> {
    * zone the runtime doesn't know.
    */
   timeZone?: ViewTimeZone;
+  /**
+   * How much the field matters in a row (ADR 0017): `title` (the row's name, strongest; one per
+   * view, default the `labelField`), `secondary` or `muted`. Meaning, not markup: each platform
+   * and brand decides how it looks.
+   */
+  emphasis?: ViewEmphasis;
+  /** `false` keeps the column's header from sorting the list (a value the server can't order by). */
+  sortable?: boolean;
+  /** Hide the column below this screen width on the web: `sm`, `md`, `lg` or `xl`. */
+  hideBelow?: ViewBreakpoint;
+  /** The column's starting width: a number of pixels, or a CSS length (`"12rem"`). */
+  width?: number | string;
+}
+
+/** How much a field matters in a row (`ViewField.emphasis`). @stability Beta */
+export type ViewEmphasis = "title" | "secondary" | "muted";
+
+/** A screen width a column hides below (`ViewField.hideBelow`). @stability Beta */
+export type ViewBreakpoint = "sm" | "md" | "lg" | "xl";
+
+/**
+ * A field a person can narrow the list by (ADR 0017, `defineView`'s `filters`). The platform
+ * draws it from what the contract and the view know: a field with choices (an enum, a yes/no)
+ * gets multi-select chips in its words and tones, a date or number a range, a text field
+ * "contains". Every value is sent to the server, never applied to loaded rows.
+ *
+ * @stability Beta
+ */
+export interface ViewFilter<Name extends string = string> {
+  field: Name;
+  /** The filter's label. Default the field's. */
+  label?: string;
+  /** Default from the field: `choice` for an enum or yes/no, `range` for a date or number, else `text`. */
+  kind?: ViewFilterKind;
+  /** For `choice`: narrow the values offered (and, for a field without fixed values, name them). */
+  options?: readonly string[];
+  /** The value the filter starts at: values for a choice, `{ gte, lte }` for a range, words for text. */
+  default?: ViewFilterValue;
+}
+
+/** How a declared filter narrows the list. @stability Beta */
+export type ViewFilterKind = "choice" | "range" | "text";
+
+/**
+ * A declared filter's value: the chosen values (`choice`), a range (`{ gte, lte }`, either end
+ * open) or words (`text`, matched as "contains").
+ *
+ * @stability Beta
+ */
+export type ViewFilterValue = readonly string[] | { readonly gte?: string; readonly lte?: string } | string;
+
+/**
+ * Which rows a segment holds: equality per field, `null` for "is empty", a list for "any of", and
+ * `{ gte, lte }` for a range. Sent to the server with the list request.
+ *
+ * @stability Beta
+ */
+export type SegmentWhere<Name extends string = string> = Readonly<
+  Partial<Record<Name, string | number | boolean | null | readonly (string | number)[] | { readonly gte?: string | number; readonly lte?: string | number }>>
+>;
+
+/**
+ * A named tab over a list ("Open", "Mine", "All") with its own filter and an optional count
+ * (ADR 0017). Not a preset (a screen's fixed columns and filter) and not a saved view (a person's
+ * own).
+ *
+ * @stability Beta
+ */
+export interface ViewSegment<Name extends string = string> {
+  /** Lowercase letters, digits, `-` and `_`: it goes in the URL (`?seg=open`). */
+  id: string;
+  label: string;
+  /** Its rows, or a function of the viewer for one relative to them (`(v) => ({ owner_id: v.id })`). No `where`: every row. */
+  where?: SegmentWhere<Name> | ((viewer: Viewer) => SegmentWhere<Name>);
+  /**
+   * Arguments for a function-backed source (`source.args`'s `take`), sent as equality filters the
+   * function takes and the query leaves out: `{ inbox_view: "mine" }`. Not fields, so not checked
+   * against the contract.
+   */
+  args?: Readonly<Record<string, string | number | boolean | null>>;
+  /** Show a count beside the label: one count request through the provider. */
+  count?: boolean;
+  /** A column preset the segment shows (`columns`). Default the screen's. */
+  columns?: string;
+}
+
+/** A group or footer total (`defineView`'s `totals`). @stability Beta */
+export type ViewTotal = "sum" | "avg" | "min" | "max" | "count";
+
+/**
+ * A view's CSV export (ADR 0017 §8). The default columns are the column preset's, minus sensitive
+ * fields and computed columns; values are written in words (a badge's label) unless `raw`.
+ *
+ * @stability Beta
+ */
+export interface ViewExport<Name extends string = string> {
+  /** The fields exported, in order. Default the shown preset's field columns. */
+  columns?: readonly Name[];
+  /** The file's name, without `.csv`. Default the view's plural noun. */
+  filename?: string;
+  /** Stop after this many rows (the file says it was cut short). Default 10 000. */
+  maxRows?: number;
+  /** Write stored values (codes) instead of their words. Default false. */
+  raw?: boolean;
+}
+
+/**
+ * What a bulk action runs on: the selected rows, or (only for a `run` that says `matching`) every
+ * row the list's filters, segment and search match, sent as those filters and never as ids.
+ *
+ * @stability Beta
+ */
+export type BulkTarget<Row extends DataRow = DataRow> =
+  | { readonly kind: "rows"; readonly rows: readonly Row[] }
+  | { readonly kind: "matching"; readonly filters: readonly FilterParam[]; readonly search?: { readonly query: string; readonly fields: readonly string[] }; readonly total: number };
+
+/**
+ * A view action that also runs on many rows at once (ADR 0017 §3, `ViewAction.bulk`). Without
+ * `run`, it runs the row action once per selected row through the provider, checking `can` per
+ * row and reporting the rows it skipped and why.
+ *
+ * @stability Beta
+ */
+export interface ViewBulkAction<Row extends DataRow = DataRow> {
+  /** The bulk bar's words. Default the action's label. */
+  label?: string;
+  /** A confirmation, with `{count}`: "Archive {count} tasks?". Default the action's own `confirm`. */
+  confirm?: string;
+  /** Runs it on many rows at once (one server call). Default: the row action per row. */
+  run?: (target: BulkTarget<Row>, viewer: Viewer) => void | Promise<void>;
+  /**
+   * `run` accepts every matching row as filters (`target.kind === "matching"`), so "select all
+   * matching" can reach it. Such a run gets no rows, so no per-row `can` check has happened: it
+   * must enforce access itself (a server function under the caller's row-level security, checking
+   * each row it touches), and treat the filters and search as untrusted input from the browser.
+   */
+  matching?: boolean;
 }
 
 /**
@@ -230,10 +367,16 @@ export interface ViewAction<Row extends DataRow = DataRow> extends RowAction {
   /** Drawn as destructive (red, the menu's destructive style). */
   destructive?: boolean;
   can?: (row: Row, viewer: Viewer) => Allowed;
+  /** Also offer it on many selected rows (ADR 0017): `true`, or how it runs on them. */
+  bulk?: boolean | ViewBulkAction<Row>;
 }
 
 /** An action as a renderer lists it: the words only. Ask `view.canAction` whether a row allows it. */
-export type ResolvedViewAction = RowAction & { readonly destructive?: boolean };
+export type ResolvedViewAction = RowAction & {
+  readonly destructive?: boolean;
+  /** Set when the action runs on many rows: its bar label, confirmation and whether it takes every matching row. */
+  readonly bulk?: { readonly label: string; readonly confirm?: string; readonly matching: boolean; readonly batch: boolean };
+};
 
 /** A row in one line, for pickers, notifications and page bars. */
 export interface RowSummary {
@@ -325,6 +468,14 @@ export interface ViewCalendar<Name extends string = string> {
   durationField?: Name;
   /** What `durationField` counts. Default `minutes`. */
   durationUnit?: ViewCalendarDurationUnit;
+  /**
+   * The longest a row with a `durationField` runs, in `durationUnit`s. The calendar reads rows that
+   * started up to this long before its window too, so one that runs into the window from before
+   * it (a session at 23:00 for two hours) is drawn. Without it, such a row is drawn only on the
+   * days it starts in the window, and a calendar with no `endField` warns once. Past the read's
+   * limit, the latest starts are kept.
+   */
+  maxDuration?: number;
   /** A yes/no field: the row is all day, its timestamp shown without a time. */
   allDayField?: Name;
   /** The field whose value (or list of values) names a row's lanes: a dot each, a lane each. */
@@ -385,6 +536,52 @@ export interface ViewGallery<Name extends string = string> {
 }
 
 /**
+ * How the view's rows show as an inbox (ADR 0017, the `inbox` view type): a three-pane layout of
+ * segments, a list of rows like messages, and the open record. Field names only, except `unread`,
+ * which may be a function of the row; every platform reads the same block.
+ *
+ * @stability Beta
+ */
+export interface ViewInbox<Name extends string = string, Row extends DataRow = DataRow> {
+  /** The row's title line: a field, or a function of the row (a direct message's other person). Default the view's `labelField`. */
+  title?: Name | ((row: Row) => string | null | undefined);
+  /** One line under the title (the latest message, a description): a field, or a function of the row. */
+  preview?: Name | ((row: Row) => string | null | undefined);
+  /** A date or timestamp field: the row's short relative time. */
+  time?: Name;
+  /** Who it's from, in words: a line under the preview, and the avatar's initials. A field, or a function of the row. */
+  from?: Name | ((row: Row) => string | null | undefined);
+  /** An image field: the avatar beside the row. */
+  avatar?: Name;
+  /** A yes/no field, or a function of the row: bold, with a dot, while it's unread. */
+  unread?: Name | ((row: Row) => boolean);
+  /** A field drawn as a badge at the row's end, in its `fields.<name>.tones`. */
+  badge?: Name;
+  /** What fills the left rail: the view's segments (and saved views). Default `"segments"` when the view has segments. */
+  rail?: "segments" | "none";
+  /** The view action the `e` key runs on the open row ("done", "close"). Default an action named `done` or `close`. */
+  doneAction?: string;
+  /**
+   * The view action run when an unread row is opened, to mark it read. Default an action named
+   * `markRead`, if the view declares one. Genesis never writes on its own.
+   */
+  markRead?: string;
+}
+
+/** One row as an inbox draws it (`ResourceView.inboxRow`). @stability Beta */
+export interface InboxRow {
+  readonly id: string;
+  readonly title: string;
+  readonly preview?: string;
+  /** The time field's value, as stored (an ISO date or timestamp). */
+  readonly time?: string;
+  readonly from?: string;
+  readonly avatar?: string;
+  readonly unread: boolean;
+  readonly badge?: { readonly label: string; readonly tone?: ViewTone };
+}
+
+/**
  * How a record opens from a view (a record page, ADR 0021): a **side peek** (a panel at the edge,
  * the list still beside it), a **center peek** (a dialog over the list) or a full **page** (the
  * record's own route).
@@ -428,6 +625,8 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   board?: ViewBoard<FieldNameOf<C>>;
   /** How the rows show as a gallery of photos (`mode="grid"`), in place of cards. */
   gallery?: ViewGallery<FieldNameOf<C>>;
+  /** How the rows show as an inbox (`type="inbox"`): a list like messages beside the open record. */
+  inbox?: ViewInbox<FieldNameOf<C>, Row>;
   /** Group rows under headers by this field. */
   groupBy?: FieldNameOf<C>;
   /**
@@ -449,6 +648,59 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   orderBy?: { field: FieldNameOf<C>; direction?: "asc" | "desc"; nulls?: "first" | "last"; manual?: boolean };
   /** Bumped when stored preferences (saved views, column order) change shape. */
   version?: number;
+  /**
+   * The fields a person can narrow the list by (ADR 0017 §1): drawn as a filter bar on the web,
+   * sent to the server, and kept in the URL (`f.<field>`) once the app gives the list a URL adapter.
+   */
+  filters?: readonly ViewFilter<FieldNameOf<C>>[];
+  /** Named tabs over the list, each with its own filter and an optional count (ADR 0017 §1). */
+  segments?: readonly ViewSegment<FieldNameOf<C>>[];
+  /**
+   * The view types a person may switch between (ADR 0017): `table`, `list`, `grid`, `board`,
+   * `calendar`, `gallery` or a registered type's id. Default: table, list and grid, plus each
+   * type the view has a block for (gallery, board, calendar). A switcher shows when there are two
+   * or more; each person's choice is kept in the app's saved-view store.
+   */
+  types?: readonly string[];
+  /** Per field, a total shown in each group's header and the list's footer (`sum`, `avg`, `min`, `max`, `count`). */
+  totals?: Readonly<Partial<Record<FieldNameOf<C>, ViewTotal>>>;
+  /**
+   * A row's tone (an overdue task, a paused client), drawn from tokens: a leading bar and a
+   * tinted row on the web. Return nothing for a plain row.
+   */
+  rowTone?: (row: Row) => ViewTone | null | undefined;
+  /** Offer "Export CSV" on the list (`true`, or which columns, the file's name and the cap). */
+  export?: boolean | ViewExport<FieldNameOf<C>>;
+  /**
+   * A refused row or bulk action: `disable` (default) shows it with the guard's reason, `hide`
+   * leaves it out (for an action only some people ever have).
+   */
+  refusals?: "disable" | "hide";
+}
+
+/** A declared filter as a renderer draws it: everything resolved. @stability Beta */
+export interface ResolvedFilter {
+  readonly field: string;
+  readonly label: string;
+  readonly kind: ViewFilterKind;
+  /** For `choice`: each value with its words and tone, in the contract's order. */
+  readonly options: readonly { readonly value: string; readonly label: string; readonly tone?: ViewTone }[];
+  /** For `range`: whether the values are dates (`date`), timestamps (`datetime`) or numbers. */
+  readonly input?: "date" | "datetime" | "number";
+  /**
+   * For a `date` input over a timestamp column (one shown as a date): a day is the viewer's day, so
+   * a range runs from that day's start in their zone to the next day's start.
+   */
+  readonly instants?: boolean;
+  readonly default?: ViewFilterValue;
+}
+
+/** A segment as a renderer draws it. @stability Beta */
+export interface ResolvedSegment {
+  readonly id: string;
+  readonly label: string;
+  readonly count: boolean;
+  readonly columns?: string;
 }
 
 /** A column as a renderer draws it: everything resolved. */
@@ -469,6 +721,12 @@ export interface ResolvedColumn<Row extends DataRow = DataRow> {
   /** Whether to show the cell. Without a viewer it answers for no one (fail closed). */
   when?: (row: Row, viewer?: Viewer) => boolean;
   timeZone?: ViewField["timeZone"];
+  /** `ViewField.emphasis`; the label field's column is `title` unless the view says otherwise. */
+  emphasis?: ViewEmphasis;
+  /** `false` when the header mustn't sort (`ViewField.sortable`, or a computed column). */
+  sortable?: boolean;
+  hideBelow?: ViewBreakpoint;
+  width?: number | string;
 }
 
 /** A form field as a renderer draws it. */
@@ -547,4 +805,37 @@ export interface ResourceView<C extends ResourceContract = ResourceContract, Row
    * which GalleryGrid and NativeGalleryGrid draw as a placeholder tile; leave those out of a Lightbox.
    */
   galleryItem(row: Row, override?: Partial<ViewGallery>): GalleryItem | undefined;
+  /** The declared filters, resolved (ADR 0017). Empty without `filters`. @stability Beta */
+  filters(): readonly ResolvedFilter[];
+  /** The declared segments, resolved. Empty without `segments`. @stability Beta */
+  segments(): readonly ResolvedSegment[];
+  /**
+   * A segment's rows as provider filters, for this viewer. Throws {@link ViewDefinitionError} for
+   * an id the view doesn't define. @stability Beta
+   */
+  segmentFilters(id: string, viewer?: Viewer): FilterParam[];
+  /**
+   * Declared filters' values as provider filters. Only declared filters count, and a value a
+   * filter doesn't accept (a choice it doesn't offer, a malformed range) is dropped: the URL is
+   * an allow-list, never a way to send any field. Days and times on a timestamp column are read
+   * on `zone`'s clock (the viewer's; default the device's): a day runs from its start to the next
+   * day's start, and a time with no offset is that zone's. @stability Beta
+   */
+  filterParams(values: Readonly<Record<string, ViewFilterValue | undefined>> | null | undefined, zone?: string): FilterParam[];
+  /** The view types a person may switch between, in order (`types`, or the derived default). @stability Beta */
+  types(): readonly string[];
+  /** The row's tone (`rowTone`), or undefined. @stability Beta */
+  rowTone(row: Row): ViewTone | undefined;
+  /**
+   * What "Export CSV" writes for a column preset, or undefined when the view has no `export`.
+   * @stability Beta
+   */
+  exportPlan(preset?: string): { readonly columns: readonly ResolvedColumn<Row>[]; readonly filename: string; readonly maxRows: number; readonly raw: boolean } | undefined;
+  /**
+   * The row as an inbox draws it, by the view's `inbox` block (its title from `labelField` when
+   * the block says none). Works without a block too: the summary's title. @stability Beta
+   */
+  inboxRow(row: Row): InboxRow;
+  /** The inbox's `done` and `markRead` actions, when the view declares them. @stability Beta */
+  inboxActions(): { readonly done?: string; readonly markRead?: string };
 }

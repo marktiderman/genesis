@@ -93,6 +93,8 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: "@marktiderman/genesis-support", file: "migrations/0003_genesis_support_findings.sql", test: "migrations/tests/0003_genesis_support_findings.test.sql" },
       // Tickets and tenants: the rename, tenant_id, agents (needs the app's default-tenant hook).
       { package: "@marktiderman/genesis-support", file: "migrations/0004_genesis_support_tickets.sql", test: "migrations/tests/0004_genesis_support_tickets.test.sql" },
+      // The Data Studio's keys after the rename, and an agent's unread count.
+      { package: "@marktiderman/genesis-support", file: "migrations/0016_genesis_support_ticket_fixes.sql", test: "migrations/tests/0016_genesis_support_ticket_fixes.test.sql" },
     ],
     privacy: {
       collects: [
@@ -144,6 +146,8 @@ export function defineSupportChatBlock(options: { requires?: readonly string[] }
         { package: "@marktiderman/genesis-support", file: "migrations/0014_genesis_support_agent_tools.sql", test: "migrations/tests/0014_genesis_support_agent_tools.test.sql" },
         // Bounds: the report labels open tickets in one call or at most 1,000; mentions end with the agent.
         { package: "@marktiderman/genesis-support", file: "migrations/0015_genesis_support_agent_tools_bounds.sql", test: "migrations/tests/0015_genesis_support_agent_tools_bounds.test.sql" },
+        // The queue as a list a provider pages and counts (no cap of its own); after 0013's queues.
+        { package: "@marktiderman/genesis-support", file: "migrations/0018_genesis_support_agent_queue.sql", test: "migrations/tests/0018_genesis_support_agent_queue.test.sql" },
       ],
     },
   });
@@ -197,7 +201,11 @@ export function defineSupportHelpdeskBlock(options: { basePath?: string; require
         { path: paths.help, description: "the help center", signedIn: true },
         { path: `${paths.help}/[slug]`, description: "one help article", signedIn: true },
       ],
-      migrations: [{ package: "@marktiderman/genesis-support", file: "migrations/0010_genesis_support_help_center.sql", test: "migrations/tests/0010_genesis_support_help_center.test.sql" }],
+      migrations: [
+        { package: "@marktiderman/genesis-support", file: "migrations/0010_genesis_support_help_center.sql", test: "migrations/tests/0010_genesis_support_help_center.test.sql" },
+        // A question routed elsewhere keeps no answer.
+        { package: "@marktiderman/genesis-support", file: "migrations/0017_genesis_support_help_answers.sql", test: "migrations/tests/0017_genesis_support_help_answers.test.sql" },
+      ],
       privacy: {
         notes: ["With AI answers on, a question the person chooses to ask and its answer are kept with their account and readable by the tenant's agents, and the question and the tenant's published articles go to the AI vendor. People agree first, unless the app's terms cover it. A question the app's safety protocol routes elsewhere isn't kept."],
       },

@@ -5,7 +5,7 @@ import { reportError } from "../errors";
 import { stableJson } from "./draft-controller";
 import { NO_VIEWER, type GenesisViewerRoles, type Viewer } from "../viewer";
 import { dropPendingWrites, flushPendingWrites } from "./mutation-mode";
-import { PersistedViewerContext } from "../provider/context";
+import { PersistedClientContext, PersistedViewerContext } from "../provider/context";
 
 export { NO_VIEWER, type GenesisViewerRoles, type Viewer };
 
@@ -107,6 +107,12 @@ export interface ViewerContext {
 }
 
 const ViewerContextValue = createContext<ViewerContext | null>(null);
+/**
+ * The cache an outer ViewerScope guarded, and for whom: a nested scope keeps its cache only when
+ * it's that same cache. With another QueryClientProvider between them, the inner cache was never
+ * emptied for this viewer.
+ */
+const GuardedCacheContext = createContext<{ viewer: string | null; client: unknown } | null>(null);
 
 /** The viewer and scope from the nearest `ViewerScope`. Throws without one: screens that cache per viewer need it. */
 export function useViewerScope(): ViewerContext {
@@ -140,9 +146,11 @@ export interface ViewerScopeProps {
   /** The signed-in viewer's id, null when signed out, undefined while the session loads. */
   viewer: string | null | undefined;
   /**
-   * The viewer a persisted cache was saved for. When the first known viewer
-   * is this one, the restored cache is kept; otherwise it's emptied. Inside a
-   * `GenesisProvider` with `persist`, it defaults to its `persistScope`'s user.
+   * The viewer whose session filled the cache before this scope mounted: a persisted cache
+   * restored for them, or a router's loaders that prefetched under their session. When the first
+   * known viewer is this one, the cache is kept; otherwise it's emptied. Inside a
+   * `GenesisProvider` with `persist`, it defaults to its `persistScope`'s user. A ViewerScope
+   * nested inside another for the same viewer always keeps it: the outer one already guards it.
    */
   persistedViewer?: string | null;
   /** Where the viewer is working (see `ResourceScope`). Changing it doesn't remount or clear anything. */
@@ -210,8 +218,13 @@ const reportedScopeZones = new Set<string>();
  */
 export function ViewerScope({ viewer, persistedViewer: persistedViewerProp, scope, roles, timeZone, scopeTimeZone, fallback = null, children }: ViewerScopeProps) {
   const queryClient = useQueryClient();
+  // The viewer GenesisProvider restored reads for, only over the client it restored them into.
+  const restoredInto = useContext(PersistedClientContext);
   const restoredFor = useContext(PersistedViewerContext);
-  const persistedViewer = persistedViewerProp !== undefined ? persistedViewerProp : restoredFor;
+  // An outer ViewerScope already emptied the cache for its viewer: a nested scope for the same
+  // viewer (a sub-area with its own scope or roles) keeps it.
+  const outer = useContext(GuardedCacheContext);
+  const persistedViewer = persistedViewerProp !== undefined ? persistedViewerProp : restoredInto === queryClient ? restoredFor : undefined;
   const zone = personTimeZone({ timeZone });
   // Memoised, and scopeClock reports a zone once, so a bad zone isn't reported on every render.
   const scopeZone = useMemo(() => scopeClock(scopeTimeZone, zone), [scopeTimeZone, zone]);
@@ -244,9 +257,12 @@ export function ViewerScope({ viewer, persistedViewer: persistedViewerProp, scop
   // Who the children were last mounted for, and how many times they were reset. Undefined before
   // the first mount.
   const [mounted, setMounted] = useState<{ viewer: string | null; epoch: number } | undefined>(undefined);
+  const guarded = useMemo(() => ({ viewer: viewer ?? null, client: queryClient as unknown }), [viewer, queryClient]);
   if (viewer === undefined) return <>{fallback}</>;
   if (mounted === undefined || mounted.viewer !== viewer) {
-    const keep = mounted === undefined && persistedViewer !== undefined && persistedViewer === viewer;
+    const keep =
+      mounted === undefined &&
+      ((outer !== null && outer.viewer === viewer && outer.client === queryClient) || (persistedViewer !== undefined && persistedViewer === viewer));
     // Nothing for the new viewer is mounted yet, so emptying now can't strand
     // a fetch; the old viewer's screens unmount with this render.
     if (!keep) {
@@ -262,7 +278,9 @@ export function ViewerScope({ viewer, persistedViewer: persistedViewerProp, scop
   }
   return (
     <ViewerContextValue.Provider value={value}>
-      <Fragment key={`${viewer ?? "signed-out"}#${mounted.epoch}`}>{children}</Fragment>
+      <GuardedCacheContext.Provider value={guarded}>
+        <Fragment key={`${viewer ?? "signed-out"}#${mounted.epoch}`}>{children}</Fragment>
+      </GuardedCacheContext.Provider>
     </ViewerContextValue.Provider>
   );
 }

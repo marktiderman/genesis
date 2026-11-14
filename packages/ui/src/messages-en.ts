@@ -124,6 +124,18 @@ export const uiMessages = {
     range: "Showing {from}–{to} of {total}",
     /** `{page}` / `{pages}`. */
     pageOf: "{page} / {pages}",
+    /** A group's count when only some of its rows are loaded (server paging). `{count}`: rows loaded. */
+    groupCountLoaded: "{count} loaded",
+    /** The row menu's button. `{name}`: the row's label. */
+    rowActions: "Actions for {name}",
+    /** The footer row's label for a list's totals. */
+    totals: "Total",
+    /** The footer's label when its totals cover only the rows loaded (server paging). */
+    totalsLoaded: "Total of loaded rows",
+    /** After a group's totals when they cover only its rows loaded. */
+    loadedOnly: "(loaded rows)",
+    /** A row menu's Edit or Delete the screen doesn't allow on this row, with no reason of its own. */
+    notAllowed: "Not allowed for this row",
   },
   confirmDelete: {
     title: "Delete this record?",
@@ -150,13 +162,98 @@ export const uiMessages = {
     clearAll: "Clear all",
     saveViewTitle: "Save Current View",
     viewNamePlaceholder: "View name (e.g. 'Active Sessions')",
+    /** The declared filters' button and sheet title (ADR 0017). */
+    filters: "Filters",
+    /** A range filter's ends. */
+    from: "From",
+    to: "To",
+    /** The segments' accessible name. */
+    segments: "Segments",
+    /** `{label}`: a segment's label; `{count}`: its rows. */
+    segmentCount: "{label}, {count}",
+    /** Saved view scopes. */
+    personal: "Only me",
+    team: "My team",
+    /** Shown when the saved-view store can't be reached. */
+    viewsFailed: "Saved views couldn't be loaded.",
   },
   bulk: {
+    /** A batch the page stopped because the list moved to another resource while it ran. */
+    resourceChanged: "The list changed before these were deleted, so they were left as they were.",
     /** `{count}`: selected rows. */
     selected: "{count} selected",
+    /** After a full page is selected. `{total}`: every row the list's filters match. */
+    selectAllMatching: "Select all {total} matching",
+    /** Every matching row is selected. `{total}`: their count. */
+    allMatching: "All {total} matching selected",
+    /** A bulk action that takes the loaded rows only, while every matching row is selected. `{count}`: the rows loaded. */
+    loadedOnly: "Works on loaded rows only: select the {count} on this page instead of all matching",
+    /** The confirm step of a bulk Delete. `{count}`: rows to delete. */
+    deleteTitle: "Delete {count} records?",
+    /** A bulk action finished. `{done}`: rows changed; `{label}`: the action. */
+    done: "{label}: {done} done",
+    /** Rows a bulk action skipped. `{count}`: how many; `{reason}`: the first refusal's words. */
+    skipped: "{count} skipped: {reason}",
+    /** A bulk action no selected row allows. `{reason}`: the refusal. */
+    noneAllowed: "None of the selected rows allows this: {reason}",
+  },
+  /** A view drawn as an inbox (`type="inbox"`). */
+  inbox: {
+    /** The rail's section of the view's segments. */
+    views: "Views",
+    /** The rail's section of saved views. */
+    saved: "Saved",
+    /** The search box over the list. */
+    search: "Search",
+    /** The reading pane with nothing open. */
+    pickTitle: "Nothing open",
+    pickBody: "Pick one from the list to read it here.",
+    /** The open record is gone or hidden from this viewer. */
+    goneTitle: "Not available",
+    goneBody: "It may have been deleted, or it isn't shared with you.",
+    back: "Back",
+    details: "Details",
+  },
+  /** A view as a spreadsheet (`type="sheet"`). */
+  sheet: {
+    /** The grid's accessible name. `{title}`: the view's title. */
+    label: "{title} sheet",
+    /** A column the view doesn't let anyone write. */
+    readOnly: "Read-only",
+    /** `{count}`: cells a paste left as they were (read-only, or the row refuses changes). */
+    skipped: "{count} read-only cells were left as they were.",
+    /** `{count}`: cells that weren't saved; each is marked with its reason. */
+    failed: "{count} cells weren't saved. Each is marked with its reason.",
+    saveFailed: "This change couldn't be saved.",
+    /** A change still waiting to save when the sheet showed another list: it wasn't sent there. */
+    moved: "Not saved: the sheet moved to another list before this change went out.",
+    notNumber: "That isn't a number.",
+    notJson: "That isn't valid JSON.",
+    /** A yes/no cell takes true or false (yes or no, 1 or 0). */
+    notBoolean: "That isn't true or false.",
+    undo: "Undo last change",
+    undone: "Undone.",
+    nothingToUndo: "Nothing to undo.",
+    previous: "Previous",
+    next: "Next",
+    /** `{page}` of `{pages}`. */
+    page: "Page {page} of {pages}",
+  },
+  /** CSV export from a list (ADR 0017 §8). */
+  export: {
+    action: "Export CSV",
+    /** `{rows}`: rows written. */
+    done: "Exported {rows} rows",
+    /** `{rows}`: rows written before the cap. */
+    truncated: "Exported the first {rows} rows; narrow the list to export the rest",
+    failed: "The export didn't finish",
+    /** The page searches several fields on top of the list's own search: no one query says both. */
+    searchNotExportable: "This search can't be exported as it stands: search one field, or clear the search, then export",
   },
   view: {
     mode: "View mode",
+    /** The view-type switcher's accessible name (ADR 0017). */
+    type: "View type",
     grid: "Grid view",
     table: "Table view",
     list: "List view",

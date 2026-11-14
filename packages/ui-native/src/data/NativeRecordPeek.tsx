@@ -35,6 +35,12 @@ export interface NativeRecordPeekProps<T extends Row = Row> extends Omit<NativeR
    * promise: the sheet closes when it resolves, and a rejection is shown in plain words.
    */
   onDelete?: (row: T) => unknown;
+  /**
+   * `false` when `onDelete` confirms on its own (a list's own delete handler): the peek calls it at
+   * once instead of asking first. Default `true`, as genesis-ui's RecordPeek, so one `onDelete`
+   * means the same on both.
+   */
+  confirmDelete?: boolean;
   /** The screen's own rule, as NativeResourceView's `can`: `false` hides Edit or Delete, a sentence refuses it. Only narrows the view's guards. */
   can?: NativeResourceScreenCan<T>;
   /** Above the record (a link to its full page). */
@@ -51,6 +57,7 @@ export function NativeRecordPeek<T extends Row = Row>({
   onClose,
   onEdit,
   onDelete,
+  confirmDelete: confirmFirst = true,
   can,
   header,
   snapPoints = ["60%", "92%"],
@@ -82,8 +89,12 @@ export function NativeRecordPeek<T extends Row = Row>({
       setDeleting(false);
     }
   };
+  // A handler that confirms on its own owns the rest (its confirm, the write, closing the peek), as
+  // on the web: the peek hands the call straight through and stays open.
   const confirmDelete = (r: T) =>
-    Alert.alert(labels.deleteTitle ?? fill(words.confirmTitle, { name: title }), labels.deleteBody ?? words.confirmBody, [
+    !confirmFirst
+      ? void onDelete?.(r)
+      : Alert.alert(labels.deleteTitle ?? fill(words.confirmTitle, { name: title }), labels.deleteBody ?? words.confirmBody, [
       { text: labels.cancel ?? messages.common.cancel, style: "cancel" },
       { text: deleteLabel, style: "destructive", onPress: () => void runDelete(r) },
     ]);

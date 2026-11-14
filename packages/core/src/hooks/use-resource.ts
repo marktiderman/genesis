@@ -36,6 +36,12 @@ import { DataWriteError, isDataWriteError, NO_ROWS_MATCHED } from "../schema/wri
 export interface UseResourceOptions<T> extends MutationModeOptions {
   defaultSort?: SortParam;
   /**
+   * A second sort under the list's own (`sorts: [sort, thenSort]`), skipped when both name one
+   * field: a list grouped by a field keeps its order inside each group. Applies on a provider
+   * whose capabilities report `multiSort`.
+   */
+  thenSort?: SortParam;
+  /**
    * Re-synced whenever its value changes (deep-equal, order-independent),
    * not just its identity — safe to pass a scope/audience-derived array that
    * changes across renders. This only covers CHANGES on an already-mounted
@@ -175,6 +181,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
 ): UseResourceReturn<T> {
   const {
     defaultSort,
+    thenSort,
     defaultFilters,
     defaultPerPage = 25,
     defaultPage = 1,
@@ -263,11 +270,13 @@ export function useResource<T extends BaseRecord = BaseRecord>(
       filters: filters.length > 0 ? filters : undefined,
       select,
     };
+    if (sort && thenSort && thenSort.field !== sort.field) p.sorts = [sort, thenSort];
     if (searchQuery && searchFieldsOption && searchFieldsOption.length > 0) {
       p.search = { query: searchQuery, fields: searchFieldsOption };
     }
     return p;
-  }, [page, perPage, sort, filters, select, searchQuery, searchFieldsOption]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- thenSort by value
+  }, [page, perPage, sort, filters, select, searchQuery, searchFieldsOption, thenSort?.field, thenSort?.order, thenSort?.nulls]);
 
   // -------------------------------------------------------------------------
   // List query

@@ -10,6 +10,8 @@ import { titleCase } from "../utils";
 import { isTimeZone } from "../dates";
 import { ViewDefinitionError } from "./errors";
 import { linkProblems, resolveLink } from "./link";
+import { filterProblems, filterValueParams, resolveFilters, segmentProblems, whereParams } from "./list-state";
+import type { FilterParam } from "../provider/types";
 import type {
   Allowed,
   ComputedColumn,
@@ -24,7 +26,9 @@ import type {
   ViewCalendar,
   ViewDefinition,
   ViewField,
+  ViewFilter,
   ViewGallery,
+  ViewInbox,
   RecordOpen,
 } from "./types";
 import { RECORD_OPEN_MODES } from "./types";
@@ -128,11 +132,14 @@ export function valueText(labels: Readonly<Record<string, string>> | undefined, 
 }
 
 const KIND: Readonly<Record<string, string>> = { datetime: "date or timestamp", boolean: "yes/no", number: "number" };
+const EMPHASES: readonly string[] = ["title", "secondary", "muted"];
+const BREAKPOINTS: readonly string[] = ["sm", "md", "lg", "xl"];
+const TOTALS: readonly string[] = ["sum", "avg", "min", "max", "count"];
 const LAYOUTS: readonly string[] = ["month", "weeks", "agenda", "lanes"];
 
 /** A calendar block's keys: anything else in one is a mistake `defineView` names. */
 const CALENDAR_KEYS: readonly string[] = [
-  "field", "endField", "durationField", "durationUnit", "allDayField", "laneBy", "layout", "phoneLayout", "weeks", "weekStartsOn",
+  "field", "endField", "durationField", "durationUnit", "maxDuration", "allDayField", "laneBy", "layout", "phoneLayout", "weeks", "weekStartsOn",
 ];
 
 /**
@@ -159,6 +166,11 @@ export function calendarProblems(fields: readonly Pick<FieldSchema, "name" | "ty
     problems.push(`calendar.durationUnit "${String(calendar.durationUnit)}" isn't minutes, hours or days`);
   }
   if (calendar.durationUnit !== undefined && calendar.durationField === undefined) problems.push("calendar.durationUnit needs a durationField");
+  if (calendar.maxDuration !== undefined) {
+    if (typeof calendar.maxDuration !== "number" || !Number.isFinite(calendar.maxDuration) || calendar.maxDuration <= 0) {
+      problems.push(`calendar.maxDuration is a number above 0, not ${JSON.stringify(calendar.maxDuration)}`);
+    } else if (calendar.durationField === undefined) problems.push("calendar.maxDuration needs a durationField");
+  }
   if (calendar.laneBy !== undefined && !byName.has(calendar.laneBy)) problems.push(`calendar.laneBy names "${calendar.laneBy}", which isn't a field`);
   for (const key of ["layout", "phoneLayout"] as const) {
     const value = calendar[key];
@@ -185,6 +197,44 @@ export function boardChoices(field: Pick<FieldSchema, "type" | "array" | "enumVa
   if (field.enumValues?.length) return field.enumValues;
   if (field.type === "boolean") return ["true", "false"];
   return undefined;
+}
+
+/** An inbox block's keys: anything else in one is a mistake `defineView` names. */
+const INBOX_KEYS: readonly string[] = ["title", "preview", "time", "from", "avatar", "unread", "badge", "rail", "doneAction", "markRead"];
+
+/**
+ * What's wrong with an inbox block for these fields, one sentence each (empty when it's fine).
+ *
+ * @stability Beta
+ */
+export function inboxProblems(fields: readonly Pick<FieldSchema, "name" | "type" | "array">[], inbox: Partial<ViewInbox>, actions: readonly string[] = []): string[] {
+  const problems: string[] = [];
+  const byName = new Map(fields.map((f) => [f.name, f]));
+  const named = (key: "title" | "preview" | "time" | "from" | "avatar" | "badge", type?: "string" | "datetime") => {
+    const name = inbox[key];
+    if (name === undefined) return;
+    if (typeof name === "function" && (key === "title" || key === "preview" || key === "from")) return;
+    const field = typeof name === "string" ? byName.get(name) : undefined;
+    if (!field) problems.push(`inbox.${key} names "${String(name)}", which isn't a field`);
+    else if (type && (field.type !== type || field.array)) problems.push(`inbox.${key} "${name}" isn't a ${type === "datetime" ? "date or timestamp" : "text"} field`);
+  };
+  named("title");
+  named("preview");
+  named("time", "datetime");
+  named("from");
+  named("avatar", "string");
+  named("badge");
+  if (inbox.unread !== undefined && typeof inbox.unread !== "function") {
+    const field = typeof inbox.unread === "string" ? byName.get(inbox.unread) : undefined;
+    if (!field) problems.push(`inbox.unread names "${String(inbox.unread)}", which isn't a field (or pass a function of the row)`);
+    else if (field.type !== "boolean") problems.push(`inbox.unread "${inbox.unread}" isn't a yes/no field`);
+  }
+  if (inbox.rail !== undefined && inbox.rail !== "segments" && inbox.rail !== "none") problems.push(`inbox.rail is "segments" or "none", not ${JSON.stringify(inbox.rail)}`);
+  for (const key of ["doneAction", "markRead"] as const) {
+    const name = inbox[key];
+    if (name !== undefined && (typeof name !== "string" || !actions.includes(name))) problems.push(`inbox.${key} names "${String(name)}", which isn't one of the view's actions`);
+  }
+  return problems;
 }
 
 /** A gallery block's keys: anything else in one is a mistake `defineView` names. */
@@ -353,6 +403,19 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     else if (!byName.get(name)?.references) problems.push(`fields.${name}.missingLabel is set, but "${name}" isn't a link`);
   }
   for (const [name, v] of Object.entries(viewFields)) problems.push(...linkProblems(name, v?.link, byName.get(name)?.references));
+  // Column hints and emphasis (ADR 0017).
+  const titled: string[] = [];
+  for (const [name, v] of Object.entries(viewFields)) {
+    if (!v) continue;
+    if (v.emphasis !== undefined && !EMPHASES.includes(v.emphasis)) problems.push(`fields.${name}.emphasis is title, secondary or muted, not ${JSON.stringify(v.emphasis)}`);
+    if (v.emphasis === "title") titled.push(name);
+    if (v.sortable !== undefined && typeof v.sortable !== "boolean") problems.push(`fields.${name}.sortable isn't true or false`);
+    if (v.hideBelow !== undefined && !BREAKPOINTS.includes(v.hideBelow)) problems.push(`fields.${name}.hideBelow is sm, md, lg or xl, not ${JSON.stringify(v.hideBelow)}`);
+    if (v.width !== undefined && !(typeof v.width === "number" ? Number.isFinite(v.width) && v.width > 0 : typeof v.width === "string" && v.width.trim() !== "")) {
+      problems.push(`fields.${name}.width is a number of pixels or a CSS length, not ${JSON.stringify(v.width)}`);
+    }
+  }
+  if (titled.length > 1) problems.push(`fields: only one field is the row's title (emphasis "title"); ${titled.map((n) => `"${n}"`).join(" and ")} both are`);
   if (definition.editLinks !== undefined && typeof definition.editLinks !== "boolean") problems.push("editLinks isn't true or false");
   for (const [name, v] of Object.entries(viewFields)) {
     if (v?.labelField === undefined) continue;
@@ -432,6 +495,18 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       problems.push(...galleryProblems(fields, gallery));
     }
   }
+  const rawInbox = (definition as { inbox?: unknown }).inbox;
+  let inbox: Readonly<ViewInbox> | undefined;
+  if (rawInbox !== undefined) {
+    if (!rawInbox || typeof rawInbox !== "object" || Array.isArray(rawInbox)) {
+      problems.push("inbox isn't an object");
+    } else {
+      for (const key of Object.keys(rawInbox)) if (!INBOX_KEYS.includes(key)) problems.push(`inbox.${key} isn't an inbox setting`);
+      inbox = Object.freeze({ ...(rawInbox as ViewInbox) });
+      const actionNames = (Array.isArray(definition.actions) ? definition.actions : []).map((a) => (a && typeof a.name === "string" ? a.name.trim() : ""));
+      problems.push(...inboxProblems(fields, inbox, actionNames));
+    }
+  }
   if (definition.orderBy) {
     known(definition.orderBy.field, "orderBy");
     const { nulls } = definition.orderBy as { nulls?: unknown };
@@ -463,7 +538,66 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     }
     if (action.can !== undefined && typeof action.can !== "function") problems.push(`${where}.can isn't a function`);
     if (action.destructive !== undefined && typeof action.destructive !== "boolean") problems.push(`${where}.destructive isn't true or false`);
+    const bulk = (action as { bulk?: unknown }).bulk;
+    if (bulk !== undefined && typeof bulk !== "boolean") {
+      if (!bulk || typeof bulk !== "object" || Array.isArray(bulk)) problems.push(`${where}.bulk is true or { label, confirm, run, matching }`);
+      else {
+        const b = bulk as { label?: unknown; confirm?: unknown; run?: unknown; matching?: unknown };
+        if (b.label !== undefined && (typeof b.label !== "string" || !b.label.trim())) problems.push(`${where}.bulk.label isn't text`);
+        if (b.confirm !== undefined && typeof b.confirm !== "string") problems.push(`${where}.bulk.confirm isn't text`);
+        if (b.run !== undefined && typeof b.run !== "function") problems.push(`${where}.bulk.run isn't a function`);
+        if (b.matching !== undefined && typeof b.matching !== "boolean") problems.push(`${where}.bulk.matching isn't true or false`);
+        if (b.matching === true && typeof b.run !== "function") problems.push(`${where}.bulk.matching needs a run that takes the list's filters`);
+      }
+    }
   });
+  // Filters, segments, types, totals, tone, export (ADR 0017).
+  problems.push(...filterProblems(byName, definition.filters));
+  problems.push(...segmentProblems(byName, definition.segments, (name) => name === "default" || Boolean(own(columnLists, name))));
+  const rawTypes = (definition as { types?: unknown }).types;
+  if (rawTypes !== undefined) {
+    if (!Array.isArray(rawTypes) || rawTypes.length === 0) problems.push("types is a list of view types (table, list, grid, board, calendar, gallery or a registered one)");
+    else {
+      const seen = new Set<string>();
+      for (const t of rawTypes as unknown[]) {
+        if (typeof t !== "string" || !/^[a-z][a-z0-9-]{0,39}$/.test(t)) problems.push(`types lists ${JSON.stringify(t)}, which isn't a view type's id`);
+        else if (seen.has(t)) problems.push(`types lists "${t}" twice`);
+        else seen.add(t);
+        if (t === "board" && !definition.board) problems.push('types lists "board", which needs a board block');
+        if (t === "calendar" && !definition.calendar) problems.push('types lists "calendar", which needs a calendar block');
+        if (t === "gallery" && !definition.gallery) problems.push('types lists "gallery", which needs a gallery block');
+        if (t === "inbox" && !definition.inbox) problems.push('types lists "inbox", which needs an inbox block');
+      }
+    }
+  }
+  const rawTotals = (definition as { totals?: unknown }).totals;
+  if (rawTotals !== undefined) {
+    if (!rawTotals || typeof rawTotals !== "object" || Array.isArray(rawTotals)) problems.push("totals is a map of fields to sum, avg, min, max or count");
+    else
+      for (const [name, fn] of Object.entries(rawTotals)) {
+        const field = byName.get(name);
+        if (!field) problems.push(`totals names "${name}", which isn't a field`);
+        else if (!TOTALS.includes(fn as string)) problems.push(`totals.${name} is sum, avg, min, max or count, not ${JSON.stringify(fn)}`);
+        else if (fn !== "count" && field.type !== "number") problems.push(`totals.${name} is ${String(fn)}, but "${name}" isn't a number`);
+      }
+  }
+  if (definition.rowTone !== undefined && typeof definition.rowTone !== "function") problems.push("rowTone is a function of the row that returns a tone");
+  const rawExport = (definition as { export?: unknown }).export;
+  if (rawExport !== undefined && typeof rawExport !== "boolean") {
+    if (!rawExport || typeof rawExport !== "object" || Array.isArray(rawExport)) problems.push("export is true or { columns, filename, maxRows, raw }");
+    else {
+      const e = rawExport as { columns?: unknown; filename?: unknown; maxRows?: unknown; raw?: unknown };
+      if (e.columns !== undefined) {
+        if (!Array.isArray(e.columns) || e.columns.length === 0) problems.push("export.columns is a list of fields");
+        else for (const c of e.columns as unknown[]) if (typeof c !== "string" || !byName.has(c)) problems.push(`export.columns names ${JSON.stringify(c)}, which isn't a field`);
+      }
+      if (e.filename !== undefined && (typeof e.filename !== "string" || !/^[\w .-]{1,100}$/.test(e.filename))) problems.push("export.filename is a plain file name (letters, digits, spaces, . - _)");
+      if (e.maxRows !== undefined && !(Number.isInteger(e.maxRows) && (e.maxRows as number) > 0)) problems.push("export.maxRows is a whole number above 0");
+      if (e.raw !== undefined && typeof e.raw !== "boolean") problems.push("export.raw isn't true or false");
+    }
+  }
+  const rawRefusals = (definition as { refusals?: unknown }).refusals;
+  if (rawRefusals !== undefined && rawRefusals !== "disable" && rawRefusals !== "hide") problems.push(`refusals is "disable" or "hide", not ${JSON.stringify(rawRefusals)}`);
   if (problems.length) throw new ViewDefinitionError(contract.name, problems);
 
   // ── Words ────────────────────────────────────────────────────────────
@@ -516,6 +650,9 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   const defaultColumns: readonly (string | ComputedColumn<Row>)[] =
     own(columnLists, "default") ?? fields.filter((f) => !quiet(f)).map((f) => f.name);
   const presetNames = Object.freeze(["default", ...Object.keys(columnLists).filter((p) => p !== "default")]);
+  // The row's title is the field the view names (`emphasis: "title"`), else the label field.
+  const titleField = Object.entries(viewFields).find(([, v]) => v?.emphasis === "title")?.[0] ?? labelField;
+  const emphasisOf = (name: string) => own(viewFields, name)?.emphasis ?? (name === titleField ? ("title" as const) : undefined);
   // One field as a column: its words, hint, tones and guards. Cached, so every list and card shares it.
   const fieldColumns = new Map<string, ResolvedColumn<Row>>();
   const fieldColumn = (column: string): ResolvedColumn<Row> => {
@@ -534,6 +671,10 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       ...(v?.missingLabel ? { missingLabel: v.missingLabel } : {}),
       ...(v?.when ? { when: (row: Row, viewer: Viewer = NO_VIEWER) => v.when!(row, viewer) } : {}),
       ...(v?.timeZone ? { timeZone: v.timeZone } : {}),
+      ...(emphasisOf(column) ? { emphasis: emphasisOf(column)! } : {}),
+      ...(v?.sortable === false ? { sortable: false } : {}),
+      ...(v?.hideBelow ? { hideBelow: v.hideBelow } : {}),
+      ...(v?.width !== undefined ? { width: v.width } : {}),
     });
     fieldColumns.set(column, resolved);
     return resolved;
@@ -547,7 +688,8 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     const out = Object.freeze(
       list.filter((column) => typeof column !== "string" || readable(column)).map((column): ResolvedColumn<Row> => {
         if (typeof column !== "string") {
-          return Object.freeze({ key: column.key, label: column.label, display: column.display ?? "text", value: column.value });
+          // A computed column has no database column to sort by.
+          return Object.freeze({ key: column.key, label: column.label, display: column.display ?? "text", value: column.value, sortable: false });
         }
         return fieldColumn(column);
       }),
@@ -639,6 +781,18 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
         ...(a.confirm !== undefined ? { confirm: a.confirm } : {}),
         ...(a.description !== undefined ? { description: a.description } : {}),
         ...(a.destructive ? { destructive: true } : {}),
+        ...(a.bulk
+          ? {
+              bulk: Object.freeze({
+                label: (typeof a.bulk === "object" ? a.bulk.label : undefined) ?? a.label,
+                ...(((typeof a.bulk === "object" ? a.bulk.confirm : undefined) ?? a.confirm) !== undefined
+                  ? { confirm: ((typeof a.bulk === "object" ? a.bulk.confirm : undefined) ?? a.confirm)! }
+                  : {}),
+                matching: typeof a.bulk === "object" && a.bulk.matching === true,
+                batch: typeof a.bulk === "object" && typeof a.bulk.run === "function",
+              }),
+            }
+          : {}),
       }),
     ),
   );
@@ -684,6 +838,68 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     };
   };
 
+  // ── Filters, segments, types, tone, export (ADR 0017) ─────────────────
+  const resolvedFilters = resolveFilters(byName, definition.filters as readonly ViewFilter[] | undefined, label, (name) => own(viewFields, name) as ViewField | undefined, valueLabel);
+  const segmentList = Object.freeze((definition.segments ?? []).map((s) => Object.freeze({ ...s })));
+  const resolvedSegments = Object.freeze(
+    segmentList.map((s) => Object.freeze({ id: s.id, label: s.label, count: s.count === true, ...(s.columns ? { columns: s.columns } : {}) })),
+  );
+  const segmentFilters = (id: string, viewer: Viewer = NO_VIEWER): FilterParam[] => {
+    const segment = segmentList.find((s) => s.id === id);
+    if (!segment) throw new ViewDefinitionError(contract.name, [`no segment "${id}"`]);
+    const where = typeof segment.where === "function" ? segment.where(viewer) : segment.where;
+    return [...whereParams(where as Parameters<typeof whereParams>[0]), ...whereParams(segment.args)];
+  };
+  const viewTypes: readonly string[] = Object.freeze(
+    definition.types
+      ? [...definition.types]
+      : ["table", "list", "grid", ...(gallery ? ["gallery"] : []), ...(board ? ["board"] : []), ...(calendar ? ["calendar"] : []), ...(inbox ? ["inbox"] : [])],
+  );
+  const rowTone = (row: Row) => definition.rowTone?.(row) ?? undefined;
+  const exportPlan = (preset = "default") => {
+    if (!definition.export) return undefined;
+    const given = typeof definition.export === "object" ? definition.export : {};
+    const fromPreset = columns(own(columnLists, preset) || preset === "default" ? preset : "default").filter((c) => c.field && !(c.field as FieldFacts).sensitive);
+    const chosen = given.columns ? given.columns.map((name) => fieldColumn(name)).filter((c) => readable(c.key)) : fromPreset;
+    return Object.freeze({
+      columns: Object.freeze(chosen),
+      filename: given.filename ?? (nounPlural.replace(/[^\w .-]/g, "") || "export"),
+      maxRows: given.maxRows ?? 10_000,
+      raw: given.raw === true,
+    });
+  };
+
+  const actionNames = new Set(actionList.map((a) => a.name));
+  const inboxActionNames = Object.freeze({
+    ...((inbox?.doneAction ?? ["done", "close"].find((n) => actionNames.has(n))) ? { done: inbox?.doneAction ?? ["done", "close"].find((n) => actionNames.has(n))! } : {}),
+    ...((inbox?.markRead ?? (actionNames.has("markRead") ? "markRead" : undefined)) ? { markRead: inbox?.markRead ?? "markRead" } : {}),
+  });
+  const words = (value: unknown) => (value === null || value === undefined || value === "" ? undefined : String(value));
+  const inboxText = (pick: string | ((row: Row) => string | null | undefined) | undefined, row: Row) =>
+    pick === undefined ? undefined : typeof pick === "function" ? words(pick(row)) : words(row[pick]);
+  const inboxRow = (row: Row) => {
+    const block = (inbox ?? {}) as ViewInbox<string, Row>;
+    const title = inboxText(block.title, row) ?? summary(row).title;
+    const preview = inboxText(block.preview, row);
+    const from = inboxText(block.from, row);
+    const unread =
+      typeof block.unread === "function" ? block.unread(row as never) === true : typeof block.unread === "string" ? row[block.unread] === true : false;
+    const badgeValue = block.badge ? row[block.badge] : undefined;
+    const badgeTones = block.badge ? own(viewFields, block.badge)?.tones : undefined;
+    const badgeTone = badgeValue !== undefined && badgeValue !== null && badgeTones ? own(badgeTones, String(badgeValue)) : undefined;
+    const time = block.time ? row[block.time] : undefined;
+    return Object.freeze({
+      id: String(encodeRecordKey(contract, row as DataRow)),
+      title,
+      unread,
+      ...(preview ? { preview } : {}),
+      ...(time instanceof Date ? { time: time.toISOString() } : words(time) ? { time: words(time)! } : {}),
+      ...(from ? { from } : {}),
+      ...(block.avatar && words(row[block.avatar]) ? { avatar: words(row[block.avatar])! } : {}),
+      ...(words(badgeValue) ? { badge: Object.freeze({ label: valueLabel(block.badge!, badgeValue), ...(badgeTone ? { tone: badgeTone } : {}) }) } : {}),
+    });
+  };
+
   return Object.freeze({
     contract,
     definition: Object.freeze({
@@ -697,6 +913,11 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       ...(calendar ? { calendar } : {}),
       ...(board ? { board } : {}),
       ...(gallery ? { gallery } : {}),
+      ...(inbox ? { inbox } : {}),
+      ...(definition.filters ? { filters: Object.freeze(definition.filters.map((f) => Object.freeze({ ...f }))) } : {}),
+      ...(definition.segments ? { segments: segmentList } : {}),
+      ...(definition.types ? { types: viewTypes } : {}),
+      ...(definition.totals ? { totals: Object.freeze({ ...definition.totals }) } : {}),
     }) as Readonly<ViewDefinition<C, Row>>,
     resource: contract.name,
     noun,
@@ -717,5 +938,14 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     canAction,
     summary,
     galleryItem,
+    filters: () => resolvedFilters,
+    segments: () => resolvedSegments,
+    segmentFilters,
+    filterParams: (values: Parameters<ResourceView<C, Row>["filterParams"]>[0], zone?: string) => filterValueParams(resolvedFilters, byName, values, zone),
+    types: () => viewTypes,
+    rowTone,
+    exportPlan,
+    inboxRow,
+    inboxActions: () => inboxActionNames,
   });
 }

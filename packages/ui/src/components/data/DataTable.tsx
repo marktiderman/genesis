@@ -61,6 +61,8 @@ import {
   ChevronsRight,
 } from "lucide-react";
 import { TreeIndent } from "./TreeIndent";
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "../ui/context-menu";
+import { ChevronDown } from "lucide-react";
 import { cn } from "../../utils";
 import { fillMessage, useUiMessages } from "../../messages";
 import type { Density } from "../../hooks/use-view-settings";
@@ -132,6 +134,31 @@ export interface DataTableColumn<T> {
   defaultVisible?: boolean | undefined;
   /** Minimum width in px for resizing */
   minWidth?: number | undefined;
+  /**
+   * How much the column matters in a row (ADR 0017): `title` is drawn strongest, `secondary`
+   * and `muted` quieter. Meaning only: the classes come from tokens, so a brand restyles them.
+   */
+  emphasis?: "title" | "secondary" | "muted" | undefined;
+}
+
+/** A row's tone: a leading bar and a tinted row, from the status tokens. @stability Beta */
+export type DataTableRowTone = "success" | "warning" | "danger" | "info" | "muted";
+
+/**
+ * {@link DataTableProps.groups}: rows under headers. Rows come in group order (sort by the group
+ * first); a header goes wherever the group changes, so paging and server sort keep working.
+ *
+ * @stability Beta
+ */
+export interface DataTableGroups<T> {
+  /** The group a row is in: a stable key and the header's words. */
+  of: (item: T) => { key: string; label: ReactNode };
+  /** What a group's header shows after its count, such as its totals. */
+  summary?: ((items: T[]) => ReactNode) | undefined;
+  /** Remember the groups a person closed, under this key. Default: for this page only. */
+  persistKey?: string | undefined;
+  /** Say the counts cover only the rows loaded (server paging). */
+  partial?: boolean | undefined;
 }
 
 /* ── Component props ── */
@@ -243,6 +270,23 @@ export interface DataTableProps<T> {
    * "Previous page" / "Next page" as the arrows' names. Default false: arrows and "n / m".
    */
   pagerJumps?: boolean | undefined;
+  /** A row's tone (ADR 0017): a leading bar and a tinted row, from tokens. */
+  rowTone?: ((item: T) => DataTableRowTone | null | undefined) | undefined;
+  /** Classes for a row, after the table's own. */
+  rowClassName?: ((item: T) => string | undefined) | undefined;
+  /** Rows under group headers with counts, a summary and a toggle to close each. */
+  groups?: DataTableGroups<T> | undefined;
+  /** A footer row: each column's cell, by key (totals, say), over the rows shown. */
+  footer?: ((items: T[]) => Partial<Record<string, ReactNode>>) | undefined;
+  /**
+   * The footer's label, in the first column when that column has no cell of its own. Default
+   * "Total"; with `footerPartial`, words that say it covers only the rows loaded.
+   */
+  footerLabel?: ReactNode | undefined;
+  /** The footer covers only the rows loaded (server paging), not every row the list matches. */
+  footerPartial?: boolean | undefined;
+  /** The menu a right-click on a row opens (the same items as the row's own menu). */
+  rowContextMenu?: ((item: T) => ReactNode) | undefined;
 }
 
 /** {@link DataTableProps.tree}: each row's place in the tree, and how to open or close one. */
@@ -283,6 +327,7 @@ const KEY_LIST_FORMAT = {
     return Array.isArray(value) && value.every((k) => typeof k === "string") ? (value as string[]) : undefined;
   },
 };
+const NO_KEYS: string[] = [];
 
 /** One column of a `DataTable` header sort. */
 export interface DataTableSort {
@@ -343,6 +388,20 @@ function nextSort(prev: readonly SortEntry[], key: string, shiftKey: boolean): S
   if (shiftKey) return [...prev, { key, dir: "asc" }];
   return [{ key, dir: "asc" }];
 }
+
+const ROW_TONE: Record<DataTableRowTone, { row: string; bar: string }> = {
+  success: { row: "bg-success/5", bar: "shadow-[inset_3px_0_0_0_hsl(var(--success))]" },
+  warning: { row: "bg-warning/5", bar: "shadow-[inset_3px_0_0_0_hsl(var(--warning))]" },
+  danger: { row: "bg-destructive/5", bar: "shadow-[inset_3px_0_0_0_hsl(var(--destructive))]" },
+  info: { row: "bg-info/5", bar: "shadow-[inset_3px_0_0_0_hsl(var(--info))]" },
+  muted: { row: "text-muted-foreground", bar: "shadow-[inset_3px_0_0_0_hsl(var(--border))]" },
+};
+
+const EMPHASIS: Record<NonNullable<DataTableColumn<unknown>["emphasis"]>, string> = {
+  title: "font-medium text-foreground",
+  secondary: "text-muted-foreground",
+  muted: "text-xs text-muted-foreground",
+};
 
 function getCellClasses(col: DataTableColumn<unknown>) {
   const hide = col.hideBelow
@@ -644,6 +703,13 @@ export function DataTable<T>({
   clipCells = false,
   minWidth,
   pagerJumps = false,
+  rowTone,
+  rowClassName,
+  groups,
+  footer,
+  footerLabel,
+  footerPartial = false,
+  rowContextMenu,
 }: DataTableProps<T>) {
   const m = useUiMessages();
   const emptyMessage = emptyMessageProp ?? m.table.noRecords;
@@ -651,6 +717,14 @@ export function DataTable<T>({
   // Roving tabindex: one row's open button is the table's tab stop.
   const [activeRowKey, setActiveRowKey] = useState<string | null>(null);
   const cellDensity = DENSITY_CELL[density];
+  // Shift-click on a row's checkbox selects the range from the last one clicked.
+  const lastToggled = useRef<string | null>(null);
+  // Groups a person closed (`groups.persistKey` remembers them).
+  const [closedGroups, setClosedGroups] = usePersistedUiState<string[]>(
+    groups?.persistKey ? `dt-groups-${groups.persistKey}` : null,
+    NO_KEYS,
+    KEY_LIST_FORMAT,
+  );
   const headDensity = DENSITY_HEAD[density];
   // ── Multi-column sort ──
   // Controlled through `sort` / `onSortChange`, or kept here. Either way it
@@ -887,7 +961,7 @@ export function DataTable<T>({
   // ── Virtualization (long, unpaged tables) ──
   const scrollRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLTableSectionElement>(null);
-  const virtualizing = !!virtualize && !pagination;
+  const virtualizing = !!virtualize && !pagination && !groups;
   const virtualOptions = typeof virtualize === "object" ? virtualize : {};
   const viewportHeight = virtualOptions.height ?? 600;
   const rowVirtualizer = useVirtualizer({
@@ -899,9 +973,24 @@ export function DataTable<T>({
   });
   const virtualRows = virtualizing ? rowVirtualizer.getVirtualItems() : null;
 
+  // A closed group's rows aren't drawn: they hold no tab stop and the arrows skip them.
+  const closedSet = groups && closedGroups.length ? new Set(closedGroups) : null;
+  const shownIndexes = closedSet ? displayItems.flatMap((item, i) => (closedSet.has(groups!.of(item).key) ? [] : [i])) : null;
+  /** The drawn row `step` rows from `index` (clamped to the first and last drawn). */
+  const shownStep = (index: number, step: number): number => {
+    if (!shownIndexes) return index + step;
+    if (!shownIndexes.length) return -1;
+    const at = shownIndexes.indexOf(index);
+    const from = at >= 0 ? at : step > 0 ? shownIndexes.findIndex((i) => i > index) - 1 : shownIndexes.findIndex((i) => i >= index);
+    return shownIndexes[Math.max(0, Math.min(shownIndexes.length - 1, from + step))]!;
+  };
+  const firstShown = shownIndexes ? (shownIndexes[0] ?? -1) : 0;
+  const lastShown = shownIndexes ? (shownIndexes[shownIndexes.length - 1] ?? -1) : displayItems.length - 1;
+
   /** Move the roving focus to row `index`, scrolling it into view first when virtualized. */
   const focusRow = (index: number) => {
     const last = displayItems.length - 1;
+    if (index < 0) return;
     const target = Math.max(0, Math.min(last, index));
     if (focusRowAt(bodyRef.current, target)) return;
     if (!virtualizing) return;
@@ -922,7 +1011,9 @@ export function DataTable<T>({
   // has no button, and Tab would then skip the table.
   const renderedItems = virtualRows
     ? virtualRows.map((vr) => displayItems[vr.index]!).filter(Boolean)
-    : displayItems;
+    : shownIndexes
+      ? shownIndexes.map((i) => displayItems[i]!)
+      : displayItems;
   // Without a focused row, the first row in view: the overscan rows above
   // the viewport are rendered too, and tabbing to one would scroll back.
   const scrollTop = rowVirtualizer.scrollOffset ?? 0;
@@ -956,10 +1047,38 @@ export function DataTable<T>({
   const totalCols =
     activeColumns.length + (selectable ? 1 : 0) + (renderActions ? 1 : 0);
 
+  // Shift on the checkbox's click: the range from the last row toggled to this one takes this
+  // row's new state. The rows are the ones drawn, in their order.
+  const shiftHeld = useRef(false);
+  const toggleRow = (id: string) => {
+    const shift = shiftHeld.current;
+    shiftHeld.current = false;
+    const from = lastToggled.current;
+    lastToggled.current = id;
+    if (!shift || from === null || from === id || !onToggleSelect) {
+      onToggleSelect?.(id);
+      return;
+    }
+    // Only the rows drawn: a closed group's rows stay as they are.
+    const hidden = groups ? new Set(closedGroups) : null;
+    const keys = (hidden && hidden.size ? displayItems.filter((item) => !hidden.has(groups!.of(item).key)) : displayItems).map(getKey);
+    const a = keys.indexOf(from);
+    const b = keys.indexOf(id);
+    if (a < 0 || b < 0) {
+      onToggleSelect(id);
+      return;
+    }
+    const select = !selected?.has(id);
+    for (const key of keys.slice(Math.min(a, b), Math.max(a, b) + 1)) {
+      if (Boolean(selected?.has(key)) !== select) onToggleSelect(key);
+    }
+  };
+
   const renderRow = (item: T, index: number, measure?: (el: HTMLTableRowElement | null) => void) => {
             const id = getKey(item);
             const node = nodeOf(id);
-            return (
+            const tone = rowTone?.(item) ?? undefined;
+            const row = (
               <TableRow
                 key={id}
                 ref={measure}
@@ -974,11 +1093,14 @@ export function DataTable<T>({
                       ...(node.matched ? {} : { "data-tree-context": "" }),
                     }
                   : {})}
+                {...(tone ? { "data-tone": tone } : {})}
                 className={cn(
                   onRowClick && "cursor-pointer",
                   "focus-within:bg-muted/40",
                   // An ancestor kept only so a match keeps its place.
                   node && !node.matched && "text-muted-foreground",
+                  tone && ROW_TONE[tone]?.row,
+                  rowClassName?.(item),
                 )}
                 data-state={
                   selected?.has(id) ? "selected" : undefined
@@ -989,14 +1111,17 @@ export function DataTable<T>({
               >
                 {selectable && (
                   <TableCell
-                    className={cn(cellDensity, pinProps("__select", false)?.className)}
+                    className={cn(cellDensity, pinProps("__select", false)?.className, tone && ROW_TONE[tone]?.bar)}
                     style={pinProps("__select", false)?.style}
                     onClick={(e: React.MouseEvent) => e.stopPropagation()}
                   >
                     <Checkbox
                       aria-label={fillMessage(m.table.selectRow, { name: rowLabel(item, id) })}
                       checked={selected?.has(id)}
-                      onCheckedChange={() => onToggleSelect?.(id)}
+                      onClick={(e: React.MouseEvent) => {
+                        shiftHeld.current = e.shiftKey;
+                      }}
+                      onCheckedChange={() => toggleRow(id)}
                     />
                   </TableCell>
                 )}
@@ -1015,6 +1140,9 @@ export function DataTable<T>({
                           col as DataTableColumn<unknown>,
                         ),
                         cellDensity,
+                        col.emphasis && EMPHASIS[col.emphasis],
+                        // The tone's bar sits on the row's first cell.
+                        tone && colIndex === 0 && !selectable && ROW_TONE[tone]?.bar,
                         // The layout is fixed, so a cell's width is its column's: what a cell
                         // draws stays inside it rather than printing over the next column.
                         // Inline editors keep their overflow (popover, focus ring).
@@ -1081,10 +1209,10 @@ export function DataTable<T>({
                               }
                               return;
                             }
-                            if (e.key === "ArrowDown" || e.key === "j") move(index + 1);
-                            else if (e.key === "ArrowUp" || e.key === "k") move(index - 1);
-                            else if (e.key === "Home") move(0);
-                            else if (e.key === "End") move(displayItems.length - 1);
+                            if (e.key === "ArrowDown" || e.key === "j") move(shownStep(index, 1));
+                            else if (e.key === "ArrowUp" || e.key === "k") move(shownStep(index, -1));
+                            else if (e.key === "Home") move(firstShown);
+                            else if (e.key === "End") move(lastShown);
                             else if (e.key === "x" && selectable) {
                               e.preventDefault();
                               onToggleSelect?.(id);
@@ -1151,6 +1279,60 @@ export function DataTable<T>({
                 )}
               </TableRow>
             );
+            if (!rowContextMenu) return row;
+            return (
+              <ContextMenu key={id}>
+                <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
+                <ContextMenuContent>{rowContextMenu(item)}</ContextMenuContent>
+              </ContextMenu>
+            );
+  };
+
+  // ── Groups: a header row wherever the group changes, with its count, summary and toggle ──
+  const closed = new Set(closedGroups);
+  const toggleGroup = (key: string) =>
+    setClosedGroups(closed.has(key) ? closedGroups.filter((k) => k !== key) : [...closedGroups, key]);
+  const groupedRows = () => {
+    if (!groups) return displayItems.map((item, index) => renderRow(item, index));
+    const out: ReactNode[] = [];
+    let current: { key: string; items: T[]; label: ReactNode; start: number } | null = null;
+    const flush = () => {
+      if (!current) return;
+      const g = current;
+      const open = !closed.has(g.key);
+      out.splice(
+        g.start,
+        0,
+        <TableRow key={`__group:${g.start}:${g.key}`} data-slot="table-group" data-group={g.key} className="bg-muted/40 hover:bg-muted/40">
+          <TableCell colSpan={totalCols} className={cn(cellDensity, "py-1.5")}>
+            <button
+              type="button"
+              aria-expanded={open}
+              onClick={() => toggleGroup(g.key)}
+              className="flex w-full min-w-0 items-center gap-2 rounded px-1 text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 transition-transform", !open && "-rotate-90")} aria-hidden="true" />
+              <span className="truncate">{g.label}</span>
+              <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                {groups.partial ? fillMessage(m.table.groupCountLoaded, { count: g.items.length }) : g.items.length}
+              </span>
+              {groups.summary ? <span className="ml-auto text-xs font-normal text-muted-foreground tabular-nums">{groups.summary(g.items)}</span> : null}
+            </button>
+          </TableCell>
+        </TableRow>,
+      );
+    };
+    displayItems.forEach((item, index) => {
+      const { key, label } = groups.of(item);
+      if (!current || current.key !== key) {
+        flush();
+        current = { key, items: [], label, start: out.length };
+      }
+      current.items.push(item);
+      if (!closed.has(key)) out.push(renderRow(item, index));
+    });
+    flush();
+    return out;
   };
 
 
@@ -1425,9 +1607,28 @@ export function DataTable<T>({
                       }}
                     />,
                   ]
-                : displayItems.map((item, index) => renderRow(item, index))
+                : groupedRows()
             )}
           </TableBody>
+          {footer && displayItems.length > 0 ? (
+            <tfoot data-slot="table-footer" className="border-t bg-muted/30 text-sm font-medium">
+              {(() => {
+                const cells = footer(displayItems);
+                const label = footerLabel ?? (footerPartial ? m.table.totalsLoaded : m.table.totals);
+                return (
+                  <tr data-partial={footerPartial || undefined}>
+                    {selectable && <td />}
+                    {activeColumns.map((col, i) => (
+                      <td key={col.key} className={cn(getCellClasses(col as DataTableColumn<unknown>), cellDensity, "px-4 tabular-nums")}>
+                        {cells[col.key] ?? (i === 0 ? <span className="text-muted-foreground">{label}</span> : null)}
+                      </td>
+                    ))}
+                    {renderActions && <td />}
+                  </tr>
+                );
+              })()}
+            </tfoot>
+          ) : null}
         </Table>
       </div>
 

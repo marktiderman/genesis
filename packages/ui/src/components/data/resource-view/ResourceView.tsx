@@ -3,13 +3,34 @@
 // the peek, the form, delete, saved views and slots are all ResourcePage's. Every ResourcePage
 // prop still works as an escape hatch, and the screen's own props win over the view.
 
-import { useMemo, type ComponentType, type ReactNode } from "react";
-import { useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
-import { plural, rowPicture, type RecordOpen, type RecordView as RecordViewDef, type ResourceView as View, type ViewGallery } from "@marktiderman/genesis-core/resource-view";
+import { useContext, useMemo, type ComponentType, type ReactNode } from "react";
+import { useListState, useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
+import { groupRows, groupTotals, plural, rowPicture, type RecordOpen, type RecordView as RecordViewDef, type ResourceView as View, type ViewGallery } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
+import { ConfirmDeleteDialog } from "../ConfirmDeleteDialog";
+import type { SearchParamsAdapter } from "../../../navigation";
+import type { ResourceUrlStateOptions } from "../../../hooks/use-resource-url-state";
+import {
+  adapterOf,
+  choiceFilterConfigs,
+  defaultSavedViewStore,
+  switchableTypes,
+  reasonOf,
+  refuseHeldRows,
+  useListActions,
+  useViewExport,
+  useViewSavedViews,
+  ViewFilterControls,
+  ViewSegments,
+  ViewTypeSwitcher,
+  ListModelContext,
+  type ListModel,
+} from "./list-controls";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
 import { useDisplayCell } from "./display";
 import { useResourceViewDefaults } from "./defaults";
+import { useUiMessages } from "../../../messages";
+import { FilterCombobox } from "../FilterCombobox";
 import type { ViewModeDefault } from "../../../hooks/use-view-preference";
 import { ResourceCalendar, type ResourceCalendarOptions } from "./ResourceCalendar";
 import { ResourceBoard, type ResourceBoardOptions, type ResourceBoardProps } from "./ResourceBoard";
@@ -20,6 +41,8 @@ import { useViewFormFields } from "./view-form";
 import { listViewTypes, registerBuiltInViewType, resolveViewType, type ViewTypeName } from "./view-types";
 import { detailMode, recordViewOf, resolveRecordOpen } from "./record-open";
 import { recordPeekSlot } from "./RecordPeek";
+import { ResourceInbox, type ResourceInboxOptions } from "./ResourceInbox";
+import { ResourceSheet } from "./ResourceSheet";
 
 type Row = Record<string, unknown>;
 type Scalar = string | number | boolean | null;
@@ -63,7 +86,7 @@ export interface ResourceViewOptions {
    * Prefer `type`, which takes the same values and every registered view type; `mode` stays as
    * its alias, and `type` wins when both are set.
    */
-  mode?: ViewModeDefault | "calendar" | "board" | undefined;
+  mode?: ViewModeDefault | "calendar" | "board" | "inbox" | "sheet" | undefined;
   /**
    * The view type (ADR 0021): how the view shows. `table`, `list` and `grid` (the person can
    * switch between them, and their pick is remembered), `board`, `calendar`, `gallery` (the grid
@@ -85,10 +108,48 @@ export interface ResourceViewOptions {
   recordView?: RecordViewDef<ResourceContract<any>, any> | undefined;
   title?: string | undefined;
   subtitle?: string | undefined;
+  /** The segment the list opens on (ADR 0017). Default the URL's, then the view's first. */
+  defaultSegment?: string | undefined;
+  /**
+   * The view types the switcher offers, of the ones the view supports. The switcher shows on a
+   * page list whose view supports a type past table, list and grid (or declares `types`), unless
+   * the screen fixes `type`; `switcher` turns it on or off.
+   */
+  types?: readonly string[] | undefined;
+  switcher?: boolean | undefined;
+  /** Group rows by this field (`null`: no grouping). Default the person's saved choice, then the view's `groupBy`. */
+  groupBy?: string | null | undefined;
+  /**
+   * The view's actions in the list (ADR 0017 §2): a "More" menu on each table row and the same
+   * on right-click. Default the app's `ResourceViewDefaultsProvider rowActions`.
+   */
+  rowActions?: boolean | undefined;
+  /** A refused row or bulk action: `disable` with its reason (default, or the view's), or `hide`. */
+  refusals?: "disable" | "hide" | undefined;
+  /** `false` turns off the view's "Export CSV" on this screen. */
+  export?: boolean | undefined;
+  /** Controls of the screen's own beside the view's declared filters. */
+  filterSlot?: ReactNode;
+  /**
+   * Runs a view action on a row instead of the provider's `runAction` (RecordView's `onAction`):
+   * for actions an app runs through its own function.
+   */
+  onAction?: ((name: string, row: Record<string, unknown>) => void | Promise<void>) | undefined;
 }
 
 export type ResourceViewProps<T extends Row = Row> = ResourceViewOptions &
-  Omit<Partial<ResourcePageProps<T>>, "resource" | "columns" | "variant" | "title" | "subtitle"> & {
+  Omit<Partial<ResourcePageProps<T>>, "resource" | "columns" | "variant" | "title" | "subtitle" | "urlState" | "data"> & {
+    /**
+     * Keep this list in the URL: a router adapter (or ResourcePage's `{ searchParams, params }`).
+     * Default: the app's `ResourceViewDefaultsProvider urlState` for a page list. `false` opts out.
+     */
+    urlState?: SearchParamsAdapter | ResourceUrlStateOptions | false | undefined;
+    /**
+     * Rows the screen already holds: drawn as given (searched, sorted and paged in the browser,
+     * opened in the peek), nothing fetched. Writes stay the screen's (`onCreate`, `onEdit`,
+     * `onDelete`); the built-in form and delete need the list to fetch its own rows.
+     */
+    rows?: T[] | undefined;
     /**
      * Draw some cells this screen's own way, by column key (an avatar beside a name). The step
      * before a slot: the column, its label, sorting and visibility stay the view's.
@@ -109,6 +170,11 @@ export type ResourceViewProps<T extends Row = Row> = ResourceViewOptions &
      * the row height), or turns the grid into a gallery for a view without one.
      */
     gallery?: Partial<ViewGallery>;
+    /**
+     * With `type="inbox"`: the open record (a URL param the app owns) and `onSelectedChange`, the
+     * reading pane of the app's own (`renderReading`), and the context sidebar (`renderContext`).
+     */
+    inbox?: ResourceInboxOptions<T>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
     view: View<ResourceContract<any>, T & DataRow>;
   };
@@ -144,18 +210,87 @@ function columnWidth(c: { key: string; display: string }, index: number, all: re
   return named || !labelField ? (fixed ?? 140) : fixed;
 }
 
+/** A column's width as DataTable takes it: pixels, with rem turned into pixels. */
+function widthOf(width: number | string | undefined): number | string | undefined {
+  if (typeof width !== "string") return width;
+  const rem = /^\s*(\d+(?:\.\d+)?)rem\s*$/.exec(width);
+  return rem ? Number(rem[1]) * 16 : width;
+}
+
+
+/** Whether a screen shows the view-type switcher, and the types it offers. */
+function switcherFor(props: ResourceViewProps<Row>) {
+  // Rows the screen holds are drawn by the list page only: the board, the calendar, the inbox and
+  // the sheet read their own, so they aren't offered over them.
+  const offered = switchableTypes(props.view as never, props.types);
+  const types = props.rows !== undefined ? offered.filter((t) => PAGE_DRAWN.has(t)) : offered;
+  const fixed = (props.type ?? props.mode) !== undefined;
+  const beyondPage = types.some((t) => t !== "table" && t !== "list" && t !== "grid");
+  const on = props.switcher ?? ((props.layout ?? "page") === "page" && !fixed && (beyondPage || !!props.view.definition.types));
+  return { on: on && types.length >= 2, types };
+}
+
+/** The list's state: the root's when there is one, else this list's own. */
+function useListModel(props: ResourceViewProps<Row>): ListModel {
+  const shared = useContext(ListModelContext);
+  const own = useOwnListModel(props);
+  return shared ?? own;
+}
+
+/**
+ * This list's own state. Every ResourceView root makes its own, so a list nested in another (a
+ * record view's list section) never reads or writes its parent's segment, filters or type.
+ */
+function useOwnListModel(props: ResourceViewProps<Row>): ListModel {
+  const defaults = useResourceViewDefaults();
+  const { on, types } = switcherFor(props);
+  const url = props.urlState === false ? undefined : (adapterOf(props.urlState) ?? ((props.layout ?? "page") === "page" ? (defaults.urlState ?? undefined) : undefined));
+  const shown = props.type ?? props.mode;
+  const own = useListState({
+    view: props.view as never,
+    url,
+    store: defaults.savedViews ?? defaultSavedViewStore(),
+    currentKey: props.viewSettingsKey ?? props.view.resource,
+    defaultSegment: props.defaultSegment,
+    defaultType: typeof shown === "string" ? shown : types[0],
+    types,
+    rememberType: on,
+  });
+  return useMemo(() => ({ state: own, url, switcher: null }), [own, url]);
+}
+
+/** What useResourceViewProps makes, with the confirmation an action asks for. */
+interface ResourceViewModel<T extends Row> {
+  pageProps: ResourcePageProps<T>;
+  confirm: ReactNode;
+  /** Changes when a saved view restores the search and sort: the page starts again with them. */
+  restoreKey: number;
+}
+
 /**
  * The ResourcePage props a view and a screen's options make. `useResourceView` and
  * `<ResourceView>` both use it; call it yourself to hand the props to your own layout.
  */
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
+  const { pageProps, confirm, restoreKey } = useResourceViewModel(props);
+  // A view action's confirmation travels with the props (`dialogs`), so a screen that hands them to
+  // its own <ResourcePage> gets the dialog too, and the action runs once it's confirmed. So does
+  // `restoreKey`: a restored saved view's search and sort start the page again, as here.
+  return { ...pageProps, restoreKey, dialogs: <>{confirm}{pageProps.dialogs}</> };
+}
+
+function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): ResourceViewModel<T> {
   const {
     // preset, filter and scoped are read by useViewListParams; taken out here so they aren't passed on.
     view, layout = "page", columns: columnPreset, preset: _preset, filter: _filter, scoped: _scoped, defaults, mode: modeProp, type: typeProp, open: openProp, recordView: recordViewProp, title, subtitle, can, resourceOptions, cells, tree: screenTree,
     calendar: _calendar, board: _board, gallery: screenGallery, detail: screenDetail,
     noun: screenNoun, nounPlural: screenNounPlural, formTitles: screenFormTitles, countFormat: screenCountFormat,
+    defaultSegment: _defaultSegment, types: _types, switcher: _switcher, groupBy: screenGroupBy, rowActions: screenRowActions, refusals: screenRefusals,
+    export: screenExport, filterSlot, onAction, urlState: _urlState, rows, inbox: _inbox,
     ...rest
   } = props;
+  const model = useListModel(props as ResourceViewProps<Row>);
+  const listState = model.state;
   // `type` is the preferred name; `mode` its alias. A gallery is the grid view drawn as photos.
   const shown = typeProp ?? modeProp;
   const gallery = shown === "gallery";
@@ -170,17 +305,22 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
   const viewer = useViewer();
   const listDefaults = useResourceViewDefaults();
   const { filter, filters: defaultFilters, tab } = useViewListParams(props);
-  const presetName = columnPreset ?? tab?.columns ?? "default";
+  const segmentColumns = view.segments().find((seg) => seg.id === listState.segment)?.columns;
+  const presetName = columnPreset ?? listState.columns ?? segmentColumns ?? tab?.columns ?? "default";
 
   const columns = useMemo(
     () =>
       view.columns(presetName).map((c, index, all) => {
         const draw = (row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row));
         const width = listDefaults.sizeColumns ? columnWidth(c, index, all, view.labelField) : undefined;
+        const declared = widthOf(c.width);
         return {
           key: c.key,
           header: c.label,
-          ...(width ? { width } : {}),
+          ...(declared !== undefined ? { width: declared } : width ? { width } : {}),
+          ...(c.hideBelow ? { hideBelow: c.hideBelow } : {}),
+          ...(c.emphasis ? { emphasis: c.emphasis } : {}),
+          ...(c.sortable === false ? { sortable: false } : {}),
           // A computed column has no database column to sort by.
           ...(c.field ? {} : { sortable: false, accessor: (row: T) => c.value(row as T & DataRow) }),
           // The summary's picture sits beside the first column.
@@ -251,7 +391,71 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
   const searchFields = rest.searchFields ?? (view.labelField ? [view.labelField] : undefined);
   const recordView = recordViewOf(view, recordViewProp);
   const peekSlot = useMemo(() => (recordView ? recordPeekSlot<T>(recordView) : undefined), [recordView]);
-  return {
+
+  // ── ADR 0017: what the view declares for its lists ─────────────────────
+  const m = useUiMessages();
+  const refusals = screenRefusals ?? view.definition.refusals ?? "disable";
+  const actions = useListActions<T>(view, {
+    refusals,
+    ...(onAction ? { onRun: onAction as (name: string, row: T) => void | Promise<void> } : {}),
+  });
+  const showRowActions = (screenRowActions ?? listDefaults.rowActions ?? false) && view.actions().length > 0;
+  const onExportView = useViewExport(view as never, presetName);
+  const savedViewProps = useViewSavedViews(
+    view as never,
+    layout === "page" ? (listDefaults.savedViews ?? undefined) : undefined,
+    listState,
+    { columns: presetName, url: model.url },
+  );
+  // Grouping: the screen's, then the person's saved choice. A view's own `groupBy` (the board's and
+  // `groupRows`' default) doesn't group a table by itself: a screen opts in with
+  // `groupBy={view.definition.groupBy}`. Rows come sorted by the group first, so each group is one
+  // run, and the view's `orderBy` sorts inside it.
+  const groupField = screenGroupBy !== undefined ? screenGroupBy : listState.groupBy !== undefined ? listState.groupBy : undefined;
+  const grouping = groupField && !screenTree ? groupField : null;
+  const totals = view.definition.totals as Readonly<Record<string, string>> | undefined;
+  // Totals cover the rows loaded: on a server-paged list that's the page, and the words say so.
+  const pagedTotals = !screenTree && rows === undefined;
+  const totalWords = (items: T[]) => {
+    const words = Object.entries(groupTotals(view, items as (T & DataRow)[]))
+      .filter(([, n]) => n !== null)
+      .map(([field, n]) => `${view.label(field)}: ${n!.toLocaleString()}`)
+      .join(" · ");
+    return words && pagedTotals ? `${words} ${m.table.loadedOnly}` : words;
+  };
+  const groupOf = grouping
+    ? (row: T) => {
+        const g = groupRows(view, [row as T & DataRow], { field: grouping })[0]!;
+        return { key: g.key, label: g.label };
+      }
+    : undefined;
+  const paged = !screenTree && rows === undefined;
+  // Rows the screen holds are drawn as given: the declared segments and filters would narrow
+  // nothing, so they aren't offered over them (the screen's own `filterSlot` and `filters` are).
+  const declaredFilters = rows === undefined && (view.segments().length > 0 || view.filters().length > 0);
+  const filtersRow = declaredFilters || filterSlot || (rows !== undefined && rest.filters?.length);
+  const listFilters = listState.filters;
+  const segmentsNode = rows === undefined && view.segments().length ? (
+    <ViewSegments view={view as never} value={listState.segment} onChange={listState.setSegment} baseFilters={[...defaultFilters, ...listState.valueFilters]} enabled={rows === undefined} />
+  ) : null;
+  const extraFilters =
+    (rows === undefined && view.filters().some((f) => f.kind !== "choice")) || filterSlot ? (
+      <>
+        {rows === undefined ? <ViewFilterControls view={view as never} state={listState} /> : null}
+        {filterSlot}
+      </>
+    ) : null;
+  const choiceFilters = rows === undefined ? choiceFilterConfigs(view as never, listState) : [];
+  const shellOptions = model.switcher ? { headerOptions: { showViewToggle: false, ...rest.slotProps?.shell?.headerOptions } } : {};
+  const typeMode = model.switcher
+    ? listState.type === "table" || listState.type === "list" || listState.type === "grid"
+      ? listState.type
+      : listState.type === "gallery"
+        ? ("grid" as const)
+        : undefined
+    : undefined;
+
+  const pageProps = {
     resource: view.resource,
     title: title ?? view.title,
     ...((subtitle ?? copy?.subtitle) ? { subtitle: subtitle ?? copy?.subtitle } : {}),
@@ -319,12 +523,127 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     ...(listDefaults.pagerJumps && rest.pagerJumps === undefined ? { pagerJumps: true } : {}),
     resourceOptions: {
       ...resourceOptions,
-      ...(defaultFilters.length ? { defaultFilters } : {}),
-      ...(orderBy && !resourceOptions?.defaultSort
-        ? { defaultSort: { field: orderBy.field, order: orderBy.direction ?? "asc", ...(orderBy.nulls ? { nulls: orderBy.nulls } : {}) } }
-        : {}),
+      ...(defaultFilters.length || listFilters.length ? { defaultFilters: [...defaultFilters, ...listFilters] } : {}),
+      ...(grouping && !resourceOptions?.defaultSort
+        ? {
+            defaultSort: { field: grouping, order: "asc" as const },
+            ...(orderBy && orderBy.field !== grouping && !resourceOptions?.thenSort
+              ? { thenSort: { field: orderBy.field, order: orderBy.direction ?? "asc", ...(orderBy.nulls ? { nulls: orderBy.nulls } : {}) } }
+              : {}),
+          }
+        : orderBy && !resourceOptions?.defaultSort
+          ? { defaultSort: { field: orderBy.field, order: orderBy.direction ?? "asc", ...(orderBy.nulls ? { nulls: orderBy.nulls } : {}) } }
+          : {}),
     },
   } as ResourcePageProps<T>;
+
+  // Rows the screen holds: drawn as given, nothing fetched.
+  if (rows !== undefined) {
+    delete (pageProps as { resource?: string }).resource;
+    pageProps.data = rows;
+    pageProps.total = rows.length;
+    pageProps.pagination = "client";
+    pageProps.viewSettingsKey = rest.viewSettingsKey ?? view.resource;
+  }
+  // The URL: the app's adapter for a page list, unless the screen opts out.
+  // A screen's own adapter (or options with renamed keys) wins; `false` keeps the list out.
+  if (props.urlState) pageProps.urlState = props.urlState;
+  else if (model.url && props.urlState !== false) pageProps.urlState = model.url;
+  // Declared filters and segments: the segments above the search row, choices as the filter
+  // row's comboboxes, ranges and text beside them; they count as filtering.
+  if (filtersRow) {
+    pageProps.filters = [...choiceFilters, ...(rest.filters ?? [])];
+    if (rows === undefined) pageProps.heldFilters = { active: listState.active, clear: listState.clear };
+    pageProps.slotProps = {
+      ...pageProps.slotProps,
+      filters: {
+        ...(segmentsNode ? { leading: segmentsNode } : {}),
+        ...(extraFilters ? { extra: extraFilters } : {}),
+        extraActive: rows === undefined && Object.entries(listState.values).some(([field]) => view.filters().find((f) => f.field === field)?.kind !== "choice"),
+        ...rest.slotProps?.filters,
+      },
+    };
+  }
+  // The view-type switcher: in the header, in place of ResourcePage's own toggle.
+  if (model.switcher) {
+    pageProps.toolbar = (
+      <>
+        {model.switcher}
+        {rest.toolbar}
+      </>
+    );
+    pageProps.slotProps = { ...pageProps.slotProps, shell: { ...rest.slotProps?.shell, ...shellOptions } };
+    if (typeMode) {
+      pageProps.viewMode = typeMode;
+      pageProps.onViewModeChange = (mode) => listState.setType(mode);
+    }
+  }
+  // The list's search and sort reach the list state (a saved view stores them), and a saved view's
+  // come back as the page's starting search and sort.
+  const screenQuery = rest.onQueryChange;
+  pageProps.onQueryChange = (query) => {
+    listState.observeQuery(query);
+    screenQuery?.(query);
+  };
+  if (listState.restore.nonce > 0 && !rest.initialFilters) {
+    const { search, sort } = listState.restore;
+    pageProps.initialFilters = [
+      ...(search ? [{ field: "__search__", operator: "contains" as const, value: search }] : []),
+      ...(sort ? [{ field: "__sort__", operator: "eq" as const, value: `${sort.field}:${sort.order}:` }] : []),
+    ];
+  }
+  // Saved views through the app's store.
+  Object.assign(pageProps, savedViewProps, {
+    ...(rest.savedViews ? { savedViews: rest.savedViews } : {}),
+    ...(rest.onSaveView ? { onSaveView: rest.onSaveView } : {}),
+    ...(rest.onLoadView ? { onLoadView: rest.onLoadView } : {}),
+    ...(rest.onDeleteView ? { onDeleteView: rest.onDeleteView } : {}),
+  });
+  // Row actions with their reasons, and bulk actions from the view beside the screen's.
+  if (showRowActions && rest.rowMenu === undefined) pageProps.rowMenu = actions.rowMenu;
+  if (actions.bulkActions.length) pageProps.bulkActions = [...actions.bulkActions, ...(rest.bulkActions ?? [])];
+  // A view that runs actions on many rows deletes many too, through the page's own delete (its
+  // `can`, the recycle-bin wording, one confirm step). Not with the screen's `onDelete` or `rows`.
+  if (actions.bulkActions.length && rest.allowDelete !== false && rest.bulkDelete === undefined && rows === undefined) {
+    pageProps.bulkDelete = { reason: (row: T) => reasonOf(view.can("delete", row as T & DataRow, viewer)) };
+  }
+  // "Export CSV": the view's, unless the screen turns it off or brings its own.
+  if (onExportView && screenExport !== false && !rest.onExport && rows === undefined) pageProps.onExport = onExportView;
+  // Grouping and totals, tone: the table's and the cards' own props, under the screen's.
+  const tableExtras = {
+    ...(view.definition.rowTone ? { rowTone: (row: T) => view.rowTone(row as T & DataRow) } : {}),
+    ...(groupOf ? { groups: { of: groupOf, ...(totals ? { summary: totalWords } : {}), persistKey: `${view.resource}:${grouping}`, partial: paged } } : {}),
+    ...(totals
+      ? {
+          footerPartial: pagedTotals,
+          footer: (items: T[]) =>
+            Object.fromEntries(
+              Object.entries(groupTotals(view, items as (T & DataRow)[])).map(([field, n]) => [field, n === null ? null : n.toLocaleString()]),
+            ),
+        }
+      : {}),
+  };
+  if (Object.keys(tableExtras).length) {
+    pageProps.slotProps = { ...pageProps.slotProps, table: { ...tableExtras, ...pageProps.slotProps?.table } };
+  }
+  if (groupOf) {
+    pageProps.slotProps = { ...pageProps.slotProps, grid: { groupOf, ...(totals ? { groupSummary: totalWords } : {}), ...pageProps.slotProps?.grid } };
+  }
+
+  const confirming = actions.confirming;
+  const confirm = (
+    <ConfirmDeleteDialog
+      open={confirming !== null}
+      onOpenChange={(open) => !open && actions.setConfirming(null)}
+      onConfirm={async () => {
+        await confirming?.run();
+      }}
+      title={confirming?.title ?? ""}
+      description=""
+      confirmLabel={confirming?.label ?? m.common.save}
+    />
+  );
+  return { pageProps, confirm, restoreKey: listState.restore.nonce };
 }
 
 /**
@@ -344,8 +663,74 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
  * (`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.
  */
 export function ResourceView<T extends Row = Row>(props: ResourceViewProps<T>) {
+  return <ResourceViewRoot<T> {...props} />;
+}
+
+/** The view types ResourcePage draws (the person's table, list and grid, and the gallery). */
+const PAGE_DRAWN: ReadonlySet<string> = new Set(["table", "list", "grid", "gallery"]);
+
+/**
+ * One list state for every view type below it (the segment, the declared filters, the type and
+ * the grouping), and, on a page list whose view supports more than table, list and grid, the
+ * type switcher with the person's choice kept in the app's store (ADR 0017).
+ */
+function ResourceViewRoot<T extends Row>(props: ResourceViewProps<T>) {
+  const own = useOwnListModel(props as ResourceViewProps<Row>);
+  const { on, types } = switcherFor(props as ResourceViewProps<Row>);
+  const fixed = props.type ?? props.mode;
+  // The person's type only while it's offered: rows arriving narrow the types to the list page's,
+  // and a board chosen (or restored) before them falls back to the first type rather than throw.
+  const chosen = own.state.type;
+  const type = on ? (chosen !== undefined && types.includes(chosen) ? chosen : types[0]!) : typeof fixed === "string" ? fixed : undefined;
+  const switcher = on ? <ViewTypeSwitcher types={types} value={type} onChange={own.state.setType} /> : null;
+  const model = useMemo(() => ({ ...own, switcher }), [own, switcher]);
+  const page = type === undefined || PAGE_DRAWN.has(type);
+  // The inbox draws its own segments (its rail), filters and switcher (over its list).
+  const bar = !page && type !== "inbox" && (switcher || props.view.segments().length > 0 || props.view.filters().length > 0 || props.filterSlot);
+  return (
+    <ListModelContext.Provider value={model}>
+      {page ? (
+        <ResourceViewOfType<T> {...props} {...(on ? { type: type === "gallery" ? "gallery" : undefined, mode: undefined } : {})} />
+      ) : bar ? (
+        <div className="space-y-3">
+          <ListBar<T> {...props} />
+          <ResourceViewOfType<T> {...props} type={type} />
+        </div>
+      ) : (
+        <ResourceViewOfType<T> {...props} type={type} />
+      )}
+    </ListModelContext.Provider>
+  );
+}
+
+/** Above a board, a calendar or an app's type: the segments, the declared filters and the switcher. */
+function ListBar<T extends Row>(props: ResourceViewProps<T>) {
+  const model = useContext(ListModelContext)!;
+  const { view } = props;
+  const { filters } = useViewListParams(props);
+  const choice = choiceFilterConfigs(view as never, model.state);
+  return (
+    <div data-slot="view-list-bar" className="flex flex-wrap items-center gap-2">
+      <ViewSegments view={view as never} value={model.state.segment} onChange={model.state.setSegment} baseFilters={[...filters, ...model.state.valueFilters]} />
+      {choice.map((f) => (
+        <FilterCombobox key={f.key} label={f.label} icon={f.icon} options={f.options} selected={f.selected} onChange={f.onChange} labelMap={f.labelMap} />
+      ))}
+      <ViewFilterControls view={view as never} state={model.state} />
+      {props.filterSlot}
+      <span className="ml-auto">{model.switcher}</span>
+    </div>
+  );
+}
+
+function ResourceViewOfType<T extends Row = Row>(props: ResourceViewProps<T>) {
   // Each view type is its own component, so switching type swaps children rather than hooks.
   const shown = props.type ?? props.mode;
+  // Rows the screen holds go to the list page (table, list, grid, gallery). The board, the
+  // calendar, the inbox, the sheet and an app's type read their own: rather than show rows other
+  // than the screen's, say so.
+  if (typeof shown === "string" && !PAGE_DRAWN.has(shown)) refuseHeldRows(props.view.resource, shown, props.rows);
+  const model = useContext(ListModelContext);
+  if (model && (shown === undefined || shown === "table" || shown === "list" || shown === "grid")) return <ResourceViewPage<T> {...props} />;
   if (shown === undefined || typeof shown !== "string") return <ResourceViewPage<T> {...props} />;
   const type = resolveViewType(shown);
   if (!type) {
@@ -356,7 +741,13 @@ export function ResourceView<T extends Row = Row>(props: ResourceViewProps<T>) {
 }
 
 function ResourceViewPage<T extends Row>(props: ResourceViewProps<T>) {
-  return <ResourcePage<T> {...useResourceViewProps(props)} />;
+  const { pageProps, confirm, restoreKey } = useResourceViewModel(props);
+  return (
+    <>
+      <ResourcePage<T> key={restoreKey} {...pageProps} />
+      {confirm}
+    </>
+  );
 }
 
 /** How a board or calendar opens a record: the screen's `detail`, then `open`, then the view's. */
@@ -381,7 +772,9 @@ function openProps<T extends Row>(
 function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
   const { view, calendar, title, subtitle, className, cells, open, recordView, onNavigate, detail } = props;
   const words = subtitle ?? view.definition.copy?.subtitle;
-  const { filters, select, enabled, live } = useViewListParams(props);
+  const { filters: base, select, enabled, live } = useViewListParams(props);
+  const listFilters = useContext(ListModelContext)?.state.filters;
+  const filters = useMemo(() => [...base, ...(listFilters ?? [])], [base, listFilters]);
   return (
     <ResourceCalendar<T>
       {...(calendar ?? {})}
@@ -403,7 +796,9 @@ function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
 function ResourceViewBoard<T extends Row>(props: ResourceViewProps<T>) {
   const { view, board, title, subtitle, className, cells, can, resourceOptions, open, recordView, onNavigate, detail } = props;
   const words = subtitle ?? view.definition.copy?.subtitle;
-  const { filters, select, enabled, live } = useViewListParams(props);
+  const { filters: base, select, enabled, live } = useViewListParams(props);
+  const listFilters = useContext(ListModelContext)?.state.filters;
+  const filters = useMemo(() => [...base, ...(listFilters ?? [])], [base, listFilters]);
   return (
     <ResourceBoard<T>
       {...(board ?? {})}
@@ -430,8 +825,8 @@ function ResourceViewBoard<T extends Row>(props: ResourceViewProps<T>) {
  */
 export function useResourceView<T extends Row = Row>(props: ResourceViewProps<T>): ResourceTableState<T> {
   const shown = props.type ?? props.mode;
-  if (shown === "calendar" || shown === "board") {
-    const part = shown === "calendar" ? "ResourceCalendar" : "ResourceBoard";
+  if (shown === "calendar" || shown === "board" || shown === "inbox" || shown === "sheet") {
+    const part = shown === "calendar" ? "ResourceCalendar" : shown === "board" ? "ResourceBoard" : shown === "sheet" ? "ResourceSheet" : "ResourceInbox";
     throw new Error(`useResourceView(${props.view.resource}): ${shown} mode has no table state; render <ResourceView type="${shown}"> or <${part}>`);
   }
   return useResourceTable<T>(useResourceViewProps(props));
@@ -446,3 +841,5 @@ registerBuiltInViewType({ id: "grid", label: "Grid", render: ResourceViewPage })
 registerBuiltInViewType({ id: "gallery", label: "Gallery", render: ResourceViewPage });
 registerBuiltInViewType({ id: "board", label: "Board", render: ResourceViewBoard });
 registerBuiltInViewType({ id: "calendar", label: "Calendar", render: ResourceViewCalendar });
+registerBuiltInViewType({ id: "inbox", label: "Inbox", render: ResourceInbox });
+registerBuiltInViewType({ id: "sheet", label: "Sheet", render: ResourceSheet });

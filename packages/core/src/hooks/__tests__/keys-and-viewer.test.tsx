@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DataProviderRoot } from "../../provider/context";
+import { DataProviderRoot, PersistedClientContext, PersistedViewerContext } from "../../provider/context";
 import { createMockProvider } from "../../provider/mock-provider";
 import { defineQueryKeys, resourceKeys } from "../../query-keys";
 import { useInfiniteResource } from "../use-infinite-resource";
@@ -35,6 +35,31 @@ describe("resourceKeys are the keys the hooks cache under", () => {
     }
     render(wrap(<One />));
     await waitFor(() => expect(cachedKeys(client)).toContain(JSON.stringify(resourceKeys("tasks").detail("t1", "id,title"))));
+  });
+
+  it("useOne with a list's scope: an in scope and a range reach the provider and the key, a text search doesn't", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const provider = createMockProvider({ tasks: [{ id: "t1", title: "Ann's task" }] });
+    const getOne = vi.spyOn(provider, "getOne");
+    const scope = [
+      { field: "group_id", operator: "in" as const, value: ["g1", "g2"] },
+      { field: "due_on", operator: "gte" as const, value: "2026-01-01" },
+      { field: "title", operator: "contains" as const, value: "ann" },
+    ];
+    function One() {
+      useOne("tasks", "t1", { scope });
+      return null;
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <DataProviderRoot provider={provider}>
+          <One />
+        </DataProviderRoot>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(getOne).toHaveBeenCalled());
+    expect(getOne.mock.calls[0]![1]).toMatchObject({ id: "t1", scope: scope.slice(0, 2) });
+    expect(cachedKeys(client)).toContain(JSON.stringify([...resourceKeys("tasks").detail("t1", undefined), { scope: scope.slice(0, 2) }]));
   });
 
   it("useResource", async () => {
@@ -297,6 +322,84 @@ describe("ViewerScope", () => {
     render(same.wrap(<ViewerScope viewer="ann" persistedViewer="ann"><p>ann home</p></ViewerScope>));
     await screen.findByText("ann home");
     expect(same.client.getQueryData(["whoami"])).toBe("ann (restored)");
+  });
+
+  it("a ViewerScope nested in one for the same viewer keeps the cache; one for another viewer empties it", async () => {
+    const { client, wrap } = setup();
+    function Inner({ viewer }: { viewer: string }) {
+      const [show, setShow] = useState(false);
+      return show ? (
+        <ViewerScope viewer={viewer} scope={{ spaceId: "s1" }}>
+          <p>inner {viewer}</p>
+        </ViewerScope>
+      ) : (
+        <button onClick={() => setShow(true)}>open {viewer}</button>
+      );
+    }
+    render(wrap(<ViewerScope viewer="ann"><Inner viewer="ann" /></ViewerScope>));
+    await screen.findByText("open ann");
+    client.setQueryData(["loaded"], "ann's rows");
+    act(() => screen.getByText("open ann").click());
+    await screen.findByText("inner ann");
+    expect(client.getQueryData(["loaded"])).toBe("ann's rows");
+    cleanup();
+
+    const other = setup();
+    render(other.wrap(<ViewerScope viewer="ann"><Inner viewer="bob" /></ViewerScope>));
+    await screen.findByText("open bob");
+    other.client.setQueryData(["loaded"], "ann's rows");
+    act(() => screen.getByText("open bob").click());
+    await screen.findByText("inner bob");
+    expect(other.client.getQueryData(["loaded"])).toBeUndefined();
+  });
+
+  it("keeps restored reads for the persisted viewer only in the client they were restored into", async () => {
+    // As GenesisProvider with persistence on: the restored viewer and the client it restored into.
+    const restoredClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const innerClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    restoredClient.setQueryData(["whoami"], "ann (restored)");
+    innerClient.setQueryData(["whoami"], "someone else's rows");
+    render(
+      <QueryClientProvider client={restoredClient}>
+        <PersistedViewerContext.Provider value="ann">
+          <PersistedClientContext.Provider value={restoredClient}>
+            <ViewerScope viewer="ann">
+              <p>outer ann</p>
+            </ViewerScope>
+            <QueryClientProvider client={innerClient}>
+              <ViewerScope viewer="ann">
+                <p>inner ann</p>
+              </ViewerScope>
+            </QueryClientProvider>
+          </PersistedClientContext.Provider>
+        </PersistedViewerContext.Provider>
+      </QueryClientProvider>,
+    );
+    await screen.findByText("outer ann");
+    await screen.findByText("inner ann");
+    expect(restoredClient.getQueryData(["whoami"])).toBe("ann (restored)");
+    // The nested client was never restored for ann: it's emptied, not trusted.
+    expect(innerClient.getQueryData(["whoami"])).toBeUndefined();
+  });
+
+  it("a nested ViewerScope over another QueryClient empties that cache, even for the same viewer", async () => {
+    const { wrap } = setup();
+    const innerClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    innerClient.setQueryData(["loaded"], "the last viewer's rows");
+    render(
+      wrap(
+        <ViewerScope viewer="ann">
+          <QueryClientProvider client={innerClient}>
+            <ViewerScope viewer="ann">
+              <p>inner ann</p>
+            </ViewerScope>
+          </QueryClientProvider>
+        </ViewerScope>,
+      ),
+    );
+    await screen.findByText("inner ann");
+    // The outer scope guarded its own cache, not this one: it's emptied before the children mount.
+    expect(innerClient.getQueryData(["loaded"])).toBeUndefined();
   });
 
   it("passes the viewer and scope down, and a new scope re-renders readers without remounting them", async () => {

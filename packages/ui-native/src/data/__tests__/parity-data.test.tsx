@@ -290,6 +290,32 @@ describe("NativeRecordPeek", () => {
     alert.mockRestore();
   });
 
+  it("with confirmDelete={false}, calls a handler that confirms on its own at once, as the web's RecordPeek", async () => {
+    const onDelete = vi.fn();
+    const alert = vi.spyOn(Alert, "alert").mockImplementation(() => {});
+    render(<NativeRecordPeek view={recordView} row={PEOPLE[0]!} open onClose={() => undefined} onDelete={onDelete} confirmDelete={false} />, { wrapper: wrap() });
+    await screen.findByTestId("record-peek-page");
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("record-peek-delete"));
+    });
+    expect(alert).not.toHaveBeenCalled();
+    expect(onDelete).toHaveBeenCalledWith(PEOPLE[0]);
+    alert.mockRestore();
+  });
+
+  it("with confirmDelete={false}, leaves closing to the handler: a cancelled confirm keeps the peek open", async () => {
+    // The handler opens its own confirm and returns at once; the person then cancels.
+    const onDelete = vi.fn(() => undefined);
+    const onClose = vi.fn();
+    render(<NativeRecordPeek view={recordView} row={PEOPLE[0]!} open onClose={onClose} onDelete={onDelete} confirmDelete={false} />, { wrapper: wrap() });
+    await screen.findByTestId("record-peek-page");
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("record-peek-delete"));
+    });
+    expect(onDelete).toHaveBeenCalledWith(PEOPLE[0]);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("hides what the screen's can turns off and explains what the view's guard refuses", async () => {
     const guarded = defineRecordView(
       defineView(people, { can: { delete: () => "Only owners delete people." } }),

@@ -243,6 +243,16 @@
           "import": "@marktiderman/genesis-core/errors"
         },
         {
+          "need": "where saved views and each person's list choices are kept",
+          "use": "a SavedViewStore (createLocalSavedViewStore on the device, or the app's own over its table), passed to genesis-ui's ResourceViewDefaultsProvider savedViews",
+          "import": "@marktiderman/genesis-core/resource-view"
+        },
+        {
+          "need": "a list's segment and filters in the URL, or as provider filters",
+          "use": "readListUrl, listUrlParams and the view's filterParams and segmentFilters",
+          "import": "@marktiderman/genesis-core/resource-view"
+        },
+        {
           "need": "an organization's own brand and defaults inside the app",
           "use": "WorkspaceTheme's brand and defaults, read with resolveWorkspaceBrand and resolveWorkspaceAppearance",
           "import": "@marktiderman/genesis-core/workspaces",

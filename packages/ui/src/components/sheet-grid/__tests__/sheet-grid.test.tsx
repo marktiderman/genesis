@@ -86,6 +86,26 @@ describe("SheetGrid", () => {
     expect(grid.getAttribute("aria-activedescendant")).toBe(cell(1, 1).id);
   });
 
+  it("doesn't commit a cell whose row became read-only while its editor was open", async () => {
+    let locked = false;
+    const lockable = columns.map((c) => (c.key === "name" ? { ...c, cellReadOnly: () => (locked ? "Locked now." : undefined) } : c));
+    const onCommit = vi.fn(async () => {});
+    const onSkipped = vi.fn();
+    const { rerender } = render(<SheetGrid<Row> rows={rows} columns={lockable} getKey={(r) => r.id} onCommit={onCommit} onSkipped={onSkipped} label="Clients" />);
+    const grid = screen.getByRole("grid", { name: "Clients" });
+    fireEvent.keyDown(grid, { key: "ArrowRight" });
+    fireEvent.keyDown(grid, { key: "Z" });
+    const input = screen.getByLabelText("name, row 1");
+    fireEvent.change(input, { target: { value: "Zoe" } });
+    locked = true;
+    rerender(<SheetGrid<Row> rows={[...rows]} columns={[...lockable]} getKey={(r) => r.id} onCommit={onCommit} onSkipped={onSkipped} label="Clients" />);
+    await act(async () => {
+      fireEvent.keyDown(screen.getByLabelText("name, row 1"), { key: "Enter" });
+    });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(onSkipped).toHaveBeenCalledWith(1);
+  });
+
   it("leaves keys and pastes in a row header or the footer to that control", () => {
     const onCommit = vi.fn(async () => {});
     renderGrid(onCommit, {

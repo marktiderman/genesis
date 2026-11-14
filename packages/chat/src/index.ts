@@ -12,3 +12,4 @@ export * from "./core/outbox";
 export * from "./core/transfer";
 export * from "./core/availability";
 export * from "./core/extras";
+export * from "./core/inbox";

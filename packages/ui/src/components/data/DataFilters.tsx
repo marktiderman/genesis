@@ -99,6 +99,12 @@ interface DataFiltersProps {
   showSearch?: boolean;
   /** Show the sort select. Default `true`; turn off when the data source can't sort. */
   showSort?: boolean;
+  /** A row above the search row: ResourceView's segments (ADR 0017). */
+  leading?: React.ReactNode;
+  /** Controls after the filter comboboxes in the filter row: a view's range and text filters. */
+  extra?: React.ReactNode;
+  /** The `extra` controls narrow the list, so "Clear all" shows for them too. */
+  extraActive?: boolean;
 }
 
 export function DataFilters({
@@ -120,6 +126,9 @@ export function DataFilters({
   searchInputRef,
   showSearch = true,
   showSort = true,
+  leading,
+  extra,
+  extraActive = false,
 }: DataFiltersProps) {
   const m = useUiMessages();
   const searchPlaceholder = searchPlaceholderProp ?? m.filters.search;
@@ -131,7 +140,8 @@ export function DataFilters({
 
   const hasFilters =
     filters.some((f) => f.selected.length > 0) ||
-    (statusChips?.selected.length ?? 0) > 0;
+    (statusChips?.selected.length ?? 0) > 0 ||
+    extraActive;
 
   // Plain strings and option objects normalise to one shape so both render
   // paths below read `value`/`label`/`count` without re-checking.
@@ -163,6 +173,7 @@ export function DataFilters({
 
   return (
     <div className="space-y-3">
+      {leading}
       {/* Status tabs row — a segmented strip above everything else */}
       {statusChips && statusVariant === "tabs" && (
         <div
@@ -365,6 +376,8 @@ export function DataFilters({
             />
           ) : null,
         )}
+
+        {extra}
 
         {/* Active filter badges */}
         {filters.flatMap((f) =>

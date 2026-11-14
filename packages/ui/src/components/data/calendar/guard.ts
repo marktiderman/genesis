@@ -2,18 +2,10 @@
 // one falls back (month, today) with a warning in development, rather than crashing the screen.
 
 import { isDay, type Day } from "@marktiderman/genesis-core/dates";
-import { isDevelopment } from "@marktiderman/genesis-core/errors";
+import { warnOnce } from "@marktiderman/genesis-core/resource-view";
 import type { CalendarLayout } from "./placement";
 
-// Each bad value is warned about once, not on every render while it stays in the URL.
-const warned = new Set<string>();
-
-export function warnOnce(message: string): void {
-  if (!isDevelopment() || warned.has(message)) return;
-  warned.add(message);
-  // genesis-allow-console: a development-only hint about a bad URL value; nothing failed.
-  console.warn(message);
-}
+export { warnOnce };
 
 const LAYOUTS: readonly string[] = ["month", "weeks", "agenda", "lanes"];
 
