@@ -98,4 +98,51 @@ describe("the agent queue's inbox blocks", () => {
     expect(calls.find((c) => c.method === "rpc")?.args).toEqual(["support_agent_queue", { tenant: "tb", inbox_view: "all" }]);
     expect(calls.filter((c) => c.method === "eq")).toEqual([]);
   });
+
+  it("passes a segment's page to the function and counts from its total_count, and reads every row when a filter, search or other sort would apply after it", async () => {
+    const calls: Array<{ method: string; args: unknown[] }> = [];
+    let rows: Record<string, unknown>[] = [];
+    const builder: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "in", "range", "order", "or", "is", "gte", "lte", "ilike", "neq"]) {
+      builder[m] = (...args: unknown[]) => {
+        calls.push({ method: m, args });
+        return builder;
+      };
+    }
+    builder["then"] = (resolve: (v: unknown) => unknown) => resolve({ data: rows, error: null, count: 99 });
+    const client = {
+      from: () => builder,
+      rpc: (fn: string, args: unknown) => {
+        calls.push({ method: "rpc", args: [fn, args] });
+        return builder;
+      },
+    };
+    const provider = createSupabaseProvider(client as never, { resources: { support_queue: { source: supportQueueSource() } } });
+    const mine = [{ field: "inbox_view", operator: "eq" as const, value: "mine" }];
+
+    rows = [{ id: "t1", total_count: 240 }, { id: "t2", total_count: 240 }];
+    const page = await provider.getList("support_queue", { filters: mine, pagination: { page: 3, perPage: 2 }, sort: { field: "activity_at", order: "desc" } });
+    expect(calls.find((c) => c.method === "rpc")?.args).toEqual(["support_agent_queue", { tenant: null, inbox_view: "mine", page_limit: 2, page_offset: 4 }]);
+    expect(calls.filter((c) => c.method === "range" || c.method === "order")).toEqual([]);
+    expect(page).toEqual({ data: rows, total: 240 });
+
+    // A segment's count reads one row's total.
+    calls.length = 0;
+    const counted = await provider.aggregate!("support_queue", { filters: mine, metrics: { n: { fn: "count" } } } as never);
+    expect(calls.find((c) => c.method === "rpc")?.args).toEqual(["support_agent_queue", { tenant: null, inbox_view: "mine", page_limit: 1, page_offset: 0 }]);
+    expect(counted.values.n).toBe(240);
+
+    // Open's status filter, a search or another sort apply after the function: it returns every row.
+    for (const params of [
+      { filters: [{ field: "status", operator: "in" as const, value: ["open"] }], pagination: { page: 1, perPage: 2 } },
+      { filters: mine, search: { query: "x", fields: ["title"] }, pagination: { page: 1, perPage: 2 } },
+      { filters: mine, sort: { field: "title", order: "asc" as const }, pagination: { page: 1, perPage: 2 } },
+    ]) {
+      calls.length = 0;
+      await provider.getList("support_queue", params as never);
+      const rpc = calls.find((c) => c.method === "rpc")?.args[1] as Record<string, unknown>;
+      expect(rpc, JSON.stringify(params)).not.toHaveProperty("page_limit");
+      expect(calls.some((c) => c.method === "range"), JSON.stringify(params)).toBe(true);
+    }
+  });
 });

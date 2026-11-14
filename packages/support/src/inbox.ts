@@ -17,11 +17,13 @@
  * (`mine`, `unassigned`, `pending`, `closed`, `all`, with 0013's meanings: Mine and Unassigned hold
  * active tickets only) comes from the list's `inbox_view` filter, which the segments set as `args`. The tenant is `options.tenant` when given, else the list's
  * `tenant_id` filter (a view with `scope: ["tenant_id"]`, under the viewer's workspace), else the
- * app's own.
+ * app's own. The function pages itself (`pages`): a page of a segment, newest activity first, with
+ * no search, reads just that page, and its count comes from the function's `total_count`.
  */
 export function supportQueueSource(options: { tenant?: string | null } = {}) {
   return {
     rpc: "support_agent_queue",
+    pages: { order: [{ field: "activity_at", order: "desc" as const }], total: "total_count" },
     args: (context: { take(field: string): unknown }) => {
       // Always taken: under a fixed tenant the list's own tenant_id filter would otherwise stay on
       // the query and match none of that tenant's rows.

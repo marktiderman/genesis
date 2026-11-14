@@ -63,6 +63,7 @@ export {
   type SupabaseProviderOptions,
   type SupabaseResourceConfig,
   type SourceArgsContext,
+  type SourcePages,
   type SupabaseWriteContext,
   type SupabaseUpdateContext,
   type SupabaseRealtimeChannel,

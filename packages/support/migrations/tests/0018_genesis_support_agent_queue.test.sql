@@ -1,13 +1,13 @@
 -- @feat:support-chat
 -- pgTAP test for 0018_genesis_support_agent_queue.sql: the queue as a list a provider pages and
--- counts, past 50 tickets, for a tenant's agents only. Copy into your app's
+-- counts, past 50 tickets, for a tenant's agents only, paged inside the function when asked. Copy into your app's
 -- `supabase/tests/database/` and run `supabase test db`. Rolls everything back.
 --
 -- Tenants: d (the app's own), ta and tb. People: a1 a client of ta; b2 a client of tb; c3 and c4
 -- agents of ta; e5 an agent of tb; f6 the app's staff; c9 the admin of ta.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(23);
 
 create function pg_temp.tenant(n text) returns uuid language sql immutable as $$
   select case n when 'd' then '00000000-0000-4000-8000-00000000000f'::uuid
@@ -93,8 +93,8 @@ reset role;
 update public.tickets set status = 'addressed' where title ~ '^queue [0-9]*0$';
 update public.tickets set status = 'pending' where title ~ '^queue [0-9]*5$';
 
-select ok(not has_function_privilege('anon', 'public.support_agent_queue(uuid, text)', 'execute'), 'anon cannot read the queue');
-select ok(has_function_privilege('authenticated', 'public.support_agent_queue(uuid, text)', 'execute'), 'a signed-in agent can');
+select ok(not has_function_privilege('anon', 'public.support_agent_queue(uuid, text, integer, integer)', 'execute'), 'anon cannot read the queue');
+select ok(has_function_privilege('authenticated', 'public.support_agent_queue(uuid, text, integer, integer)', 'execute'), 'a signed-in agent can');
 
 set local role authenticated;
 select pg_temp.sign_in('c3');
@@ -114,6 +114,31 @@ select is(
     where q.waiting_since is not distinct from t.waiting_since),
   60,
   'waiting_since is support_agent_tickets'' for every ticket (null for pending and closed ones)');
+-- Paged inside: the page's rows in the queue's order, the whole queue's total on each, and the
+-- latest-message preview read for the page's rows only.
+select is(
+  (select array_agg(q.id order by q.activity_at desc, q.id desc) from public.support_agent_queue(pg_temp.tenant('ta'), 'all', 7, 20) q),
+  (select array_agg(x.id) from (select q.id from public.support_agent_queue(pg_temp.tenant('ta'), 'all') q order by q.activity_at desc, q.id desc offset 20 limit 7) x),
+  'page_limit and page_offset give that page of the queue, newest activity first');
+select is(
+  (select array_agg(distinct q.total_count) from public.support_agent_queue(pg_temp.tenant('ta'), 'unassigned', 5, 0) q),
+  array[(select count(*) from public.support_agent_queue(pg_temp.tenant('ta'), 'unassigned'))],
+  'each paged row carries the whole queue''s count');
+select is((select count(*)::int from public.support_agent_queue(pg_temp.tenant('ta'), 'all', 25, 1000) q), 0, 'a page past the end is empty');
+reset role;
+set local track_functions = 'all';
+create temp table preview_calls (before bigint);
+create function pg_temp.preview_calls() returns bigint language sql stable as $$
+  select coalesce((select calls from pg_stat_xact_user_functions where schemaname = 'private' and funcname = 'genesis_support_queue_preview'), 0) $$;
+insert into preview_calls select pg_temp.preview_calls();
+set local role authenticated;
+select pg_temp.sign_in('c3');
+select is((select count(*)::int from public.support_agent_queue(pg_temp.tenant('ta'), 'all', 5, 10)), 5, 'a page of five');
+reset role;
+select is((select (pg_temp.preview_calls() - before)::int from preview_calls), 5, 'the preview was read for the page''s five rows, not the whole queue');
+set local role authenticated;
+select pg_temp.sign_in('c3');
+select throws_ok($$ select * from public.support_agent_queue('00000000-0000-4000-8000-0000000000a0', 'all', -1) $$, '22023', null, 'a negative page is refused');
 select is(public.support_agent_unread_count(pg_temp.tenant('ta')), 48, 'the unread badge counts active tickets only: a pending one waits on the requester');
 select is((select count(*)::int from public.support_agent_queue(pg_temp.tenant('ta'), 'all') q where q.title like 'queue %' and q.status = 'addressed'), 6, 'a status filter over it sees the old tickets too');
 select is((select count(*)::int from (select * from public.support_agent_queue(pg_temp.tenant('ta'), 'all') q where q.title like 'queue %' offset 50 limit 25) p), 10, 'a page past row 50 holds the rest');
