@@ -822,7 +822,7 @@
         },
         {
           "need": "a time of day on a set time zone's clock (a session at 9 am where it's held, whatever the viewer's zone)",
-          "use": "TimePicker (value: an \"HH:MM\" string, or a Date with timeZone to read it on a set zone's clock from the first render), the twin of NativeTimePicker",
+          "use": "TimePicker (value: an \"HH:MM\" string, or a Date with timeZone to read it on a set zone's clock from the first render), the web twin of NativeTimePicker (which takes a Date only and has no timeZone)",
           "import": "@marktiderman/genesis-ui",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/README.md#a-time-of-day-timepicker"
         },
