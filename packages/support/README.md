@@ -251,11 +251,11 @@ is web only, like the inbox before it:
   `resolveUser` naming them `""`), `{first_name}` and `{name}` fill as nothing, with the separator
   that joined them. At the start of a line the comma, colon or semicolon after them goes:
   "{first_name}, thanks" reads "thanks". Elsewhere the space before them goes, and a comma before
-  them too when they end their clause: "Hi {first_name}," reads "Hi,", and "Thanks,
-  {first_name}." reads "Thanks.", but "As discussed, {first_name} will call you." reads "As
-  discussed, will call you.". A name used as a sentence's subject can't be taken out cleanly: give
-  it a stand-in in `replyVariables`. The names follow `resolveUser` as it learns them. A
-  `resolveUser` that names unknown people ("Someone") should return `""` for them, or set
+  them too, unless a word follows them: "Hi {first_name}," reads "Hi,", "Thanks, {first_name}." and
+  "Thanks, {first_name} 🙂" read "Thanks." and "Thanks 🙂", but "As discussed, {first_name} will call
+  you." reads "As discussed, will call you.". A name used as a sentence's subject can't be taken
+  out cleanly: give it a stand-in in `replyVariables`. The names follow `resolveUser` as it learns
+  them. A `resolveUser` that names unknown people ("Someone") should return `""` for them, or set
   `first_name` in `replyVariables`.
 - **A held reply.** If someone writes while an agent is writing, Send first says so, with Send
   anyway and Review.

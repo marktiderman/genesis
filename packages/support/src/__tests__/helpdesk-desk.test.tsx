@@ -6,7 +6,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
-import { createSupportClient, officeHoursState, SupportError, waitingSinceOf, type AgentTicket, type SupportClient, type SupportReply, type Ticket } from "..";
+import { createSupportClient, officeHoursState, SupportError, waitingSinceOf, type AgentTicket, type SavedReply, type SupportClient, type SupportReply, type Ticket } from "..";
 import { SupportAgentInbox, SupportAgentReports, SupportMessenger, SupportSavedRepliesAdmin } from "../web-chat";
 import { fillReply, mentionMarkup, pickerToken, showMentions } from "../web-chat/composer-pickers";
 import { fakeSupabase } from "./fake-supabase";
@@ -315,6 +315,28 @@ describe("the composer's pickers", () => {
     await waitFor(() => expect(client.reply).toHaveBeenCalledWith("t1", "!refund", { internal: false }));
   });
 
+  it("describes the input with the hint while a picker is open, loading or not, and stops once it closes", async () => {
+    let resolve: (replies: SavedReply[]) => void = () => undefined;
+    const client = fakeClient({ savedReplies: vi.fn(() => new Promise<SavedReply[]>((r) => (resolve = r))) });
+    inbox(client, { ticketId: "t1" });
+    const box = await composer();
+    expect(box.hasAttribute("aria-describedby")).toBe(false);
+    const describedText = () => (box.getAttribute("aria-describedby") ?? "").split(/\s+/).map((id) => (id ? document.getElementById(id)?.textContent : null));
+    fireEvent.change(box, { target: { value: "!refund" } });
+    // Loading: no list yet, and the hint is still what the input says.
+    await waitFor(() => expect(describedText()).toContain("Esc to close"));
+    expect(box.hasAttribute("aria-controls")).toBe(false);
+    await act(async () => resolve([{ id: "s1", title: "Refund", body: "Hi {first_name}.", updatedAt: "2026-11-01T00:00:00Z" }]));
+    await waitFor(() => expect(box.getAttribute("aria-controls")).toBeTruthy());
+    expect(describedText()).toContain("Esc to close");
+    // No match: still open, still described.
+    fireEvent.change(box, { target: { value: "!zzz" } });
+    await screen.findByTestId("genesis-support-agent-thread-composer-picker-empty");
+    expect(describedText()).toContain("Esc to close");
+    fireEvent.keyDown(box, { key: "Escape" });
+    await waitFor(() => expect(box.hasAttribute("aria-describedby")).toBe(false));
+  });
+
   it("leaves Enter to an input method composing text, while the list loads", async () => {
     const client = fakeClient({ savedReplies: vi.fn(() => new Promise<never>(() => undefined)) });
     inbox(client, { ticketId: "t1" });
@@ -375,6 +397,23 @@ describe("a saved reply's name variables", () => {
     const none = { first_name: "", name: "" };
     expect(fillReply("{first_name}: here is the fix", none)).toBe("here is the fix");
     expect(fillReply("Hi\n  {name}; see below", none)).toBe("Hi\n  see below");
+  });
+
+  it("take the comma before them unless a word follows: it set the name off", () => {
+    const none = { first_name: "", name: "" };
+    // Whatever follows that isn't a word, the comma went with the name.
+    expect(fillReply("Thanks, {first_name} \nBest", none)).toBe("Thanks \nBest");
+    expect(fillReply("Thanks, {first_name} 🙂", none)).toBe("Thanks 🙂");
+    expect(fillReply("Thanks, {first_name} :)", none)).toBe("Thanks :)");
+    expect(fillReply("Thanks, {first_name}—we fixed it", none)).toBe("Thanks—we fixed it");
+    expect(fillReply("Thanks, {first_name}…", none)).toBe("Thanks…");
+    expect(fillReply('He said "Thanks, {first_name}"', none)).toBe('He said "Thanks"');
+    expect(fillReply("Note, {first_name}: see below", none)).toBe("Note: see below");
+    expect(fillReply("Note, {first_name}; see below", none)).toBe("Note; see below");
+    // A word goes on after it, a letter or a digit in any script: the comma belongs to the clause before.
+    expect(fillReply("As discussed, {first_name} will call you.", none)).toBe("As discussed, will call you.");
+    expect(fillReply("Comme convenu, {first_name} écrira.", none)).toBe("Comme convenu, écrira.");
+    expect(fillReply("Done, {first_name} 2 refunds sent", none)).toBe("Done, 2 refunds sent");
   });
 
   it("take the comma before them only when they end their clause", () => {

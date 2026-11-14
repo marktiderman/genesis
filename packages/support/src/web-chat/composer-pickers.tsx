@@ -60,8 +60,8 @@ export function showMentions(body: string): string {
   return body.replace(/@\[([^\]\n]{1,80})\]\(user:[0-9a-f-]{36}\)/gi, "@$1");
 }
 
-/** What ends a clause right after a variable: a line's end, or closing punctuation. */
-const CLAUSE_END = /^(?:$|[\r\n,.;:!?)\]}])/;
+/** The clause goes on after a variable: a word (a letter or a digit) follows it, after a space. */
+const CLAUSE_GOES_ON = /^[ \t]+[\p{L}\p{N}]/u;
 
 /**
  * A saved reply with its variables filled. A variable that's known and empty (the requester has no
@@ -70,12 +70,12 @@ const CLAUSE_END = /^(?:$|[\r\n,.;:!?)\]}])/;
  * - Where nothing comes before it on its line (only indentation, which stays), the comma, colon or
  *   semicolon and the spaces after it go: "{first_name}, thanks" and "{first_name}: here's the
  *   fix" read "thanks" and "here's the fix".
- * - Elsewhere the spaces before it go. A comma before it goes too only when the variable ends its
- *   clause, that is when a comma, a full stop, `!`, `?`, `;`, `:`, a closing bracket or the end of the
- *   line follows it: then the comma set the name off ("Thanks, {first_name}." reads "Thanks.").
- *   Otherwise the comma belongs to the clause before ("As discussed, {first_name} will call you."
- *   reads "As discussed, will call you."). A name used as a sentence's subject can't be taken
- *   out cleanly: give it a stand-in with `replyVariables`.
+ * - Elsewhere the spaces before it go, and a comma before it goes too, since that comma set the
+ *   name off ("Thanks, {first_name}." reads "Thanks.", "Thanks, {first_name} 🙂" reads
+ *   "Thanks 🙂"). The comma stays only when the sentence goes on with a word after the name: then
+ *   it belongs to the clause before ("As discussed, {first_name} will call you." reads "As
+ *   discussed, will call you."). A name used as a sentence's subject can't be taken out cleanly:
+ *   give it a stand-in with `replyVariables`.
  *
  * Unknown variables stay as written.
  */
@@ -87,7 +87,7 @@ export function fillReply(body: string, variables: Readonly<Record<string, strin
     )
     .replace(/(,?)[ \t]*\{(\w+)\}/g, (token: string, comma: string, name: string, at: number, text: string) => {
       if (!empty(name)) return token;
-      return comma && !CLAUSE_END.test(text.slice(at + token.length)) ? comma : "";
+      return comma && CLAUSE_GOES_ON.test(text.slice(at + token.length)) ? comma : "";
     });
   return fill(tidied, variables);
 }
@@ -119,6 +119,8 @@ export interface ComposerPicker {
   /** The option the arrows are on, or -1 until the agent moves into the list (Enter does nothing until then, while there are options). */
   active: number;
   listId: string;
+  /** The id of the line under an open picker that says Escape closes it, for the input's `aria-describedby`. */
+  hintId: string;
   optionId: (index: number) => string;
   choose: (index: number) => void;
   /** The composer's keys, before its own: true when a picker key was used. */
@@ -205,6 +207,7 @@ export function useComposerPicker({ client, tenantId, scope, draft, setDraft, no
     loading: open && ((kind === "saved" && saved.isPending) || (kind === "article" && articles.isPending)),
     active: engaged && options.length ? Math.min(active, options.length - 1) : -1,
     listId,
+    hintId: `${listId}-hint`,
     optionId: (index) => `${listId}-option-${index}`,
     setActive,
     choose,
@@ -262,7 +265,7 @@ export function ComposerPickerList({ picker, copy, testID }: { picker: ComposerP
           {copy.agentInbox.pickerEmpty}
         </p>
       ) : (
-        <ul role="listbox" id={picker.listId} aria-labelledby={`${picker.listId}-label`} aria-describedby={`${picker.listId}-hint`} className="flex flex-col p-1">
+        <ul role="listbox" id={picker.listId} aria-labelledby={`${picker.listId}-label`} aria-describedby={picker.hintId} className="flex flex-col p-1">
           {picker.options.map((option, index) => (
             <li
               key={option.id}
@@ -281,8 +284,11 @@ export function ComposerPickerList({ picker, copy, testID }: { picker: ComposerP
           ))}
         </ul>
       )}
-      {/* Enter is held while the list is open, so say how to leave it. */}
-      <p className="px-3 pb-2 text-xs text-muted-foreground" id={`${picker.listId}-hint`} data-testid={`${testID}-hint`}>
+      {/*
+        Enter is held while the list is loading or offers options, so say how to leave it; with
+        "Nothing matches", Enter sends, and Escape still closes. The composer's input points here too.
+      */}
+      <p className="px-3 pb-2 text-xs text-muted-foreground" id={picker.hintId} data-testid={`${testID}-hint`}>
         {copy.agentInbox.pickerHint}
       </p>
     </div>

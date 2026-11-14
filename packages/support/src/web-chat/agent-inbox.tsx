@@ -171,7 +171,9 @@ function TicketComposer({ accessory, testID, ...composer }: ThreadPageSlotMap["c
   const open = Boolean(picker?.open && picker.options.length);
   const activeId = open && picker && picker.active >= 0 ? picker.optionId(picker.active) : null;
   const listId = open && picker ? picker.listId : null;
-  // The input names the list it drives, and the option the arrows are on.
+  // Focus stays in the input, so the hint under any open picker (loading, options or none) is read from here.
+  const hintId = picker?.open ? picker.hintId : null;
+  // The input names the list it drives, the option the arrows are on, and the hint.
   useEffect(() => {
     const el = input.current;
     if (!el) return;
@@ -179,7 +181,16 @@ function TicketComposer({ accessory, testID, ...composer }: ThreadPageSlotMap["c
     else el.removeAttribute("aria-controls");
     if (activeId) el.setAttribute("aria-activedescendant", activeId);
     else el.removeAttribute("aria-activedescendant");
-  }, [listId, activeId]);
+    if (!hintId) return;
+    // Added to, never in place of, any description the input already has, and taken out again.
+    const ids = (el.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
+    if (!ids.includes(hintId)) el.setAttribute("aria-describedby", [...ids, hintId].join(" "));
+    return () => {
+      const rest = (el.getAttribute("aria-describedby") ?? "").split(/\s+/).filter((id) => id && id !== hintId);
+      if (rest.length) el.setAttribute("aria-describedby", rest.join(" "));
+      else el.removeAttribute("aria-describedby");
+    };
+  }, [listId, activeId, hintId]);
   const above =
     picker?.open && pane ? (
       <>
