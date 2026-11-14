@@ -173,6 +173,10 @@ jobs:
               exit 0
             fi
           fi
+#@if sentry
+          # Before anything is published: the source map upload after it runs the app's own uploader.
+          node .eas/scripts/native-release.mjs installed @sentry/react-native
+#@end
           # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
           profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" ios --shell)
           eval "$profile_env"
@@ -185,7 +189,6 @@ jobs:
 #@if sentry
           # A failed upload fails the job (needs SENTRY_AUTH_TOKEN in the EAS environment). The app's own
           # sentry-expo-upload-sourcemaps: npx --no never installs one (an unrelated npm package has the name).
-          node .eas/scripts/native-release.mjs installed @sentry/react-native
           npx --no sentry-expo-upload-sourcemaps dist
 #@end
 #@if pushHook
@@ -311,6 +314,10 @@ jobs:
               exit 0
             fi
           fi
+#@if sentry
+          # Before anything is published: the source map upload after it runs the app's own uploader.
+          node .eas/scripts/native-release.mjs installed @sentry/react-native
+#@end
           # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
           profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" android --shell)
           eval "$profile_env"
@@ -323,7 +330,6 @@ jobs:
 #@if sentry
           # A failed upload fails the job (needs SENTRY_AUTH_TOKEN in the EAS environment). The app's own
           # sentry-expo-upload-sourcemaps: npx --no never installs one (an unrelated npm package has the name).
-          node .eas/scripts/native-release.mjs installed @sentry/react-native
           npx --no sentry-expo-upload-sourcemaps dist
 #@end
 #@if pushHook

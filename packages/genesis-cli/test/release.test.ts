@@ -990,7 +990,13 @@ describe("npx never fetches a package the lane didn't pin", () => {
     const gh = (yaml("ci/native-release.yml", ctx({ sentry: true })).jobs.release.steps as { name?: string; run?: string }[]).find((st) => st.name === "Sentry can take the source maps")!.run!;
     expect(gh).toContain("native-release.mjs installed @sentry/react-native");
     const eas = (yaml("eas/workflows/deploy-production.yml", ctx({ sentry: true })).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
-    expect(eas.indexOf("installed @sentry/react-native")).toBeLessThan(eas.indexOf("npx --no sentry-expo-upload-sourcemaps dist"));
+    // Before anything is published, not only before the upload.
+    expect(eas.indexOf("installed @sentry/react-native")).toBeGreaterThan(-1);
+    expect(eas.indexOf("installed @sentry/react-native")).toBeLessThan(eas.indexOf("eas-cli@26.0.0 update --channel"));
+    const easAndroid = (yaml("eas/workflows/deploy-production.yml", ctx({ sentry: true })).jobs.update_android.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+    expect(easAndroid.indexOf("installed @sentry/react-native")).toBeLessThan(easAndroid.indexOf("eas-cli@26.0.0 update --channel"));
+    // Without Sentry, no check.
+    expect((yaml("eas/workflows/deploy-production.yml", ctx()).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!).not.toContain("installed @sentry/react-native");
     const script = path.join(TEMPLATES, "eas/scripts/native-release.mjs");
     const app = tempDir("genesis-installed-");
     writeTree(app, { "node_modules/@sentry/react-native/package.json": "{}" });
