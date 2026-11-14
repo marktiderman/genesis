@@ -17,20 +17,24 @@
  * (`mine`, `unassigned`, `pending`, `closed`, `all`, with 0013's meanings: Mine and Unassigned hold
  * active tickets only) comes from the list's `inbox_view` filter, which the segments set as `args`. The tenant is `options.tenant` when given, else the list's
  * `tenant_id` filter (a view with `scope: ["tenant_id"]`, under the viewer's workspace), else the
- * app's own. The function pages itself (`pages`): a page of a segment, newest activity first, with
- * no search, reads just that page, and its count comes from the function's `total_count`.
+ * app's own. The function pages itself (`pages`): a page of a segment (Open's status filter
+ * included), newest activity first, with no search, reads just that page, and a count reads the
+ * count alone (`page_limit: 0`). A search or another sort reads every row, by design: PostgREST
+ * can only search or sort what the function returned.
  */
 export function supportQueueSource(options: { tenant?: string | null } = {}) {
   return {
     rpc: "support_agent_queue",
     pages: { order: [{ field: "activity_at", order: "desc" as const }], total: "total_count" },
-    args: (context: { take(field: string): unknown }) => {
+    args: (context: { take(field: string): unknown; takeIn?(field: string): readonly unknown[] | undefined }) => {
       // Always taken: under a fixed tenant the list's own tenant_id filter would otherwise stay on
       // the query and match none of that tenant's rows.
       const listed = context.take("tenant_id");
       return {
         tenant: options.tenant !== undefined ? options.tenant : (listed ?? null),
         inbox_view: context.take("inbox_view") ?? "all",
+        // A status filter (Open's segment, a status chip) is the function's too, so it pages.
+        statuses: context.takeIn?.("status")?.map(String) ?? null,
       };
     },
   };
