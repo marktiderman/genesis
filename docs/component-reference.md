@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 845 components · 4756 other exports · 3972 standalone types across 214 entry points in 31 packages.
+**Totals:** 845 components · 4829 other exports · 4065 standalone types across 214 entry points in 31 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -313,7 +313,7 @@ Chat for Genesis apps, in the app's own Supabase: conversations of kinds the app
 
 **Barrel:** [`packages/chat/src/index.ts`](../packages/chat/src/index.ts)
 
-### Other exports (64)
+### Other exports (65)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -328,6 +328,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`CHAT_LIMITS`](../packages/chat/src/core/media.ts) | const | — | Default limits (decision 5): an app may lower them, not raise them past the bucket's 100 MB. |
 | [`CHAT_SCHEMA`](../packages/chat/src/core/client.ts) | const | — | _(no summary)_ |
 | [`ChatError`](../packages/chat/src/core/client.ts) | class | — | A refusal from the database, with its SQLSTATE (`42501` not allowed, `22023` bad input, `GS429` too many). |
+| [`conversationInbox`](../packages/chat/src/core/inbox.ts) | function | — | A list of conversations as a Genesis view's inbox (`<ResourceView type="inbox">`): a plain block an app passes to `defineView` over its conversations (rows shaped like genesis_chat's `inbox` function: `title`, `other_user_id`, `last_mess... |
 | [`conversationTopic`](../packages/chat/src/core/client.ts) | const | — | _(no summary)_ |
 | [`createChatClient`](../packages/chat/src/core/client.ts) | function | — | _(no summary)_ |
 | [`createOutbox`](../packages/chat/src/core/outbox.ts) | function | — | _(no summary)_ |
@@ -384,7 +385,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`waveformPeaks`](../packages/chat/src/core/media.ts) | function | — | Peaks for a waveform: `count` values 0–100 from raw samples (-1…1), the loudest in each bucket, scaled so the loudest bucket is 100. Quiet recordings still show a shape; silence shows a flat line. |
 | [`WEEKDAYS`](../packages/chat/src/core/availability.ts) | const | — | _(no summary)_ |
 
-### Types (53)
+### Types (54)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -414,6 +415,7 @@ export type { ChatSupabase };
 export type { ChatTopic };
 export type { ConversationChannel };
 export type { ConversationHandlers };
+export type { ConversationInboxOptions };
 export type { HostedAttachment };
 export type { HostedUpload };
 export type { HostedUploadOptions };
@@ -1296,7 +1298,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (90)
+### Other exports (99)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1305,7 +1307,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`aggregateProblems`](../packages/core/src/provider/aggregate.ts) | function | — | Every problem with an aggregate request; empty when it is sound. |
 | [`APPEARANCES`](../packages/core/src/appearance-values.ts) | const | — | The appearances, in a picker's order. |
 | [`blankValues`](../packages/core/src/hooks/use-resource-form.ts) | function | — | What a save sends for an input left empty: `""`, or `undefined` (a cleared number input). Only a field whose column the form knows about (`nullable` set, as ResourceView sets it from a generated contract) is changed: a create leaves it o... |
+| [`BOARD_NONE`](../packages/core/src/hooks/use-board-columns.ts) | const | — | The column for rows whose field is empty. |
+| [`BOARD_PAGE`](../packages/core/src/hooks/use-board-columns.ts) | const | — | Cards per column page. |
+| [`boardColumnFilter`](../packages/core/src/hooks/use-board-columns.ts) | function | — | One column's own filter: its value, or "is empty". |
 | [`buildArrayItemDefaults`](../packages/core/src/hooks/use-resource-form.ts) | function | — | Build default values for a single array item from its sub-field definitions |
+| [`CALENDAR_LIMIT`](../packages/core/src/hooks/use-view-calendar-range.ts) | const | — | Most rows one request loads (a calendar with an `endField` makes two, so up to twice this). A month grid is six weeks: 500 is about a dozen a day, more than a busy shared calendar holds, and still one quick request. Past it the calendar ... |
 | [`callRpc`](../packages/core/src/provider/write-helpers.ts) | function | — | Calls a database function and returns its result. A failure throws a DataWriteError with the usual outcome and code, and words a person can read: yours for the code, a guard's own message (P0001), the defaults above, or a generic sentenc... |
 | [`classifyError`](../packages/core/src/errors.ts) | function | — | What kind of error this is, a sentence that is safe to show, and whether it is worth reporting. Understands the provider's `DataWriteError` and `DataReadError`, Postgres and PostgREST codes, HTTP statuses, Supabase's auth and fetch error... |
 | [`clearViewerCache`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Empties the query cache for a new viewer: sends the old viewer's waiting undoable writes (the session is still theirs), cancels reads in flight, then removes every query. Call it in the sign-in and sign-out actions, before the session ch... |
@@ -1369,11 +1375,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useAggregate`](../packages/core/src/hooks/use-aggregate.ts) | function | Beta | Totals over a resource's rows (count, and sum, average, lowest or highest of a field), through the data provider: its `aggregate`, or `resolveAggregate`'s fallback. Cached under the resource's key, so any write to the resource through Ge... |
 | [`useAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | The person's appearance and density, resolved, with setters. Throws outside an `AppearancePreferencesProvider`; a component that works with or without one reads `useOptionalAppearancePreferences`. |
+| [`useBoardColumns`](../packages/core/src/hooks/use-board-columns.ts) | function | Beta | Load a board: one request per column page, each with the shared filters, sort and search plus the column's value. Columns page on their own (`loadMore`), and the pages a column has loaded reset when the filters, sort or search change. |
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by `orderBy` (else the naming field) then the key, `p... |
+| [`useListState`](../packages/core/src/hooks/use-list-state.ts) | function | Beta | A list's state, held for one list (ADR 0017): from the URL when it has one, and the person's store. The URL follows each change (replacing the entry: a filter isn't a page) and the state follows the URL back (Back, Forward, a link to the... |
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | Like `useAppearancePreferences`, but null outside a provider: for a component (a shell, a theme provider) that keeps its own behaviour when an app hasn't set preferences up. |
@@ -1382,8 +1390,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
 | [`useResourceForm`](../packages/core/src/hooks/use-resource-form.ts) | function | — | _(no summary)_ |
+| [`useSegmentCounts`](../packages/core/src/hooks/use-segment-counts.ts) | function | Beta | Each segment's row count for a view's list (ADR 0017), for the segments that ask for one (`count: true`): the list's other filters (scope, the screen's, the declared filters) plus the segment's own, counted through the provider (estimate... |
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useUnsavedChangesGuard`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | function | — | Warns before unsaved changes are lost, without depending on a router. |
+| [`useViewBoard`](../packages/core/src/hooks/use-view-board.ts) | function | Beta | A view's rows as board columns, with moves: |
+| [`useViewCalendarRange`](../packages/core/src/hooks/use-view-calendar-range.ts) | function | Beta | A view's rows in one calendar window, for a screen that places them itself (a custom view, ADR 0019). ResourceCalendar loads its rows through it. |
 | [`useViewer`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The viewer for guards: `{ id, scope, roles }` from the nearest ViewerScope, or {@link NO_VIEWER} without one. The object is stable while those are equal by value, so it can sit in a memo's dependencies. |
 | [`useViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The viewer and scope from the nearest `ViewerScope`. Throws without one: screens that cache per viewer need it. |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
@@ -1393,7 +1404,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`writeConflict`](../packages/core/src/schema/write-state.ts) | function | — | The conflict `error` reports for a write of `mine`, or null when `error` isn't a `conflict` that carries the row as it is now. A field `mine` has and their row doesn't (a column it doesn't read) counts as different: the person decides it... |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (138)
+### Types (156)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1408,9 +1419,11 @@ export type { AppearancePreferenceValues };
 export type { AppearancePreferences };
 export type { AppearancePreferencesDefinition };
 export type { AppearancePreferencesStore };
+export type { AppearanceWriteContext };
 export type { ArrayFilter };
 export type { AuditEntry };
 export type { BaseRecord };
+export type { BoardColumnData };
 export type { BulkChange };
 export type { BulkResult };
 export type { CallRpcOptions };
@@ -1461,6 +1474,9 @@ export type { LinkOption };
 export type { LinkTarget };
 export type { ListParams };
 export type { ListResult };
+export type { ListSort };
+export type { ListStateResult };
+export type { ListUrlAdapter };
 export type { LiveOptions };
 export type { MockProviderOptions };
 export type { MutationMode };
@@ -1492,6 +1508,8 @@ export type { ScalarFilter };
 export type { ScopedKey };
 export type { SelectOption };
 export type { SortParam };
+export type { SourceArgsContext };
+export type { SourcePages };
 export type { StorageAdapter };
 export type { StorageType };
 export type { SubscribeParams };
@@ -1509,11 +1527,14 @@ export type { UpdateParams };
 export type { UpdateResult };
 export type { UseAggregateOptions };
 export type { UseAppearancePreferencesReturn };
+export type { UseBoardColumnsOptions };
+export type { UseBoardColumnsReturn };
 export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
 export type { UseLinkOptionsOptions };
 export type { UseLinkOptionsReturn };
+export type { UseListStateOptions };
 export type { UseOneOptions };
 export type { UseRelationLabelOptions };
 export type { UseResourceFormOptions };
@@ -1522,10 +1543,18 @@ export type { UseResourceOptions };
 export type { UseResourceReturn };
 export type { UseUnsavedChangesGuardOptions };
 export type { UseUnsavedChangesGuardReturn };
+export type { UseViewBoardOptions };
+export type { UseViewCalendarRangeOptions };
 export type { UseWizardReturn };
 export type { UseWriteOptions };
 export type { UseWriteReturn };
 export type { VersionField };
+export type { ViewBoardColumn };
+export type { ViewBoardConflict };
+export type { ViewBoardState };
+export type { ViewBoardWords };
+export type { ViewCalendarRange };
+export type { ViewCalendarRangeState };
 export type { Viewer };
 export type { ViewerContext };
 export type { WidgetHint };
@@ -1579,7 +1608,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (54)
+### Types (56)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1625,6 +1654,8 @@ export type { RowFailure };
 export type { RpcClient };
 export type { ScalarFilter };
 export type { SortParam };
+export type { SourceArgsContext };
+export type { SourcePages };
 export type { SubscribeParams };
 export type { SupabaseClient };
 export type { SupabaseClientInput };
@@ -1653,14 +1684,18 @@ export type { WriteOutcome };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (39)
+### Other exports (48)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`blankValues`](../packages/core/src/hooks/use-resource-form.ts) | function | — | What a save sends for an input left empty: `""`, or `undefined` (a cleared number input). Only a field whose column the form knows about (`nullable` set, as ResourceView sets it from a generated contract) is changed: a create leaves it o... |
+| [`BOARD_NONE`](../packages/core/src/hooks/use-board-columns.ts) | const | — | The column for rows whose field is empty. |
+| [`BOARD_PAGE`](../packages/core/src/hooks/use-board-columns.ts) | const | — | Cards per column page. |
+| [`boardColumnFilter`](../packages/core/src/hooks/use-board-columns.ts) | function | — | One column's own filter: its value, or "is empty". |
 | [`buildArrayItemDefaults`](../packages/core/src/hooks/use-resource-form.ts) | function | — | Build default values for a single array item from its sub-field definitions |
+| [`CALENDAR_LIMIT`](../packages/core/src/hooks/use-view-calendar-range.ts) | const | — | Most rows one request loads (a calendar with an `endField` makes two, so up to twice this). A month grid is six weeks: 500 is about a dozen a day, more than a busy shared calendar holds, and still one quick request. Past it the calendar ... |
 | [`clearViewerCache`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Empties the query cache for a new viewer: sends the old viewer's waiting undoable writes (the session is still theirs), cancels reads in flight, then removes every query. Call it in the sign-in and sign-out actions, before the session ch... |
 | [`DEFAULT_DRAFT_DELAY_MS`](../packages/core/src/hooks/draft-controller.ts) | const | — | _(no summary)_ |
 | [`DEFAULT_LIVE_DEBOUNCE_MS`](../packages/core/src/hooks/use-live.ts) | const | — | How long a burst of change events is gathered into one refetch. |
@@ -1680,10 +1715,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`scopeClock`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The scope's clock: `scopeTimeZone` when the runtime knows it, else the viewer's. A zone it doesn't know is never a quiet fallback: it throws in development, and in production it is reported (`reportError`, once per zone) before the viewe... |
 | [`stableJson`](../packages/core/src/hooks/draft-controller.ts) | function | — | JSON with object keys sorted, so values compare equal whatever order a store keeps keys in. |
 | [`useAggregate`](../packages/core/src/hooks/use-aggregate.ts) | function | Beta | Totals over a resource's rows (count, and sum, average, lowest or highest of a field), through the data provider: its `aggregate`, or `resolveAggregate`'s fallback. Cached under the resource's key, so any write to the resource through Ge... |
+| [`useBoardColumns`](../packages/core/src/hooks/use-board-columns.ts) | function | Beta | Load a board: one request per column page, each with the shared filters, sort and search plus the column's value. Columns page on their own (`loadMore`), and the pages a column has loaded reset when the filters, sort or search change. |
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by `orderBy` (else the naming field) then the key, `p... |
+| [`useListState`](../packages/core/src/hooks/use-list-state.ts) | function | Beta | A list's state, held for one list (ADR 0017): from the URL when it has one, and the person's store. The URL follows each change (replacing the entry: a filter isn't a page) and the state follows the URL back (Back, Forward, a link to the... |
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
@@ -1691,7 +1728,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
 | [`useResourceForm`](../packages/core/src/hooks/use-resource-form.ts) | function | — | _(no summary)_ |
+| [`useSegmentCounts`](../packages/core/src/hooks/use-segment-counts.ts) | function | Beta | Each segment's row count for a view's list (ADR 0017), for the segments that ask for one (`count: true`): the list's other filters (scope, the screen's, the declared filters) plus the segment's own, counted through the provider (estimate... |
 | [`useUnsavedChangesGuard`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | function | — | Warns before unsaved changes are lost, without depending on a router. |
+| [`useViewBoard`](../packages/core/src/hooks/use-view-board.ts) | function | Beta | A view's rows as board columns, with moves: |
+| [`useViewCalendarRange`](../packages/core/src/hooks/use-view-calendar-range.ts) | function | Beta | A view's rows in one calendar window, for a screen that places them itself (a custom view, ADR 0019). ResourceCalendar loads its rows through it. |
 | [`useViewer`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The viewer for guards: `{ id, scope, roles }` from the nearest ViewerScope, or {@link NO_VIEWER} without one. The object is stable while those are equal by value, so it can sit in a memo's dependencies. |
 | [`useViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The viewer and scope from the nearest `ViewerScope`. Throws without one: screens that cache per viewer need it. |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
@@ -1699,11 +1739,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWrite`](../packages/core/src/hooks/use-write.ts) | function | — | A one-off write that isn't a resource page's create, update or remove: a database function, `createOrAdopt`, several writes in a row. It invalidates what it made stale and reports failures in plain words. |
 | [`WRITE_FAILED`](../packages/core/src/hooks/use-write.ts) | const | — | _(no summary)_ |
 
-### Types (38)
+### Types (53)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BoardColumnData };
 export type { DraftAdoption };
 export type { DraftOptions };
 export type { DraftSeed };
@@ -1714,6 +1755,9 @@ export type { GenesisViewerRoles };
 export type { InfinitePageParam };
 export type { LinkOption };
 export type { LinkTarget };
+export type { ListSort };
+export type { ListStateResult };
+export type { ListUrlAdapter };
 export type { LiveOptions };
 export type { MutationMode };
 export type { MutationModeOptions };
@@ -1722,11 +1766,14 @@ export type { ResourceScope };
 export type { UndoableWrite };
 export type { UpdateOptions };
 export type { UseAggregateOptions };
+export type { UseBoardColumnsOptions };
+export type { UseBoardColumnsReturn };
 export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
 export type { UseLinkOptionsOptions };
 export type { UseLinkOptionsReturn };
+export type { UseListStateOptions };
 export type { UseOneOptions };
 export type { UseRelationLabelOptions };
 export type { UseResourceFormOptions };
@@ -1735,9 +1782,17 @@ export type { UseResourceOptions };
 export type { UseResourceReturn };
 export type { UseUnsavedChangesGuardOptions };
 export type { UseUnsavedChangesGuardReturn };
+export type { UseViewBoardOptions };
+export type { UseViewCalendarRangeOptions };
 export type { UseWizardReturn };
 export type { UseWriteOptions };
 export type { UseWriteReturn };
+export type { ViewBoardColumn };
+export type { ViewBoardConflict };
+export type { ViewBoardState };
+export type { ViewBoardWords };
+export type { ViewCalendarRange };
+export type { ViewCalendarRangeState };
 export type { Viewer };
 export type { ViewerContext };
 export type { WizardStep };
@@ -2118,31 +2173,51 @@ export type { JustifiedTile };
 
 **Barrel:** [`packages/core/src/resource-view/index.ts`](../packages/core/src/resource-view/index.ts)
 
-### Other exports (36)
+### Other exports (61)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`applicableListState`](../packages/core/src/resource-view/saved-views.ts) | function | Beta | The part of a stored list state that still applies to a view: a segment it still has, filters it still declares, a column preset and view type it still offers, a field it can still group by. A saved view from an older `version` is offere... |
 | [`boardChoices`](../packages/core/src/resource-view/define-view.ts) | function | Beta | The values a board's field can hold, in the contract's order: an enum's choices, or `true` and `false` for a yes/no field. Undefined when the field has no fixed set of values. |
 | [`boardProblems`](../packages/core/src/resource-view/define-view.ts) | function | Beta | What's wrong with a board block for these fields, one sentence each (empty when it's fine). |
+| [`calendarEvents`](../packages/core/src/resource-view/calendar.ts) | function | Beta | A view's rows as calendar events: each row's start (and its end, or start plus its duration), all day or timed, its title from the view's summary and its lanes. A row without a start is left out. The web's calendar and the phone's read r... |
+| [`calendarLanes`](../packages/core/src/resource-view/calendar.ts) | function | Beta | The lanes a `lanes` layout draws: the ones given, in order, then any an event names that weren't given (labelled by key). @stability Beta |
 | [`calendarProblems`](../packages/core/src/resource-view/define-view.ts) | function | Beta | What's wrong with a calendar block for these fields, one sentence each (empty when it's fine). `defineView` checks the view's own block with it; a renderer checks a screen's overrides merged over that block with it too, so neither can na... |
+| [`calendarWindow`](../packages/core/src/resource-view/calendar.ts) | function | Beta | The days a layout shows around `anchor`: a month grid's whole weeks, or `weeks` weeks from the week `anchor` is in. This is the window a calendar asks its data for. @stability Beta |
 | [`cascadeSelection`](../packages/core/src/resource-view/tree.ts) | function | — | The selection after toggling `id` with cascade: the node and every descendant take the node's new state. Without cascade, use a plain toggle; selection never cascades by default. |
+| [`createLocalSavedViewStore`](../packages/core/src/resource-view/saved-views.ts) | function | Beta | The default saved-view store: this device only, personal views, under `<prefix>:<resource>` in the browser's localStorage (or the storage you pass, such as a phone's adapter). Without storage it keeps views in memory for the page's life.... |
+| [`decodeFilterValue`](../packages/core/src/resource-view/list-state.ts) | function | — | One URL parameter as a declared filter's value, by its kind; undefined when it doesn't parse. |
 | [`defineRecordView`](../packages/core/src/resource-view/record-view.ts) | function | — | One record's screen from its view: |
 | [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | Describe what a resource means to people. The result is frozen and platform-neutral: |
 | [`defineWidget`](../packages/core/src/resource-view/widget.ts) | function | Beta | Define a widget: a tile fed by a view. Checks it against the view (its fields, presets) and returns it frozen. Throws {@link ViewDefinitionError} with every problem. |
 | [`defineWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | Deprecated | _(no summary)_ |
 | [`deriveDisplay`](../packages/core/src/resource-view/define-view.ts) | function | — | The display a field gets when the view doesn't name one. |
+| [`displayZone`](../packages/core/src/resource-view/calendar.ts) | function | Beta | The clock a field's cells use: its own zone, the scope's, the viewer's, the device's. @stability Beta |
+| [`encodeFilterValue`](../packages/core/src/resource-view/list-state.ts) | function | — | A filter value as one URL parameter: choices joined by commas, a range as `from..to`, text as is. |
+| [`eventDays`](../packages/core/src/resource-view/calendar.ts) | function | — | The first and last day an event covers on `zone`'s clock. |
+| [`eventDots`](../packages/core/src/resource-view/calendar.ts) | function | Beta | An event's dots: its own colours, else its lanes' colours. @stability Beta |
+| [`filterOptionLabel`](../packages/core/src/resource-view/list-state.ts) | function | — | A value's words for a filter chip: its label, or the value in title case. |
 | [`filterParams`](../packages/core/src/resource-view/link.ts) | function | — | A screen's or a picker's filter as provider filters: a single value is `eq`, `null` is `is_null` and a list is `in`. |
+| [`filterValueFor`](../packages/core/src/resource-view/list-state.ts) | function | Beta | A stored filter value in the shape its filter takes (a choice's list of strings, a range's ends, a text), or undefined when it isn't: a saved view from a server or edited by hand can't break a list. |
 | [`galleryProblems`](../packages/core/src/resource-view/define-view.ts) | function | Beta | What's wrong with a gallery block for these fields, one sentence each (empty when it's fine). |
 | [`groupRows`](../packages/core/src/resource-view/group.ts) | function | Beta | A view's rows in groups, in the order each group first appears (the server's sort, so loading more never reorders what's on screen). Without a field (no `groupBy` and none given), one group holding every row, with an empty label. |
+| [`groupTotals`](../packages/core/src/resource-view/group.ts) | function | Beta | The view's `totals` over some rows (a group's, or every loaded row for a footer): per field, its sum, average, lowest, highest or count, `null` when no row has a number. Fields the view names no total for are left out. |
+| [`inboxProblems`](../packages/core/src/resource-view/define-view.ts) | function | Beta | What's wrong with an inbox block for these fields, one sentence each (empty when it's fine). |
 | [`initialExpanded`](../packages/core/src/resource-view/tree.ts) | function | — | The open ids a tree starts with: `true` opens every parent, a number opens parents shallower than that depth (`1` opens the roots), `false` or nothing opens none. |
 | [`initialsOf`](../packages/core/src/resource-view/picture.ts) | function | — | First and last initial of a name, from letters only: "Ada Lovelace" → "AL", "Ana-María López" → "AL", "李 小龙" → "李小", "Cher" → "C". Empty when the name has no letters (" ", "🎉🎉"). |
+| [`isFilterSet`](../packages/core/src/resource-view/list-state.ts) | function | Beta | Whether a filter value narrows anything (an empty choice or range doesn't). @stability Beta |
 | [`isRecordView`](../packages/core/src/resource-view/record-view.ts) | function | — | Whether a value is a record view (`defineRecordView`'s result). |
 | [`isWidget`](../packages/core/src/resource-view/widget.ts) | function | — | Whether a value is a widget from `defineWidget`. |
 | [`isWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | Deprecated | _(no summary)_ |
+| [`laneKeys`](../packages/core/src/resource-view/calendar.ts) | function | — | A lane field's value as lane keys. |
+| [`LIST_URL_KEYS`](../packages/core/src/resource-view/list-state.ts) | const | Beta | The URL keys a list's state uses beside `q`, `sort`, `page` and `id`. @stability Beta |
+| [`listUrlParams`](../packages/core/src/resource-view/list-state.ts) | function | Beta | The URL parameters a list's segment and declared filters set, `null` for each to remove: pass them to a router adapter's `setSearchParams`. |
 | [`NO_VIEWER`](../packages/core/src/viewer.ts) | const | — | The viewer outside any ViewerScope: no one, nowhere, no roles. |
+| [`placeEvents`](../packages/core/src/resource-view/calendar.ts) | function | Beta | Each day of `range` with the events on it: an event that spans days is on each one, all-day events (and the middle days of a long timed one) come first, then timed ones by start, then by title. @stability Beta |
 | [`plural`](../packages/core/src/resource-view/define-view.ts) | function | — | A noun's plural, the inverse of `singular`: entry → entries, box → boxes, person → people. |
+| [`readListUrl`](../packages/core/src/resource-view/list-state.ts) | function | Beta | A list's segment and declared filters from URL parameters. Only declared filters and defined segments are read; anything else is ignored. |
 | [`RECORD_OPEN_MODES`](../packages/core/src/resource-view/types.ts) | const | Beta | The open modes, in the order a picker lists them. @stability Beta |
 | [`resolveChartSeries`](../packages/core/src/resource-view/widget.ts) | function | Beta | A chart widget's bars from its rows: one per value of `groupBy`, in the field's choice order when it has choices (else by value), each the metric over the rows with that value. |
 | [`resolveProgress`](../packages/core/src/resource-view/widget.ts) | function | Beta | Progress as a fraction from 0 to 1 (more than 1 when the goal is passed), or null without a goal to measure against. |
@@ -2154,20 +2229,32 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`scopeFilter`](../packages/core/src/resource-view/scope.ts) | function | — | The view's scope keys as a list filter, the way `ResourceView` applies them itself: like {@link scopeValues}, but a list (`{ orgId: ["o1", "o2"] }`, a roll-up across organizations) filters to any of its values, and a key the scope doesn'... |
 | [`scopeValues`](../packages/core/src/resource-view/scope.ts) | function | — | The view's declared scope keys with their values from the viewer's scope, ready to pass as a screen's `filter`: `scope: ["league_id"]` reads `scope.league_id`, then `scope.leagueId`. |
 | [`setExpanded`](../packages/core/src/resource-view/tree.ts) | function | — | The open set with `id` opened or closed: a new set, or the same one when nothing changes. |
+| [`shiftAnchor`](../packages/core/src/resource-view/calendar.ts) | function | Beta | The anchor one step back (−1) or on (1): a month for `month`, else the window's weeks. @stability Beta |
 | [`singular`](../packages/core/src/resource-view/define-view.ts) | function | — | A table name's singular, for the default noun. A wrong guess is fixed with `@genesis {"noun"}`. |
+| [`timeStorage`](../packages/core/src/resource-view/calendar.ts) | function | Beta | How a field stores time, from its database type (an unknown type with a time counts as an instant). @stability Beta |
 | [`toWidgetText`](../packages/core/src/resource-view/widget.ts) | function | Beta | A widget's number in words: `null` reads "—", a percent is of 1 (0.42 is 42%). |
 | [`treeRows`](../packages/core/src/resource-view/tree.ts) | function | — | Build the tree from flat rows. Siblings are sorted by `compare`, else keep the rows' order, so either way the sort applies within each set of siblings. A row whose parent isn't among `rows` is a root, and so is a row whose parent would c... |
 | [`valueText`](../packages/core/src/resource-view/define-view.ts) | function | — | A value in words: its entry in `labels`, else the value in title case (`draft` → "Draft"). |
 | [`ViewDefinitionError`](../packages/core/src/resource-view/errors.ts) | class | — | A view that names a field, preset or section its contract doesn't have. |
+| [`warnOnce`](../packages/core/src/resource-view/calendar.ts) | function | Beta | A development-only hint, once per message: a bad URL value or override that fell back. @stability Beta |
+| [`whereParams`](../packages/core/src/resource-view/list-state.ts) | function | — | A segment's `where` as provider filters. A range keeps only the ends it has. |
 | [`widgetProblems`](../packages/core/src/resource-view/widget.ts) | function | — | Every problem with a widget; empty when it is sound. |
+| [`windowBounds`](../packages/core/src/resource-view/calendar.ts) | function | Beta | A window as filter values for a column: days for a date column, ISO instants of `zone`'s midnights for a timestamp, and wall-clock midnights (no zone) for a timestamp without one. `[from, to)`; `lead` widens the start by days. @stability... |
 
-### Types (76)
+### Types (103)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { Allowed };
 export type { AnyRecordView };
+export type { BulkTarget };
+export type { CalendarEvent };
+export type { CalendarEventOptions };
+export type { CalendarLane };
+export type { CalendarLayout };
+export type { CalendarWeeks };
+export type { CalendarWindowOptions };
 export type { ChartPoint };
 export type { ChartWidget };
 export type { ComputedColumn };
@@ -2176,11 +2263,14 @@ export type { DisplayHint };
 export type { FieldNameOf };
 export type { GenesisViewerRoles };
 export type { GroupRowsOptions };
+export type { InboxRow };
 export type { LinkFilter };
 export type { LinkOrder };
 export type { LinkedView };
+export type { ListState };
 export type { ListWidget };
 export type { NumberWidget };
+export type { PlacedEvent };
 export type { ProgressWidget };
 export type { RecordOpen };
 export type { RecordPageTemplate };
@@ -2197,10 +2287,12 @@ export type { RecordViewSection };
 export type { RecordViewSettingsSection };
 export type { RecordViewSlotSection };
 export type { ResolvedColumn };
+export type { ResolvedFilter };
 export type { ResolvedFormField };
 export type { ResolvedLink };
 export type { ResolvedReadinessItem };
 export type { ResolvedRecordViewSection };
+export type { ResolvedSegment };
 export type { ResolvedViewAction };
 export type { ResourceTree };
 export type { ResourceView };
@@ -2210,28 +2302,43 @@ export type { RowImage };
 export type { RowOf };
 export type { RowPicture };
 export type { RowSummary };
+export type { SavedView };
+export type { SavedViewInput };
+export type { SavedViewStore };
+export type { SegmentWhere };
 export type { Streak };
 export type { StreakWidget };
+export type { TimeStorage };
 export type { TimeZoneName };
 export type { TreeNode };
 export type { TreeOptions };
 export type { TreeResult };
 export type { ViewAction };
 export type { ViewBoard };
+export type { ViewBreakpoint };
+export type { ViewBulkAction };
 export type { ViewCalendar };
 export type { ViewCalendarDurationUnit };
 export type { ViewCalendarLayout };
 export type { ViewColumn };
 export type { ViewCopy };
 export type { ViewDefinition };
+export type { ViewEmphasis };
+export type { ViewExport };
 export type { ViewField };
+export type { ViewFilter };
+export type { ViewFilterKind };
+export type { ViewFilterValue };
 export type { ViewFormItem };
 export type { ViewGallery };
 export type { ViewGuards };
+export type { ViewInbox };
 export type { ViewLink };
 export type { ViewPreset };
+export type { ViewSegment };
 export type { ViewTimeZone };
 export type { ViewTone };
+export type { ViewTotal };
 export type { Viewer };
 export type { WidgetBase };
 export type { WidgetDefinition };
@@ -2314,11 +2421,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`parseCsv`](../packages/core/src/csv.ts) | function | — | Parse CSV text (RFC 4180: quoted fields, doubled quotes, CRLF or LF) into a header and rows. A cell is always text: nothing is guessed or coerced, so the database decides whether "1,5" is a number. |
 | [`toCsv`](../packages/core/src/csv.ts) | function | — | _(no summary)_ |
 
-### Types (1)
+### Types (2)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { CsvFormat };
 export type { ExportOptions };
 ```
 
@@ -4833,7 +4941,7 @@ export type { UploadHost };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (90)
+### Other exports (99)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4842,7 +4950,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`aggregateProblems`](../packages/core/src/provider/aggregate.ts) | function | — | Every problem with an aggregate request; empty when it is sound. |
 | [`APPEARANCES`](../packages/core/src/appearance-values.ts) | const | — | The appearances, in a picker's order. |
 | [`blankValues`](../packages/core/src/hooks/use-resource-form.ts) | function | — | What a save sends for an input left empty: `""`, or `undefined` (a cleared number input). Only a field whose column the form knows about (`nullable` set, as ResourceView sets it from a generated contract) is changed: a create leaves it o... |
+| [`BOARD_NONE`](../packages/core/src/hooks/use-board-columns.ts) | const | — | The column for rows whose field is empty. |
+| [`BOARD_PAGE`](../packages/core/src/hooks/use-board-columns.ts) | const | — | Cards per column page. |
+| [`boardColumnFilter`](../packages/core/src/hooks/use-board-columns.ts) | function | — | One column's own filter: its value, or "is empty". |
 | [`buildArrayItemDefaults`](../packages/core/src/hooks/use-resource-form.ts) | function | — | Build default values for a single array item from its sub-field definitions |
+| [`CALENDAR_LIMIT`](../packages/core/src/hooks/use-view-calendar-range.ts) | const | — | Most rows one request loads (a calendar with an `endField` makes two, so up to twice this). A month grid is six weeks: 500 is about a dozen a day, more than a busy shared calendar holds, and still one quick request. Past it the calendar ... |
 | [`callRpc`](../packages/core/src/provider/write-helpers.ts) | function | — | Calls a database function and returns its result. A failure throws a DataWriteError with the usual outcome and code, and words a person can read: yours for the code, a guard's own message (P0001), the defaults above, or a generic sentenc... |
 | [`classifyError`](../packages/core/src/errors.ts) | function | — | What kind of error this is, a sentence that is safe to show, and whether it is worth reporting. Understands the provider's `DataWriteError` and `DataReadError`, Postgres and PostgREST codes, HTTP statuses, Supabase's auth and fetch error... |
 | [`clearViewerCache`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Empties the query cache for a new viewer: sends the old viewer's waiting undoable writes (the session is still theirs), cancels reads in flight, then removes every query. Call it in the sign-in and sign-out actions, before the session ch... |
@@ -4906,11 +5018,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useAggregate`](../packages/core/src/hooks/use-aggregate.ts) | function | Beta | Totals over a resource's rows (count, and sum, average, lowest or highest of a field), through the data provider: its `aggregate`, or `resolveAggregate`'s fallback. Cached under the resource's key, so any write to the resource through Ge... |
 | [`useAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | The person's appearance and density, resolved, with setters. Throws outside an `AppearancePreferencesProvider`; a component that works with or without one reads `useOptionalAppearancePreferences`. |
+| [`useBoardColumns`](../packages/core/src/hooks/use-board-columns.ts) | function | Beta | Load a board: one request per column page, each with the shared filters, sort and search plus the column's value. Columns page on their own (`loadMore`), and the pages a column has loaded reset when the filters, sort or search change. |
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by `orderBy` (else the naming field) then the key, `p... |
+| [`useListState`](../packages/core/src/hooks/use-list-state.ts) | function | Beta | A list's state, held for one list (ADR 0017): from the URL when it has one, and the person's store. The URL follows each change (replacing the entry: a filter isn't a page) and the state follows the URL back (Back, Forward, a link to the... |
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalAppearancePreferences`](../packages/core/src/appearance.tsx) | function | Beta | Like `useAppearancePreferences`, but null outside a provider: for a component (a shell, a theme provider) that keeps its own behaviour when an app hasn't set preferences up. |
@@ -4919,8 +5033,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
 | [`useResourceForm`](../packages/core/src/hooks/use-resource-form.ts) | function | — | _(no summary)_ |
+| [`useSegmentCounts`](../packages/core/src/hooks/use-segment-counts.ts) | function | Beta | Each segment's row count for a view's list (ADR 0017), for the segments that ask for one (`count: true`): the list's other filters (scope, the screen's, the declared filters) plus the segment's own, counted through the provider (estimate... |
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useUnsavedChangesGuard`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | function | — | Warns before unsaved changes are lost, without depending on a router. |
+| [`useViewBoard`](../packages/core/src/hooks/use-view-board.ts) | function | Beta | A view's rows as board columns, with moves: |
+| [`useViewCalendarRange`](../packages/core/src/hooks/use-view-calendar-range.ts) | function | Beta | A view's rows in one calendar window, for a screen that places them itself (a custom view, ADR 0019). ResourceCalendar loads its rows through it. |
 | [`useViewer`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The viewer for guards: `{ id, scope, roles }` from the nearest ViewerScope, or {@link NO_VIEWER} without one. The object is stable while those are equal by value, so it can sit in a memo's dependencies. |
 | [`useViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The viewer and scope from the nearest `ViewerScope`. Throws without one: screens that cache per viewer need it. |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
@@ -4930,7 +5047,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`writeConflict`](../packages/core/src/schema/write-state.ts) | function | — | The conflict `error` reports for a write of `mine`, or null when `error` isn't a `conflict` that carries the row as it is now. A field `mine` has and their row doesn't (a column it doesn't read) counts as different: the person decides it... |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (138)
+### Types (156)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -4945,9 +5062,11 @@ export type { AppearancePreferenceValues };
 export type { AppearancePreferences };
 export type { AppearancePreferencesDefinition };
 export type { AppearancePreferencesStore };
+export type { AppearanceWriteContext };
 export type { ArrayFilter };
 export type { AuditEntry };
 export type { BaseRecord };
+export type { BoardColumnData };
 export type { BulkChange };
 export type { BulkResult };
 export type { CallRpcOptions };
@@ -4998,6 +5117,9 @@ export type { LinkOption };
 export type { LinkTarget };
 export type { ListParams };
 export type { ListResult };
+export type { ListSort };
+export type { ListStateResult };
+export type { ListUrlAdapter };
 export type { LiveOptions };
 export type { MockProviderOptions };
 export type { MutationMode };
@@ -5029,6 +5151,8 @@ export type { ScalarFilter };
 export type { ScopedKey };
 export type { SelectOption };
 export type { SortParam };
+export type { SourceArgsContext };
+export type { SourcePages };
 export type { StorageAdapter };
 export type { StorageType };
 export type { SubscribeParams };
@@ -5046,11 +5170,14 @@ export type { UpdateParams };
 export type { UpdateResult };
 export type { UseAggregateOptions };
 export type { UseAppearancePreferencesReturn };
+export type { UseBoardColumnsOptions };
+export type { UseBoardColumnsReturn };
 export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
 export type { UseLinkOptionsOptions };
 export type { UseLinkOptionsReturn };
+export type { UseListStateOptions };
 export type { UseOneOptions };
 export type { UseRelationLabelOptions };
 export type { UseResourceFormOptions };
@@ -5059,10 +5186,18 @@ export type { UseResourceOptions };
 export type { UseResourceReturn };
 export type { UseUnsavedChangesGuardOptions };
 export type { UseUnsavedChangesGuardReturn };
+export type { UseViewBoardOptions };
+export type { UseViewCalendarRangeOptions };
 export type { UseWizardReturn };
 export type { UseWriteOptions };
 export type { UseWriteReturn };
 export type { VersionField };
+export type { ViewBoardColumn };
+export type { ViewBoardConflict };
+export type { ViewBoardState };
+export type { ViewBoardWords };
+export type { ViewCalendarRange };
+export type { ViewCalendarRangeState };
 export type { Viewer };
 export type { ViewerContext };
 export type { WidgetHint };
@@ -10535,7 +10670,7 @@ Support and feedback for Genesis apps, in the app's own Supabase: a feedback rec
 
 **Barrel:** [`packages/support/src/index.ts`](../packages/support/src/index.ts)
 
-### Other exports (49)
+### Other exports (53)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10586,7 +10721,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`supportCopy`](../packages/support/src/copy.ts) | const | — | Every string the support block shows, in English. Pass `copy` (any part of this shape) to translate or reword; what you leave out stays English. |
 | [`SupportError`](../packages/support/src/client.ts) | class | — | A Supabase refusal, with its code (`GS429` rate limited, `42501` not allowed, …). |
 | [`supportPaths`](../packages/support/src/block.ts) | function | — | _(no summary)_ |
+| [`supportQueueSource`](../packages/support/src/inbox.ts) | function | — | A provider `source` for the agent queue: migration 0018's `support_agent_queue`, which returns every ticket (no limit of its own) so the provider pages, counts and filters it. The queue (`mine`, `unassigned`, `pending`, `closed`, `all`, ... |
+| [`TICKET_STATUS_TONES`](../packages/support/src/inbox.ts) | const | — | A ticket's status tones, for a view's `fields.status.tones`. |
 | [`TICKET_SUBJECT`](../packages/support/src/chat.ts) | const | — | The chat subject type of a ticket's conversation. Compare against this, never the literal. The stored value stays `support_report`, so existing conversations keep working (ADR 0015). |
+| [`ticketInbox`](../packages/support/src/inbox.ts) | const | — | The queue's rows as an inbox: the title, the latest message, when, who, unread for agents, the status. |
+| [`ticketSegments`](../packages/support/src/inbox.ts) | const | — | The queue's segments, the inbox's rail, with the agent inbox's (SupportAgentInbox's) meanings: Mine and Unassigned hold active tickets (not pending, not closed); Open every active one; Pending those waiting on the requester; Closed the a... |
 | [`validateSubmitInput`](../packages/support/src/contract.ts) | function | — | Checks a `submit` body the way the server does: known keys only, every limit. |
 | [`waitingSinceOf`](../packages/support/src/client.ts) | function | — | Since when a ticket's requester has waited, from its reply times: for a queue read before migration 0013. |
 | [`WIDGET_HEADERS`](../packages/support/src/contract.ts) | const | — | Headers a client sends. The person's access token goes in `Authorization: Bearer …`. |
@@ -11555,7 +11694,7 @@ export type { WhatsNewNote };
 | [`WidgetGrid`](../packages/ui/src/components/data/widget/WidgetGrid.tsx) | `WidgetGridProps` | Beta | A dashboard's widgets on a responsive grid: one column on a phone, `columns` at the widest, with a chart or a list spanning more. For the stat row of a `DashboardPage`, pass `<Widget>`s to its `stats` instead: that row is a grid already. |
 | [`WidgetTile`](../packages/ui/src/components/data/widget/WidgetTile.tsx) | `WidgetTileProps` | Beta | The tile every widget draws. Use the component that names the job (`StatCard`, `HeadlineNumbers`, `SummaryCard`, `<Widget>`); reach for this one for a tile none of them draws, so it still wears the app style's tile parts. |
 
-### Other exports (70)
+### Other exports (77)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -11563,12 +11702,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`AppShell`](../packages/ui/src/components/data/index.ts) | const | Deprecated | _(no summary)_ |
 | [`BadgeCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | BadgeCell -- status badge with configurable color map. |
-| [`BOARD_NONE`](../packages/ui/src/components/data/board/use-board-columns.ts) | const | — | The column for rows whose field is empty. |
-| [`BOARD_PAGE`](../packages/ui/src/components/data/board/use-board-columns.ts) | const | — | Cards per column page. |
-| [`boardColumnFilter`](../packages/ui/src/components/data/board/use-board-columns.ts) | function | — | One column's own filter: its value, or "is empty". |
-| [`CALENDAR_LIMIT`](../packages/ui/src/components/data/resource-view/use-view-calendar-range.ts) | const | — | Most rows one request loads (a calendar with an `endField` makes two, so up to twice this). A month grid is six weeks: 500 is about a dozen a day, more than a busy shared calendar holds, and still one quick request. Past it the calendar ... |
-| [`calendarLanes`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The lanes a `lanes` layout draws: the ones given, in order, then any an event names that weren't given (labelled by key). @stability Beta |
-| [`calendarWindow`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The days a layout shows around `anchor`: a month grid's whole weeks, or `weeks` weeks from the week `anchor` is in. This is the window a calendar asks its data for. @stability Beta |
+| [`BOARD_NONE`](../packages/core/src/hooks/use-board-columns.ts) | const | — | The column for rows whose field is empty. |
+| [`BOARD_PAGE`](../packages/core/src/hooks/use-board-columns.ts) | const | — | Cards per column page. |
+| [`boardColumnFilter`](../packages/core/src/hooks/use-board-columns.ts) | function | — | One column's own filter: its value, or "is empty". |
+| [`CALENDAR_LIMIT`](../packages/core/src/hooks/use-view-calendar-range.ts) | const | — | Most rows one request loads (a calendar with an `endField` makes two, so up to twice this). A month grid is six weeks: 500 is about a dozen a day, more than a busy shared calendar holds, and still one quick request. Past it the calendar ... |
+| [`calendarLanes`](../packages/core/src/resource-view/calendar.ts) | function | Beta | The lanes a `lanes` layout draws: the ones given, in order, then any an event names that weren't given (labelled by key). @stability Beta |
+| [`calendarWindow`](../packages/core/src/resource-view/calendar.ts) | function | Beta | The days a layout shows around `anchor`: a month grid's whole weeks, or `weeks` weeks from the week `anchor` is in. This is the window a calendar asks its data for. @stability Beta |
 | [`CurrencyCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | CurrencyCell -- currency formatting with string-safe parsing. |
 | [`DataBulkBar`](../packages/ui/src/components/data/DataBulkBar.tsx) | function | — | _(no summary)_ |
 | [`DataFilters`](../packages/ui/src/components/data/DataFilters.tsx) | function | — | _(no summary)_ |
@@ -11580,8 +11719,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`detailMode`](../packages/ui/src/components/data/resource-view/open-modes.ts) | function | — | A record open mode or ResourcePage's `detail`, as ResourcePage's `detail`. |
 | [`DisplayRenderersProvider`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | Replace some of the renderers for everything below (nested providers build on each other). Pass a stable object (a module constant or a `useMemo`): a new one each render redraws every column. |
 | [`EmptyState`](../packages/ui/src/components/patterns/empty-state.tsx) | function | Beta | EmptyState — what to show when a list, page, or panel has no data. |
-| [`eventDays`](../packages/ui/src/components/data/calendar/placement.ts) | function | — | The first and last day an event covers on `zone`'s clock. |
-| [`eventDots`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | An event's dots: its own colours, else its lanes' colours. @stability Beta |
+| [`eventDays`](../packages/core/src/resource-view/calendar.ts) | function | — | The first and last day an event covers on `zone`'s clock. |
+| [`eventDots`](../packages/core/src/resource-view/calendar.ts) | function | Beta | An event's dots: its own colours, else its lanes' colours. @stability Beta |
 | [`FieldArrayRenderer`](../packages/ui/src/components/data/FieldArrayRenderer.tsx) | function | — | _(no summary)_ |
 | [`FileUploadField`](../packages/ui/src/components/data/FileUploadField.tsx) | function | — | _(no summary)_ |
 | [`FilterCombobox`](../packages/ui/src/components/data/FilterCombobox.tsx) | function | — | FilterCombobox — a filter bar's multi-select: any number of values, each with its count, an "All" row that clears them, and a trigger that names the one chosen or says how many. For a form field that picks one value and shows it, use `Co... |
@@ -11591,7 +11730,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`listViewTypes`](../packages/ui/src/components/data/resource-view/view-types.tsx) | function | Beta | Every registered view type, built-ins first, in the order registered. @stability Beta |
 | [`NumberCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | NumberCell -- locale-aware number formatting. |
 | [`PageHeader`](../packages/ui/src/components/data/index.ts) | const | Deprecated | _(no summary)_ |
-| [`placeEvents`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | Each day of `range` with the events on it: an event that spans days is on each one, all-day events (and the middle days of a long timed one) come first, then timed ones by start, then by title. @stability Beta |
+| [`placeEvents`](../packages/core/src/resource-view/calendar.ts) | function | Beta | Each day of `range` with the events on it: an event that spans days is on each one, all-day events (and the middle days of a long timed one) come first, then timed ones by start, then by title. @stability Beta |
 | [`readEventTime`](../packages/core/src/dates.ts) | function | Beta | A stored date or timestamp as a calendar value: a day for a `date` column (`dateOnly`) or a value with no time; an instant for a timestamp. A timestamp written without a zone (Postgres `timestamp without time zone`, `2026-11-02 09:30:00`... |
 | [`recordOpen`](../packages/ui/src/components/data/resource-view/open-modes.ts) | function | — | ResourcePage's `detail` or a record open mode, as a record open mode (`none` stays). |
 | [`registerViewType`](../packages/ui/src/components/data/resource-view/view-types.tsx) | function | Beta | Make a view type available to every `<ResourceView type>` in the app. Returns a function that removes it again (tests, a module unloaded). Registering a second type under a taken id throws unless `replace` is set; a built-in type can't b... |
@@ -11601,14 +11740,18 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`RelativeTime`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | A time as `relativeTime` says it, in the messages' words and locale, with the exact time (in `timeZone`) on hover. The server and the first paint show the exact time, so hydration matches; after mount it turns relative and keeps itself c... |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
 | [`resolveViewType`](../packages/ui/src/components/data/resource-view/view-types.tsx) | function | Beta | A registered view type by name, or undefined. @stability Beta |
+| [`ResourceInbox`](../packages/ui/src/components/data/resource-view/ResourceInbox.tsx) | function | Beta | A view as a three-pane inbox: the rail of its segments (with counts) and saved views, a list of rows like messages (unread in bold, a preview line, a relative time, a badge), and the open record. Narrow screens show one pane at a time wi... |
+| [`ResourceSheet`](../packages/ui/src/components/data/resource-view/ResourceSheet.tsx) | function | Beta | A view's rows as a spreadsheet: `<ResourceView view={v} type="sheet" />`, or `sheet` among a view's `types`. Arrows, Tab, Enter and Escape move and edit as in a spreadsheet; a paste fills a block, skipping read-only cells; Ctrl/Cmd+Z und... |
 | [`ResourceViewDefaultsProvider`](../packages/ui/src/components/data/resource-view/defaults.tsx) | function | Beta | Set list defaults for the whole app, once, near the root: |
 | [`RowAvatar`](../packages/ui/src/components/data/resource-view/RowAvatar.tsx) | function | — | A row's picture from `rowPicture(view.summary(row))`: the image, or initials when there is no safe image or it fails to load. Decorative unless the view gave `alt`: the row's title beside it already names the row. |
-| [`shiftAnchor`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The anchor one step back (−1) or on (1): a month for `month`, else the window's weeks. @stability Beta |
+| [`RowContextMenuItems`](../packages/ui/src/components/data/RowMenu.tsx) | function | Beta | The same items as context-menu items, for a right-click on the row. @stability Beta |
+| [`RowMenuButton`](../packages/ui/src/components/data/RowMenu.tsx) | function | Beta | The "More" button and its menu for one row. |
+| [`shiftAnchor`](../packages/core/src/resource-view/calendar.ts) | function | Beta | The anchor one step back (−1) or on (1): a month for `month`, else the window's weeks. @stability Beta |
 | [`showUndoToast`](../packages/ui/src/components/data/undo-toast.ts) | function | — | The undo toast for an `undoable` write (core's `onUndoable`): a sonner toast with an Undo button, shown for as long as the undo is offered. Needs a mounted `<Toaster />`. |
 | [`showWriteErrorToast`](../packages/ui/src/components/data/undo-toast.ts) | function | — | The default error report for writes that fail after the form has closed. |
 | [`ThumbnailCell`](../packages/ui/src/components/data/DataTable.tsx) | function | — | _(no summary)_ |
-| [`timeStorage`](../packages/ui/src/components/data/calendar/values.ts) | function | Beta | How a field stores time, from its database type (an unknown type with a time counts as an instant). @stability Beta |
-| [`useBoardColumns`](../packages/ui/src/components/data/board/use-board-columns.ts) | function | Beta | Load a board: one request per column page, each with the shared filters, sort and search plus the column's value. Columns page on their own (`loadMore`), and the pages a column has loaded reset when the filters, sort or search change. |
+| [`timeStorage`](../packages/core/src/resource-view/calendar.ts) | function | Beta | How a field stores time, from its database type (an unknown type with a time counts as an instant). @stability Beta |
+| [`useBoardColumns`](../packages/core/src/hooks/use-board-columns.ts) | function | Beta | Load a board: one request per column page, each with the shared filters, sort and search plus the column's value. Columns page on their own (`loadMore`), and the pages a column has loaded reset when the filters, sort or search change. |
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
 | [`useCustomView`](../packages/ui/src/components/data/resource-view/CustomView.tsx) | function | Beta | A custom view's data and states, headless (ADR 0019). `<CustomView>` calls it and draws the states; call it yourself only to draw them yourself too, and the doctor's `custom-view-states` rule will ask why. |
 | [`useDisplayCell`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | Draw one cell: the empty mark for no value or a cell the row (or viewer) hides (`when`), else its hint's renderer. |
@@ -11619,20 +11762,23 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useResourceViewProps`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | function | — | The ResourcePage props a view and a screen's options make. `useResourceView` and `<ResourceView>` both use it; call it yourself to hand the props to your own layout. |
 | [`useSavedViews`](../packages/ui/src/hooks/use-saved-views.ts) | function | — | Persist `DataFilters` saved-view shape in the app's storage (localStorage on the web), through usePersistedUiState: SSR-safe, and in step across every list on the same key. |
 | [`useViewBoard`](../packages/ui/src/components/data/resource-view/use-view-board.ts) | function | Beta | A view's rows as board columns, with moves: |
-| [`useViewCalendarRange`](../packages/ui/src/components/data/resource-view/use-view-calendar-range.ts) | function | Beta | A view's rows in one calendar window, for a screen that places them itself (a custom view, ADR 0019). ResourceCalendar loads its rows through it. |
+| [`useViewCalendarRange`](../packages/core/src/hooks/use-view-calendar-range.ts) | function | Beta | A view's rows in one calendar window, for a screen that places them itself (a custom view, ADR 0019). ResourceCalendar loads its rows through it. |
 | [`useViewFormFields`](../packages/ui/src/components/data/resource-view/view-form.ts) | function | Beta | The fields of a view's form, as ResourceForm takes them: what `<ResourceView>` builds its own form from. The viewer's scope narrows link pickers. Call it for a form of your own layout, or pass the view to `<ResourceForm view={…}>`, which... |
 | [`useViewList`](../packages/ui/src/components/data/resource-view/use-view-list.ts) | function | Beta | A view's list, headless: the same scope, filters and permissions as `<ResourceView>`, one page at a time, for a screen that draws the rows itself (a custom view, ADR 0019): |
 | [`useViewListParams`](../packages/ui/src/components/data/resource-view/view-list.tsx) | function | Beta | The filters, select, enabled and live a screen's options make for a view's list: the viewer's scope, the preset's filter and the screen's own, as provider params. Every view type (the table's `useResourceViewProps`, the board, the calend... |
 | [`useViewPermissions`](../packages/ui/src/components/data/resource-view/use-view-list.ts) | function | Beta | The view's guards for the viewer, narrowed by a screen's own rule. Shared by every view type and custom view, so they can't disagree. |
 | [`VIEW_LIST_PAGE`](../packages/ui/src/components/data/resource-view/use-view-list.ts) | const | — | Rows per page a view list asks for by default. |
+| [`ViewFilterControls`](../packages/ui/src/components/data/resource-view/list-controls.tsx) | function | Beta | A view's range and text filters, for the filter row beside its choice filters. |
+| [`ViewSegments`](../packages/ui/src/components/data/resource-view/list-controls.tsx) | function | Beta | The view's segments as one segmented strip, each with its count when it asks for one. |
 | [`ViewSettings`](../packages/ui/src/components/patterns/view-settings.tsx) | function | — | _(no summary)_ |
 | [`ViewToggle`](../packages/ui/src/components/patterns/view-toggle.tsx) | function | — | _(no summary)_ |
+| [`ViewTypeSwitcher`](../packages/ui/src/components/data/resource-view/list-controls.tsx) | function | Beta | The view types a person may switch between (ADR 0017): Genesis's and registered ones, limited to the ones the view supports. Each button is named by the type's label. |
 | [`webDisplayRenderers`](../packages/ui/src/components/data/resource-view/display.tsx) | const | — | Genesis's web renderers. Every one shows text it can't draw, never a broken cell. |
-| [`windowBounds`](../packages/ui/src/components/data/calendar/values.ts) | function | Beta | A window as filter values for a column: days for a date column, ISO instants of `zone`'s midnights for a timestamp, and wall-clock midnights (no zone) for a timestamp without one. `[from, to)`; `lead` widens the start by days. @stability... |
+| [`windowBounds`](../packages/core/src/resource-view/calendar.ts) | function | Beta | A window as filter values for a column: days for a date column, ISO instants of `zone`'s midnights for a timestamp, and wall-clock midnights (no zone) for a timestamp without one. `[from, to)`; `lead` widens the start by days. @stability... |
 | [`WizardForm`](../packages/ui/src/components/data/WizardForm.tsx) | function | — | _(no summary)_ |
 | `X` | value | — | _(no summary)_ |
 
-### Types (86)
+### Types (94)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -11652,6 +11798,8 @@ export type { CustomViewStatus };
 export type { CustomViewType };
 export type { DataFilterConfig };
 export type { DataTableColumn };
+export type { DataTableGroups };
+export type { DataTableRowTone };
 export type { DataTableSort };
 export type { DataTableTree };
 export type { Density };
@@ -11674,15 +11822,21 @@ export type { ResolvedNavigation };
 export type { ResourceAction };
 export type { ResourceActions };
 export type { ResourceBoardOptions };
+export type { ResourceBulkContext };
 export type { ResourceCalendarOptions };
 export type { ResourceCalendarToolbarState };
 export type { ResourceCardActions };
 export type { ResourceColumnDef };
 export type { ResourceDeleteConfirmCopy };
 export type { ResourceFormFieldDef };
+export type { ResourceInboxOptions };
+export type { ResourceListQuery };
+export type { ResourcePageRowMenuItem };
 export type { ResourcePageSlotMap };
 export type { ResourcePageSlotProps };
 export type { ResourcePageSlots };
+export type { ResourceRowMenuBuiltIn };
+export type { ResourceRowMenuItem };
 export type { ResourceTableState };
 export type { ResourceViewDefaults };
 export type { ResourceViewOptions };
@@ -12246,7 +12400,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (54)
+### Types (56)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -12292,6 +12446,8 @@ export type { RowFailure };
 export type { RpcClient };
 export type { ScalarFilter };
 export type { SortParam };
+export type { SourceArgsContext };
+export type { SourcePages };
 export type { SubscribeParams };
 export type { SupabaseClient };
 export type { SupabaseClientInput };
@@ -13645,7 +13801,7 @@ export type { ThreadRowInfo };
 | [`NativeResourceWorkspace`](../packages/ui-native/src/data/resource-view/NativeRecordView.tsx) | `NativeResourceWorkspaceProps` | — | _(no summary)_ |
 | [`NativeWizardForm`](../packages/ui-native/src/data/NativeFormFields.tsx) | `NativeWizardFormProps` | — | A form in steps (genesis-core's `useWizard`): the step's fields, its progress, Back and Next, and Create or Save on the last step. |
 
-### Other exports (37)
+### Other exports (46)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -13655,6 +13811,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`dateToDay`](../packages/ui-native/src/data/resource-view/display.tsx) | function | — | A picked Date back to the `YYYY-MM-DD` day it shows, from its local parts (never `toISOString`). |
 | [`dayToDate`](../packages/ui-native/src/data/resource-view/display.tsx) | function | — | A `YYYY-MM-DD` day as a local Date at midnight, from its parts (the picker's value). Null when it isn't a day. |
 | [`DEFAULT_MAX_PAGES`](../packages/ui-native/src/data/resource-view/use-native-resource-view.ts) | const | — | Pages kept loaded by default (cursor paging). |
+| [`defaultNativeListMessages`](../packages/ui-native/src/data/resource-view/messages.ts) | const | — | _(no summary)_ |
 | [`defaultNativeRecordViewMessages`](../packages/ui-native/src/data/resource-view/NativeRecordView.tsx) | const | — | _(no summary)_ |
 | [`defaultNativeResourceViewMessages`](../packages/ui-native/src/data/resource-view/messages.ts) | const | — | _(no summary)_ |
 | [`defaultNativeResourceWorkspaceMessages`](../packages/ui-native/src/data/resource-view/NativeRecordView.tsx) | const | — | _(no summary)_ |
@@ -13666,10 +13823,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`formFieldsFor`](../packages/ui-native/src/data/resource-view/mapping.ts) | function | — | The form sheet's fields: `view.form(mode)` (which already leaves out JSON, lists, scope, sensitive and unreadable fields and server-filled keys), each marked read-only unless `view.writable(mode)` lists it. A link the person can change i... |
 | [`getNativeRecordViewStackOptions`](../packages/ui-native/src/data/resource-view/NativeRecordView.tsx) | function | — | `<Stack.Screen options>` for a record view: the record's title in the navigation bar and the actions in the header menu. |
 | [`getNativeResourceWorkspaceStackOptions`](../packages/ui-native/src/data/resource-view/NativeRecordView.tsx) | function | — | _(no summary)_ |
+| [`NATIVE_VIEW_TYPES`](../packages/ui-native/src/data/resource-view/list-controls.tsx) | const | Beta | The view types the phone draws. @stability Beta |
 | [`nativeDisplayRenderers`](../packages/ui-native/src/data/resource-view/display.tsx) | const | — | Genesis's native renderers. Every one shows text it can't draw, never a broken row. |
 | [`NativeRecordViewMenu`](../packages/ui-native/src/data/resource-view/NativeRecordView.tsx) | function | — | The header menu: a button that lists the record view's actions. On iOS an action sheet (ActionSheetIOS, destructive ones in red); elsewhere a sheet of rows, since Android's alert shows at most three buttons. A refused action stays listed... |
+| [`NativeResourceBoard`](../packages/ui-native/src/data/resource-view/list-controls.tsx) | function | — | The view as a board on the phone: its columns side by side, scrolled across; a card opens on a press, and a long press offers its moves ("Move to …"), each through the view's guards and the resource's own update (core's useViewBoard, as ... |
+| [`NativeResourceCalendar`](../packages/ui-native/src/data/resource-view/list-controls.tsx) | function | — | The view as a calendar on the phone: an agenda (the window's days with their events) or a month (a grid of days with dots; a tap shows that day's events below). Rows come through core's useViewCalendarRange and calendarEvents, and land b... |
 | [`NativeResourceViewMessagesProvider`](../packages/ui-native/src/data/resource-view/display.tsx) | const | — | The words NativeResourceView shows, for everything below. Pass a stable object. |
 | [`NativeResourceWorkspaceMenu`](../packages/ui-native/src/data/resource-view/NativeRecordView.tsx) | function | — | _(no summary)_ |
+| [`nativeSwitchableTypes`](../packages/ui-native/src/data/resource-view/list-controls.tsx) | function | Beta | The types a person may switch between on the phone: the view's, as the phone draws them (a table is a list there), each once. |
+| [`NativeViewFilterControls`](../packages/ui-native/src/data/resource-view/list-controls.tsx) | function | Beta | The view's declared filters: a Filters button (with how many are set) and a sheet to set them. @stability Beta |
+| [`NativeViewSegments`](../packages/ui-native/src/data/resource-view/list-controls.tsx) | function | Beta | The view's segments as a row of chips, each with its count when it asks for one. @stability Beta |
+| [`NativeViewTypeSwitcher`](../packages/ui-native/src/data/resource-view/list-controls.tsx) | function | Beta | The view's types as a segmented control: the phone's view-type switcher. @stability Beta |
 | [`openableUrl`](../packages/ui-native/src/data/resource-view/display.tsx) | function | — | A link a row may open: http(s), mailto or tel that passes `isSafeUrl`. Root-relative paths mean nothing on a phone. |
 | [`parseSettingNumber`](../packages/ui-native/src/data/resource-view/NativeRecordView.tsx) | function | — | A number as typed: "1.5" or, with a comma as the decimal mark, "1,5". Anything else (an empty string aside) is an error, never NaN. |
 | [`resolveZone`](../packages/ui-native/src/data/resource-view/display.tsx) | function | — | A column's clock: "viewer" (the default) and "scope" from `zones`, else a valid IANA name. Anything else throws (`defineView` refuses it first): drawing it on the viewer's clock instead would show the wrong times with nothing to say so. |
@@ -13684,12 +13848,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDisplayCell`](../packages/ui-native/src/data/resource-view/display.tsx) | function | — | Draw one value: the empty mark for no value or a value the row (or viewer) hides (`when`), else its hint's renderer. |
 | [`useDisplayTimeZones`](../packages/ui-native/src/data/resource-view/display.tsx) | function | — | The clocks for timestamps: the nearest provider's, else the device's for both. |
 | [`useNativeCustomView`](../packages/ui-native/src/data/NativeCustomView.tsx) | function | — | A native custom view's data and states, headless. `<NativeCustomView>` calls it and draws the states. |
+| [`useNativeListMessages`](../packages/ui-native/src/data/resource-view/list-controls.tsx) | function | — | The list words: the app's catalogue over the English. |
 | [`useNativeResourceView`](../packages/ui-native/src/data/resource-view/use-native-resource-view.ts) | function | — | _(no summary)_ |
 | [`useNativeResourceViewMessages`](../packages/ui-native/src/data/resource-view/display.tsx) | function | — | _(no summary)_ |
 | [`validateValues`](../packages/ui-native/src/data/resource-view/mapping.ts) | function | — | Field errors for a save: required fields with no value, and text over `max`. |
 | [`writableValues`](../packages/ui-native/src/data/resource-view/mapping.ts) | function | — | What a save sends: only the keys `view.writable(mode)` lists and the form shows. Read-only, generated, key and scope fields, and anything else the values carry (joined columns), never go. An edit passes `dirty`, the fields the person cha... |
 
-### Types (28)
+### Types (29)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -13705,6 +13870,7 @@ export type { NativeCustomViewState };
 export type { NativeDetailField };
 export type { NativeFormField };
 export type { NativeFormFieldKind };
+export type { NativeListMessages };
 export type { NativeRecordViewHeaderProps };
 export type { NativeRecordViewMessages };
 export type { NativeResourceCardActions };

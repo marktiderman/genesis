@@ -1,5 +1,26 @@
 # @marktiderman/genesis-design-system
 
+## 1.13.0
+
+### Minor Changes
+
+- dfe6adf: Features: view-inbox, record-pages
+
+  The inbox view type: any view as a three-pane inbox. A view's `inbox` block (core: `title`, `preview`, `time`, `from`, `avatar`, `unread`, `badge`, `rail`, `doneAction`, `markRead`; `view.inboxRow(row)`, `view.inboxActions()`, `inboxProblems`) and `<ResourceView type="inbox">` (or `inbox` in a view's `types`): the segments with their counts and saved views in an `InboxViews` rail, the rows in `InboxPage` (unread in bold, preview, relative time, badge, the row's actions, checkboxes for bulk actions with Shift for a range), paged through the provider, and the open record's `RecordView` or the app's `inbox.renderReading(row, { close })`, with `inbox.renderContext` for the sidebar. Selection is the app's (`inbox.selected`, `inbox.onSelectedChange`); a key no row has shows "Not available"; narrow screens go Back; j, k, e (the view's done action) and Escape work; a declared `markRead` action runs on opening an unread row. An inbox block's `title`, `preview` and `from` take a field or a function of the row. A segment's `args` pass a function-backed source its arguments. `RecordView` takes `onEdit` and `onDelete`, and `recordPeekSlot` now forwards a list's own edit and delete to the peek (they were dropped). `InboxPage` takes `checked`, `onCheckedChange` and `checkLabel`. `NativeResourceView type="inbox"` draws the rows as InboxPage's. New part: `inbox`. genesis-support exports `ticketInbox`, `ticketSegments`, `supportQueueSource()` and `TICKET_STATUS_TONES`; genesis-chat exports `conversationInbox`.
+
+- 34842f5: Features: view-filters, view-actions, saved-views, view-export, list-emphasis, resource-view-shaping, view-inbox
+  Lists v-next (ADR 0017): a view declares what its lists do, and `ResourceView` draws it.
+
+  - **Segments and filters.** `defineView`'s `segments` (named tabs with a `where` or a function of the viewer, and `count: true` for a count from the provider) and `filters` (choices, a range or contains, from the field). They go to the server, count toward Clear filters, and, once the app registers its router adapter (`ResourceViewDefaultsProvider urlState`), live in the URL (`seg`, `f.<field>`); only declared filters are read back. Core: `view.filters()`, `segments()`, `segmentFilters()`, `filterParams()`, `readListUrl`, `listUrlParams`, `whereParams`, `isFilterSet`.
+  - **Row and bulk actions.** With `rowActions` (screen or provider), each table row gets a More menu and the same on right-click: edit, the view's actions, delete, refusals shown with their reasons (`refusals: "hide"` leaves them out). An action with `bulk` (`true`, or `{ label, confirm, run, matching }`) joins the bulk bar, runs per allowed row (or once through `run`) and names the rows it skipped. Shift-click selects a range; "Select all matching" reaches every row for a `run` that takes the list's filters.
+  - **Saved views.** A `SavedViewStore` (`list`, `save`, `remove`, personal or team, with `readCurrent`/`writeCurrent`) on `ResourceViewDefaultsProvider savedViews`; `createLocalSavedViewStore()` is the device store, and `applicableListState` applies an older saved state as far as it fits.
+  - **The type switcher.** A view's `types` (default table, list, grid and each type it has a block for) gives a page list one switcher across table, list, grid, board, calendar, gallery and registered types (`ViewTypeSwitcher`), with the person's choice kept in the store. Segments and filters carry across types.
+  - **Grouping and totals** on the web: `groupBy` draws group headers with counts, totals and a toggle in the table, grid and list; `totals` (`sum`, `avg`, `min`, `max`, `count`) per group and in a footer (`groupTotals`).
+  - **Tone, emphasis and column hints.** `rowTone(row)`, `fields.<f>.emphasis` (`title`, `secondary`, `muted`), and `sortable: false`, `hideBelow` and `width`.
+  - **Export.** `export` (true or `{ columns, filename, maxRows, raw }`) offers Export CSV through `exportCsv`, which now takes a `format` for headers and values.
+  - **Rows a screen holds.** `ResourceView rows` draws them with nothing fetched.
+  - ResourcePage gains `rowMenu`, `onExport`, `heldFilters`, `viewMode`/`onViewModeChange`, and a second argument to `bulkActions[].onAction` (the rows, `allMatching` and the list's query); `bulkActions[].reason` and `.matching`. DataTable gains `rowTone`, `rowClassName`, `groups`, `footer`, `rowContextMenu` and a column's `emphasis`; DataGrid `groupOf` and `groupSummary`; DataBulkBar `matchingTotal`, `allMatching`, `onSelectAllMatching` and an action's `reason`; DataFilters `leading`, `extra` and `extraActive`. New parts: `table-group`, `table-footer`, `grid-group`, `view-segments`, `view-type-switcher`, `view-list-bar`.
+
 ## 1.12.0
 
 ### Minor Changes
