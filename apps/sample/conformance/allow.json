@@ -69,174 +69,174 @@
     {
       "check": "axe",
       "rule": "label-content-name-mismatch",
-      "page": "/demo/all",
+      "page": "/demo/:ws",
       "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
     },
     {
       "check": "focus-obscured",
-      "page": "/demo/all",
+      "page": "/demo/:ws",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/demo/all",
+      "page": "/demo/:ws",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
       "check": "axe",
       "rule": "label-content-name-mismatch",
-      "page": "/demo/all/assistant",
+      "page": "/demo/:ws/assistant",
       "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
     },
     {
       "check": "focus-obscured",
-      "page": "/demo/all/assistant",
+      "page": "/demo/:ws/assistant",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/demo/all/assistant",
+      "page": "/demo/:ws/assistant",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
       "check": "axe",
       "rule": "label-content-name-mismatch",
-      "page": "/demo/all/bookings",
+      "page": "/demo/:ws/bookings",
       "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
     },
     {
       "check": "axe",
       "rule": "target-size",
-      "page": "/demo/all/bookings",
+      "page": "/demo/:ws/bookings",
       "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
     },
     {
       "check": "focus-obscured",
-      "page": "/demo/all/bookings",
+      "page": "/demo/:ws/bookings",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/demo/all/bookings",
+      "page": "/demo/:ws/bookings",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
       "check": "reflow",
-      "page": "/demo/all/bookings",
+      "page": "/demo/:ws/bookings",
       "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
     },
     {
       "check": "axe",
       "rule": "color-contrast",
-      "page": "/demo/all/chat",
+      "page": "/demo/:ws/chat",
       "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
     },
     {
       "check": "axe",
       "rule": "label-content-name-mismatch",
-      "page": "/demo/all/chat",
+      "page": "/demo/:ws/chat",
       "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
     },
     {
       "check": "focus-obscured",
-      "page": "/demo/all/chat",
+      "page": "/demo/:ws/chat",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/demo/all/chat",
+      "page": "/demo/:ws/chat",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
       "check": "axe",
       "rule": "label-content-name-mismatch",
-      "page": "/demo/all/clients",
+      "page": "/demo/:ws/clients",
       "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
     },
     {
       "check": "axe",
       "rule": "nested-interactive",
-      "page": "/demo/all/clients",
+      "page": "/demo/:ws/clients",
       "reason": "axe nested-interactive: the sites editor preview wraps interactive blocks in a selectable frame. genesis-sites follow-up."
     },
     {
       "check": "axe",
       "rule": "target-size",
-      "page": "/demo/all/clients",
+      "page": "/demo/:ws/clients",
       "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
     },
     {
       "check": "focus-obscured",
-      "page": "/demo/all/clients",
+      "page": "/demo/:ws/clients",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/demo/all/clients",
+      "page": "/demo/:ws/clients",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
       "check": "reflow",
-      "page": "/demo/all/clients",
+      "page": "/demo/:ws/clients",
       "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
     },
     {
       "check": "axe",
       "rule": "label-content-name-mismatch",
-      "page": "/demo/all/data",
+      "page": "/demo/:ws/data",
       "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
     },
     {
       "check": "focus-obscured",
-      "page": "/demo/all/data",
+      "page": "/demo/:ws/data",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/demo/all/data",
+      "page": "/demo/:ws/data",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
       "check": "axe",
       "rule": "label-content-name-mismatch",
-      "page": "/demo/all/intake",
+      "page": "/demo/:ws/intake",
       "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
     },
     {
       "check": "focus-obscured",
-      "page": "/demo/all/intake",
+      "page": "/demo/:ws/intake",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/demo/all/intake",
+      "page": "/demo/:ws/intake",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
       "check": "axe",
       "rule": "label-content-name-mismatch",
-      "page": "/demo/all/settings",
+      "page": "/demo/:ws/settings",
       "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
     },
     {
       "check": "focus-obscured",
-      "page": "/demo/all/settings",
+      "page": "/demo/:ws/settings",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "axe",
       "rule": "label-content-name-mismatch",
-      "page": "/demo/harbor/clients/harbor-c1/bookings",
+      "page": "/demo/:ws/clients/:id/:section?",
       "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
     },
     {
       "check": "focus-obscured",
-      "page": "/demo/harbor/clients/harbor-c1/bookings",
+      "page": "/demo/:ws/clients/:id/:section?",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/demo/harbor/clients/harbor-c1/bookings",
+      "page": "/demo/:ws/clients/:id/:section?",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
@@ -300,22 +300,22 @@
     {
       "check": "axe",
       "rule": "scrollable-region-focusable",
-      "page": "/forms/event-feedback",
+      "page": "/forms/:scenario",
       "reason": "axe scrollable-region-focusable: a scrolling frame with no focusable content and no tabindex. genesis-ui follow-up."
     },
     {
       "check": "focus-obscured",
-      "page": "/forms/event-feedback",
+      "page": "/forms/:scenario",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/forms/event-feedback",
+      "page": "/forms/:scenario",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
       "check": "reflow",
-      "page": "/forms/event-feedback",
+      "page": "/forms/:scenario",
       "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
     },
     {
@@ -400,22 +400,22 @@
     {
       "check": "axe",
       "rule": "scrollable-region-focusable",
-      "page": "/packages/ai",
+      "page": "/packages/:name",
       "reason": "axe scrollable-region-focusable: a scrolling frame with no focusable content and no tabindex. genesis-ui follow-up."
     },
     {
       "check": "focus-obscured",
-      "page": "/packages/ai",
+      "page": "/packages/:name",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/packages/ai",
+      "page": "/packages/:name",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
       "check": "reflow",
-      "page": "/packages/ai",
+      "page": "/packages/:name",
       "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
     },
     {
@@ -483,28 +483,28 @@
     {
       "check": "axe",
       "rule": "color-contrast",
-      "page": "/showcase/elements/accordion",
+      "page": "/showcase/elements/:slug",
       "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
     },
     {
       "check": "axe",
       "rule": "scrollable-region-focusable",
-      "page": "/showcase/elements/accordion",
+      "page": "/showcase/elements/:slug",
       "reason": "axe scrollable-region-focusable: a scrolling frame with no focusable content and no tabindex. genesis-ui follow-up."
     },
     {
       "check": "focus-obscured",
-      "page": "/showcase/elements/accordion",
+      "page": "/showcase/elements/:slug",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/showcase/elements/accordion",
+      "page": "/showcase/elements/:slug",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
       "check": "reflow",
-      "page": "/showcase/elements/accordion",
+      "page": "/showcase/elements/:slug",
       "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
     },
     {
@@ -521,17 +521,17 @@
     {
       "check": "axe",
       "rule": "color-contrast",
-      "page": "/showcase/layouts/dashboard",
+      "page": "/showcase/layouts/:slug",
       "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
     },
     {
       "check": "focus-obscured",
-      "page": "/showcase/layouts/dashboard",
+      "page": "/showcase/layouts/:slug",
       "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
     },
     {
       "check": "hit-area",
-      "page": "/showcase/layouts/dashboard",
+      "page": "/showcase/layouts/:slug",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
@@ -569,12 +569,12 @@
     {
       "check": "axe",
       "rule": "color-contrast",
-      "page": "/showcase/tokens/colors",
+      "page": "/showcase/tokens/:category",
       "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
     },
     {
       "check": "hit-area",
-      "page": "/showcase/tokens/colors",
+      "page": "/showcase/tokens/:category",
       "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
     },
     {
