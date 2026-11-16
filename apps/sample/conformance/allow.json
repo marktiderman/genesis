@@ -1,5 +1,5 @@
 {
-  "$comment": "Known conformance findings: each names the check, the page (a route pattern or a story file), the element (target) and the viewports and engines where it fails, with the fix that removes it. The list only shrinks: a pull request may not add an entry without the 'conformance: allow grows' label, and a run warns on an entry that covered nothing it visited. Shape: @marktiderman/genesis-cli/verify AllowEntry. Rebuilt from CI's full run (every engine, width and story) on 7051b964a, 2026-11-16; slice 1 (the sample refresh) and genesis-ui follow-ups empty it.",
+  "$comment": "Known conformance findings: each names the check, the page (a route pattern or a story file), the element (target) and the viewports and engines where it fails, with the fix that removes it. The list only shrinks: a pull request may not add an entry without the 'conformance: allow grows' label, and a run warns on an entry that covered nothing it visited. Shape: @marktiderman/genesis-cli/verify AllowEntry. Rebuilt from CI's two full runs (every engine, width and story) on 7051b964a and d06953e7, 2026-11-16, so a finding that shows in one run and not the other is covered; slice 1 (the sample refresh) and genesis-ui follow-ups empty it.",
   "allow": [
     {
       "check": "axe",
@@ -341,6 +341,100 @@
       "rule": "color-contrast",
       "page": "/chat",
       "viewports": [
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "span > time \"10:01 PM\"",
+      "reason": "axe color-contrast: \"10:01 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "1440"
+      ],
+      "engines": [
+        "chromium"
+      ],
+      "target": "span > time \"10:07 PM\"",
+      "reason": "axe color-contrast: \"10:07 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "1024"
+      ],
+      "engines": [
+        "chromium",
+        "firefox"
+      ],
+      "target": "span > time \"10:08 PM\"",
+      "reason": "axe color-contrast: \"10:08 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "1024",
+        "1440"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "span > time \"10:09 PM\"",
+      "reason": "axe color-contrast: \"10:09 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "firefox"
+      ],
+      "target": "span > time \"10:19 PM\"",
+      "reason": "axe color-contrast: \"10:19 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "1280"
+      ],
+      "engines": [
+        "firefox"
+      ],
+      "target": "span > time \"10:21 PM\"",
+      "reason": "axe color-contrast: \"10:21 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "1280"
+      ],
+      "engines": [
+        "firefox"
+      ],
+      "target": "span > time \"10:22 PM\"",
+      "reason": "axe color-contrast: \"10:22 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
         "1440"
       ],
       "engines": [
@@ -523,6 +617,87 @@
       "reason": "axe color-contrast: \"9:11 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "1440"
+      ],
+      "engines": [
+        "firefox"
+      ],
+      "target": "span > time \"9:53 PM\"",
+      "reason": "axe color-contrast: \"9:53 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "768"
+      ],
+      "engines": [
+        "firefox"
+      ],
+      "target": "span > time \"9:54 PM\"",
+      "reason": "axe color-contrast: \"9:54 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "375",
+        "768"
+      ],
+      "engines": [
+        "firefox",
+        "webkit"
+      ],
+      "target": "span > time \"9:55 PM\"",
+      "reason": "axe color-contrast: \"9:55 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium"
+      ],
+      "target": "span > time \"9:56 PM\"",
+      "reason": "axe color-contrast: \"9:56 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "1280"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "span > time \"9:57 PM\"",
+      "reason": "axe color-contrast: \"9:57 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "viewports": [
+        "1280"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "span > time \"9:58 PM\"",
+      "reason": "axe color-contrast: \"9:58 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
       "check": "focus-obscured",
       "page": "/chat",
       "viewports": [
@@ -532,6 +707,19 @@
       ],
       "target": "button[data-testid=\"genesis-chat-reaction-👍\"]",
       "reason": "Focused, `genesis-chat-reaction-👍` is hidden under a fixed or sticky bar (WCAG 2.4.11). To trace to the bar; genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "/chat",
+      "viewports": [
+        "320",
+        "375"
+      ],
+      "engines": [
+        "chromium"
+      ],
+      "target": "a[data-testid=\"genesis-chat-link-preview\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `genesis-chat-link-preview` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -1582,6 +1770,60 @@
       "rule": "color-contrast",
       "page": "/demo/:ws/chat",
       "viewports": [
+        "zoom-200"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "span > time \"10:05 PM\"",
+      "reason": "axe color-contrast: \"10:05 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "375",
+        "zoom-200"
+      ],
+      "engines": [
+        "firefox",
+        "webkit"
+      ],
+      "target": "span > time \"10:06 PM\"",
+      "reason": "axe color-contrast: \"10:06 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1280"
+      ],
+      "engines": [
+        "firefox"
+      ],
+      "target": "span > time \"10:08 PM\"",
+      "reason": "axe color-contrast: \"10:08 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1280"
+      ],
+      "engines": [
+        "firefox"
+      ],
+      "target": "span > time \"10:09 PM\"",
+      "reason": "axe color-contrast: \"10:09 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
         "1024"
       ],
       "engines": [
@@ -2022,6 +2264,250 @@
       ],
       "target": "span > time \"8:59 PM\"",
       "reason": "axe color-contrast: \"8:59 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1024",
+        "320"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "span > time \"9:31 PM\"",
+      "reason": "axe color-contrast: \"9:31 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1024",
+        "320"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "span > time \"9:32 PM\"",
+      "reason": "axe color-contrast: \"9:32 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "320",
+        "zoom-200"
+      ],
+      "engines": [
+        "chromium"
+      ],
+      "target": "span > time \"9:33 PM\"",
+      "reason": "axe color-contrast: \"9:33 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1024"
+      ],
+      "engines": [
+        "chromium"
+      ],
+      "target": "span > time \"9:34 PM\"",
+      "reason": "axe color-contrast: \"9:34 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1440",
+        "375"
+      ],
+      "target": "span > time \"9:38 PM\"",
+      "reason": "axe color-contrast: \"9:38 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium"
+      ],
+      "target": "span > time \"9:39 PM\"",
+      "reason": "axe color-contrast: \"9:39 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "768"
+      ],
+      "engines": [
+        "firefox"
+      ],
+      "target": "span > time \"9:41 PM\"",
+      "reason": "axe color-contrast: \"9:41 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1280",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "firefox"
+      ],
+      "target": "span > time \"9:42 PM\"",
+      "reason": "axe color-contrast: \"9:42 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1280"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "span > time \"9:43 PM\"",
+      "reason": "axe color-contrast: \"9:43 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "768",
+        "text-200"
+      ],
+      "engines": [
+        "chromium"
+      ],
+      "target": "span > time \"9:44 PM\"",
+      "reason": "axe color-contrast: \"9:44 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "768",
+        "text-200"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "span > time \"9:45 PM\"",
+      "reason": "axe color-contrast: \"9:45 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "zoom-200"
+      ],
+      "engines": [
+        "firefox"
+      ],
+      "target": "span > time \"9:48 PM\"",
+      "reason": "axe color-contrast: \"9:48 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1440"
+      ],
+      "engines": [
+        "chromium"
+      ],
+      "target": "span > time \"9:50 PM\"",
+      "reason": "axe color-contrast: \"9:50 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1440"
+      ],
+      "engines": [
+        "chromium"
+      ],
+      "target": "span > time \"9:51 PM\"",
+      "reason": "axe color-contrast: \"9:51 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1024",
+        "320"
+      ],
+      "engines": [
+        "firefox",
+        "webkit"
+      ],
+      "target": "span > time \"9:52 PM\"",
+      "reason": "axe color-contrast: \"9:52 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "firefox"
+      ],
+      "target": "span > time \"9:53 PM\"",
+      "reason": "axe color-contrast: \"9:53 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1440"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "span > time \"9:54 PM\"",
+      "reason": "axe color-contrast: \"9:54 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "1024",
+        "1440"
+      ],
+      "engines": [
+        "firefox",
+        "webkit"
+      ],
+      "target": "span > time \"9:55 PM\"",
+      "reason": "axe color-contrast: \"9:55 PM\" is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
       "check": "hit-area",
@@ -29620,6 +30106,103 @@
       ],
       "target": "html",
       "reason": "Runs past the viewport at this width (rule 2, WCAG 1.4.10): `html`. The sample refresh (slice 1) reworks the screen; a genesis-ui follow-up if the part itself overflows."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:patterns-gallerygrid--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "div:nth-of-type(10) > button[data-slot=\"gallery-tile\"] \"Photo 14\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Photo 14\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:patterns-gallerygrid--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "div:nth-of-type(10) > button[data-slot=\"gallery-tile\"] \"Photo 15\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Photo 15\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:patterns-gallerygrid--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div:nth-of-type(12) > button[data-slot=\"gallery-tile\"] \"Photo 17\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Photo 17\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:patterns-gallerygrid--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "div:nth-of-type(6) > button[data-slot=\"gallery-tile\"] \"Photo 8\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Photo 8\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:patterns-gallerygrid--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "div:nth-of-type(6) > button[data-slot=\"gallery-tile\"] \"Photo 9\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Photo 9\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:patterns-gallerygrid--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "div:nth-of-type(7) > button[data-slot=\"gallery-tile\"] \"Photo 10\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Photo 10\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:patterns-gallerygrid--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "div:nth-of-type(9) > button[data-slot=\"gallery-tile\"] \"Photo 12\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Photo 12\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:patterns-gallerygrid--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "webkit"
+      ],
+      "target": "div:nth-of-type(9) > button[data-slot=\"gallery-tile\"] \"Photo 13\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Photo 13\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "reflow",
