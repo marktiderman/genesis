@@ -39,6 +39,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { useUiMessages } from "../../messages";
 import type { NavItem } from "./AppShell";
 
 /**
@@ -175,10 +176,12 @@ export function SubNavTabs({
   linkComponent: LinkComp,
   isActive = isPathActive,
   end,
-  label = "Page sections",
+  label,
   variant = "primary",
   className,
 }: SubNavTabsProps) {
+  const pageSections = useUiMessages().shell.pageSections;
+  const navLabel = label ?? pageSections;
   const current = mostSpecificActive(items, activePath, isActive);
   const secondary = variant === "secondary";
   return (
@@ -189,7 +192,7 @@ export function SubNavTabs({
       data-testid={secondary ? "app-shell-sub-nav-secondary" : "app-shell-sub-nav"}
     >
       {/* Scrolls sideways when the tabs don't fit (a phone): a swipe moves the row, snapping to tabs. */}
-      <nav aria-label={label} className="-mb-px min-w-0 flex-1 snap-x overflow-x-auto overscroll-x-contain">
+      <nav aria-label={navLabel} className="-mb-px min-w-0 flex-1 snap-x overflow-x-auto overscroll-x-contain">
         <ul className={cn("flex items-end", secondary ? "gap-1" : "gap-6")}>
           {items.map((item) => {
             const active = item === current;
@@ -316,13 +319,14 @@ export function SubNavSegmented({
   activePath,
   linkComponent: LinkComp,
   isActive = isPathActive,
-  label = "Page sections",
+  label,
   className,
 }: SubNavSegmentedProps) {
+  const pageSections = useUiMessages().shell.pageSections;
   const current = mostSpecificActive(items, activePath, isActive);
   return (
     <nav
-      aria-label={label}
+      aria-label={label ?? pageSections}
       className={cn("min-w-0 overflow-x-auto overscroll-x-contain", className)}
       data-slot="sub-nav-segmented"
       data-testid="app-shell-sub-nav-segmented"
@@ -388,8 +392,9 @@ export function SubNavBreadcrumb({
   isActive = isPathActive,
   className,
 }: SubNavBreadcrumbProps) {
+  const breadcrumb = useUiMessages().shell.breadcrumb;
   return (
-    <nav aria-label="Breadcrumb" className={cn("min-w-0", className)} data-slot="sub-nav-breadcrumb" data-testid="app-shell-sub-nav-breadcrumb">
+    <nav aria-label={breadcrumb} className={cn("min-w-0", className)} data-slot="sub-nav-breadcrumb" data-testid="app-shell-sub-nav-breadcrumb">
       <ol className="flex min-w-0 flex-wrap items-center gap-1 text-sm">
         {levels.map((level, i) => {
           const current = mostSpecificActive(level.items, activePath, isActive);
@@ -452,14 +457,15 @@ export function SubNavList({
   activePath,
   linkComponent: LinkComp,
   isActive = isPathActive,
-  label = "Page sections",
+  label,
   variant = "column",
   className,
 }: SubNavListProps) {
+  const pageSections = useUiMessages().shell.pageSections;
   const current = mostSpecificActive(items, activePath, isActive);
   const page = variant === "page";
   return (
-    <nav aria-label={label} className={cn("min-w-0", className)} data-slot="sub-nav-list" data-variant={variant} data-testid="app-shell-sub-nav-list">
+    <nav aria-label={label ?? pageSections} className={cn("min-w-0", className)} data-slot="sub-nav-list" data-variant={variant} data-testid="app-shell-sub-nav-list">
       <ul className={cn(page ? "divide-y rounded-lg border" : "space-y-0.5")}>
         {items.map((item) => {
           const active = item === current;
@@ -524,9 +530,10 @@ export interface SubNavHubProps {
  *
  * @stability Beta
  */
-export function SubNavHub({ items, linkComponent: LinkComp, label = "Page sections", className }: SubNavHubProps) {
+export function SubNavHub({ items, linkComponent: LinkComp, label, className }: SubNavHubProps) {
+  const pageSections = useUiMessages().shell.pageSections;
   return (
-    <nav aria-label={label} className={cn("min-w-0", className)} data-slot="sub-nav-hub" data-testid="app-shell-sub-nav-hub">
+    <nav aria-label={label ?? pageSections} className={cn("min-w-0", className)} data-slot="sub-nav-hub" data-testid="app-shell-sub-nav-hub">
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {items
           .filter((item) => !item.disabled)

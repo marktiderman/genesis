@@ -14,4 +14,6 @@ Phones:
 
 AppShell takes `headerItems`, the top bar's links. They're drawn at the end of the top-tabs bar, in a thin row above the page on other wide layouts, and in the phone's drawer.
 
-What changes for you: a node with `subNav: "tabs"` and items now keeps its tab row on a child page reached through one of those items, above the child's own tabs. Before, the child page showed only its own items.
+What changes for you (sub-navigation is `@stability Beta`): a node with `subNav: "tabs"` now keeps its tab row on a child page reached through one of its items. Before, the child page showed only its own items.
+- **Wide screens:** the parent's row shows above the child's, which becomes a quieter second row, and the content's "← parent" link is left out when that parent's row already shows.
+- **Phones, with the default `phoneTabs: "bottom"`:** the bottom bar carries the parent's row (the outermost tab row), not the child page's own items. Its back item goes to the parent's own parent (an app's `parentNavigation` still wins), and the child's items become a segmented control at the top of the page.

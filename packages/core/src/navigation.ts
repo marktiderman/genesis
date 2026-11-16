@@ -137,9 +137,11 @@ export interface NavigationNode<T> {
    * - `"section"`: the legacy rendering (the shell's default); `"off"`
    *   hides them.
    *
-   * Every node in the trail is drawn by its own setting, so any depth can
-   * pick its variant. A node that sets none takes the nearest ancestor's,
-   * then the shell's `options.subNav`. See {@link NavigationSubNav}.
+   * Every node in the trail below the root is drawn by its own setting, so
+   * any depth can pick its variant. A node that sets none takes the nearest
+   * ancestor's, then the shell's `options.subNav`. The root's own `items` are
+   * the app's main navigation (the sidebar), never a row. See
+   * {@link NavigationSubNav}.
    *
    * @stability Beta
    */

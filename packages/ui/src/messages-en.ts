@@ -552,7 +552,11 @@ export const uiMessages = {
     /** The phone bottom bar's name. */
     primaryNavigation: "Primary",
     /** The top bar's own links (AppShell `headerItems`), on a wide screen and in the phone's drawer. */
-    headerNavigation: "Top",
+    headerNavigation: "Top links",
+    /** A page's sub-navigation (its tabs, list or cards) when the level has no label of its own. */
+    pageSections: "Page sections",
+    /** The breadcrumb that folded tab levels collapse into. */
+    breadcrumb: "Breadcrumb",
     /** The phone bottom bar's last slot when the items don't fit, and the sheet it opens. */
     more: "More",
     /** The More sheet's description, for screen readers. */

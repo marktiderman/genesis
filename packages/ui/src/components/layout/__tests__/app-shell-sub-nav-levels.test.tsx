@@ -185,6 +185,55 @@ describe("phones: phoneTabs", () => {
   });
 });
 
+describe("phones: the bar, its back item and the content's parent link", () => {
+  it("an outer row in the bar goes back to that level's own parent; an app's parentNavigation still wins", () => {
+    const { unmount } = renderShell("/products/offers/drafts");
+    expect(screen.getByTestId("app-shell-mobile-back").getAttribute("href")).toBe("/");
+    unmount();
+    renderShell("/products/offers/drafts", { parentNavigation: { href: "/somewhere", label: "Somewhere" } });
+    expect(screen.getByTestId("app-shell-mobile-back").getAttribute("href")).toBe("/somewhere");
+  });
+
+  it("keeps the outer row on the page when the bar can't carry it (every item hideOnPhone)", () => {
+    const hidden = products.map((item) => ({ ...item, hideOnPhone: true }));
+    render(
+      <AppShell appName="Acme" navigation={treeWith({ products: { items: hidden } })} options={opts} activePath="/products/offers/drafts">
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(hrefs(bottomBar())).toEqual(["/", "/products", "/marketing"]);
+    const rowWrap = screen.getByRole("navigation", { name: "Products" }).closest("div.px-4");
+    expect(rowWrap?.className).not.toContain("hidden");
+  });
+
+  it("leaves out the content's parent link when that parent's row already shows", () => {
+    renderShell("/products/offers/drafts");
+    // The parent here is Offers, whose row (the second) shows.
+    expect(screen.queryByTestId("app-shell-parent-link")).toBeNull();
+  });
+
+  it('"top" with a sidebar-mode page under a tabbed parent: the row stays at the top, the bar keeps the page\'s children', () => {
+    render(
+      <AppShell
+        appName="Acme"
+        navigation={treeWith({ offers: { subNav: "sidebar" } })}
+        options={{ ...opts, phoneTabs: "top" }}
+        activePath="/products/offers"
+      >
+        <div>content</div>
+      </AppShell>,
+    );
+    const rowWrap = screen.getByRole("navigation", { name: "Products" }).closest("div.px-4");
+    expect(rowWrap?.className).not.toContain("hidden");
+    // Offers draws its children as sidebar sub-items, which the phone bar carries as before.
+    expect(within(bottomBar()).getAllByRole("link").map((a) => a.getAttribute("aria-label"))).toEqual([
+      "Back to Products",
+      "All",
+      "Drafts",
+    ]);
+  });
+});
+
 describe("list and hub", () => {
   it("list: a column beside the page on a wide screen, the item with a link back on a phone", () => {
     renderShell("/settings/billing");

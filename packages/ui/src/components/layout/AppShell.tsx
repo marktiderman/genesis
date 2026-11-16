@@ -1408,6 +1408,10 @@ export function AppShell({
   const [moreOpen, setMoreOpen] = useState(false);
   const m = useUiMessages().shell;
 
+  // Read through a ref, so an inline `isActive` doesn't re-resolve the tree on every render.
+  const isActiveRef = useRef(isActive);
+  isActiveRef.current = isActive;
+
   // Hierarchical nav: resolve the tree against the current location once.
   const derived = useMemo(() => {
     if (!navigation) return undefined;
@@ -1440,7 +1444,7 @@ export function AppShell({
       if (node.subNav !== undefined) inherited = node.subNav;
       if (i === 0 || i === nav.trail.length - 1) return;
       const items = fillItems(node.items, nav.params);
-      if (!items.some((item) => itemIsActive(item, activePath ?? "/", isActive))) return;
+      if (!items.some((item) => itemIsActive(item, activePath ?? "/", isActiveRef.current))) return;
       const above = nav.trail[i - 1]!;
       const abovePath = fillParams(above.path, nav.params);
       ancestorLevels.push({
@@ -1466,7 +1470,7 @@ export function AppShell({
       ancestorLevels,
       zone: nav.zone,
     };
-  }, [navigation, activePath, isActive]);
+  }, [navigation, activePath]);
 
   const navItems = navItemsProp ?? derived?.globalItems ?? [];
   const subNavChannel = useSubNavChannel();
@@ -1730,7 +1734,7 @@ export function AppShell({
     mode: level.mode ?? resolved.subNav ?? OPTION_DEFAULTS.subNav!,
   }));
   const pageLevel: SubNavLevel = {
-    label: subNavLabel ?? derived?.current.label ?? "Page sections",
+    label: subNavLabel ?? derived?.current.label ?? m.pageSections,
     href: derived?.current.path,
     items: contextualNavItems,
     mode: subNavMode,
@@ -1771,9 +1775,13 @@ export function AppShell({
   const subBottom = subNavOn && contextualLeaves.length > 0;
   const legacyBottom = !subNavOn && !mobileNavItems && contextualLeaves.length > 0;
   // A row from a level above this page goes back to that level's own parent.
+  // An app's own `parentNavigation` still wins.
   const rowFromAbove = rowToBottom && rowToBottom !== pageLevel ? (rowToBottom as (typeof ancestorLevels)[number]) : undefined;
+  // The first tab row is in the bar only when the bar really shows it (not when every item is
+  // `hideOnPhone`, say); otherwise the row stays on the page.
+  const rowInBar = subBottom && !!rowToBottom;
   const backTarget = subBottom
-    ? rowFromAbove
+    ? rowFromAbove && parentNavigationProp === undefined
       ? rowFromAbove.back
       : (parentNavigation ?? derived?.backItem ?? (() => {
         const hostItem = mostSpecificActive(navItems, activePath, isActive);
@@ -1834,6 +1842,15 @@ export function AppShell({
   const showMobileBottom =
     bottomItems.length > 0 && resolved.showMobileBottomNav !== false;
   const showTabs = subLayout.rows.length > 0;
+  // The content's "← parent" link, unless that parent's own tab row (or breadcrumb) already shows
+  // above the page: the row marks where you are and leads back. An app's own link always shows.
+  const shownLevelHrefs = new Set(
+    [...subLayout.folded, ...subLayout.rows].map((level) => level.href).filter((href): href is string => !!href),
+  );
+  const contentParent =
+    parentNavigation && parentNavigationProp === undefined && shownLevelHrefs.has(parentNavigation.href)
+      ? undefined
+      : parentNavigation;
   // Top tabs: the active top item's own children, as a second row of tabs on a desktop.
   const topHost = topTabs ? mostSpecificActive(navItems, activePath, isActive) : undefined;
   const topChildren: SubNavItem[] = topHost?.children ?? [];
@@ -2335,7 +2352,7 @@ export function AppShell({
             // The top bar's links on a wide screen without a top bar of its own; phones have them in the drawer.
             <div className="hidden justify-end px-4 pt-3 sm:px-6 md:flex lg:px-8 print:hidden">{headerLinks}</div>
           ) : null}
-          {parentNavigation ? (
+          {contentParent ? (
             <div
               className="flex min-w-0 items-center px-4 pt-4 sm:px-6 sm:pt-6 lg:px-8 lg:pt-8 print:hidden"
               data-testid="app-shell-parent-nav"
@@ -2349,11 +2366,11 @@ export function AppShell({
                 testID="app-shell-parent-link"
               >
                 <ParentLink
-                  href={parentNavigation.href}
-                  aria-label={`Back to ${parentNavigation.label}`}
+                  href={contentParent.href}
+                  aria-label={`Back to ${contentParent.label}`}
                 >
                   <ArrowLeft aria-hidden />
-                  <span className="truncate">{parentNavigation.label}</span>
+                  <span className="truncate">{contentParent.label}</span>
                 </ParentLink>
               </Button>
             </div>
@@ -2365,7 +2382,7 @@ export function AppShell({
               ref={subNavChannel.setHeaderSlot}
               className={cn(
                 "min-w-0 px-4 sm:px-6 lg:px-8",
-                parentNavigation ? "pt-2 sm:pt-3 lg:pt-4" : "pt-4 sm:pt-6 lg:pt-8",
+                contentParent ? "pt-2 sm:pt-3 lg:pt-4" : "pt-4 sm:pt-6 lg:pt-8",
               )}
               data-testid="app-shell-page-header"
             />
@@ -2375,7 +2392,7 @@ export function AppShell({
               ref={subNavChannel.setEndSlot}
               className={cn(
                 "flex min-w-0 flex-wrap items-center justify-end gap-2 px-4 sm:px-6",
-                parentNavigation || hasPageHeader ? "pt-2 sm:pt-3" : "pt-4 sm:pt-6",
+                contentParent || hasPageHeader ? "pt-2 sm:pt-3" : "pt-4 sm:pt-6",
               )}
               data-testid="app-shell-sub-nav-end-phone"
             />
@@ -2384,7 +2401,7 @@ export function AppShell({
             <div
               className={cn(
                 "hidden px-4 sm:px-6 md:block lg:px-8",
-                !parentNavigation && !hasPageHeader && "pt-2 sm:pt-3 lg:pt-4",
+                !contentParent && !hasPageHeader && "pt-2 sm:pt-3 lg:pt-4",
               )}
             >
               <SubNavTabs
@@ -2398,7 +2415,7 @@ export function AppShell({
           ) : null}
           {subLayout.folded.length > 0 ? (
             <div
-              className={cn("px-4 sm:px-6 lg:px-8", (!parentNavigation || hasPageHeader) && "pt-2 sm:pt-3 lg:pt-4")}
+              className={cn("px-4 sm:px-6 lg:px-8", (!contentParent || hasPageHeader) && "pt-2 sm:pt-3 lg:pt-4")}
             >
               <SubNavBreadcrumb
                 levels={subLayout.folded}
@@ -2413,8 +2430,8 @@ export function AppShell({
               className={cn(
                 "px-4 sm:px-6 lg:px-8",
                 // "bottom" tabs: phones use the bottom bar, unless the app turned it off.
-                !phoneTop && showMobileBottom && "hidden md:block",
-                (!parentNavigation || hasPageHeader) && subLayout.folded.length === 0 && "pt-2 sm:pt-3 lg:pt-4",
+                rowInBar && showMobileBottom && "hidden md:block",
+                (!contentParent || hasPageHeader) && subLayout.folded.length === 0 && "pt-2 sm:pt-3 lg:pt-4",
               )}
             >
               <SubNavTabs
@@ -2461,7 +2478,7 @@ export function AppShell({
           <div
             className={cn(
               "min-w-0 p-4 sm:p-6 lg:p-8",
-              (parentNavigation || hasPageHeader) && !showTabs && "pt-2 sm:pt-3 lg:pt-4",
+              (contentParent || hasPageHeader) && !showTabs && "pt-2 sm:pt-3 lg:pt-4",
               // A list level: its list beside the page on a wide screen.
               listLevel && "md:flex md:items-start md:gap-8",
             )}
