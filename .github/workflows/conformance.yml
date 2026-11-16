@@ -62,6 +62,11 @@ jobs:
       - run: pnpm build:packages
       - run: pnpm --filter sample build
       - run: pnpm --filter sample build-storybook
+      # The route patterns, for one page per route (the shards can't load the app's config: it
+      # needs every package built).
+      - name: Route manifest
+        working-directory: apps/sample
+        run: pnpm exec react-router routes --json > build/routes.json
       # The checks' own browser tests: they skip without Chromium locally, and must run here.
       - name: Install Chromium for the checks' tests
         working-directory: apps/sample
@@ -75,6 +80,7 @@ jobs:
           name: conformance-build
           path: |
             apps/sample/build/client
+            apps/sample/build/routes.json
             apps/sample/storybook-static
             packages/genesis-cli/dist
           retention-days: 3

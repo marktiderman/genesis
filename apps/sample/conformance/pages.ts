@@ -28,11 +28,19 @@ export interface Target {
   redirects?: boolean;
 }
 
+/**
+ * React Router's manifest as the build job writes it (`react-router routes --json`, which loads the
+ * app's config and so needs every package built). CI's shards get it in the build artifact.
+ */
+export const ROUTES_MANIFEST = join(SAMPLE_DIR, "build", "routes.json");
+
 /** The sample's route patterns, from React Router's manifest, cached for the workers. */
 function routePatterns(): RoutePattern[] {
   const cache = join(SAMPLE_DIR, "test-results", "conformance-routes.json");
   if (!existsSync(cache)) {
-    const json = execFileSync("pnpm", ["exec", "react-router", "routes", "--json"], { cwd: SAMPLE_DIR, encoding: "utf8" });
+    const json = existsSync(ROUTES_MANIFEST)
+      ? readFileSync(ROUTES_MANIFEST, "utf8")
+      : execFileSync("pnpm", ["exec", "react-router", "routes", "--json"], { cwd: SAMPLE_DIR, encoding: "utf8" });
     mkdirSync(dirname(cache), { recursive: true });
     writeFileSync(cache, JSON.stringify(flattenReactRouterRoutes(JSON.parse(json))));
   }
