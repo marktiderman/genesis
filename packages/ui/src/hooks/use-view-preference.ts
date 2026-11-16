@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useContext } from "react";
 import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
 import type { ViewMode } from "../components/patterns/view-toggle";
 import { useIsMobile } from "./use-mobile";
+import { ListNarrowContext } from "./use-list-width";
 
 /**
  * A default view that depends on the viewport: cards on a phone, a table on
@@ -13,9 +14,12 @@ import { useIsMobile } from "./use-mobile";
  * @stability Beta
  */
 export interface ResponsiveViewMode {
-  /** Below the mobile breakpoint (768px). */
+  /**
+   * When the list is narrow: a viewport below the mobile breakpoint (768px), or, inside a
+   * ResourceView, its own frame below 40rem (`LIST_NARROW_REM`).
+   */
   mobile: ViewMode;
-  /** At or above the mobile breakpoint. */
+  /** When it isn't. */
   desktop: ViewMode;
 }
 
@@ -66,14 +70,24 @@ export function useViewPreference(
   defaultMode: ViewModeDefault = "grid",
 ): [ViewMode, (mode: ViewMode) => void] {
   const isMobile = useIsMobile();
+  const narrowFrame = useContext(ListNarrowContext) === true;
+  // Narrow on a phone (the viewport), and in a narrow frame on a wide screen (the list's own width).
+  const narrow = isMobile || narrowFrame;
   const responsive = typeof defaultMode !== "string";
-  const [chosen, setChosen] = usePersistedUiState<ViewMode | undefined>(choiceKey(key), undefined, MODE_FORMAT);
+  // A list narrow only by its frame (a side panel on a wide screen) keeps its pick apart from the
+  // same list at full width, so a table picked in the wide view doesn't force a table into a
+  // 360px panel that may have no switch to leave it.
+  const [chosen, setChosen] = usePersistedUiState<ViewMode | undefined>(
+    narrowFrame && !isMobile ? `${choiceKey(key)}@narrow` : choiceKey(key),
+    undefined,
+    MODE_FORMAT,
+  );
   // The legacy key is read only for a plain default (see the storage keys above), never written.
   const [legacy] = usePersistedUiState<ViewMode | undefined>(responsive ? null : legacyKey(key), undefined, MODE_FORMAT);
 
   const fallback = !responsive
     ? defaultMode
-    : isMobile
+    : narrow
         ? defaultMode.mobile
         : defaultMode.desktop;
 

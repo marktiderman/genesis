@@ -13,10 +13,10 @@ import type { SearchParamsAdapter } from "../../../navigation";
  */
 export interface ResourceViewDefaults {
   /**
-   * How full-page lists (`layout="page"`) open on a phone (below 768px) when the screen doesn't
-   * say: `grid` (cards) or `list` (rows). Desktops keep the table. Embedded and compact lists
-   * are left alone. Unset, lists open as a table everywhere, as before; `null` turns an outer
-   * provider's phone default off for this subtree.
+   * How a list opens while it is narrow (its own frame below 40rem, `LIST_NARROW_REM`) when the
+   * screen doesn't say: `grid` (cards) or `list` (rows). Wider, it keeps the table. Page and
+   * embedded lists alike; compact lists are rows already. Unset, lists open as a table everywhere,
+   * as before; `null` turns an outer provider's default off for this subtree.
    */
   phoneMode?: Exclude<ViewMode, "table"> | null | undefined;
   /**

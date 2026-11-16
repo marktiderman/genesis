@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Badge } from "../ui/badge";
 import { StatusBadge } from "../patterns/status-badge";
-import { cn } from "../../utils";
+import { cn, touchTarget } from "../../utils";
 import type { ChipTone } from "@marktiderman/genesis-core/resource";
 
 export interface ChipProps {
@@ -60,6 +60,7 @@ export function Chip({ tone, icon, children, className, testID, selected, onSele
       disabled={disabled}
       onClick={() => onSelectedChange(!selected)}
       className={cn(
+        touchTarget,
         "inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         className,
       )}

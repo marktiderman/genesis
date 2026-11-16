@@ -4,7 +4,7 @@
  * lets a consumer keep custom cards + j/k/Enter/⌫/x list navigation while
  * ResourcePage still owns data-fetching, filtering, and layout).
  */
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { GenesisProvider } from "../../../provider";
@@ -271,60 +271,50 @@ describe("ResourcePage — keyboard navigation (default-on)", () => {
 // ---------------------------------------------------------------------------
 
 describe("ResourcePage — default row activation (CMT-366-004)", () => {
-  it("exposes the default card as a focusable button-role row", async () => {
+  // A card or row is never a button itself (a cell may draw a link: WCAG 4.1.2). Each opens from
+  // its own button, a real <button> on the Tab path: the card's title, the row's Open button.
+  it("opens the default card from its title, a real button on the Tab path", async () => {
     renderPosts();
     await screen.findByText("Hello");
-
-    const card = screen.getByRole("button", { name: "Hello" });
-    expect(card.getAttribute("tabindex")).toBe("0");
-    expect(screen.getAllByTestId("resource-card")).toHaveLength(2);
+    const cards = screen.getAllByTestId("resource-card");
+    expect(cards).toHaveLength(2);
+    expect(cards[0]!.getAttribute("role")).toBeNull();
+    const open = screen.getByRole("button", { name: "Hello" });
+    expect(open.tagName).toBe("BUTTON");
+    fireEvent.click(open);
+    expect(await screen.findByRole("dialog", { name: "Hello" })).toBeTruthy();
   });
 
-  it("opens the detail on Enter and Space when the card itself has focus", async () => {
+  it("opens a card from a click on the rest of it too", async () => {
     renderPosts();
-    await screen.findByText("Hello");
-
-    const card = screen.getByRole("button", { name: "Hello" });
-    card.focus();
-    fireEvent.keyDown(card, { key: "Enter" });
-
-    expect(await screen.findByRole("dialog", { name: "Hello" })).toBeTruthy();
-
-    // Space is the other activation key a role="button" owes its users.
-    pressKey("Backspace");
-    const second = screen.getByRole("button", { name: "World" });
-    second.focus();
-    fireEvent.keyDown(second, { key: " " });
-
+    await screen.findByText("World");
+    fireEvent.click(screen.getAllByTestId("resource-card")[1]!);
     expect(await screen.findByRole("dialog", { name: "World" })).toBeTruthy();
   });
 
-  it("does not let the list cursor double-fire against a focused card", async () => {
-    // The Tab path and the j/k path both listen for Enter. The hook's
-    // ownsItsKeys guard covers role="button", so the focused card wins and
-    // the cursor's own row is not opened as well.
+  it("does not let the list cursor fire against a focused open button", async () => {
+    // The Tab path and the j/k path both listen for Enter. The hook leaves a focused button its
+    // own keys, so Enter there doesn't open the cursor's row as well.
     renderPosts();
     await screen.findByText("Hello");
-
     pressKey("j"); // cursor -> "Hello"
     const second = screen.getByRole("button", { name: "World" });
     second.focus();
     fireEvent.keyDown(second, { key: "Enter" });
-
+    expect(screen.queryByRole("dialog", { name: "Hello" })).toBeNull();
+    // The focused button is World's way in (a browser turns its Enter into this click).
+    fireEvent.click(second);
     expect(await screen.findByRole("dialog", { name: "World" })).toBeTruthy();
     expect(screen.queryByRole("dialog", { name: "Hello" })).toBeNull();
   });
 
-  it("gives the default list row the same treatment", async () => {
+  it("gives the default list row its own Open button", async () => {
     renderPosts({ defaultView: "list" });
     await screen.findByText("Hello");
-
-    const row = screen.getByRole("button", { name: "Hello" });
-    expect(row.getAttribute("tabindex")).toBe("0");
-    expect(screen.getAllByTestId("resource-list-row")).toHaveLength(2);
-
-    row.focus();
-    fireEvent.keyDown(row, { key: "Enter" });
+    const rows = screen.getAllByTestId("resource-list-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]!.getAttribute("role")).toBeNull();
+    fireEvent.click(within(rows[0]!).getByTestId("resource-list-row-open"));
     expect(await screen.findByRole("dialog", { name: "Hello" })).toBeTruthy();
   });
 });

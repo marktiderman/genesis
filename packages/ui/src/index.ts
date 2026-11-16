@@ -212,7 +212,7 @@ export {
 } from "./components/resource";
 
 // Utilities
-export { cn } from "./utils";
+export { cn, touchTarget } from "./utils";
 
 // Router-agnostic navigation primitives
 export {

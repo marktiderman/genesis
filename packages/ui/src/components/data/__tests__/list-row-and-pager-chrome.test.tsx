@@ -55,6 +55,6 @@ describe("ResourcePage default list row", () => {
     // The row: none of them again.
     const own = classes(row!);
     expect(own.filter((c) => /^(p[xytblr]?|border(-[btlr])?|hover:bg-.*)(-|$)/.test(c) || c === "border-b")).toEqual([]);
-    expect(row!.getAttribute("class")).toMatchInlineSnapshot(`"flex items-start cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"`);
+    expect(row!.getAttribute("class")).toMatchInlineSnapshot(`"flex items-start gap-2 cursor-pointer"`);
   });
 });
