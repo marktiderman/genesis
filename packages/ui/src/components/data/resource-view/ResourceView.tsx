@@ -321,6 +321,8 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
           ...(declared !== undefined ? { width: declared } : width ? { width } : {}),
           ...(c.hideBelow ? { hideBelow: c.hideBelow } : {}),
           ...(c.emphasis ? { emphasis: c.emphasis } : {}),
+          // A screen's own cell (a link, a button) stays in the narrow list row too.
+          ...(cells?.[c.key] ? { keepInList: true } : {}),
           ...(c.sortable === false ? { sortable: false } : {}),
           // A computed column has no database column to sort by.
           ...(c.field ? {} : { sortable: false, accessor: (row: T) => c.value(row as T & DataRow) }),

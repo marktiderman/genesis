@@ -96,3 +96,38 @@ describe("ResourcePage default card", () => {
     expect(card.textContent!.split("ada@acme.example").length - 1).toBe(1);
   });
 });
+
+describe("a list row keeps the cells the screen drew itself (keepInList)", () => {
+  function renderKept() {
+    return render(
+      <GenesisProvider mock={{ datasets: { members } }}>
+        <ResourcePage<Member>
+          resource="members"
+          title="Members"
+          defaultView="list"
+          titleField="email"
+          columns={[
+            { key: "email", header: "Email", keepInList: true, render: (m) => <a href={`/members/${m.id}`} data-testid="title-link">{m.email}</a> },
+            "first",
+            "last",
+            { key: "full_name", header: "Name", accessor: (m) => `${m.first} ${m.last}` },
+            { key: "restore", header: "", keepInList: true, render: () => <button type="button" data-testid="restore">Restore</button> },
+          ]}
+        />
+      </GenesisProvider>,
+    );
+  }
+
+  it("draws a kept title column's cell as the row's title", async () => {
+    renderKept();
+    const row = await screen.findByTestId("resource-list-row");
+    expect(within(row).getByTestId("title-link").getAttribute("href")).toBe(`/members/${members[0]!.id}`);
+  });
+
+  it("shows a kept action beside the first three columns, though it is the fifth", async () => {
+    renderKept();
+    const row = await screen.findByTestId("resource-list-row");
+    expect(within(row).getByTestId("restore")).toBeTruthy();
+    expect(row.querySelector('[data-column="full_name"]')).not.toBeNull();
+  });
+});

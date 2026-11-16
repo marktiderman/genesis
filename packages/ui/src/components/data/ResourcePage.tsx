@@ -1582,13 +1582,21 @@ function ResourcePageBody<
    * DataGrid's list wrapper draws each row's padding, divider and hover, so the row adds none.
    */
   const renderDefaultListItem = (item: T): ReactNode => {
-    const cols = bodyColumns().slice(0, 3);
+    // The first three other columns, and every column the screen drew itself (`keepInList`: a
+    // Restore button, a link), so a row never loses what the table showed as an action.
+    const cols = bodyColumns().filter((c, i) => i < 3 || c.keepInList);
     const titleVal = titleOf(item);
+    // A title column the screen drew itself (a link, Move up and down) is the row's title.
+    const titleCol = page.columns.find((c) => c.key === page.titleField && c.keepInList);
     const node = pageTree?.nodes.get(keyOf(item));
     // Line one: the title, up to two lines. Line two: the other columns, wrapping.
     const body = (
       <div className="min-w-0 flex-1 space-y-1">
-        <span className="block font-medium text-sm line-clamp-2 break-words">{titleVal}</span>
+        {titleCol ? (
+          <div className="min-w-0 font-medium text-sm break-words" data-column={titleCol.key}>{cellOf(item, titleCol)}</div>
+        ) : (
+          <span className="block font-medium text-sm line-clamp-2 break-words">{titleVal}</span>
+        )}
         {cols.length > 0 && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {cols.map((col) => (

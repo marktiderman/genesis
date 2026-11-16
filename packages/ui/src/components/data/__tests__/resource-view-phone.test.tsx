@@ -110,6 +110,13 @@ describe("ResourceView phone default", () => {
     expect(result.current.defaultView).toEqual({ mobile: "grid", desktop: "table" });
   });
 
+  it("marks the columns a screen draws itself to stay in a list row", () => {
+    const { result } = renderHook(() => useResourceViewProps({ view, cells: { email: () => null } }), { wrapper: wrap() });
+    const columns = result.current.columns as { key: string; keepInList?: boolean }[];
+    expect(columns.find((c) => c.key === "email")?.keepInList).toBe(true);
+    expect(columns.find((c) => c.key === "name")?.keepInList).toBeUndefined();
+  });
+
   it("turns an outer phone default off with phoneMode={null}", () => {
     const { result } = renderHook(() => useResourceViewProps({ view }), {
       wrapper: wrap({ phoneMode: "grid" }, { phoneMode: null }),

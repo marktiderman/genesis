@@ -34,6 +34,13 @@ export interface ResourceColumnDef<T> {
   defaultVisible?: boolean | undefined;
   /** How much the column matters in a row (`DataTable`'s `emphasis`). */
   emphasis?: DataTableColumn<T>["emphasis"];
+  /**
+   * The screen draws this cell itself (a link, controls such as Restore or Move up). A list row,
+   * the narrow layout, keeps it: on the title column its cell is the row's title, and on any other
+   * column the cell shows beside the first three, so nothing the screen put in a cell is lost when
+   * the table turns into rows (docs/RESPONSIVE.md, rule 4). ResourceView sets it for `cells`.
+   */
+  keepInList?: boolean | undefined;
   render?: ((
     item: T,
     value: unknown,

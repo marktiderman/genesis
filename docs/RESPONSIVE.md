@@ -29,7 +29,9 @@ the end.
 4. **A list turns into rows when it is narrow.** `ResourceView` measures its own frame. Below
    40rem a responsive default (`{ mobile, desktop }`, or an app's `phoneMode`) takes its narrow
    side, and `phoneMode` covers page and embedded lists alike. A table that can't show its
-   columns is never the default. A list whose point is its columns (a sheet, a comparison grid)
+   columns is never the default. A row keeps whatever the screen drew in a cell (`cells`): a
+   custom title cell (a link, reorder buttons) is the row's title, and an action column (Restore)
+   shows beside the first three columns. A list whose point is its columns (a sheet, a comparison grid)
    says so with its own `mode` and scrolls inside its frame.
 5. **The overlay fits the job.** A short confirmation is the centred dialog. A picker or a short
    form docks to the bottom on a phone (`DialogContent mobileLayout="sheet"`). A long form, an
