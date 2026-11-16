@@ -5,7 +5,7 @@
  * `@playwright/test` and `@axe-core/playwright`.
  */
 export { domChecks, type DomCheckOptions, type DomFinding } from "./dom.js";
-export { checkPage, AXE_TAGS, type CheckId, type CheckPageOptions, type Finding } from "./page.js";
-export { ENGINES, WIDTHS, ZOOM_VIEWPORTS, allViewports, contextOptions, widthViewport, type Engine, type Viewport } from "./matrix.js";
+export { checkPage, zoomText, AXE_TAGS, type CheckId, type CheckPageOptions, type Finding } from "./page.js";
+export { ENGINES, TEXT_ZOOM_VIEWPORT, WIDTHS, ZOOM_VIEWPORTS, allViewports, contextOptions, runsIn, widthViewport, type Engine, type Viewport } from "./matrix.js";
 export { allowFor, applyAllow, formatFinding, matchesPage, validateAllow, type AllowEntry, type Where } from "./allow.js";
 export { flattenReactRouterRoutes, matchesPattern, onePathPerPattern, patternFor, type ReactRouterRoute, type RoutePattern } from "./routes.js";

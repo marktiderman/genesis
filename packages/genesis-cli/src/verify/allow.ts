@@ -1,20 +1,24 @@
 /**
  * Known findings, the doctor's way: each entry names what it covers and why, and the list only
- * shrinks (an entry that matches nothing in a full run is stale and fails it).
+ * shrinks (a full run warns on an entry that covered nothing, so it gets removed).
  */
 import type { Engine } from "./matrix.js";
 import type { CheckId, Finding } from "./page.js";
+import { matchesPattern } from "./routes.js";
 
 export interface AllowEntry {
   check: CheckId;
   /** The axe rule, for `axe` entries. */
   rule?: string;
-  /** The page: a path (`/items`), a story id (`story:forms--default`), or a prefix ending in `*`. */
+  /**
+   * The page: a path (`/items`), a route pattern (`/items/:id`, `/docs/*`), a story id
+   * (`story:forms--default`), or a story prefix ending in `*` (`story:forms--*`).
+   */
   page: string;
   /** Viewport names (`320`, `zoom-400`); every viewport when left out. */
   viewports?: string[];
   engines?: Engine[];
-  /** A substring of the finding's target; any target when left out. */
+  /** A substring of the finding's target (its path or its quoted accessible name); any target when left out. */
   target?: string;
   reason: string;
 }
@@ -26,7 +30,8 @@ export interface Where {
 }
 
 export function matchesPage(pattern: string, page: string): boolean {
-  return pattern.endsWith("*") ? page.startsWith(pattern.slice(0, -1)) : pattern === page;
+  if (pattern.startsWith("story:") || page.startsWith("story:")) return pattern.endsWith("*") ? page.startsWith(pattern.slice(0, -1)) : pattern === page;
+  return pattern === page || matchesPattern(pattern, page);
 }
 
 export function allowFor(entries: AllowEntry[], finding: Finding, where: Where): AllowEntry | undefined {
@@ -41,16 +46,21 @@ export function allowFor(entries: AllowEntry[], finding: Finding, where: Where):
   );
 }
 
-/** Splits findings into the ones an entry covers and the rest; entries missing a reason are errors. */
+/** Splits findings into the ones an entry covers, `info` notes (never failing), and the rest. */
 export function applyAllow(entries: AllowEntry[], findings: Finding[], where: Where) {
   const allowed: Array<{ finding: Finding; entry: AllowEntry }> = [];
+  const notes: Finding[] = [];
   const failing: Finding[] = [];
   for (const finding of findings) {
+    if (finding.level === "info") {
+      notes.push(finding);
+      continue;
+    }
     const entry = allowFor(entries, finding, where);
     if (entry) allowed.push({ finding, entry });
     else failing.push(finding);
   }
-  return { allowed, failing };
+  return { allowed, notes, failing };
 }
 
 export function validateAllow(entries: AllowEntry[]): string[] {

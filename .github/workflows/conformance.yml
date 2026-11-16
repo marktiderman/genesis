@@ -5,10 +5,12 @@ name: Conformance
 # zoom, with touch on phones and tablets. It fails on sideways scroll (WCAG 1.4.10), axe WCAG 2.2
 # A/AA violations (target-size included), hit areas under 44px on touch, focus hidden under a fixed
 # bar (2.4.11), more than one floating control on a phone, and a viewport meta missing its parts.
-# Known findings live in apps/sample/conformance/allow.json and only shrink.
+# Known findings live in apps/sample/conformance/allow.json and only shrink (a full run warns on
+# an entry that covered nothing).
 #
-# Pull requests run the per-PR scope (one page per route pattern; stories in Chromium and WebKit at
-# 320, 768 and 1280). Pushes to main, the nightly schedule and a manual run cover everything.
+# Pull requests and pushes to main run the per-PR scope (one page per route pattern; stories in
+# Chromium and WebKit at 320, 768 and 1280), with the stale-entry check for what they visited. The
+# nightly schedule and a manual run cover everything, over eight shards.
 
 on:
   push:
@@ -27,7 +29,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CONFORMANCE_SCOPE: ${{ github.event_name == 'pull_request' && 'pr' || 'full' }}
+  CONFORMANCE_SCOPE: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'pr' }}
+  SHARDS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 8 || 4 }}
 
 jobs:
   build:
@@ -48,9 +51,25 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # A pull request may not grow the allow list (fix the finding instead) without the label.
+      - name: Allow list doesn't grow
+        if: github.event_name == 'pull_request'
+        env:
+          ALLOW_GROWS: ${{ contains(github.event.pull_request.labels.*.name, 'conformance: allow grows') && '1' || '0' }}
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          pnpm --filter sample exec tsx conformance/allow-grew.ts FETCH_HEAD
       - run: pnpm build:packages
       - run: pnpm --filter sample build
       - run: pnpm --filter sample build-storybook
+      # The checks' own browser tests: they skip without Chromium locally, and must run here.
+      - name: Install Chromium for the checks' tests
+        working-directory: apps/sample
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Test the checks
+        env:
+          VERIFY_REQUIRE_BROWSER: "1"
+        run: pnpm --filter @marktiderman/genesis-cli exec vitest run test/verify.test.ts
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: conformance-build
@@ -61,14 +80,14 @@ jobs:
           retention-days: 3
 
   shard:
-    name: Conformance shard ${{ matrix.shard }}/4
+    name: Conformance shard ${{ matrix.shard }}
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 90 || 30 }}
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: ${{ fromJSON((github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '[1,2,3,4,5,6,7,8]' || '[1,2,3,4]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -105,7 +124,7 @@ jobs:
       - name: Run the conformance checks
         env:
           CONFORMANCE_SHARD: ${{ matrix.shard }}
-        run: pnpm --filter sample conformance --shard=${{ matrix.shard }}/4
+        run: pnpm --filter sample conformance --shard=${{ matrix.shard }}/${{ env.SHARDS }}
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -116,7 +135,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: conformance-findings-${{ matrix.shard }}
-          path: apps/sample/test-results/conformance-findings.jsonl
+          path: apps/sample/test-results/conformance-findings-*.jsonl
           if-no-files-found: ignore
           retention-days: 7
 
@@ -153,15 +172,14 @@ jobs:
           path: apps/sample/playwright-report
           retention-days: 14
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        if: env.CONFORMANCE_SCOPE == 'full'
         with:
           pattern: conformance-findings-*
           path: apps/sample/all-findings
-      # A full run fails on an allow entry that covered nothing, so the list only shrinks.
-      - name: No stale allow entries
-        if: env.CONFORMANCE_SCOPE == 'full' && needs.shard.result == 'success'
+      # Warns on an allow entry that covered nothing in what this run visited, so the list only shrinks.
+      - name: Stale allow entries
+        if: needs.shard.result == 'success'
         working-directory: apps/sample
-        run: pnpm exec tsx conformance/teardown.ts all-findings/*/conformance-findings.jsonl
+        run: pnpm exec tsx conformance/teardown.ts all-findings
       - name: Every shard passed
         if: needs.build.result != 'success' || needs.shard.result != 'success'
         run: |

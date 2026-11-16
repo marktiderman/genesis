@@ -1257,46 +1257,6 @@ them. A `### rule-id` heading starts a rule, the `- key: value` lines under it s
 and `exclude` are comma-separated), and a `#`/`##` heading ends it:
 
 ```md
-## Runtime conformance checks (`/verify`)
-
-`genesis doctor` reads code; it can't see layout. `@marktiderman/genesis-cli/verify` checks a page
-in a real browser, the rules of `docs/RESPONSIVE.md` that a browser can measure. Genesis runs it
-over its sample app and every story in Chromium, WebKit and Firefox (the Conformance workflow);
-a `genesis verify` command for apps is planned.
-
-```ts
-import { test, expect } from "@playwright/test";
-import { checkPage, widthViewport, contextOptions, formatFinding } from "@marktiderman/genesis-cli/verify";
-
-const viewport = widthViewport(375);
-test.use(contextOptions(viewport, "webkit"));
-
-test("items reflows on a phone", async ({ page }) => {
-  await page.goto("/items");
-  const findings = await checkPage(page, { viewport });
-  expect(findings.map(formatFinding)).toEqual([]);
-});
-```
-
-| Check | Fails when | Source |
-| --- | --- | --- |
-| `reflow` | the page scrolls sideways, or an element runs past the viewport outside a frame that scrolls or clips it | WCAG 1.4.10, rule 2 |
-| `axe` | any axe WCAG 2.2 A/AA rule, `target-size` included (a `touchTarget` control passes on touch) | WCAG 2.5.8 and the rest |
-| `hit-area` | on a coarse pointer, a control and its `::before`/`::after` are under 44×44px | rule 3 |
-| `focus-obscured` | a focused element is entirely hidden under a fixed or sticky element | WCAG 2.4.11 |
-| `floating-controls` | more than one floating control on a phone | rule 9 |
-| `viewport-meta` | the meta lacks `width=device-width`, `viewport-fit=cover` or `interactive-widget=resizes-content` | rules 6, 7 |
-| `touch-media` | touch is on but `(pointer: coarse)` doesn't match in that engine | the run itself |
-
-`allViewports()` is the matrix: 320, 375, 768, 1024, 1280 and 1440px, plus 200% and 400% zoom of a
-1280×1024 window (640×512 and 320×256 CSS px), with touch at 768px and below. Playwright's WebKit
-is a desktop build: safe areas, the browser toolbar and the on-screen keyboard still need a check
-on a device or the iOS Simulator.
-
-Known findings go in an allow list shaped like the doctor's (`AllowEntry`: check, page, viewports,
-engines, target, reason); `applyAllow` splits them from the rest. The page gets no input but
-`focus()`: the checks click and type nothing.
-
 ## Layout
 
 ### pages-use-layouts
@@ -1368,6 +1328,51 @@ if (!result.ok) throw new Error(formatReport(result));
    the local Vite plugin import with `@marktiderman/genesis-cli/vite`.
 4. Run `genesis doctor`, fix or `allow` what it reports (it checks `raw-color` in code as well
    as CSS, and `raw-tag` only in JSX files), then delete the old script.
+
+## Runtime conformance checks (`/verify`)
+
+`genesis doctor` reads code; it can't see layout. `@marktiderman/genesis-cli/verify` checks a page
+in a real browser, the rules of `docs/RESPONSIVE.md` that a browser can measure. Genesis runs it
+over its sample app and every story in Chromium, WebKit and Firefox (the Conformance workflow);
+a `genesis verify` command for apps is planned.
+
+```ts
+import { test, expect } from "@playwright/test";
+import { checkPage, widthViewport, contextOptions, formatFinding } from "@marktiderman/genesis-cli/verify";
+
+const viewport = widthViewport(375);
+test.use(contextOptions(viewport, "webkit"));
+
+test("items reflows on a phone", async ({ page }) => {
+  await page.goto("/items");
+  const findings = await checkPage(page, { viewport });
+  expect(findings.map(formatFinding)).toEqual([]);
+});
+```
+
+| Check | Fails when | Source |
+| --- | --- | --- |
+| `reflow` | the page or the app shell's scroller scrolls sideways, or an element runs past the viewport, unless it is wide content (a table, grid, code, a map, a tab strip, or a frame marked `data-scroll-frame`) in a frame that scrolls; content cut off by an ancestor that hides overflow counts | WCAG 1.4.10, rule 2 |
+| `text-clipped` | at 200% text (the `text-200` viewport), text is cut off by a box that hides its overflow (an ellipsis or line clamp is fine) | WCAG 1.4.4 |
+| `axe` | any axe WCAG 2.2 A/AA rule, `target-size` included (a `touchTarget` control passes on touch) | WCAG 2.5.8 and the rest |
+| `hit-area` | on a coarse pointer, a control (with its `<label>` and its `::before`/`::after`) is under 44×44px, or a hit test of its 44px box lands on something else (clipped or overlapped); a link in running text is exempt | rule 3 |
+| `focus-obscured` | a focused element is entirely hidden under a fixed or sticky element | WCAG 2.4.11 |
+| `floating-controls` | more than one floating control on a phone | rule 9 |
+| `viewport-meta` | the meta lacks `width=device-width`, `viewport-fit=cover` or `interactive-widget=resizes-content` | rules 6, 7 |
+| `touch-media` | touch is on but `(pointer: coarse)` and `(hover: none)` don't both match in that engine: an `info` note, and the coarse checks are skipped | the run itself |
+
+`allViewports()` is the matrix: 320, 375, 768, 1024, 1280 and 1440px with touch at 768px and below;
+200% and 400% zoom of a 1280×1024 window (640×512 and 320×256 CSS px, with a mouse); and `text-200`,
+the browser's text size doubled (Chromium only, `zoomText(page)` before `goto`). Playwright's WebKit
+is a desktop build: safe areas, the browser toolbar and the on-screen keyboard still need a check
+on a device or the iOS Simulator.
+
+Known findings go in an allow list shaped like the doctor's (`AllowEntry`: check, page, viewports,
+engines, target, reason; pages as paths or route patterns, targets with their quoted accessible
+name); `applyAllow` splits them, and `info` notes, from the rest. Axe runs first; the focus check
+runs last and restores focus and every frame's scroll. The page gets no input but `focus()` and an
+Escape after each (to close a tooltip it opened): the checks click and type nothing. Focus and blur
+handlers do run, so a page that saves on blur or marks things read on focus is changed by them.
 
 ## genesis agents
 

@@ -1,13 +1,13 @@
 /**
  * What the conformance run visits: every page of the built sample (its sitemap) and every story
  * (Storybook's index.json). The per-PR scope keeps one page per route pattern (React Router's
- * manifest); the full scope
- * (nightly, main) keeps every page.
+ * manifest); the full scope (nightly) keeps every page. A route pattern with no page in the
+ * sitemap is reported as skipped, never dropped silently.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { flattenReactRouterRoutes, onePathPerPattern, type RoutePattern } from "@marktiderman/genesis-cli/verify";
+import { flattenReactRouterRoutes, onePathPerPattern, patternFor, type RoutePattern } from "@marktiderman/genesis-cli/verify";
 
 export const SAMPLE_DIR = join(import.meta.dirname, "..");
 export const SITE_DIR = join(SAMPLE_DIR, "build", "client");
@@ -24,6 +24,8 @@ export interface Target {
   id: string;
   kind: "route" | "story";
   url: string;
+  /** The page is expected to redirect (a legacy path); the landing-URL check is off. */
+  redirects?: boolean;
 }
 
 /** The sample's route patterns, from React Router's manifest, cached for the workers. */
@@ -37,10 +39,21 @@ function routePatterns(): RoutePattern[] {
   return JSON.parse(readFileSync(cache, "utf8"));
 }
 
-export function routeTargets(scope: Scope = SCOPE): Target[] {
+function sitemapPaths(): string[] {
   const sitemap = join(SITE_DIR, "sitemap.xml");
   if (!existsSync(sitemap)) throw new Error("No sample build: run `pnpm --filter sample build` first.");
-  const paths = [...readFileSync(sitemap, "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
+  return [...readFileSync(sitemap, "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
+}
+
+/** Route patterns no sitemap page reaches: reported as skipped. */
+export function unvisitedPatterns(): string[] {
+  const patterns = routePatterns();
+  const reached = new Set(sitemapPaths().map((p) => patternFor(p, patterns)?.pattern));
+  return patterns.map((p) => p.pattern).filter((p) => !reached.has(p));
+}
+
+export function routeTargets(scope: Scope = SCOPE): Target[] {
+  const paths = sitemapPaths();
   const kept = scope === "full" ? paths : onePathPerPattern(paths, routePatterns());
   return kept.map((p) => ({ id: p, kind: "route", url: p }));
 }
