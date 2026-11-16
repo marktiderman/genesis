@@ -1,0 +1,43 @@
+name: Conformance allow list
+
+# A pull request may not grow apps/sample/conformance/allow.json (fix the finding instead) unless it
+# carries the label "conformance: allow grows" with a reason the reviewer accepts. Its own workflow,
+# so adding or removing the label re-runs only this check, never the Conformance run.
+
+on:
+  pull_request:
+    branches: [main, "staging/**", "prestage/**"]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths: ["apps/sample/conformance/allow.json"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: conformance-allow-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  allow-grew:
+    name: Conformance allow list
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          version: 11.26.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: The allow list doesn't grow without the label
+        env:
+          ALLOW_GROWS: "${{ contains(github.event.pull_request.labels.*.name, 'conformance: allow grows') && '1' || '0' }}"
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          pnpm --filter sample exec tsx conformance/allow-grew.ts FETCH_HEAD

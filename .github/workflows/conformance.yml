@@ -5,8 +5,8 @@ name: Conformance
 # zoom, with touch on phones and tablets. It fails on sideways scroll (WCAG 1.4.10), axe WCAG 2.2
 # A/AA violations (target-size included), hit areas under 44px on touch, focus hidden under a fixed
 # bar (2.4.11), more than one floating control on a phone, and a viewport meta missing its parts.
-# Known findings live in apps/sample/conformance/allow.json and only shrink (a full run warns on
-# an entry that covered nothing).
+# Known findings live in apps/sample/conformance/allow.json and only shrink: a full run warns on
+# an entry that covered nothing, and conformance-allow.yml fails a PR that grows the list.
 #
 # Pull requests and pushes to main run the per-PR scope (one page per route pattern; stories in
 # Chromium and WebKit at 320, 768 and 1280), with the stale-entry check for what they visited. The
@@ -17,8 +17,6 @@ on:
     branches: [main]
   pull_request:
     branches: [main, "staging/**", "prestage/**"]
-    # Labelled and unlabelled too, so adding or removing "conformance: allow grows" re-runs the gate.
-    types: [opened, synchronize, reopened, labeled, unlabeled]
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:
@@ -38,10 +36,7 @@ jobs:
   build:
     name: Conformance build
     # Skip only the trusted Version Packages PR; a fork branch of the same name always runs.
-    # A label change re-runs only for the allow-grows label.
-    if: >-
-      (github.head_ref != 'changeset-release/main' || github.event.pull_request.head.repo.full_name != github.repository) &&
-      (!contains(fromJSON('["labeled","unlabeled"]'), github.event.action) || github.event.label.name == 'conformance: allow grows')
+    if: github.head_ref != 'changeset-release/main' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -56,15 +51,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # A pull request may not grow the allow list (fix the finding instead) without the label.
-      - name: Allow list doesn't grow
-        if: github.event_name == 'pull_request'
-        env:
-          ALLOW_GROWS: "${{ contains(github.event.pull_request.labels.*.name, 'conformance: allow grows') && '1' || '0' }}"
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          git fetch --no-tags --depth=1 origin "$BASE_REF"
-          pnpm --filter sample exec tsx conformance/allow-grew.ts FETCH_HEAD
       - run: pnpm build:packages
       - run: pnpm --filter sample build
       - run: pnpm --filter sample build-storybook
