@@ -43,10 +43,13 @@ function routePatterns(): RoutePattern[] {
     const cached = JSON.parse(readFileSync(cache, "utf8")) as { inputs: string; patterns: RoutePattern[] };
     if (cached.inputs === inputs) return cached.patterns;
   }
-  // The written manifest only when it is newer than the route file (CI writes it fresh; a local one
-  // left from an old build would be stale), else React Router's own command.
+  // The written manifest in CI, where the build job writes it fresh for this commit. Locally, only
+  // when it is strictly newer than the route file (one left from an old build would be stale);
+  // otherwise React Router's own command.
   const routesFile = join(SAMPLE_DIR, "app", "routes.ts");
-  const fresh = existsSync(ROUTES_MANIFEST) && (!existsSync(routesFile) || statSync(ROUTES_MANIFEST).mtimeMs >= statSync(routesFile).mtimeMs);
+  const fresh =
+    existsSync(ROUTES_MANIFEST) &&
+    (!!process.env.CI || !existsSync(routesFile) || statSync(ROUTES_MANIFEST).mtimeMs > statSync(routesFile).mtimeMs);
   const json = fresh
     ? readFileSync(ROUTES_MANIFEST, "utf8")
     : execFileSync("pnpm", ["exec", "react-router", "routes", "--json"], { cwd: SAMPLE_DIR, encoding: "utf8" });

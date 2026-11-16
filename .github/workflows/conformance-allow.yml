@@ -8,7 +8,8 @@ on:
   pull_request:
     branches: [main, "staging/**", "prestage/**"]
     types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths: ["apps/sample/conformance/allow.json"]
+    # No path filter: a required check must report on every pull request, and the job is quick
+    # (a list that didn't change passes at once).
 
 permissions:
   contents: read
