@@ -1,0 +1,21 @@
+.github/workflows/conformance-allow.yml
+  s_6a2488c63f2173::t_944252dc72cbe1 11-12
+apps/sample/conformance/pages.ts
+  s_6a2488c63f2173::t_ebadba3c37a985 46-48,50-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cb3deb8b9bbefa2bb7d9136b929e8366b1bc114c",
+  "prompts": {},
+  "sessions": {
+    "s_6a2488c63f2173": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "397b392a-c2a4-49da-9a63-f78e292dad73",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
