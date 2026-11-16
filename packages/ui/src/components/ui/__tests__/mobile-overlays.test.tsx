@@ -183,4 +183,28 @@ describe("SheetContent on a phone", () => {
     renderSheet("right");
     expect(classesOf(screen.getByText("Close").closest("button"))).toContain("size-11");
   });
+
+  it.each(["left", "right"] as const)("a %s sheet fills a phone's width and is 3/4 from sm", (side) => {
+    const cls = classesOf(renderSheet(side));
+    expect(cls).toContain("max-sm:w-full");
+    expect(cls).toContain("w-3/4");
+    expect(cls).toContain("sm:max-w-sm");
+  });
+
+  it("lets a caller's own width win from sm, and keep a drawer narrow on a phone", () => {
+    cleanup();
+    render(
+      <Sheet open>
+        <SheetContent side="left" data-testid="sheet" className="w-72 max-sm:w-72">
+          <SheetTitle>Title</SheetTitle>
+          <SheetDescription>Body</SheetDescription>
+        </SheetContent>
+      </Sheet>,
+    );
+    const cls = classesOf(screen.getByTestId("sheet"));
+    expect(cls).toContain("w-72");
+    expect(cls).toContain("max-sm:w-72");
+    expect(cls).not.toContain("w-3/4");
+    expect(cls).not.toContain("max-sm:w-full");
+  });
 });

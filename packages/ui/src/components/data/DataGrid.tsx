@@ -77,8 +77,9 @@ function GroupHeader({ label, count, summary }: { label: ReactNode; count: numbe
   );
 }
 
-const NESTED_CONTROL =
-  "a,button,input,select,textarea,label,[role=button],[role=link],[role=checkbox],[role=switch],[role=menuitem],[contenteditable=true]";
+/** What a click inside an activatable item hits instead of the item: a control of its own. */
+export const NESTED_CONTROL =
+  "a,button,input,select,textarea,label,summary,[role=button],[role=link],[role=checkbox],[role=switch],[role=radio],[role=slider],[role=spinbutton],[role=tab],[role=option],[role=combobox],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[contenteditable=true]";
 
 /** Props that make one grid/list item activatable, or none without `onItemClick`. */
 function activation<T>(
@@ -92,6 +93,9 @@ function activation<T>(
     tabIndex: 0,
     "aria-label": getItemLabel?.(item),
     onClick: (e: MouseEvent<HTMLDivElement>) => {
+      // A click from a portal (a dialog or menu the item opened) bubbles here through React, not
+      // the DOM: it is never the item's.
+      if (!e.currentTarget.contains(e.target as Node)) return;
       const control = (e.target as HTMLElement).closest(NESTED_CONTROL);
       if (control && control !== e.currentTarget) return;
       onItemClick(item);

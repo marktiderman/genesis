@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import {
@@ -65,6 +66,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "../ui/conte
 import { ChevronDown } from "lucide-react";
 import { cn } from "../../utils";
 import { fillMessage, useUiMessages } from "../../messages";
+import { useMediaQuery } from "../../hooks/use-mobile";
 import type { Density } from "../../hooks/use-view-settings";
 
 /* ── TanStack Table features ── */
@@ -856,9 +858,47 @@ export function DataTable<T>({
   }, [setSavedWidths]);
 
   const pinWidth = (key: string) => colWidths[key] ?? PINNED_WIDTH;
+  // The selection column: 40px, and 56px on a touch screen so the checkbox's 44px hit area
+  // (touchTarget) stays inside it. The column, the pinned offsets and the table's minimum width
+  // all read this one number.
+  const coarse = useMediaQuery("(pointer: coarse)");
+  const selectWidth = coarse ? 56 : 40;
+  // The sticky header's height, so rows scrolled into view from below stop under it, not behind it.
+  const headRef = useRef<HTMLTableSectionElement | null>(null);
+  const [headHeight, setHeadHeight] = useState(0);
+  useEffect(() => {
+    const el = headRef.current;
+    if (!el || !stickyHeader) {
+      setHeadHeight(0);
+      return;
+    }
+    if (typeof ResizeObserver === "undefined") return;
+    const measure = () => setHeadHeight(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [stickyHeader]);
+  // The sticky pager's height, so rows can keep focus clear of it (the body's scroll margin).
+  const pagerRef = useRef<HTMLDivElement | null>(null);
+  const [pagerHeight, setPagerHeight] = useState(0);
+  useEffect(() => {
+    const el = pagerRef.current;
+    if (!el) {
+      // No pager (pagination off): no margin to keep.
+      setPagerHeight(0);
+      return;
+    }
+    if (typeof ResizeObserver === "undefined") return;
+    const measure = () => setPagerHeight(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [pagination]);
   const pinned: Record<string, { side: "left" | "right"; offset: number }> = {};
   {
-    let left = selectable ? 40 : 0;
+    let left = selectable ? selectWidth : 0;
     for (const c of activeColumns) {
       if (!leftKeys.includes(c.key)) continue;
       pinned[c.key] = { side: "left", offset: left };
@@ -1111,7 +1151,9 @@ export function DataTable<T>({
               >
                 {selectable && (
                   <TableCell
-                    className={cn(cellDensity, pinProps("__select", false)?.className, tone && ROW_TONE[tone]?.bar)}
+                    // On touch the checkbox's hit area (touchTarget) is centred and clipped to its own cell, so it
+                    // never lands on the next row (a compact row is under 44px) or past the table's edge.
+                    className={cn(cellDensity, "pointer-coarse:overflow-hidden pointer-coarse:text-center", pinProps("__select", false)?.className, tone && ROW_TONE[tone]?.bar)}
                     style={pinProps("__select", false)?.style}
                     onClick={(e: React.MouseEvent) => e.stopPropagation()}
                   >
@@ -1341,7 +1383,7 @@ export function DataTable<T>({
   const tableMinWidth =
     minWidth === "auto"
       ? activeColumns.reduce((sum, col) => sum + (colWidths[col.key] ?? (pinned[col.key] ? PINNED_WIDTH : FLEX_MIN)), 0) +
-        (selectable ? 40 : 0) +
+        (selectable ? selectWidth : 0) +
         (renderActions ? 40 : 0)
       : minWidth;
 
@@ -1400,7 +1442,7 @@ export function DataTable<T>({
           {/* Fixed layout sizes columns from the first row: a <colgroup>
               gives each column its px width (the rest share what is left). */}
           <colgroup>
-            {selectable && <col style={{ width: 40 }} />}
+            {selectable && <col style={{ width: selectWidth }} />}
             {activeColumns.map((col) => {
               const w = colWidths[col.key] ?? (pinned[col.key] ? PINNED_WIDTH : undefined);
               return (
@@ -1414,6 +1456,7 @@ export function DataTable<T>({
             {renderActions && <col style={{ width: 40 }} />}
           </colgroup>
           <TableHeader
+            ref={headRef}
             className={
               stickyHeader ? "sticky top-0 z-10 bg-background" : ""
             }
@@ -1421,7 +1464,7 @@ export function DataTable<T>({
             <TableRow aria-rowindex={virtualizing ? 1 : undefined}>
               {selectable && (
                 <TableHead
-                  className={cn("w-10", headDensity, pinProps("__select", true)?.className)}
+                  className={cn("w-10 pointer-coarse:overflow-hidden pointer-coarse:text-center", headDensity, pinProps("__select", true)?.className)}
                   style={pinProps("__select", true)?.style}
                 >
                   <Checkbox
@@ -1582,7 +1625,20 @@ export function DataTable<T>({
               )}
             </TableRow>
           </TableHeader>
-          <TableBody ref={bodyRef}>
+          <TableBody
+            ref={bodyRef}
+            // Focus scrolled into view stops above the sticky pager, never under it (WCAG 2.4.11).
+            // …and below the sticky header when scrolling up.
+            className="[&_*]:scroll-mb-[var(--data-table-pager-height,0px)] [&_*]:scroll-mt-[var(--data-table-head-height,0px)]"
+            style={
+              pagerHeight || headHeight
+                ? ({
+                    "--data-table-pager-height": `${pagerHeight}px`,
+                    "--data-table-head-height": `${headHeight}px`,
+                  } as CSSProperties)
+                : undefined
+            }
+          >
             {displayItems.length === 0 ? (
               <TableRow>
                 <TableCell
@@ -1635,7 +1691,7 @@ export function DataTable<T>({
       {/* ── Pagination footer ── pinned to the bottom, so it's opaque (bg-card, the table's
           rounded corners): rows scrolling under it never show through. */}
       {pagination && (
-        <div data-testid="data-table-pager" className="sticky bottom-0 z-10 flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t bg-card rounded-b-lg text-xs text-muted-foreground">
+        <div ref={pagerRef} data-testid="data-table-pager" className="sticky bottom-0 z-10 flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t bg-card rounded-b-lg text-xs text-muted-foreground">
           <span>
             {totalItems === 0
               ? m.table.noRows

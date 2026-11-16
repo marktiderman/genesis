@@ -301,3 +301,40 @@ describe("AppShell phone bottom bar", () => {
     expect(overlay?.className).toContain("md:hidden");
   });
 });
+
+describe("focus never rests under the shell's bars (WCAG 2.4.11)", () => {
+  it("gives the scrolling main a scroll padding the size of the phone's bottom bar", () => {
+    renderShell(three);
+    const main = document.querySelector('[data-slot="shell-main"]')!;
+    const cls = (main.getAttribute("class") ?? "").split(/\s+/);
+    expect(cls).toContain("scroll-pb-[calc(4rem+env(safe-area-inset-bottom))]");
+    expect(cls).toContain("md:scroll-pb-0");
+  });
+
+  it("puts it on <html> when the window scrolls, and takes it off on unmount", () => {
+    const { unmount } = render(
+      <AppShell appName="Acme" appLogo="A" navItems={three} options={{ ...chrome, scrollRoot: "window", navigation: "bottom-bar" }} activePath="/">
+        <button type="button">Page action</button>
+      </AppShell>,
+    );
+    const root = document.documentElement.style;
+    expect(root.scrollPaddingBottom).toContain("4rem");
+    expect(root.scrollPaddingTop).toContain("3.5rem");
+    unmount();
+    expect(root.scrollPaddingBottom).toBe("");
+    expect(root.scrollPaddingTop).toBe("");
+  });
+});
+
+describe("focus clears the desktop top-tabs bar (WCAG 2.4.11)", () => {
+  it("keeps the top bar's height as the window's scroll padding", () => {
+    const { unmount } = render(
+      <AppShell appName="Acme" appLogo="A" navItems={three} options={{ ...chrome, scrollRoot: "window", navigation: "top-tabs" }} activePath="/">
+        <button type="button">Page action</button>
+      </AppShell>,
+    );
+    expect(document.documentElement.style.scrollPaddingTop).toBe("3.5rem");
+    unmount();
+    expect(document.documentElement.style.scrollPaddingTop).toBe("");
+  });
+});

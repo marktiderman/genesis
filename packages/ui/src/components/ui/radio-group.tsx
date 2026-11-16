@@ -3,7 +3,7 @@
 import * as React from "react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import { Circle } from "lucide-react";
-import { cn } from "../../utils";
+import { cn, touchTarget } from "../../utils";
 
 const RadioGroup = React.forwardRef<
   React.ComponentRef<typeof RadioGroupPrimitive.Root>,
@@ -11,7 +11,9 @@ const RadioGroup = React.forwardRef<
 >(({ className, ...props }, ref) => {
   return (
     <RadioGroupPrimitive.Root
-      className={cn("grid gap-2", className)}
+      // On touch, 16px items 28px apart sit 44px apart, so one's hit area (touchTarget) never lands
+      // on the next. A caller's own gap wins.
+      className={cn("grid gap-2", !/(^|\s)([\w-]+:)*gap-/.test(className ?? "") && "pointer-coarse:gap-7", className)}
       {...props}
       ref={ref}
     />
@@ -27,6 +29,7 @@ const RadioGroupItem = React.forwardRef<
     <RadioGroupPrimitive.Item
       ref={ref}
       className={cn(
+        touchTarget,
         "aspect-square h-4 w-4 rounded-full border border-primary text-primary-text ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}

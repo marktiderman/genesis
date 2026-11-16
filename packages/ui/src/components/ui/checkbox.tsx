@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Checkbox as CheckboxPrimitive } from "radix-ui";
 import { Check, Minus } from "lucide-react";
-import { cn } from "../../utils";
+import { cn, touchTarget } from "../../utils";
 
 const Checkbox = React.forwardRef<
   React.ComponentRef<typeof CheckboxPrimitive.Root>,
@@ -13,6 +13,7 @@ const Checkbox = React.forwardRef<
     data-slot="checkbox"
     ref={ref}
     className={cn(
+      touchTarget,
       "peer h-4 w-4 shrink-0 rounded border border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground data-[state=indeterminate]:bg-primary data-[state=indeterminate]:border-primary data-[state=indeterminate]:text-primary-foreground",
       className
     )}

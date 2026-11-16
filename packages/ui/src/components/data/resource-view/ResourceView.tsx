@@ -43,6 +43,7 @@ import { detailMode, recordViewOf, resolveRecordOpen } from "./record-open";
 import { recordPeekSlot } from "./RecordPeek";
 import { ResourceInbox, type ResourceInboxOptions } from "./ResourceInbox";
 import { ResourceSheet } from "./ResourceSheet";
+import { ListFrameRefContext, ListNarrowContext, useListWidth } from "../../../hooks/use-list-width";
 
 type Row = Record<string, unknown>;
 type Scalar = string | number | boolean | null;
@@ -75,8 +76,8 @@ export interface ResourceViewOptions {
   defaults?: Defaults;
   /**
    * How rows show first. The user's own pick is remembered. `{ mobile: "grid", desktop: "table" }`
-   * picks per screen size (cards on a phone); without a mode, an app-wide
-   * `ResourceViewDefaultsProvider phoneMode` does the same for every `layout="page"` list. `calendar` places the
+   * picks by the list's own width (cards while its frame is under 40rem); without a mode, an
+   * app-wide `ResourceViewDefaultsProvider phoneMode` does the same for every page and embedded list. `calendar` places the
    * rows by the view's `calendar` block instead: one request per visible window, a click opens the
    * peek. Calendar is never stored as the user's pick, so other lists of the resource don't open
    * in it, and no phone default turns into it. `board` shows a card per row in a column per value
@@ -320,6 +321,8 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
           ...(declared !== undefined ? { width: declared } : width ? { width } : {}),
           ...(c.hideBelow ? { hideBelow: c.hideBelow } : {}),
           ...(c.emphasis ? { emphasis: c.emphasis } : {}),
+          // A screen's own cell (a link, a button) stays in the narrow list row too.
+          ...(cells?.[c.key] ? { keepInList: true } : {}),
           ...(c.sortable === false ? { sortable: false } : {}),
           // A computed column has no database column to sort by.
           ...(c.field ? {} : { sortable: false, accessor: (row: T) => c.value(row as T & DataRow) }),
@@ -461,15 +464,15 @@ function useResourceViewModel<T extends Row>(props: ResourceViewProps<T>): Resou
     ...((subtitle ?? copy?.subtitle) ? { subtitle: subtitle ?? copy?.subtitle } : {}),
     columns,
     variant: layout === "page" ? "page" : "embedded",
-    // The screen's mode first, then a compact list's rows, then the app's phone default. A
-    // screen's own `defaultView` (in `rest`) still overrides all three. The phone default is a
-    // full page's only: an embedded list hides the view switch, so cards there would have no
-    // way back to the table.
+    // The screen's mode first, then a compact list's rows, then the app's narrow default. A
+    // screen's own `defaultView` (in `rest`) still overrides all three. The narrow default covers
+    // embedded lists too: it applies only while the list's own frame is narrow (ListNarrowContext),
+    // where a table can't show its columns, so no way back to the table is needed there.
     ...(mode
       ? { defaultView: mode as ViewModeDefault }
       : layout === "compact"
         ? { defaultView: "list" as const }
-        : layout === "page" && listDefaults.phoneMode
+        : listDefaults.phoneMode
           ? { defaultView: { mobile: listDefaults.phoneMode, desktop: "table" as const } }
           : {}),
     ...(view.labelField ? { titleField: view.labelField } : {}),
@@ -675,6 +678,7 @@ const PAGE_DRAWN: ReadonlySet<string> = new Set(["table", "list", "grid", "galle
  * type switcher with the person's choice kept in the app's store (ADR 0017).
  */
 function ResourceViewRoot<T extends Row>(props: ResourceViewProps<T>) {
+  const [frameRef, narrow] = useListWidth();
   const own = useOwnListModel(props as ResourceViewProps<Row>);
   const { on, types } = switcherFor(props as ResourceViewProps<Row>);
   const fixed = props.type ?? props.mode;
@@ -688,6 +692,10 @@ function ResourceViewRoot<T extends Row>(props: ResourceViewProps<T>) {
   // The inbox draws its own segments (its rail), filters and switcher (over its list).
   const bar = !page && type !== "inbox" && (switcher || props.view.segments().length > 0 || props.view.filters().length > 0 || props.filterSlot);
   return (
+    // The list measures its own root (ResourcePage puts `frameRef` on it); in a narrow one its
+    // responsive default takes its narrow side. No wrapper: a parent's layout still reaches it.
+    <ListFrameRefContext.Provider value={frameRef as never}>
+    <ListNarrowContext.Provider value={narrow}>
     <ListModelContext.Provider value={model}>
       {page ? (
         <ResourceViewOfType<T> {...props} {...(on ? { type: type === "gallery" ? "gallery" : undefined, mode: undefined } : {})} />
@@ -700,6 +708,8 @@ function ResourceViewRoot<T extends Row>(props: ResourceViewProps<T>) {
         <ResourceViewOfType<T> {...props} type={type} />
       )}
     </ListModelContext.Provider>
+    </ListNarrowContext.Provider>
+    </ListFrameRefContext.Provider>
   );
 }
 

@@ -216,3 +216,32 @@ describe("DataTable open button beside interactive cell content", () => {
     }
   });
 });
+
+describe("DataTable keeps focus clear of its sticky pager (WCAG 2.4.11)", () => {
+  it("gives everything in the body a scroll margin the pager's height", () => {
+    const height = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+      if (this.getAttribute("data-testid") === "data-table-pager") return 52;
+      return this.tagName === "THEAD" ? 40 : 0;
+    });
+    try {
+      const { container } = render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} />);
+      const body = container.querySelector("tbody")!;
+      expect(body.getAttribute("class")).toContain("[&_*]:scroll-mb-[var(--data-table-pager-height,0px)]");
+      expect(body.style.getPropertyValue("--data-table-pager-height")).toBe("52px");
+      // …and clear of the sticky header when scrolling up.
+      expect(body.getAttribute("class")).toContain("[&_*]:scroll-mt-[var(--data-table-head-height,0px)]");
+      expect(body.style.getPropertyValue("--data-table-head-height")).toBe("40px");
+    } finally {
+      height.mockRestore();
+    }
+  });
+});
+
+describe("DataTable's selection checkboxes on touch", () => {
+  it("clips each checkbox's hit area to its own cell, so it can't select a neighbouring row", () => {
+    const { container } = render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} selectable selected={new Set()} onToggleSelect={() => {}} onToggleAll={() => {}} />);
+    const cells = [...container.querySelectorAll("td, th")].filter((c) => c.querySelector('[data-slot="checkbox"]'));
+    expect(cells.length).toBeGreaterThan(1);
+    for (const cell of cells) expect(cell.getAttribute("class")).toContain("pointer-coarse:overflow-hidden");
+  });
+});

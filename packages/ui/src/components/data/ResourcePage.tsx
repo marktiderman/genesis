@@ -1,12 +1,14 @@
 "use client";
 
 import { detailMode } from "./resource-view/open-modes";
+import { ListFrameRefContext, ListNarrowContext } from "../../hooks/use-list-width";
 import {
   Fragment,
+  useContext,
   useEffect,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type ComponentProps,
   type ComponentType,
   type ReactNode,
@@ -37,7 +39,7 @@ import { TreeIndent } from "./TreeIndent";
 import type { ResourceTree } from "@marktiderman/genesis-core/resource-view";
 import { DataBulkBar } from "./DataBulkBar";
 import { RowContextMenuItems, RowMenuButton, type ResourceRowMenuItem } from "./RowMenu";
-import { DataGrid } from "./DataGrid";
+import { NESTED_CONTROL, DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
 import { ResourceForm } from "./ResourceForm";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
@@ -1026,6 +1028,18 @@ const sameFilter = (a: FilterParam, b: FilterParam) => JSON.stringify(a) === JSO
 // ---------------------------------------------------------------------------
 
 /**
+ * Ends this list's width scope for what it renders inside (its peek, its forms, a list in them):
+ * they measure their own width, portals included.
+ */
+function ListScopeEnd({ children }: { children: ReactNode }) {
+  return (
+    <ListFrameRefContext.Provider value={undefined}>
+      <ListNarrowContext.Provider value={undefined}>{children}</ListNarrowContext.Provider>
+    </ListFrameRefContext.Provider>
+  );
+}
+
+/**
  * A list page for a resource: header, filters, table or cards, paging,
  * the open record's panel, and the built-in form and confirmed delete.
  * {@link useResourceTable} is the same behaviour without this markup.
@@ -1189,6 +1203,10 @@ function ResourcePageBody<
     useBuiltInDelete,
     useBuiltInEdit,
   } = useResourceTableModel<T>(props);
+  // Whether the ResourceView around this list measured its frame narrow (useListWidth).
+  const narrowFrame = useContext(ListNarrowContext) === true;
+  // The ResourceView around this list measures it through its root (DataPageShell's `rootRef`).
+  const frameRef = useContext(ListFrameRefContext);
   // Tree mode's state (the `tree` option): each row's node and how to open or close one.
   const pageTree = page.tree;
   // Tell the caller the search and sort as they change.
@@ -1421,9 +1439,12 @@ function ResourcePageBody<
     !anyFilters &&
     !filtersProp?.some((f) => f.selected.length > 0);
 
+  // The screen's toolbar and Create share the header's actions cluster. Both may shrink and wrap,
+  // so a toolbar wider than the list (a row of filter chips) folds onto more lines instead of
+  // spilling past the edge (docs/RESPONSIVE.md, rule 2).
   const createAction =
     toolbar || headerCreate ? (
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
         {toolbar}
         {headerCreate}
       </div>
@@ -1484,31 +1505,6 @@ function ResourcePageBody<
     open: () => handleRowClick(item),
   });
 
-  /**
-   * Props that turn a plain `div`/`Card` into a real activatable row: a tab
-   * stop, a button role, and Enter/Space activation to match the pointer
-   * click. Without these the default card is reachable by mouse and by the
-   * j/k cursor but not by Tab, which is the one path a keyboard-only user
-   * actually has.
-   *
-   * Enter does not double-fire against the list cursor: `useKeyboardNavigation`
-   * bails out whenever the event target owns its own keys, and `role="button"`
-   * is one of the roles it checks (covered by a test in
-   * `resource-page-render-card-keyboard-nav.test.tsx`).
-   */
-  const rowActivationProps = (item: T, label: string, testId: string) => ({
-    role: "button",
-    tabIndex: 0,
-    "aria-label": label || undefined,
-    "data-testid": testId,
-    onClick: () => handleRowClick(item),
-    onKeyDown: (e: ReactKeyboardEvent<HTMLElement>) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        handleRowClick(item);
-      }
-    },
-  });
 
   /**
    * A column's cell for the default card and row: the column's own `render` with the value its
@@ -1542,12 +1538,41 @@ function ResourcePageBody<
     // Remaining metadata columns (skip badge, price)
     const metaCols = cols.filter((c) => c !== badgeCol && c !== priceCol);
     return (
+      // Never a button itself: a cell may draw a link (WCAG 4.1.2). The title is the card's open
+      // button; a pointer click on the rest of the card opens it too, never one on a control.
       <Card
-        {...rowActivationProps(item, titleVal, "resource-card")}
-        className="h-full cursor-pointer hover:shadow-md motion-safe:transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        data-testid="resource-card"
+        className={cn("h-full", detail !== "none" && "cursor-pointer hover:shadow-md motion-safe:transition-shadow has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background")}
+        {...(detail !== "none"
+          ? {
+              onClick: (e: ReactMouseEvent<HTMLElement>) => {
+                // A click from a portal (a dialog or menu a cell opened) bubbles here through React,
+                // not the DOM: it is never the card's.
+                if (!e.currentTarget.contains(e.target as Node)) return;
+                const control = (e.target as HTMLElement).closest(NESTED_CONTROL);
+                if (control && e.currentTarget.contains(control)) return;
+                handleRowClick(item);
+              },
+            }
+          : {})}
       >
         <CardHeader className="pb-2">
-          <CardTitle className="text-base truncate">{titleVal}</CardTitle>
+          <CardTitle className="text-base truncate">
+            {detail !== "none" ? (
+              <button
+                type="button"
+                className="max-w-full truncate text-left focus-visible:outline-none"
+                data-testid="resource-card-open"
+                // A card with no title still has a named way in.
+                {...(titleVal ? {} : { "aria-label": fillMessage(m.common.openItem, { name: "" }).trim() })}
+                onClick={() => handleRowClick(item)}
+              >
+                {titleVal || <ChevronRight className="size-4" aria-hidden="true" />}
+              </button>
+            ) : (
+              titleVal
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -1579,13 +1604,21 @@ function ResourcePageBody<
    * DataGrid's list wrapper draws each row's padding, divider and hover, so the row adds none.
    */
   const renderDefaultListItem = (item: T): ReactNode => {
-    const cols = bodyColumns().slice(0, 3);
+    // The first three other columns, and every column the screen drew itself (`keepInList`: a
+    // Restore button, a link), so a row never loses what the table showed as an action.
+    const cols = bodyColumns().filter((c, i) => i < 3 || c.keepInList);
     const titleVal = titleOf(item);
+    // A title column the screen drew itself (a link, Move up and down) is the row's title.
+    const titleCol = page.columns.find((c) => c.key === page.titleField && c.keepInList);
     const node = pageTree?.nodes.get(keyOf(item));
     // Line one: the title, up to two lines. Line two: the other columns, wrapping.
     const body = (
       <div className="min-w-0 flex-1 space-y-1">
-        <span className="block font-medium text-sm line-clamp-2 break-words">{titleVal}</span>
+        {titleCol ? (
+          <div className="min-w-0 font-medium text-sm break-words" data-column={titleCol.key}>{cellOf(item, titleCol)}</div>
+        ) : (
+          <span className="block font-medium text-sm line-clamp-2 break-words">{titleVal}</span>
+        )}
         {cols.length > 0 && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             {cols.map((col) => (
@@ -1597,23 +1630,55 @@ function ResourcePageBody<
         )}
       </div>
     );
+    const content = node ? (
+      <TreeIndent
+        node={node}
+        name={titleVal}
+        onToggle={(open) => pageTree!.setExpanded(keyOf(item), open)}
+        className="flex-1"
+      >
+        {body}
+      </TreeIndent>
+    ) : (
+      body
+    );
+    // A list row is never a button itself: a cell may hold a link (a URL or email field draws one)
+    // or the screen's own controls, and a control inside a button can't be reached by a screen
+    // reader (WCAG 4.1.2) and has its Enter taken by the row. As DataTable does, the row opens from
+    // its own Open button; a pointer click on the rest of the row opens it too, never one that lands
+    // on a control. With no detail to open, the row is plain text.
+    if (detail === "none") {
+      return (
+        <div data-testid="resource-list-row" className="flex items-start">
+          {content}
+        </div>
+      );
+    }
     return (
       <div
-        {...rowActivationProps(item, titleVal, "resource-list-row")}
-        className="flex items-start cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        data-testid="resource-list-row"
+        className="flex items-start gap-2 cursor-pointer"
+        onClick={(e) => {
+          // A click from a portal (a dialog or menu a cell opened) bubbles here through React, not
+          // the DOM: it is never the row's.
+          if (!e.currentTarget.contains(e.target as Node)) return;
+          const control = (e.target as HTMLElement).closest(NESTED_CONTROL);
+          if (control && e.currentTarget.contains(control)) return;
+          handleRowClick(item);
+        }}
       >
-        {node ? (
-          <TreeIndent
-            node={node}
-            name={titleVal}
-            onToggle={(open) => pageTree!.setExpanded(keyOf(item), open)}
-            className="flex-1"
-          >
-            {body}
-          </TreeIndent>
-        ) : (
-          body
-        )}
+        {content}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="-my-1 shrink-0"
+          aria-label={fillMessage(m.common.openItem, { name: titleVal }).trim()}
+          data-testid="resource-list-row-open"
+          onClick={() => handleRowClick(item)}
+        >
+          <ChevronRight aria-hidden="true" />
+        </Button>
       </div>
     );
   };
@@ -1627,8 +1692,11 @@ function ResourcePageBody<
   const shellSlotProps = slotProps?.shell;
 
   return (
-    <>
+    // What this list renders inside (its peek, its forms, a list in them) measures its own width:
+    // the narrow flag of this list's frame stops here, portals included.
+    <ListScopeEnd>
     <Shell
+      {...(frameRef && Shell === DataPageShell ? { rootRef: frameRef as never } : {})}
       title={title}
       subtitle={subtitle}
       icon={icon}
@@ -1753,7 +1821,9 @@ function ResourcePageBody<
         {
           items: page.data,
           viewMode: page.viewMode,
-          gridCols: gridColsProp,
+          // In a narrow frame (a side panel on a wide screen) cards stack in one column; the default
+          // columns answer to the viewport and would squeeze four into a 360px panel.
+          gridCols: gridColsProp ?? (narrowFrame ? "grid-cols-1" : undefined),
           getKey: keyOf,
           focusedIndex: keyboardNav.focusedIndex,
           keyboardContainerRef: keyboardNav.containerRef,
@@ -2140,6 +2210,6 @@ function ResourcePageBody<
           slotProps?.deleteDialog,
         )}
       {dialogs}
-    </>
+    </ListScopeEnd>
   );
 }

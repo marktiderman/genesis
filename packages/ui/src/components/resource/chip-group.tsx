@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
-import { cn } from "../../utils";
+import { cn, touchTarget } from "../../utils";
 import { Chip } from "./chip";
 
 export type ChipGroupMode = "single" | "multiple";
@@ -36,6 +36,9 @@ export type ChipGroupProps = ChipGroupMultipleProps | ChipGroupSingleProps;
 
 const ChipGroupContext = React.createContext<{ selected: (value: string) => boolean } | null>(null);
 
+/** A gap class of the caller's own, plain or behind a variant (`gap-3`, `sm:gap-x-1`). */
+const OWN_GAP = /(^|\s)([\w-]+:)*gap-/;
+
 /**
  * ChipGroup — filter chips that toggle together: the twin of genesis-ui-native's NativeChipGroup,
  * with the same `mode` (default `multiple`), `value` and `onChange`; `onChange` gets a string in
@@ -54,7 +57,9 @@ export function ChipGroup(props: ChipGroupProps) {
     "aria-label": props["aria-label"],
     "data-slot": "chip-group",
     "data-testid": testID,
-    className: cn("flex flex-wrap gap-2", className),
+    // On touch, chips sit far enough apart (16px across, 24px between rows, a 22px chip) that one
+    // chip's hit area (touchTarget) doesn't land on the next. A caller's own gap, at any size, wins.
+    className: cn("flex flex-wrap gap-2", !OWN_GAP.test(className ?? "") && "pointer-coarse:gap-x-4 pointer-coarse:gap-y-6", className),
   };
   if (props.mode === "single") {
     const { value, onChange, allowEmpty = false } = props;
@@ -103,6 +108,7 @@ export function ChipGroupItem({ value, children, icon, className, testID }: Chip
       value={value}
       data-testid={testID ?? `chip-${value}`}
       className={cn(
+        touchTarget,
         "inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         "cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
         className,

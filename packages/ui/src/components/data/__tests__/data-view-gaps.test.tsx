@@ -260,7 +260,7 @@ describe("ResourcePage empty state", () => {
 describe("ResourcePage resource= mode passes column layout through", () => {
   it("applies width, minWidth and defaultVisible when the page fetches its own rows", async () => {
     const { container } = render(
-      <GenesisProvider provider={createMockProvider({ people: rows })}>
+      <GenesisProvider provider={createMockProvider({ people: rows.slice(0, 1) })}>
         <ResourcePage<Row>
           resource="people"
           title="People"
@@ -311,5 +311,64 @@ describe("ResourcePage detail for rows without an id", () => {
     const detail = screen.getByRole("dialog");
     expect(within(detail).getAllByText("Linus").length).toBeGreaterThan(0);
     expect(within(detail).queryByText("Ada")).toBeNull();
+  });
+});
+
+describe("a click from a portal never opens the item behind it", () => {
+  function Confirm() {
+    return (
+      <AlertDialog open>
+        <AlertDialogContent>
+          <AlertDialogTitle>Sure?</AlertDialogTitle>
+          <AlertDialogAction data-testid="confirm">Confirm</AlertDialogAction>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
+  it("on a DataGrid item (onItemClick)", () => {
+    const onItemClick = vi.fn();
+    render(
+      <DataGrid
+        items={rows.slice(0, 1)}
+        viewMode="grid"
+        staggerAnimation={false}
+        getKey={(r) => r.id}
+        onItemClick={onItemClick}
+        getItemLabel={(r) => `Open ${r.name}`}
+        renderCard={(r) => (
+          <div>
+            {r.name}
+            <Confirm />
+          </div>
+        )}
+      />,
+    );
+    // The dialog's title, not a control: only the portal guard keeps it from opening the item.
+    fireEvent.click(screen.getByText("Sure?"));
+    expect(onItemClick).not.toHaveBeenCalled();
+  });
+
+  it("on a default ResourcePage card", async () => {
+    const onNavigate = vi.fn();
+    render(
+      <GenesisProvider provider={createMockProvider({ people: rows })}>
+        <ResourcePage
+          resource="people"
+          title="People"
+          defaultView="grid"
+          titleField="name"
+          detail="route"
+          onNavigate={onNavigate}
+          columns={["name", { key: "act", header: "", render: () => <Confirm /> }]}
+        />
+      </GenesisProvider>,
+    );
+    const confirms = await screen.findAllByTestId("confirm");
+    for (const c of confirms) fireEvent.click(c);
+    expect(onNavigate).not.toHaveBeenCalled();
+    // The card itself still opens from its title.
+    fireEvent.click(screen.getAllByTestId("resource-card-open")[0]!);
+    expect(onNavigate).toHaveBeenCalledTimes(1);
   });
 });
