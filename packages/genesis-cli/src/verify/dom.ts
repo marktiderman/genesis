@@ -92,10 +92,19 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
   const saved = new Map<Element, [number, number]>();
   for (const el of Array.from(document.querySelectorAll("*"))) if (el.scrollTop || el.scrollLeft) saved.set(el, [el.scrollTop, el.scrollLeft]);
   const winScroll: [number, number] = [window.scrollX, window.scrollY];
-  /** Brings an element into the viewport (instantly) when it sits above or below it, for a hit test. */
+  /** Inside a fixed panel parked entirely off-canvas (a closed drawer): not on the page for now. */
+  const parkedOffCanvas = (el: Element): boolean => {
+    for (let a: Element | null = el; a && a !== document.body; a = a.parentElement) {
+      if (getComputedStyle(a).position !== "fixed") continue;
+      const ar = a.getBoundingClientRect();
+      return ar.left >= vw || ar.right <= 0;
+    }
+    return false;
+  };
+  /** Brings an element into the viewport (instantly) when it sits outside it, for a hit test. */
   const intoView = (el: Element): DOMRect => {
     const r = el.getBoundingClientRect();
-    if (r.bottom > 0 && r.top < vh) return r;
+    if (r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw) return r;
     el.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
     return el.getBoundingClientRect();
   };
@@ -139,14 +148,7 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
     if (rect.right <= vw + 1 && rect.left >= -1) continue;
     if (hidden(el)) continue;
     // A closed off-canvas panel, or anything inside one: a fixed ancestor entirely off screen.
-    let parked = false;
-    for (let a: Element | null = el; a && a !== document.body; a = a.parentElement) {
-      if (getComputedStyle(a).position !== "fixed") continue;
-      const ar = a.getBoundingClientRect();
-      if (ar.left >= vw || ar.right <= 0) parked = true;
-      break;
-    }
-    if (parked) continue;
+    if (parkedOffCanvas(el)) continue;
     let frame: Element | null = null;
     for (let a = el.parentElement; a && a !== document.documentElement; a = a.parentElement) {
       if (a !== document.body && (scrolls(a) || clips(a))) {
@@ -218,9 +220,9 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
         if (getComputedStyle(el).display === "inline" && around.length > 0) continue;
       }
       const size = el.getBoundingClientRect();
-      // Every control is measured, below the fold too; only one parked off-canvas to the side (a
-      // closed drawer) is skipped.
-      if (size.right <= 0 || size.left >= vw) continue;
+      // Every control is measured, below the fold and scrolled sideways in a tab strip or carousel
+      // too; only one inside a fixed panel parked off-canvas (a closed drawer) is skipped.
+      if (parkedOffCanvas(el)) continue;
       let w = size.width;
       let h = size.height;
       for (const pseudo of ["::before", "::after"]) {
@@ -233,8 +235,10 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
         findings.push({ check: "hit-area", target: describe(el), message: `hit area ${Math.round(w)}×${Math.round(h)}px, under 44×44 on a coarse pointer` });
         continue;
       }
-      // The area is 44px on paper; hit-test it in view: a clipping ancestor or a neighbour on top takes taps.
+      // The area is 44px on paper; hit-test it in view: a clipping ancestor or a neighbour on top
+      // takes taps. One that can't be brought into view (a scroller that won't move) is sized only.
       const r = intoView(el);
+      if (r.right <= 0 || r.left >= vw || r.bottom <= 0 || r.top >= vh) continue;
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       const stolen = [

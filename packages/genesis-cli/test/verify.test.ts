@@ -340,6 +340,15 @@ describe("verify in the browser (Chromium)", async () => {
     }
   });
 
+  run("measures a control scrolled out of a sideways strip, not one in a closed drawer", async () => {
+    const found = await check(
+      `${META}<body style="margin:0"><div role="tablist" style="display:flex;overflow-x:auto;width:320px">` +
+        `<button style="flex:none;width:300px;height:48px">One</button><button style="flex:none;width:300px;height:48px">Two</button><button id="far" style="flex:none;width:24px;height:24px">3</button></div>` +
+        `<aside style="position:fixed;top:0;left:-300px;width:280px"><button id="drawer" style="width:24px;height:24px">x</button></aside></body>`,
+    );
+    expect(found.filter((f) => f.check === "hit-area").map((f) => f.target)).toEqual(['button#far "3"']);
+  });
+
   run("exempts a link in running text, not a link alone in a list item", async () => {
     const found = await check(
       `${META}<body><div>I agree to the <a id="terms" href="#">Terms</a> of use.</div><ul><li><a id="nav" href="#">Settings</a></li></ul></body>`,
