@@ -5,7 +5,8 @@
  * sitemap is reported as skipped, never dropped silently.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { flattenReactRouterRoutes, onePathPerPattern, patternFor, type RoutePattern } from "@marktiderman/genesis-cli/verify";
 
@@ -36,23 +37,19 @@ export const ROUTES_MANIFEST = join(SAMPLE_DIR, "build", "routes.json");
 
 /** The sample's route patterns, from React Router's manifest, cached for the workers. */
 function routePatterns(): RoutePattern[] {
-  // Keyed by its inputs, so a changed route file or manifest is never answered from an old cache.
-  const inputs = [ROUTES_MANIFEST, join(SAMPLE_DIR, "app", "routes.ts")].map((f) => (existsSync(f) ? `${f}:${statSync(f).mtimeMs}` : `${f}:-`)).join("|");
+  // In CI, the manifest the build job wrote for this commit. Locally, React Router's own command,
+  // so a route edit is never answered from an old manifest. The cache shares the result with the
+  // workers, keyed by the content it came from (not modification times).
+  const routesFile = join(SAMPLE_DIR, "app", "routes.ts");
+  const fromManifest = !!process.env.CI && existsSync(ROUTES_MANIFEST);
+  const source = fromManifest ? readFileSync(ROUTES_MANIFEST, "utf8") : existsSync(routesFile) ? readFileSync(routesFile, "utf8") : "";
+  const inputs = createHash("sha256").update(fromManifest ? "manifest\n" : "routes.ts\n").update(source).digest("hex");
   const cache = join(SAMPLE_DIR, "test-results", "conformance-routes.json");
   if (existsSync(cache)) {
     const cached = JSON.parse(readFileSync(cache, "utf8")) as { inputs: string; patterns: RoutePattern[] };
     if (cached.inputs === inputs) return cached.patterns;
   }
-  // The written manifest in CI, where the build job writes it fresh for this commit. Locally, only
-  // when it is strictly newer than the route file (one left from an old build would be stale);
-  // otherwise React Router's own command.
-  const routesFile = join(SAMPLE_DIR, "app", "routes.ts");
-  const fresh =
-    existsSync(ROUTES_MANIFEST) &&
-    (!!process.env.CI || !existsSync(routesFile) || statSync(ROUTES_MANIFEST).mtimeMs > statSync(routesFile).mtimeMs);
-  const json = fresh
-    ? readFileSync(ROUTES_MANIFEST, "utf8")
-    : execFileSync("pnpm", ["exec", "react-router", "routes", "--json"], { cwd: SAMPLE_DIR, encoding: "utf8" });
+  const json = fromManifest ? source : execFileSync("pnpm", ["exec", "react-router", "routes", "--json"], { cwd: SAMPLE_DIR, encoding: "utf8" });
   const patterns = flattenReactRouterRoutes(JSON.parse(json));
   mkdirSync(dirname(cache), { recursive: true });
   writeFileSync(cache, JSON.stringify({ inputs, patterns }));
