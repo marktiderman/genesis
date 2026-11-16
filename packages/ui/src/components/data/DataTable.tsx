@@ -863,12 +863,33 @@ export function DataTable<T>({
   // all read this one number.
   const coarse = useMediaQuery("(pointer: coarse)");
   const selectWidth = coarse ? 56 : 40;
+  // The sticky header's height, so rows scrolled into view from below stop under it, not behind it.
+  const headRef = useRef<HTMLTableSectionElement | null>(null);
+  const [headHeight, setHeadHeight] = useState(0);
+  useEffect(() => {
+    const el = headRef.current;
+    if (!el || !stickyHeader) {
+      setHeadHeight(0);
+      return;
+    }
+    if (typeof ResizeObserver === "undefined") return;
+    const measure = () => setHeadHeight(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [stickyHeader]);
   // The sticky pager's height, so rows can keep focus clear of it (the body's scroll margin).
   const pagerRef = useRef<HTMLDivElement | null>(null);
   const [pagerHeight, setPagerHeight] = useState(0);
   useEffect(() => {
     const el = pagerRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
+    if (!el) {
+      // No pager (pagination off): no margin to keep.
+      setPagerHeight(0);
+      return;
+    }
+    if (typeof ResizeObserver === "undefined") return;
     const measure = () => setPagerHeight(el.offsetHeight);
     measure();
     const ro = new ResizeObserver(measure);
@@ -1435,6 +1456,7 @@ export function DataTable<T>({
             {renderActions && <col style={{ width: 40 }} />}
           </colgroup>
           <TableHeader
+            ref={headRef}
             className={
               stickyHeader ? "sticky top-0 z-10 bg-background" : ""
             }
@@ -1606,8 +1628,16 @@ export function DataTable<T>({
           <TableBody
             ref={bodyRef}
             // Focus scrolled into view stops above the sticky pager, never under it (WCAG 2.4.11).
-            className="[&_*]:scroll-mb-[var(--data-table-pager-height,0px)]"
-            style={pagerHeight ? ({ "--data-table-pager-height": `${pagerHeight}px` } as CSSProperties) : undefined}
+            // …and below the sticky header when scrolling up.
+            className="[&_*]:scroll-mb-[var(--data-table-pager-height,0px)] [&_*]:scroll-mt-[var(--data-table-head-height,0px)]"
+            style={
+              pagerHeight || headHeight
+                ? ({
+                    "--data-table-pager-height": `${pagerHeight}px`,
+                    "--data-table-head-height": `${headHeight}px`,
+                  } as CSSProperties)
+                : undefined
+            }
           >
             {displayItems.length === 0 ? (
               <TableRow>

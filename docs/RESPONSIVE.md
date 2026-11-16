@@ -37,7 +37,8 @@ Each rule says what the components do today, or, where it says "an app", what an
 4. **A list turns into rows when it is narrow, where the app asks for it.** A list is narrow on a
    viewport below 768px (a phone held upright) and, inside a `ResourceView`, when its own frame is
    under 40rem. There a responsive default (`{ mobile, desktop }`, or an app's `phoneMode`) takes
-   its narrow side; without either, a list stays a table everywhere, `phoneMode` covers page and embedded lists alike, and cards stack in one column.
+   its narrow side, and narrow cards stack in one column. `phoneMode` covers page and embedded
+   lists alike. Without either, a list stays a table everywhere.
    A row keeps whatever the screen drew in a cell (`cells`): a custom title cell (a link, reorder
    buttons) is the row's title, and an action column (Restore) shows beside the first three
    columns. A list row or card is never a button itself (a cell may draw a link): a row opens from
@@ -77,8 +78,6 @@ Each rule says what the components do today, or, where it says "an app", what an
 
 ## Known gaps
 
-- Focus can still rest under two sticky bars: the desktop top-tabs bar when the window scrolls,
-  and a virtualized table's sticky header.
 - A phone held sideways is wider than 768px. Its lists follow their frame instead (a table from
   40rem).
 - Lists and the table's touch column are decided after hydration: the server renders the wide
@@ -87,8 +86,9 @@ Each rule says what the components do today, or, where it says "an app", what an
   measured, so its list follows the viewport.
 - A list's `toolbar` wraps as one item: a toolbar's own row of controls should wrap itself
   (`flex-wrap`).
-- A touch hit area is cut short by an ancestor that clips overflow, and in a compact table row the
-  checkbox's area is the height of its cell.
+- A touch hit area is cut short by an ancestor that clips overflow. In a table the checkbox's area
+  is clipped to its cell: about 36px tall in a compact row, 40px in a comfortable one, and 40px in
+  the header.
 - Only lists answer to their own width. Card walls, form grids and toolbars outside a list still
   switch on the viewport; moving them to container queries is the next step.
 - Safari ignores `interactive-widget`, so there the keyboard can cover a sheet's footer; a

@@ -11,7 +11,7 @@ The responsive contract (docs/RESPONSIVE.md):
 - **Side sheets fill a phone's width** below `sm` (`max-sm:w-full`) and stay `w-3/4 sm:max-w-sm` from there. AppShell's drawer and the inbox's views sheet stay `w-72` on a phone; the inbox's context sheet is full width there.
 - **Tabs** are at least 44px wide on coarse pointers, as well as 44px tall.
 - **PageHeader actions:** beside at least 10rem of title (its icon included) they keep their size and the title truncates, as before. When they can't fit, they move to their own line and wrap within it instead of pushing past the edge.
-- **Focus stays clear of bars** (WCAG 2.4.11): AppShell's scroller keeps a scroll padding the size of the phone's bottom bar, and of the sticky header when the window scrolls (set on `<html>` while the shell is mounted); DataTable's rows keep a scroll margin the height of its sticky pager.
+- **Focus stays clear of bars** (WCAG 2.4.11): AppShell's scroller keeps a scroll padding the size of the phone's bottom bar, and of the sticky header when the window scrolls (set on `<html>` while the shell is mounted); DataTable's rows keep a scroll margin the height of its sticky pager and of its sticky header; with `navigation: "top-tabs"` the window keeps the top bar's height too.
 - **`touchTarget`** (exported beside `cn`) is an invisible 44×44px hit area on coarse pointers. Switch, Checkbox, RadioGroupItem, pressable Chip and ChipGroupItem use it. On touch, RadioGroup and ChipGroup space their items (unless you set a gap) so hit areas don't land on neighbours, and DataTable's selection column is 56px.
 
 What changes for you (docs/MIGRATION.md has the full entry):

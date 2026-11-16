@@ -93,6 +93,9 @@ function activation<T>(
     tabIndex: 0,
     "aria-label": getItemLabel?.(item),
     onClick: (e: MouseEvent<HTMLDivElement>) => {
+      // A click from a portal (a dialog or menu the item opened) bubbles here through React, not
+      // the DOM: it is never the item's.
+      if (!e.currentTarget.contains(e.target as Node)) return;
       const control = (e.target as HTMLElement).closest(NESTED_CONTROL);
       if (control && control !== e.currentTarget) return;
       onItemClick(item);

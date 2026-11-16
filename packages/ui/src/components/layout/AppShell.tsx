@@ -1768,13 +1768,18 @@ export function AppShell({
     if (!scrollWindow || typeof document === "undefined") return;
     const root = document.documentElement.style;
     const before = { top: root.scrollPaddingTop, bottom: root.scrollPaddingBottom };
-    root.scrollPaddingTop = headerShows ? "calc(3.5rem + env(safe-area-inset-top))" : "";
+    // The phone header, or on a wider screen the sticky top-tabs bar (h-14).
+    root.scrollPaddingTop = headerShows
+      ? "calc(3.5rem + env(safe-area-inset-top))"
+      : topTabs
+        ? "3.5rem"
+        : "";
     root.scrollPaddingBottom = barShows ? "calc(4rem + env(safe-area-inset-bottom))" : "";
     return () => {
       root.scrollPaddingTop = before.top;
       root.scrollPaddingBottom = before.bottom;
     };
-  }, [scrollWindow, headerShows, barShows]);
+  }, [scrollWindow, headerShows, barShows, topTabs]);
 
   const optionsControl =
     resolved.configurable && toggles.length > 0 ? (

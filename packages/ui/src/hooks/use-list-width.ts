@@ -6,7 +6,7 @@ import { createContext, useCallback, useEffect, useRef, useState, type RefCallba
  * Below this width (in rem, so it follows the person's font size) a list's own frame is "narrow":
  * a table there can't show its columns, so a responsive default (`{ mobile, desktop }`) takes its
  * `mobile` side. 40rem is Tailwind's `sm` (640px at the default 16px). A viewport below the mobile
- * breakpoint (768px: a phone, in either orientation) is narrow too, whatever the frame measures.
+ * breakpoint (768px: a phone held upright) is narrow too, whatever the frame measures.
  */
 export const LIST_NARROW_REM = 40;
 

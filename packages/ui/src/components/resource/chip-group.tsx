@@ -36,6 +36,9 @@ export type ChipGroupProps = ChipGroupMultipleProps | ChipGroupSingleProps;
 
 const ChipGroupContext = React.createContext<{ selected: (value: string) => boolean } | null>(null);
 
+/** A gap class of the caller's own, plain or behind a variant (`gap-3`, `sm:gap-x-1`). */
+const OWN_GAP = /(^|\s)([\w-]+:)*gap-/;
+
 /**
  * ChipGroup — filter chips that toggle together: the twin of genesis-ui-native's NativeChipGroup,
  * with the same `mode` (default `multiple`), `value` and `onChange`; `onChange` gets a string in
@@ -47,9 +50,6 @@ const ChipGroupContext = React.createContext<{ selected: (value: string) => bool
  *
  * @stability Beta
  */
-/** A gap class of the caller's own, plain or behind a variant (`gap-3`, `sm:gap-x-1`). */
-const OWN_GAP = /(^|\s)([\w-]+:)*gap-/;
-
 export function ChipGroup(props: ChipGroupProps) {
   const { disabled = false, className, children, testID = "chip-group" } = props;
   const common = {

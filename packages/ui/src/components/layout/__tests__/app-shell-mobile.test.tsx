@@ -325,3 +325,16 @@ describe("focus never rests under the shell's bars (WCAG 2.4.11)", () => {
     expect(root.scrollPaddingTop).toBe("");
   });
 });
+
+describe("focus clears the desktop top-tabs bar (WCAG 2.4.11)", () => {
+  it("keeps the top bar's height as the window's scroll padding", () => {
+    const { unmount } = render(
+      <AppShell appName="Acme" appLogo="A" navItems={three} options={{ ...chrome, scrollRoot: "window", navigation: "top-tabs" }} activePath="/">
+        <button type="button">Page action</button>
+      </AppShell>,
+    );
+    expect(document.documentElement.style.scrollPaddingTop).toBe("3.5rem");
+    unmount();
+    expect(document.documentElement.style.scrollPaddingTop).toBe("");
+  });
+});
