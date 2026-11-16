@@ -1,0 +1,29 @@
+.changeset/responsive-contract-ui.md
+  s_26dce1f7c35112::t_b5a381d3433ce9 12
+docs/RESPONSIVE.md
+  s_26dce1f7c35112::t_4d506e019ceb64 56-59
+packages/ui/src/components/data/DataTable.tsx
+  s_26dce1f7c35112::t_56aaaa2b8620be 10,866-877,1604-1609,1662
+packages/ui/src/components/data/__tests__/data-table-a11y.test.tsx
+  s_26dce1f7c35112::t_935bdb0df18d8e 219-234
+packages/ui/src/components/layout/AppShell.tsx
+  s_26dce1f7c35112::t_8b83c39a47c765 1761-1778,2175-2180
+packages/ui/src/components/layout/__tests__/app-shell-mobile.test.tsx
+  s_26dce1f7c35112::t_2ff9cbe2e95bd2 304-327
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "488eba8685439aaa674648b737619360742f3cea",
+  "prompts": {},
+  "sessions": {
+    "s_26dce1f7c35112": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ed8947e6-a9d3-4362-bb5c-29e73628efa4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
