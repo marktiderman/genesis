@@ -8,6 +8,7 @@ import {
   domChecks,
   flattenReactRouterRoutes,
   matchesPage,
+  matchesPattern,
   onePathPerPattern,
   patternFor,
   validateAllow,
@@ -59,6 +60,16 @@ describe("verify routes", () => {
     expect(patternFor("/demo/a/clients/1/bookings", patterns)?.pattern).toBe("/demo/:ws/clients/:id/:section?");
     expect(patternFor("/docs/a/b", patterns)?.pattern).toBe("/docs/*");
     expect(patternFor("/nope/x", patterns)).toBeUndefined();
+  });
+
+  it("keeps a parameter's static suffix, and ranks a parameter route over a splat (React Router's ranking)", () => {
+    const more = flattenReactRouterRoutes([{ id: "r", path: "", children: [{ id: "json", path: "files/:name.json" }, { id: "docs", path: "docs/*" }, { id: "page", path: "docs/:section/:page" }] }]);
+    expect(matchesPattern("/files/:name.json", "/files/report.json")).toBe(true);
+    expect(matchesPattern("/files/:name.json", "/files/report.csv")).toBe(false);
+    expect(patternFor("/docs/api/start", more)?.pattern).toBe("/docs/:section/:page");
+    expect(patternFor("/docs/overview", more)?.pattern).toBe("/docs/*");
+    const entry: AllowEntry = { check: "reflow", page: "/files/:name.json", reason: "x" };
+    expect(applyAllow([entry], [{ check: "reflow", message: "m" }], { page: "/files/report.csv", viewport: "320", engine: "chromium" }).failing).toHaveLength(1);
   });
 
   it("keeps one path per pattern", () => {

@@ -15,12 +15,15 @@ if (!base) throw new Error("usage: tsx conformance/allow-grew.ts <base ref>");
 const key = (e: Record<string, unknown>) => JSON.stringify([e.check, e.rule, e.page, e.viewports, e.engines, e.target]);
 const here = JSON.parse(readFileSync(join(import.meta.dirname, "allow.json"), "utf8")).allow as Record<string, unknown>[];
 let before: Record<string, unknown>[] = [];
+let raw: string | undefined;
 try {
-  before = JSON.parse(execFileSync("git", ["show", `${base}:apps/sample/conformance/allow.json`], { encoding: "utf8" })).allow;
-} catch {
-  console.log(`No allow list on ${base}: this pull request starts it.`);
-  process.exit(0);
+  raw = execFileSync("git", ["show", `${base}:apps/sample/conformance/allow.json`], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+} catch (error) {
+  const stderr = String((error as { stderr?: unknown }).stderr ?? "");
+  // No list on the base yet: every entry here is new, and the label is still required.
+  if (!/does not exist|exists on disk, but not in/.test(stderr)) throw error;
 }
+if (raw !== undefined) before = JSON.parse(raw).allow;
 const old = new Set(before.map(key));
 const added = here.filter((e) => !old.has(key(e)));
 if (!added.length) {

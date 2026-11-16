@@ -5,7 +5,7 @@
  * sitemap is reported as skipped, never dropped silently.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { flattenReactRouterRoutes, onePathPerPattern, patternFor, type RoutePattern } from "@marktiderman/genesis-cli/verify";
 
@@ -36,15 +36,20 @@ export const ROUTES_MANIFEST = join(SAMPLE_DIR, "build", "routes.json");
 
 /** The sample's route patterns, from React Router's manifest, cached for the workers. */
 function routePatterns(): RoutePattern[] {
+  // Keyed by its inputs, so a changed route file or manifest is never answered from an old cache.
+  const inputs = [ROUTES_MANIFEST, join(SAMPLE_DIR, "app", "routes.ts")].map((f) => (existsSync(f) ? `${f}:${statSync(f).mtimeMs}` : `${f}:-`)).join("|");
   const cache = join(SAMPLE_DIR, "test-results", "conformance-routes.json");
-  if (!existsSync(cache)) {
-    const json = existsSync(ROUTES_MANIFEST)
-      ? readFileSync(ROUTES_MANIFEST, "utf8")
-      : execFileSync("pnpm", ["exec", "react-router", "routes", "--json"], { cwd: SAMPLE_DIR, encoding: "utf8" });
-    mkdirSync(dirname(cache), { recursive: true });
-    writeFileSync(cache, JSON.stringify(flattenReactRouterRoutes(JSON.parse(json))));
+  if (existsSync(cache)) {
+    const cached = JSON.parse(readFileSync(cache, "utf8")) as { inputs: string; patterns: RoutePattern[] };
+    if (cached.inputs === inputs) return cached.patterns;
   }
-  return JSON.parse(readFileSync(cache, "utf8"));
+  const json = existsSync(ROUTES_MANIFEST)
+    ? readFileSync(ROUTES_MANIFEST, "utf8")
+    : execFileSync("pnpm", ["exec", "react-router", "routes", "--json"], { cwd: SAMPLE_DIR, encoding: "utf8" });
+  const patterns = flattenReactRouterRoutes(JSON.parse(json));
+  mkdirSync(dirname(cache), { recursive: true });
+  writeFileSync(cache, JSON.stringify({ inputs, patterns }));
+  return patterns;
 }
 
 export function sitemapPaths(): string[] {

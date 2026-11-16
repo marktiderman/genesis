@@ -17,6 +17,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main, "staging/**", "prestage/**"]
+    # Labelled and unlabelled too, so adding or removing "conformance: allow grows" re-runs the gate.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:
@@ -36,7 +38,10 @@ jobs:
   build:
     name: Conformance build
     # Skip only the trusted Version Packages PR; a fork branch of the same name always runs.
-    if: github.head_ref != 'changeset-release/main' || github.event.pull_request.head.repo.full_name != github.repository
+    # A label change re-runs only for the allow-grows label.
+    if: >-
+      (github.head_ref != 'changeset-release/main' || github.event.pull_request.head.repo.full_name != github.repository) &&
+      (!contains(fromJSON('["labeled","unlabeled"]'), github.event.action) || github.event.label.name == 'conformance: allow grows')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -56,8 +61,9 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           ALLOW_GROWS: "${{ contains(github.event.pull_request.labels.*.name, 'conformance: allow grows') && '1' || '0' }}"
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
           pnpm --filter sample exec tsx conformance/allow-grew.ts FETCH_HEAD
       - run: pnpm build:packages
       - run: pnpm --filter sample build
@@ -130,7 +136,7 @@ jobs:
       - name: Run the conformance checks
         env:
           CONFORMANCE_SHARD: ${{ matrix.shard }}
-        run: pnpm --filter sample conformance --shard=${{ matrix.shard }}/${{ env.SHARDS }}
+        run: pnpm --filter sample conformance --shard="$CONFORMANCE_SHARD/$SHARDS"
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -193,6 +199,9 @@ jobs:
         run: pnpm exec tsx conformance/teardown.ts all-findings
       - name: Every shard passed
         if: needs.build.result != 'success' || needs.shard.result != 'success'
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          SHARD_RESULT: ${{ needs.shard.result }}
         run: |
-          echo "Conformance failed: build=${{ needs.build.result }}, shards=${{ needs.shard.result }}. The HTML report is the conformance-report artifact."
+          echo "Conformance failed: build=$BUILD_RESULT, shards=$SHARD_RESULT. The HTML report is the conformance-report artifact."
           exit 1

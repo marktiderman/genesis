@@ -32,6 +32,13 @@ export function flattenReactRouterRoutes(routes: ReactRouterRoute[], base = ""):
   return out;
 }
 
+/** A pattern segment as a regular expression: `:id` and `$id` match one segment, with any static prefix or suffix (`:name.json`). */
+function segmentRegex(seg: string): RegExp {
+  const parts = seg.split(/([:$][A-Za-z_][\w-]*)/);
+  const body = parts.map((part) => (/^[:$][A-Za-z_]/.test(part) ? "[^/]+" : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))).join("");
+  return new RegExp(`^${body}$`);
+}
+
 /** Whether a concrete path matches a pattern (`:param`, `:optional?`, `*` splat, `$param` too). */
 export function matchesPattern(pattern: string, path: string): boolean {
   const segs = pattern.split("/").filter(Boolean);
@@ -42,17 +49,32 @@ export function matchesPattern(pattern: string, path: string): boolean {
     if (seg === "*" || seg === "$") return true;
     const optional = seg.endsWith("?");
     const name = optional ? seg.slice(0, -1) : seg;
-    const isParam = name.startsWith(":") || name.startsWith("$");
-    if (j < parts.length && (isParam || name === parts[j]) && walk(i + 1, j + 1)) return true;
+    if (j < parts.length && segmentRegex(name).test(parts[j]) && walk(i + 1, j + 1)) return true;
     return optional && walk(i + 1, j);
   };
   return walk(0, 0);
 }
 
-/** The most specific pattern a path matches: fewest parameters, then the longest. */
+/**
+ * React Router's route ranking: more segments rank higher; a static segment counts 10, a
+ * parameter 3, an empty segment 1, and a splat takes 2 off.
+ */
+function rank(pattern: string): number {
+  const segs = pattern.split("/");
+  let score = segs.length;
+  if (segs.includes("*") || segs.includes("$")) score -= 2;
+  for (const seg of segs) {
+    if (seg === "*" || seg === "$") continue;
+    if (seg === "") score += 1;
+    else if (/[:$][A-Za-z_]/.test(seg)) score += 3;
+    else score += 10;
+  }
+  return score;
+}
+
+/** The pattern a path matches that React Router would pick: the highest-ranked one. */
 export function patternFor(path: string, patterns: RoutePattern[]): RoutePattern | undefined {
-  const score = (p: string) => (p.match(/[:$*]/g)?.length ?? 0) * 1000 - p.length;
-  return patterns.filter((p) => matchesPattern(p.pattern, path)).sort((a, b) => score(a.pattern) - score(b.pattern))[0];
+  return patterns.filter((p) => matchesPattern(p.pattern, path)).sort((a, b) => rank(b.pattern) - rank(a.pattern))[0];
 }
 
 /** One path per pattern, the first seen; a path that matches no pattern is kept as its own. */

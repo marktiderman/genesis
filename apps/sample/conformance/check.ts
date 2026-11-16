@@ -72,6 +72,9 @@ export async function visit(page: Page, origin: string, target: Target, info: Te
     expect(ERROR_SCREEN.test(await page.locator("body").innerText()), `${target.id} shows the error screen`).toBe(false);
   }
   await domSettled(page, info);
+  // Again once settled: a route can fail after hydration, and the error boundary keeps the marker.
+  if (target.kind === "route")
+    expect(ERROR_SCREEN.test(await page.locator("body").innerText()), `${target.id} shows the error screen once it settled`).toBe(false);
   await page.evaluate(() => document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))));
 
   const findings = await checkPage(page, { viewport, skipMeta: target.kind === "story" || info.project.name !== META_PROJECT });

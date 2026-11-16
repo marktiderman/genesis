@@ -1333,10 +1333,8 @@ if (!result.ok) throw new Error(formatReport(result));
 
 `genesis doctor` reads code; it can't see layout. `@marktiderman/genesis-cli/verify` checks a page
 in a real browser, the rules of `docs/RESPONSIVE.md` that a browser can measure. Genesis runs it
-over its sample app and every story in Chromium, WebKit and Firefox (the Conformance workflow).
-
-**Planned** (`cli-verify`): `genesis verify`, which runs the same checks over an app's own routes,
-as its seed logins, read-only.
+over its sample app and every story in Chromium, WebKit and Firefox (the Conformance workflow),
+and an app can call it from its own Playwright tests.
 
 ```ts
 import { test, expect } from "@playwright/test";
