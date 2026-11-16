@@ -144,6 +144,8 @@ describe("verify allow", () => {
     expect(matchesTarget("div > button", 'div > button[aria-label="Delete"]')).toBe(true);
     const save: AllowEntry = { check: "axe", rule: "target-size", page: "/items/42", target: 'button[aria-label="Save"]', reason: "x" };
     expect(applyAllow([save], [{ check: "axe", rule: "target-size", target: 'button[aria-label="Delete"]', message: "m" }], where).failing).toHaveLength(1);
+    const bare: AllowEntry = { check: "axe", rule: "target-size", page: "/items/42", target: "div > button", reason: "x" };
+    expect(applyAllow([bare], [{ check: "axe", rule: "target-size", target: 'div > button[aria-label="Delete"]', message: "m" }], where).failing).toEqual([]);
   });
 
   it("prefers a targeted entry wherever it sits in the list", () => {
@@ -364,6 +366,22 @@ describe("verify in the browser (Chromium)", async () => {
     );
     const hit = found.filter((f) => f.check === "hit-area").map((f) => f.target);
     expect(hit).toEqual([`button#q "Move 'Intro' up"`]);
+  });
+
+  run("doesn't count a label that has only a thin strip on screen", async () => {
+    const found = await check(
+      `${META}<body style="margin:0"><label style="position:fixed;left:0;top:246px;width:300px;height:200px;display:block"><input id="strip" type="checkbox"> Remember me</label></body>`,
+    );
+    expect(found.filter((f) => f.check === "hit-area").map((f) => f.target)).toContain('input#strip');
+  });
+
+  run("keeps the start and the end of a long name", async () => {
+    const found = await check(
+      `${META}<body><button id="u" style="width:24px;height:24px" aria-label="Move the question about your weekly goals up"></button>` +
+        `<button id="d" style="width:24px;height:24px" aria-label="Move the question about your weekly goals down"></button></body>`,
+    );
+    const names = found.filter((f) => f.check === "hit-area").map((f) => f.target);
+    expect(new Set(names).size).toBe(2);
   });
 
   run("exempts a link in running text, not a link alone in a list item", async () => {

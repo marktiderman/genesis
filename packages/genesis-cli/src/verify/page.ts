@@ -63,7 +63,9 @@ export async function checkPage(page: Page, opts: CheckPageOptions): Promise<Fin
       const selector = node.target.map(String).join(" ");
       // axe names some elements only by a generated id (Radix's #radix-…), which changes between
       // renders: describe those by tag, slot or role and accessible name instead.
-      const target = /#(?:radix-|_r_|_R_)/.test(selector) ? await stableTarget(page, selector) : selector;
+      // A selector that is only a bare tag (`a`, `button`) doesn't say which one: described too.
+      const bare = /^[a-z][a-z0-9-]*$/.test(selector.trim());
+      const target = /#(?:radix-|_r_|_R_)/.test(selector) || bare ? await stableTarget(page, selector) : selector;
       // target-size can't see genesis-ui's touchTarget pseudo-element, which makes the hit area
       // 44px on a coarse pointer; a node that has one is dropped.
       if (v.id === "target-size" && opts.viewport.touch && (await hasTouchTarget(page, selector))) continue;
@@ -96,7 +98,7 @@ async function stableTarget(page: Page, selector: string): Promise<string> {
       };
       const parent = el.parentElement && el.parentElement !== document.body ? `${part(el.parentElement)} > ` : "";
       const label = (el.getAttribute("aria-label") ?? (el as HTMLElement).innerText ?? "").replace(/\s+/g, " ").replace(/"/g, "'").trim();
-      const name = label.length > 32 ? `${label.slice(0, 31)}…` : label;
+      const name = label.length > 48 ? `${label.slice(0, 28)}…${label.slice(-19)}` : label;
       return `${parent}${part(el)}${name ? ` "${name}"` : ""}`;
     }, selector)
     .catch(() => selector);

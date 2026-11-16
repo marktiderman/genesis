@@ -34,7 +34,8 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
     const label = el.getAttribute("aria-label") ?? (el as HTMLElement).innerText ?? el.textContent ?? "";
     // A double quote would end the quoted name early in a target: it becomes a single quote.
     const text = label.replace(/\s+/g, " ").replace(/"/g, "'").trim();
-    return text.length > 32 ? `${text.slice(0, 31)}…` : text;
+    // Long names keep their start and their end, so "Move … up" and "Move … down" stay apart.
+    return text.length > 48 ? `${text.slice(0, 28)}…${text.slice(-19)}` : text;
   };
   const describe = (el: Element): string => {
     const parts: string[] = [];
@@ -206,11 +207,12 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
             const bottom = Math.min(r.bottom, vh);
             const cx = (left + right) / 2;
             const cy = (top + bottom) / 2;
-            const dx = Math.min(21, (right - left) / 2 - 1);
-            const dy = Math.min(21, (bottom - top) / 2 - 1);
-            const points = [[cx, cy], [cx - dx, cy], [cx + dx, cy], [cx, cy - dy], [cx, cy + dy]].filter(([x, y]) => x >= 0 && y >= 0 && x < vw && y < vh);
+            // A full 44×44 area of the label has to be on screen and reachable.
+            const room = right - left >= 44 && bottom - top >= 44;
+            const points = [[cx, cy], [cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]].filter(([x, y]) => x >= 0 && y >= 0 && x < vw && y < vh);
             const reaches =
-              points.length > 0 &&
+              room &&
+              points.length === 5 &&
               points.every(([x, y]) => {
                 const hit = document.elementFromPoint(x, y);
                 return !!hit && (label.contains(hit) || el.contains(hit) || hit === el);
