@@ -692,8 +692,10 @@ function ResourceViewRoot<T extends Row>(props: ResourceViewProps<T>) {
   // The inbox draws its own segments (its rail), filters and switcher (over its list).
   const bar = !page && type !== "inbox" && (switcher || props.view.segments().length > 0 || props.view.filters().length > 0 || props.filterSlot);
   return (
-    // The frame the list measures: its responsive default follows this width, not the viewport's.
-    <div ref={frameRef} data-slot="resource-view-frame" className="min-w-0">
+    // The frame the list measures: in a narrow one its responsive default takes its narrow side.
+    // `display: contents`: it adds no box, so a caller's height and flex classes on the list still
+    // reach its real root; useListWidth measures that root.
+    <div ref={frameRef} data-slot="resource-view-frame" className="contents">
     <ListNarrowContext.Provider value={narrow}>
     <ListModelContext.Provider value={model}>
       {page ? (

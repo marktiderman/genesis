@@ -61,7 +61,7 @@ export function Chip({ tone, icon, children, className, testID, selected, onSele
       onClick={() => onSelectedChange(!selected)}
       className={cn(
         touchTarget,
-      "inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         className,
       )}
       data-testid={testID}

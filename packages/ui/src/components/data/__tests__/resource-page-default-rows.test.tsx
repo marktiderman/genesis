@@ -6,8 +6,8 @@
  *   isn't blank;
  * - the row is two lines: the title, then up to three other columns.
  */
-import { render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GenesisProvider } from "../../../provider";
 import { ResourcePage, type ResourcePageProps } from "../ResourcePage";
@@ -98,30 +98,34 @@ describe("ResourcePage default card", () => {
 });
 
 describe("a list row keeps the cells the screen drew itself (keepInList)", () => {
-  function renderKept() {
-    return render(
+  function renderKept(onRestore = vi.fn(), onNavigate = vi.fn()) {
+    render(
       <GenesisProvider mock={{ datasets: { members } }}>
         <ResourcePage<Member>
           resource="members"
           title="Members"
           defaultView="list"
           titleField="email"
+          detail="route"
+          onNavigate={onNavigate}
           columns={[
             { key: "email", header: "Email", keepInList: true, render: (m) => <a href={`/members/${m.id}`} data-testid="title-link">{m.email}</a> },
             "first",
             "last",
             { key: "full_name", header: "Name", accessor: (m) => `${m.first} ${m.last}` },
-            { key: "restore", header: "", keepInList: true, render: () => <button type="button" data-testid="restore">Restore</button> },
+            { key: "restore", header: "", keepInList: true, render: () => <button type="button" data-testid="restore" onClick={onRestore}>Restore</button> },
           ]}
         />
       </GenesisProvider>,
     );
+    return { onRestore, onNavigate };
   }
 
-  it("draws a kept title column's cell as the row's title", async () => {
+  it("draws a kept title column's cell as the row's title, once", async () => {
     renderKept();
     const row = await screen.findByTestId("resource-list-row");
     expect(within(row).getByTestId("title-link").getAttribute("href")).toBe(`/members/${members[0]!.id}`);
+    expect(within(row).getAllByText("ada@acme.example")).toHaveLength(1);
   });
 
   it("shows a kept action beside the first three columns, though it is the fifth", async () => {
@@ -129,5 +133,31 @@ describe("a list row keeps the cells the screen drew itself (keepInList)", () =>
     const row = await screen.findByTestId("resource-list-row");
     expect(within(row).getByTestId("restore")).toBeTruthy();
     expect(row.querySelector('[data-column="full_name"]')).not.toBeNull();
+  });
+
+  it("isn't a button itself, so its controls stay reachable, and opens from its own Open button", async () => {
+    const { onNavigate } = renderKept();
+    const row = await screen.findByTestId("resource-list-row");
+    expect(row.getAttribute("role")).toBeNull();
+    expect(row.getAttribute("tabindex")).toBeNull();
+    const open = within(row).getByTestId("resource-list-row-open");
+    expect(open.getAttribute("aria-label")).toContain("ada@acme.example");
+    fireEvent.click(open);
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs a kept control's own click without opening the row", async () => {
+    const { onRestore, onNavigate } = renderKept();
+    const row = await screen.findByTestId("resource-list-row");
+    fireEvent.click(within(row).getByTestId("restore"));
+    expect(onRestore).toHaveBeenCalledTimes(1);
+    expect(onNavigate).not.toHaveBeenCalled();
+    // Enter on the control isn't taken over by the row.
+    const enter = fireEvent.keyDown(within(row).getByTestId("restore"), { key: "Enter" });
+    expect(enter).toBe(true);
+    expect(onNavigate).not.toHaveBeenCalled();
+    // A click on the row's plain text still opens it.
+    fireEvent.click(row.querySelector('[data-column="full_name"]')!);
+    expect(onNavigate).toHaveBeenCalledTimes(1);
   });
 });

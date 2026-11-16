@@ -10,60 +10,77 @@ the end.
 
 ## The ten rules
 
-1. **The shell answers to the viewport; everything inside answers to its container.** AppShell
+Each rule says what the components do today. What they don't do yet is under "Known gaps".
+
+1. **The shell answers to the viewport; a list answers to its own width too.** AppShell
    switches on the viewport: a header and bottom tab bar below `md` (768px), the rail from `md`,
-   the full sidebar from `lg`. A list, a card wall or a form inside a page answers to its own
-   width, because the same list sits in a full page on a phone and in a 360px side panel on a
-   wide screen. Breakpoints are Tailwind's (`sm` 40rem, `md` 48rem, `lg` 64rem, `xl` 80rem), in
-   rem so they follow the person's font size; container rules use Tailwind's `@container`
-   variants.
+   the full sidebar from `lg`. Breakpoints are Tailwind's (`sm` 40rem, `md` 48rem, `lg` 64rem,
+   `xl` 80rem), in rem so they follow the person's font size. A list (`ResourceView`) also
+   measures its own frame, because the same list sits in a full page on a phone and in a 360px
+   side panel on a wide screen (rule 4). Other components still switch on the viewport.
 2. **Nothing scrolls the page sideways.** Every screen reflows at 320 CSS px wide (WCAG 1.4.10:
    1280px at 400% zoom). Only a data grid, a map or code may scroll sideways, inside its own
-   frame. A header's actions, or a list's toolbar in them, wrap within the header rather than
-   push past its edge.
+   frame. A page header keeps its title beside the actions, truncating it; when the actions (or
+   a list's toolbar in them) can't fit beside a 10rem title, they take their own line and wrap
+   within it rather than push past the edge.
 3. **Every target is big enough to hit.** At least 24×24 CSS px everywhere (WCAG 2.5.8), and a
    44×44px hit area on a coarse pointer (WCAG 2.5.5, Apple's 44pt). Buttons, inputs, selects,
-   tabs and menu items grow to 44px under `pointer-coarse`; controls that draw smaller (a
-   switch, a checkbox, a chip) keep their look and take an invisible 44px hit area instead
-   (`touchTarget`, from `@marktiderman/genesis-ui`), so desktop density stays.
-4. **A list turns into rows when it is narrow.** `ResourceView` measures its own frame. Below
-   40rem a responsive default (`{ mobile, desktop }`, or an app's `phoneMode`) takes its narrow
-   side, and `phoneMode` covers page and embedded lists alike. A table that can't show its
-   columns is never the default. A row keeps whatever the screen drew in a cell (`cells`): a
-   custom title cell (a link, reorder buttons) is the row's title, and an action column (Restore)
-   shows beside the first three columns. A list whose point is its columns (a sheet, a comparison grid)
-   says so with its own `mode` and scrolls inside its frame.
+   tabs and menu items grow to 44px under `pointer-coarse`. Switch, Checkbox, RadioGroupItem,
+   a pressable Chip and ChipGroupItem keep their look and take an invisible 44px hit area
+   instead (`touchTarget`, from `@marktiderman/genesis-ui`), so desktop density stays; a table's
+   selection column widens on touch so that area stays inside it.
+4. **A list turns into rows when it is narrow.** A list is narrow on a phone (a viewport below
+   768px, in either orientation) and, inside a `ResourceView`, when its own frame is under
+   40rem. There a responsive default (`{ mobile, desktop }`, or an app's `phoneMode`) takes its
+   narrow side, `phoneMode` covers page and embedded lists alike, and cards stack in one column.
+   A row keeps whatever the screen drew in a cell (`cells`): a custom title cell (a link, reorder
+   buttons) is the row's title, and an action column (Restore) shows beside the first three
+   columns. Such a row isn't a button itself: it opens from its own Open button, so its controls
+   stay reachable by keyboard and screen reader. A list whose point is its columns (a sheet, a
+   comparison grid) says so with its own `mode` and scrolls inside its frame.
 5. **The overlay fits the job.** A short confirmation is the centred dialog. A picker or a short
    form docks to the bottom on a phone (`DialogContent mobileLayout="sheet"`). A long form, an
    editor or media fills the screen (`mobileLayout="fullscreen"`). Side sheets (a record's form,
    its peek) fill a phone's width below `sm`; a navigation drawer that should stay narrow says
    so (`max-sm:w-72`).
-6. **Overlays survive the keyboard and the notch.** Overlays cap their height with `dvh` and
-   scroll inside themselves; the body doesn't scroll behind them. An app sets
-   `interactive-widget=resizes-content` in its viewport meta, so the on-screen keyboard shrinks
-   the layout instead of covering a sheet's footer.
+6. **Overlays fit the screen.** Overlays cap their height with `dvh` and scroll inside
+   themselves; the body doesn't scroll behind them. An app sets
+   `interactive-widget=resizes-content` in its viewport meta, so in Chrome and Firefox the
+   on-screen keyboard shrinks the layout instead of covering a sheet's footer. Safari doesn't
+   support it (see Known gaps).
 7. **Everything fixed to an edge pads for the safe area.** The header, the tab bar, sheets and
-   dialogs pad with `env(safe-area-inset-*)` (the app's viewport meta has `viewport-fit=cover`).
-   A floating element offsets by the tab bar's height plus the bottom inset.
+   dialogs pad with `env(safe-area-inset-*)`. The insets are zero unless the app's viewport meta
+   has `viewport-fit=cover`.
 8. **Nothing hides behind hover.** Hover styles apply only where hover exists (Tailwind 4's
    `hover:`); an action shown on hover has a tap and keyboard path too (a row menu, the peek).
-9. **One floating control at most, and it never covers.** On a phone with a bottom tab bar, the
-   help launcher goes in the header (`SupportMessengerLauncher variant="icon"`), not over the
-   page, where it would sit on the right-hand column of switches, row menus and pagers. From
-   `md` up it may float in a corner. A page with its own bottom action hides it.
+9. **One floating control at most, and it never covers.** On a phone with a bottom tab bar, put
+   the help launcher in the header (`SupportMessengerLauncher variant="icon" position="inline"`),
+   not over the page, where it would sit on the right-hand column of switches, row menus and
+   pagers; float it (the default `position`) from `md` up only. A page with its own bottom action
+   doesn't render the floating launcher.
 10. **A fixed rem scale, reduced motion respected, and widths tested.** App UI uses the fixed rem
     type and spacing scale (density changes it, not the viewport; fluid `clamp()` type is for
     marketing pages). Motion turns off under `prefers-reduced-motion`. Screens are checked at
     320, 375, 768, 1024 and 1280px, at 200% zoom, with touch emulation, and with one list in a
-    narrow panel on a wide screen.
+    narrow panel on a wide screen (the `NarrowPanel` story does the last).
+
+## Known gaps
+
+- Only lists answer to their own width. Card walls, form grids and toolbars outside a list still
+  switch on the viewport; moving them to container queries is the next step.
+- Safari ignores `interactive-widget`, so there the keyboard can cover a sheet's footer; a
+  VisualViewport fallback isn't built.
+- Nothing publishes the tab bar's height for floating elements to offset by; an app positions
+  its own floating control.
+- The checks in rule 10 run by hand and in Storybook (Chromium) today, not across browsers in CI.
 
 ## In an app
 
 - Don't override a component's markup to make it fit (a global selector on its classes, an
   arbitrary variant reaching into its parts). If a component doesn't hold a rule above, it is a
   Genesis gap: raise it, and work around it only through the component's props.
-- Write layout phone first and add `sm:`/`md:`/`lg:` for wider screens. Inside a page, prefer
-  `@container` variants for anything that may also appear in a panel.
+- Write layout phone first and add `sm:`/`md:`/`lg:` for wider screens. For a part of your own
+  that may also appear in a panel, prefer Tailwind's `@container` variants.
 - A form is one column on a phone: fields side by side use `grid gap-3 sm:grid-cols-2`.
 
 ## Sources

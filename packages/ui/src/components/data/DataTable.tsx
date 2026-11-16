@@ -1421,7 +1421,8 @@ export function DataTable<T>({
             <TableRow aria-rowindex={virtualizing ? 1 : undefined}>
               {selectable && (
                 <TableHead
-                  className={cn("w-10", headDensity, pinProps("__select", true)?.className)}
+                  // On touch the checkbox's 44px hit area (touchTarget) stays inside its own column.
+                  className={cn("w-10 pointer-coarse:w-14", headDensity, pinProps("__select", true)?.className)}
                   style={pinProps("__select", true)?.style}
                 >
                   <Checkbox

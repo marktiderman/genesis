@@ -1,8 +1,10 @@
 "use client";
 
 import { detailMode } from "./resource-view/open-modes";
+import { ListNarrowContext } from "../../hooks/use-list-width";
 import {
   Fragment,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -1030,6 +1032,10 @@ const sameFilter = (a: FilterParam, b: FilterParam) => JSON.stringify(a) === JSO
  * the open record's panel, and the built-in form and confirmed delete.
  * {@link useResourceTable} is the same behaviour without this markup.
  */
+/** What a click inside a list row hits instead of the row: the screen's own controls. */
+const ROW_CONTROL =
+  "a,button,input,select,textarea,label,[role=button],[role=link],[role=checkbox],[role=switch],[role=menuitem],[contenteditable=true]";
+
 export function ResourcePage<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(props: ResourcePageProps<T>) {
@@ -1189,6 +1195,8 @@ function ResourcePageBody<
     useBuiltInDelete,
     useBuiltInEdit,
   } = useResourceTableModel<T>(props);
+  // Whether the ResourceView around this list measured its frame narrow (useListWidth).
+  const narrowFrame = useContext(ListNarrowContext) === true;
   // Tree mode's state (the `tree` option): each row's node and how to open or close one.
   const pageTree = page.tree;
   // Tell the caller the search and sort as they change.
@@ -1608,23 +1616,56 @@ function ResourcePageBody<
         )}
       </div>
     );
+    const content = node ? (
+      <TreeIndent
+        node={node}
+        name={titleVal}
+        onToggle={(open) => pageTree!.setExpanded(keyOf(item), open)}
+        className="flex-1"
+      >
+        {body}
+      </TreeIndent>
+    ) : (
+      body
+    );
+    // A row with no controls of its own is one activatable control, as before.
+    if (!titleCol && !cols.some((c) => c.keepInList)) {
+      return (
+        <div
+          {...rowActivationProps(item, titleVal, "resource-list-row")}
+          className="flex items-start cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          {content}
+        </div>
+      );
+    }
+    // A row holding the screen's own controls (a link, Restore, Move up) isn't a button itself: a
+    // control inside a button can't be reached by a screen reader (WCAG 4.1.2) and its Enter would
+    // open the row. As DataTable does, the row opens from its own Open button; a pointer click on
+    // the rest of the row opens it too, and never one that lands on a control.
     return (
       <div
-        {...rowActivationProps(item, titleVal, "resource-list-row")}
-        className="flex items-start cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        data-testid="resource-list-row"
+        className="flex items-start gap-2 cursor-pointer"
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest(ROW_CONTROL)) return;
+          handleRowClick(item);
+        }}
       >
-        {node ? (
-          <TreeIndent
-            node={node}
-            name={titleVal}
-            onToggle={(open) => pageTree!.setExpanded(keyOf(item), open)}
-            className="flex-1"
+        {content}
+        {detail !== "none" ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="-my-1 shrink-0"
+            aria-label={fillMessage(m.common.openItem, { name: titleVal }).trim()}
+            data-testid="resource-list-row-open"
+            onClick={() => handleRowClick(item)}
           >
-            {body}
-          </TreeIndent>
-        ) : (
-          body
-        )}
+            <ChevronRight aria-hidden="true" />
+          </Button>
+        ) : null}
       </div>
     );
   };
@@ -1638,7 +1679,9 @@ function ResourcePageBody<
   const shellSlotProps = slotProps?.shell;
 
   return (
-    <>
+    // What this list renders inside (its peek, its forms, a list in them) measures its own width:
+    // the narrow flag of this list's frame stops here, portals included.
+    <ListNarrowContext.Provider value={undefined}>
     <Shell
       title={title}
       subtitle={subtitle}
@@ -1764,7 +1807,9 @@ function ResourcePageBody<
         {
           items: page.data,
           viewMode: page.viewMode,
-          gridCols: gridColsProp,
+          // In a narrow frame (a side panel on a wide screen) cards stack in one column; the default
+          // columns answer to the viewport and would squeeze four into a 360px panel.
+          gridCols: gridColsProp ?? (narrowFrame ? "grid-cols-1" : undefined),
           getKey: keyOf,
           focusedIndex: keyboardNav.focusedIndex,
           keyboardContainerRef: keyboardNav.containerRef,
@@ -2151,6 +2196,6 @@ function ResourcePageBody<
           slotProps?.deleteDialog,
         )}
       {dialogs}
-    </>
+    </ListNarrowContext.Provider>
   );
 }

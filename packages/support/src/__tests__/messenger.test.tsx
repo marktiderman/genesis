@@ -393,6 +393,15 @@ describe("SupportMessengerLauncher", () => {
     fireEvent.click(button);
     expect(await screen.findByTestId("genesis-support-messenger-sheet")).toBeTruthy();
   });
+
+  it("as a floating icon: filled and round, never a see-through ghost over the page", () => {
+    render(<SupportMessengerLauncher client={fakeClient()} tenantId="ta" variant="icon" />, { wrapper });
+    const button = screen.getByTestId("genesis-support-messenger-launcher");
+    expect(button.className).toContain("fixed");
+    expect(button.className).toContain("rounded-full");
+    expect(button.getAttribute("data-variant")).toBe("icon");
+    expect(button.className).not.toMatch(/(^|\s)hover:bg-accent/);
+  });
 });
 
 describe("SupportHelpCenterAdmin", () => {

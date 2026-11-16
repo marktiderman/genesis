@@ -15,8 +15,8 @@ import { ListNarrowContext } from "./use-list-width";
  */
 export interface ResponsiveViewMode {
   /**
-   * When the list is narrow: inside a ResourceView, its own frame below 40rem (`LIST_NARROW_REM`);
-   * elsewhere, a viewport below the mobile breakpoint (768px).
+   * When the list is narrow: a viewport below the mobile breakpoint (768px), or, inside a
+   * ResourceView, its own frame below 40rem (`LIST_NARROW_REM`).
    */
   mobile: ViewMode;
   /** When it isn't. */
@@ -70,8 +70,9 @@ export function useViewPreference(
   defaultMode: ViewModeDefault = "grid",
 ): [ViewMode, (mode: ViewMode) => void] {
   const isMobile = useIsMobile();
-  // A list's own width when a ResourceView has measured it, else the viewport.
-  const narrow = useContext(ListNarrowContext) ?? isMobile;
+  // Narrow on a phone (the viewport), and in a narrow frame on a wide screen (the list's own width).
+  const narrowFrame = useContext(ListNarrowContext) === true;
+  const narrow = isMobile || narrowFrame;
   const responsive = typeof defaultMode !== "string";
   const [chosen, setChosen] = usePersistedUiState<ViewMode | undefined>(choiceKey(key), undefined, MODE_FORMAT);
   // The legacy key is read only for a plain default (see the storage keys above), never written.

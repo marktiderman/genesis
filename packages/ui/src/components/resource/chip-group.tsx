@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui";
-import { cn } from "../../utils";
+import { cn, touchTarget } from "../../utils";
 import { Chip } from "./chip";
 
 export type ChipGroupMode = "single" | "multiple";
@@ -103,6 +103,7 @@ export function ChipGroupItem({ value, children, icon, className, testID }: Chip
       value={value}
       data-testid={testID ?? `chip-${value}`}
       className={cn(
+        touchTarget,
         "inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         "cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
         className,

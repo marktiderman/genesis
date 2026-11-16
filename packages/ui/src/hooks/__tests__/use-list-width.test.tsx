@@ -4,58 +4,79 @@
  * side from it before the viewport.
  */
 import { act, render, renderHook } from "@testing-library/react";
-import { useCallback, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LIST_NARROW_REM, ListNarrowContext, useListWidth } from "../use-list-width";
 import { useViewPreference } from "../use-view-preference";
 
-type Callback = (entries: { contentRect: { width: number } }[]) => void;
-let observed: Callback | undefined;
+let width = 0;
+let resized: (() => void) | undefined;
 
 class FakeResizeObserver {
-  constructor(cb: Callback) {
-    observed = cb;
+  el: Element | undefined;
+  constructor(cb: (entries: { target: Element }[]) => void) {
+    resized = () => this.el && cb([{ target: this.el }]);
   }
-  observe() {}
+  observe(el: Element) {
+    this.el = el;
+  }
+  unobserve() {}
   disconnect() {}
 }
 
 afterEach(() => {
-  observed = undefined;
+  resized = undefined;
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   window.localStorage.clear();
 });
 
-function Frame({ width, onNarrow }: { width: number; onNarrow: (n: boolean | undefined) => void }) {
+function Frame({ onNarrow, contents = false }: { onNarrow: (n: boolean | undefined) => void; contents?: boolean }) {
   const [ref, narrow] = useListWidth();
   onNarrow(narrow);
-  // A stable ref, as a component's own is: the frame is measured once, then followed by resizes.
-  const measured = useCallback(
-    (el: HTMLDivElement | null) => {
-      if (el) el.getBoundingClientRect = () => ({ width }) as DOMRect;
-      ref(el);
-    },
-    [ref, width],
+  return contents ? (
+    <div ref={ref} style={{ display: "contents" }}>
+      <section data-testid="root" />
+    </div>
+  ) : (
+    <div ref={ref} />
   );
-  return <div ref={measured} />;
 }
 
 describe("useListWidth", () => {
   it("is narrow under 40rem and wide from there, following resizes", () => {
     vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(() => width);
+    width = 343;
     let narrow: boolean | undefined;
-    render(<Frame width={343} onNarrow={(n) => (narrow = n)} />);
+    render(<Frame onNarrow={(n) => (narrow = n)} />);
     expect(narrow).toBe(true);
-    act(() => observed?.([{ contentRect: { width: LIST_NARROW_REM * 16 } }]));
+    width = LIST_NARROW_REM * 16;
+    act(() => resized?.());
     expect(narrow).toBe(false);
-    act(() => observed?.([{ contentRect: { width: 360 } }]));
+    width = 360;
+    act(() => resized?.());
     expect(narrow).toBe(true);
+  });
+
+  it("measures the first child of a display: contents wrapper, which has no box", () => {
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    const seen: string[] = [];
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
+      seen.push(this.tagName);
+      return 343;
+    });
+    let narrow: boolean | undefined;
+    render(<Frame contents onNarrow={(n) => (narrow = n)} />);
+    expect(narrow).toBe(true);
+    expect(seen).toContain("SECTION");
+    expect(seen).not.toContain("DIV");
   });
 
   it("stays undefined without ResizeObserver, so the viewport decides", () => {
     vi.stubGlobal("ResizeObserver", undefined);
     let narrow: boolean | undefined = false;
-    render(<Frame width={343} onNarrow={(n) => (narrow = n)} />);
+    render(<Frame onNarrow={(n) => (narrow = n)} />);
     expect(narrow).toBeUndefined();
   });
 });

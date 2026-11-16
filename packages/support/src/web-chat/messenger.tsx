@@ -806,18 +806,19 @@ export function SupportMessengerLauncher({ position = "bottom-right", label, var
     <>
       {variant === "icon" ? (
         <Button
-          variant="ghost"
+          // Ghost in a header or toolbar; filled, round and raised when it floats over the page.
+          variant={position === "inline" ? "ghost" : "default"}
           size="icon"
-          className={cn("relative", POSITIONS[position])}
+          className={cn("relative [&_svg]:size-5", position !== "inline" && "rounded-full shadow-lg", POSITIONS[position])}
           onClick={open}
           aria-haspopup="dialog"
           aria-label={unread > 0 ? fill(copy.messenger.openWithUnread, { count: unread }) : title}
           data-testid="genesis-support-messenger-launcher"
           data-variant="icon"
         >
-          <MessageCircle className="size-5" aria-hidden />
+          <MessageCircle aria-hidden />
           {unread > 0 ? (
-            <span aria-hidden data-testid="genesis-support-messenger-unread" className="absolute right-0.5 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.625rem] font-semibold leading-none text-primary-foreground">
+            <span aria-hidden data-testid="genesis-support-messenger-unread" className={cn("absolute right-0.5 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[0.625rem] font-semibold leading-none ring-2", position === "inline" ? "bg-primary text-primary-foreground ring-background" : "bg-background text-foreground ring-primary")}>
               {unread > 99 ? "99+" : unread}
             </span>
           ) : null}
