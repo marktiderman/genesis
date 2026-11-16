@@ -317,13 +317,19 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
         if (!bar || bar.contains(el)) {
           bar =
             bars.find((b) => {
-              const bs = getComputedStyle(b);
-              if (b.contains(el) || el.contains(b) || bs.pointerEvents !== "none") return false;
-              // A fixed element paints above in-flow content unless its z-index is negative (a
-              // backdrop behind the page; CSS 2.1 Appendix E): auto and 0 still cover.
-              if (parseInt(bs.zIndex, 10) < 0) return false;
+              if (b.contains(el) || el.contains(b) || getComputedStyle(b).pointerEvents !== "none") return false;
               const br = b.getBoundingClientRect();
-              return x >= br.left && x <= br.right && y >= br.top && y <= br.bottom;
+              if (x < br.left || x > br.right || y < br.top || y > br.bottom) return false;
+              // Paint order, measured rather than guessed from z-index: let the bar take the
+              // pointer for one hit test (then put its style back). It covers the point only if it
+              // is what paints on top there.
+              const before = (b as HTMLElement).style.getPropertyValue("pointer-events");
+              const priority = (b as HTMLElement).style.getPropertyPriority("pointer-events");
+              (b as HTMLElement).style.setProperty("pointer-events", "auto", "important");
+              const top = document.elementFromPoint(x, y);
+              if (before) (b as HTMLElement).style.setProperty("pointer-events", before, priority);
+              else (b as HTMLElement).style.removeProperty("pointer-events");
+              return !!top && b.contains(top);
             }) ?? null;
         }
         if (bar) coveredBy = bar;

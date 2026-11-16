@@ -25,14 +25,15 @@ const join = (base: string, path: string) => (path.startsWith("/") ? clean(path)
 
 /**
  * Every route that renders a page, with its full pattern: leaves, index routes, and a parent with a
- * path of its own and no index child (it renders at its own path too, around an empty outlet).
+ * path of its own ("" included) and no index child: it renders at its own path too, around an
+ * empty outlet. A pathless layout route renders nothing of its own.
  */
 export function flattenReactRouterRoutes(routes: ReactRouterRoute[], base = ""): RoutePattern[] {
   const out: RoutePattern[] = [];
   for (const r of routes) {
     const full = r.path !== undefined ? join(base, r.path) : base || "/";
     if (r.children?.length) {
-      if (r.path && !r.children.some((c) => c.index)) out.push({ pattern: full, id: r.id });
+      if (r.path !== undefined && !r.children.some((c) => c.index)) out.push({ pattern: full || "/", id: r.id });
       out.push(...flattenReactRouterRoutes(r.children, full));
     } else out.push({ pattern: full || "/", id: r.id });
   }

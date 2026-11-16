@@ -85,6 +85,8 @@ describe("verify routes", () => {
       { id: "root", path: "", children: [{ id: "index", index: true }, { id: "products", path: "products", children: [{ id: "product", path: "/products/:id" }] }] },
     ]);
     expect(more.map((p) => p.pattern)).toEqual(["/", "/products", "/products/:id"]);
+    // An empty-path parent with no index child renders at its own path too.
+    expect(flattenReactRouterRoutes([{ id: "root", path: "", children: [{ id: "a", path: "about" }, { id: "rest", path: "*" }] }]).map((p) => p.pattern)).toEqual(["/", "/about", "/*"]);
   });
 
   it("keeps one path per pattern", () => {
@@ -267,6 +269,16 @@ describe("verify in the browser (Chromium)", async () => {
       { ...PHONE, coarse: false },
     );
     expect(found.filter((f) => f.check === "focus-obscured").map((f) => f.target)).toContain('a#under "link"');
+  });
+
+  run("measures paint order: a bar behind a raised link doesn't cover it, a z-index:auto bar above it does", async () => {
+    const page = (barZ: string, linkStyle: string) =>
+      `${META}<body style="margin:0"><div style="height:400px"></div><a id="link" href="#" style="display:block;height:20px;${linkStyle}">link</a><div style="height:400px"></div>` +
+      `<div style="position:fixed;bottom:0;left:0;right:0;height:120px;background:#fff;pointer-events:none;${barZ}"></div></body>`;
+    const behind = await check(page("z-index:1", "position:relative;z-index:2;background:#ccc"), { ...PHONE, coarse: false });
+    expect(behind.filter((f) => f.check === "focus-obscured")).toEqual([]);
+    const above = await check(page("", ""), { ...PHONE, coarse: false });
+    expect(above.filter((f) => f.check === "focus-obscured").map((f) => f.target)).toContain('a#link "link"');
   });
 
   run("doesn't count a backdrop that sits behind the page and ignores the pointer", async () => {
