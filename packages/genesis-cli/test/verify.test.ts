@@ -79,6 +79,13 @@ describe("verify routes", () => {
     expect(applyAllow([entry], [{ check: "reflow", message: "m" }], { page: "/files/report.csv", viewport: "320", engine: "chromium" }).failing).toHaveLength(1);
   });
 
+  it("keeps an absolute child path, and a parent that renders at its own path", () => {
+    const more = flattenReactRouterRoutes([
+      { id: "root", path: "", children: [{ id: "index", index: true }, { id: "products", path: "products", children: [{ id: "product", path: "/products/:id" }] }] },
+    ]);
+    expect(more.map((p) => p.pattern)).toEqual(["/", "/products", "/products/:id"]);
+  });
+
   it("keeps one path per pattern", () => {
     expect(onePathPerPattern(["/items", "/items/1", "/items/2", "/demo/a/clients/1", "/demo/b/clients/2/x", "/other"], patterns)).toEqual([
       "/items",
@@ -244,10 +251,26 @@ describe("verify in the browser (Chromium)", async () => {
   run("sees a painted bar that ignores the pointer", async () => {
     const found = await check(
       `${META}<body style="margin:0"><div style="height:400px"></div><a id="under" href="#" style="display:block;height:20px">link</a><div style="height:400px"></div>` +
-        `<div style="position:fixed;bottom:0;left:0;right:0;height:120px;background:#fff;pointer-events:none"></div></body>`,
+        `<div style="position:fixed;bottom:0;left:0;right:0;height:120px;background:#fff;pointer-events:none;z-index:10"></div></body>`,
       { ...PHONE, coarse: false },
     );
     expect(found.filter((f) => f.check === "focus-obscured").map((f) => f.target)).toContain('a#under "link"');
+  });
+
+  run("doesn't count a backdrop that sits behind the page and ignores the pointer", async () => {
+    const found = await check(
+      `${META}<body style="margin:0"><div style="position:fixed;inset:0;background:#eee;pointer-events:none;z-index:-1"></div><div style="height:400px"></div><a id="link" href="#" style="display:block;height:20px">link</a><div style="height:400px"></div></body>`,
+      { ...PHONE, coarse: false },
+    );
+    expect(found.filter((f) => f.check === "focus-obscured")).toEqual([]);
+  });
+
+  run("doesn't count text that a box scrolls vertically as clipped at 200% text", async () => {
+    const found = await check(
+      `${META}<body><div style="height:40px;overflow-x:hidden;overflow-y:auto"><p>one</p><p>two</p><p>three</p></div></body>`,
+      { ...PHONE, coarse: false, textZoom: true },
+    );
+    expect(found.filter((f) => f.check === "text-clipped")).toEqual([]);
   });
 
   run("leaves focus and every frame's scroll as it found them", async () => {

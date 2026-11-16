@@ -19,15 +19,22 @@ export interface RoutePattern {
   id: string;
 }
 
-const join = (base: string, path: string) => `/${[base, path].join("/").split("/").filter(Boolean).join("/")}`;
+const clean = (path: string) => `/${path.split("/").filter(Boolean).join("/")}`;
+/** A child's full path: an absolute child path (`/products/:id` under `products`) is already full. */
+const join = (base: string, path: string) => (path.startsWith("/") ? clean(path) : clean(`${base}/${path}`));
 
-/** Every route that renders a page: leaves and index routes, with their full patterns. */
+/**
+ * Every route that renders a page, with its full pattern: leaves, index routes, and a parent with a
+ * path of its own and no index child (it renders at its own path too, around an empty outlet).
+ */
 export function flattenReactRouterRoutes(routes: ReactRouterRoute[], base = ""): RoutePattern[] {
   const out: RoutePattern[] = [];
   for (const r of routes) {
     const full = r.path !== undefined ? join(base, r.path) : base || "/";
-    if (r.children?.length) out.push(...flattenReactRouterRoutes(r.children, full));
-    else out.push({ pattern: full || "/", id: r.id });
+    if (r.children?.length) {
+      if (r.path && !r.children.some((c) => c.index)) out.push({ pattern: full, id: r.id });
+      out.push(...flattenReactRouterRoutes(r.children, full));
+    } else out.push({ pattern: full || "/", id: r.id });
   }
   return out;
 }

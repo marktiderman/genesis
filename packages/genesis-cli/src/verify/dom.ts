@@ -179,7 +179,16 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
         const label = (el.closest("label") ?? document.querySelector(`label[for="${CSS.escape(el.id)}"]`)) as HTMLElement;
         if (!hidden(label)) {
           const r = label.getBoundingClientRect();
-          if (r.width >= 44 && r.height >= 44) continue;
+          // The label is the hit area only when a tap on it reaches it (or its control): nothing covers it.
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+          const reaches = [[cx, cy], [cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]]
+            .filter(([x, y]) => x >= 0 && y >= 0 && x < vw && y < vh)
+            .every(([x, y]) => {
+              const hit = document.elementFromPoint(x, y);
+              return !!hit && (label.contains(hit) || el.contains(hit) || hit === el);
+            });
+          if (r.width >= 44 && r.height >= 44 && reaches) continue;
         }
       }
       if (hidden(el)) continue;
@@ -239,7 +248,9 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
       if (el.closest("[data-scroll-frame], pre, code")) continue;
       const hasText = Array.from(el.childNodes).some((n) => n.nodeType === 3 && n.textContent!.trim()) || !!el.querySelector("p, span, label, h1, h2, h3, h4, li, td, button, a");
       if (!hasText) continue;
-      if (el.scrollHeight > el.clientHeight + 2 || el.scrollWidth > el.clientWidth + 2)
+      // Only along an axis that clips: a box that scrolls vertically keeps its text reachable.
+      const clipsY = ["hidden", "clip"].includes(s.overflowY);
+      if ((clipsY && el.scrollHeight > el.clientHeight + 2) || (clips(el) && el.scrollWidth > el.clientWidth + 2))
         findings.push({ check: "text-clipped", target: describe(el), message: `at 200% text, ${el.scrollWidth}×${el.scrollHeight}px of content is cut to ${el.clientWidth}×${el.clientHeight}px` });
     }
   }
@@ -283,7 +294,8 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
   for (const el of ordered.slice(0, opts.maxFocus)) {
     el.focus({ preventScroll: true });
     if (document.activeElement !== el) continue;
-    el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    // Instant, so a page with scroll-behavior: smooth is measured where focus lands, not mid-scroll.
+    el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
     const r = el.getBoundingClientRect();
     if (r.width <= 1 || r.height <= 1 || offscreen(r)) continue; // still visually hidden, or scrolled out of a frame
     const points: Array<[number, number]> = [
@@ -305,7 +317,10 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
         if (!bar || bar.contains(el)) {
           bar =
             bars.find((b) => {
-              if (b.contains(el) || el.contains(b) || getComputedStyle(b).pointerEvents !== "none") return false;
+              const bs = getComputedStyle(b);
+              if (b.contains(el) || el.contains(b) || bs.pointerEvents !== "none") return false;
+              // Evidence it paints above the page rather than behind it (a backdrop): a positive z-index.
+              if (!(parseInt(bs.zIndex, 10) > 0)) return false;
               const br = b.getBoundingClientRect();
               return x >= br.left && x <= br.right && y >= br.top && y <= br.bottom;
             }) ?? null;
@@ -322,10 +337,9 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
   if (before && before !== document.body) before.focus({ preventScroll: true });
   for (const el of Array.from(document.querySelectorAll("*"))) {
     const [top, left] = saved.get(el) ?? [0, 0];
-    if (el.scrollTop !== top) el.scrollTop = top;
-    if (el.scrollLeft !== left) el.scrollLeft = left;
+    if (el.scrollTop !== top || el.scrollLeft !== left) el.scrollTo({ top, left, behavior: "instant" });
   }
-  window.scrollTo(winScroll[0], winScroll[1]);
+  window.scrollTo({ left: winScroll[0], top: winScroll[1], behavior: "instant" });
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   return findings;
