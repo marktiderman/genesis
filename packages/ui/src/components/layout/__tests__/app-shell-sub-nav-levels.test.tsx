@@ -212,6 +212,21 @@ describe("phones: the bar, its back item and the content's parent link", () => {
     expect(screen.queryByTestId("app-shell-parent-link")).toBeNull();
   });
 
+  it("keeps the parent link when the parent's row has no way to the parent's own page", () => {
+    // Offers' row without its "All" item: nothing in it leads to /products/offers itself.
+    render(
+      <AppShell
+        appName="Acme"
+        navigation={treeWith({ offers: { items: offers.filter((item) => item.label !== "All") } })}
+        options={opts}
+        activePath="/products/offers/drafts"
+      >
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(screen.getByRole("link", { name: "Back to Offers" }).getAttribute("href")).toBe("/products/offers");
+  });
+
   it('"top" with a sidebar-mode page under a tabbed parent: the row stays at the top, the bar keeps the page\'s children', () => {
     render(
       <AppShell

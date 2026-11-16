@@ -486,7 +486,9 @@ export interface AppShellProps {
   activePath?: string | undefined;
   /**
    * Optional custom active-state matcher. Defaults to a prefix match (with `/`
-   * treated as exact), mirroring React Router `NavLink`.
+   * treated as exact), mirroring React Router `NavLink`. The sub-navigation
+   * levels above the page read it on navigation: a new matcher alone, with
+   * no `activePath` change, applies from the next navigation.
    */
   isActive?: (to: string, activePath?: string) => boolean;
 }
@@ -1408,7 +1410,8 @@ export function AppShell({
   const [moreOpen, setMoreOpen] = useState(false);
   const m = useUiMessages().shell;
 
-  // Read through a ref, so an inline `isActive` doesn't re-resolve the tree on every render.
+  // Read through a ref, so an inline `isActive` doesn't re-resolve the tree on every render. The
+  // levels above the page take it on navigation (an `activePath` change), not when it alone changes.
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
 
@@ -1843,9 +1846,13 @@ export function AppShell({
     bottomItems.length > 0 && resolved.showMobileBottomNav !== false;
   const showTabs = subLayout.rows.length > 0;
   // The content's "← parent" link, unless that parent's own tab row (or breadcrumb) already shows
-  // above the page: the row marks where you are and leads back. An app's own link always shows.
+  // above the page and holds a way to the parent's own page (an "All" or "Overview" item): then the
+  // row marks where you are and leads back. Otherwise, and for an app's own link, it shows.
+  const pathOf = (to: string) => to.split(/[?#]/)[0];
   const shownLevelHrefs = new Set(
-    [...subLayout.folded, ...subLayout.rows].map((level) => level.href).filter((href): href is string => !!href),
+    [...subLayout.folded, ...subLayout.rows]
+      .filter((level) => !!level.href && level.items.some((item) => pathOf(item.to) === pathOf(level.href!)))
+      .map((level) => level.href!),
   );
   const contentParent =
     parentNavigation && parentNavigationProp === undefined && shownLevelHrefs.has(parentNavigation.href)
