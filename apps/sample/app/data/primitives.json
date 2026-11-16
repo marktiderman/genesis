@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14",
+  "generatedAt": "2026-11-16",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -18303,6 +18303,11 @@
               "description": "Animate cards with staggered fade-in. Default true"
             }
           ]
+        },
+        {
+          "name": "NESTED_CONTROL",
+          "summary": "What a click inside an activatable item hits instead of the item: a control of its own.",
+          "props": []
         }
       ]
     },
@@ -18603,6 +18608,13 @@
               "required": false,
               "defaultValue": null,
               "description": "View settings"
+            },
+            {
+              "name": "rootRef",
+              "type": "Ref<HTMLDivElement>",
+              "required": false,
+              "defaultValue": null,
+              "description": "A ref on the shell's root element (ResourceView measures a list's width through it)."
             },
             {
               "name": "secondaryActions",
@@ -19060,7 +19072,7 @@
               "type": "\"grid\" | \"list\" | null",
               "required": false,
               "defaultValue": null,
-              "description": "How full-page lists (`layout=\"page\"`) open on a phone (below 768px) when the screen doesn't\nsay: `grid` (cards) or `list` (rows). Desktops keep the table. Embedded and compact lists\nare left alone. Unset, lists open as a table everywhere, as before; `null` turns an outer\nprovider's phone default off for this subtree."
+              "description": "How a list opens while it is narrow (its own frame below 40rem, `LIST_NARROW_REM`) when the\nscreen doesn't say: `grid` (cards) or `list` (rows). Wider, it keeps the table. Page and\nembedded lists alike; compact lists are rows already. Unset, lists open as a table everywhere,\nas before; `null` turns an outer provider's default off for this subtree."
             },
             {
               "name": "rowActions",
@@ -26766,12 +26778,12 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/resource-view/ResourceGallery.tsx",
       "stability": "stable",
-      "summary": "A ResourcePage grid slot that draws the grid view as a gallery: the table and list views pass\nthrough to DataGrid untouched. A row without an image is a placeholder tile (an empty `src`), so\nthe gallery draws every row the count says. Clicking a photo opens the row, as clicking a card does.",
+      "summary": "A ResourcePage grid slot that draws the grid view as a gallery: the table and list views pass\nthrough to DataGrid, without the gallery's item click. A row without an image is a placeholder tile (an empty `src`), so\nthe gallery draws every row the count says. Clicking a photo opens the row, as clicking a card does.",
       "primaryComponent": "galleryGridSlot",
       "components": [
         {
           "name": "galleryGridSlot",
-          "summary": "A ResourcePage grid slot that draws the grid view as a gallery: the table and list views pass\nthrough to DataGrid untouched. A row without an image is a placeholder tile (an empty `src`), so\nthe gallery draws every row the count says. Clicking a photo opens the row, as clicking a card does.",
+          "summary": "A ResourcePage grid slot that draws the grid view as a gallery: the table and list views pass\nthrough to DataGrid, without the gallery's item click. A row without an image is a placeholder tile (an empty `src`), so\nthe gallery draws every row the count says. Clicking a photo opens the row, as clicking a card does.",
           "props": []
         }
       ]
@@ -27380,7 +27392,7 @@
               "type": "ViewModeDefault | \"calendar\" | \"board\" | \"inbox\" | \"sheet\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks by the list's own width (cards while its frame is under 40rem); without a mode, an\napp-wide `ResourceViewDefaultsProvider phoneMode` does the same for every page and embedded list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
             },
             {
               "name": "mutationMode",
@@ -29176,7 +29188,7 @@
               "type": "ViewModeDefault | \"calendar\" | \"board\" | \"inbox\" | \"sheet\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks by the list's own width (cards while its frame is under 40rem); without a mode, an\napp-wide `ResourceViewDefaultsProvider phoneMode` does the same for every page and embedded list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
             },
             {
               "name": "mutationMode",
@@ -30111,7 +30123,7 @@
               "type": "ViewModeDefault | \"calendar\" | \"board\" | \"inbox\" | \"sheet\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks by the list's own width (cards while its frame is under 40rem); without a mode, an\napp-wide `ResourceViewDefaultsProvider phoneMode` does the same for every page and embedded list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
             },
             {
               "name": "mutationMode",
@@ -31034,7 +31046,7 @@
               "type": "ViewModeDefault | \"calendar\" | \"board\" | \"inbox\" | \"sheet\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks by the list's own width (cards while its frame is under 40rem); without a mode, an\napp-wide `ResourceViewDefaultsProvider phoneMode` does the same for every page and embedded list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
             },
             {
               "name": "mutationMode",
@@ -31957,7 +31969,7 @@
               "type": "ViewModeDefault | \"calendar\" | \"board\" | \"inbox\" | \"sheet\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks by the list's own width (cards while its frame is under 40rem); without a mode, an\napp-wide `ResourceViewDefaultsProvider phoneMode` does the same for every page and embedded list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it. `board` shows a card per row in a column per value\nof the view's `board` field, and moving a card writes that field; like calendar, it is never\nstored as the user's pick.\n\nPrefer `type`, which takes the same values and every registered view type; `mode` stays as\nits alias, and `type` wins when both are set."
             },
             {
               "name": "mutationMode",

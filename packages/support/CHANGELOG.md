@@ -1,5 +1,20 @@
 # @marktiderman/genesis-support
 
+## 0.10.0
+
+### Minor Changes
+
+- fc8db97: `SupportMessengerLauncher` takes `variant="icon"`: an icon button named by its words, with the unread count as a badge on its corner. With `position="inline"` it is a ghost button for a header or toolbar; floating, it is a filled round button. On a phone with a bottom tab bar, put it in the header rather than float the launcher over the page (docs/RESPONSIVE.md, rule 9).
+
+  Its peer range on `@marktiderman/genesis-ui` now takes 3.x as well (`>=2.36.0 <4.0.0`).
+
+- 1fb6dca: The `support-chat` block now lists migrations 0013 (queues and pending), 0014 (agent tools: saved replies, mentions, reports) and 0015 (their bounds), so `genesis add support-chat` and `genesis migrate` copy them. In 0.7.0 they shipped in the package but no block named them, so `genesis migrate` skipped them: an app on 0.7.0 that copied them by hand keeps those files (the CLI matches them by their header), and `genesis migrate` adds only what's missing.
+
+### Patch Changes
+
+- Updated dependencies [13f6d59]
+  - @marktiderman/genesis-features@0.9.1
+
 ## 0.9.0
 
 ### Minor Changes
