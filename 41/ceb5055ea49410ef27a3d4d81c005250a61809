@@ -1,0 +1,31 @@
+.changeset/responsive-contract-ui.md
+  s_26dce1f7c35112::t_ef96fc340fad2b 8
+docs/RESPONSIVE.md
+  s_26dce1f7c35112::t_9acc009994a3c4 32-34
+packages/ui/src/components/data/ResourcePage.tsx
+  s_26dce1f7c35112::t_6aee183a58e39b 1585-1587,1589-1590,1595-1599
+packages/ui/src/components/data/__tests__/resource-page-default-rows.test.tsx
+  s_26dce1f7c35112::t_a44fadd97238e5 99-133
+packages/ui/src/components/data/__tests__/resource-view-phone.test.tsx
+  s_26dce1f7c35112::t_1d9b83892a2b1b 113-119
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_26dce1f7c35112::t_81509a9c049575 324-325
+packages/ui/src/hooks/use-resource-page.ts
+  s_26dce1f7c35112::t_0a3f9b86681cec 37-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "41ceb5055ea49410ef27a3d4d81c005250a61809",
+  "prompts": {},
+  "sessions": {
+    "s_26dce1f7c35112": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ed8947e6-a9d3-4362-bb5c-29e73628efa4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
