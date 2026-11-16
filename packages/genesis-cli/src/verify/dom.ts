@@ -94,7 +94,7 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
     [/viewport-fit\s*=\s*cover/, "viewport-fit=cover (rule 7)"],
     [/interactive-widget\s*=\s*resizes-content/, "interactive-widget=resizes-content (rule 6)"],
   ] as const)
-    if (!part.test(meta)) findings.push({ check: "viewport-meta", message: `viewport meta lacks ${rule} ("${meta}")` });
+    if (!part.test(meta)) findings.push({ check: "viewport-meta", target: 'meta[name="viewport"]', message: `viewport meta lacks ${rule} ("${meta}")` });
 
   // Touch emulation took effect. If it didn't, the coarse-pointer checks would fail every page for
   // a reason no app can fix, so they are skipped and the engine is reported once.
@@ -114,7 +114,7 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
   // cut off by a clipping ancestor (AppShell's overflow-hidden root) is a finding too.
   const root = document.scrollingElement ?? document.documentElement;
   if (root.scrollWidth > root.clientWidth + 1)
-    findings.push({ check: "reflow", message: `the page scrolls sideways: ${root.scrollWidth}px wide in a ${root.clientWidth}px viewport` });
+    findings.push({ check: "reflow", target: "html", message: `the page scrolls sideways: ${root.scrollWidth}px wide in a ${root.clientWidth}px viewport` });
   // An app shell's own page scroller (genesis-ui AppShell's shell-main and shell-frame) scrolling sideways.
   for (const scroller of Array.from(document.querySelectorAll("[data-slot='shell-main'], [data-slot='shell-frame'], main"))) {
     if (scroller.scrollWidth > scroller.clientWidth + 1 && !hidden(scroller))

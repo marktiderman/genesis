@@ -164,7 +164,8 @@ describe("verify in the browser (Chromium)", async () => {
     const found = await check(`${META}<body style="margin:0"><div id="wide" style="width:600px">x</div><div style="overflow-x:auto"><table style="width:900px"><tr><td>ok</td></tr></table></div></body>`);
     const reflow = found.filter((f) => f.check === "reflow");
     expect(reflow.some((f) => f.message.includes("scrolls sideways"))).toBe(true);
-    expect(reflow.map((f) => f.target).filter(Boolean)).toEqual(['div#wide "x"']);
+    // The page itself (html) and the element that makes it scroll; not the framed table.
+    expect(reflow.map((f) => f.target)).toEqual(["html", 'div#wide "x"']);
   });
 
   run("finds a too-wide card inside AppShell's clipping root and vertically scrolling main", async () => {
