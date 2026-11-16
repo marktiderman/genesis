@@ -477,6 +477,22 @@ the page's hook override the option, in that order of strength (hook strongest),
 can opt in. With it on, a page's children also win over an app-wide `mobileNavItems` on that page;
 in `"section"` / `"off"`, or on pages without children, `mobileNavItems` applies as before.
 
+Any node at any depth draws its own children by its `subNav` (unset: its nearest ancestor's):
+
+- `"tabs"` inside `"tabs"` (Products › Offers): a primary row and a second, quieter row
+  (`SubNavTabs variant="secondary"`). A third tabbed level folds the outer rows into a breadcrumb
+  picker (`SubNavBreadcrumb`), so there are never more than two rows. An outer level shows only
+  while one of its items is the way to the current page.
+- `"list"`: a list beside the page (`SubNavList`); on a phone, the list on the level's own page,
+  then the item with a link back.
+- `"hub"`: cards on the level's own page (`SubNavHub`), one column on a phone.
+
+On a phone, `options.phoneTabs` picks where tab rows go: `"bottom"` (default) makes the first row
+the bottom bar with a back item; `"top"` keeps it at the top as a row you swipe and leaves the bar
+to the app's own items. A second row is a segmented control (`SubNavSegmented`) either way.
+`headerItems` are the top bar's links (Help, a booking page): the end of the top-tabs bar, a thin
+row above the page on other wide layouts, and the phone's drawer.
+
 ```tsx
 useAppShellSubNav([
   { to: `/forms/${id}/edit`, label: "Questions", icon: ListChecks, badge: questions.length, end: true },

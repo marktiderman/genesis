@@ -551,6 +551,8 @@ export const uiMessages = {
     collapseSidebar: "Collapse sidebar",
     /** The phone bottom bar's name. */
     primaryNavigation: "Primary",
+    /** The top bar's own links (AppShell `headerItems`), on a wide screen and in the phone's drawer. */
+    headerNavigation: "Top",
     /** The phone bottom bar's last slot when the items don't fit, and the sheet it opens. */
     more: "More",
     /** The More sheet's description, for screen readers. */

@@ -225,6 +225,7 @@ export {
   type GenesisLinkProps,
   type IsPathActiveOptions,
   type NavigationNode,
+  type NavigationSubNav,
   type NavigationZone,
   type ResolvedNavigation,
   type ResolvedNavigationZones,

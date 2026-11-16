@@ -87,6 +87,7 @@ export {
   resolveNavigationZones,
   type IsPathActiveOptions,
   type NavigationNode,
+  type NavigationSubNav,
   type NavigationZone,
   type ResolvedNavigation,
   type ResolvedNavigationZones,
