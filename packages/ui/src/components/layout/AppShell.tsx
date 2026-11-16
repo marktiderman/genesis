@@ -2530,12 +2530,13 @@ export function AppShell({
                   />
                 )
               ) : null}
-              {showHub && hubLevel ? (
-                <SubNavHub items={hubLevel.items} linkComponent={linkComponent} label={hubLevel.label} className="mb-6" />
-              ) : null}
               <SubNavContext.Provider value={subNavChannel.channel}>
                 {children}
               </SubNavContext.Provider>
+              {/* A hub level's own page: its title and intro (the page) first, then a card per child. */}
+              {showHub && hubLevel ? (
+                <SubNavHub items={hubLevel.items} linkComponent={linkComponent} label={hubLevel.label} className="mt-6" />
+              ) : null}
             </div>
           </div>
         </main>

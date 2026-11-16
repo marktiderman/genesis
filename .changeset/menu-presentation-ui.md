@@ -6,7 +6,7 @@ Sub-navigation at any depth. Every node in the navigation trail draws its own ch
 
 New `subNav` values:
 - `"list"`: a list beside the page (`SubNavList`). On a phone it is a list page on the level's own page, then the item with a link back to the list.
-- `"hub"`: cards on the level's own page, one per child (`SubNavHub`). One column on a phone.
+- `"hub"`: cards on the level's own page, one per child, under the page's own title and intro (`SubNavHub`). One column on a phone.
 
 Phones:
 - `options.phoneTabs`: `"bottom"` (default, as before) makes the first tab row the bottom bar. `"top"` keeps tab rows at the top as a row you swipe, and the bar keeps the app's own items.

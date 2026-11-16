@@ -485,7 +485,7 @@ Any node at any depth draws its own children by its `subNav` (unset: its nearest
   while one of its items is the way to the current page.
 - `"list"`: a list beside the page (`SubNavList`); on a phone, the list on the level's own page,
   then the item with a link back.
-- `"hub"`: cards on the level's own page (`SubNavHub`), one column on a phone.
+- `"hub"`: cards on the level's own page, under its title and intro (`SubNavHub`), one column on a phone.
 
 On a phone, `options.phoneTabs` picks where tab rows go: `"bottom"` (default) makes the first row
 the bottom bar with a back item; `"top"` keeps it at the top as a row you swipe and leaves the bar

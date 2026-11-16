@@ -278,6 +278,8 @@ describe("list and hub", () => {
     const { unmount } = renderShell("/marketing");
     const hub = screen.getByTestId("app-shell-sub-nav-hub");
     expect(hrefs(hub)).toEqual(["/marketing/campaigns", "/marketing/emails"]);
+    // The page's own title and intro come first, then the cards.
+    expect(screen.getByText("content").compareDocumentPosition(hub) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     unmount();
     renderShell("/marketing/emails");
     expect(screen.queryByTestId("app-shell-sub-nav-hub")).toBeNull();
