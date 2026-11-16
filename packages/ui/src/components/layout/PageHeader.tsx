@@ -540,7 +540,7 @@ export function PageHeader({
     </div>
   ) : (
     <div data-slot="page-header" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-center gap-3 sm:min-w-40 sm:flex-1 sm:basis-0">
+      <div className="flex min-w-0 items-center gap-3 sm:min-w-[min(10rem,100%)] sm:flex-1 sm:basis-0">
         {Icon && resolved.showIcon !== false ? (
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10">
             <Icon className="h-5 w-5 text-primary-text" />

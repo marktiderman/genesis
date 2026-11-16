@@ -13,7 +13,7 @@ const RadioGroup = React.forwardRef<
     <RadioGroupPrimitive.Root
       // On touch, 16px items 28px apart sit 44px apart, so one's hit area (touchTarget) never lands
       // on the next. A caller's own gap wins.
-      className={cn("grid gap-2", !/(^|\s)gap-/.test(className ?? "") && "pointer-coarse:gap-7", className)}
+      className={cn("grid gap-2", !/(^|\s)([\w-]+:)*gap-/.test(className ?? "") && "pointer-coarse:gap-7", className)}
       {...props}
       ref={ref}
     />

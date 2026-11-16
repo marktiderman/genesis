@@ -133,7 +133,10 @@ export const NarrowPanel: Story = {
   render: () => (
     <WithTasks>
       <ResourceViewDefaultsProvider phoneMode="list">
-        <div className="flex min-w-[64rem] gap-4 p-4">
+        // A fixed 72rem stage, scrolling inside its frame on a smaller screen, so the wide column
+        // stays over 40rem (a table) at any viewport the story runs in.
+        <div className="overflow-x-auto">
+        <div className="flex w-[72rem] gap-4 p-4">
           <section aria-label="Side panel" className="w-[360px] shrink-0 rounded-lg border p-3" data-testid="narrow-panel">
             <ResourceView
               view={tasksView}
@@ -145,6 +148,7 @@ export const NarrowPanel: Story = {
           <section aria-label="Main column" className="min-w-0 flex-1 rounded-lg border p-3" data-testid="wide-column">
             <ResourceView view={tasksView} layout="embedded" />
           </section>
+        </div>
         </div>
       </ResourceViewDefaultsProvider>
     </WithTasks>

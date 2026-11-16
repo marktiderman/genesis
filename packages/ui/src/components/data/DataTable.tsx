@@ -1130,7 +1130,9 @@ export function DataTable<T>({
               >
                 {selectable && (
                   <TableCell
-                    className={cn(cellDensity, pinProps("__select", false)?.className, tone && ROW_TONE[tone]?.bar)}
+                    // On touch the checkbox's hit area (touchTarget) is centred and clipped to its own cell, so it
+                    // never lands on the next row (a compact row is under 44px) or past the table's edge.
+                    className={cn(cellDensity, "pointer-coarse:overflow-hidden pointer-coarse:text-center", pinProps("__select", false)?.className, tone && ROW_TONE[tone]?.bar)}
                     style={pinProps("__select", false)?.style}
                     onClick={(e: React.MouseEvent) => e.stopPropagation()}
                   >
@@ -1440,7 +1442,7 @@ export function DataTable<T>({
             <TableRow aria-rowindex={virtualizing ? 1 : undefined}>
               {selectable && (
                 <TableHead
-                  className={cn("w-10", headDensity, pinProps("__select", true)?.className)}
+                  className={cn("w-10 pointer-coarse:overflow-hidden pointer-coarse:text-center", headDensity, pinProps("__select", true)?.className)}
                   style={pinProps("__select", true)?.style}
                 >
                   <Checkbox

@@ -1028,11 +1028,22 @@ const sameFilter = (a: FilterParam, b: FilterParam) => JSON.stringify(a) === JSO
 // ---------------------------------------------------------------------------
 
 /**
+ * Ends this list's width scope for what it renders inside (its peek, its forms, a list in them):
+ * they measure their own width, portals included.
+ */
+function ListScopeEnd({ children }: { children: ReactNode }) {
+  return (
+    <ListFrameRefContext.Provider value={undefined}>
+      <ListNarrowContext.Provider value={undefined}>{children}</ListNarrowContext.Provider>
+    </ListFrameRefContext.Provider>
+  );
+}
+
+/**
  * A list page for a resource: header, filters, table or cards, paging,
  * the open record's panel, and the built-in form and confirmed delete.
  * {@link useResourceTable} is the same behaviour without this markup.
  */
-
 export function ResourcePage<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(props: ResourcePageProps<T>) {
@@ -1535,6 +1546,9 @@ function ResourcePageBody<
         {...(detail !== "none"
           ? {
               onClick: (e: ReactMouseEvent<HTMLElement>) => {
+                // A click from a portal (a dialog or menu a cell opened) bubbles here through React,
+                // not the DOM: it is never the card's.
+                if (!e.currentTarget.contains(e.target as Node)) return;
                 const control = (e.target as HTMLElement).closest(NESTED_CONTROL);
                 if (control && e.currentTarget.contains(control)) return;
                 handleRowClick(item);
@@ -1645,6 +1659,9 @@ function ResourcePageBody<
         data-testid="resource-list-row"
         className="flex items-start gap-2 cursor-pointer"
         onClick={(e) => {
+          // A click from a portal (a dialog or menu a cell opened) bubbles here through React, not
+          // the DOM: it is never the row's.
+          if (!e.currentTarget.contains(e.target as Node)) return;
           const control = (e.target as HTMLElement).closest(NESTED_CONTROL);
           if (control && e.currentTarget.contains(control)) return;
           handleRowClick(item);
@@ -1652,16 +1669,16 @@ function ResourcePageBody<
       >
         {content}
         <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="-my-1 shrink-0"
-            aria-label={fillMessage(m.common.openItem, { name: titleVal }).trim()}
-            data-testid="resource-list-row-open"
-            onClick={() => handleRowClick(item)}
-          >
-            <ChevronRight aria-hidden="true" />
-          </Button>
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="-my-1 shrink-0"
+          aria-label={fillMessage(m.common.openItem, { name: titleVal }).trim()}
+          data-testid="resource-list-row-open"
+          onClick={() => handleRowClick(item)}
+        >
+          <ChevronRight aria-hidden="true" />
+        </Button>
       </div>
     );
   };
@@ -1677,8 +1694,7 @@ function ResourcePageBody<
   return (
     // What this list renders inside (its peek, its forms, a list in them) measures its own width:
     // the narrow flag of this list's frame stops here, portals included.
-    <ListFrameRefContext.Provider value={undefined}>
-    <ListNarrowContext.Provider value={undefined}>
+    <ListScopeEnd>
     <Shell
       {...(frameRef && Shell === DataPageShell ? { rootRef: frameRef as never } : {})}
       title={title}
@@ -2194,7 +2210,6 @@ function ResourcePageBody<
           slotProps?.deleteDialog,
         )}
       {dialogs}
-    </ListNarrowContext.Provider>
-    </ListFrameRefContext.Provider>
+    </ListScopeEnd>
   );
 }

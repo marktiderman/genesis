@@ -81,3 +81,17 @@ describe("useViewPreference with a measured list", () => {
     expect(result.current[0]).toBe("table");
   });
 });
+
+describe("a pick made in a narrow panel", () => {
+  it("is kept apart from the same list's pick at full width", () => {
+    const narrowWrap = ({ children }: { children: ReactNode }) => <ListNarrowContext.Provider value={true}>{children}</ListNarrowContext.Provider>;
+    const wideWrap = ({ children }: { children: ReactNode }) => <ListNarrowContext.Provider value={false}>{children}</ListNarrowContext.Provider>;
+    const wide = renderHook(() => useViewPreference("tasks", { mobile: "list", desktop: "table" }), { wrapper: wideWrap });
+    act(() => wide.result.current[1]("grid"));
+    const narrow = renderHook(() => useViewPreference("tasks", { mobile: "list", desktop: "table" }), { wrapper: narrowWrap });
+    expect(narrow.result.current[0]).toBe("list");
+    act(() => narrow.result.current[1]("table"));
+    expect(narrow.result.current[0]).toBe("table");
+    expect(wide.result.current[0]).toBe("grid");
+  });
+});

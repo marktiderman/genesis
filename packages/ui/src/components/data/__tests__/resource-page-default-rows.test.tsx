@@ -11,6 +11,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GenesisProvider } from "../../../provider";
 import { ResourcePage, type ResourcePageProps } from "../ResourcePage";
+import { Dialog, DialogContent, DialogTitle } from "../../ui/dialog";
+import type { ReactNode } from "react";
 
 interface Member {
   [key: string]: unknown;
@@ -196,5 +198,45 @@ describe("a list row with a link a cell draws (no keepInList)", () => {
     const row = await screen.findByTestId("resource-list-row");
     expect(within(row).queryByTestId("resource-list-row-open")).toBeNull();
     expect(row.className).not.toContain("cursor-pointer");
+  });
+});
+
+describe("a list row ignores clicks that aren't its own", () => {
+  function renderWith(cell: (m: Member) => ReactNode, onNavigate = vi.fn()) {
+    render(
+      <GenesisProvider mock={{ datasets: { members } }}>
+        <ResourcePage<Member>
+          resource="members"
+          title="Members"
+          defaultView="list"
+          titleField="first"
+          detail="route"
+          onNavigate={onNavigate}
+          columns={["first", { key: "act", header: "", keepInList: true, render: cell }]}
+        />
+      </GenesisProvider>,
+    );
+    return onNavigate;
+  }
+
+  it("never opens from a click inside a dialog a cell opened (a portal)", async () => {
+    const onNavigate = renderWith(() => (
+      <Dialog open>
+        <DialogContent>
+          <DialogTitle>Sure?</DialogTitle>
+          <button type="button" data-testid="confirm">Confirm</button>
+        </DialogContent>
+      </Dialog>
+    ));
+    await screen.findByTestId("resource-list-row");
+    fireEvent.click(await screen.findByTestId("confirm"));
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it("leaves a slider (or any ARIA control) its own clicks", async () => {
+    const onNavigate = renderWith(() => <div role="slider" aria-valuenow={1} tabIndex={0} data-testid="slider" />);
+    const row = await screen.findByTestId("resource-list-row");
+    fireEvent.click(within(row).getByTestId("slider"));
+    expect(onNavigate).not.toHaveBeenCalled();
   });
 });

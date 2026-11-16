@@ -47,6 +47,9 @@ const ChipGroupContext = React.createContext<{ selected: (value: string) => bool
  *
  * @stability Beta
  */
+/** A gap class of the caller's own, plain or behind a variant (`gap-3`, `sm:gap-x-1`). */
+const OWN_GAP = /(^|\s)([\w-]+:)*gap-/;
+
 export function ChipGroup(props: ChipGroupProps) {
   const { disabled = false, className, children, testID = "chip-group" } = props;
   const common = {
@@ -54,9 +57,9 @@ export function ChipGroup(props: ChipGroupProps) {
     "aria-label": props["aria-label"],
     "data-slot": "chip-group",
     "data-testid": testID,
-    // On touch wrapped rows sit far enough apart that one chip's hit area (touchTarget) doesn't land
-    // on the chip below. A caller's own gap wins.
-    className: cn("flex flex-wrap gap-2", !/(^|\s)gap-/.test(className ?? "") && "pointer-coarse:gap-y-5", className),
+    // On touch, chips sit far enough apart (16px across, 24px between rows, a 22px chip) that one
+    // chip's hit area (touchTarget) doesn't land on the next. A caller's own gap, at any size, wins.
+    className: cn("flex flex-wrap gap-2", !OWN_GAP.test(className ?? "") && "pointer-coarse:gap-x-4 pointer-coarse:gap-y-6", className),
   };
   if (props.mode === "single") {
     const { value, onChange, allowEmpty = false } = props;

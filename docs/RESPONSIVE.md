@@ -10,7 +10,9 @@ the end.
 
 ## The ten rules
 
-Each rule says what the components do today. What they don't do yet is under "Known gaps".
+Each rule says what the components do today, or, where it says "an app", what an app on Genesis does
+(rules 6, 7, 9 and 10 have parts that are the app's). What the components don't do yet is under
+"Known gaps".
 
 1. **The shell answers to the viewport; a list answers to its own width too.** AppShell
    switches on the viewport: a header and bottom tab bar below `md` (768px), the rail from `md`,
@@ -31,16 +33,18 @@ Each rule says what the components do today. What they don't do yet is under "Kn
    RadioGroup and ChipGroup space their items (unless the app sets a gap) so one's hit area doesn't
    land on the next, and a
    table's selection column widens so the checkbox's area stays inside it.
-4. **A list turns into rows when it is narrow.** A list is narrow on a phone (a viewport below
-   768px, in either orientation) and, inside a `ResourceView`, when its own frame is under
-   40rem. There a responsive default (`{ mobile, desktop }`, or an app's `phoneMode`) takes its
-   narrow side, `phoneMode` covers page and embedded lists alike, and cards stack in one column.
+4. **A list turns into rows when it is narrow, where the app asks for it.** A list is narrow on a
+   viewport below 768px (a phone held upright) and, inside a `ResourceView`, when its own frame is
+   under 40rem. There a responsive default (`{ mobile, desktop }`, or an app's `phoneMode`) takes
+   its narrow side; without either, a list stays a table everywhere, `phoneMode` covers page and embedded lists alike, and cards stack in one column.
    A row keeps whatever the screen drew in a cell (`cells`): a custom title cell (a link, reorder
    buttons) is the row's title, and an action column (Restore) shows beside the first three
    columns. A list row or card is never a button itself (a cell may draw a link): a row opens from
    its own Open button and a card from its title, so the controls in them stay reachable by
    keyboard and screen reader, and a click on one never opens the row. A list whose point is its columns (a sheet, a
-   comparison grid) says so with its own `mode` and scrolls inside its frame.
+   comparison grid) says so with its own `mode` and scrolls inside its frame. A pick a person makes
+   while a list is narrow only by its frame is kept apart from their pick for the same list at full
+   width.
 5. **The overlay fits the job.** A short confirmation is the centred dialog. A picker or a short
    form docks to the bottom on a phone (`DialogContent mobileLayout="sheet"`). A long form, an
    editor or media fills the screen (`mobileLayout="fullscreen"`). Side sheets (a record's form,
@@ -72,6 +76,16 @@ Each rule says what the components do today. What they don't do yet is under "Kn
 
 ## Known gaps
 
+- A phone held sideways is wider than 768px. Its lists follow their frame instead (a table from
+  40rem).
+- Lists and the table's touch column are decided after hydration: the server renders the wide
+  layout, so a narrow list can draw a table for a moment before its rows.
+- `rootRef` measures a list only through the default `DataPageShell`; a custom `shell` slot isn't
+  measured, so its list follows the viewport.
+- A list's `toolbar` wraps as one item: a toolbar's own row of controls should wrap itself
+  (`flex-wrap`).
+- A touch hit area is cut short by an ancestor that clips overflow, and in a compact table row the
+  checkbox's area is the height of its cell.
 - Only lists answer to their own width. Card walls, form grids and toolbars outside a list still
   switch on the viewport; moving them to container queries is the next step.
 - Safari ignores `interactive-widget`, so there the keyboard can cover a sheet's footer; a
