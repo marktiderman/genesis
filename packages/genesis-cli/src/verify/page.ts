@@ -5,6 +5,7 @@
  * measured at rest.
  */
 import type { Page } from "@playwright/test";
+import { targetParts } from "./allow.js";
 import { domChecks, type DomFinding } from "./dom.js";
 import type { Viewport } from "./matrix.js";
 
@@ -63,8 +64,10 @@ export async function checkPage(page: Page, opts: CheckPageOptions): Promise<Fin
       const selector = node.target.map(String).join(" ");
       // axe names some elements only by a generated id (Radix's #radix-…), which changes between
       // renders: describe those by tag, slot or role and accessible name instead.
-      // A selector that is only a bare tag (`a`, `button`) doesn't say which one: described too.
-      const bare = /^[a-z][a-z0-9-]*$/.test(selector.trim());
+      // A selector that's only tags once its volatile parts are gone (`a[title="Details"]`, a
+      // calendar's `button[data-day="11/1/2026"]`) doesn't say which element: described too.
+      // (An aria-label names it: the allow list holds to that, so it stays.)
+      const bare = !/\[aria-label/.test(selector) && targetParts(selector).parts.every((p) => /^[a-z][a-z0-9-]*$/.test(p));
       const target = /#(?:radix-|_r_|_R_)/.test(selector) || bare ? await stableTarget(page, selector) : selector;
       // target-size can't see genesis-ui's touchTarget pseudo-element, which makes the hit area
       // 44px on a coarse pointer; a node that has one is dropped.
