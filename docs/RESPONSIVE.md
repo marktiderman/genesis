@@ -21,22 +21,24 @@ Each rule says what the components do today. What they don't do yet is under "Kn
 2. **Nothing scrolls the page sideways.** Every screen reflows at 320 CSS px wide (WCAG 1.4.10:
    1280px at 400% zoom). Only a data grid, a map or code may scroll sideways, inside its own
    frame. A page header keeps its title beside the actions, truncating it; when the actions (or
-   a list's toolbar in them) can't fit beside a 10rem title, they take their own line and wrap
-   within it rather than push past the edge.
+   a list's toolbar in them) can't fit beside 10rem of title (its icon included), they take their
+   own line and wrap within it rather than push past the edge.
 3. **Every target is big enough to hit.** At least 24×24 CSS px everywhere (WCAG 2.5.8), and a
    44×44px hit area on a coarse pointer (WCAG 2.5.5, Apple's 44pt). Buttons, inputs, selects,
    tabs and menu items grow to 44px under `pointer-coarse`. Switch, Checkbox, RadioGroupItem,
    a pressable Chip and ChipGroupItem keep their look and take an invisible 44px hit area
-   instead (`touchTarget`, from `@marktiderman/genesis-ui`), so desktop density stays; a table's
-   selection column widens on touch so that area stays inside it.
+   instead (`touchTarget`, from `@marktiderman/genesis-ui`), so desktop density stays. On touch,
+   RadioGroup and ChipGroup space their items so one's hit area doesn't land on the next, and a
+   table's selection column widens so the checkbox's area stays inside it.
 4. **A list turns into rows when it is narrow.** A list is narrow on a phone (a viewport below
    768px, in either orientation) and, inside a `ResourceView`, when its own frame is under
    40rem. There a responsive default (`{ mobile, desktop }`, or an app's `phoneMode`) takes its
    narrow side, `phoneMode` covers page and embedded lists alike, and cards stack in one column.
    A row keeps whatever the screen drew in a cell (`cells`): a custom title cell (a link, reorder
    buttons) is the row's title, and an action column (Restore) shows beside the first three
-   columns. Such a row isn't a button itself: it opens from its own Open button, so its controls
-   stay reachable by keyboard and screen reader. A list whose point is its columns (a sheet, a
+   columns. A list row or card is never a button itself (a cell may draw a link): a row opens from
+   its own Open button and a card from its title, so the controls in them stay reachable by
+   keyboard and screen reader, and a click on one never opens the row. A list whose point is its columns (a sheet, a
    comparison grid) says so with its own `mode` and scrolls inside its frame.
 5. **The overlay fits the job.** A short confirmation is the centred dialog. A picker or a short
    form docks to the bottom on a phone (`DialogContent mobileLayout="sheet"`). A long form, an

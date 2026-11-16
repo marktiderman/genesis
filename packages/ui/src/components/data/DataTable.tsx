@@ -65,6 +65,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "../ui/conte
 import { ChevronDown } from "lucide-react";
 import { cn } from "../../utils";
 import { fillMessage, useUiMessages } from "../../messages";
+import { useMediaQuery } from "../../hooks/use-mobile";
 import type { Density } from "../../hooks/use-view-settings";
 
 /* ── TanStack Table features ── */
@@ -856,9 +857,14 @@ export function DataTable<T>({
   }, [setSavedWidths]);
 
   const pinWidth = (key: string) => colWidths[key] ?? PINNED_WIDTH;
+  // The selection column: 40px, and 56px on a touch screen so the checkbox's 44px hit area
+  // (touchTarget) stays inside it. The column, the pinned offsets and the table's minimum width
+  // all read this one number.
+  const coarse = useMediaQuery("(pointer: coarse)");
+  const selectWidth = coarse ? 56 : 40;
   const pinned: Record<string, { side: "left" | "right"; offset: number }> = {};
   {
-    let left = selectable ? 40 : 0;
+    let left = selectable ? selectWidth : 0;
     for (const c of activeColumns) {
       if (!leftKeys.includes(c.key)) continue;
       pinned[c.key] = { side: "left", offset: left };
@@ -1341,7 +1347,7 @@ export function DataTable<T>({
   const tableMinWidth =
     minWidth === "auto"
       ? activeColumns.reduce((sum, col) => sum + (colWidths[col.key] ?? (pinned[col.key] ? PINNED_WIDTH : FLEX_MIN)), 0) +
-        (selectable ? 40 : 0) +
+        (selectable ? selectWidth : 0) +
         (renderActions ? 40 : 0)
       : minWidth;
 
@@ -1400,7 +1406,7 @@ export function DataTable<T>({
           {/* Fixed layout sizes columns from the first row: a <colgroup>
               gives each column its px width (the rest share what is left). */}
           <colgroup>
-            {selectable && <col style={{ width: 40 }} />}
+            {selectable && <col style={{ width: selectWidth }} />}
             {activeColumns.map((col) => {
               const w = colWidths[col.key] ?? (pinned[col.key] ? PINNED_WIDTH : undefined);
               return (
@@ -1421,8 +1427,7 @@ export function DataTable<T>({
             <TableRow aria-rowindex={virtualizing ? 1 : undefined}>
               {selectable && (
                 <TableHead
-                  // On touch the checkbox's 44px hit area (touchTarget) stays inside its own column.
-                  className={cn("w-10 pointer-coarse:w-14", headDensity, pinProps("__select", true)?.className)}
+                  className={cn("w-10", headDensity, pinProps("__select", true)?.className)}
                   style={pinProps("__select", true)?.style}
                 >
                   <Checkbox

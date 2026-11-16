@@ -44,7 +44,11 @@ beforeEach(() => {
   observers.length = 0;
   localStorage.clear();
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(() => width);
+  // The frame (display: contents) has no box: it measures 0, so only measuring the list's own root
+  // inside it can switch the list.
+  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
+    return this.getAttribute("data-slot") === "resource-view-frame" ? 0 : width;
+  });
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -62,10 +66,10 @@ function renderList() {
 }
 
 describe("ResourceView in a narrow frame", () => {
-  it("adds no box: the frame is display: contents", () => {
+  it("adds no box: the frame is display: contents, inline", () => {
     width = 1000;
     const { container } = renderList();
-    expect(container.querySelector('[data-slot="resource-view-frame"]')?.className).toBe("contents");
+    expect((container.querySelector('[data-slot="resource-view-frame"]') as HTMLElement).style.display).toBe("contents");
   });
 
   it("draws rows in a 360px frame on a desktop viewport", async () => {

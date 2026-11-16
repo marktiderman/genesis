@@ -8,7 +8,7 @@ import {
   useEffect,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type ComponentProps,
   type ComponentType,
   type ReactNode,
@@ -1495,31 +1495,6 @@ function ResourcePageBody<
     open: () => handleRowClick(item),
   });
 
-  /**
-   * Props that turn a plain `div`/`Card` into a real activatable row: a tab
-   * stop, a button role, and Enter/Space activation to match the pointer
-   * click. Without these the default card is reachable by mouse and by the
-   * j/k cursor but not by Tab, which is the one path a keyboard-only user
-   * actually has.
-   *
-   * Enter does not double-fire against the list cursor: `useKeyboardNavigation`
-   * bails out whenever the event target owns its own keys, and `role="button"`
-   * is one of the roles it checks (covered by a test in
-   * `resource-page-render-card-keyboard-nav.test.tsx`).
-   */
-  const rowActivationProps = (item: T, label: string, testId: string) => ({
-    role: "button",
-    tabIndex: 0,
-    "aria-label": label || undefined,
-    "data-testid": testId,
-    onClick: () => handleRowClick(item),
-    onKeyDown: (e: ReactKeyboardEvent<HTMLElement>) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        handleRowClick(item);
-      }
-    },
-  });
 
   /**
    * A column's cell for the default card and row: the column's own `render` with the value its
@@ -1553,12 +1528,35 @@ function ResourcePageBody<
     // Remaining metadata columns (skip badge, price)
     const metaCols = cols.filter((c) => c !== badgeCol && c !== priceCol);
     return (
+      // Never a button itself: a cell may draw a link (WCAG 4.1.2). The title is the card's open
+      // button; a pointer click on the rest of the card opens it too, never one on a control.
       <Card
-        {...rowActivationProps(item, titleVal, "resource-card")}
-        className="h-full cursor-pointer hover:shadow-md motion-safe:transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        data-testid="resource-card"
+        className={cn("h-full", detail !== "none" && "cursor-pointer hover:shadow-md motion-safe:transition-shadow focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background")}
+        {...(detail !== "none"
+          ? {
+              onClick: (e: ReactMouseEvent<HTMLElement>) => {
+                if ((e.target as HTMLElement).closest(ROW_CONTROL)) return;
+                handleRowClick(item);
+              },
+            }
+          : {})}
       >
         <CardHeader className="pb-2">
-          <CardTitle className="text-base truncate">{titleVal}</CardTitle>
+          <CardTitle className="text-base truncate">
+            {detail !== "none" ? (
+              <button
+                type="button"
+                className="max-w-full truncate text-left focus-visible:outline-none"
+                data-testid="resource-card-open"
+                onClick={() => handleRowClick(item)}
+              >
+                {titleVal}
+              </button>
+            ) : (
+              titleVal
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -1628,21 +1626,18 @@ function ResourcePageBody<
     ) : (
       body
     );
-    // A row with no controls of its own is one activatable control, as before.
-    if (!titleCol && !cols.some((c) => c.keepInList)) {
+    // A list row is never a button itself: a cell may hold a link (a URL or email field draws one)
+    // or the screen's own controls, and a control inside a button can't be reached by a screen
+    // reader (WCAG 4.1.2) and has its Enter taken by the row. As DataTable does, the row opens from
+    // its own Open button; a pointer click on the rest of the row opens it too, never one that lands
+    // on a control. With no detail to open, the row is plain text.
+    if (detail === "none") {
       return (
-        <div
-          {...rowActivationProps(item, titleVal, "resource-list-row")}
-          className="flex items-start cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-        >
+        <div data-testid="resource-list-row" className="flex items-start">
           {content}
         </div>
       );
     }
-    // A row holding the screen's own controls (a link, Restore, Move up) isn't a button itself: a
-    // control inside a button can't be reached by a screen reader (WCAG 4.1.2) and its Enter would
-    // open the row. As DataTable does, the row opens from its own Open button; a pointer click on
-    // the rest of the row opens it too, and never one that lands on a control.
     return (
       <div
         data-testid="resource-list-row"
@@ -1653,7 +1648,7 @@ function ResourcePageBody<
         }}
       >
         {content}
-        {detail !== "none" ? (
+        {(
           <Button
             type="button"
             variant="ghost"
@@ -1665,7 +1660,7 @@ function ResourcePageBody<
           >
             <ChevronRight aria-hidden="true" />
           </Button>
-        ) : null}
+        )}
       </div>
     );
   };

@@ -51,7 +51,7 @@ describe("ResourcePage default list row", () => {
   it("titles the row by titleField, not the first column, and leaves the id out", async () => {
     renderMembers("list");
     const row = await screen.findByTestId("resource-list-row");
-    expect(row.getAttribute("aria-label")).toBe("ada@acme.example");
+    expect(within(row).getByTestId("resource-list-row-open").getAttribute("aria-label")).toContain("ada@acme.example");
     const title = row.querySelector(".line-clamp-2")!;
     expect(title.textContent).toBe("ada@acme.example");
     // The title column isn't a cell too; the id is a cell, never the title.
@@ -81,7 +81,8 @@ describe("ResourcePage default list row", () => {
   it("takes getTitle over titleField", async () => {
     renderMembers("list", { getTitle: (m) => `${m.first} ${m.last}` });
     const row = await screen.findByTestId("resource-list-row");
-    expect(row.getAttribute("aria-label")).toBe("Ada Lovelace");
+    expect(row.querySelector(".line-clamp-2")!.textContent).toBe("Ada Lovelace");
+    expect(within(row).getByTestId("resource-list-row-open").getAttribute("aria-label")).toContain("Ada Lovelace");
   });
 });
 
@@ -89,7 +90,7 @@ describe("ResourcePage default card", () => {
   it("titles the card by titleField and renders computed columns", async () => {
     renderMembers("grid");
     const card = await screen.findByTestId("resource-card");
-    expect(card.getAttribute("aria-label")).toBe("ada@acme.example");
+    expect(within(card).getByTestId("resource-card-open").textContent).toBe("ada@acme.example");
     expect(card.textContent).toContain("Ada Lovelace");
     expect(within(card).getByTestId("visits-cell").textContent).toBe("3 visits");
     // The email is the title, once.
@@ -159,5 +160,41 @@ describe("a list row keeps the cells the screen drew itself (keepInList)", () =>
     // A click on the row's plain text still opens it.
     fireEvent.click(row.querySelector('[data-column="full_name"]')!);
     expect(onNavigate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a list row with a link a cell draws (no keepInList)", () => {
+  function renderLinked(detail: "route" | "none", onNavigate = vi.fn()) {
+    render(
+      <GenesisProvider mock={{ datasets: { members } }}>
+        <ResourcePage<Member>
+          resource="members"
+          title="Members"
+          defaultView="list"
+          titleField="first"
+          detail={detail}
+          onNavigate={onNavigate}
+          columns={["first", { key: "email", header: "Email", render: (m) => <a href={`mailto:${m.email}`} data-testid="mail">{m.email}</a> }]}
+        />
+      </GenesisProvider>,
+    );
+    return onNavigate;
+  }
+
+  it("isn't a button around the link, and a click on the link never opens the row", async () => {
+    const onNavigate = renderLinked("route");
+    const row = await screen.findByTestId("resource-list-row");
+    expect(row.getAttribute("role")).toBeNull();
+    fireEvent.click(within(row).getByTestId("mail"));
+    expect(onNavigate).not.toHaveBeenCalled();
+    fireEvent.click(within(row).getByTestId("resource-list-row-open"));
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it("with nothing to open, has no Open button and doesn't look clickable", async () => {
+    renderLinked("none");
+    const row = await screen.findByTestId("resource-list-row");
+    expect(within(row).queryByTestId("resource-list-row-open")).toBeNull();
+    expect(row.className).not.toContain("cursor-pointer");
   });
 });
