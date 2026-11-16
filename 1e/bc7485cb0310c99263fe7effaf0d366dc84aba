@@ -1,0 +1,19 @@
+apps/sample/stories/ResourceViewLists.stories.tsx
+  s_26dce1f7c35112::t_2455d36e7d2b62 124-161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1ebc7485cb0310c99263fe7effaf0d366dc84aba",
+  "prompts": {},
+  "sessions": {
+    "s_26dce1f7c35112": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ed8947e6-a9d3-4362-bb5c-29e73628efa4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
