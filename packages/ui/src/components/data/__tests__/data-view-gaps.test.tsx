@@ -344,7 +344,8 @@ describe("a click from a portal never opens the item behind it", () => {
         )}
       />,
     );
-    fireEvent.click(screen.getByTestId("confirm"));
+    // The dialog's title, not a control: only the portal guard keeps it from opening the item.
+    fireEvent.click(screen.getByText("Sure?"));
     expect(onItemClick).not.toHaveBeenCalled();
   });
 

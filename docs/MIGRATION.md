@@ -45,6 +45,9 @@ API behaves, so this is a major. Packages that peer-depend on genesis-ui take 2.
   16px and its minimum width grows.
 - **A gallery view's list and table** no longer get the gallery's item click; rows open once,
   from their own button.
+- **`scrollRoot="window"` sets the page's scroll padding.** While mounted, AppShell writes an
+  inline `scroll-padding-top`/`-bottom` on `<html>` for its bars, which overrides a
+  `scroll-padding` rule of the app's own on `html`.
 
 🟢 **New, optional:** `touchTarget` (beside `cn`), `useListWidth` and `LIST_NARROW_REM`
 (`hooks/use-list-width`), `keepInList` on a ResourcePage column (ResourceView sets it for
