@@ -35,6 +35,7 @@ export default defineConfig([
       index: "src/index.ts",
       scaffolder: "src/scaffolder.ts",
       doctor: "src/doctor/index.ts",
+      verify: "src/verify/index.ts",
       vite: "src/vite.ts",
       expo: "src/expo.ts",
     },
@@ -48,7 +49,7 @@ export default defineConfig([
     minify: false,
     target: "es2022",
     outExtension: () => ({ js: ".js" }),
-    external: ["commander", "postgres", "jiti", /^@marktiderman\//, /^@expo\//, "vite"],
+    external: ["commander", "postgres", "jiti", /^@marktiderman\//, /^@expo\//, "vite", /^@playwright\//, /^@axe-core\//, "playwright"],
   },
   {
     // The lint pieces apps load from eslint.config.js, which is often CommonJS: built for require and import.

@@ -20,13 +20,13 @@
     "studio:supabase": "cd studio/supabase-demo && supabase start && node seed.mjs",
     "studio:adopt": "node studio/supabase-demo/adopt.mjs",
     "dev:supabase": "react-router dev --mode supabase",
-    "studio:contract": "genesis introspect --database-env STUDIO_CONTRACT_DATABASE_URL --out studio/resources.genesis.ts"
+    "studio:contract": "genesis introspect --database-env STUDIO_CONTRACT_DATABASE_URL --out studio/resources.genesis.ts",
+    "conformance": "playwright test -c conformance/playwright.config.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.1",
     "@marktiderman/genesis-ai": "workspace:^",
     "@marktiderman/genesis-chat": "workspace:^",
-    "@marktiderman/genesis-support": "workspace:^",
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-design-system": "workspace:^",
     "@marktiderman/genesis-features": "workspace:^",
@@ -39,6 +39,7 @@
     "@marktiderman/genesis-sites": "workspace:^",
     "@marktiderman/genesis-studio": "workspace:^",
     "@marktiderman/genesis-studio-server": "workspace:^",
+    "@marktiderman/genesis-support": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
     "@puckeditor/core": "^0.24.0",
     "@radix-ui/react-accordion": "^1.2.0",
@@ -92,8 +93,10 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@marktiderman/genesis-cli": "workspace:^",
     "@marktiderman/genesis-supabase": "workspace:^",
+    "@playwright/test": "~1.65.1",
     "@react-router/dev": "8.5.1",
     "@storybook/addon-a11y": "^10.6.3",
     "@storybook/addon-docs": "^10.6.3",
@@ -105,10 +108,10 @@
     "@types/react-dom": "^19.3.0",
     "@vitest/browser": "^5.0.5",
     "@vitest/browser-playwright": "^5.0.5",
+    "axe-core": "^4.14.0",
     "chromatic": "^18.13.2",
     "jose": "^6.2.12",
-    "axe-core": "^4.14.0",
-    "playwright": "~1.65.0",
+    "playwright": "~1.65.1",
     "postgres": "^4.1.0",
     "react-docgen-typescript": "^2.4.0",
     "storybook": "^10.6.3",

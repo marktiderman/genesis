@@ -48,3 +48,8 @@ Thumbs.db
 
 # Temp files
 .tmp-*
+
+# Playwright conformance run
+test-results/
+playwright-report/
+blob-report/

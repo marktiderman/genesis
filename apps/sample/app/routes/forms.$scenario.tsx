@@ -282,7 +282,7 @@ export default function FormsScenario() {
 export function ErrorBoundary() {
   const error = useRouteError();
   return (
-    <div role="alert" className="space-y-1 rounded-md border border-destructive/50 p-4 text-sm">
+    <div role="alert" data-error-boundary className="space-y-1 rounded-md border border-destructive/50 p-4 text-sm">
       <p className="font-medium text-destructive">This scenario could not be shown.</p>
       <p className="font-mono text-xs text-muted-foreground">{error instanceof Error ? error.message : String(error)}</p>
     </div>

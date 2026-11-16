@@ -1,0 +1,89 @@
+/**
+ * What the conformance run visits: every page of the built sample (its sitemap) and every story
+ * (Storybook's index.json). The per-PR scope keeps one page per route pattern (React Router's
+ * manifest); the full scope (nightly) keeps every page. A route pattern with no page in the
+ * sitemap is reported as skipped, never dropped silently.
+ */
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { flattenReactRouterRoutes, onePathPerPattern, patternFor, type RoutePattern } from "@marktiderman/genesis-cli/verify";
+
+export const SAMPLE_DIR = join(import.meta.dirname, "..");
+export const SITE_DIR = join(SAMPLE_DIR, "build", "client");
+export const STORYBOOK_DIR = join(SAMPLE_DIR, "storybook-static");
+
+export const PORTS = { site: 4310, storybook: 4311 };
+export const ORIGINS = { site: `http://127.0.0.1:${PORTS.site}`, storybook: `http://127.0.0.1:${PORTS.storybook}` };
+
+export type Scope = "pr" | "full";
+export const SCOPE: Scope = process.env.CONFORMANCE_SCOPE === "full" ? "full" : "pr";
+
+export interface Target {
+  /** The id in reports and allow entries: a path (`/items`) or `story:<id>`. */
+  id: string;
+  kind: "route" | "story";
+  url: string;
+}
+
+/** A run that finds fewer pages than this read a broken sitemap or index; it fails rather than pass empty. */
+const MIN_ROUTES = 20;
+const MIN_STORIES = 100;
+
+/**
+ * React Router's manifest as the build job writes it (`react-router routes --json`, which loads the
+ * app's config and so needs every package built). CI's shards get it in the build artifact.
+ */
+export const ROUTES_MANIFEST = join(SAMPLE_DIR, "build", "routes.json");
+
+/** The sample's route patterns, from React Router's manifest, cached for the workers. */
+function routePatterns(): RoutePattern[] {
+  // In CI, the manifest the build job wrote for this commit. Locally, React Router's own command,
+  // so a route edit is never answered from an old manifest. The cache shares the result with the
+  // workers, keyed by the content it came from (not modification times).
+  const routesFile = join(SAMPLE_DIR, "app", "routes.ts");
+  const fromManifest = !!process.env.CI && existsSync(ROUTES_MANIFEST);
+  const source = fromManifest ? readFileSync(ROUTES_MANIFEST, "utf8") : existsSync(routesFile) ? readFileSync(routesFile, "utf8") : "";
+  const inputs = createHash("sha256").update(fromManifest ? "manifest\n" : "routes.ts\n").update(source).digest("hex");
+  const cache = join(SAMPLE_DIR, "test-results", "conformance-routes.json");
+  if (existsSync(cache)) {
+    const cached = JSON.parse(readFileSync(cache, "utf8")) as { inputs: string; patterns: RoutePattern[] };
+    if (cached.inputs === inputs) return cached.patterns;
+  }
+  const json = fromManifest ? source : execFileSync("pnpm", ["exec", "react-router", "routes", "--json"], { cwd: SAMPLE_DIR, encoding: "utf8" });
+  const patterns = flattenReactRouterRoutes(JSON.parse(json));
+  mkdirSync(dirname(cache), { recursive: true });
+  writeFileSync(cache, JSON.stringify({ inputs, patterns }));
+  return patterns;
+}
+
+export function sitemapPaths(): string[] {
+  const sitemap = join(SITE_DIR, "sitemap.xml");
+  if (!existsSync(sitemap)) throw new Error("No sample build: run `pnpm --filter sample build` first.");
+  return [...readFileSync(sitemap, "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);
+}
+
+/** Route patterns no sitemap page reaches: reported as skipped. */
+export function unvisitedPatterns(): string[] {
+  const patterns = routePatterns();
+  const reached = new Set(sitemapPaths().map((p) => patternFor(p, patterns)?.pattern));
+  return patterns.map((p) => p.pattern).filter((p) => !reached.has(p));
+}
+
+export function routeTargets(scope: Scope = SCOPE): Target[] {
+  const paths = sitemapPaths();
+  const kept = scope === "full" ? paths : onePathPerPattern(paths, routePatterns());
+  if (paths.length < MIN_ROUTES) throw new Error(`The sitemap lists ${paths.length} pages, under ${MIN_ROUTES}: a broken build.`);
+  return kept.map((p) => ({ id: p, kind: "route", url: p }));
+}
+
+export function storyTargets(): Target[] {
+  const index = join(STORYBOOK_DIR, "index.json");
+  if (!existsSync(index)) throw new Error("No Storybook build: run `pnpm --filter sample build-storybook` first.");
+  const { entries } = JSON.parse(readFileSync(index, "utf8")) as { entries: Record<string, { id: string; type: string }> };
+  const stories = Object.values(entries).filter((e) => e.type === "story");
+  if (stories.length < MIN_STORIES) throw new Error(`Storybook's index lists ${stories.length} stories, under ${MIN_STORIES}: a broken build.`);
+  return stories
+    .map((e) => ({ id: `story:${e.id}`, kind: "story", url: `/iframe.html?id=${encodeURIComponent(e.id)}&viewMode=story` }));
+}

@@ -1,0 +1,39 @@
+/**
+ * Fails a pull request whose conformance allow list grows against its base: a new finding is fixed,
+ * not allowed. An entry may be added only with the PR label `conformance: allow grows` and a
+ * reason the reviewer accepts (the workflow passes ALLOW_GROWS=1 when the label is on).
+ *
+ *   tsx conformance/allow-grew.ts <base ref>
+ */
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { entryCovers, type AllowEntry } from "@marktiderman/genesis-cli/verify";
+
+const base = process.argv[2];
+if (!base) throw new Error("usage: tsx conformance/allow-grew.ts <base ref>");
+
+
+const here = JSON.parse(readFileSync(join(import.meta.dirname, "allow.json"), "utf8")).allow as AllowEntry[];
+let before: AllowEntry[] = [];
+let raw: string | undefined;
+try {
+  raw = execFileSync("git", ["show", `${base}:apps/sample/conformance/allow.json`], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+} catch (error) {
+  const stderr = String((error as { stderr?: unknown }).stderr ?? "");
+  // No list on the base yet: every entry here is new, and the label is still required.
+  if (!/does not exist|exists on disk, but not in/.test(stderr)) throw error;
+}
+if (raw !== undefined) before = JSON.parse(raw).allow;
+// Growth is an entry no base entry already allows; narrowing an entry (a target, fewer viewports) isn't.
+const added = here.filter((e) => !before.some((b) => entryCovers(b, e)));
+if (!added.length) {
+  console.log(`The allow list didn't grow (${before.length} → ${here.length}).`);
+} else if (process.env.ALLOW_GROWS === "1") {
+  console.log(`The allow list grows by ${added.length}, with the "conformance: allow grows" label:\n${added.map((e) => `- ${e.check} on ${e.page}: ${e.reason}`).join("\n")}`);
+} else {
+  console.error(
+    `The conformance allow list grows by ${added.length}. Fix the findings, or add the label "conformance: allow grows" with a reason the reviewer accepts:\n${added.map((e) => `- ${e.check}${e.rule ? `/${e.rule}` : ""} on ${e.page}`).join("\n")}`,
+  );
+  process.exit(1);
+}
