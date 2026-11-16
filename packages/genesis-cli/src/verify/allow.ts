@@ -56,11 +56,6 @@ export function targetParts(target: string): { parts: string[]; name?: string } 
   return { parts, name: named?.[1] };
 }
 
-/**
- * Whether an entry's target names a finding's element: its accessible name exactly, or the trailing
- * selector parts of the finding's path, each part whole. Never a substring: `html` doesn't match
- * `[data-slot="html-preview"]`, and `#tabs` doesn't match `#tabs-2`.
- */
 /** An `[aria-label=…]` in a selector part: stripped for the base comparison, but held to when an entry names one. */
 const ARIA_LABEL = /\[aria-label(?:[~|^$*]?=(?:"[^"]*"|'[^']*'|[^\]]*))?\]/g;
 
@@ -69,6 +64,12 @@ function rawParts(target: string): string[] {
   return (named ? target.slice(0, named.index) : target).split(">").map((p) => p.trim()).filter(Boolean);
 }
 
+/**
+ * Whether an entry's target names a finding's element: its accessible name exactly, or the trailing
+ * selector parts of the finding's path, each part whole. Never a substring: `html` doesn't match
+ * `[data-slot="html-preview"]`, and `#tabs` doesn't match `#tabs-2`. An entry that names an
+ * `[aria-label=…]` covers only findings with that same label (a Save entry never covers Delete).
+ */
 export function matchesTarget(entryTarget: string, findingTarget: string | undefined): boolean {
   if (!findingTarget) return false;
   const found = targetParts(findingTarget);
