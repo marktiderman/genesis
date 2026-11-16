@@ -216,3 +216,19 @@ describe("DataTable open button beside interactive cell content", () => {
     }
   });
 });
+
+describe("DataTable keeps focus clear of its sticky pager (WCAG 2.4.11)", () => {
+  it("gives everything in the body a scroll margin the pager's height", () => {
+    const height = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute("data-testid") === "data-table-pager" ? 52 : 0;
+    });
+    try {
+      const { container } = render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} />);
+      const body = container.querySelector("tbody")!;
+      expect(body.getAttribute("class")).toContain("[&_*]:scroll-mb-[var(--data-table-pager-height,0px)]");
+      expect(body.style.getPropertyValue("--data-table-pager-height")).toBe("52px");
+    } finally {
+      height.mockRestore();
+    }
+  });
+});

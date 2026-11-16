@@ -1758,6 +1758,24 @@ export function AppShell({
   const isPhone = useIsMobile();
   const endOnPhone = showTabs && showMobileBottom && isPhone && subNavChannel.hasEnd;
 
+  // Keyboard focus never comes to rest under the shell's own bars (WCAG 2.4.11; docs/RESPONSIVE.md,
+  // rule 7): the scroller keeps a scroll padding the size of the phone's bottom bar and, when the
+  // window scrolls, of the sticky header. A container scroller gets it as classes on <main> below;
+  // the window gets it on <html> while this shell is mounted.
+  const headerShows = bottomBar || isPhone;
+  const barShows = showMobileBottom && (bottomBar || isPhone);
+  useEffect(() => {
+    if (!scrollWindow || typeof document === "undefined") return;
+    const root = document.documentElement.style;
+    const before = { top: root.scrollPaddingTop, bottom: root.scrollPaddingBottom };
+    root.scrollPaddingTop = headerShows ? "calc(3.5rem + env(safe-area-inset-top))" : "";
+    root.scrollPaddingBottom = barShows ? "calc(4rem + env(safe-area-inset-bottom))" : "";
+    return () => {
+      root.scrollPaddingTop = before.top;
+      root.scrollPaddingBottom = before.bottom;
+    };
+  }, [scrollWindow, headerShows, barShows]);
+
   const optionsControl =
     resolved.configurable && toggles.length > 0 ? (
       <Popover>
@@ -2154,7 +2172,12 @@ export function AppShell({
             "flex-1",
             !scrollWindow && "overflow-y-auto",
             showMobileBottom
-              ? cn("pb-[calc(4rem+env(safe-area-inset-bottom))]", !bottomBar && "md:pb-0")
+              ? cn(
+                  "pb-[calc(4rem+env(safe-area-inset-bottom))]",
+                  // Focus scrolled into view stops above the bottom bar, not under it.
+                  !scrollWindow && "scroll-pb-[calc(4rem+env(safe-area-inset-bottom))]",
+                  !bottomBar && "md:pb-0 md:scroll-pb-0",
+                )
               : "pb-0",
             "print:overflow-visible print:pb-0",
           )}

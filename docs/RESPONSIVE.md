@@ -53,7 +53,10 @@ Each rule says what the components do today. What they don't do yet is under "Kn
    support it (see Known gaps).
 7. **Everything fixed to an edge pads for the safe area.** The header, the tab bar, sheets and
    dialogs pad with `env(safe-area-inset-*)`. The insets are zero unless the app's viewport meta
-   has `viewport-fit=cover`.
+   has `viewport-fit=cover`. Keyboard focus never comes to rest under a fixed or sticky bar
+   (WCAG 2.4.11): AppShell's scroller keeps a scroll padding the size of the phone's bottom bar (and
+   of the sticky header when the window scrolls), and a table's rows keep a scroll margin the height
+   of its sticky pager.
 8. **Nothing hides behind hover.** Hover styles apply only where hover exists (Tailwind 4's
    `hover:`); an action shown on hover has a tap and keyboard path too (a row menu, the peek).
 9. **One floating control at most, and it never covers.** On a phone with a bottom tab bar, put

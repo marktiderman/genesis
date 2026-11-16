@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  type CSSProperties,
   type ReactNode,
 } from "react";
 import {
@@ -862,6 +863,18 @@ export function DataTable<T>({
   // all read this one number.
   const coarse = useMediaQuery("(pointer: coarse)");
   const selectWidth = coarse ? 56 : 40;
+  // The sticky pager's height, so rows can keep focus clear of it (the body's scroll margin).
+  const pagerRef = useRef<HTMLDivElement | null>(null);
+  const [pagerHeight, setPagerHeight] = useState(0);
+  useEffect(() => {
+    const el = pagerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setPagerHeight(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [pagination]);
   const pinned: Record<string, { side: "left" | "right"; offset: number }> = {};
   {
     let left = selectable ? selectWidth : 0;
@@ -1588,7 +1601,12 @@ export function DataTable<T>({
               )}
             </TableRow>
           </TableHeader>
-          <TableBody ref={bodyRef}>
+          <TableBody
+            ref={bodyRef}
+            // Focus scrolled into view stops above the sticky pager, never under it (WCAG 2.4.11).
+            className="[&_*]:scroll-mb-[var(--data-table-pager-height,0px)]"
+            style={pagerHeight ? ({ "--data-table-pager-height": `${pagerHeight}px` } as CSSProperties) : undefined}
+          >
             {displayItems.length === 0 ? (
               <TableRow>
                 <TableCell
@@ -1641,7 +1659,7 @@ export function DataTable<T>({
       {/* ── Pagination footer ── pinned to the bottom, so it's opaque (bg-card, the table's
           rounded corners): rows scrolling under it never show through. */}
       {pagination && (
-        <div data-testid="data-table-pager" className="sticky bottom-0 z-10 flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t bg-card rounded-b-lg text-xs text-muted-foreground">
+        <div ref={pagerRef} data-testid="data-table-pager" className="sticky bottom-0 z-10 flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t bg-card rounded-b-lg text-xs text-muted-foreground">
           <span>
             {totalItems === 0
               ? m.table.noRows

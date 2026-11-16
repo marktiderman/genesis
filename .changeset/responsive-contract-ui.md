@@ -9,6 +9,7 @@ The responsive contract (docs/RESPONSIVE.md):
 - **Default list rows and cards are never buttons themselves**, since a cell may draw a link. A row opens from its own Open button (`resource-list-row-open`) and a card from its title (`resource-card-open`); a click elsewhere on either still opens it, and a click on a control inside never does. With `detail="none"` they are plain.
 - **Side sheets fill a phone's width** below `sm` (`max-sm:w-full`) and stay `w-3/4 sm:max-w-sm` from there. AppShell's drawer and the inbox's views sheet stay `w-72` on a phone.
 - **PageHeader actions:** beside at least 10rem of title (its icon included) they keep their size and the title truncates, as before. When they can't fit, they move to their own line and wrap within it instead of pushing past the edge.
+- **Focus stays clear of bars** (WCAG 2.4.11): AppShell's scroller keeps a scroll padding the size of the phone's bottom bar, and of the sticky header when the window scrolls (set on `<html>` while the shell is mounted); DataTable's rows keep a scroll margin the height of its sticky pager.
 - **`touchTarget`** (exported beside `cn`) is an invisible 44×44px hit area on coarse pointers. Switch, Checkbox, RadioGroupItem, pressable Chip and ChipGroupItem use it. On touch, RadioGroup and ChipGroup space their items (unless you set a gap) so hit areas don't land on neighbours, and DataTable's selection column is 56px.
 
 What changes for you (docs/MIGRATION.md has the full entry):
