@@ -1,0 +1,21 @@
+packages/ui/src/components/layout/AppShell.tsx
+  s_26dce1f7c35112::t_a136ea27463793 489-491,1413-1414,1849-1851,1853-1855
+packages/ui/src/components/layout/__tests__/app-shell-sub-nav-levels.test.tsx
+  s_26dce1f7c35112::t_a46d82c49c3792 215-229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2d972d03bb25ca35f353b75c67d2e093ed642d63",
+  "prompts": {},
+  "sessions": {
+    "s_26dce1f7c35112": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ed8947e6-a9d3-4362-bb5c-29e73628efa4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
