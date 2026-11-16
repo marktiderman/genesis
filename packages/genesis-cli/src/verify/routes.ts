@@ -56,17 +56,20 @@ export function matchesPattern(pattern: string, path: string): boolean {
 }
 
 /**
- * React Router's route ranking: more segments rank higher; a static segment counts 10, a
- * parameter 3, an empty segment 1, and a splat takes 2 off.
+ * React Router's route ranking (`computeScore`): more segments rank higher; a static segment
+ * counts 10, a parameter 3, a parameter with a static part (`:name.json`) 3.5, an empty segment 1,
+ * and a splat takes 2 off. An optional segment (`:section?`) scores as its parameter.
  */
 function rank(pattern: string): number {
   const segs = pattern.split("/");
   let score = segs.length;
   if (segs.includes("*") || segs.includes("$")) score -= 2;
-  for (const seg of segs) {
-    if (seg === "*" || seg === "$") continue;
+  for (const raw of segs) {
+    if (raw === "*" || raw === "$") continue;
+    const seg = raw.endsWith("?") ? raw.slice(0, -1) : raw;
     if (seg === "") score += 1;
-    else if (/[:$][A-Za-z_]/.test(seg)) score += 3;
+    else if (/^[:$][A-Za-z_][\w-]*$/.test(seg)) score += 3;
+    else if (/[:$][A-Za-z_]/.test(seg)) score += 3.5;
     else score += 10;
   }
   return score;

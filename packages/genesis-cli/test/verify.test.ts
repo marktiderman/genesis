@@ -68,6 +68,10 @@ describe("verify routes", () => {
     expect(matchesPattern("/files/:name.json", "/files/report.csv")).toBe(false);
     expect(patternFor("/docs/api/start", more)?.pattern).toBe("/docs/:section/:page");
     expect(patternFor("/docs/overview", more)?.pattern).toBe("/docs/*");
+    // A parameter with a static suffix outranks a plain one, whichever is listed first.
+    const files = flattenReactRouterRoutes([{ id: "r", path: "", children: [{ id: "id", path: "files/:id" }, { id: "json", path: "files/:name.json" }] }]);
+    expect(patternFor("/files/report.json", files)?.pattern).toBe("/files/:name.json");
+    expect(patternFor("/files/report", files)?.pattern).toBe("/files/:id");
     const entry: AllowEntry = { check: "reflow", page: "/files/:name.json", reason: "x" };
     expect(applyAllow([entry], [{ check: "reflow", message: "m" }], { page: "/files/report.csv", viewport: "320", engine: "chromium" }).failing).toHaveLength(1);
   });
