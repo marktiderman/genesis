@@ -1,5 +1,11 @@
 # @marktiderman/genesis-studio
 
+## 0.4.3
+
+### Patch Changes
+
+- 13f6d59: The peer range on `@marktiderman/genesis-ui` now takes 3.x as well as 2.x (`>=2.x <4.0.0`), so this package works with genesis-ui 3 without a new major of its own.
+
 ## 0.4.2
 
 ### Patch Changes
