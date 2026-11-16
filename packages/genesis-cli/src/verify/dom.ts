@@ -145,6 +145,9 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
       const wide = el.closest(WIDE_CONTENT);
       if ((wide && frame.contains(wide)) || frame.matches("[data-scroll-frame]")) continue; // wide content, scrolling in its own frame
     }
+    // Clipped inside wide content itself (a table cell that clips at its column's edge): the
+    // table's own layout, and the table is checked against its frame.
+    if (frame && clips(frame) && frame.closest(WIDE_CONTENT)) continue;
     if (offenders.some((o) => o.el.contains(el))) continue;
     for (let i = offenders.length - 1; i >= 0; i--) if (el.contains(offenders[i].el)) offenders.splice(i, 1);
     offenders.push({ el, how: frame && clips(frame) ? `cut off by ${describe(frame)}` : "outside a frame that scrolls it" });

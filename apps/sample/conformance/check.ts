@@ -78,7 +78,9 @@ export async function visit(page: Page, origin: string, target: Target, info: Te
   await page.evaluate(() => document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))));
 
   const findings = await checkPage(page, { viewport, skipMeta: target.kind === "story" || info.project.name !== META_PROJECT });
-  const where = { page: target.id, viewport: viewport.name, engine };
+  // A page that redirected is judged, and allowed, as the page it landed on.
+  const landedId = target.kind === "route" ? new URL(page.url()).pathname.replace(/\/+$/, "") || "/" : target.id;
+  const where = { page: landedId, viewport: viewport.name, engine };
   const { failing, allowed, notes } = applyAllow(ALLOW, findings, where);
 
   mkdirSync(RESULTS_DIR, { recursive: true });

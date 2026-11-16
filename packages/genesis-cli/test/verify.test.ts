@@ -173,6 +173,14 @@ describe("verify in the browser (Chromium)", async () => {
     expect(found.filter((f) => f.check === "reflow").map((f) => f.target)).toEqual(["div > main", 'div#card "card"']);
   });
 
+  run("doesn't count a table cell clipping its own content at the column's edge", async () => {
+    const found = await check(
+      `${META}<body style="margin:0"><div style="overflow-x:auto"><table style="width:100%;table-layout:fixed"><tr><td style="overflow:hidden;width:60px"><span id="badge" style="display:inline-block;width:400px">Medium</span></td></tr></table></div></body>`,
+      { ...PHONE, coarse: false },
+    );
+    expect(found.filter((f) => f.check === "reflow")).toEqual([]);
+  });
+
   run("catches content hidden by overflow-x: hidden on the body", async () => {
     const found = await check(`${META}<body style="margin:0;overflow-x:hidden"><p id="cut" style="width:500px">cut off</p></body>`);
     expect(found.filter((f) => f.check === "reflow").map((f) => f.target)).toContain('p#cut "cut off"');
