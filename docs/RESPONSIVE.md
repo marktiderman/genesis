@@ -22,7 +22,8 @@ Each rule says what the components do today, or, where it says "an app", what an
    side panel on a wide screen (rule 4). Other components still switch on the viewport.
 2. **Nothing scrolls the page sideways.** Every screen reflows at 320 CSS px wide (WCAG 1.4.10:
    1280px at 400% zoom). Only a data grid, a map or code may scroll sideways, inside its own
-   frame. A page header keeps its title beside the actions, truncating it; when the actions (or
+   frame. A page header stacks its actions under the title on a phone; from `sm` up it keeps the
+   title beside the actions, truncating it; when the actions (or
    a list's toolbar in them) can't fit beside 10rem of title (its icon included), they take their
    own line and wrap within it rather than push past the edge.
 3. **Every target is big enough to hit.** At least 24×24 CSS px everywhere (WCAG 2.5.8), and a
@@ -57,10 +58,10 @@ Each rule says what the components do today, or, where it says "an app", what an
    support it (see Known gaps).
 7. **Everything fixed to an edge pads for the safe area.** The header, the tab bar, sheets and
    dialogs pad with `env(safe-area-inset-*)`. The insets are zero unless the app's viewport meta
-   has `viewport-fit=cover`. Keyboard focus never comes to rest under a fixed or sticky bar
-   (WCAG 2.4.11): AppShell's scroller keeps a scroll padding the size of the phone's bottom bar (and
-   of the sticky header when the window scrolls), and a table's rows keep a scroll margin the height
-   of its sticky pager.
+   has `viewport-fit=cover`. Keyboard focus doesn't come to rest under the phone's bars or a
+   table's pager (WCAG 2.4.11): AppShell's scroller keeps a scroll padding the size of the phone's
+   bottom bar (and of its sticky header when the window scrolls), and a table's rows keep a scroll
+   margin the height of its sticky pager.
 8. **Nothing hides behind hover.** Hover styles apply only where hover exists (Tailwind 4's
    `hover:`); an action shown on hover has a tap and keyboard path too (a row menu, the peek).
 9. **One floating control at most, and it never covers.** On a phone with a bottom tab bar, put
@@ -76,6 +77,8 @@ Each rule says what the components do today, or, where it says "an app", what an
 
 ## Known gaps
 
+- Focus can still rest under two sticky bars: the desktop top-tabs bar when the window scrolls,
+  and a virtualized table's sticky header.
 - A phone held sideways is wider than 768px. Its lists follow their frame instead (a table from
   40rem).
 - Lists and the table's touch column are decided after hydration: the server renders the wide
