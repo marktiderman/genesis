@@ -59,10 +59,11 @@ Each rule says what the components do today, or, where it says "an app", what an
    support it (see Known gaps).
 7. **Everything fixed to an edge pads for the safe area.** The header, the tab bar, sheets and
    dialogs pad with `env(safe-area-inset-*)`. The insets are zero unless the app's viewport meta
-   has `viewport-fit=cover`. Keyboard focus doesn't come to rest under the phone's bars or a
-   table's pager (WCAG 2.4.11): AppShell's scroller keeps a scroll padding the size of the phone's
-   bottom bar (and of its sticky header when the window scrolls), and a table's rows keep a scroll
-   margin the height of its sticky pager.
+   has `viewport-fit=cover`. Keyboard focus doesn't come to rest under the shell's bars or a
+   table's sticky parts (WCAG 2.4.11): AppShell's scroller keeps a scroll padding the size of the
+   phone's bottom bar (and, when the window scrolls, of the phone's sticky header or the desktop
+   top-tabs bar), and a table's rows keep a scroll margin the height of its sticky pager and its
+   sticky header.
 8. **Nothing hides behind hover.** Hover styles apply only where hover exists (Tailwind 4's
    `hover:`); an action shown on hover has a tap and keyboard path too (a row menu, the peek).
 9. **One floating control at most, and it never covers.** On a phone with a bottom tab bar, put
@@ -87,8 +88,8 @@ Each rule says what the components do today, or, where it says "an app", what an
 - A list's `toolbar` wraps as one item: a toolbar's own row of controls should wrap itself
   (`flex-wrap`).
 - A touch hit area is cut short by an ancestor that clips overflow. In a table the checkbox's area
-  is clipped to its cell: about 36px tall in a compact row, 40px in a comfortable one, and 40px in
-  the header.
+  is clipped to its cell: about 32px tall in a compact row, 36–40px in a comfortable one, and 40px
+  in the header.
 - Only lists answer to their own width. Card walls, form grids and toolbars outside a list still
   switch on the viewport; moving them to container queries is the next step.
 - Safari ignores `interactive-widget`, so there the keyboard can cover a sheet's footer; a

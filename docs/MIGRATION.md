@@ -11,7 +11,7 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
-## The responsive contract: lists answer to their own width, rows and cards open from their own button — `@marktiderman/genesis-ui` 3.0.0 (**major**), `@marktiderman/genesis-support` (minor)
+## The responsive contract: lists answer to their own width, rows and cards open from their own button — `@marktiderman/genesis-ui` 3.0.0 (**major**), `@marktiderman/genesis-support` (minor), `@marktiderman/genesis` (minor)
 
 The components now hold the rules in [RESPONSIVE.md](./RESPONSIVE.md). Several change how existing
 API behaves, so this is a major. Packages that peer-depend on genesis-ui take 2.x and 3.x, and
