@@ -1,4 +1,4 @@
-import type { ComponentProps, ComponentType, ReactNode } from "react";
+import type { ComponentProps, ComponentType, ReactNode, Ref } from "react";
 import { cn } from "../../utils";
 import { fillMessage, useUiMessages } from "../../messages";
 import { Button } from "../ui/button";
@@ -15,6 +15,8 @@ import type { LucideIcon } from "lucide-react";
 import type { Density } from "../../hooks/use-view-settings";
 
 export interface DataPageShellProps {
+  /** A ref on the shell's root element (ResourceView measures a list's width through it). */
+  rootRef?: Ref<HTMLDivElement> | undefined;
   /** Display title for the page */
   title: string;
   icon?: LucideIcon | undefined;
@@ -104,6 +106,7 @@ export interface DataPageShellProps {
 }
 
 export function DataPageShell({
+  rootRef,
   title,
   icon,
   entityName,
@@ -202,7 +205,7 @@ export function DataPageShell({
         : header;
 
   return (
-    <div className={cn("space-y-6", className)}>
+    <div ref={rootRef} className={cn("space-y-6", className)}>
       {collapseFilters ? (
         <Header
           {...sharedHeaderProps}

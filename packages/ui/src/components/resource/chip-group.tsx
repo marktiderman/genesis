@@ -54,9 +54,9 @@ export function ChipGroup(props: ChipGroupProps) {
     "aria-label": props["aria-label"],
     "data-slot": "chip-group",
     "data-testid": testID,
-    // On touch wrapped rows sit far enough apart that one chip's hit area (touchTarget) never lands
-    // on the chip below.
-    className: cn("flex flex-wrap gap-2 pointer-coarse:gap-y-5", className),
+    // On touch wrapped rows sit far enough apart that one chip's hit area (touchTarget) doesn't land
+    // on the chip below. A caller's own gap wins.
+    className: cn("flex flex-wrap gap-2", !/(^|\s)gap-/.test(className ?? "") && "pointer-coarse:gap-y-5", className),
   };
   if (props.mode === "single") {
     const { value, onChange, allowEmpty = false } = props;

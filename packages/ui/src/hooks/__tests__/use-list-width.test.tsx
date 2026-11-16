@@ -31,16 +31,10 @@ afterEach(() => {
   window.localStorage.clear();
 });
 
-function Frame({ onNarrow, contents = false }: { onNarrow: (n: boolean | undefined) => void; contents?: boolean }) {
-  const [ref, narrow] = useListWidth();
+function Frame({ onNarrow }: { onNarrow: (n: boolean | undefined) => void }) {
+  const [ref, narrow] = useListWidth<HTMLDivElement>();
   onNarrow(narrow);
-  return contents ? (
-    <div ref={ref} style={{ display: "contents" }}>
-      <section data-testid="root" />
-    </div>
-  ) : (
-    <div ref={ref} />
-  );
+  return <div ref={ref} />;
 }
 
 describe("useListWidth", () => {
@@ -57,20 +51,6 @@ describe("useListWidth", () => {
     width = 360;
     act(() => resized?.());
     expect(narrow).toBe(true);
-  });
-
-  it("measures the first child of a display: contents wrapper, which has no box", () => {
-    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
-    const seen: string[] = [];
-    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
-      seen.push(this.tagName);
-      return 343;
-    });
-    let narrow: boolean | undefined;
-    render(<Frame contents onNarrow={(n) => (narrow = n)} />);
-    expect(narrow).toBe(true);
-    expect(seen).toContain("SECTION");
-    expect(seen).not.toContain("DIV");
   });
 
   it("stays undefined without ResizeObserver, so the viewport decides", () => {

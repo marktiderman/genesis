@@ -26,45 +26,33 @@ function remPx(): number {
 }
 
 /**
+ * The ref a list puts on its own root so the ResourceView around it can measure it (ResourcePage
+ * passes it to DataPageShell's `rootRef`). Undefined outside a ResourceView. No wrapper is added,
+ * so a parent's spacing (`space-y-*`, `divide-y-*`) and child selectors still reach the list.
+ */
+export const ListFrameRefContext = createContext<RefCallback<HTMLElement> | undefined>(undefined);
+
+/**
  * Measures the element the returned ref is put on and says whether it is narrower than
  * `LIST_NARROW_REM`. Undefined until the first measurement (and on the server), so the first
- * client render matches the server's HTML and the viewport decides until then.
- *
- * The ref may go on a `display: contents` wrapper, which has no box of its own and so changes no
- * layout: its first element child is measured instead, and followed when it changes. Widths are
- * layout widths (`offsetWidth`), so a transform (a dialog zooming in) doesn't make a list flip.
+ * client render matches the server's HTML and the viewport decides until then. Widths are layout
+ * widths (`offsetWidth`), so a transform (a dialog zooming in) doesn't make a list flip.
  */
-export function useListWidth<E extends HTMLElement = HTMLDivElement>(): [RefCallback<E>, boolean | undefined] {
+export function useListWidth<E extends HTMLElement = HTMLElement>(): [RefCallback<E>, boolean | undefined] {
   const [narrow, setNarrow] = useState<boolean | undefined>(undefined);
   const cleanup = useRef<(() => void) | null>(null);
   const ref = useCallback((el: E | null) => {
     cleanup.current?.();
     cleanup.current = null;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const box = (): HTMLElement | null =>
-      window.getComputedStyle(el).display === "contents" ? (el.firstElementChild as HTMLElement | null) : el;
-    const measure = (target: HTMLElement | null) => {
-      const width = target?.offsetWidth ?? 0;
+    const measure = (target: HTMLElement) => {
+      const width = target.offsetWidth;
       if (width > 0) setNarrow(width < LIST_NARROW_REM * remPx());
     };
-    const ro = new ResizeObserver((entries) => measure(entries[entries.length - 1]?.target as HTMLElement | null));
-    let watched = box();
-    if (watched) ro.observe(watched);
-    measure(watched);
-    // The wrapper's child changes when the list's type does (a table, then a board): follow it.
-    const mo = typeof MutationObserver === "undefined" ? null : new MutationObserver(() => {
-      const next = box();
-      if (next === watched) return;
-      if (watched) ro.unobserve(watched);
-      watched = next;
-      if (watched) ro.observe(watched);
-      measure(watched);
-    });
-    mo?.observe(el, { childList: true });
-    cleanup.current = () => {
-      ro.disconnect();
-      mo?.disconnect();
-    };
+    const ro = new ResizeObserver(() => measure(el));
+    ro.observe(el);
+    measure(el);
+    cleanup.current = () => ro.disconnect();
   }, []);
   useEffect(() => () => cleanup.current?.(), []);
   return [ref, narrow];

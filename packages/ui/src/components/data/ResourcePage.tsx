@@ -1,7 +1,7 @@
 "use client";
 
 import { detailMode } from "./resource-view/open-modes";
-import { ListNarrowContext } from "../../hooks/use-list-width";
+import { ListFrameRefContext, ListNarrowContext } from "../../hooks/use-list-width";
 import {
   Fragment,
   useContext,
@@ -39,7 +39,7 @@ import { TreeIndent } from "./TreeIndent";
 import type { ResourceTree } from "@marktiderman/genesis-core/resource-view";
 import { DataBulkBar } from "./DataBulkBar";
 import { RowContextMenuItems, RowMenuButton, type ResourceRowMenuItem } from "./RowMenu";
-import { DataGrid } from "./DataGrid";
+import { NESTED_CONTROL, DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
 import { ResourceForm } from "./ResourceForm";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
@@ -1032,9 +1032,6 @@ const sameFilter = (a: FilterParam, b: FilterParam) => JSON.stringify(a) === JSO
  * the open record's panel, and the built-in form and confirmed delete.
  * {@link useResourceTable} is the same behaviour without this markup.
  */
-/** What a click inside a list row hits instead of the row: the screen's own controls. */
-const ROW_CONTROL =
-  "a,button,input,select,textarea,label,[role=button],[role=link],[role=checkbox],[role=switch],[role=menuitem],[contenteditable=true]";
 
 export function ResourcePage<
   T extends Record<string, unknown> = Record<string, unknown>,
@@ -1197,6 +1194,8 @@ function ResourcePageBody<
   } = useResourceTableModel<T>(props);
   // Whether the ResourceView around this list measured its frame narrow (useListWidth).
   const narrowFrame = useContext(ListNarrowContext) === true;
+  // The ResourceView around this list measures it through its root (DataPageShell's `rootRef`).
+  const frameRef = useContext(ListFrameRefContext);
   // Tree mode's state (the `tree` option): each row's node and how to open or close one.
   const pageTree = page.tree;
   // Tell the caller the search and sort as they change.
@@ -1532,11 +1531,12 @@ function ResourcePageBody<
       // button; a pointer click on the rest of the card opens it too, never one on a control.
       <Card
         data-testid="resource-card"
-        className={cn("h-full", detail !== "none" && "cursor-pointer hover:shadow-md motion-safe:transition-shadow focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background")}
+        className={cn("h-full", detail !== "none" && "cursor-pointer hover:shadow-md motion-safe:transition-shadow has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background")}
         {...(detail !== "none"
           ? {
               onClick: (e: ReactMouseEvent<HTMLElement>) => {
-                if ((e.target as HTMLElement).closest(ROW_CONTROL)) return;
+                const control = (e.target as HTMLElement).closest(NESTED_CONTROL);
+                if (control && e.currentTarget.contains(control)) return;
                 handleRowClick(item);
               },
             }
@@ -1549,9 +1549,11 @@ function ResourcePageBody<
                 type="button"
                 className="max-w-full truncate text-left focus-visible:outline-none"
                 data-testid="resource-card-open"
+                // A card with no title still has a named way in.
+                {...(titleVal ? {} : { "aria-label": fillMessage(m.common.openItem, { name: "" }).trim() })}
                 onClick={() => handleRowClick(item)}
               >
-                {titleVal}
+                {titleVal || <ChevronRight className="size-4" aria-hidden="true" />}
               </button>
             ) : (
               titleVal
@@ -1643,13 +1645,13 @@ function ResourcePageBody<
         data-testid="resource-list-row"
         className="flex items-start gap-2 cursor-pointer"
         onClick={(e) => {
-          if ((e.target as HTMLElement).closest(ROW_CONTROL)) return;
+          const control = (e.target as HTMLElement).closest(NESTED_CONTROL);
+          if (control && e.currentTarget.contains(control)) return;
           handleRowClick(item);
         }}
       >
         {content}
-        {(
-          <Button
+        <Button
             type="button"
             variant="ghost"
             size="icon"
@@ -1660,7 +1662,6 @@ function ResourcePageBody<
           >
             <ChevronRight aria-hidden="true" />
           </Button>
-        )}
       </div>
     );
   };
@@ -1676,8 +1677,10 @@ function ResourcePageBody<
   return (
     // What this list renders inside (its peek, its forms, a list in them) measures its own width:
     // the narrow flag of this list's frame stops here, portals included.
+    <ListFrameRefContext.Provider value={undefined}>
     <ListNarrowContext.Provider value={undefined}>
     <Shell
+      {...(frameRef && Shell === DataPageShell ? { rootRef: frameRef as never } : {})}
       title={title}
       subtitle={subtitle}
       icon={icon}
@@ -2192,5 +2195,6 @@ function ResourcePageBody<
         )}
       {dialogs}
     </ListNarrowContext.Provider>
+    </ListFrameRefContext.Provider>
   );
 }

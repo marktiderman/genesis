@@ -302,6 +302,10 @@ describe("ResourcePage — default row activation (CMT-366-004)", () => {
     second.focus();
     fireEvent.keyDown(second, { key: "Enter" });
     expect(screen.queryByRole("dialog", { name: "Hello" })).toBeNull();
+    // The focused button is World's way in (a browser turns its Enter into this click).
+    fireEvent.click(second);
+    expect(await screen.findByRole("dialog", { name: "World" })).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Hello" })).toBeNull();
   });
 
   it("gives the default list row its own Open button", async () => {

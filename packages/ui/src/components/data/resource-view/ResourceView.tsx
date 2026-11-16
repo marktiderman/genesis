@@ -43,7 +43,7 @@ import { detailMode, recordViewOf, resolveRecordOpen } from "./record-open";
 import { recordPeekSlot } from "./RecordPeek";
 import { ResourceInbox, type ResourceInboxOptions } from "./ResourceInbox";
 import { ResourceSheet } from "./ResourceSheet";
-import { ListNarrowContext, useListWidth } from "../../../hooks/use-list-width";
+import { ListFrameRefContext, ListNarrowContext, useListWidth } from "../../../hooks/use-list-width";
 
 type Row = Record<string, unknown>;
 type Scalar = string | number | boolean | null;
@@ -669,9 +669,6 @@ export function ResourceView<T extends Row = Row>(props: ResourceViewProps<T>) {
   return <ResourceViewRoot<T> {...props} />;
 }
 
-/** The measuring frame adds no box (inline, so it holds without the app's CSS). */
-const FRAME_STYLE = { display: "contents" } as const;
-
 /** The view types ResourcePage draws (the person's table, list and grid, and the gallery). */
 const PAGE_DRAWN: ReadonlySet<string> = new Set(["table", "list", "grid", "gallery"]);
 
@@ -695,10 +692,9 @@ function ResourceViewRoot<T extends Row>(props: ResourceViewProps<T>) {
   // The inbox draws its own segments (its rail), filters and switcher (over its list).
   const bar = !page && type !== "inbox" && (switcher || props.view.segments().length > 0 || props.view.filters().length > 0 || props.filterSlot);
   return (
-    // The frame the list measures: in a narrow one its responsive default takes its narrow side.
-    // `display: contents`: it adds no box, so a caller's height and flex classes on the list still
-    // reach its real root; useListWidth measures that root.
-    <div ref={frameRef} data-slot="resource-view-frame" style={FRAME_STYLE}>
+    // The list measures its own root (ResourcePage puts `frameRef` on it); in a narrow one its
+    // responsive default takes its narrow side. No wrapper: a parent's layout still reaches it.
+    <ListFrameRefContext.Provider value={frameRef as never}>
     <ListNarrowContext.Provider value={narrow}>
     <ListModelContext.Provider value={model}>
       {page ? (
@@ -713,7 +709,7 @@ function ResourceViewRoot<T extends Row>(props: ResourceViewProps<T>) {
       )}
     </ListModelContext.Provider>
     </ListNarrowContext.Provider>
-    </div>
+    </ListFrameRefContext.Provider>
   );
 }
 

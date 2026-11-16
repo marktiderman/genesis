@@ -77,7 +77,8 @@ function GroupHeader({ label, count, summary }: { label: ReactNode; count: numbe
   );
 }
 
-const NESTED_CONTROL =
+/** What a click inside an activatable item hits instead of the item: a control of its own. */
+export const NESTED_CONTROL =
   "a,button,input,select,textarea,label,[role=button],[role=link],[role=checkbox],[role=switch],[role=menuitem],[contenteditable=true]";
 
 /** Props that make one grid/list item activatable, or none without `onItemClick`. */

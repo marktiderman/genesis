@@ -127,3 +127,18 @@ describe("ResourceView gallery", () => {
     expect(tiles().map((t) => t.getAttribute("aria-label"))).toEqual(["Bay", "Hills", "Town"]);
   });
 });
+
+describe("a view with a gallery, shown as a list", () => {
+  it("opens a row once, from its own Open button, with no activatable box around it", async () => {
+    const onNavigate = vi.fn();
+    render(<ResourceView view={view} mode="list" open="page" onNavigate={onNavigate} />, { wrapper: wrap(provider()) });
+    const rows = await screen.findAllByTestId("resource-list-row");
+    // Nothing wraps the row in a second button (DataGrid's item activation).
+    expect(rows[0]!.closest('[role="button"]')).toBeNull();
+    fireEvent.click(within(rows[0]!).getByTestId("resource-list-row-open"));
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+    onNavigate.mockClear();
+    fireEvent.click(rows[1]!);
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+  });
+});

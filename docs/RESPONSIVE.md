@@ -28,7 +28,8 @@ Each rule says what the components do today. What they don't do yet is under "Kn
    tabs and menu items grow to 44px under `pointer-coarse`. Switch, Checkbox, RadioGroupItem,
    a pressable Chip and ChipGroupItem keep their look and take an invisible 44px hit area
    instead (`touchTarget`, from `@marktiderman/genesis-ui`), so desktop density stays. On touch,
-   RadioGroup and ChipGroup space their items so one's hit area doesn't land on the next, and a
+   RadioGroup and ChipGroup space their items (unless the app sets a gap) so one's hit area doesn't
+   land on the next, and a
    table's selection column widens so the checkbox's area stays inside it.
 4. **A list turns into rows when it is narrow.** A list is narrow on a phone (a viewport below
    768px, in either orientation) and, inside a `ResourceView`, when its own frame is under
@@ -74,6 +75,7 @@ Each rule says what the components do today. What they don't do yet is under "Kn
   VisualViewport fallback isn't built.
 - Nothing publishes the tab bar's height for floating elements to offset by; an app positions
   its own floating control.
+- A chip narrower than 44px can still overlap its neighbour's hit area side to side.
 - The checks in rule 10 run by hand and in Storybook (Chromium) today, not across browsers in CI.
 
 ## In an app
