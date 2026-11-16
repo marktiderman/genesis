@@ -10,6 +10,8 @@ const allowErrors = [
   ...validateAllow(ALLOW),
   ...ALLOW.flatMap((e, i) => (e.check === "axe" && !e.rule ? [`allow entry ${i} (axe on ${e.page}) must name its rule`] : [])),
   ...ALLOW.flatMap((e, i) => (e.page === "*" || e.page === "/*" || e.page === "story:*" ? [`allow entry ${i} covers every page; name the pages`] : [])),
+  // Every entry names its element: an entry without a target would allow the whole check on a page.
+  ...ALLOW.flatMap((e, i) => (!e.target?.trim() ? [`allow entry ${i} (${e.check} on ${e.page}) has no target; name the element`] : [])),
 ];
 if (allowErrors.length) throw new Error(allowErrors.join("\n"));
 

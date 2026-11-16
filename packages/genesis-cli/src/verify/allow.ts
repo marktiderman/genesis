@@ -93,9 +93,39 @@ export function allowFor(entries: AllowEntry[], finding: Finding, where: Where):
  * pattern that includes it, at least its viewports and engines, and no target or the same one. A
  * narrowed entry isn't growth.
  */
+/**
+ * Whether every path a page pattern matches is matched by another, segment by segment: a base
+ * `:param` covers a static segment or another parameter, only a base `*` covers a `*`, and a base
+ * that requires a segment never covers one that's optional. `/demo/:ws` doesn't cover `/demo/*`.
+ */
+export function patternCovers(base: string, pattern: string): boolean {
+  const b = base.split("/").filter(Boolean);
+  const p = pattern.split("/").filter(Boolean);
+  const isParam = (s: string) => /^[:$][A-Za-z_]/.test(s);
+  const walk = (i: number, j: number): boolean => {
+    if (i < b.length && (b[i] === "*" || b[i] === "$")) return true;
+    if (j === p.length) return b.slice(i).every((s) => s.endsWith("?"));
+    if (i === b.length) return false;
+    const bs = b[i];
+    const ps = p[j];
+    if (ps === "*" || ps === "$") return false;
+    const bOpt = bs.endsWith("?");
+    const pOpt = ps.endsWith("?");
+    const bName = bOpt ? bs.slice(0, -1) : bs;
+    const pName = pOpt ? ps.slice(0, -1) : ps;
+    const segment = isParam(bName) ? isParam(pName) || !/[:$]/.test(pName) : bName === pName;
+    if (segment && (bOpt || !pOpt) && walk(i + 1, j + 1)) return true;
+    return bOpt && walk(i + 1, j);
+  };
+  return walk(0, 0);
+}
+
 export function entryCovers(base: AllowEntry, e: AllowEntry): boolean {
   const within = <T>(wide: T[] | undefined, narrow: T[] | undefined) => !wide || (!!narrow && narrow.every((x) => wide.includes(x)));
-  const pageIn = base.page === e.page || (!e.page.startsWith("story:") && matchesPage(base.page, e.page)) || (base.page.endsWith("*") && e.page.startsWith(base.page.slice(0, -1)));
+  const story = base.page.startsWith("story:") || e.page.startsWith("story:");
+  const pageIn = story
+    ? base.page === e.page || (base.page.endsWith("*") && e.page.startsWith(base.page.slice(0, -1)) && !(e.page.endsWith("*") && e.page.length < base.page.length))
+    : patternCovers(base.page, e.page);
   const targetIn = base.target === undefined || (e.target !== undefined && (base.target === e.target || matchesTarget(base.target, e.target)));
   return base.check === e.check && (base.rule === undefined || base.rule === e.rule) && pageIn && within(base.viewports, e.viewports) && within(base.engines, e.engines) && targetIn;
 }

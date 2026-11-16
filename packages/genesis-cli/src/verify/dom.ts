@@ -319,8 +319,9 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
             bars.find((b) => {
               const bs = getComputedStyle(b);
               if (b.contains(el) || el.contains(b) || bs.pointerEvents !== "none") return false;
-              // Evidence it paints above the page rather than behind it (a backdrop): a positive z-index.
-              if (!(parseInt(bs.zIndex, 10) > 0)) return false;
+              // A fixed element paints above in-flow content unless its z-index is negative (a
+              // backdrop behind the page; CSS 2.1 Appendix E): auto and 0 still cover.
+              if (parseInt(bs.zIndex, 10) < 0) return false;
               const br = b.getBoundingClientRect();
               return x >= br.left && x <= br.right && y >= br.top && y <= br.bottom;
             }) ?? null;

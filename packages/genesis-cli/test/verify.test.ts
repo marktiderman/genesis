@@ -4,6 +4,7 @@ import {
   applyAllow,
   allowFor,
   entryCovers,
+  patternCovers,
   matchesTarget,
   allViewports,
   checkPage,
@@ -141,6 +142,17 @@ describe("verify allow", () => {
     expect(allowFor([broad, narrow], { check: "reflow", target: "main > div.wide", message: "m" }, where)).toBe(narrow);
   });
 
+  it("compares page patterns segment by segment for growth", () => {
+    expect(patternCovers("/demo/:ws", "/demo/all")).toBe(true);
+    expect(patternCovers("/demo/:ws", "/demo/*")).toBe(false);
+    expect(patternCovers("/demo/*", "/demo/:ws/clients")).toBe(true);
+    expect(patternCovers("/demo/:ws/:section?", "/demo/:ws")).toBe(true);
+    expect(patternCovers("/demo/:ws", "/demo/:ws/:section?")).toBe(false);
+    expect(patternCovers("/items", "/items/:id")).toBe(false);
+    const base: AllowEntry = { check: "reflow", page: "/demo/:ws", target: "html", reason: "x" };
+    expect(entryCovers(base, { ...base, page: "/demo/*" })).toBe(false);
+  });
+
   it("doesn't count a narrowed entry as growth", () => {
     const base: AllowEntry = { check: "hit-area", page: "/items/:id", reason: "x" };
     expect(entryCovers(base, { check: "hit-area", page: "/items/:id", viewports: ["320"], target: "button", reason: "x" })).toBe(true);
@@ -251,7 +263,7 @@ describe("verify in the browser (Chromium)", async () => {
   run("sees a painted bar that ignores the pointer", async () => {
     const found = await check(
       `${META}<body style="margin:0"><div style="height:400px"></div><a id="under" href="#" style="display:block;height:20px">link</a><div style="height:400px"></div>` +
-        `<div style="position:fixed;bottom:0;left:0;right:0;height:120px;background:#fff;pointer-events:none;z-index:10"></div></body>`,
+        `<div style="position:fixed;bottom:0;left:0;right:0;height:120px;background:#fff;pointer-events:none"></div></body>`,
       { ...PHONE, coarse: false },
     );
     expect(found.filter((f) => f.check === "focus-obscured").map((f) => f.target)).toContain('a#under "link"');
