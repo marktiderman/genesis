@@ -1,5 +1,5 @@
 ---
-"@marktiderman/genesis-ui": minor
+"@marktiderman/genesis-ui": major
 ---
 
 The responsive contract (docs/RESPONSIVE.md):
@@ -11,7 +11,7 @@ The responsive contract (docs/RESPONSIVE.md):
 - **PageHeader actions:** beside at least 10rem of title (its icon included) they keep their size and the title truncates, as before. When they can't fit, they move to their own line and wrap within it instead of pushing past the edge.
 - **`touchTarget`** (exported beside `cn`) is an invisible 44×44px hit area on coarse pointers. Switch, Checkbox, RadioGroupItem, pressable Chip and ChipGroupItem use it. On touch, RadioGroup and ChipGroup space their items (unless you set a gap) so hit areas don't land on neighbours, and DataTable's selection column is 56px.
 
-What changes for you:
+What changes for you (docs/MIGRATION.md has the full entry):
 
 - **A `phoneMode` app's embedded lists change.** They now open as rows or cards on phones and in narrow panels. A list that must stay a table there sets `mode="table"`. A person's own pick of view still wins everywhere.
 - **Your own side-sheet width now applies from `sm` only.** A right or left `SheetContent` you gave a plain `w-*` (`w-80`) is full width on phones. Add `max-sm:w-*` to keep it narrow there.
