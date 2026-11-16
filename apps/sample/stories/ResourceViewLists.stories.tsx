@@ -121,3 +121,41 @@ export const Inbox: Story = {
     expect(canvas.getByTestId("resource-inbox-nothing")).toBeInTheDocument();
   },
 };
+
+/**
+ * The responsive contract (docs/RESPONSIVE.md, rules 1 and 4): a list answers to its own width,
+ * not the screen's. The same embedded list, with the app's narrow default (`phoneMode="list"`),
+ * shows rows in a 360px side panel and a table in the wide column beside it, on one desktop-sized
+ * screen. A cell the screen drew itself (Restore) stays in the narrow row.
+ */
+export const NarrowPanel: Story = {
+  parameters: { layout: "fullscreen" },
+  render: () => (
+    <WithTasks>
+      <ResourceViewDefaultsProvider phoneMode="list">
+        <div className="flex min-w-[64rem] gap-4 p-4">
+          <section aria-label="Side panel" className="w-[360px] shrink-0 rounded-lg border p-3" data-testid="narrow-panel">
+            <ResourceView
+              view={tasksView}
+              layout="embedded"
+              // On the last column, past the three a row shows by default: it stays because the screen drew it.
+              cells={{ due_on: (t) => <button type="button" className="text-primary underline">Restore {t.title}</button> }}
+            />
+          </section>
+          <section aria-label="Main column" className="min-w-0 flex-1 rounded-lg border p-3" data-testid="wide-column">
+            <ResourceView view={tasksView} layout="embedded" />
+          </section>
+        </div>
+      </ResourceViewDefaultsProvider>
+    </WithTasks>
+  ),
+  play: async ({ canvasElement }) => {
+    const narrow = within(within(canvasElement).getByTestId("narrow-panel"));
+    const wide = within(within(canvasElement).getByTestId("wide-column"));
+    await waitFor(() => expect(narrow.getAllByTestId("resource-list-row").length).toBeGreaterThan(0));
+    expect(canvasElement.querySelector('[data-testid="narrow-panel"] table')).toBeNull();
+    await waitFor(() => expect(canvasElement.querySelector('[data-testid="wide-column"] table')).not.toBeNull());
+    expect(wide.queryAllByTestId("resource-list-row")).toHaveLength(0);
+    expect(narrow.getByRole("button", { name: "Restore Draft the brief" })).toBeInTheDocument();
+  },
+};
