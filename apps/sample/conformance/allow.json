@@ -1,0 +1,4 @@
+{
+  "$comment": "Known conformance findings. Each needs a reason; the list only shrinks (a full run fails on an entry that covers nothing). Shape: @marktiderman/genesis-cli/verify AllowEntry.",
+  "allow": []
+}

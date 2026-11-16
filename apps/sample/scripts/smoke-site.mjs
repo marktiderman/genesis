@@ -11,12 +11,12 @@
  *
  * Run after `pnpm build`. CI runs it on every pull request (ci.yml, "Site").
  */
-import { createServer } from "node:http";
-import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
-import { extname, join, resolve, sep } from "node:path";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { chromium } from "playwright";
+import { serveStatic } from "./static-server.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)), "build", "client");
 if (!existsSync(join(ROOT, "index.html"))) {
@@ -27,34 +27,8 @@ const quick = process.argv.includes("--quick");
 const shots = process.env.SMOKE_SHOTS;
 if (shots) mkdirSync(shots, { recursive: true });
 
-const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json", ".png": "image/png", ".txt": "text/plain", ".xml": "application/xml", ".md": "text/markdown", ".woff2": "font/woff2" };
-
-const FALLBACK = existsSync(join(ROOT, "404.html")) ? join(ROOT, "404.html") : join(ROOT, "__spa-fallback.html");
-
-/** A file inside the build for a request path, or null. Never anything outside ROOT. */
-function inRoot(...parts) {
-  const file = resolve(ROOT, ...parts);
-  return file.startsWith(ROOT + sep) && existsSync(file) && statSync(file).isFile() ? file : null;
-}
-
-function resolveFile(urlPath) {
-  let clean;
-  try {
-    clean = decodeURIComponent(new URL(urlPath, "http://localhost").pathname);
-  } catch {
-    return { file: FALLBACK, status: 400 };
-  }
-  if (clean.includes("\0")) return { file: FALLBACK, status: 400 };
-  const rel = `.${clean.replace(/\/+$/, "")}`;
-  const file = inRoot(rel) ?? inRoot(rel, "index.html");
-  return file ? { file, status: 200 } : { file: FALLBACK, status: 404 };
-}
-
-const server = createServer((req, res) => {
-  const { file, status } = resolveFile(req.url ?? "/");
-  res.writeHead(status, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" });
-  res.end(readFileSync(file));
-}).listen(0);
+const server = serveStatic(ROOT);
+await new Promise((r) => server.on("listening", r));
 const origin = `http://127.0.0.1:${server.address().port}`;
 
 const sitemap = readFileSync(join(ROOT, "sitemap.xml"), "utf8");
