@@ -2,6 +2,9 @@ import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   applyAllow,
+  allowFor,
+  entryCovers,
+  matchesTarget,
   allViewports,
   checkPage,
   contextOptions,
@@ -111,6 +114,31 @@ describe("verify allow", () => {
     const result = applyAllow(entries, [axe, note], where);
     expect(result.failing).toEqual([axe]);
     expect(result.notes).toEqual([note]);
+  });
+
+  it("matches a target by whole selector parts or name, never as a substring", () => {
+    expect(matchesTarget("html", "html")).toBe(true);
+    expect(matchesTarget("html", 'div[data-slot="html-preview"]')).toBe(false);
+    expect(matchesTarget("div#tabs", "div#tabs-2")).toBe(false);
+    expect(matchesTarget('tr[data-slot="table-row"] > button', 'tbody > tr[data-slot="table-row"]:nth-of-type(3) > button:nth-of-type(1) "Edit"')).toBe(true);
+    expect(matchesTarget('"Edit"', 'tbody > button "Edit"')).toBe(true);
+    expect(matchesTarget('button "Edit"', 'tbody > button "Delete"')).toBe(false);
+    expect(matchesTarget("button", "button#radix-_r_12_")).toBe(true);
+    expect(matchesTarget("time", 'time[datetime="2026-11-15T18:11:00Z"]')).toBe(true);
+    expect(matchesTarget('a[data-testid="package-chat"]', 'a[data-testid="package-chat"] "genesis-chat 0.11.0"')).toBe(true);
+  });
+
+  it("prefers a targeted entry wherever it sits in the list", () => {
+    const broad: AllowEntry = { check: "reflow", page: "/items/42", reason: "broad" };
+    const narrow: AllowEntry = { check: "reflow", page: "/items/42", target: "div.wide", reason: "narrow" };
+    expect(allowFor([broad, narrow], { check: "reflow", target: "main > div.wide", message: "m" }, where)).toBe(narrow);
+  });
+
+  it("doesn't count a narrowed entry as growth", () => {
+    const base: AllowEntry = { check: "hit-area", page: "/items/:id", reason: "x" };
+    expect(entryCovers(base, { check: "hit-area", page: "/items/:id", viewports: ["320"], target: "button", reason: "x" })).toBe(true);
+    expect(entryCovers(base, { check: "reflow", page: "/items/:id", reason: "x" })).toBe(false);
+    expect(entryCovers({ ...base, viewports: ["320"] }, { ...base, viewports: ["320", "375"] })).toBe(false);
   });
 
   it("needs a reason on every entry", () => {

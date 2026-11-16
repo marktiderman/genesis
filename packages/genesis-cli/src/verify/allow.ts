@@ -18,7 +18,11 @@ export interface AllowEntry {
   /** Viewport names (`320`, `zoom-400`); every viewport when left out. */
   viewports?: string[];
   engines?: Engine[];
-  /** A substring of the finding's target (its path or its quoted accessible name); any target when left out. */
+  /**
+   * The element: the trailing parts of the finding's selector path, matched whole (`table-row >
+   * button`; `:nth-of-type()`, `:nth-child()` and generated ids are ignored on both sides), with or
+   * without its quoted accessible name, or the name alone (`"Save"`). Any element when left out.
+   */
   target?: string;
   reason: string;
 }
@@ -34,16 +38,66 @@ export function matchesPage(pattern: string, page: string): boolean {
   return pattern === page || matchesPattern(pattern, page);
 }
 
-export function allowFor(entries: AllowEntry[], finding: Finding, where: Where): AllowEntry | undefined {
-  return entries.find(
-    (e) =>
-      e.check === finding.check &&
-      (e.rule === undefined || e.rule === finding.rule) &&
-      matchesPage(e.page, where.page) &&
-      (!e.viewports || e.viewports.includes(where.viewport)) &&
-      (!e.engines || e.engines.includes(where.engine)) &&
-      (e.target === undefined || (finding.target ?? "").includes(e.target)),
+/**
+ * What a selector part loses before matching: position (`:nth-…`), generated ids (Radix's
+ * `#radix-…`, React's `#_r_…`) and attribute values other than data-slot, data-testid, role, type
+ * and name (axe's `[datetime="…"]`), which change between renders and runs.
+ */
+const UNSTABLE = /:nth-(?:of-type|child)\(\d+\)|#(?:radix-|_r_|_R_)[^\s.[:#>]*|\[(?!(?:data-slot|data-testid|role|type|name)[=\]])[\w-]+(?:[~|^$*]?=(?:"[^"]*"|'[^']*'|[^\]]*))?\]/g;
+
+/** A target split into its selector parts (no `:nth-…`) and its quoted accessible name. */
+export function targetParts(target: string): { parts: string[]; name?: string } {
+  const named = /\s("[^"]*")$/.exec(target);
+  const path = named ? target.slice(0, named.index) : target;
+  const parts = path
+    .split(">")
+    .map((p) => p.replace(UNSTABLE, "").trim())
+    .filter(Boolean);
+  return { parts, name: named?.[1] };
+}
+
+/**
+ * Whether an entry's target names a finding's element: its accessible name exactly, or the trailing
+ * selector parts of the finding's path, each part whole. Never a substring: `html` doesn't match
+ * `[data-slot="html-preview"]`, and `#tabs` doesn't match `#tabs-2`.
+ */
+export function matchesTarget(entryTarget: string, findingTarget: string | undefined): boolean {
+  if (!findingTarget) return false;
+  const found = targetParts(findingTarget);
+  if (/^"[^"]*"$/.test(entryTarget)) return found.name === entryTarget;
+  const want = targetParts(entryTarget);
+  if (want.name && want.name !== found.name) return false;
+  if (!want.parts.length || want.parts.length > found.parts.length) return false;
+  const tail = found.parts.slice(-want.parts.length);
+  return want.parts.every((p, i) => p === tail[i]);
+}
+
+function covers(e: AllowEntry, finding: Finding, where: Where): boolean {
+  return (
+    e.check === finding.check &&
+    (e.rule === undefined || e.rule === finding.rule) &&
+    matchesPage(e.page, where.page) &&
+    (!e.viewports || e.viewports.includes(where.viewport)) &&
+    (!e.engines || e.engines.includes(where.engine)) &&
+    (e.target === undefined || matchesTarget(e.target, finding.target))
   );
+}
+
+/** The entry that covers a finding. A targeted entry always wins over one without a target, wherever each sits in the list. */
+export function allowFor(entries: AllowEntry[], finding: Finding, where: Where): AllowEntry | undefined {
+  return entries.find((e) => e.target !== undefined && covers(e, finding, where)) ?? entries.find((e) => e.target === undefined && covers(e, finding, where));
+}
+
+/**
+ * Whether a base entry already allows everything a new entry does: the same check and rule, a page
+ * pattern that includes it, at least its viewports and engines, and no target or the same one. A
+ * narrowed entry isn't growth.
+ */
+export function entryCovers(base: AllowEntry, e: AllowEntry): boolean {
+  const within = <T>(wide: T[] | undefined, narrow: T[] | undefined) => !wide || (!!narrow && narrow.every((x) => wide.includes(x)));
+  const pageIn = base.page === e.page || (!e.page.startsWith("story:") && matchesPage(base.page, e.page)) || (base.page.endsWith("*") && e.page.startsWith(base.page.slice(0, -1)));
+  const targetIn = base.target === undefined || (e.target !== undefined && (base.target === e.target || matchesTarget(base.target, e.target)));
+  return base.check === e.check && (base.rule === undefined || base.rule === e.rule) && pageIn && within(base.viewports, e.viewports) && within(base.engines, e.engines) && targetIn;
 }
 
 /** Splits findings into the ones an entry covers, `info` notes (never failing), and the rest. */

@@ -8,13 +8,14 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { entryCovers, type AllowEntry } from "@marktiderman/genesis-cli/verify";
 
 const base = process.argv[2];
 if (!base) throw new Error("usage: tsx conformance/allow-grew.ts <base ref>");
 
-const key = (e: Record<string, unknown>) => JSON.stringify([e.check, e.rule, e.page, e.viewports, e.engines, e.target]);
-const here = JSON.parse(readFileSync(join(import.meta.dirname, "allow.json"), "utf8")).allow as Record<string, unknown>[];
-let before: Record<string, unknown>[] = [];
+
+const here = JSON.parse(readFileSync(join(import.meta.dirname, "allow.json"), "utf8")).allow as AllowEntry[];
+let before: AllowEntry[] = [];
 let raw: string | undefined;
 try {
   raw = execFileSync("git", ["show", `${base}:apps/sample/conformance/allow.json`], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -24,8 +25,8 @@ try {
   if (!/does not exist|exists on disk, but not in/.test(stderr)) throw error;
 }
 if (raw !== undefined) before = JSON.parse(raw).allow;
-const old = new Set(before.map(key));
-const added = here.filter((e) => !old.has(key(e)));
+// Growth is an entry no base entry already allows; narrowing an entry (a target, fewer viewports) isn't.
+const added = here.filter((e) => !before.some((b) => entryCovers(b, e)));
 if (!added.length) {
   console.log(`The allow list didn't grow (${before.length} → ${here.length}).`);
 } else if (process.env.ALLOW_GROWS === "1") {

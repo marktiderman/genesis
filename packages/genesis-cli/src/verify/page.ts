@@ -60,10 +60,13 @@ export async function checkPage(page: Page, opts: CheckPageOptions): Promise<Fin
   const { violations } = await axe.analyze();
   for (const v of violations) {
     for (const node of v.nodes) {
-      const target = node.target.map(String).join(" ");
+      const selector = node.target.map(String).join(" ");
+      // axe names some elements only by a generated id (Radix's #radix-…), which changes between
+      // renders: describe those by tag, slot or role and accessible name instead.
+      const target = /#(?:radix-|_r_|_R_)/.test(selector) ? await stableTarget(page, selector) : selector;
       // target-size can't see genesis-ui's touchTarget pseudo-element, which makes the hit area
       // 44px on a coarse pointer; a node that has one is dropped.
-      if (v.id === "target-size" && opts.viewport.touch && (await hasTouchTarget(page, target))) continue;
+      if (v.id === "target-size" && opts.viewport.touch && (await hasTouchTarget(page, selector))) continue;
       findings.push({ check: "axe", rule: v.id, target, message: `${v.help} (${v.impact ?? "n/a"})` });
     }
   }
@@ -76,6 +79,27 @@ export async function checkPage(page: Page, opts: CheckPageOptions): Promise<Fin
   });
   for (const f of dom) if (!(opts.skipMeta && f.check === "viewport-meta")) findings.push(f);
   return findings;
+}
+
+/** A selector-like description of an element that doesn't depend on generated ids: `tag[data-slot="x"] "Name"`. */
+async function stableTarget(page: Page, selector: string): Promise<string> {
+  return page
+    .evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return sel;
+      const part = (n: Element) => {
+        const slot = n.getAttribute("data-slot");
+        const testId = n.getAttribute("data-testid");
+        const role = n.getAttribute("role");
+        const tag = n.tagName.toLowerCase();
+        return testId ? `${tag}[data-testid="${testId}"]` : slot ? `${tag}[data-slot="${slot}"]` : role ? `${tag}[role="${role}"]` : tag;
+      };
+      const parent = el.parentElement && el.parentElement !== document.body ? `${part(el.parentElement)} > ` : "";
+      const label = (el.getAttribute("aria-label") ?? (el as HTMLElement).innerText ?? "").replace(/\s+/g, " ").trim();
+      const name = label.length > 32 ? `${label.slice(0, 31)}…` : label;
+      return `${parent}${part(el)}${name ? ` "${name}"` : ""}`;
+    }, selector)
+    .catch(() => selector);
 }
 
 async function hasTouchTarget(page: Page, selector: string): Promise<boolean> {
