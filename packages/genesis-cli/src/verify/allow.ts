@@ -61,6 +61,14 @@ export function targetParts(target: string): { parts: string[]; name?: string } 
  * selector parts of the finding's path, each part whole. Never a substring: `html` doesn't match
  * `[data-slot="html-preview"]`, and `#tabs` doesn't match `#tabs-2`.
  */
+/** An `[aria-label=…]` in a selector part: stripped for the base comparison, but held to when an entry names one. */
+const ARIA_LABEL = /\[aria-label(?:[~|^$*]?=(?:"[^"]*"|'[^']*'|[^\]]*))?\]/g;
+
+function rawParts(target: string): string[] {
+  const named = /\s("[^"]*")$/.exec(target);
+  return (named ? target.slice(0, named.index) : target).split(">").map((p) => p.trim()).filter(Boolean);
+}
+
 export function matchesTarget(entryTarget: string, findingTarget: string | undefined): boolean {
   if (!findingTarget) return false;
   const found = targetParts(findingTarget);
@@ -69,7 +77,11 @@ export function matchesTarget(entryTarget: string, findingTarget: string | undef
   if (want.name && want.name !== found.name) return false;
   if (!want.parts.length || want.parts.length > found.parts.length) return false;
   const tail = found.parts.slice(-want.parts.length);
-  return want.parts.every((p, i) => p === tail[i]);
+  if (!want.parts.every((p, i) => p === tail[i])) return false;
+  // An entry that names an aria-label holds the finding to it: a "Save" entry never covers "Delete".
+  const wantRaw = rawParts(entryTarget);
+  const foundRaw = rawParts(findingTarget).slice(-wantRaw.length);
+  return wantRaw.every((p, i) => (p.match(ARIA_LABEL) ?? []).every((label) => (foundRaw[i] ?? "").includes(label)));
 }
 
 function covers(e: AllowEntry, finding: Finding, where: Where): boolean {

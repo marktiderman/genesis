@@ -95,7 +95,7 @@ async function stableTarget(page: Page, selector: string): Promise<string> {
         return testId ? `${tag}[data-testid="${testId}"]` : slot ? `${tag}[data-slot="${slot}"]` : role ? `${tag}[role="${role}"]` : tag;
       };
       const parent = el.parentElement && el.parentElement !== document.body ? `${part(el.parentElement)} > ` : "";
-      const label = (el.getAttribute("aria-label") ?? (el as HTMLElement).innerText ?? "").replace(/\s+/g, " ").trim();
+      const label = (el.getAttribute("aria-label") ?? (el as HTMLElement).innerText ?? "").replace(/\s+/g, " ").replace(/"/g, "'").trim();
       const name = label.length > 32 ? `${label.slice(0, 31)}…` : label;
       return `${parent}${part(el)}${name ? ` "${name}"` : ""}`;
     }, selector)
@@ -112,14 +112,22 @@ async function hasTouchTarget(page: Page, selector: string): Promise<boolean> {
         return s.content !== "none" && s.position === "absolute" && parseFloat(s.width) >= 44 && parseFloat(s.height) >= 44;
       });
       if (!big) return false;
-      // ...and the area really takes taps: hit-test its edges (a clipped or covered area doesn't).
+      // ...and the area really takes taps: hit-test its edges in view (a clipped or covered area
+      // doesn't), then put every scroll back.
+      const scrolled: Array<[Element, number, number]> = [];
+      for (let a = el.parentElement; a; a = a.parentElement) scrolled.push([a, a.scrollTop, a.scrollLeft]);
+      const win: [number, number] = [window.scrollX, window.scrollY];
+      el.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
       const r = el.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
-      return [[cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]].every(([x, y]) => {
+      const reaches = [[cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]].every(([x, y]) => {
         const hit = document.elementFromPoint(x, y);
         return !!hit && (hit === el || el.contains(hit));
       });
+      for (const [a, top, left] of scrolled) if (a.scrollTop !== top || a.scrollLeft !== left) a.scrollTo({ top, left, behavior: "instant" });
+      window.scrollTo({ left: win[0], top: win[1], behavior: "instant" });
+      return reaches;
     }, selector)
     .catch(() => false);
 }

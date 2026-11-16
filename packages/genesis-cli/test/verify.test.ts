@@ -138,6 +138,14 @@ describe("verify allow", () => {
     expect(matchesTarget('a[data-testid="package-chat"]', 'a[data-testid="package-chat"] "genesis-chat 0.11.0"')).toBe(true);
   });
 
+  it("holds an entry that names an aria-label to it; a bare entry still matches", () => {
+    expect(matchesTarget('button[aria-label="Save"]', 'div > button[aria-label="Delete"]')).toBe(false);
+    expect(matchesTarget('button[aria-label="Save"]', 'div > button[aria-label="Save"]')).toBe(true);
+    expect(matchesTarget("div > button", 'div > button[aria-label="Delete"]')).toBe(true);
+    const save: AllowEntry = { check: "axe", rule: "target-size", page: "/items/42", target: 'button[aria-label="Save"]', reason: "x" };
+    expect(applyAllow([save], [{ check: "axe", rule: "target-size", target: 'button[aria-label="Delete"]', message: "m" }], where).failing).toHaveLength(1);
+  });
+
   it("prefers a targeted entry wherever it sits in the list", () => {
     const broad: AllowEntry = { check: "reflow", page: "/items/42", reason: "broad" };
     const narrow: AllowEntry = { check: "reflow", page: "/items/42", target: "div.wide", reason: "narrow" };
@@ -347,6 +355,15 @@ describe("verify in the browser (Chromium)", async () => {
         `<aside style="position:fixed;top:0;left:-300px;width:280px"><button id="drawer" style="width:24px;height:24px">x</button></aside></body>`,
     );
     expect(found.filter((f) => f.check === "hit-area").map((f) => f.target)).toEqual(['button#far "3"']);
+  });
+
+  run("probes a tall label in the part that's on screen, and keeps a quote in a name intact", async () => {
+    const found = await check(
+      `${META}<body style="margin:0"><label style="display:block;width:200px;height:600px"><input id="tall" type="checkbox"> Remember me</label>` +
+        `<button id="q" style="width:24px;height:24px" aria-label='Move "Intro" up'></button></body>`,
+    );
+    const hit = found.filter((f) => f.check === "hit-area").map((f) => f.target);
+    expect(hit).toEqual([`button#q "Move 'Intro' up"`]);
   });
 
   run("exempts a link in running text, not a link alone in a list item", async () => {

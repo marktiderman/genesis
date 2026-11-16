@@ -32,7 +32,8 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
 
   const nameOf = (el: Element): string => {
     const label = el.getAttribute("aria-label") ?? (el as HTMLElement).innerText ?? el.textContent ?? "";
-    const text = label.replace(/\s+/g, " ").trim();
+    // A double quote would end the quoted name early in a target: it becomes a single quote.
+    const text = label.replace(/\s+/g, " ").replace(/"/g, "'").trim();
     return text.length > 32 ? `${text.slice(0, 31)}…` : text;
   };
   const describe = (el: Element): string => {
@@ -198,9 +199,16 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
           // covers it. Hit-tested in view, and only with at least one point on screen.
           if (size.width >= 44 && size.height >= 44) {
             const r = intoView(label);
-            const cx = r.left + r.width / 2;
-            const cy = r.top + r.height / 2;
-            const points = [[cx, cy], [cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]].filter(([x, y]) => x >= 0 && y >= 0 && x < vw && y < vh);
+            // Probe the part of the label that's on screen (a tall label may show only its top).
+            const left = Math.max(r.left, 0);
+            const right = Math.min(r.right, vw);
+            const top = Math.max(r.top, 0);
+            const bottom = Math.min(r.bottom, vh);
+            const cx = (left + right) / 2;
+            const cy = (top + bottom) / 2;
+            const dx = Math.min(21, (right - left) / 2 - 1);
+            const dy = Math.min(21, (bottom - top) / 2 - 1);
+            const points = [[cx, cy], [cx - dx, cy], [cx + dx, cy], [cx, cy - dy], [cx, cy + dy]].filter(([x, y]) => x >= 0 && y >= 0 && x < vw && y < vh);
             const reaches =
               points.length > 0 &&
               points.every(([x, y]) => {
