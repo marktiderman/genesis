@@ -1,5 +1,5 @@
 {
-  "$comment": "Known conformance findings: each names the check, the page (a route pattern or a story file), the element (target: its last selector parts, matched whole with positions and generated ids ignored, or its quoted name) and the viewports and engines where it fails, with the fix that removes it. A targeted entry always wins over an untargeted one (allowFor). The list only shrinks: conformance-allow.yml fails a pull request that adds an entry no existing one covers, unless it has the 'conformance: allow grows' label, and a run warns on an entry that covered nothing it visited. Shape: @marktiderman/genesis-cli/verify AllowEntry. Rebuilt from CI's per-PR run on 2026-11-16; slice 1 (the sample refresh) and genesis-ui follow-ups empty it.",
+  "$comment": "Known conformance findings: each names the check, the page (a route pattern or a story file), the element (target) and the viewports and engines where it fails, with the fix that removes it. The list only shrinks: a pull request may not add an entry without the 'conformance: allow grows' label, and a run warns on an entry that covered nothing it visited. Shape: @marktiderman/genesis-cli/verify AllowEntry. Rebuilt from CI's per-PR run on 7feb67521 (2026-11-16), every entry targeted; slice 1 (the sample refresh) and genesis-ui follow-ups empty it.",
   "allow": [
     {
       "check": "axe",
@@ -558,7 +558,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe label-content-name-mismatch: an element axe names only by a generated Radix id's aria-label drops its visible text. genesis-ui follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"workspace-switcher\"] > button[data-slot=\"button\"]",
+      "reason": "axe label-content-name-mismatch: `workspace-switcher`'s aria-label drops its visible text. genesis-ui follow-up."
     },
     {
       "check": "hit-area",
@@ -579,7 +580,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe label-content-name-mismatch: an element axe names only by a generated Radix id's aria-label drops its visible text. genesis-ui follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"workspace-switcher\"] > button[data-slot=\"button\"]",
+      "reason": "axe label-content-name-mismatch: `workspace-switcher`'s aria-label drops its visible text. genesis-ui follow-up."
     },
     {
       "check": "hit-area",
@@ -611,7 +613,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe label-content-name-mismatch: an element axe names only by a generated Radix id's aria-label drops its visible text. genesis-ui follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"workspace-switcher\"] > button[data-slot=\"button\"]",
+      "reason": "axe label-content-name-mismatch: `workspace-switcher`'s aria-label drops its visible text. genesis-ui follow-up."
     },
     {
       "check": "hit-area",
@@ -649,18 +652,6 @@
         "1280",
         "1440"
       ],
-      "reason": "axe label-content-name-mismatch: an element axe names only by a generated Radix id's aria-label drops its visible text. genesis-ui follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
-    },
-    {
-      "check": "axe",
-      "rule": "label-content-name-mismatch",
-      "page": "/demo/:ws/chat",
-      "viewports": [
-        "768",
-        "1024",
-        "1280",
-        "1440"
-      ],
       "target": ".bg-accent",
       "reason": "axe label-content-name-mismatch: `.bg-accent`'s aria-label drops its visible text. genesis-ui follow-up."
     },
@@ -676,6 +667,19 @@
       ],
       "target": "button[data-testid=\"genesis-chat-inbox-row-team\"]",
       "reason": "axe label-content-name-mismatch: `genesis-chat-inbox-row-team`'s aria-label drops its visible text. genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/demo/:ws/chat",
+      "viewports": [
+        "768",
+        "1024",
+        "1280",
+        "1440"
+      ],
+      "target": "div[data-testid=\"workspace-switcher\"] > button[data-slot=\"button\"]",
+      "reason": "axe label-content-name-mismatch: `workspace-switcher`'s aria-label drops its visible text. genesis-ui follow-up."
     },
     {
       "check": "hit-area",
@@ -696,7 +700,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe label-content-name-mismatch: an element axe names only by a generated Radix id's aria-label drops its visible text. genesis-ui follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"workspace-switcher\"] > button[data-slot=\"button\"]",
+      "reason": "axe label-content-name-mismatch: `workspace-switcher`'s aria-label drops its visible text. genesis-ui follow-up."
     },
     {
       "check": "hit-area",
@@ -764,23 +769,6 @@
       "viewports": [
         "320",
         "375",
-        "768",
-        "1024",
-        "1280",
-        "1440",
-        "text-200",
-        "zoom-200",
-        "zoom-400"
-      ],
-      "reason": "axe label-content-name-mismatch: an element axe names only by a generated Radix id's aria-label drops its visible text. genesis-ui follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
-    },
-    {
-      "check": "axe",
-      "rule": "label-content-name-mismatch",
-      "page": "/demo/:ws/clients/:id/:section?",
-      "viewports": [
-        "320",
-        "375",
         "text-200",
         "zoom-200",
         "zoom-400"
@@ -801,6 +789,24 @@
       ],
       "target": "a",
       "reason": "axe label-content-name-mismatch: `a`'s aria-label drops its visible text. genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/demo/:ws/clients/:id/:section?",
+      "viewports": [
+        "320",
+        "375",
+        "768",
+        "1024",
+        "1280",
+        "1440",
+        "text-200",
+        "zoom-200",
+        "zoom-400"
+      ],
+      "target": "div[data-testid=\"workspace-switcher\"] > button[data-slot=\"button\"]",
+      "reason": "axe label-content-name-mismatch: `workspace-switcher`'s aria-label drops its visible text. genesis-ui follow-up."
     },
     {
       "check": "hit-area",
@@ -914,7 +920,8 @@
         "zoom-200",
         "zoom-400"
       ],
-      "reason": "axe label-content-name-mismatch: an element axe names only by a generated Radix id's aria-label drops its visible text. genesis-ui follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"workspace-switcher\"] > button[data-slot=\"button\"]",
+      "reason": "axe label-content-name-mismatch: `workspace-switcher`'s aria-label drops its visible text. genesis-ui follow-up."
     },
     {
       "check": "hit-area",
@@ -3794,7 +3801,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe color-contrast: an element axe names only by a generated Radix id is below 4.5:1 on its surface. Design-system token follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"app-shell-contextual-nav\"] > p",
+      "reason": "axe color-contrast: `app-shell-contextual-nav` is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
       "check": "hit-area",
@@ -3896,7 +3904,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe color-contrast: an element axe names only by a generated Radix id is below 4.5:1 on its surface. Design-system token follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"app-shell-contextual-nav\"] > p",
+      "reason": "axe color-contrast: `app-shell-contextual-nav` is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
       "check": "hit-area",
@@ -6211,7 +6220,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe color-contrast: an element axe names only by a generated Radix id is below 4.5:1 on its surface. Design-system token follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"app-shell-contextual-nav\"] > p",
+      "reason": "axe color-contrast: `app-shell-contextual-nav` is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
       "check": "axe",
@@ -6342,7 +6352,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe color-contrast: an element axe names only by a generated Radix id is below 4.5:1 on its surface. Design-system token follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"app-shell-contextual-nav\"] > p",
+      "reason": "axe color-contrast: `app-shell-contextual-nav` is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
       "check": "hit-area",
@@ -6444,7 +6455,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe color-contrast: an element axe names only by a generated Radix id is below 4.5:1 on its surface. Design-system token follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"app-shell-contextual-nav\"] > p",
+      "reason": "axe color-contrast: `app-shell-contextual-nav` is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
       "check": "hit-area",
@@ -6537,7 +6549,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe color-contrast: an element axe names only by a generated Radix id is below 4.5:1 on its surface. Design-system token follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"app-shell-contextual-nav\"] > p",
+      "reason": "axe color-contrast: `app-shell-contextual-nav` is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
       "check": "hit-area",
@@ -6631,7 +6644,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe color-contrast: an element axe names only by a generated Radix id is below 4.5:1 on its surface. Design-system token follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"app-shell-contextual-nav\"] > p",
+      "reason": "axe color-contrast: `app-shell-contextual-nav` is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
       "check": "hit-area",
@@ -6745,7 +6759,8 @@
         "1280",
         "1440"
       ],
-      "reason": "axe color-contrast: an element axe names only by a generated Radix id is below 4.5:1 on its surface. Design-system token follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"app-shell-contextual-nav\"] > p",
+      "reason": "axe color-contrast: `app-shell-contextual-nav` is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
       "check": "hit-area",
@@ -8158,7 +8173,8 @@
         "chromium",
         "webkit"
       ],
-      "reason": "axe color-contrast: an element axe names only by a generated Radix id is below 4.5:1 on its surface. Design-system token follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-testid=\"app-shell-contextual-nav\"] > p",
+      "reason": "axe color-contrast: `app-shell-contextual-nav` is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
       "check": "axe",
@@ -8569,21 +8585,6 @@
       ],
       "target": "span",
       "reason": "axe color-contrast: `span` is below 4.5:1 on its surface. Design-system token follow-up."
-    },
-    {
-      "check": "axe",
-      "rule": "target-size",
-      "page": "story:foundation-data-resourceboard--*",
-      "viewports": [
-        "320",
-        "768",
-        "1280"
-      ],
-      "engines": [
-        "chromium",
-        "webkit"
-      ],
-      "reason": "axe target-size (WCAG 2.5.8): an element axe names only by a generated Radix id is under 24px without spacing. genesis-ui follow-up with rule 3. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
     },
     {
       "check": "axe",
@@ -9630,7 +9631,8 @@
         "chromium",
         "webkit"
       ],
-      "reason": "axe label-content-name-mismatch: an element axe names only by a generated Radix id's aria-label drops its visible text. genesis-ui follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": ".font-\\[number\\:var\\(--control-font-weight\\)\\]",
+      "reason": "axe label-content-name-mismatch: `.font-\\[number\\:var\\(--control-font-weight\\)\\]`'s aria-label drops its visible text. genesis-ui follow-up."
     },
     {
       "check": "axe",
@@ -9645,8 +9647,8 @@
         "chromium",
         "webkit"
       ],
-      "target": ".font-\\[number\\:var\\(--control-font-weight\\)\\]",
-      "reason": "axe label-content-name-mismatch: `.font-\\[number\\:var\\(--control-font-weight\\)\\]`'s aria-label drops its visible text. genesis-ui follow-up."
+      "target": "div[data-testid=\"workspace-switcher\"] > button[data-slot=\"button\"]",
+      "reason": "axe label-content-name-mismatch: `workspace-switcher`'s aria-label drops its visible text. genesis-ui follow-up."
     },
     {
       "check": "axe",
@@ -11318,7 +11320,24 @@
         "chromium",
         "webkit"
       ],
-      "reason": "axe color-contrast: an element axe names only by a generated Radix id is below 4.5:1 on its surface. Design-system token follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div > p \"Not available on your current p…\"",
+      "reason": "axe color-contrast: \"Not available on your current p…\" is below 4.5:1 on its surface. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-ui-togglerow--*",
+      "viewports": [
+        "320",
+        "768",
+        "1280"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > p \"Text messages for urgent update…\"",
+      "reason": "axe color-contrast: \"Text messages for urgent update…\" is below 4.5:1 on its surface. Design-system token follow-up."
     },
     {
       "check": "reflow",
@@ -11570,7 +11589,8 @@
         "chromium",
         "webkit"
       ],
-      "reason": "axe aria-valid-attr-value: an element axe names only by a generated Radix id, found by the conformance run; sample refresh or genesis-ui follow-up. Untargeted for now: the run records a stable target for these from the next CI run, and the entry is narrowed then."
+      "target": "div[data-slot=\"tabs-list\"] > button[data-slot=\"tabs-trigger\"]",
+      "reason": "axe aria-valid-attr-value: `tabs-list`, found by the conformance run; sample refresh or genesis-ui follow-up."
     },
     {
       "check": "hit-area",
