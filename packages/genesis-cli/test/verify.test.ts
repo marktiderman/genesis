@@ -181,6 +181,11 @@ describe("verify in the browser (Chromium)", async () => {
     expect(found.filter((f) => f.check === "reflow")).toEqual([]);
   });
 
+  run("still finds content cut off by wide content that hides its own overflow", async () => {
+    const found = await check(`${META}<body style="margin:0"><pre id="code" style="overflow-x:hidden;margin:0"><span id="line" style="display:inline-block;width:600px">long line</span></pre></body>`, { ...PHONE, coarse: false });
+    expect(found.filter((f) => f.check === "reflow").some((f) => f.message.includes("cut off by pre#code"))).toBe(true);
+  });
+
   run("catches content hidden by overflow-x: hidden on the body", async () => {
     const found = await check(`${META}<body style="margin:0;overflow-x:hidden"><p id="cut" style="width:500px">cut off</p></body>`);
     expect(found.filter((f) => f.check === "reflow").map((f) => f.target)).toContain('p#cut "cut off"');

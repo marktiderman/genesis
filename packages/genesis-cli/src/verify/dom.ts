@@ -147,7 +147,9 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
     }
     // Clipped inside wide content itself (a table cell that clips at its column's edge): the
     // table's own layout, and the table is checked against its frame.
-    if (frame && clips(frame) && frame.closest(WIDE_CONTENT)) continue;
+    // From the frame's parent: a frame that is itself wide content (a <pre> hiding overflow) still
+    // cuts off what it clips.
+    if (frame && clips(frame) && frame.parentElement?.closest(WIDE_CONTENT)) continue;
     if (offenders.some((o) => o.el.contains(el))) continue;
     for (let i = offenders.length - 1; i >= 0; i--) if (el.contains(offenders[i].el)) offenders.splice(i, 1);
     offenders.push({ el, how: frame && clips(frame) ? `cut off by ${describe(frame)}` : "outside a frame that scrolls it" });
