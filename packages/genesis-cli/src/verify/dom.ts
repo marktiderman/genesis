@@ -87,6 +87,19 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
   const WIDE_CONTENT =
     "table, pre, code, [role='grid'], [role='table'], [role='treegrid'], [role='tablist'], [role='toolbar'], canvas, svg, iframe, video, img, [data-scroll-frame]";
 
+  // Where every frame and the window are scrolled now: the hit-area and focus checks scroll, and the
+  // end of this function puts each back.
+  const saved = new Map<Element, [number, number]>();
+  for (const el of Array.from(document.querySelectorAll("*"))) if (el.scrollTop || el.scrollLeft) saved.set(el, [el.scrollTop, el.scrollLeft]);
+  const winScroll: [number, number] = [window.scrollX, window.scrollY];
+  /** Brings an element into the viewport (instantly) when it sits above or below it, for a hit test. */
+  const intoView = (el: Element): DOMRect => {
+    const r = el.getBoundingClientRect();
+    if (r.bottom > 0 && r.top < vh) return r;
+    el.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
+    return el.getBoundingClientRect();
+  };
+
   // Viewport meta (rules 6 and 7).
   const meta = document.querySelector<HTMLMetaElement>("meta[name='viewport']")?.content ?? "";
   for (const [part, rule] of [
@@ -178,17 +191,22 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
       if (el.tagName === "INPUT" && (el.closest("label") || (el.id && document.querySelector(`label[for="${CSS.escape(el.id)}"]`)))) {
         const label = (el.closest("label") ?? document.querySelector(`label[for="${CSS.escape(el.id)}"]`)) as HTMLElement;
         if (!hidden(label)) {
-          const r = label.getBoundingClientRect();
-          // The label is the hit area only when a tap on it reaches it (or its control): nothing covers it.
-          const cx = r.left + r.width / 2;
-          const cy = r.top + r.height / 2;
-          const reaches = [[cx, cy], [cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]]
-            .filter(([x, y]) => x >= 0 && y >= 0 && x < vw && y < vh)
-            .every(([x, y]) => {
-              const hit = document.elementFromPoint(x, y);
-              return !!hit && (label.contains(hit) || el.contains(hit) || hit === el);
-            });
-          if (r.width >= 44 && r.height >= 44 && reaches) continue;
+          const size = label.getBoundingClientRect();
+          // The label is the hit area only when a tap on it reaches it (or its control): nothing
+          // covers it. Hit-tested in view, and only with at least one point on screen.
+          if (size.width >= 44 && size.height >= 44) {
+            const r = intoView(label);
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            const points = [[cx, cy], [cx - 21, cy], [cx + 21, cy], [cx, cy - 21], [cx, cy + 21]].filter(([x, y]) => x >= 0 && y >= 0 && x < vw && y < vh);
+            const reaches =
+              points.length > 0 &&
+              points.every(([x, y]) => {
+                const hit = document.elementFromPoint(x, y);
+                return !!hit && (label.contains(hit) || el.contains(hit) || hit === el);
+              });
+            if (reaches) continue;
+          }
         }
       }
       if (hidden(el)) continue;
@@ -199,10 +217,12 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
         const around = (block?.textContent ?? "").replace(own, "").trim();
         if (getComputedStyle(el).display === "inline" && around.length > 0) continue;
       }
-      const r = el.getBoundingClientRect();
-      if (offscreen(r)) continue;
-      let w = r.width;
-      let h = r.height;
+      const size = el.getBoundingClientRect();
+      // Every control is measured, below the fold too; only one parked off-canvas to the side (a
+      // closed drawer) is skipped.
+      if (size.right <= 0 || size.left >= vw) continue;
+      let w = size.width;
+      let h = size.height;
       for (const pseudo of ["::before", "::after"]) {
         const s = getComputedStyle(el, pseudo);
         if (s.content === "none" || s.position !== "absolute") continue;
@@ -213,7 +233,8 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
         findings.push({ check: "hit-area", target: describe(el), message: `hit area ${Math.round(w)}×${Math.round(h)}px, under 44×44 on a coarse pointer` });
         continue;
       }
-      // The area is 44px on paper; hit-test it: a clipping ancestor or a neighbour on top takes taps.
+      // The area is 44px on paper; hit-test it in view: a clipping ancestor or a neighbour on top takes taps.
+      const r = intoView(el);
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       const stolen = [
@@ -281,9 +302,6 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
   // Focus not obscured (WCAG 2.4.11), last because it moves focus and scrolls: each focusable
   // element (those in main first), focused and scrolled into view the way the keyboard does it
   // ("nearest", which honours scroll-padding), isn't entirely covered by a fixed or sticky element.
-  const saved = new Map<Element, [number, number]>();
-  for (const el of Array.from(document.querySelectorAll("*"))) if (el.scrollTop || el.scrollLeft) saved.set(el, [el.scrollTop, el.scrollLeft]);
-  const winScroll: [number, number] = [window.scrollX, window.scrollY];
   const before = document.activeElement as HTMLElement | null;
   const selector =
     "a[href], button:not([disabled]), input:not([disabled]):not([type='hidden']), select:not([disabled]), textarea:not([disabled]), summary, iframe, [contenteditable]:not([contenteditable='false']), [tabindex]:not([tabindex='-1'])";
@@ -298,6 +316,10 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
     el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "instant" });
     const r = el.getBoundingClientRect();
     if (r.width <= 1 || r.height <= 1 || offscreen(r)) continue; // still visually hidden, or scrolled out of a frame
+    // The focused element takes the pointer for its own hit tests (its style is put back below), so
+    // one with pointer-events: none can't make a bar behind it look as if it paints on top.
+    const ownPointer = [el.style.getPropertyValue("pointer-events"), el.style.getPropertyPriority("pointer-events")] as const;
+    el.style.setProperty("pointer-events", "auto", "important");
     const points: Array<[number, number]> = [
       [r.left + r.width / 2, r.top + r.height / 2],
       [r.left + 1, r.top + 1],
@@ -335,6 +357,8 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
         if (bar) coveredBy = bar;
         return !!bar;
       });
+    if (ownPointer[0]) el.style.setProperty("pointer-events", ownPointer[0], ownPointer[1]);
+    else el.style.removeProperty("pointer-events");
     if (covered && coveredBy) findings.push({ check: "focus-obscured", target: describe(el), message: `focused, it is hidden under ${describe(coveredBy)}` });
     // Close whatever focusing opened (a tooltip, a hover card) before the next element.
     el.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));

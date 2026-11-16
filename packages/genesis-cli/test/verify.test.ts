@@ -151,6 +151,10 @@ describe("verify allow", () => {
     expect(patternCovers("/demo/:ws/:section?", "/demo/:ws")).toBe(true);
     expect(patternCovers("/demo/:ws", "/demo/:ws/:section?")).toBe(false);
     expect(patternCovers("/items", "/items/:id")).toBe(false);
+    expect(patternCovers("/files/:name.json", "/files/:name.csv")).toBe(false);
+    expect(patternCovers("/files/:name.json", "/files/report.csv")).toBe(false);
+    expect(patternCovers("/files/:name.json", "/files/report.json")).toBe(true);
+    expect(patternCovers("/files/:id", "/files/:name.json")).toBe(true);
     const base: AllowEntry = { check: "reflow", page: "/demo/:ws", target: "html", reason: "x" };
     expect(entryCovers(base, { ...base, page: "/demo/*" })).toBe(false);
   });
@@ -277,6 +281,9 @@ describe("verify in the browser (Chromium)", async () => {
       `<div style="position:fixed;bottom:0;left:0;right:0;height:120px;background:#fff;pointer-events:none;${barZ}"></div></body>`;
     const behind = await check(page("z-index:1", "position:relative;z-index:2;background:#ccc"), { ...PHONE, coarse: false });
     expect(behind.filter((f) => f.check === "focus-obscured")).toEqual([]);
+    // A raised link that itself ignores the pointer: still not covered by the bar behind it.
+    const raisedNoPointer = await check(page("z-index:1", "position:relative;z-index:2;background:#ccc;pointer-events:none"), { ...PHONE, coarse: false });
+    expect(raisedNoPointer.filter((f) => f.check === "focus-obscured")).toEqual([]);
     const above = await check(page("", ""), { ...PHONE, coarse: false });
     expect(above.filter((f) => f.check === "focus-obscured").map((f) => f.target)).toContain('a#link "link"');
   });
@@ -316,6 +323,21 @@ describe("verify in the browser (Chromium)", async () => {
         `<input type="checkbox" class="sr" id="peer"><a class="sr" href="#main">Skip to content</a></body>`,
     );
     expect(found.filter((f) => f.check === "hit-area").map((f) => f.target)).toEqual(['button#small "a"']);
+  });
+
+  run("measures controls below the fold, and hit-tests a label there in view", async () => {
+    const { page, close } = await open(
+      `${META}<body style="margin:0"><div style="height:1500px"></div><button id="deep" style="width:24px;height:24px">d</button>` +
+        `<label style="display:flex;min-height:44px;min-width:200px"><input id="far" type="checkbox">Remember me</label><div style="height:600px"></div></body>`,
+    );
+    try {
+      const found = await page.evaluate(domChecks, PHONE);
+      expect(found.filter((f) => f.check === "hit-area").map((f) => f.target)).toEqual(['button#deep "d"']);
+      // Scrolled back where it was.
+      expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    } finally {
+      await close();
+    }
   });
 
   run("exempts a link in running text, not a link alone in a list item", async () => {

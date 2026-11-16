@@ -113,7 +113,10 @@ export function patternCovers(base: string, pattern: string): boolean {
     const pOpt = ps.endsWith("?");
     const bName = bOpt ? bs.slice(0, -1) : bs;
     const pName = pOpt ? ps.slice(0, -1) : ps;
-    const segment = isParam(bName) ? isParam(pName) || !/[:$]/.test(pName) : bName === pName;
+    // A plain parameter covers any one segment; one with a static part (`:name.json`) covers only a
+    // static segment it matches, or the identical parameter.
+    const plainParam = /^[:$][A-Za-z_][\w-]*$/.test(bName);
+    const segment = plainParam ? true : /[:$]/.test(pName) ? bName === pName : isParam(bName) ? matchesPattern(`/${bName}`, `/${pName}`) : bName === pName;
     if (segment && (bOpt || !pOpt) && walk(i + 1, j + 1)) return true;
     return bOpt && walk(i + 1, j);
   };
