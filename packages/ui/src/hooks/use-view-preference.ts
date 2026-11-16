@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useContext } from "react";
 import { usePersistedUiState } from "@marktiderman/genesis-core/hooks";
 import type { ViewMode } from "../components/patterns/view-toggle";
 import { useIsMobile } from "./use-mobile";
+import { ListNarrowContext } from "./use-list-width";
 
 /**
  * A default view that depends on the viewport: cards on a phone, a table on
@@ -13,9 +14,12 @@ import { useIsMobile } from "./use-mobile";
  * @stability Beta
  */
 export interface ResponsiveViewMode {
-  /** Below the mobile breakpoint (768px). */
+  /**
+   * When the list is narrow: inside a ResourceView, its own frame below 40rem (`LIST_NARROW_REM`);
+   * elsewhere, a viewport below the mobile breakpoint (768px).
+   */
   mobile: ViewMode;
-  /** At or above the mobile breakpoint. */
+  /** When it isn't. */
   desktop: ViewMode;
 }
 
@@ -66,6 +70,8 @@ export function useViewPreference(
   defaultMode: ViewModeDefault = "grid",
 ): [ViewMode, (mode: ViewMode) => void] {
   const isMobile = useIsMobile();
+  // A list's own width when a ResourceView has measured it, else the viewport.
+  const narrow = useContext(ListNarrowContext) ?? isMobile;
   const responsive = typeof defaultMode !== "string";
   const [chosen, setChosen] = usePersistedUiState<ViewMode | undefined>(choiceKey(key), undefined, MODE_FORMAT);
   // The legacy key is read only for a plain default (see the storage keys above), never written.
@@ -73,7 +79,7 @@ export function useViewPreference(
 
   const fallback = !responsive
     ? defaultMode
-    : isMobile
+    : narrow
         ? defaultMode.mobile
         : defaultMode.desktop;
 

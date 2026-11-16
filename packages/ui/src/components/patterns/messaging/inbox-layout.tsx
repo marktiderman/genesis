@@ -214,7 +214,7 @@ export function InboxLayout({
       ) : null}
       {views ? (
         <Sheet open={viewsOpen} onOpenChange={setViewsOpen}>
-          <SheetContent side="left" data-testid={`${testID}-views-sheet`} className="w-72 overflow-y-auto p-0">
+          <SheetContent side="left" data-testid={`${testID}-views-sheet`} className="w-72 max-sm:w-72 overflow-y-auto p-0">
             <SheetTitle className="sr-only">{viewsLabel}</SheetTitle>
             {/* Closes on a choice: the views are the app's, and any button or link in them chooses. */}
             <div

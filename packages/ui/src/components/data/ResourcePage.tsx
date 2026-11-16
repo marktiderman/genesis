@@ -1421,9 +1421,12 @@ function ResourcePageBody<
     !anyFilters &&
     !filtersProp?.some((f) => f.selected.length > 0);
 
+  // The screen's toolbar and Create share the header's actions cluster. Both may shrink and wrap,
+  // so a toolbar wider than the list (a row of filter chips) folds onto more lines instead of
+  // spilling past the edge (docs/RESPONSIVE.md, rule 2).
   const createAction =
     toolbar || headerCreate ? (
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
         {toolbar}
         {headerCreate}
       </div>

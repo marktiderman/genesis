@@ -380,6 +380,19 @@ describe("SupportMessengerLauncher", () => {
     render(<SupportMessengerLauncher client={fakeClient()} tenantId="ta" />, { wrapper });
     expect(screen.getByTestId("genesis-support-messenger-launcher").className).toContain("fixed");
   });
+
+  it("as an icon in a header: named by its words, the unread count on its corner, opening the same sheet", async () => {
+    const client = fakeClient({ ticketsInTenant: vi.fn(async () => [ticket({ unread: true })]) });
+    render(<SupportMessengerLauncher client={client} tenantId="ta" position="inline" variant="icon" />, { wrapper });
+    const button = screen.getByTestId("genesis-support-messenger-launcher");
+    expect(button.getAttribute("data-variant")).toBe("icon");
+    expect(button.className).not.toContain("fixed");
+    expect(button.textContent).not.toContain("Help");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Help, 1 unread" })).toBeTruthy());
+    expect(screen.getByTestId("genesis-support-messenger-unread").className).toContain("absolute");
+    fireEvent.click(button);
+    expect(await screen.findByTestId("genesis-support-messenger-sheet")).toBeTruthy();
+  });
 });
 
 describe("SupportHelpCenterAdmin", () => {

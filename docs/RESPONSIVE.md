@@ -1,0 +1,82 @@
+# Responsive contract
+
+How every Genesis web component behaves from a 320px phone to a wide desktop, and what an app on
+Genesis may rely on. The components hold these rules so a screen doesn't have to; an app that
+needs one of them to bend does it through a prop, never by overriding a component's markup.
+
+The rules come from WCAG 2.2, the platform guidelines (Apple HIG, Material 3) and the way the
+leading design systems (Polaris, Primer, shadcn) handle the same problems. Sources are listed at
+the end.
+
+## The ten rules
+
+1. **The shell answers to the viewport; everything inside answers to its container.** AppShell
+   switches on the viewport: a header and bottom tab bar below `md` (768px), the rail from `md`,
+   the full sidebar from `lg`. A list, a card wall or a form inside a page answers to its own
+   width, because the same list sits in a full page on a phone and in a 360px side panel on a
+   wide screen. Breakpoints are Tailwind's (`sm` 40rem, `md` 48rem, `lg` 64rem, `xl` 80rem), in
+   rem so they follow the person's font size; container rules use Tailwind's `@container`
+   variants.
+2. **Nothing scrolls the page sideways.** Every screen reflows at 320 CSS px wide (WCAG 1.4.10:
+   1280px at 400% zoom). Only a data grid, a map or code may scroll sideways, inside its own
+   frame. A header's actions, or a list's toolbar in them, wrap within the header rather than
+   push past its edge.
+3. **Every target is big enough to hit.** At least 24×24 CSS px everywhere (WCAG 2.5.8), and a
+   44×44px hit area on a coarse pointer (WCAG 2.5.5, Apple's 44pt). Buttons, inputs, selects,
+   tabs and menu items grow to 44px under `pointer-coarse`; controls that draw smaller (a
+   switch, a checkbox, a chip) keep their look and take an invisible 44px hit area instead
+   (`touchTarget`, from `@marktiderman/genesis-ui`), so desktop density stays.
+4. **A list turns into rows when it is narrow.** `ResourceView` measures its own frame. Below
+   40rem a responsive default (`{ mobile, desktop }`, or an app's `phoneMode`) takes its narrow
+   side, and `phoneMode` covers page and embedded lists alike. A table that can't show its
+   columns is never the default. A list whose point is its columns (a sheet, a comparison grid)
+   says so with its own `mode` and scrolls inside its frame.
+5. **The overlay fits the job.** A short confirmation is the centred dialog. A picker or a short
+   form docks to the bottom on a phone (`DialogContent mobileLayout="sheet"`). A long form, an
+   editor or media fills the screen (`mobileLayout="fullscreen"`). Side sheets (a record's form,
+   its peek) fill a phone's width below `sm`; a navigation drawer that should stay narrow says
+   so (`max-sm:w-72`).
+6. **Overlays survive the keyboard and the notch.** Overlays cap their height with `dvh` and
+   scroll inside themselves; the body doesn't scroll behind them. An app sets
+   `interactive-widget=resizes-content` in its viewport meta, so the on-screen keyboard shrinks
+   the layout instead of covering a sheet's footer.
+7. **Everything fixed to an edge pads for the safe area.** The header, the tab bar, sheets and
+   dialogs pad with `env(safe-area-inset-*)` (the app's viewport meta has `viewport-fit=cover`).
+   A floating element offsets by the tab bar's height plus the bottom inset.
+8. **Nothing hides behind hover.** Hover styles apply only where hover exists (Tailwind 4's
+   `hover:`); an action shown on hover has a tap and keyboard path too (a row menu, the peek).
+9. **One floating control at most, and it never covers.** On a phone with a bottom tab bar, the
+   help launcher goes in the header (`SupportMessengerLauncher variant="icon"`), not over the
+   page, where it would sit on the right-hand column of switches, row menus and pagers. From
+   `md` up it may float in a corner. A page with its own bottom action hides it.
+10. **A fixed rem scale, reduced motion respected, and widths tested.** App UI uses the fixed rem
+    type and spacing scale (density changes it, not the viewport; fluid `clamp()` type is for
+    marketing pages). Motion turns off under `prefers-reduced-motion`. Screens are checked at
+    320, 375, 768, 1024 and 1280px, at 200% zoom, with touch emulation, and with one list in a
+    narrow panel on a wide screen.
+
+## In an app
+
+- Don't override a component's markup to make it fit (a global selector on its classes, an
+  arbitrary variant reaching into its parts). If a component doesn't hold a rule above, it is a
+  Genesis gap: raise it, and work around it only through the component's props.
+- Write layout phone first and add `sm:`/`md:`/`lg:` for wider screens. Inside a page, prefer
+  `@container` variants for anything that may also appear in a panel.
+- A form is one column on a phone: fields side by side use `grid gap-3 sm:grid-cols-2`.
+
+## Sources
+
+- WCAG 2.2: Reflow (1.4.10), Resize text (1.4.4), Text spacing (1.4.12), Content on hover or
+  focus (1.4.13), Target size minimum (2.5.8) and enhanced (2.5.5), Focus not obscured (2.4.11):
+  https://www.w3.org/WAI/WCAG22/Understanding/
+- Container queries, Baseline widely available since August 2025:
+  https://web.dev/blog/baseline-digest-aug-2025, https://tailwindcss.com/docs/responsive-design#container-queries
+- Window size classes (Material 3): https://developer.android.com/develop/ui/compose/layouts/adaptive/window-size-classes
+- Tables as lists on small screens: https://shopify.dev/docs/api/app-home/polaris-web-components/layout-and-structure/table
+- Page header actions on narrow screens: https://primer.style/product/components/page-header/guidelines
+- Dialog on desktop, drawer on mobile: https://ui.shadcn.com/docs/components/drawer
+- Viewport meta and the on-screen keyboard: https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Viewport_meta_element,
+  https://developer.chrome.com/blog/viewport-resize-behavior
+- Touch targets: https://developer.apple.com/design/human-interface-guidelines/accessibility,
+  https://m3.material.io/foundations/designing/structure, https://tailwindcss.com/blog/tailwindcss-v4-1
+- Messenger launchers on mobile: https://developers.intercom.com/installing-intercom/web/attributes-objects

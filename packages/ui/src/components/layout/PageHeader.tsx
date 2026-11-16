@@ -368,8 +368,11 @@ export function PageHeader({
     Boolean(resolved.showDetailsHint) &&
     detailsHint != null;
 
+  // Never wider than the header: when the actions (or a screen's toolbar in them) don't fit,
+  // they wrap within it instead of pushing past the edge (docs/RESPONSIVE.md, rule 2). Actions
+  // that fit keep their size; `min-w-0` only lets the cluster give way when it must.
   const actionsCluster = (
-    <div className="flex items-center gap-1.5 shrink-0">
+    <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1.5">
       {showHint ? (
         <span className="hidden max-w-[14rem] truncate text-xs text-muted-foreground sm:inline">
           {detailsHint}

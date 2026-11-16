@@ -104,3 +104,12 @@ export function relativeTime(value: unknown, now: Date = new Date(), options: Re
   if (Math.abs(d) < 7) return rtf.format(-d, "day");
   return date();
 }
+
+/**
+ * A 44×44px hit area on a coarse pointer (touch), centred on a control that draws smaller (a 24px
+ * switch, a 16px checkbox, a chip): an invisible `::after` that taps reach, while the control
+ * keeps its visual size and desktop density (WCAG 2.5.5 and Apple's 44pt; docs/RESPONSIVE.md,
+ * rule 3). The control must not clip overflow.
+ */
+export const touchTarget =
+  "relative pointer-coarse:after:absolute pointer-coarse:after:left-1/2 pointer-coarse:after:top-1/2 pointer-coarse:after:size-11 pointer-coarse:after:-translate-x-1/2 pointer-coarse:after:-translate-y-1/2";

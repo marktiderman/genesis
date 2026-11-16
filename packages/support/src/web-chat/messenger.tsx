@@ -760,6 +760,13 @@ export interface SupportMessengerLauncherProps extends Omit<SupportMessengerProp
   position?: "bottom-right" | "bottom-left" | "inline";
   /** The button's words. Default the copy's "Help". */
   label?: string;
+  /**
+   * `button` (default): the icon and the words. `icon`: a ghost icon button named by the words, with
+   * the unread count as a badge on its corner, for a header or a toolbar. On a phone with a bottom
+   * tab bar, put an `icon` launcher (`position="inline"`) in the header rather than float one over
+   * the page, where it covers the controls on the right (docs/RESPONSIVE.md, rule 9).
+   */
+  variant?: "button" | "icon";
   /** Opens the app's own help page from the dock's expand button. */
   onExpand?: () => void;
   /** How often the unread count re-reads, in ms. Default a minute; `false` for never. */
@@ -770,7 +777,7 @@ const PANEL_ID = "genesis-support-messenger";
 const POSITIONS = { "bottom-right": "fixed bottom-4 right-4 z-50", "bottom-left": "fixed bottom-4 left-4 z-50", inline: "" } as const;
 
 /** A button with the unread count that opens the messenger: in the chat dock when there is one, else a sheet. */
-export function SupportMessengerLauncher({ position = "bottom-right", label, onExpand, refreshInterval = 60_000, ...messenger }: SupportMessengerLauncherProps) {
+export function SupportMessengerLauncher({ position = "bottom-right", label, variant = "button", onExpand, refreshInterval = 60_000, ...messenger }: SupportMessengerLauncherProps) {
   const { client } = messenger;
   const { ready, tenantId } = useResolvedTenant(client, messenger.tenantId);
   const copy = useMemo(() => resolveSupportCopy(messenger.copy), [messenger.copy]);
@@ -797,21 +804,41 @@ export function SupportMessengerLauncher({ position = "bottom-right", label, onE
   };
   return (
     <>
-      <Button
-        className={POSITIONS[position]}
-        onClick={open}
-        aria-haspopup="dialog"
-        aria-label={unread > 0 ? fill(copy.messenger.openWithUnread, { count: unread }) : title}
-        data-testid="genesis-support-messenger-launcher"
-      >
-        <MessageCircle className="size-4" aria-hidden />
-        {title}
-        {unread > 0 ? (
-          <span aria-hidden data-testid="genesis-support-messenger-unread" className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-background px-1 text-xs font-semibold text-foreground">
-            {unread > 99 ? "99+" : unread}
-          </span>
-        ) : null}
-      </Button>
+      {variant === "icon" ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("relative", POSITIONS[position])}
+          onClick={open}
+          aria-haspopup="dialog"
+          aria-label={unread > 0 ? fill(copy.messenger.openWithUnread, { count: unread }) : title}
+          data-testid="genesis-support-messenger-launcher"
+          data-variant="icon"
+        >
+          <MessageCircle className="size-5" aria-hidden />
+          {unread > 0 ? (
+            <span aria-hidden data-testid="genesis-support-messenger-unread" className="absolute right-0.5 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.625rem] font-semibold leading-none text-primary-foreground">
+              {unread > 99 ? "99+" : unread}
+            </span>
+          ) : null}
+        </Button>
+      ) : (
+        <Button
+          className={POSITIONS[position]}
+          onClick={open}
+          aria-haspopup="dialog"
+          aria-label={unread > 0 ? fill(copy.messenger.openWithUnread, { count: unread }) : title}
+          data-testid="genesis-support-messenger-launcher"
+        >
+          <MessageCircle className="size-4" aria-hidden />
+          {title}
+          {unread > 0 ? (
+            <span aria-hidden data-testid="genesis-support-messenger-unread" className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-background px-1 text-xs font-semibold text-foreground">
+              {unread > 99 ? "99+" : unread}
+            </span>
+          ) : null}
+        </Button>
+      )}
       {dock ? null : (
         <Sheet open={sheet} onOpenChange={setSheet}>
           <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md" data-testid="genesis-support-messenger-sheet">

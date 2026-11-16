@@ -2,8 +2,8 @@
  * Lists and forms on a phone (docs/RESOURCE-VIEW.md, "Phones"). The list layouts are opt-in; the
  * keyboards and the search box are small defaults:
  * - a screen's `mode` can pick per screen size, and an app-wide `phoneMode` sets the phone
- *   default for every full-page list that doesn't say; `phoneMode={null}` turns it off below;
- *   an embedded list never gets it (it has no view switch), and nothing turns into a calendar;
+ *   narrow default for every page and embedded list that doesn't say; `phoneMode={null}` turns it
+ *   off below; a list answers to its own width (useListWidth), and nothing turns into a calendar;
  * - form inputs get the keyboard their type asks for, never a type's autofill token, and a number's
  *   decimal keypad only when it can't be negative;
  * - a field is `tel` only when the contract says so (`widget: "tel"`), never by its name;
@@ -103,11 +103,11 @@ describe("ResourceView phone default", () => {
     expect(result.current.defaultView).toBe("list");
   });
 
-  it("keeps an embedded list a table: it has no view switch to leave cards", () => {
+  it("gives an embedded list the narrow default too: it shows only while the list is narrow", () => {
     const { result } = renderHook(() => useResourceViewProps({ view, layout: "embedded" }), {
       wrapper: wrap({ phoneMode: "grid" }),
     });
-    expect(result.current.defaultView).toBeUndefined();
+    expect(result.current.defaultView).toEqual({ mobile: "grid", desktop: "table" });
   });
 
   it("turns an outer phone default off with phoneMode={null}", () => {

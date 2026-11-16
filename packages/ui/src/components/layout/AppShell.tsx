@@ -2065,7 +2065,7 @@ export function AppShell({
           aria-describedby={undefined}
           {...(drawerEverywhere ? {} : { overlayClassName: "md:hidden" })}
           className={cn(
-            "flex w-72 max-w-[85vw] flex-col gap-0 overflow-y-auto overscroll-contain border-sidebar-border bg-sidebar p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] shadow-none sm:max-w-[85vw]",
+            "flex w-72 max-sm:w-72 max-w-[85vw] flex-col gap-0 overflow-y-auto overscroll-contain border-sidebar-border bg-sidebar p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] shadow-none sm:max-w-[85vw]",
             !drawerEverywhere && "md:hidden",
             "motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none",
             "[&_a]:min-h-11 [&_[role=link]]:min-h-11 [&_button]:min-h-11 [&_button]:min-w-11",
