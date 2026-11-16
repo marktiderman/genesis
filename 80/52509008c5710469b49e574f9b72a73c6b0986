@@ -1,0 +1,23 @@
+docs/MIGRATION.md
+  s_26dce1f7c35112::t_fc627f3a8fdefa 14
+docs/RESPONSIVE.md
+  s_26dce1f7c35112::t_466fdd85c4a922 62-66,91-92
+packages/ui/src/components/data/__tests__/data-view-gaps.test.tsx
+  s_26dce1f7c35112::t_e1418a2167a93d 263,316-373
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8052509008c5710469b49e574f9b72a73c6b0986",
+  "prompts": {},
+  "sessions": {
+    "s_26dce1f7c35112": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ed8947e6-a9d3-4362-bb5c-29e73628efa4",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
