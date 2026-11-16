@@ -1,5 +1,5 @@
 {
-  "$comment": "Known conformance findings: each names the check, the page (a route pattern or a story file), the element (target) and the viewports and engines where it fails, with the fix that removes it. The list only shrinks: a pull request may not add an entry without the 'conformance: allow grows' label, and a run warns on an entry that covered nothing it visited. Shape: @marktiderman/genesis-cli/verify AllowEntry. Rebuilt from CI's per-PR run on 7feb67521 (2026-11-16), every entry targeted; slice 1 (the sample refresh) and genesis-ui follow-ups empty it.",
+  "$comment": "Known conformance findings: each names the check, the page (a route pattern or a story file), the element (target) and the viewports and engines where it fails, with the fix that removes it. The list only shrinks: a pull request may not add an entry without the 'conformance: allow grows' label, and a run warns on an entry that covered nothing it visited. Shape: @marktiderman/genesis-cli/verify AllowEntry. Rebuilt from CI's per-PR run on 2026-11-16; slice 1 (the sample refresh) and genesis-ui follow-ups empty it.",
   "allow": [
     {
       "check": "axe",
@@ -11,6 +11,36 @@
       ],
       "target": ".space-y-3.p-\\[var\\(--card-padding\\)\\][data-slot=\"card-header\"] > pre",
       "reason": "axe scrollable-region-focusable: `card-header` scrolls but can't take focus. genesis-ui follow-up (tabindex on the scroller)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"resource-page-next\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `resource-page-next` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"resource-page-prev\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `resource-page-prev` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -33,6 +63,21 @@
       ],
       "target": "div > a \"GitHub\"",
       "reason": "Under 44px on a coarse pointer (rule 3): \"GitHub\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-slot=\"card-title\"] > a",
+      "reason": "Under 44px on a coarse pointer (rule 3): `card-title` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -97,6 +142,36 @@
         "375",
         "768"
       ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "nav > a \"GitHub\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"GitHub\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "nav > a \"License\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"License\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
       "target": "nav > a \"Packages\"",
       "reason": "Under 44px on a coarse pointer (rule 3): \"Packages\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
@@ -110,6 +185,21 @@
       ],
       "target": "nav > a \"Storybook\"",
       "reason": "Under 44px on a coarse pointer (rule 3): \"Storybook\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "nav > a \"llms.txt\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"llms.txt\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "reflow",
@@ -620,6 +710,21 @@
       "check": "hit-area",
       "page": "/demo/:ws/bookings",
       "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"resource-page-prev\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `resource-page-prev` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/bookings",
+      "viewports": [
         "768"
       ],
       "target": "nav > a[data-slot=\"shell-nav-item\"]",
@@ -718,6 +823,36 @@
       "check": "hit-area",
       "page": "/demo/:ws/clients",
       "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"resource-page-next\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `resource-page-next` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"resource-page-prev\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `resource-page-prev` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
         "768"
       ],
       "target": "nav > a[data-slot=\"shell-nav-item\"]",
@@ -738,6 +873,7 @@
       "check": "hit-area",
       "page": "/demo/:ws/clients",
       "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -748,6 +884,8 @@
       "check": "hit-area",
       "page": "/demo/:ws/clients",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "p > a \"dana.brooks@example.com\"",
@@ -757,10 +895,222 @@
       "check": "hit-area",
       "page": "/demo/:ws/clients",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "p > a \"elif.kaya@example.com\"",
       "reason": "Under 44px on a coarse pointer (rule 3): \"elif.kaya@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"grace.liu@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"grace.liu@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"ines.duarte@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"ines.duarte@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"juniper.coffee.co@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"juniper.coffee.co@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"leo.martin@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"leo.martin@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"lumen.labs@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"lumen.labs@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"marco.silva@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"marco.silva@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"noor.haddad@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"noor.haddad@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"nova.dental@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"nova.dental@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"oakfield.library@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"oakfield.library@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"owen.price@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"owen.price@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"priya.nair@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"priya.nair@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"sam.whitley@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"sam.whitley@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"tidewater.books@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"tidewater.books@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/:ws/clients",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"tom.s.reyes@example.com\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"tom.s.reyes@example.com\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "axe",
@@ -850,6 +1200,7 @@
       "check": "hit-area",
       "page": "/demo/:ws/clients/:id/:section?",
       "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -860,6 +1211,7 @@
       "check": "hit-area",
       "page": "/demo/:ws/clients/:id/:section?",
       "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -1398,6 +1750,88 @@
       "check": "hit-area",
       "page": "/design-system",
       "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button#ds-select",
+      "reason": "Under 44px on a coarse pointer (rule 3): `button#ds-select` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button#terms",
+      "reason": "Under 44px on a coarse pointer (rule 3): `button#terms` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"ds-button-disabled\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `ds-button-disabled` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"ds-button-icon-create\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `ds-button-icon-create` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"ds-button-icon-delete\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `ds-button-icon-delete` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"ds-dialog-open\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `ds-dialog-open` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
         "768"
       ],
       "target": "button[data-testid=\"nav-group-toggle-Building blocks\"]",
@@ -1425,10 +1859,122 @@
       "check": "hit-area",
       "page": "/design-system",
       "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"status-chip-Active\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `status-chip-Active` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"status-chip-Archived\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `status-chip-Archived` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"status-chip-Draft\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `status-chip-Draft` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"view-toggle-grid\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `view-toggle-grid` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"view-toggle-list\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `view-toggle-list` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"view-toggle-table\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `view-toggle-table` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
         "768"
       ],
       "target": "div > a[data-slot=\"shell-nav-item\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `shell-nav-item` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > button[data-slot=\"button\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `button` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > button[data-slot=\"select-trigger\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `select-trigger` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -1465,6 +2011,21 @@
       ],
       "target": "nav > a[data-slot=\"shell-nav-item\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `shell-nav-item` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "th[data-slot=\"table-head\"] > button",
+      "reason": "Under 44px on a coarse pointer (rule 3): `table-head` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "focus-obscured",
@@ -1692,6 +2253,8 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "button[data-testid=\"builder-block-toggle-q_again\"]",
@@ -1701,6 +2264,7 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -1711,6 +2275,8 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "button[data-testid=\"builder-block-toggle-q_change\"]",
@@ -1720,6 +2286,7 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -1730,6 +2297,23 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"builder-field-advanced\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `builder-field-advanced` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/forms-builder",
+      "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "button[data-testid=\"builder-outline-ending-default\"]",
@@ -1797,6 +2381,8 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "div > button[data-slot=\"button\"] \"Move",
@@ -1806,6 +2392,38 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"builder-preview-device\"] > button",
+      "reason": "Under 44px on a coarse pointer (rule 3): `builder-preview-device` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/forms-builder",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"builder-preview-layout\"] > button",
+      "reason": "Under 44px on a coarse pointer (rule 3): `builder-preview-layout` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/forms-builder",
+      "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "div[data-testid=\"builder-rating-display\"] > button",
@@ -1815,6 +2433,8 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "div[data-testid=\"builder-rating-scale\"] > button",
@@ -1833,6 +2453,8 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "span[data-testid=\"builder-block-grip-q_again\"] > button",
@@ -1842,6 +2464,7 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -1852,6 +2475,8 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "span[data-testid=\"builder-block-grip-q_change\"] > button",
@@ -1861,6 +2486,7 @@
       "check": "hit-area",
       "page": "/forms-builder",
       "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -2122,6 +2748,22 @@
       "check": "hit-area",
       "page": "/integrations",
       "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"AI core\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"AI core\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/integrations",
+      "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -2132,6 +2774,23 @@
       "check": "hit-area",
       "page": "/integrations",
       "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"Chat\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Chat\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/integrations",
+      "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "p > a \"Connect an outside account\"",
@@ -2141,6 +2800,23 @@
       "check": "hit-area",
       "page": "/integrations",
       "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"Errors and events\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Errors and events\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/integrations",
+      "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "p > a \"Form destinations\"",
@@ -2150,6 +2826,23 @@
       "check": "hit-area",
       "page": "/integrations",
       "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"Inbound email\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Inbound email\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/integrations",
+      "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "p > a \"Notification email\"",
@@ -2163,8 +2856,38 @@
         "375",
         "768"
       ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"Push and notification preferenc…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Push and notification preferenc…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/integrations",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
       "target": "p > a \"Supabase kit\"",
       "reason": "Under 44px on a coarse pointer (rule 3): \"Supabase kit\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/integrations",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "p > a \"Switchboard\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Switchboard\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -2203,6 +2926,36 @@
       ],
       "target": "button[data-testid=\"resource-card-open\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `resource-card-open` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/items",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"resource-page-next\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `resource-page-next` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/items",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"resource-page-prev\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `resource-page-prev` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -2561,6 +3314,123 @@
       ],
       "target": "th[data-slot=\"table-head\"] > button",
       "reason": "Under 44px on a coarse pointer (rule 3): `table-head` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/packages",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "a[data-testid=\"package-design-system\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `package-design-system` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/packages",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "a[data-testid=\"package-forms\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `package-forms` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/packages",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "a[data-testid=\"package-forms-native\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `package-forms-native` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/packages",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "a[data-testid=\"package-forms-web\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `package-forms-web` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/packages",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "a[data-testid=\"package-media\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `package-media` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/packages",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "a[data-testid=\"package-product\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `package-product` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/packages",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "a[data-testid=\"package-studio-server\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `package-studio-server` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/packages",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "a[data-testid=\"package-switchboard\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `package-switchboard` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/packages",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "a[data-testid=\"package-ui-native\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `package-ui-native` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -3169,6 +4039,8 @@
       "check": "hit-area",
       "page": "/packages/:name",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "p > a \"Changelog\"",
@@ -3189,6 +4061,8 @@
       "check": "hit-area",
       "page": "/packages/:name",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "p > a \"README\"",
@@ -3198,6 +4072,8 @@
       "check": "hit-area",
       "page": "/packages/:name",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "p > a \"npm\"",
@@ -3291,6 +4167,7 @@
       "check": "hit-area",
       "page": "/sandbox",
       "viewports": [
+        "320",
         "768"
       ],
       "target": "button#sandbox-toggle-search",
@@ -3309,6 +4186,8 @@
       "check": "hit-area",
       "page": "/sandbox",
       "viewports": [
+        "320",
+        "375",
         "768"
       ],
       "target": "button#sandbox-toggle-status-filter",
@@ -3409,6 +4288,7 @@
       "check": "hit-area",
       "page": "/sandbox",
       "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -3419,6 +4299,7 @@
       "check": "hit-area",
       "page": "/sandbox",
       "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -3473,6 +4354,7 @@
       "check": "hit-area",
       "page": "/sandbox",
       "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -3489,6 +4371,21 @@
       ],
       "target": "div > button[data-slot=\"button\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `button` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sandbox",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > button[data-slot=\"checkbox\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `checkbox` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -3965,8 +4862,937 @@
       "viewports": [
         "320"
       ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"AppShell @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"AppShell @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"AspectRatio @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"AspectRatio @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320",
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Avatar @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Avatar @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"BuilderLayout @beta BuilderLayo…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"BuilderLayout @beta BuilderLayo…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Checkbox @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Checkbox @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Chip @stable A small status chi…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Chip @stable A small status chi…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"ChoiceCard @beta ChoiceCard — o…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"ChoiceCard @beta ChoiceCard — o…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Command @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Command @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"ContextMenu @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"ContextMenu @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"CustomView @beta A screen an ap…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"CustomView @beta A screen an ap…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"DataBulkBar @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"DataBulkBar @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"DataList @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"DataList @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"DataPageShell @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"DataPageShell @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"DetailPage @beta DetailPage — o…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"DetailPage @beta DetailPage — o…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"DropdownMenu @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"DropdownMenu @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"FieldArrayRenderer @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"FieldArrayRenderer @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"FormLabel @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"FormLabel @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"GalleryGrid @beta GalleryGrid —…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"GalleryGrid @beta GalleryGrid —…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Grid @beta Grid — two-dimension…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Grid @beta Grid — two-dimension…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"H1 @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"H1 @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"HoverCard @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"HoverCard @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"InlineAlert @beta InlineAlert —…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"InlineAlert @beta InlineAlert —…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"InputGroup @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"InputGroup @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Kbd @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Kbd @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320",
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Menubar @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Menubar @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"NONE_CHOICE @stable The value o…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"NONE_CHOICE @stable The value o…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"PageHeader @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"PageHeader @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Pagination @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Pagination @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"PrintableAgenda @beta One sheet…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"PrintableAgenda @beta One sheet…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320",
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"RangeSlider @beta RangeSlider —…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"RangeSlider @beta RangeSlider —…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"RecordView @deprecated One reco…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"RecordView @deprecated One reco…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"ResizablePanelGroup @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"ResizablePanelGroup @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"ResourceCalendar @beta A view's…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"ResourceCalendar @beta A view's…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"ResourceDetailPage @beta Resour…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"ResourceDetailPage @beta Resour…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"ResourceInbox @beta A view as a…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"ResourceInbox @beta A view as a…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320",
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"ResourceSheet @beta A view's ro…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"ResourceSheet @beta A view's ro…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"ResponsesToolbar @stable The Re…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"ResponsesToolbar @stable The Re…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"RowAvatar @stable A row's pictu…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"RowAvatar @stable A row's pictu…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Section @beta Section — a title…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Section @beta Section — a title…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Separator @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Separator @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"SettingsRow @beta SettingsRow —…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"SettingsRow @beta SettingsRow —…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Sheet @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Sheet @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"SheetGrid @experimental A sprea…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"SheetGrid @experimental A sprea…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Skeleton @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Skeleton @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"SortableList @beta A vertical l…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"SortableList @beta A vertical l…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"StatCard @beta A labelled numbe…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"StatCard @beta A labelled numbe…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"StatusBadge @beta Status-specif…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"StatusBadge @beta Status-specif…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"SummaryCard @stable One card of…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"SummaryCard @stable One card of…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Switch @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Switch @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Tabs @stable Tabs — a tablist a…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Tabs @stable Tabs — a tablist a…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320",
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"TierBadge @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"TierBadge @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Toaster @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Toaster @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Toggle @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Toggle @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Tooltip @stable Tooltip — hover…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Tooltip @stable Tooltip — hover…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"TreeIndent @stable The indent f…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"TreeIndent @stable The indent f…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"UserAvatar @beta UserAvatar — c…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"UserAvatar @beta UserAvatar — c…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"VisuallyHidden @beta VisuallyHi…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"VisuallyHidden @beta VisuallyHi…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"WhatsNewSheet @beta WhatsNewShe…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"WhatsNewSheet @beta WhatsNewShe…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"WidgetGrid @beta A dashboard's …\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"WidgetGrid @beta A dashboard's …\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"WizardForm @stable\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"WizardForm @stable\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
       "target": "div > a \"__type @beta The gallery's defa…\"",
       "reason": "Under 44px on a coarse pointer (rule 3): \"__type @beta The gallery's defa…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"appShellOptionsFromTheme @beta …\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"appShellOptionsFromTheme @beta …\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"calendarLanes @beta The lanes a…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"calendarLanes @beta The lanes a…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"laneColor @beta A distinct CSS …\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"laneColor @beta A distinct CSS …\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"layoutOr @beta `value` when it'…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"layoutOr @beta `value` when it'…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"parseColor @stable Parses `#rgb…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"parseColor @stable Parses `#rgb…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"readinessOf @stable Readiness f…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"readinessOf @stable Readiness f…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"singleValues @beta The single v…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"singleValues @beta The single v…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"spaceScale @beta Semantic spaci…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"spaceScale @beta Semantic spaci…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320",
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"useBoardColumns @beta Load a bo…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"useBoardColumns @beta Load a bo…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"useTanStackRouterNavigate @beta…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"useTanStackRouterNavigate @beta…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"validateAppTheme @beta Every pr…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"validateAppTheme @beta Every pr…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -6556,6 +8382,19 @@
       "check": "hit-area",
       "page": "/showcase/standards",
       "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "a > button[data-slot=\"button\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `button` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/standards",
+      "viewports": [
         "768"
       ],
       "target": "button[data-testid=\"nav-group-toggle-Building blocks\"]",
@@ -6583,6 +8422,7 @@
       "check": "hit-area",
       "page": "/showcase/standards",
       "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -6685,6 +8525,32 @@
       ],
       "target": "div > a \"Colors Neutral scale, semantic,…\"",
       "reason": "Under 44px on a coarse pointer (rule 3): \"Colors Neutral scale, semantic,…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/tokens",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Radii Corner radius scale (sm, …\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Radii Corner radius scale (sm, …\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/tokens",
+      "viewports": [
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > a \"Shadows Four-stop elevation rhy…\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"Shadows Four-stop elevation rhy…\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -6875,9 +8741,6 @@
       "page": "/sites",
       "viewports": [
         "320"
-      ],
-      "engines": [
-        "firefox"
       ],
       "target": "div > a[data-slot=\"button\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `button` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
@@ -7493,7 +9356,8 @@
         "375"
       ],
       "engines": [
-        "chromium"
+        "chromium",
+        "webkit"
       ],
       "target": "button#root_radio_hideSiteChrome-0",
       "reason": "Under 44px on a coarse pointer (rule 3): `button#root_radio_hideSiteChrome-0` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
@@ -7506,7 +9370,8 @@
         "375"
       ],
       "engines": [
-        "chromium"
+        "chromium",
+        "webkit"
       ],
       "target": "button#root_radio_hideSiteChrome-1",
       "reason": "Under 44px on a coarse pointer (rule 3): `button#root_radio_hideSiteChrome-1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
@@ -7532,8 +9397,38 @@
         "375",
         "768"
       ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > button \"CALLS TO ACTION\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"CALLS TO ACTION\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
       "target": "div > button \"CONTENT\"",
       "reason": "Under 44px on a coarse pointer (rule 3): \"CONTENT\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > button \"FOOTER\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"FOOTER\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -7565,6 +9460,21 @@
         "375",
         "768"
       ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > button \"SOCIAL PROOF\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"SOCIAL PROOF\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
       "target": "div > button[data-slot=\"button\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `button` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
@@ -7576,6 +9486,66 @@
       ],
       "target": "div[data-slot=\"tabs-list\"] > button[data-slot=\"tabs-trigger\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `tabs-list` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:blog-list\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:blog-list` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:blog-list__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:blog-list__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:cta\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:cta` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:cta__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:cta__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -7626,6 +9596,95 @@
       "page": "/sites-editor",
       "viewports": [
         "320",
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:file\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:file` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:file__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:file__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:footer\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:footer` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:footer__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:footer__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:form-embed\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:form-embed` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:form-embed__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:form-embed__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
         "375",
         "768"
       ],
@@ -7653,6 +9712,66 @@
       ],
       "target": "div[data-testid=\"drawer-item:hero__1\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:hero__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:logos\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:logos` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:logos__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:logos__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:map\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:map` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:map__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:map__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -7691,10 +9810,40 @@
       "page": "/sites-editor",
       "viewports": [
         "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:pricing\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:pricing` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
         "375"
       ],
       "engines": [
-        "chromium"
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:pricing__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:pricing__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
       ],
       "target": "div[data-testid=\"drawer-item:rich-text\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:rich-text` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
@@ -7703,13 +9852,136 @@
       "check": "hit-area",
       "page": "/sites-editor",
       "viewports": [
-        "375"
+        "320",
+        "375",
+        "768"
       ],
       "engines": [
-        "chromium"
+        "chromium",
+        "webkit"
       ],
       "target": "div[data-testid=\"drawer-item:schedule\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:schedule` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:schedule__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:schedule__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:stats\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:stats` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:team\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:team` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:team__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:team__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:testimonials\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:testimonials` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:testimonials__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:testimonials__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:timeline\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:timeline` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "viewports": [
+        "320",
+        "375",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div[data-testid=\"drawer-item:timeline__1\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `drawer-item:timeline__1` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "reflow",
@@ -8764,6 +11036,48 @@
       "reason": "Runs past the viewport at this width (rule 2, WCAG 1.4.10): `html`. The sample refresh (slice 1) reworks the screen; a genesis-ui follow-up if the part itself overflows."
     },
     {
+      "check": "hit-area",
+      "page": "story:foundation-data-resourcegallery--*",
+      "viewports": [
+        "320",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"resource-page-next\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `resource-page-next` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-resourcegallery--*",
+      "viewports": [
+        "320",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"resource-page-prev\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `resource-page-prev` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-resourcegallery--*",
+      "viewports": [
+        "320",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > button[data-slot=\"gallery-tile\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `gallery-tile` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
       "check": "axe",
       "rule": "button-name",
       "page": "story:foundation-data-resourceinbox--*",
@@ -8861,6 +11175,20 @@
       ],
       "target": "button[data-testid=\"resource-page-next\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `resource-page-next` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-resourcepage--*",
+      "viewports": [
+        "320",
+        "768"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"resource-page-prev\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `resource-page-prev` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -9086,6 +11414,19 @@
       ],
       "target": "button[data-testid=\"resource-row-menu\"]",
       "reason": "Under 44px on a coarse pointer (rule 3): `resource-row-menu` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-resourceview-lists--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "button[data-testid=\"view-type-inbox\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `view-type-inbox` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "hit-area",
@@ -9580,6 +11921,7 @@
       "check": "hit-area",
       "page": "story:foundation-layout-publicpage--*",
       "viewports": [
+        "320",
         "768"
       ],
       "engines": [
@@ -9593,6 +11935,7 @@
       "check": "hit-area",
       "page": "story:foundation-layout-publicpage--*",
       "viewports": [
+        "320",
         "768"
       ],
       "engines": [
@@ -11535,6 +13878,19 @@
       "reason": "Runs past the viewport at this width (rule 2, WCAG 1.4.10): `html`. The sample refresh (slice 1) reworks the screen; a genesis-ui follow-up if the part itself overflows."
     },
     {
+      "check": "hit-area",
+      "page": "story:patterns-gallerygrid--*",
+      "viewports": [
+        "320",
+        "768"
+      ],
+      "engines": [
+        "chromium"
+      ],
+      "target": "div > button[data-slot=\"gallery-tile\"]",
+      "reason": "Under 44px on a coarse pointer (rule 3): `gallery-tile` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
       "check": "reflow",
       "page": "story:patterns-gallerygrid--*",
       "viewports": [
@@ -11575,6 +13931,58 @@
       ],
       "target": "div[data-slot=\"rating\"] > button",
       "reason": "Under 44px on a coarse pointer (rule 3): `rating` has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:primitives-forms-form--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > button \"1\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"1\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:primitives-forms-form--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > button \"2\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"2\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:primitives-forms-form--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > button \"3\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"3\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:primitives-forms-form--*",
+      "viewports": [
+        "320"
+      ],
+      "engines": [
+        "chromium",
+        "webkit"
+      ],
+      "target": "div > button \"4\"",
+      "reason": "Under 44px on a coarse pointer (rule 3): \"4\" has no touch-target hit area. genesis-ui follow-up for Genesis parts; the sample refresh (slice 1) for the sample's own controls."
     },
     {
       "check": "axe",
@@ -11638,6 +14046,7 @@
       "check": "hit-area",
       "page": "story:primitives-forms-formbuilder--*",
       "viewports": [
+        "320",
         "768"
       ],
       "engines": [
@@ -11721,6 +14130,7 @@
       "check": "hit-area",
       "page": "story:primitives-forms-formbuilder--*",
       "viewports": [
+        "320",
         "768"
       ],
       "engines": [
@@ -11762,6 +14172,7 @@
       "check": "hit-area",
       "page": "story:primitives-forms-formbuilder--*",
       "viewports": [
+        "320",
         "768"
       ],
       "engines": [
@@ -11775,6 +14186,7 @@
       "check": "hit-area",
       "page": "story:primitives-forms-formbuilder--*",
       "viewports": [
+        "320",
         "768"
       ],
       "engines": [
@@ -11788,6 +14200,7 @@
       "check": "hit-area",
       "page": "story:primitives-forms-formbuilder--*",
       "viewports": [
+        "320",
         "768"
       ],
       "engines": [
@@ -11801,6 +14214,7 @@
       "check": "hit-area",
       "page": "story:primitives-forms-formbuilder--*",
       "viewports": [
+        "320",
         "768"
       ],
       "engines": [
@@ -11814,6 +14228,7 @@
       "check": "hit-area",
       "page": "story:primitives-forms-formbuilder--*",
       "viewports": [
+        "320",
         "768"
       ],
       "engines": [
