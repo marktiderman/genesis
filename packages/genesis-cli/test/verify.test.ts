@@ -186,6 +186,19 @@ describe("verify in the browser (Chromium)", async () => {
     expect(found.filter((f) => f.check === "reflow").some((f) => f.message.includes("cut off by pre#code"))).toBe(true);
   });
 
+  run("finds a tablist that hides overflow cutting off its last tabs, and a clipping cell in a table that doesn't scroll", async () => {
+    const tabs = await check(
+      `${META}<body style="margin:0"><div role="tablist" id="tabs" style="display:flex;overflow:hidden"><button style="flex:none;width:200px">One</button><button id="last" style="flex:none;width:200px">Two</button></div></body>`,
+      { ...PHONE, coarse: false },
+    );
+    expect(tabs.filter((f) => f.check === "reflow").some((f) => f.message.includes("cut off by div#tabs"))).toBe(true);
+    const unframed = await check(
+      `${META}<body style="margin:0"><table style="width:600px;table-layout:fixed"><tr><td style="overflow:hidden;width:600px"><span style="display:inline-block;width:600px">Medium</span></td></tr></table></body>`,
+      { ...PHONE, coarse: false },
+    );
+    expect(unframed.some((f) => f.check === "reflow")).toBe(true);
+  });
+
   run("catches content hidden by overflow-x: hidden on the body", async () => {
     const found = await check(`${META}<body style="margin:0;overflow-x:hidden"><p id="cut" style="width:500px">cut off</p></body>`);
     expect(found.filter((f) => f.check === "reflow").map((f) => f.target)).toContain('p#cut "cut off"');

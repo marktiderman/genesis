@@ -24,9 +24,11 @@ on:
 permissions:
   contents: read
 
+# A push replaces the run before it on a pull request; the nightly and manual full runs have their
+# own groups, so a merge to main never cancels them.
 concurrency:
-  group: conformance-${{ github.ref }}
-  cancel-in-progress: true
+  group: conformance-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CONFORMANCE_SCOPE: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'pr' }}

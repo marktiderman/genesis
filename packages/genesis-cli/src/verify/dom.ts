@@ -147,9 +147,16 @@ export async function domChecks(opts: DomCheckOptions): Promise<DomFinding[]> {
     }
     // Clipped inside wide content itself (a table cell that clips at its column's edge): the
     // table's own layout, and the table is checked against its frame.
-    // From the frame's parent: a frame that is itself wide content (a <pre> hiding overflow) still
-    // cuts off what it clips.
-    if (frame && clips(frame) && frame.parentElement?.closest(WIDE_CONTENT)) continue;
+    // A table cell clipping its own content at the column's edge (genesis-ui clipCells) is the
+    // table's layout, when the table itself scrolls in a frame: the cell's text is the table's to
+    // show. Nothing else that hides overflow is excused (a tablist or toolbar cutting off its
+    // last items fails).
+    if (frame && clips(frame) && frame.matches("td, th, [role='cell'], [role='gridcell'], [role='columnheader'], [role='rowheader']")) {
+      const table = frame.closest("table, [role='grid'], [role='table'], [role='treegrid']");
+      let scroller: Element | null = table?.parentElement ?? null;
+      while (scroller && scroller !== document.body && !scrolls(scroller)) scroller = scroller.parentElement;
+      if (table && scroller && scroller !== document.body) continue;
+    }
     if (offenders.some((o) => o.el.contains(el))) continue;
     for (let i = offenders.length - 1; i >= 0; i--) if (el.contains(offenders[i].el)) offenders.splice(i, 1);
     offenders.push({ el, how: frame && clips(frame) ? `cut off by ${describe(frame)}` : "outside a frame that scrolls it" });

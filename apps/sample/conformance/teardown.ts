@@ -62,5 +62,8 @@ export default function teardown() {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  warn(staleEntries(process.argv.slice(2).flatMap(findingsLogs)));
+  const logs = process.argv.slice(2).flatMap(findingsLogs);
+  // Shards that passed but wrote no findings logs checked nothing: fail, never "no stale entries".
+  if (!logs.length) throw new Error("No conformance findings logs: the shards checked no pages.");
+  warn(staleEntries(logs));
 }

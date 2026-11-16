@@ -3,6 +3,10 @@ name: Conformance allow list
 # A pull request may not grow apps/sample/conformance/allow.json (fix the finding instead) unless it
 # carries the label "conformance: allow grows" with a reason the reviewer accepts. Its own workflow,
 # so adding or removing the label re-runs only this check, never the Conformance run.
+#
+# The label stays on through later pushes, like a reviewer's approval of the entries it covers: the
+# reviewer who adds it removes and re-adds it after a push that changes allow.json, as with
+# `review: approved` (AGENTS.md, Adversarial review gate).
 
 on:
   pull_request:

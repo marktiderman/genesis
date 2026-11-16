@@ -103,7 +103,8 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
+    // data-error-boundary: the conformance run (conformance/check.ts) knows the error screen by it.
+    <main data-error-boundary className="pt-16 p-4 container mx-auto">
       <h1>{message}</h1>
       <p>{details}</p>
       {stack && (

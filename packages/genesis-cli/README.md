@@ -1352,7 +1352,7 @@ test("items reflows on a phone", async ({ page }) => {
 
 | Check | Fails when | Source |
 | --- | --- | --- |
-| `reflow` | the page or the app shell's scroller scrolls sideways, or an element runs past the viewport, unless it is wide content (a table, grid, code, a map, a tab strip, or a frame marked `data-scroll-frame`) in a frame that scrolls; content cut off by an ancestor that hides overflow counts | WCAG 1.4.10, rule 2 |
+| `reflow` | the page or the app shell's scroller scrolls sideways, or an element runs past the viewport, unless it is wide content (a table, grid, code, a map, a tab strip, or a frame marked `data-scroll-frame`) in a frame that scrolls; content cut off by an ancestor that hides overflow counts, except a table cell clipping at its column's edge inside a table that scrolls | WCAG 1.4.10, rule 2 |
 | `text-clipped` | at 200% text (the `text-200` viewport), text is cut off by a box that hides its overflow (an ellipsis or line clamp is fine) | WCAG 1.4.4 |
 | `axe` | any axe WCAG 2.2 A/AA rule, `target-size` included (a `touchTarget` control passes on touch) | WCAG 2.5.8 and the rest |
 | `hit-area` | on a coarse pointer, a control (with its `<label>` and its `::before`/`::after`) is under 44×44px, or a hit test of its 44px box lands on something else (clipped or overlapped); a link in running text is exempt | rule 3 |

@@ -25,9 +25,11 @@ export interface Target {
   id: string;
   kind: "route" | "story";
   url: string;
-  /** The page is expected to redirect (a legacy path); the landing-URL check is off. */
-  redirects?: boolean;
 }
+
+/** A run that finds fewer pages than this read a broken sitemap or index; it fails rather than pass empty. */
+const MIN_ROUTES = 20;
+const MIN_STORIES = 100;
 
 /**
  * React Router's manifest as the build job writes it (`react-router routes --json`, which loads the
@@ -72,6 +74,7 @@ export function unvisitedPatterns(): string[] {
 export function routeTargets(scope: Scope = SCOPE): Target[] {
   const paths = sitemapPaths();
   const kept = scope === "full" ? paths : onePathPerPattern(paths, routePatterns());
+  if (paths.length < MIN_ROUTES) throw new Error(`The sitemap lists ${paths.length} pages, under ${MIN_ROUTES}: a broken build.`);
   return kept.map((p) => ({ id: p, kind: "route", url: p }));
 }
 
@@ -79,7 +82,8 @@ export function storyTargets(): Target[] {
   const index = join(STORYBOOK_DIR, "index.json");
   if (!existsSync(index)) throw new Error("No Storybook build: run `pnpm --filter sample build-storybook` first.");
   const { entries } = JSON.parse(readFileSync(index, "utf8")) as { entries: Record<string, { id: string; type: string }> };
-  return Object.values(entries)
-    .filter((e) => e.type === "story")
+  const stories = Object.values(entries).filter((e) => e.type === "story");
+  if (stories.length < MIN_STORIES) throw new Error(`Storybook's index lists ${stories.length} stories, under ${MIN_STORIES}: a broken build.`);
+  return stories
     .map((e) => ({ id: `story:${e.id}`, kind: "story", url: `/iframe.html?id=${encodeURIComponent(e.id)}&viewMode=story` }));
 }

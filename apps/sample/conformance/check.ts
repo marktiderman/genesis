@@ -21,7 +21,8 @@ export const findingsLog = (worker: number) => join(RESULTS_DIR, `conformance-fi
 const META_PROJECT = "chromium-1280";
 const LOCAL = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//;
 const SITE_PAGES = new Set(sitemapPaths().map((p) => p.replace(/\/+$/, "") || "/"));
-const ERROR_SCREEN = /Oops!|An unexpected error occurred|The requested page could not be found/;
+/** The root ErrorBoundary's marker (app/root.tsx), not its copy: a page may demo an error in its text. */
+const ERROR_SCREEN = "[data-error-boundary]";
 
 /** Waits until nothing in the DOM has changed for `quiet` ms (Supabase realtime and polling never let the network idle). */
 async function domSettled(page: Page, info: TestInfo, quiet = 300, cap = 5_000) {
@@ -65,16 +66,16 @@ export async function visit(page: Page, origin: string, target: Target, info: Te
     const asked = target.url.replace(/\/+$/, "") || "/";
     // A redirect to another page of the site (an index to its first entry) is fine and noted; a
     // redirect anywhere else (an error page, sign-in) fails.
-    if (landed !== asked && !target.redirects) {
+    if (landed !== asked) {
       expect(SITE_PAGES.has(landed), `${target.id} redirected to ${landed}, not a page of the site`).toBe(true);
       info.annotations.push({ type: "redirect", description: `${target.id} → ${landed}` });
     }
-    expect(ERROR_SCREEN.test(await page.locator("body").innerText()), `${target.id} shows the error screen`).toBe(false);
+    expect(await page.locator(ERROR_SCREEN).count(), `${target.id} shows the error screen`).toBe(0);
   }
   await domSettled(page, info);
   // Again once settled: a route can fail after hydration, and the error boundary keeps the marker.
   if (target.kind === "route")
-    expect(ERROR_SCREEN.test(await page.locator("body").innerText()), `${target.id} shows the error screen once it settled`).toBe(false);
+    expect(await page.locator(ERROR_SCREEN).count(), `${target.id} shows the error screen once it settled`).toBe(0);
   await page.evaluate(() => document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))));
 
   const findings = await checkPage(page, { viewport, skipMeta: target.kind === "story" || info.project.name !== META_PROJECT });
@@ -86,7 +87,7 @@ export async function visit(page: Page, origin: string, target: Target, info: Te
   mkdirSync(RESULTS_DIR, { recursive: true });
   appendFileSync(
     findingsLog(info.parallelIndex),
-    `${JSON.stringify({ ...where, project: info.project.name, failing, notes, allowed: allowed.map((a) => ALLOW.indexOf(a.entry)) })}\n`,
+    `${JSON.stringify({ ...where, project: info.project.name, failing, notes, allowed: allowed.map((a) => ALLOW.indexOf(a.entry)), allowedFindings: allowed.map((a) => a.finding) })}\n`,
   );
   for (const note of notes) info.annotations.push({ type: "note", description: formatFinding(note) });
   if (failing.length) await info.attach("findings.json", { body: JSON.stringify(failing, null, 2), contentType: "application/json" });
