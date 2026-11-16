@@ -1,0 +1,39 @@
+.changeset/responsive-contract-ui.md
+  s_26dce1f7c35112::t_82fa6f702cf9aa 8-9,11-12,18-19
+docs/RESPONSIVE.md
+  s_26dce1f7c35112::t_227f452f896012 24-25,30-32,39-41
+packages/ui/src/components/data/DataTable.tsx
+  s_26dce1f7c35112::t_a7014710413d03 68,860-864,867,1350,1409,1430
+packages/ui/src/components/data/ResourcePage.tsx
+  s_26dce1f7c35112::t_090828d90c87bd 11,1531-1532,1534-1543,1546-1559,1629-1634,1636,1651,1663
+packages/ui/src/components/data/__tests__/list-row-and-pager-chrome.test.tsx
+  s_26dce1f7c35112::t_342589e35354ac 58
+packages/ui/src/components/data/__tests__/resource-page-default-rows.test.tsx
+  s_26dce1f7c35112::t_c46551fd809b9f 54,84-85,93,165-200
+packages/ui/src/components/data/__tests__/resource-page-render-card-keyboard-nav.test.tsx
+  s_26dce1f7c35112::t_5b5fb488c754d7 7,274-276,279-285,288,290-291,295-297,307,310-313
+packages/ui/src/components/data/__tests__/resource-view-narrow-frame.test.tsx
+  s_26dce1f7c35112::t_dbb95735b49bd6 47-51,69,72
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_26dce1f7c35112::t_c650e28e59ce76 672-674,701
+packages/ui/src/components/resource/chip-group.tsx
+  s_26dce1f7c35112::t_cf9a07c5167e83 57-59
+packages/ui/src/components/ui/radio-group.tsx
+  s_26dce1f7c35112::t_d275c01f73c58c 14-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6a5fd21f0773e94d73a4f4a1f15567ee507ec72b",
+  "prompts": {},
+  "sessions": {
+    "s_26dce1f7c35112": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ed8947e6-a9d3-4362-bb5c-29e73628efa4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
