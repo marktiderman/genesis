@@ -55,7 +55,7 @@ jobs:
       - name: Allow list doesn't grow
         if: github.event_name == 'pull_request'
         env:
-          ALLOW_GROWS: ${{ contains(github.event.pull_request.labels.*.name, 'conformance: allow grows') && '1' || '0' }}
+          ALLOW_GROWS: "${{ contains(github.event.pull_request.labels.*.name, 'conformance: allow grows') && '1' || '0' }}"
         run: |
           git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
           pnpm --filter sample exec tsx conformance/allow-grew.ts FETCH_HEAD
@@ -171,6 +171,11 @@ jobs:
           name: conformance-report
           path: apps/sample/playwright-report
           retention-days: 14
+      # The stale check imports @marktiderman/genesis-cli/verify, which resolves to its built dist/.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.build.result == 'success'
+        with:
+          name: conformance-build
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: conformance-findings-*

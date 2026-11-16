@@ -3,7 +3,7 @@ import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Page, type TestInfo } from "@playwright/test";
 import { applyAllow, checkPage, formatFinding, validateAllow, zoomText, type AllowEntry, type Engine, type Viewport } from "@marktiderman/genesis-cli/verify";
-import { SAMPLE_DIR, type Target } from "./pages";
+import { SAMPLE_DIR, sitemapPaths, type Target } from "./pages";
 
 export const ALLOW: AllowEntry[] = JSON.parse(readFileSync(join(import.meta.dirname, "allow.json"), "utf8")).allow;
 const allowErrors = [
@@ -20,6 +20,7 @@ export const findingsLog = (worker: number) => join(RESULTS_DIR, `conformance-fi
 /** The viewport meta is the same at every size: it is checked once per page, in this project. */
 const META_PROJECT = "chromium-1280";
 const LOCAL = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//;
+const SITE_PAGES = new Set(sitemapPaths().map((p) => p.replace(/\/+$/, "") || "/"));
 const ERROR_SCREEN = /Oops!|An unexpected error occurred|The requested page could not be found/;
 
 /** Waits until nothing in the DOM has changed for `quiet` ms (Supabase realtime and polling never let the network idle). */
@@ -62,7 +63,12 @@ export async function visit(page: Page, origin: string, target: Target, info: Te
     // The page asked for, not a redirect or the error screen (which would pass every check).
     const landed = new URL(page.url()).pathname.replace(/\/+$/, "") || "/";
     const asked = target.url.replace(/\/+$/, "") || "/";
-    if (!target.redirects) expect(landed, `${target.id} redirected`).toBe(asked);
+    // A redirect to another page of the site (an index to its first entry) is fine and noted; a
+    // redirect anywhere else (an error page, sign-in) fails.
+    if (landed !== asked && !target.redirects) {
+      expect(SITE_PAGES.has(landed), `${target.id} redirected to ${landed}, not a page of the site`).toBe(true);
+      info.annotations.push({ type: "redirect", description: `${target.id} → ${landed}` });
+    }
     expect(ERROR_SCREEN.test(await page.locator("body").innerText()), `${target.id} shows the error screen`).toBe(false);
   }
   await domSettled(page, info);

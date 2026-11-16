@@ -1,7 +1,8 @@
 /**
  * `@marktiderman/genesis-cli/verify`: the runtime conformance checks (docs/RESPONSIVE.md, WCAG
  * 2.2 reflow, target size, focus not obscured, axe). Genesis's own CI runs them over the sample
- * app and Storybook; `genesis verify` runs them over an app. Needs the optional peers
+ * app and Storybook; the planned `genesis verify` (features.ts `cli-verify`) will run them over an
+ * app. Needs the optional peers
  * `@playwright/test` and `@axe-core/playwright`.
  */
 export { domChecks, type DomCheckOptions, type DomFinding } from "./dom.js";

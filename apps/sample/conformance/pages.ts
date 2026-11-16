@@ -39,7 +39,7 @@ function routePatterns(): RoutePattern[] {
   return JSON.parse(readFileSync(cache, "utf8"));
 }
 
-function sitemapPaths(): string[] {
+export function sitemapPaths(): string[] {
   const sitemap = join(SITE_DIR, "sitemap.xml");
   if (!existsSync(sitemap)) throw new Error("No sample build: run `pnpm --filter sample build` first.");
   return [...readFileSync(sitemap, "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname);

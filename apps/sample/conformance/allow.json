@@ -1,4 +1,1291 @@
 {
-  "$comment": "Known conformance findings. Each needs a reason; the list only shrinks (a full run fails on an entry that covers nothing). Shape: @marktiderman/genesis-cli/verify AllowEntry.",
-  "allow": []
+  "$comment": "Known conformance findings. Each needs a reason; the list only shrinks: a pull request may not add an entry without the 'conformance: allow grows' label, and a run warns on an entry that covered nothing it visited. Shape: @marktiderman/genesis-cli/verify AllowEntry. Started from the first per-PR run (2026-11-16); slice 1 (the sample refresh) and genesis#826 empty most of it.",
+  "allow": [
+    {
+      "check": "axe",
+      "rule": "scrollable-region-focusable",
+      "page": "/",
+      "reason": "axe scrollable-region-focusable: a scrolling frame with no focusable content and no tabindex. genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "/",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/chat",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/chat",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/chat",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/chat",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/chat",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/dashboard",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "scrollable-region-focusable",
+      "page": "/dashboard",
+      "reason": "axe scrollable-region-focusable: a scrolling frame with no focusable content and no tabindex. genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "/dashboard",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/demo/all",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/demo/all",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/all",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/demo/all/assistant",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/demo/all/assistant",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/all/assistant",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/demo/all/bookings",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "/demo/all/bookings",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/demo/all/bookings",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/all/bookings",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/demo/all/bookings",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/demo/all/chat",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/demo/all/chat",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/demo/all/chat",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/all/chat",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/demo/all/clients",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "nested-interactive",
+      "page": "/demo/all/clients",
+      "reason": "axe nested-interactive: the sites editor preview wraps interactive blocks in a selectable frame. genesis-sites follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "/demo/all/clients",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/demo/all/clients",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/all/clients",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/demo/all/clients",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/demo/all/data",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/demo/all/data",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/all/data",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/demo/all/intake",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/demo/all/intake",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/all/intake",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/demo/all/settings",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/demo/all/settings",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/demo/harbor/clients/harbor-c1/bookings",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/demo/harbor/clients/harbor-c1/bookings",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/demo/harbor/clients/harbor-c1/bookings",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/design-system",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "scrollable-region-focusable",
+      "page": "/design-system",
+      "reason": "axe scrollable-region-focusable: a scrolling frame with no focusable content and no tabindex. genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/design-system",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/design-system",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/design-system",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "/features",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/features",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/features",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/features",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/forms-builder",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/forms-builder",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "scrollable-region-focusable",
+      "page": "/forms/event-feedback",
+      "reason": "axe scrollable-region-focusable: a scrolling frame with no focusable content and no tabindex. genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/forms/event-feedback",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/forms/event-feedback",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/forms/event-feedback",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/integrations",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/integrations",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/items",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "/items",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/items",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/items",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "/items-custom",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/items-custom",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/items-custom",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "/orders",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/orders",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/orders",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/orders",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "/packages",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/packages",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "scrollable-region-focusable",
+      "page": "/packages/ai",
+      "reason": "axe scrollable-region-focusable: a scrolling frame with no focusable content and no tabindex. genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/packages/ai",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/packages/ai",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/packages/ai",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/sandbox",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sandbox",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/sandbox",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/settings",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/settings",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/showcase",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/showcase",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/showcase/elements",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/showcase/elements",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/showcase/elements",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/showcase/elements/accordion",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "scrollable-region-focusable",
+      "page": "/showcase/elements/accordion",
+      "reason": "axe scrollable-region-focusable: a scrolling frame with no focusable content and no tabindex. genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/showcase/elements/accordion",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/elements/accordion",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/showcase/elements/accordion",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/showcase/layouts",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/layouts",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/showcase/layouts/dashboard",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/showcase/layouts/dashboard",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/layouts/dashboard",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/showcase/standards",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/showcase/standards",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/standards",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/showcase/tokens",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/showcase/tokens",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/tokens",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/showcase/tokens/colors",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "/showcase/tokens/colors",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/sites",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "frame-title",
+      "page": "/sites-editor",
+      "reason": "axe frame-title: found by the first conformance run; to fix in the sample refresh or genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "nested-interactive",
+      "page": "/sites-editor",
+      "reason": "axe nested-interactive: the sites editor preview wraps interactive blocks in a selectable frame. genesis-sites follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "/sites-editor",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "/sites-editor",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "/studio",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/studio",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/studio",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "/tasks",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "/tasks",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/tasks",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/tasks",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "/tickets",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "focus-obscured",
+      "page": "/tickets",
+      "reason": "Focus hidden under the phone tab bar or the table pager (WCAG 2.4.11). Fixed by genesis#826 (AppShell scroll-padding, DataTable pager scroll-margin)."
+    },
+    {
+      "check": "hit-area",
+      "page": "/tickets",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "story:data-eventcalendar--*",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "story:data-eventcalendar--*",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:data-eventcalendar--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:data-eventcalendar--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-data-appshell--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "story:foundation-data-appshell--*",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-appshell--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-data-appshell--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "definition-list",
+      "page": "story:foundation-data-detailpanel--*",
+      "reason": "axe definition-list: found by the first conformance run; to fix in the sample refresh or genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "dlitem",
+      "page": "story:foundation-data-detailpanel--*",
+      "reason": "axe dlitem: found by the first conformance run; to fix in the sample refresh or genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-data-detailpanel--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-data-resourceboard--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "story:foundation-data-resourceboard--*",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-resourceboard--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-data-resourceboard--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "story:foundation-data-resourcegallery--*",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-resourcegallery--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "button-name",
+      "page": "story:foundation-data-resourceinbox--*",
+      "reason": "axe button-name: found by the first conformance run; to fix in the sample refresh or genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-data-resourceinbox--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "story:foundation-data-resourceinbox--*",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-resourceinbox--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "story:foundation-data-resourcepage--*",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-resourcepage--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-data-resourcepage--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-resourcesheet--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-data-resourcesheet--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "button-name",
+      "page": "story:foundation-data-resourceview-lists--*",
+      "reason": "axe button-name: found by the first conformance run; to fix in the sample refresh or genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-data-resourceview-lists--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "story:foundation-data-resourceview-lists--*",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-resourceview-lists--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-data-resourceview-lists--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "aria-hidden-focus",
+      "page": "story:foundation-data-rowmenu--*",
+      "reason": "axe aria-hidden-focus: found by the first conformance run; to fix in the sample refresh or genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-data-rowmenu--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-layout-authpage--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-layout-builderlayout--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-layout-builderlayout--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-layout-layouts--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-layout-layouts--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-layout-publicpage--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "aria-hidden-focus",
+      "page": "story:foundation-layout-workspaceswitcher--*",
+      "reason": "axe aria-hidden-focus: found by the first conformance run; to fix in the sample refresh or genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "story:foundation-layout-workspaceswitcher--*",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-layout-workspaceswitcher--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-layout-workspaceswitcher--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-layouts-notificationspage--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-patterns-publishable-resource-page--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-patterns-publishable-resource-page--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "target-size",
+      "page": "story:foundation-patterns-richtexteditor--*",
+      "reason": "axe target-size (WCAG 2.5.8): targets under 24px without spacing. genesis-ui follow-up with rule 3."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-patterns-richtexteditor--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-patterns-sortablelist--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-accordion--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-ui-alert--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-ui-alertdialog--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-aspectratio--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-ui-badge--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-breadcrumb--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-ui-button--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-button--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-button--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-buttongroup--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "story:foundation-ui-calendar--*",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-calendar--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-calendar--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-card--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-checkbox--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-chipgroup--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-choicecard--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-collapsible--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "story:foundation-ui-combobox--*",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-combobox--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-ui-dialog--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-hovercard--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-ui-inlinealert--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-inlinealert--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-input--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "label",
+      "page": "story:foundation-ui-inputotp--*",
+      "reason": "axe label: found by the first conformance run; to fix in the sample refresh or genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-inputotp--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-numberinput--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-pageloading--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-pagination--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-progress--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-radiogroup--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-rangeslider--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "scrollable-region-focusable",
+      "page": "story:foundation-ui-scrollarea--*",
+      "reason": "axe scrollable-region-focusable: a scrolling frame with no focusable content and no tabindex. genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "button-name",
+      "page": "story:foundation-ui-select--*",
+      "reason": "axe button-name: found by the first conformance run; to fix in the sample refresh or genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-separator--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-ui-settingsrow--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-settingsrow--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-settingsrow--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-skeleton--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "aria-input-field-name",
+      "page": "story:foundation-ui-slider--*",
+      "reason": "axe aria-input-field-name: found by the first conformance run; to fix in the sample refresh or genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-slider--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-stepper--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-switch--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-table--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-tabs--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-tabs--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-textarea--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-toggle--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "color-contrast",
+      "page": "story:foundation-ui-togglerow--*",
+      "reason": "axe color-contrast: destructive and muted tokens below 4.5:1 on some surfaces. Design-system token follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:foundation-ui-togglerow--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-togglerow--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:foundation-ui-tooltip--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "story:layout-tabbar--*",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:layout-tabbar--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:modules-support-supportagentinbox--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "story:modules-support-supportmessenger--*",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "label-content-name-mismatch",
+      "page": "story:patterns-gallerycard--*",
+      "reason": "axe label-content-name-mismatch: an aria-label that drops the visible text (cards and items labelled by name only). genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:patterns-gallerycard--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "reflow",
+      "page": "story:patterns-gallerygrid--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:patterns-rating--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:primitives-forms-form--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "axe",
+      "rule": "aria-valid-attr-value",
+      "page": "story:primitives-forms-formbuilder--*",
+      "reason": "axe aria-valid-attr-value: found by the first conformance run; to fix in the sample refresh or genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:primitives-forms-formbuilder--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:primitives-forms-formbuilder--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:primitives-forms-studio--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    },
+    {
+      "check": "reflow",
+      "page": "story:primitives-forms-studio--*",
+      "reason": "Runs past the viewport at narrow widths or zoom (rule 2, WCAG 1.4.10). The sample refresh (slice 1) fixes the screens; component causes go to genesis-ui."
+    },
+    {
+      "check": "hit-area",
+      "page": "story:resource-chip--*",
+      "reason": "Under 44px on a coarse pointer (rule 3): controls without genesis-ui touchTarget. Switch, Checkbox, Radio and chips get it in genesis#826; the rest (buttons, nav links, table controls) are a genesis-ui follow-up."
+    }
+  ]
 }
