@@ -310,6 +310,29 @@ describe("rendering the templates", () => {
       expect(run.indexOf("published-group")).toBeLessThan(run.indexOf("runtimeversion:resolve"));
     }
     expect((yaml("release/deploy-production.yml", ctx()).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!).not.toContain("published-group");
+    // Sentry without a hook: a re-run that finds this commit already out still says to upload the source maps by hand, and recovers nothing.
+    for (const p of ["ios", "android"]) {
+      const run = (yaml("release/deploy-production.yml", ctx({ sentry: true })).jobs[`update_${p}`].steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+      const rerun = run.slice(run.indexOf('if [ "$carrier" = "$COMMIT_SHA" ]; then'), run.indexOf('set-output update_group ""'));
+      expect(rerun).toContain("upload its source maps from this commit's export by hand");
+      expect(rerun).not.toContain("published-group");
+      // The message is printed, then the step stops without publishing.
+      const repo = tempDir("genesis-sentry-only-rerun-");
+      const fn = run.slice(run.indexOf("channel_carries_this() {"));
+      const upTo = fn.slice(0, fn.indexOf("\n          if [ -n \"$BUILD_COMMIT\" ]"));
+      writeTree(repo, { ".eas/scripts/native-release.mjs": `console.log(process.env.COMMIT_SHA);\n` });
+      execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
+      execFileSync("git", ["-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "A"], { cwd: repo });
+      const A = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8" }).trim();
+      const bin = tempDir("genesis-set-output-");
+      writeTree(bin, { "set-output": `#!/usr/bin/env bash\necho "set-output $*"\n` });
+      execFileSync("chmod", ["+x", path.join(bin, "set-output")]);
+      const out = spawnSync("bash", ["-c", `set -eo pipefail\n${upTo}\necho PUBLISHED`], { cwd: repo, encoding: "utf8", env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, COMMIT_SHA: A } });
+      expect(out.status, out.stderr).toBe(0);
+      expect(out.stdout).toContain("upload its source maps from this commit's export by hand");
+      expect(out.stdout).toContain('set-output update_group ');
+      expect(out.stdout).not.toContain("PUBLISHED");
+    }
     // The recovery reads the channel's latest update of this commit; another commit there is refused.
     const C = "c".repeat(40);
     const run = (args: string[]) => {
