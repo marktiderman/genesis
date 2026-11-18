@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 845 components · 4829 other exports · 4065 standalone types across 214 entry points in 31 packages.
+**Totals:** 845 components · 4833 other exports · 4065 standalone types across 214 entry points in 31 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -5292,7 +5292,7 @@ export type { WriteState };
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 | [`WhatsNewSheet`](../packages/ui/src/components/patterns/whats-new-sheet.tsx) | `WhatsNewSheetProps` | Beta | WhatsNewSheet — a release's notes after an update, in a dialog: the twin of genesis-ui-native's NativeWhatsNewSheet, with the same `notes`, `dismiss`, `onOpenNote` and labels. On a phone-width screen it rises as a sheet (`mobileLayout="s... |
 
-### Other exports (273)
+### Other exports (274)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5566,6 +5566,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toggleVariants`](../packages/ui/src/components/ui/toggle.tsx) | value | — | _(no summary)_ |
 | [`ToolbarToggleGroup`](../packages/ui/src/components/ui/toolbar.tsx) | const | Beta | ToolbarToggleGroup — a set of pressed/unpressed controls inside a toolbar (the classic bold / italic / underline cluster). |
 | [`toolbarVariants`](../packages/ui/src/components/ui/toolbar.tsx) | const | — | _(no summary)_ |
+| [`touchTarget`](../packages/ui/src/utils.ts) | const | — | A 44×44px hit area on a coarse pointer (touch), centred on a control that draws smaller (a 24px switch, a 16px checkbox, a chip): an invisible `::after` that taps reach, while the control keeps its visual size and desktop density (WCAG 2... |
 | [`UiMessagesProvider`](../packages/ui/src/messages.tsx) | function | — | Rewords or translates Genesis UI's components below it. Nested providers build on the one above, so a section can change a few words. |
 | [`useBrowserSearchParams`](../packages/ui/src/navigation.tsx) | function | Beta | Browser-native {@link SearchParamsAdapter} built on the History API. Reads the current query string and writes updates via `pushState`/`replaceState`, staying reactive to `popstate` events. No router required. |
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
@@ -5666,7 +5667,7 @@ export type { WhatsNewNote };
 
 **Barrel:** [`packages/genesis/src/ui-utils.ts`](../packages/genesis/src/ui-utils.ts)
 
-### Other exports (4)
+### Other exports (5)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5676,6 +5677,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`formatDate`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | A time relative to now. The default, `style: "distance"`, is date-fns' wording ("about 2 hours ago"); `style: "short"` is `relativeTime`'s ("2 hours ago", "yesterday", "Oct 21"), in `words` (a screen's `useUiMessages().time`, so a transl... |
 | [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
+| [`touchTarget`](../packages/ui/src/utils.ts) | const | — | A 44×44px hit area on a coarse pointer (touch), centred on a control that draws smaller (a 24px switch, a 16px checkbox, a chip): an invisible `::after` that taps reach, while the control keeps its visual size and desktop density (WCAG 2... |
 
 ### Types (3)
 
@@ -11289,7 +11291,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 | [`WhatsNewSheet`](../packages/ui/src/components/patterns/whats-new-sheet.tsx) | `WhatsNewSheetProps` | Beta | WhatsNewSheet — a release's notes after an update, in a dialog: the twin of genesis-ui-native's NativeWhatsNewSheet, with the same `notes`, `dismiss`, `onOpenNote` and labels. On a phone-width screen it rises as a sheet (`mobileLayout="s... |
 
-### Other exports (273)
+### Other exports (274)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -11563,6 +11565,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toggleVariants`](../packages/ui/src/components/ui/toggle.tsx) | value | — | _(no summary)_ |
 | [`ToolbarToggleGroup`](../packages/ui/src/components/ui/toolbar.tsx) | const | Beta | ToolbarToggleGroup — a set of pressed/unpressed controls inside a toolbar (the classic bold / italic / underline cluster). |
 | [`toolbarVariants`](../packages/ui/src/components/ui/toolbar.tsx) | const | — | _(no summary)_ |
+| [`touchTarget`](../packages/ui/src/utils.ts) | const | — | A 44×44px hit area on a coarse pointer (touch), centred on a control that draws smaller (a 24px switch, a 16px checkbox, a chip): an invisible `::after` that taps reach, while the control keeps its visual size and desktop density (WCAG 2... |
 | [`UiMessagesProvider`](../packages/ui/src/messages.tsx) | function | — | Rewords or translates Genesis UI's components below it. Nested providers build on the one above, so a section can change a few words. |
 | [`useBrowserSearchParams`](../packages/ui/src/navigation.tsx) | function | Beta | Browser-native {@link SearchParamsAdapter} built on the History API. Reads the current query string and writes updates via `pushState`/`replaceState`, staying reactive to `popstate` events. No router required. |
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
@@ -12314,7 +12317,7 @@ export type { WizardStep };
 
 **Barrel:** [`packages/ui/src/utils.ts`](../packages/ui/src/utils.ts)
 
-### Other exports (4)
+### Other exports (5)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -12324,6 +12327,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`formatDate`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | A time relative to now. The default, `style: "distance"`, is date-fns' wording ("about 2 hours ago"); `style: "short"` is `relativeTime`'s ("2 hours ago", "yesterday", "Oct 21"), in `words` (a screen's `useUiMessages().time`, so a transl... |
 | [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
+| [`touchTarget`](../packages/ui/src/utils.ts) | const | — | A 44×44px hit area on a coarse pointer (touch), centred on a control that draws smaller (a 24px switch, a 16px checkbox, a chip): an invisible `::after` that taps reach, while the control keeps its visual size and desktop density (WCAG 2... |
 
 ### Types (3)
 

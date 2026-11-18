@@ -1,0 +1,100 @@
+/** One visit: open the target, wait for it to settle, run the checks, fail on anything not allowed. */
+import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { expect, type Page, type TestInfo } from "@playwright/test";
+import { applyAllow, checkPage, formatFinding, validateAllow, zoomText, type AllowEntry, type Engine, type Viewport } from "@marktiderman/genesis-cli/verify";
+import { SAMPLE_DIR, sitemapPaths, type Target } from "./pages";
+
+export const ALLOW: AllowEntry[] = JSON.parse(readFileSync(join(import.meta.dirname, "allow.json"), "utf8")).allow;
+const allowErrors = [
+  ...validateAllow(ALLOW),
+  ...ALLOW.flatMap((e, i) => (e.check === "axe" && !e.rule ? [`allow entry ${i} (axe on ${e.page}) must name its rule`] : [])),
+  ...ALLOW.flatMap((e, i) => (e.page === "*" || e.page === "/*" || e.page === "story:*" ? [`allow entry ${i} covers every page; name the pages`] : [])),
+  // Every entry names its element: an entry without a target would allow the whole check on a page.
+  ...ALLOW.flatMap((e, i) => (!e.target?.trim() ? [`allow entry ${i} (${e.check} on ${e.page}) has no target; name the element`] : [])),
+];
+if (allowErrors.length) throw new Error(allowErrors.join("\n"));
+
+export const RESULTS_DIR = join(SAMPLE_DIR, "test-results");
+/** One findings log per worker, so lines from parallel workers never interleave. */
+export const findingsLog = (worker: number) => join(RESULTS_DIR, `conformance-findings-${process.env.CONFORMANCE_SHARD ?? "0"}-${worker}.jsonl`);
+
+/** The viewport meta is the same at every size: it is checked once per page, in this project. */
+const META_PROJECT = "chromium-1280";
+const LOCAL = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\//;
+const SITE_PAGES = new Set(sitemapPaths().map((p) => p.replace(/\/+$/, "") || "/"));
+/** The root ErrorBoundary's marker (app/root.tsx), not its copy: a page may demo an error in its text. */
+const ERROR_SCREEN = "[data-error-boundary]";
+
+/** Waits until nothing in the DOM has changed for `quiet` ms (Supabase realtime and polling never let the network idle). */
+async function domSettled(page: Page, info: TestInfo, quiet = 300, cap = 5_000) {
+  const settled = await page.evaluate(
+    ({ quiet, cap }) =>
+      new Promise<boolean>((resolve) => {
+        let timer = setTimeout(() => done(true), quiet);
+        const observer = new MutationObserver(() => {
+          clearTimeout(timer);
+          timer = setTimeout(() => done(true), quiet);
+        });
+        const capTimer = setTimeout(() => done(false), cap);
+        function done(ok: boolean) {
+          observer.disconnect();
+          clearTimeout(timer);
+          clearTimeout(capTimer);
+          resolve(ok);
+        }
+        observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
+      }),
+    { quiet, cap },
+  );
+  if (!settled) info.annotations.push({ type: "warning", description: `the page kept changing for ${cap}ms; measured anyway` });
+}
+
+export async function visit(page: Page, origin: string, target: Target, info: TestInfo) {
+  const { engine, viewport } = info.project.metadata as { engine: Engine; viewport: Viewport };
+  // Nothing from the network: web fonts and third-party assets would make layout depend on the
+  // network. Pages fall back to the system font stack, the same in every run.
+  await page.route((url) => !LOCAL.test(url.href) && !url.href.startsWith("data:"), (route) => route.abort());
+  if (viewport.textZoom) await zoomText(page);
+
+  const response = await page.goto(origin + target.url, { waitUntil: "load" });
+  expect(response?.status(), `${target.id} answered ${response?.status()}`).toBeLessThan(400);
+  if (target.kind === "story") {
+    await page.locator("#storybook-root > *, #storybook-docs > *").first().waitFor({ timeout: 15_000 });
+  } else {
+    await page.locator("html[data-hydrated]").waitFor({ state: "attached", timeout: 15_000 });
+    // The page asked for, not a redirect or the error screen (which would pass every check).
+    const landed = new URL(page.url()).pathname.replace(/\/+$/, "") || "/";
+    const asked = target.url.replace(/\/+$/, "") || "/";
+    // A redirect to another page of the site (an index to its first entry) is fine and noted; a
+    // redirect anywhere else (an error page, sign-in) fails.
+    if (landed !== asked) {
+      expect(SITE_PAGES.has(landed), `${target.id} redirected to ${landed}, not a page of the site`).toBe(true);
+      info.annotations.push({ type: "redirect", description: `${target.id} → ${landed}` });
+    }
+    expect(await page.locator(ERROR_SCREEN).count(), `${target.id} shows the error screen`).toBe(0);
+  }
+  await domSettled(page, info);
+  // Again once settled: a route can fail after hydration, and the error boundary keeps the marker.
+  if (target.kind === "route")
+    expect(await page.locator(ERROR_SCREEN).count(), `${target.id} shows the error screen once it settled`).toBe(0);
+  await page.evaluate(() => document.fonts.ready.then(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))));
+
+  const findings = await checkPage(page, { viewport, skipMeta: target.kind === "story" || info.project.name !== META_PROJECT });
+  // A page that redirected is judged, and allowed, as the page it landed on.
+  const landedId = target.kind === "route" ? new URL(page.url()).pathname.replace(/\/+$/, "") || "/" : target.id;
+  const where = { page: landedId, viewport: viewport.name, engine };
+  const { failing, allowed, notes } = applyAllow(ALLOW, findings, where);
+
+  mkdirSync(RESULTS_DIR, { recursive: true });
+  appendFileSync(
+    findingsLog(info.parallelIndex),
+    `${JSON.stringify({ ...where, project: info.project.name, failing, notes, allowed: allowed.map((a) => ALLOW.indexOf(a.entry)), allowedFindings: allowed.map((a) => a.finding) })}\n`,
+  );
+  for (const note of notes) info.annotations.push({ type: "note", description: formatFinding(note) });
+  if (failing.length) await info.attach("findings.json", { body: JSON.stringify(failing, null, 2), contentType: "application/json" });
+  // Every failing finding is in the attachment; the message lists the first 15.
+  const shown = failing.slice(0, 15).map(formatFinding);
+  if (failing.length > 15) shown.push(`…and ${failing.length - 15} more (findings.json)`);
+  expect(shown, `${target.id} at ${viewport.name} in ${engine}`).toEqual([]);
+}

@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-ui",
-  "version": "2.36.0",
+  "version": "3.0.0",
   "private": false,
   "type": "module",
   "sideEffects": false,

@@ -368,8 +368,11 @@ export function PageHeader({
     Boolean(resolved.showDetailsHint) &&
     detailsHint != null;
 
+  // Never wider than the header (docs/RESPONSIVE.md, rule 2). Beside the title the actions keep
+  // their size and the title truncates, as before; when they can't fit beside a 10rem title they
+  // move to their own line and wrap within it, instead of pushing past the edge.
   const actionsCluster = (
-    <div className="flex items-center gap-1.5 shrink-0">
+    <div className="flex max-w-full shrink-0 flex-wrap items-center gap-1.5 sm:ml-auto sm:justify-end">
       {showHint ? (
         <span className="hidden max-w-[14rem] truncate text-xs text-muted-foreground sm:inline">
           {detailsHint}
@@ -536,8 +539,8 @@ export function PageHeader({
       {actionsCluster}
     </div>
   ) : (
-    <div data-slot="page-header" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3 min-w-0">
+    <div data-slot="page-header" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-3 sm:min-w-[min(10rem,100%)] sm:flex-1 sm:basis-0">
         {Icon && resolved.showIcon !== false ? (
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10">
             <Icon className="h-5 w-5 text-primary-text" />

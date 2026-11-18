@@ -11,6 +11,52 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## The responsive contract: lists answer to their own width, rows and cards open from their own button — `@marktiderman/genesis-ui` 3.0.0 (**major**), `@marktiderman/genesis-support` (minor), `@marktiderman/genesis` (minor)
+
+The components now hold the rules in [RESPONSIVE.md](./RESPONSIVE.md). Several change how existing
+API behaves, so this is a major. Packages that peer-depend on genesis-ui take 2.x and 3.x, and
+`@marktiderman/genesis`, which re-exports it, is a minor.
+
+🔴 **Action required where your tests or code relied on the old behaviour:**
+
+- **Default list rows and cards aren't buttons.** A default `ResourcePage` list row or card no
+  longer has `role="button"` and a tab stop of its own. A row opens from its Open button
+  (`resource-list-row-open`, named "Open …"), and a card from its title (`resource-card-open`). A
+  click elsewhere on either still opens it, and a click on a link or control inside never does.
+  Tests that found a row by `getByRole("button", { name: title })`, or pressed Enter on the row,
+  should click the Open button or the card's title instead. A custom `renderCard` is unchanged.
+- **`phoneMode` covers embedded lists.** An app with `ResourceViewDefaultsProvider phoneMode`
+  sees its embedded lists open as rows or cards on phones and in narrow panels (a list's own
+  frame under 40rem). A list that must stay a table there sets `mode="table"`. A person's own
+  pick of view still wins.
+- **Side sheets are full width on phones.** A right or left `SheetContent` you gave a plain `w-*`
+  is full width below `sm`. Add `max-sm:w-*` to keep it narrow (a navigation drawer).
+
+🟡 **Check, no change needed in most apps:**
+
+- **Lists are measured.** `ResourceView` measures the list's root (DataPageShell's new `rootRef`).
+  A list that is narrow on a wide screen (a side panel) now takes its narrow default too. Lists
+  outside a `ResourceView` still follow the viewport.
+- **PageHeader actions wrap.** Beside 10rem of title (its icon included) they keep their size and
+  the title truncates, as before. When they can't fit, they take their own line and wrap.
+- **Touch spacing grows.** On coarse pointers, Switch, Checkbox, RadioGroupItem, Chip and
+  ChipGroupItem take an invisible 44px hit area (`touchTarget`). RadioGroup and ChipGroup space
+  their items, unless you set a gap. DataTable's selection column is 56px, so pinned columns move
+  16px and its minimum width grows.
+- **A gallery view's list and table** no longer get the gallery's item click; rows open once,
+  from their own button.
+- **`scrollRoot="window"` sets the page's scroll padding.** While mounted, AppShell writes an
+  inline `scroll-padding-top`/`-bottom` on `<html>` for its bars, which overrides a
+  `scroll-padding` rule of the app's own on `html`.
+
+🟢 **New, optional:** `touchTarget` (beside `cn`), `useListWidth` and `LIST_NARROW_REM`
+(`hooks/use-list-width`), `keepInList` on a ResourcePage column (ResourceView sets it for
+`cells`), DataPageShell `rootRef`, and `SupportMessengerLauncher variant="icon"` for a phone
+header. In the app's viewport meta, `interactive-widget=resizes-content` makes the on-screen
+keyboard resize the page in Chrome and Firefox.
+
+---
+
 ## Light and dark is the person's appearance; widgets replace hand-fetched stat tiles — `@marktiderman/genesis-core`, `@marktiderman/genesis-design-system`, `@marktiderman/genesis-ui` (**minor**)
 
 🟢 **No action needed.** Everything below is additive; existing props and exports work as before.

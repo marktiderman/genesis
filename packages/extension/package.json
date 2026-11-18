@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-extension",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -55,7 +55,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:>=2.36.0 <4.0.0",
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {

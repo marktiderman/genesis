@@ -1,5 +1,13 @@
 # @marktiderman/genesis-notifications
 
+## 0.4.4
+
+### Patch Changes
+
+- 13f6d59: The peer range on `@marktiderman/genesis-ui` now takes 3.x as well as 2.x (`>=2.x <4.0.0`), so this package works with genesis-ui 3 without a new major of its own.
+- Updated dependencies [13f6d59]
+  - @marktiderman/genesis-features@0.9.1
+
 ## 0.4.3
 
 ### Patch Changes

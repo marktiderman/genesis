@@ -17,7 +17,7 @@ type GridProps<T> = ComponentProps<typeof DataGrid<T>>;
 
 /**
  * A ResourcePage grid slot that draws the grid view as a gallery: the table and list views pass
- * through to DataGrid untouched. A row without an image is a placeholder tile (an empty `src`), so
+ * through to DataGrid, without the gallery's item click. A row without an image is a placeholder tile (an empty `src`), so
  * the gallery draws every row the count says. Clicking a photo opens the row, as clicking a card does.
  */
 export function galleryGridSlot<T extends Row>(
@@ -38,7 +38,13 @@ export function galleryGridSlot<T extends Row>(
       }
       return { list, byId };
     }, [items]);
-    if (viewMode !== "grid") return <DataGrid<T> {...props} />;
+    if (viewMode !== "grid") {
+      // The list and table views open their own rows (each row's Open button), so the gallery's
+      // item click isn't passed on: wrapping a row in a second activatable box would open it twice
+      // and nest its button in another.
+      const { onItemClick: _open, getItemLabel: _label, ...rest } = props;
+      return <DataGrid<T> {...rest} />;
+    }
     const rowHeight = override?.rowHeight ?? view.definition.gallery?.rowHeight;
     return (
       <div data-slot="gallery" data-testid="resource-gallery">

@@ -1,5 +1,19 @@
 # @marktiderman/genesis
 
+## 0.11.0
+
+### Minor Changes
+
+- a66de72: Re-exports genesis-ui 3.0.0, the responsive contract (docs/MIGRATION.md has the 3.0.0 entry): default list rows and cards open from their own button, `phoneMode` covers embedded lists, side sheets fill a phone's width.
+
+### Patch Changes
+
+- Updated dependencies [13f6d59]
+- Updated dependencies [fc8db97]
+  - @marktiderman/genesis-features@0.9.1
+  - @marktiderman/genesis-forms-web@0.8.2
+  - @marktiderman/genesis-ui@3.0.0
+
 ## 0.10.25
 
 ### Patch Changes
