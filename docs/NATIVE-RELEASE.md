@@ -147,7 +147,7 @@ typo can't silently do nothing.
 | `platforms` | `["ios", "android"]` | The platforms released, in `native-release.yml`, `deploy-production.yml` and `pr-preview.yml`: the other platform's jobs and steps aren't written. |
 | `environment` | `production` | The GitHub environment that holds the release secrets (`EXPO_TOKEN`; `SENTRY_AUTH_TOKEN`; the hook's). Limit it to `main`. |
 | `paths` | none | Folders outside the app its bundle reads (every folder its Metro config watches), from the repository root. One list for every workflow: `native-release.yml` runs on them and `pr-preview.yml` previews them. |
-| `sentry` | `false` | Uploads each update's source maps to Sentry (`upload_sentry_sourcemaps` on EAS; `sentry-expo-upload-sourcemaps` on GitHub), and stops before publishing when `SENTRY_AUTH_TOKEN` is missing. |
+| `sentry` | `false` | Uploads each update's source maps to Sentry with the app's own `sentry-expo-upload-sourcemaps`, in both lanes (GitHub and EAS), and stops before publishing when `SENTRY_AUTH_TOKEN` or the uploader is missing. A failed upload fails the run; with a release hook, the hook runs first. |
 | `pushHook` | none | A script in the app (`node <script>`) run once a release is out, per platform: after an update (GitHub or EAS) and after a submitted build (EAS). A string, or `{ "script", "secrets" }`: `secrets` are GitHub secret names passed to it on GitHub. |
 | `profile` | `production` | The EAS build profile releases build with, and whose fingerprint they match. |
 | `channel` | `production` | The update channel the production builds read: the build profile's `channel` in eas.json. The release stops when the profile names another, and matches only builds on it. |
@@ -207,7 +207,10 @@ Nothing in the templates names a real account. Before the first run:
 
    `preview` also takes `PREVIEW_IOS=true` once an iOS device is registered ([Build cost](#build-cost)).
 5. **Preview paths.** `genesis init --template native` fills in the app's code folder in
-   `pr-preview.yml` (`src`). Copied by hand, replace `REPLACE_WITH_APP_FOLDER`; `genesis doctor`
+   `pr-preview.yml` (`src`). Never copy a release template from `templates/` by hand: its release
+   markup (`#@if` blocks, the release tokens) only works once rendered. Write it with the CLI
+   (`genesis add template release`), or copy a rendered file, such as the starter's
+   `.eas/workflows/pr-preview.yml`, and then replace `REPLACE_WITH_APP_FOLDER`; `genesis doctor`
    warns about any left (`eas-placeholder`).
 6. **Store credentials.** Replace the App Store Connect app id and Apple team id in `eas.json`
    `submit.production.ios`, and set up signing (`eas credentials`) on a Mac signed in to the Apple
@@ -500,8 +503,10 @@ at; the others don't. Skip it with `maestro test --exclude-tags account .maestro
 its own. Templates with release markup (`#@if ios`, `#@paths`, `GENESIS_RELEASE_…` tokens, all on
 comment lines or in plain values) are rendered with the app's `release` block when written; the
 starter keeps the default render, and genesis-cli's tests check it matches. The others the starter
-keeps byte for byte (`__tests__/release.test.ts`). An app copied by hand has no lock entries:
-`genesis add template <set>` adopts them.
+keeps byte for byte (`__tests__/release.test.ts`). Copy a template with release markup only once
+rendered (the starter's copy, or `genesis add template release`): a raw copy keeps its `#@if`
+blocks and tokens. An app copied by hand has no lock entries: `genesis add template <set>` adopts
+them.
 
 ## Validating the workflows
 

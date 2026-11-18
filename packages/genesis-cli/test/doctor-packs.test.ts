@@ -285,6 +285,12 @@ describe("native pack", () => {
     expect(brief((await nativeApp({ "app.json": extraPolicy })).findings, "fingerprint-plugin-files")).toEqual([]);
     const ownPolicy = JSON.stringify({ expo: { ios: { runtimeVersion: { policy: "fingerprint" } }, plugins: ["@marktiderman/genesis-native/rich-push-plugin"] } });
     expect(brief((await nativeApp({ "app.json": ownPolicy })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    // A runtimeVersion nested elsewhere (extra) isn't the config's: neither a policy nor an explicit pin.
+    const extraRuntime = (runtimeVersion: unknown, plugins: unknown[]) => JSON.stringify({ expo: { extra: { runtimeVersion }, plugins } });
+    expect(brief((await nativeApp({ "app.json": extraRuntime({ policy: "fingerprint" }, ["@marktiderman/genesis-native/rich-push-plugin"]) })).findings, "fingerprint-plugin-files")).toEqual([]);
+    expect(brief((await nativeApp({ "app.json": extraRuntime("1.0.0", ["@marktiderman/genesis-cli", "@marktiderman/genesis-native/rich-push-plugin"]) })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    const tsExtra = 'export default { extra: { runtimeVersion: "1.0.0" }, ios: { runtimeVersion: { policy: "fingerprint" } }, plugins: ["@marktiderman/genesis-native/rich-push-plugin"] };\n';
+    expect(brief((await nativeApp({ "app.config.ts": tsExtra })).findings, "fingerprint-plugin-files")).toHaveLength(1);
   });
 
   it("release-lane-twice: native-release.yml beside a workflow that also releases (warn)", async () => {

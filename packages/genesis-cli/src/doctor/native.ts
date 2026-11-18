@@ -191,10 +191,35 @@ export function checkFingerprintConfig(ctx: DoctorContext): void {
   });
 }
 
-/** The values of every `runtimeVersion` key in an Expo config's text (comments already out): `{ … }` whole, anything else up to the next `,`, `}` or line end. */
+/**
+ * The keys of the objects and lists around `index`, outermost first (a bracket with no key before
+ * it, a function call's or `export default {`, is left out). Strings skipped; comments already out.
+ */
+function enclosingKeys(text: string, index: number): string[] {
+  const stack: (string | null)[] = [];
+  for (let i = 0; i < index; i++) {
+    const c = text[i]!;
+    if (c === '"' || c === "'" || c === "`") {
+      for (i++; i < index && text[i] !== c; i++) if (text[i] === "\\") i++;
+      continue;
+    }
+    if ("{[(".includes(c)) stack.push(/(["']?)([\w$]+)\1\s*:\s*$/.exec(text.slice(Math.max(0, i - 80), i))?.[2] ?? null);
+    else if ("}])".includes(c)) stack.pop();
+  }
+  return stack.filter((k): k is string => k !== null);
+}
+
+/**
+ * The values of the Expo config's own `runtimeVersion` keys (comments already out): at its root
+ * (under `expo` or not) or under `ios` or `android`, never one nested elsewhere (`extra`, a
+ * plugin's options). `{ … }` whole, anything else up to the next `,`, `}` or line end.
+ */
 export function runtimeVersionValues(text: string): string[] {
   const values: string[] = [];
   for (const m of text.matchAll(/\bruntimeVersion["']?\s*:\s*/g)) {
+    const keys = enclosingKeys(text, m.index!);
+    if (keys[0] === "expo") keys.shift();
+    if (keys.length > 1 || (keys.length === 1 && keys[0] !== "ios" && keys[0] !== "android")) continue;
     const at = m.index! + m[0].length;
     if (text[at] === "{") {
       const inner = bracketed(text, at);

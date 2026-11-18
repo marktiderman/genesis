@@ -276,8 +276,10 @@ function profileChain(easJson, profile) {
 }
 
 /**
- * The build profile's `env` for `platform`, as EAS resolves it: along `extends`, each profile's
- * common `env` then its `<platform>.env` over it, the profile's own values over what it extends.
+ * The build profile's `env` for `platform`, as EAS resolves it: first the common `env` of every
+ * profile along `extends` (the profile's own over what it extends), then the `<platform>.env` of
+ * every profile along the chain over all of those (again its own over what it extends). So a
+ * `<platform>.env` value in a base profile wins over a common `env` value in the profile itself.
  * @returns {Record<string, string>}
  */
 export function profileEnvValues(easJson, profile, platform) {

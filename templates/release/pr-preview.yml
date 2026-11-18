@@ -1,4 +1,7 @@
 # Copy to .eas/workflows/pr-preview.yml.
+# Rendered first: `genesis add template release` (or `genesis init --template native`) writes it
+# with genesis.config.json `release`. Copying by hand, copy a rendered file (the RN starter's, or
+# the CLI's output), never this template: its `#@if` lines and release tokens only work rendered.
 #
 # PR preview: an installable build of each pull request, and an update on its own channel.
 #
