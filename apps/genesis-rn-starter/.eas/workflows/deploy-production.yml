@@ -33,10 +33,9 @@
 # - Started only by hand or by native-release.yml, never on push: two triggers would race on
 #   every merge. The first job (`source`) fails, and so stops every other, unless the checkout is
 #   commit_sha (started with --ref, not an uploaded folder) and main contains it.
-# - Runs are serialized (`concurrency`): the running one always finishes before the next starts, so
-#   runs publish in the order their commits reached main. EAS drops waiting runs in between; the
-#   newest carries their code, and every platform (while a run is open, native-release.yml hands
-#   every platform here).
+# - Runs are serialized (`concurrency`, `queue: max`): the running one always finishes before the
+#   next starts, and every waiting run is kept, so runs publish in the order their commits reached
+#   main, each with its own platforms.
 # - The updates are published by the same steps as on GitHub (.eas/scripts/native-release.mjs):
 #   the build profile's env (with the platform's overrides), the runtime version checked before
 #   publishing and after. They need EXPO_TOKEN (an Expo robot token) in the EAS environment.
@@ -86,9 +85,12 @@ on:
         required: true
         description: Android's runtime version, as native-release.yml computed it with the build profile's env.
 
-# One release at a time. No cancel_in_progress: the running one always finishes.
+# One release at a time, in the order they were started. No cancel_in_progress: the running one
+# always finishes. `queue: max`: every waiting run is kept (EAS's default keeps only the newest), so
+# a run for one platform never replaces a waiting run for the other.
 concurrency:
   group: ${{ workflow.filename }}
+  queue: max
 
 jobs:
   # Production releases only from main, fail-closed: the checkout must be commit_sha (started with
@@ -188,13 +190,18 @@ jobs:
               exit 0
             fi
           fi
-          # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
-          profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "production" ios --shell)
-          eval "$profile_env"
-          npx --no expo-updates runtimeversion:resolve --platform ios > resolved-ios.txt
-          node .eas/scripts/native-release.mjs runtime resolved-ios.txt ios "$RUNTIME_VERSION"
-          npx --yes eas-cli@26.0.0 update --channel "production" --platform ios --environment "production" --message "Release $COMMIT_SHA" --json --non-interactive > update-ios.json
-          out=$(node .eas/scripts/native-release.mjs update update-ios.json ios "$RUNTIME_VERSION")
+          # Scratch files outside the checkout: with cli.requireCommit, eas update refuses a checkout
+          # with untracked files.
+          scratch=$(mktemp -d)
+          # The build's environment: this job's (the EAS environment), then the build profile's `env`
+          # for iOS over it (eas.json, with its ios overrides; with-profile), as the build had them.
+          # Only these commands get it: this shell keeps RUNTIME_VERSION and COMMIT_SHA.
+          node .eas/scripts/native-release.mjs with-profile eas.json "production" ios -- npx --no expo-updates runtimeversion:resolve --platform ios > "$scratch/resolved-ios.txt"
+          node .eas/scripts/native-release.mjs runtime "$scratch/resolved-ios.txt" ios "$RUNTIME_VERSION"
+          # No --environment: with it, eas update bundles with the EAS environment over the profile's
+          # values. CI=1: it then takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
+          node .eas/scripts/native-release.mjs with-profile eas.json "production" ios -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "production" --platform ios --message "Release $COMMIT_SHA" --json --non-interactive > "$scratch/update-ios.json"
+          out=$(node .eas/scripts/native-release.mjs update "$scratch/update-ios.json" ios "$RUNTIME_VERSION")
           echo "$out"
           set-output update_group "$(echo "$out" | sed -n 's/^ios_update_group=//p')"
 
@@ -273,12 +280,17 @@ jobs:
               exit 0
             fi
           fi
-          # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
-          profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "production" android --shell)
-          eval "$profile_env"
-          npx --no expo-updates runtimeversion:resolve --platform android > resolved-android.txt
-          node .eas/scripts/native-release.mjs runtime resolved-android.txt android "$RUNTIME_VERSION"
-          npx --yes eas-cli@26.0.0 update --channel "production" --platform android --environment "production" --message "Release $COMMIT_SHA" --json --non-interactive > update-android.json
-          out=$(node .eas/scripts/native-release.mjs update update-android.json android "$RUNTIME_VERSION")
+          # Scratch files outside the checkout: with cli.requireCommit, eas update refuses a checkout
+          # with untracked files.
+          scratch=$(mktemp -d)
+          # The build's environment: this job's (the EAS environment), then the build profile's `env`
+          # for Android over it (eas.json, with its android overrides; with-profile), as the build had them.
+          # Only these commands get it: this shell keeps RUNTIME_VERSION and COMMIT_SHA.
+          node .eas/scripts/native-release.mjs with-profile eas.json "production" android -- npx --no expo-updates runtimeversion:resolve --platform android > "$scratch/resolved-android.txt"
+          node .eas/scripts/native-release.mjs runtime "$scratch/resolved-android.txt" android "$RUNTIME_VERSION"
+          # No --environment: with it, eas update bundles with the EAS environment over the profile's
+          # values. CI=1: it then takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
+          node .eas/scripts/native-release.mjs with-profile eas.json "production" android -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "production" --platform android --message "Release $COMMIT_SHA" --json --non-interactive > "$scratch/update-android.json"
+          out=$(node .eas/scripts/native-release.mjs update "$scratch/update-android.json" android "$RUNTIME_VERSION")
           echo "$out"
           set-output update_group "$(echo "$out" | sed -n 's/^android_update_group=//p')"

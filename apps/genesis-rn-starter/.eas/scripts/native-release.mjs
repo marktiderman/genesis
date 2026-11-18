@@ -13,7 +13,7 @@
 //     later logs. Prints nothing else.
 //   node .eas/scripts/native-release.mjs require <NAME>
 //     Run under `eas env:exec <environment>`: fails, saying where to set it, when NAME is empty.
-//   node .eas/scripts/native-release.mjs plan <dir> <platforms> <profile>
+//   node .eas/scripts/native-release.mjs plan <dir> <platforms> <profile> [channel]
 //     For each platform (`ios,android`): its runtime version, from <dir>/fingerprint-<platform>.json
 //     (`eas fingerprint:generate --json`, the default) or <dir>/runtime-<platform>.txt (what
 //     genesis.config.json release.runtimeVersion's command printed), and <dir>/builds-<platform>.json
@@ -25,14 +25,21 @@
 //     printed, or a build's runtime isn't its fingerprint. A platform is skipped (<platform>_action=skip)
 //     when <dir>/shipped-<platform>.txt says the channel's latest update already carries this commit,
 //     or when the build it would publish on was made from this commit or a later one ($GITHUB_SHA,
-//     checked with git against the build's gitCommitHash; published when git can't tell).
+//     checked with git against the build's gitCommitHash; published when git can't tell). Only builds
+//     on [channel] count. A platform with <dir>/failed-<platform>.txt (its own planning failed) is
+//     <platform>_action=failed, in failed_platforms: neither published nor handed to EAS.
 //   node .eas/scripts/native-release.mjs update <update.json> <platform> <runtime version>
 //     From `eas update --json`: the platform's update group, checked against the runtime version
 //     the plan matched (an update for another runtime reaches no phone).
 //   node .eas/scripts/native-release.mjs profile-env <eas.json> <profile> [platform] [--shell]
 //     The build profile's `env` as EAS resolves it for the platform (along `extends`, with
-//     `<platform>.env` over it), as NAME=value lines, or `export` lines to eval: eas update doesn't
-//     apply it, and the build does.
+//     `<platform>.env` over it), as NAME=value lines, or `export` lines to eval.
+//   node .eas/scripts/native-release.mjs with-profile <eas.json> <profile> <platform> -- <command> [args…]
+//     Runs the command with the build profile's env (as profile-env resolves it) over the environment
+//     it was given (under `eas env:exec`, the EAS environment's): the precedence the build had. Only
+//     that command gets it, so the shell around it keeps its own values.
+//   node .eas/scripts/native-release.mjs channel <eas.json> <profile> <channel>
+//     Fails when the build profile names another channel: its builds wouldn't take the updates.
 //   node .eas/scripts/native-release.mjs latest-commit <channel> <platform>
 //     The commits of the latest updates for the platform on the branches the channel serves
 //     (`eas channel:view`, `eas update:list`, `eas update:view`), one per line; none before the
@@ -81,7 +88,15 @@ export function maskLines(env, base) {
   return Object.entries(env)
     .filter(([name, value]) => typeof value === "string" && !name.startsWith("EXPO_PUBLIC_") && base[name] !== digest(value))
     .flatMap(([, value]) => value.split(/\r?\n/).filter((line) => line.trim().length >= MIN_MASK))
-    .map((line) => `::add-mask::${line}`);
+    .map((line) => `::add-mask::${escapeCommandData(line)}`);
+}
+
+/**
+ * A workflow command's data as the runner reads it back: it decodes `%25`, `%0D` and `%0A`, so a
+ * literal `%25` sent as is would register `%` and leave the real value unmasked.
+ */
+export function escapeCommandData(text) {
+  return String(text).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 }
 
 export const PLATFORMS = ["ios", "android"];
@@ -100,7 +115,7 @@ export function parsePlatforms(list) {
  * native code changed, or the build with this fingerprint is still being made. Either way GitHub
  * publishes nothing and the EAS lane takes the commit (its get-build waits for a build in progress).
  */
-export function pickBuild(builds, hash, platform, profile) {
+export function pickBuild(builds, hash, platform, profile, channel) {
   if (!Array.isArray(builds) || !hash) return null;
   const matching = builds.filter(
     (b) =>
@@ -109,9 +124,15 @@ export function pickBuild(builds, hash, platform, profile) {
       String(b.platform ?? platform).toLowerCase() === platform &&
       (b.buildProfile ?? profile) === profile &&
       (b.distribution ?? "STORE") === "STORE" &&
+      onChannel(b, channel) &&
       b.fingerprint?.hash === hash,
   );
   return matching[0] ?? null;
+}
+
+/** Whether a build listens to `channel` (the one updates are published to); any build when no channel is given or the build records none. */
+function onChannel(build, channel) {
+  return !channel || build.channel == null || build.channel === channel;
 }
 
 export const RELEASE_WORKFLOW = "deploy-production.yml";
@@ -136,10 +157,13 @@ export function laneOpen(runs) {
  * GitHub can run a later commit's release first, and publishing this one after it would put the
  * older code back. `order.contains(commit, buildCommit)` says whether the build's commit carries
  * this one (true), doesn't (false) or can't tell (null, and the platform is published).
- * @param {Record<string, { runtime: string, by: "fingerprint" | "runtime", builds: unknown, shipped?: string }>} byPlatform
+ * Only builds on `order.channel` (the channel updates go to) count. A platform whose own planning
+ * failed (`failed`) is neither published nor handed to EAS (<platform>_action=failed, listed in
+ * failed_platforms); the other is planned as usual.
+ * @param {Record<string, { runtime?: string, by?: "fingerprint" | "runtime", builds?: unknown, shipped?: string, failed?: boolean }>} byPlatform
  * @param {unknown} runs
  * @param {string} profile
- * @param {{ commit?: string, contains?: (commit: string, later: string) => boolean | null }} [order]
+ * @param {{ commit?: string, contains?: (commit: string, later: string) => boolean | null, channel?: string }} [order]
  */
 export function planOutputs(byPlatform, runs, profile, order = {}) {
   const platforms = Object.keys(byPlatform);
@@ -149,14 +173,20 @@ export function planOutputs(byPlatform, runs, profile, order = {}) {
   const publish = [];
   const eas = [];
   const skipped = [];
+  const failed = [];
   for (const platform of platforms) {
+    if (byPlatform[platform].failed) {
+      out[`${platform}_action`] = "failed";
+      failed.push(platform);
+      continue;
+    }
     const { runtime, by, builds, shipped } = byPlatform[platform];
     if (by === "fingerprint" && (typeof runtime !== "string" || !/^[0-9a-f]{40}$/i.test(runtime))) throw new Error(`eas fingerprint:generate gave no ${platform} fingerprint hash.`);
     // Any runtime version Expo takes (`1.0.0`, `1.0.0(1)`, …): up to 255 characters, no spaces.
     if (by === "runtime" && !isRuntimeVersion(runtime)) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${runtime ?? ""}").`);
     // Read as "no build", a broken list would start a native build on every merge.
     if (!Array.isArray(builds)) throw new Error(`eas build:list --json did not print a list of ${platform} builds.`);
-    const build = by === "fingerprint" ? pickBuild(builds, runtime, platform, profile) : pickBuildByRuntime(builds, runtime, platform, profile);
+    const build = by === "fingerprint" ? pickBuild(builds, runtime, platform, profile, order.channel) : pickBuildByRuntime(builds, runtime, platform, profile, order.channel);
     // With the fingerprint policy the runtime version is the fingerprint. A build recorded with
     // another one wouldn't take this commit's update: stop before publishing anything.
     if (build && by === "fingerprint" && build.runtime?.version && build.runtime.version !== runtime) {
@@ -177,11 +207,11 @@ export function planOutputs(byPlatform, runs, profile, order = {}) {
     else if (built) out[`${platform}_built_by`] = buildCommit;
     (action === "publish" ? publish : action === "eas" ? eas : skipped).push(platform);
   }
-  return Object.entries({ ...out, lane_open: open ? "true" : "false", publish_platforms: publish.join(","), eas_platforms: eas.join(","), skipped_platforms: skipped.join(",") }).map(([k, v]) => `${k}=${v}`);
+  return Object.entries({ ...out, lane_open: open ? "true" : "false", publish_platforms: publish.join(","), eas_platforms: eas.join(","), skipped_platforms: skipped.join(","), failed_platforms: failed.join(",") }).map(([k, v]) => `${k}=${v}`);
 }
 
 /** The finished store build of `profile` for `platform` recorded with `runtime` (an app's own runtime version), or null. */
-export function pickBuildByRuntime(builds, runtime, platform, profile) {
+export function pickBuildByRuntime(builds, runtime, platform, profile, channel) {
   if (!Array.isArray(builds) || !runtime) return null;
   return (
     builds.find(
@@ -191,6 +221,7 @@ export function pickBuildByRuntime(builds, runtime, platform, profile) {
         String(b.platform ?? platform).toLowerCase() === platform &&
         (b.buildProfile ?? profile) === profile &&
         (b.distribution ?? "STORE") === "STORE" &&
+        onChannel(b, channel) &&
         (b.runtime?.version ?? b.runtimeVersion) === runtime,
     ) ?? null
   );
@@ -211,32 +242,59 @@ export function updateOutputs(updates, platform, runtime) {
   return [`${platform}_update_group=${update.group}`, `${platform}_runtime_version=${update.runtimeVersion}`];
 }
 
+/** The build profiles `profile` extends, itself first, checked: eas.json's `build[name]` for each. */
+function profileChain(easJson, profile) {
+  const build = easJson?.build ?? {};
+  const chain = [];
+  for (let name = profile; name !== undefined; name = build[name].extends) {
+    if (chain.some(([n]) => n === name)) throw new Error(`eas.json build profiles extend each other in a loop at "${name}".`);
+    if (!build[name]) throw new Error(`eas.json has no build profile "${name}".`);
+    chain.push([name, build[name]]);
+  }
+  return chain.map(([, own]) => own);
+}
+
 /**
  * The build profile's `env` for `platform`, as EAS resolves it: along `extends`, each profile's
  * common `env` then its `<platform>.env` over it, the profile's own values over what it extends.
- * Lines `NAME=value`, or with `shell`, `export NAME='value'` lines to `eval`. A value with a line
- * break is refused.
+ * @returns {Record<string, string>}
+ */
+export function profileEnvValues(easJson, profile, platform) {
+  if (platform !== undefined && !PLATFORMS.includes(platform)) throw new Error(`profile-env: platform must be ios or android (got "${platform}").`);
+  const chain = profileChain(easJson, profile).reverse();
+  const common = Object.assign({}, ...chain.map((own) => own.env ?? {}));
+  const overrides = Object.assign({}, ...chain.map((own) => (platform && own[platform]?.env) ?? {}));
+  return Object.fromEntries(
+    Object.entries({ ...common, ...overrides }).map(([key, value]) => {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new Error(`eas.json build.${profile}.env has a name that isn't one: "${key}".`);
+      return [key, String(value)];
+    }),
+  );
+}
+
+/**
+ * The build profile's `env` for `platform` (profileEnvValues) as lines: `NAME=value` (a value with a
+ * line break is refused, since a line is one variable), or with `shell`, `export NAME='value'`
+ * lines to `eval`, a line break kept inside the quotes.
  * @param {{ build?: Record<string, { extends?: string, env?: Record<string, unknown>, ios?: { env?: Record<string, unknown> }, android?: { env?: Record<string, unknown> } }> }} easJson
  */
 export function profileEnv(easJson, profile, platform, shell = false) {
-  if (platform !== undefined && !PLATFORMS.includes(platform)) throw new Error(`profile-env: platform must be ios or android (got "${platform}").`);
-  const build = easJson?.build ?? {};
-  const seen = new Set();
-  const resolve = (name) => {
-    if (seen.has(name)) throw new Error(`eas.json build profiles extend each other in a loop at "${name}".`);
-    seen.add(name);
-    const own = build[name];
-    if (!own) throw new Error(`eas.json has no build profile "${name}".`);
-    const base = own.extends ? resolve(own.extends) : { common: {}, platform: {} };
-    return { common: { ...base.common, ...(own.env ?? {}) }, platform: { ...base.platform, ...((platform && own[platform]?.env) ?? {}) } };
-  };
-  const { common, platform: overrides } = resolve(profile);
-  return Object.entries({ ...common, ...overrides }).map(([key, value]) => {
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new Error(`eas.json build.${profile}.env has a name that isn't one: "${key}".`);
-    const text = String(value);
-    if (/[\r\n]/.test(text)) throw new Error(`eas.json build.${profile}.env.${key} has a line break; it can't be passed on.`);
+  return Object.entries(profileEnvValues(easJson, profile, platform)).map(([key, text]) => {
+    if (!shell && /[\r\n]/.test(text)) throw new Error(`eas.json build.${profile}.env.${key} has a line break; it can't be passed on as a line (use --shell).`);
     return shell ? `export ${key}='${text.replace(/'/g, "'\\''")}'` : `${key}=${text}`;
   });
+}
+
+/**
+ * Refuses a build profile whose builds listen to another channel than the one updates are published
+ * to: an update there would reach none of them. The channel is the profile's own or the one it
+ * extends; a profile naming none isn't refused (the build list's channel is checked too).
+ */
+export function checkProfileChannel(easJson, profile, channel) {
+  const named = profileChain(easJson, profile).find((own) => typeof own.channel === "string")?.channel;
+  if (named !== undefined && named !== channel) {
+    throw new Error(`eas.json build.${profile} builds listen to the channel "${named}", but the release publishes to "${channel}": no build would take its updates. Make genesis.config.json release.channel and the profile's channel the same. Nothing was published or built.`);
+  }
 }
 
 /**
@@ -373,10 +431,12 @@ async function main(command, args, env) {
     if (!name) throw new Error("require needs a variable name.");
     if (!env[name]?.trim()) throw new Error(`${name} is not set. Add it where the release reads its secrets: the GitHub environment for native-release.yml, the EAS environment for deploy-production.yml (docs/NATIVE-RELEASE.md, "One-time setup"). Nothing was published.`);
   } else if (command === "plan") {
-    const [dir, list, profile] = args;
-    if (!dir || !profile) throw new Error("plan needs <dir> <platforms> <profile>.");
+    const [dir, list, profile, channel] = args;
+    if (!dir || !profile) throw new Error("plan needs <dir> <platforms> <profile> [channel].");
     const byPlatform = Object.fromEntries(
       parsePlatforms(list).map((p) => {
+        // Its own planning failed (the workflow wrote failed-<platform>.txt): nothing else of it is read.
+        if (existsSync(join(dir, `failed-${p}.txt`))) return [p, { failed: true }];
         const own = join(dir, `runtime-${p}.txt`);
         const runtime = existsSync(own) ? printedRuntime(readFileSync(own, "utf8")) : readJson(join(dir, `fingerprint-${p}.json`))?.hash;
         const shippedFile = join(dir, `shipped-${p}.txt`);
@@ -386,7 +446,8 @@ async function main(command, args, env) {
     );
     // The commit being released (GitHub's), checked against each build's commit with git.
     const commit = env.GITHUB_SHA?.trim();
-    for (const line of planOutputs(byPlatform, readJson(join(dir, "runs.json")), profile, commit ? { commit, contains: gitContains } : {})) console.log(line);
+    const order = { ...(commit ? { commit, contains: gitContains } : {}), ...(channel ? { channel } : {}) };
+    for (const line of planOutputs(byPlatform, readJson(join(dir, "runs.json")), profile, order)) console.log(line);
   } else if (command === "update") {
     const [file, platform, runtime] = args;
     if (!file || !PLATFORMS.includes(platform)) throw new Error("update needs <update.json> <platform> <runtime version>.");
@@ -396,6 +457,18 @@ async function main(command, args, env) {
     const [, , platform, flag] = args;
     if (!file || !profile) throw new Error("profile-env needs <eas.json> <profile> [platform] [--shell].");
     for (const line of profileEnv(readJson(file), profile, platform === "--shell" ? undefined : platform, platform === "--shell" || flag === "--shell")) console.log(line);
+  } else if (command === "with-profile") {
+    // with-profile <eas.json> <profile> <platform> -- <command> [args…]: the command with the build
+    // profile's env over this environment, as the build had it, and nothing else changed.
+    const [file, profile, platform, dashes, cmd, ...rest] = args;
+    if (!file || !profile || !PLATFORMS.includes(platform) || dashes !== "--" || !cmd) throw new Error("with-profile needs <eas.json> <profile> <platform> -- <command> [args…].");
+    const result = spawnSync(cmd, rest, { stdio: "inherit", env: { ...env, ...profileEnvValues(readJson(file), profile, platform) } });
+    if (result.error) throw result.error;
+    process.exitCode = result.status ?? 1;
+  } else if (command === "channel") {
+    const [file, profile, channel] = args;
+    if (!file || !profile || !channel) throw new Error("channel needs <eas.json> <profile> <channel>.");
+    checkProfileChannel(readJson(file), profile, channel);
   } else if (command === "latest-commit") {
     const [channel, platform] = args;
     if (!channel || !PLATFORMS.includes(platform)) throw new Error("latest-commit needs <channel> <platform>.");
@@ -418,7 +491,7 @@ async function main(command, args, env) {
     if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime needs <resolved.txt> <platform> <runtime version>.");
     checkRuntime(readFileSync(file, "utf8"), platform, expected);
   } else {
-    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, latest-commit, runtime-printed, installed or runtime.`);
+    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, with-profile, channel, latest-commit, runtime-printed, installed or runtime.`);
   }
 }
 

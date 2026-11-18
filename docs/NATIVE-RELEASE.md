@@ -34,19 +34,24 @@ them current ([Upgrading and customising](#upgrading-and-customising)).
 3. **`native-release.yml`** (GitHub Actions; a runner starts in seconds, where an EAS job can queue
    for most of an hour) runs on the push. Per platform it finds the commit's runtime version (Expo's
    fingerprint as the production build profile computes it, or your command: [The release
-   block](#the-release-block)) and the finished production store builds that have it, lists the
-   open runs of `deploy-production.yml`, and reads the channel's latest update:
+   block](#the-release-block)) and the finished production store builds on the release channel
+   that have it, lists the open runs of `deploy-production.yml` (first, so an EAS run that
+   finishes after that shows in the channel), and reads the channel's latest update. It stops first
+   when eas.json's production profile names another channel than `release.channel`: its builds
+   would take none of the updates.
    - **The channel's latest update already carries this commit or a later one** (GitHub ran a later
      commit's release first, or this is a re-run): nothing is published or built for that platform,
      and the run says so (a warning and a line in the job summary), so an older commit never
      overwrites a newer one.
    - **A finished build has it, and no EAS release run is open** (most merges: JavaScript only):
-     with the build profile's `env` for that platform (eas.json, `<platform>.env` over the common
-     one, along `extends`, as the build had it; `eas update` doesn't apply it by itself), it checks
+     with the build's environment (the EAS environment, then the build profile's `env` for that
+     platform over it: eas.json, `<platform>.env` over the common one, along `extends`), it checks
      this checkout's runtime version (`expo-updates runtimeversion:resolve`) is the build's, then
      publishes the update to the `production` channel for that platform, checks the update went to
      that runtime version, then uploads the source maps to Sentry and runs your release hook, when
-     those are on.
+     those are on. Only those commands get the profile's env (`native-release.mjs with-profile`,
+     inside `eas env:exec`), and `eas update` runs without `--environment`, which would bundle with
+     the EAS environment's values over the profile's.
    - **Otherwise** (native code changed, or the build with this runtime version is still being
      made, or an EAS release run is open): nothing is published here for that platform. The job
      starts `deploy-production.yml` on EAS for that commit and those platforms
@@ -57,13 +62,17 @@ them current ([Upgrading and customising](#upgrading-and-customising)).
 
    Each platform of each commit takes exactly one of the two paths, so an update is never published
    twice. A failure on one platform doesn't hold the other back: the Android update still publishes
-   after a failed iOS one, and EAS still gets what it should. A failed shared check (the plan, the
-   Sentry token) stops every platform's publish.
+   after a failed iOS one, and EAS still gets what it should; a platform whose own planning failed
+   (its runtime version, builds or latest update) is neither published nor handed to EAS, the other
+   goes on, and the job fails at its end. A failed shared check (the profile's channel, EAS's run
+   list, the Sentry token) stops every platform's publish.
 4. **`deploy-production.yml`** (EAS, only when started), per platform it was given:
    - a build with the runtime version, finished or still being made (`get-build` waits for one in
      progress): publish this commit as an update on it, with the same steps as GitHub (the
-     platform's profile env, the runtime version checked before and after; it runs `eas-cli` with
-     `EXPO_TOKEN` from the EAS environment);
+     platform's profile env over the EAS environment, the runtime version checked before and after;
+     it runs `eas-cli` with `EXPO_TOKEN` from the EAS environment, and keeps its own files outside
+     the checkout, which `cli.requireCommit` wants clean). When the source maps fail to reach Sentry
+     after the update went out, the release hook still runs, then the run fails saying so;
    - none (native code changed): build, then submit to TestFlight and Google Play's internal track
      as a draft. Releasing to the stores stays your step in App Store Connect and Play Console.
 5. **To take an update back**, republish the update group before it:
@@ -87,10 +96,11 @@ must, with the runtime versions it needs.
 **Order.** GitHub publishes within minutes, an EAS run perhaps an hour later. So while any run of
 `deploy-production.yml` is open (new, in progress, waiting or awaiting approval), every later
 commit goes to EAS too, for every platform, instead of publishing an update the older EAS run would
-then overwrite. On EAS, runs are serialized (`concurrency`, never cancelling one in progress): each
-finishes before the next starts, in the order GitHub started them, which is the order the commits
-reached `main` (GitHub's runs are serialized too). EAS drops waiting runs in between; the newest one
-carries their code, on every platform. GitHub doesn't promise to start runs in push order, so before
+then overwrite. On EAS, runs are serialized (`concurrency`, never cancelling one in progress, with
+`queue: max`, so every waiting run is kept: one for a platform never replaces one for the other):
+each finishes before the next starts, in the order GitHub started them, which is the order the
+commits reached `main` (GitHub's runs are serialized too, on the job, so a push skipped with
+`[eas skip]` never takes a release's waiting place). GitHub doesn't promise to start runs in push order, so before
 publishing or handing a platform to EAS, each run checks the channel's latest update (the branch or branches the channel serves, from
 `eas channel:view <channel>`, which needn't be named after it; the newest group on each from
 `eas update:list --branch`, then its commit from `eas update:view <group>`; none before the first
@@ -140,7 +150,7 @@ typo can't silently do nothing.
 | `sentry` | `false` | Uploads each update's source maps to Sentry (`upload_sentry_sourcemaps` on EAS; `sentry-expo-upload-sourcemaps` on GitHub), and stops before publishing when `SENTRY_AUTH_TOKEN` is missing. |
 | `pushHook` | none | A script in the app (`node <script>`) run once a release is out, per platform: after an update (GitHub or EAS) and after a submitted build (EAS). A string, or `{ "script", "secrets" }`: `secrets` are GitHub secret names passed to it on GitHub. |
 | `profile` | `production` | The EAS build profile releases build with, and whose fingerprint they match. |
-| `channel` | `production` | The update channel the production builds read. |
+| `channel` | `production` | The update channel the production builds read: the build profile's `channel` in eas.json. The release stops when the profile names another, and matches only builds on it. |
 | `easEnvironment` | the profile's name | The EAS environment the lane reads its variables from (`eas env:exec`, `environment:` on EAS jobs). |
 | `packageManager` | from the app's lockfile | How `native-release.yml` installs: `pnpm`, `bun`, `npm` or `yarn`. |
 | `runtimeVersion` | `"fingerprint"` | How a commit's runtime version is found. `"fingerprint"`: Expo's fingerprint (`runtimeVersion: { policy: "fingerprint" }`, which `withGenesis` sets). Or `{ "command": "node scripts/runtime-version.mjs" }`: one line that prints the runtime version of the platform in `RELEASE_PLATFORM` (any form Expo takes, `1.0.0(1)` included; it runs as a script of its own under `eas env:exec` with the build profile's env for the platform, so it sees what the build saw, and a pipeline or `&&` runs whole; its last line is taken, and an empty, `undefined` or `null` one stops the release), for an app that sets its own per-platform `runtimeVersion` (one derived from the native inputs it tracks, say, where the fingerprint can't see them). Builds are then matched by runtime version, and EAS's `get-build` by `runtime_version`. |
@@ -229,7 +239,8 @@ with the new text in `.genesis-next`; a push trigger limited to other branches, 
 doesn't count, and neither does one only for tags): together they would publish every release
 twice. It names any other workflow that releases on a push to `main` (a GitHub workflow running
 `eas update`, `eas build` or `eas workflow:run`, or an EAS workflow with an update or build job, a
-comment after its `type:` included; one that only runs by hand doesn't count); remove it in the
+comment after its `type:` included, or a custom job whose steps run one of those commands; a query
+such as `eas build:list` doesn't count, nor does one that only runs by hand); remove it in the
 same change, and `genesis doctor` warns
 (`release-lane-twice`) while one is there. Then add the secrets ([One-time setup](#one-time-setup)).
 
@@ -253,7 +264,10 @@ app's.
 `genesis add template <set>` takes the other templates too: `eas`, `expo`, `maestro`, `ci`
 (app CI, Claude review, the weekly Genesis upgrade), `database` (the database CI) and `vercel`
 (Vercel's preview gate, for a web app), or one template by its path under `templates/`
-(`eas/workflows/rollout.yml`). `genesis add template --list` shows what the app has. The CI
+(`eas/workflows/rollout.yml`). `genesis add template --list` shows what the app has. The `eas` set
+leaves a `deploy-production.yml` that still releases on push as it is (`held`) when the app has no
+`native-release.yml`: the lane's dispatch-only one would leave nothing to start a release. Adopt
+the lane with the `release` set. The CI
 callers are written pinned to the Genesis release the app is on (`@<commit> # @marktiderman/genesis@<version>`).
 
 ## Upgrading and customising

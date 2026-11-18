@@ -275,6 +275,16 @@ describe("native pack", () => {
     expect(brief((await nativeApp({ "app.config.ts": imported })).findings, "fingerprint-plugin-files")).toEqual([]);
     // No genesis-native plugin: nothing to say.
     expect(brief((await nativeApp({ "app.config.ts": 'export default { runtimeVersion: { policy: "fingerprint" } };\n' })).findings, "fingerprint-plugin-files")).toEqual([]);
+     // Comments are trivia: the wrapper's options still turn the fingerprint off, and a commented-out plugin isn't one.
+    const commented = 'import { withGenesis } from "@marktiderman/genesis-cli/expo";\nexport default withGenesis({ plugins: ["@marktiderman/genesis-native/rich-push-plugin"] }, { /* opt out */ fingerprint: false, // a reason\n});\n';
+    expect(brief((await nativeApp({ "app.config.ts": commented })).findings, "fingerprint-plugin-files")).toEqual([]);
+    const urlInString = 'export default { plugins: [/* ["@marktiderman/genesis-cli", {}] */ "@marktiderman/genesis-native/rich-push-plugin"], extra: { url: "https://x.test/a" } };\n';
+    expect(brief((await nativeApp({ "app.config.ts": urlInString })).findings, "fingerprint-plugin-files")).toEqual([]);
+    // Only runtimeVersion sets the policy: `policy: "fingerprint"` in extra, with no Genesis plugin, isn't it.
+    const extraPolicy = JSON.stringify({ expo: { extra: { policy: "fingerprint" }, plugins: ["@marktiderman/genesis-native/rich-push-plugin"] } });
+    expect(brief((await nativeApp({ "app.json": extraPolicy })).findings, "fingerprint-plugin-files")).toEqual([]);
+    const ownPolicy = JSON.stringify({ expo: { ios: { runtimeVersion: { policy: "fingerprint" } }, plugins: ["@marktiderman/genesis-native/rich-push-plugin"] } });
+    expect(brief((await nativeApp({ "app.json": ownPolicy })).findings, "fingerprint-plugin-files")).toHaveLength(1);
   });
 
   it("release-lane-twice: native-release.yml beside a workflow that also releases (warn)", async () => {
@@ -292,6 +302,10 @@ describe("native pack", () => {
     // The lane's own dispatch-only file, or no native-release.yml at all: nothing to say.
     expect(brief((await nativeApp({ ...lane, ".eas/workflows/deploy-production.yml": "on:\n  workflow_dispatch: {}\njobs:\n  u:\n    type: update\n" })).findings, "release-lane-twice")).toEqual([]);
     expect(brief((await nativeApp(pushEas)).findings, "release-lane-twice")).toEqual([]);
+    // A custom EAS job that runs a release command itself counts; one that only queries (build:list, update:view) doesn't.
+    const custom = (run: string) => ({ ...lane, ".eas/workflows/ship.yml": `on:\n  push:\n    branches: [main]\njobs:\n  ship:\n    steps:\n      - uses: eas/checkout\n      - run: ${run}\n` });
+    expect(brief((await nativeApp(custom("npx --yes eas-cli@26.0.0 update --channel production --auto"))).findings, "release-lane-twice")).toEqual(["release-lane-twice .eas/workflows/ship.yml:0 .eas/workflows/ship.yml"]);
+    expect(brief((await nativeApp(custom("eas build:list --json && eas update:view g --json"))).findings, "release-lane-twice")).toEqual([]);
     // A push trigger only for another branch (a preview lane) releases nothing from main.
     expect(brief((await nativeApp({ ...lane, ".eas/workflows/preview.yml": "on:\n  push:\n    branches: [preview]\njobs:\n  update:\n    type: update\n" })).findings, "release-lane-twice")).toEqual([]);
   });

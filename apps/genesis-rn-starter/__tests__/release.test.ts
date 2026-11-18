@@ -153,9 +153,10 @@ describe("EAS workflows", () => {
     expect(inputs.android?.type).toBe("choice");
     // main's merge is the approval: an approval job would hold every merge's release.
     expect(Object.values(jobs).filter((j) => j.type === "require-approval")).toEqual([]);
-    // One deploy at a time, and the running one always finishes: never cancel_in_progress.
+    // One deploy at a time, and the running one always finishes: never cancel_in_progress. Every
+    // waiting run is kept (queue: max), so one for a platform never replaces one for the other.
     const { concurrency } = parse(read(".eas/workflows/deploy-production.yml")) as { concurrency?: unknown };
-    expect(concurrency).toEqual({ group: "${{ workflow.filename }}" });
+    expect(concurrency).toEqual({ group: "${{ workflow.filename }}", queue: "max" });
   });
 
   it("deploy-production updates every install, and submits each build in the run that made it", () => {
@@ -166,7 +167,7 @@ describe("EAS workflows", () => {
       const publish = jobs[`update_${platform}`]?.steps?.map((st) => st.run ?? "").join("\n") ?? "";
       expect(publish).toContain(`update --channel "production" --platform ${platform}`);
       expect(publish).not.toContain("rollout-percentage");
-      expect(publish).toContain(`profile-env eas.json "production" ${platform} --shell`);
+      expect(publish).toContain(`with-profile eas.json "production" ${platform} --`);
       expect(jobs[`get_${platform}_build`]?.if).toBe(`\${{ inputs.${platform} == 'true' }}`);
       expect(jobs[`update_${platform}`]?.if).toBe(`\${{ inputs.${platform} == 'true' && needs.get_${platform}_build.outputs.build_id }}`);
       expect(jobs[`update_${platform}`]?.needs).toEqual([`get_${platform}_build`]);

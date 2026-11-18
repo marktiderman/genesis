@@ -100,6 +100,28 @@ function topLevelItems(inner: string): string[] {
   return items.map((s) => s.trim()).filter(Boolean);
 }
 
+/** The text with its JavaScript comments (`//` to the line's end, `/* … *\/`) blanked out; strings kept as they are. */
+export function withoutComments(text: string): string {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]!;
+    if (c === '"' || c === "'" || c === "`") {
+      const start = i;
+      for (i++; i < text.length && text[i] !== c; i++) if (text[i] === "\\") i++;
+      out += text.slice(start, i + 1);
+    } else if (c === "/" && text[i + 1] === "/") {
+      const end = text.indexOf("\n", i);
+      i = (end === -1 ? text.length : end) - 1;
+      out += " ";
+    } else if (c === "/" && text[i + 1] === "*") {
+      const end = text.indexOf("*/", i + 2);
+      i = end === -1 ? text.length : end + 1;
+      out += " ";
+    } else out += c;
+  }
+  return out;
+}
+
 /** True when an options object (`{ … }`) sets `fingerprint: false` at its own top level. */
 function fingerprintOff(options: string | undefined): boolean {
   if (!options?.startsWith("{")) return false;
@@ -113,7 +135,9 @@ function fingerprintOff(options: string | undefined): boolean {
  * options)` call; never when that entry's or call's own options set `fingerprint: false` (another
  * `fingerprint` key, in `extra` say, doesn't count), and never for an import alone.
  */
-export function genesisPluginSetsFingerprint(text: string): boolean {
+export function genesisPluginSetsFingerprint(source: string): boolean {
+  // Comments are trivia: `{ /* opt out */ fingerprint: false }` still opts out.
+  const text = withoutComments(source);
   const uses: (string | undefined)[] = [];
   // The plugin by its package name or its `/expo` export (both are the same plugin).
   for (const m of text.matchAll(/\[\s*["']@marktiderman\/genesis-cli(?:\/expo)?["']\s*(,)?/g)) {
@@ -146,12 +170,14 @@ export function genesisPluginSetsFingerprint(text: string): boolean {
 export function checkFingerprintConfig(ctx: DoctorContext): void {
   const configs = APP_CONFIGS.filter((f) => existsSync(path.join(ctx.root, f)));
   if (!configs.length) return;
-  const text = configs.map((f) => readFileSync(path.join(ctx.root, f), "utf8")).join("\n");
-  // An explicit runtimeVersion (a string, or a policy other than fingerprint, at the root or for a
+  const text = withoutComments(configs.map((f) => readFileSync(path.join(ctx.root, f), "utf8")).join("\n"));
+  // Only `runtimeVersion` sets the policy (a `policy` key elsewhere, in `extra` say, isn't one). An
+  // explicit runtimeVersion (a string, or a policy other than fingerprint, at the root or for a
   // platform) wins over the plugin's default: withGenesis keeps it.
-  const explicit = /\bruntimeVersion["']?\s*:\s*(?!\{\s*["']?policy["']?\s*:\s*["']fingerprint["'])\S/.test(text);
+  const values = runtimeVersionValues(text);
+  const explicit = values.some((v) => !isFingerprintPolicy(v));
   const genesisPlugin = !explicit && genesisPluginSetsFingerprint(text);
-  const fingerprint = /\bpolicy["']?\s*:\s*["']fingerprint["']/.test(text) || genesisPlugin;
+  const fingerprint = values.some(isFingerprintPolicy) || genesisPlugin;
   const nativePlugin = /["']@marktiderman\/genesis-native\/rich-push-plugin["']/.test(text);
   if (!fingerprint || !nativePlugin) return;
   const own = FINGERPRINT_CONFIGS.find((f) => existsSync(path.join(ctx.root, f)));
@@ -163,6 +189,26 @@ export function checkFingerprintConfig(ctx: DoctorContext): void {
     file: own ?? config,
     message: `${configs.join(" and ")} use${configs.length === 1 ? "s" : ""} the fingerprint runtime version and genesis-native's config plugin, but ${own ?? "no fingerprint.config.js"} ${own ? "doesn't hash" : "hashes"} config plugins by their files (configPluginSourceType: "files"): every new Genesis version would make a store build instead of an update. Run \`genesis add template expo\` (docs/NATIVE-RELEASE.md, "Fingerprints")`,
   });
+}
+
+/** The values of every `runtimeVersion` key in an Expo config's text (comments already out): `{ … }` whole, anything else up to the next `,`, `}` or line end. */
+export function runtimeVersionValues(text: string): string[] {
+  const values: string[] = [];
+  for (const m of text.matchAll(/\bruntimeVersion["']?\s*:\s*/g)) {
+    const at = m.index! + m[0].length;
+    if (text[at] === "{") {
+      const inner = bracketed(text, at);
+      values.push(inner === null ? text.slice(at) : `{${inner}}`);
+    } else values.push(/^[^,}\n]*/.exec(text.slice(at))![0].trim());
+  }
+  return values.filter(Boolean);
+}
+
+/** True for a runtimeVersion value `{ policy: "fingerprint" }` (its own top-level `policy`). */
+function isFingerprintPolicy(value: string): boolean {
+  if (!value.startsWith("{")) return false;
+  const inner = bracketed(value, 0);
+  return inner !== null && topLevelItems(inner).some((item) => /^["']?policy["']?\s*:\s*["']fingerprint["']$/.test(item));
 }
 
 /**

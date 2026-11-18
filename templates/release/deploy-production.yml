@@ -33,10 +33,9 @@
 # - Started only by hand or by native-release.yml, never on push: two triggers would race on
 #   every merge. The first job (`source`) fails, and so stops every other, unless the checkout is
 #   commit_sha (started with --ref, not an uploaded folder) and main contains it.
-# - Runs are serialized (`concurrency`): the running one always finishes before the next starts, so
-#   runs publish in the order their commits reached main. EAS drops waiting runs in between; the
-#   newest carries their code, and every platform (while a run is open, native-release.yml hands
-#   every platform here).
+# - Runs are serialized (`concurrency`, `queue: max`): the running one always finishes before the
+#   next starts, and every waiting run is kept, so runs publish in the order their commits reached
+#   main, each with its own platforms.
 # - The updates are published by the same steps as on GitHub (.eas/scripts/native-release.mjs):
 #   the build profile's env (with the platform's overrides), the runtime version checked before
 #   publishing and after. They need EXPO_TOKEN (an Expo robot token) in the EAS environment.
@@ -90,9 +89,12 @@ on:
         description: Android's runtime version, as native-release.yml computed it with the build profile's env.
 #@end
 
-# One release at a time. No cancel_in_progress: the running one always finishes.
+# One release at a time, in the order they were started. No cancel_in_progress: the running one
+# always finishes. `queue: max`: every waiting run is kept (EAS's default keeps only the newest), so
+# a run for one platform never replaces a waiting run for the other.
 concurrency:
   group: ${{ workflow.filename }}
+  queue: max
 
 jobs:
   # Production releases only from main, fail-closed: the checkout must be commit_sha (started with
@@ -171,6 +173,9 @@ jobs:
       BUILD_COMMIT: ${{ needs.get_ios_build.outputs.git_commit_hash }}
     outputs:
       update_group: ${{ steps.publish.outputs.update_group }}
+#@if sentry pushHook
+      sourcemaps: ${{ steps.publish.outputs.sourcemaps }}
+#@end
     steps:
       - uses: eas/checkout
       # EAS CLI evaluates app.config.ts (and expo-updates resolves the runtime), so it needs the packages.
@@ -204,19 +209,34 @@ jobs:
           node .eas/scripts/native-release.mjs require SENTRY_AUTH_TOKEN
           node .eas/scripts/native-release.mjs installed @sentry/react-native
 #@end
-          # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
-          profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" ios --shell)
-          eval "$profile_env"
-          npx --no expo-updates runtimeversion:resolve --platform ios > resolved-ios.txt
-          node .eas/scripts/native-release.mjs runtime resolved-ios.txt ios "$RUNTIME_VERSION"
-          npx --yes eas-cli@26.0.0 update --channel "GENESIS_RELEASE_CHANNEL" --platform ios --environment "GENESIS_RELEASE_EAS_ENVIRONMENT" --message "Release $COMMIT_SHA" --json --non-interactive > update-ios.json
-          out=$(node .eas/scripts/native-release.mjs update update-ios.json ios "$RUNTIME_VERSION")
+          # Scratch files outside the checkout: with cli.requireCommit, eas update refuses a checkout
+          # with untracked files.
+          scratch=$(mktemp -d)
+          # The build's environment: this job's (the EAS environment), then the build profile's `env`
+          # for iOS over it (eas.json, with its ios overrides; with-profile), as the build had them.
+          # Only these commands get it: this shell keeps RUNTIME_VERSION and COMMIT_SHA.
+          node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" ios -- npx --no expo-updates runtimeversion:resolve --platform ios > "$scratch/resolved-ios.txt"
+          node .eas/scripts/native-release.mjs runtime "$scratch/resolved-ios.txt" ios "$RUNTIME_VERSION"
+          # No --environment: with it, eas update bundles with the EAS environment over the profile's
+          # values. CI=1: it then takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
+          node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" ios -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "GENESIS_RELEASE_CHANNEL" --platform ios --message "Release $COMMIT_SHA" --json --non-interactive > "$scratch/update-ios.json"
+          out=$(node .eas/scripts/native-release.mjs update "$scratch/update-ios.json" ios "$RUNTIME_VERSION")
           echo "$out"
           set-output update_group "$(echo "$out" | sed -n 's/^ios_update_group=//p')"
 #@if sentry
-          # A failed upload fails the job (needs SENTRY_AUTH_TOKEN in the EAS environment). The app's own
-          # sentry-expo-upload-sourcemaps: npx --no never installs one (an unrelated npm package has the name).
-          npx --no sentry-expo-upload-sourcemaps dist
+          # The update is out: a failed upload must not keep the release hook from running.
+          # (Needs SENTRY_AUTH_TOKEN in the EAS environment. The app's own
+          # sentry-expo-upload-sourcemaps: npx --no never installs one; an unrelated npm package has the name.)
+          if ! npx --no sentry-expo-upload-sourcemaps dist; then
+#@if pushHook
+            echo "The iOS update is published, but its source maps didn't upload to Sentry: the release hook runs, then the run fails."
+            set-output sourcemaps failed
+#@end
+#@if !pushHook
+            echo "The iOS update is published, but its source maps didn't upload to Sentry. Upload them from this commit's export by hand."
+            exit 1
+#@end
+          fi
 #@end
 #@if pushHook
 
@@ -235,10 +255,22 @@ jobs:
       RELEASE_APP_VERSION: ${{ needs.get_ios_build.outputs.app_version }}
       RELEASE_RUNTIME_VERSION: ${{ needs.get_ios_build.outputs.runtime_version }}
       RELEASE_UPDATE_GROUP: ${{ needs.update_ios.outputs.update_group }}
+#@if sentry
+      SOURCEMAPS: ${{ needs.update_ios.outputs.sourcemaps }}
+#@end
     steps:
       - uses: eas/checkout
       - name: Run GENESIS_RELEASE_PUSH_HOOK
         run: node GENESIS_RELEASE_PUSH_HOOK
+#@if sentry
+      # The upload failed after the update went out (update_ios): the hook has run, now the run says so.
+      - name: The source maps reached Sentry
+        run: |
+          if [ "$SOURCEMAPS" = failed ]; then
+            echo "The iOS update $RELEASE_UPDATE_GROUP is published, but its source maps didn't upload to Sentry. Upload them from this commit's export by hand."
+            exit 1
+          fi
+#@end
 
   hook_ios_build:
     name: Run the release hook (iOS build)
@@ -315,6 +347,9 @@ jobs:
       BUILD_COMMIT: ${{ needs.get_android_build.outputs.git_commit_hash }}
     outputs:
       update_group: ${{ steps.publish.outputs.update_group }}
+#@if sentry pushHook
+      sourcemaps: ${{ steps.publish.outputs.sourcemaps }}
+#@end
     steps:
       - uses: eas/checkout
       # EAS CLI evaluates app.config.ts (and expo-updates resolves the runtime), so it needs the packages.
@@ -348,19 +383,34 @@ jobs:
           node .eas/scripts/native-release.mjs require SENTRY_AUTH_TOKEN
           node .eas/scripts/native-release.mjs installed @sentry/react-native
 #@end
-          # Assigned first: a failing profile-env fails the step (eval "$(…)" would hide it).
-          profile_env=$(node .eas/scripts/native-release.mjs profile-env eas.json "GENESIS_RELEASE_PROFILE" android --shell)
-          eval "$profile_env"
-          npx --no expo-updates runtimeversion:resolve --platform android > resolved-android.txt
-          node .eas/scripts/native-release.mjs runtime resolved-android.txt android "$RUNTIME_VERSION"
-          npx --yes eas-cli@26.0.0 update --channel "GENESIS_RELEASE_CHANNEL" --platform android --environment "GENESIS_RELEASE_EAS_ENVIRONMENT" --message "Release $COMMIT_SHA" --json --non-interactive > update-android.json
-          out=$(node .eas/scripts/native-release.mjs update update-android.json android "$RUNTIME_VERSION")
+          # Scratch files outside the checkout: with cli.requireCommit, eas update refuses a checkout
+          # with untracked files.
+          scratch=$(mktemp -d)
+          # The build's environment: this job's (the EAS environment), then the build profile's `env`
+          # for Android over it (eas.json, with its android overrides; with-profile), as the build had them.
+          # Only these commands get it: this shell keeps RUNTIME_VERSION and COMMIT_SHA.
+          node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" android -- npx --no expo-updates runtimeversion:resolve --platform android > "$scratch/resolved-android.txt"
+          node .eas/scripts/native-release.mjs runtime "$scratch/resolved-android.txt" android "$RUNTIME_VERSION"
+          # No --environment: with it, eas update bundles with the EAS environment over the profile's
+          # values. CI=1: it then takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
+          node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" android -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "GENESIS_RELEASE_CHANNEL" --platform android --message "Release $COMMIT_SHA" --json --non-interactive > "$scratch/update-android.json"
+          out=$(node .eas/scripts/native-release.mjs update "$scratch/update-android.json" android "$RUNTIME_VERSION")
           echo "$out"
           set-output update_group "$(echo "$out" | sed -n 's/^android_update_group=//p')"
 #@if sentry
-          # A failed upload fails the job (needs SENTRY_AUTH_TOKEN in the EAS environment). The app's own
-          # sentry-expo-upload-sourcemaps: npx --no never installs one (an unrelated npm package has the name).
-          npx --no sentry-expo-upload-sourcemaps dist
+          # The update is out: a failed upload must not keep the release hook from running.
+          # (Needs SENTRY_AUTH_TOKEN in the EAS environment. The app's own
+          # sentry-expo-upload-sourcemaps: npx --no never installs one; an unrelated npm package has the name.)
+          if ! npx --no sentry-expo-upload-sourcemaps dist; then
+#@if pushHook
+            echo "The Android update is published, but its source maps didn't upload to Sentry: the release hook runs, then the run fails."
+            set-output sourcemaps failed
+#@end
+#@if !pushHook
+            echo "The Android update is published, but its source maps didn't upload to Sentry. Upload them from this commit's export by hand."
+            exit 1
+#@end
+          fi
 #@end
 #@if pushHook
 
@@ -379,10 +429,22 @@ jobs:
       RELEASE_APP_VERSION: ${{ needs.get_android_build.outputs.app_version }}
       RELEASE_RUNTIME_VERSION: ${{ needs.get_android_build.outputs.runtime_version }}
       RELEASE_UPDATE_GROUP: ${{ needs.update_android.outputs.update_group }}
+#@if sentry
+      SOURCEMAPS: ${{ needs.update_android.outputs.sourcemaps }}
+#@end
     steps:
       - uses: eas/checkout
       - name: Run GENESIS_RELEASE_PUSH_HOOK
         run: node GENESIS_RELEASE_PUSH_HOOK
+#@if sentry
+      # The upload failed after the update went out (update_android): the hook has run, now the run says so.
+      - name: The source maps reached Sentry
+        run: |
+          if [ "$SOURCEMAPS" = failed ]; then
+            echo "The Android update $RELEASE_UPDATE_GROUP is published, but its source maps didn't upload to Sentry. Upload them from this commit's export by hand."
+            exit 1
+          fi
+#@end
 
   hook_android_build:
     name: Run the release hook (Android build)

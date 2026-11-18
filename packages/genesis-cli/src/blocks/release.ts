@@ -198,6 +198,7 @@ export function resolveTemplateNames(names: readonly string[], dir = templatesDi
 export type AdoptOutcome = "created" | "adopted" | "updated" | "unchanged" | "next" | "replaced" | "pending" | "held";
 
 const NATIVE_RELEASE = "ci/native-release.yml";
+const DEPLOY_PRODUCTION = "release/deploy-production.yml";
 
 export interface AdoptResult {
   template: string;
@@ -253,6 +254,16 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
     }
     const raw = readFileSync(path.join(dir, template), "utf8");
     const target = templateTarget(template, raw);
+    if (template === DEPLOY_PRODUCTION && !templates.includes(NATIVE_RELEASE)) {
+      // The dispatch-only lane over an app's push-triggered one, with nothing to start it
+      // (native-release.yml isn't written here, and the app has none): merges would stop releasing.
+      const current = readApp(root, target);
+      const dispatcher = readApp(ownedDir(root, ".github/workflows/native-release.yml", appFolder), ".github/workflows/native-release.yml");
+      if (current !== null && dispatcher === null && hasPushTrigger(current) && hasReleaseJob(current)) {
+        results.push({ template, path: target, location: target, outcome: "held", detail: "kept as it is: it releases on every push, and the new one only runs when native-release.yml starts it, which this set doesn't write. Adopt the whole lane with `genesis add template release`" });
+        continue;
+      }
+    }
     const text = renderTemplate(target, raw, { release: ctx, substitutions: lock.substitutions, pin: options.pin ?? null });
     const where = ownedDir(root, target, appFolder);
     const location = path.relative(root, path.join(where, target)).split(path.sep).join("/");
@@ -378,13 +389,28 @@ export function hasPushTrigger(text: string, branch = "main"): boolean {
   return pushFires(filterOf((on as Record<string, unknown>).push), branch);
 }
 
-/** True when a workflow (EAS) has a job of type update or build. */
-function hasReleaseJob(text: string): boolean {
+/**
+ * A command that releases: `eas update`, `eas build` or `eas workflow:run` (also as `eas-cli` or
+ * `eas-cli@<version>`, through npx say), never a query of the same family (`eas build:list`,
+ * `eas update:view`, …), which only reads.
+ */
+export const RELEASE_COMMAND = /(?<![\w@/-])eas(?:-cli(?:@[\w.-]+)?)?\s+(?:update|build|workflow:run)(?![\w:-])/;
+
+/**
+ * True when a workflow (EAS) has a job of type update or build, or a custom job whose steps run a
+ * release command themselves ({@link RELEASE_COMMAND}).
+ */
+export function hasReleaseJob(text: string): boolean {
   const jobs = parseWorkflow(text)?.jobs;
   if (!jobs || typeof jobs !== "object") return false;
   return Object.values(jobs as Record<string, unknown>).some((job) => {
-    const type = job && typeof job === "object" ? (job as Record<string, unknown>).type : undefined;
-    return type === "update" || type === "build";
+    if (!job || typeof job !== "object") return false;
+    const { type, steps } = job as Record<string, unknown>;
+    if (type === "update" || type === "build") return true;
+    return Array.isArray(steps) && steps.some((step) => {
+      const run = step && typeof step === "object" ? (step as Record<string, unknown>).run : undefined;
+      return typeof run === "string" && RELEASE_COMMAND.test(run);
+    });
   });
 }
 
@@ -414,7 +440,7 @@ export function competingReleaseWorkflows(root: string, appFolder: string | null
         .filter((f) => {
           // Only one that releases by itself on a push to main: a manual-only one can't double a release.
           const text = readFileSync(path.join(dir, f), "utf8");
-          return /\beas\s+(?:update|workflow:run|build)\b/.test(text) && hasPushTrigger(text);
+          return RELEASE_COMMAND.test(text) && hasPushTrigger(text);
         })
         .map((f) => `.github/workflows/${f}`)
     : [];
