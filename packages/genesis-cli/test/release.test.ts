@@ -319,7 +319,10 @@ describe("rendering the templates", () => {
       // The message is printed, then the step stops without publishing.
       const repo = tempDir("genesis-sentry-only-rerun-");
       const fn = run.slice(run.indexOf("channel_carries_this() {"));
-      const upTo = fn.slice(0, fn.indexOf("\n          if [ -n \"$BUILD_COMMIT\" ]"));
+      // The parsed run has no block indentation: the build-commit check starts its own line.
+      const stop = fn.indexOf('\nif [ -n "$BUILD_COMMIT" ]');
+      expect(stop).toBeGreaterThanOrEqual(0);
+      const upTo = fn.slice(0, stop);
       writeTree(repo, { ".eas/scripts/native-release.mjs": `console.log(process.env.COMMIT_SHA);\n` });
       execFileSync("git", ["init", "-q", "-b", "main"], { cwd: repo });
       execFileSync("git", ["-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "A"], { cwd: repo });
@@ -361,7 +364,11 @@ describe("rendering the templates", () => {
     }
     // The EAS check runs as written: the channel carrying a later commit stops the publish.
     const easRun = (eas.jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
-    const fn = easRun.slice(easRun.indexOf("channel_carries_this() {"), easRun.indexOf("\n}\n", easRun.indexOf("channel_carries_this() {")) + 3);
+    const fnStart = easRun.indexOf("channel_carries_this() {");
+    const fnEnd = easRun.indexOf("\n}\n", fnStart);
+    expect(fnStart).toBeGreaterThanOrEqual(0);
+    expect(fnEnd).toBeGreaterThan(fnStart);
+    const fn = easRun.slice(fnStart, fnEnd + 3);
     const repo = tempDir("genesis-recheck-");
     const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
     git("init", "-q", "-b", "main");
