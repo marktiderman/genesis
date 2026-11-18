@@ -1,0 +1,35 @@
+apps/genesis-rn-starter/.eas/scripts/native-release.mjs
+  s_a2e5357843c63e::t_510909f004836e 332-333,338-340,342-344
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_a2e5357843c63e::t_7c079f72e68faf 117-118,140-148
+docs/NATIVE-RELEASE.md
+  s_a2e5357843c63e::t_2759bfe2079168 51-52,116-118,163,192-197
+packages/genesis-cli/src/blocks/release-render.ts
+  s_a2e5357843c63e::t_58f0738f24bd15 11,181-182
+packages/genesis-cli/src/blocks/release.ts
+  s_a2e5357843c63e::t_feed8db165f119 89-91,98,114-115,117-118,121-127
+packages/genesis-cli/test/release.test.ts
+  s_a2e5357843c63e::t_9f64c431ca2785 154-181,236-251,266,275-288,292-293,295-303
+templates/ci/native-release.yml
+  s_a2e5357843c63e::t_b9fe3d88e9f3ff 269-283,286,293-308,332,374-388,391,398-413,437
+templates/eas/scripts/native-release.mjs
+  s_a2e5357843c63e::t_ac72451771f24b 332-333,338-340,342-344
+templates/release/deploy-production.yml
+  s_a2e5357843c63e::t_a4fa4169d803f6 121-126,148-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5de8707abcc8ed0f63c0345cc809bcdd1009cdbd",
+  "prompts": {},
+  "sessions": {
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
