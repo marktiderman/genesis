@@ -208,6 +208,7 @@ jobs:
               git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
               if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
                 echo "Not published: the channel's latest iOS update ($commit) already carries $COMMIT_SHA or a later commit."
+                carrier="$commit"
                 return 0
               fi
             done
@@ -318,6 +319,7 @@ jobs:
               git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
               if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
                 echo "Not published: the channel's latest Android update ($commit) already carries $COMMIT_SHA or a later commit."
+                carrier="$commit"
                 return 0
               fi
             done

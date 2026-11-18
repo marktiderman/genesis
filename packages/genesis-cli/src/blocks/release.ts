@@ -86,14 +86,52 @@ export function lookupPin(version: string, repo = "https://github.com/marktiderm
   }
 }
 
+type EasProfile = { extends?: string; environment?: unknown; distribution?: unknown; developmentClient?: unknown; ios?: Record<string, unknown>; android?: Record<string, unknown> };
+
+/**
+ * The EAS environment a build of `profile` reads, as eas-cli 26 resolves it: the profile's
+ * `environment` (along `extends`, a platform's over the common one), else by its distribution:
+ * `store` (the default) → production, a development client → development, anything else → preview.
+ * Null when eas.json or the profile can't be read. The same rule as the release script's
+ * profileEnvironment, which checks it again before every release.
+ */
+export function easProfileEnvironment(root: string, profile: string, platform: "ios" | "android"): string | null {
+  let build: Record<string, EasProfile>;
+  try {
+    build = (JSON.parse(readFileSync(path.join(root, "eas.json"), "utf8")) as { build?: Record<string, EasProfile> }).build ?? {};
+  } catch {
+    return null;
+  }
+  const chain: EasProfile[] = [];
+  for (let name: string | undefined = profile; name !== undefined; name = build[name]?.extends) {
+    const own = build[name];
+    if (!own || chain.includes(own)) return null;
+    chain.push(own);
+  }
+  const field = (key: "environment" | "distribution" | "developmentClient"): unknown => {
+    for (const own of chain) {
+      if (own[platform]?.[key] !== undefined) return own[platform]![key];
+      if (own[key] !== undefined) return own[key];
+    }
+    return undefined;
+  };
+  const environment = field("environment");
+  if (typeof environment === "string" && environment) return environment;
+  return (field("distribution") ?? "store") === "store" ? "production" : field("developmentClient") === true ? "development" : "preview";
+}
+
 /** The release context for an app: its `release` block with the defaults, and its folder. */
 export function releaseContext(root: string): ReleaseContext {
   const config = readGenesisConfig(root);
   const set = config?.release ?? {};
   const detected = detectPackageManager(root);
+  // Unset, the EAS environment is the one the profile's builds read (eas.json), not its name.
+  const profile = set.profile ?? "production";
+  const built = set.easEnvironment ? null : easProfileEnvironment(root, profile, (set.platforms?.[0] as "ios" | "android" | undefined) ?? "ios");
   return {
     release: resolveRelease(
       {
+        ...(built ? { easEnvironment: built } : {}),
         ...(set.platforms ? { platforms: set.platforms } : {}),
         ...(set.environment ? { environment: set.environment } : {}),
         ...(set.paths ? { paths: set.paths } : {}),
@@ -391,10 +429,11 @@ export function hasPushTrigger(text: string, branch = "main"): boolean {
 
 /**
  * A command that releases: `eas update`, `eas build` or `eas workflow:run` (also as `eas-cli` or
- * `eas-cli@<version>`, through npx say, or by a path such as `./node_modules/.bin/eas`), never a
+ * `eas-cli@<version>`, through npx say, or by a path such as `./node_modules/.bin/eas`, quoted
+ * or not), never a
  * query of the same family (`eas build:list`, `eas update:view`, …), which only reads.
  */
-export const RELEASE_COMMAND = /(?:(?<=\/)|(?<![\w@.-]))eas(?:-cli(?:@[\w.-]+)?)?\s+(?:update|build|workflow:run)(?![\w:-])/;
+export const RELEASE_COMMAND = /(?:(?<=\/)|(?<![\w@.-]))eas(?:-cli(?:@[\w.-]+)?)?["']?\s+(?:update|build|workflow:run)(?![\w:-])/;
 
 /**
  * True when a workflow (EAS) has a job of type update or build, or a custom job whose steps run a

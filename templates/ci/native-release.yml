@@ -146,6 +146,9 @@ jobs:
         run: |
           # The production profile's builds must listen to the channel the updates go to.
           node .eas/scripts/native-release.mjs channel eas.json "$PROFILE" "$CHANNEL"
+          # And read the EAS environment its builds read (env:exec and the update use this one), so the
+          # bundle takes the build's values.
+          node .eas/scripts/native-release.mjs environment eas.json "$PROFILE" "GENESIS_RELEASE_EAS_ENVIRONMENT" "$PLATFORMS"
           # EAS's open release runs, read before the channel: a run that finishes after this read
           # shows in the channel read below, so this commit can't be published over it.
           eas workflow:runs --workflow deploy-production.yml --limit 50 --json > "$RUNNER_TEMP/release/runs.json"
@@ -263,18 +266,25 @@ jobs:
           # shellcheck disable=SC2016 # the shell eas env:exec starts expands these
           eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" ios -- env EXPO_NO_DOTENV=1 eas update --channel "GENESIS_RELEASE_CHANNEL" --platform ios --message "$RELEASE_MESSAGE" --json --non-interactive' --non-interactive > "$RUNNER_TEMP/release/update-ios.json"
           node .eas/scripts/native-release.mjs update "$RUNNER_TEMP/release/update-ios.json" ios "$RUNTIME_VERSION" | tee -a "$GITHUB_OUTPUT"
-#@if sentry
+#@if pushHook
 
-      - name: Upload the iOS update's source maps to Sentry
-        if: ${{ !cancelled() && steps.update_ios.outcome == 'success' && steps.update_ios.outputs.ios_update_group != '' }}
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no sentry-expo-upload-sourcemaps dist' --non-interactive
+      # A re-run of a release whose iOS update already went out (this commit is the channel's
+      # latest): nothing is published again, but the update group is recovered for the hook.
+      - name: Find this commit's iOS update (a re-run)
+        id: recover_ios
+        if: ${{ !cancelled() && steps.plan.outputs.ios_shipped_by == github.sha }}
+        run: |
+          node .eas/scripts/native-release.mjs published-group "GENESIS_RELEASE_CHANNEL" ios "$GITHUB_SHA" | tee -a "$GITHUB_OUTPUT"
+#@if sentry
+          echo "::warning title=Source maps not uploaded again::This commit's iOS update went out in an earlier run, whose bundle isn't here: if that run's Sentry upload failed, upload its source maps from this commit's export by hand."
+#@end
 #@end
 #@if pushHook
 
       - name: Run the release hook (iOS update)
-        if: ${{ !cancelled() && steps.update_ios.outcome == 'success' && steps.update_ios.outputs.ios_update_group != '' }}
+        # After this run's update, or on a re-run that finds this commit's update already on the
+        # channel (the hook runs again: make it safe to; the docs' "release hook").
+        if: ${{ !cancelled() && ((steps.update_ios.outcome == 'success' && steps.update_ios.outputs.ios_update_group != '') || steps.recover_ios.outputs.ios_update_group != '') }}
         env:
           RELEASE_KIND: update
           RELEASE_PLATFORM: ios
@@ -282,11 +292,19 @@ jobs:
           RELEASE_REPOSITORY: ${{ github.repository }}
           RELEASE_CHANNEL: "GENESIS_RELEASE_CHANNEL"
           RELEASE_APP_VERSION: ${{ steps.plan.outputs.ios_app_version }}
-          RELEASE_RUNTIME_VERSION: ${{ steps.update_ios.outputs.ios_runtime_version }}
-          RELEASE_UPDATE_GROUP: ${{ steps.update_ios.outputs.ios_update_group }}
+          RELEASE_RUNTIME_VERSION: ${{ steps.update_ios.outputs.ios_runtime_version || steps.recover_ios.outputs.ios_runtime_version }}
+          RELEASE_UPDATE_GROUP: ${{ steps.update_ios.outputs.ios_update_group || steps.recover_ios.outputs.ios_update_group }}
           RELEASE_GITHUB_TOKEN: ${{ github.token }}
           #@hook-secrets
         run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'node GENESIS_RELEASE_PUSH_HOOK' --non-interactive
+#@end
+#@if sentry
+
+      - name: Upload the iOS update's source maps to Sentry
+        if: ${{ !cancelled() && steps.update_ios.outcome == 'success' && steps.update_ios.outputs.ios_update_group != '' }}
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no sentry-expo-upload-sourcemaps dist' --non-interactive
 #@end
 #@end
 #@if android
@@ -325,18 +343,25 @@ jobs:
           # shellcheck disable=SC2016 # the shell eas env:exec starts expands these
           eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" android -- env EXPO_NO_DOTENV=1 eas update --channel "GENESIS_RELEASE_CHANNEL" --platform android --message "$RELEASE_MESSAGE" --json --non-interactive' --non-interactive > "$RUNNER_TEMP/release/update-android.json"
           node .eas/scripts/native-release.mjs update "$RUNNER_TEMP/release/update-android.json" android "$RUNTIME_VERSION" | tee -a "$GITHUB_OUTPUT"
-#@if sentry
+#@if pushHook
 
-      - name: Upload the Android update's source maps to Sentry
-        if: ${{ !cancelled() && steps.update_android.outcome == 'success' && steps.update_android.outputs.android_update_group != '' }}
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no sentry-expo-upload-sourcemaps dist' --non-interactive
+      # A re-run of a release whose Android update already went out (this commit is the channel's
+      # latest): nothing is published again, but the update group is recovered for the hook.
+      - name: Find this commit's Android update (a re-run)
+        id: recover_android
+        if: ${{ !cancelled() && steps.plan.outputs.android_shipped_by == github.sha }}
+        run: |
+          node .eas/scripts/native-release.mjs published-group "GENESIS_RELEASE_CHANNEL" android "$GITHUB_SHA" | tee -a "$GITHUB_OUTPUT"
+#@if sentry
+          echo "::warning title=Source maps not uploaded again::This commit's Android update went out in an earlier run, whose bundle isn't here: if that run's Sentry upload failed, upload its source maps from this commit's export by hand."
+#@end
 #@end
 #@if pushHook
 
       - name: Run the release hook (Android update)
-        if: ${{ !cancelled() && steps.update_android.outcome == 'success' && steps.update_android.outputs.android_update_group != '' }}
+        # After this run's update, or on a re-run that finds this commit's update already on the
+        # channel (the hook runs again: make it safe to; the docs' "release hook").
+        if: ${{ !cancelled() && ((steps.update_android.outcome == 'success' && steps.update_android.outputs.android_update_group != '') || steps.recover_android.outputs.android_update_group != '') }}
         env:
           RELEASE_KIND: update
           RELEASE_PLATFORM: android
@@ -344,11 +369,19 @@ jobs:
           RELEASE_REPOSITORY: ${{ github.repository }}
           RELEASE_CHANNEL: "GENESIS_RELEASE_CHANNEL"
           RELEASE_APP_VERSION: ${{ steps.plan.outputs.android_app_version }}
-          RELEASE_RUNTIME_VERSION: ${{ steps.update_android.outputs.android_runtime_version }}
-          RELEASE_UPDATE_GROUP: ${{ steps.update_android.outputs.android_update_group }}
+          RELEASE_RUNTIME_VERSION: ${{ steps.update_android.outputs.android_runtime_version || steps.recover_android.outputs.android_runtime_version }}
+          RELEASE_UPDATE_GROUP: ${{ steps.update_android.outputs.android_update_group || steps.recover_android.outputs.android_update_group }}
           RELEASE_GITHUB_TOKEN: ${{ github.token }}
           #@hook-secrets
         run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'node GENESIS_RELEASE_PUSH_HOOK' --non-interactive
+#@end
+#@if sentry
+
+      - name: Upload the Android update's source maps to Sentry
+        if: ${{ !cancelled() && steps.update_android.outcome == 'success' && steps.update_android.outputs.android_update_group != '' }}
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no sentry-expo-upload-sourcemaps dist' --non-interactive
 #@end
 #@end
 

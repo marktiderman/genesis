@@ -42,6 +42,12 @@
 //     the export has: a value only in .env counts for neither the runtime version nor the bundle.
 //   node .eas/scripts/native-release.mjs channel <eas.json> <profile> <channel>
 //     Fails when the build profile names another channel: its builds wouldn't take the updates.
+//   node .eas/scripts/native-release.mjs environment <eas.json> <profile> <environment> [platforms]
+//     Fails when the build profile's builds read another EAS environment (its `environment`, or
+//     EAS's default for its distribution) than the release does.
+//   node .eas/scripts/native-release.mjs published-group <channel> <platform> <commit>
+//     When the channel's latest update for the platform is <commit> (a re-run of a release that
+//     published it): its update group and runtime version, as <platform>_update_group=… lines.
 //   node .eas/scripts/native-release.mjs latest-commit <channel> <platform>
 //     The commits of the latest updates for the platform on the branches the channel serves
 //     (`eas channel:view`, `eas update:list`, `eas update:view`), one per line; none before the
@@ -322,6 +328,36 @@ export function checkProfileChannel(easJson, profile, channel) {
 }
 
 /**
+ * The EAS environment a build of `profile` for `platform` reads, as eas-cli 26 resolves it
+ * (evaluateConfigWithEnvVarsAsync): the profile's `environment` (along `extends`, the platform's
+ * over the common one), else by its distribution: `store` (the default) → production, a
+ * development client → development, anything else → preview.
+ */
+export function profileEnvironment(easJson, profile, platform) {
+  const chain = profileChain(easJson, profile);
+  const field = (name) => {
+    for (const own of chain) {
+      if (platform && own[platform]?.[name] !== undefined) return own[platform][name];
+      if (own[name] !== undefined) return own[name];
+    }
+    return undefined;
+  };
+  const environment = field("environment");
+  if (typeof environment === "string" && environment) return environment;
+  return (field("distribution") ?? "store") === "store" ? "production" : field("developmentClient") === true ? "development" : "preview";
+}
+
+/** Refuses a release that reads its variables from another EAS environment than its builds do. */
+export function checkProfileEnvironment(easJson, profile, environment, platforms = PLATFORMS) {
+  for (const platform of platforms) {
+    const built = profileEnvironment(easJson, profile, platform);
+    if (built.toLowerCase() !== environment.toLowerCase()) {
+      throw new Error(`eas.json build.${profile} builds ${platform} with the EAS environment "${built}", but the release reads "${environment}": the update would be bundled with other values than the build. Make genesis.config.json release.easEnvironment "${built}" (or remove it, and the CLI takes the profile's). Nothing was published or built.`);
+    }
+  }
+}
+
+/**
  * The latest update group on a branch, from eas-cli 26's `eas update:list --branch <b> --platform
  * <p> --limit 1 --json`: `{ name, id, currentPage: [{ group, platforms, runtimeVersion, … }] }`,
  * newest first. Its entries carry no commit (`latestCommit` reads it with `eas update:view`). ""
@@ -362,19 +398,47 @@ export function channelBranches(view) {
   return branches.map((b) => b?.name).filter((n) => typeof n === "string" && n);
 }
 
-/** The commit of `branch`'s latest update for `platform` (update:list, then update:view), or "" when it has none or doesn't exist. */
-export function branchCommit(run, branch, platform) {
+/** `branch`'s latest update for `platform` (update:list, then update:view): its group, commit and runtime version, or null when it has none or doesn't exist. */
+export function branchLatest(run, branch, platform) {
   let listed;
   try {
     listed = run(["update:list", "--branch", branch, "--platform", platform, "--limit", "1", "--json", "--non-interactive"]);
   } catch (error) {
-    if (easSaid(error, /Could not find branch/)) return "";
+    if (easSaid(error, /Could not find branch/)) return null;
     throw error;
   }
   const group = latestGroup(JSON.parse(listed), platform);
-  if (!group) return "";
+  if (!group) return null;
   // update:view takes no --non-interactive (eas-cli 26 refuses an unknown flag); it never prompts with a group id.
-  return groupCommit(JSON.parse(run(["update:view", group, "--json"])), platform);
+  const updates = JSON.parse(run(["update:view", group, "--json"]));
+  const list = Array.isArray(updates) ? updates : Array.isArray(updates?.updates) ? updates.updates : [];
+  const runtimeVersion = list.find((u) => u?.platform === platform)?.runtimeVersion;
+  return { group, commit: groupCommit(updates, platform), runtimeVersion: typeof runtimeVersion === "string" ? runtimeVersion : "" };
+}
+
+/** The commit of `branch`'s latest update for `platform`, or "" when it has none or doesn't exist. */
+export function branchCommit(run, branch, platform) {
+  return branchLatest(run, branch, platform)?.commit ?? "";
+}
+
+/**
+ * The update group the channel's latest `platform` update of `commit` is in (a re-run of a release
+ * that already published it), with its runtime version: `<platform>_update_group=…` and
+ * `<platform>_runtime_version=…` lines. Throws when the channel's latest update isn't that commit.
+ * @param {(args: string[]) => string} run
+ */
+export function publishedGroup(run, channel, platform, commit) {
+  const branches = (() => {
+    try {
+      return channelBranches(JSON.parse(run(["channel:view", channel, "--json", "--non-interactive"])));
+    } catch (error) {
+      if (easSaid(error, /Could not find channels? with the name/)) return [];
+      throw error;
+    }
+  })();
+  const found = branches.map((branch) => branchLatest(run, branch, platform)).find((latest) => latest?.commit === commit);
+  if (!found) throw new Error(`The channel ${channel}'s latest ${platform} update isn't ${commit}: no update group to recover.`);
+  return [`${platform}_update_group=${found.group}`, `${platform}_runtime_version=${found.runtimeVersion}`];
 }
 
 /**
@@ -501,13 +565,18 @@ async function main(command, args, env) {
     const [file, profile, channel] = args;
     if (!file || !profile || !channel) throw new Error("channel needs <eas.json> <profile> <channel>.");
     checkProfileChannel(readJson(file), profile, channel);
-  } else if (command === "latest-commit") {
-    const [channel, platform] = args;
-    if (!channel || !PLATFORMS.includes(platform)) throw new Error("latest-commit needs <channel> <platform>.");
+  } else if (command === "environment") {
+    const [file, profile, environment, list] = args;
+    if (!file || !profile || !environment) throw new Error("environment needs <eas.json> <profile> <environment> [platforms].");
+    checkProfileEnvironment(readJson(file), profile, environment, parsePlatforms(list ?? PLATFORMS.join(",")));
+  } else if (command === "latest-commit" || command === "published-group") {
+    const [channel, platform, commit] = args;
+    if (!channel || !PLATFORMS.includes(platform) || (command === "published-group" && !/^[0-9a-f]{40}$/i.test(commit ?? ""))) throw new Error(`${command} needs <channel> <platform>${command === "published-group" ? " <commit>" : ""}.`);
     // RELEASE_EAS: how to run eas-cli where it isn't on PATH (EAS's workers: a pinned `npx --yes eas-cli@<version>`).
     const [cmd, ...pre] = (env.RELEASE_EAS?.trim() || "eas").split(/\s+/);
     const run = (eas) => execFileSync(cmd, [...pre, ...eas], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-    for (const commit of latestCommits(run, channel, platform)) console.log(commit);
+    const lines = command === "latest-commit" ? latestCommits(run, channel, platform) : publishedGroup(run, channel, platform, commit);
+    for (const line of lines) console.log(line);
   } else if (command === "runtime-printed") {
     const [file, platform] = args;
     if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime-printed needs <file> <platform>.");
@@ -523,7 +592,7 @@ async function main(command, args, env) {
     if (!file || !PLATFORMS.includes(platform)) throw new Error("runtime needs <resolved.txt> <platform> <runtime version>.");
     checkRuntime(readFileSync(file, "utf8"), platform, expected);
   } else {
-    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, with-profile, channel, latest-commit, runtime-printed, installed or runtime.`);
+    throw new Error(`Unknown command "${command ?? ""}": snapshot, mask, require, plan, update, profile-env, with-profile, channel, environment, latest-commit, published-group, runtime-printed, installed or runtime.`);
   }
 }
 

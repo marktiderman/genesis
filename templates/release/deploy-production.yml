@@ -221,12 +221,25 @@ jobs:
               git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
               if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
                 echo "Not published: the channel's latest iOS update ($commit) already carries $COMMIT_SHA or a later commit."
+                carrier="$commit"
                 return 0
               fi
             done
             return 1
           }
           if channel_carries_this; then
+#@if pushHook
+            if [ "$carrier" = "$COMMIT_SHA" ]; then
+              # A re-run of this release: its update went out before. Nothing is published again;
+              # its group is recovered, so the release hook runs (again: make it safe to).
+              group=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs published-group "GENESIS_RELEASE_CHANNEL" ios "$COMMIT_SHA" | sed -n 's/^ios_update_group=//p')
+#@if sentry
+              echo "This commit's iOS update went out in an earlier run, whose bundle isn't here: if that run's Sentry upload failed, upload its source maps from this commit's export by hand."
+#@end
+              set-output update_group "$group"
+              exit 0
+            fi
+#@end
             set-output update_group ""
             exit 0
           fi
@@ -415,12 +428,25 @@ jobs:
               git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
               if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
                 echo "Not published: the channel's latest Android update ($commit) already carries $COMMIT_SHA or a later commit."
+                carrier="$commit"
                 return 0
               fi
             done
             return 1
           }
           if channel_carries_this; then
+#@if pushHook
+            if [ "$carrier" = "$COMMIT_SHA" ]; then
+              # A re-run of this release: its update went out before. Nothing is published again;
+              # its group is recovered, so the release hook runs (again: make it safe to).
+              group=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs published-group "GENESIS_RELEASE_CHANNEL" android "$COMMIT_SHA" | sed -n 's/^android_update_group=//p')
+#@if sentry
+              echo "This commit's Android update went out in an earlier run, whose bundle isn't here: if that run's Sentry upload failed, upload its source maps from this commit's export by hand."
+#@end
+              set-output update_group "$group"
+              exit 0
+            fi
+#@end
             set-output update_group ""
             exit 0
           fi

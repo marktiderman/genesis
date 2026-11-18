@@ -157,11 +157,11 @@ typo can't silently do nothing.
 | `platforms` | `["ios", "android"]` | The platforms released, in `native-release.yml`, `deploy-production.yml` and `pr-preview.yml`: the other platform's jobs and steps aren't written. |
 | `environment` | `production` | The GitHub environment that holds the release secrets (`EXPO_TOKEN`; `SENTRY_AUTH_TOKEN`; the hook's). Limit it to `main`. |
 | `paths` | none | Folders outside the app its bundle reads (every folder its Metro config watches), from the repository root. One list for every workflow: `native-release.yml` runs on them and `pr-preview.yml` previews them. |
-| `sentry` | `false` | Uploads each update's source maps to Sentry with the app's own `sentry-expo-upload-sourcemaps`, in both lanes (GitHub and EAS), and stops before publishing when `SENTRY_AUTH_TOKEN` or the uploader is missing. A failed upload fails the run; with a release hook, the hook runs first. |
+| `sentry` | `false` | Uploads each update's source maps to Sentry with the app's own `sentry-expo-upload-sourcemaps`, in both lanes (GitHub and EAS), and stops before publishing when `SENTRY_AUTH_TOKEN` or the uploader is missing. In both lanes the release hook (when there is one) runs first, then the upload; a failed upload fails the run. |
 | `pushHook` | none | A script in the app (`node <script>`) run once a release is out, per platform: after an update (GitHub or EAS) and after a submitted build (EAS). A string, or `{ "script", "secrets" }`: `secrets` are GitHub secret names passed to it on GitHub. |
 | `profile` | `production` | The EAS build profile releases build with, and whose fingerprint they match. |
 | `channel` | `production` | The update channel the production builds read: the build profile's `channel` in eas.json. The release stops when the profile names another, and matches only builds on it. |
-| `easEnvironment` | the profile's name | The EAS environment the lane reads its variables from (`eas env:exec`, `environment:` on EAS jobs). |
+| `easEnvironment` | the one the profile's builds read | The EAS environment the lane reads its variables from (`eas env:exec`, `environment:` on EAS jobs). Unset, the CLI takes it from eas.json as eas-cli does for a build: the profile's `environment` (along `extends`), else `production` for a store distribution (the default), `development` for a development client, `preview` otherwise. Each release checks it against eas.json before planning and stops when the profile's builds read another one. |
 | `packageManager` | from the app's lockfile | How `native-release.yml` installs: `pnpm`, `bun`, `npm` or `yarn`. |
 | `runtimeVersion` | `"fingerprint"` | How a commit's runtime version is found. `"fingerprint"`: Expo's fingerprint (`runtimeVersion: { policy: "fingerprint" }`, which `withGenesis` sets). Or `{ "command": "node scripts/runtime-version.mjs" }`: one line that prints the runtime version of the platform in `RELEASE_PLATFORM` (any form Expo takes, `1.0.0(1)` included; it runs as a script of its own under `eas env:exec` with the build profile's env for the platform, so it sees what the build saw, and a pipeline or `&&` runs whole; its last line is taken, and an empty, `undefined` or `null` one stops the release), for an app that sets its own per-platform `runtimeVersion` (one derived from the native inputs it tracks, say, where the fingerprint can't see them). Builds are then matched by runtime version, and EAS's `get-build` by `runtime_version`. |
 
@@ -184,8 +184,11 @@ code in `paths`:
 (the EAS environment's plain variables), with `RELEASE_GITHUB_TOKEN` (the run's own token, which may
 read pull requests) and its `secrets`; on EAS it has the EAS environment, secrets included. It runs
 with Node's built-ins and the repository's files only: EAS doesn't install packages for it. Make it
-safe to run twice (a re-run runs it again), and decide yourself whether a failure should fail the
-job.
+safe to run twice: a re-run of a release whose update already went out (this commit is the
+channel's latest) publishes nothing again but runs the hook again, with that update's group
+(recovered from the channel). The source maps aren't uploaded again: the earlier run's bundle is
+gone, so if its upload failed, upload them from this commit's export by hand. Decide yourself
+whether a hook failure should fail the job.
 
 ## One-time setup
 
@@ -219,9 +222,11 @@ Nothing in the templates names a real account. Before the first run:
 5. **Preview paths.** `genesis init --template native` fills in the app's code folder in
    `pr-preview.yml` (`src`). Never copy a release template from `templates/` by hand: its release
    markup (`#@if` blocks, the release tokens) only works once rendered. Write it with the CLI
-   (`genesis add template release`), or copy a rendered file, such as the starter's
-   `.eas/workflows/pr-preview.yml`, and then replace `REPLACE_WITH_APP_FOLDER`; `genesis doctor`
-   warns about any left (`eas-placeholder`).
+   (`genesis add template release`), or copy a file rendered with your own `release` settings.
+   The starter's copies are the default render (both platforms, `production`), so an app with
+   other settings (iPhone only, another profile or channel) must use the CLI rather than copy
+   them. Then replace `REPLACE_WITH_APP_FOLDER`; `genesis doctor` warns about any left
+   (`eas-placeholder`).
 6. **Store credentials.** Replace the App Store Connect app id and Apple team id in `eas.json`
    `submit.production.ios`, and set up signing (`eas credentials`) on a Mac signed in to the Apple
    Developer account, once, so EAS keeps the certificate, profiles and push key. For Google Play,
@@ -514,8 +519,9 @@ its own. Templates with release markup (`#@if ios`, `#@paths`, `GENESIS_RELEASE_
 comment lines or in plain values) are rendered with the app's `release` block when written; the
 starter keeps the default render, and genesis-cli's tests check it matches. The others the starter
 keeps byte for byte (`__tests__/release.test.ts`). Copy a template with release markup only once
-rendered (the starter's copy, or `genesis add template release`): a raw copy keeps its `#@if`
-blocks and tokens. An app copied by hand has no lock entries: `genesis add template <set>` adopts
+rendered with the app's own settings (`genesis add template release`; the starter's copy only
+when the app's `release` is the default): a raw copy keeps its `#@if` blocks and tokens, and the
+starter's has both platforms and the `production` names. An app copied by hand has no lock entries: `genesis add template <set>` adopts
 them.
 
 ## Validating the workflows

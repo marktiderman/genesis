@@ -15,7 +15,7 @@ import { readLock, substitute, writeLock } from "../src/blocks/lock.js";
 import { ownedKeyProblem, refreshOwned } from "../src/blocks/owned.js";
 import { DEFAULT_RELEASE_CONTEXT, renderRelease, resolveRelease, type ReleaseContext } from "../src/blocks/release-render.js";
 import { addTemplates } from "../src/blocks/add-template.js";
-import { adoptTemplates, bumpCallerPins, competingReleaseWorkflows, RELEASE_COMMAND, currentSource, MOVED_TEMPLATES, hasPushTrigger, missingTemplateSets, renderPin, renderTemplate, resolveTemplateNames } from "../src/blocks/release.js";
+import { adoptTemplates, bumpCallerPins, competingReleaseWorkflows, easProfileEnvironment, RELEASE_COMMAND, releaseContext, currentSource, MOVED_TEMPLATES, hasPushTrigger, missingTemplateSets, renderPin, renderTemplate, resolveTemplateNames } from "../src/blocks/release.js";
 import { templateTarget } from "../src/blocks/templates.js";
 import { GenesisConfigError, validateRelease } from "../src/doctor/config.js";
 import { runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
@@ -181,6 +181,80 @@ describe("rendering the templates", () => {
       // Nothing after the check ran: no eas update, no output.
       expect(existsSync(ran) ? readFileSync(ran, "utf8") : "").toBe("");
     }
+  });
+
+  it("the release reads the EAS environment its builds read: the default from eas.json, a mismatch refused before planning", () => {
+    const eas = {
+      build: {
+        base: { distribution: "store" },
+        store: { extends: "base" },
+        named: { extends: "base", environment: "staging" },
+        internal: { distribution: "internal" },
+        dev: { distribution: "internal", developmentClient: true },
+        split: { distribution: "internal", ios: { distribution: "store" } },
+      },
+    };
+    // As eas-cli 26 resolves it for a build: the profile's environment, else by distribution.
+    expect(plan.profileEnvironment(eas, "store", "ios")).toBe("production");
+    expect(plan.profileEnvironment(eas, "named", "android")).toBe("staging");
+    expect(plan.profileEnvironment(eas, "internal", "ios")).toBe("preview");
+    expect(plan.profileEnvironment(eas, "dev", "ios")).toBe("development");
+    expect(plan.profileEnvironment(eas, "split", "ios")).toBe("production");
+    expect(plan.profileEnvironment(eas, "split", "android")).toBe("preview");
+    expect(() => plan.checkProfileEnvironment(eas, "store", "production")).not.toThrow();
+    expect(() => plan.checkProfileEnvironment(eas, "store", "store")).toThrow(/builds ios with the EAS environment "production", but the release reads "store"/);
+    expect(() => plan.checkProfileEnvironment(eas, "split", "production")).toThrow(/builds android with the EAS environment "preview"/);
+    expect(() => plan.checkProfileEnvironment(eas, "split", "production", ["ios"])).not.toThrow();
+    // The CLI's default is the same: a store profile named "store" reads production, not "store".
+    const root = makeApp({ "app.json": "{}", "pnpm-lock.yaml": "", "eas.json": JSON.stringify(eas), "genesis.config.json": JSON.stringify({ release: { profile: "store" } }) });
+    expect(easProfileEnvironment(root, "store", "ios")).toBe("production");
+    expect(releaseContext(root).release.easEnvironment).toBe("production");
+    const explicit = makeApp({ "app.json": "{}", "pnpm-lock.yaml": "", "eas.json": JSON.stringify(eas), "genesis.config.json": JSON.stringify({ release: { profile: "store", easEnvironment: "custom" } }) });
+    expect(releaseContext(explicit).release.easEnvironment).toBe("custom");
+    // Without eas.json, the profile's name, as before.
+    expect(releaseContext(makeApp({ "genesis.config.json": JSON.stringify({ release: { profile: "store" } }) })).release.easEnvironment).toBe("store");
+    // The plan step checks it before anything else is read, with the platforms released.
+    const run = (yaml("ci/native-release.yml", ctx({ easEnvironment: "custom" })).jobs.release.steps as { id?: string; run?: string }[]).find((st) => st.id === "plan")!.run!;
+    expect(run).toContain('native-release.mjs environment eas.json "$PROFILE" "custom" "$PLATFORMS"');
+    expect(run.indexOf("native-release.mjs environment")).toBeLessThan(run.indexOf("eas workflow:runs"));
+  });
+
+  it("in both lanes the release hook runs before the Sentry upload; a re-run of a published commit runs the hook again with its group", () => {
+    const steps = (yaml("ci/native-release.yml", ctx({ sentry: true, pushHook: { script: "scripts/p.mjs", secrets: [] } })).jobs.release.steps as { id?: string; name?: string; run?: string; if?: string; env?: Record<string, string> }[]);
+    for (const [p, Name] of [["ios", "iOS"], ["android", "Android"]] as const) {
+      const at = (name: string) => steps.findIndex((st) => st.name === name);
+      expect(at(`Run the release hook (${Name} update)`)).toBeGreaterThan(at(`Publish the ${Name} update`));
+      expect(at(`Run the release hook (${Name} update)`)).toBeLessThan(at(`Upload the ${Name} update's source maps to Sentry`));
+      const recover = steps.find((st) => st.id === `recover_${p}`)!;
+      expect(recover.if).toBe(`\${{ !cancelled() && steps.plan.outputs.${p}_shipped_by == github.sha }}`);
+      expect(recover.run).toContain(`native-release.mjs published-group "production" ${p} "$GITHUB_SHA"`);
+      expect(recover.run).toContain("Source maps not uploaded again");
+      const hook = steps.find((st) => st.name === `Run the release hook (${Name} update)`)!;
+      expect(hook.if).toContain(`steps.recover_${p}.outputs.${p}_update_group != ''`);
+      expect(hook.env!.RELEASE_UPDATE_GROUP).toBe(`\${{ steps.update_${p}.outputs.${p}_update_group || steps.recover_${p}.outputs.${p}_update_group }}`);
+      // Sentry only after this run's own update: the bundle a re-run would need is gone.
+      expect(steps.find((st) => st.name === `Upload the ${Name} update's source maps to Sentry`)!.if).not.toContain("recover_");
+    }
+    // Without a hook, nothing to recover.
+    expect((yaml("ci/native-release.yml", ctx({ sentry: true })).jobs.release.steps as { id?: string }[]).some((st) => st.id?.startsWith("recover_"))).toBe(false);
+    // On EAS: the hook job comes after the update job (and before the source-map failure is reported), and a re-run recovers the group.
+    const eas = yaml("release/deploy-production.yml", ctx({ sentry: true, pushHook: { script: "scripts/p.mjs", secrets: [] } }));
+    for (const p of ["ios", "android"]) {
+      const run = (eas.jobs[`update_${p}`].steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+      expect(run).toContain('if [ "$carrier" = "$COMMIT_SHA" ]; then');
+      expect(run).toContain(`native-release.mjs published-group "production" ${p} "$COMMIT_SHA"`);
+      expect(run.indexOf("published-group")).toBeLessThan(run.indexOf("runtimeversion:resolve"));
+    }
+    expect((yaml("release/deploy-production.yml", ctx()).jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!).not.toContain("published-group");
+    // The recovery reads the channel's latest update of this commit; another commit there is refused.
+    const C = "c".repeat(40);
+    const run = (args: string[]) => {
+      if (args[0] === "channel:view") return JSON.stringify({ currentPage: { updateBranches: [{ name: "production" }] } });
+      if (args[0] === "update:list") return JSON.stringify({ currentPage: [{ group: "g-7", platforms: "ios" }] });
+      return JSON.stringify([{ platform: "ios", group: "g-7", gitCommitHash: C, runtimeVersion: "1.0.0(3)" }]);
+    };
+    expect(plan.publishedGroup(run, "production", "ios", C)).toEqual(["ios_update_group=g-7", "ios_runtime_version=1.0.0(3)"]);
+    expect(() => plan.publishedGroup(run, "production", "ios", "d".repeat(40))).toThrow(/no update group to recover/);
   });
 
   it("both lanes read the channel's order again just before eas update", () => {
@@ -855,8 +929,8 @@ describe("genesis add template", () => {
   });
 
   it("a release command is eas update, build or workflow:run, never a query of the same family", () => {
-    for (const yes of ["./node_modules/.bin/eas update --auto", "node_modules/.bin/eas build -p ios", "/usr/local/bin/eas workflow:run d.yml", "eas update --auto", "eas build -p ios", "eas workflow:run deploy.yml", "npx --yes eas-cli@26.0.0 update --channel production", "npx eas-cli build", "x && eas update"]) expect(RELEASE_COMMAND.test(yes), yes).toBe(true);
-    for (const no of ["eas build:list --json", "eas update:view g", "eas update:list --branch main", "eas workflow:runs --json", "eas build:view", "eas env:exec production x", "overseas update", "my-eas update", "./node_modules/.bin/eas build:list --json", "node_modules/.bin/eas update:view g"]) expect(RELEASE_COMMAND.test(no), no).toBe(false);
+    for (const yes of ['"./node_modules/.bin/eas" update --channel production', "'eas' update --auto", '"eas-cli@26.0.0" build', "./node_modules/.bin/eas update --auto", "node_modules/.bin/eas build -p ios", "/usr/local/bin/eas workflow:run d.yml", "eas update --auto", "eas build -p ios", "eas workflow:run deploy.yml", "npx --yes eas-cli@26.0.0 update --channel production", "npx eas-cli build", "x && eas update"]) expect(RELEASE_COMMAND.test(yes), yes).toBe(true);
+    for (const no of ["eas build:list --json", "eas update:view g", "eas update:list --branch main", "eas workflow:runs --json", "eas build:view", "eas env:exec production x", "overseas update", "my-eas update", "./node_modules/.bin/eas build:list --json", "node_modules/.bin/eas update:view g", '"./node_modules/.bin/eas" build:list --json', "'eas' update:view g"]) expect(RELEASE_COMMAND.test(no), no).toBe(false);
     // A GitHub workflow on push to main that only queries EAS is no rival.
     const gh = makeApp({ ".github/workflows/status.yml": "on:\n  push:\n    branches: [main]\njobs:\n  a:\n    steps:\n      - run: eas build:list --json && eas update:view g --json\n" });
     expect(competingReleaseWorkflows(gh, null)).toEqual([]);
