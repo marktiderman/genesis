@@ -123,7 +123,8 @@ silently. Left over:
   `npx --yes eas-cli@26.0.0`, and the commits fetched when the checkout lacks them): an EAS run that
   lands after a newer commit's update or build logs "Not published" and skips, and its release hook
   doesn't run. The checks fail open: when a commit can't be fetched or compared, or the build or
-  update records none, the run publishes, so a late run can still land over a newer one then.
+  update records none, the run publishes, so a late run can still land over a newer one then. A
+  channel that can't be read at all (an API error, a bad token) stops the run, publishing nothing.
 - A build EAS has queued but not started has no record yet, so a merge in that window builds again
   (a wasted build, nothing missed).
 

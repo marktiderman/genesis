@@ -162,7 +162,8 @@ jobs:
             (
             set -eo pipefail
 #@if fingerprint
-            eas fingerprint:generate --platform "$platform" --build-profile "$PROFILE" --json --non-interactive > "$RUNNER_TEMP/release/fingerprint-$platform.json"
+            # EXPO_NO_DOTENV=1: the app config is read without .env, as the update's export reads it.
+            EXPO_NO_DOTENV=1 eas fingerprint:generate --platform "$platform" --build-profile "$PROFILE" --json --non-interactive > "$RUNNER_TEMP/release/fingerprint-$platform.json"
             hash=$(node -p 'require(process.argv[1]).hash' "$RUNNER_TEMP/release/fingerprint-$platform.json")
             eas build:list --platform "$platform" --build-profile "$PROFILE" --fingerprint-hash "$hash" --limit 50 --json --non-interactive > "$RUNNER_TEMP/release/builds-$platform.json"
 #@end

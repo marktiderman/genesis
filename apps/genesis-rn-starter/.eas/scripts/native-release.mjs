@@ -38,7 +38,8 @@
 //   node .eas/scripts/native-release.mjs with-profile <eas.json> <profile> <platform> -- <command> [args…]
 //     Runs the command with the build profile's env (as profile-env resolves it) over the environment
 //     it was given (under `eas env:exec`, the EAS environment's): the precedence the build had. Only
-//     that command gets it, so the shell around it keeps its own values.
+//     that command gets it, so the shell around it keeps its own values. EXPO_NO_DOTENV=1 too, as
+//     the export has: a value only in .env counts for neither the runtime version nor the bundle.
 //   node .eas/scripts/native-release.mjs channel <eas.json> <profile> <channel>
 //     Fails when the build profile names another channel: its builds wouldn't take the updates.
 //   node .eas/scripts/native-release.mjs latest-commit <channel> <platform>
@@ -491,7 +492,9 @@ async function main(command, args, env) {
     // profile's env over this environment, as the build had it, and nothing else changed.
     const [file, profile, platform, dashes, cmd, ...rest] = args;
     if (!file || !profile || !PLATFORMS.includes(platform) || dashes !== "--" || !cmd) throw new Error("with-profile needs <eas.json> <profile> <platform> -- <command> [args…].");
-    const result = spawnSync(cmd, rest, { stdio: "inherit", env: { ...env, ...profileEnvValues(readJson(file), profile, platform) } });
+    // EXPO_NO_DOTENV=1: no .env value either, as eas update's export runs (it sets it with
+    // --environment, and the lane sets it), so the runtime version is resolved from what is bundled.
+    const result = spawnSync(cmd, rest, { stdio: "inherit", env: { ...env, ...profileEnvValues(readJson(file), profile, platform), EXPO_NO_DOTENV: "1" } });
     if (result.error) throw result.error;
     process.exitCode = result.status ?? 1;
   } else if (command === "channel") {

@@ -163,6 +163,25 @@ describe("rendering the templates", () => {
     }
   });
 
+  it("the EAS lane's order check fails closed: a channel it can't read stops the job before eas update", () => {
+    const doc = yaml("release/deploy-production.yml", ctx({ sentry: true }));
+    for (const p of ["ios", "android"]) {
+      const run = (doc.jobs[`update_${p}`].steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+      const app = tempDir("genesis-fail-closed-");
+      const bin = tempDir("genesis-fail-closed-bin-");
+      const ran = path.join(bin, "ran.txt");
+      // latest-commit fails (an API error); anything else the step would run records itself.
+      writeTree(app, { ".eas/scripts/native-release.mjs": `if (process.argv[2] === "latest-commit") { console.error("eas: 500"); process.exit(1); }\nrequire("node:fs").appendFileSync(${JSON.stringify(ran)}, process.argv.slice(2).join(" ") + "\\n");\n` });
+      writeTree(bin, { npx: `#!/usr/bin/env bash\necho "npx $*" >> ${JSON.stringify(ran)}\n`, "set-output": `#!/usr/bin/env bash\necho "set-output $*" >> ${JSON.stringify(ran)}\n` });
+      execFileSync("chmod", ["+x", path.join(bin, "npx"), path.join(bin, "set-output")]);
+      const result = spawnSync("bash", ["-c", run], { cwd: app, encoding: "utf8", env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, COMMIT_SHA: "a".repeat(40), RUNTIME_VERSION: "f".repeat(40), BUILD_COMMIT: "" } });
+      expect(result.status, p).toBe(1);
+      expect(result.stdout).toContain("its order can't be checked: nothing was published.");
+      // Nothing after the check ran: no eas update, no output.
+      expect(existsSync(ran) ? readFileSync(ran, "utf8") : "").toBe("");
+    }
+  });
+
   it("both lanes read the channel's order again just before eas update", () => {
     const gh = yaml("ci/native-release.yml", ctx()).jobs.release.steps as { name?: string; run?: string; if?: string }[];
     const eas = yaml("release/deploy-production.yml", ctx({ sentry: true, pushHook: { script: "scripts/p.mjs", secrets: [] } }));
@@ -347,6 +366,20 @@ describe("rendering the templates", () => {
     // As under eas env:exec: the EAS environment's API is there, and the profile's wins, as in the build.
     const out = execFileSync("node", [script, "with-profile", "eas.json", "production", "ios", "--", "node", ...printEnv], { cwd: app, encoding: "utf8", env: { ...process.env, API: "from-eas", FROM_EAS: "kept" } });
     expect(JSON.parse(out)).toEqual({ API: "ios", RUNTIME_VERSION: "1.0.0", COPY: "first\nsecond", FROM_EAS: "kept" });
+    // What with-profile runs gets EXPO_NO_DOTENV=1, so Expo reads no .env value, as eas update's export doesn't.
+    const dotenvApp = tempDir("genesis-no-dotenv-");
+    writeTree(dotenvApp, { "eas.json": JSON.stringify(easJson), ".env": "ONLY_IN_DOTENV=from-dotenv\n" });
+    const seen = execFileSync("node", [script, "with-profile", "eas.json", "production", "ios", "--", "node", "-e", "console.log(process.env.EXPO_NO_DOTENV + ' ' + (process.env.ONLY_IN_DOTENV ?? 'unset'))"], { cwd: dotenvApp, encoding: "utf8" });
+    expect(seen.trim()).toBe("1 unset");
+    // Every command that resolves a runtime version carries it, in every render of both lanes.
+    for (const runtimeCommand of [null, "node scripts/rv.mjs"]) {
+      for (const rel of ["ci/native-release.yml", "release/deploy-production.yml"]) {
+        const text = renderRelease(template(rel), ctx({ runtimeCommand }));
+        const lines = text.split("\n").filter((l) => !/^\s*#/.test(l) && /runtimeversion:resolve|fingerprint:generate|runtime-version\.sh"'|\beas update --channel|eas-cli@26\.0\.0 update --channel/.test(l));
+        expect(lines.length, rel).toBeGreaterThan(0);
+        for (const l of lines) expect(/native-release\.mjs with-profile |EXPO_NO_DOTENV=1 /.test(l), l.trim()).toBe(true);
+      }
+    }
     // The command's exit status is the step's; a missing profile fails before the command runs.
     expect(spawnSync("node", [script, "with-profile", "eas.json", "production", "ios", "--", "node", "-e", "process.exit(3)"], { cwd: app }).status).toBe(3);
     const missing = spawnSync("node", [script, "with-profile", "eas.json", "store", "ios", "--", "node", "-e", "console.log('ran')"], { cwd: app, encoding: "utf8" });

@@ -211,7 +211,12 @@ jobs:
           # commit or a later one, publishing would put older code back. Said, and nothing published.
           # Checked here, and again just before eas update (another run may publish in between).
           channel_carries_this() {
-            latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" ios)
+            # Called as an `if` condition, where bash ignores set -e: a failed read must exit by itself,
+            # or it would read as "nothing on the channel" and publish.
+            latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" ios) || {
+              echo "Couldn't read the channel's latest iOS update, so its order can't be checked: nothing was published."
+              exit 1
+            }
             for commit in $latest; do
               git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
               if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
@@ -400,7 +405,12 @@ jobs:
           # commit or a later one, publishing would put older code back. Said, and nothing published.
           # Checked here, and again just before eas update (another run may publish in between).
           channel_carries_this() {
-            latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" android)
+            # Called as an `if` condition, where bash ignores set -e: a failed read must exit by itself,
+            # or it would read as "nothing on the channel" and publish.
+            latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" android) || {
+              echo "Couldn't read the channel's latest Android update, so its order can't be checked: nothing was published."
+              exit 1
+            }
             for commit in $latest; do
               git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
               if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
