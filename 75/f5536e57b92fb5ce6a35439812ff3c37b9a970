@@ -1,0 +1,43 @@
+apps/genesis-rn-starter/.eas/scripts/native-release.mjs
+  s_a2e5357843c63e::t_5afb8427c428a9 16,28-30,36-42,91-99,118,127,133-137,160-163,166,176,178-182,189,210,214,224,245-256,260-278,282-283,288-299,434-435,438-439,449-450,460-471,494
+apps/genesis-rn-starter/.eas/workflows/deploy-production.yml
+  s_a2e5357843c63e::t_fc5eedc6a49d10 36-38,88-90,93,193-204,283-294
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_a2e5357843c63e::t_24cc998dc28d8c 154-155
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_a2e5357843c63e::t_3d43f918b1c236 156-157,159,170
+docs/NATIVE-RELEASE.md
+  s_a2e5357843c63e::t_f32d53158602da 37-41,47-48,52-54,65-68,72-75,99-103,153,242-243,267-270
+packages/genesis-cli/src/blocks/release.ts
+  s_a2e5357843c63e::t_b4274480ecc3d7 201,257-266,392-403,407-413,443
+packages/genesis-cli/src/doctor/native.ts
+  s_a2e5357843c63e::t_fffacbb3ca2850 103-124,138-140,173-175,177-178,180,194-213
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_a2e5357843c63e::t_3203d44731c91d 278-287,305-308
+packages/genesis-cli/test/release.test.ts
+  s_a2e5357843c63e::t_a0492cba00026a 17,97-98,148-152,183-184,201-203,243-244,275-277,282-301,303-305,336-342,558-636,696-723,1071-1072,1115,1248-1280
+templates/ci/native-release.yml
+  s_a2e5357843c63e::t_ff1732488aadc0 63-67,144-148,156-160,168-170,181-187,189,198,240-242,244,246-251,293-295,297,299-304,350-351,354,357-365
+templates/eas/scripts/native-release.mjs
+  s_a2e5357843c63e::t_6513ed13602ef3 16,28-30,36-42,91-99,118,127,133-137,160-163,166,176,178-182,189,210,214,224,245-256,260-278,282-283,288-299,434-435,438-439,449-450,460-471,494
+templates/release/deploy-production.yml
+  s_a2e5357843c63e::t_e68de0e09c184c 36-38,92-94,97,176-178,212-223,227-239,258-260,265-273,350-352,386-397,401-413,432-434,439-447
+templates/release/pr-preview.yml
+  s_a2e5357843c63e::t_9e1867b88e2670 167-168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "75f5536e57b92fb5ce6a35439812ff3c37b9a970",
+  "prompts": {},
+  "sessions": {
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
