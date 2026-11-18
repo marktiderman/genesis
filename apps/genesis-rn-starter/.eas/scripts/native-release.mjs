@@ -329,18 +329,19 @@ export function checkProfileChannel(easJson, profile, channel) {
 
 /**
  * The EAS environment a build of `profile` for `platform` reads, as eas-cli 26 resolves it
- * (evaluateConfigWithEnvVarsAsync): the profile's `environment` (along `extends`, the platform's
- * over the common one), else by its distribution: `store` (the default) → production, a
+ * (evaluateConfigWithEnvVarsAsync): the profile's `environment` (along `extends`, a platform value
+ * anywhere in the chain over any common one, as eas-json merges), else by its distribution: `store` (the default) → production, a
  * development client → development, anything else → preview.
  */
 export function profileEnvironment(easJson, profile, platform) {
   const chain = profileChain(easJson, profile);
+  // As eas-json merges a profile: the whole chain first, then the platform section over the common
+  // one, so a platform value anywhere along `extends` wins over any common one (the own profile's
+  // over what it extends, within each).
   const field = (name) => {
-    for (const own of chain) {
-      if (platform && own[platform]?.[name] !== undefined) return own[platform][name];
-      if (own[name] !== undefined) return own[name];
-    }
-    return undefined;
+    const own = platform ? chain.find((p) => p[platform]?.[name] !== undefined) : undefined;
+    if (own) return own[platform][name];
+    return chain.find((p) => p[name] !== undefined)?.[name];
   };
   const environment = field("environment");
   if (typeof environment === "string" && environment) return environment;

@@ -114,6 +114,8 @@ jobs:
       COMMIT_SHA: ${{ inputs.commit_sha }}
       HANDOFF: ${{ inputs.handoff }}
       MANUAL: ${{ inputs.manual }}
+      RELEASE_IOS: ${{ inputs.ios == 'true' }}
+      RELEASE_ANDROID: ${{ inputs.android == 'true' }}
     steps:
       - uses: eas/checkout
       - name: The checkout is commit_sha, and main contains it
@@ -134,6 +136,15 @@ jobs:
           if ! git merge-base --is-ancestor "$COMMIT_SHA" FETCH_HEAD; then
             echo "$COMMIT_SHA isn't on main: production releases only from main. Nothing was built or published."
             exit 1
+          fi
+          # Every run (a manual one too) checks eas.json against what this file was rendered with, for
+          # the platforms it releases: builds on the release channel, and the same EAS environment.
+          platforms=""
+          if [ "${RELEASE_IOS:-false}" = true ]; then platforms=ios; fi
+          if [ "${RELEASE_ANDROID:-false}" = true ]; then platforms="${platforms:+$platforms,}android"; fi
+          if [ -n "$platforms" ]; then
+            node .eas/scripts/native-release.mjs channel eas.json "production" "production"
+            node .eas/scripts/native-release.mjs environment eas.json "production" "production" "$platforms"
           fi
 
   get_ios_build:

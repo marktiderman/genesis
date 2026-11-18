@@ -151,6 +151,34 @@ describe("rendering the templates", () => {
     expect(handoff).toContain('-F "handoff=native-release"');
   });
 
+  it("every deploy-production run, a manual one too, checks eas.json's channel and environment for the platforms it releases", () => {
+    const doc = yaml("release/deploy-production.yml", ctx({ easEnvironment: "production" }));
+    const script = (doc.jobs.source.steps as { run?: string }[])[1]!.run!;
+    expect(doc.jobs.source.env).toMatchObject({ RELEASE_IOS: "${{ inputs.ios == 'true' }}", RELEASE_ANDROID: "${{ inputs.android == 'true' }}" });
+    const repo = tempDir("genesis-source-env-");
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
+    git("init", "-q", "-b", "main");
+    writeTree(repo, { ".eas/scripts/native-release.mjs": readFileSync(path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "utf8") });
+    git("add", "-A");
+    git("-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "-m", "on main");
+    const remote = tempDir("genesis-source-env-remote-");
+    execFileSync("git", ["clone", "-q", "--bare", repo, remote]);
+    git("remote", "add", "origin", remote);
+    const sha = git("rev-parse", "HEAD");
+    const start = (easJson: unknown, platforms: Record<string, string>) => {
+      writeTree(repo, { "eas.json": JSON.stringify(easJson) });
+      return spawnSync("bash", ["-c", script], { cwd: repo, encoding: "utf8", env: { ...process.env, COMMIT_SHA: sha, HANDOFF: "", MANUAL: "true", RELEASE_IOS: "false", RELEASE_ANDROID: "false", ...platforms } });
+    };
+    // A direct manual run on a profile whose builds read another environment stops before anything is built or published.
+    const mismatched = start({ build: { production: { channel: "production", environment: "staging" } } }, { RELEASE_IOS: "true" });
+    expect(mismatched.status).toBe(1);
+    expect(mismatched.stderr).toContain('builds ios with the EAS environment "staging", but the release reads "production"');
+    expect(start({ build: { production: { channel: "production" } } }, { RELEASE_IOS: "true", RELEASE_ANDROID: "true" }).status).toBe(0);
+    // Only the platforms it releases: an Android-only override doesn't stop an iOS run.
+    expect(start({ build: { production: { channel: "production", android: { environment: "staging" } } } }, { RELEASE_IOS: "true" }).status).toBe(0);
+    expect(start({ build: { production: { channel: "stable" } } }, { RELEASE_IOS: "true" }).stderr).toContain('listen to the channel "stable"');
+  });
+
   it("deploy-production's get-build matches only builds on the release channel", () => {
     for (const channel of ["production", "stable"]) {
       const doc = yaml("release/deploy-production.yml", ctx({ channel }));
@@ -205,6 +233,22 @@ describe("rendering the templates", () => {
     expect(() => plan.checkProfileEnvironment(eas, "store", "store")).toThrow(/builds ios with the EAS environment "production", but the release reads "store"/);
     expect(() => plan.checkProfileEnvironment(eas, "split", "production")).toThrow(/builds android with the EAS environment "preview"/);
     expect(() => plan.checkProfileEnvironment(eas, "split", "production", ["ios"])).not.toThrow();
+    // eas-json merges the whole chain, then the platform section over the common one: a platform
+    // value anywhere along extends beats a common one, even the child's own.
+    const chain = { build: { base: { ios: { environment: "preview", distribution: "internal" } }, child: { extends: "base", environment: "production", distribution: "store" }, dist: { extends: "base2", distribution: "store" }, base2: { ios: { distribution: "internal" } } } };
+    expect(plan.profileEnvironment(chain, "child", "ios")).toBe("preview");
+    expect(plan.profileEnvironment(chain, "dist", "ios")).toBe("preview");
+    expect(plan.profileEnvironment(chain, "child", "android")).toBe("production");
+    const chainApp = makeApp({ "eas.json": JSON.stringify(chain) });
+    expect(easProfileEnvironment(chainApp, "child", "ios")).toBe("preview");
+    expect(easProfileEnvironment(chainApp, "dist", "ios")).toBe("preview");
+    expect(easProfileEnvironment(chainApp, "child", "android")).toBe("production");
+    // eas.json's environment goes into the workflows only as a plain name.
+    for (const bad of ["prod env", "a'b", "x\ny", "${{ secrets.X }}"]) {
+      const badApp = makeApp({ "eas.json": JSON.stringify({ build: { production: { environment: bad } } }) });
+      expect(() => easProfileEnvironment(badApp, "production", "ios"), bad).toThrow(/isn't a plain EAS environment name/);
+      expect(() => releaseContext(badApp), bad).toThrow(/isn't a plain EAS environment name/);
+    }
     // The CLI's default is the same: a store profile named "store" reads production, not "store".
     const root = makeApp({ "app.json": "{}", "pnpm-lock.yaml": "", "eas.json": JSON.stringify(eas), "genesis.config.json": JSON.stringify({ release: { profile: "store" } }) });
     expect(easProfileEnvironment(root, "store", "ios")).toBe("production");
@@ -219,7 +263,7 @@ describe("rendering the templates", () => {
     expect(run.indexOf("native-release.mjs environment")).toBeLessThan(run.indexOf("eas workflow:runs"));
   });
 
-  it("in both lanes the release hook runs before the Sentry upload; a re-run of a published commit runs the hook again with its group", () => {
+  it("GitHub runs the release hook, then the Sentry upload; EAS uploads in the update job, then runs the hook job; a re-run of a published commit runs the hook again with its group", () => {
     const steps = (yaml("ci/native-release.yml", ctx({ sentry: true, pushHook: { script: "scripts/p.mjs", secrets: [] } })).jobs.release.steps as { id?: string; name?: string; run?: string; if?: string; env?: Record<string, string> }[]);
     for (const [p, Name] of [["ios", "iOS"], ["android", "Android"]] as const) {
       const at = (name: string) => steps.findIndex((st) => st.name === name);
@@ -228,15 +272,35 @@ describe("rendering the templates", () => {
       const recover = steps.find((st) => st.id === `recover_${p}`)!;
       expect(recover.if).toBe(`\${{ !cancelled() && steps.plan.outputs.${p}_shipped_by == github.sha }}`);
       expect(recover.run).toContain(`native-release.mjs published-group "production" ${p} "$GITHUB_SHA"`);
-      expect(recover.run).toContain("Source maps not uploaded again");
+      // The source maps: kept after this run's update, fetched back on a re-run, then uploaded.
+      const at2 = (pred: (st: { id?: string; name?: string; uses?: string }) => boolean) => steps.findIndex(pred);
+      const keep = steps.find((st) => st.name === `Keep the ${Name} update's source maps for a re-run`) as { uses?: string; with?: Record<string, unknown>; if?: string };
+      expect(keep.uses).toMatch(/^actions\/upload-artifact@[0-9a-f]{40}$/);
+      expect(keep.with).toMatchObject({ name: `sourcemaps-${p}-\${{ github.sha }}`, path: "./dist", "retention-days": 7, "if-no-files-found": "error" });
+      expect(keep.if).toBe(`\${{ !cancelled() && steps.update_${p}.outputs.${p}_update_group != '' }}`);
+      const get = steps.find((st) => st.id === `sourcemaps_${p}`) as { uses?: string; with?: Record<string, unknown>; if?: string; "continue-on-error"?: boolean };
+      expect(get.uses).toMatch(/^actions\/download-artifact@[0-9a-f]{40}$/);
+      expect(get.with).toEqual({ name: `sourcemaps-${p}-\${{ github.sha }}`, path: "./dist" });
+      expect(get["continue-on-error"]).toBe(true);
+      expect(at2((st) => st.name === `Keep the ${Name} update's source maps for a re-run`)).toBeLessThan(at2((st) => st.id === `recover_${p}`));
+      expect(at2((st) => st.id === `recover_${p}`)).toBeLessThan(at2((st) => st.id === `sourcemaps_${p}`));
+      expect(at2((st) => st.id === `sourcemaps_${p}`)).toBeLessThan(at(`Upload the ${Name} update's source maps to Sentry`));
+      expect(steps.find((st) => st.name === `The ${Name} update's source maps are gone`)!.run).toContain("Source maps not uploaded again");
       const hook = steps.find((st) => st.name === `Run the release hook (${Name} update)`)!;
       expect(hook.if).toContain(`steps.recover_${p}.outputs.${p}_update_group != ''`);
       expect(hook.env!.RELEASE_UPDATE_GROUP).toBe(`\${{ steps.update_${p}.outputs.${p}_update_group || steps.recover_${p}.outputs.${p}_update_group }}`);
-      // Sentry only after this run's own update: the bundle a re-run would need is gone.
-      expect(steps.find((st) => st.name === `Upload the ${Name} update's source maps to Sentry`)!.if).not.toContain("recover_");
+      // Sentry after this run's own update, or after a re-run got the kept source maps back.
+      expect(steps.find((st) => st.name === `Upload the ${Name} update's source maps to Sentry`)!.if).toBe(`\${{ !cancelled() && ((steps.update_${p}.outcome == 'success' && steps.update_${p}.outputs.${p}_update_group != '') || steps.sourcemaps_${p}.outcome == 'success') }}`);
     }
-    // Without a hook, nothing to recover.
-    expect((yaml("ci/native-release.yml", ctx({ sentry: true })).jobs.release.steps as { id?: string }[]).some((st) => st.id?.startsWith("recover_"))).toBe(false);
+    // Sentry without a hook still recovers (for the source maps); neither, nothing to recover.
+    const sentryOnly = yaml("ci/native-release.yml", ctx({ sentry: true })).jobs.release.steps as { id?: string; name?: string }[];
+    expect(sentryOnly.filter((st) => st.id?.startsWith("recover_") || st.id?.startsWith("sourcemaps_")).map((st) => st.id)).toEqual(["recover_ios", "sourcemaps_ios", "recover_android", "sourcemaps_android"]);
+    expect(sentryOnly.some((st) => st.name?.startsWith("Run the release hook"))).toBe(false);
+    expect((yaml("ci/native-release.yml", ctx()).jobs.release.steps as { id?: string }[]).some((st) => st.id?.startsWith("recover_") || st.id?.startsWith("sourcemaps_"))).toBe(false);
+    // On EAS the upload is in the update job, before the hook job, which needs it.
+    const easOrder = yaml("release/deploy-production.yml", ctx({ sentry: true, pushHook: { script: "scripts/p.mjs", secrets: [] } }));
+    expect(easOrder.jobs.hook_ios_update.needs).toContain("update_ios");
+    expect((easOrder.jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run).toContain("sentry-expo-upload-sourcemaps dist");
     // On EAS: the hook job comes after the update job (and before the source-map failure is reported), and a re-run recovers the group.
     const eas = yaml("release/deploy-production.yml", ctx({ sentry: true, pushHook: { script: "scripts/p.mjs", secrets: [] } }));
     for (const p of ["ios", "android"]) {

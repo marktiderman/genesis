@@ -266,18 +266,46 @@ jobs:
           # shellcheck disable=SC2016 # the shell eas env:exec starts expands these
           eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" ios -- env EXPO_NO_DOTENV=1 eas update --channel "GENESIS_RELEASE_CHANNEL" --platform ios --message "$RELEASE_MESSAGE" --json --non-interactive' --non-interactive > "$RUNNER_TEMP/release/update-ios.json"
           node .eas/scripts/native-release.mjs update "$RUNNER_TEMP/release/update-ios.json" ios "$RUNTIME_VERSION" | tee -a "$GITHUB_OUTPUT"
-#@if pushHook
+#@if sentry
+
+      # The update's bundle and source maps, kept a few days: a re-run that finds this update
+      # already out (its upload failed, say) uploads them again, publishing nothing again.
+      - name: Keep the iOS update's source maps for a re-run
+        if: ${{ !cancelled() && steps.update_ios.outputs.ios_update_group != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sourcemaps-ios-${{ github.sha }}
+          path: GENESIS_RELEASE_WORKING_DIRECTORY/dist
+          retention-days: 7
+          if-no-files-found: error
+          overwrite: true
+#@end
+#@if pushHook|sentry
 
       # A re-run of a release whose iOS update already went out (this commit is the channel's
-      # latest): nothing is published again, but the update group is recovered for the hook.
+      # latest): nothing is published again, but its update group is recovered for the follow-ups.
       - name: Find this commit's iOS update (a re-run)
         id: recover_ios
         if: ${{ !cancelled() && steps.plan.outputs.ios_shipped_by == github.sha }}
         run: |
           node .eas/scripts/native-release.mjs published-group "GENESIS_RELEASE_CHANNEL" ios "$GITHUB_SHA" | tee -a "$GITHUB_OUTPUT"
-#@if sentry
-          echo "::warning title=Source maps not uploaded again::This commit's iOS update went out in an earlier run, whose bundle isn't here: if that run's Sentry upload failed, upload its source maps from this commit's export by hand."
 #@end
+#@if sentry
+
+      # The source maps the earlier attempt of this run kept (GitHub lets a re-run read them).
+      - name: Get the iOS update's source maps from the earlier attempt
+        id: sourcemaps_ios
+        if: ${{ !cancelled() && steps.recover_ios.outputs.ios_update_group != '' }}
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sourcemaps-ios-${{ github.sha }}
+          path: GENESIS_RELEASE_WORKING_DIRECTORY/dist
+
+      - name: The iOS update's source maps are gone
+        if: ${{ !cancelled() && steps.recover_ios.outputs.ios_update_group != '' && steps.sourcemaps_ios.outcome != 'success' }}
+        run: |
+          echo "::warning title=Source maps not uploaded again::This commit's iOS update went out in another run, whose source maps this one can't read (or they expired): if its Sentry upload failed, upload them from this commit's export by hand."
 #@end
 #@if pushHook
 
@@ -301,7 +329,7 @@ jobs:
 #@if sentry
 
       - name: Upload the iOS update's source maps to Sentry
-        if: ${{ !cancelled() && steps.update_ios.outcome == 'success' && steps.update_ios.outputs.ios_update_group != '' }}
+        if: ${{ !cancelled() && ((steps.update_ios.outcome == 'success' && steps.update_ios.outputs.ios_update_group != '') || steps.sourcemaps_ios.outcome == 'success') }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no sentry-expo-upload-sourcemaps dist' --non-interactive
@@ -343,18 +371,46 @@ jobs:
           # shellcheck disable=SC2016 # the shell eas env:exec starts expands these
           eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" android -- env EXPO_NO_DOTENV=1 eas update --channel "GENESIS_RELEASE_CHANNEL" --platform android --message "$RELEASE_MESSAGE" --json --non-interactive' --non-interactive > "$RUNNER_TEMP/release/update-android.json"
           node .eas/scripts/native-release.mjs update "$RUNNER_TEMP/release/update-android.json" android "$RUNTIME_VERSION" | tee -a "$GITHUB_OUTPUT"
-#@if pushHook
+#@if sentry
+
+      # The update's bundle and source maps, kept a few days: a re-run that finds this update
+      # already out (its upload failed, say) uploads them again, publishing nothing again.
+      - name: Keep the Android update's source maps for a re-run
+        if: ${{ !cancelled() && steps.update_android.outputs.android_update_group != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sourcemaps-android-${{ github.sha }}
+          path: GENESIS_RELEASE_WORKING_DIRECTORY/dist
+          retention-days: 7
+          if-no-files-found: error
+          overwrite: true
+#@end
+#@if pushHook|sentry
 
       # A re-run of a release whose Android update already went out (this commit is the channel's
-      # latest): nothing is published again, but the update group is recovered for the hook.
+      # latest): nothing is published again, but its update group is recovered for the follow-ups.
       - name: Find this commit's Android update (a re-run)
         id: recover_android
         if: ${{ !cancelled() && steps.plan.outputs.android_shipped_by == github.sha }}
         run: |
           node .eas/scripts/native-release.mjs published-group "GENESIS_RELEASE_CHANNEL" android "$GITHUB_SHA" | tee -a "$GITHUB_OUTPUT"
-#@if sentry
-          echo "::warning title=Source maps not uploaded again::This commit's Android update went out in an earlier run, whose bundle isn't here: if that run's Sentry upload failed, upload its source maps from this commit's export by hand."
 #@end
+#@if sentry
+
+      # The source maps the earlier attempt of this run kept (GitHub lets a re-run read them).
+      - name: Get the Android update's source maps from the earlier attempt
+        id: sourcemaps_android
+        if: ${{ !cancelled() && steps.recover_android.outputs.android_update_group != '' }}
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sourcemaps-android-${{ github.sha }}
+          path: GENESIS_RELEASE_WORKING_DIRECTORY/dist
+
+      - name: The Android update's source maps are gone
+        if: ${{ !cancelled() && steps.recover_android.outputs.android_update_group != '' && steps.sourcemaps_android.outcome != 'success' }}
+        run: |
+          echo "::warning title=Source maps not uploaded again::This commit's Android update went out in another run, whose source maps this one can't read (or they expired): if its Sentry upload failed, upload them from this commit's export by hand."
 #@end
 #@if pushHook
 
@@ -378,7 +434,7 @@ jobs:
 #@if sentry
 
       - name: Upload the Android update's source maps to Sentry
-        if: ${{ !cancelled() && steps.update_android.outcome == 'success' && steps.update_android.outputs.android_update_group != '' }}
+        if: ${{ !cancelled() && ((steps.update_android.outcome == 'success' && steps.update_android.outputs.android_update_group != '') || steps.sourcemaps_android.outcome == 'success') }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no sentry-expo-upload-sourcemaps dist' --non-interactive

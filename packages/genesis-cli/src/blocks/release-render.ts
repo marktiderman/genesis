@@ -8,7 +8,7 @@
  * - `#@if <cond> [<cond>…]` … `#@end`: the lines between are kept only when every condition holds
  *   (nesting allowed). A condition is `ios`, `android`, `sentry`, `pushHook`, `appFolder`,
  *   `fingerprint` (the runtime version is Expo's fingerprint), a package manager (`pnpm`, `bun`,
- *   `npm`, `yarn`), or one of these with `!` in front.
+ *   `npm`, `yarn`), or one of these with `!` in front; `a|b` holds when either does.
  * - `#@paths`: replaced by the release's source folders (the app's folder and `paths`) as YAML list
  *   items, at its indent.
  * - `#@extra-paths`: replaced by `paths` alone, each marked `# release.paths` so the app-folder
@@ -178,7 +178,8 @@ export function renderRelease(text: string, ctx: ReleaseContext): string {
   for (const [i, line] of text.split("\n").entries()) {
     const open = IF.exec(line);
     if (open) {
-      stack.push(open[1]!.split(/\s+/).every((c) => holds(c, ctx)));
+      // Every condition must hold; one written `a|b` holds when either does.
+      stack.push(open[1]!.split(/\s+/).every((c) => c.split("|").some((alt) => holds(alt, ctx))));
       continue;
     }
     if (END.test(line)) {

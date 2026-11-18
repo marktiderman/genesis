@@ -86,13 +86,16 @@ export function lookupPin(version: string, repo = "https://github.com/marktiderm
   }
 }
 
+/** An EAS environment's name as the lane writes it into the workflows. */
+const EAS_ENVIRONMENT_NAME = /^[A-Za-z0-9_-]+$/;
+
 type EasProfile = { extends?: string; environment?: unknown; distribution?: unknown; developmentClient?: unknown; ios?: Record<string, unknown>; android?: Record<string, unknown> };
 
 /**
  * The EAS environment a build of `profile` reads, as eas-cli 26 resolves it: the profile's
  * `environment` (along `extends`, a platform's over the common one), else by its distribution:
  * `store` (the default) → production, a development client → development, anything else → preview.
- * Null when eas.json or the profile can't be read. The same rule as the release script's
+ * Null when eas.json or the profile can't be read; throws when its `environment` isn't a plain name. The same rule as the release script's
  * profileEnvironment, which checks it again before every release.
  */
 export function easProfileEnvironment(root: string, profile: string, platform: "ios" | "android"): string | null {
@@ -108,15 +111,20 @@ export function easProfileEnvironment(root: string, profile: string, platform: "
     if (!own || chain.includes(own)) return null;
     chain.push(own);
   }
+  // As eas-json merges a profile: the whole chain first, then the platform section over the common
+  // one, so a platform value anywhere along `extends` wins over any common one.
   const field = (key: "environment" | "distribution" | "developmentClient"): unknown => {
-    for (const own of chain) {
-      if (own[platform]?.[key] !== undefined) return own[platform]![key];
-      if (own[key] !== undefined) return own[key];
-    }
-    return undefined;
+    const own = chain.find((p) => p[platform]?.[key] !== undefined);
+    return own ? own[platform]![key] : chain.find((p) => p[key] !== undefined)?.[key];
   };
   const environment = field("environment");
-  if (typeof environment === "string" && environment) return environment;
+  if (environment !== undefined) {
+    // It goes into the workflows as a name: anything else is refused, not written.
+    if (typeof environment !== "string" || !EAS_ENVIRONMENT_NAME.test(environment)) {
+      throw new Error(`eas.json build.${profile} has an environment that isn't a plain EAS environment name (letters, digits, _ and -): ${JSON.stringify(environment)}. Fix it, or set genesis.config.json release.easEnvironment.`);
+    }
+    return environment;
+  }
   return (field("distribution") ?? "store") === "store" ? "production" : field("developmentClient") === true ? "development" : "preview";
 }
 

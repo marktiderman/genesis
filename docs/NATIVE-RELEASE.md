@@ -48,8 +48,8 @@ them current ([Upgrading and customising](#upgrading-and-customising)).
      platform over it: eas.json, `<platform>.env` over the common one, along `extends`), it checks
      this checkout's runtime version (`expo-updates runtimeversion:resolve`) is the build's, then
      publishes the update to the `production` channel for that platform, checks the update went to
-     that runtime version, then uploads the source maps to Sentry and runs your release hook, when
-     those are on. Only those commands get the profile's env (`native-release.mjs with-profile`,
+     that runtime version, then runs your release hook and uploads the source maps to Sentry, in
+     that order, when those are on (the source maps are also kept as an artifact for a re-run). Only those commands get the profile's env (`native-release.mjs with-profile`,
      inside `eas env:exec`), and `eas update` runs without `--environment`, which would bundle with
      the EAS environment's values over the profile's.
    - **Otherwise** (native code changed, or the build with this runtime version is still being
@@ -113,6 +113,9 @@ silently. Left over:
 - Both lanes read the channel's latest update again just before `eas update` (after the runtime
   check), so a run that published this commit or a later one in the meantime stops this one.
   `get-build` on EAS matches only builds on the release channel (`channel`), as the GitHub plan does.
+- Every run of `deploy-production.yml` (a manual one too) checks first, in `source`, that eas.json
+  still matches what it was rendered with, for the platforms it releases: the profile's channel and
+  the EAS environment its builds read.
 - `deploy-production.yml` refuses a run that `native-release.yml` didn't start (`-F
   handoff=native-release`, which it sends) unless it's given `-F manual=true`. Releases started by
   hand go through Actions ("Native release", Run workflow). A run started on EAS with
@@ -157,7 +160,7 @@ typo can't silently do nothing.
 | `platforms` | `["ios", "android"]` | The platforms released, in `native-release.yml`, `deploy-production.yml` and `pr-preview.yml`: the other platform's jobs and steps aren't written. |
 | `environment` | `production` | The GitHub environment that holds the release secrets (`EXPO_TOKEN`; `SENTRY_AUTH_TOKEN`; the hook's). Limit it to `main`. |
 | `paths` | none | Folders outside the app its bundle reads (every folder its Metro config watches), from the repository root. One list for every workflow: `native-release.yml` runs on them and `pr-preview.yml` previews them. |
-| `sentry` | `false` | Uploads each update's source maps to Sentry with the app's own `sentry-expo-upload-sourcemaps`, in both lanes (GitHub and EAS), and stops before publishing when `SENTRY_AUTH_TOKEN` or the uploader is missing. In both lanes the release hook (when there is one) runs first, then the upload; a failed upload fails the run. |
+| `sentry` | `false` | Uploads each update's source maps to Sentry with the app's own `sentry-expo-upload-sourcemaps`, in both lanes (GitHub and EAS), and stops before publishing when `SENTRY_AUTH_TOKEN` or the uploader is missing. On GitHub the release hook (when there is one) runs first, then the upload; on EAS the upload runs in the update job, then the hook job runs (also after a failed upload). A failed upload fails the run either way. |
 | `pushHook` | none | A script in the app (`node <script>`) run once a release is out, per platform: after an update (GitHub or EAS) and after a submitted build (EAS). A string, or `{ "script", "secrets" }`: `secrets` are GitHub secret names passed to it on GitHub. |
 | `profile` | `production` | The EAS build profile releases build with, and whose fingerprint they match. |
 | `channel` | `production` | The update channel the production builds read: the build profile's `channel` in eas.json. The release stops when the profile names another, and matches only builds on it. |
@@ -186,9 +189,12 @@ read pull requests) and its `secrets`; on EAS it has the EAS environment, secret
 with Node's built-ins and the repository's files only: EAS doesn't install packages for it. Make it
 safe to run twice: a re-run of a release whose update already went out (this commit is the
 channel's latest) publishes nothing again but runs the hook again, with that update's group
-(recovered from the channel). The source maps aren't uploaded again: the earlier run's bundle is
-gone, so if its upload failed, upload them from this commit's export by hand. Decide yourself
-whether a hook failure should fail the job.
+(recovered from the channel). With Sentry on, GitHub keeps each update's `dist` (bundle and source
+maps) as an artifact for 7 days (`sourcemaps-<platform>-<commit>`), and a re-run of that run
+downloads it and uploads the source maps again. When it can't (another run published the update,
+or the artifact expired), and on EAS, which keeps nothing a later run can rely on, the run says so:
+upload them from this commit's export by hand. Decide yourself whether a hook failure should fail
+the job.
 
 ## One-time setup
 
