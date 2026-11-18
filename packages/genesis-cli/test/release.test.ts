@@ -5,6 +5,7 @@
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync } from "node:fs";
+import { createRequire } from "node:module";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -357,6 +358,33 @@ describe("rendering the templates", () => {
     }
   });
 
+  // Expo's own .env loader, as the app's Expo CLI and config load it (the starter's expo depends on it).
+  const expoEnv = (() => {
+    try {
+      const starter = createRequire(path.join(STARTER, "package.json"));
+      return createRequire(starter.resolve("expo/package.json")).resolve("@expo/env");
+    } catch {
+      return null;
+    }
+  })();
+
+  it.skipIf(!expoEnv)("Expo loads a value only in .env, but not under with-profile (EXPO_NO_DOTENV), as eas update's export doesn't", () => {
+    const script = path.join(TEMPLATES, "eas/scripts/native-release.mjs");
+    const app = tempDir("genesis-expo-dotenv-");
+    writeTree(app, {
+      "eas.json": JSON.stringify({ build: { production: { env: { FROM_PROFILE: "profile" } } } }),
+      ".env": "ONLY_IN_DOTENV=from-dotenv\nFROM_PROFILE=dotenv\n",
+      // Expo's loader, then what it left in the environment.
+      "probe.cjs": `require(${JSON.stringify(expoEnv)}).load(process.cwd(), { silent: true, force: true });\nconsole.log(JSON.stringify({ dotenv: process.env.ONLY_IN_DOTENV ?? null, profile: process.env.FROM_PROFILE ?? null }));\n`,
+    });
+    const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "production" };
+    for (const name of ["EXPO_NO_DOTENV", "ONLY_IN_DOTENV", "FROM_PROFILE"]) delete env[name];
+    // Without the flag, Expo reads .env.
+    expect(JSON.parse(execFileSync("node", ["probe.cjs"], { cwd: app, encoding: "utf8", env }))).toEqual({ dotenv: "from-dotenv", profile: "dotenv" });
+    // Through with-profile it doesn't: only the profile's value.
+    expect(JSON.parse(execFileSync("node", [script, "with-profile", "eas.json", "production", "ios", "--", "node", "probe.cjs"], { cwd: app, encoding: "utf8", env }))).toEqual({ dotenv: null, profile: "profile" });
+  });
+
   it("the profile's env reaches only the app's commands, over the EAS environment, and a bad profile stops the step", () => {
     const script = path.join(TEMPLATES, "eas/scripts/native-release.mjs");
     const app = tempDir("genesis-with-profile-");
@@ -366,11 +394,9 @@ describe("rendering the templates", () => {
     // As under eas env:exec: the EAS environment's API is there, and the profile's wins, as in the build.
     const out = execFileSync("node", [script, "with-profile", "eas.json", "production", "ios", "--", "node", ...printEnv], { cwd: app, encoding: "utf8", env: { ...process.env, API: "from-eas", FROM_EAS: "kept" } });
     expect(JSON.parse(out)).toEqual({ API: "ios", RUNTIME_VERSION: "1.0.0", COPY: "first\nsecond", FROM_EAS: "kept" });
-    // What with-profile runs gets EXPO_NO_DOTENV=1, so Expo reads no .env value, as eas update's export doesn't.
-    const dotenvApp = tempDir("genesis-no-dotenv-");
-    writeTree(dotenvApp, { "eas.json": JSON.stringify(easJson), ".env": "ONLY_IN_DOTENV=from-dotenv\n" });
-    const seen = execFileSync("node", [script, "with-profile", "eas.json", "production", "ios", "--", "node", "-e", "console.log(process.env.EXPO_NO_DOTENV + ' ' + (process.env.ONLY_IN_DOTENV ?? 'unset'))"], { cwd: dotenvApp, encoding: "utf8" });
-    expect(seen.trim()).toBe("1 unset");
+    // What with-profile runs gets EXPO_NO_DOTENV=1 (Expo's own .env loader is tested below).
+    const seen = execFileSync("node", [script, "with-profile", "eas.json", "production", "ios", "--", "node", "-e", "console.log(process.env.EXPO_NO_DOTENV)"], { cwd: app, encoding: "utf8" });
+    expect(seen.trim()).toBe("1");
     // Every command that resolves a runtime version carries it, in every render of both lanes.
     for (const runtimeCommand of [null, "node scripts/rv.mjs"]) {
       for (const rel of ["ci/native-release.yml", "release/deploy-production.yml"]) {
