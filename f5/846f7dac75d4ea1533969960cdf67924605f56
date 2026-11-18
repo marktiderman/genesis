@@ -1,0 +1,215 @@
+.changeset/verify-checks.md
+  s_a2e5357843c63e::t_a1a6836dcdf286 1-7
+.github/workflows/conformance-allow.yml
+  s_a2e5357843c63e::t_4456442ca442e2 1-52
+.github/workflows/conformance.yml
+  s_a2e5357843c63e::t_bbf89a5dd86564 1-196
+.gitignore
+  s_a2e5357843c63e::t_92073c21a9711d 51-55
+AGENTS.md
+  s_a2e5357843c63e::t_4de602f038ebeb 148
+apps/sample/app/data/primitives.json
+  s_a2e5357843c63e::t_73c12818ec21b2 2,18306-18310,18612-18618,19075,26781,26786,27395,29191,30126,31049,31972
+apps/sample/app/root.tsx
+  s_a2e5357843c63e::t_9d6b6426656eb9 9,50-51,65-68,106-107
+apps/sample/app/routes/forms.$scenario.tsx
+  s_a2e5357843c63e::t_01c76b288c956b 285
+apps/sample/conformance/allow-grew.ts
+  s_a2e5357843c63e::t_e5b7f79b557ed3 1-39
+apps/sample/conformance/allow.json
+  s_a2e5357843c63e::t_b6f556020deee4 1-18403
+apps/sample/conformance/check.ts
+  s_a2e5357843c63e::t_caad0861a91247 1-100
+apps/sample/conformance/pages.ts
+  s_a2e5357843c63e::t_044816d290a405 1-89
+apps/sample/conformance/playwright.config.ts
+  s_a2e5357843c63e::t_f494612983fcdb 1-64
+apps/sample/conformance/routes.spec.ts
+  s_a2e5357843c63e::t_07f65840d1217d 1-16
+apps/sample/conformance/stories.spec.ts
+  s_a2e5357843c63e::t_9d487463bc37b3 1-9
+apps/sample/conformance/teardown.ts
+  s_a2e5357843c63e::t_2278de8f1ae311 1-69
+apps/sample/package.json
+  s_a2e5357843c63e::t_20782bad5fa05d 23-24,42,96,99,111,114
+apps/sample/scripts/smoke-site.mjs
+  s_a2e5357843c63e::t_49ecc418b5af3c 14-15,19,30-31
+apps/sample/scripts/static-server.mjs
+  s_a2e5357843c63e::t_4a0955138f1dc8 1-70
+apps/sample/stories/ResourceViewLists.stories.tsx
+  s_a2e5357843c63e::t_bcafa73984cfef 124-165
+docs/MIGRATION.md
+  s_a2e5357843c63e::t_caa0c1d06c2fea 14-59
+docs/RESPONSIVE.md
+  s_a2e5357843c63e::t_098d42831cbb58 1-126
+docs/component-reference.md
+  s_a2e5357843c63e::t_ea0b6f5161f5af 7,5295,5569,5670,5680,11294,11568,12320,12330
+features.json
+  s_a2e5357843c63e::t_29e8f950842dca 3296-3340
+features.ts
+  s_a2e5357843c63e::t_f5c8270b8d6a3b 1444-1463
+packages/chat/CHANGELOG.md
+  s_a2e5357843c63e::t_6b5cbb14c324f6 3-10
+packages/chat/package.json
+  s_a2e5357843c63e::t_60eb374172ff6b 3,101
+packages/extension/CHANGELOG.md
+  s_a2e5357843c63e::t_dee9cbb05e1d17 3-8
+packages/extension/package.json
+  s_a2e5357843c63e::t_866bd7d93eba14 3,58
+packages/features/CHANGELOG.md
+  s_a2e5357843c63e::t_d6f654db485807 3-8
+packages/features/package.json
+  s_a2e5357843c63e::t_e1972a497d62e9 3,74
+packages/forms-builder/CHANGELOG.md
+  s_a2e5357843c63e::t_380e4e1594647c 3-8
+packages/forms-builder/package.json
+  s_a2e5357843c63e::t_1d300800ae4ff2 3,63
+packages/forms-devtools/CHANGELOG.md
+  s_a2e5357843c63e::t_a8295a25841dbc 3-8
+packages/forms-devtools/package.json
+  s_a2e5357843c63e::t_1f93832de497e1 3,55
+packages/forms-studio/CHANGELOG.md
+  s_a2e5357843c63e::t_b5c4326f9bb0bc 3-8
+packages/forms-studio/package.json
+  s_a2e5357843c63e::t_67988046bb54d3 3,62
+packages/forms-web/CHANGELOG.md
+  s_a2e5357843c63e::t_0b2a0fba830e20 3-8
+packages/forms-web/package.json
+  s_a2e5357843c63e::t_76ee2edeb4d5c9 3,55
+packages/genesis-cli/README.md
+  s_a2e5357843c63e::t_9a9e9ed623ad70 1385-1429
+packages/genesis-cli/package.json
+  s_a2e5357843c63e::t_ffb6103ef3c9c1 52-55,98,103,115-117,131-136
+packages/genesis-cli/src/verify/allow.ts
+  s_a2e5357843c63e::t_12691596aac192 1-172
+packages/genesis-cli/src/verify/dom.ts
+  s_a2e5357843c63e::t_a5b820f209aae9 1-391
+packages/genesis-cli/src/verify/index.ts
+  s_a2e5357843c63e::t_c5be5f9d5be27e 1-11
+packages/genesis-cli/src/verify/matrix.ts
+  s_a2e5357843c63e::t_0d5cb1f01aa592 1-66
+packages/genesis-cli/src/verify/page.ts
+  s_a2e5357843c63e::t_d1d60b02a67acf 1-135
+packages/genesis-cli/src/verify/routes.ts
+  s_a2e5357843c63e::t_522810c7752bf0 1-100
+packages/genesis-cli/test/verify.test.ts
+  s_a2e5357843c63e::t_994b0403c8fbaf 1-456
+packages/genesis-cli/tsup.config.ts
+  s_a2e5357843c63e::t_68f8a168fb01b1 38,52
+packages/genesis/CHANGELOG.md
+  s_a2e5357843c63e::t_83a6dcb4e15796 3-16
+packages/genesis/package.json
+  s_a2e5357843c63e::t_f8a9c351c7cc3d 3
+packages/media/package.json
+  s_a2e5357843c63e::t_873d2c403f240f 117
+packages/notifications/CHANGELOG.md
+  s_a2e5357843c63e::t_56e48de5e5eb23 3-10
+packages/notifications/package.json
+  s_a2e5357843c63e::t_32c360beefc77d 3,108
+packages/sites/CHANGELOG.md
+  s_a2e5357843c63e::t_7c3d55c82584a5 3-10
+packages/sites/package.json
+  s_a2e5357843c63e::t_409580df10a191 3,104
+packages/studio/CHANGELOG.md
+  s_a2e5357843c63e::t_8c971affd0568b 3-8
+packages/studio/package.json
+  s_a2e5357843c63e::t_a72a44c26f04fc 3,58
+packages/support/CHANGELOG.md
+  s_a2e5357843c63e::t_110ab362b93752 3-17
+packages/support/package.json
+  s_a2e5357843c63e::t_81934b528e2a68 3,88
+packages/support/src/__tests__/messenger.test.tsx
+  s_a2e5357843c63e::t_09653f41eff6ce 383-404
+packages/support/src/web-chat/messenger.tsx
+  s_a2e5357843c63e::t_2d2d749e5dc06a 763-769,780,807-842
+packages/ui/CHANGELOG.md
+  s_a2e5357843c63e::t_c546a15df34a3e 3-27
+packages/ui/package.json
+  s_a2e5357843c63e::t_aa30a053ce9d33 3
+packages/ui/src/components/data/DataGrid.tsx
+  s_a2e5357843c63e::t_c0c46a6f5e2976 80-82,96-98
+packages/ui/src/components/data/DataPageShell.tsx
+  s_a2e5357843c63e::t_4de498f09e5e4c 1,18-19,109,208
+packages/ui/src/components/data/DataTable.tsx
+  s_a2e5357843c63e::t_bc22c9e4d022cd 10,69,861-898,901,1154-1156,1386,1445,1459,1467,1628-1641,1694
+packages/ui/src/components/data/ResourcePage.tsx
+  s_a2e5357843c63e::t_3ec74000b1c737 4,7,11,42,1030-1041,1206-1209,1442-1444,1447,1541-1542,1544-1557,1560-1575,1607-1609,1611-1612,1617-1621,1633-1656,1659-1668,1670-1681,1695-1697,1699,1824-1826,2213
+packages/ui/src/components/data/__tests__/data-table-a11y.test.tsx
+  s_a2e5357843c63e::t_b0caf6ad5fcdc3 219-247
+packages/ui/src/components/data/__tests__/data-view-gaps.test.tsx
+  s_a2e5357843c63e::t_df236a7dffb649 263,316-374
+packages/ui/src/components/data/__tests__/list-row-and-pager-chrome.test.tsx
+  s_a2e5357843c63e::t_7d59417cc6a04f 58
+packages/ui/src/components/data/__tests__/resource-gallery.test.tsx
+  s_a2e5357843c63e::t_db35dc4a5a3d87 130-144
+packages/ui/src/components/data/__tests__/resource-page-default-rows.test.tsx
+  s_a2e5357843c63e::t_62a4cf02e49916 9-10,14-15,56,86-87,95,102-242
+packages/ui/src/components/data/__tests__/resource-page-render-card-keyboard-nav.test.tsx
+  s_a2e5357843c63e::t_903754608e3b7e 7,274-276,279-285,288,290-291,295-297,304-306,311,314-317
+packages/ui/src/components/data/__tests__/resource-view-narrow-frame.test.tsx
+  s_a2e5357843c63e::t_55e6ba335d94d1 1-95
+packages/ui/src/components/data/__tests__/resource-view-phone.test.tsx
+  s_a2e5357843c63e::t_a883875ce1e00e 5-6,106,110-117
+packages/ui/src/components/data/resource-view/ResourceGallery.tsx
+  s_a2e5357843c63e::t_a0b9d36f027985 20,41-47
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_a2e5357843c63e::t_05238a92197de6 46,79-80,324-325,467-470,475,681,695-698,711-712
+packages/ui/src/components/data/resource-view/defaults.tsx
+  s_a2e5357843c63e::t_a588c7d6942579 16-19
+packages/ui/src/components/layout/AppShell.tsx
+  s_a2e5357843c63e::t_e5c4657437895b 1761-1783,2091,2180-2185
+packages/ui/src/components/layout/PageHeader.tsx
+  s_a2e5357843c63e::t_3a5a8f12090625 371-373,375,542-543
+packages/ui/src/components/layout/__tests__/app-shell-mobile.test.tsx
+  s_a2e5357843c63e::t_03eea21672b637 304-340
+packages/ui/src/components/layout/__tests__/page-header-wrap.test.tsx
+  s_a2e5357843c63e::t_9a4b9b10887de0 1-24
+packages/ui/src/components/patterns/messaging/inbox-layout.tsx
+  s_a2e5357843c63e::t_37cc48ed59e86b 217
+packages/ui/src/components/resource/chip-group.tsx
+  s_a2e5357843c63e::t_9c2c6e58155f25 5,39-41,60-62,111
+packages/ui/src/components/resource/chip.tsx
+  s_a2e5357843c63e::t_6b4d9e3af22b67 4,63
+packages/ui/src/components/ui/__tests__/mobile-overlays.test.tsx
+  s_a2e5357843c63e::t_dfa579c55d764a 186-209
+packages/ui/src/components/ui/checkbox.tsx
+  s_a2e5357843c63e::t_e40df4c0dc699e 6,16
+packages/ui/src/components/ui/radio-group.tsx
+  s_a2e5357843c63e::t_fd92539c9b0603 6,14-16,32
+packages/ui/src/components/ui/sheet.tsx
+  s_a2e5357843c63e::t_e92679c62c31f6 31-33,41,43
+packages/ui/src/components/ui/switch.tsx
+  s_a2e5357843c63e::t_f2ae77aae2a0b5 5,14
+packages/ui/src/components/ui/tabs.tsx
+  s_a2e5357843c63e::t_ba719363a257e8 73
+packages/ui/src/hooks/__tests__/use-list-width.test.tsx
+  s_a2e5357843c63e::t_5e3e9d05a08056 1-97
+packages/ui/src/hooks/use-list-width.ts
+  s_a2e5357843c63e::t_492dfc70d99010 1-59
+packages/ui/src/hooks/use-resource-page.ts
+  s_a2e5357843c63e::t_d73f1738471f54 37-43
+packages/ui/src/hooks/use-view-preference.ts
+  s_a2e5357843c63e::t_3cc3128e28dd1f 3,7,17-20,22,73-75,77-84,90
+packages/ui/src/index.ts
+  s_a2e5357843c63e::t_5e33d6bdc4fc6c 215
+packages/ui/src/utils.ts
+  s_a2e5357843c63e::t_4d24f5031d3498 107-117
+pnpm-lock.yaml
+  s_a2e5357843c63e::t_83e575b24fe556 515-517,524-526,559,570-571,1305-1307,1320-1322,1358-1359,2208-2213,4182-4186,9950-9951,9955-9956,11683-11687,13896-13899,15460,16069,16253,16257,16267,16271,16909,18565,19378,20314,20316,20318,22017,22043
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f5846f7dac75d4ea1533969960cdf67924605f56",
+  "prompts": {},
+  "sessions": {
+    "s_a2e5357843c63e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "93276e5f-d2ca-4b24-908d-d8b238e10dcf",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
