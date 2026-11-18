@@ -265,7 +265,9 @@ describe("rendering the templates", () => {
       expect(refused.stderr).toContain("printed no ios runtime version");
     }
     expect(plan.isRuntimeVersion("undefined")).toBe(false);
-    expect(() => plan.planOutputs({ ios: { runtime: "undefined", by: "runtime", builds: [] } }, [], "production")).toThrow(/printed no ios runtime version/);
+    const errors: string[] = [];
+    expect(plan.planOutputs({ ios: { runtime: "undefined", by: "runtime", builds: [] } }, [], "production", { onError: (_p: string, m: string) => errors.push(m) })).toContain("ios_action=failed");
+    expect(errors.join()).toMatch(/printed no ios runtime version/);
   });
 
   it("native-release.yml publishes with the platform's build profile env, and checks the runtime version before publishing", () => {
@@ -371,6 +373,12 @@ describe("the plan script", () => {
   const AP = "e".repeat(40);
   const build = (platform: string, hash: string, extra: Record<string, unknown> = {}) => ({ id: `b-${platform}`, status: "FINISHED", platform: platform.toUpperCase(), buildProfile: "production", distribution: "STORE", appVersion: "1.2.0", fingerprint: { hash }, runtime: { version: hash }, ...extra });
   const outputs = (lines: string[]) => Object.fromEntries(lines.map((l) => l.split("=") as [string, string]));
+  /** The reason one iOS plan is held back (its action `failed`), or "" when it isn't. */
+  const refused = (ios: Record<string, unknown>) => {
+    let reason = "";
+    const out = outputs(plan.planOutputs({ ios }, [], "production", { onError: (_p: string, m: string) => (reason = m) }));
+    return out.ios_action === "failed" ? reason : "";
+  };
   const both = (iosBuilds: unknown[], androidBuilds: unknown[], runs: unknown[] = []) =>
     outputs(plan.planOutputs({ ios: { runtime: FP, by: "fingerprint", builds: iosBuilds }, android: { runtime: AP, by: "fingerprint", builds: androidBuilds } }, runs, "production"));
 
@@ -389,21 +397,38 @@ describe("the plan script", () => {
     expect(both([build("ios", FP)], [build("android", AP)], [{ workflowFileName: "deploy-production.yml", status: "SUCCESS" }, { workflowFileName: "e2e.yml", status: "IN_PROGRESS" }])).toMatchObject({ lane_open: "false" });
   });
 
-  it("refuses to guess: a broken list, no fingerprint, or a build whose runtime isn't its fingerprint", () => {
+  it("refuses to guess: a broken list of runs stops both; no fingerprint, a broken builds list or a build whose runtime isn't its fingerprint holds that platform back", () => {
     expect(() => both([build("ios", FP)], [build("android", AP)], null as unknown as unknown[])).toThrow(/list of runs/);
-    expect(() => plan.planOutputs({ ios: { runtime: "", by: "fingerprint", builds: [] } }, [], "production")).toThrow(/fingerprint hash/);
-    expect(() => plan.planOutputs({ ios: { runtime: FP, by: "fingerprint", builds: {} } }, [], "production")).toThrow(/list of ios builds/);
-    expect(() => both([build("ios", FP, { runtime: { version: "1.0.0" } })], [])).toThrow(/would not reach it/);
+    expect(refused({ runtime: "", by: "fingerprint", builds: [] })).toMatch(/fingerprint hash/);
+    expect(refused({ runtime: FP, by: "fingerprint", builds: {} })).toMatch(/list of ios builds/);
+    expect(refused({ runtime: FP, by: "fingerprint", builds: [build("ios", FP, { runtime: { version: "1.0.0" } })] })).toMatch(/would not reach it/);
+  });
+
+  it("a platform with an undefined fingerprint hash is held back alone; the other still publishes", () => {
+    const errors: string[] = [];
+    const out = outputs(plan.planOutputs({ ios: { runtime: "undefined", by: "fingerprint", builds: [build("ios", FP)] }, android: { runtime: AP, by: "fingerprint", builds: [build("android", AP)] } }, [], "production", { onError: (p: string, m: string) => errors.push(`${p}: ${m}`) }));
+    expect(out).toMatchObject({ ios_action: "failed", android_action: "publish", publish_platforms: "android", eas_platforms: "", failed_platforms: "ios" });
+    expect(out.ios_runtime_version).toBeUndefined();
+    expect(errors).toEqual(["ios: eas fingerprint:generate gave no ios fingerprint hash."]);
+    // As a script: what `node -p '…hash'` wrote for a fingerprint file without one, and a builds file that isn't JSON.
+    for (const files of [{ "fingerprint-ios.json": "{}", "builds-ios.json": "[]" }, { "fingerprint-ios.json": JSON.stringify({ hash: FP }), "builds-ios.json": "not json" }, { "fingerprint-ios.json": JSON.stringify({ hash: FP }), "builds-ios.json": "{}" }]) {
+      const dir = tempDir("genesis-plan-one-");
+      writeTree(dir, { ...files, "fingerprint-android.json": JSON.stringify({ hash: AP }), "builds-android.json": JSON.stringify([build("android", AP)]), "runs.json": "[]" });
+      const run = spawnSync("node", [path.join(TEMPLATES, "eas/scripts/native-release.mjs"), "plan", dir, "ios,android", "production"], { encoding: "utf8" });
+      expect(run.status, run.stderr).toBe(0);
+      expect(run.stderr).toContain("::error title=ios not planned::");
+      expect(outputs(run.stdout.trim().split("\n"))).toMatchObject({ ios_action: "failed", android_action: "publish", failed_platforms: "ios" });
+    }
   });
 
   it("with the app's own runtime version, matches builds by it", () => {
     const own = (builds: unknown[]) => outputs(plan.planOutputs({ ios: { runtime: "ios-7f3a", by: "runtime", builds } }, [], "production"));
     expect(own([build("ios", "x", { runtime: { version: "ios-7f3a" } })])).toMatchObject({ ios_action: "publish", ios_runtime_version: "ios-7f3a" });
     expect(own([build("ios", "x", { runtime: { version: "ios-0000" } })])).toMatchObject({ ios_action: "eas" });
-    expect(() => plan.planOutputs({ ios: { runtime: "", by: "runtime", builds: [] } }, [], "production")).toThrow(/printed no ios runtime version/);
+    expect(refused({ runtime: "", by: "runtime", builds: [] })).toMatch(/printed no ios runtime version/);
     // Any form Expo takes, the native version with its build in parentheses included.
     expect(outputs(plan.planOutputs({ ios: { runtime: "1.0.0(1)", by: "runtime", builds: [build("ios", "x", { runtime: { version: "1.0.0(1)" } })] } }, [], "production"))).toMatchObject({ ios_action: "publish", ios_runtime_version: "1.0.0(1)" });
-    expect(() => plan.planOutputs({ ios: { runtime: "1.0 0", by: "runtime", builds: [] } }, [], "production")).toThrow(/printed no ios runtime version/);
+    expect(refused({ runtime: "1.0 0", by: "runtime", builds: [] })).toMatch(/printed no ios runtime version/);
   });
 
   it("skips a platform whose build was made from a later commit (B changed native code, built first, no update yet)", () => {
@@ -714,8 +739,8 @@ describe("genesis add template", () => {
   });
 
   it("a release command is eas update, build or workflow:run, never a query of the same family", () => {
-    for (const yes of ["eas update --auto", "eas build -p ios", "eas workflow:run deploy.yml", "npx --yes eas-cli@26.0.0 update --channel production", "npx eas-cli build", "x && eas update"]) expect(RELEASE_COMMAND.test(yes), yes).toBe(true);
-    for (const no of ["eas build:list --json", "eas update:view g", "eas update:list --branch main", "eas workflow:runs --json", "eas build:view", "eas env:exec production x", "overseas update", "my-eas update"]) expect(RELEASE_COMMAND.test(no), no).toBe(false);
+    for (const yes of ["./node_modules/.bin/eas update --auto", "node_modules/.bin/eas build -p ios", "/usr/local/bin/eas workflow:run d.yml", "eas update --auto", "eas build -p ios", "eas workflow:run deploy.yml", "npx --yes eas-cli@26.0.0 update --channel production", "npx eas-cli build", "x && eas update"]) expect(RELEASE_COMMAND.test(yes), yes).toBe(true);
+    for (const no of ["eas build:list --json", "eas update:view g", "eas update:list --branch main", "eas workflow:runs --json", "eas build:view", "eas env:exec production x", "overseas update", "my-eas update", "./node_modules/.bin/eas build:list --json", "node_modules/.bin/eas update:view g"]) expect(RELEASE_COMMAND.test(no), no).toBe(false);
     // A GitHub workflow on push to main that only queries EAS is no rival.
     const gh = makeApp({ ".github/workflows/status.yml": "on:\n  push:\n    branches: [main]\njobs:\n  a:\n    steps:\n      - run: eas build:list --json && eas update:view g --json\n" });
     expect(competingReleaseWorkflows(gh, null)).toEqual([]);

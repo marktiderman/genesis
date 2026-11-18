@@ -391,10 +391,10 @@ export function hasPushTrigger(text: string, branch = "main"): boolean {
 
 /**
  * A command that releases: `eas update`, `eas build` or `eas workflow:run` (also as `eas-cli` or
- * `eas-cli@<version>`, through npx say), never a query of the same family (`eas build:list`,
- * `eas update:view`, …), which only reads.
+ * `eas-cli@<version>`, through npx say, or by a path such as `./node_modules/.bin/eas`), never a
+ * query of the same family (`eas build:list`, `eas update:view`, …), which only reads.
  */
-export const RELEASE_COMMAND = /(?<![\w@/-])eas(?:-cli(?:@[\w.-]+)?)?\s+(?:update|build|workflow:run)(?![\w:-])/;
+export const RELEASE_COMMAND = /(?:(?<=\/)|(?<![\w@.-]))eas(?:-cli(?:@[\w.-]+)?)?\s+(?:update|build|workflow:run)(?![\w:-])/;
 
 /**
  * True when a workflow (EAS) has a job of type update or build, or a custom job whose steps run a

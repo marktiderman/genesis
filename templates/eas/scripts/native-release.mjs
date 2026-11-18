@@ -21,8 +21,9 @@
 //     FINISHED store build of <profile> on that runtime version is published here
 //     (<platform>_action=publish) unless an EAS release run is open; every other platform goes to
 //     EAS (<platform>_action=eas). Writes key=value lines (GITHUB_OUTPUT format), with
-//     publish_platforms and eas_platforms; exits 1 rather than guess when a file isn't what eas
-//     printed, or a build's runtime isn't its fingerprint. A platform is skipped (<platform>_action=skip)
+//     publish_platforms and eas_platforms. Rather than guess, it exits 1 when runs.json isn't what eas
+//     printed, and holds a platform back (<platform>_action=failed, an ::error) when that platform's
+//     files aren't, or its build's runtime isn't its fingerprint. A platform is skipped (<platform>_action=skip)
 //     when <dir>/shipped-<platform>.txt says the channel's latest update already carries this commit,
 //     or when the build it would publish on was made from this commit or a later one ($GITHUB_SHA,
 //     checked with git against the build's gitCommitHash; published when git can't tell). Only builds
@@ -158,12 +159,15 @@ export function laneOpen(runs) {
  * older code back. `order.contains(commit, buildCommit)` says whether the build's commit carries
  * this one (true), doesn't (false) or can't tell (null, and the platform is published).
  * Only builds on `order.channel` (the channel updates go to) count. A platform whose own planning
- * failed (`failed`) is neither published nor handed to EAS (<platform>_action=failed, listed in
- * failed_platforms); the other is planned as usual.
+ * failed (`failed`, from the workflow), or whose files here aren't what eas printed (no fingerprint
+ * hash or runtime version, a builds file that isn't a list, a build whose runtime isn't its
+ * fingerprint), is neither published nor handed to EAS (<platform>_action=failed, listed in
+ * failed_platforms, the reason passed to `order.onError`, by default an `::error` on stderr); the
+ * other is planned as usual. A broken list of EAS runs is shared, and stops every platform.
  * @param {Record<string, { runtime?: string, by?: "fingerprint" | "runtime", builds?: unknown, shipped?: string, failed?: boolean }>} byPlatform
  * @param {unknown} runs
  * @param {string} profile
- * @param {{ commit?: string, contains?: (commit: string, later: string) => boolean | null, channel?: string }} [order]
+ * @param {{ commit?: string, contains?: (commit: string, later: string) => boolean | null, channel?: string, onError?: (platform: string, message: string) => void }} [order]
  */
 export function planOutputs(byPlatform, runs, profile, order = {}) {
   const platforms = Object.keys(byPlatform);
@@ -174,40 +178,57 @@ export function planOutputs(byPlatform, runs, profile, order = {}) {
   const eas = [];
   const skipped = [];
   const failed = [];
+  const onError = order.onError ?? ((platform, message) => console.error(`::error title=${platform} not planned::${message}`));
   for (const platform of platforms) {
     if (byPlatform[platform].failed) {
       out[`${platform}_action`] = "failed";
       failed.push(platform);
       continue;
     }
-    const { runtime, by, builds, shipped } = byPlatform[platform];
-    if (by === "fingerprint" && (typeof runtime !== "string" || !/^[0-9a-f]{40}$/i.test(runtime))) throw new Error(`eas fingerprint:generate gave no ${platform} fingerprint hash.`);
-    // Any runtime version Expo takes (`1.0.0`, `1.0.0(1)`, …): up to 255 characters, no spaces.
-    if (by === "runtime" && !isRuntimeVersion(runtime)) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${runtime ?? ""}").`);
-    // Read as "no build", a broken list would start a native build on every merge.
-    if (!Array.isArray(builds)) throw new Error(`eas build:list --json did not print a list of ${platform} builds.`);
-    const build = by === "fingerprint" ? pickBuild(builds, runtime, platform, profile, order.channel) : pickBuildByRuntime(builds, runtime, platform, profile, order.channel);
-    // With the fingerprint policy the runtime version is the fingerprint. A build recorded with
-    // another one wouldn't take this commit's update: stop before publishing anything.
-    if (build && by === "fingerprint" && build.runtime?.version && build.runtime.version !== runtime) {
-      throw new Error(`The ${platform} build ${build.id} has fingerprint ${runtime} but runtime ${build.runtime.version}: an update from this commit would not reach it. Nothing was published.`);
+    let planned;
+    try {
+      planned = planPlatform(platform, byPlatform[platform], open, profile, order);
+    } catch (error) {
+      onError(platform, error instanceof Error ? error.message : String(error));
+      out[`${platform}_action`] = "failed";
+      failed.push(platform);
+      continue;
     }
-    out[`${platform}_runtime_version`] = runtime;
-    out[`${platform}_has_build`] = build ? "true" : "false";
-    const buildCommit = build && /^[0-9a-f]{40}$/i.test(build.gitCommitHash ?? "") ? build.gitCommitHash : "";
-    if (build) {
-      out[`${platform}_build_id`] = build.id;
-      out[`${platform}_app_version`] = build.appVersion ?? "";
-      if (buildCommit) out[`${platform}_build_commit`] = buildCommit;
-    }
-    const built = Boolean(buildCommit && order.commit && order.contains?.(order.commit, buildCommit) === true);
-    const action = shipped || built ? "skip" : build && !open ? "publish" : "eas";
-    out[`${platform}_action`] = action;
-    if (shipped) out[`${platform}_shipped_by`] = shipped;
-    else if (built) out[`${platform}_built_by`] = buildCommit;
+    Object.assign(out, planned);
+    const action = planned[`${platform}_action`];
     (action === "publish" ? publish : action === "eas" ? eas : skipped).push(platform);
   }
   return Object.entries({ ...out, lane_open: open ? "true" : "false", publish_platforms: publish.join(","), eas_platforms: eas.join(","), skipped_platforms: skipped.join(","), failed_platforms: failed.join(",") }).map(([k, v]) => `${k}=${v}`);
+}
+
+/** One platform's plan outputs; throws when its files aren't what eas printed. */
+function planPlatform(platform, { runtime, by, builds, shipped }, open, profile, order) {
+  const out = {};
+  if (by === "fingerprint" && (typeof runtime !== "string" || !/^[0-9a-f]{40}$/i.test(runtime))) throw new Error(`eas fingerprint:generate gave no ${platform} fingerprint hash.`);
+  // Any runtime version Expo takes (`1.0.0`, `1.0.0(1)`, …): up to 255 characters, no spaces.
+  if (by === "runtime" && !isRuntimeVersion(runtime)) throw new Error(`release.runtimeVersion's command printed no ${platform} runtime version (got "${runtime ?? ""}").`);
+  // Read as "no build", a broken list would start a native build on every merge.
+  if (!Array.isArray(builds)) throw new Error(`eas build:list --json did not print a list of ${platform} builds.`);
+  const build = by === "fingerprint" ? pickBuild(builds, runtime, platform, profile, order.channel) : pickBuildByRuntime(builds, runtime, platform, profile, order.channel);
+  // With the fingerprint policy the runtime version is the fingerprint. A build recorded with
+  // another one wouldn't take this commit's update: stop before publishing anything.
+  if (build && by === "fingerprint" && build.runtime?.version && build.runtime.version !== runtime) {
+    throw new Error(`The ${platform} build ${build.id} has fingerprint ${runtime} but runtime ${build.runtime.version}: an update from this commit would not reach it. Nothing was published.`);
+  }
+  out[`${platform}_runtime_version`] = runtime;
+  out[`${platform}_has_build`] = build ? "true" : "false";
+  const buildCommit = build && /^[0-9a-f]{40}$/i.test(build.gitCommitHash ?? "") ? build.gitCommitHash : "";
+  if (build) {
+    out[`${platform}_build_id`] = build.id;
+    out[`${platform}_app_version`] = build.appVersion ?? "";
+    if (buildCommit) out[`${platform}_build_commit`] = buildCommit;
+  }
+  const built = Boolean(buildCommit && order.commit && order.contains?.(order.commit, buildCommit) === true);
+  const action = shipped || built ? "skip" : build && !open ? "publish" : "eas";
+  out[`${platform}_action`] = action;
+  if (shipped) out[`${platform}_shipped_by`] = shipped;
+  else if (built) out[`${platform}_built_by`] = buildCommit;
+  return out;
 }
 
 /** The finished store build of `profile` for `platform` recorded with `runtime` (an app's own runtime version), or null. */
@@ -437,11 +458,17 @@ async function main(command, args, env) {
       parsePlatforms(list).map((p) => {
         // Its own planning failed (the workflow wrote failed-<platform>.txt): nothing else of it is read.
         if (existsSync(join(dir, `failed-${p}.txt`))) return [p, { failed: true }];
-        const own = join(dir, `runtime-${p}.txt`);
-        const runtime = existsSync(own) ? printedRuntime(readFileSync(own, "utf8")) : readJson(join(dir, `fingerprint-${p}.json`))?.hash;
-        const shippedFile = join(dir, `shipped-${p}.txt`);
-        const shipped = existsSync(shippedFile) ? readFileSync(shippedFile, "utf8").trim() : "";
-        return [p, { runtime, by: existsSync(own) ? "runtime" : "fingerprint", builds: readJson(join(dir, `builds-${p}.json`)), ...(shipped ? { shipped } : {}) }];
+        try {
+          const own = join(dir, `runtime-${p}.txt`);
+          const runtime = existsSync(own) ? printedRuntime(readFileSync(own, "utf8")) : readJson(join(dir, `fingerprint-${p}.json`))?.hash;
+          const shippedFile = join(dir, `shipped-${p}.txt`);
+          const shipped = existsSync(shippedFile) ? readFileSync(shippedFile, "utf8").trim() : "";
+          return [p, { runtime, by: existsSync(own) ? "runtime" : "fingerprint", builds: readJson(join(dir, `builds-${p}.json`)), ...(shipped ? { shipped } : {}) }];
+        } catch (error) {
+          // A file eas didn't write, or not as JSON: that platform alone isn't planned.
+          console.error(`::error title=${p} not planned::${error instanceof Error ? error.message : error}`);
+          return [p, { failed: true }];
+        }
       }),
     );
     // The commit being released (GitHub's), checked against each build's commit with git.
