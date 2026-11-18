@@ -9,7 +9,7 @@
 # can queue for most of an hour) for the commit it couldn't publish itself:
 #
 #   eas workflow:run .eas/workflows/deploy-production.yml --ref <commit> -F commit_sha=<commit> \
-#     -F ios=true -F ios_runtime_version=<…> -F android=false -F android_runtime_version=<…>
+#     -F handoff=native-release -F ios=true -F ios_runtime_version=<…> -F android=false -F android_runtime_version=<…>
 #
 # The runtime versions come from native-release.yml, which computes them with the build profile's
 # env (eas fingerprint:generate --build-profile, or your release.runtimeVersion command), so a
@@ -65,6 +65,16 @@ on:
         type: string
         required: false
         description: owner/name on GitHub, for the release hook.
+      handoff:
+        type: string
+        required: false
+        description: Set by native-release.yml (native-release); a run without it is refused unless manual is true.
+      manual:
+        # A choice, compared as text (eas workflow:run -F sends strings).
+        type: choice
+        options: ["false", "true"]
+        default: "false"
+        description: Release without native-release.yml. Its order checks can then race with GitHub's lane; run native-release.yml by hand instead when you can.
 #@if ios
       ios:
         # A choice, compared as text: eas workflow:run -F sends every value as a string, so a
@@ -106,11 +116,19 @@ jobs:
     name: Check the commit is on main
     env:
       COMMIT_SHA: ${{ inputs.commit_sha }}
+      HANDOFF: ${{ inputs.handoff }}
+      MANUAL: ${{ inputs.manual }}
     steps:
       - uses: eas/checkout
       - name: The checkout is commit_sha, and main contains it
         run: |
           set -eo pipefail
+          # Started by native-release.yml, whose order checks this lane's are made with. A run
+          # started straight on EAS could publish between GitHub's checks and its publish.
+          if [ "$HANDOFF" != native-release ] && [ "$MANUAL" != true ]; then
+            echo "Start releases with native-release.yml (Actions, Run workflow, on main). To run this by hand anyway, pass -F manual=true. Nothing was built or published."
+            exit 1
+          fi
           head=$(git rev-parse HEAD)
           if [ "$head" != "$COMMIT_SHA" ]; then
             echo "The checkout is $head, not commit_sha $COMMIT_SHA: start this workflow with --ref $COMMIT_SHA. Nothing was built or published."
@@ -131,6 +149,8 @@ jobs:
     params:
       platform: ios
       profile: "GENESIS_RELEASE_PROFILE"
+      # Only a build that listens to the release channel: an update published there reaches it.
+      channel: "GENESIS_RELEASE_CHANNEL"
 #@if fingerprint
       fingerprint_hash: ${{ inputs.ios_runtime_version }}
 #@end
@@ -189,15 +209,22 @@ jobs:
           set -eo pipefail
           # Runs can land out of order: when the channel's latest iOS update already carries this
           # commit or a later one, publishing would put older code back. Said, and nothing published.
-          latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" ios)
-          for commit in $latest; do
-            git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
-            if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
-              echo "Not published: the channel's latest iOS update ($commit) already carries $COMMIT_SHA or a later commit."
-              set-output update_group ""
-              exit 0
-            fi
-          done
+          # Checked here, and again just before eas update (another run may publish in between).
+          channel_carries_this() {
+            latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" ios)
+            for commit in $latest; do
+              git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
+              if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
+                echo "Not published: the channel's latest iOS update ($commit) already carries $COMMIT_SHA or a later commit."
+                return 0
+              fi
+            done
+            return 1
+          }
+          if channel_carries_this; then
+            set-output update_group ""
+            exit 0
+          fi
           if [ -n "$BUILD_COMMIT" ]; then
             git cat-file -e "$BUILD_COMMIT^{commit}" 2>/dev/null || git fetch --quiet origin "$BUILD_COMMIT" 2>/dev/null || true
             if git merge-base --is-ancestor "$COMMIT_SHA" "$BUILD_COMMIT" 2>/dev/null; then
@@ -220,6 +247,12 @@ jobs:
           # Only these commands get it: this shell keeps RUNTIME_VERSION and COMMIT_SHA.
           node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" ios -- npx --no expo-updates runtimeversion:resolve --platform ios > "$scratch/resolved-ios.txt"
           node .eas/scripts/native-release.mjs runtime "$scratch/resolved-ios.txt" ios "$RUNTIME_VERSION"
+          # The order again, just before publishing: a run started on EAS by hand (manual) may have
+          # published a later commit since the check above.
+          if channel_carries_this; then
+            set-output update_group ""
+            exit 0
+          fi
           # No --environment: with it, eas update bundles with the EAS environment over the profile's
           # values. CI=1: it then takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
           node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" ios -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "GENESIS_RELEASE_CHANNEL" --platform ios --message "Release $COMMIT_SHA" --json --non-interactive > "$scratch/update-ios.json"
@@ -305,6 +338,8 @@ jobs:
     params:
       platform: android
       profile: "GENESIS_RELEASE_PROFILE"
+      # Only a build that listens to the release channel: an update published there reaches it.
+      channel: "GENESIS_RELEASE_CHANNEL"
 #@if fingerprint
       fingerprint_hash: ${{ inputs.android_runtime_version }}
 #@end
@@ -363,15 +398,22 @@ jobs:
           set -eo pipefail
           # Runs can land out of order: when the channel's latest Android update already carries this
           # commit or a later one, publishing would put older code back. Said, and nothing published.
-          latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" android)
-          for commit in $latest; do
-            git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
-            if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
-              echo "Not published: the channel's latest Android update ($commit) already carries $COMMIT_SHA or a later commit."
-              set-output update_group ""
-              exit 0
-            fi
-          done
+          # Checked here, and again just before eas update (another run may publish in between).
+          channel_carries_this() {
+            latest=$(RELEASE_EAS="npx --yes eas-cli@26.0.0" node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" android)
+            for commit in $latest; do
+              git cat-file -e "$commit^{commit}" 2>/dev/null || git fetch --quiet origin "$commit" 2>/dev/null || true
+              if git merge-base --is-ancestor "$COMMIT_SHA" "$commit" 2>/dev/null; then
+                echo "Not published: the channel's latest Android update ($commit) already carries $COMMIT_SHA or a later commit."
+                return 0
+              fi
+            done
+            return 1
+          }
+          if channel_carries_this; then
+            set-output update_group ""
+            exit 0
+          fi
           if [ -n "$BUILD_COMMIT" ]; then
             git cat-file -e "$BUILD_COMMIT^{commit}" 2>/dev/null || git fetch --quiet origin "$BUILD_COMMIT" 2>/dev/null || true
             if git merge-base --is-ancestor "$COMMIT_SHA" "$BUILD_COMMIT" 2>/dev/null; then
@@ -394,6 +436,12 @@ jobs:
           # Only these commands get it: this shell keeps RUNTIME_VERSION and COMMIT_SHA.
           node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" android -- npx --no expo-updates runtimeversion:resolve --platform android > "$scratch/resolved-android.txt"
           node .eas/scripts/native-release.mjs runtime "$scratch/resolved-android.txt" android "$RUNTIME_VERSION"
+          # The order again, just before publishing: a run started on EAS by hand (manual) may have
+          # published a later commit since the check above.
+          if channel_carries_this; then
+            set-output update_group ""
+            exit 0
+          fi
           # No --environment: with it, eas update bundles with the EAS environment over the profile's
           # values. CI=1: it then takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
           node .eas/scripts/native-release.mjs with-profile eas.json "GENESIS_RELEASE_PROFILE" android -- env CI=1 EXPO_NO_DOTENV=1 npx --yes eas-cli@26.0.0 update --channel "GENESIS_RELEASE_CHANNEL" --platform android --message "Release $COMMIT_SHA" --json --non-interactive > "$scratch/update-android.json"

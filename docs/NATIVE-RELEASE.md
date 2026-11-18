@@ -110,6 +110,15 @@ silently. Left over:
 - Both paths also skip when the build the update would run on was made from this commit or a later
   one (`gitCommitHash` from `eas build:list` on GitHub, get-build's `git_commit_hash` on EAS): a
   later commit that changed native code may have run first and built, with no update yet.
+- Both lanes read the channel's latest update again just before `eas update` (after the runtime
+  check), so a run that published this commit or a later one in the meantime stops this one.
+  `get-build` on EAS matches only builds on the release channel (`channel`), as the GitHub plan does.
+- `deploy-production.yml` refuses a run that `native-release.yml` didn't start (`-F
+  handoff=native-release`, which it sends) unless it's given `-F manual=true`. Releases started by
+  hand go through Actions ("Native release", Run workflow). A run started on EAS with
+  `manual=true` is serialized only with other EAS runs, not with GitHub's: the checks just before
+  publishing narrow the race to the time `eas update` takes to bundle and upload (minutes), during
+  which an older commit's run on the other side can still land over it.
 - The EAS lane's update jobs make both checks just before they publish (eas-cli pinned through
   `npx --yes eas-cli@26.0.0`, and the commits fetched when the checkout lacks them): an EAS run that
   lands after a newer commit's update or build logs "Not published" and skips, and its release hook

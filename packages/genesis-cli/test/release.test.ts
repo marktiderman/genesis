@@ -90,7 +90,7 @@ describe("rendering the templates", () => {
   it("deploy-production: one platform drops the other's jobs and inputs; Sentry and the hook switch on", () => {
     const ios = yaml("release/deploy-production.yml", ctx({ platforms: ["ios"] }));
     expect(Object.keys(ios.jobs).filter((j) => j.includes("android"))).toEqual([]);
-    expect(Object.keys(ios.on.workflow_dispatch.inputs)).toEqual(["commit_sha", "repository", "ios", "ios_runtime_version"]);
+    expect(Object.keys(ios.on.workflow_dispatch.inputs)).toEqual(["commit_sha", "repository", "handoff", "manual", "ios", "ios_runtime_version"]);
     expect(ios.on.workflow_dispatch.inputs.ios_runtime_version).toMatchObject({ type: "string", required: true });
     expect(ios.jobs.update_ios.steps[2].run).not.toContain("sentry-expo-upload-sourcemaps");
     const full = yaml("release/deploy-production.yml", ctx({ sentry: true, pushHook: { script: "scripts/push.mjs", secrets: [] }, profile: "store", channel: "live", easEnvironment: "prod" }));
@@ -130,12 +130,69 @@ describe("rendering the templates", () => {
     git("-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "off main");
     const offMain = git("rev-parse", "HEAD");
     const script = (yaml("release/deploy-production.yml", ctx()).jobs.source.steps as { run?: string }[])[1]!.run!;
-    const check = (sha: string) => spawnSync("bash", ["-c", script], { cwd: repo, encoding: "utf8", env: { ...process.env, COMMIT_SHA: sha } });
+    const check = (sha: string, start: Record<string, string> = { HANDOFF: "native-release" }) => spawnSync("bash", ["-c", script], { cwd: repo, encoding: "utf8", env: { ...process.env, COMMIT_SHA: sha, HANDOFF: "", MANUAL: "", ...start } });
     expect(check(offMain).status).toBe(1);
     expect(check(offMain).stdout).toContain("isn't on main");
     git("switch", "-q", "main");
     expect(check(onMain).status).toBe(0);
     expect(check(offMain).stdout).toContain("start this workflow with --ref");
+    // Only native-release.yml starts it (handoff), or a person who says so (manual=true).
+    const direct = check(onMain, {});
+    expect(direct.status).toBe(1);
+    expect(direct.stdout).toContain("Start releases with native-release.yml");
+    expect(check(onMain, { MANUAL: "true" }).status).toBe(0);
+    expect(check(onMain, { MANUAL: "false", HANDOFF: "other" }).status).toBe(1);
+    const doc = yaml("release/deploy-production.yml", ctx());
+    expect(doc.on.workflow_dispatch.inputs.manual).toMatchObject({ type: "choice", options: ["false", "true"], default: "false" });
+    expect(doc.jobs.source.env).toMatchObject({ HANDOFF: "${{ inputs.handoff }}", MANUAL: "${{ inputs.manual }}" });
+    // native-release.yml sends the handoff.
+    const handoff = (yaml("ci/native-release.yml", ctx()).jobs.release.steps as { name?: string; run?: string }[]).find((st) => st.name === "Hand the release to EAS")!.run!;
+    expect(handoff).toContain('-F "handoff=native-release"');
+  });
+
+  it("deploy-production's get-build matches only builds on the release channel", () => {
+    for (const channel of ["production", "stable"]) {
+      const doc = yaml("release/deploy-production.yml", ctx({ channel }));
+      for (const p of ["ios", "android"]) {
+        // The build lookup and the update name the same channel: an older build on another one isn't taken.
+        expect(doc.jobs[`get_${p}_build`].params.channel).toBe(channel);
+        const run = (doc.jobs[`update_${p}`].steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+        expect(run).toContain(`update --channel "${channel}" --platform ${p}`);
+        expect(doc.jobs[`get_${p}_build`].params.channel).not.toBe(channel === "production" ? "stable" : "production");
+      }
+    }
+  });
+
+  it("both lanes read the channel's order again just before eas update", () => {
+    const gh = yaml("ci/native-release.yml", ctx()).jobs.release.steps as { name?: string; run?: string; if?: string }[];
+    const eas = yaml("release/deploy-production.yml", ctx({ sentry: true, pushHook: { script: "scripts/p.mjs", secrets: [] } }));
+    for (const [p, Name] of [["ios", "iOS"], ["android", "Android"]] as const) {
+      const ghRun = gh.find((st) => st.name === `Publish the ${Name} update`)!.run!;
+      const easRun = (eas.jobs[`update_${p}`].steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+      for (const [run, check] of [[ghRun, `latest-commit "production" ${p}`], [easRun, "if channel_carries_this; then"]] as const) {
+        const last = run.lastIndexOf(check);
+        expect(last).toBeGreaterThan(run.indexOf("native-release.mjs runtime "));
+        expect(last).toBeLessThan(run.indexOf(" update --channel"));
+      }
+      // On GitHub, a late skip publishes nothing, and Sentry and the hook only follow an update that went out.
+      expect(ghRun).toContain("::warning title=Not published::");
+      for (const st of gh.filter((s) => s.if?.includes(`steps.update_${p}.outcome`))) expect(st.if).toContain(`steps.update_${p}.outputs.${p}_update_group != ''`);
+    }
+    // The EAS check runs as written: the channel carrying a later commit stops the publish.
+    const easRun = (eas.jobs.update_ios.steps as { id?: string; run?: string }[]).find((st) => st.id === "publish")!.run!;
+    const fn = easRun.slice(easRun.indexOf("channel_carries_this() {"), easRun.indexOf("\n}\n", easRun.indexOf("channel_carries_this() {")) + 3);
+    const repo = tempDir("genesis-recheck-");
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8" }).trim();
+    git("init", "-q", "-b", "main");
+    git("-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "A");
+    const A = git("rev-parse", "HEAD");
+    git("-c", "user.email=a@example.com", "-c", "user.name=a", "commit", "-q", "--allow-empty", "-m", "B");
+    const B = git("rev-parse", "HEAD");
+    writeTree(repo, { ".eas/scripts/native-release.mjs": `console.log(process.env.LATEST ?? "");\n` });
+    const carries = (commit: string, latest: string) => spawnSync("bash", ["-c", `${fn}\nchannel_carries_this && echo CARRIED || echo FREE`], { cwd: repo, encoding: "utf8", env: { ...process.env, COMMIT_SHA: commit, LATEST: latest } }).stdout;
+    expect(carries(A, B)).toContain("CARRIED");
+    expect(carries(B, A)).toContain("FREE");
+    expect(carries(B, "")).toContain("FREE");
   });
 
   it("deploy-production publishes like GitHub does: the platform's profile env, the runtime checked before eas update", () => {

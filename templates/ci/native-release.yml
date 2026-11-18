@@ -248,6 +248,15 @@ jobs:
           node .eas/scripts/native-release.mjs runtime "$RUNNER_TEMP/release/resolved-ios.txt" ios "$RUNTIME_VERSION"
           # No --environment: with it, eas update bundles with the EAS environment over the profile's
           # values. In CI it takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
+          # The channel's order again, just before publishing: a run started on EAS by hand may have
+          # published this commit or a later one since the plan read it.
+          latest=$(node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" ios)
+          for commit in $latest; do
+            if git merge-base --is-ancestor "$GITHUB_SHA" "$commit" 2>/dev/null; then
+              echo "::warning title=Not published::The channel's latest iOS update ($commit) already carries $GITHUB_SHA or a later commit: nothing was published for iOS."
+              exit 0
+            fi
+          done
           RELEASE_MESSAGE=$(git log -1 --format=%s)
           export RELEASE_MESSAGE
           # shellcheck disable=SC2016 # the shell eas env:exec starts expands these
@@ -256,7 +265,7 @@ jobs:
 #@if sentry
 
       - name: Upload the iOS update's source maps to Sentry
-        if: ${{ !cancelled() && steps.update_ios.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.update_ios.outcome == 'success' && steps.update_ios.outputs.ios_update_group != '' }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no sentry-expo-upload-sourcemaps dist' --non-interactive
@@ -264,7 +273,7 @@ jobs:
 #@if pushHook
 
       - name: Run the release hook (iOS update)
-        if: ${{ !cancelled() && steps.update_ios.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.update_ios.outcome == 'success' && steps.update_ios.outputs.ios_update_group != '' }}
         env:
           RELEASE_KIND: update
           RELEASE_PLATFORM: ios
@@ -301,6 +310,15 @@ jobs:
           node .eas/scripts/native-release.mjs runtime "$RUNNER_TEMP/release/resolved-android.txt" android "$RUNTIME_VERSION"
           # No --environment: with it, eas update bundles with the EAS environment over the profile's
           # values. In CI it takes the environment it's given; EXPO_NO_DOTENV as --environment sets it.
+          # The channel's order again, just before publishing: a run started on EAS by hand may have
+          # published this commit or a later one since the plan read it.
+          latest=$(node .eas/scripts/native-release.mjs latest-commit "GENESIS_RELEASE_CHANNEL" android)
+          for commit in $latest; do
+            if git merge-base --is-ancestor "$GITHUB_SHA" "$commit" 2>/dev/null; then
+              echo "::warning title=Not published::The channel's latest Android update ($commit) already carries $GITHUB_SHA or a later commit: nothing was published for Android."
+              exit 0
+            fi
+          done
           RELEASE_MESSAGE=$(git log -1 --format=%s)
           export RELEASE_MESSAGE
           # shellcheck disable=SC2016 # the shell eas env:exec starts expands these
@@ -309,7 +327,7 @@ jobs:
 #@if sentry
 
       - name: Upload the Android update's source maps to Sentry
-        if: ${{ !cancelled() && steps.update_android.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.update_android.outcome == 'success' && steps.update_android.outputs.android_update_group != '' }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: eas env:exec GENESIS_RELEASE_EAS_ENVIRONMENT 'npx --no sentry-expo-upload-sourcemaps dist' --non-interactive
@@ -317,7 +335,7 @@ jobs:
 #@if pushHook
 
       - name: Run the release hook (Android update)
-        if: ${{ !cancelled() && steps.update_android.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.update_android.outcome == 'success' && steps.update_android.outputs.android_update_group != '' }}
         env:
           RELEASE_KIND: update
           RELEASE_PLATFORM: android
@@ -347,7 +365,8 @@ jobs:
           ANDROID_RUNTIME: ${{ steps.plan.outputs.android_runtime_version }}
         run: |
           echo "EAS takes $EAS_PLATFORMS for $GITHUB_SHA (an EAS release run open: $LANE_OPEN); nothing is published here for them."
-          args=(-F "commit_sha=$GITHUB_SHA" -F "repository=$GITHUB_REPOSITORY")
+          # handoff: deploy-production.yml refuses a run that doesn't come from here (unless manual=true).
+          args=(-F "commit_sha=$GITHUB_SHA" -F "repository=$GITHUB_REPOSITORY" -F "handoff=native-release")
 #@if ios
           # Choices, compared as text on EAS: -F sends every value as a string.
           # A platform whose planning failed has no runtime version: a placeholder, since its jobs don't run.
