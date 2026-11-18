@@ -171,7 +171,7 @@ describe("rendering the templates", () => {
       const bin = tempDir("genesis-fail-closed-bin-");
       const ran = path.join(bin, "ran.txt");
       // latest-commit fails (an API error); anything else the step would run records itself.
-      writeTree(app, { ".eas/scripts/native-release.mjs": `if (process.argv[2] === "latest-commit") { console.error("eas: 500"); process.exit(1); }\nrequire("node:fs").appendFileSync(${JSON.stringify(ran)}, process.argv.slice(2).join(" ") + "\\n");\n` });
+      writeTree(app, { ".eas/scripts/native-release.mjs": `import { appendFileSync } from "node:fs";\nif (process.argv[2] === "latest-commit") { console.error("eas: 500"); process.exit(1); }\nappendFileSync(${JSON.stringify(ran)}, process.argv.slice(2).join(" ") + "\\n");\n` });
       writeTree(bin, { npx: `#!/usr/bin/env bash\necho "npx $*" >> ${JSON.stringify(ran)}\n`, "set-output": `#!/usr/bin/env bash\necho "set-output $*" >> ${JSON.stringify(ran)}\n` });
       execFileSync("chmod", ["+x", path.join(bin, "npx"), path.join(bin, "set-output")]);
       const result = spawnSync("bash", ["-c", run], { cwd: app, encoding: "utf8", env: { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, COMMIT_SHA: "a".repeat(40), RUNTIME_VERSION: "f".repeat(40), BUILD_COMMIT: "" } });
