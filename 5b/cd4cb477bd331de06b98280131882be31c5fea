@@ -1,0 +1,39 @@
+packages/genesis-cli/src/mcp/stdio.ts
+  s_ca8e075e853203::t_08413bf9108896 1-60
+packages/genesis-cli/src/fix/types.ts
+  s_ca8e075e853203::t_8f3ae7dca41f46 108-112
+.changeset/genesis-mcp.md
+  s_ca8e075e853203::t_00eb77f3dc2a5c 12-14
+features.json
+  s_ca8e075e853203::t_182c1346af2406 8241
+features.ts
+  s_ca8e075e853203::t_cb16f6351fb1b5 3593
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_765349f16ff034 1623-1628,1636-1638,1648-1649
+packages/genesis-cli/src/mcp/bounds.ts
+  s_ca8e075e853203::t_f52236f28c9c7c 25,41-46,51-66,70,74-81,84-85,88
+packages/genesis-cli/src/mcp/config.ts
+  s_ca8e075e853203::t_2243596ff2ae25 5,26,50-61,76-90
+packages/genesis-cli/src/mcp/server.ts
+  s_ca8e075e853203::t_cd81aa82683493 37,78-97,230-236,250-285,385-386,473,533-534,554-555
+packages/genesis-cli/test/mcp.test.ts
+  s_ca8e075e853203::t_cdca8fc16ff6b4 2,10-12,86,269,271,293-319,347-379,385-408,435-441
+pnpm-lock.yaml
+  s_ca8e075e853203::t_2d12fbc56044af 47,595,634,658,737,761,803,833,866,918,943,967,1022,1077,1122,1155,1207,1255,1365,1399,1463,1524,1573,1694,1757,1788,1810,1874,1898,1916,2079,2185,8437-8438,13866,18596
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5bcd4cb477bd331de06b98280131882be31c5fea",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
