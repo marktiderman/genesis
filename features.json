@@ -8184,6 +8184,58 @@
       "flags": []
     },
     {
+      "id": "doctor-fixes",
+      "name": "genesis fix",
+      "summary": "Every doctor finding declares its fix: automatic, guided or manual. genesis fix plans one (the files with the hash of the text each expects, the allowlisted commands, the secrets by name, what is left to a person, and a hash of the whole plan), applies it with --yes (or --expect <hash>: a stale plan is refused, and a file that changed since it was planned stops every write), then re-runs the doctor for its rules. The first fixes wrap the codemods, genesis agents, introspect, migrate and upgrade (a pull request, never merged); packages add their own with genesis.doctor.fixes. The genesis-behind rule reports how far the installed release is behind and any advisory on it, cached for a day and never failing offline.",
+      "category": "Tooling",
+      "status": "building",
+      "horizon": "now",
+      "kind": "tool",
+      "keywords": [
+        "doctor",
+        "fix",
+        "autofix",
+        "codemod",
+        "plan",
+        "upgrade",
+        "advisories",
+        "behind",
+        "migrate"
+      ],
+      "requires": [
+        "cli-migrate",
+        "cli-upgrade"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer",
+        "agent"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Every finding carries a fix (manual:<rule> when no fix is registered); the report shows genesis fix <id> for one that runs, and the list of built-in rules without one may only shrink.",
+        "Applying plans again and refuses a changed hash, checks every file's expected hash before writing any, and runs commands only as allowlisted argument lists, never through a shell, with secrets on stdin.",
+        "genesis-behind is info a patch behind, a warning one or two minors behind that never fails --strict, a strict-failing warning further or 90 days behind, an error with the advisory id when one applies, and one info from the cache offline."
+      ],
+      "reviewedAt": "2026-11-19",
+      "links": {
+        "code": [
+          "packages/genesis-cli/src/fix",
+          "packages/genesis-cli/src/exec/run.ts",
+          "packages/genesis-cli/src/upgrade/registry.ts",
+          "packages/genesis-cli/src/doctor/behind.ts"
+        ],
+        "docs": [
+          "packages/genesis-cli/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "cli-upgrade",
       "name": "genesis upgrade",
       "summary": "Moves every @marktiderman/genesis* dependency to one release's versions.json with the genesis-upgrade workflow's own bump code, runs codemods only for a package crossing a declared breaking version, refreshes the files Genesis owns in the app (templates, functions, skills, tests) with a three-way decision recorded in genesis.lock.json, replaces AGENTS.md fragments, reports new package migrations, runs the doctor, and with --pr opens a pull request.",

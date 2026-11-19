@@ -368,6 +368,7 @@ const KNOWN = new Set<string>([
   "packageRules",
   "ratchet",
   "contracts",
+  "network",
   "$schema",
   "$comment",
 ]);
@@ -712,6 +713,7 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
     }
   }
   if (c.ratchet !== undefined && typeof c.ratchet !== "boolean" && !isStringList(c.ratchet)) fail(`"ratchet" must be true, false or a list of rule ids`);
+  if (c.network !== undefined && typeof c.network !== "boolean") fail(`"network" must be true or false`);
   if (c.packs !== undefined) {
     if (!isStringList(c.packs)) fail(`"packs" must be a list, e.g. ["native", "supabase"]`);
     for (const p of c.packs as string[]) if (!PACKS.has(p)) fail(`packs: unknown pack "${p}" (known: ${[...PACKS].join(", ")})`);

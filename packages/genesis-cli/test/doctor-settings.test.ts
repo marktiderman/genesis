@@ -151,8 +151,8 @@ describe("genesis-config-unknown-key", () => {
     const root = app({ presets: "max", setting: {}, settings: {}, doctor: {}, $schema: "x" });
     const result = await runDoctor({ root, config: {} });
     expect(result.findings.filter((f) => f.rule === "genesis-config-unknown-key").map((f) => `${f.level} ${f.subject}: ${f.message}`)).toEqual([
-      'warn presets: "presets" isn\'t a genesis.config.json setting, so nothing reads it: did you mean "preset"?',
-      'warn setting: "setting" isn\'t a genesis.config.json setting, so nothing reads it: did you mean "settings"?',
+      'warn presets: "presets" isn\'t a genesis.config.json setting, so nothing reads it: did you mean "preset"?; or upgrade @marktiderman/genesis-cli if this is a newer key',
+      'warn setting: "setting" isn\'t a genesis.config.json setting, so nothing reads it: did you mean "settings"?; or upgrade @marktiderman/genesis-cli if this is a newer key',
     ]);
     expect(BUILTIN_RULES).toContain("genesis-config-unknown-key");
   });
