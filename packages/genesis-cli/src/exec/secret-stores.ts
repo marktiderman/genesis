@@ -4,7 +4,7 @@
  * | Store (settings `store`) | Target | Set | Status |
  * |---|---|---|---|
  * | `edge` | Supabase Edge Function secrets | `supabase secrets set --env-file /dev/stdin` | `supabase secrets list -o json` |
- * | `vault` | Supabase Vault | SQL on stdin: `supabase db query --linked -f /dev/stdin` | `select name from vault.secrets`, the same way |
+ * | `vault` | Supabase Vault | none: the person adds it in the dashboard (Database → Vault) | `select name from vault.secrets` through `supabase db query --linked` |
  * | `ci` | GitHub Actions | `gh secret set NAME` (reads stdin) | `gh secret list --json name` |
  * | `ci` | EAS (apps with eas.json) | none: `eas env:create` has no stdin path, so the person runs it | `eas env:list <environment>` (names parsed; values discarded) |
  * | `server-env` | the app's server host | none: the person sets it there | none |
@@ -12,9 +12,17 @@
  * Every command runs through the developer's own signed-in CLI, through src/exec/run.ts (argv,
  * no shell, scrubbed environment). A value only ever reaches a tool on stdin. A tool that is
  * missing or signed out is an answer ("not checked: gh isn't installed"), never a crash.
+ *
+ * **Why Vault is set by hand.** Writing a Vault secret means a SQL statement with the value in it
+ * (`vault.create_secret('…')`). The body of a DO block (or a function call's literal argument)
+ * isn't normalised by pg_stat_statements, so the value would land in `pg_stat_statements.query`
+ * (which Supabase shows under Query Performance), and in the Postgres log on an error. And
+ * `supabase db query --linked` needs a direct database connection (IPv6, or the database
+ * password), not the Management API. So the CLI never writes Vault: the plan says to add it in
+ * the dashboard (Database → Vault). Only the names are read, which carries no value. The in-app
+ * Settings screen will set Vault secrets server-side through a parameterised function (Phase 4).
  */
 import { existsSync, readFileSync } from "node:fs";
-import { randomBytes } from "node:crypto";
 import * as path from "node:path";
 import type { PlannedCommand } from "../fix/types.js";
 import { runTool, TOOL_AUTH_ENV, type ToolRunner } from "./run.js";
@@ -23,8 +31,8 @@ import { assertSecretName, SecretError } from "./secret-vault.js";
 export type SecretStore = "vault" | "edge" | "server-env" | "ci";
 export type SecretTarget = "edge" | "vault" | "github" | "eas" | "server-env";
 
-/** How a planned command's stdin carries the secret: the bare value, a dotenv line, or Vault SQL. */
-export type StdinFormat = "value" | "dotenv" | "vault-sql";
+/** How a planned command's stdin carries the secret: the bare value, or one dotenv line. */
+export type StdinFormat = "value" | "dotenv";
 
 /** What a finding about a target names as its `file`, and how a person reads it. */
 export const TARGET_LABEL: Readonly<Record<SecretTarget, string>> = {
@@ -73,7 +81,8 @@ export function setterFor(name: string, target: SecretTarget, options: StoreOpti
     case "edge":
       return { command: { tool: "supabase", args: ["secrets", "set", "--env-file", "/dev/stdin"], stdinSecret: name, stdinFormat: "dotenv", why: `sets the Edge Function secret ${name} in the linked Supabase project (the value on stdin as one dotenv line)` } };
     case "vault":
-      return { command: { tool: "supabase", args: ["db", "query", "--linked", "-f", "/dev/stdin"], stdinSecret: name, stdinFormat: "vault-sql", why: `creates or updates ${name} in the linked project's Supabase Vault (the SQL, value included, on stdin)` } };
+      // Never as SQL from here: the value would be kept in pg_stat_statements and the logs (see above).
+      return { manual: `Add ${name} in the Supabase dashboard: Database → Vault → Add new secret, named ${name} (the CLI never writes Vault: SQL carrying the value would be kept in pg_stat_statements)` };
     case "github":
       return {
         command: {
@@ -101,25 +110,6 @@ export function stdinFor(format: StdinFormat, name: string, value: string): stri
       // Single quotes are literal in a dotenv file: no escapes, no ${…} expansion.
       if (/['\r\n]/.test(value)) throw new SecretError(`${name}: a value with a quote or a line break can't go through supabase secrets set on stdin; set it in the Supabase dashboard (Edge Functions → Secrets)`);
       return `${name}='${value}'\n`;
-    case "vault-sql": {
-      let tag = "";
-      do tag = `g${randomBytes(8).toString("hex")}`;
-      while (value.includes(tag));
-      const literal = `$${tag}$${value}$${tag}$`;
-      if (value.includes("$body$")) throw new SecretError(`${name}: the value holds "$body$", which the Vault SQL can't carry; set it in the Supabase dashboard (Vault)`);
-      return [
-        "do $body$",
-        "begin",
-        `  if exists (select 1 from vault.secrets where name = '${name}') then`,
-        `    perform vault.update_secret((select id from vault.secrets where name = '${name}'), ${literal});`,
-        "  else",
-        `    perform vault.create_secret(${literal}, '${name}');`,
-        "  end if;",
-        "end",
-        "$body$;",
-        "",
-      ].join("\n");
-    }
   }
 }
 

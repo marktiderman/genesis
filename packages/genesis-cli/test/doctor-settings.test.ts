@@ -87,7 +87,7 @@ describe("invalid-setting", () => {
     expect(await findings(root)).toEqual([]);
     const result = await runDoctor({ root, config: {} });
     expect(result.findings.filter((f) => f.rule === "setting-requires").map((f) => `${f.level} ${f.subject}: ${f.message} [${f.fix?.id}]`)).toEqual([
-      "warn support.agentDesk: settings.support.agentDesk is on but needs support.inbox, which is off [settings.requires]",
+      "warn support.agentDesk: settings.support.agentDesk is on but needs support.inbox, which is off (its value comes from the preset layer) [settings.requires]",
     ]);
     expect((await runDoctor({ root: app({ preset: "min", settings: { "support.inbox": false } }), config: {} })).findings.filter((f) => f.rule === "setting-requires")).toEqual([]);
   });

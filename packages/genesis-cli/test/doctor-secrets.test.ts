@@ -34,8 +34,8 @@ describe("SecretVault", () => {
   it.each([
     ["a lower-case name", () => new SecretVault().set("api_key", VALUE), /isn't a secret name/],
     ["an empty value", () => new SecretVault().set("API_KEY", "  "), /empty or shorter/],
-    ["a short value", () => new SecretVault().set("API_KEY", "abc"), /shorter than 4/],
-    ["a NUL byte", () => new SecretVault().set("API_KEY", "abc\0def"), /NUL/],
+    ["a short value", () => new SecretVault().set("API_KEY", "abcdefg"), /shorter than 8/],
+    ["a NUL byte", () => new SecretVault().set("API_KEY", "abcd\0efgh"), /NUL/],
   ])("refuses %s", (_, set, message) => {
     expect(set).toThrow(SecretError);
     expect(set).toThrow(message);
@@ -49,6 +49,20 @@ describe("SecretVault", () => {
     expect(vault.redact(JSON.stringify({ v: 'line-one-of-key\nline-two "quoted"' }))).not.toMatch(/line-one|quoted/);
     expect(vault.redact("only line-one-of-key leaked")).toBe("only [redacted] leaked");
     expect(vault.redactJson({ deep: [{ v: VALUE }] })).toEqual({ deep: [{ v: "[redacted]" }] });
+  });
+
+  it("redacts string leaves only, whatever the value looks like", () => {
+    const vault = new SecretVault();
+    vault.set("A", "truetrue");
+    vault.set("B", "nullnull");
+    expect(vault.redactJson({ ok: true, n: null, x: 1, s: "a truetrue b", k: ["nullnull"] })).toEqual({ ok: true, n: null, x: 1, s: "a [redacted] b", k: ["[redacted]"] });
+  });
+
+  it("redacts the \\u-escaped form of a non-ASCII value", () => {
+    const vault = new SecretVault();
+    vault.set("A", "pässwörd-42");
+    expect(vault.redact('{"v":"p\\u00e4ssw\\u00f6rd-42"}')).toBe('{"v":"[redacted]"}');
+    expect(vault.redact("pässwörd-42")).toBe("[redacted]");
   });
 
   it("redacts a value split across two chunks of streamed output", () => {
@@ -81,13 +95,15 @@ describe("SecretVault", () => {
 
 describe("secret stores", () => {
   it("set a secret through stdin only: the value is never in a command's argv", () => {
-    for (const target of ["edge", "vault", "github"] as const) {
+    for (const target of ["edge", "github"] as const) {
       const setter = setterFor("GITHUB_TOKEN", target, { githubEnvironment: "production" });
       expect("command" in setter).toBe(true);
       if ("command" in setter) expect(setter.command.stdinSecret).toBe("GITHUB_TOKEN");
     }
     expect(setterFor("SENTRY_AUTH_TOKEN", "github", { githubEnvironment: "production" })).toMatchObject({ command: { tool: "gh", args: ["secret", "set", "SENTRY_AUTH_TOKEN", "--env", "production"] } });
     expect(setterFor("EXPO_TOKEN", "eas")).toEqual({ manual: expect.stringContaining("eas env:create --name EXPO_TOKEN --environment production --visibility secret") });
+    // Vault is never written from the CLI: SQL carrying the value would be kept in pg_stat_statements.
+    expect(setterFor("WEBHOOK_SECRET", "vault")).toEqual({ manual: expect.stringContaining("Database → Vault") });
     expect(setterFor("SERVICE_KEY", "server-env")).toEqual({ manual: expect.stringContaining("server's environment") });
     expect(() => setterFor("bad name", "edge")).toThrow(SecretError);
     expect(() => setterFor("A_B", "github", { githubEnvironment: "--repo x" })).toThrow(/isn't an environment name/);
@@ -97,10 +113,6 @@ describe("secret stores", () => {
     expect(stdinFor("value", "A", VALUE)).toBe(VALUE);
     expect(stdinFor("dotenv", "A", "v$HOME#x")).toBe("A='v$HOME#x'\n");
     expect(() => stdinFor("dotenv", "A", "it's")).toThrow(/quote or a line break/);
-    const sql = stdinFor("vault-sql", "WEBHOOK_SECRET", "a'b$c");
-    expect(sql).toMatch(/vault\.create_secret\(\$g[0-9a-f]{16}\$a'b\$c\$g[0-9a-f]{16}\$, 'WEBHOOK_SECRET'\)/);
-    expect(sql).toContain("vault.update_secret");
-    expect(() => stdinFor("vault-sql", "A", "x$body$y")).toThrow(/\$body\$/);
   });
 
   it("parse names, never keeping a value", () => {
@@ -141,15 +153,60 @@ describe("secret stores", () => {
     }
   });
 
-  it("asks at a terminal without echoing", async () => {
-    const listeners: Array<(c: string) => void> = [];
-    const written: string[] = [];
-    const input = { isRaw: false, setRawMode: () => {}, setEncoding: () => {}, resume: () => {}, pause: () => {}, on: (_: "data", l: (c: string) => void) => listeners.push(l), off: () => {} };
-    const answer = promptHidden("KEY: ", input, { write: (t) => written.push(t) });
-    listeners[0]!(`${VALUE}x\u007f`);
-    listeners[0]!("\r");
+  /** A terminal stand-in: what the prompt wrote, its raw mode, and its listeners. */
+  function terminal() {
+    const listeners: Record<string, Array<(arg?: unknown) => void>> = {};
+    const add = (e: string, l: (arg?: unknown) => void) => (listeners[e] = [...(listeners[e] ?? []), l]);
+    const remove = (e: string, l: (arg?: unknown) => void) => (listeners[e] = (listeners[e] ?? []).filter((x) => x !== l));
+    const state = { raw: false, written: [] as string[], killed: [] as string[] };
+    const input = { isRaw: false, setRawMode: (m: boolean) => (state.raw = m), setEncoding: () => {}, resume: () => {}, pause: () => {}, on: add, off: remove };
+    const proc = { pid: 1, once: add, off: remove, kill: (_pid: number, signal: string) => state.killed.push(signal) };
+    const emit = (e: string, arg?: unknown) => [...(listeners[e] ?? [])].forEach((l) => l(arg));
+    const ask = () => promptHidden("KEY: ", { input: input as never, output: { write: (t: string) => state.written.push(t) }, process: proc as never, settleMs: 5 });
+    return { state, emit, ask, listening: (e: string) => (listeners[e] ?? []).length };
+  }
+
+  it("asks at a terminal without echoing, and puts the terminal back", async () => {
+    const t = terminal();
+    const answer = t.ask();
+    expect(t.state.raw).toBe(true);
+    t.emit("data", `${VALUE}x\u007f`);
+    t.emit("data", "\r\n");
     expect(await answer).toBe(VALUE);
-    expect(written.join("")).toBe("KEY: \n");
+    expect(t.state.written.join("")).toBe("KEY: \n");
+    expect(t.state.raw).toBe(false);
+    expect(t.listening("SIGTERM") + t.listening("exit") + t.listening("data")).toBe(0);
+  });
+
+  it.each([
+    ["more after Enter in the same paste", (t: ReturnType<typeof terminal>) => t.emit("data", `${VALUE}\nsecond line`), /multi-line values aren't supported/],
+    ["more arriving right after Enter", (t: ReturnType<typeof terminal>) => (t.emit("data", `${VALUE}\r`), t.emit("data", "second line")), /multi-line values aren't supported/],
+    ["a control character", (t: ReturnType<typeof terminal>) => t.emit("data", `${VALUE}\t`), /control character/],
+    ["an escape sequence", (t: ReturnType<typeof terminal>) => t.emit("data", `${VALUE}\u001b[A`), /control character/],
+    ["Ctrl-C", (t: ReturnType<typeof terminal>) => t.emit("data", "\u0003"), /cancelled/],
+    ["stdin closing", (t: ReturnType<typeof terminal>) => t.emit("end"), /stdin closed/],
+    ["stdin failing", (t: ReturnType<typeof terminal>) => t.emit("error", new Error("EIO")), /stdin failed: EIO/],
+  ])("refuses %s, and puts the terminal back", async (_, act, message) => {
+    const t = terminal();
+    const answer = t.ask();
+    act(t);
+    await expect(answer).rejects.toThrow(message);
+    expect(t.state.raw).toBe(false);
+  });
+
+  it("puts the terminal back on exit, and on SIGTERM re-raises it", async () => {
+    const t = terminal();
+    const answer = t.ask();
+    t.emit("exit");
+    expect(t.state.raw).toBe(false);
+    const t2 = terminal();
+    const answer2 = t2.ask();
+    t2.emit("SIGHUP");
+    await expect(answer2).rejects.toThrow(/interrupted \(SIGHUP\)/);
+    expect(t2.state.raw).toBe(false);
+    expect(t2.state.killed).toEqual(["SIGHUP"]);
+    t.emit("data", `${VALUE}\r`);
+    await answer;
   });
 });
 
@@ -309,6 +366,17 @@ describe("the settings check: setup and secrets", () => {
   });
 });
 
+describe("setting-requires by layer", () => {
+  it("reports a database row's gap there, and leaves it to the Settings screen", async () => {
+    const root = secretsApp();
+    writeFileSync(path.join(stubs, "db.json"), JSON.stringify([{ key: "support.agentDesk", value: true, locked: false }, { key: "support.inbox", value: false, locked: false }]));
+    const result = await runDoctor({ root, database: true });
+    expect(list(result.findings).filter((l) => l.startsWith("setting-requires"))).toEqual([
+      "setting-requires warn genesis_settings support.agentDesk [manual:setting-requires]: settings.support.agentDesk is on but needs support.inbox, which is off (its value comes from the database layer)",
+    ]);
+  });
+});
+
 describe("the settings and secrets fixes", () => {
   const io = (answers: Record<string, string> = {}) => {
     const out: string[] = [];
@@ -341,20 +409,21 @@ describe("the settings and secrets fixes", () => {
     const code = await runFixCommand({ root, target: "secrets.set", yes: true, network: true, json: true }, t.io);
     const printed = [...t.out, ...t.err].join("\n");
     expect(printed).not.toContain(VALUE);
-    expect(t.asked.sort()).toEqual(["AI_PROVIDER_KEY", "GENESIS_SUPPORT_WEBHOOK_SECRET", "SENTRY_AUTH_TOKEN", "SUPPORT_WEBHOOK_URL"]);
+    expect(t.asked.sort()).toEqual(["AI_PROVIDER_KEY", "SENTRY_AUTH_TOKEN", "SUPPORT_WEBHOOK_URL"]);
     const json = JSON.parse(t.out.join("\n")) as { fixes: Array<{ plan: { commands: Array<{ tool: string; args: string[]; stdinSecret?: string }>; manual?: string; secrets: string[] } }> };
     const plan = json.fixes[0]!.plan;
-    expect(plan.secrets).toEqual(["AI_PROVIDER_KEY", "GENESIS_SUPPORT_WEBHOOK_SECRET", "SENTRY_AUTH_TOKEN", "SUPPORT_WEBHOOK_URL"]);
+    expect(plan.secrets).toEqual(["AI_PROVIDER_KEY", "SENTRY_AUTH_TOKEN", "SUPPORT_WEBHOOK_URL"]);
     expect(plan.manual).toContain("eas env:create --name SENTRY_AUTH_TOKEN");
-    const sets = calls().split("\n").filter((l) => / set |db query --linked -f/.test(l));
+    expect(plan.manual).toContain("Add GENESIS_SUPPORT_WEBHOOK_SECRET in the Supabase dashboard: Database → Vault");
+    const sets = calls().split("\n").filter((l) => / set /.test(l));
     expect(sets.sort()).toEqual([
       "gh secret set SENTRY_AUTH_TOKEN",
-      "supabase db query --linked -f /dev/stdin",
       "supabase secrets set --env-file /dev/stdin",
       "supabase secrets set --env-file /dev/stdin",
     ]);
     expect(stdins()).toContain(`AI_PROVIDER_KEY='${VALUE}'`);
-    expect(stdins()).toContain(`perform vault.create_secret($g`);
+    // Vault is only ever read, by name.
+    expect(stdins()).not.toMatch(/create_secret|update_secret/);
     expect(stdins()).toMatch(new RegExp(`\\n${VALUE}\\n---`));
     // The stubs never really store anything, so the re-check still finds them missing.
     expect(code).toBe(1);
@@ -376,7 +445,23 @@ describe("the settings and secrets fixes", () => {
     const err: string[] = [];
     expect(await runFixCommand({ root, target: "secrets.set", yes: true, network: true }, { out: (l) => out.push(l), err: (l) => err.push(l) })).toBe(1);
     expect(err.join("\n")).toMatch(/needs .*SENTRY_AUTH_TOKEN.*: run genesis fix secrets.set at a terminal/);
-    expect(calls()).not.toMatch(/ set |-f \/dev\/stdin\n.*create_secret/);
+    expect(calls()).not.toMatch(/ set /);
+    expect(stdins()).not.toContain(VALUE);
+  });
+
+  it("secrets.set: a prompt that fails part-way refuses the fix, redacts what was typed, and runs nothing", async () => {
+    const root = secretsApp();
+    const out: string[] = [];
+    const err: string[] = [];
+    let n = 0;
+    const promptSecret = async () => {
+      if (n++ === 0) return VALUE;
+      throw new Error(`terminal went away after ${VALUE}`);
+    };
+    expect(await runFixCommand({ root, target: "secrets.set", yes: true, network: true, json: true }, { out: (l) => out.push(l), err: (l) => err.push(l), promptSecret })).toBe(1);
+    expect(err.join("\n")).toContain("terminal went away after [redacted]. Nothing was written.");
+    expect([...out, ...err].join("\n")).not.toContain(VALUE);
+    expect(calls()).not.toMatch(/ set /);
     expect(stdins()).not.toContain(VALUE);
   });
 

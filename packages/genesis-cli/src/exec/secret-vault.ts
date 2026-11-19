@@ -7,15 +7,24 @@
  * - `redact(text)` replaces every held value (and its JSON-escaped form, and each long line of a
  *   multi-line value) in anything shown: tool output, errors, notes, JSON. `redactingRunner` does it
  *   for a tool's output, line by line as it streams, so a value split across two chunks is still caught.
- * - `drop(name)` / `clear()` forget values: the fix engine drops a plan's secrets once it has verified.
+ * - `drop(name)` / `clear()` forget values: the fix engine drops a plan's secrets once it has
+ *   verified, unless its caller still prints (then the caller clears, once, after printing).
+ *
+ * **Limits.** Redaction catches the value as typed, its JSON-escaped form, and its `\u`-escaped
+ * form (every non-ASCII character as `\uXXXX`). It does not catch other encodings a tool might
+ * print (URL-encoded, base64, hex), nor lines shorter than 8 characters of a multi-line value. A
+ * value is at least 8 characters, so redacting it rarely hides ordinary text, but a short one
+ * that is also a common word would be over-redacted wherever it appears. And JavaScript strings
+ * can't be zeroed: a dropped value stays in the process's memory until the garbage collector
+ * reuses it, so it can show up in a core dump or a heap snapshot taken while `genesis` runs.
  */
 import type { RunToolOptions, ToolRunner } from "./run.js";
 
 /** A secret's name: upper-case letters, digits and underscores, starting with a letter. */
 export const SECRET_NAME = /^[A-Z][A-Z0-9_]*$/;
 
-/** A value shorter than this couldn't be redacted without mangling ordinary text, so it is refused. */
-export const MIN_SECRET_LENGTH = 4;
+/** A value shorter than this couldn't be redacted without mangling ordinary text, so it is refused (no real token is this short). */
+export const MIN_SECRET_LENGTH = 8;
 
 export const REDACTED = "[redacted]";
 
@@ -69,13 +78,14 @@ export class SecretVault {
     this.#values.clear();
   }
 
-  /** Every string that must never be shown: each value, its JSON-escaped form, and each line of 8+ characters of a multi-line value. Longest first. */
+  /** Every string that must never be shown: each value, its JSON-escaped and `\u`-escaped forms, and each line of 8+ characters of a multi-line value. Longest first. */
   #needles(): string[] {
     const out = new Set<string>();
     for (const value of this.#values.values()) {
       out.add(value);
       const escaped = JSON.stringify(value).slice(1, -1);
-      if (escaped !== value) out.add(escaped);
+      out.add(escaped);
+      out.add(escaped.replace(/[^\x20-\x7e]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`));
       if (/[\r\n]/.test(value)) for (const line of value.split(/\r?\n/)) if (line.trim().length >= 8) out.add(line);
     }
     return [...out].sort((a, b) => b.length - a.length);
@@ -88,9 +98,15 @@ export class SecretVault {
     return out;
   }
 
-  /** A deep copy of a JSON-able value with every string redacted (for --json output). */
+  /** A deep copy of a value with every string leaf (and object key) redacted, for --json output. Numbers, booleans and null are kept as they are. */
   redactJson<T>(value: T): T {
-    return JSON.parse(this.redact(JSON.stringify(value) ?? "null")) as T;
+    const walk = (v: unknown): unknown => {
+      if (typeof v === "string") return this.redact(v);
+      if (Array.isArray(v)) return v.map(walk);
+      if (v && typeof v === "object") return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [this.redact(k), walk(x)]));
+      return v;
+    };
+    return walk(value) as T;
   }
 
   /**

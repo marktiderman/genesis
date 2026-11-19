@@ -34,7 +34,7 @@ export interface PlannedCommand {
   args: string[];
   /** The name of a secret written to the command's stdin. Never in argv, never in the plan's text. */
   stdinSecret?: string;
-  /** How stdin carries it: the bare value (default), one dotenv line (`supabase secrets set --env-file /dev/stdin`), or Vault SQL. */
+  /** How stdin carries it: the bare value (default), or one dotenv line (`supabase secrets set --env-file /dev/stdin`). */
   stdinFormat?: StdinFormat;
   why: string;
 }

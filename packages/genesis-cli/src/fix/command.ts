@@ -129,10 +129,12 @@ async function fixCommand(options: FixCommandOptions, io: FixCommandIo, vault: S
   }
 
   const results: unknown[] = [];
+  // Each result is redacted as it is recorded, while the values it could hold are still in the vault.
+  const record = (result: unknown) => results.push(vault.redactJson(result));
   let code = 0;
   for (const g of chosen) {
     if (!g.fix) {
-      results.push({ id: g.id, kind: "manual", findings: g.findings });
+      record({ id: g.id, kind: "manual", findings: g.findings });
       if (!options.json) {
         io.out(`${g.id}: nothing runs; fix by hand:`);
         for (const f of g.findings) io.out(`  ${f.file}${f.line ? `:${f.line}` : ""}  ${f.message}`);
@@ -153,62 +155,67 @@ async function fixCommand(options: FixCommandOptions, io: FixCommandIo, vault: S
       plan = await planFix(fix, ctx);
     } catch (err) {
       io.err(`✗ ${fix.id}: couldn't plan: ${(err as Error).message}`);
-      results.push({ id: fix.id, error: (err as Error).message });
+      record({ id: fix.id, error: (err as Error).message });
       code = 1;
       continue;
     }
     if (!options.json) io.out(describePlan(fix, plan).join("\n"));
     const actionable = plan.files.length + plan.commands.length > 0;
     if (options.plan || fix.kind === "manual" || !actionable) {
-      results.push({ id: fix.id, kind: fix.kind, plan });
+      record({ id: fix.id, kind: fix.kind, plan });
       continue;
     }
     if (options.expect && options.expect !== plan.hash) {
       io.err(`✗ ${fix.id}: the plan is now ${plan.hash}, not ${options.expect}: the app changed since that plan was read. Nothing was written; read the plan above.`);
-      results.push({ id: fix.id, kind: fix.kind, plan, refused: "stale" });
+      record({ id: fix.id, kind: fix.kind, plan, refused: "stale" });
       code = 1;
       continue;
     }
     const approved = options.yes || (io.confirm ? await io.confirm(`Apply ${fix.id}?`) : false);
     if (!approved) {
       if (!options.json) io.out(`  Not applied. Apply this plan with: genesis fix ${fix.id} --yes --expect ${plan.hash}`);
-      results.push({ id: fix.id, kind: fix.kind, plan, applied: false });
+      record({ id: fix.id, kind: fix.kind, plan, applied: false });
       continue;
     }
-    const missing = plan.secrets.filter((name) => !vault.has(name));
-    if (missing.length) {
-      const prompt = await defaultPrompt(io);
-      if (!prompt) {
-        io.err(`✗ ${fix.id} needs ${missing.join(", ")}: run genesis fix ${fix.id} at a terminal, where it asks for ${missing.length === 1 ? "the value" : "each value"} without showing it (a value is never taken from a flag or a file). Nothing was written.`);
-        results.push({ id: fix.id, kind: fix.kind, plan, applied: false, refused: "secrets", secrets: missing });
-        code = 1;
-        continue;
+    // The one place this fix's values are forgotten: after everything about it is printed.
+    try {
+      const missing = plan.secrets.filter((name) => !vault.has(name));
+      if (missing.length) {
+        const prompt = await defaultPrompt(io);
+        if (!prompt) {
+          io.err(`✗ ${fix.id} needs ${missing.join(", ")}: run genesis fix ${fix.id} at a terminal, where it asks for ${missing.length === 1 ? "the value" : "each value"} without showing it (a value is never taken from a flag or a file). Nothing was written.`);
+          record({ id: fix.id, kind: fix.kind, plan, applied: false, refused: "secrets", secrets: missing });
+          code = 1;
+          continue;
+        }
+        try {
+          for (const name of missing) vault.set(name, (await prompt(name, `${name} (hidden; Enter when done): `)).trim());
+        } catch (err) {
+          io.err(`✗ ${fix.id}: ${(err as Error).message}. Nothing was written.`);
+          record({ id: fix.id, kind: fix.kind, plan, applied: false, refused: "secrets" });
+          code = 1;
+          continue;
+        }
       }
       try {
-        for (const name of missing) vault.set(name, (await prompt(name, `${name} (hidden; Enter when done): `)).trim());
+        const applied = await applyPlan(fix, plan, { ...ctx, secrets: vault }, { expect: options.expect ?? plan.hash, keepSecrets: true });
+        record({ id: fix.id, kind: fix.kind, plan: applied.plan, applied: true, written: applied.written, ran: applied.ran, notes: applied.notes, verify: { ok: applied.verify.ok, message: applied.verify.message, remaining: applied.verify.remaining?.length ?? 0 } });
+        if (!options.json) {
+          if (applied.written.length) io.out(`✔ Wrote ${applied.written.join(", ")}`);
+          if (applied.ran.length) io.out(`✔ Ran ${applied.ran.join("; ")}`);
+          for (const n of applied.notes) io.out(`  ${n}`);
+          io.out(applied.verify.ok ? `✔ Verified: ${fix.rules.join(", ")} no longer report what this fix covers.` : `✗ Not verified: ${applied.verify.message ?? "the findings are still there"}`);
+        }
+        if (!applied.verify.ok) code = 1;
       } catch (err) {
-        io.err(`✗ ${fix.id}: ${(err as Error).message}. Nothing was written.`);
-        results.push({ id: fix.id, kind: fix.kind, plan, applied: false, refused: "secrets" });
+        // applyPlan wraps what fails after it starts writing in a FixError that says what it rolled back.
+        const e = err instanceof Error ? err : new Error(String(err));
+        io.err(`✗ ${e.message}`);
+        record({ id: fix.id, kind: fix.kind, plan, applied: false, error: e.message, refused: e.name });
         code = 1;
-        continue;
       }
-    }
-    try {
-      const applied = await applyPlan(fix, plan, { ...ctx, secrets: vault }, { expect: options.expect ?? plan.hash });
-      results.push({ id: fix.id, kind: fix.kind, plan: applied.plan, applied: true, written: applied.written, ran: applied.ran, notes: applied.notes, verify: { ok: applied.verify.ok, message: applied.verify.message, remaining: applied.verify.remaining?.length ?? 0 } });
-      if (!options.json) {
-        if (applied.written.length) io.out(`✔ Wrote ${applied.written.join(", ")}`);
-        if (applied.ran.length) io.out(`✔ Ran ${applied.ran.join("; ")}`);
-        for (const n of applied.notes) io.out(`  ${n}`);
-        io.out(applied.verify.ok ? `✔ Verified: ${fix.rules.join(", ")} no longer report what this fix covers.` : `✗ Not verified: ${applied.verify.message ?? "the findings are still there"}`);
-      }
-      if (!applied.verify.ok) code = 1;
-    } catch (err) {
-      // applyPlan wraps what fails after it starts writing in a FixError that says what it rolled back.
-      const e = err instanceof Error ? err : new Error(String(err));
-      io.err(`✗ ${e.message}`);
-      results.push({ id: fix.id, kind: fix.kind, plan, applied: false, error: e.message, refused: e.name });
-      code = 1;
+    } finally {
+      vault.clear();
     }
   }
   if (options.json) io.out(JSON.stringify(vault.redactJson({ target, fixes: results }), null, 2));

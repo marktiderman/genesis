@@ -115,7 +115,7 @@ export function toPlan(fixId: string, root: string, draft: FixPlanDraft): FixPla
     if (!Array.isArray(c.args) || c.args.some((a) => typeof a !== "string")) throw new FixError(`${fixId}: a command's args must be a list of strings`);
     if (c.tool !== "genesis" && !isAllowedTool(c.tool)) throw new FixError(`${fixId}: plans "${c.tool}", which isn't a tool a fix may run`);
     if (c.stdinSecret !== undefined && !/^[A-Z][A-Z0-9_]*$/.test(c.stdinSecret)) throw new FixError(`${fixId}: stdinSecret must be a secret's NAME, never a value`);
-    if (c.stdinFormat !== undefined && !["value", "dotenv", "vault-sql"].includes(c.stdinFormat)) throw new FixError(`${fixId}: unknown stdinFormat ${JSON.stringify(c.stdinFormat)}`);
+    if (c.stdinFormat !== undefined && !["value", "dotenv"].includes(c.stdinFormat)) throw new FixError(`${fixId}: unknown stdinFormat ${JSON.stringify(c.stdinFormat)}`);
     if (c.stdinFormat !== undefined && !c.stdinSecret) throw new FixError(`${fixId}: stdinFormat without a stdinSecret`);
     return { tool: c.tool, args: [...c.args], ...(c.stdinSecret ? { stdinSecret: c.stdinSecret } : {}), ...(c.stdinFormat && c.stdinFormat !== "value" ? { stdinFormat: c.stdinFormat } : {}), why: c.why };
   });
@@ -164,6 +164,11 @@ export interface ApplyOptions {
   expect?: string;
   /** Runs allowlisted tools (tests pass a stand-in). */
   run?: ToolRunner;
+  /**
+   * Keep the plan's secrets in the vault after verifying: the caller still prints the result
+   * redacted against them, then clears the vault itself (`genesis fix` does). Default: dropped here.
+   */
+  keepSecrets?: boolean;
 }
 
 export interface ApplyResult {
@@ -183,8 +188,8 @@ export async function applyPlan(fix: Fix, plan: FixPlan, context: ApplyContext, 
   try {
     return await applyWithVault(fix, plan, { ...context, secrets: vault }, vault, options);
   } finally {
-    // Held for one fix only: dropped once it has verified (or failed).
-    for (const name of plan.secrets) vault.drop(name);
+    // Held for one fix only: dropped once it has verified (or failed), unless the caller clears them after printing.
+    if (!options.keepSecrets) for (const name of plan.secrets) vault.drop(name);
   }
 }
 
