@@ -10,6 +10,9 @@ Support and feedback for Genesis apps, kept in **the app's own Supabase**:
 - **native**: a feedback screen, screenshot capture with mark-up that can hide private parts, and
   **shake to report**; the person's reports as an inbox with staff replies and read receipts; an
   **idea board** with one vote per person, and "you asked, we shipped" tied to FeatureIds;
+- **diagnostics**: a context dump (`genesis.diagnostics/1`) to the app's own server, on demand, on
+  a shake and with every piece of feedback, scrubbed on the device and again on the server, with a
+  `/server` handler for apps with their own API;
 - a `defineBlock` declaration (`support-feedback`) that adds **Send feedback** and **Help** to
   Settings, names its routes and its migration.
 
@@ -136,7 +139,9 @@ await client.submit({ type: "bug", message, context: await collector.collect(), 
   is written to the `severity` column as well; for the intake function, set
   `GENESIS_SUPPORT_SEVERITY_COLUMN=true`.
 - `createIntakeClient` + `createIntakeSink`: the wire contract over HTTP, for code without
-  supabase-js (it takes no screenshots, and says so in `attachmentsDropped`).
+  supabase-js (it takes no screenshots, and says so in `attachmentsDropped`). For feedback with
+  screenshots to the app's own API, use `httpTransport({ url }).feedbackSink` and
+  `createDiagnosticsHandler` (see "Diagnostics").
 - `contract.ts` is the wire contract (`CONTRACT_VERSION`, headers, `SubmitFeedbackInput`,
   `validateSubmitInput`), byte-identical to the intake function's copy (a test checks).
 - `isSitePath(route)`: whether a report's route is a path on this site, safe to link (one leading
@@ -146,6 +151,170 @@ await client.submit({ type: "bug", message, context: await collector.collect(), 
 
 A GitHub issue per report, or a signed webhook, is a server-side sink: the
 `genesis-support-notify` function template in `@marktiderman/genesis-supabase`.
+
+## Diagnostics: the context dump
+
+A **dump** is one JSON object (`genesis.diagnostics/1`) with everything a developer wants to see
+about the app at a moment: the build and update (commit, OTA number, release), the device
+(model, OS, locale, time zone, screen, network, permission states), the person (an id and a role,
+nothing else), the current route and the ones before it, the flags and blocks in effect, recent
+errors, breadcrumbs and console lines, Sentry's last event and replay ids, and the app's own
+sections. It goes to **the app's own server**:
+
+- on demand: "Send diagnostics" on a Development or About screen (`SendDiagnosticsRow`) and in the
+  devtools overlay, beside "Copy debug info";
+- on a shake (`createSupport({ diagnostics })`);
+- with every piece of feedback, both linked: the report's context holds `diagnosticsId`, the
+  dump's `feedbackId` is the report.
+
+The person sees a short id (`3F2A9C1B`) to quote to support.
+
+### Set it up: an app on Supabase
+
+Apply migration `0019_genesis_support_diagnostics.sql` (`genesis add support-feedback` lists it),
+then build the dump once, at module scope:
+
+```ts
+import { createDiagnostics, supabaseTransport, defineDiagnosticSection } from "@marktiderman/genesis-support";
+import { createSupport, nativeSections, observabilitySection } from "@marktiderman/genesis-support/native";
+
+export const diagnostics = createDiagnostics({
+  app: { id: "acme", name: "Acme" },
+  transport: supabaseTransport(supabase),
+  sections: [
+    ...nativeSections({ application: Application, updates: Updates, device: Device, netInfo: NetInfo, buildMetadata }),
+    observabilitySection(observability),
+    defineDiagnosticSection("cart", () => ({ items: cart.items.length }), { maxBytes: 8192 }),
+  ],
+  user: () => ({ id: session?.user.id, role }),
+  offline: { storage: AsyncStorage },
+});
+
+export const support = createSupport({ supabase, navigate: router.push, diagnostics });
+```
+
+On the web, `webSections()` from `@marktiderman/genesis-support/web` reads the browser, the path
+and a console ring buffer, and `<FeedbackPanel client={client} diagnostics={diagnostics} />` sends
+a dump with every report.
+
+### Set it up: an app with its own API (a NestJS backend, say)
+
+The app sends dumps and feedback, screenshots included, to its API with `httpTransport`. Feedback
+and its dump go in one multipart request, so the server stores both and alerts staff with both:
+
+```ts
+import { createDiagnostics, httpTransport } from "@marktiderman/genesis-support";
+import { createSupport, nativeSections } from "@marktiderman/genesis-support/native";
+
+const transport = httpTransport({ url: `${API}/support/diagnostics`, auth: () => token() });
+export const diagnostics = createDiagnostics({ app: { id: "acme" }, transport, sections: nativeSections({ application: Application }) });
+export const support = createSupport({ supabase, navigate: router.push, diagnostics, feedbackSink: transport.feedbackSink });
+```
+
+The server mounts one handler. It authenticates, rate limits (10 dumps and 20 reports an hour per
+person, 5 requests a minute per IP), refuses a dump over 512 KB, scrubs and caps it again, stores
+it through your adapters and runs the notifiers:
+
+```ts
+import { createDiagnosticsHandler, githubIssueNotifier, messengerNotifier, webhookNotifier } from "@marktiderman/genesis-support/server";
+
+export const handleSupport = createDiagnosticsHandler({
+  authenticate: async (request) => verifyToken(request.headers.get("authorization")),
+  store: drizzleSupportStore(db),       // your DiagnosticsStore: saveReport, saveFeedback, attachFile
+  files: s3SupportFiles(s3),            // your DiagnosticsFiles: put(path, bytes, contentType)
+  notify: [
+    githubIssueNotifier({ token: env.GITHUB_TOKEN, repo: "acme/app", detail: "summary" }),
+    webhookNotifier({ url: env.SUPPORT_WEBHOOK_URL, secret: env.SUPPORT_WEBHOOK_SECRET }),
+    messengerNotifier({ staffAlert: (alert) => emailStaff(alert), thankReporter: (thanks) => pushThanks(thanks) }),
+  ],
+});
+```
+
+Mount it where your server takes requests. It is a Fetch handler, `Request → Promise<Response>`:
+
+<!-- docs-check: skip -->
+```ts
+// NestJS (Express adapter)
+@Post("support/diagnostics")
+async diagnostics(@Req() req: ExpressRequest, @Res() res: ExpressResponse) {
+  const response = await handleSupport(toFetchRequest(req)); // new Request(url, { method, headers, body: req as a stream })
+  res.status(response.status).set(Object.fromEntries(response.headers)).send(await response.text());
+}
+```
+
+```ts
+// A Supabase Edge Function (supabase/functions/support-diagnostics/index.ts)
+import { createClient } from "@supabase/supabase-js";
+import { createDiagnosticsHandler, supabaseAuthenticate, supabaseDiagnosticsFiles, supabaseDiagnosticsStore } from "@marktiderman/genesis-support/server";
+
+const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+Deno.serve(createDiagnosticsHandler({ authenticate: supabaseAuthenticate(admin), store: supabaseDiagnosticsStore(admin), files: supabaseDiagnosticsFiles(admin) }));
+```
+
+<!-- docs-check: skip -->
+```ts
+// A TanStack Start server route (src/routes/api/support/diagnostics.ts)
+export const Route = createFileRoute("/api/support/diagnostics")({
+  server: { handlers: { POST: ({ request }) => handleSupport(request) } },
+});
+```
+
+The in-memory rate limiter suits one server process. Behind several instances, pass `rateLimit`
+backed by a shared store; the database (migration 0019) holds 10 dumps an hour per person either
+way. On an Edge runtime, pass `waitUntil` so notifiers run after the answer.
+
+### What a GitHub issue carries (D8)
+
+`githubIssueNotifier` opens an issue per report with the **summary only** by default: type,
+title, message (fenced, so it can't mention or link anyone), route, version, the report id and the
+dump's short id. `detail: "full"` adds the build, device, route and recent errors and breadcrumbs,
+**and only on a repository GitHub says is private**: it asks once, and on a public repository (or
+when it can't tell) it falls back to the summary. Dumps on their own open no issue unless
+`on: ["diagnostics"]`. An app on Supabase without a server keeps using the
+`genesis-support-notify` function (summary only).
+
+### Privacy and caps
+
+On the device, and again on the server (`redactReport`, `parseDiagnosticReport`):
+- the person is an id and a role: no email, name or tenant name;
+- every string goes through the same scrubber as genesis-native's observability (`scrubString`:
+  emails, phone numbers, JWTs, Supabase keys, bearer tokens, long hex runs, query strings), and a
+  value under a key that names a secret or a contact detail (`password`, `token`, `cookie`,
+  `email`, …) becomes `[Filtered]`;
+- routes are paths, with ids, emails and tokens in them replaced (`cleanRoute`);
+- no request headers, cookies, storage contents, contacts or clipboard; a dump never carries a
+  screenshot (screenshots stay on a report, sent only when the person includes them).
+
+An app section can be declared `pii: "none"` (numbers, counts) to skip the text patterns on the
+device; keys are still checked, and the server applies every rule.
+
+| Item | Cap (`DIAGNOSTICS_DEFAULTS`) |
+|---|---|
+| The whole dump | 256 KB of JSON (`maxBytes`); the server refuses over 512 KB (`serverMaxBytes`) |
+| One string | 4,096 characters (`maxString`) |
+| Errors, breadcrumbs, console lines | the last 50, 100 and 200 (`maxErrors`, `maxBreadcrumbs`, `maxConsoleLines`); a console line 1 KB |
+| An app section | 32 KB (`sectionMaxBytes`, or `maxBytes` per section) |
+| Rate | 10 dumps an hour per person (`ratePerHour`), 5 requests a minute per IP (`ipRatePerMinute`) |
+| Kept | 90 days (`retentionDays`): `support_purge_diagnostics`, which `genesis-support-cleanup` calls |
+
+Over a cap the oldest entries go first, and what was cut is named in `truncated`. A dump is always
+sent, never refused for size. Every option and its default is in `DIAGNOSTICS_DEFAULTS`, one
+object, so the settings layer can declare them as `diagnostics.*` settings.
+
+### Offline
+
+With `offline: { storage }` (`localStorage` on the web, AsyncStorage on the phone, or MMKV through a
+three-method adapter), a dump that failed for a reason that may pass (no network, a server error,
+a rate limit) is kept and tried again with doubling backoff (5 s up to an hour, 12 tries, 20 kept
+at most); `send` answers `{ queued: true }` with the id it will have. Call `diagnostics.flush()` on
+reconnect or on coming to the front. A refusal (403, a bad dump) isn't kept.
+
+### Build metadata
+
+`nativeSections({ buildMetadata })` and genesis-native's `versionSignature({ buildMetadata })` (and
+`createUpdates({ buildMetadata })`) read the commit, OTA number and release the app writes into its
+bundle when it publishes: a generated module such as `export default { commit: "3f2a9c1", otaNumber: 42, release: "2026.11.19" }`.
+Without it those fields are null.
 
 ## Threads on genesis-chat (the `support-chat` block)
 
