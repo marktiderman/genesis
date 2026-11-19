@@ -312,9 +312,93 @@ export interface SupabaseResourceConfig {
    * With a `source` (or a `select` that embeds other tables), the table's own
    * columns: creates and updates write only these, so a form built from the
    * richer read row never sends its joined or computed columns to the table.
-   * Without it, an update writes only the columns the table's row has.
+   * Without it, an update writes only the columns the table's row has, read from the table. On a
+   * provider with `access: "declared"` that read needs `table.read`: without it and without
+   * `writeColumns`, a table update over a `source` is refused, and an app `update` rule gets the
+   * values as sent. Write functions (`writes`) always get the values as sent: they decide what
+   * to write.
    */
   writeColumns?: readonly string[];
+  /**
+   * The named database functions this resource writes through: the default pattern
+   * (docs/DATA-ACCESS.md). Each is a function name, called with the default arguments, or
+   * `{ fn, args }` to name the arguments yourself:
+   *
+   * - `create`: `{ p_values }` (the prepared row, as jsonb). Returns the new id, or the new row.
+   * - `update`: `{ p_id, p_values }`, plus `p_expected_version` when the caller sent a version
+   *   for a resource with a `version` rule. Returns the id (or `true`, or the row) when a row
+   *   changed and nothing (null) when none did; the provider then reads the row to say why
+   *   (`conflict`, `forbidden` or `gone`).
+   * - `delete`: `{ p_id }`, plus `p_expected_version` as for `update`. Returns the id (or `true`)
+   *   when a row went, nothing when none did.
+   *
+   * The function holds the access rule (who may do this), so each one gets an access-rule test
+   * (`accessRules` from `@marktiderman/genesis-core/testing`). After a create or update the
+   * provider reads the record back through the resource's read (`source`), never `select *` on the
+   * table, so a write never asks for a column the client may not read.
+   *
+   * ```ts
+   * resources: {
+   *   tasks: {
+   *     source: "tasks_with_people",
+   *     writes: { create: "create_task", update: "save_task", delete: "delete_task" },
+   *   },
+   * }
+   * ```
+   *
+   * A `create` or `update` rule (above) wins over the matching `writes` entry.
+   */
+  writes?: ResourceWrites;
+  /**
+   * Named row actions, served by `runAction`: each a database function called with `{ p_id }`
+   * (plus `p_expected_version` as for `writes.update`), or `{ fn, args }`. It returns the changed
+   * row, its id or `true` when it acted, and nothing when no row matched.
+   */
+  actions?: Readonly<Record<string, FunctionCall<[id: Identifier, context: SupabaseUpdateContext]>>>;
+  /**
+   * Raw table access, declared: the reads or writes this resource does on its table itself
+   * instead of through a view or a named function, and why. With the provider's
+   * `access: "declared"`, a read with no `source` and a write with no `writes` entry (nor a
+   * `create`/`update` rule) is refused unless this covers it. The doctor's `data/declared-access`
+   * rule reports a provider that doesn't declare its access.
+   */
+  table?: TableAccess;
+}
+
+/**
+ * A database function a resource calls: its name (called with the documented default arguments),
+ * or `{ fn, args }` naming the arguments yourself.
+ *
+ * @stability Beta
+ */
+export type FunctionCall<A extends unknown[]> =
+  | string
+  | { readonly fn: string; readonly args?: (...input: A) => Record<string, unknown> };
+
+/**
+ * The named functions a resource writes through (`SupabaseResourceConfig.writes`).
+ *
+ * @stability Beta
+ */
+export interface ResourceWrites {
+  readonly create?: FunctionCall<[values: Record<string, unknown>]>;
+  readonly update?: FunctionCall<[id: Identifier, values: Record<string, unknown>, context: SupabaseUpdateContext]>;
+  readonly delete?: FunctionCall<[id: Identifier, context: SupabaseUpdateContext]>;
+}
+
+/**
+ * A declared opt-in to raw table access (`SupabaseResourceConfig.table`). `why` is required: it is
+ * what a reviewer reads to accept the exception.
+ *
+ * @stability Beta
+ */
+export interface TableAccess {
+  /** Read the table itself (the resource has no `source`). */
+  readonly read?: boolean;
+  /** Write the table itself: every write (`true`) or the ones listed. */
+  readonly write?: boolean | readonly ("create" | "update" | "delete")[];
+  /** Why this resource goes to its table rather than a view or a named function. */
+  readonly why: string;
 }
 
 /** Options for `createSupabaseProvider`. All optional; none changes reads. */
@@ -374,6 +458,15 @@ export interface SupabaseProviderOptions {
    * rows, paged (`resolveAggregate`, up to 10 000 rows). A count is always the database's.
    */
   aggregateFunctions?: boolean;
+  /**
+   * `"declared"`: every resource says how it is read and written (docs/DATA-ACCESS.md). Reads go
+   * through its `source` (a view or a function) and writes through its `writes` functions (or a
+   * `create`/`update` rule); touching the table itself needs a declared `table` opt-in. Anything
+   * else, a resource missing from `resources` included, is refused with a message that names what
+   * to declare. `"open"` (the default): an undeclared resource reads and writes its table, as
+   * before. The doctor's `data/declared-access` rule reports a provider left open.
+   */
+  access?: "declared" | "open";
 }
 
 /** A PostgREST "undefined column" error (42703) naming `column`. */
@@ -784,8 +877,10 @@ export function createSupabaseProvider(
       const allowed = new Set(config.writeColumns);
       return Object.fromEntries(Object.entries(values).filter(([key]) => allowed.has(key)));
     }
-    if (!config.source || id === undefined) return values;
-    const row = await readBack(resource, id);
+    // On a declared provider the table's row is read for its columns only when the table's read is
+    // declared; otherwise the values go as they are (name them with `writeColumns`).
+    if (!config.source || id === undefined || !tableAllowed(resource, "read")) return values;
+    const row = (await run(from(resource).select("*").eq("id", id)))[0] as BaseRecord | undefined;
     if (!row) return values;
     return Object.fromEntries(Object.entries(values).filter(([key]) => key in row));
   }
@@ -891,6 +986,167 @@ export function createSupabaseProvider(
     options.resources?.[resource] ?? options.resources?.[otherSpelling(resource)] ?? {};
   const nounFor = (resource: string) => configFor(resource).noun ?? "record";
 
+  // ---------------------------------------------------------------------------
+  // Declared access (docs/DATA-ACCESS.md)
+  // ---------------------------------------------------------------------------
+
+  const declared = options.access === "declared";
+  /** Whether some resource declares an action (`runAction` and `capabilities().actions` exist only then). */
+  const anyActions = Object.values(options.resources ?? {}).some((r) => Object.keys(r.actions ?? {}).length > 0);
+
+  /**
+   * A `{ fn, args }` write function on a versioned resource whose `args` takes no context: it can't
+   * pass the expected version on, so the version check would silently go. Warned once per call site.
+   */
+  const warnedArgs = new Set<string>();
+  function warnArgsDropVersion(resource: string, use: string, call: FunctionCall<never[]> | undefined, contextAt: number): void {
+    if (!call || typeof call === "string" || !call.args || !versionFor(resource)) return;
+    if (call.args.length >= contextAt) return;
+    const key = `${resource}\0${use}`;
+    if (warnedArgs.has(key)) return;
+    warnedArgs.add(key);
+    reportError(
+      new Error(
+        `[SupabaseProvider] "${resource}" has a version rule and its ${use} function's args takes no context. ` +
+          `Take the context (argument ${contextAt}) and pass context.expectedVersion on as p_expected_version, or writes go unchecked.`,
+      ),
+      { source: "core:versioned-writes", tags: { resource } },
+    );
+  }
+
+  /** Whether `resource` may go to its table itself for `op`: always on an open provider, else only as declared. */
+  function tableAllowed(resource: string, op: "read" | "create" | "update" | "delete"): boolean {
+    if (!declared) return true;
+    const table = configFor(resource).table;
+    if (!table) return false;
+    if (op === "read") return table.read === true;
+    return table.write === true || (Array.isArray(table.write) && table.write.includes(op));
+  }
+
+  /** What a declared provider says when `resource` hasn't declared `op`. */
+  function undeclaredMessage(resource: string, op: "read" | "create" | "update" | "delete"): string {
+    const use =
+      op === "read"
+        ? "a `source` (a view, or a database function)"
+        : `\`writes.${op}\` (a database function)`;
+    const optIn = op === "read" ? "read: true" : `write: ["${op}"]`;
+    return (
+      `[SupabaseProvider] "${resource}" declares no ${op === "read" ? "read" : op}. Give it ${use}, ` +
+      `or opt in to its table with \`table: { ${optIn}, why: "…" }\` (docs/DATA-ACCESS.md).`
+    );
+  }
+
+  /** Whether `resource` has declared its reads (always true on an open provider). */
+  const readDeclared = (resource: string): boolean =>
+    configFor(resource).source !== undefined || tableAllowed(resource, "read");
+
+  /** Refuses a read the resource hasn't declared, on a declared provider, through `onReadError`. */
+  async function assertReadDeclared(resource: string, operation: "getList" | "getOne" | "getMany"): Promise<void> {
+    if (readDeclared(resource)) return;
+    await reportReadError(new DataReadError("forbidden", undeclaredMessage(resource, "read")), resource, operation);
+  }
+
+  /** Whether `resource` has a declared way to do `op`: a function, an app rule, or the table opt-in. */
+  function writeDeclared(resource: string, op: "create" | "update" | "delete"): boolean {
+    const config = configFor(resource);
+    if (config.writes?.[op]) return true;
+    if (op === "create" && config.create) return true;
+    if (op === "update" && config.update) return true;
+    return tableAllowed(resource, op);
+  }
+
+  /** Refuses a write that would go to the table undeclared, on a declared provider. */
+  function assertTableWrite(resource: string, op: "create" | "update" | "delete"): void {
+    if (tableAllowed(resource, op)) return;
+    throw new DataWriteError("forbidden", undeclaredMessage(resource, op));
+  }
+
+  /** The function and its arguments for a `FunctionCall`, with `defaults` when it names none. */
+  function callFor<A extends unknown[]>(
+    call: FunctionCall<A>,
+    input: A,
+    defaults: Record<string, unknown>,
+  ): { fn: string; args: Record<string, unknown> } {
+    if (typeof call === "string") return { fn: call, args: defaults };
+    return { fn: call.fn, args: call.args ? call.args(...input) : defaults };
+  }
+
+  /** Calls a write function and returns what it returned, or throws a mapped `DataWriteError`. */
+  async function callWrite(resource: string, fn: string, args: Record<string, unknown>): Promise<unknown> {
+    if (!client.rpc) {
+      throw new DataWriteError("error", `[SupabaseProvider] "${resource}" writes through ${fn}(), but the client has no rpc.`);
+    }
+    let result: { data: unknown; error: unknown };
+    try {
+      result = (await client.rpc(fn, args)) as { data: unknown; error: unknown };
+    } catch (error) {
+      throw toDataWriteError(error);
+    }
+    if (result.error) throw toDataWriteError(result.error);
+    // A set-returning function answers with rows: the first one is the answer, none is nothing.
+    if (Array.isArray(result.data)) return result.data.length > 0 ? result.data[0] : null;
+    return result.data;
+  }
+
+  /** The version arguments a write function gets: the expected version, when the caller sent one. */
+  const versionArgs = (expected: string | undefined): Record<string, unknown> =>
+    expected === undefined ? {} : { p_expected_version: expected };
+
+  /**
+   * A record after a write, read the way the resource reads (its `source`, or the table with its
+   * `select`), so the write never asks for a column the client may not read. Undefined when that
+   * read fails or finds nothing; the caller then reports the write with what it sent.
+   */
+  async function readRecord(resource: string, id: Identifier): Promise<BaseRecord | undefined> {
+    // A resource that declares no read (a write-only one) is never read back: the caller reports
+    // the write with what it sent.
+    if (!readDeclared(resource)) return undefined;
+    try {
+      return (await run(read(resource, undefined).eq("id", id)))[0] as BaseRecord | undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * The record after a write that returned only its id. A declared provider, or a write through a
+   * `writes` function, reads it the way the resource reads (`readRecord`); an app rule on an open
+   * provider reads the table's row, as it always has.
+   */
+  async function readAfterWrite(resource: string, id: Identifier, throughFunction: boolean): Promise<BaseRecord | undefined> {
+    // A write function is new API: it always reads back the way the resource reads.
+    if (declared || throughFunction) return readRecord(resource, id);
+    return readBack(resource, id).catch(() => undefined);
+  }
+
+  /** The `create` rule: the app's own, else the declared `writes.create` function. */
+  function createRule(resource: string): SupabaseResourceConfig["create"] {
+    const config = configFor(resource);
+    if (config.create) return config.create;
+    const call = config.writes?.create;
+    if (!call) return undefined;
+    return async (row) => {
+      const { fn, args } = callFor(call, [row], { p_values: row });
+      const returned = await callWrite(resource, fn, args);
+      return returned as BaseRecord | Identifier;
+    };
+  }
+
+  /** The `update` rule: the app's own, else the declared `writes.update` function. */
+  function updateRule(resource: string): SupabaseResourceConfig["update"] {
+    const config = configFor(resource);
+    if (config.update) return config.update;
+    const call = config.writes?.update;
+    if (!call) return undefined;
+    warnArgsDropVersion(resource, "update", call as FunctionCall<never[]>, 3);
+    // Three parameters, so the provider passes the expected version (it warns about a rule without one).
+    return async (id, row, context) => {
+      const expected = context?.expectedVersion;
+      const { fn, args } = callFor(call, [id, row, context ?? {}], { p_id: id, p_values: row, ...versionArgs(expected) });
+      return (await callWrite(resource, fn, args)) as BaseRecord | Identifier | boolean | null;
+    };
+  }
+
   /**
    * Rows this client wrote just now, `${resource}\0${id}` → the realtime event their write sends
    * and when. Each channel (one per filter) skips the first matching event once, so a later change
@@ -940,6 +1196,8 @@ export function createSupabaseProvider(
 
   function realtimeEnabled(resource: string): boolean {
     if (typeof client.channel !== "function") return false;
+    // A declared resource's changes are reported only when its reads are declared.
+    if (!readDeclared(resource)) return false;
     const own = configFor(resource).realtime;
     if (own !== undefined) return own;
     const all = options.realtime;
@@ -973,12 +1231,33 @@ export function createSupabaseProvider(
     return result.data == null ? [] : [result.data];
   }
 
+  /**
+   * Whether the row is visible to this user: on its table, or, for a declared resource that hasn't
+   * opted in to reading its table, through the resource's own read.
+   */
   async function isVisible(resource: string, id: Identifier): Promise<boolean> {
-    return (await run(from(resource).select("id").eq("id", id))).length > 0;
+    if (!readDeclared(resource)) throw new DataWriteError("forbidden", undeclaredMessage(resource, "read"));
+    const query = tableAllowed(resource, "read") ? from(resource).select("id") : read(resource, "id");
+    return (await run(query.eq("id", id))).length > 0;
   }
 
+  /** The row as it is now: from its table, or through the resource's read when its table isn't declared. */
   async function readBack(resource: string, id: Identifier): Promise<BaseRecord | undefined> {
-    return (await run(from(resource).select("*").eq("id", id)))[0] as BaseRecord | undefined;
+    if (!readDeclared(resource)) throw new DataWriteError("forbidden", undeclaredMessage(resource, "read"));
+    const query = tableAllowed(resource, "read") ? from(resource).select("*") : read(resource, undefined);
+    return (await run(query.eq("id", id)))[0] as BaseRecord | undefined;
+  }
+
+  /**
+   * A write that matched no row on a resource that declares no read: it can't be read to say
+   * why (refused, gone or changed), so the message says each is possible.
+   */
+  function unreadableNoRowsError(resource: string, verb: "change" | "delete"): DataWriteError {
+    const done = verb === "change" ? "changed" : "deleted";
+    return new DataWriteError(
+      "forbidden",
+      `This ${nounFor(resource)} was not ${done}: you can't ${verb} it, it no longer exists, or someone changed it first.`,
+    );
   }
 
   function goneError(resource: string): DataWriteError {
@@ -998,6 +1277,7 @@ export function createSupabaseProvider(
     id: Identifier,
     verb: "change" | "delete",
   ): Promise<DataWriteError> {
+    if (!readDeclared(resource)) return unreadableNoRowsError(resource, verb);
     let visible: boolean;
     try {
       visible = await isVisible(resource, id);
@@ -1053,6 +1333,7 @@ export function createSupabaseProvider(
     known?: BaseRecord,
   ): Promise<DataWriteError> {
     if (expected === undefined) return noRowsError(resource, id, verb);
+    if (!readDeclared(resource)) return unreadableNoRowsError(resource, verb);
     const { field, kind } = versionFor(resource)!;
     let current: BaseRecord | undefined = known;
     try {
@@ -1243,6 +1524,7 @@ export function createSupabaseProvider(
 
   const provider: DataProvider = {
     async getList(resource, params) {
+      await assertReadDeclared(resource, "getList");
       // Refused, not cut short: a shorter page than the caller asked for
       // would shift every later page's boundary and skip or repeat rows.
       if (params.pagination && params.pagination.perPage > maxPerPage) {
@@ -1334,6 +1616,7 @@ export function createSupabaseProvider(
     },
 
     async aggregate(resource, params) {
+      await assertReadDeclared(resource, "getList");
       const entries = Object.entries(params.metrics);
       const counts = entries.filter(([, m]) => m.fn === "count");
       const others = entries.filter(([, m]) => m.fn !== "count");
@@ -1394,6 +1677,7 @@ export function createSupabaseProvider(
     },
 
     async getOne(resource, params) {
+      await assertReadDeclared(resource, "getOne");
       // A function source reads in the list's scope (`scope`), never the RPC's default; the
       // filters it doesn't take aren't applied: they choose a list, not the record.
       const result = (await read(resource, params.select, undefined, params.scope)
@@ -1404,6 +1688,7 @@ export function createSupabaseProvider(
     },
 
     async getMany(resource, params) {
+      await assertReadDeclared(resource, "getMany");
       if (params.ids.length === 0) return { data: [] } as never;
       const result = (await read(resource, undefined, undefined, params.scope)
         .in("id", params.ids)) as { data: unknown[]; error: unknown };
@@ -1421,8 +1706,12 @@ export function createSupabaseProvider(
         ...(resource && versionFor(resource) ? { version: { ...versionFor(resource)! } } : {}),
         compositeKeys: false,
         multiSort: true,
-        create: true,
-        delete: true,
+        // A declared provider serves only the writes a resource declares.
+        create: resource ? writeDeclared(resource, "create") : true,
+        delete: resource ? writeDeclared(resource, "delete") : true,
+        // `runAction` serves the actions a resource declares. Said only when some resource declares
+        // one: a provider without any says nothing, as before, so an app's own runner still shows.
+        ...(anyActions ? { actions: resource ? Object.keys(configFor(resource).actions ?? {}).length > 0 : true } : {}),
         maxPerPage,
         softDelete: resource ? isBinTable(resource) : false,
         cursorPagination: resource ? configFor(resource).orderKey !== false : true,
@@ -1439,7 +1728,9 @@ export function createSupabaseProvider(
         if (process.env.NODE_ENV !== "production" && !warnedRealtime.has(resource)) {
           warnedRealtime.add(resource);
           console.warn(
-            typeof client.channel !== "function"
+            !readDeclared(resource)
+              ? `${undeclaredMessage(resource, "read")} Its changes aren't reported either.`
+              : typeof client.channel !== "function"
               ? `[SupabaseProvider] "${resource}" was subscribed to, but the client has no channel() (Supabase Realtime), so nothing will be reported.`
               : `[SupabaseProvider] "${resource}" was subscribed to, but realtime is off for it. Set resources.${resource}.realtime (or the realtime option) to true.`,
           );
@@ -1548,11 +1839,14 @@ export function createSupabaseProvider(
     },
 
     async create(resource, params) {
-      const row = await tableValues(
-        resource,
-        await prepare(resource, params.data as Record<string, unknown>, { resource, action: "create" }),
-      );
-      const override = configFor(resource).create;
+      // An undeclared write is refused before anything runs: no prepare step, no table read.
+      if (!writeDeclared(resource, "create")) throw new DataWriteError("forbidden", undeclaredMessage(resource, "create"));
+      const prepared = await prepare(resource, params.data as Record<string, unknown>, { resource, action: "create" });
+      // A `writes.create` function takes the values as they are: it decides what to write, so the
+      // table's columns (`writeColumns`) don't trim what it gets.
+      const throughFunction = !configFor(resource).create && configFor(resource).writes?.create !== undefined;
+      const row = throughFunction ? { ...prepared } : await tableValues(resource, prepared);
+      const override = createRule(resource);
       let record: BaseRecord;
       if (override) {
         let returned: BaseRecord | Identifier;
@@ -1564,7 +1858,9 @@ export function createSupabaseProvider(
         if (isIdentifier(returned)) {
           // The row exists from here on. A failed read-back must not report
           // the create as failed: the user would retry and make a second one.
-          record = (await readBack(resource, returned).catch(() => undefined)) ?? { id: returned };
+          record =
+            (await readAfterWrite(resource, returned, throughFunction)) ??
+            (declared || throughFunction ? ({ ...row, id: returned } as BaseRecord) : { id: returned });
         } else if (returned && typeof returned === "object" && isIdentifier(returned.id)) {
           record = returned;
         } else {
@@ -1573,9 +1869,28 @@ export function createSupabaseProvider(
             `[SupabaseProvider] The create rule for "${resource}" returned neither the new row nor its id.`,
           );
         }
-      } else {
+      } else if (!declared) {
+        // An open provider: the insert returns the row, as it always has.
         const rows = await run(from(resource).insert(row).select("*").single());
         record = rows[0] as BaseRecord;
+      } else {
+        assertTableWrite(resource, "create");
+        // A declared provider asks the insert for the id (and the version) only: the client may
+        // not be allowed to read every column it wrote. The record is then read the way the
+        // resource reads; the version keeps the next save's check when that read fails.
+        const version = versionFor(resource);
+        const rows = await run(from(resource).insert(row).select(version ? `id,${version.field}` : "id").single());
+        const written = (rows[0] ?? {}) as Record<string, unknown>;
+        const id = written.id;
+        if (!isIdentifier(id)) {
+          throw new DataWriteError("error", `[SupabaseProvider] The insert into "${resource}" returned no id.`);
+        }
+        record = (await readRecord(resource, id)) ?? ({ ...row, ...written, id } as BaseRecord);
+        if (version && record[version.field] == null && written[version.field] != null) {
+          // The read has no version: the record is this write as made (the values it sent, its id and
+          // the version it wrote), not the read, which may carry values someone committed since.
+          record = { ...row, ...written, id };
+        }
       }
       await committed({ resource, kind: "create", id: record.id, record });
       return { data: record } as never;
@@ -1583,19 +1898,19 @@ export function createSupabaseProvider(
 
     async update(resource, params) {
       const { id } = params;
+      // An undeclared write is refused before anything runs: no prepare step, no table read.
+      if (!writeDeclared(resource, "update")) throw new DataWriteError("forbidden", undeclaredMessage(resource, "update"));
       // A copy: with no prepare step this is the caller's own object, and the version is taken out below.
-      const row = {
-        ...(await tableValues(
-          resource,
-          await prepare(resource, params.data as Record<string, unknown>, { resource, action: "update", id }),
-          id,
-        )),
-      };
+      // A `writes.update` function takes the values as they are: it decides what to write, so neither
+      // the table's columns (`writeColumns`) nor its row (which the client may not read) trims them.
+      const throughFunction = !configFor(resource).update && configFor(resource).writes?.update !== undefined;
+      const prepared = await prepare(resource, params.data as Record<string, unknown>, { resource, action: "update", id });
+      const row = throughFunction ? { ...prepared } : { ...(await tableValues(resource, prepared, id)) };
       const version = versionFor(resource);
       const expected = expectedFor(resource, params.expectedVersion);
       // The database advances the version; a submitted value is never written.
       if (version) delete row[version.field];
-      const override = configFor(resource).update;
+      const override = updateRule(resource);
       let record: BaseRecord;
       if (override && version && override.length < 3 && !warnedUncheckedOverride.has(resource)) {
         warnedUncheckedOverride.add(resource);
@@ -1618,8 +1933,8 @@ export function createSupabaseProvider(
         if (result == null || result === false) throw await staleOrNoRowsError(resource, id, "change", expected);
         if (isIdentifier(result) || result === true) {
           // The change committed; a failed read-back still reports it saved.
-          const readId = result === true ? id : result;
-          record = (await readBack(resource, readId).catch(() => undefined)) ?? { ...row, id: readId };
+          const readId = (result === true ? id : result) as Identifier;
+          record = (await readAfterWrite(resource, readId, throughFunction)) ?? ({ ...row, id: readId } as BaseRecord);
         } else if (typeof result === "object") {
           record = { id, ...(result as Record<string, unknown>) } as BaseRecord;
         } else {
@@ -1628,12 +1943,38 @@ export function createSupabaseProvider(
             `[SupabaseProvider] The update rule for "${resource}" returned neither the row, its id, nor nothing.`,
           );
         }
-      } else {
+      } else if (!declared) {
+        // An open provider: the update returns the row, as it always has.
         let query = from(resource).update(row).eq("id", id);
         if (expected !== undefined) query = query.eq(version!.field, expected);
         const rows = await run(query.select("*"));
         if (rows.length === 0) throw await staleOrNoRowsError(resource, id, "change", expected);
         record = rows[0] as BaseRecord;
+      } else {
+        assertTableWrite(resource, "update");
+        // Read from a view, the record carries the view's columns (a count, a joined name); the
+        // table's own are found by reading its row, which a declared provider does only with
+        // table.read. Without that or writeColumns, the update would send columns the table hasn't.
+        const config = configFor(resource);
+        if (config.source !== undefined && !config.writeColumns && !tableAllowed(resource, "read")) {
+          throw new DataWriteError(
+            "error",
+            `[SupabaseProvider] "${resource}" updates its table but reads ${typeof config.source === "string" ? config.source : `${config.source.rpc}()`}. ` +
+              `Name the table's columns with \`writeColumns\`, or declare \`table: { read: true, … }\` (docs/DATA-ACCESS.md).`,
+          );
+        }
+        let query = from(resource).update(row).eq("id", id);
+        if (expected !== undefined) query = query.eq(version!.field, expected);
+        // Only the key (and the version) come back: the record is read the way the resource reads.
+        const rows = await run(query.select(version ? `id,${version.field}` : "id"));
+        if (rows.length === 0) throw await staleOrNoRowsError(resource, id, "change", expected);
+        const written = rows[0] as Record<string, unknown>;
+        record = (await readRecord(resource, id)) ?? ({ ...row, ...written, id } as BaseRecord);
+        if (version && record[version.field] == null && written[version.field] != null) {
+          // The read has no version: the record is this write as made (the values it sent, its id and
+          // the version it wrote), not the read, which may carry values someone committed since.
+          record = { ...row, ...written, id };
+        }
       }
       await committed({ resource, kind: "update", id, record });
       const newVersion = version && record[version.field] != null ? String(record[version.field]) : undefined;
@@ -1644,7 +1985,19 @@ export function createSupabaseProvider(
       const { id } = params;
       let deletedId: Identifier = id;
       const expected = expectedFor(resource, params.expectedVersion);
-      if (isBinTable(resource)) {
+      const deleteCall = configFor(resource).writes?.delete;
+      if (deleteCall) {
+        warnArgsDropVersion(resource, "delete", deleteCall as FunctionCall<never[]>, 2);
+        const { fn, args } = callFor(deleteCall, [id, expected === undefined ? {} : { expectedVersion: expected }], {
+          p_id: id,
+          ...versionArgs(expected),
+        });
+        const returned = await callWrite(resource, fn, args);
+        if (returned == null || returned === false) throw await staleOrNoRowsError(resource, id, "delete", expected);
+        const returnedId = isIdentifier(returned) ? returned : (returned as { id?: unknown } | null)?.id;
+        if (isIdentifier(returnedId)) deletedId = returnedId;
+      } else if (isBinTable(resource)) {
+        assertTableWrite(resource, "delete");
         // A binned delete reports zero rows whether or not it worked, so the
         // answer comes from visibility before and after. With a version, the
         // row is checked at it first (a binned delete can't carry the check).
@@ -1677,6 +2030,7 @@ export function createSupabaseProvider(
           throw new DataWriteError("forbidden", `You can't delete this ${nounFor(resource)}.`);
         }
       } else {
+        assertTableWrite(resource, "delete");
         let query = from(resource).delete().eq("id", id);
         if (expected !== undefined) query = query.eq(versionFor(resource)!.field, expected);
         const rows = await run(query.select("id"));
@@ -1686,6 +2040,28 @@ export function createSupabaseProvider(
       }
       await committed({ resource, kind: "delete", id: deletedId });
       return { data: { id: deletedId } };
+    },
+
+    async runAction(resource, params) {
+      const { id, action } = params;
+      const call = configFor(resource).actions?.[action];
+      if (!call) {
+        throw new DataWriteError("invalid", `[SupabaseProvider] "${resource}" declares no action "${action}".`);
+      }
+      warnArgsDropVersion(resource, `action "${action}"`, call as FunctionCall<never[]>, 2);
+      const expected = expectedFor(resource, params.expectedVersion);
+      const { fn, args } = callFor(call, [id, expected === undefined ? {} : { expectedVersion: expected }], {
+        p_id: id,
+        ...versionArgs(expected),
+      });
+      const returned = await callWrite(resource, fn, args);
+      if (returned == null || returned === false) throw await staleOrNoRowsError(resource, id, "change", expected);
+      const data =
+        returned !== null && typeof returned === "object"
+          ? ({ id, ...(returned as Record<string, unknown>) } as BaseRecord)
+          : ((await readRecord(resource, isIdentifier(returned) ? returned : id)) ?? null);
+      await committed({ resource, kind: "update", id, ...(data ? { record: data } : {}) });
+      return { data };
     },
 
     toFormValues(resource, record) {
@@ -1699,6 +2075,10 @@ export function createSupabaseProvider(
       return typeof keys === "function" ? keys(event) : keys;
     },
   };
+
+  // `runAction` is served only when some resource declares an action: screens show a view's actions
+  // whenever the provider has a runner, so a provider without any must not look like it has one.
+  if (!anyActions) delete provider.runAction;
 
   // How many write marks are held, for tests of the pruning. Not part of the provider contract.
   Object.defineProperty(provider, "__recentWriteCount", { value: () => recentWrites.size, enumerable: false });

@@ -145,7 +145,7 @@ of the workflow (`pull_request_target`), so a PR can't change its own gate.
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 177 features (25 planned, 95 building, 22 beta, 27 live, 1 deprecated, 7 retired).
+Every feature is in `features.ts`: 178 features (25 planned, 96 building, 22 beta, 27 live, 1 deprecated, 7 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

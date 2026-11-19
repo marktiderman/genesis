@@ -5,11 +5,11 @@
  * Delete, a key no row has falls back to "Not available", narrow screens go Back, and a peek from
  * a list keeps the list's own edit and delete.
  */
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams } from "@marktiderman/genesis-core";
+import { defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams, type ProviderCapabilities } from "@marktiderman/genesis-core";
 import { defineRecordView, defineView, type AnyRecordView } from "@marktiderman/genesis-core/resource-view";
 import { ResourceInbox, ResourceView } from "../resource-view";
 import { RecordPeek, recordPeekSlot } from "../resource-view/RecordPeek";
@@ -66,8 +66,7 @@ function provider(extra: Partial<DataProvider> = {}) {
   } as unknown as DataProvider;
 }
 
-function wrap(p: DataProvider) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function wrap(p: DataProvider, queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return ({ children }: { children: ReactNode }) => (
     <GenesisProvider provider={p} queryClient={queryClient}>
       {children}
@@ -119,6 +118,96 @@ describe("<ResourceView type=\"inbox\">", () => {
     expect(await screen.findByText("thread of Can't sign in")).toBeTruthy();
     rerender(<ResourceView view={view} type="inbox" inbox={{ selected: "gone", renderReading: (row) => <p>thread of {String(row.subject)}</p> }} />);
     expect(await screen.findByTestId("resource-inbox-gone")).toBeTruthy();
+  });
+
+  describe("markRead through the provider's capabilities", () => {
+    // @feat:declared-data-access
+    const marking = defineView(tickets, { inbox: { unread: "unread" }, actions: [{ name: "markRead", label: "Mark read" }] });
+    const caps = (over: Partial<ProviderCapabilities>): ProviderCapabilities => ({
+      search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: false, compositeKeys: false, actions: true, ...over,
+    });
+    function Screen() {
+      const [selected, setSelected] = useState<string | null>(null);
+      return <ResourceView view={marking} type="inbox" inbox={{ selected, onSelectedChange: setSelected }} />;
+    }
+
+    it("runs at the row's version", async () => {
+      const runAction = vi.fn(async () => ({ data: null }));
+      const capabilities = vi.fn(async () => caps({ versionedWrites: true, version: { field: "updated_at", kind: "timestamp" } }));
+      render(<Screen />, { wrapper: wrap(provider({ runAction, capabilities })) });
+      await waitFor(() => expect(capabilities).toHaveBeenCalled());
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      fireEvent.click(await screen.findByTestId("resource-inbox-list-row-t1"));
+      await waitFor(() =>
+        expect(runAction).toHaveBeenCalledWith("tickets", { id: "t1", action: "markRead", expectedVersion: "2026-11-13T09:00:00Z" }),
+      );
+    });
+
+    it("doesn't run when the provider serves no actions for the resource", async () => {
+      const runAction = vi.fn(async () => ({ data: null }));
+      const capabilities = vi.fn(async () => caps({ actions: false }));
+      render(<Screen />, { wrapper: wrap(provider({ runAction, capabilities })) });
+      await waitFor(() => expect(capabilities).toHaveBeenCalled());
+      fireEvent.click(await screen.findByTestId("resource-inbox-list-row-t1"));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(runAction).not.toHaveBeenCalled();
+    });
+
+    it("a late mark runs at the version the row was opened at, even after the list refreshes", async () => {
+      const runAction = vi.fn(async () => ({ data: null }));
+      const waiting: ((c: ProviderCapabilities) => void)[] = [];
+      const capabilities = vi.fn(() => new Promise<ProviderCapabilities>((resolve) => waiting.push(resolve)));
+      let version = "2026-11-13T09:00:00Z";
+      const p = provider({ runAction, capabilities });
+      const getList = p.getList as ReturnType<typeof vi.fn>;
+      const base = getList.getMockImplementation() as (r: string, params: ListParams) => Promise<{ data: Record<string, unknown>[]; total: number }>;
+      getList.mockImplementation(async (r: string, params: ListParams) => {
+        const res = await base(r, params);
+        return { ...res, data: res.data.map((row: Record<string, unknown>) => (row.id === "t1" ? { ...row, updated_at: version } : row)) };
+      });
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(<Screen />, { wrapper: wrap(p, queryClient) });
+      fireEvent.click(await screen.findByTestId("resource-inbox-list-row-t1"));
+      version = "2026-11-13T10:00:00Z";
+      void queryClient.invalidateQueries();
+      await waitFor(() => expect(getList.mock.calls.length).toBeGreaterThan(1));
+      waiting.splice(0).forEach((resolve) => resolve(caps({ versionedWrites: true, version: { field: "updated_at", kind: "timestamp" } })));
+      await waitFor(() =>
+        expect(runAction).toHaveBeenCalledWith("tickets", { id: "t1", action: "markRead", expectedVersion: "2026-11-13T09:00:00Z" }),
+      );
+    });
+
+    it("a controlled selection that moves away and back before the answer drops the waiting mark", async () => {
+      const runAction = vi.fn(async () => ({ data: null }));
+      const waiting: ((c: ProviderCapabilities) => void)[] = [];
+      const capabilities = vi.fn(() => new Promise<ProviderCapabilities>((resolve) => waiting.push(resolve)));
+      let setFromApp: (key: string | null) => void = () => {};
+      function Controlled() {
+        const [selected, setSelected] = useState<string | null>(null);
+        setFromApp = setSelected;
+        return <ResourceView view={marking} type="inbox" inbox={{ selected, onSelectedChange: setSelected }} />;
+      }
+      render(<Controlled />, { wrapper: wrap(provider({ runAction, capabilities })) });
+      fireEvent.click(await screen.findByTestId("resource-inbox-list-row-t1"));
+      act(() => setFromApp(null));
+      act(() => setFromApp("t1"));
+      waiting.splice(0).forEach((resolve) => resolve(caps({})));
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(runAction).not.toHaveBeenCalled();
+    });
+
+    it("marks a row opened before capabilities answer once they do, if it is still open", async () => {
+      const runAction = vi.fn(async () => ({ data: null }));
+      const waiting: ((c: ProviderCapabilities) => void)[] = [];
+      const capabilities = vi.fn(() => new Promise<ProviderCapabilities>((resolve) => waiting.push(resolve)));
+      render(<Screen />, { wrapper: wrap(provider({ runAction, capabilities })) });
+      fireEvent.click(await screen.findByTestId("resource-inbox-list-row-t1"));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(runAction).not.toHaveBeenCalled();
+      waiting.splice(0).forEach((resolve) => resolve(caps({})));
+      await waitFor(() => expect(runAction).toHaveBeenCalledWith("tickets", { id: "t1", action: "markRead" }));
+      expect(runAction).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("goes Back to the list on a narrow screen, and runs the view's markRead on an unread row", async () => {

@@ -106,6 +106,9 @@ export const BUILTIN_RULES = [
   // the app's client layer (client-layer.ts)
   "client/layer",
   "client/one-view-per-resource",
+  // how the app reaches its database (data-access.ts)
+  "data/declared-access",
+  "data/access-rule-tests",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];

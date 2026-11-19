@@ -21,7 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { BaseRecord, DataRow } from "@marktiderman/genesis-core";
 import { personTimeZone } from "@marktiderman/genesis-core/dates";
 import { resourceKeys, useDataProvider, useViewer } from "@marktiderman/genesis-core";
-import { scopeClock, useListState, useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
+import { scopeClock, useCapabilities, useListState, useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import type { GalleryItem } from "@marktiderman/genesis-core/gallery";
 import type { RowPicture, SavedViewStore, ViewGallery } from "@marktiderman/genesis-core/resource-view";
@@ -542,15 +542,29 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
   const provider = useDataProvider();
   const queryClient = useQueryClient();
   const viewer = useViewer();
+  // The provider runs this view's actions when it has a runner and doesn't say it serves none for
+  // this resource (`capabilities().actions === false`).
+  const askCaps = !onAction && !!provider.runAction && !!provider.capabilities;
+  const actionCaps = useCapabilities(view.resource, { enabled: askCaps });
   const runAction = useCallback(
     async (name: string, row: T) => {
       if (onAction) await onAction(name, row);
-      else if (provider.runAction) await provider.runAction(view.resource, { id: recordKey(view as AnyResourceView<Row>, row), action: name });
+      else if (provider.runAction) {
+        // At the version the row was read at, so a row changed since is a conflict.
+        const field = actionCaps.data?.version?.field;
+        const value = field ? (row as Record<string, unknown>)[field] : undefined;
+        await provider.runAction(view.resource, {
+          id: recordKey(view as AnyResourceView<Row>, row),
+          action: name,
+          ...(value == null ? {} : { expectedVersion: String(value) }),
+        });
+      }
       await queryClient.invalidateQueries({ queryKey: resourceKeys(view.resource).all });
     },
-    [onAction, provider, view, queryClient],
+    [onAction, provider, view, queryClient, actionCaps.data],
   );
-  const actionsOn = !!onAction || !!provider.runAction;
+  // Not on until the provider has said (an action shown before then could run without its version).
+  const actionsOn = !!onAction || (!!provider.runAction && (!askCaps || actionCaps.isSuccess) && actionCaps.data?.actions !== false);
   const cancelWord = useNativeResourceViewMessages().common.cancel;
   const confirmAction = useCallback(
     (name: string, row: T) => {
@@ -843,7 +857,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
               ...(r.time ? { timestamp: r.time } : {}),
               ...(r.from || r.badge ? { meta: [r.from, r.badge?.label].filter(Boolean).join(" · ") } : {}),
               onPress: () => {
-                if (r.unread && markRead && view.canAction(markRead, row as never, viewer) === true) void runAction(markRead, row).catch(() => undefined);
+                if (r.unread && markRead && actionsOn && view.canAction(markRead, row as never, viewer) === true) void runAction(markRead, row).catch(() => undefined);
                 press(row);
               },
               // The view's swipe actions (edit, delete, its own), as the list's rows have them.
