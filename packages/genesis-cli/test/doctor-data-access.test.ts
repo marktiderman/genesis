@@ -152,6 +152,8 @@ describe("data/declared-access: a spread after access", () => {
       "src/lib/quoted.ts": 'export const p = createSupabaseProvider(client, { "access": "declared" });',
       "src/lib/quoted-reset.ts": 'export const p = createSupabaseProvider(client, { access: "declared", "access": "open" });',
       "src/lib/in-string.ts": 'export const p = createSupabaseProvider(client, { access: "declared", note: "see, access: open" });',
+      "src/lib/named-nested.ts":
+        'const options = { resources: { tasks: { source: { rpc: "list_tasks", args: () => ({ access: "private" }) } } }, ...defaults, access: "declared" };\nexport const p = createSupabaseProvider(client, options);',
     });
     expect(found.map((f) => f.file).sort()).toEqual(["src/lib/inline.ts", "src/lib/named.ts", "src/lib/quoted-reset.ts", "src/lib/reset.ts"]);
   });
