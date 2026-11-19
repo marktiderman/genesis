@@ -36,7 +36,7 @@ const provider = createSupabaseProvider(supabase, {
 });
 ```
 
-<!-- api: createSupabaseProvider SupabaseResourceConfig SupabaseProviderOptions ResourceWrites TableAccess FunctionCall -->
+<!-- api: SupabaseProviderOptions, SupabaseResourceConfig, ResourceWrites, TableAccess -->
 
 - **`access: "declared"`** makes the declarations binding. A read of a resource with no `source`
   (and no `table.read`), a write with no `writes` entry (nor a `create`/`update` rule, nor
@@ -125,7 +125,7 @@ for (const c of accessRules({
 }
 ```
 
-<!-- api: accessRules AccessRuleSpec AccessRuleCase AccessRuleClient -->
+<!-- api: AccessRuleSpec<string>, AccessRuleCase, AccessRuleClient -->
 
 An allowed person's call must succeed and act (answer anything but `null`, `false` or an empty
 list; `acted` overrides that). A refused person's call must fail with a refusal (42501 or P0001)

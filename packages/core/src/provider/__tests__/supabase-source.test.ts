@@ -53,10 +53,13 @@ describe("resource source", () => {
     // An update writes only the table's own columns: the view's joined ones stay behind.
     calls = [];
     queue.push({ data: [{ id: "t1", title: "a" }], error: null }); // the table's row
-    queue.push({ data: [{ id: "t1", title: "x" }], error: null }); // the update
-    await p.update("tasks", { id: "t1", data: { title: "x", person_name: "Ann", comment_count: 3 } });
-    expect(call("from").every(([t]) => t === "tasks")).toBe(true);
+    queue.push({ data: [{ id: "t1" }], error: null }); // the update: its id only
+    queue.push({ data: [{ id: "t1", title: "x", person_name: "Ann" }], error: null }); // the read-back
+    const res = await p.update("tasks", { id: "t1", data: { title: "x", person_name: "Ann", comment_count: 3 } });
+    // The write goes to the table; the record comes back through the view, as the resource reads.
+    expect(call("from")).toEqual([["tasks"], ["tasks"], ["tasks_with_people"]]);
     expect(call("update")).toEqual([[{ title: "x" }]]);
+    expect(res.data).toEqual({ id: "t1", title: "x", person_name: "Ann" });
   });
 
   it("writeColumns limits creates and updates to the table's columns", async () => {

@@ -345,13 +345,35 @@ describe("deleteOne (recycle-bin tables)", () => {
 });
 
 describe("create", () => {
-  it("inserts and returns the row by default", async () => {
+  it("inserts, asks for the id only, and reads the record back the way the resource reads", async () => {
     const onWrite = vi.fn();
-    queue.push(ok({ id: "x1", title: "T" }));
+    queue.push(ok({ id: "x1" })); // the insert's id
+    queue.push(ok([{ id: "x1", title: "T", created_by: "u1" }])); // the read-back
     const res = await provider({ onWrite }).create("questions", { data: { title: "T" } });
-    expect(methods()).toEqual(["from", "insert", "select", "single"]);
-    expect(res.data).toEqual({ id: "x1", title: "T" });
-    expect(onWrite).toHaveBeenCalledWith({ resource: "questions", kind: "create", id: "x1", record: { id: "x1", title: "T" } });
+    // The insert never selects `*`: the client may not be allowed to read every column it wrote.
+    expect(methods()).toEqual(["from", "insert", "select", "single", "from", "select", "eq"]);
+    expect(calls.filter((c) => c.method === "select").map((c) => c.args[0])).toEqual(["id", "*"]);
+    expect(res.data).toEqual({ id: "x1", title: "T", created_by: "u1" });
+    expect(onWrite).toHaveBeenCalledWith({
+      resource: "questions",
+      kind: "create",
+      id: "x1",
+      record: { id: "x1", title: "T", created_by: "u1" },
+    });
+  });
+
+  it("an insert whose read-back fails still reports the record it wrote", async () => {
+    queue.push(ok({ id: "x2" }));
+    queue.push(fail("permission denied for table questions", "42501"));
+    const res = await provider().create("questions", { data: { title: "T" } });
+    expect(res.data).toEqual({ id: "x2", title: "T" });
+  });
+
+  it("an insert that returns no id is an error", async () => {
+    queue.push(ok({}));
+    const err = await failure(provider().create("questions", { data: { title: "T" } }));
+    expect(err.outcome).toBe("error");
+    expect(err.message).toMatch(/returned no id/);
   });
 
   it("maps an RLS refusal and a unique violation", async () => {
@@ -801,13 +823,14 @@ describe("schema-qualified resource names", () => {
     const p = createSupabaseProvider(schemaClient);
     queue.push({ data: [{ id: "g1" }], error: null, count: 1 });
     await p.getList("public.goals", {});
-    queue.push(ok({ id: "g2" }));
+    queue.push(ok({ id: "g2" }), ok([{ id: "g2", title: "T" }])); // the insert, then its read-back
     await p.create("public.goals", { data: { title: "T" } });
-    queue.push(ok([{ id: "g2" }]));
+    queue.push(ok([{ id: "g2" }]), ok([{ id: "g2", title: "U" }])); // the update, then its read-back
     await p.update("public.goals", { id: "g2", data: { title: "U" } });
     queue.push(ok([{ id: "g2" }]));
     await p.deleteOne("public.goals", { id: "g2" });
-    expect(fromArgs()).toEqual(["from:goals", "from:goals", "from:goals", "from:goals"]);
+    // A create and an update each read the record back, by the same table name.
+    expect(fromArgs()).toEqual(["from:goals", "from:goals", "from:goals", "from:goals", "from:goals", "from:goals"]);
   });
 
   it("reads another schema's table through schema()", async () => {
