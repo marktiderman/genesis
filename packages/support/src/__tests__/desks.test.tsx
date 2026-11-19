@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { chooseDesk, createSupportClient, deskTenant, pickerDesks, workedDesks, type AgentTicket, type SupportClient, type SupportDesk, type TicketDesk } from "..";
-import { SupportDeskControls, SupportDeskPicker, SupportDeskSwitch, SupportRequesterPanel, lastMoveLabel } from "../web-chat";
+import { SupportAgentInbox, SupportDeskControls, SupportDeskPicker, SupportDeskSwitch, SupportRequesterPanel, lastMoveLabel } from "../web-chat";
 import { resolveSupportCopy } from "../copy";
 import { fakeSupabase } from "./fake-supabase";
 
@@ -217,5 +217,37 @@ describe("the web desk cards", () => {
     const client = stub({ myDesks: vi.fn(async () => [{ ...north, manage: false }]), setDesk: vi.fn() });
     wrap(<SupportDeskSwitch client={client} tenantId="north" />);
     expect((await screen.findByTestId("genesis-support-desk-switch-toggle")).hasAttribute("disabled")).toBe(true);
+  });
+});
+
+describe("desks' settings", () => {
+  it("shows no desk card, picker or switch with support.desks off", async () => {
+    const off = { "support.desks": false };
+    const client = stub({
+      myDesks: vi.fn(async () => [desk(), acme]),
+      ticketDesk: vi.fn(async () => ({ tenantId: "acme", label: "Acme", isDefault: false, canEscalate: true, canReturn: false, returnsTo: null, returnsToLabel: null, lastMove: null })),
+      deskMoveTargets: vi.fn(async () => []),
+    });
+    const { container } = wrap(
+      <>
+        <SupportDeskControls client={client} ticket={ticket} settings={off} />
+        <SupportDeskPicker client={client} onChange={() => {}} settings={off} />
+        <SupportDeskSwitch client={client} tenantId="acme" settings={off} />
+      </>,
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    expect(container.innerHTML).toBe("");
+    expect(client.myDesks).not.toHaveBeenCalled();
+    expect(client.ticketDesk).not.toHaveBeenCalled();
+  });
+});
+
+describe("the agent desk's setting", () => {
+  it("says the agent desk is off, and reads nothing, with support.agentDesk off", () => {
+    const agentTickets = vi.fn(async () => []);
+    const client = stub({ agentTickets });
+    wrap(<SupportAgentInbox client={client} tenantId={null} ticketId={null} onTicketChange={() => {}} resolveUser={() => ({ name: "Someone" }) as never} settings={{ "support.agentDesk": false }} />);
+    expect(screen.getByText("The agent desk is off")).toBeTruthy();
+    expect(agentTickets).not.toHaveBeenCalled();
   });
 });

@@ -6,7 +6,7 @@
  * tree with fresh state.
  */
 import { Component, type ComponentType, type ErrorInfo, type ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 import { NativeButton, NativeEmptyState } from "@marktiderman/genesis-ui-native/components";
 import { classifyError, reportError } from "@marktiderman/genesis-core/errors";
 import { toError } from "./boot";
@@ -45,7 +45,31 @@ export interface FatalScreenViewProps {
    * could not start, or when the `fatal` slot threw.
    */
   kind?: FatalScreenKind;
+  /**
+   * Where people can write when the app can't help (support's `contactEmail` / `contactUrl`
+   * settings: `support.contact()`): a "Contact support" button under "Try again". Left out, none.
+   */
+  contact?: FatalScreenContact | null;
 }
+
+/** A support contact for the fatal screens: an email address, a support page, or both. */
+export interface FatalScreenContact {
+  email?: string | null;
+  url?: string | null;
+}
+
+/** The link a contact opens: the support page, else a mailto. Null with neither (or one that isn't safe). */
+export function contactHref(contact: FatalScreenContact | null | undefined): string | null {
+  const url = contact?.url?.trim();
+  if (url && /^https:\/\//i.test(url)) return url;
+  const email = contact?.email?.trim();
+  if (email && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) return `mailto:${email}`;
+  return null;
+}
+
+const openContact = (href: string) => () => {
+  void Linking.openURL(href).catch((e: unknown) => reportError(e, "native:contact"));
+};
 
 const runRetry = (retry: FatalScreenViewProps["retry"], source: string) => () => {
   void Promise.resolve(retry()).catch((e: unknown) => reportError(e, source));
@@ -55,7 +79,8 @@ const runRetry = (retry: FatalScreenViewProps["retry"], source: string) => () =>
  * The fatal screen: what went wrong and "Try again", for the whole app, one screen, or (with
  * `kind="plain"`) the last resort that needs nothing above it.
  */
-export function FatalScreen({ error, retry, kind = "app" }: FatalScreenViewProps) {
+export function FatalScreen({ error, retry, kind = "app", contact }: FatalScreenViewProps) {
+  const href = contactHref(contact);
   if (kind === "plain") {
     return (
       <View testID="genesis-fatal-plain" style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 12 }}>
@@ -66,6 +91,11 @@ export function FatalScreen({ error, retry, kind = "app" }: FatalScreenViewProps
         <Pressable accessibilityRole="button" onPress={() => void retry()} testID="genesis-fatal-plain-retry" style={{ padding: 12 }}>
           <Text style={{ fontSize: 17 }}>Try again</Text>
         </Pressable>
+        {href ? (
+          <Pressable accessibilityRole="link" onPress={openContact(href)} testID="genesis-fatal-plain-contact" style={{ padding: 12 }}>
+            <Text style={{ fontSize: 15 }}>Contact support</Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   }
@@ -88,6 +118,15 @@ export function FatalScreen({ error, retry, kind = "app" }: FatalScreenViewProps
           Try again
         </NativeButton>
       }
+      {...(href
+        ? {
+            secondaryAction: (
+              <NativeButton variant="outline" onPress={openContact(href)} testID={screen ? "genesis-screen-error-contact" : "genesis-fatal-contact"}>
+                Contact support
+              </NativeButton>
+            ),
+          }
+        : {})}
       testID={screen ? "genesis-screen-error" : "genesis-fatal"}
     />
   );

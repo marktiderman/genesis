@@ -239,6 +239,17 @@ export const supportCopy = {
     verify: "Is it fixed? {title}",
     verifyBody: "We think this is fixed. Please check it, then confirm or reopen it.",
   },
+  /** The contact fallback (`support.contactEmail`, `support.contactUrl`), in Help and on error screens. */
+  contact: {
+    title: "Still need help?",
+    email: "Email {email}",
+    page: "Visit our support page",
+  },
+  /** A part of support the app's settings turned off. */
+  off: {
+    agentDeskTitle: "The agent desk is off",
+    agentDeskBody: "This app's settings turn the agent desk off (support.agentDesk).",
+  },
   /** The details panel's requester card. */
   requester: {
     title: "Contact",

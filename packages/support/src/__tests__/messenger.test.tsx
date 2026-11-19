@@ -688,3 +688,32 @@ describe("the messenger across desks", () => {
     expect(client.myReports).not.toHaveBeenCalled();
   });
 });
+
+describe("the messenger's settings", () => {
+  it("shows nothing, launcher included, with support.messenger off", async () => {
+    const client = fakeClient();
+    const { container } = render(
+      <>
+        <SupportMessenger client={client} tenantId="ta" settings={{ "support.messenger": false }} />
+        <SupportMessengerLauncher client={client} tenantId="ta" settings={{ "support.messenger": false }} />
+      </>,
+      { wrapper },
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    expect(container.innerHTML).toBe("");
+    expect(client.ticketsInTenant).not.toHaveBeenCalled();
+  });
+
+  it("leaves Help out with support.helpCenter off", async () => {
+    const client = fakeClient();
+    show(client, { settings: { "support.helpCenter": false } });
+    await screen.findByTestId("genesis-support-messenger-space-messages");
+    expect(screen.queryByTestId("genesis-support-messenger-space-help")).toBeNull();
+  });
+
+  it("shows the contact fallback under Help", async () => {
+    show(fakeClient(), { spaces: ["help"], settings: { "support.contactEmail": "help@acme.test", "support.contactUrl": "https://acme.test/support" } });
+    expect((await screen.findByTestId("genesis-support-contact-email")).getAttribute("href")).toBe("mailto:help@acme.test");
+    expect(screen.getByTestId("genesis-support-contact-url").getAttribute("href")).toBe("https://acme.test/support");
+  });
+});

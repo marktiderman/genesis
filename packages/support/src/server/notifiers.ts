@@ -13,6 +13,7 @@
  *   later; until then the app implements the two calls.
  */
 import type { DiagnosticReport } from "../diagnostics/report";
+import { supportSettingValues, type SupportSettingsInput } from "../settings";
 import { eventSummaryLines, eventTitle, fenced, neutralise, type SupportEvent, type SupportMessenger, type SupportNotifier } from "./events";
 
 type Kinds = readonly SupportEvent["kind"][];
@@ -233,3 +234,55 @@ export function messengerNotifier(messenger: SupportMessenger, options: Messenge
 
 /** The same as `messengerNotifier`: staff alerts and reporter thanks, through `SupportMessenger`. */
 export const notificationsNotifier = messengerNotifier;
+
+/**
+ * The GitHub and webhook notifiers the app's settings and environment describe: the repository
+ * from `GITHUB_REPO`, else `support.githubRepo` (with the token `GITHUB_TOKEN`, a secret, and
+ * `support.githubIssueDetail`); the webhook from `SUPPORT_WEBHOOK_URL`, else `support.webhookUrl`
+ * (signed with `SUPPORT_WEBHOOK_SIGNING_SECRET`), posted only while `support.staffAlerts` is on. An
+ * invalid repository or URL is reported through `onProblem` and left out, never thrown.
+ *
+ * ```ts
+ * createDiagnosticsHandler({ …, notify: supportNotifiersFromSettings({ env: process.env, settings }) });
+ * ```
+ *
+ * @stability Beta
+ */
+export function supportNotifiersFromSettings(options: {
+  env: Readonly<Record<string, string | undefined>>;
+  settings?: SupportSettingsInput | null;
+  adminUrl?: (event: SupportEvent) => string | null | undefined;
+  fetch?: typeof fetch;
+  onProblem?: (problem: string) => void;
+}): SupportNotifier[] {
+  const s = supportSettingValues(options.settings ?? null).support;
+  const text = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
+  const out: SupportNotifier[] = [];
+  const repo = text(options.env["GITHUB_REPO"]) ?? text(s.githubRepo);
+  const token = text(options.env["GITHUB_TOKEN"]);
+  if (repo && token) {
+    try {
+      out.push(
+        githubIssueNotifier({
+          repo,
+          token,
+          detail: s.githubIssueDetail,
+          ...(options.adminUrl ? { adminUrl: options.adminUrl } : {}),
+          ...(options.fetch ? { fetch: options.fetch } : {}),
+          ...(options.onProblem ? { onProblem: options.onProblem } : {}),
+        }),
+      );
+    } catch (error) {
+      options.onProblem?.(error instanceof Error ? error.message : String(error));
+    }
+  } else if (repo) options.onProblem?.("supportNotifiersFromSettings: a GitHub repository is set but GITHUB_TOKEN isn't; no issues.");
+  const url = text(options.env["SUPPORT_WEBHOOK_URL"]) ?? text(s.webhookUrl);
+  if (url && s.staffAlerts) {
+    if (!/^https:\/\//i.test(url)) options.onProblem?.("supportNotifiersFromSettings: the webhook URL must be https; no webhook.");
+    else {
+      const secret = text(options.env["SUPPORT_WEBHOOK_SIGNING_SECRET"]);
+      out.push(webhookNotifier({ url, ...(secret ? { secret } : {}), ...(options.fetch ? { fetch: options.fetch } : {}) }));
+    }
+  }
+  return out;
+}

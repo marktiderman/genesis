@@ -41,9 +41,26 @@ GitHub sink's `githubRepo` and `githubIssueDetail`, `webhookUrl`, `contactEmail`
 `sendFromSettings`, `offlineQueue`, `maxBytes`, `perHour`, `retentionDays`) and `shake.*`
 (`enabled`, a person's own switch, and `threshold`, `jolts`, `windowMs`, `cooldownMs`). Each has a
 default per preset. Keys whose summary says **Planned** are declared, with their defaults, but no
-screen or function reads them yet (`messenger`, `agentDesk`, `helpCenter`, `aiAnswers`,
-`chatThreads`, `email`, `replyByEmail`, `desks`, `staffAlerts`, `githubRepo`, `githubIssueDetail`,
-`webhookUrl`, `contactEmail`, `contactUrl`): changing one changes nothing until it's wired.
+screen or function reads them yet (`aiAnswers`, `chatThreads`, and `email` as a channel switch):
+changing one changes nothing until it's wired. The rest are read where they apply:
+
+- `support.messenger`: `SupportMessenger` and its launcher (`settings`) show nothing when off; on
+  the phone `SupportRoute` leaves out the messenger's Home and new message.
+- `support.helpCenter`: the messenger leaves Help out; `SupportRoute` leaves out help and articles.
+- `support.agentDesk`: `SupportAgentInbox` says the agent desk is off; `SupportRoute` leaves out
+  `agent` and `agent/<id>`.
+- `support.desks`: migration 0024 (desks off is 0004's rule), and the desk card, picker and switch.
+- `support.staffAlerts`: migration 0025 (no `support.message` to staff), the notify Edge Function and
+  `supportNotifiersFromSettings` (no webhook).
+- `support.githubRepo`, `support.githubIssueDetail`, `support.webhookUrl`: the notify Edge Function
+  and `supportNotifiersFromSettings` (`/server`) when the environment doesn't set them; the
+  tokens and signing secrets stay in the environment.
+- `support.replyByEmail` (with `support.email`): `supportReplyConfig`, `supportEmailOptions` and
+  `handleSupportInbound`.
+- `support.contactEmail`, `support.contactUrl`: `supportContact(settings)`; the messenger's Help and
+  error states (`SupportContact`), the phone's help center (`SupportContactRow`), and
+  genesis-native's fatal screens through `contact: support.contact()`.
+
 `support.severity` is off by default: the form asks a bug's severity only when it is turned on (or
 `FeedbackPanel`'s `severity` prop says so).
 

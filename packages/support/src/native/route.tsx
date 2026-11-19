@@ -19,6 +19,7 @@ import { useEffect, type ComponentType, type ReactNode } from "react";
 import { ScrollView } from "react-native";
 import { getInboxPageStackOptions, getSettingsSubPageStackOptions, getThreadPageStackOptions, InboxPage, SettingsSubPage, ThreadPage } from "@marktiderman/genesis-ui-native/layouts";
 import { supportScreenOf, type SupportScreen, type SupportScreenName } from "../routes";
+import type { SupportSettingValues } from "../settings";
 import { useAgentInbox, useAgentThread } from "./agent";
 import { FeedbackForm } from "./feedback-form";
 import { HelpArticleBody, useHelpArticle, useHelpCenter, useMessengerHome, useStartConversation } from "./help";
@@ -53,11 +54,34 @@ export function SupportRoute({ path, params, screens, notFound = null }: Support
   const search = (block.options.router?.useSearchParams ?? noParams)();
   const where = path ?? current;
   const screen = supportScreenOf(where, block.paths.inbox, block.options.zones);
-  if (!screen) return <>{notFound}</>;
+  if (!screen || !screenOn(screen.name, block.settings(), block.options.ideas !== false)) return <>{notFound}</>;
   const query = params ?? search;
   const Own = screens?.[screen.name];
   if (Own) return <Own screen={screen} params={query} />;
   return <DefaultScreen screen={screen} params={query} />;
+}
+
+/** Whether the app's settings have this screen on (a screen turned off is `notFound`). */
+function screenOn(name: SupportScreenName, s: SupportSettingValues, ideas: boolean): boolean {
+  switch (name) {
+    case "inbox":
+    case "thread":
+      return s.support.inbox;
+    case "feedback":
+      return s.support.feedback;
+    case "ideas":
+    case "shipped":
+      return ideas && s.support.ideas;
+    case "home":
+    case "message":
+      return s.support.messenger;
+    case "help":
+    case "article":
+      return s.support.helpCenter;
+    case "agent":
+    case "agentThread":
+      return s.support.agentDesk;
+  }
 }
 
 /** The stack header, when the app gave `router.Screen`. */

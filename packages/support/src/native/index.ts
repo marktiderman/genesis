@@ -39,7 +39,7 @@ export {
   type SendDiagnosticsState,
   type SendDiagnosticsStatus,
 } from "./diagnostics";
-export { HelpAnswerCard, HelpArticleBody, useHelpArticle, useHelpCenter, useMessengerHome, useStartConversation, type HelpAnswerCardProps } from "./help";
+export { HelpAnswerCard, HelpArticleBody, SupportContactRow, useHelpArticle, useHelpCenter, useMessengerHome, useStartConversation, type HelpAnswerCardProps } from "./help";
 export type { HelpAnswerResponse, HelpAskState } from "../help-ask";
 export { ScreenshotAnnotator, strokeDots, boxOf, type ScreenshotAnnotatorProps } from "./annotator";
 export { useSupportInbox, useSupportThread, useSupportConversation, useIdeaBoard, useShippedIdeas, VoteButton, SendFeedbackButton } from "./screens";

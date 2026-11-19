@@ -35,6 +35,7 @@ import {
 import { requesterTenantsLabel, type AgentTicket, type SupportClient } from "../client";
 import { chooseDesk, pickerDesks, type DeskTarget, type SupportDesk, type TicketDesk } from "../desks";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
+import { supportSettingValues, type SupportSettingsInput } from "../settings";
 
 /** Desk query keys, under genesis-support's root (a support write refreshes them too). */
 export const supportDeskKeys = {
@@ -147,6 +148,8 @@ export interface SupportDeskControlsProps {
   onMoved?: (ticketId: string) => void;
   /** Offer "Move to another desk" too (any desk its person belongs to that is on). Default true. */
   allowMove?: boolean;
+  /** Genesis settings: with `support.desks` off (the `standard` and `min` presets) this shows nothing. Left out, `max`. */
+  settings?: SupportSettingsInput | null;
   copy?: SupportCopyOverrides;
   onError?: (error: unknown) => void;
 }
@@ -158,21 +161,22 @@ type MoveKind = { kind: "escalate" } | { kind: "return" } | { kind: "move" };
  * app's own desk hands an escalated one back; either moves it to another desk its person belongs
  * to. Nothing shows for a ticket that never moved and can't (the app's own, with no other desk).
  */
-export function SupportDeskControls({ client, ticket, onMoved, allowMove = true, copy: overrides, onError }: SupportDeskControlsProps) {
+export function SupportDeskControls({ client, ticket, onMoved, allowMove = true, settings, copy: overrides, onError }: SupportDeskControlsProps) {
   const copy = resolveSupportCopy(overrides);
-  const desk = useQuery({ queryKey: supportDeskKeys.ticket(ticket.id), queryFn: () => client.ticketDesk!(ticket.id), enabled: Boolean(client.ticketDesk) });
+  const on = supportSettingValues(settings).support.desks;
+  const desk = useQuery({ queryKey: supportDeskKeys.ticket(ticket.id), queryFn: () => client.ticketDesk!(ticket.id), enabled: Boolean(client.ticketDesk) && on });
   const targets = useQuery({
     queryKey: supportDeskKeys.targets(ticket.id),
     queryFn: () => client.deskMoveTargets!(ticket.id),
-    enabled: Boolean(client.deskMoveTargets) && allowMove,
+    enabled: Boolean(client.deskMoveTargets) && allowMove && on,
   });
-  const mine = useSupportDesks(client);
+  const mine = useSupportDesks(client, { enabled: on });
   const [open, setOpen] = useState<MoveKind | null>(null);
   useEffect(() => {
     if (desk.error) onError?.(desk.error);
   }, [desk.error, onError]);
   const d = desk.data;
-  if (!d) return null;
+  if (!d || !on) return null;
   const known = new Map<string, string>();
   for (const x of [...(mine.data ?? []), ...(targets.data ?? [])]) known.set(x.tenantId, deskName(x, copy));
   const nameOf = (id: string) => known.get(id) ?? (id === d.tenantId ? deskName(d, copy) : id === d.returnsTo ? deskName({ label: d.returnsToLabel, isDefault: false }, copy) : copy.desks.unnamedDesk);
@@ -325,6 +329,8 @@ export interface SupportDeskPickerProps {
   value?: string | null;
   /** Another desk was picked: open its inbox. */
   onChange: (desk: SupportDesk) => void;
+  /** Genesis settings: with `support.desks` off (the `standard` and `min` presets) this shows nothing. Left out, `max`. */
+  settings?: SupportSettingsInput | null;
   copy?: SupportCopyOverrides;
   className?: string;
 }
@@ -334,10 +340,11 @@ export interface SupportDeskPickerProps {
  * desk, an agent of two tenants). Renders nothing for one desk or none. Pair it with
  * `chooseDesk(desks, asked)` for the desk the inbox opens.
  */
-export function SupportDeskPicker({ client, value, onChange, copy: overrides, className }: SupportDeskPickerProps) {
+export function SupportDeskPicker({ client, value, onChange, settings, copy: overrides, className }: SupportDeskPickerProps) {
   const copy = resolveSupportCopy(overrides);
-  const desks = useSupportDesks(client);
-  if (!desks.data) return null;
+  const on = supportSettingValues(settings).support.desks;
+  const desks = useSupportDesks(client, { enabled: on });
+  if (!desks.data || !on) return null;
   const chosen = chooseDesk(desks.data, value);
   const offered = pickerDesks(desks.data, chosen);
   if (offered.length < 2 || !chosen) return null;
@@ -368,6 +375,8 @@ export interface SupportDeskSwitchProps {
   client: SupportClient;
   /** The tenant whose desk this is. */
   tenantId: string;
+  /** Genesis settings: with `support.desks` off (the `standard` and `min` presets) this shows nothing. Left out, `max`. */
+  settings?: SupportSettingsInput | null;
   copy?: SupportCopyOverrides;
   /** After it changed (for a toast). */
   onChanged?: (enabled: boolean) => void;
@@ -380,14 +389,15 @@ export interface SupportDeskSwitchProps {
  * app's support. Its admins turn it on or off (`support_set_desk`, which keeps every change); anyone
  * else sees it disabled. Renders nothing for someone who doesn't work the desk.
  */
-export function SupportDeskSwitch({ client, tenantId, copy: overrides, onChanged, onError, className }: SupportDeskSwitchProps) {
+export function SupportDeskSwitch({ client, tenantId, settings, copy: overrides, onChanged, onError, className }: SupportDeskSwitchProps) {
   const copy = resolveSupportCopy(overrides);
   const queryClient = useQueryClient();
-  const desks = useSupportDesks(client);
+  const on = supportSettingValues(settings).support.desks;
+  const desks = useSupportDesks(client, { enabled: on });
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const desk = desks.data?.find((d) => d.tenantId === tenantId && !d.isDefault);
-  if (!desk) return null;
+  if (!desk || !on) return null;
   const change = async (enabled: boolean) => {
     setBusy(true);
     setFailed(false);

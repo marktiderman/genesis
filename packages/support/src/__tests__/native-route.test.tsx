@@ -114,3 +114,27 @@ describe("SupportRoute", () => {
     expect(screen.getByText("nothing here")).toBeTruthy();
   });
 });
+
+describe("SupportRoute and the settings", () => {
+  it("is notFound for a screen the settings turn off, and offers the contact", () => {
+    const fake = fakeSupabase({ userId: "00000000-0000-4000-8000-0000000000a1", rpc: () => ({ data: [], error: null }) });
+    const block = createSupport({
+      supabase: fake.client,
+      navigate: vi.fn(),
+      platform: "ios",
+      basePath: "/account/support",
+      useCurrentRoute: () => "/account/support/agent",
+      appSettings: { "support.agentDesk": false, "support.contactEmail": "help@acme.test" },
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <block.Root>
+          <SupportRoute notFound={<span>agent desk off</span>} />
+        </block.Root>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText("agent desk off")).toBeTruthy();
+    expect(block.contact()).toEqual({ email: "help@acme.test", url: null });
+  });
+});

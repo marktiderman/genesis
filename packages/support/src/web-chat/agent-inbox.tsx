@@ -43,6 +43,7 @@ import { isSitePath } from "../routes";
 import { ComposerPickerList, showMentions, useComposerPicker, type ComposerPicker } from "./composer-pickers";
 import { supportWebKeys } from "./report-thread";
 import { SupportDeskControls, SupportRequesterPanel } from "./desks";
+import { supportSettingValues, type SupportSettingsInput } from "../settings";
 import { TicketControls } from "./staff-thread";
 import { scopeOf, useResolvedTenant } from "./tenant";
 import { threadAttachments } from "./thread-files";
@@ -89,6 +90,12 @@ export interface SupportAgentInboxProps {
   deskControls?: boolean | { allowMove?: boolean };
   /** A ticket was moved to another desk (it closes here, and the queues refresh). */
   onTicketMoved?: (ticketId: string) => void;
+  /**
+   * Genesis settings: `support.agentDesk` off shows that the agent desk is off instead of the inbox,
+   * and `support.desks` off leaves the desk card out (unless `deskControls` says otherwise). Left
+   * out, the `max` preset.
+   */
+  settings?: SupportSettingsInput | null;
   /**
    * Variables a saved reply fills, besides the requester's `first_name`, `name` and `email`
    * (the agent's own name as `agent_name`, say). Unknown ones stay as written. Without a real name
@@ -654,6 +661,11 @@ function TicketDetails({
 /** A tenant's help desk inbox: its queues, the open ticket's thread and its details. Another tenant is a fresh inbox. */
 export function SupportAgentInbox(props: SupportAgentInboxProps) {
   const tenant = useResolvedTenant(props.client, props.tenantId);
+  const values = supportSettingValues(props.settings);
+  if (!values.support.agentDesk) {
+    const copy = resolveSupportCopy(props.copy);
+    return <EmptyState data-testid="genesis-support-agent-desk-off" title={copy.off.agentDeskTitle} description={copy.off.agentDeskBody} />;
+  }
   if (tenant.failed) return <EmptyState title={resolveSupportCopy(props.copy).agentInbox.errorTitle} description={resolveSupportCopy(props.copy).agentInbox.errorBody} />;
   if (!tenant.ready) return <Skeleton className="h-64 w-full" />;
   return <AgentInbox key={scopeOf(props.client, tenant.tenantId)} {...props} tenantId={tenant.tenantId} />;
@@ -675,8 +687,9 @@ function AgentInbox({
   agents,
   context,
   requesterPanel = true,
-  deskControls = true,
+  deskControls: deskControlsProp,
   onTicketMoved,
+  settings,
   replyVariables,
   articleHref = defaultArticleHref,
   shortcuts,
@@ -690,6 +703,7 @@ function AgentInbox({
 }: SupportAgentInboxProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
   const queryClient = useQueryClient();
+  const deskControls = deskControlsProp ?? supportSettingValues(settings).support.desks;
   const pageSize = Math.min(Math.max(pageSizeProp, 1), MAX_PAGE);
   const [ownView, setOwnView] = useState<TicketInboxView>(defaultView ?? views[0] ?? "mine");
   const view = viewProp ?? ownView;

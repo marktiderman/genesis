@@ -30,7 +30,7 @@ import type { Diagnostics } from "../diagnostics/create";
 import { DIAGNOSTICS_DEFAULTS } from "../diagnostics/report";
 import { listenForShake, type AccelerometerLike, type ShakeOptions, type ViewShotLike } from "./modules";
 import { SendDiagnosticsRow } from "./diagnostics";
-import { supportSettingValues, type SupportSettingsInput, type SupportSettingValues } from "../settings";
+import { supportContact, supportSettingValues, type SupportContactInfo, type SupportSettingsInput, type SupportSettingValues } from "../settings";
 import { inZone, stripZone, zoneOf } from "../routes";
 
 /** A screenshot waiting for the feedback screen. `uri` is a data URI. */
@@ -165,6 +165,8 @@ export interface SupportBlock extends NativeBlock<typeof SUPPORT_BLOCK_ID> {
   currentRoute(): string | null;
   /** The navigation zone the person is in (one of `zones`), or "" for none. */
   zone(): string;
+  /** Where people can write when the app can't help (`support.contactEmail` / `contactUrl`), or null: for Help and for genesis-native's fatal screens (`contact`). */
+  contact(): SupportContactInfo | null;
   readonly Root: ComponentType<NativeBlockRootProps>;
 }
 
@@ -347,6 +349,7 @@ export function createSupport(given: SupportOptions): SupportBlock {
     },
     currentRoute: () => route,
     zone: () => zoneOf(route ?? "", zones),
+    contact: () => supportContact(typeof given.appSettings === "function" ? given.appSettings() : given.appSettings),
     Root: function SupportRoot({ children }) {
       const current = (options.useCurrentRoute ?? noRoute)();
       useEffect(() => {

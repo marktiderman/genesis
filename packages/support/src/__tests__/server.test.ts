@@ -465,3 +465,28 @@ describe("supabaseDiagnosticsStore", () => {
     expect(arg(calls[0], "insert")).toMatchObject({ user_id: USER, context: { a: 1, severity: "low", diagnosticsId: ID } });
   });
 });
+
+describe("notifiers from the settings", async () => {
+  const { supportNotifiersFromSettings } = await import("../server");
+  it("takes the repository and webhook from the settings when the environment has none", () => {
+    const n = supportNotifiersFromSettings({ env: { GITHUB_TOKEN: "ghp" }, settings: { "support.githubRepo": "acme/app", "support.webhookUrl": "https://hooks.example/x" } });
+    expect(n.map((x) => x.name)).toEqual(["github", "webhook"]);
+  });
+
+  it("leaves the webhook out with staff alerts off, and says what is wrong", () => {
+    const problems: string[] = [];
+    const n = supportNotifiersFromSettings({
+      env: { SUPPORT_WEBHOOK_URL: "https://hooks.example/x" },
+      settings: { "support.githubRepo": "acme/app", "support.staffAlerts": false },
+      onProblem: (p) => problems.push(p),
+    });
+    expect(n).toEqual([]);
+    expect(problems[0]).toContain("GITHUB_TOKEN");
+  });
+
+  it("refuses a webhook that isn't https", () => {
+    const problems: string[] = [];
+    expect(supportNotifiersFromSettings({ env: {}, settings: { "support.webhookUrl": "http://x.test" }, onProblem: (p) => problems.push(p) })).toEqual([]);
+    expect(problems[0]).toContain("https");
+  });
+});

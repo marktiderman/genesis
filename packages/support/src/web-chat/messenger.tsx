@@ -39,6 +39,8 @@ import type { OfficeHours } from "../office-hours";
 import { awaitingReplyLine, composeExpectationLine, useReplyExpectation, type ReplyExpectation } from "../reply-expectation";
 import type { FeedbackContext } from "../record";
 import { scopeOf, useResolvedTenant } from "./tenant";
+import { SupportContact } from "./contact";
+import { supportContact, supportSettingValues, type SupportContactInfo, type SupportSettingsInput } from "../settings";
 import { threadAttachments } from "./thread-files";
 
 export type MessengerSpace = "home" | "messages" | "help";
@@ -67,6 +69,13 @@ export interface SupportMessengerProps {
    * Default false.
    */
   allTenants?: boolean;
+  /**
+   * Genesis settings (what `resolveSettings` returned, or the values alone): `support.messenger` off
+   * shows nothing (the launcher too), `support.helpCenter` off leaves Help out, and
+   * `support.contactEmail` / `support.contactUrl` show under Help and on error screens. Left out,
+   * the `max` preset (everything on, no contact).
+   */
+  settings?: SupportSettingsInput | null;
   /** Which spaces to offer, in order. Default Home, Messages, Help. */
   spaces?: readonly MessengerSpace[];
   /** Over the search on Home. Default the copy's "How can we help?". */
@@ -118,6 +127,8 @@ interface Shared {
   client: SupportClient;
   tenantId: string | null;
   scope: string;
+  /** The contact fallback, or null. */
+  contact: SupportContactInfo | null;
   /** The person's tickets as the messenger lists them: this tenant's, or every tenant's (`allTenants`). */
   tickets: { queryKey: readonly unknown[]; queryFn: () => Promise<Ticket[]> };
   copy: SupportCopy;
@@ -343,6 +354,7 @@ function Help({
   client,
   tenantId,
   scope,
+  contact,
   copy,
   go,
   here,
@@ -410,6 +422,7 @@ function Help({
           label={copy.messenger.spaces.help}
         />
       )}
+      <SupportContact contact={contact} copy={copy} />
     </div>
   );
 }
@@ -433,7 +446,7 @@ function Collection({ client, tenantId, scope, copy, go, here, report, id }: Sha
   );
 }
 
-function Article({ client, tenantId, scope, copy, go, here, report, slug }: Shared & { slug: string }) {
+function Article({ client, tenantId, scope, contact, copy, go, here, report, slug }: Shared & { slug: string }) {
   const article = useQuery({ queryKey: supportMessengerKeys.article(scope, slug), queryFn: () => required(client.helpArticle)(slug, { tenantId }) });
   useReported(article.error, report);
   if (article.isPending) {
@@ -447,7 +460,11 @@ function Article({ client, tenantId, scope, copy, go, here, report, slug }: Shar
   if (!article.data) {
     return (
       <div data-testid="genesis-support-messenger-article-missing">
-        <EmptyState title={article.isError ? copy.messenger.helpErrorTitle : copy.messenger.articleNotFound} {...(article.isError ? { description: copy.messenger.errorBody } : {})} />
+        <EmptyState
+          title={article.isError ? copy.messenger.helpErrorTitle : copy.messenger.articleNotFound}
+          {...(article.isError ? { description: copy.messenger.errorBody } : {})}
+          action={<SupportContact contact={contact} bare copy={copy} />}
+        />
       </div>
     );
   }
@@ -521,7 +538,7 @@ function Compose({ client, tenantId, scope, tickets, copy, go, report, expectati
 }
 
 /** A person's conversation. Keyed by ticket, so a draft never follows them to another one. */
-function Conversation({ client, tenantId, scope, tickets, copy, report, expectation, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
+function Conversation({ client, tenantId, scope, contact, tickets, copy, report, expectation, id, resolveUser, active }: Shared & { id: string; resolveUser: ResolveUser | undefined; active: boolean }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -581,7 +598,7 @@ function Conversation({ client, tenantId, scope, tickets, copy, report, expectat
   if (!t) {
     return (
       <div data-testid="genesis-support-messenger-thread-missing">
-        <EmptyState title={ticket.isError ? copy.messenger.messagesErrorTitle : copy.thread.notFound} />
+        <EmptyState title={ticket.isError ? copy.messenger.messagesErrorTitle : copy.thread.notFound} action={ticket.isError ? <SupportContact contact={contact} bare copy={copy} /> : undefined} />
       </div>
     );
   }
@@ -663,11 +680,17 @@ function useReported(error: unknown, report: (error: unknown) => void) {
 /** The messenger: Home, Messages and Help, in whatever holds it. Another tenant is another messenger: nothing carries over. */
 export function SupportMessenger(props: SupportMessengerProps) {
   const tenant = useResolvedTenant(props.client, props.tenantId);
+  // support.messenger off: no messenger (after the hook, which always runs).
+  if (!supportSettingValues(props.settings).support.messenger) return null;
   if (tenant.failed) {
     const copy = resolveSupportCopy(props.copy);
     return (
       <div data-testid="genesis-support-messenger-failed">
-        <EmptyState title={copy.messenger.helpErrorTitle} description={copy.messenger.errorBody} />
+        <EmptyState
+          title={copy.messenger.helpErrorTitle}
+          description={copy.messenger.errorBody}
+          action={<SupportContact contact={supportContact(props.settings)} bare {...(props.copy ? { copy: props.copy } : {})} />}
+        />
       </div>
     );
   }
@@ -683,10 +706,13 @@ function ticketsQueryOf(client: SupportClient, tenantId: string | null, allTenan
     : { queryKey: supportMessengerKeys.tickets(scope), queryFn: () => required(client.ticketsInTenant)({ tenantId }) };
 }
 
-function Messenger({ client, tenantId: tenantProp, allTenants = false, spaces = SPACES, greeting, askAi, onAiConsent, active = true, resolveUser, context = defaultContext, replyExpectation, officeHours, copy: copyOverrides, onError, className }: SupportMessengerProps) {
+function Messenger({ client, tenantId: tenantProp, allTenants = false, settings, spaces: spacesProp = SPACES, greeting, askAi, onAiConsent, active = true, resolveUser, context = defaultContext, replyExpectation, officeHours, copy: copyOverrides, onError, className }: SupportMessengerProps) {
   const copy = useMemo(() => resolveSupportCopy(copyOverrides), [copyOverrides]);
   const tenantId = tenantProp ?? null;
   const scope = scopeOf(client, tenantId);
+  const values = supportSettingValues(settings);
+  const spaces = values.support.helpCenter ? spacesProp : spacesProp.filter((sp) => sp !== "help");
+  const contact = supportContact(settings);
   const first = spaces[0] ?? "home";
   const [screen, setScreen] = useState<Screen>({ name: "space", space: first });
   const [query, setQuery] = useState("");
@@ -704,7 +730,7 @@ function Messenger({ client, tenantId: tenantProp, allTenants = false, spaces = 
   const aiOn = Boolean(askAi && ai.data);
   const expectation = useReplyExpectation(replyExpectation, officeHours);
   const tickets = useMemo(() => ticketsQueryOf(client, tenantId, allTenants), [client, tenantId, allTenants]);
-  const shared: Shared = { client, tenantId, scope, tickets, copy, go: setScreen, here: screen, report, expectation };
+  const shared: Shared = { client, tenantId, scope, contact, tickets, copy, go: setScreen, here: screen, report, expectation };
 
   const search = (next: string) => {
     setQuery(next);
@@ -797,7 +823,9 @@ const POSITIONS = { "bottom-right": "fixed bottom-4 right-4 z-50", "bottom-left"
 /** A button with the unread count that opens the messenger: in the chat dock when there is one, else a sheet. */
 export function SupportMessengerLauncher({ position = "bottom-right", label, variant = "button", onExpand, refreshInterval = 60_000, ...messenger }: SupportMessengerLauncherProps) {
   const { client } = messenger;
-  const { ready, tenantId } = useResolvedTenant(client, messenger.tenantId);
+  const { ready: resolved, tenantId } = useResolvedTenant(client, messenger.tenantId);
+  const on = supportSettingValues(messenger.settings).support.messenger;
+  const ready = resolved && on;
   const copy = useMemo(() => resolveSupportCopy(messenger.copy), [messenger.copy]);
   const dock = useOptionalChatDock();
   const [sheet, setSheet] = useState(false);
@@ -815,6 +843,8 @@ export function SupportMessengerLauncher({ position = "bottom-right", label, var
     updatePanel?.(PANEL_ID, { unread, render });
   }, [updatePanel, unread, render]);
 
+  // support.messenger off: no launcher.
+  if (!on) return null;
   const open = () => {
     if (dock) dock.openPanel({ id: PANEL_ID, title, render, unread, icon: <MessageCircle className="size-4" aria-hidden />, ...(onExpand ? { onExpand } : {}) });
     else setSheet(true);
