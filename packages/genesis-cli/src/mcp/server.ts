@@ -33,7 +33,7 @@ import { applyPlan, FixError, planFix, StalePlanError } from "../fix/engine.js";
 import { allFixes, type BuiltinDeps } from "../fix/registry.js";
 import type { Fix, FixContext, FixPlan } from "../fix/types.js";
 import { distance, readUpgradeStatus, type RegistryDeps } from "../upgrade/registry.js";
-import { boundedJson, clip, scrub, secretValues } from "./bounds.js";
+import { boundedJson, clip, hasSecretLiteral, scrub, scrubStream, scrubValues, secretValues, showInvisible } from "./bounds.js";
 import { guardChildStdio } from "./stdio.js";
 import { boundedPlan, catalogSearch, cliPackageDir, explainRule, findingsReport, resolveFixTarget, slimFinding, ToolInputError, type FixTarget } from "./doctor.js";
 import {
@@ -215,16 +215,23 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
     }
   };
 
+  /** Scrub, then clip: a clip first could cut a secret in half and leave its start unredacted. */
+  const sc = (text: string, max?: number) => clip(scrub(text, secretValues(env, declaredSecretNames())), max);
+  const scrubber = () => {
+    const values = secretValues(env, declaredSecretNames());
+    return (text: string) => scrub(text, values);
+  };
+
   /** The command the person runs to apply this plan themselves, or what to do by hand. */
   const personCommand = (fix: Fix, plan: FixPlan, remembered?: Remembered) =>
     fix.id === SETTINGS_PROPOSE_ID
-      ? { manual: `Set "settings.${remembered?.key ?? "…"}" to ${clip(JSON.stringify(remembered?.value) ?? "null", 500)} in genesis.config.json (or approve it from a client that can ask).` }
+      ? { manual: `Set "settings.${remembered?.key ?? "…"}" to ${sc(JSON.stringify(remembered?.value) ?? "null", 500)} in genesis.config.json (or approve it from a client that can ask).` }
       : { command: `genesis fix ${fix.id} --expect ${plan.hash}` };
 
   /** Whether fix_apply may run this plan, and if not, what the person does instead. */
   const applyAdvice = (fix: Fix, plan: FixPlan) => {
     if (fix.kind === "manual" || plan.files.length + plan.commands.length === 0) {
-      return { runnable: false as const, reason: `nothing to apply${plan.manual ? `: ${clip(plan.manual, 1_000)}` : ""}` };
+      return { runnable: false as const, reason: `nothing to apply${plan.manual ? `: ${sc(plan.manual, 1_000)}` : ""}` };
     }
     if (plan.secrets.length || plan.commands.some((c) => c.stdinSecret) || (fix.kind === "guided" && fix.step)) {
       // `genesis setup --step <id>` arrives with the setup wizard; until then the CLI's fix, which asks at a terminal.
@@ -249,13 +256,15 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
 
   /**
    * What the person reads before approving: the plan, a proposed setting's value in full, and each
-   * file's changed lines (bounded; past the bound it says how to read the rest). A message that
-   * can't be shown whole is refused, never cut.
+   * file's changed lines. It is shown exactly as it is, or not at all: a message over its bounds, or
+   * one that holds a secret's value or a secret-shaped literal (which would have to be hidden from
+   * the person approving it), is refused with the reason. Invisible and direction-changing
+   * characters are shown as their codes.
    */
-  const approvalMessage = (fix: Fix, plan: FixPlan, seen: Remembered | undefined, values: readonly string[]) => {
+  const approvalMessage = (fix: Fix, plan: FixPlan, seen: Remembered | undefined): { message: string } | { refused: string } => {
     let budget = MAX_DIFF_CHARS;
-    const diffs = plan.files.flatMap((f) => {
-      const head = `• ${f.beforeHash === null ? "create" : "write"} ${f.path}: ${f.why}`;
+    const diffs: string[] = [];
+    for (const f of plan.files) {
       let before = "";
       try {
         before = f.beforeHash === null ? "" : readFileSync(path.join(root, f.path), "utf8");
@@ -264,10 +273,10 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
       }
       const lines = changedLines(before, f.content);
       const text = lines.join("\n");
-      if (text.length > budget) return [head, `  (${lines.length} changed lines, too long to show here: genesis fix ${fix.id} --plan prints them)`];
+      if (text.length > budget) return { refused: `the plan changes more lines than an approval can show whole (over ${MAX_DIFF_CHARS} characters)` };
       budget -= text.length;
-      return [head, ...lines.map((l) => `  ${l}`)];
-    });
+      diffs.push(`• ${f.beforeHash === null ? "create" : "write"} ${f.path}: ${f.why}`, ...lines.map((l) => `  ${l}`));
+    }
     const message = [
       `Apply this Genesis change in ${path.basename(root)}?`,
       "",
@@ -280,8 +289,10 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
       "",
       `Plan ${plan.hash.slice(0, 12)}. Nothing is written unless you approve; a plan that changed since is refused.`,
     ].join("\n");
-    if (message.length > MAX_APPROVAL_CHARS) throw new FixError(`${fix.id}: the plan is too large to show whole for approval (${message.length} characters); nothing was written. The person runs it: genesis fix ${fix.id} --plan, then --expect <hash>.`);
-    return scrub(message, values);
+    if (message.length > MAX_APPROVAL_CHARS) return { refused: `the plan is too large to show whole for approval (${message.length} characters)` };
+    if (scrubValues(message, secretValues(env, declaredSecretNames())) !== message) return { refused: "the plan holds the value of a secret from the environment; a secret is never written by an agent" };
+    if (hasSecretLiteral(message)) return { refused: "the plan holds text shaped like a secret (a private key block or a provider token), which an approval would have to hide" };
+    return { message: showInvisible(message) };
   };
 
   const tools: ToolDef[] = [
@@ -304,7 +315,7 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
           errors: result.errors,
           warnings: result.warnings,
           infos: result.infos,
-          ...findingsReport(result.findings, args.rules as string[] | undefined),
+          ...findingsReport(result.findings, args.rules as string[] | undefined, scrubber()),
         };
       },
     },
@@ -389,11 +400,11 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
         const { findings, fixes } = await state();
         const target: FixTarget = resolveFixTarget(args as { fixId?: string; rule?: string; file?: string; subject?: string }, findings, fixes);
         if (!target.fix) {
-          return { fixId: target.id, kind: "manual", findings: target.findings.slice(0, 50).map(slimFinding), note: "A manual fix: nothing runs. Each finding's message says what to do." };
+          return { fixId: target.id, kind: "manual", findings: target.findings.slice(0, 50).map((f) => slimFinding(f, scrubber())), note: "A manual fix: nothing runs. Each finding's message says what to do." };
         }
         const plan = await planFix(target.fix, fixContext(target.findings));
         remember(plan.hash, { fixId: plan.fixId, ...(args.file ? { file: args.file as string } : {}), ...(args.subject ? { subject: args.subject as string } : {}) });
-        return { fixId: target.fix.id, kind: target.fix.kind, title: target.fix.title, findings: target.findings.length, plan: boundedPlan(plan), hash: plan.hash, apply: applyAdvice(target.fix, plan) };
+        return { fixId: target.fix.id, kind: target.fix.kind, title: target.fix.title, findings: target.findings.length, plan: boundedPlan(plan, scrubber()), hash: plan.hash, apply: applyAdvice(target.fix, plan) };
       },
     },
     {
@@ -408,7 +419,7 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
         const fix = settingsProposalFix(key, args.value);
         const plan = await planFix(fix, { root, findings: [], network, log });
         remember(plan.hash, { fixId: SETTINGS_PROPOSE_ID, key, value: args.value });
-        return { fixId: SETTINGS_PROPOSE_ID, key, plan: boundedPlan(plan), hash: plan.hash, apply: applyAdvice(fix, plan) };
+        return { fixId: SETTINGS_PROPOSE_ID, key, plan: boundedPlan(plan, scrubber()), hash: plan.hash, apply: applyAdvice(fix, plan) };
       },
     },
   ];
@@ -466,11 +477,21 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
         ...personCommand(fix, plan, seen),
       };
     }
+    const shown = approvalMessage(fix, plan, seen);
+    if ("refused" in shown) {
+      log(`genesis mcp: ${fix.id} not offered for approval: ${shown.refused}`);
+      return {
+        applied: false,
+        fixId,
+        reason: `Not offered for approval: ${shown.refused}. Nothing was written. The person reviews and applies it themselves:`,
+        ...(fix.id === SETTINGS_PROPOSE_ID ? { manual: `Edit genesis.config.json by hand (settings.${seen?.key ?? "…"}).` } : { command: `genesis fix ${fix.id} --plan, then genesis fix ${fix.id} --expect ${plan.hash}` }),
+      };
+    }
     log(`genesis mcp: asking the person to approve ${fix.id} (plan ${hash.slice(0, 12)})`);
     const answer = await server.elicitInput(
       {
         mode: "form",
-        message: approvalMessage(fix, plan, seen, secretValues(env, declaredSecretNames())),
+        message: shown.message,
         requestedSchema: { type: "object", properties: { approve: { type: "boolean", title: "Apply this plan", description: "Write the files and run the commands listed above.", default: false } }, required: ["approve"] },
       },
       { timeout: APPROVAL_TIMEOUT_MS },
@@ -488,8 +509,8 @@ export function createGenesisMcpServer(options: GenesisMcpOptions): Server {
       fixId,
       written: result.written,
       ran: result.ran,
-      notes: result.notes.map((n) => clip(n, 1_000)),
-      verify: { ok: result.verify.ok, ...(result.verify.message ? { message: clip(result.verify.message, 1_000) } : {}), ...(result.verify.remaining ? { remaining: result.verify.remaining.length } : {}) },
+      notes: result.notes.map((n) => sc(n, 1_000)),
+      verify: { ok: result.verify.ok, ...(result.verify.message ? { message: sc(result.verify.message, 1_000) } : {}), ...(result.verify.remaining ? { remaining: result.verify.remaining.length } : {}) },
     };
   }
 
@@ -550,6 +571,15 @@ export async function runMcpStdio(options: GenesisMcpOptions): Promise<Server> {
       write(chunk, encoding, callback);
     },
   });
+  // stderr carries the server's logs, what in-process commands print, and the stdout moved below:
+  // all of it scrubbed of the secret values and secret-shaped literals the results are.
+  let declared: string[] = [];
+  try {
+    declared = Object.values(loadCatalogue(path.resolve(options.root)).catalogue.keys).flatMap((d) => (d.secret ? [d.secret.name] : []));
+  } catch {
+    declared = [];
+  }
+  scrubStream(process.stderr, secretValues(options.env ?? process.env, declared));
   stdout.write = ((chunk: unknown, ...rest: unknown[]) => (process.stderr.write as (...a: unknown[]) => boolean)(chunk, ...rest)) as typeof stdout.write;
   // A child that inherits the terminal would write to fd 1: route its stdout to stderr, its stdin away.
   guardChildStdio();
