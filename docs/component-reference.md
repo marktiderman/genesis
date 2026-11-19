@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 845 components · 4833 other exports · 4065 standalone types across 214 entry points in 31 packages.
+**Totals:** 845 components · 4861 other exports · 4092 standalone types across 215 entry points in 31 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1404,7 +1404,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`writeConflict`](../packages/core/src/schema/write-state.ts) | function | — | The conflict `error` reports for a write of `mine`, or null when `error` isn't a `conflict` that carries the row as it is now. A field `mine` has and their row doesn't (a column it doesn't read) counts as different: the person decides it... |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (156)
+### Types (159)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1458,6 +1458,7 @@ export type { FieldSchema };
 export type { FieldType };
 export type { FilterOperator };
 export type { FilterParam };
+export type { FunctionCall };
 export type { GenesisViewerRoles };
 export type { GetManyParams };
 export type { GetManyResult };
@@ -1500,6 +1501,7 @@ export type { ResourceRelation };
 export type { ResourceSchema };
 export type { ResourceScope };
 export type { ResourceSummary };
+export type { ResourceWrites };
 export type { RowAction };
 export type { RowFailure };
 export type { RowOf };
@@ -1521,6 +1523,7 @@ export type { SupabaseRealtimePayload };
 export type { SupabaseResourceConfig };
 export type { SupabaseUpdateContext };
 export type { SupabaseWriteContext };
+export type { TableAccess };
 export type { UndoableWrite };
 export type { UpdateOptions };
 export type { UpdateParams };
@@ -1608,7 +1611,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (56)
+### Types (59)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1632,6 +1635,7 @@ export type { DataWriteErrorOptions };
 export type { DeleteParams };
 export type { DeleteResult };
 export type { FilterParam };
+export type { FunctionCall };
 export type { GetManyParams };
 export type { GetManyResult };
 export type { GetOneParams };
@@ -1650,6 +1654,7 @@ export type { RangeFilter };
 export type { ReadOutcome };
 export type { ResolveAggregateOptions };
 export type { ResourceChangeEvent };
+export type { ResourceWrites };
 export type { RowFailure };
 export type { RpcClient };
 export type { ScalarFilter };
@@ -1665,6 +1670,7 @@ export type { SupabaseRealtimePayload };
 export type { SupabaseResourceConfig };
 export type { SupabaseUpdateContext };
 export type { SupabaseWriteContext };
+export type { TableAccess };
 export type { UpdateParams };
 export type { UpdateResult };
 export type { WriteEvent };
@@ -2016,13 +2022,16 @@ export type { WorkspaceTheme };
 
 **Barrel:** [`packages/core/src/testing/index.ts`](../packages/core/src/testing/index.ts)
 
-### Other exports (11)
+### Other exports (14)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`accessRules`](../packages/core/src/testing/access-rules.ts) | function | — | The test cases for one function's access rule. An allowed person's call must succeed and act; a refused person's call must be refused (an insufficient-privilege or guard error, 42501 or P0001) or act on nothing. Any other error fails the... |
 | [`ContractError`](../packages/core/src/testing/index.ts) | class | — | A broken contract: the message says what happened instead. |
+| [`declaredFunctions`](../packages/core/src/testing/access-rules.ts) | function | — | Every database function the provider's resources declare: their `writes`, their `actions` and a `source: { rpc }`. Read from the options themselves, so nothing a resource declares is missed and nothing else is counted. |
+| [`expectAccessRulesCover`](../packages/core/src/testing/access-rules.ts) | function | — | Fails, naming each one, when a function the provider declares has no spec among `tested`. It compares names only, so pass it the specs the access-rule cases are registered from, with the options the app's provider is made from: |
 | [`expectAllowed`](../packages/core/src/testing/index.ts) | function | — | The write succeeds. Returns what it resolved to. |
 | [`expectBinned`](../packages/core/src/testing/index.ts) | function | — | A delete on a recycle-bin table moves the row to the bin: `as` deletes it, can no longer read it (gone or forbidden), and `inBin` (a check with the service role or a bin query) confirms the row is still stored. |
 | [`expectNeverShows`](../packages/core/src/testing/index.ts) | function | — | `marker` (a value only a private row holds) appears nowhere in what the read returns: use a list or report read that returns the rows around the private one. A refused read (42501, or `forbidden` / `unauthenticated`) shows nothing and pa... |
@@ -2034,11 +2043,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`fixtureAccessToken`](../packages/core/src/testing/index.ts) | function | — | A signed access token for a fixture person (or any user id), for a test database's legacy JWT secret. Hand it to the client as `Authorization: Bearer <token>`; `auth.uid()` then reads that user. Test databases only: never give it a produ... |
 | [`isRefusal`](../packages/core/src/testing/index.ts) | function | — | Whether a failed write is a refusal: a refusal code (42501, P0001), or the provider's own `forbidden` (the row is still visible but unchanged) or `unauthenticated`. `gone` is not: it also means the id matched nothing. |
 
-### Types (2)
+### Types (6)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AccessRuleCase };
+export type { AccessRuleClient };
+export type { AccessRuleSpec };
+export type { DeclaredFunction };
 export type { ExpectRefusedOptions };
 export type { FixtureUser };
 ```
@@ -5047,7 +5060,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`writeConflict`](../packages/core/src/schema/write-state.ts) | function | — | The conflict `error` reports for a write of `mine`, or null when `error` isn't a `conflict` that carries the row as it is now. A field `mine` has and their row doesn't (a column it doesn't read) counts as different: the person decides it... |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (156)
+### Types (159)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -5101,6 +5114,7 @@ export type { FieldSchema };
 export type { FieldType };
 export type { FilterOperator };
 export type { FilterParam };
+export type { FunctionCall };
 export type { GenesisViewerRoles };
 export type { GetManyParams };
 export type { GetManyResult };
@@ -5143,6 +5157,7 @@ export type { ResourceRelation };
 export type { ResourceSchema };
 export type { ResourceScope };
 export type { ResourceSummary };
+export type { ResourceWrites };
 export type { RowAction };
 export type { RowFailure };
 export type { RowOf };
@@ -5164,6 +5179,7 @@ export type { SupabaseRealtimePayload };
 export type { SupabaseResourceConfig };
 export type { SupabaseUpdateContext };
 export type { SupabaseWriteContext };
+export type { TableAccess };
 export type { UndoableWrite };
 export type { UpdateOptions };
 export type { UpdateParams };
@@ -7714,6 +7730,62 @@ export type { ReleaseManifest };
 export type { ResolvedPreferRule };
 export type { RouteFile };
 export type { RunDoctorOptions };
+```
+
+---
+
+## @marktiderman/genesis-cli/verify
+
+**Barrel:** [`packages/genesis-cli/src/verify/index.ts`](../packages/genesis-cli/src/verify/index.ts)
+
+### Other exports (25)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| `allowFor` | value | — | _(no summary)_ |
+| `allViewports` | value | — | _(no summary)_ |
+| `applyAllow` | value | — | _(no summary)_ |
+| `AXE_TAGS` | value | — | _(no summary)_ |
+| `checkPage` | value | — | _(no summary)_ |
+| `contextOptions` | value | — | _(no summary)_ |
+| `domChecks` | value | — | _(no summary)_ |
+| `ENGINES` | value | — | _(no summary)_ |
+| `entryCovers` | value | — | _(no summary)_ |
+| `flattenReactRouterRoutes` | value | — | _(no summary)_ |
+| `formatFinding` | value | — | _(no summary)_ |
+| `matchesPage` | value | — | _(no summary)_ |
+| `matchesPattern` | value | — | _(no summary)_ |
+| `matchesTarget` | value | — | _(no summary)_ |
+| `onePathPerPattern` | value | — | _(no summary)_ |
+| `patternCovers` | value | — | _(no summary)_ |
+| `patternFor` | value | — | _(no summary)_ |
+| `runsIn` | value | — | _(no summary)_ |
+| `targetParts` | value | — | _(no summary)_ |
+| `TEXT_ZOOM_VIEWPORT` | value | — | _(no summary)_ |
+| `validateAllow` | value | — | _(no summary)_ |
+| `WIDTHS` | value | — | _(no summary)_ |
+| `widthViewport` | value | — | _(no summary)_ |
+| `ZOOM_VIEWPORTS` | value | — | _(no summary)_ |
+| `zoomText` | value | — | _(no summary)_ |
+
+### Types (11)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { AllowEntry };
+export type { CheckId };
+export type { CheckPageOptions };
+export type { DomCheckOptions };
+export type { DomFinding };
+export type { Engine };
+export type { Finding };
+export type { ReactRouterRoute };
+export type { RoutePattern };
+export type { Viewport };
+export type { Where };
 ```
 
 ---
@@ -12404,7 +12476,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (56)
+### Types (59)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -12428,6 +12500,7 @@ export type { DataWriteErrorOptions };
 export type { DeleteParams };
 export type { DeleteResult };
 export type { FilterParam };
+export type { FunctionCall };
 export type { GetManyParams };
 export type { GetManyResult };
 export type { GetOneParams };
@@ -12446,6 +12519,7 @@ export type { RangeFilter };
 export type { ReadOutcome };
 export type { ResolveAggregateOptions };
 export type { ResourceChangeEvent };
+export type { ResourceWrites };
 export type { RowFailure };
 export type { RpcClient };
 export type { ScalarFilter };
@@ -12461,6 +12535,7 @@ export type { SupabaseRealtimePayload };
 export type { SupabaseResourceConfig };
 export type { SupabaseUpdateContext };
 export type { SupabaseWriteContext };
+export type { TableAccess };
 export type { UpdateParams };
 export type { UpdateResult };
 export type { WriteEvent };
