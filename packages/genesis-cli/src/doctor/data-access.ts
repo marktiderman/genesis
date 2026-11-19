@@ -301,7 +301,22 @@ function initializer(code: string, blank: string, name: string): { text: string;
  */
 function specsNamedIn(code: string, blank: string, call: string): string[] {
   const out: string[] = [];
-  const names = new Set([...blankStrings(call).matchAll(/(?:(?<=\.\.\.)|(?<![\w$.]))([A-Za-z_$][\w$]*)(?![\w$]*\s*:)/g)].map((m) => m[1]!));
+  // The spec itself (`accessRules(spec)`) and what the spec object spreads at its top level
+  // (`accessRules({ ...spec, as })`); a name elsewhere (in `args`, say) is not a spec.
+  const callBlank = blankStrings(call);
+  const names = new Set<string>();
+  const direct = /^\(\s*([A-Za-z_$][\w$]*)\s*[,)]/.exec(callBlank);
+  if (direct) names.add(direct[1]!);
+  let depth = 0;
+  for (let i = 0; i < callBlank.length; i++) {
+    const ch = callBlank[i];
+    if (depth === 2 && callBlank.startsWith("...", i)) {
+      const spread = /^\.\.\.\s*([A-Za-z_$][\w$]*)/.exec(callBlank.slice(i));
+      if (spread) names.add(spread[1]!);
+    }
+    if (ch === "{" || ch === "(" || ch === "[") depth++;
+    else if (ch === "}" || ch === ")" || ch === "]") depth--;
+  }
   for (const name of names) {
     const own = initializer(code, blank, name);
     if (own) out.push(own.text);

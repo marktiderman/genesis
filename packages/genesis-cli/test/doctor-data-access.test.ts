@@ -316,3 +316,20 @@ describe("data/access-rule-tests: resources belong to the provider's options", (
     expect(found.map((f) => f.subject).sort()).toEqual(["drop_t", "pin_u"]);
   });
 });
+
+describe("data/access-rule-tests: a named object in args is not a spec", () => {
+  it("credits only the spec passed or spread, not a payload args returns", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/declared.ts": DECLARED,
+      "test/access.test.ts": [
+        'const payload = { fn: "archive_task" };',
+        'for (const c of accessRules({ fn: "create_task", as, args: () => payload, allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);',
+        'const spec = { fn: "save_task", as, args, allowed: ["owner"], refused: ["stranger"] };',
+        "for (const c of accessRules(spec)) test(c.name, c.run);",
+        'const rpcs = [{ fn: "list_reports", allowed: ["owner"], refused: ["stranger"] }];',
+        "for (const r of rpcs) for (const c of accessRules({ ...r, as, args: () => payload })) test(c.name, c.run);",
+      ].join("\n"),
+    });
+    expect(found.map((f) => f.subject)).toEqual(["archive_task"]);
+  });
+});
