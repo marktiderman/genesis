@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import * as configRoot from "@marktiderman/genesis-config";
 import * as configBlocks from "@marktiderman/genesis-config/blocks";
@@ -26,5 +26,21 @@ describe("@marktiderman/genesis-features (deprecated alias)", () => {
     expect(config.name).toBe("@marktiderman/genesis-config");
     expect(Object.keys(own.exports)).toEqual(Object.keys(config.exports));
     expect(own.deprecated).toMatch(/@marktiderman\/genesis-config/);
+  });
+
+  it("ships each subpath's types as one re-export of the same subpath, nothing else (no zod in /blocks or /gate)", () => {
+    const own = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { exports: Record<string, { types?: string } | string> };
+    const dist = new URL("../dist/", import.meta.url);
+    const files = readdirSync(dist).filter((f) => f.endsWith(".d.ts"));
+    for (const [subpath, target] of Object.entries(own.exports)) {
+      if (typeof target === "string") continue;
+      const file = target.types!.replace("./dist/", "");
+      const text = readFileSync(new URL(file, dist), "utf8");
+      const specifiers = [...text.matchAll(/from\s+["']([^"']+)["']/g)].map((m) => m[1]);
+      expect(specifiers, file).toEqual([`@marktiderman/genesis-config${subpath === "." ? "" : subpath.slice(1)}`]);
+      expect(text.split("\n").filter((l) => l.trim() && !/^\s*(?:\/\*\*|\*|\*\/)/.test(l)), file).toEqual([`export * from "@marktiderman/genesis-config${subpath === "." ? "" : subpath.slice(1)}";`]);
+      expect(text, file).toMatch(/@deprecated/);
+    }
+    expect(files.length).toBe(Object.keys(own.exports).length - 1);
   });
 });

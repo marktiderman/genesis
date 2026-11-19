@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { codemodById, codemodsFor } from "../src/upgrade/codemods.js";
+import { codemodById, codemodInstallNote, codemodsFor } from "../src/upgrade/codemods.js";
+import { runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
 import { renameFeaturesDependency, rewriteFeaturesSpecifiers } from "../src/upgrade/rename-features.js";
 
 const ID = "genesis-features-renamed-genesis-config";
@@ -29,8 +30,14 @@ describe("rewriteFeaturesSpecifiers", () => {
     expect(rewriteFeaturesSpecifiers(text)).toBe(text.replaceAll("@marktiderman/genesis-features", "@marktiderman/genesis-config"));
   });
 
-  it("leaves other packages and prose alone", () => {
-    const text = 'import x from "@marktiderman/genesis-features-extra";\n// see @marktiderman/genesis-features in the docs\n';
+  it("moves a name escaped in a regular expression, anchored in a mapper key, or in a declare module", () => {
+    expect(rewriteFeaturesSpecifiers("exclude: [/@marktiderman\\/genesis-features/]")).toBe("exclude: [/@marktiderman\\/genesis-config/]");
+    expect(rewriteFeaturesSpecifiers('{ "^@marktiderman/genesis-features(.*)$": "<rootDir>/x$1" }')).toBe('{ "^@marktiderman/genesis-config(.*)$": "<rootDir>/x$1" }');
+    expect(rewriteFeaturesSpecifiers('declare module "@marktiderman/genesis-features/gate" {}')).toBe('declare module "@marktiderman/genesis-config/gate" {}');
+  });
+
+  it("leaves other packages and exact pins of the old one alone", () => {
+    const text = "import x from \"@marktiderman/genesis-features-extra\";\n- '@marktiderman/genesis-features@0.10.0'\n";
     expect(rewriteFeaturesSpecifiers(text)).toBe(text);
   });
 });
@@ -42,11 +49,22 @@ describe("renameFeaturesDependency", () => {
     expect(next).toBe(`{\n    "name": "app",\n    "dependencies": {\n        "@marktiderman/genesis-core": "^2.0.0",\n        "@marktiderman/genesis-config": "^0.10.1",\n        "zod": "^4.0.0"\n    }\n}\n`);
   });
 
-  it("drops the old entry when genesis-config is already there, and keeps workspace ranges", () => {
+  it("drops the old entry when genesis-config is already in any dependency field, and keeps workspace ranges", () => {
     const both = JSON.stringify({ devDependencies: { "@marktiderman/genesis-config": "^0.10.1", "@marktiderman/genesis-features": "^0.10.0" } });
     expect(JSON.parse(renameFeaturesDependency(both, () => "x"))).toEqual({ devDependencies: { "@marktiderman/genesis-config": "^0.10.1" } });
+    const across = JSON.stringify({ dependencies: { "@marktiderman/genesis-features": "^0.10.0" }, devDependencies: { "@marktiderman/genesis-config": "^0.10.1" } });
+    expect(JSON.parse(renameFeaturesDependency(across, () => "x"))).toEqual({ dependencies: {}, devDependencies: { "@marktiderman/genesis-config": "^0.10.1" } });
     const ws = JSON.stringify({ peerDependencies: { "@marktiderman/genesis-features": "workspace:^" } });
     expect(JSON.parse(renameFeaturesDependency(ws, () => "x"))).toEqual({ peerDependencies: { "@marktiderman/genesis-config": "workspace:^" } });
+  });
+
+  it("renames overrides, pnpm.overrides and resolutions keys", () => {
+    const raw = JSON.stringify({ overrides: { "@marktiderman/genesis-features": "0.10.0" }, pnpm: { overrides: { "@marktiderman/genesis-features@<0.10": "0.10.0" } }, resolutions: { "**/@marktiderman/genesis-features": "0.10.0", "@marktiderman/genesis-features-extra": "1" } });
+    expect(JSON.parse(renameFeaturesDependency(raw, () => "x"))).toEqual({
+      overrides: { "@marktiderman/genesis-config": "0.10.0" },
+      pnpm: { overrides: { "@marktiderman/genesis-config@<0.10": "0.10.0" } },
+      resolutions: { "**/@marktiderman/genesis-features": "0.10.0", "@marktiderman/genesis-features-extra": "1" },
+    });
   });
 
   it("returns the text unchanged when there's nothing to rename", () => {
@@ -82,6 +100,26 @@ describe("the genesis-features → genesis-config codemod", () => {
     expect(logs.join("\n")).toContain("keep their format");
   });
 
+  it("rewrites tsconfig paths and pnpm-workspace.yaml overrides, keeps exact pins, and lists what's left", async () => {
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", dependencies: { "@marktiderman/genesis-features": "^0.10.0" } }),
+      "tsconfig.json": '{\n  // paths\n  "compilerOptions": { "paths": { "@marktiderman/genesis-features/*": ["./x/*"] } }\n}\n',
+      "pnpm-workspace.yaml": "overrides:\n  '@marktiderman/genesis-features': 0.10.0\nminimumReleaseAgeExclude:\n  - '@marktiderman/genesis-features@0.10.0'\n",
+      "README.md": "Install `@marktiderman/genesis-features`.\n",
+    });
+    const logs: string[] = [];
+    const changed = await codemodById(ID)!.run({ root, dryRun: false, log: (m) => logs.push(m), wanted: () => "0.11.2" });
+    expect(changed.sort()).toEqual(["package.json", "pnpm-workspace.yaml", "tsconfig.json"]);
+    expect(readFileSync(path.join(root, "tsconfig.json"), "utf8")).toContain('"@marktiderman/genesis-config/*"');
+    expect(readFileSync(path.join(root, "pnpm-workspace.yaml"), "utf8")).toBe("overrides:\n  '@marktiderman/genesis-config': 0.10.0\nminimumReleaseAgeExclude:\n  - '@marktiderman/genesis-features@0.10.0'\n");
+    expect(logs.join("\n")).toMatch(/check by hand:\n {4}- \[ \] pnpm-workspace\.yaml\n {4}- \[ \] README\.md/);
+  });
+
+  it("says to install after editing a workspace package's package.json", () => {
+    expect(codemodInstallNote("/nowhere", ["packages/web/package.json"], false)).toMatch(/Not installed yet/);
+    expect(codemodInstallNote("/nowhere", ["src/a.ts"], false)).toBeNull();
+  });
+
   it("falls back to the alias's own range, and changes nothing in a dry run", async () => {
     const root = app({
       "package.json": JSON.stringify({ name: "app", devDependencies: { "@marktiderman/genesis-features": "0.10.0" } }),
@@ -94,5 +132,34 @@ describe("the genesis-features → genesis-config codemod", () => {
     await codemodById(ID)!.run({ root, dryRun: false, log: () => {} });
     expect(JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).devDependencies).toEqual({ "@marktiderman/genesis-config": "^0.10.1" });
     expect(JSON.parse(readFileSync(path.join(root, "packages/web/package.json"), "utf8")).dependencies).toEqual({ "@marktiderman/genesis-config": "^0.10.1" });
+  });
+});
+
+describe("genesis upgrade moves an app off genesis-features", () => {
+  const lookup = (packages: Record<string, string>): ReleaseLookup => ({ release: () => ({ version: "2.0.0", packages }), latest: () => null });
+
+  it("with nothing of the new release installed yet, writes the release's genesis-config range", async () => {
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", dependencies: { "@marktiderman/genesis-features": "^0.9.1" } }, null, 2) + "\n",
+      // What an app on 0.9.1 has installed: the old package, which doesn't depend on genesis-config.
+      "node_modules/@marktiderman/genesis-features/package.json": JSON.stringify({ name: "@marktiderman/genesis-features", version: "0.9.1", dependencies: { zod: "^4.0.0" } }),
+      "src/gate.ts": 'import { featureOn } from "@marktiderman/genesis-features/gate";\n',
+    });
+    const report = await runUpgrade({ root, lookup: lookup({ "@marktiderman/genesis-features": "0.11.0", "@marktiderman/genesis-config": "0.11.2" }), install: false, doctor: false });
+    expect(report.codemods.map((c) => c.id)).toContain(ID);
+    expect(JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).dependencies).toEqual({ "@marktiderman/genesis-config": "^0.11.2" });
+    expect(readFileSync(path.join(root, "src/gate.ts"), "utf8")).toBe('import { featureOn } from "@marktiderman/genesis-config/gate";\n');
+  });
+
+  it("runs for an app already on the alias, though the release crosses no version", async () => {
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", dependencies: { "@marktiderman/genesis-features": "^0.11.0" } }, null, 2) + "\n",
+      "node_modules/@marktiderman/genesis-features/package.json": JSON.stringify({ name: "@marktiderman/genesis-features", version: "0.11.0", dependencies: { "@marktiderman/genesis-config": "^0.11.2" } }),
+      "src/a.ts": 'import { defineBlock } from "@marktiderman/genesis-features/blocks";\n',
+    });
+    const report = await runUpgrade({ root, lookup: lookup({ "@marktiderman/genesis-features": "0.11.0", "@marktiderman/genesis-config": "0.11.2" }), install: false, doctor: false });
+    expect(report.codemods.map((c) => c.id)).toEqual([ID]);
+    expect(JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).dependencies).toEqual({ "@marktiderman/genesis-config": "^0.11.2" });
+    expect(readFileSync(path.join(root, "src/a.ts"), "utf8")).toContain("@marktiderman/genesis-config/blocks");
   });
 });

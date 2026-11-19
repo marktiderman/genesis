@@ -57,7 +57,7 @@ agent tooling sit in `core`. The umbrella package is a primitive in `core`.
 
 Every package records `genesis.layer` and `genesis.group` in its package.json; a module adds a
 `genesis.module` card (name, summary, blocks, `requiresModules`, schema, install line, docs,
-skill). The types and rules live in `@marktiderman/genesis-features` (`PackageMeta`,
+skill). The types and rules live in `@marktiderman/genesis-config` (formerly genesis-features; `PackageMeta`,
 `readPackageMeta`, `packageLayerProblems`), so a later `genesis doctor` mode can reuse them.
 
 `pnpm check:package-layers` fails CI from day one. "Depends on" means `dependencies`,

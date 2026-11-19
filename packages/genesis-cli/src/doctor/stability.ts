@@ -136,7 +136,7 @@ function packageDeprecation(root: string, pkg: string): string | undefined {
     }
   }
   if (notice) return notice;
-  return renamed ? `renamed to ${renamed}; run genesis upgrade (or genesis codemod genesis-features-renamed-genesis-config) to move the imports` : undefined;
+  return renamed ? `renamed to ${renamed}: run \`genesis codemod genesis-features-renamed-genesis-config\` to move the imports and the dependency` : undefined;
 }
 
 function declarationFiles(dir: string, out: string[] = []): string[] {

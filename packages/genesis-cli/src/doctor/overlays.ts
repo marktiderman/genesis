@@ -2,7 +2,7 @@
  * Overlays: an app's local copy of a published Genesis package, listed in
  * genesis.config.json `localPackages` under the package's own name, so the app
  * can change it today and promote the change upstream later. Its package.json
- * carries the marker (validated by genesis-features, `readOverlayMarker`):
+ * carries the marker (validated by genesis-config, `readOverlayMarker`):
  *
  *   "genesis": { …, "overlay": { "upstream": "@marktiderman/genesis-support@0.2.6",
  *                                "since": "2026-10-30", "owner": "…", "reason": "…" } }

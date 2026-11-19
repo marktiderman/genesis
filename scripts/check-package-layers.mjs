@@ -111,7 +111,7 @@ export function moduleFileProblems(root, pkgs) {
 
 export async function checkPackageLayers(root) {
   const features = pathToFileURL(path.join(root, "packages", "features", "dist", "index.js")).href;
-  if (!existsSync(fileURLToPath(features))) throw new Error("genesis-features isn't built: run pnpm build:packages first");
+  if (!existsSync(fileURLToPath(features))) throw new Error("genesis-config (packages/features) isn't built: run pnpm build:packages first");
   const { packageLayerProblems } = await import(features);
   const pkgs = readWorkspace(root);
   return { pkgs, problems: [...packageLayerProblems(pkgs.map((p) => p.layer)), ...moduleFileProblems(root, pkgs)] };
