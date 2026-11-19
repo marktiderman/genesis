@@ -189,6 +189,57 @@ flag change a locked flag. It is the same gate, with one more check.
 `genesis doctor` checks an app's genesis.config.json against the installed packages
 (`invalid-setting`). `catalogueManifest` is the catalogue as the database checks values against it.
 
+### The Settings screen
+
+One screen, two hosts: the localhost wizard (`genesis setup`) and the app's own platform-admin
+page. `<GenesisSettings>` (`@marktiderman/genesis-config/settings/react`) draws it, and talks to its
+host only through a `SettingsClient` (`@marktiderman/genesis-config/settings-protocol`, free of zod
+and React).
+
+```tsx
+import { APP_HOST_CAPABILITIES, createSettingsClient } from "@marktiderman/genesis-config/settings-protocol";
+import { GenesisSettings } from "@marktiderman/genesis-config/settings/react";
+
+declare const accessToken: () => string | null;
+
+const client = createSettingsClient(fetch, { baseUrl: "/api/genesis/settings", token: accessToken });
+
+export function PlatformSettings() {
+  return <GenesisSettings client={client} capabilities={APP_HOST_CAPABILITIES} />;
+}
+```
+
+**Tabs.** Values (every key grouped by package, with its value, the layer it came from and its
+lock), Health (the doctor's findings, each with its fix), Secrets (each secret's name, store and
+whether it is set: never its value), Upgrades (installed and latest versions, release notes) and
+Audit (the history of changes, a page at a time).
+
+**What it may write.** The host reports its `capabilities` (`writeFiles`, `writeDatabase`,
+`setSecrets`, `runCli`, `agent`, and optionally `proposeChanges`), and the `capabilities` prop can
+only narrow them. `settingWritability` holds the rules for the screen and a host's handler alike:
+a build-time key is written only in the file layer; the file layer needs `writeFiles`, the database
+layer `writeDatabase`; a key a lower layer locked can't be changed above it. So the app host
+(`APP_HOST_CAPABILITIES`: the database only) edits runtime keys, and a build-time key shows "Change
+in repo" with the genesis.config.json change to commit (`settingFileSnippet`), or a pull request
+when the host can open one.
+
+**Fixes.** An automatic fix is planned first (`plan`): the screen shows the files it writes (with
+a diff), the commands it runs and the secrets it needs, asks to confirm, then applies it with the
+plan's `hash` (`apply(fixId, expect)`). A host refuses a plan that changed in between
+(`stale_plan`), and the screen offers to plan again. A plan needing more than the host can do
+shows its `genesis fix <id>` command instead. A guided fix opens its setup step (`onOpenStep`,
+or `genesis setup --step <id>`); a manual fix shows its instructions.
+
+**The protocol.** One endpoint, `POST`, JSON only, a bearer token, every request `{ v, op, … }`
+(`SETTINGS_PROTOCOL_VERSION`). The ops are `state`, `setValue`, `clearValue`, `plan`, `apply`,
+`upgrades`, `audit` and `propose` (`SETTINGS_OPS`, answers in `SettingsResponses`). A failure is
+`{ error: { code, message } }`, thrown by the client as a `SettingsProtocolError` whose `code` is
+`bad_request`, `unauthenticated`, `forbidden`, `unsupported`, `locked`, `stale_plan`, `not_found`,
+`version` or `error`. The client refuses a response that isn't JSON.
+
+Every word on the screen is in `copy` (defaults: `GENESIS_SETTINGS_COPY`); every element a test or
+an agent drives has a `data-testid` under the `testID` prefix (default `genesis-settings`).
+
 ## The gate
 
 `featureOn(registry, context, id)` answers "is this feature on here?" the same way everywhere. Checks

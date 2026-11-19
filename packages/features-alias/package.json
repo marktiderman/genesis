@@ -50,6 +50,14 @@
       "types": "./dist/settings.d.ts",
       "import": "./dist/settings.js"
     },
+    "./settings/react": {
+      "types": "./dist/settings-react.d.ts",
+      "import": "./dist/settings-react.js"
+    },
+    "./settings-protocol": {
+      "types": "./dist/settings-protocol.d.ts",
+      "import": "./dist/settings-protocol.js"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "import": "./dist/node.js"

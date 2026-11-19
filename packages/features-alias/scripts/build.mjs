@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 /** The React entries re-export client components, so they keep genesis-config's "use client". */
-const CLIENT = new Set(["react", "gate-react"]);
+const CLIENT = new Set(["react", "gate-react", "settings-react"]);
 const REEXPORT = /^export \* from "@marktiderman\/genesis-config(\/[\w/-]+)?";$/m;
 
 rmSync(path.join(root, "dist"), { recursive: true, force: true });
