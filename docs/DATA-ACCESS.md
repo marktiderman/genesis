@@ -51,7 +51,11 @@ const provider = createSupabaseProvider(supabase, {
 
 After a create or update the provider reads the record back through the resource's read, never
 `select *` on the table, and a write on the table (an opt-in) asks the insert or update for its
-`id` only. So a write never asks for a column the client may not read.
+`id` (and the version) only. So a write never asks for a column the client may not read. A
+resource that declares no read (a write-only one) is never read: a write reports what it sent,
+a null answer can't be told apart (refused, gone or changed first) and says so, and it gets no
+realtime channel. An update on a declared provider reads the table's row for its columns only
+when `table.read` is declared; otherwise name them with `writeColumns`.
 
 ## Write functions
 
@@ -129,7 +133,8 @@ for (const c of accessRules({
 
 An allowed person's call must succeed and act (answer anything but `null`, `false` or an empty
 list; `acted` overrides that). A refused person's call must fail with a refusal (42501 or P0001)
-or act on nothing. Any other error fails the case, so a misspelt function or wrong arguments
+or act on nothing. A failed sign-in (an expired or malformed token) is not a refusal: it never
+reached the rule. Any other error fails the case, so a misspelt function or wrong arguments
 can't pass as a refusal, and the allowed cases prove the same arguments work. A spec needs at
 least one allowed and one refused person.
 
@@ -137,8 +142,8 @@ least one allowed and one refused person.
 
 | Rule | Reports |
 |---|---|
-| `data/declared-access` | a `createSupabaseProvider(…)` call without `access: "declared"`; a table write in app code (`.from("t").insert/update/upsert/delete(…)`) outside tests and `supabase/`. A direct write that must stay is an `allow` entry for this rule, with its reason. |
-| `data/access-rule-tests` | a declared function that no test file names in `accessRules({ fn: "…" })`. |
+| `data/declared-access` | a `createSupabaseProvider(…)` call without `access: "declared"` (in its options, or in a `const` in the same file that it names); a table write in app code (`.from("t").insert/update/upsert/delete(…)`) outside tests and `supabase/`. A direct write that must stay is an `allow` entry for this rule, with its reason. |
+| `data/access-rule-tests` | a declared function that no test file calling `accessRules` names as `fn: "…"` (in the call, or in a spec object the file passes it). Resources are read from files that configure the provider (they name `createSupabaseProvider`, `SupabaseResourceConfig` or `SupabaseProviderOptions`). |
 
 Both warn; `--strict` fails on them, and `doctor.ratchet` holds new code to them while old code
 moves.

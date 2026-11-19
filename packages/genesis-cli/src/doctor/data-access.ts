@@ -10,14 +10,21 @@
  *     a named database function, which holds the access rule. A write that must stay on the table
  *     is recorded as an exception: an `allow` entry for this rule, with its reason.
  * - `data/access-rule-tests`: a database function a resource declares (`writes`, `actions`, a
- *   `source: { rpc }`) with no access-rule test: no `accessRules({ fn: "<name>", … })` in any test
- *   file. The function holds who may call it, so a test proves who is allowed and who is refused.
+ *   `source: { rpc }`) with no access-rule test: no `fn: "<name>"` in a test file that calls
+ *   `accessRules` (in the call, or in a spec object it is given). The function holds who may call
+ *   it, so a test proves who is allowed and who is refused. Resources are read from files that
+ *   configure the Supabase provider (they name `createSupabaseProvider`, `SupabaseResourceConfig`
+ *   or `SupabaseProviderOptions`), so another `actions: {…}` (a labels object) is not taken for one.
+ *
+ * A provider's options are read where the call writes them, or from a `const` in the same file
+ * that the call names (`createSupabaseProvider(client, options)`).
  *
  * Tests, migrations and Edge Functions (`supabase/`) aren't checked for table writes: a test sets
  * up its rows, and the database's own code is the database's.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
+import { LINE_COMMENT_EXTS, stripBlockComments } from "../../../../scripts/lib/color-literals.mjs";
 import { lineAt } from "./scan.js";
 import { blankStrings } from "./source.js";
 import type { DoctorContext } from "./types.js";
@@ -29,6 +36,12 @@ const DOCS = "docs/DATA-ACCESS.md";
 
 /** A table write chained on `.from("…")` (or `.schema("…").from("…")`): the table and the verb. */
 const TABLE_WRITE = /\.from\(\s*(["'`])([\w.]+)\1\s*\)\s*\.\s*(insert|update|upsert|delete)\s*\(/g;
+
+/** `.from(` right after Supabase Storage (`supabase.storage.from("bucket")`): a bucket, not a table. */
+const STORAGE_BEFORE = /\bstorage\s*\??\.?\s*$/;
+
+/** A file that configures the Supabase provider's resources. */
+const PROVIDER_CONFIG = /\b(createSupabaseProvider|SupabaseResourceConfig|SupabaseProviderOptions)\b/;
 
 /** The text of the balanced `{…}` or `(…)` that opens at `start`, or "" when it doesn't close. */
 export function balanced(code: string, start: number): string {
@@ -95,6 +108,7 @@ export function declaredFunctions(files: DoctorContext["files"]): DeclaredFuncti
   for (const file of files) {
     if (!SCRIPT_EXTS.has(file.ext)) continue;
     const blank = blankStrings(file.code);
+    if (!PROVIDER_CONFIG.test(blank)) continue;
     for (const m of blank.matchAll(/\b(writes|actions|source)\s*:\s*\{/g)) {
       const open = (m.index ?? 0) + m[0].length - 1;
       const block = balanced(file.code, open);
@@ -138,21 +152,38 @@ export function testedFunctions(root: string): Set<string> {
   for (const abs of testFiles(root)) {
     let code: string;
     try {
-      code = readFileSync(abs, "utf8");
+      // Comments blanked, as the doctor's own scan does: a name in a comment is not a test.
+      code = stripBlockComments(readFileSync(abs, "utf8"), LINE_COMMENT_EXTS.has(path.extname(abs)));
     } catch {
       continue;
     }
     if (!code.includes("accessRules")) continue;
     const blank = blankStrings(code);
-    for (const m of blank.matchAll(/\baccessRules\s*(?:<[^>]*>)?\s*\(/g)) {
-      const call = balanced(code, (m.index ?? 0) + m[0].length - 1);
-      // The spec is the call's first argument: `fn` directly in it.
-      const spec = call.indexOf("{");
-      if (spec < 0) continue;
-      for (const { name } of namesIn(balanced(call, spec), /fn/)) out.add(name);
+    if (!/\baccessRules\s*(?:<[^>]*>)?\s*\(/.test(blank)) continue;
+    // Every `fn: "…"` in the file: in the call itself, or in spec objects the file gives it
+    // (`const specs = [{ fn: "a", … }]; for (const s of specs) accessRules({ ...s, as })`).
+    for (const m of code.matchAll(/(?:^|[\s{,])fn\s*:\s*(["'`])([A-Za-z_][\w.]*)\1/g)) {
+      const at = (m.index ?? 0) + m[0].indexOf("fn");
+      if (blank[at] === "f") out.add(m[2]!);
     }
   }
   return out;
+}
+
+const declaresAccess = (text: string) => /\baccess\s*:\s*(["'`])declared\1/.test(text);
+
+/**
+ * Whether a `createSupabaseProvider(client, options)` call names a `const` from the same file
+ * whose object says `access: "declared"`.
+ */
+function optionsConstDeclares(code: string, blank: string, call: string): boolean {
+  const args = blankStrings(call).slice(1, -1);
+  for (const [, name] of args.matchAll(/(?:^|,)\s*([A-Za-z_$][\w$]*)\s*(?=,|$)/g)) {
+    const decl = new RegExp(`\\b(?:const|let|var)\\s+${name!.replace(/\$/g, "\\$")}\\b[^=]*=\\s*\\{`).exec(blank);
+    if (!decl) continue;
+    if (declaresAccess(balanced(code, decl.index + decl[0].length - 1))) return true;
+  }
+  return false;
 }
 
 export function checkDataAccess(ctx: DoctorContext): void {
@@ -162,7 +193,7 @@ export function checkDataAccess(ctx: DoctorContext): void {
     const blank = blankStrings(file.code);
     for (const m of blank.matchAll(/\bcreateSupabaseProvider\s*\(/g)) {
       const call = balanced(file.code, (m.index ?? 0) + m[0].length - 1);
-      if (/\baccess\s*:\s*(["'`])declared\1/.test(call)) continue;
+      if (declaresAccess(call) || optionsConstDeclares(file.code, blank, call)) continue;
       ctx.report({
         rule: "data/declared-access",
         level: "warn",
@@ -180,6 +211,7 @@ export function checkDataAccess(ctx: DoctorContext): void {
     for (const m of file.code.matchAll(TABLE_WRITE)) {
       const at = m.index ?? 0;
       if (blank[at] !== ".") continue;
+      if (STORAGE_BEFORE.test(blank.slice(Math.max(0, at - 40), at))) continue;
       ctx.report({
         rule: "data/declared-access",
         level: "warn",

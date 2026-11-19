@@ -19,7 +19,7 @@ import {
   type ResourceContract,
 } from "@marktiderman/genesis-core";
 import { exportCsv } from "@marktiderman/genesis-core/csv";
-import { useSegmentCounts, type ListStateResult } from "@marktiderman/genesis-core/hooks";
+import { useCapabilities, useSegmentCounts, type ListStateResult } from "@marktiderman/genesis-core/hooks";
 import {
   createLocalSavedViewStore,
   type ResolvedFilter,
@@ -298,9 +298,13 @@ export function switchableTypes(view: AnyView, screenTypes: readonly string[] | 
 /** A refusal's words, or undefined when allowed. */
 export const reasonOf = (allowed: true | string) => (allowed === true ? undefined : allowed);
 
-/** The actions a provider serves for the resource: all of them when it doesn't say. */
+/**
+ * The actions a provider serves for the resource: all of them when it doesn't say. A provider whose
+ * capabilities say it runs no actions for this resource (`actions: false`) runs none of them.
+ */
 export function useServedActions(view: AnyView): { runnable: boolean; served: ReadonlySet<string> | null } {
   const provider = useDataProvider();
+  const capabilities = useCapabilities(view.resource, { enabled: !!provider.runAction && view.actions().length > 0 });
   const described = useQuery({
     queryKey: ["__describe", view.resource],
     queryFn: () => provider.describe!(view.resource),
@@ -308,7 +312,7 @@ export function useServedActions(view: AnyView): { runnable: boolean; served: Re
     staleTime: Infinity,
   });
   const served = described.data?.actions ? new Set(described.data.actions.map((a) => a.name)) : null;
-  return { runnable: !!provider.runAction, served };
+  return { runnable: !!provider.runAction && capabilities.data?.actions !== false, served };
 }
 
 interface Confirming {

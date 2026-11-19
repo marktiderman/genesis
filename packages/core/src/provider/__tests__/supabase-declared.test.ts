@@ -1,5 +1,5 @@
 // @feat:declared-data-access
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSupabaseProvider, type SupabaseProviderOptions } from "../supabase-provider";
 import { isDataReadError, type DataReadError } from "../../schema/read-outcome";
 import { isDataWriteError, type DataWriteError } from "../../schema/write-outcome";
@@ -299,5 +299,80 @@ describe('access: "declared"', () => {
     await p.create("anything", { data: {} });
     expect((await p.capabilities!("anything")).create).toBe(true);
     expect(call("insert")).toHaveLength(1);
+  });
+});
+
+describe("a declared provider never reads a table it hasn't declared", () => {
+  it("an app update rule with a source passes the values on without probing the table for its columns", async () => {
+    const update = async (id: string | number) => id;
+    queue.push(ok([{ id: "t1", title: "x" }])); // the read-back, through the view
+    await provider({ access: "declared", resources: { tasks: { source: "v_tasks", update } } }).update("tasks", {
+      id: "t1",
+      data: { title: "x" },
+    });
+    expect(call("from")).toEqual([["v_tasks"]]);
+  });
+
+  it("a table update opt-in without table.read doesn't read the table's row for its columns, and reads back through the source", async () => {
+    queue.push(ok([{ id: "t1" }]), ok([{ id: "t1", title: "x" }]));
+    await provider({
+      access: "declared",
+      resources: { tasks: { source: "v_tasks", table: { write: ["update"], why: "Bulk renames." } } },
+    }).update("tasks", { id: "t1", data: { title: "x" } });
+    expect(call("from")).toEqual([["tasks"], ["v_tasks"]]);
+    expect(call("select")[0]).toEqual(["id"]);
+  });
+
+  it("a write-only resource is never read: a create reports what it sent", async () => {
+    queue.push(ok("f1"));
+    const res = await provider({ access: "declared", resources: { feedback: { writes: { create: "send_feedback" } } } }).create("feedback", {
+      data: { body: "Nice" },
+    });
+    expect(res.data).toEqual({ id: "f1", body: "Nice" });
+    expect(call("from")).toEqual([]);
+  });
+
+  it("a write-only resource's null answer says it may be refused, gone or changed, without reading", async () => {
+    const p = provider({
+      access: "declared",
+      resources: {
+        feedback: {
+          version: { field: "version", kind: "integer" },
+          writes: { update: "edit_feedback", delete: "drop_feedback" },
+          actions: { flag: "flag_feedback" },
+        },
+      },
+    });
+    queue.push(ok(null));
+    const err = await writeFailure(p.update("feedback", { id: "f1", data: { body: "x" }, expectedVersion: "2" }));
+    expect(err.outcome).toBe("forbidden");
+    expect(err.message).toBe("This record was not changed: you can't change it, it no longer exists, or someone changed it first.");
+    queue.push(ok(null));
+    expect((await writeFailure(p.deleteOne("feedback", { id: "f1" }))).message).toMatch(/^This record was not deleted/);
+    queue.push(ok(null));
+    expect((await writeFailure(p.runAction!("feedback", { id: "f1", action: "flag" }))).outcome).toBe("forbidden");
+    expect(call("from")).toEqual([]);
+  });
+
+  it("an undeclared resource gets no realtime channel, and capabilities say so", async () => {
+    const channel = vi.fn();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const p = createSupabaseProvider({ ...client, channel } as never, { access: "declared", realtime: true, resources: { tasks: { source: "v" } } });
+    const stop = p.subscribe!("notes", {}, () => undefined);
+    expect(typeof stop).toBe("function");
+    expect(channel).not.toHaveBeenCalled();
+    expect(warn.mock.calls[0]![0]).toContain('"notes" declares no read');
+    expect((await p.capabilities!("notes")).realtime).toBe(false);
+    expect((await p.capabilities!("tasks")).realtime).toBe(true);
+    warn.mockRestore();
+  });
+
+  it("an id-only insert keeps the version when the read-back fails", async () => {
+    queue.push(ok({ id: "t5", version: 1 }), fail("permission denied", "42501"));
+    const res = await provider({
+      resources: { tasks: { source: "v", version: { field: "version", kind: "integer" } } },
+    }).create("tasks", { data: { title: "x" } });
+    expect(call("select")[0]).toEqual(["id,version"]);
+    expect(res.data).toEqual({ id: "t5", title: "x", version: 1 });
   });
 });

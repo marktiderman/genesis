@@ -873,7 +873,9 @@ export function createSupabaseProvider(
       const allowed = new Set(config.writeColumns);
       return Object.fromEntries(Object.entries(values).filter(([key]) => allowed.has(key)));
     }
-    if (!config.source || id === undefined) return values;
+    // On a declared provider the table's row is read for its columns only when the table's read is
+    // declared; otherwise the values go as they are (name them with `writeColumns`).
+    if (!config.source || id === undefined || !tableAllowed(resource, "read")) return values;
     const row = (await run(from(resource).select("*").eq("id", id)))[0] as BaseRecord | undefined;
     if (!row) return values;
     return Object.fromEntries(Object.entries(values).filter(([key]) => key in row));
@@ -1070,6 +1072,9 @@ export function createSupabaseProvider(
    * read fails or finds nothing; the caller then reports the write with what it sent.
    */
   async function readRecord(resource: string, id: Identifier): Promise<BaseRecord | undefined> {
+    // A resource that declares no read (a write-only one) is never read back: the caller reports
+    // the write with what it sent.
+    if (!readDeclared(resource)) return undefined;
     try {
       return (await run(read(resource, undefined).eq("id", id)))[0] as BaseRecord | undefined;
     } catch {
@@ -1153,6 +1158,8 @@ export function createSupabaseProvider(
 
   function realtimeEnabled(resource: string): boolean {
     if (typeof client.channel !== "function") return false;
+    // A declared resource's changes are reported only when its reads are declared.
+    if (!readDeclared(resource)) return false;
     const own = configFor(resource).realtime;
     if (own !== undefined) return own;
     const all = options.realtime;
@@ -1191,14 +1198,28 @@ export function createSupabaseProvider(
    * opted in to reading its table, through the resource's own read.
    */
   async function isVisible(resource: string, id: Identifier): Promise<boolean> {
+    if (!readDeclared(resource)) throw new DataWriteError("forbidden", undeclaredMessage(resource, "read"));
     const query = tableAllowed(resource, "read") ? from(resource).select("id") : read(resource, "id");
     return (await run(query.eq("id", id))).length > 0;
   }
 
   /** The row as it is now: from its table, or through the resource's read when its table isn't declared. */
   async function readBack(resource: string, id: Identifier): Promise<BaseRecord | undefined> {
+    if (!readDeclared(resource)) throw new DataWriteError("forbidden", undeclaredMessage(resource, "read"));
     const query = tableAllowed(resource, "read") ? from(resource).select("*") : read(resource, undefined);
     return (await run(query.eq("id", id)))[0] as BaseRecord | undefined;
+  }
+
+  /**
+   * A write that matched no row on a resource that declares no read: it can't be read to say
+   * why (refused, gone or changed), so the message says each is possible.
+   */
+  function unreadableNoRowsError(resource: string, verb: "change" | "delete"): DataWriteError {
+    const done = verb === "change" ? "changed" : "deleted";
+    return new DataWriteError(
+      "forbidden",
+      `This ${nounFor(resource)} was not ${done}: you can't ${verb} it, it no longer exists, or someone changed it first.`,
+    );
   }
 
   function goneError(resource: string): DataWriteError {
@@ -1218,6 +1239,7 @@ export function createSupabaseProvider(
     id: Identifier,
     verb: "change" | "delete",
   ): Promise<DataWriteError> {
+    if (!readDeclared(resource)) return unreadableNoRowsError(resource, verb);
     let visible: boolean;
     try {
       visible = await isVisible(resource, id);
@@ -1273,6 +1295,7 @@ export function createSupabaseProvider(
     known?: BaseRecord,
   ): Promise<DataWriteError> {
     if (expected === undefined) return noRowsError(resource, id, verb);
+    if (!readDeclared(resource)) return unreadableNoRowsError(resource, verb);
     const { field, kind } = versionFor(resource)!;
     let current: BaseRecord | undefined = known;
     try {
@@ -1668,7 +1691,9 @@ export function createSupabaseProvider(
         if (process.env.NODE_ENV !== "production" && !warnedRealtime.has(resource)) {
           warnedRealtime.add(resource);
           console.warn(
-            typeof client.channel !== "function"
+            !readDeclared(resource)
+              ? `${undeclaredMessage(resource, "read")} Its changes aren't reported either.`
+              : typeof client.channel !== "function"
               ? `[SupabaseProvider] "${resource}" was subscribed to, but the client has no channel() (Supabase Realtime), so nothing will be reported.`
               : `[SupabaseProvider] "${resource}" was subscribed to, but realtime is off for it. Set resources.${resource}.realtime (or the realtime option) to true.`,
           );
@@ -1806,12 +1831,18 @@ export function createSupabaseProvider(
         assertTableWrite(resource, "create");
         // Only the id comes back from the insert: the client may not be allowed to read every
         // column it wrote. The record is then read the way the resource reads.
-        const rows = await run(from(resource).insert(row).select("id").single());
-        const id = (rows[0] as { id?: unknown } | undefined)?.id;
+        // The version comes back too, so a read-back that fails still leaves the next save its check.
+        const version = versionFor(resource);
+        const rows = await run(from(resource).insert(row).select(version ? `id,${version.field}` : "id").single());
+        const written = (rows[0] ?? {}) as Record<string, unknown>;
+        const id = written.id;
         if (!isIdentifier(id)) {
           throw new DataWriteError("error", `[SupabaseProvider] The insert into "${resource}" returned no id.`);
         }
-        record = (await readRecord(resource, id)) ?? ({ ...row, id } as BaseRecord);
+        record = (await readRecord(resource, id)) ?? ({ ...row, ...written, id } as BaseRecord);
+        if (version && record[version.field] == null && written[version.field] != null) {
+          record = { ...record, [version.field]: written[version.field] };
+        }
       }
       await committed({ resource, kind: "create", id: record.id, record });
       return { data: record } as never;

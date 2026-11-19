@@ -146,3 +146,58 @@ describe("data/access-rule-tests", () => {
     expect(await only("data/access-rule-tests", { "src/a.ts": "export const x = 1;" })).toEqual([]);
   });
 });
+
+describe("data-access rules: what isn't theirs", () => {
+  it("an actions object outside provider config (labels, i18n) declares no functions", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/i18n/en.ts": 'export const en = { actions: { save: "Save", cancel: "Cancel" } };',
+      "src/lib/labels.ts": 'export const labels = { actions: { archive: "Archive" }, writes: { create: "Add" } };',
+    });
+    expect(found).toEqual([]);
+  });
+
+  it("reads resources from a file typed as provider config, without the call", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/resources.ts":
+        'import type { SupabaseResourceConfig } from "@marktiderman/genesis-core";\nexport const tasks: SupabaseResourceConfig = { writes: { delete: "delete_task" } };',
+    });
+    expect(found.map((f) => f.subject)).toEqual(["delete_task"]);
+  });
+
+  it("a Supabase Storage call is not a table write", async () => {
+    const found = await only("data/declared-access", {
+      "src/routes/avatar.ts": [
+        'await supabase.storage.from("avatars").update(path, file);',
+        'await supabase.storage\n  .from("avatars")\n  .upload(path, file);',
+        'await supabase.storage.from("avatars").remove([path]);',
+        'await supabase.from("profiles").update({ avatar: path }).eq("id", id);',
+      ].join("\n"),
+    });
+    expect(found.map((f) => f.subject)).toEqual(["profiles.update"]);
+  });
+
+  it("a provider whose options are a const in the same file that says access: \"declared\" is declared", async () => {
+    const found = await only("data/declared-access", {
+      "src/lib/declared.ts":
+        'const options: SupabaseProviderOptions = { access: "declared", resources: {} };\nexport const p = createSupabaseProvider(supabase, options);',
+      "src/lib/open.ts": "const options = { resources: {} };\nexport const p = createSupabaseProvider(supabase, options);",
+      "src/lib/imported.ts": 'import { options } from "./options";\nexport const p = createSupabaseProvider(supabase, options);',
+    });
+    expect(found.map((f) => f.file).sort()).toEqual(["src/lib/imported.ts", "src/lib/open.ts"]);
+  });
+
+  it("counts a table-driven test: fn in spec objects the file passes to accessRules", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/declared.ts": DECLARED,
+      "test/access.test.ts": [
+        "const specs = [",
+        '  { fn: "create_task", allowed: ["owner"], refused: ["stranger"] },',
+        '  { fn: "save_task", allowed: ["owner"], refused: ["stranger"] },',
+        "];",
+        "for (const spec of specs) for (const c of accessRules({ ...spec, as, args })) test(c.name, c.run);",
+        '// fn: "archive_task" in a comment does not count',
+      ].join("\n"),
+    });
+    expect(found.map((f) => f.subject)).toEqual(["archive_task", "list_reports"]);
+  });
+});

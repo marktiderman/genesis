@@ -119,3 +119,13 @@ describe("accessRules", () => {
     expect(testing.accessRules).toBe(accessRules);
   });
 });
+
+describe("accessRules: what counts as a refusal", () => {
+  it("a failed sign-in (an expired token) is not a refusal: it never reached the rule", async () => {
+    const expired = { message: "JWT expired", code: "PGRST301" };
+    const { as } = clients({ owner: { data: "t1" }, editor: { data: "t1" }, viewer: { error: expired }, stranger: { error: { message: "bad", code: "28000" } } });
+    const results = await run(accessRules<Who>({ fn: "save_task", as, args: () => ({}), allowed: ["owner"], refused: ["viewer", "stranger"] }));
+    expect(results[1]![1]).toMatch(/save_task failed for viewer with an error that isn't a refusal: unauthenticated/);
+    expect(results[2]![1]).toMatch(/failed for stranger with an error that isn't a refusal/);
+  });
+});

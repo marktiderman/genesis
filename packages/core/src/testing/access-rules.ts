@@ -9,7 +9,7 @@
 // ---------------------------------------------------------------------------
 
 import { toDataWriteError } from "../provider/postgrest-errors";
-import { ContractError, isRefusal } from "./index";
+import { ContractError } from "./index";
 
 /** The part of a Supabase client an access-rule test calls: any real client's `rpc` fits. */
 export interface AccessRuleClient {
@@ -44,6 +44,17 @@ export interface AccessRuleCase<Who extends string = string> {
   readonly who: Who;
   readonly expect: "allowed" | "refused";
   run(): Promise<void>;
+}
+
+/**
+ * Whether an error is the function refusing: insufficient privilege (42501), a guard's raise
+ * (P0001), or another forbidden answer. Not a failed sign-in (an expired or malformed token): that
+ * never reached the rule, so it proves nothing about it.
+ */
+function refusedByRule(error: unknown): boolean {
+  const mapped = toDataWriteError(error);
+  if (mapped.code === "42501" || mapped.code === "P0001") return true;
+  return mapped.outcome === "forbidden";
 }
 
 const answeredSomething = (data: unknown): boolean =>
@@ -113,7 +124,7 @@ export function accessRules<Who extends string>(spec: AccessRuleSpec<Who>): Acce
       async run() {
         const { data, error } = await call(who);
         if (error) {
-          if (isRefusal(toDataWriteError(error))) return;
+          if (refusedByRule(error)) return;
           throw new ContractError(`${spec.fn} failed for ${who} with an error that isn't a refusal: ${describe(error)}`);
         }
         if (acted(data)) throw new ContractError(`${spec.fn} acted for ${who}, who should be refused.`);

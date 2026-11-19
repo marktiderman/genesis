@@ -9,7 +9,7 @@ import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createMemoryStorageAdapter, defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams } from "@marktiderman/genesis-core";
+import { createMemoryStorageAdapter, defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams, type ProviderCapabilities } from "@marktiderman/genesis-core";
 import { createLocalSavedViewStore, defineView } from "@marktiderman/genesis-core/resource-view";
 import { toast } from "sonner";
 import { ResourceView, ResourceViewDefaultsProvider, useResourceViewProps } from "../resource-view";
@@ -156,6 +156,19 @@ describe("row and bulk actions", () => {
     fireEvent.click(await screen.findByTestId("bulk-finish"));
     await waitFor(() => expect(runAction).toHaveBeenCalledTimes(1));
     expect(runAction).toHaveBeenCalledWith("tasks", { id: "a", action: "finish" });
+  });
+
+  it("offers no provider-run action when the provider's capabilities say it runs none for the resource", async () => {
+    // @feat:declared-data-access: one resource declaring actions gives the provider a runner; another's list stays without.
+    const capabilities = vi.fn(async (_resource?: string) => ({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: false, compositeKeys: false, actions: false }) as ProviderCapabilities);
+    const p = provider({ runAction: vi.fn(), capabilities });
+    render(<ResourceView view={view} rowActions />, { wrapper: wrap(p) });
+    await screen.findByText("Ship it");
+    await waitFor(() => expect(capabilities).toHaveBeenCalledWith("tasks"));
+    // No action runs here, so there is nothing to select rows for and no bulk or row action.
+    await waitFor(() => expect(screen.queryByLabelText("Select Write the plan")).toBeNull());
+    expect(screen.queryByTestId("bulk-finish")).toBeNull();
+    expect(screen.queryAllByTestId("resource-row-menu-finish")).toEqual([]);
   });
 
   it("selects a range with Shift", async () => {

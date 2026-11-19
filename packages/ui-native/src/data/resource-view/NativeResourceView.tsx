@@ -21,7 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { BaseRecord, DataRow } from "@marktiderman/genesis-core";
 import { personTimeZone } from "@marktiderman/genesis-core/dates";
 import { resourceKeys, useDataProvider, useViewer } from "@marktiderman/genesis-core";
-import { scopeClock, useListState, useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
+import { scopeClock, useCapabilities, useListState, useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import type { GalleryItem } from "@marktiderman/genesis-core/gallery";
 import type { RowPicture, SavedViewStore, ViewGallery } from "@marktiderman/genesis-core/resource-view";
@@ -550,7 +550,10 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     },
     [onAction, provider, view, queryClient],
   );
-  const actionsOn = !!onAction || !!provider.runAction;
+  // The provider runs this view's actions when it has a runner and doesn't say it serves none for
+  // this resource (`capabilities().actions === false`).
+  const actionCaps = useCapabilities(view.resource, { enabled: !onAction && !!provider.runAction });
+  const actionsOn = !!onAction || (!!provider.runAction && actionCaps.data?.actions !== false);
   const cancelWord = useNativeResourceViewMessages().common.cancel;
   const confirmAction = useCallback(
     (name: string, row: T) => {
