@@ -1,0 +1,27 @@
+.changeset/genesis-support-staff-tools.md
+  s_ca8e075e853203::t_4ef97dd9099d60 14-18
+packages/support/README.md
+  s_ca8e075e853203::t_da35060bcc2a34 755-764
+packages/support/src/__tests__/email-reply.test.ts
+  s_ca8e075e853203::t_853c9653b377a1 1-49
+packages/support/src/email-reply.ts
+  s_ca8e075e853203::t_7bd6ccdf9bc3bf 1-202
+packages/support/src/email.ts
+  s_ca8e075e853203::t_664fb3a0cef51e 187-188
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "46023e32ba92cb509dc9df67fb5a30848e899aeb",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
