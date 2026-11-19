@@ -265,7 +265,7 @@ twice. It names any other workflow that releases on a push to `main` (a GitHub w
 `eas update`, `eas build` or `eas workflow:run`, or an EAS workflow with an update or build job, a
 comment after its `type:` included, or a custom job whose steps run one of those commands; only a
 step's `run` counts, not a comment, a query such as `eas build:list` doesn't, nor does a workflow
-that only runs by hand; branch filters are read as GitHub reads them, `m[ae]in` classes included); remove it in the
+that only runs by hand; in branch filters `*`, `**` and `[…]` classes such as `m[ae]in` match as on GitHub, but `?` is read as any one character and `+` as itself, not as GitHub's quantifiers); remove it in the
 same change, and `genesis doctor` warns
 (`release-lane-twice`) while one is there. Then add the secrets ([One-time setup](#one-time-setup)).
 

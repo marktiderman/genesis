@@ -365,7 +365,11 @@ export function adoptTemplates(root: string, templates: readonly string[], optio
   return results;
 }
 
-/** A branch glob (`main`, `release/*`, `**`, `m[ae]in`) as a regular expression: `*` within a segment, `**` across them, `[…]` a character class, as GitHub reads them. */
+/**
+ * A branch glob (`main`, `release/*`, `**`, `m[ae]in`) as a regular expression. `*` (within a
+ * segment), `**` (across them) and `[…]` (a character class) match as GitHub reads them; `?` is
+ * read as any one character and `+` as itself, not as GitHub's quantifiers.
+ */
 export function branchGlob(glob: string): RegExp {
   let re = "";
   for (let i = 0; i < glob.length; i++) {
