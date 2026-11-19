@@ -58,13 +58,29 @@ describe("renameFeaturesDependency", () => {
     expect(JSON.parse(renameFeaturesDependency(ws, () => "x"))).toEqual({ peerDependencies: { "@marktiderman/genesis-config": "workspace:^" } });
   });
 
-  it("renames overrides, pnpm.overrides and resolutions keys", () => {
-    const raw = JSON.stringify({ overrides: { "@marktiderman/genesis-features": "0.10.0" }, pnpm: { overrides: { "@marktiderman/genesis-features@<0.10": "0.10.0" } }, resolutions: { "**/@marktiderman/genesis-features": "0.10.0", "@marktiderman/genesis-features-extra": "1" } });
-    expect(JSON.parse(renameFeaturesDependency(raw, () => "x"))).toEqual({
-      overrides: { "@marktiderman/genesis-config": "0.10.0" },
-      pnpm: { overrides: { "@marktiderman/genesis-config@<0.10": "0.10.0" } },
-      resolutions: { "**/@marktiderman/genesis-features": "0.10.0", "@marktiderman/genesis-features-extra": "1" },
+  it("renames overrides, pnpm.overrides and resolutions keys, moving their values to genesis-config's range", () => {
+    const raw = JSON.stringify({
+      overrides: { "@marktiderman/genesis-features": "0.11.0" },
+      pnpm: { overrides: { "@marktiderman/genesis-features@<0.10": "^0.11.0", other: "1.0.0" } },
+      resolutions: { "**/@marktiderman/genesis-features": "0.11.0", "@marktiderman/genesis-features-extra": "1", linked: "link:../x" },
     });
+    expect(JSON.parse(renameFeaturesDependency(raw, () => "^0.13.0"))).toEqual({
+      overrides: { "@marktiderman/genesis-config": "0.13.0" },
+      pnpm: { overrides: { "@marktiderman/genesis-config@<0.10": "^0.13.0", other: "1.0.0" } },
+      resolutions: { "**/@marktiderman/genesis-config": "0.13.0", "@marktiderman/genesis-features-extra": "1", linked: "link:../x" },
+    });
+  });
+
+  it("never leaves an override pinning genesis-config to an alias version", async () => {
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", dependencies: { "@marktiderman/genesis-features": "^0.11.0" }, pnpm: { overrides: { "@marktiderman/genesis-features": "0.11.0" } } }),
+      "pnpm-workspace.yaml": "catalog:\n  \"@marktiderman/genesis-features\": ^0.11.0 # shared\noverrides:\n  '@marktiderman/genesis-features': 0.11.0\n",
+    });
+    await codemodById(ID)!.run({ root, dryRun: false, log: () => {}, wanted: (name) => (name === "@marktiderman/genesis-config" ? "0.13.0" : null) });
+    const pkg = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.dependencies).toEqual({ "@marktiderman/genesis-config": "^0.13.0" });
+    expect(pkg.pnpm.overrides).toEqual({ "@marktiderman/genesis-config": "0.13.0" });
+    expect(readFileSync(path.join(root, "pnpm-workspace.yaml"), "utf8")).toBe("catalog:\n  \"@marktiderman/genesis-config\": ^0.13.0 # shared\noverrides:\n  '@marktiderman/genesis-config': 0.13.0\n");
   });
 
   it("returns the text unchanged when there's nothing to rename", () => {
@@ -111,7 +127,7 @@ describe("the genesis-features → genesis-config codemod", () => {
     const changed = await codemodById(ID)!.run({ root, dryRun: false, log: (m) => logs.push(m), wanted: () => "0.11.2" });
     expect(changed.sort()).toEqual(["package.json", "pnpm-workspace.yaml", "tsconfig.json"]);
     expect(readFileSync(path.join(root, "tsconfig.json"), "utf8")).toContain('"@marktiderman/genesis-config/*"');
-    expect(readFileSync(path.join(root, "pnpm-workspace.yaml"), "utf8")).toBe("overrides:\n  '@marktiderman/genesis-config': 0.10.0\nminimumReleaseAgeExclude:\n  - '@marktiderman/genesis-features@0.10.0'\n");
+    expect(readFileSync(path.join(root, "pnpm-workspace.yaml"), "utf8")).toBe("overrides:\n  '@marktiderman/genesis-config': 0.11.2\nminimumReleaseAgeExclude:\n  - '@marktiderman/genesis-features@0.10.0'\n");
     expect(logs.join("\n")).toMatch(/check by hand:\n {4}- \[ \] pnpm-workspace\.yaml\n {4}- \[ \] README\.md/);
   });
 

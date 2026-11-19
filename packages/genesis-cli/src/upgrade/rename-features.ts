@@ -11,8 +11,8 @@
  *   optionalDependencies), renamed in place to genesis-config with the release's genesis-config
  *   range, or dropped when genesis-config is already listed in any of those fields; and the keys
  *   of `overrides`, `pnpm.overrides` and `resolutions`;
- * - `tsconfig*.json` (`paths`) and `pnpm-workspace.yaml` (`overrides`, `catalog`), leaving exact
- *   version pins of the old package (`'@marktiderman/genesis-features@0.10.0'`) alone: they name
+ * - `tsconfig*.json` (`paths`) and `pnpm-workspace.yaml` (`overrides`, `catalog`, with
+ *   genesis-config's range as the value), leaving exact version pins of the old package (`'@marktiderman/genesis-features@0.10.0'`) alone: they name
  *   versions of the old package that may still be installed.
  *
  * What it leaves is printed as a checklist (docs, comments in other file types, a pin).
@@ -95,9 +95,47 @@ export function configRangeFor(root: string, dir: string, oldRange: string, want
   return oldRange;
 }
 
-/** An object with each key that names the old package (or a subpath, or `name@range`) renamed, in place. */
-function renameKeys(obj: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k.startsWith(OLD_FEATURES_PACKAGE) && !/^@marktiderman\/genesis-features[\w-]/.test(k) ? CONFIG_PACKAGE + k.slice(OLD_FEATURES_PACKAGE.length) : k, isObject(v) ? renameKeys(v) : v]));
+/** The version an override of the old package gets: the genesis-config range, exact when the old one was exact. */
+function overrideValue(old: string, rangeFor: (oldRange: string) => string): string {
+  if (/^(?:workspace|link|file|npm):/.test(old)) return old;
+  const range = rangeFor(old);
+  return /^\d/.test(old) ? range.replace(/^[\^~]/, "") : range;
+}
+
+/** A key naming the old package (or a subpath, `name@range`, `**\/name`), not another package. */
+const OLD_KEY = /^((?:.*\/)?)@marktiderman\/genesis-features(?![\w-])(.*)$/;
+
+/**
+ * An override map with each key that names the old package renamed in place, and its value moved
+ * to genesis-config's range (the old value is a version of the alias: kept, it would pin
+ * genesis-config to it). Nested maps (`"parent>child"` style objects) are walked too.
+ */
+function renameOverrideKeys(obj: Record<string, unknown>, rangeFor: (oldRange: string) => string): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => {
+      const m = OLD_KEY.exec(k);
+      if (!m) return [k, isObject(v) ? renameOverrideKeys(v, rangeFor) : v];
+      return [`${m[1]}${CONFIG_PACKAGE}${m[2]}`, isObject(v) ? renameOverrideKeys(v, rangeFor) : typeof v === "string" ? overrideValue(v, rangeFor) : v];
+    }),
+  );
+}
+
+/**
+ * pnpm-workspace.yaml with the old package moved: a mapping entry (`overrides`, `catalog`) gets the
+ * new key and genesis-config's range; any other mention as a module name is renamed; exact pins of
+ * the old package (`'@marktiderman/genesis-features@0.10.0'`, in `minimumReleaseAgeExclude`) stay.
+ */
+export function rewriteWorkspaceYaml(text: string, rangeFor: (oldRange: string) => string): string {
+  const entry = /^(\s*)(['"]?)@marktiderman\/genesis-features(?![\w-])([^'":]*)\2(\s*:\s*)(['"]?)([^'"\s#]+)\5(.*)$/;
+  return text
+    .split("\n")
+    .map((line) => {
+      const m = entry.exec(line);
+      if (!m) return rewriteFeaturesSpecifiers(line);
+      const [, indent, q, rest, colon, vq, value, tail] = m;
+      return `${indent}${q}${CONFIG_PACKAGE}${rest}${q}${colon}${vq}${overrideValue(value!, rangeFor)}${vq}${tail}`;
+    })
+    .join("\n");
 }
 
 /**
@@ -106,7 +144,8 @@ function renameKeys(obj: Record<string, unknown>): Record<string, unknown> {
  *
  * - each dependency field: renamed, with `rangeFor(oldRange)` (a `workspace:`, `link:` or `file:`
  *   range kept as is), or dropped when genesis-config is already listed in any dependency field;
- * - the keys of `overrides`, `pnpm.overrides` and `resolutions` (nested ones too).
+ * - the keys of `overrides`, `pnpm.overrides` and `resolutions` (nested ones too), with their
+ *   values moved to `rangeFor` as well (exact when the old value was exact).
  */
 export function renameFeaturesDependency(raw: string, rangeFor: (oldRange: string) => string): string {
   const json = JSON.parse(raw) as Record<string, unknown>;
@@ -126,7 +165,7 @@ export function renameFeaturesDependency(raw: string, rangeFor: (oldRange: strin
   const renameIn = (holder: Record<string, unknown>, key: string) => {
     const value = holder[key];
     if (!isObject(value)) return;
-    const next = renameKeys(value);
+    const next = renameOverrideKeys(value, rangeFor);
     if (JSON.stringify(next) !== JSON.stringify(value)) {
       holder[key] = next;
       changed = true;
@@ -175,8 +214,9 @@ export const featuresRenamedConfig: Codemod = {
       const abs = path.join(root, rel);
       const raw = readFileSync(abs, "utf8");
       if (!raw.includes(OLD_FEATURES_PACKAGE)) continue;
-      // tsconfig may hold comments, and YAML isn't JSON: their mentions are rewritten as text.
-      const next = rel.endsWith("package.json") ? renameFeaturesDependency(raw, (old) => configRangeFor(root, path.dirname(abs), old, wanted)) : rewriteFeaturesSpecifiers(raw);
+      const rangeFor = (old: string) => configRangeFor(root, path.dirname(abs), old, wanted);
+      // tsconfig may hold comments (its paths are rewritten as text); YAML isn't JSON.
+      const next = rel.endsWith("package.json") ? renameFeaturesDependency(raw, rangeFor) : rel.endsWith(".yaml") ? rewriteWorkspaceYaml(raw, rangeFor) : rewriteFeaturesSpecifiers(raw);
       if (next !== raw) write(rel, next);
     }
     // What's left, for a person to look at: the old name anywhere else it's still written.

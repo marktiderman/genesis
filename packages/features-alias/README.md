@@ -19,6 +19,4 @@ import that is left as `deprecated-import`.
 Feature ids, `features.ts`, `features.json`, `flags.json` and the generated AGENTS.md block keep
 their format.
 
-Publishing: npm ignores package.json's `deprecated` field, so after each release of this alias the
-maintainer runs `npm deprecate '@marktiderman/genesis-features' "Renamed to @marktiderman/genesis-config …"`
-(every version, 0.9.x included).
+Publishing and deprecating it: docs/RELEASING.md, "Renaming a package".
