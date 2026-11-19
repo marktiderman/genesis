@@ -4,10 +4,10 @@
  * upgrade` runs a codemod only when that package moves across that version,
  * and `genesis codemod <id>` runs one by hand.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { detectPackageManager, installCommand, shellLine } from "../blocks/pm.js";
-import { appScripts } from "./app-scripts.js";
+import { appScripts, writeAppFile } from "./app-scripts.js";
 import { compareVersions } from "./bump-core.mjs";
 import { hapticsUseGenesis, overlaysFitThePhone } from "./doctor-rule-codemods.js";
 import { featuresRenamedConfig } from "./rename-features.js";
@@ -15,7 +15,7 @@ import { addGenesisLint, appPlatform, findEslintConfig, hasTestingLibrary, inlin
 import { augmentsResourceScope, IMPORTS_GENESIS, PRACTICE_ID_AUGMENTATION, readsPracticeId, rewriteScopeNames } from "./scope-names.js";
 import type { BumpChange } from "./bump-core.mjs";
 
-export { appScripts };
+export { appScripts, writeAppFile };
 
 export interface CodemodContext {
   root: string;
@@ -26,7 +26,13 @@ export interface CodemodContext {
    * install, so what's in node_modules is still the old release). Absent under `genesis codemod`.
    */
   wanted?: (name: string) => string | null | undefined;
+  /**
+   * Collect the new text of each file instead of writing it (the fix engine's plan: it writes
+   * nothing). Keyed by app-relative path. Set with `dryRun: true`.
+   */
+  capture?: Map<string, string>;
 }
+
 
 export interface Codemod {
   /** Unique, e.g. `genesis-ui-2-button-variant`. */
@@ -69,7 +75,8 @@ export const scopeNeutralNames: Codemod = {
   version: "2.0.0",
   description:
     'Renames the "practice" scope names: timeZone "practice" → "scope", practiceTimeZone → scopeTimeZone, DisplayTimeZones.practice → .scope.',
-  run({ root, dryRun, log }) {
+  run(context) {
+    const { root, log } = context;
     const changed: string[] = [];
     let readsId = false;
     let augmented = false;
@@ -82,7 +89,7 @@ export const scopeNeutralNames: Codemod = {
       const next = rewriteScopeNames(text);
       if (next === text) continue;
       changed.push(rel);
-      if (!dryRun) writeFileSync(abs, next);
+      writeAppFile(context, rel, next);
     }
     if (readsId && !augmented) {
       log(`  practiceId is no longer a named ResourceScope key. Passing it still works; to read it typed, add once:\n  ${PRACTICE_ID_AUGMENTATION}`);
@@ -108,7 +115,8 @@ export const genesisEslintConfig: Codemod = {
   package: "@marktiderman/genesis-cli",
   version: "1.20.0",
   description: "Loads Genesis's lint rules from @marktiderman/genesis-cli/eslint in the app's eslint.config, so genesis upgrade delivers new ones.",
-  run({ root, dryRun, log }) {
+  run(context) {
+    const { root, log } = context;
     const file = findEslintConfig(root);
     if (!file) return [];
     const changed: string[] = [];
@@ -120,7 +128,7 @@ export const genesisEslintConfig: Codemod = {
       const result = addGenesisLint(text, platform, file);
       if (result.ok) {
         changed.push(file);
-        if (!dryRun) writeFileSync(abs, result.text);
+        writeAppFile(context, file, result.text);
         if (inlinesRntlRules(text)) {
           log(`  ${file} still has its own React Native Testing Library await rules (testing-library/await-async-events and the no-restricted-syntax selectors); genesis("${platform}") now brings them, so delete that block.`);
         }
@@ -139,7 +147,7 @@ export const genesisEslintConfig: Codemod = {
       // Kept in order when the app keeps them sorted (as npm and pnpm write them), else added last.
       json.devDependencies = Object.fromEntries(sorted ? dev.sort(([a], [b]) => a.localeCompare(b)) : dev);
       changed.push("package.json");
-      if (!dryRun) writeFileSync(pkgFile, `${JSON.stringify(json, null, indent)}${raw.endsWith("\n") ? "\n" : ""}`);
+      writeAppFile(context, "package.json", `${JSON.stringify(json, null, indent)}${raw.endsWith("\n") ? "\n" : ""}`);
       log(`  package.json: added ${TESTING_LIBRARY}@${TESTING_LIBRARY_RANGE} to devDependencies (Genesis's native lint rules use it).`);
     }
     return changed;
@@ -218,7 +226,8 @@ export const composerBarHasContent: Codemod = {
   package: "@marktiderman/genesis-ui-native",
   version: "3.8.0",
   description: "NativeComposerBar's empty is now hasContent, with the opposite sense: empty={false} → hasContent.",
-  run({ root, dryRun }) {
+  run(context) {
+    const { root } = context;
     const changed: string[] = [];
     for (const rel of appScripts(root)) {
       const abs = path.join(root, rel);
@@ -227,7 +236,7 @@ export const composerBarHasContent: Codemod = {
       const next = rewriteComposerBarEmpty(text);
       if (next === text) continue;
       changed.push(rel);
-      if (!dryRun) writeFileSync(abs, next);
+      writeAppFile(context, rel, next);
     }
     return changed;
   },

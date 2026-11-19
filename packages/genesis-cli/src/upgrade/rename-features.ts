@@ -21,9 +21,9 @@
  * genesis-features-renamed-genesis-config` runs it by hand. The doctor's `deprecated-import` rule
  * reports any import of the old name that is left.
  */
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import * as path from "node:path";
-import { appScripts } from "./app-scripts.js";
+import { appScripts, writeAppFile } from "./app-scripts.js";
 import type { Codemod } from "./codemods.js";
 
 export const OLD_FEATURES_PACKAGE = "@marktiderman/genesis-features";
@@ -197,11 +197,12 @@ export const featuresRenamedConfig: Codemod = {
   version: "0.10.0",
   description: "@marktiderman/genesis-features is now @marktiderman/genesis-config: rewrites its imports (and subpaths), the package.json dependency and overrides, tsconfig paths and pnpm-workspace.yaml.",
   applies: listsOldFeaturesPackage,
-  run({ root, dryRun, log, wanted }) {
+  run(context) {
+    const { root, dryRun, log, wanted } = context;
     const changed: string[] = [];
     const write = (rel: string, next: string) => {
       changed.push(rel);
-      if (!dryRun) writeFileSync(path.join(root, rel), next);
+      writeAppFile(context, rel, next);
     };
     for (const rel of appScripts(root)) {
       const text = readFileSync(path.join(root, rel), "utf8");

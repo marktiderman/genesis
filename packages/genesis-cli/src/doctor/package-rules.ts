@@ -20,7 +20,8 @@
  *         "why": "…"
  *       }],
  *       "primitives": [{ "need": "dates", "use": "dayIn(zone)", "import": "…", "docs": "…" }],
- *       "plugin": "./dist/doctor-rules.js"
+ *       "plugin": "./dist/doctor-rules.js",
+ *       "fixes": "./dist/doctor-fixes.js"
  *     }
  *   }
  *
@@ -59,7 +60,7 @@ const PREFER_KEYS = new Set(["id", "need", "level", "platform", "files", "exclud
 const FORBID_KEYS = new Set(["jsx", "imports", "pattern"]);
 const UNLESS_KEYS = new Set(["renders", "inside", "pattern"]);
 const PRIMITIVE_KEYS = new Set(["need", "use", "import", "docs"]);
-const DECLARATION_KEYS = new Set(["enforce", "reason", "prefer", "catalog", "primitives", "plugin", "$comment"]);
+const DECLARATION_KEYS = new Set(["enforce", "reason", "prefer", "catalog", "primitives", "plugin", "fixes", "$comment"]);
 const SCRIPT_GLOBS = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mts", "**/*.cts", "**/*.mjs", "**/*.cjs"];
 
 /** `ui` for `@marktiderman/genesis-ui`, `genesis` for the umbrella, the full name for anything else. */
@@ -135,6 +136,7 @@ export function validateDeclaration(raw: unknown, packageName: string, packageDi
   const primitives = c[listKey] === undefined ? [] : c[listKey];
   if (!Array.isArray(primitives)) fail(`${listKey} must be a list`);
   if (c.plugin !== undefined && (typeof c.plugin !== "string" || !c.plugin.trim())) fail(`plugin must be a module path inside the package`);
+  if (c.fixes !== undefined && (typeof c.fixes !== "string" || !c.fixes.trim())) fail(`fixes must be a module path inside the package`);
   if (!enforce) {
     if (typeof c.reason !== "string") fail(`turns enforcement off without a reason; add "reason"`);
     if ((prefer as unknown[]).length || c.plugin) fail(`turns enforcement off but declares rules; drop "enforce": false or the rules`);
@@ -163,12 +165,21 @@ export function validateDeclaration(raw: unknown, packageName: string, packageDi
       if (!inside(packageDir, plugin)) fail(`plugin points outside the package (${c.plugin})`);
     }
   }
+  let fixes: string | undefined;
+  if (typeof c.fixes === "string") {
+    if (!packageDir) fixes = c.fixes;
+    else {
+      fixes = path.resolve(packageDir, c.fixes);
+      if (!inside(packageDir, fixes)) fail(`fixes points outside the package (${c.fixes})`);
+    }
+  }
   return {
     enforce: enforce as boolean,
     ...(typeof c.reason === "string" ? { reason: c.reason } : {}),
     prefer: rules,
     primitives: entries,
     ...(plugin ? { plugin } : {}),
+    ...(fixes ? { fixes } : {}),
   };
 }
 

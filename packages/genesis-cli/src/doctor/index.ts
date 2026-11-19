@@ -49,6 +49,11 @@ import { checkDatabaseHome } from "./database.js";
 import { checkSettings } from "./settings.js";
 import { checkEslintConfig } from "./eslint-config.js";
 import { checkFigmaRoutesRule } from "./figma-routes.js";
+import { checkMigrationDrift } from "./migration-drift.js";
+import { genesisBehindCheck } from "./behind.js";
+import { allFixes } from "../fix/registry.js";
+import { attachFixes } from "../fix/engine.js";
+import type { RegistryDeps } from "../upgrade/registry.js";
 import { existsSync } from "node:fs";
 import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, ExtensionEntry, GenesisFacts } from "./types.js";
 
@@ -105,6 +110,7 @@ export {
   CLAUDE_IMPORT,
   writeAgentGuide,
   agentGuideState,
+  agentGuideEdits,
   BLOCKED_FIX,
   unlistedGuides,
   SKILL_PATH,
@@ -137,6 +143,13 @@ export interface RunDoctorOptions {
   contracts?: boolean;
   /** Run the figma-routes check (it reads the Figma file) when the config has a figma block. Default true; the Vite plugin passes false. */
   figma?: boolean;
+  /**
+   * Let `genesis-behind` reach npm and the advisory endpoints. Default false: the CLI turns it on
+   * (not with `--offline`); the Vite plugin and tests leave it off, and the rule reads only its cache.
+   */
+  network?: boolean;
+  /** Test seams for `genesis-behind` (the npm lookups, fetch, gh, the clock, the cache file). */
+  registry?: Omit<RegistryDeps, "network">;
 }
 
 export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorResult> {
@@ -150,6 +163,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   const plugins = await loadPlugins(config.plugins, loaded.dir);
   const packages = discoverPackages(root);
   const packagePlugins = await packageRulesPlugins(packages);
+  const fixes = await allFixes(packages);
   const builtinIds = new Set<string>(BUILTIN_RULES);
   for (const p of config.patterns ?? []) {
     if (builtinIds.has(p.id) || META_RULES.has(p.id)) throw new DoctorConfigError(`doctor.patterns: "${p.id}" is a built-in rule id; pick another`);
@@ -158,7 +172,9 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   const raw: FindingInput[] = [];
   const ctx: DoctorContext = { root, files, genesis, config, packages, ...(options.base ? { base: options.base } : {}), ...(options.strict ? { strict: true } : {}), report: (f) => raw.push(f) };
   const appChecks = [...packagePlugins, ...(patterns ? [patterns.plugin] : []), ...plugins];
-  await runChecks(ctx, [...builtinChecks(config, { contracts: options.contracts ?? true, figma: options.figma ?? true }), ...appChecks]);
+  const behind = { ...options.registry, network: options.network ?? false };
+  await runChecks(ctx, [...builtinChecks(config, { contracts: options.contracts ?? true, figma: options.figma ?? true, behind }), ...appChecks]);
+  for (const p of fixes.problems) raw.push({ rule: "package-rules-invalid", level: "warn", file: `${p.package}/package.json`, subject: p.package, message: `genesis.doctor.fixes: ${p.message}` });
 
   if (options.build) {
     const failure = runBuild(root, buildCommands(root, config), options.quietBuild ?? false);
@@ -237,7 +253,8 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     }
     findings = applyRatchet(findings, { config, newOnly, changed, base: options.base, isAppPath, originOf, ...(snapshot && baseCounts ? { baseCounts, existedAtBase: snapshot.existed } : {}) });
   }
-  findings = dedupeFindings(findings);
+  // Every finding declares its fix: a registered one, or manual:<rule>.
+  findings = attachFixes(dedupeFindings(findings), fixes.fixes, { root });
   const extensionsNew = (config.extend ?? []).filter((e) => findings.some((f) => f.rule === "extension-added" && f.file === e.file && f.subject === e.rule));
   const errors = findings.filter((f) => f.level === "error").length;
   const warnings = findings.filter((f) => f.level === "warn").length;
@@ -283,7 +300,7 @@ async function runChecks(ctx: DoctorContext, checks: DoctorPlugin[]): Promise<vo
  * here plus its ids in BUILTIN_RULES (rules.ts); a pack's checks run only when
  * `packs` lists it.
  */
-export function builtinChecks(config: DoctorConfig, options: { contracts?: boolean; figma?: boolean } = {}): DoctorPlugin[] {
+export function builtinChecks(config: DoctorConfig, options: { contracts?: boolean; figma?: boolean; behind?: RegistryDeps } = {}): DoctorPlugin[] {
   const packs: Record<DoctorPack, DoctorPlugin> = {
     native: { name: "native", check: checkNativePack },
     supabase: { name: "supabase", check: checkSupabasePack },
@@ -317,6 +334,8 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "database-elsewhere", check: checkDatabaseHome },
     { name: "settings", check: checkSettings },
     { name: "eslint-config", check: checkEslintConfig },
+    { name: "migration-drift", check: checkMigrationDrift },
+    { name: "genesis-behind", check: genesisBehindCheck(options.behind ?? { network: false }) },
     ...(config.packs ?? []).map((p) => packs[p]),
     ...(options.figma !== false ? [{ name: "figma-routes", check: checkFigmaRoutesRule }] : []),
     ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),
@@ -387,7 +406,7 @@ export function formatReport(result: DoctorResult, options: { verbose?: boolean 
       `${result.ruleCount} app rules; raw tags checked: ${[...g.rawTags.keys()].join(", ") || "none"}`,
   ];
   for (const f of result.findings) {
-    lines.push(`${f.level.toUpperCase().padEnd(5)} ${f.file}${f.line ? `:${f.line}` : ""}  [${(f.rules ?? [f.rule]).join(", ")}] ${f.message}`);
+    lines.push(`${f.level.toUpperCase().padEnd(5)} ${f.file}${f.line ? `:${f.line}` : ""}  [${(f.rules ?? [f.rule]).join(", ")}] ${f.message}${f.fix?.command ? `  → ${f.fix.command}` : ""}`);
   }
   lines.push(options.verbose ? `Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}` : `Available but unused: ${result.unused.length} (genesis doctor --verbose lists them)`);
   lines.push(`Primitives: ${result.primitives.rules} rules from ${result.primitives.packages} packages; see genesis catalog`);
@@ -427,4 +446,8 @@ export function genesisSummary(g: GenesisFacts) {
   };
 }
 
-export { subagentContext, subagentHookOutput, mergeAgentHooks, writeAgentHooks, agentHooksState, SETTINGS_PATH, SUBAGENT_HOOK_COMMAND, DENY_RULES } from "./agent-hooks.js";
+export { subagentContext, subagentHookOutput, mergeAgentHooks, writeAgentHooks, agentHooksEdit, agentHooksState, SETTINGS_PATH, SUBAGENT_HOOK_COMMAND, DENY_RULES } from "./agent-hooks.js";
+export { readUpgradeStatus, type UpgradeStatus, type Advisory, type RegistryDeps } from "../upgrade/registry.js";
+export { defineFix, builtinFixes, loadFixes, allFixes } from "../fix/registry.js";
+export { applyPlan, attachFixes, planFix, StalePlanError, FileConflictError, FixError } from "../fix/engine.js";
+export type { Fix, FixPlan, FixPlanDraft, FixContext, ApplyContext, PlannedFile, PlannedCommand, VerifyResult } from "../fix/types.js";
