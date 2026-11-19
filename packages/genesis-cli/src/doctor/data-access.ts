@@ -26,7 +26,7 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
-import { LINE_COMMENT_EXTS, stripBlockComments } from "../../../../scripts/lib/color-literals.mjs";
+import { stripBlockComments } from "../../../../scripts/lib/color-literals.mjs";
 import { lineAt } from "./scan.js";
 import { blankStrings } from "./source.js";
 import type { DoctorContext } from "./types.js";
@@ -154,8 +154,9 @@ export function testedFunctions(root: string): Set<string> {
   for (const abs of testFiles(root)) {
     let code: string;
     try {
-      // Comments blanked, as the doctor's own scan does: a name in a comment is not a test.
-      code = stripBlockComments(readFileSync(abs, "utf8"), LINE_COMMENT_EXTS.has(path.extname(abs)));
+      // Comments blanked, `//` ones included (every test file read here is a script, .mts and .cts
+      // too): a name in a comment is not a test.
+      code = stripBlockComments(readFileSync(abs, "utf8"), true);
     } catch {
       continue;
     }

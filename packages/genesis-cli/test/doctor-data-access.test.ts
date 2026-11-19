@@ -237,3 +237,17 @@ describe("data-access rules: the options a provider really gets", () => {
     expect(found.map((f) => f.subject)).toEqual(["archive_task"]);
   });
 });
+
+describe("data/access-rule-tests: commented-out tests", () => {
+  it("a commented-out accessRules call doesn't count, in .ts, .mts or .cts test files", async () => {
+    const commented = (fn: string) => `// for (const c of accessRules({ fn: "${fn}", as, args, allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);\n/* accessRules({ fn: "${fn}" }) */`;
+    const found = await only("data/access-rule-tests", {
+      "src/lib/declared.ts": DECLARED,
+      "test/a.test.ts": commented("create_task"),
+      "test/b.test.mts": commented("save_task"),
+      "test/c.test.cts": commented("archive_task"),
+      "test/d.test.mts": 'for (const c of accessRules({ fn: "list_reports", as, args, allowed: ["owner"], refused: ["stranger"] })) test(c.name, c.run);',
+    });
+    expect(found.map((f) => f.subject)).toEqual(["create_task", "save_task", "archive_task"]);
+  });
+});
