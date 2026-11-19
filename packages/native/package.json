@@ -380,6 +380,48 @@
           "why": "The boot, the fatal screen with retry, the cache and the session gate are one root; rebuilding them by hand loses the error handling."
         }
       ]
+    },
+    "settings": {
+      "namespace": "devtools",
+      "keys": {
+        "overlay": {
+          "type": "boolean",
+          "default": true,
+          "summary": "The Development overlay in development and preview builds. Off hides it; no setting turns it on in a production build."
+        },
+        "shakeToOpen": {
+          "type": "boolean",
+          "default": true,
+          "requires": [
+            "devtools.overlay"
+          ],
+          "summary": "Shake to open the overlay (development and preview builds)."
+        },
+        "hold": {
+          "type": "boolean",
+          "default": true,
+          "requires": [
+            "devtools.overlay"
+          ],
+          "summary": "A three-finger hold opens the overlay."
+        },
+        "flags": {
+          "type": "boolean",
+          "default": true,
+          "requires": [
+            "devtools.overlay"
+          ],
+          "summary": "Show the app's switches and flags in the overlay."
+        },
+        "signOut": {
+          "type": "boolean",
+          "default": true,
+          "requires": [
+            "devtools.overlay"
+          ],
+          "summary": "Offer Sign out in the overlay."
+        }
+      }
     }
   }
 }

@@ -30,6 +30,58 @@ npx expo install react-native-view-shot expo-sensors
 Copy `migrations/0006_genesis_support.sql` (and `migrations/tests/0006_genesis_support.test.sql`)
 from `@marktiderman/genesis-supabase` into your app's `supabase/` under a new timestamped name.
 
+## Settings and zero config
+
+Every switch and number support reads is a Genesis setting (`@marktiderman/genesis-config`'s
+`defineSettings`), in three namespaces: `support.*` (the features: `feedback`, `inbox`,
+`messenger`, `agentDesk`, `helpCenter`, `aiAnswers`, `ideas`, `chatThreads`, `email`,
+`replyByEmail`, `desks`, `staffAlerts`; the form's `screenshots`, `pins` and `severity`; the
+GitHub sink's `githubRepo` and `githubIssueDetail`, `webhookUrl`, `contactEmail`, `contactUrl`,
+`replyExpectation`), `diagnostics.*` (`enabled`, `dumpOnShake`, `dumpOnFeedback`,
+`sendFromSettings`, `offlineQueue`, `maxBytes`, `perHour`, `retentionDays`) and `shake.*`
+(`enabled`, a person's own switch, and `threshold`, `jolts`, `windowMs`, `cooldownMs`). Each has a
+default per preset:
+
+| Preset | On |
+|---|---|
+| `max` (Genesis's default) | everything |
+| `standard` | everything but AI answers, email (and reply by email) and desks |
+| `min` | the feedback form, the dump and shake to report; no inbox, messenger, agent desk, help center, idea board, chat threads or staff alerts |
+
+The keys that need a secret name it and its store, never its value: `support.githubRepo`
+(`GITHUB_TOKEN`, an Edge Function secret), `support.webhookUrl` (`SUPPORT_WEBHOOK_SIGNING_SECRET`),
+`support.email` (`RESEND_API_KEY`, the server's environment), `support.replyByEmail`
+(`SUPPORT_REPLY_SIGNING_SECRET`) and `support.aiAnswers` (`ANTHROPIC_API_KEY`). The declarations
+are also in this package's package.json (`genesis.settings`), so `genesis doctor` checks an app's
+`genesis.config.json` against them.
+
+`createSupport`, `createDiagnostics`, `FeedbackPanel` and `createDiagnosticsHandler` take
+`appSettings`: what `resolveSettings` (or genesis-supabase's `resolveAppSettings`) returned, or the
+values alone. An option the app passes still wins over its setting. With neither, the `max`
+preset: everything on.
+
+```ts
+import { resolveSupportSettings, supportSettingValues } from "@marktiderman/genesis-support";
+
+const settings = resolveSupportSettings({ preset: "standard", person: { "shake.enabled": { value: false } } });
+supportSettingValues(settings).support.aiAnswers; // false
+```
+
+`createSupport({ appSettings })` also takes a function, read again at each shake, so a person who
+turns `shake.enabled` off stops shake to report at once. The database reads two of them itself
+(migration `0020_genesis_support_settings.sql`): the dumps a person may send an hour
+(`diagnostics.perHour`) and how long a dump is kept (`diagnostics.retentionDays`), from
+genesis-supabase's settings tables when they're there, else 10 and 90 as before.
+
+**No SQL of your own.** Migration `0021_genesis_support_default_hooks.sql`, copied before 0004,
+answers the three hooks support asks when the app hasn't: the app is its own one tenant
+(`private.genesis_support_default_tenant`), staff are its platform admins
+(`private.genesis_support_staff` asks genesis-supabase's `private.genesis_platform_admin`; without
+that hook nobody is staff), and every login is one person in the app's tenant
+(`private.genesis_viewer_people`, from `auth.users`). It creates only what's missing and replaces
+nothing; an app with organizations or its own staff defines the hook with `create or replace
+function` in a later migration.
+
 ## Native
 
 ```ts

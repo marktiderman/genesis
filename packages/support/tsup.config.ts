@@ -26,6 +26,7 @@ export default defineConfig([
   },
   {
     // The server entry also as CommonJS: a NestJS (or other CommonJS) backend `require`s it.
+    // genesis-config is ESM only, so its zod-free settings resolver is bundled in here.
     entry: { server: "src/server/index.ts" },
     format: ["cjs"],
     outExtension: () => ({ js: ".cjs" }),
@@ -34,6 +35,7 @@ export default defineConfig([
     clean: false,
     treeshake: true,
     target: "es2022",
-    external,
+    external: (external as (string | RegExp)[]).filter((e) => String(e) !== String(/^@marktiderman\/genesis-/)).concat(/^@marktiderman\/genesis-(?!config)/),
+    noExternal: ["@marktiderman/genesis-config"],
   },
 ]);

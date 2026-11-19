@@ -1,7 +1,8 @@
 // genesis-support-cleanup: removes support screenshots whose report or account was
 // deleted, and uploads that were never attached, through the Storage API (Supabase
 // refuses direct deletes from storage.objects), and context dumps past their retention
-// (genesis-support 0019; GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS, default 90). Call it
+// (genesis-support 0019; GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS, else the
+// diagnostics.retentionDays setting, else 90). Call it
 // on a schedule. See handler.ts.
 // A template from @marktiderman/genesis-supabase: copy this folder to your app's
 // `supabase/functions/`, beside migration 0006 (see the package README).
@@ -33,7 +34,8 @@ const store: CleanupStore = {
     return (data ?? []).map((object) => object.name);
   },
   async purgeDiagnostics(retentionDays) {
-    const { data, error } = await admin.rpc("support_purge_diagnostics", { older_than: `${retentionDays} days`, max_rows: DIAGNOSTICS_BATCH });
+    // No age: the database's default (the diagnostics.retentionDays setting, else 90 days).
+    const { data, error } = await admin.rpc("support_purge_diagnostics", retentionDays === null ? { max_rows: DIAGNOSTICS_BATCH } : { older_than: `${retentionDays} days`, max_rows: DIAGNOSTICS_BATCH });
     // PGRST202 / 42883: genesis-support's migration 0019 isn't applied, so there are no dumps.
     if (error?.code === "PGRST202" || error?.code === "42883") return 0;
     if (error) throw new Error(`support_purge_diagnostics: ${error.code ?? ""} ${error.message}`);
