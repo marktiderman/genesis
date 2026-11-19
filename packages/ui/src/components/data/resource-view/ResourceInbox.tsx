@@ -34,7 +34,7 @@ import { RecordView } from "./RecordView";
 import { RowAvatar } from "./RowAvatar";
 import { recordViewOf } from "./record-open";
 import { useViewList } from "./use-view-list";
-import { ListModelContext, defaultSavedViewStore, refuseHeldRows, useListActions, useViewSavedViews, ViewFilterControls } from "./list-controls";
+import { ListModelContext, defaultSavedViewStore, refuseHeldRows, useListActions, useServedActions, useViewSavedViews, ViewFilterControls } from "./list-controls";
 import { useResourceViewDefaults } from "./defaults";
 import type { ResourceViewProps } from "./ResourceView";
 
@@ -189,13 +189,19 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
   const selected = options.selected !== undefined ? options.selected : ownSelected;
   const onSelectedChange = options.onSelectedChange;
   const markRead = view.inboxActions().markRead;
+  // The provider runs markRead only once its capabilities say it serves actions here, and at the
+  // version the row was read at, as the inbox's other actions do.
+  const { runnable, versionField } = useServedActions(view as never);
   const runAction = useCallback(
     async (name: string, row: T) => {
       if (onAction) await onAction(name, row);
-      else if (provider.runAction) await provider.runAction(view.resource, { id: list.keyOf(row), action: name });
+      else if (provider.runAction && runnable) {
+        const value = versionField ? (row as Record<string, unknown>)[versionField] : undefined;
+        await provider.runAction(view.resource, { id: list.keyOf(row), action: name, ...(value == null ? {} : { expectedVersion: String(value) }) });
+      } else return;
       await queryClient.invalidateQueries({ queryKey: resourceKeys(view.resource).all });
     },
-    [onAction, provider, view.resource, list, queryClient],
+    [onAction, provider, view.resource, list, queryClient, runnable, versionField],
   );
   const select = useCallback(
     (key: string | null) => {

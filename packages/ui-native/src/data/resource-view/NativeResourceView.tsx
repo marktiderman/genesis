@@ -857,7 +857,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
               ...(r.time ? { timestamp: r.time } : {}),
               ...(r.from || r.badge ? { meta: [r.from, r.badge?.label].filter(Boolean).join(" · ") } : {}),
               onPress: () => {
-                if (r.unread && markRead && view.canAction(markRead, row as never, viewer) === true) void runAction(markRead, row).catch(() => undefined);
+                if (r.unread && markRead && actionsOn && view.canAction(markRead, row as never, viewer) === true) void runAction(markRead, row).catch(() => undefined);
                 press(row);
               },
               // The view's swipe actions (edit, delete, its own), as the list's rows have them.

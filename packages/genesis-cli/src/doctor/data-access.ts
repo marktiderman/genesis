@@ -82,28 +82,6 @@ function testFiles(root: string): string[] {
   return out;
 }
 
-/**
- * The string values of `key: "…"` written at bracket depth `depth` in `text` (1 is directly inside
- * the outer `{…}`, `(…)` or `[…]`), so a key in an object nested deeper is not one.
- */
-function valuesAt(text: string, key: string, depth: number): string[] {
-  const blank = blankStrings(text);
-  const out: string[] = [];
-  const pair = new RegExp(`(?:^|[\\s{,(])${key}\\s*:\\s*(["'\`])([A-Za-z_][\\w.]*)\\1`, "g");
-  for (const m of text.matchAll(pair)) {
-    const at = (m.index ?? 0) + m[0].indexOf(key);
-    if (blank[at] !== key[0]) continue;
-    let d = 0;
-    for (let i = 0; i < at; i++) {
-      const ch = blank[i];
-      if (ch === "{" || ch === "(" || ch === "[") d++;
-      else if (ch === "}" || ch === ")" || ch === "]") d--;
-    }
-    if (d === depth) out.push(m[2]!);
-  }
-  return out;
-}
-
 /** The object `{…}` a `const`/`let`/`var` named `name` is set to in the file, or null. */
 function initializer(code: string, blank: string, name: string): { text: string; keyword: string; at: number } | null {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -114,21 +92,28 @@ function initializer(code: string, blank: string, name: string): { text: string;
 }
 
 /**
- * Whether the object `{…}` says `access: "declared"` itself (not in an object nested in it), with
- * no spread after it that could set `access` again (`{ access: "declared", ...overrides }`).
+ * Whether the object `{…}` ends up with `access: "declared"`: its own last top-level `access` key
+ * says so (not one in an object nested in it, a resource's config say), and no top-level spread
+ * after that key could set it again (`{ access: "declared", ...overrides }`).
  */
 function objectDeclares(object: string): boolean {
-  if (!valuesAt(object, "access", 1).includes("declared")) return false;
   const blank = blankStrings(object);
-  const at = blank.search(/(?:^|[\s{,])access\s*:/);
   let depth = 0;
+  let declaredAt = -1;
+  let lastAccess = -1;
+  let lastSpread = -1;
   for (let i = 0; i < blank.length; i++) {
     const ch = blank[i];
     if (ch === "{" || ch === "(" || ch === "[") depth++;
     else if (ch === "}" || ch === ")" || ch === "]") depth--;
-    else if (depth === 1 && i > at && blank.startsWith("...", i)) return false;
+    else if (depth === 1 && blank.startsWith("...", i)) lastSpread = i;
+    else if (depth === 1 && /[\s{,]/.test(blank[i - 1] ?? " ") && /^access\s*:/.test(blank.slice(i))) {
+      lastAccess = i;
+      const value = /^access\s*:\s*(["'`])([^"'`]*)\1/.exec(object.slice(i));
+      declaredAt = value?.[2] === "declared" ? i : -1;
+    }
   }
-  return true;
+  return declaredAt !== -1 && declaredAt === lastAccess && lastSpread < declaredAt;
 }
 
 /** Whether a `createSupabaseProvider(…)` call's options object, written in the call, says `access: "declared"`. */
