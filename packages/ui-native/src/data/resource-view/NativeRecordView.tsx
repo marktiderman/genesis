@@ -116,7 +116,10 @@ function useHeaderActions<T extends Row>({ view: recordView, row, onAction, can,
   const viewer = useViewer();
   const actions = recordView.headerFor(row as T & DataRow, {
     viewer,
-    runnable: Boolean(onAction) || (Boolean(provider.runAction) && capabilities.data?.actions !== false),
+    // Not runnable until the provider has said (an action run before then would go without its version).
+    runnable:
+      Boolean(onAction) ||
+      (Boolean(provider.runAction) && !(provider.capabilities && capabilities.isPending) && capabilities.data?.actions !== false),
     ...(!onAction && described.data?.actions ? { served: described.data.actions.map((a) => a.name) } : {}),
     ...(can ? { can: (name: string) => can(name, row) } : {}),
   }).actions;

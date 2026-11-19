@@ -474,7 +474,7 @@ describe("an open provider writes as it always has", () => {
   });
 });
 
-describe("review round on e1078bd", () => {
+describe("composed runners, unchecked versions and undeclared writes", () => {
   it("a provider without declared actions leaves an app's own runner to show its actions", async () => {
     const runAction = vi.fn(async () => ({ data: null }));
     const composed = { ...createSupabaseProvider(client), runAction };

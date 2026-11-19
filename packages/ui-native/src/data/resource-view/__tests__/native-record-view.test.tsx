@@ -194,6 +194,16 @@ describe("NativeRecordView", () => {
     await waitFor(() => expect(p.runAction).toHaveBeenCalledWith("brands", { id: "b1", action: "activate" }));
   });
 
+  it("offers no provider action until the provider's capabilities arrive", async () => {
+    // @feat:declared-data-access
+    let answer: (c: Awaited<ReturnType<NonNullable<DataProvider["capabilities"]>>>) => void = () => {};
+    const p = provider({ capabilities: vi.fn(() => new Promise((resolve) => (answer = resolve))) as DataProvider["capabilities"] });
+    render(<NativeRecordViewMenu view={page} row={brand} testID="late" />, { wrapper: wrap(p) });
+    expect(screen.queryByTestId("late")).toBeNull();
+    answer({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: false, compositeKeys: false, actions: true });
+    expect(await screen.findByTestId("late")).toBeTruthy();
+  });
+
   it("hides actions when nothing can run them, or the screen turns them off", () => {
     render(<NativeRecordViewMenu view={page} row={brand} testID="none" />, { wrapper: wrap(provider({ runAction: undefined })) });
     expect(screen.queryByTestId("none")).toBeNull();

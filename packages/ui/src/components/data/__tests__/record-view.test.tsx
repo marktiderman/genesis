@@ -289,6 +289,16 @@ describe("RecordView", () => {
     expect(screen.getByTestId("resource-workspace-check-ok")).toBeTruthy();
   });
 
+  it("offers no provider action until the provider's capabilities arrive", async () => {
+    // @feat:declared-data-access
+    let answer: (c: Awaited<ReturnType<NonNullable<DataProvider["capabilities"]>>>) => void = () => {};
+    const p = provider({ capabilities: vi.fn(() => new Promise((resolve) => (answer = resolve))) as DataProvider["capabilities"] });
+    renderRecordView("activity", p);
+    expect(screen.queryByTestId("resource-workspace-action-publish")).toBeNull();
+    answer({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: false, compositeKeys: false, actions: true });
+    expect(await screen.findByTestId("resource-workspace-action-publish")).toBeTruthy();
+  });
+
   it("runs an action at the version the record was read at", async () => {
     // @feat:declared-data-access
     const p = provider({ capabilities: vi.fn(async () => ({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: true, compositeKeys: false, actions: true, version: { field: "name", kind: "timestamp" as const } })), });
