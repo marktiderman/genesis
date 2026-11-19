@@ -78,6 +78,8 @@ describe("support's settings", () => {
     const app = resolveSettings(settingsCatalogue(SUPPORT_SETTINGS_DECLARATIONS), { file: { "support.ideas": { value: false } } });
     expect(supportSettingValues(app).support.ideas).toBe(false);
     expect(supportSettingValues(app.values).support.ideas).toBe(false);
+    expect(supportSettingValues({ "diagnostics.perHour": 2.5 }).diagnostics.perHour).toBe(10);
+    expect(resolveSupportSettings({ file: { "diagnostics.perHour": { value: 4 } }, database: { "diagnostics.perHour": { value: 2.5 } } }).values["diagnostics.perHour"]).toBe(4);
     const partial = supportSettingValues({ "diagnostics.maxBytes": 70_000, "shake.jolts": "three", "support.githubIssueDetail": "everything" });
     expect(partial.diagnostics.maxBytes).toBe(70_000);
     expect(partial.shake.jolts).toBe(2);

@@ -34,7 +34,7 @@ insert into public.genesis_settings (key, value) values ('diagnostics.perHour', 
 select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 2, 'the database layer wins over the file');
 select is(private.genesis_support_setting_int('diagnostics.retentionDays', 90, 7, 365), 30, 'a value the file locks wins over the database');
 
-update public.genesis_settings set value = '1.5' where key = 'diagnostics.perHour';
+update public.genesis_settings set value = '2.5' where key = 'diagnostics.perHour';
 select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 4, 'a fraction in the database is skipped for the file''s value, as resolveSettings does');
 update public.genesis_settings set value = '500' where key = 'diagnostics.perHour';
 select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 4, 'out of range in the database is skipped for the file''s value, as resolveSettings does');
