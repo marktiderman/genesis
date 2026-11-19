@@ -117,6 +117,26 @@ describe("genesis-support-notify", () => {
     expect((init.headers as Record<string, string>)["x-genesis-signature"]).toBe(`sha256=${await hmacHex("k", String(init.body))}`);
   });
 
+  it("takes a new ticket (the table since genesis-support 0004) as well as the old support_reports", async () => {
+    for (const table of ["tickets", "support_reports"]) {
+      const fetch = vi.fn(async () => new Response("{}", { status: 201 }));
+      const deps = { env: env({ GENESIS_SUPPORT_WEBHOOK_SECRET: "s", GITHUB_TOKEN: "ghp", GITHUB_REPO: "acme/app" }), fetch: fetch as unknown as typeof globalThis.fetch, log: vi.fn() };
+      const res = await notify(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "s" }, body: JSON.stringify({ ...insert, table }) }), deps);
+      expect(await res.json()).toEqual({ ok: true, sent: ["github"], failed: [] });
+      expect(fetch).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("skips other tables and other events", async () => {
+    const fetch = vi.fn(async () => new Response("{}", { status: 201 }));
+    const deps = { env: env({ GENESIS_SUPPORT_WEBHOOK_SECRET: "s", GITHUB_TOKEN: "ghp", GITHUB_REPO: "acme/app" }), fetch: fetch as unknown as typeof globalThis.fetch, log: vi.fn() };
+    for (const payload of [{ ...insert, table: "ticket_attachments" }, { ...insert, table: "tickets", type: "UPDATE" }]) {
+      const res = await notify(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "s" }, body: JSON.stringify(payload) }), deps);
+      expect(await res.json()).toEqual({ ok: true, skipped: true });
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("refuses a webhook URL that isn't https", async () => {
     const deps = { env: env({ GENESIS_SUPPORT_WEBHOOK_SECRET: "s", SUPPORT_WEBHOOK_URL: "http://hooks.example" }), fetch: vi.fn(), log: vi.fn() };
     const res = await notify(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "s" }, body: JSON.stringify(insert) }), deps);
@@ -127,7 +147,14 @@ describe("genesis-support-notify", () => {
   it("summarize keeps only the safe fields, and the issue fences the person's text", () => {
     const s = summarize({ ...insert.record, message: "````\n@everyone" });
     expect(Object.keys(s).sort()).toEqual(["appVersion", "createdAt", "id", "message", "platform", "route", "title", "type"]);
-    expect(issueBody(s)).toContain("````\n``` `\n@everyone\n````");
+    // The fence is longer than any run of backticks the person typed, so they can't close it.
+    const body = issueBody(s);
+    expect(body.startsWith("`````\n")).toBe(true);
+    expect(body.endsWith("\n`````")).toBe(true);
+    expect(body).toContain("````\n@everyone");
+    const sneaky = issueBody(summarize({ ...insert.record, message: "```````\n@everyone [x](https://evil) ![i](https://evil/i.png)", platform: "**ios** @someone" }));
+    expect(sneaky.split("\n")[0]).toBe("````````");
+    expect(sneaky.split("\n").at(-1)).toBe("````````");
     expect(sameSecret("a", "a")).toBe(true);
     expect(sameSecret("a", "ab")).toBe(false);
   });
@@ -156,9 +183,32 @@ describe("genesis-support-cleanup", () => {
   it("removes queued and orphaned screenshots through the Storage API, only in its bucket", async () => {
     const s = store();
     const res = await cleanup(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "c" } }), { env: env({ GENESIS_SUPPORT_CLEANUP_SECRET: "c" }), store: s, log: vi.fn() });
-    expect(await res.json()).toEqual({ ok: true, purged: 1, orphans: 1 });
+    expect(await res.json()).toEqual({ ok: true, purged: 1, orphans: 1, diagnostics: 0 });
     expect(s.removed).toEqual([["u/r/a.png"], ["u/r2/b.png"]]);
     expect(s.forgotten).toEqual([[1]]);
+  });
+
+  it("deletes context dumps past their retention (default 90 days) where the store can", async () => {
+    const purgeDiagnostics = vi.fn(async () => 7);
+    const call = (values: Record<string, string>) =>
+      cleanup(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "c" } }), { env: env({ GENESIS_SUPPORT_CLEANUP_SECRET: "c", ...values }), store: store({ purgeDiagnostics }), log: vi.fn() });
+    expect(await (await call({})).json()).toMatchObject({ ok: true, diagnostics: 7 });
+    expect(purgeDiagnostics).toHaveBeenLastCalledWith(90);
+    await call({ GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS: "30" });
+    expect(purgeDiagnostics).toHaveBeenLastCalledWith(30);
+    await call({ GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS: "nonsense" });
+    expect(purgeDiagnostics).toHaveBeenLastCalledWith(90);
+  });
+
+  it("purges a backlog of dumps a batch at a time until a short batch, within a bound", async () => {
+    const answers = [1000, 1000, 3];
+    const purgeDiagnostics = vi.fn(async () => answers.shift() ?? 0);
+    const res = await cleanup(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "c" } }), { env: env({ GENESIS_SUPPORT_CLEANUP_SECRET: "c" }), store: store({ purgeDiagnostics }), log: vi.fn() });
+    expect(await res.json()).toMatchObject({ diagnostics: 2003 });
+    expect(purgeDiagnostics).toHaveBeenCalledTimes(3);
+    const endless = vi.fn(async () => 1000);
+    await cleanup(new Request("https://fn.test", { method: "POST", headers: { "x-genesis-support-secret": "c" } }), { env: env({ GENESIS_SUPPORT_CLEANUP_SECRET: "c" }), store: store({ purgeDiagnostics: endless }), log: vi.fn() });
+    expect(endless).toHaveBeenCalledTimes(20);
   });
 
   it("keeps the queue when removal fails", async () => {

@@ -6,6 +6,8 @@
  * `@marktiderman/genesis-chat` as the support client's `chat` option.
  */
 
+import type { FeedbackStatus } from "./contract";
+
 /** The block's FeatureId. */
 export const SUPPORT_CHAT_BLOCK_ID = "support-chat" as const;
 
@@ -67,9 +69,11 @@ export const SUPPORT_TO_CHAT_STATUS = {
   open: "open",
   submitted: "open",
   in_progress: "pending",
+  // Waiting on the requester (migration 0013): chat's pending, as in_progress is.
+  pending: "pending",
   addressed: "solved",
   wont_fix: "closed",
-} as const;
+} as const satisfies Record<FeedbackStatus, string>;
 
 /** PostgREST's "no such function" (PGRST202) or Postgres's (42883): the block's migration isn't applied. */
 export function isMissingFunction(error: { code?: string; message?: string } | null | undefined): boolean {

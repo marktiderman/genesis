@@ -121,7 +121,11 @@ export const WIDGET_HEADERS = {
 /** Text limits, the same as the database's checks. */
 export const LIMITS = { title: 300, body: 20000, route: 2000, appVersion: 200, tag: 60, tags: 50, contextBytes: 16384 } as const;
 
-/** A path segment that names someone or something private: an email, a UUID, a number, a long token. */
+/**
+ * A path segment that names someone or something private: an email, a UUID, a number, a phone
+ * number, a token or a short code. A name written as a slug (`jane-doe`) reads like any word and
+ * isn't caught: keep names out of paths.
+ */
 function privateSegment(segment: string): string | null {
   let s = segment;
   try {
@@ -132,6 +136,15 @@ function privateSegment(segment: string): string | null {
   if (s.includes("@")) return ":email";
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return ":id";
   if (/^\d+$/.test(s)) return ":id";
+  // A phone number: `+15555550101`, `+44-20-7946-0958`.
+  if (/^\+\d[\d().\s-]{5,}$/.test(s)) return ":phone";
+  // A short code (an invite, a coupon): 6 to 12 letters and digits with no separator, the two
+  // interleaved (`ab12cd`, `x7k9q2`). A slug that ends in a number (`round42`, `ios17-setup`,
+  // `top-10-tips-2024`) switches once or has separators, and stays.
+  if (/^[A-Za-z0-9]{6,12}$/.test(s) && (s.match(/[A-Za-z](?=\d)|\d(?=[A-Za-z])/g) ?? []).length >= 2) return ":token";
+  // A slug: words and numbers joined by `-` (`top-10-tips-2024`), each part all letters or all
+  // digits. A token's parts mix them.
+  if (/^[A-Za-z]+(?:-(?:[A-Za-z]+|\d+))+$/.test(s)) return null;
   // A long run of letters and digits with a digit in it reads as a token or a code, not a word.
   if (s.length >= 16 && /\d/.test(s) && /^[A-Za-z0-9_.~-]+$/.test(s)) return ":token";
   return null;
@@ -140,7 +153,8 @@ function privateSegment(segment: string): string | null {
 /**
  * A route as a path only, safe to store and send: the query string and
  * fragment (tokens, codes, emails) are dropped, and path segments that look
- * private (an email, an id, a long token) become `:email`, `:id` or `:token`
+ * private (an email, an id, a phone number, a token or short code) become `:email`, `:id`,
+ * `:phone` or `:token`
  * (`/users/jane@x.test/reset/abc123…` → `/users/:email/reset/:token`).
  */
 export function cleanRoute(route: string | null | undefined): string | undefined {

@@ -620,6 +620,7 @@ const SLOT_NAMES: Record<keyof NativeAppSlots, true> = {
   updateBanner: true,
   whatsNew: true,
   devtoolsFeedback: true,
+  devtoolsDiagnostics: true,
   pushPrompt: true,
 };
 const NATIVE_APP_SLOT_NAMES: readonly string[] = Object.keys(SLOT_NAMES);

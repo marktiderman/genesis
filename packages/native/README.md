@@ -206,6 +206,7 @@ From the outside in:
 | `updateBanner` | `UpdateBanner` (with `updates`) | `{ reload, dismiss, canReload, blocked, reloading }` |
 | `whatsNew` | `WhatsNewSheet` (with `updates`) | `{ notes, version, dismiss }` |
 | `devtoolsFeedback` | nothing (in the devtools overlay; the support block fills it) | `{ debugInfo, close }` (`close()` resolves once the sheet has slid away) |
+| `devtoolsDiagnostics` | nothing (beside "Copy debug info"; the support block fills it with "Send diagnostics" when it has `diagnostics`) | `{ debugInfo, close, copy }` |
 
 The last four render only when the `updates` prop is given. Ejecting a
 blocking one (`forceUpgrade: null`, `maintenance: null`) shows your screens
@@ -295,7 +296,9 @@ service role).
 Each part on its own: `ForceUpgradeScreen`, `MaintenanceScreen`,
 `UpdateBanner`, `WhatsNewSheet`; `createPolicyStore` + `evaluatePolicy`,
 `createUpdateChecker` + `createReloadGuard`, `createWhatsNewStore`,
-`versionSignature`, `createChannelSwitcher`, `compareVersions`; and the hooks
+`versionSignature` (with `buildMetadata`, the commit, OTA number and release the app stamps at
+publish time, it also carries `commit`, `otaNumber` and `release`; `createUpdates` takes the same
+option), `createChannelSwitcher`, `compareVersions`; and the hooks
 under `UpdatesProvider` (or the shell): `useForceUpgrade`, `useMaintenance`,
 `useUpdateBanner`, `useWhatsNew`, `useVersionSignature`, `useBlockReload`,
 `useCanReload`, `useUpdatePolicy`, `useUpdateCheck`.
@@ -485,7 +488,9 @@ builds. It opens with a three-finger hold (every build, no native module), a sha
 - the `devtoolsFeedback` slot, which the support block fills with "Send feedback" (an annotated
   screenshot); empty by default. `close()` (the block's, and the slot's) resolves once the sheet
   has finished sliding away (its `onDismiss`, iOS), or after 800 ms where the platform doesn't
-  report it (Android), so a screenshot taken after it shows the app, not the sheet.
+  report it (Android), so a screenshot taken after it shows the app, not the sheet;
+- the `devtoolsDiagnostics` slot beside "Copy debug info", which the support block fills with
+  "Send diagnostics" (the context dump, with its short id to copy) when it is given `diagnostics`.
 
 **Keep it out of production.** Import the entry only behind a condition Metro folds at build time.
 Metro inlines `__DEV__`, babel-preset-expo inlines `process.env.EXPO_PUBLIC_*`, and in a

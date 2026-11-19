@@ -13,14 +13,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import { NativeButton, NativeLabel, NativeSegmentedControl, NativeSwitch, NativeText, NativeTextarea } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { SupportError } from "../client";
-import { FEEDBACK_TYPES, type FeedbackDelivery, type FeedbackType } from "../record";
+import { FEEDBACK_TYPES, type FeedbackDelivery, type FeedbackRecord, type FeedbackType } from "../record";
+import { DiagnosticsSendError } from "../diagnostics/queue";
+import type { DiagnosticsDelivery } from "../diagnostics/create";
+import { fill } from "../copy";
 import { ScreenshotAnnotator } from "./annotator";
 import { SUPPORT_QUERY_ROOT, useSupport, type PendingFeedback, type PendingScreenshot } from "./support";
 
 export interface FeedbackFormProps {
   defaultType?: FeedbackType;
   /** After a report is saved (go back, say thanks). The form has already shown its own confirmation, unless `sentAlert` is false. */
-  onSent?: (delivery: FeedbackDelivery) => void;
+  onSent?: (delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null }) => void;
   /** Confirm a sent report with an alert. Default true; false when `onSent` says so itself (a toast). */
   sentAlert?: boolean;
   testID?: string;
@@ -60,20 +63,31 @@ export function FeedbackForm({ defaultType = "bug", onSent, sentAlert = true, te
       if (route) context.route = route;
       else delete context.route;
       if (origin?.extra) context.extra = { ...context.extra, ...origin.extra };
-      const delivery = await block.client.submit({
+      const record: FeedbackRecord = {
         type,
         message: message.trim(),
         context,
         attachments: screenshot && include ? [{ kind: "screenshot", contentType: screenshot.contentType, base64: screenshot.uri, width: screenshot.width, height: screenshot.height }] : [],
-      });
+      };
+      const { diagnostics, dumpOnFeedback = true, feedbackSink } = block.options;
+      const sink = feedbackSink ?? block.client;
+      // With diagnostics, a dump goes with it (linked both ways); a failed dump never fails the report.
+      const delivery: FeedbackDelivery & { diagnostics?: DiagnosticsDelivery | null } =
+        diagnostics && dumpOnFeedback ? await diagnostics.submitFeedback(record, { sink }) : await sink.submit(record);
       void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT, "reports"] });
       setMessage("");
       setScreenshot(null);
-      if (sentAlert) Alert.alert(copy.feedback.sentTitle, delivery.attachmentsDropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody);
+      if (sentAlert) {
+        const body = delivery.attachmentsDropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody;
+        const reference = delivery.diagnostics ? `\n\n${fill(copy.diagnostics.feedbackReference, { id: delivery.diagnostics.shortId })}` : "";
+        Alert.alert(copy.feedback.sentTitle, `${body}${reference}`);
+      }
       onSent?.(delivery);
     } catch (e) {
       const err = e instanceof SupportError ? e : null;
-      setError(err?.rateLimited ? copy.feedback.rateLimited : err?.code === "42501" ? copy.feedback.signInFirst : copy.feedback.failedBody);
+      const rateLimited = err?.rateLimited || (e instanceof DiagnosticsSendError && e.status === 429);
+      const forbidden = err?.code === "42501" || (e instanceof DiagnosticsSendError && e.status === 401);
+      setError(rateLimited ? copy.feedback.rateLimited : forbidden ? copy.feedback.signInFirst : copy.feedback.failedBody);
     } finally {
       setSending(false);
     }
