@@ -1,0 +1,19 @@
+.changeset/genesis-ai-config-name.md
+  s_53540df9913a54::t_4debde34feb698 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bed8811e23f77b5defcb689093dcca89f924d054",
+  "prompts": {},
+  "sessions": {
+    "s_53540df9913a54": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "abecd9cc-fe12-4317-8685-9e0ef89602c7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
