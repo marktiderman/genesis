@@ -189,6 +189,41 @@ describe("the inbox on the phone", () => {
     fireEvent.click(screen.getByText("Ship it"));
     expect(runAction).toHaveBeenCalledTimes(1);
   });
+
+  it("doesn't run markRead when the provider serves no actions for the resource", async () => {
+    // @feat:declared-data-access
+    const runAction = vi.fn(async () => ({ data: null }));
+    const capabilities = vi.fn(async () => ({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: false, compositeKeys: false, actions: false }));
+    const inbox = defineView(tasks, { inbox: { unread: "unread" }, actions: [{ name: "markRead", label: "Mark read" }] });
+    render(<NativeResourceView view={inbox} type="inbox" onRowPress={vi.fn()} />, { wrapper: wrap(provider({ runAction, capabilities: capabilities as DataProvider["capabilities"] })) });
+    await waitFor(() => expect(capabilities).toHaveBeenCalled());
+    await act(async () => undefined);
+    fireEvent.click(await screen.findByText("Write the plan"));
+    await act(async () => undefined);
+    expect(runAction).not.toHaveBeenCalled();
+  });
+
+  // A row pressed before the capabilities answer opens without being marked read: a press is one
+  // tap, with no open row to come back to, so the next press after the answer marks it.
+  it("runs markRead through the provider only once its capabilities answer, at the row's version", async () => {
+    // @feat:declared-data-access
+    const runAction = vi.fn(async () => ({ data: null }));
+    type Caps = Awaited<ReturnType<NonNullable<DataProvider["capabilities"]>>>;
+    const waiting: ((c: Caps) => void)[] = [];
+    const capabilities = vi.fn(() => new Promise<Caps>((resolve) => waiting.push(resolve))) as DataProvider["capabilities"];
+    const answer = (c: Caps) => waiting.splice(0).forEach((resolve) => resolve(c));
+    const inbox = defineView(tasks, { inbox: { unread: "unread" }, actions: [{ name: "markRead", label: "Mark read" }] });
+    render(<NativeResourceView view={inbox} type="inbox" onRowPress={vi.fn()} />, { wrapper: wrap(provider({ runAction, capabilities })) });
+    fireEvent.click(await screen.findByText("Write the plan"));
+    await act(async () => undefined);
+    expect(runAction).not.toHaveBeenCalled();
+    answer({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: true, compositeKeys: false, actions: true, version: { field: "title", kind: "timestamp" } });
+    // Once the answer has rendered, opening the row runs markRead at the row's version.
+    await waitFor(() => {
+      fireEvent.click(screen.getByText("Write the plan"));
+      expect(runAction).toHaveBeenCalledWith("tasks", { id: "a", action: "markRead", expectedVersion: "Write the plan" });
+    });
+  });
 });
 
 describe("review fixes on the phone", () => {

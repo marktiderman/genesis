@@ -19,7 +19,7 @@ import {
   type ResourceContract,
 } from "@marktiderman/genesis-core";
 import { exportCsv } from "@marktiderman/genesis-core/csv";
-import { useSegmentCounts, type ListStateResult } from "@marktiderman/genesis-core/hooks";
+import { useCapabilities, useSegmentCounts, type ListStateResult } from "@marktiderman/genesis-core/hooks";
 import {
   createLocalSavedViewStore,
   type ResolvedFilter,
@@ -298,9 +298,14 @@ export function switchableTypes(view: AnyView, screenTypes: readonly string[] | 
 /** A refusal's words, or undefined when allowed. */
 export const reasonOf = (allowed: true | string) => (allowed === true ? undefined : allowed);
 
-/** The actions a provider serves for the resource: all of them when it doesn't say. */
-export function useServedActions(view: AnyView): { runnable: boolean; served: ReadonlySet<string> | null } {
+/**
+ * The actions a provider serves for the resource: all of them when it doesn't say. A provider whose
+ * capabilities say it runs no actions for this resource (`actions: false`) runs none of them.
+ */
+export function useServedActions(view: AnyView): { runnable: boolean; served: ReadonlySet<string> | null; versionField?: string } {
   const provider = useDataProvider();
+  const asked = !!provider.runAction && !!provider.capabilities && view.actions().length > 0;
+  const capabilities = useCapabilities(view.resource, { enabled: asked });
   const described = useQuery({
     queryKey: ["__describe", view.resource],
     queryFn: () => provider.describe!(view.resource),
@@ -308,7 +313,11 @@ export function useServedActions(view: AnyView): { runnable: boolean; served: Re
     staleTime: Infinity,
   });
   const served = described.data?.actions ? new Set(described.data.actions.map((a) => a.name)) : null;
-  return { runnable: !!provider.runAction, served };
+  const versionField = capabilities.data?.version?.field;
+  // Not runnable until the provider has answered: an action shown before then (or after a failed
+  // answer) could run without its version, or be one the provider doesn't serve.
+  const runnable = !!provider.runAction && (!asked || capabilities.isSuccess) && capabilities.data?.actions !== false;
+  return { runnable, served, ...(versionField ? { versionField } : {}) };
 }
 
 interface Confirming {
@@ -349,7 +358,7 @@ export function useListActions<T extends Row>(
   const viewer = useViewer();
   const provider = useDataProvider();
   const queryClient = useQueryClient();
-  const { runnable, served } = useServedActions(view as AnyView);
+  const { runnable, served, versionField } = useServedActions(view as AnyView);
   const [confirming, setConfirming] = useState<Confirming | null>(null);
   const hide = options.refusals === "hide";
 
@@ -381,19 +390,27 @@ export function useListActions<T extends Row>(
   }, []);
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: resourceKeys(view.resource).all }), [queryClient, view.resource]);
   const idOf = useCallback((row: T) => encodeRecordKey(view.contract, row as T & DataRow), [view]);
+  // The provider runs an action at the version the row was read at, so a row changed since is a conflict.
+  const atVersion = useCallback(
+    (row: T): { expectedVersion?: string } => {
+      const value = versionField ? (row as Record<string, unknown>)[versionField] : undefined;
+      return value == null ? {} : { expectedVersion: String(value) };
+    },
+    [versionField],
+  );
 
   const runRow = useCallback(
     async (action: ResolvedViewAction, row: T) => {
       try {
         if (options.onRun) await options.onRun(action.name, row);
-        else await provider.runAction!(view.resource, { id: idOf(row), action: action.name });
+        else await provider.runAction!(view.resource, { id: idOf(row), action: action.name, ...atVersion(row) });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : String(error));
       } finally {
         await refresh();
       }
     },
-    [options, provider, view.resource, idOf, refresh],
+    [options, provider, view.resource, idOf, atVersion, refresh],
   );
 
   const start = useCallback(
@@ -480,7 +497,7 @@ export function useListActions<T extends Row>(
               for (const r of allowed) {
                 try {
                   if (options.onRun) await options.onRun(a.name, r);
-                  else await provider.runAction!(view.resource, { id: idOf(r), action: a.name });
+                  else await provider.runAction!(view.resource, { id: idOf(r), action: a.name, ...atVersion(r) });
                   done += 1;
                 } catch (error) {
                   skipped.count += 1;
@@ -498,7 +515,7 @@ export function useListActions<T extends Row>(
       });
     }
     return out;
-  }, [bulkable, view, viewer, m, options, provider, idOf, refresh, start, once]);
+  }, [bulkable, view, viewer, m, options, provider, idOf, atVersion, refresh, start, once]);
 
   const run = useCallback(
     (name: string, row: T) => {
