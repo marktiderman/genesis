@@ -209,7 +209,36 @@ const defaultGh = (root: string, timeoutMs: () => number) => {
   };
 };
 
-/** The registry the app installs `@marktiderman/*` from, when it isn't npm's: the scope's or the default registry in the app's or the home .npmrc, or npm_config_registry. */
+/**
+ * The registries a bunfig.toml sets: `[install] registry` (a URL, or `{ url = … }`) and the
+ * `@marktiderman` scope under `[install.scopes]`. A small reader for those keys, not a TOML parser.
+ */
+export function bunfigRegistries(text: string): string[] {
+  const out: string[] = [];
+  let section = "";
+  const urlOf = (value: string) => /^\s*"([^"]+)"/.exec(value)?.[1] ?? /\burl\s*=\s*"([^"]+)"/.exec(value)?.[1] ?? null;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(/\s+#.*$/, "").trim();
+    if (!line || line.startsWith("#")) continue;
+    const header = /^\[\s*([^\]]+?)\s*\]$/.exec(line);
+    if (header) {
+      section = header[1]!.replace(/\s/g, "");
+      continue;
+    }
+    const kv = /^("?[@\w.-]+"?)\s*=\s*(.+)$/.exec(line);
+    if (!kv) continue;
+    const key = kv[1]!.replace(/"/g, "");
+    const url =
+      section === "install" && key === "registry" ? urlOf(kv[2]!)
+      : section === "install.scopes" && (key === "marktiderman" || key === "@marktiderman") ? urlOf(kv[2]!)
+      : section === "install" && (key === "scopes.marktiderman" || key === "scopes.@marktiderman") ? urlOf(kv[2]!)
+      : null;
+    if (url) out.push(url);
+  }
+  return out;
+}
+
+/** The registry the app installs `@marktiderman/*` from, when it isn't npm's: the scope's or the default registry in the app's or the home .npmrc and bunfig.toml, or npm_config_registry. */
 export function customRegistry(root: string, env: NodeJS.ProcessEnv = process.env, home = homedir()): string | null {
   const found: string[] = [];
   if (env.npm_config_registry) found.push(env.npm_config_registry);
@@ -222,6 +251,13 @@ export function customRegistry(root: string, env: NodeJS.ProcessEnv = process.en
       continue;
     }
     for (const m of text.matchAll(/^\s*(?:@marktiderman:)?registry\s*=\s*(\S+)/gm)) found.push(m[1]!);
+  }
+  for (const file of [path.join(root, "bunfig.toml"), path.join(home, ".bunfig.toml"), ...(env.XDG_CONFIG_HOME ? [path.join(env.XDG_CONFIG_HOME, ".bunfig.toml")] : [])]) {
+    try {
+      found.push(...bunfigRegistries(readFileSync(file, "utf8")));
+    } catch {
+      // No bunfig there.
+    }
   }
   return found.find((url) => !/^https?:\/\/registry\.npmjs\.org\/?$/.test(url.trim())) ?? null;
 }

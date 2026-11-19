@@ -336,6 +336,66 @@ describe("genesis fix", () => {
     expect(read(root, "genesis.config.json")).toBe(`{\n    "settings": {\n        "support.inbox": false\n    }\n}\n`);
   });
 
+  describe("settings.remove-unknown removes only what is surely unknown, never a locked key", () => {
+    const SUPPORT = "@marktiderman/genesis-support";
+    const CONFIG = `{\n  "settings": {\n    "support.inbox": false,\n    "support.inbx": true\n  }\n}\n`;
+    const supportPkg = (settings: unknown) => JSON.stringify({ name: SUPPORT, version: "0.12.0", genesis: { settings } });
+    const declared = { namespace: "support", keys: { inbox: { type: "boolean", default: true } } };
+    const fix = () => builtinFixes().find((f) => f.id === "settings.remove-unknown")!;
+
+    it("with no node_modules: the key isn't certain, and nothing is removed", async () => {
+      const root = tmpApp({ "package.json": JSON.stringify({ name: "app", dependencies: { [SUPPORT]: "^0.12.0" } }), "genesis.config.json": CONFIG });
+      const f = finding("invalid-setting", { file: "genesis.config.json", subject: "support.inbox", message: "settings.support.inbox: no installed Genesis package declares this setting (a typo, or a package that isn't installed)" });
+      // Even a finding without the "not certain" note (from an older run) is re-checked when planning.
+      const plan = await planFix(fix(), { root, findings: [f] });
+      expect(plan.files).toEqual([]);
+      expect(plan.manual).toMatch(/Not certain any setting is unknown: @marktiderman\/genesis-support isn't installed/);
+    });
+
+    it("with a package not installed: the finding says so, and its fix is manual", async () => {
+      const root = makeApp(null, { "package.json": JSON.stringify({ name: "app", dependencies: { [SUPPORT]: "^0.12.0" } }), "genesis.config.json": CONFIG });
+      const result = await runDoctor({ root, config: {} });
+      const unknown = result.findings.filter((f) => f.rule === "invalid-setting" && f.file === "genesis.config.json");
+      expect(unknown.map((f) => f.subject).sort()).toEqual(["support.inbox", "support.inbx"]);
+      for (const f of unknown) {
+        expect(f.message).toMatch(/not certain: @marktiderman\/genesis-support isn't installed/);
+        expect(f.fix).toMatchObject({ id: "settings.review", kind: "manual" });
+      }
+      const t = io();
+      expect(await runFixCommand({ root, target: "invalid-setting", yes: true, network: false }, t.io)).toBe(0);
+      expect(read(root, "genesis.config.json")).toBe(CONFIG);
+    });
+
+    it("with a malformed declaration: nothing is removed", async () => {
+      const root = makeApp(null, {
+        "package.json": JSON.stringify({ name: "app", dependencies: { [SUPPORT]: "^0.12.0" } }),
+        [`node_modules/${SUPPORT}/package.json`]: supportPkg({ namespace: "support", keys: { inbox: { type: "nope" } } }),
+        "genesis.config.json": CONFIG,
+      });
+      const result = await runDoctor({ root, config: {} });
+      expect(result.findings.filter((f) => f.fix?.id === "settings.remove-unknown")).toEqual([]);
+      expect(await runFixCommand({ root, target: "invalid-setting", yes: true, network: false }, io().io)).toBe(0);
+      expect(read(root, "genesis.config.json")).toBe(CONFIG);
+    });
+
+    it("leaves a locked unknown key for you, and removes the unlocked one", async () => {
+      const root = makeApp(null, {
+        "package.json": JSON.stringify({ name: "app", dependencies: { [SUPPORT]: "^0.12.0" } }),
+        [`node_modules/${SUPPORT}/package.json`]: supportPkg(declared),
+        "genesis.config.json": `{\n  "settings": {\n    "support.inbx": true,\n    "support.lockd": { "value": 1, "locked": true }\n  }\n}\n`,
+      });
+      const result = await runDoctor({ root, config: {} });
+      const fixes = Object.fromEntries(result.findings.filter((f) => f.rule === "invalid-setting").map((f) => [f.subject, f.fix?.id]));
+      expect(fixes).toEqual({ "support.inbx": "settings.remove-unknown", "support.lockd": "settings.review" });
+      expect(await runFixCommand({ root, target: "settings.remove-unknown", yes: true, network: false }, io().io)).toBe(0);
+      expect(JSON.parse(read(root, "genesis.config.json"))).toEqual({ settings: { "support.lockd": { value: 1, locked: true } } });
+      // Planned on its own, a locked key is still never removed.
+      const plan = await planFix(fix(), { root, findings: [] });
+      expect(plan.files).toEqual([]);
+      expect(plan.manual).toMatch(/Locked, so left for you: settings\.support\.lockd/);
+    });
+  });
+
   it("regenerates a stale agent guide (agents.guide)", async () => {
     const root = makeApp(null, { "package.json": JSON.stringify({ name: "app" }), ".claude/skills/genesis/SKILL.md": "old\n", "AGENTS.md": "# Agent notes\n", "CLAUDE.md": "@AGENTS.md\n" });
     const t = io();
@@ -505,6 +565,24 @@ describe("rollback", () => {
     const root2 = tmpApp({ "a.txt": "hello" });
     await expect(applyPlan(throwing, await planFix(throwing, { root: root2, findings: [] }), { root: root2, findings: [] })).rejects.toThrow(/doctor crashed/);
     expect(read(root2, "a.txt")).toBe("hello");
+  });
+
+  it("restores an executable file's mode when it rolls back", async () => {
+    const root = tmpApp({ "run.sh": "echo hi\n" });
+    chmodSync(path.join(root, "run.sh"), 0o755);
+    const fix = defineFix({
+      id: "test.modeback",
+      kind: "auto",
+      rules: ["r"],
+      title: "t",
+      plan: (ctx) => ({ summary: "s", files: [{ path: "run.sh", beforeHash: sha256(read(ctx.root, "run.sh")), content: "echo bye\n", why: "x" }], commands: [{ tool: "genesis", args: ["x"], why: "x" }] }),
+      apply: () => {
+        throw new Error("boom");
+      },
+    });
+    await expect(applyPlan(fix, await planFix(fix, { root, findings: [] }), { root, findings: [] })).rejects.toThrow(/rolled back run\.sh/);
+    expect(read(root, "run.sh")).toBe("echo hi\n");
+    expect(statSync(path.join(root, "run.sh")).mode & 0o777).toBe(0o755);
   });
 
   it("redacts secrets from apply's notes", async () => {

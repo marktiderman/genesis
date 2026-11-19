@@ -1019,7 +1019,7 @@ doctor couldn't run.
 | `migrate.copy` | auto | `migration-pending` | `genesis migrate`. |
 | `migrate.forward` | guided | `migration-drift` | `genesis migrate --forward`; you fill in each forward migration. |
 | `upgrade.release` | auto | `genesis-behind`, `overlay-behind`, `version-skew` | Plans with `genesis upgrade --dry-run`; applies `genesis upgrade --pr`. The pull request is never merged for you. `genesis-behind` moves to the latest release; the others re-align on the installed one. With uncommitted changes (or outside git) the plan says so and runs nothing. |
-| `settings.remove-unknown` | auto | `invalid-setting` (an undeclared key) | Removes the key from `genesis.config.json`, keeping its format. |
+| `settings.remove-unknown` | auto | `invalid-setting` (an undeclared key) | Removes the key from `genesis.config.json`, keeping its format: only when the settings catalogue read completely (every Genesis package in package.json installed, every declaration readable), and never a locked key. Otherwise the finding says it's "not certain" and the fix is `settings.review`. |
 | `settings.review` | manual | `invalid-setting` (the rest) | Lists the values only you can choose. |
 
 A package adds fixes for its own rules with `genesis.doctor.fixes`, a module beside its `plugin`
@@ -1035,8 +1035,9 @@ endpoint for every installed `@marktiderman/genesis*` package (GitHub's advisory
 check has a deadline of about 20 seconds (each step still gets at least a second, and `gh auth status` up to 5).
 
 **What it sends:** only the names and installed versions of the `@marktiderman/genesis*`
-packages. When `.npmrc` (the app's or yours) or `npm_config_registry` points `@marktiderman` or
-the default registry anywhere but registry.npmjs.org, npm's public advisory endpoint isn't asked;
+packages. When `.npmrc` or `bunfig.toml` (`[install] registry`, or the `marktiderman` scope under
+`[install.scopes]`; the app's or yours) or `npm_config_registry` points `@marktiderman` or the
+default registry anywhere but registry.npmjs.org, npm's public advisory endpoint isn't asked;
 only `gh` is (when it's signed in). Withdrawn advisories are left out.
 
 | Distance | Level |

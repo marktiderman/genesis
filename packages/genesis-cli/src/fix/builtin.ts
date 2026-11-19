@@ -12,6 +12,7 @@ import type { UpgradeOptions, UpgradeReport } from "../upgrade/index.js";
 import type { MigrateOptions, MigrateReport } from "../blocks/migrate.js";
 import type { ContractReader } from "../doctor/contracts.js";
 import { detectPackageManager, installCommand, shellLine } from "../blocks/pm.js";
+import { isLockedSetting, unknownSettingKeys } from "../doctor/settings.js";
 import { runTool, type ToolRunner } from "../exec/run.js";
 import { plannedFile } from "./engine.js";
 import type { Fix, FixContext, FixPlanDraft } from "./types.js";
@@ -263,12 +264,21 @@ const removeUnknownSettings: Fix = {
   kind: "auto",
   rules: ["invalid-setting"],
   title: "remove settings no installed package declares from genesis.config.json",
-  appliesTo: (f) => f.file === "genesis.config.json" && /no installed Genesis package declares this setting/.test(f.message),
+  // Only a key that is surely unknown (the catalogue read completely) and isn't locked; the rest
+  // fall to settings.review, a person's call. A locked key is never removed automatically.
+  appliesTo: (f, ctx) =>
+    f.file === "genesis.config.json" &&
+    /no installed Genesis package declares this setting/.test(f.message) &&
+    !/; not certain: /.test(f.message) &&
+    !!f.subject &&
+    !isLockedSetting(ctx.root, f.subject),
   async plan(ctx) {
-    const { unknownSettingKeys } = await import("../doctor/settings.js");
     const wanted = new Set(ctx.findings.map((f) => f.subject).filter((s): s is string => !!s));
-    const keys = unknownSettingKeys(ctx.root).filter((k) => !wanted.size || wanted.has(k));
-    if (!keys.length) return { summary: "no unknown settings to remove" };
+    const found = unknownSettingKeys(ctx.root);
+    if (!found.complete) return { summary: "the settings catalogue isn't complete, so no setting is removed", manual: `Not certain any setting is unknown: ${found.reason}. Fix that, then run genesis doctor again.` };
+    const locked = found.keys.filter((k) => isLockedSetting(ctx.root, k));
+    const keys = found.keys.filter((k) => (!wanted.size || wanted.has(k)) && !locked.includes(k));
+    if (!keys.length) return { summary: "no unknown settings to remove", ...(locked.length ? { manual: `Locked, so left for you: ${locked.map((k) => `settings.${k}`).join(", ")}.` } : {}) };
     const file = "genesis.config.json";
     const raw = readFileSync(path.join(ctx.root, file), "utf8");
     const json = JSON.parse(raw) as { settings?: Record<string, unknown> };
@@ -286,7 +296,8 @@ const removeUnknownSettings: Fix = {
 
 const reviewSettings: Fix = {
   id: "settings.review",
-  kind: "guided",
+  // Manual until the wizard's settings step (S2) gives it something to run.
+  kind: "manual",
   rules: ["invalid-setting"],
   title: "correct the setting's value in genesis.config.json",
   async plan(ctx) {
