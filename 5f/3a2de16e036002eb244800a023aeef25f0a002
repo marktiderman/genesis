@@ -1,0 +1,35 @@
+features.json
+  s_03775a189718c5::t_d643dfa2acd2f2 1854
+packages/ui/src/components/data/resource-view/ResourceInbox.tsx
+  s_03775a189718c5::t_ff4ac138fef312 206-221,227-228,230,232-234
+features.ts
+  s_03775a189718c5::t_d643dfa2acd2f2 821
+packages/ui-native/src/data/resource-view/__tests__/native-resource-lists.test.tsx
+  s_03775a189718c5::t_946256b7241dfc 221-225
+  s_03775a189718c5::t_e0e43e08f38ac0 193-207
+  s_03775a189718c5::t_cc809b858f58d9 192,208-210,215-220,226
+  s_03775a189718c5::t_5b231142f455ef 211-214
+docs/DATA-ACCESS.md
+  s_03775a189718c5::t_d643dfa2acd2f2 98-99,158-159
+packages/genesis-cli/src/doctor/primitives.ts
+  s_03775a189718c5::t_d643dfa2acd2f2 169
+packages/ui/src/components/data/__tests__/resource-view-inbox.test.tsx
+  s_03775a189718c5::t_e0e43e08f38ac0 12,124-168
+  s_03775a189718c5::t_61ec8847085d95 169-170
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5f3a2de16e036002eb244800a023aeef25f0a002",
+  "prompts": {},
+  "sessions": {
+    "s_03775a189718c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bfce5ab-8151-44b4-9387-b6450c59973d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
