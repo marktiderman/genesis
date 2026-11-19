@@ -8,6 +8,8 @@ New `subNav` values:
 - `"list"`: a list beside the page (`SubNavList`). On a phone it is a list page on the level's own page, then the item with a link back to the list.
 - `"hub"`: cards on the level's own page, one per child, under the page's own title and intro (`SubNavHub`). One column on a phone.
 
+An item for a list or hub level's own page (a "General" or "Overview" at its path) doesn't count as an open child: that page still shows the phone's list page or the hub's cards. A page with no children of its own under a `"sidebar"` level keeps that level's children in the sidebar and the phone's drawer. An app theme's `layout.subNav` takes `"list"` and `"hub"` too.
+
 Phones:
 - `options.phoneTabs`: `"bottom"` (default, as before) makes the first tab row the bottom bar. `"top"` keeps tab rows at the top as a row you swipe, and the bar keeps the app's own items.
 - A second row is a segmented control (`SubNavSegmented`) in both modes.

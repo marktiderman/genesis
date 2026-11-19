@@ -415,7 +415,11 @@ export function SubNavBreadcrumb({
                     .filter((item) => !item.disabled)
                     .map((item) => (
                       <DropdownMenuItem key={item.to + item.label} asChild>
-                        <LinkComp href={item.to} aria-current={item === current ? "page" : undefined}>
+                        <LinkComp
+                          href={item.to}
+                          aria-current={item === current ? "page" : undefined}
+                          testID={`app-shell-sub-nav-crumb-item-${item.label}`}
+                        >
                           {item.label}
                         </LinkComp>
                       </DropdownMenuItem>

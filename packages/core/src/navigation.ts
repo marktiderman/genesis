@@ -131,6 +131,8 @@ export interface NavigationNode<T> {
    *   folds the outer rows into a breadcrumb picker, so there are never
    *   more than two rows.
    * - `"sidebar"`: sub-items, nested under the active item in the sidebar.
+   *   A page below it with no items of its own keeps them in the sidebar
+   *   (the nearest `"sidebar"` level's); one with items shows only its own.
    * - `"list"`: a list beside the content (a list page, then the item, on
    *   a phone).
    * - `"hub"`: cards on the node's own page, one per child.

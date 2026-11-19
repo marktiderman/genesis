@@ -180,7 +180,8 @@ export interface AppShellOptions {
   /**
    * Shell sub-navigation, opt-in. `"section"` (default) renders a page's
    * children exactly as AppShell always has; `"tabs"` or `"sidebar"` turn
-   * sub-navigation on (see `SubNavMode`), and `"off"` hides them. A
+   * sub-navigation on, `"list"` and `"hub"` draw them in the content (see
+   * `SubNavMode`), and `"off"` hides them. A
    * navigation node, the `subNav` prop or the page
    * (`useAppShellSubNav(items, { mode })`) can override it.
    */
@@ -1743,13 +1744,30 @@ export function AppShell({
     mode: subNavMode,
   };
   const subLayout = layoutSubNavLevels([...ancestorLevels, pageLevel]);
+  // A page with no children of its own under a `"sidebar"` level keeps that level's children in the
+  // sidebar and the drawer (the nearest such level), so they don't vanish one level down. A page with
+  // children of its own shows only its own there.
+  const sidebarAncestor =
+    contextualNavItems.length === 0
+      ? [...ancestorLevels].reverse().find((level) => level.mode === "sidebar")
+      : undefined;
+  const sidebarMode: SubNavMode = sidebarAncestor ? "sidebar" : subNavMode;
+  const sidebarItems = sidebarAncestor?.items ?? contextualNavItems;
   const primaryRow = subLayout.rows[0];
   const secondaryRow = subLayout.rows[1];
   const innermostRow = secondaryRow ?? primaryRow;
+  const pathOf = (to: string) => to.split(/[?#]/)[0];
+  // A child of a level is open when one of its items is active, except an item for the level's own
+  // page (an "All", "General" or "Overview" at its path): there the level's own page shows.
+  const childActive = (level: SubNavLevel) =>
+    level.items.some(
+      (i) =>
+        !(level.href && pathOf(i.to) === pathOf(level.href)) && itemIsActive(i, activePath, isActive),
+    );
   const listLevel = subLayout.list;
-  const listItemActive = listLevel ? listLevel.items.some((i) => itemIsActive(i, activePath, isActive)) : false;
+  const listItemActive = listLevel ? childActive(listLevel) : false;
   const hubLevel = subLayout.hub;
-  const showHub = !!hubLevel && !hubLevel.items.some((i) => itemIsActive(i, activePath, isActive));
+  const showHub = !!hubLevel && !childActive(hubLevel);
 
   // "tabs" and "sidebar" turn sub-navigation on (so does a tabbed level above
   // this page); "section" (the default) is the shell as it always was; "off"
@@ -1848,7 +1866,6 @@ export function AppShell({
   // The content's "← parent" link, unless that parent's own tab row (or breadcrumb) already shows
   // above the page and holds a way to the parent's own page (an "All" or "Overview" item): then the
   // row marks where you are and leads back. Otherwise, and for an app's own link, it shows.
-  const pathOf = (to: string) => to.split(/[?#]/)[0];
   const shownLevelHrefs = new Set(
     [...subLayout.folded, ...subLayout.rows]
       .filter((level) => !!level.href && level.items.some((item) => pathOf(item.to) === pathOf(level.href!)))
@@ -2078,15 +2095,15 @@ export function AppShell({
         contextualNavItems={
           (
             opts.mobile
-              ? subNavMode !== "off"
-              : subNavMode === "sidebar" || subNavMode === "section"
+              ? sidebarMode !== "off"
+              : sidebarMode === "sidebar" || sidebarMode === "section"
           )
-            ? contextualNavItems
+            ? sidebarItems
             : undefined
         }
-        nest={navStyle !== "page-tree" && (subNavMode === "sidebar" || (opts.mobile && subNavOn))}
+        nest={navStyle !== "page-tree" && (sidebarMode === "sidebar" || (opts.mobile && subNavOn))}
         tree={navStyle === "page-tree"}
-        contextualNavLabel={derived?.current.label}
+        contextualNavLabel={sidebarAncestor?.label ?? derived?.current.label}
         subActive={subActive}
         secondaryNavItems={secondaryNavItems}
         secondaryNavLabel={secondaryNavLabel}
@@ -2113,6 +2130,7 @@ export function AppShell({
                   href={item.to}
                   onClick={() => setMobileOpen(false)}
                   aria-current={itemIsActive(item, activePath, isActive) ? "page" : undefined}
+                  testID={`app-shell-header-drawer-item-${item.label}`}
                   className="flex min-h-11 items-center gap-3 rounded-md px-3 text-sm text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 >
                   <NavIcon item={item} className="h-4 w-4" />

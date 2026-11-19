@@ -7,13 +7,14 @@
  * page; `phoneTabs: "top"` keeps tab rows at the top on a phone; and
  * `headerItems` are the top bar's links.
  */
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Home, Megaphone, Package, Settings } from "lucide-react";
 
 import { AppShell, type AppShellProps, type NavItem } from "../AppShell";
 import { layoutSubNavLevels, type SubNavLevel } from "../sub-nav";
 import type { NavigationNode } from "../../../navigation";
+import { validateAppTheme } from "../../../themes/define";
 
 const opts = { showThemeToggle: false, configurable: false };
 
@@ -160,6 +161,23 @@ describe("tabs at any depth", () => {
     expect(current(screen.getByTestId("app-shell-sub-nav-secondary"))).toEqual(["Shared"]);
   });
 
+  it("each breadcrumb picker item has a testID", () => {
+    render(
+      <AppShell
+        appName="Acme"
+        navigation={treeWith({ drafts: draftViews })}
+        options={opts}
+        activePath="/products/offers/drafts/shared"
+      >
+        <div>content</div>
+      </AppShell>,
+    );
+    const trigger = screen.getByTestId("app-shell-sub-nav-crumb-Products");
+    fireEvent.keyDown(trigger, { key: "Enter" });
+    expect(screen.getByTestId("app-shell-sub-nav-crumb-item-Offers").getAttribute("href")).toBe("/products/offers");
+    expect(screen.getByTestId("app-shell-sub-nav-crumb-item-Catalog").getAttribute("href")).toBe("/products/catalog");
+  });
+
   it("an outer level shows only on the way through one of its items", () => {
     renderShell("/products");
     // At Products itself, only its own row: Offers' items aren't the way here.
@@ -285,6 +303,80 @@ describe("list and hub", () => {
     expect(screen.queryByTestId("app-shell-sub-nav-hub")).toBeNull();
   });
 
+  it("list: an item for the level's own page (end: true) still shows the list there on a phone", () => {
+    const tree = treeWith();
+    const settings = tree.children!.find((n) => n.id === "settings")!;
+    settings.items = [{ to: "/settings", icon: Settings, label: "General", end: true }, ...settings.items];
+    render(
+      <AppShell appName="Acme" navigation={tree} options={opts} activePath="/settings">
+        <div>content</div>
+      </AppShell>,
+    );
+    const page = screen.getAllByTestId("app-shell-sub-nav-list").find((n) => n.getAttribute("data-variant") === "page");
+    expect(page?.className).toContain("md:hidden");
+    expect(hrefs(page!)).toEqual(["/settings", "/settings/profile", "/settings/billing"]);
+    // No link back to the page you're already on.
+    expect(screen.queryByTestId("app-shell-sub-nav-list-back")).toBeNull();
+  });
+
+  it("list: a param-path level links back to its filled path", () => {
+    const tree: NavigationNode<NavItem> = {
+      id: "app",
+      path: "/",
+      label: "Home",
+      items: [{ to: "/", icon: Home, label: "Home", end: true }],
+      children: [
+        {
+          id: "client",
+          path: "/clients/$clientId",
+          label: "Client",
+          items: [],
+          children: [
+            {
+              id: "client-settings",
+              path: "/clients/$clientId/settings",
+              label: "Client settings",
+              subNav: "list",
+              items: [
+                { to: "/clients/$clientId/settings/profile", icon: Settings, label: "Profile" },
+                { to: "/clients/$clientId/settings/billing", icon: Settings, label: "Billing" },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    render(
+      <AppShell appName="Acme" navigation={tree} options={opts} activePath="/clients/c1/settings/billing">
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(screen.getByTestId("app-shell-sub-nav-list-back").getAttribute("href")).toBe("/clients/c1/settings");
+    expect(hrefs(screen.getAllByTestId("app-shell-sub-nav-list")[0]!)).toEqual([
+      "/clients/c1/settings/profile",
+      "/clients/c1/settings/billing",
+    ]);
+  });
+
+  it("hub: an Overview item for the hub's own page still shows the cards there", () => {
+    const tree = treeWith();
+    const marketing = tree.children!.find((n) => n.id === "marketing")!;
+    marketing.items = [{ to: "/marketing", icon: Megaphone, label: "Overview", end: true }, ...marketing.items];
+    const { unmount } = render(
+      <AppShell appName="Acme" navigation={tree} options={opts} activePath="/marketing">
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(hrefs(screen.getByTestId("app-shell-sub-nav-hub"))).toContain("/marketing/campaigns");
+    unmount();
+    render(
+      <AppShell appName="Acme" navigation={tree} options={opts} activePath="/marketing/emails">
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(screen.queryByTestId("app-shell-sub-nav-hub")).toBeNull();
+  });
+
   it("keeps the page mounted when a list level comes and goes", () => {
     const { rerender } = renderShell("/");
     const page = screen.getByText("content");
@@ -294,6 +386,68 @@ describe("list and hub", () => {
       </AppShell>,
     );
     expect(screen.getByText("content")).toBe(page);
+  });
+});
+
+describe("sidebar levels above the page", () => {
+  it("a page with no items of its own keeps a sidebar ancestor's children in the sidebar", () => {
+    render(
+      <AppShell
+        appName="Acme"
+        navigation={treeWith({ products: { subNav: "sidebar" }, offers: { items: [] } })}
+        options={opts}
+        activePath="/products/offers/drafts"
+      >
+        <div>content</div>
+      </AppShell>,
+    );
+    const groups = screen.getAllByTestId("app-shell-contextual-nav");
+    expect(groups.length).toBeGreaterThan(0);
+    expect(hrefs(groups[0]!)).toEqual(["/products/offers", "/products/catalog"]);
+    expect(current(groups[0]!)).toEqual(["Offers"]);
+  });
+
+  it("the nearest sidebar level wins", () => {
+    // Offers inherits "sidebar" from Products, so its children show on Drafts (which has none).
+    render(
+      <AppShell
+        appName="Acme"
+        navigation={treeWith({ products: { subNav: "sidebar" } })}
+        options={opts}
+        activePath="/products/offers/drafts"
+      >
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(hrefs(screen.getAllByTestId("app-shell-contextual-nav")[0]!)).toEqual([
+      "/products/offers",
+      "/products/offers/drafts",
+    ]);
+  });
+
+  it("a page with items of its own shows only its own", () => {
+    render(
+      <AppShell
+        appName="Acme"
+        navigation={treeWith({ products: { subNav: "sidebar" }, drafts: draftViews })}
+        options={opts}
+        activePath="/products/offers/drafts/shared"
+      >
+        <div>content</div>
+      </AppShell>,
+    );
+    expect(hrefs(screen.getAllByTestId("app-shell-contextual-nav")[0]!)).toEqual([
+      "/products/offers/drafts",
+      "/products/offers/drafts/shared",
+    ]);
+  });
+});
+
+describe("app themes", () => {
+  it("a theme's layout may pick every sub-navigation mode the shell takes", () => {
+    for (const subNav of ["section", "tabs", "sidebar", "list", "hub", "off"] as const) {
+      expect(validateAppTheme({ name: "t", label: "T", description: "d", layout: { subNav } })).toEqual([]);
+    }
   });
 });
 
@@ -316,5 +470,13 @@ describe("headerItems: the top bar's links", () => {
   it("marks the current one", () => {
     renderShell("/help", { headerItems });
     expect(current(screen.getByTestId("app-shell-header-items"))).toEqual(["Help"]);
+  });
+
+  it("gives each link a testID, in the top bar and in the drawer", () => {
+    renderShell("/", { headerItems });
+    expect(screen.getByTestId("app-shell-header-item-Help").getAttribute("href")).toBe("/help");
+    fireEvent.click(screen.getByTestId("app-shell-mobile-open"));
+    const drawer = screen.getByTestId("app-shell-header-items-drawer");
+    expect(within(drawer).getByTestId("app-shell-header-drawer-item-Help").getAttribute("href")).toBe("/help");
   });
 });
