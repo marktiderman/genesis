@@ -1,0 +1,30 @@
+packages/genesis-cli/src/doctor/data-access.ts
+  s_03775a189718c5::t_cf759965d9d5b4 111,113-114
+  s_03775a189718c5::t_d596dd0e3c2459 110
+docs/DATA-ACCESS.md
+  s_03775a189718c5::t_cf759965d9d5b4 69-70
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_03775a189718c5::t_cf759965d9d5b4 173-180,182,185,191-194,335
+packages/ui/src/components/data/__tests__/record-view.test.tsx
+  s_03775a189718c5::t_e61473b84794d4 292-316
+  s_03775a189718c5::t_1ebd272073a399 8
+packages/genesis-cli/test/doctor-data-access.test.ts
+  s_03775a189718c5::t_cf759965d9d5b4 152-153,156
+  s_03775a189718c5::t_d596dd0e3c2459 154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9930515b60e7929a76aad7a2231a206a6a062e76",
+  "prompts": {},
+  "sessions": {
+    "s_03775a189718c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bfce5ab-8151-44b4-9387-b6450c59973d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
