@@ -1,5 +1,17 @@
 # @marktiderman/genesis-cli
 
+## 1.29.0
+
+### Minor Changes
+
+- 45cfac6: Declared data access (docs/DATA-ACCESS.md). The Supabase provider takes per-resource `writes` (named database functions for create, update and delete, called with `p_values` / `p_id` / `p_expected_version` unless `args` names them), `actions` (named row actions, now served by `runAction`) and `table` (a declared opt-in to raw table access, with its `why`). `access: "declared"` makes the declarations binding: an undeclared read or write, or a resource missing from `resources`, is refused with a message that names what to declare; the default (`"open"`) refuses nothing and writes exactly as before. On a declared provider a table create or update asks for the row's `id` (and its version) only in its response and reads the record back the way the resource reads (an update over a `source` without `writeColumns` still reads the table's row first, with `table.read`, to learn its columns); a `writes` function that returns an id reads back the same way in either mode. `runAction` is served only when some resource declares an action, and `capabilities().actions` says which; `ResourceView` and `NativeResourceView` hide a view's actions for a resource whose provider runs none, and until the provider's capabilities arrive, and run an action (from a list row, a bulk selection or a record page) at the version the row was read at (`expectedVersion`), so a row changed since is a conflict where the provider checks it. A `{ fn, args }` write function on a versioned resource whose `args` takes no context is reported (it can't pass the expected version on). `accessRules` (`@marktiderman/genesis-core/testing`) turns one function's access rule into runner-neutral test cases, allowed and refused, and `expectAccessRulesCover` fails for each function the provider's options declare without a spec (pass it the specs the cases are registered from) (`declaredFunctions` lists them). The doctor adds `data/declared-access` (a provider left open, a table write in app code) and `data/access-rule-tests` (a Supabase provider with no `expectAccessRulesCover` test), and the generated agent guide states the pattern.
+
+  Features: declared-data-access
+
+- 8c34865: `@marktiderman/genesis-cli/verify`: the runtime conformance checks behind Genesis's Conformance CI job, for an app's own Playwright tests too. `checkPage(page, { viewport })` runs axe's WCAG 2.2 A/AA rules with `target-size`, then the in-page checks: sideways scroll of the page or an app shell's scroller, and anything past the viewport outside a frame that scrolls wide content (WCAG 1.4.10); text cut off at 200% text size (1.4.4, the `text-200` viewport with `zoomText`); 44px hit areas on a coarse pointer, hit-tested (genesis-ui's `touchTarget` counts); focus hidden under a fixed or sticky bar (2.4.11); more than one floating control on a phone; and a viewport meta without `viewport-fit=cover` and `interactive-widget=resizes-content` (docs/RESPONSIVE.md). `allViewports()` and `contextOptions()` give the matrix (six widths with touch at 768px and below, 200% and 400% zoom as 640×512 and 320×256 with a mouse, text at 200%, reduced motion); `flattenReactRouterRoutes` and `onePathPerPattern` pick one page per route; `applyAllow` applies a doctor-style known-findings list. `@playwright/test` and `@axe-core/playwright` are optional peers, needed only by this entry.
+
+  Features: cli-conformance
+
 ## 1.28.0
 
 ### Minor Changes
