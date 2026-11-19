@@ -93,6 +93,16 @@ export function mergeAgentHooks(settings: Settings): Settings {
 
 /** `genesis agents --hooks`: write the hook and deny rules into `.claude/settings.json`. Returns the files it changed. */
 export function writeAgentHooks(root: string): string[] {
+  const content = agentHooksEdit(root);
+  if (content === null) return [];
+  const file = path.join(root, SETTINGS_PATH);
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, content);
+  return [SETTINGS_PATH];
+}
+
+/** The `.claude/settings.json` text `genesis agents --hooks` would write, or null when it already holds it. Writes nothing. */
+export function agentHooksEdit(root: string): string | null {
   const file = path.join(root, SETTINGS_PATH);
   const before = existsSync(file) ? readFileSync(file, "utf8") : null;
   let current: unknown = {};
@@ -105,10 +115,8 @@ export function writeAgentHooks(root: string): string[] {
   }
   checkSettingsShape(current);
   const after = `${JSON.stringify(mergeAgentHooks(current), null, 2)}\n`;
-  if (before !== null && JSON.stringify(JSON.parse(before)) === JSON.stringify(JSON.parse(after))) return [];
-  mkdirSync(path.dirname(file), { recursive: true });
-  writeFileSync(file, after);
-  return [SETTINGS_PATH];
+  if (before !== null && JSON.stringify(JSON.parse(before)) === JSON.stringify(JSON.parse(after))) return null;
+  return after;
 }
 
 /**

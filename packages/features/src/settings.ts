@@ -571,7 +571,7 @@ export interface SettingsGate {
   off: string[];
   /** Flag values from keys linked with `flag`, when set. */
   flags: { [name: string]: FlagValue };
-  /** The features and flags whose keys a layer locked: the context's own switches and flag values don't change them. */
+  /** The features and flags whose keys the app locked (file or database): the context's own switches and flag values don't change them. */
   locked: { features: string[]; flags: string[] };
 }
 
@@ -589,7 +589,11 @@ export function settingsGateContext(catalogue: SettingsCatalogue, resolved: Reso
   const lockedFlags = new Set<string>();
   for (const def of Object.values(catalogue.keys)) {
     const value = own(resolved.values, def.key);
-    const locked = own(resolved.sources, def.key)?.lockedBy !== undefined;
+    // Only the app's own locks (genesis.config.json, the database) outrank the gate context. A tenant
+    // or person lock stops later settings layers, nothing more: it never beats a platform flag, an
+    // entitlement, or (for a person) the tenant's switch.
+    const lockedBy = own(resolved.sources, def.key)?.lockedBy;
+    const locked = lockedBy !== undefined && (APP_LOCK_LAYERS as readonly string[]).includes(lockedBy);
     if (def.feature && value === false) off.add(def.feature);
     if (def.feature && locked) lockedFeatures.add(def.feature);
     if (def.flag && value !== null && value !== undefined) {
@@ -599,6 +603,9 @@ export function settingsGateContext(catalogue: SettingsCatalogue, resolved: Reso
   }
   return { off: [...off].sort(), flags, locked: { features: [...lockedFeatures].sort(), flags: [...lockedFlags].sort() } };
 }
+
+/** The layers whose locks outrank the gate context: the app's own. @stability Beta */
+export const APP_LOCK_LAYERS: readonly SettingsLayer[] = Object.freeze(["file", "database"] as SettingsLayer[]);
 
 function idTest(set: IdSet | undefined): (id: string) => boolean {
   if (set === undefined) return () => false;
@@ -614,8 +621,10 @@ function idTest(set: IdSet | undefined): (id: string) => boolean {
  * - a feature a setting switched off goes in `settingsOff`, so `featureOn` answers `reason:
  *   "setting"`;
  * - a flag the context doesn't set takes the setting's value;
- * - a locked setting wins over the context: the tenant's switch (`off`) can't turn off a feature
- *   whose key a layer locked on, and the context's flag value can't change a locked flag.
+ * - a setting the app locked (genesis.config.json or the database) wins over the context: the
+ *   tenant's switch (`off`) can't turn off a feature whose key the app locked on, and the context's
+ *   flag value can't change a flag the app locked. A tenant or person lock only stops later
+ *   settings layers: the context's switch and flags still apply over it.
  *
  * ```ts
  * const ctx = withSettings({ platform: "web", entitlements, off: tenantOff }, catalogue, resolved);

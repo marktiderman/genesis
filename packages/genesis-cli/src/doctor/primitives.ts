@@ -348,30 +348,30 @@ export function currentAgentsBlock(agents: string | null): string | "broken" | n
 
 /** `genesis agents`: write the skill and the AGENTS.md block. Returns the files it changed. Writes nothing when AGENTS.md's block is broken. */
 export function writeAgentGuide(root: string, packages: readonly DeclaringPackage[], agentsFile = "AGENTS.md"): string[] {
+  const edits = agentGuideEdits(root, packages, agentsFile);
+  for (const e of edits) {
+    mkdirSync(path.dirname(path.join(root, e.path)), { recursive: true });
+    writeFileSync(path.join(root, e.path), e.content);
+  }
+  return edits.map((e) => e.path);
+}
+
+/**
+ * What `genesis agents` would write, without writing it: the skill, AGENTS.md with its block, and
+ * a CLAUDE.md when the app has none. App-relative paths. Throws when AGENTS.md's block is broken.
+ */
+export function agentGuideEdits(root: string, packages: readonly DeclaringPackage[], agentsFile = "AGENTS.md"): Array<{ path: string; content: string }> {
   const rows = primitivesCatalog(packages);
   const guides = packageGuides(root, packages);
-  const changed: string[] = [];
-  const agents = path.join(root, agentsFile);
-  const before = read(agents);
-  // Merge first: a broken block throws before either file is touched.
+  const edits: Array<{ path: string; content: string }> = [];
+  const before = read(path.join(root, agentsFile));
+  // Merge first: a broken block throws before either file is planned.
   const after = mergeAgentsBlock(before, renderAgentsBlock(rows, guides));
-  const skill = path.join(root, SKILL_PATH);
   const skillText = renderSkill(rows, guides);
-  if (read(skill)?.replace(/\r\n/g, "\n") !== skillText) {
-    mkdirSync(path.dirname(skill), { recursive: true });
-    writeFileSync(skill, skillText);
-    changed.push(SKILL_PATH);
-  }
-  if (before !== after) {
-    writeFileSync(agents, after);
-    changed.push(agentsFile);
-  }
-  const claude = path.join(root, "CLAUDE.md");
-  if (agentsFile === "AGENTS.md" && !pathTaken(claude)) {
-    writeFileSync(claude, CLAUDE_IMPORT);
-    changed.push("CLAUDE.md");
-  }
-  return changed;
+  if (read(path.join(root, SKILL_PATH))?.replace(/\r\n/g, "\n") !== skillText) edits.push({ path: SKILL_PATH, content: skillText });
+  if (before !== after) edits.push({ path: agentsFile, content: after });
+  if (agentsFile === "AGENTS.md" && !pathTaken(path.join(root, "CLAUDE.md"))) edits.push({ path: "CLAUDE.md", content: CLAUDE_IMPORT });
+  return edits;
 }
 
 /**

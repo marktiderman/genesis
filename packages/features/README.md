@@ -186,9 +186,11 @@ ordinary object.
 
 **The gate.** A boolean key linked with `feature` that resolves to `false` puts the feature in
 `GateContext.settingsOff` (`featureOn` answers `reason: "setting"`), and a key linked with `flag`
-gives the flag its value when the context has none (`withSettings`, `settingsGateContext`). A locked
-key wins over the context: the tenant's switch can't turn off a feature locked on, nor the context's
-flag change a locked flag. It is the same gate, with one more check.
+gives the flag its value when the context has none (`withSettings`, `settingsGateContext`). A key the
+app locked (genesis.config.json or the database, `APP_LOCK_LAYERS`) wins over the context: the
+tenant's switch can't turn off a feature locked on, nor the context's flag change a locked flag. A
+tenant or person lock only stops later settings layers; it never beats a platform flag, an
+entitlement or (for a person) the tenant's switch. It is the same gate, with one more check.
 
 **Two keys switching one feature.** Nothing stops two keys from naming the same `feature` (say a
 package's `messenger` and `helpCenter` both linked to its help desk). Then either key resolving to
