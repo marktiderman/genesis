@@ -293,7 +293,7 @@ describe("native pack", () => {
     expect(brief((await nativeApp({ "app.config.ts": tsExtra })).findings, "fingerprint-plugin-files")).toHaveLength(1);
   });
 
-  it("release-lane-twice: native-release.yml beside a workflow that also releases (warn)", async () => {
+  it("release-lane-twice: native-release.yml beside a workflow that also releases (error)", async () => {
     const lane = { ".github/workflows/native-release.yml": "name: Native release\n" };
     const pushEas = { ".eas/workflows/deploy-production.yml": "on:\n  push:\n    branches: [main]\njobs:\n  update:\n    type: update\n" };
     const twice = await nativeApp({
@@ -304,7 +304,7 @@ describe("native pack", () => {
       ".github/workflows/manual.yml": "on:\n  workflow_dispatch: {}\njobs:\n  a:\n    steps:\n      - run: eas update --channel production\n",
     });
     expect(brief(twice.findings, "release-lane-twice")).toEqual(["release-lane-twice .eas/workflows/deploy-production.yml:0 .eas/workflows/deploy-production.yml", "release-lane-twice .github/workflows/ota.yml:0 .github/workflows/ota.yml"]);
-    expect(levels(twice.findings, "release-lane-twice")).toEqual(["warn", "warn"]);
+    expect(levels(twice.findings, "release-lane-twice")).toEqual(["error", "error"]);
     // The lane's own dispatch-only file, or no native-release.yml at all: nothing to say.
     expect(brief((await nativeApp({ ...lane, ".eas/workflows/deploy-production.yml": "on:\n  workflow_dispatch: {}\njobs:\n  u:\n    type: update\n" })).findings, "release-lane-twice")).toEqual([]);
     expect(brief((await nativeApp(pushEas)).findings, "release-lane-twice")).toEqual([]);

@@ -354,7 +354,7 @@ function sourceText(root: string, source: string, substitutions: Record<string, 
       const oldName = Object.entries(MOVED_TEMPLATES).find(([, now]) => now === name)?.[0];
       const text = readPackageFile(templates, name) ?? (oldName ? readPackageFile(templates, oldName) : null);
       if (text === null) return null;
-      return render ? renderPin(substitute(renderRelease(text, render.release), substitutions), render.pin) : substitute(text, substitutions);
+      return render ? renderPin(renderRelease(substitute(text, substitutions), render.release), render.pin) : substitute(text, substitutions);
     }
     const text = readPackageFile(dir, rel);
     if (text === null) return null;

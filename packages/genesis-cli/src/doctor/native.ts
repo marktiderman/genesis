@@ -254,7 +254,8 @@ export function checkReleaseLaneTwice(ctx: DoctorContext): void {
   for (const rival of competingReleaseWorkflows(ctx.root, appFolder)) {
     ctx.report({
       rule: "release-lane-twice",
-      level: "warn",
+      // An error: both lanes are live, so every release is published twice (or races itself).
+      level: "error",
       file: rival.startsWith(".github/") && appFolder ? path.relative(ctx.root, path.join(repo, rival)).split(path.sep).join("/") : rival,
       subject: rival,
       message: `${rival} also releases (EAS updates or builds) beside .github/workflows/native-release.yml, so each release would go out twice. Make it the lane's dispatch-only deploy-production.yml (genesis add template release --replace), or remove it (docs/NATIVE-RELEASE.md, "Adopting the lane")`,

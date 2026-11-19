@@ -148,17 +148,19 @@ function onChannel(build, channel) {
 }
 
 export const RELEASE_WORKFLOW = "deploy-production.yml";
-// Run states that may still publish: queued, running, or paused for approval.
-const OPEN_RUN = new Set(["NEW", "IN_PROGRESS", "WAITING", "ACTION_REQUIRED"]);
+// The run states that can't publish any more (eas-cli 26's WorkflowRunStatus: SUCCESS, FAILURE,
+// CANCELED). Every other state, one EAS adds later or none at all included, counts as open.
+const DONE_RUN = new Set(["SUCCESS", "FAILURE", "CANCELED"]);
 
 /**
- * Whether an EAS release run is still open. While one is, every later commit goes to EAS too, so
- * an older commit EAS publishes later can't land on top of a newer one GitHub published in minutes.
+ * Whether an EAS release run is still open: any status but a finished one (queued, running, paused
+ * for approval, or one this script doesn't know). While one is, every later commit goes to EAS too,
+ * so an older commit EAS publishes later can't land on top of a newer one GitHub published in minutes.
  */
 export function laneOpen(runs) {
   // Read as "none open", a broken list would let GitHub publish out of order.
   if (!Array.isArray(runs)) throw new Error("eas workflow:runs --json did not print a list of runs.");
-  return runs.some((r) => (r?.workflowFileName ?? RELEASE_WORKFLOW) === RELEASE_WORKFLOW && OPEN_RUN.has(r?.status ?? ""));
+  return runs.some((r) => (r?.workflowFileName ?? RELEASE_WORKFLOW) === RELEASE_WORKFLOW && !DONE_RUN.has(String(r?.status ?? "").toUpperCase()));
 }
 
 /**

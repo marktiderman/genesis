@@ -94,7 +94,8 @@ release", Run workflow, on `main`): it releases `main` as it is, and starts the 
 must, with the runtime versions it needs.
 
 **Order.** GitHub publishes within minutes, an EAS run perhaps an hour later. So while any run of
-`deploy-production.yml` is open (new, in progress, waiting or awaiting approval), every later
+`deploy-production.yml` is open (any status but finished: new, in progress, waiting, awaiting
+approval, or one eas-cli adds later; finished is `SUCCESS`, `FAILURE` or `CANCELED`), every later
 commit goes to EAS too, for every platform, instead of publishing an update the older EAS run would
 then overwrite. On EAS, runs are serialized (`concurrency`, never cancelling one in progress, with
 `queue: max`, so every waiting run is kept: one for a platform never replaces one for the other):
@@ -257,17 +258,27 @@ genesis add template release --dry-run  # what it would do
 It writes each file that's missing, adopts one that already has the same text, and records them in
 `genesis.lock.json`. A file of the same name the app already has is never written over: the new
 text goes beside it as `<file>.genesis-next`, for you to merge, and the lock remembers both, so the
-next upgrade merges against it. `native-release.yml` is written last, and held back while an EAS
-workflow in the app still releases on a push to `main` (your old `deploy-production.yml`, kept
-with the new text in `.genesis-next`; a push trigger limited to other branches, a preview lane say,
-doesn't count, and neither does one only for tags): together they would publish every release
-twice. It names any other workflow that releases on a push to `main` (a GitHub workflow running
-`eas update`, `eas build` or `eas workflow:run`, or an EAS workflow with an update or build job, a
-comment after its `type:` included, or a custom job whose steps run one of those commands; only a
-step's `run` counts, not a comment, a query such as `eas build:list` doesn't, nor does a workflow
-that only runs by hand; in branch filters `*`, `**` and `[…]` classes such as `m[ae]in` match as on GitHub, but `?` is read as any one character and `+` as itself, not as GitHub's quantifiers); remove it in the
-same change, and `genesis doctor` warns
-(`release-lane-twice`) while one is there. Then add the secrets ([One-time setup](#one-time-setup)).
+next upgrade merges against it. `native-release.yml` is written last, and held back (the command
+exits 1, naming them) while any other workflow still releases on a push to `main`: together they
+would publish every release twice. That is your old `deploy-production.yml` (kept with the new text
+in `.genesis-next`), or any other: a GitHub workflow running `eas update`, `eas build` or
+`eas workflow:run`, or an EAS workflow with an update or build job, a comment after its `type:`
+included, or a custom job whose steps run one of those commands. Only a step's `run` counts, not a
+comment; a query such as `eas build:list` doesn't, nor does a workflow that only runs by hand, a
+push trigger limited to other branches (a preview lane, say) or one only for tags. In branch
+filters `*`, `**` and `[…]` classes such as `m[ae]in` match as on GitHub, but `?` is read as any one
+character and `+` as itself, not as GitHub's quantifiers. Merge the `.genesis-next` (or run with
+`--replace`) and remove the others, then run it again; or run it with `--replace-rival` to write
+`native-release.yml` now, in a change that also removes them (the command doesn't delete them, and
+names them in its summary). `genesis doctor` fails (`release-lane-twice`, an error) while one is
+there beside `native-release.yml`. Then add the secrets ([One-time setup](#one-time-setup)).
+
+**One native app per repository.** The lane is one GitHub workflow at a fixed path
+(`.github/workflows/native-release.yml`, at the repository's root under `appFolder`) with one
+concurrency group (`native-release-<ref>`). A second native app in the same repository would need
+the same file (`genesis add release` there leaves its text in `.genesis-next`, since the first app's
+is already there) and would queue behind the first one's releases, so the lane supports one native
+app per repository. A web app beside it (its own CI, no `native-release.yml`) is fine.
 
 **An app that edited its choices into the files** (iPhone only, a path list): move each choice
 into `release` (`platforms`, `paths`, `sentry`, `pushHook`…), then write the files from the config

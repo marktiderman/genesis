@@ -4,7 +4,7 @@
  * plan script's decisions, adopting the templates into an app, and upgrading one (docs/NATIVE-RELEASE.md).
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync } from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -619,6 +619,16 @@ describe("rendering the templates", () => {
     expect(renderOwned(".eas/workflows/x.yml", 'on:\n  push:\n    paths:\n      - "a/**" # release.paths\n', "mobile")).toContain('- "a/**" # release.paths');
   });
 
+  it("applies the lock's substitutions before the release block, so a release value holding a starter name stays as written", () => {
+    const c = ctx({ paths: ["packages/genesis-rn-starter-brand"], pushHook: { script: "scripts/genesis-rn-starter-push.mjs", secrets: [] } }, null);
+    const subs = { "genesis-rn-starter": "acme", REPLACE_WITH_APP_FOLDER: "src" };
+    const preview = renderTemplate(".eas/workflows/pr-preview.yml", template("release/pr-preview.yml"), { release: c, substitutions: subs });
+    expect((parse(preview) as Record<string, any>).on.pull_request.paths).toContain("packages/genesis-rn-starter-brand/**");
+    const lane = renderTemplate(".github/workflows/native-release.yml", template("ci/native-release.yml"), { release: c, substitutions: subs });
+    expect(lane).toContain("scripts/genesis-rn-starter-push.mjs");
+    expect(lane).not.toContain("scripts/acme-push.mjs");
+  });
+
   it("pr-preview publishes the update for the platforms it builds", () => {
     const platformOf = (platforms: ("ios" | "android")[]) => yaml("release/pr-preview.yml", ctx({ platforms })).jobs.publish_update.params.platform;
     expect(platformOf(["android"])).toBe("android");
@@ -679,6 +689,16 @@ describe("the plan script", () => {
   it("while an EAS release run is open, hands every platform to EAS", () => {
     expect(both([build("ios", FP)], [build("android", AP)], [{ workflowFileName: "deploy-production.yml", status: "IN_PROGRESS" }])).toMatchObject({ lane_open: "true", eas_platforms: "ios,android", publish_platforms: "" });
     expect(both([build("ios", FP)], [build("android", AP)], [{ workflowFileName: "deploy-production.yml", status: "SUCCESS" }, { workflowFileName: "e2e.yml", status: "IN_PROGRESS" }])).toMatchObject({ lane_open: "false" });
+  });
+
+  it("counts a release run as open unless its status is a finished one (SUCCESS, FAILURE, CANCELED)", () => {
+    const run = (status?: unknown) => [{ workflowFileName: "deploy-production.yml", ...(status === undefined ? {} : { status }) }];
+    for (const done of ["SUCCESS", "FAILURE", "CANCELED"]) expect(plan.laneOpen(run(done))).toBe(false);
+    // eas-cli 26's open states, a state it may add later, and a run with none.
+    for (const open of ["NEW", "IN_PROGRESS", "WAITING", "ACTION_REQUIRED", "PENDING_CANCEL", "", null]) expect(plan.laneOpen(run(open))).toBe(true);
+    expect(plan.laneOpen(run())).toBe(true);
+    expect(plan.laneOpen([{ workflowFileName: "e2e.yml", status: "QUEUED" }])).toBe(false);
+    expect(plan.laneOpen([])).toBe(false);
   });
 
   it("refuses to guess: a broken list of runs stops both; no fingerprint, a broken builds list or a build whose runtime isn't its fingerprint holds that platform back", () => {
@@ -1006,6 +1026,39 @@ describe("genesis add template", () => {
     const replaced = adoptTemplates(root, resolveTemplateNames(["release"]), { replace: true });
     expect(replaced.find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "created" });
     expect(competingReleaseWorkflows(root, null)).toEqual([]);
+  });
+
+  it("holds native-release.yml back while a GitHub workflow releases on push, unless --replace-rival", async () => {
+    const ota = "on:\n  push:\n    branches: [main]\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx eas-cli update --auto\n";
+    const root = nativeApp({ ".github/workflows/ota.yml": ota });
+    const logged: string[] = [];
+    expect(await addTemplates(root, ["release"], { log: (m) => logged.push(m) })).toBe(1);
+    const held = logged.find((l) => l.includes(".github/workflows/native-release.yml"))!;
+    expect(held).toMatch(/^! .*held back.*\.github\/workflows\/ota\.yml still releases on every push.*Remove \.github\/workflows\/ota\.yml.*--replace-rival/);
+    expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(false);
+    // The rest of the lane goes in (deploy-production.yml is dispatch-only, so nothing releases twice).
+    expect(existsSync(path.join(root, ".eas/workflows/deploy-production.yml"))).toBe(true);
+    expect(read(root, ".github/workflows/ota.yml")).toBe(ota);
+    // The override writes it, leaves the rival for the app to remove, and says so.
+    logged.length = 0;
+    expect(await addTemplates(root, ["release"], { replaceRival: true, log: (m) => logged.push(m) })).toBe(0);
+    expect(existsSync(path.join(root, ".github/workflows/native-release.yml"))).toBe(true);
+    expect(read(root, ".github/workflows/ota.yml")).toBe(ota);
+    expect(logged.join("\n")).toContain("Remove .github/workflows/ota.yml in the same change");
+    // Once it's gone, a plain run has nothing to hold.
+    rmSync(path.join(root, ".github/workflows/ota.yml"));
+    expect(adoptTemplates(root, resolveTemplateNames(["release"])).find((r) => r.path === ".github/workflows/native-release.yml")).toMatchObject({ outcome: "unchanged" });
+  });
+
+  it("with appFolder, a GitHub rival at the repository's root holds native-release.yml too", () => {
+    const repo = tempDir();
+    const root = path.join(repo, "mobile");
+    mkdirSync(root);
+    writeTree(root, { "app.json": "{}", "package.json": "{}", "pnpm-lock.yaml": "", "genesis.config.json": JSON.stringify({ appFolder: "mobile" }) });
+    writeTree(repo, { ".github/workflows/ship.yml": "on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: eas build --platform ios --auto-submit\n" });
+    expect(adoptTemplates(root, ["ci/native-release.yml"])[0]).toMatchObject({ outcome: "held", detail: expect.stringContaining(".github/workflows/ship.yml") });
+    expect(existsSync(path.join(repo, ".github/workflows/native-release.yml"))).toBe(false);
+    expect(adoptTemplates(root, ["ci/native-release.yml"], { replaceRival: true })[0]).toMatchObject({ outcome: "created" });
   });
 
   it("the eas set never swaps an app's push-triggered deploy-production.yml for the dispatch-only one without the dispatcher", () => {

@@ -14,6 +14,8 @@ export interface AddTemplateOptions {
   list?: boolean;
   dryRun?: boolean;
   replace?: boolean;
+  /** Write native-release.yml even while another workflow releases on push (removed in the same change). */
+  replaceRival?: boolean;
   /** The release the CI callers pin; default: the installed umbrella's tag, looked up with git, else the lock's. */
   pin?: ReleasePin | null;
   /** How the installed release's pin is found (default: git ls-remote); null when it can't be. */
@@ -51,7 +53,7 @@ export async function addTemplates(root: string, names: string[], options: AddTe
   const templates = resolveTemplateNames(names);
   const pin = options.pin !== undefined ? options.pin : templates.some((t) => t.startsWith("ci/") || t.startsWith("vercel/")) ? ((options.findPin ?? installedPin)(root) ?? readLock(root).pin ?? null) : null;
   const version = pinnedVersion(root, CLI_PACKAGE)?.version;
-  const results = adoptTemplates(root, templates, { ...(options.dryRun ? { dryRun: true } : {}), ...(options.replace ? { replace: true } : {}), pin, ...(version ? { version } : {}) });
+  const results = adoptTemplates(root, templates, { ...(options.dryRun ? { dryRun: true } : {}), ...(options.replace ? { replace: true } : {}), ...(options.replaceRival ? { replaceRival: true } : {}), pin, ...(version ? { version } : {}) });
   const attention = (o: AdoptResult["outcome"]) => o === "next" || o === "pending" || o === "held";
   for (const r of results) log(`${attention(r.outcome) ? "!" : "✔"} ${r.location}: ${WORDS[r.outcome]}${r.detail ? ` (${r.detail})` : ""}`);
   const steps: string[] = [];
@@ -60,7 +62,8 @@ export async function addTemplates(root: string, names: string[], options: AddTe
     const ctx = releaseContext(root);
     steps.push(`Add EXPO_TOKEN (an Expo robot token)${ctx.release.sentry ? ", SENTRY_AUTH_TOKEN" : ""}${ctx.release.pushHook?.secrets.length ? `, ${ctx.release.pushHook.secrets.join(", ")}` : ""} to the GitHub environment "${ctx.release.environment}", limited to main (docs/NATIVE-RELEASE.md, "One-time setup").`);
     const rivals = competingReleaseWorkflows(root, ctx.appFolder);
-    if (rivals.length) steps.push(`Remove ${rivals.join(", ")} in the same change: they publish EAS updates or start EAS runs too, and beside native-release.yml a release would go out twice.`);
+    // Only reached with --replace-rival (otherwise native-release.yml is held while one is there).
+    if (rivals.length) steps.push(`Remove ${rivals.join(", ")} in the same change, before it merges: ${rivals.length === 1 ? "it publishes" : "they publish"} EAS updates or start EAS runs too, and beside native-release.yml a release would go out twice (genesis doctor fails with release-lane-twice until then).`);
   }
   if (results.some((r) => r.outcome === "next")) steps.push("Merge each .genesis-next into its file and delete it; or move your edits into genesis.config.json `release` and run again with --replace.");
   if (steps.length) {
