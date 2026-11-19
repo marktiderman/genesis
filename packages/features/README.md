@@ -124,6 +124,64 @@ The flag scan ignores comments and test files. List the flags runtime itself (th
 
 The CLI loads TypeScript itself, so the registry needs no build step. Keep its imports to packages, with no path aliases.
 
+## App settings
+
+Every package declares its settings next to its `defineBlock`, and the app resolves them through
+one resolver on the server, the web and phones (`@marktiderman/genesis-config/settings`, free of
+zod; also on the root).
+
+```ts
+import { defineSettings, resolveSettings, settingsCatalogue, withSettings } from "@marktiderman/genesis-config/settings";
+
+export const supportSettings = defineSettings("support", {
+  messenger: { type: "boolean", default: { max: true, standard: true, min: false }, scope: "tenant", feature: "support-messenger" },
+  agentDesk: { type: "boolean", default: { max: true, standard: true, min: false }, requires: ["support.inbox"] },
+  inbox: { type: "boolean", default: true },
+  dumpRetentionDays: { type: "number", default: 90, min: 7, max: 365 },
+  githubRepo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", store: "edge" },
+  sentryDsn: { type: "string", default: null, applies: "build" },
+});
+
+const catalogue = settingsCatalogue([supportSettings]);
+const settings = resolveSettings(catalogue, { preset: "max", file, database, tenant, person });
+settings.values["support.dumpRetentionDays"]; // 90
+settings.sources["support.messenger"]; // { layer: "tenant" }
+const ctx = withSettings({ platform: "web" }, catalogue, settings); // for featureOn
+```
+
+Each key has a `type` (`boolean`, `number`, `string`, `list`, `object`) and a `default`, or one per
+preset (`{ max, standard, min }`). `scope` (`app`, the default, `tenant` or `person`) is the lowest
+layer that may change it; `applies` is `runtime` (the default) or `build` (a new binary or bundle).
+`requires` links other keys, `min`, `max` and `options` bound the value, and `needs:
+"secret:NAME"` names the secret it needs and `store` where it lives (`vault`, `edge`, `server-env`
+or `ci`): never its value. `feature` and `flag` link the key to the gate.
+
+**The layers**, low to high. A later layer wins unless an earlier one locked the value
+(`{ value, locked: true }`):
+
+1. **default**: the declared default (for a per-preset one, `max`'s);
+2. **preset**: `max` (Genesis's default: everything on), `standard` or `min`, chosen in
+   genesis.config.json (`"preset"`) but resolved as its own layer;
+3. **file**: genesis.config.json `settings` (`settingsLayerFromFile`), the only layer that sets a
+   build-time key;
+4. **database**: the app's `genesis_settings` table (genesis-supabase's `settings` block);
+5. **tenant**: only keys declared `scope: "tenant"`;
+6. **person**: only keys declared `scope: "person"`.
+
+`resolveSettings` never throws on a bad entry: it skips it and reports it in `problems` (an unknown
+key, a value of the wrong type or out of bounds, a tenant or person value for a key without that
+scope, a runtime layer setting a build-time key, a change to a locked value, a key on while one it
+requires is off). `sources` says which layer set each value and which locked it.
+
+**The gate.** A boolean key linked with `feature` that resolves to `false` puts the feature in
+`GateContext.off`, and a key linked with `flag` gives the flag its value when the context has none
+(`withSettings`, `settingsGateContext`). `featureOn` doesn't change: there is no second gate.
+
+**Packages without running them.** A package also lists its declaration in package.json
+(`genesis.settings`: `{ "namespace": …, "keys": { … } }`, read with `settingsFromManifest`), so
+`genesis doctor` checks an app's genesis.config.json against the installed packages
+(`invalid-setting`). `catalogueManifest` is the catalogue as the database checks values against it.
+
 ## The gate
 
 `featureOn(registry, context, id)` answers "is this feature on here?" the same way everywhere. Checks

@@ -12,7 +12,7 @@ function stampUseClient(file: string) {
 // Every entry is a one-line re-export of the same subpath of @marktiderman/genesis-config, which
 // stays external: dist/ holds pass-through modules only, never a second copy of the code.
 export default defineConfig({
-  entry: { index: "src/index.ts", blocks: "src/blocks.ts", gate: "src/gate.ts", "gate-react": "src/gate-react.ts", node: "src/node.ts", react: "src/react.ts" },
+  entry: { index: "src/index.ts", blocks: "src/blocks.ts", gate: "src/gate.ts", "gate-react": "src/gate-react.ts", settings: "src/settings.ts", node: "src/node.ts", react: "src/react.ts" },
   format: ["esm"],
   dts: true,
   sourcemap: false,
