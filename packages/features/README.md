@@ -223,7 +223,8 @@ handler alike: a build-time key is written only in the file layer; the file laye
 it.
 
 - **The CLI host** writes the file layer by default (`preferredWriteLayer`), since it is reviewed
-  like code; the database is an explicit choice in the edit sheet. Writing a layer below the one
+  like code; the database is an explicit choice in the edit sheet, except for a value that already
+  comes from the database, which opens on the database. Writing a layer below the one
   the value comes from shows that the higher layer overrides it.
 - **The app host** (`APP_HOST_CAPABILITIES`) edits runtime keys in the database layer only. A
   build-time key, or one the file layer locked (the lock lives in the file), shows "Change in repo"
@@ -263,7 +264,9 @@ When `state` carries no `audit`, the tab fetches the first page itself.
 `state`, `setValue`, `clearValue`, `plan`, `apply`, `upgrades`, `audit`, `propose` and `setSecret`
 (`SETTINGS_OPS`, answers in `SettingsResponses`). A failure is `{ error: { code, message } }`,
 thrown by the client as a `SettingsProtocolError` whose `code` is `bad_request`, `unauthenticated`,
-`forbidden`, `unsupported`, `locked`, `stale_plan`, `not_found`, `version` or `error`. The client
+`forbidden`, `unsupported`, `locked`, `stale_plan`, `not_found`, `version` or `error`. A host
+answers an op it doesn't know (one a newer screen sends) with `unsupported`, so the screen can tell
+"not here" from a bad request. The client
 gives up after `timeoutMs` (default 30 seconds), refuses a response that isn't JSON, and refuses a
 `state` without its lists or capabilities. Its own messages are in `messages`
 (`SETTINGS_CLIENT_MESSAGES`).

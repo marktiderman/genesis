@@ -50,7 +50,7 @@ function memoryClient(capabilities: SettingsCapabilities, findings: SettingsStat
     secrets: [
       { name: "GITHUB_TOKEN", store: "edge", status: "missing", neededBy: ["support.githubRepo"] },
       { name: "RESEND_API_KEY", store: "edge", status: "set", neededBy: ["notifications.email"], lastRotated: "2026-10-01T00:00:00Z" },
-      { name: "AI_PROVIDER_KEY", store: "vault", status: vaultSet ? "set" : "missing", neededBy: ["ai.budget"] },
+      { name: "SUPPORT_WEBHOOK_SECRET", store: "vault", status: vaultSet ? "set" : "missing", neededBy: ["support.webhook"] },
     ],
     capabilities,
     upgrades: {

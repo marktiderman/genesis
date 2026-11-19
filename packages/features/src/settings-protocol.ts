@@ -105,7 +105,9 @@ export function intersectCapabilities(a: SettingsCapabilities, b?: Partial<Setti
       const allowed = canSetSecret(a, store) && (b.setSecrets === undefined || canSetSecret({ setSecrets: b.setSecrets }, store));
       if (allowed) out[store] = true;
     }
-    setSecrets = out;
+    const count = Object.keys(out).length;
+    // No store left is `false` (an empty object would read as truthy); every store is `true`.
+    setSecrets = count === 0 ? false : count === SECRET_STORES.length ? true : out;
   }
   return {
     writeFiles: both(a.writeFiles, b.writeFiles),
@@ -364,7 +366,8 @@ export interface SettingsResponses {
  *
  * - `bad_request`: the body or a value is wrong (`details` may name the key).
  * - `unauthenticated` / `forbidden`: no token, or not a platform admin.
- * - `unsupported`: the host can't do it (a capability it doesn't have).
+ * - `unsupported`: the host can't do it (a capability it doesn't have), or doesn't know the op: a
+ *   host answers an op it doesn't know (one a newer screen sends) with `unsupported`, never `bad_request`.
  * - `locked`: a lower layer locked the key.
  * - `stale_plan`: `apply`'s `expect` no longer matches a fresh plan; plan again.
  * - `not_found`: no such key or fix.
@@ -632,12 +635,14 @@ export function settingFileSnippet(key: string, value: unknown, locked?: boolean
 }
 
 /**
- * The layer the screen writes by default: the file layer when it can (reviewed like code), else
- * the database. Writing the database from the CLI host is an explicit choice.
+ * The layer the screen writes by default: the database when the value already comes from there
+ * (and the screen can write it), else the file layer when it can (reviewed like code), else the
+ * database. Otherwise, writing the database from the CLI host is an explicit choice.
  *
  * @stability Beta
  */
-export function preferredWriteLayer(writable: Pick<SettingWritability, "layers">): SettingsWriteLayer | undefined {
+export function preferredWriteLayer(writable: Pick<SettingWritability, "layers">, source?: { layer: SettingsLayer }): SettingsWriteLayer | undefined {
+  if (source?.layer === "database" && writable.layers.includes("database")) return "database";
   return writable.layers.includes("file") ? "file" : writable.layers[0];
 }
 
@@ -677,7 +682,8 @@ export function auditValuesVisible(
 export function safeHref(href: string | undefined): string | undefined {
   if (typeof href !== "string") return undefined;
   const h = href.trim();
-  if (!h) return undefined;
+  // A browser drops tabs and newlines in a URL, so `/\t/evil.test` would become `//evil.test`.
+  if (!h || /[\u0000-\u001F\u007F]/.test(h)) return undefined;
   if (/^(?:\/(?![/\\])|\.\.?\/|#|\?)/.test(h)) return h;
   try {
     const url = new URL(h);

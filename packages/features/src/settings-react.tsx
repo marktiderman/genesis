@@ -7,7 +7,7 @@
  * Tabs: Values (every key with its value, the layer it came from and its lock), Health (the
  * doctor's findings with their fixes), Secrets (set or missing, never a value), Upgrades and Audit.
  */
-import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Lock } from "lucide-react";
 import {
   AlertDialog,
@@ -452,17 +452,42 @@ interface TabProps {
   copy: Copy;
   testID: string;
   onChanged: () => Promise<void>;
+  /** A sheet's `onCloseAutoFocus`: focus goes back to the button that opened it. */
+  returnFocus?: (event: Event) => void;
+}
+
+/**
+ * Focus back to the opener when a sheet closes. The sheets open from state, not a Radix trigger,
+ * so Radix has no trigger to return focus to: remember the button (`remember(event.currentTarget)`)
+ * and pass `returnFocus` as the sheet's `onCloseAutoFocus`.
+ */
+function useReturnFocus() {
+  const opener = useRef<HTMLElement | null>(null);
+  const remember = useCallback((el: HTMLElement | null) => {
+    opener.current = el;
+  }, []);
+  const returnFocus = useCallback((event: Event) => {
+    const el = opener.current;
+    if (el && el.isConnected) {
+      event.preventDefault();
+      el.focus();
+    }
+  }, []);
+  return { remember, returnFocus };
 }
 
 // ---------------------------------------------------------------------------
 // Values
 // ---------------------------------------------------------------------------
 
-type Editing = { def: SettingDef; mode: "edit" | "repo" };
+type Editing = { def: SettingDef; mode: "edit" | "repo"; nonce: number };
 
 function ValuesTab({ state, caps, client, copy, testID, onChanged }: TabProps & { state: SettingsState }) {
   const [filter, setFilter] = useState("");
+  // The sheet stays mounted and opens and closes, so Radix returns focus to the button that opened it.
   const [editing, setEditing] = useState<Editing | null>(null);
+  const [open, setOpen] = useState(false);
+  const { remember, returnFocus } = useReturnFocus();
   const filterId = useId();
   const groups = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -500,20 +525,26 @@ function ValuesTab({ state, caps, client, copy, testID, onChanged }: TabProps & 
                 caps={caps}
                 copy={copy}
                 testID={testID}
-                onEdit={(mode) => setEditing({ def, mode })}
+                onEdit={(mode, opener) => {
+                  remember(opener);
+                  setEditing((prev) => ({ def, mode, nonce: (prev?.nonce ?? 0) + 1 }));
+                  setOpen(true);
+                }}
               />
             ))}
           </div>
         </Section>
       ))}
       <ValueSheet
+        returnFocus={returnFocus}
+        open={open}
         editing={editing}
         state={state}
         caps={caps}
         client={client}
         copy={copy}
         testID={testID}
-        onClose={() => setEditing(null)}
+        onClose={() => setOpen(false)}
         onChanged={onChanged}
       />
     </div>
@@ -535,7 +566,7 @@ function ValueRow({
   caps: SettingsCapabilities;
   copy: Copy;
   testID: string;
-  onEdit: (mode: Editing["mode"]) => void;
+  onEdit: (mode: Editing["mode"], opener: HTMLElement) => void;
 }) {
   const writable = settingWritability(def, source, caps);
   // A key only the repo can change here (a build key, or one the file layer locked) on a host that
@@ -571,11 +602,11 @@ function ValueRow({
         {formatValue(value, copy)}
       </span>
       {writable.layers.length ? (
-        <Button variant="outline" size="sm" onClick={() => onEdit("edit")} aria-label={copy.editLabel(def.key)} testID={tid(rowId, "edit")}>
+        <Button variant="outline" size="sm" onClick={(e) => onEdit("edit", e.currentTarget)} aria-label={copy.editLabel(def.key)} testID={tid(rowId, "edit")}>
           {copy.edit}
         </Button>
       ) : repoOnly ? (
-        <Button variant="ghost" size="sm" onClick={() => onEdit("repo")} testID={tid(rowId, "repo")} aria-label={copy.changeInRepoLabel(def.key)}>
+        <Button variant="ghost" size="sm" onClick={(e) => onEdit("repo", e.currentTarget)} testID={tid(rowId, "repo")} aria-label={copy.changeInRepoLabel(def.key)}>
           {copy.changeInRepo}
         </Button>
       ) : !source?.lockedBy ? (
@@ -671,12 +702,16 @@ function fromDraft(def: SettingDef, draft: string, copy: Copy): { value: unknown
 }
 
 /** The edit sheet. Its body is keyed on the key and mode, so each opening starts from the current value. */
-function ValueSheet(props: TabProps & { editing: Editing | null; state: SettingsState; onClose: () => void }) {
-  if (!props.editing) return null;
-  return <ValueSheetBody key={`${props.editing.mode}:${props.editing.def.key}`} {...props} editing={props.editing} />;
+function ValueSheet({ open, ...props }: TabProps & { open: boolean; editing: Editing | null; state: SettingsState; onClose: () => void }) {
+  return (
+    <Sheet open={open && props.editing !== null} onOpenChange={(o) => (o ? undefined : props.onClose())}>
+      {props.editing ? <ValueSheetBody key={props.editing.nonce} {...props} editing={props.editing} /> : null}
+    </Sheet>
+  );
 }
 
 function ValueSheetBody({
+  returnFocus,
   editing,
   state,
   caps,
@@ -689,8 +724,9 @@ function ValueSheetBody({
   const def = editing.def;
   const source = state.resolved.sources[def.key];
   const writable = settingWritability(def, source, caps);
-  // The file layer when the host can write it (reviewed like code); the database is a choice.
-  const preferred = preferredWriteLayer(writable);
+  // The database when the value already comes from there; else the file layer when the host can
+  // write it (reviewed like code), the database being an explicit choice.
+  const preferred = preferredWriteLayer(writable, source);
   const lockedIn = (l: SettingsWriteLayer | undefined) => (l ? state.layers[l]?.[def.key]?.locked === true : source?.lockedBy === "file");
   const [layer, setLayerState] = useState<SettingsWriteLayer | undefined>(preferred);
   const [draft, setDraft] = useState(() => toDraft(def, state.resolved.values[def.key]));
@@ -749,8 +785,8 @@ function ValueSheetBody({
   const repo = editing.mode === "repo";
   const inputId = `${baseId}-value`;
   return (
-    <Sheet open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <SheetContent data-testid={sheetId} className="flex flex-col gap-4 sm:max-w-lg">
+    <>
+      <SheetContent data-testid={sheetId} className="flex flex-col gap-4 sm:max-w-lg" onCloseAutoFocus={returnFocus}>
         <SheetHeader>
           <SheetTitle>{repo ? copy.changeInRepoTitle(def.key) : copy.editTitle(def.key)}</SheetTitle>
           <SheetDescription>{repo ? copy.changeInRepoDescription : def.summary ?? copy.editDescription}</SheetDescription>
@@ -822,7 +858,7 @@ function ValueSheetBody({
           )}
         </SheetFooter>
       </SheetContent>
-    </Sheet>
+    </>
   );
 }
 
@@ -848,16 +884,21 @@ function HealthTab({
   onOpenStep,
 }: TabProps & { state: SettingsState; onOpenStep: ((step: string) => void) | undefined }) {
   const [fixing, setFixing] = useState<string | null>(null);
+  const { remember, returnFocus } = useReturnFocus();
   const findings = useMemo(() => [...state.findings].sort((a, b) => (LEVEL_ORDER[a.level] ?? 3) - (LEVEL_ORDER[b.level] ?? 3)), [state.findings]);
   if (!findings.length) return <EmptyState title={copy.healthEmpty} description={copy.healthEmptyDescription} />;
   return (
     <>
       <div className="divide-y">
         {findings.map((f) => (
-          <FindingRow key={f.id} finding={f} caps={caps} copy={copy} testID={testID} onFix={setFixing} onOpenStep={onOpenStep} />
+          <FindingRow key={f.id} finding={f} caps={caps} copy={copy} testID={testID} onFix={(id, opener) => {
+              remember(opener);
+              setFixing(id);
+            }}
+            onOpenStep={onOpenStep} />
         ))}
       </div>
-      <PlanSheet fixId={fixing} caps={caps} client={client} copy={copy} testID={testID} onClose={() => setFixing(null)} onChanged={onChanged} />
+      <PlanSheet fixId={fixing} caps={caps} client={client} copy={copy} testID={testID} onClose={() => setFixing(null)} onChanged={onChanged} returnFocus={returnFocus} />
     </>
   );
 }
@@ -874,7 +915,7 @@ function FindingRow({
   caps: SettingsCapabilities;
   copy: Copy;
   testID: string;
-  onFix: (fixId: string) => void;
+  onFix: (fixId: string, opener: HTMLElement) => void;
   onOpenStep: ((step: string) => void) | undefined;
 }) {
   const fix = finding.fix;
@@ -897,7 +938,7 @@ function FindingRow({
       }
     >
       {fix?.kind === "auto" && canAutoFix(caps, fix) ? (
-        <Button size="sm" onClick={() => onFix(fix.id)} testID={tid(rowId, "fix")} aria-label={copy.fixLabel(finding.rule)}>
+        <Button size="sm" onClick={(e) => onFix(fix.id, e.currentTarget)} testID={tid(rowId, "fix")} aria-label={copy.fixLabel(finding.rule)}>
           {copy.fix}
         </Button>
       ) : fix?.kind === "guided" && (href || (onOpenStep && fix.step)) ? (
@@ -982,7 +1023,7 @@ function missingFor(plan: SettingsPlan, caps: SettingsCapabilities): string[] {
  * Plan → review → confirm → apply. The plan's hash goes back with `apply`, so the host refuses a
  * plan that went stale while the person read it.
  */
-function PlanSheet({ fixId, caps, client, copy, testID, onClose, onChanged }: TabProps & { fixId: string | null; onClose: () => void }) {
+function PlanSheet({ fixId, caps, client, copy, testID, onClose, onChanged, returnFocus }: TabProps & { fixId: string | null; onClose: () => void }) {
   const [plan, setPlan] = useState<SettingsPlan | null>(null);
   const [error, setError] = useState<{ message: string; stale: boolean } | null>(null);
   const [result, setResult] = useState<SettingsApplyResult | null>(null);
@@ -1027,7 +1068,7 @@ function PlanSheet({ fixId, caps, client, copy, testID, onClose, onChanged }: Ta
   const missing = plan ? missingFor(plan, caps) : [];
   return (
     <Sheet open={fixId !== null} onOpenChange={(open) => (open ? undefined : onClose())}>
-      <SheetContent data-testid={sheetId} className="flex flex-col gap-4 sm:max-w-2xl">
+      <SheetContent data-testid={sheetId} className="flex flex-col gap-4 sm:max-w-2xl" onCloseAutoFocus={returnFocus}>
         <SheetHeader>
           <SheetTitle>{copy.planTitle(fixId ?? "")}</SheetTitle>
           <SheetDescription>{plan ? plan.summary : copy.planLoading}</SheetDescription>
@@ -1148,7 +1189,10 @@ function PlanSheet({ fixId, caps, client, copy, testID, onClose, onChanged }: Ta
  * held only while the person types it and dropped once sent.
  */
 function SecretsTab({ secrets, caps, client, copy, testID, onChanged }: TabProps & { secrets: readonly SettingsSecretStatus[] }) {
-  const [setting, setSetting] = useState<string | null>(null);
+  // The sheet stays mounted and opens and closes, so Radix returns focus to the button that opened it.
+  const [setting, setSetting] = useState<{ name: string; nonce: number } | null>(null);
+  const [open, setOpen] = useState(false);
+  const { remember, returnFocus } = useReturnFocus();
   if (!secrets.length) return <EmptyState title={copy.secretsEmpty} />;
   const canVault = canSetSecret(caps, "vault") && typeof client.setSecret === "function";
   return (
@@ -1177,7 +1221,12 @@ function SecretsTab({ secrets, caps, client, copy, testID, onChanged }: TabProps
                   {copy.secretStatus[s.status] ?? s.status}
                 </Badge>
                 {canVault && s.store === "vault" ? (
-                  <Button size="sm" variant="outline" onClick={() => setSetting(s.name)} aria-label={copy.secretLabel(s.name)} testID={tid(rowId, "set")}>
+                  <Button size="sm" variant="outline" onClick={(e) => {
+                      remember(e.currentTarget);
+                      setSetting((prev) => ({ name: s.name, nonce: (prev?.nonce ?? 0) + 1 }));
+                      setOpen(true);
+                    }}
+                    aria-label={copy.secretLabel(s.name)} testID={tid(rowId, "set")}>
                     {s.status === "set" ? copy.rotateSecret : copy.setSecret}
                   </Button>
                 ) : null}
@@ -1185,64 +1234,101 @@ function SecretsTab({ secrets, caps, client, copy, testID, onChanged }: TabProps
             );
           })}
       </div>
-      {setting ? (
-        <SecretSheet key={setting} name={setting} caps={caps} client={client} copy={copy} testID={testID} onClose={() => setSetting(null)} onChanged={onChanged} />
-      ) : null}
+      <Sheet open={open && setting !== null} onOpenChange={(o) => (o ? undefined : setOpen(false))}>
+        {setting ? (
+          <SecretSheet
+            key={setting.nonce}
+            name={setting.name}
+            caps={caps}
+            client={client}
+            copy={copy}
+            testID={testID}
+            onClose={() => setOpen(false)}
+            onChanged={onChanged}
+            returnFocus={returnFocus}
+          />
+        ) : null}
+      </Sheet>
     </div>
   );
 }
 
-function SecretSheet({ name, client, copy, testID, onClose, onChanged }: TabProps & { name: string; onClose: () => void }) {
-  const [value, setValue] = useState("");
+/** `text` with every occurrence of `secret` replaced, so an error that echoes the value never shows it. */
+function redact(text: string, secret: string): string {
+  return secret ? text.split(secret).join("•••") : text;
+}
+
+/**
+ * The Vault form. The input is uncontrolled: React never holds the value, so it never reaches the
+ * `value` attribute or the markup. It is read once on save and cleared after sending, on an error,
+ * on close and on unmount.
+ */
+function SecretSheet({ name, client, copy, testID, onClose, onChanged, returnFocus }: TabProps & { name: string; onClose: () => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [empty, setEmpty] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputId = useId();
   const sheetId = tid(testID, "secret-sheet");
+  const clear = () => {
+    if (input.current) input.current.value = "";
+    setEmpty(true);
+  };
+  useEffect(() => {
+    const el = input.current;
+    return () => {
+      if (el) el.value = "";
+    };
+  }, []);
+  const close = () => {
+    clear();
+    onClose();
+  };
   const save = async () => {
+    const value = input.current?.value ?? "";
     if (!value || !client.setSecret) return;
     setBusy(true);
     setError(null);
     try {
       await client.setSecret({ name, store: "vault", value });
-      setValue("");
-      onClose();
+      close();
       await onChanged();
     } catch (e) {
-      setError(errorMessage(e));
+      clear();
+      setError(redact(errorMessage(e), value));
     } finally {
       setBusy(false);
     }
   };
   return (
-    <Sheet open onOpenChange={(open) => (open ? undefined : onClose())}>
-      <SheetContent data-testid={sheetId} className="flex flex-col gap-4 sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>{copy.setSecretTitle(name)}</SheetTitle>
-          <SheetDescription>{copy.setSecretDescription}</SheetDescription>
-        </SheetHeader>
-        <div className="flex flex-col gap-1.5 px-4">
-          <Label htmlFor={inputId}>{copy.secretValue}</Label>
-          <Input
-            id={inputId}
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            data-testid={tid(sheetId, "input")}
-          />
-          {error ? <InlineAlert variant="destructive" description={error} testID={tid(sheetId, "error")} /> : null}
-        </div>
-        <SheetFooter className="mt-auto flex-col gap-2 sm:flex-row sm:justify-end">
-          <Button variant="outline" onClick={onClose} testID={tid(sheetId, "cancel")}>
-            {copy.cancel}
-          </Button>
-          <Button onClick={() => void save()} disabled={busy || !value} testID={tid(sheetId, "save")}>
-            {copy.save}
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+    <SheetContent data-testid={sheetId} className="flex flex-col gap-4 sm:max-w-lg" onCloseAutoFocus={returnFocus}>
+      <SheetHeader>
+        <SheetTitle>{copy.setSecretTitle(name)}</SheetTitle>
+        <SheetDescription>{copy.setSecretDescription}</SheetDescription>
+      </SheetHeader>
+      <div className="flex flex-col gap-1.5 px-4">
+        <Label htmlFor={inputId}>{copy.secretValue}</Label>
+        <Input
+          ref={input}
+          id={inputId}
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          defaultValue=""
+          onInput={(e) => setEmpty(e.currentTarget.value === "")}
+          data-testid={tid(sheetId, "input")}
+        />
+        {error ? <InlineAlert variant="destructive" description={error} testID={tid(sheetId, "error")} /> : null}
+      </div>
+      <SheetFooter className="mt-auto flex-col gap-2 sm:flex-row sm:justify-end">
+        <Button variant="outline" onClick={close} testID={tid(sheetId, "cancel")}>
+          {copy.cancel}
+        </Button>
+        <Button onClick={() => void save()} disabled={busy || empty} testID={tid(sheetId, "save")}>
+          {copy.save}
+        </Button>
+      </SheetFooter>
+    </SheetContent>
   );
 }
 
@@ -1255,6 +1341,7 @@ function UpgradesTab({ initial, caps, client, copy, testID, onChanged }: TabProp
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fixing, setFixing] = useState<string | null>(null);
+  const { remember, returnFocus } = useReturnFocus();
 
   useEffect(() => setUpgrades(initial), [initial]);
 
@@ -1282,7 +1369,10 @@ function UpgradesTab({ initial, caps, client, copy, testID, onChanged }: TabProp
             {copy.checkAgain}
           </Button>
           {upgrades?.fix && caps.runCli ? (
-            <Button size="sm" onClick={() => setFixing(upgrades.fix!.id)} testID={tid(testID, "upgrades-pr")}>
+            <Button size="sm" onClick={(e) => {
+                remember(e.currentTarget);
+                setFixing(upgrades.fix!.id);
+              }} testID={tid(testID, "upgrades-pr")}>
               {copy.openUpgradePr}
             </Button>
           ) : null}
@@ -1329,7 +1419,7 @@ function UpgradesTab({ initial, caps, client, copy, testID, onChanged }: TabProp
           })}
         </div>
       )}
-      <PlanSheet fixId={fixing} caps={caps} client={client} copy={copy} testID={testID} onClose={() => setFixing(null)} onChanged={onChanged} />
+      <PlanSheet fixId={fixing} caps={caps} client={client} copy={copy} testID={testID} onClose={() => setFixing(null)} onChanged={onChanged} returnFocus={returnFocus} />
     </div>
   );
 }

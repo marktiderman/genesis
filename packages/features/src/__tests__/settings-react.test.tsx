@@ -10,6 +10,12 @@ async function renderSettings(props: Partial<GenesisSettingsProps> & { client: G
   return utils;
 }
 
+/** Types into an uncontrolled input as a person would: the value, then an input event. */
+function typeSecret(input: HTMLInputElement, value: string) {
+  input.value = value;
+  fireEvent.input(input);
+}
+
 const row = (key: string) => screen.getByTestId(`genesis-settings-row-${key}`);
 
 describe("GenesisSettings: Values", () => {
@@ -97,6 +103,13 @@ describe("GenesisSettings: Values", () => {
     expect(client.setValue).toHaveBeenCalledWith(expect.objectContaining({ key: "support.messenger", layer: "file" }));
   });
 
+  it("opens a value that comes from the database on the database layer", async () => {
+    await renderSettings({ client: fakeClient(makeState(ALL_CAPS)) });
+    fireEvent.click(within(row("support.retentionDays")).getByTestId("genesis-settings-row-support.retentionDays-edit"));
+    const sheet = await screen.findByTestId("genesis-settings-value-sheet");
+    expect(within(sheet).getByTestId("genesis-settings-value-sheet-layer-database").getAttribute("data-state")).toBe("checked");
+  });
+
   it("follows the chosen layer's own lock, and says when a higher layer overrides it", async () => {
     const state = makeState(ALL_CAPS);
     state.layers.database = { ...state.layers.database, "support.retentionDays": { value: 30, locked: true } };
@@ -104,14 +117,26 @@ describe("GenesisSettings: Values", () => {
     fireEvent.click(within(row("support.retentionDays")).getByTestId("genesis-settings-row-support.retentionDays-edit"));
     const sheet = await screen.findByTestId("genesis-settings-value-sheet");
     const lock = () => within(sheet).getByTestId("genesis-settings-value-sheet-lock").getAttribute("data-state");
-    // The file layer (the default) has no lock of its own; the database's value overrides it.
+    // It opens on the database, where the value and its lock are.
+    expect(lock()).toBe("checked");
+    expect(within(sheet).queryByTestId("genesis-settings-value-sheet-overridden")).toBeNull();
+    // The file layer has no lock of its own, and the database's value overrides it.
+    fireEvent.click(within(sheet).getByTestId("genesis-settings-value-sheet-layer-file"));
     expect(lock()).toBe("unchecked");
     expect(within(sheet).getByTestId("genesis-settings-value-sheet-overridden").textContent).toContain("Database overrides");
     fireEvent.click(within(sheet).getByTestId("genesis-settings-value-sheet-layer-database"));
     expect(lock()).toBe("checked");
-    expect(within(sheet).queryByTestId("genesis-settings-value-sheet-overridden")).toBeNull();
-    fireEvent.click(within(sheet).getByTestId("genesis-settings-value-sheet-layer-file"));
-    expect(lock()).toBe("unchecked");
+  });
+
+  it("returns focus to the Edit button when the sheet closes with Escape", async () => {
+    await renderSettings({ client: fakeClient(makeState(APP_CAPS)) });
+    const edit = within(row("support.messenger")).getByTestId("genesis-settings-row-support.messenger-edit");
+    edit.focus();
+    fireEvent.click(edit);
+    const sheet = await screen.findByTestId("genesis-settings-value-sheet");
+    fireEvent.keyDown(sheet, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("genesis-settings-value-sheet")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(edit));
   });
 
   it("marks a value that doesn't fit as invalid, described by its problem", async () => {
@@ -295,33 +320,57 @@ describe("GenesisSettings: Secrets", () => {
 
   it("sets or rotates a Vault secret write-only, when the host allows it", async () => {
     const state = makeState({ ...APP_CAPS, setSecrets: { vault: true } });
-    state.secrets = [...state.secrets, { name: "AI_KEY", store: "vault", status: "set", neededBy: ["ai.budget"] }];
+    state.secrets = [...state.secrets, { name: "CRON_SECRET", store: "vault", status: "set", neededBy: ["jobs.nightly"] }];
     const client = fakeClient(state);
     client.setSecret = vi.fn(async () => undefined);
     await renderSettings({ client, defaultTab: "secrets" });
     // Edge secrets aren't settable here; the Vault one is.
     expect(screen.queryByTestId("genesis-settings-secret-GITHUB_TOKEN-set")).toBeNull();
-    fireEvent.click(screen.getByTestId("genesis-settings-secret-AI_KEY-set"));
+    fireEvent.click(screen.getByTestId("genesis-settings-secret-CRON_SECRET-set"));
     const sheet = await screen.findByTestId("genesis-settings-secret-sheet");
     const input = within(sheet).getByTestId("genesis-settings-secret-sheet-input") as HTMLInputElement;
     expect(input.type).toBe("password");
     expect(input.value).toBe("");
-    fireEvent.change(input, { target: { value: "sk-new-value" } });
+    typeSecret(input, "sk-new-value");
+    // Uncontrolled: the typed value never reaches the markup.
+    expect(input.outerHTML).not.toContain("sk-new-value");
+    expect(document.body.innerHTML).not.toContain("sk-new-value");
     await act(async () => {
       fireEvent.click(within(sheet).getByTestId("genesis-settings-secret-sheet-save"));
     });
-    expect(client.setSecret).toHaveBeenCalledWith({ name: "AI_KEY", store: "vault", value: "sk-new-value" });
-    expect(screen.queryByTestId("genesis-settings-secret-sheet")).toBeNull();
+    expect(client.setSecret).toHaveBeenCalledWith({ name: "CRON_SECRET", store: "vault", value: "sk-new-value" });
+    await waitFor(() => expect(screen.queryByTestId("genesis-settings-secret-sheet")).toBeNull());
+    expect(input.value).toBe("");
     expect(document.body.innerHTML).not.toContain("sk-new-value");
+  });
+
+  it("clears the field and never echoes the value when setting a secret fails", async () => {
+    const state = makeState({ ...APP_CAPS, setSecrets: { vault: true } });
+    state.secrets = [{ name: "CRON_SECRET", store: "vault", status: "missing", neededBy: [] }];
+    const client = fakeClient(state);
+    client.setSecret = vi.fn(async ({ value }: { value: string }) => {
+      throw new SettingsProtocolError("bad_request", `rejected ${value}: ${value} is too short`, 400);
+    });
+    await renderSettings({ client, defaultTab: "secrets" });
+    fireEvent.click(screen.getByTestId("genesis-settings-secret-CRON_SECRET-set"));
+    const sheet = await screen.findByTestId("genesis-settings-secret-sheet");
+    const input = within(sheet).getByTestId("genesis-settings-secret-sheet-input") as HTMLInputElement;
+    typeSecret(input, "hunter2");
+    await act(async () => {
+      fireEvent.click(within(sheet).getByTestId("genesis-settings-secret-sheet-save"));
+    });
+    expect(within(sheet).getByTestId("genesis-settings-secret-sheet-error").textContent).toContain("rejected •••: ••• is too short");
+    expect(input.value).toBe("");
+    expect(document.body.innerHTML).not.toContain("hunter2");
   });
 
   it("offers no Vault writes when the host doesn't say it can", async () => {
     const state = makeState(APP_CAPS);
-    state.secrets = [{ name: "AI_KEY", store: "vault", status: "missing", neededBy: [] }];
+    state.secrets = [{ name: "CRON_SECRET", store: "vault", status: "missing", neededBy: [] }];
     const client = fakeClient(state);
     client.setSecret = vi.fn(async () => undefined);
     await renderSettings({ client, defaultTab: "secrets", capabilities: { setSecrets: { vault: true } } });
-    expect(screen.queryByTestId("genesis-settings-secret-AI_KEY-set")).toBeNull();
+    expect(screen.queryByTestId("genesis-settings-secret-CRON_SECRET-set")).toBeNull();
   });
 });
 

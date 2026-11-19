@@ -146,6 +146,13 @@ describe("intersectCapabilities", () => {
     expect(canSetSecret(caps, "edge")).toBe(false);
     expect(canSetSecret({ setSecrets: true }, "ci")).toBe(true);
   });
+
+  it("answers false when no store is left, and true when every store is", () => {
+    const vaultOnly = { ...ALL, setSecrets: { vault: true } };
+    expect(intersectCapabilities(vaultOnly, { setSecrets: { edge: true } }).setSecrets).toBe(false);
+    expect(intersectCapabilities(ALL, { setSecrets: { vault: true, edge: true, "server-env": true, ci: true } }).setSecrets).toBe(true);
+    expect(intersectCapabilities(ALL, { setSecrets: { vault: true } }).setSecrets).toEqual({ vault: true });
+  });
 });
 
 describe("the client's state check and timeout", () => {
@@ -171,8 +178,8 @@ describe("the client's state check and timeout", () => {
 
   it("sends setSecret for the Vault, write-only", async () => {
     const fetchFn = vi.fn(async () => reply(200, { ok: true }));
-    await createSettingsClient(fetchFn, { baseUrl: "/x", token: "t" }).setSecret!({ name: "AI_KEY", store: "vault", value: "s3cr3t" });
-    expect(JSON.parse((fetchFn.mock.calls[0] as unknown as [string, { body: string }])[1].body)).toEqual({ v: 1, op: "setSecret", name: "AI_KEY", store: "vault", value: "s3cr3t" });
+    await createSettingsClient(fetchFn, { baseUrl: "/x", token: "t" }).setSecret!({ name: "CRON_SECRET", store: "vault", value: "s3cr3t" });
+    expect(JSON.parse((fetchFn.mock.calls[0] as unknown as [string, { body: string }])[1].body)).toEqual({ v: 1, op: "setSecret", name: "CRON_SECRET", store: "vault", value: "s3cr3t" });
   });
 });
 
@@ -197,7 +204,7 @@ describe("audit redaction", () => {
 describe("safeHref", () => {
   it("allows http, https and same-site paths only", () => {
     for (const ok of ["https://github.com/o/r", "http://localhost:4400/step", "/admin/genesis", "./x", "../y", "#a", "?q=1"]) expect(safeHref(ok)).toBe(ok);
-    for (const bad of ["javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,x", "//evil.test/x", "/\\evil.test", "vbscript:x", "", undefined]) expect(safeHref(bad)).toBeUndefined();
+    for (const bad of ["/\t/evil.test", "/\n/evil.test", "/\r/evil.test", "/a\u0000b", "javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,x", "//evil.test/x", "/\\evil.test", "vbscript:x", "", undefined]) expect(safeHref(bad)).toBeUndefined();
   });
 });
 
@@ -206,6 +213,9 @@ describe("preferredWriteLayer", () => {
     expect(preferredWriteLayer({ layers: ["file", "database"] })).toBe("file");
     expect(preferredWriteLayer({ layers: ["database"] })).toBe("database");
     expect(preferredWriteLayer({ layers: [] })).toBeUndefined();
+    expect(preferredWriteLayer({ layers: ["file", "database"] }, { layer: "database" })).toBe("database");
+    expect(preferredWriteLayer({ layers: ["file", "database"] }, { layer: "default" })).toBe("file");
+    expect(preferredWriteLayer({ layers: ["file"] }, { layer: "database" })).toBe("file");
   });
 });
 
