@@ -1,0 +1,45 @@
+.changeset/genesis-config-settings-ui.md
+  s_8d1a440eaddcfd::t_f2eaf8e589d66d 22-24
+AGENTS.md
+  s_ca8e075e853203::t_2be8b8306053e1 155
+features.json
+  s_8d1a440eaddcfd::t_75e7c90427c7ad 4083,4096
+features.ts
+  s_8d1a440eaddcfd::t_46cc21f2323d5f 1798,1801
+packages/features/README.md
+  s_8d1a440eaddcfd::t_a83ac502d5d127 208-209,212-214
+packages/features/src/__tests__/settings-protocol-imports.test.ts
+  s_8d1a440eaddcfd::t_4185e5b693dbba 1
+packages/features/src/__tests__/settings-protocol.test.ts
+  s_8d1a440eaddcfd::t_44199432c89a8e 1
+packages/features/src/__tests__/settings-react.test.tsx
+  s_8d1a440eaddcfd::t_3507a920a735ac 1
+packages/features/src/settings-protocol.ts
+  s_8d1a440eaddcfd::t_339a47fb5a1988 17-18
+packages/features/src/settings-react.tsx
+  s_8d1a440eaddcfd::t_86f9a9732c8748 9-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4c64e4aa9db86a98db57d5b46382b2767017402",
+  "prompts": {},
+  "sessions": {
+    "s_8d1a440eaddcfd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9c3ee955-64a6-4e07-bfd9-6611b24d8b62",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
