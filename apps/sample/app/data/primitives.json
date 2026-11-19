@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-16",
+  "generatedAt": "2026-11-19",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -22585,7 +22585,7 @@
         },
         {
           "name": "useServedActions",
-          "summary": "The actions a provider serves for the resource: all of them when it doesn't say.",
+          "summary": "The actions a provider serves for the resource: all of them when it doesn't say. A provider whose\ncapabilities say it runs no actions for this resource (`actions: false`) runs none of them.",
           "props": [
             {
               "name": "actions",

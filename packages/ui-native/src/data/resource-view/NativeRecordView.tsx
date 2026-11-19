@@ -116,7 +116,11 @@ function useHeaderActions<T extends Row>({ view: recordView, row, onAction, can,
   const viewer = useViewer();
   const actions = recordView.headerFor(row as T & DataRow, {
     viewer,
-    runnable: Boolean(onAction) || (Boolean(provider.runAction) && capabilities.data?.actions !== false),
+    // Not runnable until the provider has answered (an action run before then, or after a failed
+    // answer, would go without its version).
+    runnable:
+      Boolean(onAction) ||
+      (Boolean(provider.runAction) && (!provider.capabilities || capabilities.isSuccess) && capabilities.data?.actions !== false),
     ...(!onAction && described.data?.actions ? { served: described.data.actions.map((a) => a.name) } : {}),
     ...(can ? { can: (name: string) => can(name, row) } : {}),
   }).actions;
@@ -129,7 +133,16 @@ function useHeaderActions<T extends Row>({ view: recordView, row, onAction, can,
     setPending(true);
     try {
       if (onAction) await onAction(a.name, row);
-      else if (provider.runAction) await provider.runAction(view.resource, { id: recordView.recordId(row as T & DataRow), action: a.name });
+      else if (provider.runAction) {
+        // At the version the record was read at, so a record changed since is a conflict.
+        const field = capabilities.data?.version?.field;
+        const value = field ? (row as Record<string, unknown>)[field] : undefined;
+        await provider.runAction(view.resource, {
+          id: recordView.recordId(row as T & DataRow),
+          action: a.name,
+          ...(value == null ? {} : { expectedVersion: String(value) }),
+        });
+      }
       else throw new DataWriteError("error", fill(words.noRunner, { name: a.label }));
       await queryClient.invalidateQueries({ queryKey: [...resourceKeys(view.resource).all] });
     } catch (error) {

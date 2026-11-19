@@ -5,7 +5,7 @@
  * - a settings section saves only its listed keys, and a zero-row save is a refusal shown inline;
  * - readiness shows as the readiness chip.
  */
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Tags } from "lucide-react";
@@ -287,6 +287,52 @@ describe("RecordView", () => {
     expect(screen.getByText("Add the website.")).toBeTruthy();
     expect(screen.getByTestId("resource-workspace-check-todo")).toBeTruthy();
     expect(screen.getByTestId("resource-workspace-check-ok")).toBeTruthy();
+  });
+
+  it("a confirmed action runs at the version the record showed when it started, not one that arrived during the dialog", async () => {
+    // @feat:declared-data-access
+    const p = provider({ capabilities: vi.fn(async () => ({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: true, compositeKeys: false, actions: true, version: { field: "name", kind: "timestamp" as const } })) });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    let bump: () => void = () => {};
+    function Harness() {
+      const [row, setRow] = useState({ ...brand, is_default: false });
+      bump = () => setRow((r) => ({ ...r, name: "Renamed elsewhere" }));
+      return (
+        <GenesisProvider provider={p} queryClient={queryClient}>
+          <AppShell appName="Test" navigation={tree} options={{ showThemeToggle: false, configurable: false, subNav: "tabs" }} activePath="/brands/b1/activity">
+            <RecordView view={page as never} row={row} section="activity" sectionHref={(id) => `/brands/b1/${id}`} slots={{ activity: <p>Activity feed</p> }} />
+          </AppShell>
+        </GenesisProvider>
+      );
+    }
+    render(<Harness />);
+    await waitFor(() => expect(p.capabilities).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fireEvent.click(screen.getAllByTestId("resource-workspace-action-archive").at(-1)!);
+    act(() => bump());
+    fireEvent.click(screen.getByTestId("resource-workspace-confirm"));
+    await waitFor(() => expect(p.runAction).toHaveBeenCalledWith("brands", { id: "b1", action: "archive", expectedVersion: "Northwind" }));
+  });
+
+  it("offers no provider action until the provider's capabilities arrive", async () => {
+    // @feat:declared-data-access
+    let answer: (c: Awaited<ReturnType<NonNullable<DataProvider["capabilities"]>>>) => void = () => {};
+    const p = provider({ capabilities: vi.fn(() => new Promise((resolve) => (answer = resolve))) as DataProvider["capabilities"] });
+    renderRecordView("activity", p);
+    expect(screen.queryByTestId("resource-workspace-action-publish")).toBeNull();
+    answer({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: false, compositeKeys: false, actions: true });
+    expect(await screen.findByTestId("resource-workspace-action-publish")).toBeTruthy();
+  });
+
+  it("runs an action at the version the record was read at", async () => {
+    // @feat:declared-data-access
+    const p = provider({ capabilities: vi.fn(async () => ({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: true, compositeKeys: false, actions: true, version: { field: "name", kind: "timestamp" as const } })), });
+    renderRecordView("activity", p);
+    await waitFor(() => expect(p.capabilities).toHaveBeenCalled());
+    // Let the capabilities answer land before the click, as a person's would.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fireEvent.click(screen.getByTestId("resource-workspace-action-publish"));
+    await waitFor(() => expect(p.runAction).toHaveBeenCalledWith("brands", { id: "b1", action: "publish", expectedVersion: "Northwind" }));
   });
 
   it("runs an allowed action through the provider; a confirm asks first", async () => {

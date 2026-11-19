@@ -9,7 +9,7 @@ import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createMemoryStorageAdapter, defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams } from "@marktiderman/genesis-core";
+import { createMemoryStorageAdapter, defineResource, GenesisProvider, type DataProvider, type FilterParam, type ListParams, type ProviderCapabilities } from "@marktiderman/genesis-core";
 import { createLocalSavedViewStore, defineView } from "@marktiderman/genesis-core/resource-view";
 import { toast } from "sonner";
 import { ResourceView, ResourceViewDefaultsProvider, useResourceViewProps } from "../resource-view";
@@ -156,6 +156,57 @@ describe("row and bulk actions", () => {
     fireEvent.click(await screen.findByTestId("bulk-finish"));
     await waitFor(() => expect(runAction).toHaveBeenCalledTimes(1));
     expect(runAction).toHaveBeenCalledWith("tasks", { id: "a", action: "finish" });
+  });
+
+  it("offers no provider-run action when the provider's capabilities say it runs none for the resource", async () => {
+    // @feat:declared-data-access: one resource declaring actions gives the provider a runner; another's list stays without.
+    const capabilities = vi.fn(async (_resource?: string) => ({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: false, compositeKeys: false, actions: false }) as ProviderCapabilities);
+    const p = provider({ runAction: vi.fn(), capabilities });
+    render(<ResourceView view={view} rowActions />, { wrapper: wrap(p) });
+    await screen.findByText("Ship it");
+    await waitFor(() => expect(capabilities).toHaveBeenCalledWith("tasks"));
+    // No action runs here, so there is nothing to select rows for and no bulk or row action.
+    await waitFor(() => expect(screen.queryByLabelText("Select Write the plan")).toBeNull());
+    expect(screen.queryByTestId("bulk-finish")).toBeNull();
+    expect(screen.queryAllByTestId("resource-row-menu-finish")).toEqual([]);
+  });
+
+  it("offers no provider action until the provider's capabilities arrive", async () => {
+    // @feat:declared-data-access
+    let answer: (c: ProviderCapabilities) => void = () => {};
+    const capabilities = vi.fn((_resource?: string) => new Promise<ProviderCapabilities>((resolve) => (answer = resolve)));
+    render(<ResourceView view={view} />, { wrapper: wrap(provider({ runAction: vi.fn(), capabilities })) });
+    await screen.findByText("Ship it");
+    expect(screen.queryByLabelText("Select Write the plan")).toBeNull();
+    answer({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: false, compositeKeys: false, actions: true });
+    expect(await screen.findByLabelText("Select Write the plan")).toBeTruthy();
+  });
+
+  it("offers no provider action when the provider's capabilities fail", async () => {
+    // @feat:declared-data-access
+    const capabilities = vi.fn(async (_resource?: string): Promise<ProviderCapabilities> => {
+      throw new Error("offline");
+    });
+    render(<ResourceView view={view} />, { wrapper: wrap(provider({ runAction: vi.fn(), capabilities })) });
+    await screen.findByText("Ship it");
+    await waitFor(() => expect(capabilities).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByLabelText("Select Write the plan")).toBeNull();
+  });
+
+  it("runs a provider action at the version the row was read at", async () => {
+    // @feat:declared-data-access
+    const runAction = vi.fn(async () => ({ data: null }));
+    const capabilities = vi.fn(
+      async (_resource?: string) =>
+        ({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: true, compositeKeys: false, actions: true, version: { field: "hours", kind: "integer" } }) as ProviderCapabilities,
+    );
+    render(<ResourceView view={view} />, { wrapper: wrap(provider({ runAction, capabilities })) });
+    await screen.findByText("Ship it");
+    await waitFor(() => expect(capabilities).toHaveBeenCalled());
+    for (const name of ["Write the plan", "Ship it"]) fireEvent.click(screen.getByLabelText(`Select ${name}`));
+    fireEvent.click(await screen.findByTestId("bulk-finish"));
+    await waitFor(() => expect(runAction).toHaveBeenCalledWith("tasks", { id: "a", action: "finish", expectedVersion: "2" }));
   });
 
   it("selects a range with Shift", async () => {

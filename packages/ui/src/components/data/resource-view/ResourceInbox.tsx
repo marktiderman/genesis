@@ -34,7 +34,7 @@ import { RecordView } from "./RecordView";
 import { RowAvatar } from "./RowAvatar";
 import { recordViewOf } from "./record-open";
 import { useViewList } from "./use-view-list";
-import { ListModelContext, defaultSavedViewStore, refuseHeldRows, useListActions, useViewSavedViews, ViewFilterControls } from "./list-controls";
+import { ListModelContext, defaultSavedViewStore, refuseHeldRows, useListActions, useServedActions, useViewSavedViews, ViewFilterControls } from "./list-controls";
 import { useResourceViewDefaults } from "./defaults";
 import type { ResourceViewProps } from "./ResourceView";
 
@@ -189,26 +189,56 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
   const selected = options.selected !== undefined ? options.selected : ownSelected;
   const onSelectedChange = options.onSelectedChange;
   const markRead = view.inboxActions().markRead;
+  // The provider runs markRead only once its capabilities say it serves actions here, and at the
+  // version the row was read at, as the inbox's other actions do.
+  const { runnable, versionField } = useServedActions(view as never);
   const runAction = useCallback(
     async (name: string, row: T) => {
       if (onAction) await onAction(name, row);
-      else if (provider.runAction) await provider.runAction(view.resource, { id: list.keyOf(row), action: name });
+      else if (provider.runAction && runnable) {
+        const value = versionField ? (row as Record<string, unknown>)[versionField] : undefined;
+        await provider.runAction(view.resource, { id: list.keyOf(row), action: name, ...(value == null ? {} : { expectedVersion: String(value) }) });
+      } else return;
       await queryClient.invalidateQueries({ queryKey: resourceKeys(view.resource).all });
     },
-    [onAction, provider, view.resource, list, queryClient],
+    [onAction, provider, view.resource, list, queryClient, runnable, versionField],
+  );
+  // A row opened before the provider can run markRead (its capabilities haven't answered yet) is
+  // marked read once it can, if it is still the open row, at the version it was opened at: the
+  // row as it was then is kept, not the list's later copy.
+  const readLater = useRef<{ key: string; row: T } | null>(null);
+  const markRow = useCallback(
+    (key: string, row: T) => {
+      if (!markRead || !view.inboxRow(row as T & DataRow).unread || view.canAction(markRead, row as T & DataRow, viewer) !== true) return;
+      if (!onAction && !runnable) {
+        readLater.current = { key, row };
+        return;
+      }
+      readLater.current = null;
+      void runAction(markRead, row).catch(() => undefined);
+    },
+    [markRead, view, viewer, onAction, runnable, runAction],
   );
   const select = useCallback(
     (key: string | null) => {
       if (options.selected === undefined) setOwnSelected(key);
       onSelectedChange?.(key);
       // Opening an unread row runs the view's own markRead action, when it declares one.
+      readLater.current = null;
       const row = key === null ? undefined : list.rows.find((r) => list.keyOf(r) === key);
-      if (row && markRead && view.inboxRow(row as T & DataRow).unread && view.canAction(markRead, row as T & DataRow, viewer) === true) {
-        void runAction(markRead, row).catch(() => undefined);
-      }
+      if (key !== null && row) markRow(key, row);
     },
-    [options.selected, onSelectedChange, list, markRead, view, viewer, runAction],
+    [options.selected, onSelectedChange, list, markRow],
   );
+  // Any change of the open row (the app's controlled `selected` included) drops a mark waiting for
+  // another row, so moving away and back before the answer never marks it.
+  useEffect(() => {
+    if (readLater.current && readLater.current.key !== selected) readLater.current = null;
+  }, [selected]);
+  useEffect(() => {
+    const later = readLater.current;
+    if (runnable && later && later.key === selected) markRow(later.key, later.row);
+  }, [runnable, selected, markRow]);
   const onPage = selected === null ? undefined : list.rows.find((r) => list.keyOf(r) === selected);
   // A row not on the loaded page is read on its own, in the list's scope: a resource read from a
   // function that takes its scope from the list's filters (a tenant, say) reads it in that scope.
