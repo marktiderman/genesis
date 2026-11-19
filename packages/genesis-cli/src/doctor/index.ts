@@ -51,7 +51,7 @@ import { checkEslintConfig } from "./eslint-config.js";
 import { checkFigmaRoutesRule } from "./figma-routes.js";
 import { checkMigrationDrift } from "./migration-drift.js";
 import { genesisBehindCheck } from "./behind.js";
-import { allFixes } from "../fix/registry.js";
+import { allFixes, builtinFixes } from "../fix/registry.js";
 import { attachFixes } from "../fix/engine.js";
 import type { RegistryDeps } from "../upgrade/registry.js";
 import { existsSync } from "node:fs";
@@ -148,6 +148,11 @@ export interface RunDoctorOptions {
    * (not with `--offline`); the Vite plugin and tests leave it off, and the rule reads only its cache.
    */
   network?: boolean;
+  /**
+   * Load the fixes packages declare (`genesis.doctor.fixes`), which runs their modules. Default
+   * true; the Vite plugin passes false and attaches the built-in fixes only.
+   */
+  packageFixes?: boolean;
   /** Test seams for `genesis-behind` (the npm lookups, fetch, gh, the clock, the cache file). */
   registry?: Omit<RegistryDeps, "network">;
 }
@@ -163,7 +168,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   const plugins = await loadPlugins(config.plugins, loaded.dir);
   const packages = discoverPackages(root);
   const packagePlugins = await packageRulesPlugins(packages);
-  const fixes = await allFixes(packages);
+  const fixes = options.packageFixes === false ? { fixes: builtinFixes(), problems: [] } : await allFixes(packages);
   const builtinIds = new Set<string>(BUILTIN_RULES);
   for (const p of config.patterns ?? []) {
     if (builtinIds.has(p.id) || META_RULES.has(p.id)) throw new DoctorConfigError(`doctor.patterns: "${p.id}" is a built-in rule id; pick another`);
@@ -172,7 +177,8 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   const raw: FindingInput[] = [];
   const ctx: DoctorContext = { root, files, genesis, config, packages, ...(options.base ? { base: options.base } : {}), ...(options.strict ? { strict: true } : {}), report: (f) => raw.push(f) };
   const appChecks = [...packagePlugins, ...(patterns ? [patterns.plugin] : []), ...plugins];
-  const behind = { ...options.registry, network: options.network ?? false };
+  // doctor.network: false is --offline for good: genesis-behind reads only its cache.
+  const behind = { ...options.registry, network: (options.network ?? false) && config.network !== false };
   await runChecks(ctx, [...builtinChecks(config, { contracts: options.contracts ?? true, figma: options.figma ?? true, behind }), ...appChecks]);
   for (const p of fixes.problems) raw.push({ rule: "package-rules-invalid", level: "warn", file: `${p.package}/package.json`, subject: p.package, message: `genesis.doctor.fixes: ${p.message}` });
 
@@ -336,7 +342,8 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "genesis-config-keys", check: checkConfigKeys },
     { name: "eslint-config", check: checkEslintConfig },
     { name: "migration-drift", check: checkMigrationDrift },
-    { name: "genesis-behind", check: genesisBehindCheck(options.behind ?? { network: false }) },
+    // Switched off, it doesn't run at all: no npm, no advisory endpoint, no cache.
+    ...(config.rules?.["genesis-behind"] === "off" ? [] : [{ name: "genesis-behind", check: genesisBehindCheck(options.behind ?? { network: false }) }]),
     ...(config.packs ?? []).map((p) => packs[p]),
     ...(options.figma !== false ? [{ name: "figma-routes", check: checkFigmaRoutesRule }] : []),
     ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),

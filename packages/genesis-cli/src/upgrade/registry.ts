@@ -9,12 +9,21 @@
  * - **Advisories:** npm's bulk advisory endpoint for every installed Genesis package; when that
  *   can't be reached, GitHub's advisory database through `gh api`.
  *
- * The answer is cached in `node_modules/.cache/genesis/behind.json` for 24 hours. The network is
- * injected and off unless asked for: the CLI turns it on, the Vite plugin, tests and `--offline`
- * don't, and then only the cache is read.
+ * The answer is cached in `node_modules/.cache/genesis/behind.json` for 24 hours, and a failed
+ * check for an hour, so a registry that is down isn't asked on every run. The whole check has one
+ * deadline (20 seconds by default). The network is injected and off unless asked for: the CLI turns
+ * it on; the Vite plugin, tests, `--offline` and `doctor.network: false` don't, and then only the
+ * cache is read.
+ *
+ * What leaves the machine: the names and installed versions of the `@marktiderman/genesis*`
+ * packages only (npm view of the umbrella; the advisory endpoint's request body; gh's query). When
+ * `.npmrc` or `npm_config_registry` points the scope or the default registry somewhere other than
+ * registry.npmjs.org, the bulk endpoint isn't called (it would be the public registry's), and only
+ * gh is asked.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import * as path from "node:path";
 import { installedGenesis } from "../blocks/discover.js";
 import { readReleaseManifest, UMBRELLA_PACKAGE } from "../doctor/versions.js";
@@ -23,6 +32,10 @@ import { runTool } from "../exec/run.js";
 
 export const BEHIND_CACHE = "node_modules/.cache/genesis/behind.json";
 export const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+/** A failed check isn't retried for this long. */
+export const FAILURE_TTL_MS = 60 * 60 * 1000;
+/** The whole check, every call included. */
+export const DEADLINE_MS = 20_000;
 export const ADVISORY_BULK_URL = "https://registry.npmjs.org/-/npm/v1/security/advisories/bulk";
 
 export interface Advisory {
@@ -72,10 +85,20 @@ export interface RegistryDeps {
   gh?: (args: string[]) => Promise<string | null>;
   /** Where the cache lives (default: the app's node_modules/.cache/genesis/behind.json). */
   cacheFile?: string;
+  /** The whole check's deadline in ms (default 20 000). */
+  deadlineMs?: number;
+  /** The registry the app installs Genesis from (default: read from .npmrc and npm_config_registry); null for npm's. */
+  registry?: string | null;
+  /** Running in CI (default: `CI` is set): genesis-behind's distance findings never fail a run there. */
+  ci?: boolean;
 }
 
 interface CacheFile {
+  /** Absent in a file that only records a failure. */
   checkedAt: string;
+  /** The last check that failed, and why: not retried for an hour. */
+  failedAt?: string;
+  failure?: string;
   installed: string;
   packages: Record<string, string>;
   latest: string | null;
@@ -83,8 +106,8 @@ interface CacheFile {
   advisories: Advisory[];
 }
 
-function npmJson(args: string[], cwd: string): unknown {
-  const out = execFileSync("npm", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 30_000 }).trim();
+function npmJson(args: string[], cwd: string, timeout: number): unknown {
+  const out = execFileSync("npm", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout }).trim();
   return out ? JSON.parse(out) : null;
 }
 
@@ -116,9 +139,9 @@ export function firstNewerAt(times: Record<string, string> | null, installed: st
 }
 
 /** npm's bulk advisory endpoint: the advisories affecting these exact versions. */
-export async function bulkAdvisories(packages: Record<string, string>, doFetch: typeof fetch): Promise<Advisory[]> {
+export async function bulkAdvisories(packages: Record<string, string>, doFetch: typeof fetch, timeoutMs = 15_000): Promise<Advisory[]> {
   const body = Object.fromEntries(Object.entries(packages).map(([name, v]) => [name, [v]]));
-  const res = await doFetch(ADVISORY_BULK_URL, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) });
+  const res = await doFetch(ADVISORY_BULK_URL, { method: "POST", headers: { "content-type": "application/json", accept: "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) });
   if (!res.ok) throw new Error(`the advisory endpoint answered HTTP ${res.status}`);
   const json = (await res.json()) as Record<string, Array<{ id?: unknown; url?: unknown; title?: unknown; severity?: unknown; vulnerable_versions?: unknown }>>;
   const out: Advisory[] = [];
@@ -141,14 +164,20 @@ export async function bulkAdvisories(packages: Record<string, string>, doFetch: 
   return out;
 }
 
-/** GitHub's advisory database, one package at a time (`gh api /advisories?affects=<name>@<version>`). */
+/** GitHub's advisory database (`gh api /advisories?affects=<name>@<version>`), every package at once; withdrawn advisories left out. */
 export async function ghAdvisories(packages: Record<string, string>, gh: (args: string[]) => Promise<string | null>): Promise<Advisory[]> {
+  const lists = await Promise.all(
+    Object.entries(packages).map(async ([name, version]) => {
+      const text = await gh(["api", "-X", "GET", "/advisories", "-f", "ecosystem=npm", "-f", `affects=${name}@${version}`]);
+      if (text === null) throw new Error("gh api /advisories failed");
+      return { name, version, list: JSON.parse(text) as unknown };
+    }),
+  );
   const out: Advisory[] = [];
-  for (const [name, version] of Object.entries(packages)) {
-    const text = await gh(["api", "-X", "GET", "/advisories", "-f", "ecosystem=npm", "-f", `affects=${name}@${version}`]);
-    if (text === null) throw new Error("gh api /advisories failed (is gh installed and signed in?)");
-    const list = JSON.parse(text) as Array<{ ghsa_id?: unknown; summary?: unknown; severity?: unknown; html_url?: unknown; vulnerabilities?: Array<{ package?: { name?: unknown }; vulnerable_version_range?: unknown }> }>;
-    for (const a of Array.isArray(list) ? list : []) {
+  for (const { name, version, list } of lists) {
+    type GhAdvisory = { ghsa_id?: unknown; summary?: unknown; severity?: unknown; html_url?: unknown; withdrawn_at?: unknown; vulnerabilities?: Array<{ package?: { name?: unknown }; vulnerable_version_range?: unknown }> };
+    for (const a of (Array.isArray(list) ? list : []) as GhAdvisory[]) {
+      if (a.withdrawn_at) continue;
       const range = a.vulnerabilities?.find((v) => v.package?.name === name)?.vulnerable_version_range;
       out.push({
         id: typeof a.ghsa_id === "string" ? a.ghsa_id : "unknown",
@@ -164,19 +193,43 @@ export async function ghAdvisories(packages: Record<string, string>, gh: (args: 
   return out;
 }
 
-const defaultGh = (root: string) => async (args: string[]) => {
-  try {
-    const r = await runTool("gh", args, { cwd: root, passEnv: ["GH_TOKEN", "GITHUB_TOKEN", "GH_HOST"], timeoutMs: 30_000 });
-    return r.code === 0 ? r.stdout : null;
-  } catch {
-    return null;
-  }
+/** gh through the runner: null when it fails. Checks `gh auth status` once first, and gives up when gh isn't signed in. */
+const defaultGh = (root: string, timeoutMs: () => number) => {
+  let signedIn: Promise<boolean> | null = null;
+  const env = { passEnv: ["GH_TOKEN", "GITHUB_TOKEN", "GH_HOST", "GH_ENTERPRISE_TOKEN"] };
+  return async (args: string[]) => {
+    signedIn ??= runTool("gh", ["auth", "status"], { cwd: root, ...env, timeoutMs: Math.min(5_000, timeoutMs()) }).then((r) => r.code === 0, () => false);
+    if (!(await signedIn)) throw new Error("gh isn't installed or signed in");
+    try {
+      const r = await runTool("gh", args, { cwd: root, ...env, timeoutMs: timeoutMs() });
+      return r.code === 0 ? r.stdout : null;
+    } catch {
+      return null;
+    }
+  };
 };
+
+/** The registry the app installs `@marktiderman/*` from, when it isn't npm's: the scope's or the default registry in the app's or the home .npmrc, or npm_config_registry. */
+export function customRegistry(root: string, env: NodeJS.ProcessEnv = process.env, home = homedir()): string | null {
+  const found: string[] = [];
+  if (env.npm_config_registry) found.push(env.npm_config_registry);
+  if (env["npm_config_@marktiderman:registry"]) found.push(env["npm_config_@marktiderman:registry"]!);
+  for (const file of [path.join(root, ".npmrc"), path.join(home, ".npmrc")]) {
+    let text: string;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      continue;
+    }
+    for (const m of text.matchAll(/^\s*(?:@marktiderman:)?registry\s*=\s*(\S+)/gm)) found.push(m[1]!);
+  }
+  return found.find((url) => !/^https?:\/\/registry\.npmjs\.org\/?$/.test(url.trim())) ?? null;
+}
 
 function readCache(file: string): CacheFile | null {
   try {
     const c = JSON.parse(readFileSync(file, "utf8")) as CacheFile;
-    return typeof c.checkedAt === "string" && typeof c.installed === "string" ? c : null;
+    return typeof c.installed === "string" || typeof c.failedAt === "string" ? c : null;
   } catch {
     return null;
   }
@@ -192,20 +245,23 @@ const sameVersions = (a: Record<string, string>, b: Record<string, string>) => J
 export async function readUpgradeStatus(root: string, deps: RegistryDeps = {}): Promise<UpgradeStatus | null> {
   const manifest = readReleaseManifest(root);
   if (!manifest) return null;
+  const started = Date.now();
+  const left = () => Math.max(1_000, (deps.deadlineMs ?? DEADLINE_MS) - (Date.now() - started));
   const now = (deps.now ?? (() => new Date()))();
   const cacheFile = deps.cacheFile ?? path.join(root, BEHIND_CACHE);
   const cache = readCache(cacheFile);
+  const good = cache && typeof cache.checkedAt === "string" && typeof cache.installed === "string" ? cache : null;
   const packages = installedVersions(root);
-  const fresh = cache && cache.installed === manifest.version && sameVersions(cache.packages, packages) && now.getTime() - Date.parse(cache.checkedAt) < CACHE_TTL_MS;
+  const fresh = good && good.installed === manifest.version && sameVersions(good.packages, packages) && now.getTime() - Date.parse(good.checkedAt) < CACHE_TTL_MS;
   const fromCache = (offlineReason?: string): UpgradeStatus | null =>
-    cache
+    good
       ? {
           installed: manifest.version,
           packages,
-          latest: cache.latest,
-          firstNewerAt: cache.installed === manifest.version ? cache.firstNewerAt : null,
-          advisories: sameVersions(cache.packages, packages) ? cache.advisories : [],
-          checkedAt: cache.checkedAt,
+          latest: good.latest,
+          firstNewerAt: good.installed === manifest.version ? good.firstNewerAt : null,
+          advisories: sameVersions(good.packages, packages) ? good.advisories : [],
+          checkedAt: good.checkedAt,
           source: "cache",
           ...(fresh ? {} : { stale: true }),
           ...(offlineReason ? { offlineReason } : {}),
@@ -214,25 +270,38 @@ export async function readUpgradeStatus(root: string, deps: RegistryDeps = {}): 
   // Offline, the cache is only ever a note (the doctor never fails on it), fresh or not.
   if (!deps.network) return fromCache("the network is off");
   if (fresh) return fromCache();
+  if (cache?.failedAt && now.getTime() - Date.parse(cache.failedAt) < FAILURE_TTL_MS) return fromCache(`the last check, at ${cache.failedAt.slice(11, 16)} UTC, failed (${cache.failure ?? "unknown"}); it's tried again an hour later`);
 
+  const fail = (reason: string) => {
+    try {
+      mkdirSync(path.dirname(cacheFile), { recursive: true });
+      writeFileSync(cacheFile, `${JSON.stringify({ ...(good ?? {}), failedAt: now.toISOString(), failure: reason }, null, 2)}\n`);
+    } catch {
+      // A read-only node_modules: the next run asks again.
+    }
+    return fromCache(reason);
+  };
   let latest: string | null;
   let times: Record<string, string> | null;
   try {
     // The upgrade's own lookup (loaded only when the network is used: it's the heavy module).
-    latest = (deps.latest ?? (await import("./index.js")).npmLookup(root).latest)(UMBRELLA_PACKAGE);
+    latest = (deps.latest ?? (await import("./index.js")).npmLookup(root, { timeoutMs: left() }).latest)(UMBRELLA_PACKAGE);
     if (latest === null && !deps.latest) throw new Error(`npm view ${UMBRELLA_PACKAGE} gave no version`);
-    times = (deps.times ?? ((n) => npmJson(["view", n, "time", "--json"], root) as Record<string, string> | null))(UMBRELLA_PACKAGE);
+    times = (deps.times ?? ((n) => npmJson(["view", n, "time", "--json"], root, left()) as Record<string, string> | null))(UMBRELLA_PACKAGE);
   } catch (err) {
-    return fromCache(`npm couldn't be read: ${(err as Error).message.split("\n")[0]}`);
+    return fail(`npm couldn't be read: ${(err as Error).message.split("\n")[0]}`);
   }
+  const registry = deps.registry !== undefined ? deps.registry : customRegistry(root);
+  const gh = deps.gh ?? defaultGh(root, left);
   let advisories: Advisory[];
   try {
-    advisories = await bulkAdvisories(packages, deps.fetch ?? fetch);
+    if (registry) throw new Error(`Genesis installs from ${registry}, so npm's public advisory endpoint wasn't asked`);
+    advisories = await bulkAdvisories(packages, deps.fetch ?? fetch, left());
   } catch (bulkErr) {
     try {
-      advisories = await ghAdvisories(packages, deps.gh ?? defaultGh(root));
+      advisories = await withDeadline(ghAdvisories(packages, gh), left());
     } catch (ghErr) {
-      return fromCache(`no advisory source answered (${(bulkErr as Error).message}; ${(ghErr as Error).message})`);
+      return fail(`no advisory source answered (${(bulkErr as Error).message}; ${(ghErr as Error).message})`);
     }
   }
   const status: UpgradeStatus = { installed: manifest.version, packages, latest, firstNewerAt: firstNewerAt(times, manifest.version), advisories, checkedAt: now.toISOString(), source: "network" };
@@ -244,6 +313,11 @@ export async function readUpgradeStatus(root: string, deps: RegistryDeps = {}): 
     // A read-only node_modules: the next run asks again.
   }
   return status;
+}
+
+function withDeadline<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  return Promise.race([work, new Promise<T>((_, reject) => (timer = setTimeout(() => reject(new Error(`no answer within ${Math.round(ms / 1000)}s`)), ms)))]).finally(() => clearTimeout(timer));
 }
 
 /** Whether the cache file exists (for messages). */

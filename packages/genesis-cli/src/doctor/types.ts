@@ -248,6 +248,11 @@ export interface DoctorConfig {
    * `["@marktiderman/genesis-forms-studio"]`; packages not installed are skipped.
    */
   componentPackages?: string[];
+  /**
+   * `false`: the doctor never reaches npm or the advisory endpoints (`genesis-behind` reads only
+   * its cache), as `--offline`. Default: the CLI reaches them; the Vite plugin never does.
+   */
+  network?: boolean;
   /** Commands `--build` runs, in order. Default: the app's `typecheck` then `build` scripts. */
   build?: string[];
 }

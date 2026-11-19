@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { BUILTIN_RULES, runDoctor } from "../src/doctor/index.js";
-import { BEHIND_CACHE, distance, firstNewerAt, installedVersions, type RegistryDeps } from "../src/upgrade/registry.js";
+import { BEHIND_CACHE, customRegistry, distance, firstNewerAt, installedVersions, type RegistryDeps } from "../src/upgrade/registry.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
 afterAll(cleanupApps);
@@ -25,6 +25,8 @@ function net(options: { latest: string; times?: Record<string, string>; advisori
   const calls = { latest: 0, fetch: 0, gh: 0, bodies: [] as unknown[] };
   const deps: RegistryDeps = {
     now: () => NOW,
+    registry: null,
+    ci: false,
     latest: () => {
       calls.latest++;
       return options.latest;
@@ -105,7 +107,11 @@ describe("genesis-behind", () => {
     const { deps, calls } = net({ latest: "2.3.0", bulkFails: true, gh });
     const { found } = await behind(app(), deps);
     expect(calls.gh).toBeGreaterThan(0);
-    expect(found.some((f) => f.level === "error" && f.subject === "GHSA-zzzz-0000-yyyy")).toBe(true);
+    // Moderate: a warning; only high and critical advisories are errors.
+    // (The stand-in answers the same for every installed package, and each is reported.)
+    const hits = found.filter((f) => f.subject === "GHSA-zzzz-0000-yyyy");
+    expect(hits.length).toBeGreaterThan(0);
+    expect(new Set(hits.map((f) => f.level))).toEqual(new Set(["warn"]));
   });
 
   it("caches for 24 hours: a second run asks nothing and still reports at full level", async () => {
@@ -140,7 +146,7 @@ describe("genesis-behind", () => {
 
   it("the network failing falls back to the cache's info, never an error", async () => {
     const root = app();
-    const deps: RegistryDeps = { now: () => NOW, latest: () => {
+    const deps: RegistryDeps = { now: () => NOW, registry: null, latest: () => {
       throw new Error("ENOTFOUND registry.npmjs.org");
     } };
     expect((await behind(root, deps)).found).toEqual([]);
@@ -157,5 +163,63 @@ describe("genesis-behind", () => {
     const { deps, calls } = net({ latest: "3.0.0" });
     expect((await behind(root, deps)).found).toEqual([]);
     expect(calls.latest).toBe(0);
+  });
+
+  it("in CI, a distance never fails a run, --strict included; advisories keep their levels", async () => {
+    const far = net({ latest: "4.0.0", times: { "3.0.0": daysAgo(200) }, advisories: { [UMBRELLA]: [{ id: 7, url: "https://github.com/advisories/GHSA-crit-0000-0000", title: "RCE", severity: "critical" }] } });
+    const { found, result } = await behind(app(), { ...far.deps, ci: true }, { strict: true });
+    expect(found.map((f) => [f.level, f.subject])).toEqual([["error", "GHSA-crit-0000-0000"], ["info", UMBRELLA]]);
+    expect(result.ok).toBe(false);
+    const quiet = net({ latest: "4.0.0" });
+    const ci = await behind(app(), { ...quiet.deps, ci: true }, { strict: true });
+    expect(ci.result.ok).toBe(true);
+    expect((await behind(app(), { ...quiet.deps, ci: true })).found.map((f) => f.level)).toEqual(["warn"]);
+  });
+
+  it("switched off (rules), or doctor.network: false, makes no call", async () => {
+    const { deps, calls } = net({ latest: "3.0.0" });
+    const off = await runDoctor({ root: app(), config: { rules: { "genesis-behind": "off" } }, network: true, registry: deps });
+    expect(off.findings.filter((f) => f.rule === "genesis-behind")).toEqual([]);
+    await runDoctor({ root: app(), config: { network: false }, network: true, registry: deps });
+    expect(calls).toMatchObject({ latest: 0, fetch: 0, gh: 0 });
+  });
+
+  it("caches a failure for an hour", async () => {
+    const root = app();
+    let asked = 0;
+    const failing: RegistryDeps = { now: () => NOW, registry: null, latest: () => {
+      asked++;
+      throw new Error("ETIMEDOUT");
+    } };
+    await behind(root, failing);
+    await behind(root, failing);
+    expect(asked).toBe(1);
+    await behind(root, { ...failing, now: () => new Date(NOW.getTime() + 61 * 60_000) });
+    expect(asked).toBe(2);
+  });
+
+  it("asks only gh when Genesis installs from another registry, and leaves out withdrawn advisories", async () => {
+    const gh = JSON.stringify([
+      { ghsa_id: "GHSA-live-0000-0000", summary: "x", severity: "high", withdrawn_at: null },
+      { ghsa_id: "GHSA-gone-0000-0000", summary: "y", severity: "high", withdrawn_at: "2026-01-01T00:00:00Z" },
+    ]);
+    const { deps, calls } = net({ latest: "2.3.0", gh });
+    const { found } = await behind(app(), { ...deps, registry: "https://npm.example.com/" });
+    expect(calls.fetch).toBe(0);
+    expect([...new Set(found.map((f) => f.subject))]).toEqual(["GHSA-live-0000-0000"]);
+  });
+
+  it("gives the whole check one deadline", async () => {
+    const { deps } = net({ latest: "2.3.0", bulkFails: true });
+    const started = Date.now();
+    const { found } = await behind(app(), { ...deps, deadlineMs: 1_500, gh: () => new Promise(() => {}) });
+    expect(Date.now() - started).toBeLessThan(5_000);
+    expect(found).toEqual([]);
+  });
+
+  it("reads the registry from .npmrc", () => {
+    const root = makeApp(null, { ".npmrc": "@marktiderman:registry=https://npm.pkg.github.com\n" });
+    expect(customRegistry(root, {}, "/nonexistent")).toBe("https://npm.pkg.github.com");
+    expect(customRegistry(makeApp(null, { ".npmrc": "registry=https://registry.npmjs.org/\n" }), {}, "/nonexistent")).toBe(null);
   });
 });

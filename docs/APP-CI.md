@@ -78,6 +78,14 @@ installed).
 Every check runs even when an earlier one failed, so one run reports all of them. The checkout has
 full history, which the doctor's supabase pack needs to compare migrations with the base branch.
 
+**The doctor reaches the network** (genesis-cli 1.30 and later): its `genesis-behind` rule asks
+npm for the latest Genesis release and npm's advisory endpoint (or `gh`) about the installed
+`@marktiderman/genesis*` versions, at most once a day per checkout's `node_modules` cache. In CI
+(`CI` is set) being behind is at most a warning that never fails the run, `doctor-strict`
+included; an advisory of high or critical severity on an installed version is an error. To keep
+the doctor offline, put `"network": false` in the doctor settings of `genesis.config.json`; to skip
+the rule entirely, `"rules": { "genesis-behind": "off" }`.
+
 The `feature:<id>` label check reads the labels the run started with. The template triggers on
 pull request pushes only, so after fixing a label, push (or add `labeled` and `unlabeled` to the
 caller's `pull_request` types, at the cost of a full run per label change).

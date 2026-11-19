@@ -854,7 +854,7 @@ Upgrading Genesis upgrades the checks.
 | `-d, --dir <dir>` | The app's folder (default: cwd). |
 | `--print-genesis` | Print the components, tokens, raw tags, palette and companion packages' components read from Genesis, and exit. |
 | `--base <ref>` | The git ref change checks compare against: the packages pack's change gate and the [ratchet](#the-ratchet) (`newOnly` rules keep their level only in new files and in files whose count of their findings grew since the merge base; the rest are `info`). |
-| `--offline` | Don't reach npm or the advisory endpoints: [`genesis-behind`](#genesis-behind) reads only its cache. Also when `npm_config_offline=true`. The Vite plugin never reaches them. |
+| `--offline` | Don't reach npm or the advisory endpoints: [`genesis-behind`](#genesis-behind) reads only its cache. Also when `npm_config_offline=true`, or for good with `doctor.network: false` in the config. The Vite plugin never reaches them. |
 
 Every finding names its fix (`fix` in `--json`; ` → genesis fix <id>` in the report when one runs): see [genesis fix](#genesis-fix).
 
@@ -989,9 +989,21 @@ the commands it runs, the secrets those need (by name only; a value reaches a to
 in its arguments), and what is left to you. Its hash is the sha256 of all of that. Applying plans
 again first and refuses when the hash changed (the app changed since you read it), checks every
 file still has the text the plan expects before writing any, writes, runs the commands, then runs
-the doctor again for the fix's rules. Plans are never written to disk. Commands run only through
-an allowlist (supabase, gh, eas, npx, git and the package managers), as an argument list, never
-through a shell, with a scrubbed environment.
+the doctor again for the fix's rules. Plans are never written to disk.
+
+- **Writes stay in the app.** A path must be app-relative; a file that is a symbolic link (a
+  dangling one included), or a folder that resolves outside the app, is refused, when the plan is
+  made and again just before each write.
+- **All or nothing for files.** A new file is created only if it still doesn't exist; an existing
+  one is written to a temporary file, compared once more, then renamed into place. When anything
+  after the first write fails (a write, a command, the fix's own step, the check after), every
+  file is put back and every new one removed, and the error says what was written, what ran
+  (commands aren't undone) and what was rolled back.
+- **Commands** run only through an allowlist (supabase, gh, eas, npx, git and the package
+  managers), resolved from `PATH` outside the app and its `node_modules/.bin`, as an argument list,
+  never through a shell, with a scrubbed environment (proxies and certificate settings pass
+  through). Running them on Windows isn't supported yet: the fix says so, and you run the plan's
+  commands yourself.
 
 Exit codes: `0` done or nothing to do, `1` the fix was refused, failed or didn't verify, `2` the
 doctor couldn't run.
@@ -1006,12 +1018,12 @@ doctor couldn't run.
 | `contracts.introspect` | auto | `contracts-stale` | `genesis introspect` from the database (`doctor.contracts`). |
 | `migrate.copy` | auto | `migration-pending` | `genesis migrate`. |
 | `migrate.forward` | guided | `migration-drift` | `genesis migrate --forward`; you fill in each forward migration. |
-| `upgrade.release` | auto | `genesis-behind`, `overlay-behind`, `version-skew` | Plans with `genesis upgrade --dry-run`; applies `genesis upgrade --pr`. The pull request is never merged for you. `genesis-behind` moves to the latest release; the others re-align on the installed one. |
+| `upgrade.release` | auto | `genesis-behind`, `overlay-behind`, `version-skew` | Plans with `genesis upgrade --dry-run`; applies `genesis upgrade --pr`. The pull request is never merged for you. `genesis-behind` moves to the latest release; the others re-align on the installed one. With uncommitted changes (or outside git) the plan says so and runs nothing. |
 | `settings.remove-unknown` | auto | `invalid-setting` (an undeclared key) | Removes the key from `genesis.config.json`, keeping its format. |
-| `settings.review` | guided | `invalid-setting` (the rest) | Lists the values only you can choose. |
+| `settings.review` | manual | `invalid-setting` (the rest) | Lists the values only you can choose. |
 
 A package adds fixes for its own rules with `genesis.doctor.fixes`, a module beside its `plugin`
-(see [Package rules](#package-rules)).
+(see [Package rules](#package-rules)). The Vite plugin attaches the built-in fixes only.
 
 ### genesis-behind
 
@@ -1019,18 +1031,31 @@ How far the app's Genesis is behind, read from the installed `@marktiderman/gene
 `dist/versions.json`, npm (`npm view`, so the app's `.npmrc` applies) and npm's bulk advisory
 endpoint for every installed `@marktiderman/genesis*` package (GitHub's advisory database through
 `gh api` when that can't be reached). The answer is cached in
-`node_modules/.cache/genesis/behind.json` for 24 hours.
+`node_modules/.cache/genesis/behind.json` for 24 hours, a failed check for an hour, and the whole
+check has a 20-second deadline.
+
+**What it sends:** only the names and installed versions of the `@marktiderman/genesis*`
+packages. When `.npmrc` (the app's or yours) or `npm_config_registry` points `@marktiderman` or
+the default registry anywhere but registry.npmjs.org, npm's public advisory endpoint isn't asked;
+only `gh` is (when it's signed in). Withdrawn advisories are left out.
 
 | Distance | Level |
 | --- | --- |
 | A patch behind | info |
 | One or two minors behind | warn; info under `--strict`, so it never fails a strict run |
-| More than two minors, a major, or behind for 90 days or more (since the first newer release) | warn, failing `--strict` |
-| A published advisory affects an installed version | error, with the advisory's id as the subject |
+| More than two minors, a major, or behind for 90 days or more (since the first newer release) | warn, failing `--strict` (not in CI) |
+| A published advisory of high or critical severity affects an installed version | error, with the advisory's id as the subject |
+| A lower-severity advisory | warn |
 
-Offline (`--offline`, the Vite plugin, tests) or with the network failing, it reads only the cache
-and reports what it last knew as one `info` finding, never an error; with no cache it says
-nothing. An app without the umbrella isn't checked. The fix, `upgrade.release`, opens the upgrade
+**In CI** (`CI` set), how far behind is at most a warning that never fails the run, `--strict`
+included (info under `--strict`), so a release published overnight doesn't turn pipelines red;
+advisories keep their levels.
+
+**Turning the network off:** `--offline`, `npm_config_offline=true`, or `"network": false` in the
+doctor settings make no call (the rule reads only its cache); `"rules": { "genesis-behind": "off" }`
+doesn't run the rule at all. Offline (and in the Vite plugin and tests) or with the network
+failing, it reports what the cache last knew as one `info` finding, never an error; with no cache
+it says nothing. An app without the umbrella isn't checked. The fix, `upgrade.release`, opens the upgrade
 pull request.
 
 ### Rule packs
@@ -1217,7 +1242,8 @@ function returning either: `{ id, kind, rules, title, plan(context), apply?, ver
 `plan` returns the files to write (`{ path, beforeHash, content, why }`) and commands to run, and
 writes nothing. Its ids and rules are namespaced like the package's rules, so a package fixes only
 its own; one that doesn't load is a `package-rules-invalid` warning (genesis-cli 1.30 or later reads
-the key).
+the key). A `fixes` module is trusted exactly as a `plugin` is: installing the package runs its
+code in the doctor and in `genesis fix`. A package with `"enforce": false` can't declare one.
 
 **Adding rules to a new package:** add `genesis.doctor` to its package.json, run its tests (the
 genesis-cli suite validates every package's declaration), and add a changeset. Apps get the
@@ -1385,6 +1411,7 @@ The doctor checks each one:
 | `rulesDoc` | | A markdown file of declarative rules, below. |
 | `plugins` | | Rule modules, below. |
 | `build` | `typecheck`, `build` scripts | Commands for `--build`. |
+| `network` | `true` in the CLI | `false`: never reach npm or the advisory endpoints, as `--offline` ([genesis-behind](#genesis-behind) reads only its cache). |
 
 Unknown keys are an error, so a typo can't quietly turn a check off.
 

@@ -12,6 +12,7 @@ import type { UpgradeOptions, UpgradeReport } from "../upgrade/index.js";
 import type { MigrateOptions, MigrateReport } from "../blocks/migrate.js";
 import type { ContractReader } from "../doctor/contracts.js";
 import { detectPackageManager, installCommand, shellLine } from "../blocks/pm.js";
+import { runTool, type ToolRunner } from "../exec/run.js";
 import { plannedFile } from "./engine.js";
 import type { Fix, FixContext, FixPlanDraft } from "./types.js";
 
@@ -20,6 +21,8 @@ export interface BuiltinDeps {
   runUpgrade?: (options: UpgradeOptions) => Promise<UpgradeReport>;
   runMigrate?: (options: MigrateOptions) => Promise<MigrateReport>;
   readContract?: ContractReader;
+  /** Runs allowlisted tools (git, for the upgrade's clean-tree check). Default src/exec/run.ts. */
+  run?: ToolRunner;
   /** The environment the contract fix reads its database URL from. Default process.env. */
   env?: Readonly<Record<string, string | undefined>>;
 }
@@ -171,7 +174,7 @@ function migrateCopyFix(deps: BuiltinDeps): Fix {
     async apply(_plan, ctx) {
       const runMigrate = deps.runMigrate ?? (await import("../blocks/migrate.js")).runMigrate;
       const report = await runMigrate({ root: ctx.root });
-      return [`Created ${report.written.join(", ") || "nothing"}`, ...report.warnings];
+      return { ran: ["genesis migrate"], notes: [`Created ${report.written.join(", ") || "nothing"}`, ...report.warnings] };
     },
   };
 }
@@ -195,7 +198,7 @@ function migrateForwardFix(deps: BuiltinDeps): Fix {
     async apply(_plan, ctx) {
       const runMigrate = deps.runMigrate ?? (await import("../blocks/migrate.js")).runMigrate;
       const report = await runMigrate({ root: ctx.root, forward: true });
-      return [`Created ${report.written.join(", ") || "nothing"}`, ...report.warnings];
+      return { ran: ["genesis migrate --forward"], notes: [`Created ${report.written.join(", ") || "nothing"}`, ...report.warnings] };
     },
     // Done when every drifting copy has its forward migration (the doctor stops reporting it).
   };
@@ -218,6 +221,20 @@ function upgradeFix(deps: BuiltinDeps): Fix {
     title: "upgrade Genesis in a pull request (genesis upgrade --pr; never merged)",
     async plan(ctx): Promise<FixPlanDraft> {
       if (ctx.network === false && !deps.runUpgrade) return { summary: "the upgrade reads the release from npm: run it without --offline", manual: "Run genesis fix upgrade.release without --offline." };
+      // --pr commits on a new branch: it refuses a dirty tree, so say so now rather than fail on apply.
+      let status: { code: number | null; stdout: string };
+      try {
+        status = await (deps.run ?? runTool)("git", ["status", "--porcelain"], { cwd: ctx.root, timeoutMs: 30_000 });
+      } catch (err) {
+        status = { code: null, stdout: (err as Error).message };
+      }
+      if (status.code !== 0) return { summary: "the upgrade opens a pull request, which needs a git repository", manual: "Run it in the app's git repository (with gh signed in), or run genesis upgrade without --pr." };
+      if (status.stdout.trim()) {
+        // Porcelain lines are "XY path": the status columns may start with a space.
+        const lines = status.stdout.split("\n").filter((l) => l.trim());
+        const files = lines.slice(0, 10).map((l) => l.slice(3));
+        return { summary: "the working tree has uncommitted changes: the upgrade's pull request needs a clean one", manual: `Commit or stash your changes first (${files.join(", ")}${lines.length > 10 ? ", …" : ""}), then run genesis fix upgrade.release again.` };
+      }
       const target = await upgradeTarget(ctx);
       const report = await run({ root: ctx.root, version: target, dryRun: true, install: false, doctor: false, agents: false, featuresBuild: false, log: () => {} });
       const moves = report.changes.map((c) => `${c.name} ${c.from} → ${c.to}`).sort();
@@ -231,10 +248,10 @@ function upgradeFix(deps: BuiltinDeps): Fix {
     async apply(plan, ctx) {
       const args = plan.commands[0]?.args ?? [];
       const version = args[args.indexOf("--version") + 1];
-      if (!version) return ["Nothing to upgrade."];
+      if (!version) return { ran: [], notes: ["Nothing to upgrade."] };
       const report = await run({ root: ctx.root, version, pr: true, ...(ctx.log ? { log: ctx.log } : {}) });
       opened = report.pr ?? null;
-      return [report.pr ? `Pull request: ${report.pr} (not merged)` : "No pull request was opened (nothing changed, or --pr needs a git repository and gh).", report.summary];
+      return { ran: [`genesis upgrade --version ${version} --pr`], notes: [report.pr ? `Pull request: ${report.pr} (not merged)` : "No pull request was opened (nothing changed, or --pr needs a git repository and gh).", report.summary] };
     },
     // The upgrade lands when the pull request merges, so the doctor here still sees the old release.
     verify: () => (opened ? { ok: true, message: `the upgrade is in ${opened}; the findings clear once it's merged and installed` } : { ok: false, message: "no pull request was opened" }),

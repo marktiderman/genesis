@@ -1,5 +1,5 @@
 // @feat:doctor-fixes
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -19,7 +19,7 @@ import {
   type Fix,
 } from "../src/fix/index.js";
 import { runFixCommand } from "../src/fix/command.js";
-import { ALLOWED_TOOLS, childEnv, runTool, type ToolRunner } from "../src/exec/run.js";
+import { ALLOWED_TOOLS, childEnv, resolveTool, runTool, withValues, type ToolRunner } from "../src/exec/run.js";
 import type { DeclaringPackage } from "../src/doctor/types.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 import { removeTempDir } from "./temp.js";
@@ -224,7 +224,7 @@ const RULES_WITHOUT_A_FIX = [
   "package-migration-test", "package-migration-number", "package-migration-edited", "package-unregistered", "package-unversioned-change",
   "package-export-missing", "package-block-invalid", "package-untagged-tests", "package-doctor-declaration", "overlay-unmarked", "overlay-invalid",
   "overlay-age", "overlay-version", "package-rules-invalid", "package-rule-override", "ratchet-skipped", "allow-grew", "rules-weakened",
-  "extension-added", "stale-extension", "extension-invalid", "lock-files", "database-elsewhere", "app-part-colors", "app-part-name",
+  "extension-added", "stale-extension", "extension-invalid", "lock-files", "database-elsewhere", "genesis-config-unknown-key", "app-part-colors", "app-part-name",
   "custom-view-states", "client/layer", "client/one-view-per-resource", "data/declared-access", "data/access-rule-tests",
 ];
 
@@ -369,6 +369,8 @@ describe("codemod fixes plan what the codemod would write", () => {
   });
 });
 
+const cleanGit: ToolRunner = async () => ({ code: 0, stdout: "", stderr: "" });
+
 describe("in-process fixes", () => {
   it("migrate.copy plans from a dry run and applies genesis migrate", async () => {
     const calls: unknown[] = [];
@@ -392,7 +394,7 @@ describe("in-process fixes", () => {
       calls.push(o);
       return { version: "2.4.0", changes: [{ name: "@marktiderman/genesis-ui", from: "2.1.0", to: "2.4.0" }], codemods: [], breaks: [], summary: "moved", ...(o.pr ? { pr: "https://github.com/acme/sample-app/pull/7" } : {}) };
     };
-    const fix = builtinFixes({ runUpgrade: runUpgrade as never }).find((f) => f.id === "upgrade.release")!;
+    const fix = builtinFixes({ runUpgrade: runUpgrade as never, run: cleanGit }).find((f) => f.id === "upgrade.release")!;
     const root = tmpApp();
     const findings = [finding("genesis-behind")];
     const plan = await planFix(fix, { root, findings });
@@ -401,6 +403,7 @@ describe("in-process fixes", () => {
     expect(plan.manual).toMatch(/merge the pull request yourself/);
     const result = await applyPlan(fix, plan, { root, findings, recheck: async () => [] });
     expect(calls.at(-1)).toEqual({ root, version: "2.4.0", pr: true });
+    expect(result.ran).toEqual(["genesis upgrade --version 2.4.0 --pr"]);
     expect(result.notes[0]).toContain("pull/7 (not merged)");
     expect(result.verify).toMatchObject({ ok: true, message: expect.stringContaining("pull/7") });
     expect(calls.some((c) => "merge" in c)).toBe(false);
@@ -413,5 +416,135 @@ describe("in-process fixes", () => {
     expect(plan.files).toEqual([expect.objectContaining({ path: "resources.genesis.ts", beforeHash: null })]);
     await applyPlan(fix, plan, { root, findings: [] });
     expect(existsSync(path.join(root, "resources.genesis.ts"))).toBe(true);
+  });
+});
+
+describe("writes stay inside the app", () => {
+  const outsideFix = (rel: string, beforeHash: string | null = null) =>
+    defineFix({ id: "test.link", kind: "auto", rules: ["r"], title: "link", plan: () => ({ summary: "s", files: [{ path: rel, beforeHash, content: "pwned", why: "x" }] }) });
+
+  it("refuses a write through a symlinked folder", async () => {
+    const outside = tmpApp();
+    const root = tmpApp();
+    symlinkSync(outside, path.join(root, ".claude"));
+    await expect(planFix(outsideFix(".claude/settings.json"), { root, findings: [] })).rejects.toThrow(/resolves outside the app/);
+    expect(existsSync(path.join(outside, "settings.json"))).toBe(false);
+  });
+
+  it("refuses a dangling symlink as a new file (it would create its target outside)", async () => {
+    const outside = tmpApp();
+    const root = tmpApp();
+    symlinkSync(path.join(outside, "made.txt"), path.join(root, "new.txt"));
+    await expect(planFix(outsideFix("new.txt"), { root, findings: [] })).rejects.toThrow(/symbolic link/);
+    expect(existsSync(path.join(outside, "made.txt"))).toBe(false);
+  });
+
+  it("re-checks just before writing: a folder swapped for a link after planning", async () => {
+    const outside = tmpApp();
+    const root = tmpApp({ "d/keep.txt": "k" });
+    let snapshot: ReturnType<Fix["plan"]> | null = null;
+    const fix = defineFix({ id: "test.swap", kind: "auto", rules: ["r"], title: "swap", plan: () => (snapshot ??= { summary: "s", files: [{ path: "d/new.txt", beforeHash: null, content: "x", why: "x" }] }) });
+    const plan = await planFix(fix, { root, findings: [] });
+    const { renameSync } = await import("node:fs");
+    renameSync(path.join(root, "d"), path.join(root, "d-old"));
+    symlinkSync(outside, path.join(root, "d"));
+    await expect(applyPlan(fix, plan, { root, findings: [] })).rejects.toThrow(/outside the app/);
+    expect(existsSync(path.join(outside, "new.txt"))).toBe(false);
+  });
+});
+
+describe("rollback", () => {
+  it("puts every file back when a later step fails, and says what it did", async () => {
+    const root = tmpApp({ "a.txt": "a" });
+    const fix = defineFix({
+      id: "test.rollback",
+      kind: "auto",
+      rules: ["r"],
+      title: "two writes then a failing command",
+      plan: (ctx) => ({ summary: "s", files: [{ path: "a.txt", beforeHash: sha256(read(ctx.root, "a.txt")), content: "A", why: "x" }, { path: "new/dir/b.txt", beforeHash: null, content: "B", why: "x" }], commands: [{ tool: "genesis", args: ["boom"], why: "x" }] }),
+      apply: () => {
+        throw new Error("--pr needs a clean working tree");
+      },
+    });
+    const plan = await planFix(fix, { root, findings: [] });
+    const err = await applyPlan(fix, plan, { root, findings: [] }).catch((e: unknown) => e as Error);
+    expect(err).toBeInstanceOf(FixError);
+    expect(err.message).toMatch(/--pr needs a clean working tree\. It wrote a\.txt, new\/dir\/b\.txt; may have partly run genesis boom .*; rolled back new\/dir\/b\.txt, a\.txt/);
+    expect(read(root, "a.txt")).toBe("a");
+    expect(existsSync(path.join(root, "new"))).toBe(false);
+  });
+
+  it("rolls back when a command fails, and when verify throws", async () => {
+    const root = tmpApp({ "a.txt": "a" });
+    const failing: ToolRunner = async () => ({ code: 2, stdout: "", stderr: "nope" });
+    const fix = defineFix({ id: "test.cmd", kind: "auto", rules: ["r"], title: "t", plan: (ctx) => ({ summary: "s", files: [{ path: "a.txt", beforeHash: sha256(read(ctx.root, "a.txt")), content: "A", why: "x" }], commands: [{ tool: "git", args: ["status"], why: "x" }] }) });
+    await expect(applyPlan(fix, await planFix(fix, { root, findings: [] }), { root, findings: [] }, { run: failing })).rejects.toThrow(/git status failed \(exit 2\): nope\. It wrote a\.txt; ran git status \(not undone\); rolled back a\.txt/);
+    expect(read(root, "a.txt")).toBe("a");
+    const throwing = defineFix({ ...upper, id: "test.verify", verify: () => {
+      throw new Error("doctor crashed");
+    } });
+    const root2 = tmpApp({ "a.txt": "hello" });
+    await expect(applyPlan(throwing, await planFix(throwing, { root: root2, findings: [] }), { root: root2, findings: [] })).rejects.toThrow(/doctor crashed/);
+    expect(read(root2, "a.txt")).toBe("hello");
+  });
+
+  it("redacts secrets from apply's notes", async () => {
+    const root = tmpApp();
+    const fix = defineFix({ id: "test.notes", kind: "guided", rules: ["r"], title: "t", plan: () => ({ summary: "s", commands: [{ tool: "genesis", args: ["x"], stdinSecret: "KEY", why: "x" }] }), apply: () => ({ ran: ["genesis x"], notes: ["used s3cret-value"] }) });
+    const result = await applyPlan(fix, await planFix(fix, { root, findings: [] }), { root, findings: [], secrets: { KEY: "s3cret-value" } });
+    expect(result.notes).toEqual(["used [redacted]"]);
+    expect(result.ran).toEqual(["genesis x"]);
+  });
+});
+
+describe("genesis fix never crashes", () => {
+  it("reports an apply failure as JSON with exit 1, and a dirty tree as a step for you", async () => {
+    const root = tmpApp({ "package.json": "{}" });
+    const out: string[] = [];
+    const runUpgrade = async (o: Record<string, unknown>) => {
+      if (o.pr) throw new Error("--pr needs a clean working tree (commit or stash your changes first).");
+      return { version: "2.4.0", changes: [], codemods: [], breaks: [], summary: "" };
+    };
+    const doctor = async () => ({ findings: [{ ...finding("genesis-behind"), fix: { id: "upgrade.release", kind: "auto" as const, title: "t" } }] });
+    const code = await runFixCommand({ root, target: "upgrade.release", yes: true, json: true, network: true }, { out: (l) => out.push(l), err: () => {}, doctor, deps: { runUpgrade: runUpgrade as never, run: cleanGit } });
+    expect(code).toBe(1);
+    const json = JSON.parse(out.join("\n")) as { fixes: Array<{ applied: boolean; error: string }> };
+    expect(json.fixes[0]).toMatchObject({ applied: false, error: expect.stringContaining("--pr needs a clean working tree") });
+
+    const dirty: ToolRunner = async () => ({ code: 0, stdout: " M src/a.ts\n", stderr: "" });
+    const fix = builtinFixes({ runUpgrade: runUpgrade as never, run: dirty }).find((f) => f.id === "upgrade.release")!;
+    const plan = await planFix(fix, { root, findings: [] });
+    expect(plan.commands).toEqual([]);
+    expect(plan.manual).toMatch(/Commit or stash your changes first \(src\/a\.ts\)/);
+  });
+
+  it("turns an unexpected error into exit 1 (JSON too)", async () => {
+    const out: string[] = [];
+    const code = await runFixCommand({ root: tmpApp(), json: true }, { out: (l) => out.push(l), err: () => {}, doctor: async () => {
+      throw new Error("disk on fire");
+    } });
+    expect(code).toBe(1);
+    expect(JSON.parse(out.join("\n"))).toEqual({ ok: false, error: "disk on fire" });
+  });
+});
+
+describe("the runner", () => {
+  it("resolves a tool from PATH outside the app and its node_modules/.bin, and refuses Windows clearly", () => {
+    const app = tmpApp();
+    const plant = (dir: string) => {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, "git"), "#!/bin/sh\n", { mode: 0o755 });
+      return dir;
+    };
+    const inApp = plant(path.join(app, "bin"));
+    const bin = plant(path.join(app, "node_modules", ".bin"));
+    const real = plant(path.join(tmpApp(), "tools"));
+    expect(resolveTool("git", app, [".", inApp, bin, real].join(path.delimiter), "darwin")).toBe(path.join(real, "git"));
+    expect(resolveTool("git", app, [inApp, bin].join(path.delimiter), "darwin")).toBe(null);
+    expect(() => resolveTool("git", app, real, "win32")).toThrow(/isn't supported on Windows yet/);
+  });
+
+  it("puts -- before values", () => {
+    expect(withValues(["secret", "set"], ["-rf"])).toEqual(["secret", "set", "--", "-rf"]);
   });
 });

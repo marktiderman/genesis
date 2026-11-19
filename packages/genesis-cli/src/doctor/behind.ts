@@ -7,7 +7,12 @@
  * | a patch behind | info |
  * | 1–2 minors behind | warn, shown as info under `--strict` so it never fails a strict run |
  * | more than 2 minors, a major, or behind for 90 days or more | warn (fails `--strict`) |
- * | an advisory affects an installed version | error, with the advisory's id |
+ * | an advisory of high or critical severity affects an installed version | error, with the advisory's id |
+ * | a lower-severity advisory | warn |
+ *
+ * In CI (`CI` set) a distance is at most a warning that never fails a run, `--strict` included:
+ * a release published overnight must not turn every app's pipeline red. Advisories keep their
+ * levels there.
  *
  * With the network off (the Vite plugin, tests, `--offline`) or unreachable, the rule reads only
  * the cache and says what it last knew in one info finding; it never errors then. No cache and no
@@ -30,7 +35,7 @@ export function genesisBehindCheck(deps: RegistryDeps = {}): (ctx: DoctorContext
     if (!status) return;
     const now = (deps.now ?? (() => new Date()))();
     if (status.source === "cache" && (status.offlineReason || status.stale)) return reportOffline(ctx, status);
-    reportStatus(ctx, status, now);
+    reportStatus(ctx, status, now, deps.ci ?? Boolean(process.env.CI));
   };
 }
 
@@ -38,11 +43,13 @@ function behindLine(status: UpgradeStatus): string {
   return `${UMBRELLA_PACKAGE} ${status.installed} is installed; the latest is ${status.latest}`;
 }
 
-function reportStatus(ctx: DoctorContext, status: UpgradeStatus, now: Date): void {
+const SERIOUS = new Set(["high", "critical"]);
+
+function reportStatus(ctx: DoctorContext, status: UpgradeStatus, now: Date, ci: boolean): void {
   for (const a of status.advisories) {
     ctx.report({
       rule: BEHIND_RULE,
-      level: "error",
+      level: SERIOUS.has(a.severity.toLowerCase()) ? "error" : "warn",
       file: FILE,
       subject: a.id,
       message: `${a.package}@${a.version} is affected by ${a.id} (${a.severity}): ${a.title}${a.vulnerable ? ` (affected: ${a.vulnerable})` : ""}${a.url ? `; ${a.url}` : ""}. Upgrade Genesis: genesis fix upgrade.release`,
@@ -56,16 +63,18 @@ function reportStatus(ctx: DoctorContext, status: UpgradeStatus, now: Date): voi
   const since = days !== null ? `, behind for ${days} day${days === 1 ? "" : "s"}` : "";
   const fix = "; genesis fix upgrade.release opens the upgrade pull request";
   const far = d.kind === "major" || (d.kind === "minor" && d.minors > 2) || old;
+  // A warning that never fails: shown as info when warnings fail (--strict).
+  const soft = ctx.strict ? "info" : "warn";
   if (far) {
     const what = d.kind === "major" ? `${d.majors} major release${d.majors === 1 ? "" : "s"} behind` : d.kind === "minor" ? `${d.minors} minor releases behind` : "behind";
-    ctx.report({ rule: BEHIND_RULE, level: "warn", file: FILE, subject: UMBRELLA_PACKAGE, message: `${behindLine(status)} (${what}${since})${fix}` });
+    ctx.report({ rule: BEHIND_RULE, level: ci ? soft : "warn", file: FILE, subject: UMBRELLA_PACKAGE, message: `${behindLine(status)} (${what}${since})${fix}` });
     return;
   }
   if (d.kind === "minor") {
     // A minor or two behind is worth a nudge, never a failed strict run.
     ctx.report({
       rule: BEHIND_RULE,
-      level: ctx.strict ? "info" : "warn",
+      level: soft,
       file: FILE,
       subject: UMBRELLA_PACKAGE,
       message: `${behindLine(status)} (${d.minors} minor release${d.minors === 1 ? "" : "s"} behind${since})${fix}`,

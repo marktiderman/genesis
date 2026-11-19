@@ -11,9 +11,9 @@
  * doctor couldn't run.
  */
 import { discoverPackages } from "../doctor/package-rules.js";
-import { runDoctor } from "../doctor/index.js";
+import { GenesisConfigError, runDoctor } from "../doctor/index.js";
 import type { Finding } from "../doctor/types.js";
-import { applyPlan, FixError, planFix } from "./engine.js";
+import { applyPlan, planFix } from "./engine.js";
 import { allFixes, type BuiltinDeps } from "./registry.js";
 import type { Fix, FixContext, FixPlan } from "./types.js";
 
@@ -57,6 +57,19 @@ function describePlan(fix: Fix, plan: FixPlan): string[] {
 }
 
 export async function runFixCommand(options: FixCommandOptions, io: FixCommandIo): Promise<number> {
+  try {
+    return await fixCommand(options, io);
+  } catch (err) {
+    // The doctor couldn't run (a bad config): the CLI exits 2 for it.
+    if (err instanceof GenesisConfigError) throw err;
+    const message = err instanceof Error ? err.message : String(err);
+    if (options.json) io.out(JSON.stringify({ ok: false, error: message }, null, 2));
+    else io.err(`✗ ${message}`);
+    return 1;
+  }
+}
+
+async function fixCommand(options: FixCommandOptions, io: FixCommandIo): Promise<number> {
   const network = options.network ?? true;
   const doctor = io.doctor ?? ((o) => runDoctor({ root: o.root, ...(o.configPath ? { configPath: o.configPath } : {}), network: o.network }));
   const { findings } = await doctor({ root: options.root, ...(options.configPath ? { configPath: options.configPath } : {}), network });
@@ -155,9 +168,10 @@ export async function runFixCommand(options: FixCommandOptions, io: FixCommandIo
       }
       if (!applied.verify.ok) code = 1;
     } catch (err) {
-      if (!(err instanceof FixError)) throw err;
-      io.err(`✗ ${err.message}`);
-      results.push({ id: fix.id, kind: fix.kind, plan, applied: false, error: err.message, refused: err.name });
+      // applyPlan wraps what fails after it starts writing in a FixError that says what it rolled back.
+      const e = err instanceof Error ? err : new Error(String(err));
+      io.err(`✗ ${e.message}`);
+      results.push({ id: fix.id, kind: fix.kind, plan, applied: false, error: e.message, refused: e.name });
       code = 1;
     }
   }

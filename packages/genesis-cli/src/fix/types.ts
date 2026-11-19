@@ -76,6 +76,13 @@ export interface ApplyContext extends FixContext {
   secrets?: Readonly<Record<string, string>>;
 }
 
+/** What a fix's own `apply` did. */
+export interface ApplyOutcome {
+  /** The commands it ran, as run (`genesis migrate`). */
+  ran: string[];
+  notes?: string[];
+}
+
 export interface VerifyResult {
   ok: boolean;
   /** The findings still there, when the fix's rules were re-checked. */
@@ -97,9 +104,9 @@ export interface Fix {
   /**
    * Run the plan's commands, when they run in-process (`genesis upgrade`, `genesis migrate`).
    * Without it the engine runs them through src/exec/run.ts. Files are written before this runs.
-   * Returns notes for the person (a pull request's URL, say).
+   * Returns what it actually ran and notes for the person (a pull request's URL, say).
    */
-  apply?(plan: FixPlan, context: ApplyContext): Promise<string[] | void> | string[] | void;
+  apply?(plan: FixPlan, context: ApplyContext): Promise<ApplyOutcome | void> | ApplyOutcome | void;
   /** Whether it worked. Default: re-check the fix's rules (`context.recheck`), else that the files hold what the plan wrote. */
   verify?(context: FixContext): VerifyResult | Promise<VerifyResult>;
   /** The wizard step that carries a guided fix (`genesis setup --step <id>`), when there is one. */

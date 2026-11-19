@@ -139,7 +139,7 @@ export function validateDeclaration(raw: unknown, packageName: string, packageDi
   if (c.fixes !== undefined && (typeof c.fixes !== "string" || !c.fixes.trim())) fail(`fixes must be a module path inside the package`);
   if (!enforce) {
     if (typeof c.reason !== "string") fail(`turns enforcement off without a reason; add "reason"`);
-    if ((prefer as unknown[]).length || c.plugin) fail(`turns enforcement off but declares rules; drop "enforce": false or the rules`);
+    if ((prefer as unknown[]).length || c.plugin || c.fixes) fail(`turns enforcement off but declares rules${c.fixes ? " or fixes" : ""}; drop "enforce": false or them`);
   } else if (!(prefer as unknown[]).length && !c.plugin) {
     fail(`declares no rules; add "prefer" rules or a "plugin", or say { "enforce": false, "reason": "…" }`);
   }
