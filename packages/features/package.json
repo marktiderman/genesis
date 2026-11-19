@@ -50,6 +50,10 @@
       "types": "./dist/gate-react.d.ts",
       "import": "./dist/gate-react.js"
     },
+    "./settings": {
+      "types": "./dist/settings.d.ts",
+      "import": "./dist/settings.js"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "import": "./dist/node.js"

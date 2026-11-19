@@ -46,6 +46,7 @@ import { checkAgentHooks } from "./agent-hooks.js";
 import { checkOverlays } from "./overlays.js";
 import { checkLockFiles } from "./lock-files.js";
 import { checkDatabaseHome } from "./database.js";
+import { checkConfigKeys, checkSettings } from "./settings.js";
 import { checkEslintConfig } from "./eslint-config.js";
 import { checkFigmaRoutesRule } from "./figma-routes.js";
 import { existsSync } from "node:fs";
@@ -314,6 +315,8 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "overlays", check: (ctx: DoctorContext) => checkOverlays(ctx) },
     { name: "lock-files", check: checkLockFiles },
     { name: "database-elsewhere", check: checkDatabaseHome },
+    { name: "settings", check: checkSettings },
+    { name: "genesis-config-keys", check: checkConfigKeys },
     { name: "eslint-config", check: checkEslintConfig },
     ...(config.packs ?? []).map((p) => packs[p]),
     ...(options.figma !== false ? [{ name: "figma-routes", check: checkFigmaRoutesRule }] : []),

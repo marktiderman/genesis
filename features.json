@@ -3996,6 +3996,86 @@
       "flags": []
     },
     {
+      "id": "settings-core",
+      "name": "Settings",
+      "summary": "Typed settings for every Genesis package: defineSettings(namespace, keys) declares each key (type, a default per preset, scope, build or runtime, requires, bounds, the secret it needs by name), settingsCatalogue merges them, and resolveSettings(catalogue, layers) resolves default → preset → genesis.config.json → the app's genesis_settings table → tenant → person, a lock stopping every later layer, with where each value came from and what was wrong. Switches feed the feature gate (withSettings); genesis.config.json gets preset and settings, checked by the doctor.",
+      "category": "Platform",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "kind": "service",
+      "keywords": [
+        "settings",
+        "configuration",
+        "preset",
+        "defineSettings",
+        "resolveSettings",
+        "genesis_settings",
+        "locks",
+        "platform admin",
+        "max standard min"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building",
+        "server": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-config/settings",
+        "native": "@marktiderman/genesis-config/settings",
+        "server": "@marktiderman/genesis-config/settings"
+      },
+      "requires": [
+        "feature-gate"
+      ],
+      "contributes": [
+        "fn: defineSettings",
+        "fn: settingsCatalogue",
+        "fn: resolveSettings",
+        "fn: withSettings",
+        "table: genesis_settings",
+        "table: genesis_setting_changes",
+        "table: genesis_app_manifest",
+        "rpc: genesis_settings_layers",
+        "rpc: set_genesis_setting"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server",
+        "cli"
+      ],
+      "audience": [
+        "developer",
+        "admin",
+        "agent"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "resolveSettings applies the layers in order; a lock at any layer stops every later one; tenant and person layers change only keys declared with that scope; only the file sets a build-time key; bad entries are reported and skipped, never thrown.",
+        "A boolean setting linked to a feature that resolves to false turns the feature off through featureOn (GateContext.off); there is no second gate.",
+        "genesis.config.json's preset and settings are checked strictly, and the doctor reports settings the installed packages don't declare or that don't fit.",
+        "set_genesis_setting changes a runtime setting only for a platform admin by the app's private.genesis_platform_admin hook, checked against the synced catalogue, with every change audited; without the hook nobody can.",
+        "Not yet: the Settings screen, the wizard, tenant and person values in the database."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/features/src/settings.ts",
+          "packages/supabase/migrations/0020_genesis_settings.sql",
+          "packages/supabase/src/settings.ts",
+          "packages/genesis-cli/src/doctor/settings.ts"
+        ],
+        "docs": [
+          "packages/features/README.md",
+          "packages/supabase/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "feature-mirror",
       "name": "Registry in the app's database",
       "summary": "A Genesis migration copies features.ts and flags.json into the app's own database on every deploy (features, feature_flags, sync_feature_registry; never backwards), adds feature_entitlements and per-tenant flag values, SQL feature_on() for row security (status and entitlement), and one call that returns a tenant's switches, entitlements and flag values for the gate's snapshot.",
