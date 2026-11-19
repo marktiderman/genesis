@@ -1848,7 +1848,7 @@ export function createSupabaseProvider(
         if (version && record[version.field] == null && written[version.field] != null) {
           // The read has no version: the record is this write as made (the values it sent, its id and
           // the version it wrote), not the read, which may carry values someone committed since.
-          record = { ...row, ...written, id: record.id };
+          record = { ...row, ...written, id };
         }
       }
       await committed({ resource, kind: "create", id: record.id, record });
@@ -1923,7 +1923,7 @@ export function createSupabaseProvider(
         if (version && record[version.field] == null && written[version.field] != null) {
           // The read has no version: the record is this write as made (the values it sent, its id and
           // the version it wrote), not the read, which may carry values someone committed since.
-          record = { ...row, ...written, id: record.id };
+          record = { ...row, ...written, id };
         }
       }
       await committed({ resource, kind: "update", id, record });

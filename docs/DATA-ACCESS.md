@@ -51,8 +51,11 @@ const provider = createSupabaseProvider(supabase, {
 
 After a create or update the provider reads the record back through the resource's read, never
 `select *` on the table, and a write on the table (an opt-in) asks the insert or update for its
-`id` only, plus the version column when the resource has a `version` rule. So a table write
-needs SELECT on `id` (and on the version column, with a version rule) and on nothing else. A
+`id` only, plus the version column when the resource has a `version` rule: what the write itself
+returns needs SELECT on `id` (and on the version column, with a version rule) and nothing else.
+One read can come before it: an update of a resource with a `source` and no `writeColumns`
+reads the table's row (`select *`) to learn its columns, on an open provider or with
+`table.read`. Set `writeColumns` and that read doesn't happen. A
 resource that declares no read (a write-only one) is never read: a write reports what it sent,
 a null answer can't be told apart (refused, gone or changed first) and says so, and it gets no
 realtime channel. An update on a declared provider reads the table's row for its columns only

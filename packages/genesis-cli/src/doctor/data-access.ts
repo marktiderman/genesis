@@ -101,13 +101,52 @@ function namesIn(block: string, keys: RegExp): { name: string; at: number }[] {
   return out;
 }
 
+/** Each `const|let|var name = {…} satisfies …Type…` object's opening brace. */
+function satisfying(code: string, blank: string, type: string): number[] {
+  const out: number[] = [];
+  for (const m of blank.matchAll(/\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*\{/g)) {
+    const open = (m.index ?? 0) + m[0].length - 1;
+    const block = balanced(code, open);
+    if (block && new RegExp(`^\\s*satisfies\\b[^;]*\\b${type}\\b`).test(blank.slice(open + block.length))) out.push(open);
+  }
+  return out;
+}
+
+/**
+ * The provider's options objects in the file (each one's opening brace): written in a
+ * `createSupabaseProvider(…)` call, set to a name the call passes, or typed `SupabaseProviderOptions`
+ * (annotated, or with `satisfies`).
+ */
+function providerOptions(code: string, blank: string): number[] {
+  const out: number[] = [];
+  for (const m of blank.matchAll(/\bcreateSupabaseProvider\s*\(/g)) {
+    const open = (m.index ?? 0) + m[0].length - 1;
+    const call = balanced(code, open);
+    const callBlank = blankStrings(call);
+    let depth = 0;
+    for (let i = 0; i < callBlank.length; i++) {
+      const ch = callBlank[i];
+      if (ch === "{" && depth === 1) out.push(open + i);
+      if (ch === "{" || ch === "(" || ch === "[") depth++;
+      else if (ch === "}" || ch === ")" || ch === "]") depth--;
+    }
+    for (const [, name] of callBlank.slice(1, -1).matchAll(/(?:^|,)\s*([A-Za-z_$][\w$]*)\s*(?=,|$)/g)) {
+      const found = initializer(code, blank, name!);
+      if (found?.text.startsWith("{")) out.push(found.open);
+    }
+  }
+  for (const m of blank.matchAll(/\bSupabaseProviderOptions\b[^=;{]*=\s*\{/g)) out.push((m.index ?? 0) + m[0].length - 1);
+  out.push(...satisfying(code, blank, "SupabaseProviderOptions"));
+  return out;
+}
+
 /**
  * Where the file configures resources:
- * - each `resources: {…}` (the provider's options);
- * - the object behind `resources: name` or a shorthand `{ resources }`, set in the same file;
- * - each object set to a variable typed with `SupabaseResourceConfig` (one resource, or a map of
- *   them), by annotation (`const r: Record<string, SupabaseResourceConfig> = {…}`) or by
- *   `{…} satisfies …SupabaseResourceConfig…`.
+ * - the `resources` of a provider options object (`providerOptions`): written there, or the object
+ *   set in the same file that `resources: name` or a shorthand `{ resources }` names;
+ * - each object typed `SupabaseResourceConfig` (one resource, or a map of them), annotated
+ *   (`const r: Record<string, SupabaseResourceConfig> = {…}`) or with `satisfies`.
+ * Any other `resources` or `actions` object (labels, say) is not resource configuration.
  */
 function resourceConfigRanges(code: string, blank: string): [number, number][] {
   const out: [number, number][] = [];
@@ -115,22 +154,29 @@ function resourceConfigRanges(code: string, blank: string): [number, number][] {
     const block = balanced(code, open);
     if (block) out.push([open, open + block.length]);
   };
-  for (const m of blank.matchAll(/\bresources\s*:\s*\{/g)) add((m.index ?? 0) + m[0].length - 1);
+  for (const open of providerOptions(code, blank)) {
+    const object = balanced(code, open);
+    const objectBlank = blankStrings(object);
+    let depth = 0;
+    for (let i = 0; i < objectBlank.length; i++) {
+      const ch = objectBlank[i];
+      if (depth === 1 && /[\s{,]/.test(objectBlank[i - 1] ?? " ") && objectBlank.startsWith("resources", i)) {
+        const rest = objectBlank.slice(i + "resources".length);
+        const literal = /^\s*:\s*\{/.exec(rest);
+        const named = /^\s*:\s*([A-Za-z_$][\w$]*)\s*[,}]/.exec(rest);
+        if (literal) add(open + i + "resources".length + literal[0].length - 1);
+        else {
+          const name = named ? named[1]! : /^\s*[,}]/.test(rest) ? "resources" : null;
+          const found = name ? initializer(code, blank, name) : null;
+          if (found?.text.startsWith("{")) add(found.open);
+        }
+      }
+      if (ch === "{" || ch === "(" || ch === "[") depth++;
+      else if (ch === "}" || ch === ")" || ch === "]") depth--;
+    }
+  }
   for (const m of blank.matchAll(/\bSupabaseResourceConfig\b[^=;{]*=\s*\{/g)) add((m.index ?? 0) + m[0].length - 1);
-  // `resources: name` and `{ resources }` (or `{ …, resources, … }`) in an object.
-  const named = new Set<string>();
-  for (const m of blank.matchAll(/\bresources\s*:\s*([A-Za-z_$][\w$]*)\s*[,}]/g)) named.add(m[1]!);
-  if (/[{,]\s*resources\s*[,}]/.test(blank)) named.add("resources");
-  for (const name of named) {
-    const found = initializer(code, blank, name);
-    if (found?.text.startsWith("{")) add(found.open);
-  }
-  // `const name = {…} satisfies …SupabaseResourceConfig…`.
-  for (const m of blank.matchAll(/\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*\{/g)) {
-    const open = (m.index ?? 0) + m[0].length - 1;
-    const block = balanced(code, open);
-    if (block && /^\s*satisfies\b[^;]*\bSupabaseResourceConfig\b/.test(blank.slice(open + block.length))) add(open);
-  }
+  for (const open of satisfying(code, blank, "SupabaseResourceConfig")) add(open);
   return out;
 }
 

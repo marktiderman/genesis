@@ -300,3 +300,19 @@ describe("data/access-rule-tests: resource configuration in its usual shapes", (
     expect(found.map((f) => f.subject).sort()).toEqual(["close_c", "make_a", "make_b"]);
   });
 });
+
+describe("data/access-rule-tests: resources belong to the provider's options", () => {
+  it("a resources key in another object (labels) is not resource configuration", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/provider.ts": [
+        'const labels = { resources: { actions: { save: "Save" } } };',
+        'export const p = createSupabaseProvider(client, { access: "declared", resources: {} });',
+      ].join("\n"),
+      "src/lib/typed.ts": [
+        'const options: SupabaseProviderOptions = { access: "declared", resources: { t: { writes: { delete: "drop_t" } } } };',
+        'const more = { access: "declared", resources: { u: { actions: { pin: "pin_u" } } } } satisfies SupabaseProviderOptions;',
+      ].join("\n"),
+    });
+    expect(found.map((f) => f.subject).sort()).toEqual(["drop_t", "pin_u"]);
+  });
+});

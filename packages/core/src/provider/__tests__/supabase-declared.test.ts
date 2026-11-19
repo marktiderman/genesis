@@ -430,6 +430,15 @@ describe("the version goes with the values it was written with", () => {
     expect(res.version).toBe("4");
   });
 
+  it("the record keeps the id the write knows when the read-back has neither id nor version", async () => {
+    const select = { resources: { tasks: { source: "v", select: "title", version: { field: "version", kind: "integer" as const } } } };
+    queue.push(ok({ id: "t7", version: 1 }), ok([{ title: "x" }])); // the insert, then a read-back without id or version
+    expect((await provider(select).create("tasks", { data: { title: "x" } })).data).toEqual({ id: "t7", title: "x", version: 1 });
+    queue.push(ok([{ id: "t7", title: "x" }])); // the table's row, for its columns
+    queue.push(ok([{ id: "t7", version: 2 }]), ok([{ title: "y" }]));
+    expect((await provider(select).update("tasks", { id: "t7", data: { title: "y" } })).data).toEqual({ id: "t7", title: "y", version: 2 });
+  });
+
   it("a read-back with the version is taken as it is", async () => {
     queue.push(ok([{ id: "t1", title: "Old", version: 3 }])); // the table's row, for its columns
     queue.push(ok([{ id: "t1", version: 4 }]), ok([{ id: "t1", title: "Theirs", version: 5 }]));
