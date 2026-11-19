@@ -1,0 +1,44 @@
+packages/support/src/__tests__/native-route.test.tsx
+  s_ca8e075e853203::t_89450e77ed7c5e 1-116
+packages/support/src/native/route.tsx
+  s_ca8e075e853203::t_fee8a035b24d08 1-234,236-238
+  s_ca8e075e853203::t_b679c16504be82 235,239-243
+.changeset/genesis-support-route-mount.md
+  s_ca8e075e853203::t_9862d413f72e73 1-12
+AGENTS.md
+  s_ca8e075e853203::t_26a291923e47a6 155
+features.json
+  s_ca8e075e853203::t_299acf04b30579 5822-5869
+features.ts
+  s_ca8e075e853203::t_04527db2155917 2554-2575
+packages/support/README.md
+  s_ca8e075e853203::t_470c423baa08f9 122-153
+packages/support/src/block.ts
+  s_ca8e075e853203::t_5694336517a04d 32-35,50-51
+packages/support/src/native/agent.tsx
+  s_ca8e075e853203::t_30e13e0b6e1a75 258
+packages/support/src/native/feedback-form.tsx
+  s_ca8e075e853203::t_972ce6ece90672 16,63
+packages/support/src/native/index.ts
+  s_ca8e075e853203::t_a6dbdb224b64d0 60
+packages/support/src/native/support.tsx
+  s_ca8e075e853203::t_424566d4d46834 34,94-109,166-167,229-232,349,381
+packages/support/src/routes.ts
+  s_ca8e075e853203::t_23c298a35e2a86 19-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "07512e907383763bb262f00d8c7f04451db8075f",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
