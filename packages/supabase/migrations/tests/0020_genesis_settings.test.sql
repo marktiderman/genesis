@@ -1,4 +1,4 @@
--- @feat:settings-core
+-- @feat:settings
 -- pgTAP test for 0020_genesis_settings.sql.
 -- Copy into your app's `supabase/tests/database/` and run `supabase test db`.
 -- It writes only its own users, manifest, settings and hook and rolls everything back. If your app
