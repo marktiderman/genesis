@@ -1,0 +1,275 @@
+{
+  "eas-cli": "26.0.0",
+  "commands": {
+    "update": {
+      "args": [],
+      "flags": {
+        "auto": {
+          "type": "boolean"
+        },
+        "branch": {
+          "type": "option"
+        },
+        "channel": {
+          "type": "option"
+        },
+        "clear-cache": {
+          "type": "boolean"
+        },
+        "emit-metadata": {
+          "type": "boolean"
+        },
+        "environment": {
+          "type": "option"
+        },
+        "force-end-active-rollout": {
+          "type": "boolean"
+        },
+        "input-dir": {
+          "type": "option"
+        },
+        "json": {
+          "type": "boolean"
+        },
+        "message": {
+          "char": "m",
+          "type": "option"
+        },
+        "no-bytecode": {
+          "type": "boolean"
+        },
+        "non-interactive": {
+          "type": "boolean"
+        },
+        "platform": {
+          "char": "p",
+          "type": "option"
+        },
+        "private-key-path": {
+          "type": "option"
+        },
+        "rollout-percentage": {
+          "type": "option"
+        },
+        "skip-bundler": {
+          "type": "boolean"
+        },
+        "source-maps": {
+          "type": "option"
+        },
+        "upload-source-maps": {
+          "type": "boolean"
+        }
+      }
+    },
+    "update:list": {
+      "args": [],
+      "flags": {
+        "all": {
+          "type": "boolean"
+        },
+        "branch": {
+          "type": "option"
+        },
+        "json": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "option"
+        },
+        "non-interactive": {
+          "type": "boolean"
+        },
+        "offset": {
+          "type": "option"
+        },
+        "platform": {
+          "char": "p",
+          "type": "option"
+        },
+        "runtime-version": {
+          "type": "option"
+        }
+      }
+    },
+    "update:view": {
+      "args": [
+        "groupId"
+      ],
+      "flags": {
+        "days": {
+          "type": "option"
+        },
+        "end": {
+          "type": "option"
+        },
+        "insights": {
+          "type": "boolean"
+        },
+        "json": {
+          "type": "boolean"
+        },
+        "start": {
+          "type": "option"
+        }
+      }
+    },
+    "build:list": {
+      "args": [],
+      "flags": {
+        "app-build-version": {
+          "type": "option"
+        },
+        "app-identifier": {
+          "type": "option"
+        },
+        "app-version": {
+          "type": "option"
+        },
+        "build-profile": {
+          "char": "e",
+          "type": "option"
+        },
+        "channel": {
+          "type": "option"
+        },
+        "distribution": {
+          "type": "option"
+        },
+        "fingerprint-hash": {
+          "type": "option"
+        },
+        "git-commit-hash": {
+          "type": "option"
+        },
+        "json": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "option"
+        },
+        "non-interactive": {
+          "type": "boolean"
+        },
+        "offset": {
+          "type": "option"
+        },
+        "platform": {
+          "char": "p",
+          "type": "option"
+        },
+        "runtime-version": {
+          "type": "option"
+        },
+        "sdk-version": {
+          "type": "option"
+        },
+        "simulator": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "option"
+        }
+      }
+    },
+    "channel:view": {
+      "args": [
+        "name"
+      ],
+      "flags": {
+        "json": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "option"
+        },
+        "non-interactive": {
+          "type": "boolean"
+        },
+        "offset": {
+          "type": "option"
+        }
+      }
+    },
+    "fingerprint:generate": {
+      "args": [],
+      "flags": {
+        "build-profile": {
+          "char": "e",
+          "type": "option"
+        },
+        "environment": {
+          "type": "option"
+        },
+        "json": {
+          "type": "boolean"
+        },
+        "non-interactive": {
+          "type": "boolean"
+        },
+        "platform": {
+          "char": "p",
+          "type": "option"
+        }
+      }
+    },
+    "workflow:run": {
+      "args": [
+        "file"
+      ],
+      "flags": {
+        "input": {
+          "char": "F",
+          "type": "option",
+          "multiple": true
+        },
+        "json": {
+          "type": "boolean"
+        },
+        "non-interactive": {
+          "type": "boolean"
+        },
+        "ref": {
+          "type": "option"
+        },
+        "ssh": {
+          "type": "boolean"
+        },
+        "ssh-idle-timeout": {
+          "type": "option"
+        },
+        "wait": {
+          "type": "boolean"
+        }
+      }
+    },
+    "workflow:runs": {
+      "args": [],
+      "flags": {
+        "json": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "option"
+        },
+        "status": {
+          "type": "option"
+        },
+        "workflow": {
+          "type": "option"
+        }
+      }
+    },
+    "env:exec": {
+      "args": [
+        "environment",
+        "bash_command"
+      ],
+      "flags": {
+        "non-interactive": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

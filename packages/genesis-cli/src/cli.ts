@@ -79,10 +79,12 @@ program
   }) => {
     if (opts.template !== undefined) {
       if (opts.template !== "native") throw new Error(`--template must be native, not "${opts.template}".`);
-      const { runInitNative } = await import("./blocks/init-native.js");
+      const { runInitNative, releasePinFor } = await import("./blocks/init-native.js");
+      const target = path.resolve(opts.target ?? consumer);
       const result = await runInitNative({
+        pin: releasePinFor(target),
         name: consumer,
-        target: path.resolve(opts.target ?? consumer),
+        target,
         ...(opts.displayName ? { displayName: opts.displayName } : {}),
         ...(opts.bundleId ? { bundleId: opts.bundleId } : {}),
         ...(opts.scheme ? { scheme: opts.scheme } : {}),
@@ -600,8 +602,11 @@ const logger = { info: (m: string) => console.log(m), warn: (m: string) => conso
 program
   .command("add")
   .description("Add a block (a feature an app adds whole) from the Genesis package that declares it: install, migrations, functions, skills, routes, registry entry")
-  .argument("[block]", "The block's id, e.g. tenant-features")
+  .argument("[block]", "The block's id, e.g. tenant-features; or `template` (then the template sets or paths), or `release` (the native release lane's templates)")
+  .argument("[templates...]", "With `template`: the sets (release, eas, expo, maestro, ci, database, vercel) or templates/ paths to write")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--replace", "With template or release: write over files of the same name (move your edits into genesis.config.json first; the old text is in git)", false)
+  .option("--replace-rival", "With template or release: write native-release.yml even while another workflow still releases on push (remove that workflow in the same change; it isn't deleted)", false)
   .option("--package <name>", "The package that declares it, when two do")
   .option("--list", "List the blocks this app can add, and exit", false)
   .option("--dry-run", "Print the plan; write and install nothing", false)
@@ -609,8 +614,13 @@ program
   .option("--no-install", "Don't install packages (print the command instead)")
   .option("--no-features-build", "Don't run features build after")
   .option("--database-only", "Only the block's migrations, pgTAP tests, Edge Functions and config.toml sections: in the app that holds another app's database", false)
-  .action(async (block: string | undefined, opts: { dir: string; package?: string; list: boolean; dryRun: boolean; yes: boolean; install: boolean; featuresBuild: boolean; databaseOnly: boolean }) => {
+  .action(async (block: string | undefined, templates: string[], opts: { dir: string; package?: string; list: boolean; dryRun: boolean; yes: boolean; install: boolean; featuresBuild: boolean; databaseOnly: boolean; replace: boolean; replaceRival: boolean }) => {
     const root = path.resolve(opts.dir);
+    if (block === "template" || block === "release") {
+      const { addTemplates } = await import("./blocks/add-template.js");
+      process.exitCode = await addTemplates(root, block === "release" ? ["release", ...templates] : templates, { list: opts.list, dryRun: opts.dryRun, replace: opts.replace, replaceRival: opts.replaceRival, log: (m) => console.log(m) });
+      return;
+    }
     if (opts.list || !block) {
       const { allBlocks } = await import("./blocks/discover.js");
       const { readLock } = await import("./blocks/lock.js");

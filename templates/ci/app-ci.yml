@@ -1,5 +1,6 @@
-# Copy to .github/workflows/ci.yml. Replace GENESIS_SHA with the commit of the
-# Genesis release you run (docs/APP-CI.md in marktiderman/genesis says how).
+# Copy to .github/workflows/ci.yml. genesis init, genesis add template and genesis upgrade
+# write the Genesis release's commit in place of GENESIS_SHA; in a copy made by hand, replace it
+# with the commit of the release you run (docs/APP-CI.md in marktiderman/genesis says how).
 name: CI
 
 on:

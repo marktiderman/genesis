@@ -49,9 +49,11 @@ Call the workflows at the commit of a Genesis release, never at `@main`.
   yours, and whatever lands on main runs in your CI the moment it lands.
 - Why a SHA rather than the tag: a tag can be moved and a commit can't, and the tag's name
   (`@` and `/` in it) is awkward in a `uses:` ref.
-- Keep the ref on the release your packages are on. When the weekly upgrade pull request moves your
-  packages to X.Y.Z, move the workflow SHA to X.Y.Z's commit in the same pull request. The upgrade
-  workflow can't do that part: the default `GITHUB_TOKEN` may not edit workflow files.
+- Keep the ref on the release your packages are on. `genesis init`, `genesis add template ci` and
+  `genesis upgrade` write it for you: the upgrade moves the pin of the Genesis workflows it owns
+  with their new text (genesis-cli README, "genesis upgrade"). The weekly upgrade
+  workflow can't commit that part with the default `GITHUB_TOKEN`, which may not edit workflow
+  files: run `genesis upgrade` locally, or give the workflow a token that may.
 
 The workflows are in a release from the first umbrella release cut after they reach `main`.
 
@@ -286,7 +288,7 @@ run with `--base` fails as `allow-grew`). The rule is a warning, so an app that 
 
 ### Native: EAS
 
-[`templates/eas/workflows/pr-preview.yml`](../templates/eas/workflows/pr-preview.yml) is the native
+[`templates/release/pr-preview.yml`](../templates/release/pr-preview.yml) is the native
 equivalent: an installable build and an update channel per pull request, started by the `Preview`
 label or by a pull request into `main` that changes the app's code or build config
 ([NATIVE-RELEASE.md](./NATIVE-RELEASE.md)). GitHub keeps one label per name whatever its case, so

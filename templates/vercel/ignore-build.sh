@@ -2,8 +2,9 @@
 # Vercel "Ignored Build Step": production always builds; a preview builds only when someone asks.
 #
 # Copy to scripts/vercel-ignore-build.sh in the app and point vercel.json at it (the vercel.json
-# beside this file). Replace GENESIS_SHA below with the commit of the Genesis release you copied it
-# from (docs/APP-CI.md, "Which ref to call", says how to find it), so the next upgrade can tell
+# beside this file), or run `genesis add template vercel`, which writes both and the Genesis release's
+# commit below. In a copy made by hand, replace GENESIS_SHA below with the commit of the Genesis
+# release you copied it from (docs/APP-CI.md, "Which ref to call"), so the next upgrade can tell
 # whether your copy is behind. Edit the copy, not the defaults: set the variables below in the
 # Vercel project instead.
 #

@@ -77,7 +77,7 @@ describe("packs config", () => {
   });
 
   it("pack rule ids are built-in, so rules and allow work and patterns can't take them", async () => {
-    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder"]) {
+    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder", "fingerprint-plugin-files", "release-lane-twice"]) {
       expect(BUILTIN_RULES).toContain(id);
     }
     for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited", "migration-testing-kit", "migration-view-rls"]) expect(BUILTIN_RULES).toContain(id);
@@ -235,6 +235,85 @@ describe("native pack", () => {
     expect(r.findings.find((f) => f.subject === "REPLACE_WITH_APP_STORE_CONNECT_APP_ID")!.message).toMatch(/^ascAppId is the template placeholder REPLACE_WITH_APP_STORE_CONNECT_APP_ID; replace it with the app's Apple ID from App Store Connect/);
     const filled = await nativeApp({ ".eas/workflows/pr-preview.yml": 'on:\n  pull_request:\n    paths:\n      - "src/**"\n' });
     expect(brief(filled.findings, "eas-placeholder")).toEqual([]);
+  });
+
+  it("fingerprint-plugin-files: the fingerprint policy and genesis-native's plugin need plugins hashed by their files (warn)", async () => {
+    const config = 'export default { plugins: ["@marktiderman/genesis-cli", "@marktiderman/genesis-native/rich-push-plugin"] };\n';
+    const missing = await nativeApp({ "app.config.ts": config });
+    expect(brief(missing.findings, "fingerprint-plugin-files")).toEqual(["fingerprint-plugin-files app.config.ts:0"]);
+    expect(levels(missing.findings, "fingerprint-plugin-files")).toEqual(["warn"]);
+    expect(missing.findings.find((f) => f.rule === "fingerprint-plugin-files")!.message).toContain("genesis add template expo");
+    const byPackage = await nativeApp({ "app.config.ts": config, "fingerprint.config.js": 'module.exports = { configPluginSourceType: "package" };\n' });
+    expect(brief(byPackage.findings, "fingerprint-plugin-files")).toEqual(["fingerprint-plugin-files fingerprint.config.js:0"]);
+    const ok = await nativeApp({ "app.config.ts": config, "fingerprint.config.js": 'module.exports = { configPluginSourceType: "files" };\n' });
+    expect(brief(ok.findings, "fingerprint-plugin-files")).toEqual([]);
+    // app.config.json, a static app.json passed through a dynamic app.config.js, and the withGenesis() wrapper all count.
+    const plugins = { expo: { plugins: ["@marktiderman/genesis-cli", "@marktiderman/genesis-native/rich-push-plugin"] } };
+    expect(brief((await nativeApp({ "app.json": "{}", "app.config.json": JSON.stringify(plugins) })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    expect(brief((await nativeApp({ "app.json": JSON.stringify(plugins), "app.config.js": "module.exports = ({ config }) => config;\n" })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    const wrapped = 'import { withGenesis } from "@marktiderman/genesis-cli/expo";\nexport default withGenesis({ plugins: ["@marktiderman/genesis-native/rich-push-plugin"], extra: { fingerprint: false } });\n';
+    // The wrapper's call counts; `fingerprint: false` in the app's own config (extra) isn't its option.
+    expect(brief((await nativeApp({ "app.config.ts": wrapped })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    // withGenesis told not to set the fingerprint policy (its options, the second argument): nothing to say.
+    expect(brief((await nativeApp({ "app.config.ts": wrapped.replace("extra: { fingerprint: false } })", "extra: { fingerprint: false } }, { fingerprint: false })") })).findings, "fingerprint-plugin-files")).toEqual([]);
+    // The plugin entry's own options, the same; another key named fingerprint doesn't turn it off.
+    const entry = (options: string) => JSON.stringify({ expo: { extra: { fingerprint: false }, plugins: [["@marktiderman/genesis-cli", JSON.parse(options)], "@marktiderman/genesis-native/rich-push-plugin"] } });
+    expect(brief((await nativeApp({ "app.json": entry('{"fingerprint": false}') })).findings, "fingerprint-plugin-files")).toEqual([]);
+    expect(brief((await nativeApp({ "app.json": entry('{"privacy": {}}') })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    // The plugin by its /expo export is the same plugin, alone or with options.
+    const viaExpo = (entry: unknown) => JSON.stringify({ expo: { plugins: [entry, "@marktiderman/genesis-native/rich-push-plugin"] } });
+    expect(brief((await nativeApp({ "app.json": viaExpo("@marktiderman/genesis-cli/expo") })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    expect(brief((await nativeApp({ "app.json": viaExpo(["@marktiderman/genesis-cli/expo", { privacy: {} }]) })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    expect(brief((await nativeApp({ "app.json": viaExpo(["@marktiderman/genesis-cli/expo", { fingerprint: false }]) })).findings, "fingerprint-plugin-files")).toEqual([]);
+    // An explicit runtimeVersion wins over the plugin's default (withGenesis keeps it): no fingerprint, nothing to say.
+    const pinnedRuntime = (runtimeVersion: unknown) => JSON.stringify({ expo: { runtimeVersion, plugins: ["@marktiderman/genesis-cli", "@marktiderman/genesis-native/rich-push-plugin"] } });
+    expect(brief((await nativeApp({ "app.json": pinnedRuntime("1.0.0") })).findings, "fingerprint-plugin-files")).toEqual([]);
+    expect(brief((await nativeApp({ "app.json": pinnedRuntime({ policy: "appVersion" }) })).findings, "fingerprint-plugin-files")).toEqual([]);
+    expect(brief((await nativeApp({ "app.json": pinnedRuntime({ policy: "fingerprint" }) })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    // Imported but never called, and not a plugin: Genesis sets nothing.
+    const imported = 'import { withGenesis } from "@marktiderman/genesis-cli/expo";\nexport default { plugins: ["@marktiderman/genesis-native/rich-push-plugin"] };\n';
+    expect(brief((await nativeApp({ "app.config.ts": imported })).findings, "fingerprint-plugin-files")).toEqual([]);
+    // No genesis-native plugin: nothing to say.
+    expect(brief((await nativeApp({ "app.config.ts": 'export default { runtimeVersion: { policy: "fingerprint" } };\n' })).findings, "fingerprint-plugin-files")).toEqual([]);
+     // Comments are trivia: the wrapper's options still turn the fingerprint off, and a commented-out plugin isn't one.
+    const commented = 'import { withGenesis } from "@marktiderman/genesis-cli/expo";\nexport default withGenesis({ plugins: ["@marktiderman/genesis-native/rich-push-plugin"] }, { /* opt out */ fingerprint: false, // a reason\n});\n';
+    expect(brief((await nativeApp({ "app.config.ts": commented })).findings, "fingerprint-plugin-files")).toEqual([]);
+    const urlInString = 'export default { plugins: [/* ["@marktiderman/genesis-cli", {}] */ "@marktiderman/genesis-native/rich-push-plugin"], extra: { url: "https://x.test/a" } };\n';
+    expect(brief((await nativeApp({ "app.config.ts": urlInString })).findings, "fingerprint-plugin-files")).toEqual([]);
+    // Only runtimeVersion sets the policy: `policy: "fingerprint"` in extra, with no Genesis plugin, isn't it.
+    const extraPolicy = JSON.stringify({ expo: { extra: { policy: "fingerprint" }, plugins: ["@marktiderman/genesis-native/rich-push-plugin"] } });
+    expect(brief((await nativeApp({ "app.json": extraPolicy })).findings, "fingerprint-plugin-files")).toEqual([]);
+    const ownPolicy = JSON.stringify({ expo: { ios: { runtimeVersion: { policy: "fingerprint" } }, plugins: ["@marktiderman/genesis-native/rich-push-plugin"] } });
+    expect(brief((await nativeApp({ "app.json": ownPolicy })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    // A runtimeVersion nested elsewhere (extra) isn't the config's: neither a policy nor an explicit pin.
+    const extraRuntime = (runtimeVersion: unknown, plugins: unknown[]) => JSON.stringify({ expo: { extra: { runtimeVersion }, plugins } });
+    expect(brief((await nativeApp({ "app.json": extraRuntime({ policy: "fingerprint" }, ["@marktiderman/genesis-native/rich-push-plugin"]) })).findings, "fingerprint-plugin-files")).toEqual([]);
+    expect(brief((await nativeApp({ "app.json": extraRuntime("1.0.0", ["@marktiderman/genesis-cli", "@marktiderman/genesis-native/rich-push-plugin"]) })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+    const tsExtra = 'export default { extra: { runtimeVersion: "1.0.0" }, ios: { runtimeVersion: { policy: "fingerprint" } }, plugins: ["@marktiderman/genesis-native/rich-push-plugin"] };\n';
+    expect(brief((await nativeApp({ "app.config.ts": tsExtra })).findings, "fingerprint-plugin-files")).toHaveLength(1);
+  });
+
+  it("release-lane-twice: native-release.yml beside a workflow that also releases (error)", async () => {
+    const lane = { ".github/workflows/native-release.yml": "name: Native release\n" };
+    const pushEas = { ".eas/workflows/deploy-production.yml": "on:\n  push:\n    branches: [main]\njobs:\n  update:\n    type: update\n" };
+    const twice = await nativeApp({
+      ...lane,
+      ...pushEas,
+      ".github/workflows/ota.yml": "on:\n  push:\n    branches: [main]\njobs:\n  a:\n    steps:\n      - run: eas update --channel production\n",
+      // Only by hand: it can't double a release.
+      ".github/workflows/manual.yml": "on:\n  workflow_dispatch: {}\njobs:\n  a:\n    steps:\n      - run: eas update --channel production\n",
+    });
+    expect(brief(twice.findings, "release-lane-twice")).toEqual(["release-lane-twice .eas/workflows/deploy-production.yml:0 .eas/workflows/deploy-production.yml", "release-lane-twice .github/workflows/ota.yml:0 .github/workflows/ota.yml"]);
+    expect(levels(twice.findings, "release-lane-twice")).toEqual(["error", "error"]);
+    // The lane's own dispatch-only file, or no native-release.yml at all: nothing to say.
+    expect(brief((await nativeApp({ ...lane, ".eas/workflows/deploy-production.yml": "on:\n  workflow_dispatch: {}\njobs:\n  u:\n    type: update\n" })).findings, "release-lane-twice")).toEqual([]);
+    expect(brief((await nativeApp(pushEas)).findings, "release-lane-twice")).toEqual([]);
+    // A custom EAS job that runs a release command itself counts; one that only queries (build:list, update:view) doesn't.
+    const custom = (run: string) => ({ ...lane, ".eas/workflows/ship.yml": `on:\n  push:\n    branches: [main]\njobs:\n  ship:\n    steps:\n      - uses: eas/checkout\n      - run: ${run}\n` });
+    expect(brief((await nativeApp(custom("npx --yes eas-cli@26.0.0 update --channel production --auto"))).findings, "release-lane-twice")).toEqual(["release-lane-twice .eas/workflows/ship.yml:0 .eas/workflows/ship.yml"]);
+    expect(brief((await nativeApp(custom("eas build:list --json && eas update:view g --json"))).findings, "release-lane-twice")).toEqual([]);
+    // A push trigger only for another branch (a preview lane) releases nothing from main.
+    expect(brief((await nativeApp({ ...lane, ".eas/workflows/preview.yml": "on:\n  push:\n    branches: [preview]\njobs:\n  update:\n    type: update\n" })).findings, "release-lane-twice")).toEqual([]);
   });
 
   it("store-readiness: a ready app.json passes", async () => {

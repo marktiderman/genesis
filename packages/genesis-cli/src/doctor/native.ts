@@ -19,6 +19,8 @@ import { lineAt } from "./scan.js";
 import { localImports, readSource } from "./source.js";
 import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
+import { appFolderOf } from "../blocks/app-folder.js";
+import { competingReleaseWorkflows, repositoryRoot } from "../blocks/release.js";
 
 const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
 const JSX_EXTS = new Set([".tsx", ".jsx"]);
@@ -50,6 +52,215 @@ export function checkNativePack(ctx: DoctorContext): void {
   checkScreenLayouts(ctx, pkg);
   checkStoreReadiness(ctx);
   checkEasPlaceholders(ctx);
+  checkFingerprintConfig(ctx);
+  checkReleaseLaneTwice(ctx);
+}
+
+const APP_CONFIGS = ["app.json", "app.config.json", "app.config.ts", "app.config.js", "app.config.mjs", "app.config.cjs"];
+const FINGERPRINT_CONFIGS = ["fingerprint.config.js", "fingerprint.config.cjs", "fingerprint.config.mjs"];
+
+/** The text inside the bracket that opens at `open` (`{`, `[` or `(`), strings skipped; null when it never closes. */
+function bracketed(text: string, open: number): string | null {
+  const pairs: Record<string, string> = { "{": "}", "[": "]", "(": ")" };
+  const stack: string[] = [];
+  for (let i = open; i < text.length; i++) {
+    const c = text[i]!;
+    if (c === '"' || c === "'" || c === "`") {
+      for (i++; i < text.length && text[i] !== c; i++) if (text[i] === "\\") i++;
+      continue;
+    }
+    if (pairs[c]) stack.push(pairs[c]!);
+    else if (c === stack.at(-1)) {
+      stack.pop();
+      if (!stack.length) return text.slice(open + 1, i);
+    }
+  }
+  return null;
+}
+
+/** The comma-separated items at the top level of a bracket's text. */
+function topLevelItems(inner: string): string[] {
+  const items: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i]!;
+    if (c === '"' || c === "'" || c === "`") {
+      for (i++; i < inner.length && inner[i] !== c; i++) if (inner[i] === "\\") i++;
+      continue;
+    }
+    if ("{[(".includes(c)) depth++;
+    else if ("}])".includes(c)) depth--;
+    else if (c === "," && depth === 0) {
+      items.push(inner.slice(start, i));
+      start = i + 1;
+    }
+  }
+  items.push(inner.slice(start));
+  return items.map((s) => s.trim()).filter(Boolean);
+}
+
+/** The text with its JavaScript comments (`//` to the line's end, `/* … *\/`) blanked out; strings kept as they are. */
+export function withoutComments(text: string): string {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]!;
+    if (c === '"' || c === "'" || c === "`") {
+      const start = i;
+      for (i++; i < text.length && text[i] !== c; i++) if (text[i] === "\\") i++;
+      out += text.slice(start, i + 1);
+    } else if (c === "/" && text[i + 1] === "/") {
+      const end = text.indexOf("\n", i);
+      i = (end === -1 ? text.length : end) - 1;
+      out += " ";
+    } else if (c === "/" && text[i + 1] === "*") {
+      const end = text.indexOf("*/", i + 2);
+      i = end === -1 ? text.length : end + 1;
+      out += " ";
+    } else out += c;
+  }
+  return out;
+}
+
+/** True when an options object (`{ … }`) sets `fingerprint: false` at its own top level. */
+function fingerprintOff(options: string | undefined): boolean {
+  if (!options?.startsWith("{")) return false;
+  const inner = bracketed(options, 0);
+  return inner !== null && topLevelItems(inner).some((item) => /^["']?fingerprint["']?\s*:\s*false$/.test(item));
+}
+
+/**
+ * True when the Expo config uses the Genesis plugin with its default fingerprint policy: a
+ * `"@marktiderman/genesis-cli"` (or `"@marktiderman/genesis-cli/expo"`) plugin entry (alone, or `[name, options]`), or a `withGenesis(config,
+ * options)` call; never when that entry's or call's own options set `fingerprint: false` (another
+ * `fingerprint` key, in `extra` say, doesn't count), and never for an import alone.
+ */
+export function genesisPluginSetsFingerprint(source: string): boolean {
+  // Comments are trivia: `{ /* opt out */ fingerprint: false }` still opts out.
+  const text = withoutComments(source);
+  const uses: (string | undefined)[] = [];
+  // The plugin by its package name or its `/expo` export (both are the same plugin).
+  for (const m of text.matchAll(/\[\s*["']@marktiderman\/genesis-cli(?:\/expo)?["']\s*(,)?/g)) {
+    const entry = bracketed(text, m.index!);
+    uses.push(entry === null ? undefined : topLevelItems(entry)[1]);
+  }
+  // A plain entry in a plugins list: the name alone, not inside a [name, options] pair.
+  for (const m of text.matchAll(/(?<!\[\s*)["']@marktiderman\/genesis-cli(?:\/expo)?["'](?=\s*[,\]])/g)) {
+    const before = text.slice(0, m.index!);
+    if (!/\[\s*$/.test(before)) uses.push(undefined);
+  }
+  for (const m of text.matchAll(/(?<![\w.$])withGenesis\s*\(/g)) {
+    // A declaration (`function withGenesis(`) isn't a call.
+    if (/\bfunction\s+$/.test(text.slice(0, m.index!))) continue;
+    const args = bracketed(text, m.index! + m[0].length - 1);
+    uses.push(args === null ? undefined : topLevelItems(args)[1]);
+  }
+  return uses.length > 0 && uses.some((options) => !fingerprintOff(options));
+}
+
+/**
+ * `fingerprint-plugin-files`: the runtime version is the fingerprint (`runtimeVersion: { policy:
+ * "fingerprint" }`, which the Genesis plugin sets, as a plugin entry or the `withGenesis()`
+ * wrapper, unless given `fingerprint: false`) and the app loads genesis-native's config plugin,
+ * but no fingerprint config hashes config plugins by their files. Hashed by package.json, each new
+ * version of the plugin's package gives a new runtime version, so a Genesis upgrade makes a store
+ * build instead of an update (`genesis add template expo` writes it). Every Expo config file is
+ * read together: a dynamic `app.config.js` passes on what `app.json` sets.
+ */
+export function checkFingerprintConfig(ctx: DoctorContext): void {
+  const configs = APP_CONFIGS.filter((f) => existsSync(path.join(ctx.root, f)));
+  if (!configs.length) return;
+  const text = withoutComments(configs.map((f) => readFileSync(path.join(ctx.root, f), "utf8")).join("\n"));
+  // Only `runtimeVersion` sets the policy (a `policy` key elsewhere, in `extra` say, isn't one). An
+  // explicit runtimeVersion (a string, or a policy other than fingerprint, at the root or for a
+  // platform) wins over the plugin's default: withGenesis keeps it.
+  const values = runtimeVersionValues(text);
+  const explicit = values.some((v) => !isFingerprintPolicy(v));
+  const genesisPlugin = !explicit && genesisPluginSetsFingerprint(text);
+  const fingerprint = values.some(isFingerprintPolicy) || genesisPlugin;
+  const nativePlugin = /["']@marktiderman\/genesis-native\/rich-push-plugin["']/.test(text);
+  if (!fingerprint || !nativePlugin) return;
+  const own = FINGERPRINT_CONFIGS.find((f) => existsSync(path.join(ctx.root, f)));
+  if (own && /\bconfigPluginSourceType["']?\s*:\s*["']files["']/.test(readFileSync(path.join(ctx.root, own), "utf8"))) return;
+  const config = configs.find((f) => /["']@marktiderman\/genesis-native\/rich-push-plugin["']/.test(readFileSync(path.join(ctx.root, f), "utf8"))) ?? configs[0]!;
+  ctx.report({
+    rule: "fingerprint-plugin-files",
+    level: "warn",
+    file: own ?? config,
+    message: `${configs.join(" and ")} use${configs.length === 1 ? "s" : ""} the fingerprint runtime version and genesis-native's config plugin, but ${own ?? "no fingerprint.config.js"} ${own ? "doesn't hash" : "hashes"} config plugins by their files (configPluginSourceType: "files"): every new Genesis version would make a store build instead of an update. Run \`genesis add template expo\` (docs/NATIVE-RELEASE.md, "Fingerprints")`,
+  });
+}
+
+/**
+ * The keys of the objects and lists around `index`, outermost first (a bracket with no key before
+ * it, a function call's or `export default {`, is left out). Strings skipped; comments already out.
+ */
+function enclosingKeys(text: string, index: number): string[] {
+  const stack: (string | null)[] = [];
+  for (let i = 0; i < index; i++) {
+    const c = text[i]!;
+    if (c === '"' || c === "'" || c === "`") {
+      for (i++; i < index && text[i] !== c; i++) if (text[i] === "\\") i++;
+      continue;
+    }
+    if ("{[(".includes(c)) stack.push(/(["']?)([\w$]+)\1\s*:\s*$/.exec(text.slice(Math.max(0, i - 80), i))?.[2] ?? null);
+    else if ("}])".includes(c)) stack.pop();
+  }
+  return stack.filter((k): k is string => k !== null);
+}
+
+/**
+ * The values of the Expo config's own `runtimeVersion` keys (comments already out): at its root
+ * (under `expo` or not) or under `ios` or `android`, never one nested elsewhere (`extra`, a
+ * plugin's options). `{ … }` whole, anything else up to the next `,`, `}` or line end.
+ */
+export function runtimeVersionValues(text: string): string[] {
+  const values: string[] = [];
+  for (const m of text.matchAll(/\bruntimeVersion["']?\s*:\s*/g)) {
+    const keys = enclosingKeys(text, m.index!);
+    if (keys[0] === "expo") keys.shift();
+    if (keys.length > 1 || (keys.length === 1 && keys[0] !== "ios" && keys[0] !== "android")) continue;
+    const at = m.index! + m[0].length;
+    if (text[at] === "{") {
+      const inner = bracketed(text, at);
+      values.push(inner === null ? text.slice(at) : `{${inner}}`);
+    } else values.push(/^[^,}\n]*/.exec(text.slice(at))![0].trim());
+  }
+  return values.filter(Boolean);
+}
+
+/** True for a runtimeVersion value `{ policy: "fingerprint" }` (its own top-level `policy`). */
+function isFingerprintPolicy(value: string): boolean {
+  if (!value.startsWith("{")) return false;
+  const inner = bracketed(value, 0);
+  return inner !== null && topLevelItems(inner).some((item) => /^["']?policy["']?\s*:\s*["']fingerprint["']$/.test(item));
+}
+
+/**
+ * `release-lane-twice`: the app has the release lane's native-release.yml and another workflow
+ * that also releases (an EAS workflow with a push trigger and an update or build job, the old
+ * push-triggered deploy-production.yml say, or a GitHub workflow running `eas update`). Each release
+ * would go out twice.
+ */
+export function checkReleaseLaneTwice(ctx: DoctorContext): void {
+  let appFolder: string | null = null;
+  try {
+    appFolder = appFolderOf(ctx.root);
+  } catch {
+    return; // An invalid genesis.config.json is the config's own error.
+  }
+  const repo = appFolder ? repositoryRoot(ctx.root, appFolder) : ctx.root;
+  if (!existsSync(path.join(repo, ".github", "workflows", "native-release.yml"))) return;
+  for (const rival of competingReleaseWorkflows(ctx.root, appFolder)) {
+    ctx.report({
+      rule: "release-lane-twice",
+      // An error: both lanes are live, so every release is published twice (or races itself).
+      level: "error",
+      file: rival.startsWith(".github/") && appFolder ? path.relative(ctx.root, path.join(repo, rival)).split(path.sep).join("/") : rival,
+      subject: rival,
+      message: `${rival} also releases (EAS updates or builds) beside .github/workflows/native-release.yml, so each release would go out twice. Make it the lane's dispatch-only deploy-production.yml (genesis add template release --replace), or remove it (docs/NATIVE-RELEASE.md, "Adopting the lane"). If it only ships a staging update or a preview build, not production, keep it and set "release-lane-twice": "warn" under doctor.rules in genesis.config.json`,
+    });
+  }
 }
 
 /**

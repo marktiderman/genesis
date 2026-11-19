@@ -42,23 +42,29 @@ function profile(name: string): (typeof easJson.build)[string] {
 
 describe("templates", () => {
   // The starter's copies are the canonical templates' copies; `genesis upgrade` refreshes an
-  // app's from templates/, so the two must not drift.
+  // app's from templates/, so the two must not drift. A template with release markup (`#@if`,
+  // GENESIS_RELEASE_…) is copied as its default render, which genesis-cli's tests check
+  // (test/release.test.ts): here it's only listed.
   const pairs: [string, string][] = [
     ["eas.json", "eas/eas.json"],
-    [".eas/scripts/rollout-health.mjs", "eas/scripts/rollout-health.mjs"],
-    ...workflowFiles.map((f): [string, string] => [`.eas/workflows/${f}`, `eas/workflows/${f}`]),
+    ...readdirSync(join(root, ".eas/scripts")).map((f): [string, string] => [`.eas/scripts/${f}`, `eas/scripts/${f}`]),
+    // The release lane's workflows moved to templates/release/ when they took the release markup.
+    ...workflowFiles.map((f): [string, string] => [`.eas/workflows/${f}`, ["deploy-production.yml", "pr-preview.yml"].includes(f) ? `release/${f}` : `eas/workflows/${f}`]),
+    ["fingerprint.config.js", "expo/fingerprint.config.js"],
+    [".fingerprintignore", "expo/.fingerprintignore"],
     [".maestro/config.yaml", "maestro/config.yaml"],
     ...readdirSync(join(root, ".maestro/flows")).map((f): [string, string] => [`.maestro/flows/${f}`, `maestro/flows/${f}`]),
     ...readdirSync(join(root, ".maestro/subflows")).map((f): [string, string] => [`.maestro/subflows/${f}`, `maestro/subflows/${f}`]),
   ];
+  const marked = (template: string) => /^\s*#@(?:if|end|paths|extra-paths|hook-secrets)\b|\bGENESIS_RELEASE_[A-Z_]*[A-Z]\b/m.test(readFileSync(join(templates, template), "utf8"));
 
-  it.each(pairs)("%s is templates/%s unchanged", (copy, template) => {
+  it.each(pairs.filter(([, t]) => !marked(t)))("%s is templates/%s unchanged", (copy, template) => {
     expect(read(copy)).toBe(readFileSync(join(templates, template), "utf8"));
   });
 
   it("every template has its copy in the starter", () => {
     const listed = new Set(pairs.map(([, t]) => t));
-    const all = ["eas", "maestro"].flatMap((dir) =>
+    const all = ["eas", "expo", "maestro", "release"].flatMap((dir) =>
       readdirSync(join(templates, dir), { recursive: true, withFileTypes: true })
         .filter((e) => e.isFile())
         .map((e) => join(e.parentPath, e.name).slice(templates.length + 1)),
@@ -106,6 +112,8 @@ describe("EAS workflows", () => {
     // Unset, EAS tries an upload whenever @sentry/react-native is installed and hides a failure.
     for (const [id, job] of Object.entries(workflow(file).jobs)) {
       if (job.type === "update") expect(job.params?.upload_sentry_sourcemaps, `${file} ${id}`).toBe(false);
+      // The release lane's scripted updates upload source maps only with release.sentry.
+      for (const step of job.steps ?? []) expect(step.run ?? "", `${file} ${id}`).not.toContain("sentry-expo-upload-sourcemaps");
     }
   });
 
@@ -134,32 +142,36 @@ describe("EAS workflows", () => {
     expect(read(`.eas/workflows/${file}`)).not.toMatch(/expo_[A-Za-z0-9]{20,}|-----BEGIN/);
   });
 
-  it("deploy-production runs on every merge to main, with no approval to wait on", () => {
+  it("deploy-production runs only when started (by native-release.yml), for a named commit, with no approval to wait on", () => {
     const { on, jobs } = workflow("deploy-production.yml");
-    expect(Object.keys(on)).toEqual(["push"]);
-    expect(on.push).toEqual({ branches: ["main"] });
+    // On push it would race native-release.yml on every merge.
+    expect(Object.keys(on)).toEqual(["workflow_dispatch"]);
+    const inputs = (on.workflow_dispatch as { inputs: Record<string, { type?: string; required?: boolean }> }).inputs;
+    expect(inputs.commit_sha).toMatchObject({ type: "string", required: true });
+    // Choices compared as text: eas workflow:run -F sends every value as a string.
+    expect(inputs.ios?.type).toBe("choice");
+    expect(inputs.android?.type).toBe("choice");
     // main's merge is the approval: an approval job would hold every merge's release.
     expect(Object.values(jobs).filter((j) => j.type === "require-approval")).toEqual([]);
-    // `eas workflow:run` starts any workflow: only a push to main may run the first job.
-    expect(jobs.fingerprint?.if).toBe("${{ github.event_name == 'push' && github.ref_name == 'main' }}");
-    for (const [id, job] of Object.entries(jobs)) if (id !== "fingerprint") expect(job.needs, id).toBeTruthy();
-    // One deploy at a time, and the running one always finishes: never cancel_in_progress.
+    // One deploy at a time, and the running one always finishes: never cancel_in_progress. Every
+    // waiting run is kept (queue: max), so one for a platform never replaces one for the other.
     const { concurrency } = parse(read(".eas/workflows/deploy-production.yml")) as { concurrency?: unknown };
-    expect(concurrency).toEqual({ group: "${{ workflow.filename }}-${{ github.ref }}" });
+    expect(concurrency).toEqual({ group: "${{ workflow.filename }}", queue: "max" });
   });
 
   it("deploy-production updates every install, and submits each build in the run that made it", () => {
     const { jobs } = workflow("deploy-production.yml");
-    const updates = Object.values(jobs).filter((j) => j.type === "update");
-    expect(updates).toHaveLength(2);
-    // To every install: no rollout (a staged one would block the next merge's update, and EAS failed
-    // to publish one set to 100).
-    for (const job of updates) expect(job.params?.rollout_percentage).toBeUndefined();
-    // An update only where a build with this fingerprint exists; a build only where none does,
-    // and that build is submitted in the same run.
+    // Published by the lane's script (the profile's env, the runtime checked), to every install:
+    // eas update with no --rollout-percentage.
     for (const platform of ["ios", "android"]) {
-      expect(jobs[`update_${platform}`]?.if).toBe(`\${{ needs.get_${platform}_build.outputs.build_id }}`);
-      expect(jobs[`build_${platform}`]?.if).toBe(`\${{ !needs.get_${platform}_build.outputs.build_id }}`);
+      const publish = jobs[`update_${platform}`]?.steps?.map((st) => st.run ?? "").join("\n") ?? "";
+      expect(publish).toContain(`update --channel "production" --platform ${platform}`);
+      expect(publish).not.toContain("rollout-percentage");
+      expect(publish).toContain(`with-profile eas.json "production" ${platform} --`);
+      expect(jobs[`get_${platform}_build`]?.if).toBe(`\${{ inputs.${platform} == 'true' }}`);
+      expect(jobs[`update_${platform}`]?.if).toBe(`\${{ inputs.${platform} == 'true' && needs.get_${platform}_build.outputs.build_id }}`);
+      expect(jobs[`update_${platform}`]?.needs).toEqual([`get_${platform}_build`]);
+      expect(jobs[`build_${platform}`]?.if).toBe(`\${{ inputs.${platform} == 'true' && !needs.get_${platform}_build.outputs.build_id }}`);
       expect(jobs[`submit_${platform}`]?.needs).toEqual([`build_${platform}`]);
       expect(jobs[`submit_${platform}`]?.params?.build_id).toBe(`\${{ needs.build_${platform}.outputs.build_id }}`);
     }

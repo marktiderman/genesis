@@ -385,6 +385,44 @@ In an app whose database files live elsewhere ([A phone app beside a web app](#a
 `add` copies none of the block's migrations, pgTAP tests, Edge Functions or `config.toml`
 sections; a step says to run `genesis add <block>` in that app, unless its lock already lists it.
 
+### genesis add template
+
+`genesis add template <set|template…>` writes Genesis's templates into an app that doesn't have
+them yet, or writes them again with the app's current `genesis.config.json`, and records them in
+`genesis.lock.json`, so `genesis upgrade` refreshes them from then on. `genesis add release` is
+`genesis add template release`.
+
+| Set | Templates |
+| --- | --- |
+| `release` | the native release lane: `.github/workflows/native-release.yml`, `.eas/workflows/deploy-production.yml` and `pr-preview.yml`, `.eas/scripts/native-release.mjs`, `fingerprint.config.js`, `.fingerprintignore` (docs/NATIVE-RELEASE.md) |
+| `eas`, `expo`, `maestro` | every template in that folder |
+| `ci` | app CI, Claude review and the weekly Genesis upgrade |
+| `database` | the database CI |
+| `vercel` | `vercel.json` and `scripts/vercel-ignore-build.sh` (a web app's) |
+
+Or name one template by its path under `templates/` (`eas/workflows/rollout.yml`); `--list` shows
+the sets and which the app has.
+
+- A missing file is written; a file with the same text is adopted into the lock.
+- A file of the same name the app already has is never written over: the new text goes to
+  `<file>.genesis-next`, and the lock records it as pending, so the next upgrade merges against it.
+  `--replace` writes over it instead (once the app's choices are in `genesis.config.json`; the old
+  text is in git).
+- A file already in the lock that the app hasn't edited is written again, so after changing
+  `release`, `genesis add template release` applies it.
+- The release lane's templates are rendered with `release` (docs/NATIVE-RELEASE.md, "The release
+  block"); the CI callers are pinned to the Genesis release the app is on
+  (`@<commit> # @marktiderman/genesis@<version>`, found with `git ls-remote`).
+- With `appFolder`, `.github/workflows` files go to the repository's root.
+- `native-release.yml` is held back while another workflow still releases on a push to `main`: an
+  EAS workflow in the app (the app's old `deploy-production.yml`, kept with `.genesis-next`, or
+  another push-triggered one with an update or build job) or a GitHub workflow running `eas update`,
+  `eas build` or `eas workflow:run`; a push trigger whose `branches` / `branches_ignore` leave
+  `main` out doesn't count. The command then exits 1, naming them. `--replace-rival` writes it
+  anyway, for a change that removes the rival too (the rival isn't deleted; the summary names it,
+  and `genesis doctor` fails with `release-lane-twice` until it's gone). The summary lists the
+  secrets to add.
+
 ### genesis migrate
 
 Compares the migrations of the app's blocks (`genesis.lock.json`, less any whose
@@ -574,6 +612,16 @@ merges your edits against the installed versions, so without them it stops, chan
 gives the install command. (With no owned files, the upgrade's own install is enough, unless you
 pass `--no-install` or `--dry-run` and the doctor is on.)
 
+**The release lane, pins and missing templates.** Owned templates are rendered with the app's
+`genesis.config.json` `release` block (docs/NATIVE-RELEASE.md). An app whose lock still has the
+push-triggered `deploy-production.yml` (and no `native-release.yml`) isn't switched: that file is
+held as it is, and the summary says how to adopt the new lane (`genesis add release`). Every Genesis caller in the repository's workflows
+(`uses: marktiderman/genesis/.github/workflows/…@<commit> # @marktiderman/genesis@<version>`) in
+an owned workflow takes the commit the release is tagged at with the file's new text, and the lock
+records it (`pin`); a shared workflow it only names moves its pin only when the template didn't
+change between the releases (docs/NATIVE-RELEASE.md, "Upgrading and customising"). Template
+sets the app has none of are listed at the end, with the `genesis add template` line.
+
 **An app in a sub-folder of its repository.** Set `"appFolder"` at the top of
 `genesis.config.json` to the app's folder from the repository root:
 
@@ -589,10 +637,15 @@ pass `--no-install` or `--dry-run` and the doctor is on.)
   still from the app's folder merges with those paths as they were, and the summary warns and
   names them, to prefix by hand. A lockfile above the app stays an edit of yours, and an
   unprefixed line for it is right, so it's never named.
-- `.github/workflows` is left to the repository: GitHub reads only the root's, a file that holds
-  the rest of its CI too, so nothing is written, merged or left beside it. A template's change is
-  named once in the summary (your copy passes `working-directory: mobile`; see docs/APP-CI.md),
-  and the doctor's `lock-files` doesn't ask for the file here.
+- `.github/workflows/native-release.yml`, a workflow that is Genesis's alone, is refreshed and
+  merged in the repository's own `.github/workflows` like any owned file, rendered with the app's
+  folder (`working-directory: mobile`, `paths` from the repository root).
+- The other `.github/workflows` files are left to the repository: GitHub reads only the root's, a
+  file that holds the rest of its CI too, so nothing is written, merged or left beside it. A
+  template's change is named once in the summary (your copy passes `working-directory: mobile`;
+  see docs/APP-CI.md), and the doctor's `lock-files` doesn't ask for the file here. Their Genesis
+  pins move in place when the template didn't change between the releases; otherwise the summary
+  says to move the pin with the template's changes.
 
 A conflict in a workflow in an app below its repository's root says to set it.
 
@@ -615,8 +668,9 @@ The next `genesis upgrade` (and `genesis doctor`) in the app then runs the new C
 dependencies.
 
 `genesis.lock.json` is checked like a manifest, since anyone with commit access can edit it: each
-entry may only write where its kind of source goes (a template to `eas.json`, `.eas/`, `.maestro/`
-or `.github/workflows/`, a function file to `supabase/functions/<name>/`, a pgTAP test to
+entry may only write where its kind of source goes (a template to `eas.json`, `.eas/`, `.maestro/`,
+`.github/workflows/`, `fingerprint.config.js`, `.fingerprintignore`, `vercel.json` or
+`scripts/vercel-ignore-build.sh`, a function file to `supabase/functions/<name>/`, a pgTAP test to
 `supabase/tests/database/`, a skill to `.claude/skills/`), never a migration and never `.git`;
 substitutions may only replace the starter's own names, each with a plain name, and
 `REPLACE_WITH_APP_FOLDER`, with a plain relative folder (`src`, `apps/web`). A pgTAP test waits while its block has
@@ -941,6 +995,8 @@ keep `raw-color`).
 | `native-screen-layout` | warn | A route screen under the router root (`native.routerRoot`, default `src/app`, else `app`) that renders no Genesis screen layout, directly or through one local import (`./`, `../`, `@/`, `~/`). `_layout`, `+html`, `+native-intent`, `+middleware`, `+api` files, re-export-only routes and `<Redirect>` routes are skipped. Also a warning when the router root is missing, or when `src` leaves it unscanned. |
 | `store-readiness` | warn | Static checks of `app.json`, `app.config.json` and (as text, best-effort) `app.config.{ts,js,mjs,cjs}`. **Usage strings**: Expo applies an installed module's config plugin even when it isn't listed, with a generic default string (`Allow $(PRODUCT_NAME) to access your camera`), and App Review rejects generic purpose strings; so a module without its own sentence (`ios.infoPlist.<Key>` or the plugin option) is flagged, and `false` (Expo's opt-out) counts as set. Covered: `expo-camera`, `expo-image-picker` (photos; camera only "if the app takes photos"), `expo-media-library`, `expo-location`, `expo-av` / `expo-audio` (microphone "if the app records audio"), `expo-contacts`, `expo-local-authentication` (Face ID). **Sign in with Apple**: third-party sign-in (`@react-native-google-signin/google-signin`, `react-native-fbsdk-next`, or a Supabase `signInWithOAuth` / `signInWithIdToken` with a non-Apple provider) without Apple sign-in (`expo-apple-authentication`, or Supabase's `apple` provider). Guideline 4.8 accepts any equivalent privacy-focused login, so this is a warning to `allow` with the reason when another option qualifies; `expo-auth-session` alone doesn't trigger it (it serves non-login OAuth too). Also the export-compliance flag (`ios.config.usesNonExemptEncryption` or `ITSAppUsesNonExemptEncryption`), `ios.privacyManifests`, and a missing Expo config. Those two count as set when the [Expo config plugin](#expo-config-plugin) (`@marktiderman/genesis-cli` in `plugins`) will set them: export compliance unless `exportCompliance: false`, the privacy manifest unless `privacyManifest: false` and only when a dependency needs one. |
 | `eas-placeholder` | warn | A `REPLACE_WITH_…` placeholder from the EAS templates still in `eas.json` or `.eas/workflows/*.yml` (YAML comment lines aren't read), each with what replaces it: the store ids in `eas.json` `submit.production` (the App Store Connect Apple ID, the Apple Team ID, the Google Play service account key's path), or `REPLACE_WITH_APP_FOLDER` in `pr-preview.yml`'s `paths`, which otherwise matches nothing, so code changes never start a preview. `genesis init --template native` fills the app folder in (`src`). |
+| `fingerprint-plugin-files` | warn | The app's Expo config uses the fingerprint runtime version (the Genesis plugin sets it) and loads `@marktiderman/genesis-native/rich-push-plugin`, but no `fingerprint.config.js` sets `configPluginSourceType: "files"`. Hashed by `package.json`, each new Genesis version would make a store build instead of an update. `genesis add template expo` writes the config (docs/NATIVE-RELEASE.md, "Fingerprints"). |
+| `release-lane-twice` | error | The app has `.github/workflows/native-release.yml` (at the repository's root under `appFolder`) and another workflow that also releases: a GitHub workflow running `eas update`, `eas build` or `eas workflow:run`, or an EAS workflow with a `push` trigger that can fire on `main` (no branch filter, a matching `branches` glob, not in `branches_ignore`) and an update or build job (the old push-triggered `deploy-production.yml`). Each release would go out twice, so it fails the run. `genesis add release` holds `native-release.yml` back while one is there, unless run with `--replace-rival`. |
 
 **`supabase`**, for `supabase/migrations/*.sql` (`supabase.migrations`). The SQL is read
 statement by statement with comments removed and string (`'…'`, `E'…'`) and dollar-quoted

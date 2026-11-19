@@ -1,3 +1,8 @@
+# Copy to .eas/workflows/pr-preview.yml.
+# Rendered first: `genesis add template release` (or `genesis init --template native`) writes it
+# with genesis.config.json `release`. Copying by hand, copy a rendered file (the RN starter's, or
+# the CLI's output), never this template: its `#@if` lines and release tokens only work rendered.
+#
 # PR preview: an installable build of each pull request, and an update on its own channel.
 #
 # 1. Fingerprint the native project as the preview variant builds it.
@@ -32,8 +37,9 @@
 # with the preview environment's variables, so keep nothing there that production depends on.
 # EAS doesn't run pull_request workflows for pull requests from forks.
 #
-# Genesis template (templates/eas/workflows/pr-preview.yml). Edit the copy in your app; see
-# docs/NATIVE-RELEASE.md in the Genesis repository.
+# Genesis template (templates/release/pr-preview.yml), rendered with genesis.config.json
+# `release` (its platforms, and `paths` after the app's own); see docs/NATIVE-RELEASE.md in the
+# Genesis repository.
 name: PR preview
 
 on:
@@ -51,6 +57,7 @@ on:
       - "package-lock.json"
       - "bun.lock"
       - "bun.lockb"
+      # genesis.config.json release.paths: folders outside the app its bundle reads.
   pull_request_labeled:
     labels: [Preview]
 
@@ -147,6 +154,8 @@ jobs:
       EXPO_PUBLIC_APP_VARIANT: preview
     params:
       channel: pr-${{ github.event.pull_request.number }}
+      # The platforms the release lane builds: an update for one that's off would reach no build.
+      platform: all
       # Explicit: unset, EAS tries a Sentry source map upload whenever @sentry/react-native is
       # installed and only logs a failure. Set true once the Sentry plugin is on in app.config.ts
       # (with SENTRY_AUTH_TOKEN), so a failed upload fails the job.

@@ -1,5 +1,6 @@
-# Copy to .github/workflows/claude-review.yml. Replace GENESIS_SHA with the commit of the
-# Genesis release you run (docs/APP-CI.md in marktiderman/genesis says how).
+# Copy to .github/workflows/claude-review.yml. genesis init, genesis add template and genesis upgrade
+# write the Genesis release's commit in place of GENESIS_SHA; in a copy made by hand, replace it
+# with the commit of the release you run (docs/APP-CI.md in marktiderman/genesis says how).
 # Claude reviews each pull request against this app's CLAUDE.md and AGENTS.md (run
 # `genesis agents` so they hold the Genesis guide). Needs the Claude GitHub app and the
 # CLAUDE_CODE_OAUTH_TOKEN secret.

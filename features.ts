@@ -2193,7 +2193,7 @@ export const features = defineFeatures({
   },
   "eas-workflows": {
     name: "EAS release workflows",
-    summary: "EAS Workflows a native app owns, copied from templates/eas: pull request previews (fingerprint, repack a matching build or build one, an update on pr-<number>, a comment with the install QR code), a production deploy on every merge to main (a store build, submitted in the same run, only when the native fingerprint changed, else an over-the-air update to every install; main's protected merge is the approval), a manual promote or roll back for an update staged by hand, Maestro on a simulator build, and an eas.json whose profiles match the APP_VARIANT variants.",
+    summary: "The release workflows a native app owns, from templates/ (written by genesis init or genesis add template release, refreshed by genesis upgrade, customised in genesis.config.json `release`): a GitHub job on every merge to main that publishes an over-the-air update per platform when a finished store build has the commit's runtime version, and otherwise hands that platform to a dispatch-only EAS workflow that builds and submits, or waits for a build in progress and publishes on it; pull request previews (repack a matching build or build one, an update on pr-<number>, a comment with the install QR code); a manual promote or roll back for an update staged by hand; Maestro on a simulator build; and an eas.json whose profiles match the APP_VARIANT variants.",
     category: "Tooling",
     // Not run against a real EAS project yet: the files pass eas-cli's schema checks offline and
     // the starter's safety tests. Beta once a preview, a deploy and a rollout have run for real.

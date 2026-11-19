@@ -52,7 +52,7 @@ export function copyOwned(root: string, lock: GenesisLock, write: OwnedWrite, dr
 }
 
 export type RefreshOutcome =
-  | { path: string; outcome: "unchanged" | "updated" | "merged" | "conflict" | "kept-deleted" | "gone-upstream" | "kept-mine" | "refused" | "deferred" | "resolved" | "repository"; detail?: string };
+  | { path: string; outcome: "unchanged" | "updated" | "merged" | "conflict" | "kept-deleted" | "gone-upstream" | "kept-mine" | "refused" | "deferred" | "resolved" | "repository" | "held"; detail?: string };
 
 const CLI = "@marktiderman/genesis-cli";
 
@@ -77,7 +77,7 @@ export function ownedKeyProblem(key: string, source: string, localNames: Readonl
   if (key.startsWith("supabase/migrations/")) return `${key} is a migration; migrations are never refreshed`;
   const base = rel.split("/").pop()!;
   if (pkg === CLI && rel.startsWith("templates/")) {
-    return /^(eas\.json|\.eas\/[\w./-]+|\.maestro\/[\w./-]+|\.github\/workflows\/[\w.-]+\.ya?ml)$/.test(key) ? null : `${key} isn't where a template goes`;
+    return /^(eas\.json|vercel\.json|fingerprint\.config\.js|\.fingerprintignore|scripts\/vercel-ignore-build\.sh|\.eas\/[\w./-]+|\.maestro\/[\w./-]+|\.github\/workflows\/[\w.-]+\.ya?ml)$/.test(key) ? null : `${key} isn't where a template goes`;
   }
   const fn = /^functions\/([a-z0-9][a-z0-9_-]*)\/([A-Za-z0-9][A-Za-z0-9._-]*)$/.exec(rel);
   if (fn) return key === `supabase/functions/${fn[1]}/${fn[2]}` ? null : `${key} isn't where ${rel} goes`;
