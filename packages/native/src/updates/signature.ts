@@ -10,6 +10,11 @@
  * (an empty string counts as not given: expo-updates gives `""` for the
  * runtime version in a development build); one that doesn't apply, with
  * updates off, as `none`.
+ *
+ * With `buildMetadata` (a module the app writes at publish time: the commit,
+ * the OTA number, the release), the signature also carries `commit`,
+ * `otaNumber` and `release`, and the text names them. Without it they are
+ * null and the text is as before.
  */
 import type { ApplicationLike, UpdatesModuleLike } from "./modules";
 
@@ -27,10 +32,33 @@ export interface VersionSignature {
   launch: "update" | "embedded" | "off";
   /** expo-updates fell back to the embedded code after a failed launch. */
   emergency: boolean;
+  /** The commit the bundle was built from (`buildMetadata`), or null. Optional for signatures made by hand. */
+  commit?: string | null;
+  /** The OTA number (`buildMetadata`), or null. */
+  otaNumber?: string | null;
+  /** The release's name (`buildMetadata`), or null. */
+  release?: string | null;
   /** One line, for an About row. */
   short: string;
   /** Several lines, for a support report. */
   text: string;
+}
+
+/**
+ * What the app stamps into its bundle when it publishes (a generated `build-metadata.ts` or JSON):
+ * every field optional.
+ */
+export interface BuildMetadata {
+  /** The commit the bundle was built from, full or short. */
+  commit?: string | null;
+  commitMessage?: string | null;
+  branch?: string | null;
+  /** The over-the-air update's number on its channel. */
+  otaNumber?: string | number | null;
+  /** The release's name (a tag, a date, a version). */
+  release?: string | null;
+  /** When the release or update was published, ISO. */
+  publishedAt?: string | null;
 }
 
 export interface VersionSignatureInput {
@@ -39,6 +67,8 @@ export interface VersionSignatureInput {
   /** `Platform.OS`. */
   platform: string;
   requestedChannel?: string | null;
+  /** The commit, OTA number and release the app stamped at publish time. */
+  buildMetadata?: BuildMetadata | null;
 }
 
 const UNKNOWN = "unknown";
@@ -46,7 +76,9 @@ const UNKNOWN = "unknown";
 /** A module's value, or null when it gave none (undefined, null or an empty string). */
 const given = (value: string | null | undefined): string | null => (typeof value === "string" && value.trim() !== "" ? value : null);
 
-export function versionSignature({ application, updates, platform, requestedChannel = null }: VersionSignatureInput): VersionSignature {
+const metaText = (value: string | number | null | undefined): string | null => (typeof value === "number" && Number.isFinite(value) ? String(value) : given(typeof value === "string" ? value : null));
+
+export function versionSignature({ application, updates, platform, requestedChannel = null, buildMetadata = null }: VersionSignatureInput): VersionSignature {
   const version = given(application?.nativeApplicationVersion);
   const build = given(application?.nativeBuildVersion);
   const on = Boolean(updates?.isEnabled);
@@ -76,5 +108,11 @@ export function versionSignature({ application, updates, platform, requestedChan
     `Update ${launch === "off" ? "updates off" : launch === "embedded" ? "embedded" : (updateId ?? UNKNOWN)}`,
   ];
   if (emergency) lines.push(`Emergency launch: ${updates?.emergencyLaunchReason ?? UNKNOWN}`);
-  return { version, build, platform, channel, requestedChannel, runtimeVersion, updateId, launch, emergency, short, text: lines.join("\n") };
+  const commit = metaText(buildMetadata?.commit);
+  const otaNumber = metaText(buildMetadata?.otaNumber);
+  const release = metaText(buildMetadata?.release);
+  if (commit) lines.push(`Commit ${commit}`);
+  if (otaNumber) lines.push(`OTA ${otaNumber}`);
+  if (release) lines.push(`Release ${release}`);
+  return { version, build, platform, channel, requestedChannel, runtimeVersion, updateId, launch, emergency, commit, otaNumber, release, short, text: lines.join("\n") };
 }

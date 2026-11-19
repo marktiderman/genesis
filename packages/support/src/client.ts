@@ -630,7 +630,11 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
             device: context.device ?? {},
             // Severity, as the intake function keeps it: always in context, and also in its own
             // column when the app says migration 0003 added it.
-            context: record.severity ? { ...(context.extra ?? {}), severity: record.severity } : (context.extra ?? {}),
+            context: {
+              ...(context.extra ?? {}),
+              ...(record.severity ? { severity: record.severity } : {}),
+              ...(record.diagnosticsId ? { diagnosticsId: record.diagnosticsId } : {}),
+            },
             ...(record.severity && options.severityColumn ? { severity: record.severity } : {}),
           })
           .select("id")
