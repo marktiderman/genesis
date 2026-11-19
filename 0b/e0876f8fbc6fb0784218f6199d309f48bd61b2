@@ -1,0 +1,33 @@
+.changeset/doctor-fix-engine.md
+  s_ca8e075e853203::t_e73610be625089 22-23,29-30
+docs/APP-CI.md
+  s_ca8e075e853203::t_d0666ee0e7bc9a 85-87
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_ab382716ca5326 1035
+packages/genesis-cli/src/doctor/settings.ts
+  s_ca8e075e853203::t_732063625d613c 81
+packages/genesis-cli/src/fix/engine.ts
+  s_ca8e075e853203::t_56e3ef2e8402cc 9,83-84,270,272
+packages/genesis-cli/src/upgrade/registry.ts
+  s_ca8e075e853203::t_a067f4de9616bc 14
+packages/genesis-cli/test/doctor-settings.test.ts
+  s_ca8e075e853203::t_ff6b39676adacf 139-140
+packages/genesis-cli/test/fix-engine.test.ts
+  s_ca8e075e853203::t_0ffd3976fe0803 2,456-474
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0be0876f8fbc6fb0784218f6199d309f48bd61b2",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
