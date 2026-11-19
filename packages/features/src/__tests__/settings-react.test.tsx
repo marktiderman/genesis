@@ -1,3 +1,4 @@
+// @feat:settings-screen
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { GenesisSettings, type GenesisSettingsProps } from "../settings-react";

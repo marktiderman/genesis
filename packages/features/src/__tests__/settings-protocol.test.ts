@@ -1,3 +1,4 @@
+// @feat:settings-screen
 import { describe, expect, it, vi } from "vitest";
 import {
   APP_HOST_CAPABILITIES,

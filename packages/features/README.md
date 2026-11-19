@@ -205,9 +205,12 @@ unless "off when any of them is off" is what you mean.
 ### The Settings screen
 
 One screen, two hosts: the localhost wizard (`genesis setup`) and the app's own platform-admin
-page. `<GenesisSettings>` (`@marktiderman/genesis-config/settings/react`) draws it, and talks to its
-host only through a `SettingsClient` (`@marktiderman/genesis-config/settings-protocol`, free of zod
+page. `<GenesisSettings>` (`@marktiderman/genesis-config/settings/react`, Beta) draws it, and talks to its
+host only through a `SettingsClient` (`@marktiderman/genesis-config/settings-protocol`, Beta, free of zod
 and React).
+
+**Beta.** The screen ships before the maintainer's design review: its look, copy keys and props may
+change in a minor release.
 
 ```tsx
 import { APP_HOST_CAPABILITIES, createSettingsClient } from "@marktiderman/genesis-config/settings-protocol";

@@ -4080,9 +4080,7 @@
       "name": "Settings screen",
       "summary": "One Settings screen for two hosts, the localhost wizard and the app's platform-admin page: <GenesisSettings client capabilities /> shows every key with its value, the layer it came from and its lock, the doctor's findings with their fixes (plan, confirm, apply), secret status by name, upgrades and the audit history, over a versioned JSON protocol (createSettingsClient). It writes only what the host can: the app host the database layer, build keys through the repo.",
       "category": "Platform",
-      "status": "building",
-      "horizon": "now",
-      "claimedBy": "mark",
+      "status": "beta",
       "kind": "pattern",
       "keywords": [
         "settings screen",
@@ -4095,7 +4093,7 @@
         "audit"
       ],
       "platforms": {
-        "web": "building"
+        "web": "beta"
       },
       "entry": {
         "web": "@marktiderman/genesis-config/settings/react"
