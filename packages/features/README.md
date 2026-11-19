@@ -138,7 +138,7 @@ export const supportSettings = defineSettings("support", {
   agentDesk: { type: "boolean", default: { max: true, standard: true, min: false }, requires: ["support.inbox"] },
   inbox: { type: "boolean", default: true },
   dumpRetentionDays: { type: "number", default: 90, min: 7, max: 365 },
-  githubRepo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", store: "edge" },
+  githubRepo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", store: "edge", setup: "github.issues" },
   sentryDsn: { type: "string", default: null, applies: "build" },
 });
 
@@ -187,7 +187,8 @@ flag change a locked flag. It is the same gate, with one more check.
 **Packages without running them.** A package also lists its declaration in package.json
 (`genesis.settings`: `{ "namespace": …, "keys": { … } }`, read with `settingsFromManifest`), so
 `genesis doctor` checks an app's genesis.config.json against the installed packages
-(`invalid-setting`). `catalogueManifest` is the catalogue as the database checks values against it.
+(`invalid-setting`, `setting-requires`, and `setup-incomplete` and `secret-missing` for keys with a
+`setup` step or a secret they `needs`, checked by name only). `catalogueManifest` is the catalogue as the database checks values against it.
 
 ## The gate
 

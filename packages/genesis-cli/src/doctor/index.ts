@@ -46,7 +46,7 @@ import { checkAgentHooks } from "./agent-hooks.js";
 import { checkOverlays } from "./overlays.js";
 import { checkLockFiles } from "./lock-files.js";
 import { checkDatabaseHome } from "./database.js";
-import { checkConfigKeys, checkSettings } from "./settings.js";
+import { checkConfigKeys, settingsCheck, type SettingsCheckOptions } from "./settings.js";
 import { checkEslintConfig } from "./eslint-config.js";
 import { checkFigmaRoutesRule } from "./figma-routes.js";
 import { checkMigrationDrift } from "./migration-drift.js";
@@ -155,6 +155,13 @@ export interface RunDoctorOptions {
   packageFixes?: boolean;
   /** Test seams for `genesis-behind` (the npm lookups, fetch, gh, the clock, the cache file). */
   registry?: Omit<RegistryDeps, "network">;
+  /**
+   * Read the settings' database layer through the linked project (`--database`). Left out, it is
+   * read when the app is linked and `network` is on.
+   */
+  database?: boolean;
+  /** Test seam for the `settings` check's secret status and database reads (supabase, gh, eas). */
+  stores?: Pick<SettingsCheckOptions, "run">;
 }
 
 export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorResult> {
@@ -179,7 +186,8 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   const appChecks = [...packagePlugins, ...(patterns ? [patterns.plugin] : []), ...plugins];
   // doctor.network: false is --offline for good: genesis-behind reads only its cache.
   const behind = { ...options.registry, network: (options.network ?? false) && config.network !== false };
-  await runChecks(ctx, [...builtinChecks(config, { contracts: options.contracts ?? true, figma: options.figma ?? true, behind }), ...appChecks]);
+  const settings: SettingsCheckOptions = { network: behind.network, ...(options.database !== undefined ? { database: options.database } : {}), ...options.stores };
+  await runChecks(ctx, [...builtinChecks(config, { contracts: options.contracts ?? true, figma: options.figma ?? true, behind, settings }), ...appChecks]);
   for (const p of fixes.problems) raw.push({ rule: "package-rules-invalid", level: "warn", file: `${p.package}/package.json`, subject: p.package, message: `genesis.doctor.fixes: ${p.message}` });
 
   if (options.build) {
@@ -306,7 +314,7 @@ async function runChecks(ctx: DoctorContext, checks: DoctorPlugin[]): Promise<vo
  * here plus its ids in BUILTIN_RULES (rules.ts); a pack's checks run only when
  * `packs` lists it.
  */
-export function builtinChecks(config: DoctorConfig, options: { contracts?: boolean; figma?: boolean; behind?: RegistryDeps } = {}): DoctorPlugin[] {
+export function builtinChecks(config: DoctorConfig, options: { contracts?: boolean; figma?: boolean; behind?: RegistryDeps; settings?: SettingsCheckOptions } = {}): DoctorPlugin[] {
   const packs: Record<DoctorPack, DoctorPlugin> = {
     native: { name: "native", check: checkNativePack },
     supabase: { name: "supabase", check: checkSupabasePack },
@@ -338,7 +346,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "overlays", check: (ctx: DoctorContext) => checkOverlays(ctx) },
     { name: "lock-files", check: checkLockFiles },
     { name: "database-elsewhere", check: checkDatabaseHome },
-    { name: "settings", check: checkSettings },
+    { name: "settings", check: settingsCheck(options.settings ?? {}) },
     { name: "genesis-config-keys", check: checkConfigKeys },
     { name: "eslint-config", check: checkEslintConfig },
     { name: "migration-drift", check: checkMigrationDrift },

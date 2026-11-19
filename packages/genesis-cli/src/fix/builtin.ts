@@ -6,7 +6,6 @@
  */
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
-import type { Finding } from "../doctor/types.js";
 import type { Codemod } from "../upgrade/codemods.js";
 import type { UpgradeOptions, UpgradeReport } from "../upgrade/index.js";
 import type { MigrateOptions, MigrateReport } from "../blocks/migrate.js";
@@ -258,47 +257,147 @@ function upgradeFix(deps: BuiltinDeps): Fix {
   };
 }
 
+const CONFIG_FILE = "genesis.config.json";
+
+/** genesis.config.json with its `settings` changed, keeping its indent and final newline. */
+function rewriteSettings(root: string, change: (settings: Record<string, unknown>) => void): string {
+  const raw = readFileSync(path.join(root, CONFIG_FILE), "utf8");
+  const json = JSON.parse(raw) as { settings?: Record<string, unknown> };
+  const settings = { ...(json.settings ?? {}) };
+  change(settings);
+  if (Object.keys(settings).length) json.settings = settings;
+  else delete json.settings;
+  const indent = /^[ \t]+(?=")/m.exec(raw)?.[0] ?? "  ";
+  return `${JSON.stringify(json, null, indent)}${raw.endsWith("\n") ? "\n" : ""}`;
+}
+
+/** The finding subjects a fix was asked for (all of them when it was planned without findings). */
+const wantedKeys = (ctx: FixContext) => new Set(ctx.findings.map((f) => f.subject).filter((s): s is string => !!s));
+
 const removeUnknownSettings: Fix = {
   id: "settings.remove-unknown",
   kind: "auto",
   rules: ["invalid-setting"],
   title: "remove settings no installed package declares from genesis.config.json",
-  appliesTo: (f) => f.file === "genesis.config.json" && /no installed Genesis package declares this setting/.test(f.message),
+  appliesTo: (f) => f.file === CONFIG_FILE && /no installed Genesis package declares this setting/.test(f.message),
   async plan(ctx) {
     const { unknownSettingKeys } = await import("../doctor/settings.js");
-    const wanted = new Set(ctx.findings.map((f) => f.subject).filter((s): s is string => !!s));
+    const wanted = wantedKeys(ctx);
     const keys = unknownSettingKeys(ctx.root).filter((k) => !wanted.size || wanted.has(k));
     if (!keys.length) return { summary: "no unknown settings to remove" };
-    const file = "genesis.config.json";
-    const raw = readFileSync(path.join(ctx.root, file), "utf8");
-    const json = JSON.parse(raw) as { settings?: Record<string, unknown> };
-    for (const k of keys) delete json.settings![k];
-    if (json.settings && !Object.keys(json.settings).length) delete json.settings;
-    const indent = /^[ \t]+(?=")/m.exec(raw)?.[0] ?? "  ";
-    const content = `${JSON.stringify(json, null, indent)}${raw.endsWith("\n") ? "\n" : ""}`;
     return {
-      summary: `removes ${keys.map((k) => `settings.${k}`).join(", ")} from ${file}`,
-      files: [plannedFile(ctx.root, file, content, "no installed Genesis package declares these settings, so they never took effect (a typo, or a package that isn't installed)")],
+      summary: `removes ${keys.map((k) => `settings.${k}`).join(", ")} from ${CONFIG_FILE}`,
+      files: [plannedFile(ctx.root, CONFIG_FILE, rewriteSettings(ctx.root, (s) => keys.forEach((k) => delete s[k])), "no installed Genesis package declares these settings, so they never took effect (a typo, or a package that isn't installed)")],
       manual: `If a key was a typo, set the intended one (genesis catalog lists what the installed packages declare).`,
     };
   },
 };
 
-const reviewSettings: Fix = {
-  id: "settings.review",
+const resetBadSettings: Fix = {
+  id: "settings.reset",
   kind: "guided",
   rules: ["invalid-setting"],
-  title: "correct the setting's value in genesis.config.json",
+  title: "take a value that doesn't fit out of genesis.config.json (the key goes back to its default), or set one that fits",
+  appliesTo: (f) => f.file === CONFIG_FILE && f.level === "error",
   async plan(ctx) {
-    const lines = ctx.findings.map((f: Finding) => `- ${f.file}${f.subject ? ` (${f.subject})` : ""}: ${f.message}`);
+    const { badSettingValues } = await import("../doctor/settings.js");
+    const wanted = wantedKeys(ctx);
+    const bad = badSettingValues(ctx.root).filter((b) => !wanted.size || wanted.has(b.key));
+    if (!bad.length) return { summary: "no setting in genesis.config.json has a value that doesn't fit" };
+    const keys = [...new Set(bad.map((b) => b.key))];
     return {
-      summary: `${plural(ctx.findings.length, "setting")} to correct by hand`,
-      manual: `Each needs a value only you can choose:\n${lines.join("\n")}`,
+      summary: `removes ${keys.map((k) => `settings.${k}`).join(", ")} from ${CONFIG_FILE}, so ${keys.length === 1 ? "it takes its" : "they take their"} default (a lock on ${keys.length === 1 ? "it" : "them"} goes too)`,
+      files: [plannedFile(ctx.root, CONFIG_FILE, rewriteSettings(ctx.root, (s) => keys.forEach((k) => delete s[k])), "a value that doesn't fit its key is skipped at runtime anyway; without it the key resolves from the layers below")],
+      manual: `Or, instead, set a value that fits:\n${bad.map((b) => `- settings.${b.message}`).join("\n")}`,
     };
   },
 };
 
+const settingRequires: Fix = {
+  id: "settings.requires",
+  kind: "guided",
+  rules: ["setting-requires"],
+  title: "turn on the settings a setting requires (or turn that setting off yourself)",
+  async plan(ctx) {
+    const { resolveFileSettings } = await import("../doctor/settings.js");
+    const r = resolveFileSettings(ctx.root);
+    if (!r) return { summary: "the settings catalogue can't be read: genesis doctor says why" };
+    const wanted = wantedKeys(ctx);
+    const gaps = r.resolved.problems.filter((p) => p.kind === "requires" && (!wanted.size || wanted.has(p.key)));
+    const turnOn = new Set<string>();
+    const byHand: string[] = [];
+    for (const gap of gaps) {
+      for (const req of r.catalogue.keys[gap.key]?.requires ?? []) {
+        const value = r.resolved.values[req];
+        if (value !== false && value !== null && value !== undefined) continue;
+        const def = r.catalogue.keys[req];
+        const lockedInFile = r.resolved.sources[req]?.lockedBy === "file";
+        if (def?.type === "boolean" && !lockedInFile) turnOn.add(req);
+        else byHand.push(`- ${req}${lockedInFile ? " is locked off in genesis.config.json" : " needs a value only you can choose"} (${gap.key} requires it)`);
+      }
+    }
+    const on = [...turnOn].sort();
+    const alternatives = `Or turn ${gaps.map((g) => g.key).join(", ")} off instead (false in ${CONFIG_FILE}).`;
+    return {
+      summary: on.length ? `turns on ${on.map((k) => `settings.${k}`).join(", ")} in ${CONFIG_FILE}` : `${plural(gaps.length, "setting")} need${gaps.length === 1 ? "s" : ""} a key only you can set`,
+      files: on.length ? [plannedFile(ctx.root, CONFIG_FILE, rewriteSettings(ctx.root, (s) => on.forEach((k) => (s[k] = true))), `${gaps.map((g) => g.key).join(", ")} require${gaps.length === 1 ? "s" : ""} ${on.join(", ")}`)] : [],
+      manual: [...byHand, alternatives].join("\n"),
+    };
+  },
+};
+
+const settingSetup: Fix = {
+  id: "settings.setup",
+  kind: "guided",
+  rules: ["setup-incomplete"],
+  title: "set up a feature that needs an outside service (its guided step)",
+  async plan(ctx) {
+    const { resolveFileSettings } = await import("../doctor/settings.js");
+    const r = resolveFileSettings(ctx.root);
+    const keys = [...wantedKeys(ctx)].sort();
+    const lines = keys.map((key) => {
+      const def = r?.catalogue.keys[key];
+      const by = `set settings.${key} in ${CONFIG_FILE}${def?.secret ? ` and its secret ${def.secret.name} (genesis fix secrets.set, once the doctor reports it missing)` : ""}`;
+      return def?.setup ? `- ${key}: genesis setup --step ${def.setup} (or ${by})` : `- ${key}: ${by}`;
+    });
+    return {
+      summary: keys.length ? `${plural(keys.length, "feature")} to set up: each stays off until it is` : "nothing to set up",
+      ...(lines.length ? { manual: lines.join("\n") } : {}),
+    };
+  },
+};
+
+function setSecrets(): Fix {
+  return {
+    id: "secrets.set",
+    kind: "guided",
+    rules: ["secret-missing"],
+    title: "set the missing secrets through your signed-in supabase and gh (the value is asked for, held in memory, and sent on stdin only)",
+    appliesTo: (f) => f.level !== "info" && !!f.subject,
+    async plan(ctx) {
+      const { setterFor, storeOptions, targetOfLabel } = await import("../exec/secret-stores.js");
+      const options = storeOptions(ctx.root);
+      const commands: NonNullable<FixPlanDraft["commands"]> = [];
+      const manual: string[] = [];
+      const seen = new Set<string>();
+      for (const f of [...ctx.findings].sort((a, b) => `${a.file}:${a.subject}`.localeCompare(`${b.file}:${b.subject}`))) {
+        const target = targetOfLabel(f.file);
+        if (!target || !f.subject || seen.has(`${target}:${f.subject}`)) continue;
+        seen.add(`${target}:${f.subject}`);
+        const setter = setterFor(f.subject, target, options);
+        if ("command" in setter) commands.push(setter.command);
+        else manual.push(setter.manual);
+      }
+      return {
+        summary: commands.length || manual.length ? `sets ${plural(seen.size, "secret")} by name (${[...seen].join(", ")}); values are asked for at the terminal and never shown or stored` : "no missing secret to set",
+        commands,
+        ...(manual.length ? { manual: manual.join("\n") } : {}),
+      };
+    },
+  };
+}
+
 /** Every built-in fix, in the order the engine tries them for a rule. */
 export function builtinFixes(deps: BuiltinDeps = {}): Fix[] {
-  return [scopeNames, featuresRenamed, eslintConfig, agentGuide, agentHooks, contractsFix(deps), migrateCopyFix(deps), migrateForwardFix(deps), upgradeFix(deps), removeUnknownSettings, reviewSettings];
+  return [scopeNames, featuresRenamed, eslintConfig, agentGuide, agentHooks, contractsFix(deps), migrateCopyFix(deps), migrateForwardFix(deps), upgradeFix(deps), removeUnknownSettings, resetBadSettings, settingRequires, settingSetup, setSecrets()];
 }
