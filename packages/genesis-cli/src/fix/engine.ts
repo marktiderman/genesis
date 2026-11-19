@@ -8,7 +8,9 @@
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, lstatSync, statSync, mkdirSync, readFileSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
-import { runTool, isAllowedTool, type ToolRunner } from "../exec/run.js";
+import { runTool, isAllowedTool, TOOL_AUTH_ENV, type ToolRunner } from "../exec/run.js";
+import { SecretVault } from "../exec/secret-vault.js";
+import { stdinFor } from "../exec/secret-stores.js";
 import type { Finding } from "../doctor/types.js";
 import { manualFixId, type ApplyContext, type ApplyOutcome, type Fix, type FixContext, type FixPlan, type FixPlanDraft, type FixRef, type PlannedFile, type VerifyResult } from "./types.js";
 
@@ -112,7 +114,10 @@ export function toPlan(fixId: string, root: string, draft: FixPlanDraft): FixPla
   const commands = (draft.commands ?? []).map((c) => {
     if (!Array.isArray(c.args) || c.args.some((a) => typeof a !== "string")) throw new FixError(`${fixId}: a command's args must be a list of strings`);
     if (c.tool !== "genesis" && !isAllowedTool(c.tool)) throw new FixError(`${fixId}: plans "${c.tool}", which isn't a tool a fix may run`);
-    return { tool: c.tool, args: [...c.args], ...(c.stdinSecret ? { stdinSecret: c.stdinSecret } : {}), why: c.why };
+    if (c.stdinSecret !== undefined && !/^[A-Z][A-Z0-9_]*$/.test(c.stdinSecret)) throw new FixError(`${fixId}: stdinSecret must be a secret's NAME, never a value`);
+    if (c.stdinFormat !== undefined && !["value", "dotenv"].includes(c.stdinFormat)) throw new FixError(`${fixId}: unknown stdinFormat ${JSON.stringify(c.stdinFormat)}`);
+    if (c.stdinFormat !== undefined && !c.stdinSecret) throw new FixError(`${fixId}: stdinFormat without a stdinSecret`);
+    return { tool: c.tool, args: [...c.args], ...(c.stdinSecret ? { stdinSecret: c.stdinSecret } : {}), ...(c.stdinFormat && c.stdinFormat !== "value" ? { stdinFormat: c.stdinFormat } : {}), why: c.why };
   });
   const secrets = [...new Set([...(draft.secrets ?? []), ...commands.flatMap((c) => (c.stdinSecret ? [c.stdinSecret] : []))])].sort();
   const body: Omit<FixPlan, "hash"> = { fixId, summary: draft.summary, files, commands, secrets, ...(draft.manual ? { manual: draft.manual } : {}) };
@@ -159,6 +164,11 @@ export interface ApplyOptions {
   expect?: string;
   /** Runs allowlisted tools (tests pass a stand-in). */
   run?: ToolRunner;
+  /**
+   * Keep the plan's secrets in the vault after verifying: the caller still prints the result
+   * redacted against them, then clears the vault itself (`genesis fix` does). Default: dropped here.
+   */
+  keepSecrets?: boolean;
 }
 
 export interface ApplyResult {
@@ -174,6 +184,17 @@ export interface ApplyResult {
  * files, run the commands (the fix's own `apply` for in-process ones), then verify.
  */
 export async function applyPlan(fix: Fix, plan: FixPlan, context: ApplyContext, options: ApplyOptions = {}): Promise<ApplyResult> {
+  const vault = SecretVault.from(context.secrets);
+  try {
+    return await applyWithVault(fix, plan, { ...context, secrets: vault }, vault, options);
+  } finally {
+    // Held for one fix only: dropped once it has verified (or failed), unless the caller clears them after printing.
+    if (!options.keepSecrets) for (const name of plan.secrets) vault.drop(name);
+  }
+}
+
+async function applyWithVault(fix: Fix, plan: FixPlan, context: ApplyContext, vault: SecretVault, options: ApplyOptions): Promise<ApplyResult> {
+  const redact = (text: string) => vault.redact(text);
   if (fix.kind === "manual") throw new FixError(`${fix.id} is a manual fix: nothing runs. ${plan.manual ?? ""}`.trim());
   if (plan.fixId !== fix.id) throw new FixError(`the plan is ${plan.fixId}'s, not ${fix.id}'s`);
   const { hash: handed, ...body } = plan;
@@ -184,13 +205,22 @@ export async function applyPlan(fix: Fix, plan: FixPlan, context: ApplyContext, 
     fresh = await planFix(fix, context);
   } catch (err) {
     if (err instanceof FixError) throw err;
-    throw new FixError(`${fix.id}: couldn't plan again: ${redact((err as Error).message ?? String(err), context.secrets)}; nothing was written`, { cause: err });
+    throw new FixError(`${fix.id}: couldn't plan again: ${redact((err as Error).message ?? String(err))}; nothing was written`);
   }
   if (fresh.hash !== expected) {
     throw new StalePlanError(`${fix.id}: the app changed since the plan was made (plan ${expected.slice(0, 12)}, now ${fresh.hash.slice(0, 12)}); nothing was written. Run genesis fix ${fix.id} --plan and read it again.`);
   }
-  const missing = fresh.secrets.filter((name) => context.secrets?.[name] === undefined);
+  const missing = fresh.secrets.filter((name) => !vault.has(name));
   if (missing.length) throw new FixError(`${fix.id} needs ${missing.join(", ")}; nothing was written`);
+  // Every stdin is formed before anything is written: a value its format can't carry stops the fix here.
+  for (const c of fresh.commands) {
+    if (!c.stdinSecret) continue;
+    try {
+      await vault.use(c.stdinSecret, (value) => stdinFor(c.stdinFormat ?? "value", c.stdinSecret!, value));
+    } catch (err) {
+      throw new FixError(`${fix.id}: ${redact((err as Error).message)}; nothing was written`);
+    }
+  }
 
   // Every file first: one conflict and nothing is written.
   const targets = fresh.files.map((f) => ({ file: f, abs: safePath(context.root, f.path, fix.id) }));
@@ -214,19 +244,24 @@ export async function applyPlan(fix: Fix, plan: FixPlan, context: ApplyContext, 
       inProcess = false;
       if (out) {
         ran.push(...out.ran);
-        notes.push(...(out.notes ?? []).map((n) => redact(n, context.secrets)));
+        notes.push(...(out.notes ?? []).map(redact));
       }
     } else {
-      const run = options.run ?? runTool;
+      // Output streams to the log a line at a time, every held value redacted.
+      const run = vault.redactingRunner(options.run ?? runTool);
+      const log = context.log;
       for (const c of fresh.commands) {
         if (c.tool === "genesis" || !isAllowedTool(c.tool)) throw new FixError(`${fix.id}: "${c.tool}" runs in-process, but the fix has no apply`);
-        const stdin = c.stdinSecret ? context.secrets![c.stdinSecret]! : undefined;
-        const result = await run(c.tool, c.args, { cwd: context.root, ...(stdin !== undefined ? { stdin } : {}) });
-        ran.push([c.tool, ...c.args].join(" "));
-        if (result.code !== 0) throw new FixError(`${c.tool} ${c.args[0] ?? ""} failed (exit ${result.code}): ${redact(result.stderr.trim() || result.stdout.trim(), context.secrets).split("\n").slice(-5).join("\n")}`);
+        const base = { cwd: context.root, passEnv: TOOL_AUTH_ENV[c.tool] ?? [], ...(log ? { onOutput: (text: string) => log(text.replace(/\n$/, "")) } : {}) };
+        const result = c.stdinSecret
+          ? await vault.use(c.stdinSecret, (value) => run(c.tool as Parameters<ToolRunner>[0], c.args, { ...base, stdin: stdinFor(c.stdinFormat ?? "value", c.stdinSecret!, value) }))
+          : await run(c.tool, c.args, base);
+        ran.push([c.tool, ...c.args].join(" ") + (c.stdinSecret ? ` < ${c.stdinSecret}` : ""));
+        if (result.code !== 0) throw new FixError(`${c.tool} ${c.args[0] ?? ""} failed (exit ${result.code}): ${(result.stderr.trim() || result.stdout.trim()).split("\n").slice(-5).join("\n")}`);
       }
     }
-    const verify = await verifyFix(fix, fresh, context);
+    const checked = await verifyFix(fix, fresh, context);
+    const verify = checked.message ? { ...checked, message: redact(checked.message) } : checked;
     return { plan: fresh, written: journal.written(), ran, notes, verify };
   } catch (err) {
     const written = journal.written();
@@ -239,8 +274,9 @@ export async function applyPlan(fix: Fix, plan: FixPlan, context: ApplyContext, 
       failed.length ? `couldn't roll back ${failed.join(", ")}: restore them from git` : "",
     ].filter(Boolean);
     const raw = err instanceof Error ? err.message : String(err);
-    const message = redact(raw.startsWith(`${fix.id}: `) ? raw.slice(fix.id.length + 2) : raw, context.secrets);
-    throw new FixError(`${fix.id}: ${message}. It ${what.join("; ")}.`, { cause: err });
+    const message = redact(raw.startsWith(`${fix.id}: `) ? raw.slice(fix.id.length + 2) : raw);
+    // No `cause`: the original error's text may hold a value; this message is the redacted account.
+    throw new FixError(`${fix.id}: ${message}. It ${what.join("; ")}.`);
   }
 }
 
@@ -270,8 +306,8 @@ class Journal {
     // The rewrite keeps the file's mode (an executable script stays executable).
     const mode = statSync(abs).mode & 0o7777;
     writeFileSync(tmp, file.content, { flag: "wx" });
-    chmodSync(tmp, mode);
     try {
+      chmodSync(tmp, mode);
       // The last look: the file is still what the plan read.
       if (sha256(readFileSync(abs, "utf8")) !== file.beforeHash || sha256(before) !== file.beforeHash) throw new FileConflictError(`${file.path} changed while the fix was writing`);
       checkTarget(this.root, abs, fixId);
@@ -337,8 +373,9 @@ export async function verifyFix(fix: Fix, plan: FixPlan, context: FixContext): P
 }
 
 /** Text with every held secret value replaced. */
-export function redact(text: string, secrets: Readonly<Record<string, string>> | undefined): string {
+export function redact(text: string, secrets: SecretVault | Readonly<Record<string, string>> | undefined): string {
+  if (secrets instanceof SecretVault) return secrets.redact(text);
   let out = text;
-  for (const value of Object.values(secrets ?? {})) if (value.length >= 4) out = out.split(value).join("[redacted]");
+  for (const value of Object.values(secrets ?? {}).sort((a, b) => b.length - a.length)) if (value.length >= 4) out = out.split(value).join("[redacted]");
   return out;
 }

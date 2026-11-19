@@ -138,7 +138,7 @@ export const supportSettings = defineSettings("support", {
   agentDesk: { type: "boolean", default: { max: true, standard: true, min: false }, requires: ["support.inbox"] },
   inbox: { type: "boolean", default: true },
   dumpRetentionDays: { type: "number", default: 90, min: 7, max: 365 },
-  githubRepo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", store: "edge" },
+  githubRepo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", store: "edge", setup: "github.issues" },
   sentryDsn: { type: "string", default: null, applies: "build" },
 });
 
@@ -201,7 +201,98 @@ unless "off when any of them is off" is what you mean.
 **Packages without running them.** A package also lists its declaration in package.json
 (`genesis.settings`: `{ "namespace": …, "keys": { … } }`, read with `settingsFromManifest`), so
 `genesis doctor` checks an app's genesis.config.json against the installed packages
-(`invalid-setting`). `catalogueManifest` is the catalogue as the database checks values against it.
+(`invalid-setting`, `setting-requires`, and `setup-incomplete` and `secret-missing` for keys with a
+`setup` step or a secret they `needs`, checked by name only). `catalogueManifest` is the catalogue as the database checks values against it.
+
+### The Settings screen
+
+One screen, two hosts: the localhost wizard (`genesis setup`) and the app's own platform-admin
+page. `<GenesisSettings>` (`@marktiderman/genesis-config/settings/react`, Beta) draws it, and talks to its
+host only through a `SettingsClient` (`@marktiderman/genesis-config/settings-protocol`, Beta, free of zod
+and React).
+
+**Beta.** The screen ships before the maintainer's design review: its look, copy keys and props may
+change in a minor release.
+
+```tsx
+import { APP_HOST_CAPABILITIES, createSettingsClient } from "@marktiderman/genesis-config/settings-protocol";
+import { GenesisSettings } from "@marktiderman/genesis-config/settings/react";
+
+declare const accessToken: () => string | null;
+
+const client = createSettingsClient(fetch, { baseUrl: "/api/genesis/settings", token: accessToken });
+
+export function PlatformSettings() {
+  return <GenesisSettings client={client} capabilities={APP_HOST_CAPABILITIES} />;
+}
+```
+
+**Tabs.** Values (every key grouped by package, with its value, the layer it came from and its
+lock), Health (the doctor's findings, each with its fix), Secrets (each secret's name, store and
+whether it is set: never its value), Upgrades (installed and latest versions, release notes) and
+Audit (the history of changes, a page at a time).
+
+**What it may write.** The host reports its `capabilities` (`writeFiles`, `writeDatabase`,
+`setSecrets`, `runCli`, `agent`, and optionally `proposeChanges`), and the `capabilities` prop can
+only narrow them: a key the prop leaves out doesn't narrow, only `false` does
+(`intersectCapabilities`). `settingWritability` holds the rules for the screen and a host's
+handler alike: a build-time key is written only in the file layer; the file layer needs
+`writeFiles`, the database layer `writeDatabase`; a key a lower layer locked can't be changed above
+it.
+
+- **The CLI host** writes the file layer by default (`preferredWriteLayer`), since it is reviewed
+  like code; the database is an explicit choice in the edit sheet, except for a value that already
+  comes from the database, which opens on the database. Writing a layer below the one
+  the value comes from shows that the higher layer overrides it.
+- **The app host** (`APP_HOST_CAPABILITIES`) edits runtime keys in the database layer only. A
+  build-time key, or one the file layer locked (the lock lives in the file), shows "Change in repo"
+  with the genesis.config.json change to commit (`settingFileSnippet`), or a pull request when the
+  host can open one (`proposeChanges`).
+- **Secrets** are set per store: `setSecrets` is `true` (every store) or `{ vault?, edge?,
+  "server-env"?, ci? }` (`canSetSecret`). The app host may set and rotate Vault secrets only, when
+  the host itself reports `{ vault: true }` (`APP_HOST_CAPABILITIES` is a mask that allows it but
+  doesn't grant it): the `setSecret` op is write-only, the value is never returned, and the screen
+  drops it once sent. Other stores are set through `genesis setup`. The host side comes with the
+  app's settings handler.
+
+**Fixes.** An automatic fix is planned first (`plan`): the screen shows the files it writes (with
+a diff), the commands it runs, the settings layers it writes and the secrets it needs, asks to
+confirm, then applies it with the plan's `hash` (`apply(fixId, expect)`). A host refuses a plan
+that changed in between (`stale_plan`), and the screen offers to plan again. A plan needing more
+than the host can do shows its `genesis fix <id>` command instead. The app host applies a fix only
+when it writes the database layer and nothing else (`databaseOnly` on the fix, `layers` on the
+plan). A guided fix opens its setup step (`onOpenStep`, or `genesis setup --step <id>`); a manual
+fix shows its instructions. Links (`href`, `notesUrl`) are followed only when `http:`, `https:` or
+on the same site (`safeHref`).
+
+**What a host must redact.** The screen never draws a secret's value: the Secrets tab shows names
+and status only, and the audit history draws `before` and `after` only for a `set` or `clear` of a
+catalogue key that needs no secret (`auditValuesVisible`). Free text is drawn as given, so a host
+redacts secrets from it: a finding's `message`, a plan's `summary`, `why`, diffs and command
+`args`, an apply's `message`, and an audit entry's `summary`.
+
+**Audit.** The history is drawn as rows, a page at a time through the protocol's cursor, not as a
+`ResourceView`: a ResourceView needs a `GenesisProvider` with a data provider and pages through
+it, and this screen has neither (the wizard host has no app around it). It moves to a ResourceView
+over a client-side source when ResourceView can take a cursor-paged source without a provider.
+When `state` carries no `audit`, the tab fetches the first page itself.
+
+**The protocol.** One endpoint, `POST`, JSON only, a bearer token and no cookies
+(`credentials: "omit"`), every request `{ v, op, … }` (`SETTINGS_PROTOCOL_VERSION`). The ops are
+`state`, `setValue`, `clearValue`, `plan`, `apply`, `upgrades`, `audit`, `propose` and `setSecret`
+(`SETTINGS_OPS`, answers in `SettingsResponses`). A failure is `{ error: { code, message } }`,
+thrown by the client as a `SettingsProtocolError` whose `code` is `bad_request`, `unauthenticated`,
+`forbidden`, `unsupported`, `locked`, `stale_plan`, `not_found`, `version` or `error`. A host
+answers an op it doesn't know (one a newer screen sends) with `unsupported`, so the screen can tell
+"not here" from a bad request. The client
+gives up after `timeoutMs` (default 30 seconds), refuses a response that isn't JSON, and refuses a
+`state` without its lists or capabilities. Its own messages are in `messages`
+(`SETTINGS_CLIENT_MESSAGES`).
+
+Every word on the screen is in `copy` (defaults: `GENESIS_SETTINGS_COPY`), accessible names
+included; a host's error messages are shown as the host wrote them. Every element a test or an
+agent drives has a `data-testid` under the `testID` prefix (default `genesis-settings`). Pass
+`header={false}` when the host page owns the title (under `AppShellPageHeader`).
 
 ## The gate
 
@@ -367,4 +458,4 @@ The default view is a genesis-ui `ResourcePage` over static data:
 
 `variant="marketing"` shows public, shipped features that have a tagline, as cards: highlights first, then grouped by category.
 
-genesis-ui (2.7.0 or later), React and lucide-react are optional peers, needed only by `/react`. Gate the route yourself; the component shows whatever it is given.
+genesis-ui (3.0.0 or later), React and lucide-react are optional peers, needed only by `/react` and `/settings/react`. Gate the route yourself; the component shows whatever it is given.

@@ -99,6 +99,9 @@ export const BUILTIN_RULES = [
   "database-elsewhere",
   // settings (settings.ts)
   "invalid-setting",
+  "setting-requires",
+  "setup-incomplete",
+  "secret-missing",
   "genesis-config-unknown-key",
   // the app's eslint config loads Genesis's lint rules (eslint-config.ts)
   "genesis-eslint-config",

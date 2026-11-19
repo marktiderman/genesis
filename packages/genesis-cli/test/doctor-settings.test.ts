@@ -97,11 +97,14 @@ describe("invalid-setting", () => {
     ]);
   });
 
-  it("warns when a key is on while one it requires is off", async () => {
-    expect(await findings(app({ settings: { "support.inbox": false } }))).toEqual([
-      "warn support.agentDesk: settings.support.agentDesk is on but needs support.inbox, which is off",
+  it("reports a key on while one it requires is off as setting-requires, not invalid-setting", async () => {
+    const root = app({ settings: { "support.inbox": false } });
+    expect(await findings(root)).toEqual([]);
+    const result = await runDoctor({ root, config: {} });
+    expect(result.findings.filter((f) => f.rule === "setting-requires").map((f) => `${f.level} ${f.subject}: ${f.message} [${f.fix?.id}]`)).toEqual([
+      "warn support.agentDesk: settings.support.agentDesk is on but needs support.inbox, which is off (its value comes from the preset layer) [settings.requires]",
     ]);
-    expect(await findings(app({ preset: "min", settings: { "support.inbox": false } }))).toEqual([]);
+    expect((await runDoctor({ root: app({ preset: "min", settings: { "support.inbox": false } }), config: {} })).findings.filter((f) => f.rule === "setting-requires")).toEqual([]);
   });
 
   it("fails every setting when no installed package declares settings", async () => {
@@ -151,8 +154,8 @@ describe("genesis-config-unknown-key", () => {
     const root = app({ presets: "max", setting: {}, settings: {}, doctor: {}, $schema: "x" });
     const result = await runDoctor({ root, config: {} });
     expect(result.findings.filter((f) => f.rule === "genesis-config-unknown-key").map((f) => `${f.level} ${f.subject}: ${f.message}`)).toEqual([
-      'warn presets: "presets" isn\'t a genesis.config.json setting, so nothing reads it: did you mean "preset"?; or upgrade @marktiderman/genesis-cli if this is a newer key',
-      'warn setting: "setting" isn\'t a genesis.config.json setting, so nothing reads it: did you mean "settings"?; or upgrade @marktiderman/genesis-cli if this is a newer key',
+      'warn presets: "presets" isn\'t a genesis.config.json setting, so nothing reads it: did you mean "preset", or upgrade @marktiderman/genesis-cli if this is a newer key',
+      'warn setting: "setting" isn\'t a genesis.config.json setting, so nothing reads it: did you mean "settings", or upgrade @marktiderman/genesis-cli if this is a newer key',
     ]);
     expect(BUILTIN_RULES).toContain("genesis-config-unknown-key");
   });
