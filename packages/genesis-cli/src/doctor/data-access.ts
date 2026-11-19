@@ -102,6 +102,21 @@ function namesIn(block: string, keys: RegExp): { name: string; at: number }[] {
 }
 
 /**
+ * Where the file configures resources: each `resources: {…}` (the provider's options), and each
+ * object set to a variable typed with `SupabaseResourceConfig` (one resource, or a map of them).
+ */
+function resourceConfigRanges(code: string, blank: string): [number, number][] {
+  const out: [number, number][] = [];
+  const add = (open: number) => {
+    const block = balanced(code, open);
+    if (block) out.push([open, open + block.length]);
+  };
+  for (const m of blank.matchAll(/\bresources\s*:\s*\{/g)) add((m.index ?? 0) + m[0].length - 1);
+  for (const m of blank.matchAll(/\bSupabaseResourceConfig\b[^=;{]*=\s*\{/g)) add((m.index ?? 0) + m[0].length - 1);
+  return out;
+}
+
+/**
  * Every database function the app's resources declare: the names under `writes: {…}` and
  * `actions: {…}`, and a `source: { rpc: "…" }`.
  */
@@ -111,8 +126,11 @@ export function declaredFunctions(files: DoctorContext["files"]): DeclaredFuncti
     if (!SCRIPT_EXTS.has(file.ext)) continue;
     const blank = blankStrings(file.code);
     if (!PROVIDER_CONFIG.test(blank)) continue;
+    const configs = resourceConfigRanges(file.code, blank);
     for (const m of blank.matchAll(/\b(writes|actions|source)\s*:\s*\{/g)) {
       const open = (m.index ?? 0) + m[0].length - 1;
+      // Only inside a resource's configuration: a labels object beside the provider isn't one.
+      if (!configs.some(([from, to]) => open > from && open < to)) continue;
       const block = balanced(file.code, open);
       if (!block) continue;
       const keys = m[1] === "writes" ? /create|update|delete/ : m[1] === "source" ? /rpc/ : /[A-Za-z_$][\w$]*/;

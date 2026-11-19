@@ -170,7 +170,10 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
     async (a: RecordViewHeaderAction) => {
       if (onAction) return onAction(a.name, row);
       if (!provider.runAction) throw new DataWriteError("error", fillMessage(m.workspace.noRunner, { name: a.label }));
-      return provider.runAction(view.resource, { id, action: a.name });
+      // At the version the record was read at, so a record changed since is a conflict.
+      const field = capabilities.data?.version?.field;
+      const value = field ? (record as Record<string, unknown>)[field] : undefined;
+      return provider.runAction(view.resource, { id, action: a.name, ...(value == null ? {} : { expectedVersion: String(value) }) });
     },
     { invalidates: [resourceKeys(view.resource).all] },
   );

@@ -312,7 +312,11 @@ export interface SupabaseResourceConfig {
    * With a `source` (or a `select` that embeds other tables), the table's own
    * columns: creates and updates write only these, so a form built from the
    * richer read row never sends its joined or computed columns to the table.
-   * Without it, an update writes only the columns the table's row has.
+   * Without it, an update writes only the columns the table's row has, read from the table. On a
+   * provider with `access: "declared"` that read needs `table.read`: without it and without
+   * `writeColumns`, a table update over a `source` is refused, and an app `update` rule gets the
+   * values as sent. Write functions (`writes`) always get the values as sent: they decide what
+   * to write.
    */
   writeColumns?: readonly string[];
   /**
@@ -1842,9 +1846,9 @@ export function createSupabaseProvider(
         }
         record = (await readRecord(resource, id)) ?? ({ ...row, ...written, id } as BaseRecord);
         if (version && record[version.field] == null && written[version.field] != null) {
-          // The read has no version: the version this write made goes with the values it sent, not
-          // with values someone may have committed since, so a resubmit isn't a false conflict.
-          record = { ...record, ...row, ...written, id: record.id };
+          // The read has no version: the record is this write as made (the values it sent, its id and
+          // the version it wrote), not the read, which may carry values someone committed since.
+          record = { ...row, ...written, id: record.id };
         }
       }
       await committed({ resource, kind: "create", id: record.id, record });
@@ -1917,9 +1921,9 @@ export function createSupabaseProvider(
         const written = rows[0] as Record<string, unknown>;
         record = (await readRecord(resource, id)) ?? ({ ...row, ...written, id } as BaseRecord);
         if (version && record[version.field] == null && written[version.field] != null) {
-          // The read has no version: the version this write made goes with the values it sent, not
-          // with values someone may have committed since, so a resubmit isn't a false conflict.
-          record = { ...record, ...row, ...written, id: record.id };
+          // The read has no version: the record is this write as made (the values it sent, its id and
+          // the version it wrote), not the read, which may carry values someone committed since.
+          record = { ...row, ...written, id: record.id };
         }
       }
       await committed({ resource, kind: "update", id, record });

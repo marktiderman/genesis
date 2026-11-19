@@ -251,3 +251,16 @@ describe("data/access-rule-tests: commented-out tests", () => {
     expect(found.map((f) => f.subject)).toEqual(["create_task", "save_task", "archive_task"]);
   });
 });
+
+describe("data/access-rule-tests: only resource configuration declares functions", () => {
+  it("ignores a labels object in the same file as the provider", async () => {
+    const found = await only("data/access-rule-tests", {
+      "src/lib/provider.ts": [
+        'export const labels = { actions: { save: "Save", archive: "Archive" }, writes: { create: "Add" } };',
+        'export const provider = createSupabaseProvider(supabase, { access: "declared", resources: { tasks: { writes: { delete: "delete_task" } } } });',
+        'export const more: Record<string, SupabaseResourceConfig> = { notes: { actions: { pin: "pin_note" } } };',
+      ].join("\n"),
+    });
+    expect(found.map((f) => f.subject)).toEqual(["delete_task", "pin_note"]);
+  });
+});

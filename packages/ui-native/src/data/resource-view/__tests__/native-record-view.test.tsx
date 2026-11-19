@@ -134,6 +134,20 @@ describe("NativeRecordView", () => {
     await waitFor(() => expect(onAction).toHaveBeenCalledWith("archive", { ...brand, is_default: false }));
   });
 
+  it("runs an action at the version the record was read at", async () => {
+    // @feat:declared-data-access
+    const sheet = vi.spyOn(ActionSheetIOS, "showActionSheetWithOptions").mockImplementation(() => {});
+    const p = provider({ capabilities: vi.fn(async () => ({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: true, compositeKeys: false, actions: true, version: { field: "name", kind: "timestamp" as const } })), });
+    render(<NativeRecordViewMenu view={page} row={brand} />, { wrapper: wrap(p) });
+    await waitFor(() => expect(p.capabilities).toHaveBeenCalled());
+    // Let the capabilities answer land before the click, as a person's would.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fireEvent.click(screen.getByTestId("native-resource-workspace-menu"));
+    sheet.mock.calls[0]![1](1);
+    await waitFor(() => expect(p.runAction).toHaveBeenCalledWith("brands", { id: "b1", action: "publish", expectedVersion: "Northwind" }));
+    sheet.mockRestore();
+  });
+
   it("Android: the menu is a sheet of rows, never an alert with too many buttons", async () => {
     const os = Platform.OS;
     Platform.OS = "android";

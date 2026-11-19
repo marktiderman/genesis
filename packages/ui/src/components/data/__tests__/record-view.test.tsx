@@ -289,6 +289,17 @@ describe("RecordView", () => {
     expect(screen.getByTestId("resource-workspace-check-ok")).toBeTruthy();
   });
 
+  it("runs an action at the version the record was read at", async () => {
+    // @feat:declared-data-access
+    const p = provider({ capabilities: vi.fn(async () => ({ search: true, sort: true, filterOperators: [], bulkWrites: false, versionedWrites: true, compositeKeys: false, actions: true, version: { field: "name", kind: "timestamp" as const } })), });
+    renderRecordView("activity", p);
+    await waitFor(() => expect(p.capabilities).toHaveBeenCalled());
+    // Let the capabilities answer land before the click, as a person's would.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fireEvent.click(screen.getByTestId("resource-workspace-action-publish"));
+    await waitFor(() => expect(p.runAction).toHaveBeenCalledWith("brands", { id: "b1", action: "publish", expectedVersion: "Northwind" }));
+  });
+
   it("runs an allowed action through the provider; a confirm asks first", async () => {
     const p = provider();
     renderRecordView("activity", p);

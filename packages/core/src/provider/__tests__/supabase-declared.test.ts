@@ -422,9 +422,11 @@ describe("the version goes with the values it was written with", () => {
     };
     // The update wrote version 4; by the read-back someone else has made the title "Theirs".
     queue.push(ok([{ id: "t1", title: "Old", version: 3 }])); // the table's row, for its columns
-    queue.push(ok([{ id: "t1", version: 4 }]), ok([{ id: "t1", title: "Theirs", person_name: "Ann" }]));
+    // Someone else has since changed the title and the status, a field this write didn't send.
+    queue.push(ok([{ id: "t1", version: 4 }]), ok([{ id: "t1", title: "Theirs", status: "done", person_name: "Ann" }]));
     const res = await provider(versioned).update("tasks", { id: "t1", data: { title: "Mine" } });
-    expect(res.data).toEqual({ id: "t1", title: "Mine", person_name: "Ann", version: 4 });
+    // The write as made: its values, id and version, and nothing from the later read.
+    expect(res.data).toEqual({ id: "t1", title: "Mine", version: 4 });
     expect(res.version).toBe("4");
   });
 
