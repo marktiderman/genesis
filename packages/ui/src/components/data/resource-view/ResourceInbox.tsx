@@ -203,18 +203,35 @@ export function ResourceInbox<T extends Row = Row>(props: ResourceViewProps<T>) 
     },
     [onAction, provider, view.resource, list, queryClient, runnable, versionField],
   );
+  // A row opened before the provider can run markRead (its capabilities haven't answered yet) is
+  // marked read once it can, if it is still the open row.
+  const readLater = useRef<string | null>(null);
+  const markOpened = useCallback(
+    (key: string) => {
+      const row = list.rows.find((r) => list.keyOf(r) === key);
+      if (!row || !markRead || !view.inboxRow(row as T & DataRow).unread || view.canAction(markRead, row as T & DataRow, viewer) !== true) return;
+      if (!onAction && !runnable) {
+        readLater.current = key;
+        return;
+      }
+      readLater.current = null;
+      void runAction(markRead, row).catch(() => undefined);
+    },
+    [list, markRead, view, viewer, onAction, runnable, runAction],
+  );
   const select = useCallback(
     (key: string | null) => {
       if (options.selected === undefined) setOwnSelected(key);
       onSelectedChange?.(key);
       // Opening an unread row runs the view's own markRead action, when it declares one.
-      const row = key === null ? undefined : list.rows.find((r) => list.keyOf(r) === key);
-      if (row && markRead && view.inboxRow(row as T & DataRow).unread && view.canAction(markRead, row as T & DataRow, viewer) === true) {
-        void runAction(markRead, row).catch(() => undefined);
-      }
+      readLater.current = null;
+      if (key !== null) markOpened(key);
     },
-    [options.selected, onSelectedChange, list, markRead, view, viewer, runAction],
+    [options.selected, onSelectedChange, markOpened],
   );
+  useEffect(() => {
+    if (runnable && readLater.current !== null && readLater.current === selected) markOpened(readLater.current);
+  }, [runnable, selected, markOpened]);
   const onPage = selected === null ? undefined : list.rows.find((r) => list.keyOf(r) === selected);
   // A row not on the loaded page is read on its own, in the list's scope: a resource read from a
   // function that takes its scope from the list's filters (a tenant, say) reads it in that scope.

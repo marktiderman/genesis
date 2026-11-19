@@ -95,7 +95,8 @@ A write function:
 - holds the access rule itself: `security definer`, `set search_path = ''`, and an explicit check
   of who may do this. Match the rule it replaces exactly, no wider and no narrower;
 - refuses with `raise exception '…' using errcode = '42501'`, or returns `null` for a row the
-  caller may not touch (the provider then tells `forbidden` from `gone`);
+  caller may not touch (the provider then reads the row to tell `forbidden` from `gone`; a
+  resource that declares no read can't be read, so it can't tell them apart);
 - returns the `id`, not the row: the read gives the record back;
 - is callable by signed-in users only: `revoke all on function … from public, anon;`
   `grant execute on function … to authenticated;`.
@@ -154,7 +155,8 @@ Then check that none is missing: `expectAccessRulesCover` reads the declared fun
 options the provider is made from (every write function, action and function source), and fails
 naming each one with no spec among those you pass. It compares names only, so pass it the same
 specs you register with `accessRules`: keep the specs in one list, register each one's cases, and
-check the list, so a new function can't ship without a running test.
+check the list. A new function then fails the check until it has a spec, and that spec has
+cases; whether the cases run is your runner's part (keep them in the suite CI runs).
 
 ```ts
 import { accessRules, expectAccessRulesCover, type AccessRuleSpec } from "@marktiderman/genesis-core/testing";
