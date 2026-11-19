@@ -9,7 +9,7 @@
  */
 import { cutToBytes } from "./cap";
 import { DIAGNOSTICS_DEFAULTS, type DiagnosticConsoleLine } from "./report";
-import { scrubString } from "./scrub";
+import { scrubString, scrubValueStrict } from "./scrub";
 
 export type ConsoleLevel = "log" | "info" | "warn" | "error" | "debug";
 
@@ -38,7 +38,8 @@ function text(args: readonly unknown[]): string {
       if (typeof arg === "string") return arg;
       if (arg instanceof Error) return `${arg.name}: ${arg.message}`;
       try {
-        return JSON.stringify(arg) ?? String(arg);
+        // Keys first (password, token, apiKey…), then the text: once stringified, a key is just text.
+        return JSON.stringify(scrubValueStrict(arg)) ?? String(arg);
       } catch {
         return String(arg);
       }

@@ -121,7 +121,11 @@ export const WIDGET_HEADERS = {
 /** Text limits, the same as the database's checks. */
 export const LIMITS = { title: 300, body: 20000, route: 2000, appVersion: 200, tag: 60, tags: 50, contextBytes: 16384 } as const;
 
-/** A path segment that names someone or something private: an email, a UUID, a number, a long token. */
+/**
+ * A path segment that names someone or something private: an email, a UUID, a number, a phone
+ * number, a token or a short code. A name written as a slug (`jane-doe`) reads like any word and
+ * isn't caught: keep names out of paths.
+ */
 function privateSegment(segment: string): string | null {
   let s = segment;
   try {
@@ -132,6 +136,10 @@ function privateSegment(segment: string): string | null {
   if (s.includes("@")) return ":email";
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return ":id";
   if (/^\d+$/.test(s)) return ":id";
+  // A phone number: `+15555550101`, `+44-20-7946-0958`.
+  if (/^\+\d[\d().\s-]{5,}$/.test(s)) return ":phone";
+  // A short code (an invite, a coupon): letters and digits mixed, at least two of each, six or more.
+  if (s.length >= 6 && /^[A-Za-z0-9_-]+$/.test(s) && (s.match(/\d/g) ?? []).length >= 2 && (s.match(/[A-Za-z]/g) ?? []).length >= 2) return ":token";
   // A long run of letters and digits with a digit in it reads as a token or a code, not a word.
   if (s.length >= 16 && /\d/.test(s) && /^[A-Za-z0-9_.~-]+$/.test(s)) return ":token";
   return null;
@@ -140,7 +148,8 @@ function privateSegment(segment: string): string | null {
 /**
  * A route as a path only, safe to store and send: the query string and
  * fragment (tokens, codes, emails) are dropped, and path segments that look
- * private (an email, an id, a long token) become `:email`, `:id` or `:token`
+ * private (an email, an id, a phone number, a token or short code) become `:email`, `:id`,
+ * `:phone` or `:token`
  * (`/users/jane@x.test/reset/abc123…` → `/users/:email/reset/:token`).
  */
 export function cleanRoute(route: string | null | undefined): string | undefined {

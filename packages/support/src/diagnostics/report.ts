@@ -59,6 +59,8 @@ export const DIAGNOSTICS_DEFAULTS = {
   githubDetail: "summary" as "summary" | "full",
   /** Dumps the offline queue keeps waiting to be sent; the oldest go first. */
   queueMaxItems: 20,
+  /** The offline queue's whole size, as stored JSON (it lives in one storage key: AsyncStorage on Android and localStorage hold a few MB). */
+  queueMaxBytes: 1_000_000,
   /** First retry of a queued send; it doubles each time, up to `queueMaxDelayMs`. */
   queueBaseDelayMs: 5000,
   queueMaxDelayMs: 3_600_000,

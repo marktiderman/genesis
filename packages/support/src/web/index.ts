@@ -16,7 +16,7 @@ export {
   type FeedbackPanelProps,
   type Marks,
 } from "./feedback-panel";
-export { webSections, type WebSectionsOptions } from "./diagnostics";
+export { webSections, flushDiagnosticsOnReconnect, type WebSectionsOptions } from "./diagnostics";
 export { FeedbackLauncher, mountSupportWidget, type FeedbackLauncherProps, type LauncherPosition } from "./launcher";
 export { annotateScreenshot, canCaptureScreenshot, captureScreenshot, type Redaction, type Stroke, type WebCapture } from "./capture";
 export { createPinOverlay, pickPin, resolvePin, stableLocator, type FeedbackPin, type PinOverlay, type PinnedReport } from "./pin";

@@ -212,8 +212,9 @@ export const support = createSupport({ supabase, navigate: router.push, diagnost
 ```
 
 The server mounts one handler. It authenticates, rate limits (10 dumps and 20 reports an hour per
-person, 5 requests a minute per IP), refuses a dump over 512 KB, scrubs and caps it again, stores
-it through your adapters and runs the notifiers:
+person; 5 requests a minute per IP when you give `clientIp`), counts the body as it arrives and
+refuses a dump over 512 KB, scrubs and caps it again, stores it through your adapters and runs the
+notifiers:
 
 ```ts
 import { createDiagnosticsHandler, githubIssueNotifier, messengerNotifier, webhookNotifier } from "@marktiderman/genesis-support/server";
@@ -259,6 +260,27 @@ export const Route = createFileRoute("/api/support/diagnostics")({
 });
 ```
 
+**What your store must check.** The store writes with the server's rights, so it holds the checks
+the database's row rules would: a dump's `feedbackId` must be one of the caller's own reports
+(give the store `ownsFeedback` and the handler asks first), and feedback's `tenantId` must be a
+tenant the caller belongs to with its help desk on (refuse with `DiagnosticsStoreError(…, 403)`).
+Feedback that names a dump it didn't bring keeps the name only if `ownsReport` says it's the
+caller's. The Supabase store does all three (with `support_ticket_tenant_allowed`, migration 0019).
+
+**Per-IP limits.** There is no default `clientIp`: `x-forwarded-for` and `cf-connecting-ip` are
+whatever the client sent unless your proxy overwrites them, so trusting them would let anyone dodge
+the limit or lock out a shared network. Pass the address your platform vouches for.
+
+**CORS.** A web app on another origin than its API needs `cors: { origins: ["https://app.example.com"] }`
+(the handler answers the preflight and adds the headers), or CORS from the framework you mount it in.
+
+**CommonJS.** `@marktiderman/genesis-support/server` ships ESM and CommonJS (`require` works in a
+NestJS app on CommonJS).
+
+**Receiving the webhook.** `webhookNotifier` sends `x-genesis-timestamp` and `x-genesis-signature`
+(the HMAC of `<timestamp>.<body>`). Check them with `verifyWebhookSignature({ secret, body, signature, timestamp })`,
+which compares in constant time and refuses a timestamp more than 5 minutes off.
+
 The in-memory rate limiter suits one server process. Behind several instances, pass `rateLimit`
 backed by a shared store; the database (migration 0019) holds 10 dumps an hour per person either
 way. On an Edge runtime, pass `waitUntil` so notifiers run after the answer.
@@ -281,7 +303,12 @@ On the device, and again on the server (`redactReport`, `parseDiagnosticReport`)
   emails, phone numbers, JWTs, Supabase keys, bearer tokens, long hex runs, query strings), and a
   value under a key that names a secret or a contact detail (`password`, `token`, `cookie`,
   `email`, …) becomes `[Filtered]`;
-- routes are paths, with ids, emails and tokens in them replaced (`cleanRoute`);
+- routes are paths, with ids, emails, phone numbers, tokens and short codes in them replaced
+  (`cleanRoute`); a name written as a slug (`/u/jane-doe`) reads like any word, so keep names out
+  of paths;
+- no key is trusted to hold an id: a value under `release`, `environment` or `event_id` in your
+  data is scrubbed like any other (`scrubValueStrict`);
+- console lines are scrubbed as they arrive, objects key by key before they become text;
 - no request headers, cookies, storage contents, contacts or clipboard; a dump never carries a
   screenshot (screenshots stay on a report, sent only when the person includes them).
 
@@ -306,8 +333,18 @@ object, so the settings layer can declare them as `diagnostics.*` settings.
 With `offline: { storage }` (`localStorage` on the web, AsyncStorage on the phone, or MMKV through a
 three-method adapter), a dump that failed for a reason that may pass (no network, a server error,
 a rate limit) is kept and tried again with doubling backoff (5 s up to an hour, 12 tries, 20 kept
-at most); `send` answers `{ queued: true }` with the id it will have. Call `diagnostics.flush()` on
-reconnect or on coming to the front. A refusal (403, a bad dump) isn't kept.
+at most, and 1 MB of storage in all); `send` answers `{ queued: true }` with the id it will have.
+The queue is tried when `createDiagnostics` runs, and on reconnect and coming to the front:
+`createSupport({ appState: AppState, netInfo: NetInfo })` on the phone, `flushDiagnosticsOnReconnect(diagnostics)`
+on the web. A refusal (403, a bad dump) isn't kept. Each queued dump remembers who was signed in,
+and is dropped rather than sent under someone else (a shared device); call `diagnostics.clearQueue()`
+on sign-out.
+
+### Finding a dump by its short id
+
+A short id is 8 hex digits of an id the device makes, so two dumps can share one. Staff look one up
+with `support_diagnostics_by_short_id(short)` (migration 0019), which lists every match with its
+owner and time; check the person before trusting a match.
 
 ### Build metadata
 
@@ -756,3 +793,8 @@ its own help desk and your app runs its own support the same way. With the suppo
   while open.
 - No ratings, no web idea board, no notification when an idea ships.
 - The CDN (script-tag) build of the web loader isn't published; `mountSupportWidget` is the loader.
+- Diagnostics: no staff viewer for dumps yet (read `support_diagnostics`, or look one up by short
+  id); no health checks in a dump; the devtools overlay's "Copy debug info" is still its own text,
+  not a view of a dump; no CLI step stamps `buildMetadata` at publish. Dumps go to the app's own
+  server through `httpTransport` and `createDiagnosticsHandler`, so `genesis-support-intake`
+  takes none. Feedback written offline isn't queued yet (only dumps are).

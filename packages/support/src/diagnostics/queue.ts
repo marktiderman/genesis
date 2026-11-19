@@ -68,6 +68,8 @@ export interface OfflineQueueOptions<T> {
   key?: string;
   isRetryable?: (error: unknown) => boolean;
   maxItems?: number;
+  /** The stored queue's size cap, in bytes of JSON (default 1 MB); the oldest go first. */
+  maxBytes?: number;
   baseDelayMs?: number;
   maxDelayMs?: number;
   maxAttempts?: number;
@@ -103,6 +105,7 @@ export function createOfflineQueue<T>(options: OfflineQueueOptions<T>): OfflineQ
   const key = options.key ?? DEFAULT_QUEUE_KEY;
   const now = options.now ?? Date.now;
   const maxItems = options.maxItems ?? DIAGNOSTICS_DEFAULTS.queueMaxItems;
+  const maxBytes = options.maxBytes ?? DIAGNOSTICS_DEFAULTS.queueMaxBytes;
   const base = options.baseDelayMs ?? DIAGNOSTICS_DEFAULTS.queueBaseDelayMs;
   const maxDelay = options.maxDelayMs ?? DIAGNOSTICS_DEFAULTS.queueMaxDelayMs;
   const maxAttempts = options.maxAttempts ?? DIAGNOSTICS_DEFAULTS.queueMaxAttempts;
@@ -139,7 +142,13 @@ export function createOfflineQueue<T>(options: OfflineQueueOptions<T>): OfflineQ
 
   async function write(entries: Entry<T>[]): Promise<void> {
     try {
-      if (entries.length) await options.storage.setItem(key, JSON.stringify(entries));
+      let text = JSON.stringify(entries);
+      while (entries.length && new TextEncoder().encode(text).length > maxBytes) {
+        entries.shift();
+        problem("the queue was over its size: the oldest item was dropped");
+        text = JSON.stringify(entries);
+      }
+      if (entries.length) await options.storage.setItem(key, text);
       else await options.storage.removeItem(key);
     } catch (error) {
       problem("the queue could not be saved", error);

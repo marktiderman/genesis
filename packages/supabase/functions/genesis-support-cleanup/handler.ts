@@ -32,8 +32,8 @@ export interface CleanupStore {
   /** Forget purge rows whose object is gone. */
   forget(ids: number[]): Promise<void>;
   /**
-   * Delete context dumps past their retention (genesis-support 0019's
-   * `support_purge_diagnostics`); returns how many went. Left out, or the
+   * Delete up to `DIAGNOSTICS_BATCH` context dumps past their retention (genesis-support
+   * 0019's `support_purge_diagnostics`); returns how many went. Left out, or the
    * function missing (0019 not applied), dumps are left alone.
    */
   purgeDiagnostics?(retentionDays: number): Promise<number>;
@@ -49,6 +49,9 @@ const BATCH = 100;
 const BUCKET = "genesis-support";
 /** Days a context dump is kept (genesis-support's DIAGNOSTICS_DEFAULTS.retentionDays). */
 export const DIAGNOSTICS_RETENTION_DAYS = 90;
+/** Dumps deleted per call of `support_purge_diagnostics`, and the most calls in one run. */
+export const DIAGNOSTICS_BATCH = 1000;
+export const DIAGNOSTICS_MAX_ROUNDS = 20;
 
 function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
@@ -86,7 +89,13 @@ export async function handle(req: Request, deps: CleanupDeps): Promise<Response>
     let diagnostics = 0;
     if (deps.store.purgeDiagnostics) {
       const days = Number(deps.env("GENESIS_SUPPORT_DIAGNOSTICS_RETENTION_DAYS") ?? DIAGNOSTICS_RETENTION_DAYS);
-      diagnostics = await deps.store.purgeDiagnostics(Number.isFinite(days) && days >= 1 ? Math.floor(days) : DIAGNOSTICS_RETENTION_DAYS);
+      const keep = Number.isFinite(days) && days >= 1 ? Math.floor(days) : DIAGNOSTICS_RETENTION_DAYS;
+      // A batch at a time until a short one, so a backlog clears in one run, within a bound.
+      for (let round = 0; round < DIAGNOSTICS_MAX_ROUNDS; round++) {
+        const removed = await deps.store.purgeDiagnostics(keep);
+        diagnostics += removed;
+        if (removed < DIAGNOSTICS_BATCH) break;
+      }
     }
     return json(200, { ok: true, purged, orphans: removed.length, diagnostics });
   } catch (error) {

@@ -15,6 +15,7 @@
 import { cleanRoute } from "../contract";
 import { captureConsole, type ConsoleBuffer } from "../diagnostics/console";
 import { defineDiagnosticSection, type DiagnosticSection } from "../diagnostics/report";
+import type { Diagnostics } from "../diagnostics/create";
 
 export interface WebSectionsOptions {
   /**
@@ -30,6 +31,26 @@ export interface WebSectionsOptions {
   build?: () => Readonly<Record<string, unknown>> | null | undefined;
   /** The server's base URL (sent without its query). */
   baseUrl?: string | null;
+}
+
+/**
+ * Send queued dumps when the browser is back online or the tab comes to the front, and keep
+ * `session.foreground` in step. Returns the stop.
+ */
+export function flushDiagnosticsOnReconnect(diagnostics: Pick<Diagnostics, "flush" | "setForeground">): () => void {
+  if (typeof window === "undefined" || typeof document === "undefined") return () => {};
+  const flush = () => void diagnostics.flush().catch(() => undefined /* kept in the queue for the next try */);
+  const onVisible = () => {
+    const visible = document.visibilityState === "visible";
+    diagnostics.setForeground(visible);
+    if (visible) flush();
+  };
+  window.addEventListener("online", flush);
+  document.addEventListener("visibilitychange", onVisible);
+  return () => {
+    window.removeEventListener("online", flush);
+    document.removeEventListener("visibilitychange", onVisible);
+  };
 }
 
 interface ConnectionLike {

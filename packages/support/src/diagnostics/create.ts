@@ -19,7 +19,7 @@
 import { cleanRoute } from "../contract";
 import type { FeedbackDelivery, FeedbackRecord, FeedbackSink } from "../record";
 import { capReport, type CapLimits } from "./cap";
-import { createOfflineQueue, isRetryableError, type OfflineQueue, type QueueFlushResult, type QueueStorage } from "./queue";
+import { createOfflineQueue, DiagnosticsSendError, isRetryableError, type OfflineQueue, type QueueFlushResult, type QueueStorage } from "./queue";
 import { redactReport } from "./redact";
 import {
   CORE_SECTIONS,
@@ -51,7 +51,12 @@ export interface DiagnosticsOptions {
   /** The size table, if the app needs other caps (the defaults are `DIAGNOSTICS_DEFAULTS`). */
   limits?: CapLimits;
   /** Keep failed sends and try again with backoff. Without it a failed send throws. */
-  offline?: { storage: QueueStorage; key?: string; maxItems?: number; autoRetry?: boolean };
+  /**
+   * Keep failed sends and try again with backoff (and at once, when created). Each queued dump
+   * remembers who was signed in: it is dropped, not sent, if someone else is signed in by then.
+   * Call `clearQueue()` on sign-out.
+   */
+  offline?: { storage: QueueStorage; key?: string; maxItems?: number; maxBytes?: number; autoRetry?: boolean };
   /** Default `Date.now`. */
   now?: () => number;
   /** Default a random UUID v4. */
@@ -103,8 +108,16 @@ export interface Diagnostics {
   submitFeedback(record: FeedbackRecord, options?: { sink?: FeedbackSink }): Promise<FeedbackDelivery & { diagnostics: DiagnosticsDelivery | null }>;
   /** Try the queued sends now (on reconnect, on foreground). */
   flush(): Promise<QueueFlushResult>;
+  /** Forget every queued send (on sign-out). */
+  clearQueue(): Promise<void>;
   /** How many sends are waiting in the queue. */
   pending(): Promise<number>;
+}
+
+/** A dump waiting in the queue, with who was signed in when it was made. */
+interface QueuedDump {
+  report: DiagnosticReport;
+  userId: string | null;
 }
 
 const isCore = (name: string): name is CoreSectionName => (CORE_SECTIONS as readonly string[]).includes(name);
@@ -180,17 +193,33 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
   let foreground: boolean | null = null;
 
   const transport = options.transport;
-  const queue: OfflineQueue<DiagnosticReport> | null = options.offline
-    ? createOfflineQueue<DiagnosticReport>({
+  const currentUserId = async (): Promise<string | null> => {
+    if (!options.user) return null;
+    try {
+      return (await withTimeout(options.user, DIAGNOSTICS_DEFAULTS.sectionTimeoutMs))?.id ?? null;
+    } catch {
+      return null;
+    }
+  };
+
+  const queue: OfflineQueue<QueuedDump> | null = options.offline
+    ? createOfflineQueue<QueuedDump>({
         storage: options.offline.storage,
         ...(options.offline.key ? { key: options.offline.key } : {}),
         ...(options.offline.maxItems ? { maxItems: options.offline.maxItems } : {}),
+        ...(options.offline.maxBytes ? { maxBytes: options.offline.maxBytes } : {}),
         ...(options.offline.autoRetry !== undefined ? { autoRetry: options.offline.autoRetry } : {}),
-        send: (report) => transport.send(report),
+        send: async ({ report, userId }) => {
+          // A shared device: whoever is signed in now must be who made it, or it goes nowhere.
+          if ((await currentUserId()) !== userId) throw new DiagnosticsSendError("queued for someone who isn't signed in", 0, false);
+          return transport.send(report);
+        },
         now,
         onProblem: problem,
       })
     : null;
+  // Anything left from the last run goes as soon as it can.
+  if (queue) void Promise.resolve().then(() => queue.flush().catch((error: unknown) => problem("diagnostics: flushing the queue failed", error)));
 
   async function collect({ trigger = "manual", feedbackId = null }: CollectOptions = {}): Promise<DiagnosticReport> {
     const report = emptyReport({
@@ -248,7 +277,7 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
         return { id: receipt.id, shortId: receipt.shortId, queued: false };
       } catch (error) {
         if (queue && isRetryableError(error)) {
-          await queue.add(report);
+          await queue.add({ report, userId: report.user?.id ?? (await currentUserId()) });
           return { id: report.id, shortId: diagnosticsShortId(report.id), queued: true };
         }
         throw error;
@@ -287,6 +316,7 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
     },
     flush: () => (queue ? queue.flush() : Promise.resolve({ sent: 0, kept: 0, dropped: 0 })),
     pending: () => (queue ? queue.size() : Promise.resolve(0)),
+    clearQueue: () => (queue ? queue.clear() : Promise.resolve()),
   };
   return diagnostics;
 }

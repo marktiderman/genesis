@@ -93,20 +93,34 @@ function json(status: number, body: Record<string, unknown>): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 }
 
-/** Markdown for the issue body; the person's text is fenced so it can't mention or link anyone. */
+/** A fenced block the text can't break out of: the fence is longer than any run of backticks in it. */
+export function fenced(text: string): string {
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = "`".repeat(Math.max(4, longest + 1));
+  return [fence, text, fence].join("\n");
+}
+
+/** Text safe outside a fence (the issue title): nothing can form a mention, link, image or HTML. */
+export function neutralise(text: string): string {
+  return text.replace(/[@#[!<`]/g, (c) => `${c}\u200b`);
+}
+
+/**
+ * Markdown for the issue body: everything in one fence, so neither the person's text nor the
+ * platform or route they sent can mention, link or embed anything.
+ */
 export function issueBody(s: ReportSummary): string {
-  const fence = "````";
-  return [
-    `**${s.type}** from the app${s.platform ? ` (${s.platform})` : ""}`,
-    "",
-    fence,
-    s.message.replaceAll(fence, "``` `"),
-    fence,
-    "",
-    `- Route: ${s.route ? `\`${s.route.replaceAll("`", "")}\`` : "none"}`,
-    `- Version: ${s.appVersion ? `\`${s.appVersion.replaceAll("`", "")}\`` : "unknown"}`,
-    `- Report: \`${s.id}\``,
-  ].join("\n");
+  return fenced(
+    [
+      `${s.type} from the app${s.platform ? ` (${s.platform})` : ""}`,
+      "",
+      s.message,
+      "",
+      `Route: ${s.route ?? "none"}`,
+      `Version: ${s.appVersion ?? "unknown"}`,
+      `Report: ${s.id}`,
+    ].join("\n"),
+  );
 }
 
 export async function handle(req: Request, deps: NotifyDeps): Promise<Response> {
@@ -142,7 +156,7 @@ export async function handle(req: Request, deps: NotifyDeps): Promise<Response> 
       const res = await deps.fetch(`https://api.github.com/repos/${repo}/issues`, {
         method: "POST",
         headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json", "content-type": "application/json", "user-agent": "genesis-support-notify" },
-        body: JSON.stringify({ title: `[${summary.type}] ${summary.title}`.slice(0, 256), body: issueBody(summary), labels: [...labels, summary.type] }),
+        body: JSON.stringify({ title: neutralise(`[${summary.type}] ${summary.title}`).slice(0, 256), body: issueBody(summary), labels: [...labels, summary.type] }),
       });
       if (res.ok) sent.push("github");
       else {

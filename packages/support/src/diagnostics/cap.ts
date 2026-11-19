@@ -22,6 +22,15 @@ export interface CapLimits {
 }
 
 const TRUNCATED_MARK = "…[truncated]";
+
+/** The format's own keys in each core part; anything else there is an extra a section added. */
+const KNOWN: Record<"build" | "server" | "session" | "device", readonly string[]> = {
+  build: ["version", "build", "runtimeVersion", "channel", "requestedChannel", "updateId", "launch", "emergency", "commit", "otaNumber", "release", "releasePublishedAt", "jsBundle"],
+  server: ["baseUrl", "apiCommit"],
+  session: ["uptimeMs", "route", "recentRoutes", "foreground"],
+  device: ["os", "osVersion", "model", "locale", "timeZone", "screen", "fontScale", "network", "permissions"],
+};
+const MAX_BLOCKS = 200;
 const encoder = new TextEncoder();
 
 /** A string cut to `maxBytes` UTF-8 bytes without splitting a character. */
@@ -110,6 +119,32 @@ export function capReport(input: DiagnosticReport, limits: CapLimits = {}): Diag
     }
   }
 
+  // The core parts within an app section's cap too: over it, the extras a section added go first.
+  const known = (part: keyof typeof KNOWN, value: object): Record<string, unknown> =>
+    Object.fromEntries(Object.entries(value).filter(([k]) => KNOWN[part].includes(k)));
+  for (const part of ["build", "server", "session", "device"] as const) {
+    const value = report[part];
+    if (!value || jsonByteLength(value) <= L.sectionMaxBytes) continue;
+    const trimmed = known(part, value);
+    (report as unknown as Record<string, unknown>)[part] = jsonByteLength(trimmed) <= L.sectionMaxBytes || part === "session" ? trimmed : null;
+    truncated.add(part);
+  }
+  for (const part of ["flags", "app", "sentry", "user"] as const) {
+    const value = report[part];
+    if (value && jsonByteLength(value) > L.sectionMaxBytes) {
+      (report as unknown as Record<string, unknown>)[part] = part === "app" ? { id: report.app.id, name: null, platform: null, environment: null } : null;
+      truncated.add(part);
+    }
+  }
+  if (report.blocks && report.blocks.length > MAX_BLOCKS) {
+    report.blocks = report.blocks.slice(0, MAX_BLOCKS);
+    truncated.add("blocks");
+  }
+  if (report.checks && jsonByteLength(report.checks) > L.sectionMaxBytes) {
+    report.checks = report.checks.map((c) => ({ ...c, detail: c.detail ? cutToBytes(c.detail, 256) : c.detail }));
+    truncated.add("checks");
+  }
+
   // Each app section within its own cap.
   for (const [name, value] of Object.entries(report.sections)) {
     const { value: cutValue, cut } = cutStrings(value, L.maxString);
@@ -156,6 +191,27 @@ export function capReport(input: DiagnosticReport, limits: CapLimits = {}): Diag
       truncated.add("device");
       continue;
     }
+    if (report.checks?.length) {
+      report.checks = [];
+      truncated.add("checks");
+      continue;
+    }
+    if (report.blocks?.length) {
+      report.blocks = null;
+      truncated.add("blocks");
+      continue;
+    }
+    // Last: the extras a section put beside the build, server and session facts.
+    let trimmed = false;
+    for (const part of ["build", "server", "session"] as const) {
+      const value = report[part];
+      if (value && Object.keys(value).some((k) => !KNOWN[part].includes(k))) {
+        (report as unknown as Record<string, unknown>)[part] = known(part, value);
+        truncated.add(part);
+        trimmed = true;
+      }
+    }
+    if (trimmed) continue;
     // Nothing left to cut but the identity and build facts: send what there is.
     break;
   }

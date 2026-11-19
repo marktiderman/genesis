@@ -100,6 +100,10 @@ export interface SupportOptions {
    * and offered as "Send diagnostics" in the devtools overlay.
    */
   diagnostics?: Diagnostics;
+  /** React Native's `AppState`: queued dumps go when the app comes to the front, and `session.foreground` follows it. */
+  appState?: { addEventListener(type: "change", listener: (state: string) => void): { remove(): void } };
+  /** `@react-native-community/netinfo`: queued dumps go when the connection is back. */
+  netInfo?: { addEventListener(listener: (state: { isConnected: boolean | null }) => void): () => void };
   /** Send a dump when the phone is shaken. Default true. */
   dumpOnShake?: boolean;
   /** Send a dump with every piece of feedback. Default true. */
@@ -287,6 +291,24 @@ export function createSupport(options: SupportOptions): SupportBlock {
         if (current) route = current;
         if (current) options.diagnostics?.recordRoute(current);
       }, [current]);
+      useEffect(() => {
+        const diagnostics = options.diagnostics;
+        if (!diagnostics) return;
+        const flush = () => void diagnostics.flush().catch((error: unknown) => report(error, "diagnostics"));
+        const app = options.appState?.addEventListener("change", (state) => {
+          diagnostics.setForeground(state === "active");
+          if (state === "active") flush();
+        });
+        let wasConnected: boolean | null = null;
+        const stopNet = options.netInfo?.addEventListener((state) => {
+          if (state.isConnected && wasConnected === false) flush();
+          wasConnected = state.isConnected;
+        });
+        return () => {
+          app?.remove();
+          stopNet?.();
+        };
+      }, []);
       useEffect(() => {
         if (!options.accelerometer || options.shake === false) return;
         try {

@@ -10,7 +10,7 @@
 // `x-genesis-support-secret`). SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set by
 // Supabase. Deploy with `verify_jwt = false`: the secret is the check.
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
-import { handle, type CleanupStore, type PurgeRow } from "./handler.ts";
+import { handle, DIAGNOSTICS_BATCH, type CleanupStore, type PurgeRow } from "./handler.ts";
 
 const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -33,7 +33,7 @@ const store: CleanupStore = {
     return (data ?? []).map((object) => object.name);
   },
   async purgeDiagnostics(retentionDays) {
-    const { data, error } = await admin.rpc("support_purge_diagnostics", { older_than: `${retentionDays} days`, max_rows: 1000 });
+    const { data, error } = await admin.rpc("support_purge_diagnostics", { older_than: `${retentionDays} days`, max_rows: DIAGNOSTICS_BATCH });
     // PGRST202 / 42883: genesis-support's migration 0019 isn't applied, so there are no dumps.
     if (error?.code === "PGRST202" || error?.code === "42883") return 0;
     if (error) throw new Error(`support_purge_diagnostics: ${error.code ?? ""} ${error.message}`);

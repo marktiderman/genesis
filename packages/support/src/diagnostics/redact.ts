@@ -9,6 +9,8 @@
  *    `authorization`, `cookie`, `email`, …) become `[Filtered]`.
  * 3. Routes are paths only, with private-looking segments replaced
  *    (`cleanRoute`).
+ *    Unlike Sentry's events, no key is trusted to hold an id: `release`, `environment` or
+ *    `event_id` in an app's data is scrubbed like anything else (`scrubValueStrict`).
  * 4. The ids the dump needs to be useful (its own, the feedback's, Sentry's
  *    event and replay ids, a commit) are kept when they have their exact shape,
  *    and scrubbed like any text when they don't.
@@ -16,7 +18,7 @@
  * Fails closed: a section that can't be scrubbed is written as null.
  */
 import { cleanRoute } from "../contract";
-import { FILTERED, isSecretKey, scrubString, scrubUrl, scrubValue } from "./scrub";
+import { FILTERED, isSecretKey, scrubString, scrubUrl, scrubValueStrict } from "./scrub";
 import {
   DIAGNOSTIC_TRIGGERS,
   DIAGNOSTICS_SCHEMA,
@@ -57,7 +59,7 @@ function scrubObject(value: unknown): Record<string, unknown> | null {
   const obj = record(value);
   if (!obj) return null;
   try {
-    return scrubValue(obj) as Record<string, unknown>;
+    return scrubValueStrict(obj) as Record<string, unknown>;
   } catch {
     return null;
   }
@@ -125,7 +127,7 @@ export function redactReport(input: DiagnosticReport, options: RedactOptions = {
   for (const [name, value] of Object.entries(record(r["sections"]) ?? {})) {
     if (!SAFE_PATH.test(name)) continue;
     try {
-      sections[name] = trusted.has(name) ? filterKeys(value) : scrubValue(value);
+      sections[name] = trusted.has(name) ? filterKeys(value) : scrubValueStrict(value);
     } catch {
       sections[name] = null;
     }
