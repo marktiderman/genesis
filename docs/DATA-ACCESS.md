@@ -66,7 +66,8 @@ What a create or update returns depends on the mode:
 - **Open** (the default): an insert or update returns the table's row (`select *`), as before.
 - **A write function** (`writes`) that returns an id (or `true`, for an update) has the record
   read back the way the resource reads, in either mode; one that returns the row returns that
-  row. A resource that declares no read is never read back.
+  row. On a declared provider, a resource that declares no read is never read back; an open
+  provider reads its table back.
 
 One read can come before an update: a resource with a `source` and no `writeColumns` reads the
 table's row (`select *`) to learn its columns, on an open provider or with `table.read`. Set

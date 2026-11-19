@@ -107,10 +107,11 @@ function objectDeclares(object: string): boolean {
     if (ch === "{" || ch === "(" || ch === "[") depth++;
     else if (ch === "}" || ch === ")" || ch === "]") depth--;
     else if (depth === 1 && blank.startsWith("...", i)) lastSpread = i;
-    else if (depth === 1 && /[\s{,]/.test(blank[i - 1] ?? " ") && /^access\s*:/.test(blank.slice(i))) {
+    else if (depth === 1 && blank[i] === object[i] && /[\s{,]/.test(blank[i - 1] ?? " ") && /^(["'`]?)access\1\s*:/.test(object.slice(i))) {
+      // `access:` or a quoted `"access":` (its quotes are blanked, so the key is read from the text).
       lastAccess = i;
-      const value = /^access\s*:\s*(["'`])([^"'`]*)\1/.exec(object.slice(i));
-      declaredAt = value?.[2] === "declared" ? i : -1;
+      const value = /^(["'`]?)access\1\s*:\s*(["'`])([^"'`]*)\2/.exec(object.slice(i));
+      declaredAt = value?.[3] === "declared" ? i : -1;
     }
   }
   return declaredAt !== -1 && declaredAt === lastAccess && lastSpread < declaredAt;

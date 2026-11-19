@@ -170,21 +170,28 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
         }),
   );
 
+  // The version the record shows when the action starts: a confirm step doesn't move it to a
+  // version that arrived while the dialog was open, so a change made since is still a conflict.
+  const versionNow = (): string | undefined => {
+    const field = capabilities.data?.version?.field;
+    const value = field ? (record as Record<string, unknown>)[field] : undefined;
+    return value == null ? undefined : String(value);
+  };
+  const confirmingVersion = useRef<string | undefined>(undefined);
   const action = useWrite(
-    async (a: RecordViewHeaderAction) => {
+    async ({ a, version }: { a: RecordViewHeaderAction; version: string | undefined }) => {
       if (onAction) return onAction(a.name, row);
       if (!provider.runAction) throw new DataWriteError("error", fillMessage(m.workspace.noRunner, { name: a.label }));
-      // At the version the record was read at, so a record changed since is a conflict.
-      const field = capabilities.data?.version?.field;
-      const value = field ? (record as Record<string, unknown>)[field] : undefined;
-      return provider.runAction(view.resource, { id, action: a.name, ...(value == null ? {} : { expectedVersion: String(value) }) });
+      return provider.runAction(view.resource, { id, action: a.name, ...(version === undefined ? {} : { expectedVersion: version }) });
     },
     { invalidates: [resourceKeys(view.resource).all] },
   );
   const start = (a: RecordViewHeaderAction) => {
     if (a.allowed !== true) return;
-    if (a.confirm) setConfirming(a);
-    else void action.fire(a);
+    if (a.confirm) {
+      confirmingVersion.current = versionNow();
+      setConfirming(a);
+    } else void action.fire({ a, version: versionNow() });
   };
 
   const summary = recordView.readinessSummary(record);
@@ -325,7 +332,7 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
             <AlertDialogAction
               data-testid={`${testID}-confirm`}
               onClick={() => {
-                if (confirming) void action.fire(confirming);
+                if (confirming) void action.fire({ a: confirming, version: confirmingVersion.current });
                 setConfirming(null);
               }}
             >

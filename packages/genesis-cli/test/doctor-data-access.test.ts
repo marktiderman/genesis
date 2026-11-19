@@ -149,8 +149,11 @@ describe("data/declared-access: a spread after access", () => {
       "src/lib/nested.ts":
         'export const p = createSupabaseProvider(client, { resources: { members: { toFormValues: (r) => ({ access: r.level }) } }, ...base, access: "declared" });',
       "src/lib/reset.ts": 'export const p = createSupabaseProvider(client, { access: "declared", access: "open" });',
+      "src/lib/quoted.ts": 'export const p = createSupabaseProvider(client, { "access": "declared" });',
+      "src/lib/quoted-reset.ts": 'export const p = createSupabaseProvider(client, { access: "declared", "access": "open" });',
+      "src/lib/in-string.ts": 'export const p = createSupabaseProvider(client, { access: "declared", note: "see, access: open" });',
     });
-    expect(found.map((f) => f.file).sort()).toEqual(["src/lib/inline.ts", "src/lib/named.ts", "src/lib/reset.ts"]);
+    expect(found.map((f) => f.file).sort()).toEqual(["src/lib/inline.ts", "src/lib/named.ts", "src/lib/quoted-reset.ts", "src/lib/reset.ts"]);
   });
 });
 
