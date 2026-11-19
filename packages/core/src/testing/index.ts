@@ -343,3 +343,5 @@ export async function expectBinned(args: {
   }
   throw new ContractError(`${resource} ${String(id)} is still visible after the delete`);
 }
+
+export { accessRules, type AccessRuleCase, type AccessRuleClient, type AccessRuleSpec } from "./access-rules";
