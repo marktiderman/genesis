@@ -1,0 +1,21 @@
+packages/genesis-cli/src/doctor/data-access.ts
+  s_03775a189718c5::t_38fc01e7fe9b44 304-319
+packages/genesis-cli/test/doctor-data-access.test.ts
+  s_03775a189718c5::t_38fc01e7fe9b44 319-335
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ef327bb6d96119b6f146effa8e55d188c9c058d",
+  "prompts": {},
+  "sessions": {
+    "s_03775a189718c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1bfce5ab-8151-44b4-9387-b6450c59973d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
