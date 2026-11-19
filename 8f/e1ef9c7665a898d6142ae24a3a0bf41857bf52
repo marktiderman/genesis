@@ -1,0 +1,45 @@
+docs/MIGRATION.md
+  s_ca8e075e853203::t_eff48f59851791 14-24
+packages/features/README.md
+  s_ca8e075e853203::t_8f0372f4221c50 183-187
+packages/features/src/__tests__/settings.test.ts
+  s_ca8e075e853203::t_af1dd4e6620b62 21,387-438
+packages/features/src/index.ts
+  s_ca8e075e853203::t_a3533c7a62da77 127
+packages/features/src/settings.ts
+  s_ca8e075e853203::t_b1a55e9109c621 574,592-596,607-609,624-627
+packages/genesis-cli/src/doctor/config.ts
+  s_ca8e075e853203::t_b85d5c3e6ec890 148-153,158-180,480-483
+packages/genesis-cli/src/doctor/settings.ts
+  s_cfe03394c0d379::t_8ca7d67c67f0b9 127-129
+packages/genesis-cli/test/doctor-settings.test.ts
+  s_ca8e075e853203::t_0f3996d09b7269 56-70
+.changeset/genesis-cli-settings.md
+  s_ca8e075e853203::t_e959efe843c09e 11-13
+.changeset/genesis-config-settings.md
+  s_ca8e075e853203::t_f27ac6c6bc554e 16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8fe1ef9c7665a898d6142ae24a3a0bf41857bf52",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_cfe03394c0d379": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b0c9d35b-ebb9-42c9-9694-dd173757e0d5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
