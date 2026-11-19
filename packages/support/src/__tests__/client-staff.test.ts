@@ -6,7 +6,7 @@ import { fakeSupabase } from "./fake-supabase";
 describe("the client's staff tools", () => {
   const rows: Record<string, unknown> = {
     support_agents_list: [{ user_id: "u1", full_name: "Ana" }, { user_id: "u2", full_name: null }],
-    support_reporters: [{ user_id: "u3", full_name: "Bo", email: "bo@example.test" }],
+    support_ticket_requesters: [{ user_id: "u3", full_name: "Bo", email: "bo@example.test" }],
     support_requester_tenants: [{ tenant_id: "t1", label: "Acme" }, { tenant_id: "t2", label: null }],
   };
   const make = () => {
@@ -25,7 +25,7 @@ describe("the client's staff tools", () => {
     const { fake, client } = make();
     expect(await client.reporters!([])).toEqual([]);
     expect(await client.reporters!(["u3", "u3"])).toEqual([{ id: "u3", name: "Bo", email: "bo@example.test" }]);
-    expect(fake.rpcs).toEqual([{ fn: "support_reporters", args: { ids: ["u3"] } }]);
+    expect(fake.rpcs).toEqual([{ fn: "support_ticket_requesters", args: { ids: ["u3"] } }]);
   });
 
   it("gives a requester's tenants, and one line of their labels", async () => {

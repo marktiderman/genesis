@@ -6,7 +6,7 @@
 -- agent of tb; e4 is nobody.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(14);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000022' || n)::uuid $$;
@@ -35,12 +35,19 @@ insert into public.ticket_agents (tenant_id, person_id, role) values ('00000000-
 
 insert into public.tickets (user_id, type, message, tenant_id) values (pg_temp.person('a1'), 'bug', 'to the app', '00000000-0000-4000-8000-00000000000f');
 
+-- The app's staff list names e4 too, who handles nothing: only real agents are listed.
+create function private.genesis_support_staff_list() returns setof uuid
+language sql stable set search_path = '' as $$ select unnest(array['00000000-0000-4000-8000-0000000022c2'::uuid, '00000000-0000-4000-8000-0000000022e4'::uuid]) $$;
+-- The app's report hook names e4 a handler of a1's report.
+create function private.genesis_support_report_handler(report uuid, person uuid) returns boolean
+language sql stable set search_path = '' as $$ select person = '00000000-0000-4000-8000-0000000022e4'::uuid $$;
+
 -- Staff ---------------------------------------------------------------------------------------
 select pg_temp.sign_in('c2');
 set local role authenticated;
 select is((select array_agg(full_name) from public.support_agents_list()), array['Person c2'], 'staff list the app''s own agents, by name');
-select is((select email from public.support_reporters(array[pg_temp.person('a1'), pg_temp.person('e4')])), 'genesis-staff-a1@example.test', 'staff name who wrote');
-select is((select count(*)::int from public.support_reporters(array[pg_temp.person('e4')])), 0, 'never someone who wrote nothing they handle');
+select is((select email from public.support_ticket_requesters(array[pg_temp.person('a1'), pg_temp.person('e4')])), 'genesis-staff-a1@example.test', 'staff name who wrote');
+select is((select count(*)::int from public.support_ticket_requesters(array[pg_temp.person('e4')])), 0, 'never someone who wrote nothing they handle');
 select is((select array_agg(label) from public.support_requester_tenants(pg_temp.person('a1'))), array['Acme'], 'staff see the requester''s tenants, labelled');
 select throws_ok($$select * from public.support_agents_list('00000000-0000-4000-8000-0000000000b0')$$, '42501', null, 'staff aren''t a tenant''s agents');
 reset role;
@@ -49,18 +56,24 @@ reset role;
 select pg_temp.sign_in('d3');
 set local role authenticated;
 select is((select array_agg(user_id) from public.support_agents_list('00000000-0000-4000-8000-0000000000b0')), array[pg_temp.person('d3')], 'a tenant''s agent lists its agents');
-select is((select count(*)::int from public.support_reporters(array[pg_temp.person('a1')])), 0, 'but not who wrote to the app');
+select is((select count(*)::int from public.support_ticket_requesters(array[pg_temp.person('a1')])), 0, 'but not who wrote to the app');
 select is((select count(*)::int from public.support_requester_tenants(pg_temp.person('a1'))), 0, 'nor their tenants');
 reset role;
 
 -- Nobody ----------------------------------------------------------------------------------------
 select pg_temp.sign_in('e4');
 set local role authenticated;
-select throws_ok($$select * from public.support_agents_list()$$, '42501', null, 'someone else lists nobody');
-select is((select count(*)::int from public.support_reporters(array[pg_temp.person('a1')])), 0, 'and names nobody');
+select throws_ok($$select * from public.support_agents_list()$$, '42501', null, 'a hook-named handler lists no agents');
+select is((select full_name from public.support_ticket_requesters(array[pg_temp.person('a1')])), 'Person a1', 'but names the requester of a report they handle');
+reset role;
+drop function private.genesis_support_report_handler(uuid, uuid);
+select pg_temp.sign_in('e4');
+set local role authenticated;
+select is((select count(*)::int from public.support_ticket_requesters(array[pg_temp.person('a1')])), 0, 'without that, someone else names nobody');
+select is((select count(*)::int from public.support_requester_tenants(pg_temp.person('a1'))), 0, 'nor their tenants');
 reset role;
 
-select ok(not has_function_privilege('anon', 'public.support_reporters(uuid[])', 'execute'), 'anon can''t ask');
+select ok(not has_function_privilege('anon', 'public.support_ticket_requesters(uuid[])', 'execute'), 'anon can''t ask');
 select ok(not has_function_privilege('authenticated', 'private.genesis_support_person_name(uuid)', 'execute'), 'nor call the name reader');
 
 select * from finish();

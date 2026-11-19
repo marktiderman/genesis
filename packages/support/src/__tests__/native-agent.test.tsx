@@ -5,7 +5,7 @@ import { act, render, renderHook, screen, waitFor } from "@testing-library/react
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
 import { InboxPage, ThreadPage } from "@marktiderman/genesis-ui-native/layouts";
-import { createSupport, SupportProvider, useAgentInbox, useAgentThread, useAgentUnreadCount, useIsSupportAgent } from "../native";
+import { createSupport, SupportProvider, useAgentInbox, useAgentThread, useAgentUnreadCount, useIsSupportAgent, supportAgentKeys } from "../native";
 import { fakeSupabase, arg, type Answer, type Call } from "./fake-supabase";
 
 const ME = "00000000-0000-4000-8000-0000000000a1";
@@ -44,7 +44,7 @@ const desk: Rpc = (fn, args) => {
     if (args["only_id"]) return { data: [ticket(String(args["only_id"]), { assignee_id: SAM, status: "in_progress", user_read_at: "2026-11-18T10:00:00Z" })], error: null };
     return { data: [ticket(T1), ticket(T2, { assignee_id: ME, agent_unread: false, user_id: null, requester_email: "pat@example.com", channel: "email" })], error: null };
   }
-  if (fn === "support_reporters") return { data: [{ user_id: ALEX, full_name: "Alex Doe", email: "alex@example.com" }], error: null };
+  if (fn === "support_ticket_requesters") return { data: [{ user_id: ALEX, full_name: "Alex Doe", email: "alex@example.com" }], error: null };
   if (fn === "support_agents_list") return { data: [{ user_id: SAM, full_name: "Sam" }, { user_id: ME, full_name: "Me" }], error: null };
   if (fn === "support_requester_tenants") return { data: [{ tenant_id: "ta", label: "Acme" }, { tenant_id: "tb", label: "Northside" }], error: null };
   return { data: null, error: null };
@@ -215,5 +215,12 @@ describe("an agent's ticket", () => {
     const { result } = renderHook(() => useAgentThread(T1), { wrapper });
     await waitFor(() => expect(result.current.notFound).toBe(true));
     expect(result.current.composer).toBeNull();
+  });
+});
+
+describe("the agent desk's query keys", () => {
+  it("are scoped by the signed-in login, so another login never reads the last one's cache", () => {
+    expect(supportAgentKeys.queue("u1", null, "mine")).not.toEqual(supportAgentKeys.queue("u2", null, "mine"));
+    expect(supportAgentKeys.queue("u1", null, "mine").slice(0, 3)).toEqual(supportAgentKeys.user("u1"));
   });
 });

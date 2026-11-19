@@ -97,10 +97,12 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       { package: PACKAGE, file: "migrations/0006_genesis_support.sql", test: "migrations/tests/0006_genesis_support.test.sql" },
       // Severity, the verify loop and report handlers, after 0006.
       { package: "@marktiderman/genesis-support", file: "migrations/0003_genesis_support_findings.sql", test: "migrations/tests/0003_genesis_support_findings.test.sql" },
-      // Zero config: the default tenant, staff and viewer-people hooks, where the app has none.
-      { package: "@marktiderman/genesis-support", file: "migrations/0021_genesis_support_default_hooks.sql", test: "migrations/tests/0021_genesis_support_default_hooks.test.sql" },
-      // Tickets and tenants: the rename, tenant_id, agents (needs the default-tenant hook: 0021's, or the app's).
+      // Zero config: a stand-in default tenant for 0004, where the app has none (0023 drops it).
+      { package: "@marktiderman/genesis-support", file: "migrations/0021_genesis_support_default_hooks.sql", test: "migrations/tests/0023_genesis_support_hook_defaults.test.sql" },
+      // Tickets and tenants: the rename, tenant_id, agents (needs the default-tenant hook: 0021's stand-in, or the app's).
       { package: "@marktiderman/genesis-support", file: "migrations/0004_genesis_support_tickets.sql", test: "migrations/tests/0004_genesis_support_tickets.test.sql" },
+      // Zero config in Genesis's own wrappers: the reserved tenant and platform admins as staff, where the app has no hooks.
+      { package: "@marktiderman/genesis-support", file: "migrations/0023_genesis_support_hook_defaults.sql", test: "migrations/tests/0023_genesis_support_hook_defaults.test.sql" },
       // The Data Studio's keys after the rename, and an agent's unread count.
       { package: "@marktiderman/genesis-support", file: "migrations/0016_genesis_support_ticket_fixes.sql", test: "migrations/tests/0016_genesis_support_ticket_fixes.test.sql" },
       // The context dump's table (createDiagnostics): own rows, staff read, 10 an hour, 90 days.

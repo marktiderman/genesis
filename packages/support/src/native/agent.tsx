@@ -34,33 +34,47 @@ const NOT_ALLOWED = "42501";
 const NOTE = "note";
 const REPLY = "reply";
 
-/** The agent desk's query keys. `tenant` is the tenant id, null for the app's own. */
+/**
+ * The agent desk's query keys, scoped by the signed-in login (`user`) so a sign-in as someone else
+ * on the same phone never reads the last person's queue from the cache. `tenant` is the tenant id,
+ * null for the app's own.
+ */
 export const supportAgentKeys = {
   all: [SUPPORT_QUERY_ROOT, "agent"] as const,
-  tenant: (tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", tenant] as const,
-  isAgent: (tenant: string | null, userId: string | null) => [SUPPORT_QUERY_ROOT, "agent", tenant, "is-agent", userId] as const,
-  queues: (tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", tenant, "queue"] as const,
-  queue: (tenant: string | null, view: TicketInboxView) => [SUPPORT_QUERY_ROOT, "agent", tenant, "queue", view] as const,
+  user: (user: string | null) => [SUPPORT_QUERY_ROOT, "agent", user] as const,
+  tenant: (user: string | null, tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", user, tenant] as const,
+  isAgent: (user: string | null, tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", user, tenant, "is-agent"] as const,
+  queues: (user: string | null, tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", user, tenant, "queue"] as const,
+  queue: (user: string | null, tenant: string | null, view: TicketInboxView) => [SUPPORT_QUERY_ROOT, "agent", user, tenant, "queue", view] as const,
   /** Under it, the unread badge: whatever refreshes the counts refreshes the badge too. */
-  counts: (tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", tenant, "counts"] as const,
-  unread: (tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", tenant, "counts", "unread"] as const,
-  ticket: (tenant: string | null, id: string) => [SUPPORT_QUERY_ROOT, "agent", tenant, "ticket", id] as const,
-  replies: (tenant: string | null, id: string) => [SUPPORT_QUERY_ROOT, "agent", tenant, "replies", id] as const,
-  staff: (tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", tenant, "staff"] as const,
-  reporters: (ids: readonly string[]) => [SUPPORT_QUERY_ROOT, "agent", "reporters", ...ids] as const,
-  requesterTenants: (personId: string) => [SUPPORT_QUERY_ROOT, "agent", "requester-tenants", personId] as const,
+  counts: (user: string | null, tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", user, tenant, "counts"] as const,
+  unread: (user: string | null, tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", user, tenant, "counts", "unread"] as const,
+  ticket: (user: string | null, tenant: string | null, id: string) => [SUPPORT_QUERY_ROOT, "agent", user, tenant, "ticket", id] as const,
+  replies: (user: string | null, tenant: string | null, id: string) => [SUPPORT_QUERY_ROOT, "agent", user, tenant, "replies", id] as const,
+  staff: (user: string | null, tenant: string | null) => [SUPPORT_QUERY_ROOT, "agent", user, tenant, "staff"] as const,
+  reporters: (user: string | null, ids: readonly string[]) => [SUPPORT_QUERY_ROOT, "agent", user, "reporters", ...ids] as const,
+  requesterTenants: (user: string | null, personId: string) => [SUPPORT_QUERY_ROOT, "agent", user, "requester-tenants", personId] as const,
 };
 
 /** The signed-in person's id, from the app's Supabase session (null while it's read, or signed out). */
-function useSignedInId(given: string | null | undefined): string | null {
+/** Undefined while the session is still read. */
+function useSignedInId(given: string | null | undefined): string | null | undefined {
   const { options } = useSupport();
+  const queryClient = useQueryClient();
+  // A sign-in or sign-out reads the id again at once, so the keys move to the new login.
+  useEffect(() => {
+    const auth = options.supabase.auth as { onAuthStateChange?: (cb: () => void) => { data?: { subscription?: { unsubscribe(): void } } } };
+    const sub = auth.onAuthStateChange?.(() => void queryClient.invalidateQueries({ queryKey: [SUPPORT_QUERY_ROOT, "agent", "me"] }));
+    return () => sub?.data?.subscription?.unsubscribe();
+  }, [options.supabase, queryClient]);
   const session = useQuery({
     queryKey: [SUPPORT_QUERY_ROOT, "agent", "me"],
     queryFn: async () => (await options.supabase.auth.getSession()).data.session?.user?.id ?? null,
     enabled: given === undefined,
     staleTime: 60_000,
   });
-  return given !== undefined ? given : (session.data ?? null);
+  if (given !== undefined) return given;
+  return session.isFetched ? (session.data ?? null) : undefined;
 }
 
 const isRefused = (error: unknown) => error instanceof SupportError && error.code === NOT_ALLOWED;
@@ -94,9 +108,9 @@ export function useIsSupportAgent(tenantId?: string | null): boolean {
   const tenant = tenantId ?? null;
   const me = useSignedInId(undefined);
   const query = useQuery({
-    queryKey: supportAgentKeys.isAgent(tenant, me),
+    queryKey: supportAgentKeys.isAgent(me ?? null, tenant),
     queryFn: () => (tenant === null ? client.isStaff() : client.isAgent ? client.isAgent(tenant) : Promise.resolve(false)),
-    enabled: me !== null,
+    enabled: me !== null && me !== undefined,
     staleTime: 5 * 60_000,
   });
   return query.data === true;
@@ -109,9 +123,10 @@ export function useIsSupportAgent(tenantId?: string | null): boolean {
 export function useAgentUnreadCount(tenantId?: string | null, options: { refreshInterval?: number } = {}): number {
   const { client } = useSupport();
   const tenant = tenantId ?? null;
+  const me = useSignedInId(undefined);
   const agent = useIsSupportAgent(tenant);
   const query = useQuery({
-    queryKey: supportAgentKeys.unread(tenant),
+    queryKey: supportAgentKeys.unread(me ?? null, tenant),
     queryFn: () => required(client.agentUnreadCount, "agentUnreadCount")({ tenantId: tenant }),
     enabled: agent,
     refetchInterval: options.refreshInterval ?? 60_000,
@@ -124,11 +139,12 @@ export function useAgentUnreadCount(tenantId?: string | null, options: { refresh
 /** Names for the requesters among `ids` (`client.reporters`), when the client reads them. */
 function useReporters(ids: readonly string[]) {
   const { client } = useSupport();
+  const me = useSignedInId(undefined);
   const sorted = useMemo(() => [...new Set(ids)].sort(), [ids]);
   const query = useQuery({
-    queryKey: supportAgentKeys.reporters(sorted),
+    queryKey: supportAgentKeys.reporters(me ?? null, sorted),
     queryFn: () => required(client.reporters, "reporters")(sorted),
-    enabled: Boolean(client.reporters) && sorted.length > 0,
+    enabled: me !== undefined && Boolean(client.reporters) && sorted.length > 0,
     staleTime: 5 * 60_000,
     retry: retryUnlessRefused,
   });
@@ -138,10 +154,11 @@ function useReporters(ids: readonly string[]) {
 /** The help desk's agents (`client.staffList`), for names and the assignee picker. Empty without it. */
 function useStaff(tenant: string | null, enabled: boolean): SupportPerson[] {
   const { client } = useSupport();
+  const me = useSignedInId(undefined);
   const query = useQuery({
-    queryKey: supportAgentKeys.staff(tenant),
+    queryKey: supportAgentKeys.staff(me ?? null, tenant),
     queryFn: () => required(client.staffList, "staffList")({ tenantId: tenant }),
-    enabled: enabled && Boolean(client.staffList),
+    enabled: me !== undefined && enabled && Boolean(client.staffList),
     staleTime: 5 * 60_000,
     retry: retryUnlessRefused,
   });
@@ -235,16 +252,18 @@ export function useAgentInbox(options: AgentInboxOptions = {}): AgentInboxProps 
   const me = useSignedInId(undefined);
 
   const list = useInfiniteQuery({
-    queryKey: supportAgentKeys.queue(tenant, view),
+    queryKey: supportAgentKeys.queue(me ?? null, tenant, view),
     initialPageParam: null as AgentTicket | null,
     queryFn: ({ pageParam }) => required(client.agentTickets, "agentTickets")({ tenantId: tenant, view, before: pageParam, limit: pageSize }),
     getNextPageParam: (last) => (last.length === pageSize ? (last[last.length - 1] ?? null) : null),
+    enabled: me !== undefined,
     refetchInterval: poll,
     retry: retryUnlessRefused,
   });
   const counts = useQuery({
-    queryKey: supportAgentKeys.counts(tenant),
+    queryKey: supportAgentKeys.counts(me ?? null, tenant),
     queryFn: () => required(client.agentTicketCounts, "agentTicketCounts")({ tenantId: tenant }),
+    enabled: me !== undefined,
     refetchInterval: poll,
     retry: retryUnlessRefused,
   });
@@ -309,7 +328,7 @@ export function useAgentInbox(options: AgentInboxOptions = {}): AgentInboxProps 
     error: list.isError,
     refreshing: list.isRefetching && !list.isFetchingNextPage,
     onRefresh: async () => {
-      await Promise.all([list.refetch(), queryClient.invalidateQueries({ queryKey: supportAgentKeys.counts(tenant) })]);
+      await Promise.all([list.refetch(), queryClient.invalidateQueries({ queryKey: supportAgentKeys.counts(me ?? null, tenant) })]);
     },
     onEndReached: () => {
       if (list.hasNextPage && !list.isFetchingNextPage) void list.fetchNextPage();
@@ -433,15 +452,16 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
   const me = useSignedInId(undefined);
 
   const ticket = useQuery({
-    queryKey: supportAgentKeys.ticket(tenant, ticketId),
+    queryKey: supportAgentKeys.ticket(me ?? null, tenant, ticketId),
     queryFn: () => required(client.agentTicket, "agentTicket")(ticketId, { tenantId: tenant }),
+    enabled: me !== undefined,
     retry: retryUnlessRefused,
   });
   // The same cache entry as useSupportThread's: where the thread lives doesn't change.
   const where = useQuery({ queryKey: [SUPPORT_QUERY_ROOT, "thread", ticketId], queryFn: () => client.thread(ticketId), staleTime: Infinity, enabled: ticket.isSuccess && Boolean(ticket.data) });
   const live = where.data?.mode === "chat";
   const replies = useQuery({
-    queryKey: supportAgentKeys.replies(tenant, ticketId),
+    queryKey: supportAgentKeys.replies(me ?? null, tenant, ticketId),
     queryFn: () => client.replies(ticketId),
     enabled: where.isFetched,
     refetchInterval: live || !focused ? false : (options.pollMs ?? 30_000),
@@ -451,7 +471,7 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
   const staff = useStaff(tenant, !notAllowed);
   const reporters = useReporters(useMemo(() => (t?.userId ? [t.userId] : []), [t?.userId]));
   const tenants = useQuery({
-    queryKey: supportAgentKeys.requesterTenants(t?.userId ?? ""),
+    queryKey: supportAgentKeys.requesterTenants(me ?? null, t?.userId ?? ""),
     queryFn: () => required(client.requesterTenants, "requesterTenants")(t!.userId!),
     enabled: Boolean(client.requesterTenants && t?.userId),
     staleTime: 5 * 60_000,
@@ -459,10 +479,10 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
   });
 
   const refresh = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: supportAgentKeys.replies(tenant, ticketId) });
-    void queryClient.invalidateQueries({ queryKey: supportAgentKeys.ticket(tenant, ticketId) });
-    void queryClient.invalidateQueries({ queryKey: supportAgentKeys.queues(tenant) });
-    void queryClient.invalidateQueries({ queryKey: supportAgentKeys.counts(tenant) });
+    void queryClient.invalidateQueries({ queryKey: supportAgentKeys.replies(me ?? null, tenant, ticketId) });
+    void queryClient.invalidateQueries({ queryKey: supportAgentKeys.ticket(me ?? null, tenant, ticketId) });
+    void queryClient.invalidateQueries({ queryKey: supportAgentKeys.queues(me ?? null, tenant) });
+    void queryClient.invalidateQueries({ queryKey: supportAgentKeys.counts(me ?? null, tenant) });
   }, [queryClient, tenant, ticketId]);
 
   // Live on chat: a message from the requester or another agent reads the thread again.
@@ -477,9 +497,9 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
       .markRead(ticketId, { ticket: true })
       .then(() =>
         Promise.all([
-          queryClient.invalidateQueries({ queryKey: supportAgentKeys.queues(tenant) }),
-          queryClient.invalidateQueries({ queryKey: supportAgentKeys.counts(tenant) }),
-          queryClient.invalidateQueries({ queryKey: supportAgentKeys.ticket(tenant, ticketId) }),
+          queryClient.invalidateQueries({ queryKey: supportAgentKeys.queues(me ?? null, tenant) }),
+          queryClient.invalidateQueries({ queryKey: supportAgentKeys.counts(me ?? null, tenant) }),
+          queryClient.invalidateQueries({ queryKey: supportAgentKeys.ticket(me ?? null, tenant, ticketId) }),
         ]),
       )
       .catch(() => undefined);
@@ -521,7 +541,7 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
   const setStatus = (status: FeedbackStatus) => change(() => client.setStatus(ticketId, status));
   const assign = (userId: string | null) => change(() => client.assign(ticketId, userId));
   const mine = Boolean(t && me && t.assigneeId === me);
-  const toggleMine = () => assign(mine ? null : me);
+  const toggleMine = () => assign(mine ? null : (me ?? null));
 
   const person = t?.userId ? reporters.get(t.userId) : undefined;
   const who = t ? requesterName(t, reporters, copy, labels) : labels.someone;
@@ -602,7 +622,7 @@ export function useAgentThread(ticketId: string, options: AgentThreadOptions = {
     requester: t ? { id: t.userId ?? null, name: who, email: person?.email ?? t.requesterEmail ?? null } : null,
     requesterTenants: tenantsLabel,
     live,
-    me,
+    me: me ?? null,
     mine,
     statusLabel,
     assigneeLabel,

@@ -15,7 +15,7 @@ import {
   SupportShippedIdeas,
   ideaVotable,
   ideaVotesLabel,
-} from "../web";
+} from "../web-boards";
 
 afterEach(cleanup);
 

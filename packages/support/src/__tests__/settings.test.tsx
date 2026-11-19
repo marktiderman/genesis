@@ -68,8 +68,8 @@ describe("support's settings", () => {
     expect(settingsSecrets(supportSettingsCatalogue())).toEqual(
       expect.arrayContaining([
         { key: "support.githubRepo", name: "GITHUB_TOKEN", store: "edge" },
-        { key: "support.email", name: "RESEND_API_KEY", store: "server-env" },
-        { key: "support.aiAnswers", name: "ANTHROPIC_API_KEY", store: "server-env" },
+        { key: "support.email", name: "RESEND_API_KEY", store: "edge" },
+        { key: "support.aiAnswers", name: "ANTHROPIC_API_KEY", store: "edge" },
       ]),
     );
   });
@@ -99,6 +99,14 @@ describe("createDiagnostics with settings", () => {
     const delivery = await d.submitFeedback({ type: "bug", message: "broken", context: {} } as never);
     expect(delivery).toMatchObject({ id: "r1", diagnostics: null });
     expect(t.sent).toEqual([]);
+  });
+
+  it("drops what an earlier run queued when diagnostics are off", async () => {
+    const storage = { getItem: vi.fn(() => "[]"), setItem: vi.fn(), removeItem: vi.fn() };
+    createDiagnostics({ app: { id: "acme" }, transport: transport(), offline: { storage }, appSettings: { "diagnostics.enabled": false } });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(storage.removeItem).toHaveBeenCalledWith(expect.any(String));
+    expect(storage.setItem).not.toHaveBeenCalled();
   });
 
   it("caps a dump at diagnostics.maxBytes unless limits say otherwise", async () => {
@@ -182,7 +190,7 @@ describe("createSupport with settings", () => {
 describe("FeedbackPanel with settings", () => {
   it("asks severity and offers pins as the settings say; a prop wins", () => {
     const submit = vi.fn();
-    const { unmount } = render(<FeedbackPanel client={{ submit }} screenshots={false} appSettings={{ "support.pins": false }} />);
+    const { unmount } = render(<FeedbackPanel client={{ submit }} screenshots={false} appSettings={{ "support.pins": false, "support.severity": true }} />);
     expect(screen.getByTestId("genesis-support-severity-high")).toBeTruthy();
     expect(screen.queryByTestId("genesis-support-pin")).toBeNull();
     unmount();

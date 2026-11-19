@@ -42,23 +42,24 @@ export const SUPPORT_SETTING_SPECS = {
   feedback: { type: "boolean", default: true, feature: "support-feedback", summary: "The feedback form (bug, idea, question, praise) with a marked-up screenshot." },
   screenshots: { type: "boolean", default: true, requires: ["support.feedback"], summary: "Offer to include a screenshot with feedback (the person still chooses)." },
   pins: { type: "boolean", default: true, requires: ["support.feedback"], summary: "Web: pin feedback to a place on the page." },
-  severity: { type: "boolean", default: true, requires: ["support.feedback"], summary: "Ask how bad a bug is (Minor, Annoying, Blocks me, Broken)." },
+  severity: { type: "boolean", default: false, requires: ["support.feedback"], summary: "Ask how bad a bug is (Minor, Annoying, Blocks me, Broken). Off unless turned on." },
   inbox: { type: "boolean", default: onOnOff, summary: "The person's reports, with staff replies and the unread badge." },
-  messenger: { type: "boolean", default: onOnOff, scope: "tenant", requires: ["support.inbox"], summary: "The messenger (Home, Messages, Help) on web and phone." },
-  agentDesk: { type: "boolean", default: onOnOff, requires: ["support.inbox"], summary: "The staff side: the agent inbox on the web and the phone." },
-  helpCenter: { type: "boolean", default: onOnOff, scope: "tenant", summary: "Help articles in collections, searchable, with an admin editor." },
-  aiAnswers: { type: "boolean", default: onOffOff, scope: "tenant", requires: ["support.helpCenter"], feature: "support-helpdesk-ai", needs: "secret:ANTHROPIC_API_KEY", store: "server-env", summary: "AI answers that cite the help center and hand off to a person (needs the person's consent and a provider key)." },
+  messenger: { type: "boolean", default: onOnOff, scope: "tenant", requires: ["support.inbox"], summary: "Planned (nothing reads it yet): The messenger (Home, Messages, Help) on web and phone." },
+  agentDesk: { type: "boolean", default: onOnOff, requires: ["support.inbox"], summary: "Planned (nothing reads it yet): The staff side: the agent inbox on the web and the phone." },
+  helpCenter: { type: "boolean", default: onOnOff, scope: "tenant", summary: "Planned (nothing reads it yet): Help articles in collections, searchable, with an admin editor." },
+  aiAnswers: { type: "boolean", default: onOffOff, scope: "tenant", requires: ["support.helpCenter"], feature: "support-helpdesk-ai", needs: "secret:ANTHROPIC_API_KEY", store: "edge", summary: "Planned (nothing reads it yet): AI answers that cite the help center and hand off to a person (needs the person's consent and a provider key)." },
   ideas: { type: "boolean", default: onOnOff, summary: "The idea board with votes, and the ideas the person asked for that shipped." },
-  chatThreads: { type: "boolean", default: onOnOff, feature: "support-chat", summary: "A report's thread runs on genesis-chat: live, with files, an assignee and internal notes." },
-  email: { type: "boolean", default: onOffOff, feature: "support-email", needs: "secret:RESEND_API_KEY", store: "server-env", summary: "Email is a ticket channel: inbound mail opens or continues a ticket, replies go out threaded." },
-  replyByEmail: { type: "boolean", default: onOffOff, requires: ["support.email"], needs: "secret:SUPPORT_REPLY_SIGNING_SECRET", store: "server-env", summary: "Reply by email: a signed Reply-To per recipient, quoted text stripped, auto-replies ignored." },
-  desks: { type: "boolean", default: onOffOff, requires: ["support.agentDesk"], summary: "Desks: each tenant's own help desk, switched on per tenant, with escalate, return and move between desks." },
-  staffAlerts: { type: "boolean", default: onOnOff, summary: "Tell staff about a new report (the app's notifiers: email, push, webhook)." },
-  githubRepo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", store: "edge", summary: "owner/name: open a GitHub issue for each new report. Not set, no issues." },
-  githubIssueDetail: { type: "string", default: "summary", options: ["summary", "full"], summary: "What an issue carries: the summary only, or (private repositories only) the dump's detail too." },
-  webhookUrl: { type: "string", default: null, needs: "secret:SUPPORT_WEBHOOK_SIGNING_SECRET", store: "edge", summary: "A signed POST for each new report. Not set, no webhook." },
-  contactEmail: { type: "string", default: null, summary: "Where people can write when the app can't help (shown in Help and on error screens)." },
-  contactUrl: { type: "string", default: null, summary: "A support page, shown beside the contact email." },
+  chatThreads: { type: "boolean", default: onOnOff, feature: "support-chat", summary: "Planned (nothing reads it yet): A report's thread runs on genesis-chat: live, with files, an assignee and internal notes." },
+  email: { type: "boolean", default: onOffOff, feature: "support-email", needs: "secret:RESEND_API_KEY", store: "edge", summary: "Planned (nothing reads it yet): Email is a ticket channel: inbound mail opens or continues a ticket, replies go out threaded." },
+  replyByEmail: { type: "boolean", default: onOffOff, requires: ["support.email"], needs: "secret:SUPPORT_REPLY_SIGNING_SECRET", store: "server-env", summary: "Planned (nothing reads it yet): Reply by email: a signed Reply-To per recipient, quoted text stripped, auto-replies ignored." },
+  desks: { type: "boolean", default: onOffOff, requires: ["support.agentDesk"], summary: "Planned (nothing reads it yet): Desks: each tenant's own help desk, switched on per tenant, with escalate, return and move between desks." },
+  staffAlerts: { type: "boolean", default: onOnOff, summary: "Planned (nothing reads it yet): Tell staff about a new report (the app's notifiers: email, push, webhook)." },
+  githubRepo: { type: "string", default: null, needs: "secret:GITHUB_TOKEN", store: "edge", summary: "Planned (nothing reads it yet): owner/name: open a GitHub issue for each new report. Not set, no issues." },
+  githubIssueDetail: { type: "string", default: "summary", options: ["summary", "full"], summary: "Planned (nothing reads it yet): What an issue carries: the summary only, or (private repositories only) the dump's detail too." },
+  webhookUrl: { type: "string", default: null, needs: "secret:SUPPORT_WEBHOOK_SIGNING_SECRET", store: "edge", summary: "Planned (nothing reads it yet): A signed POST for each new report. Not set, no webhook." },
+  contactEmail: { type: "string", default: null, summary: "Planned (nothing reads it yet): Where people can write when the app can't help (shown in Help and on error screens)." },
+  contactUrl: { type: "string", default: null, summary: "Planned (nothing reads it yet): A support page, shown beside the contact email." },
+  agentListScan: { type: "boolean", default: false, summary: "Agents' assignee lists check every login, not only agent rows and the app's private.genesis_support_staff_list(): slow on a big app." },
   replyExpectation: { type: "string", default: null, scope: "tenant", summary: "How soon people hear back, after \"We usually reply\" (\"within a few hours\")." },
 } as const satisfies Record<string, SettingSpec>;
 
@@ -136,6 +137,7 @@ export interface SupportSettingValues {
     webhookUrl: string | null;
     contactEmail: string | null;
     contactUrl: string | null;
+    agentListScan: boolean;
     replyExpectation: string | null;
   };
   diagnostics: {
