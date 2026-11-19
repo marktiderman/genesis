@@ -88,7 +88,7 @@ describe("support's settings", () => {
 describe("createDiagnostics with settings", () => {
   const transport = (): DiagnosticsTransport & { sent: unknown[] } => {
     const sent: unknown[] = [];
-    return { name: "memory", sent, send: async (report) => (sent.push(report), { id: report.id, shortId: "ABCD1234" }), feedbackSink: { submit: async () => ({ id: "r1", attachments: [] }) } };
+    return { name: "memory", sent, send: async (report) => (sent.push(report), { id: report.id, shortId: "ABCD1234" }), feedbackSink: { submit: async () => ({ id: "r1", attachments: [] }) as never } };
   };
 
   it("sends nothing with diagnostics off, and still sends the feedback", async () => {
@@ -140,7 +140,7 @@ describe("createSupport with settings", () => {
 
   it("leaves out the Settings rows for a feature that is off", () => {
     const { block } = make({ "support.inbox": false });
-    expect(block.contributes.settings?.map((r) => r.id)).toEqual(["support-send-feedback"]);
+    expect(block.contributes!.settings?.map((r) => r.id)).toEqual(["support-send-feedback"]);
     expect(supportContributions({ feedback: false, inbox: false }).settings).toEqual([]);
   });
 
@@ -148,7 +148,7 @@ describe("createSupport with settings", () => {
     const diagnostics = createDiagnostics({ app: { id: "acme" }, transport: { name: "x", send: async () => ({ id: "1", shortId: "1" }) } });
     const { block } = make({ "diagnostics.enabled": false }, { diagnostics });
     expect(block.diagnostics).toBeNull();
-    expect(block.contributes.slots).not.toHaveProperty("devtoolsDiagnostics");
+    expect(block.contributes!.slots).not.toHaveProperty("devtoolsDiagnostics");
   });
 
   it("reads the person's shake.enabled at each shake", async () => {

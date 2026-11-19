@@ -161,6 +161,8 @@ export function defineSupportChatBlock(options: { requires?: readonly string[] }
         { package: "@marktiderman/genesis-support", file: "migrations/0015_genesis_support_agent_tools_bounds.sql", test: "migrations/tests/0015_genesis_support_agent_tools_bounds.test.sql" },
         // The queue as a list a provider pages and counts (no cap of its own); after 0013's queues.
         { package: "@marktiderman/genesis-support", file: "migrations/0018_genesis_support_agent_queue.sql", test: "migrations/tests/0018_genesis_support_agent_queue.test.sql" },
+        // Names for agents: the tenant's agents, who wrote, the requester's tenants.
+        { package: "@marktiderman/genesis-support", file: "migrations/0022_genesis_support_staff_tools.sql", test: "migrations/tests/0022_genesis_support_staff_tools.test.sql" },
       ],
     },
   });

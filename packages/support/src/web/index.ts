@@ -21,3 +21,22 @@ export { FeedbackLauncher, mountSupportWidget, type FeedbackLauncherProps, type 
 export { annotateScreenshot, canCaptureScreenshot, captureScreenshot, type Redaction, type Stroke, type WebCapture } from "./capture";
 export { createPinOverlay, pickPin, resolvePin, stableLocator, type FeedbackPin, type PinOverlay, type PinnedReport } from "./pin";
 export { FEEDBACK_SHORTCUT, matchesShortcut, useFeedbackShortcut, type FeedbackShortcut } from "./shortcut";
+export {
+  SupportHelpArticle,
+  SupportIdeaBoard,
+  SupportIdeaStatusControl,
+  SupportMyReports,
+  SupportReportFeatureControl,
+  SupportShippedIdeas,
+  ideaVotable,
+  ideaVotesLabel,
+  supportBoardKeys,
+  type SupportHelpArticleProps,
+  type SupportIdeaBoardProps,
+  type SupportIdeaRow,
+  type SupportIdeaStatusControlProps,
+  type SupportMyReportsProps,
+  type SupportReportFeatureControlProps,
+  type SupportReportRow,
+  type SupportShippedIdeasProps,
+} from "./boards";

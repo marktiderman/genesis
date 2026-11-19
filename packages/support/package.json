@@ -98,7 +98,8 @@
     "react-dom": "^19.0.0",
     "react-native": ">=0.76.0",
     "react-native-safe-area-context": ">=4.0.0",
-    "zod": "^3.25.0 || ^4.0.0"
+    "zod": "^3.25.0 || ^4.0.0",
+    "@marktiderman/genesis-core": "workspace:>=2.13.0 <3.0.0"
   },
   "peerDependenciesMeta": {
     "@marktiderman/genesis-ai": {
@@ -138,6 +139,9 @@
       "optional": true
     },
     "expo-sensors": {
+      "optional": true
+    },
+    "@marktiderman/genesis-core": {
       "optional": true
     }
   },
@@ -419,6 +423,10 @@
           {
             "file": "migrations/0018_genesis_support_agent_queue.sql",
             "test": "migrations/tests/0018_genesis_support_agent_queue.test.sql"
+          },
+          {
+            "file": "migrations/0022_genesis_support_staff_tools.sql",
+            "test": "migrations/tests/0022_genesis_support_staff_tools.test.sql"
           }
         ],
         "steps": [
