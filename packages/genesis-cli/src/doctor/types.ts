@@ -9,6 +9,23 @@ export type Level = "error" | "warn" | "info";
 /** A rule's configured level: a level, or `"off"` to drop its findings. */
 export type RuleSetting = Level | "off";
 
+/**
+ * How a finding is fixed: automatically (`genesis fix` writes it), guided (part of it needs a
+ * person: a value, a secret, a review) or manual (the message says what to do; nothing runs).
+ */
+export type FixKind = "auto" | "guided" | "manual";
+
+/** The fix a finding declares. Every finding has one: a rule with no registered fix gets `manual:<rule>`. */
+export interface FixRef {
+  /** The fix's id (`codemod.scope-names`, `upgrade.release`), or `manual:<rule>`. */
+  id: string;
+  kind: FixKind;
+  /** What the fix does, in a few words. */
+  title: string;
+  /** The command that plans (and with `--yes`, applies) it: `genesis fix <id>`. Absent for a manual fix. */
+  command?: string;
+}
+
 /** One problem the doctor found. */
 export interface Finding {
   /** The rule that produced it, e.g. `raw-tag` or a pattern/plugin rule id. */
@@ -29,6 +46,8 @@ export interface Finding {
    * on the same element of the same line): reported once, with `rule` the first of them.
    */
   rules?: string[];
+  /** How to fix it (runDoctor attaches one to every finding). */
+  fix?: FixRef;
 }
 
 /** What a rule or plugin passes to `report`. `level` defaults to `"error"`. */
@@ -229,6 +248,11 @@ export interface DoctorConfig {
    * `["@marktiderman/genesis-forms-studio"]`; packages not installed are skipped.
    */
   componentPackages?: string[];
+  /**
+   * `false`: the doctor never reaches npm or the advisory endpoints (`genesis-behind` reads only
+   * its cache), as `--offline`. Default: the CLI reaches them; the Vite plugin never does.
+   */
+  network?: boolean;
   /** Commands `--build` runs, in order. Default: the app's `typecheck` then `build` scripts. */
   build?: string[];
 }
@@ -393,6 +417,8 @@ export interface PackageDeclaration {
   primitives: PrimitiveEntry[];
   /** A rule module in the package (absolute path), loaded like an app plugin. */
   plugin?: string;
+  /** A fixes module in the package (absolute path): the fixes for its rules (`genesis fix`). */
+  fixes?: string;
 }
 
 /** A package the doctor read declarations from. */

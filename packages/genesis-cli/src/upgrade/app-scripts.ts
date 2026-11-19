@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from "node:fs";
+import { readdirSync, statSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 
 const SKIP_DIRS = new Set(["node_modules", "dist", "build", ".git", ".next", ".output", ".turbo", ".expo", "coverage", "ios", "android"]);
@@ -20,4 +20,13 @@ export function appScripts(root: string): string[] {
   };
   walk(root);
   return out;
+}
+
+/**
+ * A codemod's write: into `capture` when the fix engine plans (it writes nothing), else to disk
+ * unless it's a dry run. `rel` is app-relative, POSIX separators.
+ */
+export function writeAppFile(context: { root: string; dryRun: boolean; capture?: Map<string, string> }, rel: string, text: string): void {
+  if (context.capture) context.capture.set(rel, text);
+  else if (!context.dryRun) writeFileSync(path.join(context.root, rel), text);
 }

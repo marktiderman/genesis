@@ -854,6 +854,9 @@ Upgrading Genesis upgrades the checks.
 | `-d, --dir <dir>` | The app's folder (default: cwd). |
 | `--print-genesis` | Print the components, tokens, raw tags, palette and companion packages' components read from Genesis, and exit. |
 | `--base <ref>` | The git ref change checks compare against: the packages pack's change gate and the [ratchet](#the-ratchet) (`newOnly` rules keep their level only in new files and in files whose count of their findings grew since the merge base; the rest are `info`). |
+| `--offline` | Don't reach npm or the advisory endpoints: [`genesis-behind`](#genesis-behind) reads only its cache. Also when `npm_config_offline=true`, or for good with `doctor.network: false` in the config. The Vite plugin never reaches them. |
+
+Every finding names its fix (`fix` in `--json`; ` → genesis fix <id>` in the report when one runs): see [genesis fix](#genesis-fix).
 
 Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Genesis not installed or not built). With the app's dependencies not installed, the message gives the install command.
 
@@ -903,6 +906,9 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `genesis-config-unknown-key` | warn | A top-level key in `genesis.config.json` that no Genesis tool reads (a typo such as `presets` or `setting`), which would otherwise do nothing, silently. The message names the closest known key. |
 | `invalid-setting` | error / warn | `genesis.config.json`'s `preset` and `settings` against the settings catalogue the installed Genesis packages declare (package.json `genesis.settings`, the shape `defineSettings` takes). **error**: a setting no installed package declares, a value that doesn't fit its key's type or bounds, a package declaration that can't be used, or two packages declaring the same key. **warn**: a key that is on while a key it requires is off. The file's shape (`namespace.key` names, a boolean `locked`, a known preset) is checked when the config is read, so a malformed one stops every command. |
 | `genesis-eslint-config` | warn | A native app (with `expo` or `react-native`, or the `native` pack) whose ESLint flat config doesn't load [`@marktiderman/genesis-cli/eslint`](#lint-rules), so `genesis upgrade` can't bring Genesis's lint rules; or loads it without `eslint-plugin-testing-library` in package.json, so the config can't load. The message gives the fix: `genesis codemod genesis-cli-eslint-config`, or the two lines to add. Web apps (Genesis has no web lint rules yet) and apps without a flat config aren't checked. Ratcheted by default: under `--base`, an unchanged config reports it as `info`. |
+| `migration-pending` | warn | A package migration of one of the app's blocks (`genesis.lock.json`) that isn't in the app yet, as `genesis migrate --dry-run` reports it: the database the app deploys lacks what the installed package needs. Fix: `migrate.copy` (`genesis migrate`). An app whose lock lists no blocks, or whose database files live in another app, isn't checked. |
+| `migration-drift` | warn | A copy of a package migration the app edited, one whose package text changed since it was copied, or a same-named file with other text, with no forward migration carrying it. An applied migration is never rewritten. Fix: `migrate.forward` (guided: `genesis migrate --forward` writes the stub, you fill it in). |
+| `genesis-behind` | info / warn / error | The installed `@marktiderman/genesis` release against npm's latest, and the advisories published for the installed Genesis packages. See [genesis-behind](#genesis-behind). |
 | `lock-files` | warn / info | `genesis.lock.json` against the files on disk. **warn**: a file the lock owns is missing; `genesis upgrade` never brings a deleted owned file back, so a lock naming files that aren't there passes every upgrade silently. A file you deleted on purpose gets `"deleted": true` in its lock entry: the warning stops and upgrade still leaves it deleted. **info**: a locked file whose checksum differs from the lock's (an app edit, which upgrade three-way merges the next version into, or one waiting on its `.genesis-next`); a file marked deleted that is back; a locked block whose `starter.config.ts` switch is off (upgrade and migrate leave it out, and its files aren't checked); files under `supabase/` the lock still lists in an app whose database lives elsewhere (upgrade leaves them alone, so delete the entries). Also `bun.lock` (at or above the app, with or without `genesis.lock.json`), **warn**: a nested copy of a Genesis package at another version than the root's, when the root's version satisfies the range of the package it's nested under. Bun keeps it across installs, so the app runs two copies; the finding names the entry to delete, then reinstall (`genesis upgrade` does both). |
 | `ratchet-skipped` | warn / error | `--base` was given, but git couldn't compare (not a repository, or the ref isn't fetched). A warning when only the ratchet was skipped (every rule ran at its full level); an error when the config file holds `allow`, `rules` or `packageRules`, which then went uncompared. In CI, check out with `fetch-depth: 0`. |
 | `allow-grew` | error | Under `--base`: an `allow` entry (its rule, file and match) that the doctor settings at the merge base didn't have. The list only shrinks. Rewording a `reason` is fine. The base's settings are found as the doctor finds them (genesis.config.json's `doctor`, else package.json's `genesis.doctor`), so moving them between the two compares as usual; when the base had none (adopting the doctor), nothing is compared. |
@@ -955,6 +961,102 @@ would: the route is reported.
 
 Scanned by default: `src/**/*.{ts,tsx,js,jsx,mts,cts,css}`, skipping tests, `__fixtures__`,
 `__mocks__`, `*.d.ts` and `*.gen.*`. Comments are ignored by every rule.
+
+### genesis fix
+
+Every doctor rule declares how its findings are fixed: **auto** (`genesis fix` writes it),
+**guided** (it runs what it can, and says what is left for you: a value, a secret, a migration
+to fill in) or **manual** (the message says what to do; a rule with no fix gets `manual:<rule>`).
+
+```sh
+genesis fix                                   # the fixes the findings declare
+genesis fix codemod.scope-names --plan        # the plan and its hash; writes nothing
+genesis fix removed-scope-name --yes          # by rule id: plan, apply, verify
+genesis fix upgrade.release --yes --expect <hash>   # apply exactly the plan you read
+```
+
+| Option | |
+| --- | --- |
+| `[target]` | A fix id (the report shows it) or a rule id. Without one, the list. |
+| `--plan` | Print the plan and stop. |
+| `--yes` | Apply without asking. At a terminal it asks; elsewhere, without `--yes`, it prints the plan and the command that applies it. |
+| `--expect <hash>` | Apply only the plan with this hash. |
+| `--json` | Print the plans (files with their content, commands, secret names) and results as JSON. |
+| `--offline`, `-c`, `-d` | As for `genesis doctor`. |
+
+A **plan** lists the files it writes (each with the sha256 of the text it expects to find there),
+the commands it runs, the secrets those need (by name only; a value reaches a tool on stdin, never
+in its arguments), and what is left to you. Its hash is the sha256 of all of that. Applying plans
+again first and refuses when the hash changed (the app changed since you read it), checks every
+file still has the text the plan expects before writing any, writes, runs the commands, then runs
+the doctor again for the fix's rules. Plans are never written to disk.
+
+- **Writes stay in the app.** A path must be app-relative; a file that is a symbolic link (a
+  dangling one included), or a folder that resolves outside the app, is refused, when the plan is
+  made and again just before each write.
+- **All or nothing for files.** A new file is created only if it still doesn't exist; an existing
+  one is written to a temporary file, compared once more, then renamed into place. When anything
+  after the first write fails (a write, a command, the fix's own step, the check after), every
+  file is put back and every new one removed, and the error says what was written, what ran
+  (commands aren't undone) and what was rolled back.
+- **Commands** run only through an allowlist (supabase, gh, eas, npx, git and the package
+  managers), resolved from `PATH` outside the app and its `node_modules/.bin`, as an argument list,
+  never through a shell, with a scrubbed environment (proxies and certificate settings pass
+  through). Running them on Windows isn't supported yet: the fix says so, and you run the plan's
+  commands yourself.
+
+Exit codes: `0` done or nothing to do, `1` the fix was refused, failed or didn't verify, `2` the
+doctor couldn't run.
+
+| Fix | Kind | Rules | What it runs |
+| --- | --- | --- | --- |
+| `codemod.scope-names` | auto | `removed-scope-name` | The `genesis-core-2-scope-names` codemod. |
+| `codemod.features-renamed` | auto | `deprecated-import` (genesis-features only) | The `genesis-features-renamed-genesis-config` codemod; then install. |
+| `codemod.eslint-config` | auto | `genesis-eslint-config` | The `genesis-cli-eslint-config` codemod; then install. |
+| `agents.guide` | auto | `agent-guide-stale` | `genesis agents`. |
+| `agents.hooks` | auto | `agent-guide-stale` (`.claude/settings.json`) | `genesis agents --hooks`. |
+| `contracts.introspect` | auto | `contracts-stale` | `genesis introspect` from the database (`doctor.contracts`). |
+| `migrate.copy` | auto | `migration-pending` | `genesis migrate`. |
+| `migrate.forward` | guided | `migration-drift` | `genesis migrate --forward`; you fill in each forward migration. |
+| `upgrade.release` | auto | `genesis-behind`, `overlay-behind`, `version-skew` | Plans with `genesis upgrade --dry-run`; applies `genesis upgrade --pr`. The pull request is never merged for you. `genesis-behind` moves to the latest release; the others re-align on the installed one. With uncommitted changes (or outside git) the plan says so and runs nothing. |
+| `settings.remove-unknown` | auto | `invalid-setting` (an undeclared key) | Removes the key from `genesis.config.json`, keeping its format. |
+| `settings.review` | manual | `invalid-setting` (the rest) | Lists the values only you can choose. |
+
+A package adds fixes for its own rules with `genesis.doctor.fixes`, a module beside its `plugin`
+(see [Package rules](#package-rules)). The Vite plugin attaches the built-in fixes only.
+
+### genesis-behind
+
+How far the app's Genesis is behind, read from the installed `@marktiderman/genesis` umbrella's
+`dist/versions.json`, npm (`npm view`, so the app's `.npmrc` applies) and npm's bulk advisory
+endpoint for every installed `@marktiderman/genesis*` package (GitHub's advisory database through
+`gh api` when that can't be reached). The answer is cached in
+`node_modules/.cache/genesis/behind.json` for 24 hours, a failed check for an hour, and the whole
+check has a deadline of about 20 seconds (each step still gets at least a second, and `gh auth status` up to 5).
+
+**What it sends:** only the names and installed versions of the `@marktiderman/genesis*`
+packages. When `.npmrc` (the app's or yours) or `npm_config_registry` points `@marktiderman` or
+the default registry anywhere but registry.npmjs.org, npm's public advisory endpoint isn't asked;
+only `gh` is (when it's signed in). Withdrawn advisories are left out.
+
+| Distance | Level |
+| --- | --- |
+| A patch behind | info |
+| One or two minors behind | warn; info under `--strict`, so it never fails a strict run |
+| More than two minors, a major, or behind for 90 days or more (since the first newer release) | warn, failing `--strict` (not in CI) |
+| A published advisory of high or critical severity affects an installed version | error, with the advisory's id as the subject |
+| A lower-severity advisory | warn |
+
+**In CI** (`CI` set), how far behind is at most a warning that never fails the run, `--strict`
+included (info under `--strict`), so a release published overnight doesn't turn pipelines red;
+advisories keep their levels.
+
+**Turning the network off:** `--offline`, `npm_config_offline=true`, or `"network": false` in the
+doctor settings make no call (the rule reads only its cache); `"rules": { "genesis-behind": "off" }`
+doesn't run the rule at all. Offline (and in the Vite plugin and tests) or with the network
+failing, it reports what the cache last knew as one `info` finding, never an error; with no cache
+it says nothing. An app without the umbrella isn't checked. The fix, `upgrade.release`, opens the upgrade
+pull request.
 
 ### Rule packs
 
@@ -1097,7 +1199,8 @@ A declaration has **`prefer` rules** ("use X instead of Y") and optional **`prim
         }
       ],
       "catalog": [{ "need": "dates", "use": "dayIn(zone)", "import": "@marktiderman/genesis-widgets/dates" }],
-      "plugin": "./dist/doctor-rules.js"
+      "plugin": "./dist/doctor-rules.js",
+      "fixes": "./dist/doctor-fixes.js"
     }
   }
 }
@@ -1133,7 +1236,14 @@ A package with nothing to enforce says so, with a reason, and may still list pri
 `packages` pack, `package-doctor-declaration` fails a published Genesis package that declares
 neither, so a new package can't skip this step. `"doctor": "./doctor.json"` points at a file in
 the package (list it in `files`) holding the same object. A `plugin` module is loaded like an
-app plugin; its findings are namespaced like the package's other rules.
+app plugin; its findings are namespaced like the package's other rules. A `fixes` module
+default-exports a fix (`defineFix` from `@marktiderman/genesis-cli/doctor`), a list of them, or a
+function returning either: `{ id, kind, rules, title, plan(context), apply?, verify? }`, where
+`plan` returns the files to write (`{ path, beforeHash, content, why }`) and commands to run, and
+writes nothing. Its ids and rules are namespaced like the package's rules, so a package fixes only
+its own; one that doesn't load is a `package-rules-invalid` warning (genesis-cli 1.30 or later reads
+the key). A `fixes` module is trusted exactly as a `plugin` is: installing the package runs its
+code in the doctor and in `genesis fix`. A package with `"enforce": false` can't declare one.
 
 **Adding rules to a new package:** add `genesis.doctor` to its package.json, run its tests (the
 genesis-cli suite validates every package's declaration), and add a changeset. Apps get the
@@ -1301,6 +1411,7 @@ The doctor checks each one:
 | `rulesDoc` | | A markdown file of declarative rules, below. |
 | `plugins` | | Rule modules, below. |
 | `build` | `typecheck`, `build` scripts | Commands for `--build`. |
+| `network` | `true` in the CLI | `false`: never reach npm or the advisory endpoints, as `--offline` ([genesis-behind](#genesis-behind) reads only its cache). |
 
 Unknown keys are an error, so a typo can't quietly turn a check off.
 

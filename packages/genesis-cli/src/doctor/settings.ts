@@ -78,7 +78,7 @@ export function checkConfigKeys(ctx: DoctorContext): void {
       level: "warn",
       file: FILE,
       subject: key,
-      message: `"${key}" isn't a genesis.config.json setting, so nothing reads it${near ? `: did you mean "${near}"?` : ` (known: ${GENESIS_CONFIG_KEYS.filter((k) => !k.startsWith("$")).join(", ")})`}`,
+      message: `"${key}" isn't a genesis.config.json setting, so nothing reads it${near ? `: did you mean "${near}"?` : ` (known: ${GENESIS_CONFIG_KEYS.filter((k) => !k.startsWith("$")).join(", ")})`}; or upgrade @marktiderman/genesis-cli if this is a newer key`,
     });
   }
 }
@@ -136,4 +136,18 @@ export function checkSettings(ctx: DoctorContext): void {
       message: unknown ? `settings.${problem.key}: no installed Genesis package declares this setting (a typo, or a package that isn't installed)` : `settings.${problem.message}`,
     });
   }
+}
+
+/** The `settings` keys in genesis.config.json that no installed package declares (what `invalid-setting` reports as unknown). */
+export function unknownSettingKeys(root: string): string[] {
+  const config = readGenesisConfig(root);
+  if (!config?.settings) return [];
+  let catalogue: SettingsCatalogue;
+  try {
+    catalogue = settingsCatalogue(installedSettings(root).declarations);
+  } catch {
+    return [];
+  }
+  const resolved = resolveSettings(catalogue, { ...(config.preset ? { preset: config.preset } : {}), file: settingsLayerFromFile(config.settings) });
+  return [...new Set(resolved.problems.filter((p) => p.kind === "unknown-key").map((p) => p.key))];
 }

@@ -7,7 +7,8 @@
  *
  * Usage:
  *   npx @marktiderman/genesis-cli init <consumer-name> [--target <dir>] [--emit-conflicts]
- *   npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>] [--base <ref>]
+ *   npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>] [--base <ref>] [--offline]
+ *   npx @marktiderman/genesis-cli fix [rule|fixId] [--plan] [--yes] [--expect <hash>] [--json] [--offline]
  *   npx @marktiderman/genesis-cli primitives [--json]
  *   npx @marktiderman/genesis-cli agents [--check]
  *   npx @marktiderman/genesis-cli features build|check|find [--registry <file>] [--flags-file <file>]
@@ -210,7 +211,8 @@ program
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--print-genesis", "Print the components, tokens and raw tags read from Genesis, and exit", false)
   .option("--base <ref>", "The git ref change checks compare against (the packages pack's change gate, and the ratchet: newOnly rules report unchanged files as info), e.g. origin/main")
-  .action(async (opts: { strict: boolean; json: boolean; verbose: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean; base?: string }) => {
+  .option("--offline", "Don't reach npm or the advisory endpoints (genesis-behind reads only its cache)", false)
+  .action(async (opts: { strict: boolean; json: boolean; verbose: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean; base?: string; offline: boolean }) => {
     const doctor = await import("./doctor/index.js");
     const root = path.resolve(opts.dir);
     try {
@@ -219,12 +221,60 @@ program
         console.log(JSON.stringify(doctor.genesisSummary(doctor.loadGenesis(root, config)), null, 2));
         return;
       }
-      const result = await doctor.runDoctor({ root, configPath: opts.config, strict: opts.strict, build: opts.build, quietBuild: opts.json, ...(opts.base ? { base: opts.base } : {}) });
+      const result = await doctor.runDoctor({ root, configPath: opts.config, strict: opts.strict, build: opts.build, quietBuild: opts.json, network: networkOn(opts.offline), ...(opts.base ? { base: opts.base } : {}) });
       console.log(opts.json ? JSON.stringify(doctor.toJson(result), null, 2) : doctor.formatReport(result, { verbose: opts.verbose }));
       process.exitCode = result.ok ? 0 : 1;
     } catch (err) {
       // Exit 2: the doctor could not run (bad config, Genesis not installed), as opposed to finding problems.
       // GenesisConfigError covers DoctorConfigError and the shared blocks (a bad `links`, a non-object file).
+      if (!(err instanceof doctor.GenesisConfigError)) throw err;
+      if (opts.json) console.log(JSON.stringify({ ok: false, error: err.message }, null, 2));
+      else console.error(`✗ ${err.message}`);
+      process.exitCode = 2;
+    }
+  });
+
+/** The CLI reaches the network unless --offline, or npm is told to stay offline (npm_config_offline, as tests set). */
+function networkOn(offline: boolean): boolean {
+  return !offline && process.env.npm_config_offline !== "true";
+}
+
+program
+  .command("fix [target]")
+  .description("Fix what the doctor found: without a target, list the fixes; with a fix id (genesis doctor shows it) or a rule id, print the plan and its hash, and apply it with --yes")
+  .option("--plan", "Print the plan and stop; write nothing", false)
+  .option("--yes", "Apply without asking", false)
+  .option("--expect <hash>", "Apply only if the plan's hash is this one (a plan read earlier; a stale one is refused)")
+  .option("--json", "Print the result as JSON", false)
+  .option("-c, --config <path>", "Config file (default: genesis.config.json, then package.json \"genesis\")")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--offline", "Don't reach npm or the advisory endpoints", false)
+  .action(async (target: string | undefined, opts: { plan: boolean; yes: boolean; expect?: string; json: boolean; config?: string; dir: string; offline: boolean }) => {
+    const { runFixCommand } = await import("./fix/command.js");
+    const doctor = await import("./doctor/index.js");
+    const interactive = process.stdin.isTTY && process.stdout.isTTY && !opts.json;
+    try {
+      process.exitCode = await runFixCommand(
+        { root: path.resolve(opts.dir), ...(target ? { target } : {}), plan: opts.plan, yes: opts.yes, json: opts.json, network: networkOn(opts.offline), ...(opts.expect ? { expect: opts.expect } : {}), ...(opts.config ? { configPath: opts.config } : {}) },
+        {
+          out: (l) => console.log(l),
+          err: (l) => console.error(l),
+          ...(interactive
+            ? {
+                confirm: async (question: string) => {
+                  const { createInterface } = await import("node:readline/promises");
+                  const rl = createInterface({ input: process.stdin, output: process.stdout });
+                  try {
+                    return /^y(es)?$/i.test((await rl.question(`${question} [y/N] `)).trim());
+                  } finally {
+                    rl.close();
+                  }
+                },
+              }
+            : {}),
+        },
+      );
+    } catch (err) {
       if (!(err instanceof doctor.GenesisConfigError)) throw err;
       if (opts.json) console.log(JSON.stringify({ ok: false, error: err.message }, null, 2));
       else console.error(`✗ ${err.message}`);
