@@ -19,7 +19,7 @@ function memoryTransport(): DiagnosticsTransport & { sent: DiagnosticReport[] } 
 describe("webSections", () => {
   it("reads the browser, the path, and the console ring buffer", async () => {
     window.history.pushState({}, "", "/orders/42?token=abc");
-    const fake = { log: () => {}, error: () => {} };
+    const fake = { log: (..._args: unknown[]) => {}, error: (..._args: unknown[]) => {} };
     const buffer = captureConsole({ console: fake });
     fake.error("failed for jane@example.test");
     const d = createDiagnostics({
