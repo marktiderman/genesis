@@ -19,7 +19,7 @@
 import { cleanRoute } from "../contract";
 import type { FeedbackDelivery, FeedbackRecord, FeedbackSink } from "../record";
 import { capReport, type CapLimits } from "./cap";
-import { createOfflineQueue, DiagnosticsSendError, isRetryableError, type OfflineQueue, type QueueFlushResult, type QueueStorage } from "./queue";
+import { createOfflineQueue, DEFAULT_QUEUE_KEY, DiagnosticsSendError, isRetryableError, type OfflineQueue, type QueueFlushResult, type QueueStorage } from "./queue";
 import { redactReport } from "./redact";
 import {
   CORE_SECTIONS,
@@ -235,6 +235,14 @@ export function createDiagnostics(options: DiagnosticsOptions): Diagnostics {
         onProblem: problem,
       })
     : null;
+  // Diagnostics (or the queue) switched off: what an earlier run queued is dropped, never sent later.
+  if (options.offline && !queue) {
+    const storage = options.offline.storage;
+    const key = options.offline.key ?? DEFAULT_QUEUE_KEY;
+    void Promise.resolve()
+      .then(() => storage.removeItem(key))
+      .catch((error: unknown) => problem("diagnostics: clearing the queue failed", error));
+  }
   // Anything left from the last run goes as soon as it can.
   if (queue) void Promise.resolve().then(() => queue.flush().catch((error: unknown) => problem("diagnostics: flushing the queue failed", error)));
 

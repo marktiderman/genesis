@@ -5,7 +5,7 @@
 -- and an explicit age still wins. Rolls everything back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(15);
 
 create function pg_temp.person(n text) returns uuid language sql immutable as $$
   select ('00000000-0000-4000-8000-0000000020' || n)::uuid $$;
@@ -23,7 +23,7 @@ from unnest(array['a1', 'b2', 'c3']) n;
 
 -- 1. Reading a setting ---------------------------------------------------------------------------
 
-select is(private.genesis_support_setting('diagnostics.perHour'), null, 'no row, no manifest: null (the caller''s default)');
+select is(private.genesis_support_setting_layers('diagnostics.perHour'), row(null::jsonb, false, null::jsonb)::record, 'no row, no manifest: nothing stored');
 select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 10, 'and the int reader falls back');
 
 insert into public.genesis_app_manifest (app_id, file_settings)
@@ -35,14 +35,14 @@ select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100)
 select is(private.genesis_support_setting_int('diagnostics.retentionDays', 90, 7, 365), 30, 'a value the file locks wins over the database');
 
 update public.genesis_settings set value = '1.5' where key = 'diagnostics.perHour';
-select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 10, 'a fraction is ignored');
+select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 4, 'a fraction in the database is skipped for the file''s value, as resolveSettings does');
 update public.genesis_settings set value = '500' where key = 'diagnostics.perHour';
-select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 10, 'out of range is ignored');
+select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 4, 'out of range in the database is skipped for the file''s value, as resolveSettings does');
 update public.genesis_settings set value = '"three"' where key = 'diagnostics.perHour';
-select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 10, 'not a number is ignored');
+select is(private.genesis_support_setting_int('diagnostics.perHour', 10, 1, 100), 4, 'not a number in the database is skipped for the file''s value, as resolveSettings does');
 update public.genesis_settings set value = '2' where key = 'diagnostics.perHour';
 
-select ok(not has_function_privilege('authenticated', 'private.genesis_support_setting(text)', 'execute'), 'people can''t call the reader');
+select ok(not has_function_privilege('authenticated', 'private.genesis_support_setting_value(text, jsonb, integer, integer)', 'execute'), 'people can''t call the reader');
 
 -- 2. The hourly limit --------------------------------------------------------------------------
 
@@ -55,6 +55,15 @@ select throws_ok(
   $$insert into public.support_diagnostics (trigger, report) values ('shake', pg_temp.dump())$$,
   'GS429', null, 'the third is refused');
 reset role;
+
+insert into public.genesis_settings (key, value) values ('diagnostics.enabled', 'false');
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select throws_ok(
+  $$insert into public.support_diagnostics (trigger, report) values ('manual', pg_temp.dump())$$,
+  '42501', null, 'with diagnostics.enabled off, no dump is stored');
+reset role;
+delete from public.genesis_settings where key = 'diagnostics.enabled';
 
 -- 3. Retention ----------------------------------------------------------------------------------
 

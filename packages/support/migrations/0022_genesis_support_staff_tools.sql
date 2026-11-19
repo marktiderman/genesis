@@ -5,14 +5,22 @@
 -- profile row security hides), and the agents a ticket can be given to. Three functions answer
 -- with names, each only for someone who handles the tickets in question:
 --
---   public.support_agents_list(tenant)       the logins that handle a tenant's tickets (its
---                                             agents, its admins, and in the app's own tenant its
---                                             staff), with a name: who a ticket can be assigned
---                                             to. Null is the app's own tenant. Only that
---                                             tenant's agents may ask (42501 otherwise). At most
---                                             200, by name.
---   public.support_reporters(ids)            the name and email of the people among `ids` who
---                                             wrote a ticket the caller handles. Anyone else in
+--   public.support_agents_list(tenant)       the logins that handle a tenant's tickets, with a
+--                                             name: who a ticket can be assigned to. Null is the
+--                                             app's own tenant. Only that tenant's agents may ask
+--                                             (42501 otherwise). At most 200, by name. It checks
+--                                             candidates only: the caller, the tenant's agent rows
+--                                             whose person is a login, and the logins the app's
+--                                             optional private.genesis_support_staff_list() returns
+--                                             (its staff: a hook-named or platform-admin staff
+--                                             member is listed only through it). Every login is
+--                                             checked only when the app turns on the
+--                                             support.agentListScan setting (slow on a big app).
+--                                             Anonymous logins are never listed.
+--   public.support_ticket_requesters(ids)    the name and email of the people among `ids` who
+--                                             wrote a ticket the caller handles (an agent, or a
+--                                             handler the app's report hook names: the same
+--                                             check as reading the ticket). Anyone else in
 --                                             `ids` is left out, never refused, so a list of
 --                                             mixed ids is safe to send.
 --   public.support_requester_tenants(person) the tenants (with a label) the person belongs to,
@@ -22,6 +30,9 @@
 --                                             Only for someone who handles one of the person's
 --                                             tickets; empty otherwise.
 --
+-- Every name here is new: a function an app already has under a name of its own (an app's own
+-- support_reporters, say) is never replaced.
+--
 -- Names come from two optional hooks of the app's, each asked with this file's (the owner's)
 -- rights, and fall back to the login's metadata:
 --
@@ -30,8 +41,8 @@
 --   private.genesis_tenant_label(tenant uuid) returns text     a tenant's name ("Acme")
 --     (default: null; the client shows nothing for it)
 --
--- support_agents_list reads every login once to ask whether it handles the tenant: fine for the
--- staff screens it serves, not for a hot path.
+--   private.genesis_support_staff_list() returns setof uuid    the app's support staff logins
+--     (default: none; only the caller and agent rows are listed)
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
@@ -104,15 +115,40 @@ set search_path = ''
 as $$
 declare
   resolved uuid := coalesce(tenant, private.genesis_support_default_tenant_id());
+  me uuid := auth.uid();
+  scan boolean := false;
+  listed uuid[] := '{}';
 begin
-  if not private.genesis_support_agent(resolved, auth.uid()) then
+  if not private.genesis_support_agent(resolved, me) then
     raise exception 'support_agents_list: only the tenant''s agents' using errcode = '42501';
   end if;
+  if to_regprocedure('private.genesis_support_setting_bool(text, boolean)') is not null then
+    scan := private.genesis_support_setting_bool('support.agentListScan', false);
+  end if;
+  -- The app's list of staff logins, when it has one.
+  if to_regprocedure('private.genesis_support_staff_list()') is not null then
+    begin
+      execute 'select coalesce(array_agg(s), ''{}'') from private.genesis_support_staff_list() s where s is not null' into listed;
+    exception when others then
+      raise warning 'support_agents_list: private.genesis_support_staff_list() failed: %', sqlerrm;
+    end;
+  end if;
   return query
-    select u.id, private.genesis_support_person_name(u.id)
-      from auth.users u
-     where private.genesis_support_agent(resolved, u.id)
-     order by private.genesis_support_person_name(u.id) nulls last, u.id
+    select n.id, n.name
+      from (
+        select u.id, private.genesis_support_person_name(u.id) as name
+          from auth.users u
+         where u.id in (
+                 select me
+                 union select a.person_id from public.ticket_agents a where a.tenant_id = resolved
+                 union select unnest(listed)
+                 -- Every login, only when the app turns it on (support.agentListScan): slow on a big app.
+                 union select x.id from auth.users x where scan
+               )
+           and (to_jsonb(u) ->> 'is_anonymous') is distinct from 'true'
+           and private.genesis_support_agent(resolved, u.id)
+      ) n
+     order by n.name nulls last, n.id
      limit 200;
 end;
 $$;
@@ -125,7 +161,7 @@ grant execute on function public.support_agents_list(uuid) to authenticated;
 
 -- Who wrote ------------------------------------------------------------------------------------
 
-create or replace function public.support_reporters(ids uuid[])
+create or replace function public.support_ticket_requesters(ids uuid[])
 returns table (user_id uuid, full_name text, email text)
 language plpgsql
 stable
@@ -136,7 +172,7 @@ declare
   me uuid := auth.uid();
 begin
   if me is null then
-    raise exception 'support_reporters: not signed in' using errcode = '42501';
+    raise exception 'support_ticket_requesters: not signed in' using errcode = '42501';
   end if;
   return query
     select u.id, private.genesis_support_person_name(u.id), u.email::text
@@ -144,15 +180,15 @@ begin
      where u.id = any ((coalesce(ids, '{}'::uuid[]))[1:500])
        and exists (select 1 from public.tickets t
                     where t.user_id = u.id
-                      and private.genesis_support_agent(t.tenant_id, me));
+                      and private.genesis_support_handler(t.id, me));
 end;
 $$;
 
-comment on function public.support_reporters(uuid[]) is
+comment on function public.support_ticket_requesters(uuid[]) is
   'The name and email of the people among ids who wrote a ticket the signed-in person handles. Genesis support.';
 
-revoke execute on function public.support_reporters(uuid[]) from public, anon;
-grant execute on function public.support_reporters(uuid[]) to authenticated;
+revoke execute on function public.support_ticket_requesters(uuid[]) from public, anon;
+grant execute on function public.support_ticket_requesters(uuid[]) to authenticated;
 
 -- The requester's tenants ----------------------------------------------------------------------
 
@@ -171,7 +207,7 @@ begin
     return;
   end if;
   if not exists (select 1 from public.tickets t
-                  where t.user_id = person and private.genesis_support_agent(t.tenant_id, me)) then
+                  where t.user_id = person and private.genesis_support_handler(t.id, me)) then
     return;
   end if;
   staff := private.genesis_support_agent(private.genesis_support_default_tenant_id(), me);

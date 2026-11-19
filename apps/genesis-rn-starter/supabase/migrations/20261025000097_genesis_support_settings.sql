@@ -7,11 +7,14 @@
 --   diagnostics.perHour        dumps one person may send in an hour      (default 10, 1 to 100)
 --   diagnostics.retentionDays  days a dump is kept before it is purged   (default 90, 7 to 365)
 --
--- private.genesis_support_setting(key) reads one key the way the resolver would for these: a
--- value genesis.config.json locks, else the database layer's, else genesis.config.json's, else
--- null (the caller's default). It reads nothing when genesis-supabase's settings migration isn't
--- applied, so this file stands alone: without settings, 10 an hour and 90 days, as before. A
--- value that isn't a whole number in range is ignored, never trusted.
+-- With diagnostics.enabled set to false, the trigger refuses every new dump (42501).
+--
+-- private.genesis_support_setting_int(key, fallback, lo, hi) and _bool(key, fallback) read one
+-- key the way resolveSettings does: a value genesis.config.json locks holds; otherwise the database
+-- layer's value, else the file's; a value that doesn't fit (out of range, a fraction, the wrong
+-- type) is skipped for the layer below, never trusted. With nothing stored, the fallback (the
+-- package default). They read nothing when genesis-supabase's settings migration isn't applied,
+-- so this file stands alone: without settings, 10 an hour and 90 days, as before.
 --
 -- public.support_purge_diagnostics(older_than, max_rows): `older_than` now defaults to the
 -- setting (null means "the setting"). Passing it still wins (the cleanup function's
@@ -24,9 +27,10 @@
 
 create schema if not exists private;
 
--- One setting's value, or null. Locked in the file > the database layer > the file.
-create or replace function private.genesis_support_setting(setting_key text)
-returns jsonb
+-- One setting's layers as stored: genesis.config.json's value (and whether it locks it) and the
+-- database layer's. Nulls where a table, a row or the key is missing. A table of another shape
+-- reads as nothing, never a failed insert.
+create or replace function private.genesis_support_setting_layers(setting_key text, out file_value jsonb, out file_locked boolean, out db_value jsonb)
 language plpgsql
 stable
 security definer
@@ -34,13 +38,11 @@ set search_path = ''
 as $$
 declare
   file_entry jsonb;
-  file_value jsonb;
-  file_locked boolean := false;
-  db_value jsonb;
 begin
+  file_locked := false;
   if to_regclass('public.genesis_app_manifest') is not null then
     execute 'select m.file_settings -> $1 from public.genesis_app_manifest m limit 1' into file_entry using setting_key;
-    -- `{ "value": …, "locked": true }` exactly is a locked entry; anything else is the value.
+    -- `{ "value": …, "locked": true|false }` exactly is the file's wrapper; anything else is the value.
     if jsonb_typeof(file_entry) = 'object'
        and (select array_agg(k order by k) from jsonb_object_keys(file_entry) k) = array['locked', 'value']
        and jsonb_typeof(file_entry -> 'locked') = 'boolean' then
@@ -50,46 +52,95 @@ begin
       file_value := file_entry;
     end if;
   end if;
-  if file_locked then
-    return file_value;
-  end if;
   if to_regclass('public.genesis_settings') is not null then
     execute 'select s.value from public.genesis_settings s where s.key = $1' into db_value using setting_key;
   end if;
-  return coalesce(db_value, file_value);
 exception when others then
-  -- A settings table of another shape: the caller's default, never a failed insert.
-  return null;
+  file_value := null;
+  file_locked := false;
+  db_value := null;
 end;
 $$;
 
--- A whole number setting within bounds, else the fallback.
-create or replace function private.genesis_support_setting_int(setting_key text, fallback integer, lo integer, hi integer)
-returns integer
+-- A value that fits: a whole number in [lo, hi], or (lo null) a boolean.
+create or replace function private.genesis_support_setting_fits(raw jsonb, lo integer, hi integer)
+returns boolean
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  n numeric;
+begin
+  if raw is null then
+    return false;
+  end if;
+  if lo is null then
+    return jsonb_typeof(raw) = 'boolean';
+  end if;
+  if jsonb_typeof(raw) <> 'number' then
+    return false;
+  end if;
+  n := raw::text::numeric;
+  return n = trunc(n) and n >= lo and n <= hi;
+end;
+$$;
+
+-- The value as resolveSettings gives it for a key with no per-preset default and app scope: a lock
+-- in the file holds (its own value if it fits, else the default); otherwise the database layer's
+-- value if it fits, else the file's if it fits, else the default. A value that doesn't fit is
+-- skipped, never trusted, exactly as the TypeScript resolver skips it.
+create or replace function private.genesis_support_setting_value(setting_key text, fallback jsonb, lo integer, hi integer)
+returns jsonb
 language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
 declare
-  raw jsonb := private.genesis_support_setting(setting_key);
-  n numeric;
+  l record;
 begin
-  if raw is null or jsonb_typeof(raw) is distinct from 'number' then
-    return fallback;
+  select * into l from private.genesis_support_setting_layers(setting_key);
+  if l.file_locked then
+    return case when private.genesis_support_setting_fits(l.file_value, lo, hi) then l.file_value else fallback end;
   end if;
-  n := raw::text::numeric;
-  if n <> trunc(n) or n < lo or n > hi then
-    return fallback;
+  if private.genesis_support_setting_fits(l.db_value, lo, hi) then
+    return l.db_value;
   end if;
-  return n::integer;
+  if private.genesis_support_setting_fits(l.file_value, lo, hi) then
+    return l.file_value;
+  end if;
+  return fallback;
 end;
 $$;
 
-revoke execute on function private.genesis_support_setting(text) from public, anon, authenticated;
-revoke execute on function private.genesis_support_setting_int(text, integer, integer, integer) from public, anon, authenticated;
+create or replace function private.genesis_support_setting_int(setting_key text, fallback integer, lo integer, hi integer)
+returns integer
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (private.genesis_support_setting_value(setting_key, to_jsonb(fallback), lo, hi))::text::integer
+$$;
 
--- 0019's trigger, with the hourly limit from diagnostics.perHour.
+create or replace function private.genesis_support_setting_bool(setting_key text, fallback boolean)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select (private.genesis_support_setting_value(setting_key, to_jsonb(fallback), null, null))::text::boolean
+$$;
+
+revoke execute on function private.genesis_support_setting_layers(text) from public, anon, authenticated;
+revoke execute on function private.genesis_support_setting_fits(jsonb, integer, integer) from public, anon, authenticated;
+revoke execute on function private.genesis_support_setting_value(text, jsonb, integer, integer) from public, anon, authenticated;
+revoke execute on function private.genesis_support_setting_int(text, integer, integer, integer) from public, anon, authenticated;
+revoke execute on function private.genesis_support_setting_bool(text, boolean) from public, anon, authenticated;
+
+-- 0019's trigger, with the hourly limit from diagnostics.perHour, refusing dumps while diagnostics.enabled is false.
 create or replace function private.genesis_support_new_diagnostics()
 returns trigger
 language plpgsql
@@ -102,6 +153,10 @@ begin
   end if;
   if new.user_id is null then
     raise exception 'support_diagnostics: no person' using errcode = '42501';
+  end if;
+  -- diagnostics.enabled off: no dump is stored, from a client or a server.
+  if not private.genesis_support_setting_bool('diagnostics.enabled', true) then
+    raise exception 'support_diagnostics: diagnostics are off (the diagnostics.enabled setting)' using errcode = '42501';
   end if;
   new.created_at := now();
   if new.feedback_id is not null

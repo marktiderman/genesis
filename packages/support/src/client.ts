@@ -964,7 +964,7 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     },
     async reporters(ids) {
       if (!ids.length) return [];
-      const rows = must<Row[]>("reporters", await supabase.rpc("support_reporters", { ids: [...new Set(ids)] }));
+      const rows = must<Row[]>("reporters", await supabase.rpc("support_ticket_requesters", { ids: [...new Set(ids)] }));
       return (rows ?? []).map((r) => ({ id: String(r["user_id"]), name: (r["full_name"] as string | null) ?? null, email: (r["email"] as string | null) ?? null }));
     },
     async requesterTenants(personId) {
