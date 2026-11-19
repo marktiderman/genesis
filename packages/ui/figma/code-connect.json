@@ -136,6 +136,10 @@
     "Stepper",
     "TimePicker",
     "WhatsNewSheet",
-    "NotificationsPage"
+    "NotificationsPage",
+    "SubNavSegmented",
+    "SubNavBreadcrumb",
+    "SubNavList",
+    "SubNavHub"
   ]
 }

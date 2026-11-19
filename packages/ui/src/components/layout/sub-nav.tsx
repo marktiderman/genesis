@@ -29,29 +29,43 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import type { LucideIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, type LucideIcon } from "lucide-react";
 
 import { cn } from "../../utils";
-import { isPathActive, type LinkComponent } from "../../navigation";
+import { isPathActive, type LinkComponent, type NavigationSubNav } from "../../navigation";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import { useUiMessages } from "../../messages";
 import type { NavItem } from "./AppShell";
 
 /**
- * How AppShell shows the current page's child items. Sub-navigation is
- * opt-in: the default, `section`, is the shell as it always was.
+ * How AppShell shows a page's child items. Sub-navigation is opt-in: the
+ * default, `section`, is the shell as it always was.
  * - `section` (default): a labelled section below the global sidebar
  *   items; on phones the children replace the bottom bar (no back item).
- * - `tabs`: one row of tabs across the top of the page content.
- * - `sidebar`: nested under the active item in the sidebar; a flyout from
- *   that item on the collapsed rail.
+ * - `tabs`: a row of tabs across the top of the page content. A tabbed
+ *   level inside another adds a second, quieter row; a third folds the
+ *   outer levels into a breadcrumb picker (never more than two rows).
+ * - `sidebar`: sub-items, nested under the active item in the sidebar; a
+ *   flyout from that item on the collapsed rail.
+ * - `list`: a list beside the content; on a phone, the list on the
+ *   level's own page, then the item with a link back to the list.
+ * - `hub`: cards on the level's own page, one per child (one column on a
+ *   phone).
  * - `off`: nothing, on desktop or phones; the app draws its own
  *   (`SubNavTabs` is exported for it).
  *
  * With `tabs` or `sidebar`, phones switch the bottom bar to a back item to
- * the logical parent plus the children, with their badges.
+ * the logical parent plus the children, with their badges, unless
+ * `options.phoneTabs` is `"top"` (see `AppShellOptions.phoneTabs`).
  *
  * @stability Beta
  */
-export type SubNavMode = "section" | "tabs" | "sidebar" | "off";
+export type SubNavMode = NavigationSubNav;
 
 /**
  * A sub-navigation item: a `NavItem` whose `icon` is optional (the tab row,
@@ -140,6 +154,11 @@ export interface SubNavTabsProps {
   end?: ReactNode;
   /** Accessible name of the `<nav>` (default "Page sections"). */
   label?: string;
+  /**
+   * `primary` (default): the page's tab row. `secondary`: a smaller, quieter
+   * row for a tabbed level inside another, drawn under the primary row.
+   */
+  variant?: "primary" | "secondary";
   className?: string;
 }
 
@@ -157,18 +176,24 @@ export function SubNavTabs({
   linkComponent: LinkComp,
   isActive = isPathActive,
   end,
-  label = "Page sections",
+  label,
+  variant = "primary",
   className,
 }: SubNavTabsProps) {
+  const pageSections = useUiMessages().shell.pageSections;
+  const navLabel = label ?? pageSections;
   const current = mostSpecificActive(items, activePath, isActive);
+  const secondary = variant === "secondary";
   return (
     <div
-      className={cn("flex min-w-0 items-end gap-4 border-b", className)}
+      className={cn("flex min-w-0 items-end gap-4", !secondary && "border-b", className)}
       data-slot="sub-nav"
-      data-testid="app-shell-sub-nav"
+      data-variant={variant}
+      data-testid={secondary ? "app-shell-sub-nav-secondary" : "app-shell-sub-nav"}
     >
-      <nav aria-label={label} className="-mb-px min-w-0 flex-1 overflow-x-auto">
-        <ul className="flex items-end gap-6">
+      {/* Scrolls sideways when the tabs don't fit (a phone): a swipe moves the row, snapping to tabs. */}
+      <nav aria-label={navLabel} className="-mb-px min-w-0 flex-1 snap-x overflow-x-auto overscroll-x-contain">
+        <ul className={cn("flex items-end", secondary ? "gap-1" : "gap-6")}>
           {items.map((item) => {
             const active = item === current;
             const Icon = item.icon;
@@ -179,14 +204,21 @@ export function SubNavTabs({
                 {item.badge != null ? <BadgeChip badge={item.badge} active={active} /> : null}
               </>
             );
-            const cls = cn(
-              "flex items-center gap-1.5 border-b-2 pb-2.5 pt-2 text-sm transition-colors motion-reduce:transition-none",
-              active
-                ? "border-primary font-semibold text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            );
+            const cls = secondary
+              ? cn(
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] transition-colors motion-reduce:transition-none pointer-coarse:min-h-11",
+                  active
+                    ? "bg-muted font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground",
+                )
+              : cn(
+                  "flex items-center gap-1.5 border-b-2 pb-2.5 pt-2 text-sm transition-colors motion-reduce:transition-none",
+                  active
+                    ? "border-primary font-semibold text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground",
+                );
             return (
-              <li key={item.to + item.label} className="shrink-0">
+              <li key={item.to + item.label} className="shrink-0 snap-start">
                 {item.disabled ? (
                   <span className={cn(cls, "opacity-40")} role="link" aria-disabled="true" data-slot="sub-nav-item">
                     {body}
@@ -213,6 +245,324 @@ export function SubNavTabs({
       </nav>
       {end != null ? <div className="flex shrink-0 items-center pb-2">{end}</div> : null}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Levels: tabs, a second row, the breadcrumb fold, lists and hubs
+// ---------------------------------------------------------------------------
+
+/**
+ * One level of sub-navigation: a node in the trail whose children show,
+ * with the way they are drawn.
+ *
+ * @internal
+ */
+export interface SubNavLevel {
+  /** The level's own label (the node's), for the `<nav>` name and the list's back link. */
+  label: string;
+  /** The level's own address (the node's path, filled). */
+  href?: string | undefined;
+  items: SubNavItem[];
+  mode: SubNavMode;
+}
+
+/**
+ * How AppShell draws a set of levels, outermost first. Tabbed levels stack
+ * as two rows at most (primary, then secondary); the levels above the last
+ * two fold into breadcrumb pickers. The innermost `list` level is drawn as
+ * a list, and a `hub` level as cards. Pure: AppShell and the tests share it.
+ *
+ * @internal
+ */
+export function layoutSubNavLevels(levels: SubNavLevel[]): {
+  folded: SubNavLevel[];
+  rows: SubNavLevel[];
+  list: SubNavLevel | undefined;
+  hub: SubNavLevel | undefined;
+} {
+  const shown = levels.filter((l) => l.items.length > 0);
+  const tabbed = shown.filter((l) => l.mode === "tabs");
+  const cut = Math.max(0, tabbed.length - 2);
+  return {
+    folded: tabbed.slice(0, cut),
+    rows: tabbed.slice(cut),
+    list: [...shown].reverse().find((l) => l.mode === "list"),
+    hub: [...shown].reverse().find((l) => l.mode === "hub"),
+  };
+}
+
+/**
+ * Props for {@link SubNavSegmented}.
+ *
+ * @stability Beta
+ */
+export interface SubNavSegmentedProps {
+  items: SubNavItem[];
+  activePath?: string | undefined;
+  linkComponent: LinkComponent;
+  isActive?: (to: string, activePath?: string) => boolean;
+  /** Accessible name of the `<nav>`. */
+  label?: string;
+  className?: string;
+}
+
+/**
+ * A segmented control of links: the phone form of a second tab row. Each
+ * segment is a real link with `aria-current` on the active one, at least
+ * 44px tall on touch; the control scrolls sideways when it doesn't fit.
+ *
+ * @stability Beta
+ */
+export function SubNavSegmented({
+  items,
+  activePath,
+  linkComponent: LinkComp,
+  isActive = isPathActive,
+  label,
+  className,
+}: SubNavSegmentedProps) {
+  const pageSections = useUiMessages().shell.pageSections;
+  const current = mostSpecificActive(items, activePath, isActive);
+  return (
+    <nav
+      aria-label={label ?? pageSections}
+      className={cn("min-w-0 overflow-x-auto overscroll-x-contain", className)}
+      data-slot="sub-nav-segmented"
+      data-testid="app-shell-sub-nav-segmented"
+    >
+      <ul className="inline-flex min-w-full rounded-lg bg-muted p-1">
+        {items.map((item) => {
+          const active = item === current;
+          const cls = cn(
+            "flex w-full items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm pointer-coarse:min-h-11",
+            active ? "bg-background font-medium text-foreground shadow-sm" : "text-muted-foreground",
+          );
+          return (
+            <li key={item.to + item.label} className="flex-1 shrink-0">
+              {item.disabled ? (
+                <span className={cn(cls, "opacity-40")} role="link" aria-disabled="true">
+                  {item.label}
+                </span>
+              ) : (
+                <LinkComp
+                  href={item.to}
+                  aria-current={active ? "page" : undefined}
+                  data-active={active || undefined}
+                  className={cn(cls, "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring")}
+                  testID={`app-shell-sub-nav-segment-${item.label}`}
+                >
+                  {item.label}
+                  {item.badge != null ? <BadgeChip badge={item.badge} active={active} /> : null}
+                </LinkComp>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * Props for {@link SubNavBreadcrumb}.
+ *
+ * @stability Beta
+ */
+export interface SubNavBreadcrumbProps {
+  /** The folded levels, outermost first. */
+  levels: Array<Pick<SubNavLevel, "label" | "items">>;
+  activePath?: string | undefined;
+  linkComponent: LinkComponent;
+  isActive?: (to: string, activePath?: string) => boolean;
+  className?: string;
+}
+
+/**
+ * The outer tab levels folded into a breadcrumb: one picker per level,
+ * showing its current item and opening the level's other items. AppShell
+ * draws it above the two tab rows when a third tabbed level is open.
+ *
+ * @stability Beta
+ */
+export function SubNavBreadcrumb({
+  levels,
+  activePath,
+  linkComponent: LinkComp,
+  isActive = isPathActive,
+  className,
+}: SubNavBreadcrumbProps) {
+  const breadcrumb = useUiMessages().shell.breadcrumb;
+  return (
+    <nav aria-label={breadcrumb} className={cn("min-w-0", className)} data-slot="sub-nav-breadcrumb" data-testid="app-shell-sub-nav-breadcrumb">
+      <ol className="flex min-w-0 flex-wrap items-center gap-1 text-sm">
+        {levels.map((level, i) => {
+          const current = mostSpecificActive(level.items, activePath, isActive);
+          return (
+            <li key={level.label + i} className="flex min-w-0 items-center gap-1">
+              {i > 0 ? <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden /> : null}
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="inline-flex min-w-0 items-center gap-1 rounded-md px-1.5 py-1 font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11"
+                  aria-label={`${level.label}: ${current?.label ?? level.label}`}
+                  data-testid={`app-shell-sub-nav-crumb-${level.label}`}
+                >
+                  <span className="truncate">{current?.label ?? level.label}</span>
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {level.items
+                    .filter((item) => !item.disabled)
+                    .map((item) => (
+                      <DropdownMenuItem key={item.to + item.label} asChild>
+                        <LinkComp
+                          href={item.to}
+                          aria-current={item === current ? "page" : undefined}
+                          testID={`app-shell-sub-nav-crumb-item-${item.label}`}
+                        >
+                          {item.label}
+                        </LinkComp>
+                      </DropdownMenuItem>
+                    ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+/**
+ * Props for {@link SubNavList}.
+ *
+ * @stability Beta
+ */
+export interface SubNavListProps {
+  items: SubNavItem[];
+  activePath?: string | undefined;
+  linkComponent: LinkComponent;
+  isActive?: (to: string, activePath?: string) => boolean;
+  label?: string;
+  /** `column` (default): a list beside the content. `page`: full-width rows with a chevron, a phone's list page. */
+  variant?: "column" | "page";
+  className?: string;
+}
+
+/**
+ * A level's children as a vertical list of links: a column beside the
+ * content on a wide screen, or full-width rows (a phone's list page).
+ *
+ * @stability Beta
+ */
+export function SubNavList({
+  items,
+  activePath,
+  linkComponent: LinkComp,
+  isActive = isPathActive,
+  label,
+  variant = "column",
+  className,
+}: SubNavListProps) {
+  const pageSections = useUiMessages().shell.pageSections;
+  const current = mostSpecificActive(items, activePath, isActive);
+  const page = variant === "page";
+  return (
+    <nav aria-label={label ?? pageSections} className={cn("min-w-0", className)} data-slot="sub-nav-list" data-variant={variant} data-testid="app-shell-sub-nav-list">
+      <ul className={cn(page ? "divide-y rounded-lg border" : "space-y-0.5")}>
+        {items.map((item) => {
+          const active = item === current;
+          const Icon = item.icon;
+          const cls = cn(
+            "flex items-center gap-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            page
+              ? "min-h-11 px-4 py-3"
+              : cn(
+                  "rounded-md px-3 py-1.5 pointer-coarse:min-h-11",
+                  active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+                ),
+          );
+          const body = (
+            <>
+              {Icon ? <Icon className="h-4 w-4 shrink-0" aria-hidden /> : null}
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              {item.badge != null ? <BadgeChip badge={item.badge} active={active} /> : null}
+              {page ? <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden /> : null}
+            </>
+          );
+          return (
+            <li key={item.to + item.label}>
+              {item.disabled ? (
+                <span className={cn(cls, "opacity-40")} role="link" aria-disabled="true">
+                  {body}
+                </span>
+              ) : (
+                <LinkComp
+                  href={item.to}
+                  aria-current={active ? "page" : undefined}
+                  data-active={active || undefined}
+                  className={cls}
+                  testID={`app-shell-sub-nav-list-${item.label}`}
+                >
+                  {body}
+                </LinkComp>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * Props for {@link SubNavHub}.
+ *
+ * @stability Beta
+ */
+export interface SubNavHubProps {
+  items: SubNavItem[];
+  linkComponent: LinkComponent;
+  label?: string;
+  className?: string;
+}
+
+/**
+ * A level's children as cards, one per child (icon, label, badge): a
+ * section's landing page. One column on a phone, more as the width allows.
+ *
+ * @stability Beta
+ */
+export function SubNavHub({ items, linkComponent: LinkComp, label, className }: SubNavHubProps) {
+  const pageSections = useUiMessages().shell.pageSections;
+  return (
+    <nav aria-label={label ?? pageSections} className={cn("min-w-0", className)} data-slot="sub-nav-hub" data-testid="app-shell-sub-nav-hub">
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {items
+          .filter((item) => !item.disabled)
+          .map((item) => {
+            const Icon = item.icon;
+            return (
+              <li key={item.to + item.label} className="min-w-0">
+                <LinkComp
+                  href={item.to}
+                  className="flex h-full min-h-11 items-center gap-3 rounded-lg border bg-card p-4 text-card-foreground transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                  testID={`app-shell-sub-nav-hub-${item.label}`}
+                >
+                  {Icon ? (
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
+                      <Icon className="h-4 w-4" aria-hidden />
+                    </span>
+                  ) : null}
+                  <span className="min-w-0 flex-1 truncate font-medium">{item.label}</span>
+                  {item.badge != null ? <BadgeChip badge={item.badge} /> : null}
+                </LinkComp>
+              </li>
+            );
+          })}
+      </ul>
+    </nav>
   );
 }
 

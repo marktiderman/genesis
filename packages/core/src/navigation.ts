@@ -88,6 +88,15 @@ export function isPathActive(
 // ---------------------------------------------------------------------------
 
 /**
+ * How a navigation node's children are drawn (`NavigationNode.subNav`):
+ * `"tabs"`, `"sidebar"` (sub-items), `"list"`, `"hub"`, `"section"` (the
+ * legacy default) or `"off"`.
+ *
+ * @stability Beta
+ */
+export type NavigationSubNav = "section" | "tabs" | "sidebar" | "list" | "hub" | "off";
+
+/**
  * One node of a logical navigation hierarchy. `path` is a route pattern whose
  * segments are either static (`clients`) or named params (`$clientId`). A
  * node's place in the tree is its LOGICAL parent, which need not share its URL
@@ -116,16 +125,29 @@ export interface NavigationNode<T> {
   defaultCollapsed?: boolean;
   /**
    * How the app shell shows this node's `items` (its child pages, e.g. a
-   * form's Questions / Logic / Responses / Settings). `"tabs"` (across the
-   * top of the content) or `"sidebar"` (nested under the active item) turn
-   * shell sub-navigation on, which also gives phones a back item plus the
-   * children in the bottom bar. `"section"` is the legacy rendering (the
-   * shell's default) and `"off"` hides them. The nearest node in the trail
-   * that sets it wins over the shell's `options.subNav`.
+   * form's Questions / Logic / Responses / Settings):
+   * - `"tabs"`: a row of tabs across the top of the content. A tabbed node
+   *   under another tabbed node shows a second, quieter row; a third level
+   *   folds the outer rows into a breadcrumb picker, so there are never
+   *   more than two rows.
+   * - `"sidebar"`: sub-items, nested under the active item in the sidebar.
+   *   A page below it with no items of its own keeps them in the sidebar
+   *   (the nearest `"sidebar"` level's); one with items shows only its own.
+   * - `"list"`: a list beside the content (a list page, then the item, on
+   *   a phone).
+   * - `"hub"`: cards on the node's own page, one per child.
+   * - `"section"`: the legacy rendering (the shell's default); `"off"`
+   *   hides them.
+   *
+   * Every node in the trail below the root is drawn by its own setting, so
+   * any depth can pick its variant. A node that sets none takes the nearest
+   * ancestor's, then the shell's `options.subNav`. The root's own `items` are
+   * the app's main navigation (the sidebar), never a row. See
+   * {@link NavigationSubNav}.
    *
    * @stability Beta
    */
-  subNav?: "section" | "tabs" | "sidebar" | "off";
+  subNav?: NavigationSubNav;
   /**
    * The zone this node and its descendants sit in (ADR 0003): a kind of work
    * the viewer enters (their own work, training, admin). A descendant that

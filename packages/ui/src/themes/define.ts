@@ -37,8 +37,8 @@ export interface AppThemeLayout {
   defaultCollapsed?: boolean;
   /** The collapsed rail's width in px. */
   collapsedRailWidth?: 56 | 64;
-  /** How a page's own sub-navigation shows. */
-  subNav?: "section" | "tabs" | "sidebar" | "off";
+  /** How a page's own sub-navigation shows (`AppShellOptions.subNav`). */
+  subNav?: "section" | "tabs" | "sidebar" | "list" | "hub" | "off";
 }
 
 export interface AppThemeInput {
@@ -70,7 +70,7 @@ const LAYOUT_VALUES: Record<keyof AppThemeLayout, readonly unknown[]> = {
   railWidth: ["narrow", "wide"],
   defaultCollapsed: [true, false],
   collapsedRailWidth: [56, 64],
-  subNav: ["section", "tabs", "sidebar", "off"],
+  subNav: ["section", "tabs", "sidebar", "list", "hub", "off"],
 };
 const KEYS = new Set(["name", "label", "description", "feel", "suits", "brand", "style", "layout"]);
 
