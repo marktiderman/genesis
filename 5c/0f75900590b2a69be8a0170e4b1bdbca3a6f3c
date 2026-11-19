@@ -1,0 +1,73 @@
+.changeset/genesis-ai-config-name.md
+  s_ca8e075e853203::t_4a0e025998e648 1-5
+.changeset/genesis-config-rename-cli.md
+  s_ca8e075e853203::t_27b1c5faf3dc0e 5-13,17
+.changeset/genesis-config-rename.md
+  s_ca8e075e853203::t_f0fcd1d9c661f9 12-14,18-33
+docs/AI.md
+  s_ca8e075e853203::t_d2c14c8bc91333 408,738
+docs/MIGRATION.md
+  s_ca8e075e853203::t_3da058d48a6c04 14-42
+docs/adr/0003-navigation-zones.md
+  s_ca8e075e853203::t_ad746df2140e4c 23
+docs/adr/0005-package-layers.md
+  s_ca8e075e853203::t_eaf7327e5eb02e 60
+packages/ai/src/define.ts
+  s_ca8e075e853203::t_79f2100f20a073 53
+packages/features-alias/README.md
+  s_ca8e075e853203::t_ffbff3bf871b25 5,11,15-16,21-24
+packages/features-alias/package.json
+  s_ca8e075e853203::t_ba735ac15cff8b 7,67,88-103
+packages/features-alias/scripts/build.mjs
+  s_ca8e075e853203::t_341939c806e9c0 1-11,13-16,18-28
+packages/features-alias/src/alias.test.ts
+  s_ca8e075e853203::t_a961d4f4e76507 1,30-45
+packages/features-alias/src/blocks.ts
+  s_ca8e075e853203::t_a6711cdbdf7da3 4-5
+packages/features-alias/src/gate-react.ts
+  s_ca8e075e853203::t_a3551568c80dbc 4-5
+packages/features-alias/src/gate.ts
+  s_ca8e075e853203::t_7a0203783d4e2a 4-5
+packages/features-alias/src/index.ts
+  s_ca8e075e853203::t_24b90098c31d88 4-5
+packages/features-alias/src/node.ts
+  s_ca8e075e853203::t_8b1ec29f10df57 4-5
+packages/features-alias/src/react.ts
+  s_ca8e075e853203::t_c873a3f6e27eb5 4-5
+packages/features-alias/src/settings.ts
+  s_ca8e075e853203::t_8afcb244d8cc24 4-5
+packages/genesis-cli/README.md
+  s_ca8e075e853203::t_eb637cb2ee1cf7 92,547,891
+packages/genesis-cli/src/doctor/overlays.ts
+  s_ca8e075e853203::t_4f3f21aee9ce4f 5
+packages/genesis-cli/src/doctor/stability.ts
+  s_ca8e075e853203::t_862a48153b600a 139
+packages/genesis-cli/src/upgrade/codemods.ts
+  s_ca8e075e853203::t_bd348bd944aea5 24-28,40-44,240,251-259
+packages/genesis-cli/src/upgrade/index.ts
+  s_ca8e075e853203::t_6953c83d469b74 394,485
+packages/genesis-cli/src/upgrade/rename-features.ts
+  s_ca8e075e853203::t_6bac4b6e9788c2 6-16,18-22,24,31,35-38,40-45,47,49,52,54,56,58-61,65,69-73,75-77,79-81,98-102,104-109,114,117-119,121,126-137,143-154,156,159-161,163-166,168-169,171,173-174,178-180,182-189,191-193
+packages/genesis-cli/test/codemod-features-renamed.test.ts
+  s_ca8e075e853203::t_846313128e4cdb 5-6,33-40,52,55-56,61-69,103-122,137-165
+pnpm-lock.yaml
+  s_ca8e075e853203::t_fee727b51bf8f5 925-933
+scripts/check-package-layers.mjs
+  s_ca8e075e853203::t_26ff7ce31dbd6b 114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5c0f75900590b2a69be8a0170e4b1bdbca3a6f3c",
+  "prompts": {},
+  "sessions": {
+    "s_ca8e075e853203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b19f5c5-dd6f-4941-932a-e3fa98ac0a3b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
