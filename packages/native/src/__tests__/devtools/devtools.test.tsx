@@ -192,6 +192,19 @@ describe("the devtools overlay", () => {
     await expect(devtools.close()).resolves.toBeUndefined();
   });
 
+  it("renders the devtoolsDiagnostics slot beside Copy debug info, with its copy", async () => {
+    const copied: string[] = [];
+    const devtools = createDevtools({ enabled: true, copy: (text) => void copied.push(text) });
+    setup({
+      blocks: [devtools],
+      slots: { devtoolsDiagnostics: ({ copy, debugInfo }) => <button data-testid="diagnostics" onClick={() => copy(`id ${debugInfo.length > 0}`)} /> },
+    });
+    await act(settle);
+    act(() => devtools.open());
+    fireEvent.click(screen.getByTestId("diagnostics"));
+    expect(copied).toEqual(["id true"]);
+  });
+
   it("renders the devtoolsFeedback slot with the debug info", async () => {
     const devtools = createDevtools({ enabled: true });
     setup({ blocks: [devtools], slots: { devtoolsFeedback: ({ debugInfo }) => <span data-testid="feedback">{debugInfo.split("\n")[0]}</span> } });

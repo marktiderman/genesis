@@ -18,6 +18,18 @@ describe("versionSignature", () => {
     );
   });
 
+  it("carries the commit, OTA number and release from buildMetadata, and leaves the text as it was without it", () => {
+    const updates = fakeUpdates({ channel: "production", updateId: "3f2a9c1b-0000-4000-8000-000000000000", runtimeVersion: "1.4.0" });
+    const plain = versionSignature({ application, updates, platform: "ios" });
+    expect(plain).toMatchObject({ commit: null, otaNumber: null, release: null });
+    expect(plain.text.split("\n")).toHaveLength(5);
+    const sig = versionSignature({ application, updates, platform: "ios", buildMetadata: { commit: "0123abc", otaNumber: 42, release: "2026.11.19", branch: "main" } });
+    expect(sig).toMatchObject({ commit: "0123abc", otaNumber: "42", release: "2026.11.19" });
+    expect(sig.short).toBe(plain.short);
+    expect(sig.text.split("\n").slice(5)).toEqual(["Commit 0123abc", "OTA 42", "Release 2026.11.19"]);
+    expect(versionSignature({ platform: "ios", buildMetadata: { commit: " ", otaNumber: Number.NaN } })).toMatchObject({ commit: null, otaNumber: null });
+  });
+
   it("says embedded, updates off, a switched channel, an emergency launch and unknown values", () => {
     const embedded = { ...fakeUpdates({ channel: "production" }), isEmbeddedLaunch: true };
     expect(versionSignature({ application, updates: embedded, platform: "ios" }).short).toBe("1.4.0 (37) · production · embedded");

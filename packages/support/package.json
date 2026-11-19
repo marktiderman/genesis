@@ -64,6 +64,11 @@
     "./ai": {
       "types": "./dist/ai.d.ts",
       "import": "./dist/ai.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "require": "./dist/server.cjs"
     }
   },
   "files": [
@@ -73,7 +78,7 @@
     "SKILL.md"
   ],
   "scripts": {
-    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "build": "rm -rf dist && tsup && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -231,6 +236,10 @@
           {
             "file": "migrations/0016_genesis_support_ticket_fixes.sql",
             "test": "migrations/tests/0016_genesis_support_ticket_fixes.test.sql"
+          },
+          {
+            "file": "migrations/0019_genesis_support_diagnostics.sql",
+            "test": "migrations/tests/0019_genesis_support_diagnostics.test.sql"
           }
         ],
         "functions": [
@@ -334,7 +343,8 @@
           "notes": [
             "Feedback is sent only when the person taps Send, and a screenshot only when they include it, after they can hide parts of it.",
             "Reports, screenshots and replies are visible only to the person, the app's support staff and anyone the app names to handle the report, and go when the person deletes them or their account.",
-            "Feedback includes the app version, the screen's path (never its query string; private-looking segments are replaced), the platform and basic device facts."
+            "Feedback includes the app version, the screen's path (never its query string; private-looking segments are replaced), the platform and basic device facts.",
+            "With diagnostics on, a context dump goes with each piece of feedback, on a shake and when the person taps Send diagnostics: the build and update, device facts (model, OS, locale, time zone, screen, network type, permission states), the recent screens as paths, flags in effect, and recent errors, breadcrumbs and console lines. The person is an id and a role only; emails, phone numbers, tokens, keys and query strings are removed on the device and again on the server. A dump never carries a screenshot. Dumps are capped at 256 KB, limited to 10 an hour, readable only by the person and the app's support staff, and deleted after 90 days."
           ]
         }
       },
